@@ -75,6 +75,8 @@ v0.3-preview
 - [Expected types and quantity completions](docs/architecture/03_expected_types_and_quantities.md)
 - [CLI specification](docs/specs/cli.md)
 - [v8/v9 language policy](docs/specs/language-v8.md)
+- [Fast assignment guide](docs/language/fast_assignment.md)
+- [Dimensionless policy guide](docs/language/dimensionless.md)
 - [Roadmap](docs/roadmap.md)
 - [v9 master plan](docs/master-plan/EngLang_LongTerm_Development_Master_Plan_v9.md)
 - [v8 to v9 revision guide](docs/master-plan/EngLang_v8_to_v9_Revision_Guide.md)

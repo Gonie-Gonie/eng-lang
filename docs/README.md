@@ -18,6 +18,8 @@
 - [Expected types and quantity completions](architecture/03_expected_types_and_quantities.md)
 - [CLI 명세](specs/cli.md)
 - [v8/v9 문법 정책](specs/language-v8.md)
+- [Fast assignment guide](language/fast_assignment.md)
+- [Dimensionless policy guide](language/dimensionless.md)
 
 ## 계획과 릴리즈
 

@@ -6,6 +6,8 @@ use crate::quantities::{
     candidates_for_unit, completion_labels, first_unit_in_expression,
     infer_quantity_from_name_and_unit, is_number_literal, QuantityCompletion,
 };
+use crate::type_info::{TypeInfo, TypeInfoSource};
+use crate::units::{unit_derivation, UnitDerivation};
 use crate::{Diagnostic, InferredDeclaration};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -26,6 +28,8 @@ pub struct SemanticProgram {
     pub typed_bindings: Vec<TypedBinding>,
     pub expected_types: Vec<ExpectedType>,
     pub hover_hints: Vec<HoverHint>,
+    pub type_infos: Vec<TypeInfo>,
+    pub unit_derivations: Vec<UnitDerivation>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -41,6 +45,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut typed_bindings = Vec::new();
     let mut expected_types = Vec::new();
     let mut hover_hints = Vec::new();
+    let mut type_infos = Vec::new();
+    let mut unit_derivations = Vec::new();
 
     for line in &program.lines {
         if line.tokens.iter().any(|token| {
@@ -74,6 +80,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 &mut expected_types,
                 &mut hover_hints,
                 &mut typed_bindings,
+                &mut type_infos,
+                &mut unit_derivations,
             ),
             AstItem::FastBinding(binding) => analyze_fast_binding(
                 binding,
@@ -81,6 +89,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 &mut inferred_declarations,
                 &mut typed_bindings,
                 &mut hover_hints,
+                &mut type_infos,
+                &mut unit_derivations,
             ),
             AstItem::ReservedKeywordUse { keyword, span } => diagnostics.push(Diagnostic::error(
                 "E-RESERVED-KEYWORD-001",
@@ -101,6 +111,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             typed_bindings,
             expected_types,
             hover_hints,
+            type_infos,
+            unit_derivations,
         },
     }
 }
@@ -111,6 +123,8 @@ fn analyze_explicit_decl(
     expected_types: &mut Vec<ExpectedType>,
     hover_hints: &mut Vec<HoverHint>,
     typed_bindings: &mut Vec<TypedBinding>,
+    type_infos: &mut Vec<TypeInfo>,
+    unit_derivations: &mut Vec<UnitDerivation>,
 ) {
     expected_types.push(expected_type_from_explicit_decl(declaration));
 
@@ -122,6 +136,8 @@ fn analyze_explicit_decl(
         .unit
         .clone()
         .unwrap_or_else(|| default_unit_for_quantity(&declaration.type_name));
+    let canonical_unit = default_unit_for_quantity(&declaration.type_name);
+    let dimension = dimension_for_quantity(&declaration.type_name);
     typed_bindings.push(TypedBinding {
         name: declaration.name.clone(),
         semantic_type: SemanticType {
@@ -133,9 +149,31 @@ fn analyze_explicit_decl(
     hover_hints.push(HoverHint::explicit(
         declaration.name.clone(),
         declaration.type_name.clone(),
-        display_unit,
+        display_unit.clone(),
         declaration.expression.clone(),
         declaration.span,
+    ));
+    type_infos.push(TypeInfo {
+        name: declaration.name.clone(),
+        quantity_kind: declaration.type_name.clone(),
+        display_unit: display_unit.clone(),
+        canonical_unit: canonical_unit.clone(),
+        dimension,
+        source: if declaration.context == ParseContext::Schema {
+            TypeInfoSource::PublicBoundary
+        } else {
+            TypeInfoSource::Explicit
+        },
+        line: declaration.line,
+        span: declaration.span,
+    });
+    unit_derivations.push(unit_derivation(
+        &declaration.name,
+        declaration.expression.as_deref(),
+        &declaration.type_name,
+        &display_unit,
+        &canonical_unit,
+        declaration.line,
     ));
 }
 
@@ -145,6 +183,8 @@ fn analyze_fast_binding(
     inferred_declarations: &mut Vec<InferredDeclaration>,
     typed_bindings: &mut Vec<TypedBinding>,
     hover_hints: &mut Vec<HoverHint>,
+    type_infos: &mut Vec<TypeInfo>,
+    unit_derivations: &mut Vec<UnitDerivation>,
 ) {
     if binding.context == ParseContext::Schema {
         diagnostics.push(Diagnostic::error(
@@ -160,6 +200,8 @@ fn analyze_fast_binding(
     check_ambiguous_quantity(binding, diagnostics);
 
     if let Some(semantic_type) = infer_quantity(&binding.name, &binding.expression) {
+        let canonical_unit = default_unit_for_quantity(&semantic_type.quantity_kind);
+        let dimension = dimension_for_quantity(&semantic_type.quantity_kind);
         inferred_declarations.push(InferredDeclaration {
             name: binding.name.clone(),
             quantity_kind: semantic_type.quantity_kind.clone(),
@@ -174,10 +216,28 @@ fn analyze_fast_binding(
         });
         hover_hints.push(HoverHint::inferred(
             binding.name.clone(),
-            semantic_type.quantity_kind,
-            semantic_type.display_unit,
+            semantic_type.quantity_kind.clone(),
+            semantic_type.display_unit.clone(),
             binding.expression.clone(),
             binding.span,
+        ));
+        type_infos.push(TypeInfo {
+            name: binding.name.clone(),
+            quantity_kind: semantic_type.quantity_kind.clone(),
+            display_unit: semantic_type.display_unit.clone(),
+            canonical_unit: canonical_unit.clone(),
+            dimension,
+            source: TypeInfoSource::Inferred,
+            line: binding.line,
+            span: binding.span,
+        });
+        unit_derivations.push(unit_derivation(
+            &binding.name,
+            Some(&binding.expression),
+            &semantic_type.quantity_kind,
+            &semantic_type.display_unit,
+            &canonical_unit,
+            binding.line,
         ));
     }
 }
@@ -373,6 +433,14 @@ fn default_unit_for_quantity(quantity_kind: &str) -> String {
         .iter()
         .find(|completion| completion.quantity_kind == quantity_kind)
         .map(|completion| completion.canonical_unit.to_owned())
+        .unwrap_or_else(|| "unknown".to_owned())
+}
+
+fn dimension_for_quantity(quantity_kind: &str) -> String {
+    crate::quantities::all_quantity_completions()
+        .iter()
+        .find(|completion| completion.quantity_kind == quantity_kind)
+        .map(|completion| completion.dimension.to_owned())
         .unwrap_or_else(|| "unknown".to_owned())
 }
 

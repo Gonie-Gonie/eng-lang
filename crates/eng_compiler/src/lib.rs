@@ -6,6 +6,8 @@ mod parser;
 mod quantities;
 mod semantic;
 mod source;
+mod type_info;
+mod units;
 
 use std::fmt;
 use std::fs;
@@ -19,6 +21,8 @@ pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSu
 pub use quantities::{all_quantity_completions, QuantityCompletion};
 pub use semantic::{SemanticProgram, SemanticType, TypedBinding};
 pub use source::SourceSpan;
+pub use type_info::{TypeInfo, TypeInfoSource};
+pub use units::{all_unit_infos, UnitDerivation, UnitInfo};
 
 pub const COMPILER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -88,6 +92,7 @@ pub struct CheckReport {
     pub syntax_summary: SyntaxSummary,
     pub semantic_program: SemanticProgram,
     pub quantity_completion_count: usize,
+    pub unit_info_count: usize,
 }
 
 impl CheckReport {
@@ -128,6 +133,7 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, _options: &CheckOption
         syntax_summary: parsed.summary(),
         semantic_program: semantic_output.semantic_program,
         quantity_completion_count: quantities::completion_count(),
+        unit_info_count: units::unit_info_count(),
     }
 }
 
@@ -159,6 +165,15 @@ pub fn build_bytecode(report: &CheckReport, source: &str) -> String {
     bytecode.push_str(&format!(
         "quantity_completions = {}\n",
         report.quantity_completion_count
+    ));
+    bytecode.push_str(&format!("unit_infos = {}\n", report.unit_info_count));
+    bytecode.push_str(&format!(
+        "type_infos = {}\n",
+        report.semantic_program.type_infos.len()
+    ));
+    bytecode.push_str(&format!(
+        "unit_derivations = {}\n",
+        report.semantic_program.unit_derivations.len()
     ));
     bytecode.push_str("entry = script main\n");
     bytecode.push_str("instructions:\n");
@@ -217,6 +232,10 @@ pub fn review_json(report: &CheckReport) -> String {
     json.push_str(&format!(
         "  \"quantity_completion_count\": {},\n",
         report.quantity_completion_count
+    ));
+    json.push_str(&format!(
+        "  \"unit_info_count\": {},\n",
+        report.unit_info_count
     ));
 
     json.push_str("  \"diagnostics\": [\n");
@@ -327,6 +346,82 @@ pub fn review_json(report: &CheckReport) -> String {
             "      \"detail\": \"{}\"\n",
             json_escape(&hover.detail)
         ));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"type_info\": [\n");
+    for (index, info) in report.semantic_program.type_infos.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&info.name)
+        ));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&info.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&info.display_unit)
+        ));
+        json.push_str(&format!(
+            "      \"canonical_unit\": \"{}\",\n",
+            json_escape(&info.canonical_unit)
+        ));
+        json.push_str(&format!(
+            "      \"dimension\": \"{}\",\n",
+            json_escape(&info.dimension)
+        ));
+        json.push_str(&format!(
+            "      \"source\": \"{}\",\n",
+            info.source.as_str()
+        ));
+        json.push_str(&format!("      \"line\": {}\n", info.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"unit_derivations\": [\n");
+    for (index, derivation) in report.semantic_program.unit_derivations.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&derivation.name)
+        ));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&derivation.quantity_kind)
+        ));
+        if let Some(source_unit) = &derivation.source_unit {
+            json.push_str(&format!(
+                "      \"source_unit\": \"{}\",\n",
+                json_escape(source_unit)
+            ));
+        } else {
+            json.push_str("      \"source_unit\": null,\n");
+        }
+        json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&derivation.display_unit)
+        ));
+        json.push_str(&format!(
+            "      \"canonical_unit\": \"{}\",\n",
+            json_escape(&derivation.canonical_unit)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", derivation.line));
+        json.push_str("      \"steps\": [");
+        for (step_index, step) in derivation.steps.iter().enumerate() {
+            if step_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(step)));
+        }
+        json.push_str("]\n");
         json.push_str("    }");
     }
     json.push_str("\n  ]\n");
@@ -449,6 +544,21 @@ mod tests {
             report.semantic_program.hover_hints[0].quick_fixes[0],
             "Expand declaration"
         );
+    }
+
+    #[test]
+    fn records_type_info_and_unit_derivation() {
+        let report = check_source("ok.eng", "L = 1 m + 20 cm", &CheckOptions::default());
+
+        assert_eq!(
+            report.semantic_program.type_infos[0].quantity_kind,
+            "Length"
+        );
+        assert_eq!(
+            report.semantic_program.unit_derivations[0].canonical_unit,
+            "m"
+        );
+        assert!(report.unit_info_count > 0);
     }
 
     #[test]

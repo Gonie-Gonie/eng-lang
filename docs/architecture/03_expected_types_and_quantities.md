@@ -2,6 +2,15 @@
 
 v0.2-preview는 IDE/LSP와 strict diagnostics를 준비하기 위한 semantic data skeleton을 추가합니다.
 
+v9 backfill 이후 `review.json`과 `report.html`에는 다음 record가 모두 포함됩니다.
+
+```text
+ExpectedType
+TypeInfo
+UnitDerivation
+HoverHint
+```
+
 ## Expected type API
 
 Expected type은 compiler가 특정 expression 또는 binding에 기대하는 quantity 정보를 기록하는 내부 구조입니다.
@@ -142,6 +151,58 @@ L
 
 `review.json`과 `report.html` 모두 hover hint summary를 포함합니다.
 
+## TypeInfo
+
+`TypeInfo`는 binding별 semantic type summary입니다.
+
+```text
+name
+quantity_kind
+display_unit
+canonical_unit
+dimension
+source
+line
+```
+
+Source:
+
+```text
+explicit
+inferred
+public_boundary
+```
+
+## UnitDerivation
+
+`UnitDerivation`은 preview 단계의 단위 도출 기록입니다.
+
+```text
+name
+expression
+source_unit
+display_unit
+canonical_unit
+quantity_kind
+steps
+line
+```
+
+예:
+
+```eng
+L = 1 m + 20 cm
+```
+
+Review summary:
+
+```text
+source unit: m
+display unit: m
+canonical unit: m
+steps: m -> m using scale 1
+```
+
 ## v0.3으로 넘기는 일
 
 ```text
@@ -151,4 +212,3 @@ L
 - expected type propagation through assignments
 - completion API filtering by cursor context
 ```
-

@@ -85,6 +85,41 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
         hover_hints.push_str("<tr><td colspan=\"4\">No hover hints.</td></tr>");
     }
 
+    let mut type_info = String::new();
+    for info in &report.semantic_program.type_infos {
+        type_info.push_str("<tr>");
+        type_info.push_str(&format!(
+            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+            info.line,
+            html_escape(&info.name),
+            html_escape(&info.quantity_kind),
+            html_escape(&info.display_unit),
+            html_escape(&info.canonical_unit),
+            html_escape(&info.dimension)
+        ));
+        type_info.push_str("</tr>");
+    }
+    if type_info.is_empty() {
+        type_info.push_str("<tr><td colspan=\"6\">No type info.</td></tr>");
+    }
+
+    let mut unit_derivations = String::new();
+    for derivation in &report.semantic_program.unit_derivations {
+        unit_derivations.push_str("<tr>");
+        unit_derivations.push_str(&format!(
+            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+            derivation.line,
+            html_escape(&derivation.name),
+            html_escape(derivation.source_unit.as_deref().unwrap_or("not detected")),
+            html_escape(&derivation.display_unit),
+            html_escape(&derivation.canonical_unit)
+        ));
+        unit_derivations.push_str("</tr>");
+    }
+    if unit_derivations.is_empty() {
+        unit_derivations.push_str("<tr><td colspan=\"5\">No unit derivations.</td></tr>");
+    }
+
     let error_count = report.diagnostic_count(Severity::Error);
     let warning_count = report.diagnostic_count(Severity::Warning);
     let syntax_items = report.syntax_summary.ast_items;
@@ -92,6 +127,9 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     let expected_types = report.semantic_program.expected_types.len();
     let hover_count = report.semantic_program.hover_hints.len();
     let quantity_completion_count = report.quantity_completion_count;
+    let unit_info_count = report.unit_info_count;
+    let type_info_count = report.semantic_program.type_infos.len();
+    let unit_derivation_count = report.semantic_program.unit_derivations.len();
     let plot_relative_path = html_escape(plot_relative_path);
 
     format!(
@@ -183,6 +221,9 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
       <div class="metric"><span>Expected Types</span><strong>{expected_types}</strong></div>
       <div class="metric"><span>Hover Hints</span><strong>{hover_count}</strong></div>
       <div class="metric"><span>Quantity Completions</span><strong>{quantity_completion_count}</strong></div>
+      <div class="metric"><span>Unit Infos</span><strong>{unit_info_count}</strong></div>
+      <div class="metric"><span>Type Info</span><strong>{type_info_count}</strong></div>
+      <div class="metric"><span>Unit Derivations</span><strong>{unit_derivation_count}</strong></div>
       <div class="metric"><span>Compiler</span><strong>{compiler_version}</strong></div>
       <div class="metric"><span>Report</span><strong>{report_version}</strong></div>
     </section>
@@ -195,6 +236,16 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     <table>
       <thead><tr><th>Position</th><th>Name</th><th>Quantity</th><th>Detail</th></tr></thead>
       <tbody>{hover_hints}</tbody>
+    </table>
+    <h2>Type Info</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Name</th><th>Quantity</th><th>Display Unit</th><th>Canonical Unit</th><th>Dimension</th></tr></thead>
+      <tbody>{type_info}</tbody>
+    </table>
+    <h2>Unit Derivations</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Name</th><th>Source Unit</th><th>Display Unit</th><th>Canonical Unit</th></tr></thead>
+      <tbody>{unit_derivations}</tbody>
     </table>
     <h2>Diagnostics</h2>
     <table>

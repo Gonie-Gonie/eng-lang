@@ -58,7 +58,7 @@ Release gate:
 v9 backfill:
 
 ```text
-[ ] explicit compiler UnitInfo seed structure
+[x] explicit compiler UnitInfo seed structure
 ```
 
 ## v0.2-preview — Semantic Analysis, Fast `=`, Quantity Rules
@@ -97,7 +97,7 @@ Release gate:
 [x] `power = 10 kW` warns
 [x] hover hint data is generated
 [x] expected type data is generated
-[ ] TypeInfo and UnitDerivation are explicit review records
+[x] TypeInfo and UnitDerivation are explicit review records
 ```
 
 ## v0.3-preview — Schema, Promote, CSV Data Boundary

@@ -63,6 +63,8 @@ quantity_completion_count
 inferred_declarations
 expected_types
 hover_hints
+type_info
+unit_derivations
 ```
 
 Exit code:
