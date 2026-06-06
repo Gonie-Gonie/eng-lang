@@ -120,6 +120,41 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
         unit_derivations.push_str("<tr><td colspan=\"5\">No unit derivations.</td></tr>");
     }
 
+    let mut schemas = String::new();
+    for schema in &report.semantic_program.schemas {
+        schemas.push_str("<tr>");
+        schemas.push_str(&format!(
+            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+            schema.line,
+            html_escape(&schema.name),
+            schema.columns.len(),
+            schema.constraints.len(),
+            schema.missing_policies.len()
+        ));
+        schemas.push_str("</tr>");
+    }
+    if schemas.is_empty() {
+        schemas.push_str("<tr><td colspan=\"5\">No schemas.</td></tr>");
+    }
+
+    let mut csv_promotions = String::new();
+    for promotion in &report.semantic_program.csv_promotions {
+        csv_promotions.push_str("<tr>");
+        csv_promotions.push_str(&format!(
+            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+            promotion.line,
+            html_escape(&promotion.binding),
+            html_escape(&promotion.schema_name),
+            html_escape(&promotion.source_literal),
+            promotion.row_count,
+            html_escape(promotion.source_hash.as_deref().unwrap_or("not available"))
+        ));
+        csv_promotions.push_str("</tr>");
+    }
+    if csv_promotions.is_empty() {
+        csv_promotions.push_str("<tr><td colspan=\"6\">No CSV promotions.</td></tr>");
+    }
+
     let error_count = report.diagnostic_count(Severity::Error);
     let warning_count = report.diagnostic_count(Severity::Warning);
     let syntax_items = report.syntax_summary.ast_items;
@@ -130,6 +165,8 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     let unit_info_count = report.unit_info_count;
     let type_info_count = report.semantic_program.type_infos.len();
     let unit_derivation_count = report.semantic_program.unit_derivations.len();
+    let schema_count = report.semantic_program.schemas.len();
+    let csv_promotion_count = report.semantic_program.csv_promotions.len();
     let plot_relative_path = html_escape(plot_relative_path);
 
     format!(
@@ -224,6 +261,8 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
       <div class="metric"><span>Unit Infos</span><strong>{unit_info_count}</strong></div>
       <div class="metric"><span>Type Info</span><strong>{type_info_count}</strong></div>
       <div class="metric"><span>Unit Derivations</span><strong>{unit_derivation_count}</strong></div>
+      <div class="metric"><span>Schemas</span><strong>{schema_count}</strong></div>
+      <div class="metric"><span>CSV Promotions</span><strong>{csv_promotion_count}</strong></div>
       <div class="metric"><span>Compiler</span><strong>{compiler_version}</strong></div>
       <div class="metric"><span>Report</span><strong>{report_version}</strong></div>
     </section>
@@ -246,6 +285,16 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     <table>
       <thead><tr><th>Line</th><th>Name</th><th>Source Unit</th><th>Display Unit</th><th>Canonical Unit</th></tr></thead>
       <tbody>{unit_derivations}</tbody>
+    </table>
+    <h2>Schemas</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Name</th><th>Columns</th><th>Constraints</th><th>Missing Policies</th></tr></thead>
+      <tbody>{schemas}</tbody>
+    </table>
+    <h2>CSV Promotions</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Binding</th><th>Schema</th><th>Source</th><th>Rows</th><th>Source Hash</th></tr></thead>
+      <tbody>{csv_promotions}</tbody>
     </table>
     <h2>Diagnostics</h2>
     <table>

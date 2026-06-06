@@ -260,12 +260,52 @@ fn write_permission_check(repo_root: &Path) -> DoctorCheck {
 }
 
 fn result_json(path: &Path, report: &CheckReport) -> String {
+    let mut data_hashes = String::new();
+    for (index, promotion) in report.semantic_program.csv_promotions.iter().enumerate() {
+        if index > 0 {
+            data_hashes.push_str(",\n");
+        }
+        data_hashes.push_str("      {\n");
+        data_hashes.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&promotion.binding)
+        ));
+        data_hashes.push_str(&format!(
+            "        \"source\": \"{}\",\n",
+            json_escape(&promotion.source_literal)
+        ));
+        if let Some(hash) = &promotion.source_hash {
+            data_hashes.push_str(&format!("        \"hash\": \"{}\"\n", json_escape(hash)));
+        } else {
+            data_hashes.push_str("        \"hash\": null\n");
+        }
+        data_hashes.push_str("      }");
+    }
+
     format!(
-        "{{\n  \"format\": \"engres-preview-1\",\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"provenance\": {{\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"preview\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-preview-1\",\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"preview\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
-        path.display(),
-        report.source_hash
+        json_escape(&path.display().to_string()),
+        report.source_hash,
+        report.semantic_program.schemas.len(),
+        report.semantic_program.csv_promotions.len(),
+        data_hashes
     )
+}
+
+fn json_escape(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for character in value.chars() {
+        match character {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            other => escaped.push(other),
+        }
+    }
+    escaped
 }
 
 fn open_path(path: &Path) {

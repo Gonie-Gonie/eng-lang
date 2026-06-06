@@ -263,6 +263,22 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         return ExitCode::from(2);
     }
     println!("ok: examples/05_error_messages/ambiguous_power.eng produced warning");
+
+    let missing_column = match check_file(
+        "examples/05_error_messages/missing_csv_column.eng",
+        &CheckOptions::default(),
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    if !missing_column.has_errors() {
+        eprintln!("expected missing_csv_column.eng to fail");
+        return ExitCode::from(2);
+    }
+    println!("ok: examples/05_error_messages/missing_csv_column.eng produced diagnostics");
     ExitCode::SUCCESS
 }
 
