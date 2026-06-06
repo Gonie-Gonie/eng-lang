@@ -70,3 +70,5 @@ eng.exe doctor
 eng.exe run examples\04_plotting\main.eng
 eng.exe view build\result\result.engres
 ```
+
+릴리즈 노트는 `docs/release/v<version>.md`에 남깁니다.

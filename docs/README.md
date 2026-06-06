@@ -21,6 +21,7 @@
 
 - [로드맵](roadmap.md)
 - [릴리즈 acceptance checklist](release/acceptance-checklist.md)
+- [v0.1-preview release notes](release/v0.1-preview.md)
 - [원본 v8 마스터 플랜](master-plan/EngLang_LongTerm_Development_Master_Plan_v8.md)
 
 ## 문서 작성 규칙
