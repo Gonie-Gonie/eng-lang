@@ -32,6 +32,13 @@ impl VmExecution {
             .filter(|object| object.kind == VmObjectKind::Array)
             .count()
     }
+
+    pub fn timeseries_count(&self) -> usize {
+        self.objects
+            .iter()
+            .filter(|object| object.kind == VmObjectKind::TimeSeries)
+            .count()
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -39,6 +46,7 @@ pub struct VmObject {
     pub name: String,
     pub kind: VmObjectKind,
     pub type_name: String,
+    pub axis: Option<String>,
     pub display_unit: Option<String>,
     pub row_count: Option<usize>,
     pub len: Option<usize>,
@@ -49,6 +57,7 @@ pub struct VmObject {
 pub enum VmObjectKind {
     Scalar,
     Table,
+    TimeSeries,
     Array,
 }
 
@@ -89,6 +98,7 @@ pub fn execute_bytecode(program: &BytecodeProgram) -> Result<VmExecution, VmErro
                     name: name.clone(),
                     kind: VmObjectKind::Scalar,
                     type_name: quantity_kind.clone(),
+                    axis: None,
                     display_unit: Some(display_unit.clone()),
                     row_count: None,
                     len: None,
@@ -111,12 +121,36 @@ pub fn execute_bytecode(program: &BytecodeProgram) -> Result<VmExecution, VmErro
                     name: name.clone(),
                     kind: VmObjectKind::Table,
                     type_name: format!("Table[{schema_name}]"),
+                    axis: Some("Time".to_owned()),
                     display_unit: None,
                     row_count: Some(*row_count),
                     len: None,
                     source_hash: source_hash.clone(),
                 });
                 steps.push(format!("load table {name}"));
+            }
+            BytecodeInstruction::LoadTimeSeries { name } => {
+                let object = find_object(program, name)?;
+                let BytecodeObject::TimeSeries {
+                    axis,
+                    quantity_kind,
+                    display_unit,
+                    ..
+                } = object
+                else {
+                    return Err(vm_error(&format!("`{name}` is not a TimeSeries object")));
+                };
+                objects.push(VmObject {
+                    name: name.clone(),
+                    kind: VmObjectKind::TimeSeries,
+                    type_name: format!("TimeSeries[{axis}] of {quantity_kind}"),
+                    axis: Some(axis.clone()),
+                    display_unit: Some(display_unit.clone()),
+                    row_count: None,
+                    len: None,
+                    source_hash: None,
+                });
+                steps.push(format!("load timeseries {name}"));
             }
             BytecodeInstruction::LoadArray { name } => {
                 let object = find_object(program, name)?;
@@ -130,6 +164,7 @@ pub fn execute_bytecode(program: &BytecodeProgram) -> Result<VmExecution, VmErro
                     name: name.clone(),
                     kind: VmObjectKind::Array,
                     type_name: format!("Array[{element_type}]"),
+                    axis: None,
                     display_unit: None,
                     row_count: None,
                     len: Some(*len),
@@ -169,6 +204,9 @@ fn find_object<'a>(
             | BytecodeObject::Table {
                 name: object_name, ..
             }
+            | BytecodeObject::TimeSeries {
+                name: object_name, ..
+            }
             | BytecodeObject::Array {
                 name: object_name, ..
             } => object_name == name,
@@ -201,6 +239,24 @@ mod tests {
         assert_eq!(execution.entry.name, "main");
         assert_eq!(execution.result_format, "engres-v1");
         assert_eq!(execution.scalar_count(), 1);
+    }
+
+    #[test]
+    fn executes_timeseries_bytecode() {
+        let source = "script main(args: Args) -> Report {\n    sensor = promote csv \"data/sensor.csv\" as SensorData\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n}\n";
+        let report = check_source("ok.eng", source, &CheckOptions::default());
+        let entry = select_entry(&report.semantic_program.entry_points, None).unwrap();
+        let program = build_bytecode_program(&report, source, &entry);
+
+        let execution = execute_bytecode(&program).unwrap();
+        let timeseries = execution
+            .objects
+            .iter()
+            .find(|object| object.kind == VmObjectKind::TimeSeries)
+            .unwrap();
+
+        assert_eq!(execution.timeseries_count(), 1);
+        assert_eq!(timeseries.axis.as_deref(), Some("Time"));
     }
 
     #[test]

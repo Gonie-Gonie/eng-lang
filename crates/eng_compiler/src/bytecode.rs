@@ -39,6 +39,13 @@ pub enum BytecodeObject {
         source_hash: Option<String>,
         line: usize,
     },
+    TimeSeries {
+        name: String,
+        axis: String,
+        quantity_kind: String,
+        display_unit: String,
+        line: usize,
+    },
     Array {
         name: String,
         element_type: String,
@@ -52,6 +59,7 @@ pub enum BytecodeInstruction {
     EnterEntry { kind: String, name: String },
     LoadScalar { name: String },
     LoadTable { name: String },
+    LoadTimeSeries { name: String },
     LoadArray { name: String },
     WriteResult { format: String },
 }
@@ -99,7 +107,17 @@ pub fn build_bytecode_program(
             continue;
         }
 
-        if let Some(element_type) = binding
+        if let Some((axis, quantity_kind)) =
+            crate::stats::time_series_quantity(&binding.semantic_type.quantity_kind)
+        {
+            objects.push(BytecodeObject::TimeSeries {
+                name: binding.name.clone(),
+                axis,
+                quantity_kind,
+                display_unit: binding.semantic_type.display_unit.clone(),
+                line: binding.line,
+            });
+        } else if let Some(element_type) = binding
             .semantic_type
             .quantity_kind
             .strip_prefix("Array[")
@@ -133,6 +151,9 @@ pub fn build_bytecode_program(
             }
             BytecodeObject::Table { name, .. } => {
                 instructions.push(BytecodeInstruction::LoadTable { name: name.clone() });
+            }
+            BytecodeObject::TimeSeries { name, .. } => {
+                instructions.push(BytecodeInstruction::LoadTimeSeries { name: name.clone() });
             }
             BytecodeObject::Array { name, .. } => {
                 instructions.push(BytecodeInstruction::LoadArray { name: name.clone() });
@@ -358,6 +379,20 @@ fn encode_object(object: &BytecodeObject) -> String {
             field_escape(source_hash.as_deref().unwrap_or("null")),
             line
         ),
+        BytecodeObject::TimeSeries {
+            name,
+            axis,
+            quantity_kind,
+            display_unit,
+            line,
+        } => format!(
+            "timeseries|{}|{}|{}|{}|{}",
+            field_escape(name),
+            field_escape(axis),
+            field_escape(quantity_kind),
+            field_escape(display_unit),
+            line
+        ),
         BytecodeObject::Array {
             name,
             element_type,
@@ -393,6 +428,15 @@ fn parse_object(line: &str) -> Result<BytecodeObject, BytecodeParseError> {
             },
             line: parse_usize(line, "table line")?,
         }),
+        ["timeseries", name, axis, quantity_kind, display_unit, line] => {
+            Ok(BytecodeObject::TimeSeries {
+                name: field_unescape(name),
+                axis: field_unescape(axis),
+                quantity_kind: field_unescape(quantity_kind),
+                display_unit: field_unescape(display_unit),
+                line: parse_usize(line, "timeseries line")?,
+            })
+        }
         ["array", name, element_type, len, line] => Ok(BytecodeObject::Array {
             name: field_unescape(name),
             element_type: field_unescape(element_type),
@@ -416,6 +460,9 @@ fn encode_instruction(index: usize, instruction: &BytecodeInstruction) -> String
         BytecodeInstruction::LoadTable { name } => {
             format!("{index:04}|load_table|{}", field_escape(name))
         }
+        BytecodeInstruction::LoadTimeSeries { name } => {
+            format!("{index:04}|load_timeseries|{}", field_escape(name))
+        }
         BytecodeInstruction::LoadArray { name } => {
             format!("{index:04}|load_array|{}", field_escape(name))
         }
@@ -436,6 +483,9 @@ fn parse_instruction(line: &str) -> Result<BytecodeInstruction, BytecodeParseErr
             name: field_unescape(name),
         }),
         [_index, "load_table", name] => Ok(BytecodeInstruction::LoadTable {
+            name: field_unescape(name),
+        }),
+        [_index, "load_timeseries", name] => Ok(BytecodeInstruction::LoadTimeSeries {
             name: field_unescape(name),
         }),
         [_index, "load_array", name] => Ok(BytecodeInstruction::LoadArray {

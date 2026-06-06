@@ -9,6 +9,7 @@ mod quantities;
 mod schema;
 mod semantic;
 mod source;
+mod stats;
 mod type_info;
 mod units;
 
@@ -30,6 +31,7 @@ pub use quantities::{all_quantity_completions, QuantityCompletion};
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
 pub use semantic::{SemanticProgram, SemanticType, TypedBinding};
 pub use source::SourceSpan;
+pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
 pub use type_info::{TypeInfo, TypeInfoSource};
 pub use units::{all_unit_infos, UnitDerivation, UnitInfo};
 
@@ -442,6 +444,100 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    json.push_str("  \"axis_info\": [\n");
+    for (index, axis) in report.semantic_program.axis_infos.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&axis.binding)
+        ));
+        json.push_str(&format!(
+            "      \"axis\": \"{}\",\n",
+            json_escape(&axis.axis)
+        ));
+        json.push_str(&format!(
+            "      \"role\": \"{}\",\n",
+            json_escape(&axis.role)
+        ));
+        json.push_str(&format!(
+            "      \"source\": \"{}\",\n",
+            json_escape(&axis.source)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", axis.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"stats_info\": [\n");
+    for (index, stats) in report.semantic_program.stats_infos.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"source\": \"{}\",\n",
+            json_escape(&stats.source)
+        ));
+        json.push_str(&format!(
+            "      \"source_type\": \"{}\",\n",
+            json_escape(&stats.source_type)
+        ));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&stats.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "      \"axis\": \"{}\",\n",
+            json_escape(&stats.axis)
+        ));
+        json.push_str("      \"statistics\": [");
+        for (stat_index, statistic) in stats.statistics.iter().enumerate() {
+            if stat_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(statistic)));
+        }
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "      \"cache_key\": \"{}\",\n",
+            json_escape(&stats.cache_key)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", stats.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"integrations\": [\n");
+    for (index, integration) in report.semantic_program.integrations.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&integration.binding)
+        ));
+        json.push_str(&format!(
+            "      \"source\": \"{}\",\n",
+            json_escape(&integration.source)
+        ));
+        json.push_str(&format!(
+            "      \"input_quantity\": \"{}\",\n",
+            json_escape(&integration.input_quantity)
+        ));
+        json.push_str(&format!(
+            "      \"over_axis\": \"{}\",\n",
+            json_escape(&integration.over_axis)
+        ));
+        json.push_str(&format!(
+            "      \"result_quantity\": \"{}\",\n",
+            json_escape(&integration.result_quantity)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", integration.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
     json.push_str("  \"schemas\": [\n");
     for (index, schema) in report.semantic_program.schemas.iter().enumerate() {
         if index > 0 {
@@ -686,6 +782,56 @@ mod tests {
                 format: "engres-v1".to_owned()
             })
         );
+    }
+
+    #[test]
+    fn records_timeseries_axis_summary_and_integrate_metadata() {
+        let report = check_source(
+            "ok.eng",
+            "script main(args: Args) -> Report {\n    sensor = promote csv \"data/sensor.csv\" as SensorData\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    E_coil = integrate(Q_coil, over=Time)\n\n    return report {\n        summarize Q_coil by [mean, max, p95]\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+
+        let q_type = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "Q_coil")
+            .unwrap();
+
+        assert_eq!(
+            q_type.semantic_type.quantity_kind,
+            "TimeSeries[Time] of HeatRate"
+        );
+        assert!(report
+            .semantic_program
+            .axis_infos
+            .iter()
+            .any(|axis| axis.binding == "Q_coil" && axis.axis == "Time"));
+        assert_eq!(report.semantic_program.stats_infos[0].source, "Q_coil");
+        assert_eq!(
+            report.semantic_program.stats_infos[0].statistics,
+            vec!["mean", "max", "p95"]
+        );
+        assert_eq!(report.semantic_program.integrations[0].binding, "E_coil");
+        assert_eq!(
+            report.semantic_program.integrations[0].input_quantity,
+            "HeatRate"
+        );
+    }
+
+    #[test]
+    fn warns_when_summing_heat_rate_over_time() {
+        let report = check_source(
+            "warn.eng",
+            "script main(args: Args) -> Report {\n    sensor = promote csv \"data/sensor.csv\" as SensorData\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    E_bad = sum(Q_coil, axis=Time)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "W-STATS-SUM-001"));
     }
 
     #[test]

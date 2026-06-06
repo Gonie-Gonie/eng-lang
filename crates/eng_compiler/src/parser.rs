@@ -1,5 +1,6 @@
 use crate::ast::{
     AstItem, ConstraintDecl, ExplicitDecl, FastBinding, MissingPolicyDecl, SchemaDecl, ScriptDecl,
+    SummaryDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -54,6 +55,7 @@ impl ParsedProgram {
                 AstItem::ExplicitDecl(_) => explicit_declarations += 1,
                 AstItem::Constraint(_)
                 | AstItem::MissingPolicy(_)
+                | AstItem::Summary(_)
                 | AstItem::ReservedKeywordUse { .. } => {}
             }
         }
@@ -181,6 +183,9 @@ fn parse_line_items(
     }
     if let Some(policy) = parse_missing_policy(tokens, line_text, context) {
         items.push(AstItem::MissingPolicy(policy));
+    }
+    if let Some(summary) = parse_summary_decl(tokens, line_text) {
+        items.push(AstItem::Summary(summary));
     }
     if let Some(keyword) = parse_reserved_keyword_use(tokens) {
         items.push(keyword);
@@ -331,6 +336,38 @@ fn parse_missing_policy(
     Some(MissingPolicyDecl {
         column: column.clone(),
         policy,
+        line: first.span.line,
+        span: first.span,
+    })
+}
+
+fn parse_summary_decl(tokens: &[Token], line_text: &str) -> Option<SummaryDecl> {
+    let [first, second, ..] = tokens else {
+        return None;
+    };
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Summarize)) {
+        return None;
+    }
+    let TokenKind::Identifier(source) = &second.kind else {
+        return None;
+    };
+
+    let statistics = line_text
+        .split_once('[')
+        .and_then(|(_, rest)| rest.split_once(']'))
+        .map(|(inside, _)| {
+            inside
+                .split(',')
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    Some(SummaryDecl {
+        source: source.clone(),
+        statistics,
         line: first.span.line,
         span: first.span,
     })

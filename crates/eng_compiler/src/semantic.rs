@@ -8,6 +8,7 @@ use crate::quantities::{
     infer_quantity_from_name_and_unit, is_number_literal, QuantityCompletion,
 };
 use crate::schema::{CsvPromotion, SchemaInfo};
+use crate::stats::{AxisInfo, IntegrationInfo, StatsInfo};
 use crate::type_info::{TypeInfo, TypeInfoSource};
 use crate::units::{unit_derivation, UnitDerivation};
 use crate::{Diagnostic, InferredDeclaration};
@@ -35,6 +36,9 @@ pub struct SemanticProgram {
     pub schemas: Vec<SchemaInfo>,
     pub csv_promotions: Vec<CsvPromotion>,
     pub entry_points: Vec<EntryPoint>,
+    pub axis_infos: Vec<AxisInfo>,
+    pub stats_infos: Vec<StatsInfo>,
+    pub integrations: Vec<IntegrationInfo>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -53,6 +57,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut type_infos = Vec::new();
     let mut unit_derivations = Vec::new();
     let mut entry_points = Vec::new();
+    let mut stats_infos = Vec::new();
+    let mut integrations = Vec::new();
 
     for line in &program.lines {
         if line.tokens.iter().any(|token| {
@@ -92,15 +98,23 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 &mut type_infos,
                 &mut unit_derivations,
             ),
-            AstItem::FastBinding(binding) => analyze_fast_binding(
-                binding,
-                &mut diagnostics,
-                &mut inferred_declarations,
-                &mut typed_bindings,
-                &mut hover_hints,
-                &mut type_infos,
-                &mut unit_derivations,
-            ),
+            AstItem::FastBinding(binding) => {
+                let mut accum = SemanticAccum {
+                    diagnostics: &mut diagnostics,
+                    inferred_declarations: &mut inferred_declarations,
+                    typed_bindings: &mut typed_bindings,
+                    hover_hints: &mut hover_hints,
+                    type_infos: &mut type_infos,
+                    unit_derivations: &mut unit_derivations,
+                    integrations: &mut integrations,
+                };
+                analyze_fast_binding(binding, &mut accum);
+            }
+            AstItem::Summary(summary) => {
+                if let Some(info) = crate::stats::stats_info(summary, &typed_bindings) {
+                    stats_infos.push(info);
+                }
+            }
             AstItem::ReservedKeywordUse { keyword, span } => diagnostics.push(Diagnostic::error(
                 "E-RESERVED-KEYWORD-001",
                 span.line,
@@ -117,6 +131,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         diagnostics,
         inferred_declarations,
         semantic_program: SemanticProgram {
+            axis_infos: crate::stats::axis_infos(&typed_bindings),
             typed_bindings,
             expected_types,
             hover_hints,
@@ -125,6 +140,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             schemas: Vec::new(),
             csv_promotions: Vec::new(),
             entry_points,
+            stats_infos,
+            integrations,
         },
     }
 }
@@ -189,17 +206,9 @@ fn analyze_explicit_decl(
     ));
 }
 
-fn analyze_fast_binding(
-    binding: &FastBinding,
-    diagnostics: &mut Vec<Diagnostic>,
-    inferred_declarations: &mut Vec<InferredDeclaration>,
-    typed_bindings: &mut Vec<TypedBinding>,
-    hover_hints: &mut Vec<HoverHint>,
-    type_infos: &mut Vec<TypeInfo>,
-    unit_derivations: &mut Vec<UnitDerivation>,
-) {
+fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
     if binding.context == ParseContext::Schema {
-        diagnostics.push(Diagnostic::error(
+        accum.diagnostics.push(Diagnostic::error(
             "E-PUBLIC-ANNOTATION-001",
             binding.line,
             "Schema columns require explicit quantity type and source unit.",
@@ -208,32 +217,39 @@ fn analyze_fast_binding(
         return;
     }
 
-    check_dimensionless_operation(&binding.expression, binding.line, diagnostics);
-    check_ambiguous_quantity(binding, diagnostics);
+    check_dimensionless_operation(&binding.expression, binding.line, accum.diagnostics);
+    check_ambiguous_quantity(binding, accum.diagnostics);
+    if let Some(diagnostic) = crate::stats::heat_rate_sum_diagnostic(binding, accum.typed_bindings)
+    {
+        accum.diagnostics.push(diagnostic);
+    }
+    if let Some(integration) = crate::stats::integration_info(binding, accum.typed_bindings) {
+        accum.integrations.push(integration);
+    }
 
     if let Some(semantic_type) = infer_quantity(&binding.name, &binding.expression) {
         let canonical_unit = default_unit_for_quantity(&semantic_type.quantity_kind);
         let dimension = dimension_for_quantity(&semantic_type.quantity_kind);
-        inferred_declarations.push(InferredDeclaration {
+        accum.inferred_declarations.push(InferredDeclaration {
             name: binding.name.clone(),
             quantity_kind: semantic_type.quantity_kind.clone(),
             display_unit: semantic_type.display_unit.clone(),
             expression: binding.expression.clone(),
             line: binding.line,
         });
-        typed_bindings.push(TypedBinding {
+        accum.typed_bindings.push(TypedBinding {
             name: binding.name.clone(),
             semantic_type: semantic_type.clone(),
             line: binding.line,
         });
-        hover_hints.push(HoverHint::inferred(
+        accum.hover_hints.push(HoverHint::inferred(
             binding.name.clone(),
             semantic_type.quantity_kind.clone(),
             semantic_type.display_unit.clone(),
             binding.expression.clone(),
             binding.span,
         ));
-        type_infos.push(TypeInfo {
+        accum.type_infos.push(TypeInfo {
             name: binding.name.clone(),
             quantity_kind: semantic_type.quantity_kind.clone(),
             display_unit: semantic_type.display_unit.clone(),
@@ -243,7 +259,7 @@ fn analyze_fast_binding(
             line: binding.line,
             span: binding.span,
         });
-        unit_derivations.push(unit_derivation(
+        accum.unit_derivations.push(unit_derivation(
             &binding.name,
             Some(&binding.expression),
             &semantic_type.quantity_kind,
@@ -252,6 +268,16 @@ fn analyze_fast_binding(
             binding.line,
         ));
     }
+}
+
+struct SemanticAccum<'a> {
+    diagnostics: &'a mut Vec<Diagnostic>,
+    inferred_declarations: &'a mut Vec<InferredDeclaration>,
+    typed_bindings: &'a mut Vec<TypedBinding>,
+    hover_hints: &'a mut Vec<HoverHint>,
+    type_infos: &'a mut Vec<TypeInfo>,
+    unit_derivations: &'a mut Vec<UnitDerivation>,
+    integrations: &'a mut Vec<IntegrationInfo>,
 }
 
 fn check_ambiguous_quantity(binding: &FastBinding, diagnostics: &mut Vec<Diagnostic>) {
@@ -417,6 +443,10 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
         return semantic_type("Table[Time]", "schema-defined");
     }
 
+    if looks_like_heat_rate_timeseries(&lowered_name, &lowered_expression) {
+        return semantic_type(&crate::stats::time_series_type("Time", "HeatRate"), "W");
+    }
+
     if lowered_expression.contains("integrate(") {
         return semantic_type("Energy", "J");
     }
@@ -441,6 +471,10 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
 }
 
 fn default_unit_for_quantity(quantity_kind: &str) -> String {
+    if let Some((_, value_quantity)) = crate::stats::time_series_quantity(quantity_kind) {
+        return default_unit_for_quantity(&value_quantity);
+    }
+
     crate::quantities::all_quantity_completions()
         .iter()
         .find(|completion| completion.quantity_kind == quantity_kind)
@@ -449,6 +483,10 @@ fn default_unit_for_quantity(quantity_kind: &str) -> String {
 }
 
 fn dimension_for_quantity(quantity_kind: &str) -> String {
+    if let Some((_, value_quantity)) = crate::stats::time_series_quantity(quantity_kind) {
+        return dimension_for_quantity(&value_quantity);
+    }
+
     crate::quantities::all_quantity_completions()
         .iter()
         .find(|completion| completion.quantity_kind == quantity_kind)
@@ -461,4 +499,14 @@ fn semantic_type(quantity_kind: &str, display_unit: &str) -> Option<SemanticType
         quantity_kind: quantity_kind.to_owned(),
         display_unit: display_unit.to_owned(),
     })
+}
+
+fn looks_like_heat_rate_timeseries(name: &str, expression: &str) -> bool {
+    let name_suggests_heat_rate =
+        name.starts_with('q') || name.contains("heat") || name.contains("coil");
+    let expression_uses_table_fields = expression.contains(".m_dot")
+        && (expression.contains(".t_return") || expression.contains(".t_supply"));
+    let expression_uses_specific_heat = expression.contains("cp") || expression.contains("j/kg/k");
+
+    name_suggests_heat_rate && expression_uses_table_fields && expression_uses_specific_heat
 }

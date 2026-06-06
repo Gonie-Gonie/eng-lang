@@ -41,6 +41,14 @@ pub struct MissingPolicyDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SummaryDecl {
+    pub source: String,
+    pub statistics: Vec<String>,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExplicitDecl {
     pub name: String,
     pub type_name: String,
@@ -59,5 +67,6 @@ pub enum AstItem {
     FastBinding(FastBinding),
     ExplicitDecl(ExplicitDecl),
     MissingPolicy(MissingPolicyDecl),
+    Summary(SummaryDecl),
     ReservedKeywordUse { keyword: String, span: SourceSpan },
 }

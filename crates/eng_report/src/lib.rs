@@ -120,6 +120,59 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
         unit_derivations.push_str("<tr><td colspan=\"5\">No unit derivations.</td></tr>");
     }
 
+    let mut axis_info = String::new();
+    for axis in &report.semantic_program.axis_infos {
+        axis_info.push_str("<tr>");
+        axis_info.push_str(&format!(
+            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+            axis.line,
+            html_escape(&axis.binding),
+            html_escape(&axis.axis),
+            html_escape(&axis.role),
+            html_escape(&axis.source)
+        ));
+        axis_info.push_str("</tr>");
+    }
+    if axis_info.is_empty() {
+        axis_info.push_str("<tr><td colspan=\"5\">No axis metadata.</td></tr>");
+    }
+
+    let mut stats_info = String::new();
+    for stats in &report.semantic_program.stats_infos {
+        stats_info.push_str("<tr>");
+        stats_info.push_str(&format!(
+            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+            stats.line,
+            html_escape(&stats.source),
+            html_escape(&stats.quantity_kind),
+            html_escape(&stats.axis),
+            html_escape(&stats.statistics.join(", ")),
+            html_escape(&stats.cache_key)
+        ));
+        stats_info.push_str("</tr>");
+    }
+    if stats_info.is_empty() {
+        stats_info.push_str("<tr><td colspan=\"6\">No statistics summaries.</td></tr>");
+    }
+
+    let mut integrations = String::new();
+    for integration in &report.semantic_program.integrations {
+        integrations.push_str("<tr>");
+        integrations.push_str(&format!(
+            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+            integration.line,
+            html_escape(&integration.binding),
+            html_escape(&integration.source),
+            html_escape(&integration.input_quantity),
+            html_escape(&integration.over_axis),
+            html_escape(&integration.result_quantity)
+        ));
+        integrations.push_str("</tr>");
+    }
+    if integrations.is_empty() {
+        integrations.push_str("<tr><td colspan=\"6\">No integrations.</td></tr>");
+    }
+
     let mut schemas = String::new();
     for schema in &report.semantic_program.schemas {
         schemas.push_str("<tr>");
@@ -182,6 +235,9 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     let unit_info_count = report.unit_info_count;
     let type_info_count = report.semantic_program.type_infos.len();
     let unit_derivation_count = report.semantic_program.unit_derivations.len();
+    let axis_info_count = report.semantic_program.axis_infos.len();
+    let stats_info_count = report.semantic_program.stats_infos.len();
+    let integration_count = report.semantic_program.integrations.len();
     let schema_count = report.semantic_program.schemas.len();
     let csv_promotion_count = report.semantic_program.csv_promotions.len();
     let entry_point_count = report.semantic_program.entry_points.len();
@@ -279,6 +335,9 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
       <div class="metric"><span>Unit Infos</span><strong>{unit_info_count}</strong></div>
       <div class="metric"><span>Type Info</span><strong>{type_info_count}</strong></div>
       <div class="metric"><span>Unit Derivations</span><strong>{unit_derivation_count}</strong></div>
+      <div class="metric"><span>Axis Info</span><strong>{axis_info_count}</strong></div>
+      <div class="metric"><span>Stats Info</span><strong>{stats_info_count}</strong></div>
+      <div class="metric"><span>Integrations</span><strong>{integration_count}</strong></div>
       <div class="metric"><span>Schemas</span><strong>{schema_count}</strong></div>
       <div class="metric"><span>CSV Promotions</span><strong>{csv_promotion_count}</strong></div>
       <div class="metric"><span>Entry Points</span><strong>{entry_point_count}</strong></div>
@@ -309,6 +368,21 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     <table>
       <thead><tr><th>Line</th><th>Name</th><th>Source Unit</th><th>Display Unit</th><th>Canonical Unit</th></tr></thead>
       <tbody>{unit_derivations}</tbody>
+    </table>
+    <h2>Axis Info</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Binding</th><th>Axis</th><th>Role</th><th>Source</th></tr></thead>
+      <tbody>{axis_info}</tbody>
+    </table>
+    <h2>Statistics</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Source</th><th>Quantity</th><th>Axis</th><th>Statistics</th><th>Cache Key</th></tr></thead>
+      <tbody>{stats_info}</tbody>
+    </table>
+    <h2>Integrations</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Binding</th><th>Source</th><th>Input</th><th>Axis</th><th>Result</th></tr></thead>
+      <tbody>{integrations}</tbody>
     </table>
     <h2>Schemas</h2>
     <table>

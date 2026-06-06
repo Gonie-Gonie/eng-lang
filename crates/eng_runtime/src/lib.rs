@@ -380,6 +380,9 @@ fn result_json(
             "        \"type\": \"{}\"",
             json_escape(&object.type_name)
         ));
+        if let Some(axis) = &object.axis {
+            objects.push_str(&format!(",\n        \"axis\": \"{}\"", json_escape(axis)));
+        }
         if let Some(display_unit) = &object.display_unit {
             objects.push_str(&format!(
                 ",\n        \"display_unit\": \"{}\"",
@@ -409,8 +412,71 @@ fn result_json(
         steps.push_str(&format!("\"{}\"", json_escape(step)));
     }
 
+    let mut statistics = String::new();
+    for (index, stats) in report.semantic_program.stats_infos.iter().enumerate() {
+        if index > 0 {
+            statistics.push_str(",\n");
+        }
+        statistics.push_str("      {\n");
+        statistics.push_str(&format!(
+            "        \"source\": \"{}\",\n",
+            json_escape(&stats.source)
+        ));
+        statistics.push_str(&format!(
+            "        \"quantity_kind\": \"{}\",\n",
+            json_escape(&stats.quantity_kind)
+        ));
+        statistics.push_str(&format!(
+            "        \"axis\": \"{}\",\n",
+            json_escape(&stats.axis)
+        ));
+        statistics.push_str("        \"statistics\": [");
+        for (stat_index, statistic) in stats.statistics.iter().enumerate() {
+            if stat_index > 0 {
+                statistics.push_str(", ");
+            }
+            statistics.push_str(&format!("\"{}\"", json_escape(statistic)));
+        }
+        statistics.push_str("],\n");
+        statistics.push_str(&format!(
+            "        \"cache_key\": \"{}\",\n",
+            json_escape(&stats.cache_key)
+        ));
+        statistics.push_str("        \"status\": \"lazy\"\n");
+        statistics.push_str("      }");
+    }
+
+    let mut integrations = String::new();
+    for (index, integration) in report.semantic_program.integrations.iter().enumerate() {
+        if index > 0 {
+            integrations.push_str(",\n");
+        }
+        integrations.push_str("      {\n");
+        integrations.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&integration.binding)
+        ));
+        integrations.push_str(&format!(
+            "        \"source\": \"{}\",\n",
+            json_escape(&integration.source)
+        ));
+        integrations.push_str(&format!(
+            "        \"input_quantity\": \"{}\",\n",
+            json_escape(&integration.input_quantity)
+        ));
+        integrations.push_str(&format!(
+            "        \"over_axis\": \"{}\",\n",
+            json_escape(&integration.over_axis)
+        ));
+        integrations.push_str(&format!(
+            "        \"result_quantity\": \"{}\"\n",
+            json_escape(&integration.result_quantity)
+        ));
+        integrations.push_str("      }");
+    }
+
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"preview\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"preview\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -423,11 +489,14 @@ fn result_json(
         json_escape(execution.entry.return_type.as_deref().unwrap_or("Report")),
         execution.scalar_count(),
         execution.table_count(),
+        execution.timeseries_count(),
         execution.array_count(),
         objects,
         json_escape(execution.entry.return_type.as_deref().unwrap_or("Report")),
         json_escape(&execution.result_format),
         steps,
+        statistics,
+        integrations,
         report.semantic_program.schemas.len(),
         report.semantic_program.csv_promotions.len(),
         data_hashes
@@ -438,6 +507,7 @@ fn vm_object_kind(object: &VmObject) -> &'static str {
     match object.kind {
         VmObjectKind::Scalar => "scalar",
         VmObjectKind::Table => "table",
+        VmObjectKind::TimeSeries => "timeseries",
         VmObjectKind::Array => "array",
     }
 }

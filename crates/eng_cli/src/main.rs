@@ -314,6 +314,26 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     }
     println!("ok: examples/05_error_messages/ambiguous_power.eng produced warning");
 
+    let heat_rate_sum = match check_file(
+        "examples/05_error_messages/heat_rate_sum.eng",
+        &CheckOptions::default(),
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    if !heat_rate_sum
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "W-STATS-SUM-001")
+    {
+        eprintln!("expected heat_rate_sum.eng to produce W-STATS-SUM-001");
+        return ExitCode::from(2);
+    }
+    println!("ok: examples/05_error_messages/heat_rate_sum.eng produced warning");
+
     let missing_column = match check_file(
         "examples/05_error_messages/missing_csv_column.eng",
         &CheckOptions::default(),
