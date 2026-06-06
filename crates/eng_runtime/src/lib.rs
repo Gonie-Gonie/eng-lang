@@ -33,6 +33,8 @@ pub struct RunOutput {
     pub review_path: PathBuf,
     pub report_path: PathBuf,
     pub plot_path: PathBuf,
+    pub plot_spec_path: PathBuf,
+    pub plot_manifest_path: PathBuf,
 }
 
 #[derive(Clone, Debug)]
@@ -173,6 +175,8 @@ pub fn run_file(
     let result_path = result_dir.join("result.engres");
     let review_path = result_dir.join("review.json");
     let plot_path = plots_dir.join("timeseries.svg");
+    let plot_spec_path = plots_dir.join("plot_spec.json");
+    let plot_manifest_path = plots_dir.join("plot_manifest.json");
     let report_path = result_dir.join("report.html");
 
     let bytecode = build_bytecode(&check_report, &source, &entry);
@@ -180,15 +184,34 @@ pub fn run_file(
     fs::write(&bytecode_path, &bytecode)?;
     let bytecode_program = parse_bytecode(&bytecode)?;
     let execution = execute_bytecode(&bytecode_program)?;
+    let plot_spec = eng_report::plot_spec_from_report(&check_report);
+    let plot_spec_json = eng_report::plot_spec_json(&plot_spec);
+    let plot_spec_hash = hash_text(&plot_spec_json);
+    let plot_svg = eng_report::render_svg_from_spec(&plot_spec);
+    let plot_svg_hash = hash_text(&plot_svg);
+    let plot_manifest_json = eng_report::plot_manifest_json(
+        &plot_spec,
+        "timeseries.svg",
+        &plot_spec_hash,
+        &plot_svg_hash,
+    );
     fs::write(&review_path, review_json(&check_report))?;
-    fs::write(&plot_path, eng_report::render_svg("EngLang preview plot"))?;
+    fs::write(&plot_spec_path, plot_spec_json)?;
+    fs::write(&plot_path, plot_svg)?;
+    fs::write(&plot_manifest_path, plot_manifest_json)?;
     fs::write(
         &report_path,
         eng_report::render_html(&check_report, "plots/timeseries.svg"),
     )?;
     fs::write(
         &result_path,
-        result_json(path, &check_report, &execution, &bytecode_hash),
+        result_json(
+            path,
+            &check_report,
+            &execution,
+            &bytecode_hash,
+            &plot_spec_hash,
+        ),
     )?;
 
     if options.open_report {
@@ -201,6 +224,8 @@ pub fn run_file(
         review_path,
         report_path,
         plot_path,
+        plot_spec_path,
+        plot_manifest_path,
     })
 }
 
@@ -339,6 +364,7 @@ fn result_json(
     report: &CheckReport,
     execution: &VmExecution,
     bytecode_hash: &str,
+    plot_spec_hash: &str,
 ) -> String {
     let mut data_hashes = String::new();
     for (index, promotion) in report.semantic_program.csv_promotions.iter().enumerate() {
@@ -476,7 +502,7 @@ fn result_json(
     }
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"preview\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -499,7 +525,8 @@ fn result_json(
         integrations,
         report.semantic_program.schemas.len(),
         report.semantic_program.csv_promotions.len(),
-        data_hashes
+        data_hashes,
+        plot_spec_hash
     )
 }
 

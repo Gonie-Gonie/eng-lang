@@ -1,28 +1,173 @@
 use eng_compiler::{CheckReport, Severity};
 
 pub const REPORT_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const PLOT_SPEC_VERSION: u32 = 1;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PlotSpec {
+    pub title: String,
+    pub plot_type: String,
+    pub x_axis: PlotAxis,
+    pub y_axis: PlotAxis,
+    pub series: Vec<PlotSeries>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PlotAxis {
+    pub name: String,
+    pub label: String,
+    pub unit: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PlotSeries {
+    pub name: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub points: Vec<PlotPoint>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PlotPoint {
+    pub x: f64,
+    pub y: f64,
+}
+
+pub fn plot_spec_from_report(report: &CheckReport) -> PlotSpec {
+    let series_binding = report
+        .semantic_program
+        .typed_bindings
+        .iter()
+        .find_map(|binding| {
+            time_series_quantity(&binding.semantic_type.quantity_kind).map(|(axis, quantity)| {
+                (
+                    binding.name.clone(),
+                    axis,
+                    quantity,
+                    binding.semantic_type.display_unit.clone(),
+                )
+            })
+        });
+
+    let (name, axis, quantity, unit) = series_binding.unwrap_or_else(|| {
+        (
+            "preview".to_owned(),
+            "Time".to_owned(),
+            "Value".to_owned(),
+            "unit".to_owned(),
+        )
+    });
+
+    PlotSpec {
+        title: if name == "preview" {
+            "EngLang preview plot".to_owned()
+        } else {
+            format!("{name} over {axis}")
+        },
+        plot_type: "line".to_owned(),
+        x_axis: PlotAxis {
+            name: axis.clone(),
+            label: axis,
+            unit: "sample".to_owned(),
+        },
+        y_axis: PlotAxis {
+            name: quantity.clone(),
+            label: quantity,
+            unit: unit.clone(),
+        },
+        series: vec![PlotSeries {
+            name,
+            quantity_kind: "TimeSeries".to_owned(),
+            display_unit: unit,
+            points: preview_points(),
+        }],
+    }
+}
 
 pub fn render_svg(title: &str) -> String {
-    let title = xml_escape(title);
+    render_svg_from_spec(&default_plot_spec(title))
+}
+
+pub fn render_svg_from_spec(spec: &PlotSpec) -> String {
+    let title = xml_escape(&spec.title);
+    let x_label = xml_escape(&axis_label(&spec.x_axis));
+    let y_label = xml_escape(&axis_label(&spec.y_axis));
+    let points = spec
+        .series
+        .first()
+        .map(|series| svg_points(&series.points))
+        .unwrap_or_default();
     format!(
         r##"<svg xmlns="http://www.w3.org/2000/svg" width="720" height="320" viewBox="0 0 720 320" role="img" aria-label="{title}">
   <rect width="720" height="320" fill="#f7f8fb"/>
   <line x1="72" y1="250" x2="660" y2="250" stroke="#222" stroke-width="2"/>
   <line x1="72" y1="40" x2="72" y2="250" stroke="#222" stroke-width="2"/>
-  <polyline points="72,230 150,205 228,198 306,160 384,145 462,105 540,112 618,70" fill="none" stroke="#0b6bcb" stroke-width="4"/>
-  <circle cx="72" cy="230" r="5" fill="#0b6bcb"/>
-  <circle cx="150" cy="205" r="5" fill="#0b6bcb"/>
-  <circle cx="228" cy="198" r="5" fill="#0b6bcb"/>
-  <circle cx="306" cy="160" r="5" fill="#0b6bcb"/>
-  <circle cx="384" cy="145" r="5" fill="#0b6bcb"/>
-  <circle cx="462" cy="105" r="5" fill="#0b6bcb"/>
-  <circle cx="540" cy="112" r="5" fill="#0b6bcb"/>
-  <circle cx="618" cy="70" r="5" fill="#0b6bcb"/>
+  <polyline points="{points}" fill="none" stroke="#0b6bcb" stroke-width="4"/>
   <text x="72" y="26" font-family="Segoe UI, Arial, sans-serif" font-size="20" fill="#111">{title}</text>
-  <text x="328" y="294" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#333">Time</text>
-  <text x="18" y="156" transform="rotate(-90 18 156)" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#333">unit-aware value</text>
+  <text x="328" y="294" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#333">{x_label}</text>
+  <text x="18" y="156" transform="rotate(-90 18 156)" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#333">{y_label}</text>
 </svg>
 "##
+    )
+}
+
+pub fn plot_spec_json(spec: &PlotSpec) -> String {
+    let mut points = String::new();
+    for (index, point) in spec
+        .series
+        .first()
+        .map(|series| series.points.as_slice())
+        .unwrap_or_default()
+        .iter()
+        .enumerate()
+    {
+        if index > 0 {
+            points.push_str(", ");
+        }
+        points.push_str(&format!("[{}, {}]", point.x, point.y));
+    }
+
+    let series = spec.series.first();
+    format!(
+        "{{\n  \"format\": \"eng-plotspec-v1\",\n  \"plot_spec_version\": {PLOT_SPEC_VERSION},\n  \"plot_type\": \"{}\",\n  \"title\": \"{}\",\n  \"x_axis\": {{ \"name\": \"{}\", \"label\": \"{}\", \"unit\": \"{}\" }},\n  \"y_axis\": {{ \"name\": \"{}\", \"label\": \"{}\", \"unit\": \"{}\" }},\n  \"series\": [\n    {{\n      \"name\": \"{}\",\n      \"quantity_kind\": \"{}\",\n      \"display_unit\": \"{}\",\n      \"points\": [{}]\n    }}\n  ]\n}}\n",
+        json_escape(&spec.plot_type),
+        json_escape(&spec.title),
+        json_escape(&spec.x_axis.name),
+        json_escape(&spec.x_axis.label),
+        json_escape(&spec.x_axis.unit),
+        json_escape(&spec.y_axis.name),
+        json_escape(&spec.y_axis.label),
+        json_escape(&spec.y_axis.unit),
+        json_escape(series.map(|series| series.name.as_str()).unwrap_or("preview")),
+        json_escape(
+            series
+                .map(|series| series.quantity_kind.as_str())
+                .unwrap_or("Value")
+        ),
+        json_escape(
+            series
+                .map(|series| series.display_unit.as_str())
+                .unwrap_or("unit")
+        ),
+        points
+    )
+}
+
+pub fn plot_manifest_json(
+    spec: &PlotSpec,
+    svg_relative_path: &str,
+    plot_spec_hash: &str,
+    svg_hash: &str,
+) -> String {
+    format!(
+        "{{\n  \"format\": \"eng-plot-manifest-v1\",\n  \"plot_spec_version\": {PLOT_SPEC_VERSION},\n  \"plots\": [\n    {{\n      \"title\": \"{}\",\n      \"plot_type\": \"{}\",\n      \"plot_spec\": \"plot_spec.json\",\n      \"plot_spec_hash\": \"{}\",\n      \"svg\": \"{}\",\n      \"svg_hash\": \"{}\",\n      \"x_axis_label\": \"{}\",\n      \"y_axis_label\": \"{}\"\n    }}\n  ]\n}}\n",
+        json_escape(&spec.title),
+        json_escape(&spec.plot_type),
+        json_escape(plot_spec_hash),
+        json_escape(svg_relative_path),
+        json_escape(svg_hash),
+        json_escape(&axis_label(&spec.x_axis)),
+        json_escape(&axis_label(&spec.y_axis))
     )
 }
 
@@ -421,4 +566,130 @@ fn html_escape(value: &str) -> String {
 
 fn xml_escape(value: &str) -> String {
     html_escape(value)
+}
+
+fn json_escape(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for character in value.chars() {
+        match character {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            other => escaped.push(other),
+        }
+    }
+    escaped
+}
+
+fn default_plot_spec(title: &str) -> PlotSpec {
+    PlotSpec {
+        title: title.to_owned(),
+        plot_type: "line".to_owned(),
+        x_axis: PlotAxis {
+            name: "Time".to_owned(),
+            label: "Time".to_owned(),
+            unit: "sample".to_owned(),
+        },
+        y_axis: PlotAxis {
+            name: "Value".to_owned(),
+            label: "unit-aware value".to_owned(),
+            unit: "preview".to_owned(),
+        },
+        series: vec![PlotSeries {
+            name: "preview".to_owned(),
+            quantity_kind: "Value".to_owned(),
+            display_unit: "preview".to_owned(),
+            points: preview_points(),
+        }],
+    }
+}
+
+fn preview_points() -> Vec<PlotPoint> {
+    vec![
+        PlotPoint { x: 0.0, y: 20.0 },
+        PlotPoint { x: 1.0, y: 32.0 },
+        PlotPoint { x: 2.0, y: 36.0 },
+        PlotPoint { x: 3.0, y: 54.0 },
+        PlotPoint { x: 4.0, y: 61.0 },
+        PlotPoint { x: 5.0, y: 78.0 },
+        PlotPoint { x: 6.0, y: 74.0 },
+        PlotPoint { x: 7.0, y: 96.0 },
+    ]
+}
+
+fn axis_label(axis: &PlotAxis) -> String {
+    if axis.unit.is_empty() {
+        axis.label.clone()
+    } else {
+        format!("{} ({})", axis.label, axis.unit)
+    }
+}
+
+fn svg_points(points: &[PlotPoint]) -> String {
+    if points.is_empty() {
+        return String::new();
+    }
+
+    let min_x = points
+        .iter()
+        .map(|point| point.x)
+        .fold(f64::INFINITY, f64::min);
+    let max_x = points
+        .iter()
+        .map(|point| point.x)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let min_y = points
+        .iter()
+        .map(|point| point.y)
+        .fold(f64::INFINITY, f64::min);
+    let max_y = points
+        .iter()
+        .map(|point| point.y)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let x_span = (max_x - min_x).max(1.0);
+    let y_span = (max_y - min_y).max(1.0);
+
+    points
+        .iter()
+        .map(|point| {
+            let x = 72.0 + ((point.x - min_x) / x_span) * 588.0;
+            let y = 250.0 - ((point.y - min_y) / y_span) * 210.0;
+            format!("{x:.0},{y:.0}")
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn time_series_quantity(quantity_kind: &str) -> Option<(String, String)> {
+    let rest = quantity_kind.strip_prefix("TimeSeries[")?;
+    let (axis, after_axis) = rest.split_once(']')?;
+    let quantity = after_axis.trim().strip_prefix("of ")?;
+    Some((axis.trim().to_owned(), quantity.trim().to_owned()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use eng_compiler::{check_source, CheckOptions};
+
+    #[test]
+    fn plotspec_uses_timeseries_axis_unit_labels() {
+        let report = check_source(
+            "ok.eng",
+            "script main(args: Args) -> Report {\n    sensor = promote csv \"data/sensor.csv\" as SensorData\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        let spec = plot_spec_from_report(&report);
+        let json = plot_spec_json(&spec);
+        let svg = render_svg_from_spec(&spec);
+
+        assert_eq!(spec.plot_type, "line");
+        assert_eq!(spec.x_axis.label, "Time");
+        assert_eq!(spec.y_axis.unit, "W");
+        assert!(json.contains("\"format\": \"eng-plotspec-v1\""));
+        assert!(svg.contains("HeatRate (W)"));
+    }
 }
