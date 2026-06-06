@@ -1,0 +1,8 @@
+script main(args: Args) -> Report {
+    power = 10 kW
+
+    return report {
+        show power
+    }
+}
+

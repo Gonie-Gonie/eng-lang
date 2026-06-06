@@ -1,6 +1,9 @@
 mod ast;
+mod expected;
+mod hover;
 mod lexer;
 mod parser;
+mod quantities;
 mod semantic;
 mod source;
 
@@ -9,8 +12,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub use ast::{AstItem, ExplicitDecl, FastBinding, SchemaDecl, ScriptDecl};
+pub use expected::{ExpectedType, ExpectedTypeSource};
+pub use hover::HoverHint;
 pub use lexer::{Keyword, Symbol, Token, TokenKind};
 pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSummary};
+pub use quantities::{all_quantity_completions, QuantityCompletion};
 pub use semantic::{SemanticProgram, SemanticType, TypedBinding};
 pub use source::SourceSpan;
 
@@ -81,6 +87,7 @@ pub struct CheckReport {
     pub inferred_declarations: Vec<InferredDeclaration>,
     pub syntax_summary: SyntaxSummary,
     pub semantic_program: SemanticProgram,
+    pub quantity_completion_count: usize,
 }
 
 impl CheckReport {
@@ -120,6 +127,7 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, _options: &CheckOption
         inferred_declarations: semantic_output.inferred_declarations,
         syntax_summary: parsed.summary(),
         semantic_program: semantic_output.semantic_program,
+        quantity_completion_count: quantities::completion_count(),
     }
 }
 
@@ -139,6 +147,18 @@ pub fn build_bytecode(report: &CheckReport, source: &str) -> String {
     bytecode.push_str(&format!(
         "typed_bindings = {}\n",
         report.semantic_program.typed_bindings.len()
+    ));
+    bytecode.push_str(&format!(
+        "expected_types = {}\n",
+        report.semantic_program.expected_types.len()
+    ));
+    bytecode.push_str(&format!(
+        "hover_hints = {}\n",
+        report.semantic_program.hover_hints.len()
+    ));
+    bytecode.push_str(&format!(
+        "quantity_completions = {}\n",
+        report.quantity_completion_count
     ));
     bytecode.push_str("entry = script main\n");
     bytecode.push_str("instructions:\n");
@@ -194,6 +214,10 @@ pub fn review_json(report: &CheckReport) -> String {
         report.syntax_summary.explicit_declarations
     ));
     json.push_str("  },\n");
+    json.push_str(&format!(
+        "  \"quantity_completion_count\": {},\n",
+        report.quantity_completion_count
+    ));
 
     json.push_str("  \"diagnostics\": [\n");
     for (index, diagnostic) in report.diagnostics.iter().enumerate() {
@@ -245,6 +269,63 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str(&format!(
             "      \"expression\": \"{}\"\n",
             json_escape(&declaration.expression)
+        ));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"expected_types\": [\n");
+    for (index, expected_type) in report.semantic_program.expected_types.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&expected_type.name)
+        ));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&expected_type.quantity_kind)
+        ));
+        if let Some(unit) = &expected_type.display_unit {
+            json.push_str(&format!(
+                "      \"display_unit\": \"{}\",\n",
+                json_escape(unit)
+            ));
+        } else {
+            json.push_str("      \"display_unit\": null,\n");
+        }
+        json.push_str(&format!(
+            "      \"source\": \"{}\",\n",
+            expected_type.source.as_str()
+        ));
+        json.push_str(&format!("      \"line\": {}\n", expected_type.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"hover_hints\": [\n");
+    for (index, hover) in report.semantic_program.hover_hints.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&hover.name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", hover.line));
+        json.push_str(&format!("      \"column\": {},\n", hover.column));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&hover.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&hover.display_unit)
+        ));
+        json.push_str(&format!(
+            "      \"detail\": \"{}\"\n",
+            json_escape(&hover.detail)
         ));
         json.push_str("    }");
     }
@@ -334,6 +415,51 @@ mod tests {
 
         assert!(report.has_errors());
         assert_eq!(report.diagnostics[0].code, "E-DIM-ADD-001");
+    }
+
+    #[test]
+    fn rejects_dimensionless_subtraction_from_power() {
+        let report = check_source("bad.eng", "Q = 2 kW - 1", &CheckOptions::default());
+
+        assert!(report.has_errors());
+        assert_eq!(report.diagnostics[0].code, "E-DIM-ADD-002");
+    }
+
+    #[test]
+    fn records_expected_type_for_explicit_declaration() {
+        let report = check_source(
+            "ok.eng",
+            "Q: HeatRate [kW] = 1 kW + 2 kW",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(
+            report.semantic_program.expected_types[0].quantity_kind,
+            "HeatRate"
+        );
+    }
+
+    #[test]
+    fn records_hover_hint_for_inferred_declaration() {
+        let report = check_source("ok.eng", "L = 1 m + 20 cm", &CheckOptions::default());
+
+        assert_eq!(report.semantic_program.hover_hints[0].name, "L");
+        assert_eq!(
+            report.semantic_program.hover_hints[0].quick_fixes[0],
+            "Expand declaration"
+        );
+    }
+
+    #[test]
+    fn refines_ambiguous_power_warning() {
+        let report = check_source("warn.eng", "power = 10 kW", &CheckOptions::default());
+
+        assert_eq!(report.diagnostics[0].code, "W-QTY-AMBIG-001");
+        assert!(report.diagnostics[0]
+            .help
+            .as_ref()
+            .is_some_and(|help| help.contains("HeatRate")));
     }
 
     #[test]

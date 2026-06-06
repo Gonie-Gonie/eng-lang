@@ -68,10 +68,30 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
         inferred.push_str("<tr><td colspan=\"5\">No inferred local declarations.</td></tr>");
     }
 
+    let mut hover_hints = String::new();
+    for hover in &report.semantic_program.hover_hints {
+        hover_hints.push_str("<tr>");
+        hover_hints.push_str(&format!(
+            "<td>{}:{}</td><td>{}</td><td>{}</td><td>{}</td>",
+            hover.line,
+            hover.column,
+            html_escape(&hover.name),
+            html_escape(&hover.quantity_kind),
+            html_escape(&hover.detail)
+        ));
+        hover_hints.push_str("</tr>");
+    }
+    if hover_hints.is_empty() {
+        hover_hints.push_str("<tr><td colspan=\"4\">No hover hints.</td></tr>");
+    }
+
     let error_count = report.diagnostic_count(Severity::Error);
     let warning_count = report.diagnostic_count(Severity::Warning);
     let syntax_items = report.syntax_summary.ast_items;
     let typed_bindings = report.semantic_program.typed_bindings.len();
+    let expected_types = report.semantic_program.expected_types.len();
+    let hover_count = report.semantic_program.hover_hints.len();
+    let quantity_completion_count = report.quantity_completion_count;
     let plot_relative_path = html_escape(plot_relative_path);
 
     format!(
@@ -160,6 +180,9 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
       <div class="metric"><span>Warnings</span><strong>{warning_count}</strong></div>
       <div class="metric"><span>AST Items</span><strong>{syntax_items}</strong></div>
       <div class="metric"><span>Typed Bindings</span><strong>{typed_bindings}</strong></div>
+      <div class="metric"><span>Expected Types</span><strong>{expected_types}</strong></div>
+      <div class="metric"><span>Hover Hints</span><strong>{hover_count}</strong></div>
+      <div class="metric"><span>Quantity Completions</span><strong>{quantity_completion_count}</strong></div>
       <div class="metric"><span>Compiler</span><strong>{compiler_version}</strong></div>
       <div class="metric"><span>Report</span><strong>{report_version}</strong></div>
     </section>
@@ -167,6 +190,11 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     <table>
       <thead><tr><th>Line</th><th>Name</th><th>Quantity</th><th>Display Unit</th><th>Expression</th></tr></thead>
       <tbody>{inferred}</tbody>
+    </table>
+    <h2>Hover Hints</h2>
+    <table>
+      <thead><tr><th>Position</th><th>Name</th><th>Quantity</th><th>Detail</th></tr></thead>
+      <tbody>{hover_hints}</tbody>
     </table>
     <h2>Diagnostics</h2>
     <table>

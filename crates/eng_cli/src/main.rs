@@ -247,6 +247,22 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         return ExitCode::from(2);
     }
     println!("ok: examples/05_error_messages/unit_mismatch.eng produced diagnostics");
+
+    let ambiguous = match check_file(
+        "examples/05_error_messages/ambiguous_power.eng",
+        &CheckOptions::default(),
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    if ambiguous.diagnostic_count(eng_compiler::Severity::Warning) == 0 {
+        eprintln!("expected ambiguous_power.eng to produce a warning");
+        return ExitCode::from(2);
+    }
+    println!("ok: examples/05_error_messages/ambiguous_power.eng produced warning");
     ExitCode::SUCCESS
 }
 

@@ -1,11 +1,13 @@
 script main(args: Args) -> Report {
     X = 1 m + 20
     Q = 1 + 2 kW
+    Q_expected: HeatRate [kW] = 2 kW - 1
     T = 24 degC + 1
 
     return report {
         show X
         show Q
+        show Q_expected
         show T
     }
 }
