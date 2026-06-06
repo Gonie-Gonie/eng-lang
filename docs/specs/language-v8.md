@@ -1,6 +1,6 @@
-# v8 언어 정책
+# v8/v9 언어 정책
 
-이 문서는 마스터 플랜 v8의 fast assignment와 dimensionless 정책을 repo 구현 기준으로 요약합니다.
+이 문서는 마스터 플랜 v8의 fast assignment와 dimensionless 정책을 repo 구현 기준으로 요약합니다. v9는 이 언어 결정을 뒤집지 않고, version-by-version execution roadmap 안에서 우선순위를 재배치합니다.
 
 ## 핵심 결정
 

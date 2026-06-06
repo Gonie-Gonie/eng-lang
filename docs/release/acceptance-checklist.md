@@ -2,6 +2,8 @@
 
 모든 PR, milestone, release는 다음 질문을 통과해야 합니다.
 
+v9부터 모든 작업은 가능한 한 target version을 명시합니다.
+
 ## Master checklist
 
 ```text

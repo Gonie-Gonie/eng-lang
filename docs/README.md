@@ -1,6 +1,6 @@
 # EngLang 문서 인덱스
 
-이 문서는 개발자가 v8 마스터 플랜을 실제 repo 작업으로 옮길 때 보는 진입점입니다.
+이 문서는 개발자가 v9 마스터 플랜을 실제 repo 작업으로 옮길 때 보는 진입점입니다.
 
 ## 먼저 읽을 것
 
@@ -8,6 +8,7 @@
 2. [Repo 구조와 책임](development/01_repo_layout.md)
 3. [일상 개발 workflow](development/02_daily_workflow.md)
 4. [재현 가능한 개발 환경 정책](development/03_environment_reproducibility.md)
+5. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
 
 ## 설계 문서
 
@@ -16,7 +17,7 @@
 - [Compiler frontend](architecture/02_compiler_frontend.md)
 - [Expected types and quantity completions](architecture/03_expected_types_and_quantities.md)
 - [CLI 명세](specs/cli.md)
-- [v8 문법 정책](specs/language-v8.md)
+- [v8/v9 문법 정책](specs/language-v8.md)
 
 ## 계획과 릴리즈
 
@@ -24,6 +25,8 @@
 - [릴리즈 acceptance checklist](release/acceptance-checklist.md)
 - [v0.1-preview release notes](release/v0.1-preview.md)
 - [v0.2-preview release notes](release/v0.2-preview.md)
+- [v8 to v9 revision guide](master-plan/EngLang_v8_to_v9_Revision_Guide.md)
+- [원본 v9 마스터 플랜](master-plan/EngLang_LongTerm_Development_Master_Plan_v9.md)
 - [원본 v8 마스터 플랜](master-plan/EngLang_LongTerm_Development_Master_Plan_v8.md)
 
 ## 문서 작성 규칙

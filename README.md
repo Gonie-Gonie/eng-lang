@@ -1,34 +1,34 @@
-# EngLang
+﻿# EngLang
 
-EngLang은 공학 시뮬레이션 workflow 전체를 단위, 물리량 의미, schema, axis, 통계, plotting, report, provenance까지 컴파일러와 런타임이 함께 검증하도록 만들기 위한 네이티브 프로그래밍 언어 프로젝트입니다.
+EngLang is a native programming language project for engineering simulation workflows. Its goal is to let the compiler and runtime understand units, physical quantity kinds, schemas, axes, statistics, plotting, reports, and provenance as first-class parts of engineering code.
 
-이 repo의 초기 목표는 v8 마스터 플랜에 맞춰 **Python 없는 preview 실행 경로**와 **Windows에서 재현 가능한 개발 환경**을 제공하는 것입니다.
+The current repository follows the v9 master plan. The v9 change keeps the v8 language decisions, including fast `=` declarations and no `:=`, but reorganizes development around a version-by-version execution roadmap from `v0.1-preview` through `v2.0`.
 
-## 바로 시작
+## Quick Start
 
-Windows PowerShell 실행 정책과 무관하게 항상 root의 `dev.bat`만 실행합니다.
+On Windows, use the root `dev.bat` wrapper for all development commands. It bypasses PowerShell execution-policy issues and keeps the toolchain local to the repository.
 
 ```bat
 .\dev.bat setup
 .\dev.bat doctor
-.\dev.bat test
-.\dev.bat run-example
 .\dev.bat ci
+.\dev.bat run-example
 ```
 
-setup은 repo 내부의 `.dev` 디렉터리에 pinned Rust toolchain을 설치하고 workspace를 빌드합니다. 사용자 전역 Rust 설치나 Python 설치는 요구하지 않습니다.
+`setup` installs the pinned Rust toolchain into `.dev`, fetches dependencies, and builds the workspace. A global Rust installation and Python are not required for the core preview path.
 
-## 현재 제공되는 실행 흐름
+## Current Preview Commands
 
 ```bat
 target\debug\eng.exe doctor
 target\debug\eng.exe check examples\05_error_messages\unit_mismatch.eng --review
+target\debug\eng.exe check examples\05_error_messages\ambiguous_power.eng --review
 target\debug\eng.exe run examples\04_plotting\main.eng
 target\debug\eng.exe build examples\04_plotting\main.eng --standalone --profile repro
 target\debug\eng.exe view build\result\result.engres
 ```
 
-`eng run`은 preview 단계에서도 다음 artifact를 생성합니다.
+`eng run` generates preview artifacts even before the full VM is implemented:
 
 ```text
 build/
@@ -40,24 +40,66 @@ build/
     plots/timeseries.svg
 ```
 
-## 문서 진입점
+## Development Milestones
 
-- [문서 인덱스](docs/README.md)
-- [처음 개발 환경 구성](docs/development/00_getting_started.md)
-- [Repo 구조와 책임](docs/development/01_repo_layout.md)
-- [재현 가능한 개발 환경 정책](docs/development/03_environment_reproducibility.md)
-- [시스템 아키텍처](docs/architecture/00_system_overview.md)
+Completed and pushed:
+
+```text
+v0.1-preview
+  Repository bootstrap, CLI skeleton, parser/frontend foundation, unit seed,
+  runtime artifact skeleton, docs, CI wrapper.
+
+v0.2-preview
+  Expected type skeleton, quantity completion table, hover data, refined
+  dimensionless and ambiguous quantity diagnostics.
+```
+
+Active planning target:
+
+```text
+v0.3-preview
+  Schema, promote, CSV data boundary, schema symbol table, source file
+  provenance, CSV diagnostics.
+```
+
+## Documentation
+
+- [Documentation index](docs/README.md)
+- [Getting started](docs/development/00_getting_started.md)
+- [Repository layout](docs/development/01_repo_layout.md)
+- [Daily workflow](docs/development/02_daily_workflow.md)
+- [Reproducible environment policy](docs/development/03_environment_reproducibility.md)
+- [Version roadmap workflow](docs/development/04_version_roadmap_workflow.md)
+- [System architecture](docs/architecture/00_system_overview.md)
 - [Compiler frontend](docs/architecture/02_compiler_frontend.md)
 - [Expected types and quantity completions](docs/architecture/03_expected_types_and_quantities.md)
-- [CLI 명세](docs/specs/cli.md)
-- [v8 문법 정책](docs/specs/language-v8.md)
-- [로드맵](docs/roadmap.md)
-- [원본 v8 마스터 플랜](docs/master-plan/EngLang_LongTerm_Development_Master_Plan_v8.md)
+- [CLI specification](docs/specs/cli.md)
+- [v8/v9 language policy](docs/specs/language-v8.md)
+- [Roadmap](docs/roadmap.md)
+- [v9 master plan](docs/master-plan/EngLang_LongTerm_Development_Master_Plan_v9.md)
+- [v8 to v9 revision guide](docs/master-plan/EngLang_v8_to_v9_Revision_Guide.md)
 
-## 핵심 불변 조건
+## Core Invariants
 
-- Core 실행 경로는 Python에 의존하지 않습니다.
-- 공식 source lowering은 `.eng -> typed IR -> .engbc -> eng runtime -> .engres -> PlotSpec -> SVG/HTML report` 방향입니다.
-- 사용자-facing 명령은 `eng.exe` 하나에서 시작합니다.
-- PowerShell 스크립트는 `dev.bat` 공통 wrapper를 통해서만 실행합니다.
-- 모든 public feature는 example과 review 가능한 artifact를 함께 가져야 합니다.
+- The core execution path must not depend on Python.
+- The official lowering direction is `.eng -> typed IR -> .engbc -> eng runtime -> .engres -> PlotSpec -> SVG/HTML review artifacts`.
+- User-facing execution starts from one `eng.exe`.
+- PowerShell scripts are run through the shared `dev.bat` wrapper.
+- Public features must include examples, tests, and reviewable artifacts.
+- Work should target a specific roadmap version and pass that version's release gate.
+
+## Verification
+
+Before committing a development slice:
+
+```bat
+.\dev.bat ci
+```
+
+Before a preview package check:
+
+```bat
+.\dev.bat package
+dist\englang-preview\eng.exe doctor
+dist\englang-preview\eng.exe run examples\04_plotting\main.eng
+```
