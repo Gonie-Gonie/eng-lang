@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "eng_cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "eng_compiler",
  "eng_runtime",
@@ -12,18 +12,18 @@ dependencies = [
 
 [[package]]
 name = "eng_compiler"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "eng_report"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "eng_compiler",
 ]
 
 [[package]]
 name = "eng_runtime"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "eng_compiler",
  "eng_report",

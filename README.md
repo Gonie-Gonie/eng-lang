@@ -52,14 +52,17 @@ v0.1-preview
 v0.2-preview
   Expected type skeleton, quantity completion table, hover data, refined
   dimensionless and ambiguous quantity diagnostics.
+
+v0.3-preview
+  Schema symbol table, promote csv validation, CSV header checks, source file
+  hash provenance, missing policy/constraint seed metadata.
 ```
 
 Active planning target:
 
 ```text
-v0.3-preview
-  Schema, promote, CSV data boundary, schema symbol table, source file
-  provenance, CSV diagnostics.
+v0.4-preview
+  Bytecode VM, entry-based run, result.engres typed payload, bytecode snapshots.
 ```
 
 ## Documentation
@@ -73,6 +76,7 @@ v0.3-preview
 - [System architecture](docs/architecture/00_system_overview.md)
 - [Compiler frontend](docs/architecture/02_compiler_frontend.md)
 - [Expected types and quantity completions](docs/architecture/03_expected_types_and_quantities.md)
+- [Data boundary and CSV promote](docs/architecture/04_data_boundary.md)
 - [CLI specification](docs/specs/cli.md)
 - [v8/v9 language policy](docs/specs/language-v8.md)
 - [Fast assignment guide](docs/language/fast_assignment.md)

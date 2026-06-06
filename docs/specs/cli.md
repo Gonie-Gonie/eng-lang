@@ -47,6 +47,10 @@ E-DIM-ADD-004       기타 물리량 + DimensionlessNumber 금지
 E-RESERVED-KEYWORD-001 reserved keyword binding 금지
 W-QTY-AMBIG-001     power = 10 kW ambiguous quantity warning
 W-ENTRY-MAIN-001    preview entry point warning
+E-SCHEMA-PROMOTE-001 unknown schema in promote csv
+E-SCHEMA-CSV-001    CSV source cannot be read
+E-SCHEMA-CSV-002    CSV source missing required columns
+E-SCHEMA-MISSING-001 missing policy references unknown column
 ```
 
 `--review`를 주면 다음 파일을 생성합니다.
@@ -65,6 +69,8 @@ expected_types
 hover_hints
 type_info
 unit_derivations
+schemas
+csv_promotions
 ```
 
 Exit code:

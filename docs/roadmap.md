@@ -12,8 +12,9 @@ Pick the target version first, then read the detailed design chapters.
 
 ```text
 v0.1-preview  complete and tagged
-v0.2-preview  complete and tagged, with v9 backfill in progress
-v0.3-preview  next target
+v0.2-preview  complete and tagged, with v9 backfill
+v0.3-preview  complete on main
+v0.4-preview  next target
 ```
 
 ## v0.1-preview — Repository, CLI, Parser, Unit Seed
@@ -126,10 +127,10 @@ Required outputs:
 Release gate:
 
 ```text
-[ ] promote csv works
-[ ] missing required column error
-[ ] source file provenance recorded
-[ ] schema diagnostics have source spans
+[x] promote csv works
+[x] missing required column error
+[x] source file provenance recorded
+[x] schema diagnostics have source spans
 ```
 
 ## v0.4-preview — Bytecode VM, Entry-based Run, Result File

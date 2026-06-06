@@ -71,6 +71,7 @@ Preview release는 최소 하나의 workflow에서 다음을 보여줘야 합니
 eng.exe doctor
 eng.exe run examples\04_plotting\main.eng
 eng.exe view build\result\result.engres
+eng.exe check examples\05_error_messages\missing_csv_column.eng --review
 ```
 
 릴리즈 노트는 `docs/release/v<version>.md`에 남깁니다.
