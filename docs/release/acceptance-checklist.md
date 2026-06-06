@@ -1,62 +1,27 @@
-# 릴리즈 Acceptance Checklist
+# Release Acceptance Checklist
 
-모든 PR, milestone, release는 다음 질문을 통과해야 합니다.
+Every milestone slice should answer these questions before commit and release.
 
-v9부터 모든 작업은 가능한 한 target version을 명시합니다.
-
-## Master checklist
+## Master Checklist
 
 ```text
-1. 이 변경은 Language/Compiler/Runtime/Tooling/Product 중 어디에 속하는가?
-2. core를 불필요하게 키우지 않는가?
-3. stdlib/package로 분리할 수 있는가?
-4. strict rule이라면 IDE/LSP 보조가 있는가?
-5. public feature라면 example이 있는가?
-6. official example이라면 CI 또는 dev.bat test에서 실행되는가?
-7. result/report/provenance에 영향이 있는가?
-8. Python dependency를 core path에 추가하지 않는가?
-9. top-level side effect를 만들지 않는가?
-10. entry point/Args 정책과 충돌하지 않는가?
-11. system/model 용어 정책과 충돌하지 않는가?
-12. eq/== 정책과 충돌하지 않는가?
-13. PlotSpec/ReportSpec과 연결되는가?
-14. LLM reviewability를 해치지 않는가?
-15. release note와 docs에 반영해야 하는가?
+1. Which target version does this change serve?
+2. Which area changed: language, compiler, runtime, tooling, product, docs, examples, release?
+3. Does the change avoid adding Python or external interpreter dependencies to the core path?
+4. Does it respect the entry point and typed Args policy?
+5. Does it avoid top-level side effects in file run/build?
+6. Does it preserve v8/v9 syntax policy, including fast `=` and no `:=`?
+7. Does it update examples for public behavior?
+8. Does it update README, CLI docs, artifact docs, and release notes when behavior changes?
+9. Does it update result/report/provenance contracts when artifacts change?
+10. Does it add focused tests for new compiler/runtime behavior?
+11. Does it keep generated artifacts reviewable by humans and tooling?
+12. Does it pass `.\dev.bat ci`?
 ```
 
-## Preview release demo 조건
+## Preview Release Commands
 
-Preview release는 최소 하나의 workflow에서 다음을 보여줘야 합니다.
-
-```text
-1. 외부 CSV가 typed boundary를 통과한다.
-2. 물리량은 단위와 quantity kind를 가진다.
-3. TimeSeries 통계가 물리적으로 계산된다.
-4. plot이 자동 생성된다.
-5. report/review artifact가 생성된다.
-6. Python 없이 실행된다.
-```
-
-현재 preview skeleton은 4, 5, 6의 artifact path를 먼저 고정했습니다. 1, 2, 3은 v0.3-v0.5에서 실제 semantic execution으로 강화합니다.
-
-## v1.0 release demo 조건
-
-```text
-1. simple system이 eq 방정식으로 표현된다.
-2. standalone packaged execution이 가능하다.
-3. 결과가 report로 검토 가능하다.
-```
-
-## v2.0 release demo 조건
-
-```text
-1. user-defined domain/port가 가능하다.
-2. multi-domain warning/report가 작동한다.
-3. uncertainty/optimization workflow가 가능하다.
-4. native acceleration path가 있다.
-```
-
-## Release 전 필수 명령
+Run from the repository root:
 
 ```bat
 .\dev.bat clean
@@ -65,13 +30,45 @@ Preview release는 최소 하나의 workflow에서 다음을 보여줘야 합니
 .\dev.bat package
 ```
 
-생성된 `dist/englang-preview`에서 다음을 수동 확인합니다.
+Smoke the portable package from `dist\englang-preview`:
 
 ```bat
 eng.exe doctor
-eng.exe run examples\04_plotting\main.eng
+eng.exe entries examples\04_plotting\main.eng
+eng.exe run examples\04_plotting\main.eng --entry main
 eng.exe view build\result\result.engres
 eng.exe check examples\05_error_messages\missing_csv_column.eng --review
+eng.exe run examples\05_error_messages\missing_entry.eng
 ```
 
-릴리즈 노트는 `docs/release/v<version>.md`에 남깁니다.
+The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
+
+## v0.4 Gate
+
+```text
+[x] .engbc generated
+[x] .engbc has bytecode version header
+[x] bytecode encode/decode test
+[x] VM scalar execution test
+[x] VM array value seed test
+[x] result.engres generated
+[x] result.engres has result format version
+[x] file run requires an entry point
+[x] `eng entries` lists script entries
+[x] no Python dependency in core run path
+```
+
+## v1.0 Demo Direction
+
+The v1.0 demo must show:
+
+```text
+1. typed CSV boundary
+2. unit/quantity-aware calculations
+3. TimeSeries statistics
+4. PlotSpec-driven SVG/report
+5. reviewable result/report/provenance
+6. packaged or portable execution
+```
+
+Release notes live in `docs/release/v<version>.md`.

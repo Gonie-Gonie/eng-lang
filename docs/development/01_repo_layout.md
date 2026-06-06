@@ -1,125 +1,158 @@
-# Repo 구조와 책임
+# Repository Layout
 
-현재 repo는 v0.1-preview 개발을 시작하기 위한 최소 구조입니다.
+Current v0.4-preview layout:
 
 ```text
 .
-├── crates/
-│   ├── eng_cli/        사용자-facing eng.exe
-│   ├── eng_compiler/   source check, diagnostics, review JSON, bytecode text skeleton
-│   ├── eng_runtime/    run/build/doctor artifact orchestration
-│   └── eng_report/     SVG plot, HTML review report renderer
-├── docs/
-│   ├── architecture/   시스템 구조와 artifact 설계
-│   ├── development/    setup, workflow, 환경 재현성
-│   ├── master-plan/    원본 v8 마스터 플랜
-│   ├── release/        acceptance checklist
-│   └── specs/          CLI와 language policy
-├── examples/
-│   ├── 01_units/
-│   ├── 02_csv_plot/
-│   ├── 04_plotting/
-│   └── 05_error_messages/
-├── scripts/
-│   └── dev.ps1         모든 개발 명령의 유일한 PowerShell entry
-├── stdlib/             preview prelude와 unit registry
-├── dev.bat             공통 PowerShell execution-policy bypass wrapper
-├── rust-toolchain.toml pinned Rust toolchain
-└── Cargo.toml          Rust workspace
+|-- crates/
+|   |-- eng_cli/        user-facing eng.exe commands
+|   |-- eng_compiler/   lexer/parser, diagnostics, semantic metadata, bytecode v1
+|   |-- eng_runtime/    run/build/doctor, VM seed, result artifact orchestration
+|   `-- eng_report/     SVG plot and HTML review report renderer
+|-- docs/
+|   |-- architecture/   system and artifact design
+|   |-- development/    setup, workflow, reproducibility
+|   |-- master-plan/    source v8/v9 planning documents
+|   |-- reference/      command references
+|   |-- release/        acceptance checklist and release notes
+|   |-- runtime/        bytecode/VM/result contracts
+|   `-- specs/          CLI and language policy
+|-- examples/
+|   |-- 01_units/
+|   |-- 02_csv_plot/
+|   |-- 04_plotting/
+|   `-- 05_error_messages/
+|-- scripts/
+|   `-- dev.ps1         the only PowerShell development entry
+|-- stdlib/             preview prelude and unit registry
+|-- dev.bat             common execution-policy bypass wrapper
+|-- rust-toolchain.toml pinned Rust toolchain descriptor
+`-- Cargo.toml          Rust workspace
 ```
 
-## Layer 책임
+## `eng_cli`
 
-### `eng_cli`
+Builds `eng.exe`.
 
-`eng.exe` binary를 만듭니다.
+Current commands:
 
-담당:
+```text
+doctor
+new
+check
+entries
+run
+build
+view
+test
+```
 
-- `doctor`
-- `new`
-- `check`
-- `run`
-- `build`
-- `view`
-- `test`
+Rules:
 
-규칙:
+```text
+- CLI parsing stays dependency-light and std-only for the preview.
+- User-facing behavior changes must update docs/specs/cli.md.
+- Artifact changes must update docs/architecture/01_runtime_artifacts.md.
+```
 
-- CLI parsing은 당분간 std만 사용합니다.
-- 사용자-facing 출력이 바뀌면 `docs/specs/cli.md`를 갱신합니다.
-- command가 새 artifact를 만들면 `docs/architecture/01_runtime_artifacts.md`를 갱신합니다.
+## `eng_compiler`
 
-### `eng_compiler`
+Checks `.eng` source and emits reviewable compiler metadata.
 
-`.eng` source를 검사하고 diagnostics/review/bytecode skeleton을 만듭니다.
+Current responsibilities:
 
-현재 preview 구현:
+```text
+lexer/parser
+source spans
+script entry metadata
+fast `=` declarations
+no `:=` diagnostic
+dimensionless diagnostics
+ambiguous quantity warning
+schema and CSV promotion analysis
+entry selection data
+bytecode v1 encode/decode
+review.json serialization
+```
 
-- `:=` 금지 diagnostic
-- dimensionless + physical addition error
-- schema public boundary annotation error
-- ambiguous `power = 10 kW` warning
-- fast declaration inferred declaration table
+Long-term responsibilities:
 
-장기 책임:
+```text
+name resolution
+unit/dimension/quantity-kind checking
+axis/shape checking
+typed IR
+function table
+bytecode/source map emission
+```
 
-- lexer/parser
-- typed AST
-- name resolution
-- unit/dimension/quantity-kind checking
-- axis/shape checking
-- typed IR
-- bytecode emission
+## `eng_runtime`
 
-### `eng_runtime`
+Turns compiler output into run/build artifacts.
 
-compiler output을 받아 실행 artifact를 배치합니다.
+Current outputs:
 
-현재 preview 생성물:
+```text
+.engbc
+.engres
+review.json
+report.html
+plots/timeseries.svg
+dist package placeholders
+```
 
-- `.engbc`
-- `.engres`
-- `review.json`
-- `report.html`
-- `plots/timeseries.svg`
+Current runtime responsibilities:
 
-장기 책임:
+```text
+entry-required file run/build policy
+bytecode decode
+VM instruction execution
+object store seed
+result.engres v1 generation
+source/bytecode/data provenance
+```
 
-- bytecode VM
-- result store
-- provenance capture
-- package execution
-- standalone build orchestration
+Long-term responsibilities:
 
-### `eng_report`
+```text
+numeric execution
+TimeSeries pages
+PlotSpec payloads
+package execution
+standalone build orchestration
+```
 
-사람이 검토 가능한 artifact를 만듭니다.
+## `eng_report`
 
-현재 preview:
+Creates reviewable artifacts.
 
-- 기본 SVG plot
-- HTML review report
+Current outputs:
 
-장기 책임:
+```text
+SVG preview plot
+HTML review report
+```
 
-- PlotSpec renderer
-- report spec renderer
-- review card renderer
-- unit-aware axis label
-- provenance table
+Long-term responsibilities:
 
-## Core path 금지 사항
+```text
+PlotSpec renderer
+report spec renderer
+review card renderer
+unit-aware axis labels
+provenance tables
+```
 
-다음은 core execution path에 추가하지 않습니다.
+## Core Path Rules
+
+The official `eng.exe run` path must not depend on:
 
 ```text
 X Python backend
-X matplotlib 기반 plotting
-X Python package 기반 report 생성
-X 사용자 PC의 전역 toolchain에 의존하는 실행 경로
-X axis=0/axis=1 중심 public API
+X matplotlib plotting
+X Python package report generation
+X global user-machine toolchains
+X axis=0/axis=1 public APIs
 ```
 
-개발 보조 script에서 임시로 외부 도구를 쓰는 것은 가능하지만, `eng.exe run`으로 이어지는 공식 경로에는 넣지 않습니다.
-
+Use `dev.bat` for development tasks. Do not add extra PowerShell entry scripts unless they are routed through the shared wrapper.

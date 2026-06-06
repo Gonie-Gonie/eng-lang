@@ -1,91 +1,114 @@
-# 시스템 아키텍처
+# System Overview
 
-EngLang의 공식 실행 경로는 다음입니다.
+EngLang's official execution path is:
 
 ```text
 .eng source
-  -> compiler front-end
+  -> compiler front end
   -> typed semantic model
   -> .engbc bytecode
-  -> eng runtime / VM
+  -> native runtime / VM
   -> .engres typed result
   -> PlotSpec
   -> SVG plot
   -> HTML report + review.json
 ```
 
-현재 repo의 preview 구현은 이 경로의 이름과 artifact를 먼저 고정합니다. 내부 typed IR과 VM은 milestone별로 채워 넣습니다.
+The repository implements this path incrementally. v0.4-preview is the first version where `eng run` writes bytecode, decodes it, executes a native VM seed, and writes `result.engres` from the VM execution record.
 
-## 주요 계층
+## Crates
 
 ```text
 eng_cli
-  사용자 명령을 받고 compiler/runtime을 호출한다.
+  User-facing `eng.exe` command surface.
 
 eng_compiler
-  source를 검사하고 diagnostics, inferred declaration, bytecode skeleton을 만든다.
+  Source check, diagnostics, AST, semantic metadata, entry selection data, and bytecode v1.
 
 eng_runtime
-  build/result directory를 만들고 runtime artifact를 생성한다.
+  Run/build orchestration, bytecode VM seed, object store, result.engres generation, and doctor checks.
 
 eng_report
-  사람이 검토 가능한 SVG/HTML artifact를 만든다.
+  SVG and HTML review artifact generation.
 
 stdlib
-  prelude와 unit registry의 repo-local 기준 파일이다.
+  Repo-local prelude and unit registry seed.
 ```
 
-## Strict boundary
+## Current Runtime Boundary
 
-외부 데이터는 직접 계산에 들어오지 않습니다.
+v0.4-preview:
 
 ```text
-foreign source
-  -> schema
-  -> validation
-  -> unit conversion
-  -> typed table/time-series
+source
+  -> check_file
+  -> select entry
+  -> build_bytecode
+  -> parse_bytecode
+  -> execute_bytecode
+  -> result_json
 ```
 
-현재 preview는 syntax와 review artifact를 먼저 둡니다. v0.3부터 schema symbol table과 CSV validation을 실제 구현합니다.
+The VM object store currently supports:
+
+```text
+scalar
+table
+array
+```
+
+Schema columns remain public boundary metadata. They are not emitted as runtime scalar objects.
+
+## Data Boundary
+
+Foreign data crosses into EngLang through schemas:
+
+```text
+CSV source
+  -> schema
+  -> header validation
+  -> source hash provenance
+  -> typed table object seed
+```
+
+v0.5 will build TimeSeries/statistics behavior on top of this boundary.
 
 ## Reviewability
 
-LLM이 생성한 코드를 사람이 줄마다 읽는 방식에 의존하지 않습니다. 모든 실행은 최소한 다음을 남겨야 합니다.
+Every run produces human-readable artifacts:
 
 ```text
-diagnostics
-inferred declarations
+build/<stem>.engbc
+build/result/result.engres
+build/result/review.json
+build/result/report.html
+build/result/plots/timeseries.svg
+```
+
+These artifacts carry:
+
+```text
 source hash
-runtime version
+bytecode hash
 compiler version
-result file
-report file
-plot file
+runtime version
+entry metadata
+schema/CSV provenance
+diagnostics
+typed binding summaries
+object store summary
 ```
 
-장기적으로 추가할 항목:
+## Deliberately Out of Core Path
 
-```text
-data hash
-schema hash
-unit conversion history
-solver setting
-numeric profile
-random seed
-semantic diff
-physical sanity checks
-```
-
-## Preview에서 의도적으로 하지 않는 것
+The official core path must not use:
 
 ```text
 X Python code generation
-X matplotlib report
-X full parser
-X optimized VM
-X full standalone AOT
+X Python runtime backend
+X matplotlib report generation
+X user-machine global toolchain assumptions
+X axis=0/axis=1 as the public data model
 ```
 
-이들은 누락이 아니라 milestone 분리입니다.
-
+Development helper scripts may use local tools, but `eng.exe run` must stay native and reproducible.

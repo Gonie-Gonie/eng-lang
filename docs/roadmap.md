@@ -13,8 +13,9 @@ Pick the target version first, then read the detailed design chapters.
 ```text
 v0.1-preview  complete and tagged
 v0.2-preview  complete and tagged, with v9 backfill
-v0.3-preview  complete on main
-v0.4-preview  next target
+v0.3-preview  complete and tagged
+v0.4-preview  complete on main
+v0.5-preview  next target
 ```
 
 ## v0.1-preview — Repository, CLI, Parser, Unit Seed
@@ -144,13 +145,15 @@ Run `.eng` through bytecode and VM without Python.
 Required outputs:
 
 ```text
-- .engbc bytecode v1
-- eng VM seed
-- object store
-- scalar/table values
-- script main(args: Args) entry execution
-- result.engres v1
-- entry not found diagnostic
+[x] .engbc bytecode v1
+[x] eng VM seed
+[x] object store
+[x] scalar/table/array value seed
+[x] script main(args: Args) entry execution
+[x] result.engres v1
+[x] entry not found diagnostic
+[x] bytecode encode/decode test
+[x] VM scalar execution test
 ```
 
 ## v0.5-preview — TimeSeries, Statistics, Lazy Summary

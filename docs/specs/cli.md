@@ -1,23 +1,25 @@
-# CLI 명세
+# CLI Specification
 
-초기 사용자-facing entry point는 `eng.exe` 하나입니다.
+The initial user-facing entry point is one executable: `eng.exe`.
+
+## Commands
 
 ```text
 eng.exe doctor
 eng.exe new <project_name>
-eng.exe check <file.eng>
-eng.exe run <file.eng>
-eng.exe run <file.eng> --open-report
-eng.exe build <file.eng> --standalone
+eng.exe check <file.eng> [--review]
+eng.exe entries <file.eng>
+eng.exe run <file.eng> [--entry <name>] [--open-report]
+eng.exe build <file.eng> [--entry <name>] [--standalone] [--profile repro]
 eng.exe view <result.engres>
 eng.exe test <project_or_examples>
 ```
 
 ## `eng doctor`
 
-환경 점검.
+Checks the local preview environment.
 
-현재 checks:
+Current checks:
 
 ```text
 Runtime
@@ -29,41 +31,45 @@ Write permission
 Example files
 ```
 
-성공하면 `Ready.`를 출력하고 exit code 0을 반환합니다.
+Success prints `Ready.` and returns exit code 0.
 
 ## `eng check <file.eng> [--review]`
 
-source를 검사합니다. simulation은 실행하지 않습니다.
+Checks source and writes optional review metadata. It does not execute the entry point.
 
-현재 diagnostics:
+Current diagnostics:
 
 ```text
-E-SYNTAX-DECL-001   := 금지
-E-PUBLIC-ANNOTATION-001 schema column explicit annotation 필요
-E-DIM-ADD-001       Length + DimensionlessNumber 금지
-E-DIM-ADD-002       DimensionlessNumber + HeatRate 금지
-E-DIM-ADD-003       AbsoluteTemperature + DimensionlessNumber 금지
-E-DIM-ADD-004       기타 물리량 + DimensionlessNumber 금지
-E-RESERVED-KEYWORD-001 reserved keyword binding 금지
-W-QTY-AMBIG-001     power = 10 kW ambiguous quantity warning
-W-ENTRY-MAIN-001    preview entry point warning
-E-SCHEMA-PROMOTE-001 unknown schema in promote csv
-E-SCHEMA-CSV-001    CSV source cannot be read
-E-SCHEMA-CSV-002    CSV source missing required columns
-E-SCHEMA-MISSING-001 missing policy references unknown column
+E-SYNTAX-DECL-001      := is not EngLang syntax
+E-PUBLIC-ANNOTATION-001 schema columns require explicit quantity/unit annotations
+E-DIM-ADD-001          Length + DimensionlessNumber is invalid
+E-DIM-ADD-002          DimensionlessNumber + power quantity is invalid
+E-DIM-ADD-003          AbsoluteTemperature + DimensionlessNumber is invalid
+E-DIM-ADD-004          other physical quantity + DimensionlessNumber is invalid
+E-RESERVED-KEYWORD-001 reserved keyword binding is invalid
+W-QTY-AMBIG-001        ambiguous quantity warning
+W-ENTRY-MAIN-001       non-main script entry warning
+E-SCHEMA-PROMOTE-001   unknown schema in promote csv
+E-SCHEMA-CSV-001       CSV source cannot be read
+E-SCHEMA-CSV-002       CSV source missing required columns
+E-SCHEMA-MISSING-001   missing policy references unknown column
+E-ENTRY-NOT-FOUND-001  run/build entry point was not found
+E-ENTRY-MULTIPLE-001   run/build entry point selection is ambiguous
 ```
 
-`--review`를 주면 다음 파일을 생성합니다.
+`--review` writes:
 
 ```text
 build/check/<source-stem>.review.json
 ```
 
-Review JSON에는 v0.2부터 다음 semantic skeleton도 포함됩니다.
+Review JSON includes:
 
 ```text
 syntax_summary
 quantity_completion_count
+diagnostics
+entry_points
 inferred_declarations
 expected_types
 hover_hints
@@ -81,9 +87,32 @@ Exit code:
 2 compile/check failure
 ```
 
-## `eng run <file.eng> [--open-report]`
+## `eng entries <file.eng>`
 
-check 후 artifact를 생성합니다.
+Lists script entry points discovered by the compiler.
+
+Example:
+
+```text
+examples\04_plotting\main.eng:8: script main(args: Args) -> Report
+```
+
+This command is useful before running files with multiple script entries.
+
+## `eng run <file.eng> [--entry <name>] [--open-report]`
+
+Runs the selected entry through bytecode v1 and the native VM seed.
+
+Default entry selection:
+
+```text
+1. If `--entry <name>` is passed, use that entry.
+2. Otherwise, use `script main` when present.
+3. Otherwise, use the only entry if the file has exactly one entry.
+4. Otherwise, return an entry diagnostic.
+```
+
+Generated artifacts:
 
 ```text
 build/
@@ -95,11 +124,11 @@ build/
     plots/timeseries.svg
 ```
 
-`--open-report`는 생성된 `report.html`을 OS 기본 브라우저로 열려고 시도합니다. 실패해도 artifact 생성 성공 자체는 유지합니다.
+`--open-report` attempts to open the generated `report.html` with the OS default browser.
 
-## `eng build <file.eng> --standalone --profile repro`
+## `eng build <file.eng> [--entry <name>] --standalone --profile repro`
 
-preview standalone package candidate를 생성합니다.
+Creates a preview standalone package candidate:
 
 ```text
 dist/
@@ -109,17 +138,17 @@ dist/
   <model>.review.html
 ```
 
-v1.0까지 실제 packaged execution으로 확장합니다.
+The preview `.exe` remains a placeholder. The package records source hash, bytecode hash, and selected entry.
 
 ## `eng view <result.engres>`
 
-result 파일과 같은 directory의 `report.html`을 찾습니다.
+Prints the result path and the sibling `report.html` path when it exists.
 
-현재 preview는 경로 출력만 수행합니다. 장기적으로 result viewer를 연결합니다.
+The long-term result viewer will be connected to the typed `.engres` payload.
 
 ## `eng new <project_name>`
 
-새 EngLang project skeleton을 생성합니다.
+Creates a starter EngLang project:
 
 ```text
 <project_name>/
@@ -130,9 +159,12 @@ result 파일과 같은 directory의 `report.html`을 찾습니다.
 
 ## `eng test <project_or_examples>`
 
-official examples smoke test입니다.
+Runs official smoke checks:
 
-현재:
-
-- 정상 예제 3개 check
-- error 예제 1개가 실패 diagnostic을 내는지 확인
+```text
+- official good examples check
+- unit mismatch example produces errors
+- ambiguous power example produces a warning
+- missing CSV column example produces errors
+- missing entry example fails file run/build entry selection
+```

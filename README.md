@@ -23,12 +23,14 @@ On Windows, use the root `dev.bat` wrapper for all development commands. It bypa
 target\debug\eng.exe doctor
 target\debug\eng.exe check examples\05_error_messages\unit_mismatch.eng --review
 target\debug\eng.exe check examples\05_error_messages\ambiguous_power.eng --review
+target\debug\eng.exe entries examples\04_plotting\main.eng
 target\debug\eng.exe run examples\04_plotting\main.eng
+target\debug\eng.exe run examples\04_plotting\main.eng --entry main
 target\debug\eng.exe build examples\04_plotting\main.eng --standalone --profile repro
 target\debug\eng.exe view build\result\result.engres
 ```
 
-`eng run` generates preview artifacts even before the full VM is implemented:
+`eng run` now lowers through bytecode v1 and the native VM seed:
 
 ```text
 build/
@@ -56,13 +58,18 @@ v0.2-preview
 v0.3-preview
   Schema symbol table, promote csv validation, CSV header checks, source file
   hash provenance, missing policy/constraint seed metadata.
+
+v0.4-preview
+  Bytecode v1, entry-based run, VM object store seed, scalar/table runtime
+  values, result.engres v1 typed payload, entry listing and missing-entry error.
 ```
 
 Active planning target:
 
 ```text
-v0.4-preview
-  Bytecode VM, entry-based run, result.engres typed payload, bytecode snapshots.
+v0.5-preview
+  TimeSeries type seed, axis metadata, statistics summaries, integrate review
+  metadata, lazy summary cache, HeatRate sum lint.
 ```
 
 ## Documentation
@@ -77,6 +84,8 @@ v0.4-preview
 - [Compiler frontend](docs/architecture/02_compiler_frontend.md)
 - [Expected types and quantity completions](docs/architecture/03_expected_types_and_quantities.md)
 - [Data boundary and CSV promote](docs/architecture/04_data_boundary.md)
+- [Bytecode VM and result v1](docs/runtime/bytecode.md)
+- [Run command reference](docs/reference/cli_run.md)
 - [CLI specification](docs/specs/cli.md)
 - [v8/v9 language policy](docs/specs/language-v8.md)
 - [Fast assignment guide](docs/language/fast_assignment.md)
