@@ -1,6 +1,6 @@
 # Bytecode VM and Result v1
 
-v0.4-preview establishes the first executable EngLang runtime path:
+v0.4-preview established the first executable EngLang runtime path. v0.5-preview adds TimeSeries/statistics metadata to that path:
 
 ```text
 .eng source
@@ -36,7 +36,7 @@ Header:
 ENGBYTECODE 1
 format = engbc-v1
 bytecode_version = 1
-compiler_version = 0.4.0
+compiler_version = 0.5.0
 source_hash = ...
 source_bytes = ...
 source_lines = ...
@@ -55,6 +55,7 @@ Object records:
 ```text
 table|<binding>|<schema>|<row_count>|<source_hash>|<line>
 scalar|<binding>|<quantity_kind>|<display_unit>|<line>
+timeseries|<binding>|<axis>|<quantity_kind>|<display_unit>|<line>
 array|<binding>|<element_type>|<len>|<line>
 ```
 
@@ -64,7 +65,8 @@ Instruction records:
 0000|enter_entry|script|main
 0001|load_table|sensor
 0002|load_scalar|cp
-0003|write_result|engres-v1
+0003|load_timeseries|Q_coil
+0004|write_result|engres-v1
 ```
 
 Current opcodes:
@@ -73,6 +75,7 @@ Current opcodes:
 enter_entry
 load_scalar
 load_table
+load_timeseries
 load_array
 write_result
 ```
@@ -84,14 +87,16 @@ The VM object store currently supports:
 ```text
 scalar
 table
+timeseries
 array
 ```
 
 Schema columns are public boundary metadata, not runtime scalar values. The bytecode builder skips schema column bindings and emits runtime objects only for executable script bindings and promoted tables.
+TimeSeries objects carry axis, quantity, and display-unit metadata.
 
 ## Result v1
 
-`result.engres` uses JSON in v0.4:
+`result.engres` uses JSON in v0.4/v0.5:
 
 ```text
 format = engres-v1
@@ -103,14 +108,16 @@ typed_payload
 provenance
 ```
 
-The `typed_payload` is a Report seed:
+The `typed_payload` is a Report seed. v0.5 adds lazy statistics and integration metadata:
 
 ```json
 {
   "kind": "Report",
   "status": "ok",
   "result_format": "engres-v1",
-  "vm_steps": []
+  "vm_steps": [],
+  "statistics": [],
+  "integrations": []
 }
 ```
 
@@ -122,6 +129,9 @@ v0.4 includes:
 bytecode encode/decode unit test
 VM scalar execution unit test
 VM array seed unit test
+VM TimeSeries object unit test
+TimeSeries axis/statistics/integration compiler test
+HeatRate sum lint smoke
 entry not found run smoke
 official example run smoke
 ```

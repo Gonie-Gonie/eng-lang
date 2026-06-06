@@ -14,7 +14,7 @@ EngLang's official execution path is:
   -> HTML report + review.json
 ```
 
-The repository implements this path incrementally. v0.4-preview is the first version where `eng run` writes bytecode, decodes it, executes a native VM seed, and writes `result.engres` from the VM execution record.
+The repository implements this path incrementally. v0.4-preview is the first version where `eng run` writes bytecode, decodes it, executes a native VM seed, and writes `result.engres` from the VM execution record. v0.5-preview adds TimeSeries/statistics metadata to the same path.
 
 ## Crates
 
@@ -49,11 +49,21 @@ source
   -> result_json
 ```
 
+v0.5-preview adds:
+
+```text
+TimeSeries[Time] of HeatRate
+axis metadata
+lazy summary cache metadata
+integrate(HeatRate over Time) -> Energy metadata
+```
+
 The VM object store currently supports:
 
 ```text
 scalar
 table
+timeseries
 array
 ```
 
@@ -71,7 +81,7 @@ CSV source
   -> typed table object seed
 ```
 
-v0.5 will build TimeSeries/statistics behavior on top of this boundary.
+v0.5 builds TimeSeries/statistics metadata on top of this boundary. Numeric kernels remain deferred.
 
 ## Reviewability
 

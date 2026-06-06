@@ -62,14 +62,18 @@ v0.3-preview
 v0.4-preview
   Bytecode v1, entry-based run, VM object store seed, scalar/table runtime
   values, result.engres v1 typed payload, entry listing and missing-entry error.
+
+v0.5-preview
+  TimeSeries[Time] inference, axis metadata, statistics summary metadata,
+  lazy summary cache keys, integrate provenance, HeatRate sum lint.
 ```
 
 Active planning target:
 
 ```text
-v0.5-preview
-  TimeSeries type seed, axis metadata, statistics summaries, integrate review
-  metadata, lazy summary cache, HeatRate sum lint.
+v0.6-preview
+  PlotSpec v1, line plot planning, unit-aware axis labels, SVG export from
+  PlotSpec, plot manifest.
 ```
 
 ## Documentation
@@ -85,6 +89,7 @@ v0.5-preview
 - [Expected types and quantity completions](docs/architecture/03_expected_types_and_quantities.md)
 - [Data boundary and CSV promote](docs/architecture/04_data_boundary.md)
 - [Bytecode VM and result v1](docs/runtime/bytecode.md)
+- [TimeSeries statistics guide](docs/guide/timeseries_statistics.md)
 - [Run command reference](docs/reference/cli_run.md)
 - [CLI specification](docs/specs/cli.md)
 - [v8/v9 language policy](docs/specs/language-v8.md)

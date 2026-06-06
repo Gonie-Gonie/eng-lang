@@ -49,14 +49,16 @@ Current v0.4 sections:
 objects:
 table|sensor|SensorData|4|<csv_hash>|9
 scalar|cp|SpecificHeat|J/kg/K|10
+timeseries|Q_coil|Time|HeatRate|W|11
 scalar|E_coil|Energy|J|12
 
 instructions:
 0000|enter_entry|script|main
 0001|load_table|sensor
 0002|load_scalar|cp
-0003|load_scalar|E_coil
-0004|write_result|engres-v1
+0003|load_timeseries|Q_coil
+0004|load_scalar|E_coil
+0005|write_result|engres-v1
 ```
 
 The format is intentionally text for early review and snapshot testing. It can move to a compact binary encoding after the contract is stable.
@@ -92,6 +94,7 @@ Current v0.4 fields:
   "object_store": {
     "scalar_count": 2,
     "table_count": 1,
+    "timeseries_count": 1,
     "array_count": 0,
     "objects": []
   },
@@ -99,7 +102,9 @@ Current v0.4 fields:
     "kind": "Report",
     "status": "ok",
     "result_format": "engres-v1",
-    "vm_steps": []
+    "vm_steps": [],
+    "statistics": [],
+    "integrations": []
   },
   "provenance": {
     "schema_count": 1,
@@ -132,6 +137,9 @@ expected_types
 hover_hints
 type_info
 unit_derivations
+axis_info
+stats_info
+integrations
 schemas
 csv_promotions
 ```
@@ -153,6 +161,9 @@ inferred declarations
 hover hints
 type info
 unit derivations
+axis info
+statistics
+integrations
 schemas
 CSV promotions
 diagnostics

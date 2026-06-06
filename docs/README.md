@@ -18,6 +18,7 @@ This index maps the v9 master plan to the concrete repository work.
 - [Expected types and quantity completions](architecture/03_expected_types_and_quantities.md)
 - [Data boundary and CSV promote](architecture/04_data_boundary.md)
 - [Bytecode VM and result v1](runtime/bytecode.md)
+- [TimeSeries statistics guide](guide/timeseries_statistics.md)
 
 ## Reference
 
@@ -35,6 +36,7 @@ This index maps the v9 master plan to the concrete repository work.
 - [v0.2-preview release notes](release/v0.2-preview.md)
 - [v0.3-preview release notes](release/v0.3-preview.md)
 - [v0.4-preview release notes](release/v0.4-preview.md)
+- [v0.5-preview release notes](release/v0.5-preview.md)
 - [v8 to v9 revision guide](master-plan/EngLang_v8_to_v9_Revision_Guide.md)
 - [v9 master plan](master-plan/EngLang_LongTerm_Development_Master_Plan_v9.md)
 - [v8 master plan](master-plan/EngLang_LongTerm_Development_Master_Plan_v8.md)

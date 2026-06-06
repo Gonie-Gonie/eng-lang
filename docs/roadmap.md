@@ -14,8 +14,9 @@ Pick the target version first, then read the detailed design chapters.
 v0.1-preview  complete and tagged
 v0.2-preview  complete and tagged, with v9 backfill
 v0.3-preview  complete and tagged
-v0.4-preview  complete on main
-v0.5-preview  next target
+v0.4-preview  complete and tagged
+v0.5-preview  complete on main
+v0.6-preview  next target
 ```
 
 ## v0.1-preview — Repository, CLI, Parser, Unit Seed
@@ -167,12 +168,14 @@ Make EngLang usable for first engineering data analysis workflows.
 Required outputs:
 
 ```text
-- TimeSeries[Time] type
-- axis metadata
-- mean/max/min/p95 seed
-- integrate(HeatRate over Time) -> Energy
-- lazy summary cache
-- HeatRate sum lint
+[x] TimeSeries[Time] type
+[x] axis metadata
+[x] mean/max/p95 summary seed
+[x] integrate(HeatRate over Time) -> Energy metadata
+[x] lazy summary cache
+[x] HeatRate sum lint
+[x] TimeSeries VM object
+[x] result.engres statistics/integration payload
 ```
 
 ## v0.6-preview — PlotSpec, Interactive-friendly Plotting, SVG Export

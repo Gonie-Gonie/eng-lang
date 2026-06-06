@@ -38,6 +38,7 @@ eng.exe entries examples\04_plotting\main.eng
 eng.exe run examples\04_plotting\main.eng --entry main
 eng.exe view build\result\result.engres
 eng.exe check examples\05_error_messages\missing_csv_column.eng --review
+eng.exe check examples\05_error_messages\heat_rate_sum.eng --review
 eng.exe run examples\05_error_messages\missing_entry.eng
 ```
 
@@ -56,6 +57,19 @@ The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
 [x] file run requires an entry point
 [x] `eng entries` lists script entries
 [x] no Python dependency in core run path
+```
+
+## v0.5 Gate
+
+```text
+[x] TimeSeries[Time] of HeatRate is inferred for Q_coil
+[x] axis metadata appears in review.json
+[x] summary statistics metadata appears in review.json
+[x] lazy summary cache key appears in result.engres
+[x] integrate(HeatRate over Time) -> Energy metadata appears in result.engres
+[x] HeatRate sum lint produces W-STATS-SUM-001
+[x] TimeSeries object appears in bytecode and VM object store
+[x] report.html includes axis/statistics/integration sections
 ```
 
 ## v1.0 Demo Direction

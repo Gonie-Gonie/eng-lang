@@ -6,8 +6,8 @@ Current v0.4-preview layout:
 .
 |-- crates/
 |   |-- eng_cli/        user-facing eng.exe commands
-|   |-- eng_compiler/   lexer/parser, diagnostics, semantic metadata, bytecode v1
-|   |-- eng_runtime/    run/build/doctor, VM seed, result artifact orchestration
+|   |-- eng_compiler/   lexer/parser, diagnostics, semantic/stats metadata, bytecode v1
+|   |-- eng_runtime/    run/build/doctor, VM seed, TimeSeries object store, artifacts
 |   `-- eng_report/     SVG plot and HTML review report renderer
 |-- docs/
 |   |-- architecture/   system and artifact design
@@ -70,6 +70,8 @@ no `:=` diagnostic
 dimensionless diagnostics
 ambiguous quantity warning
 schema and CSV promotion analysis
+TimeSeries/statistics metadata
+HeatRate sum lint
 entry selection data
 bytecode v1 encode/decode
 review.json serialization
@@ -108,6 +110,7 @@ entry-required file run/build policy
 bytecode decode
 VM instruction execution
 object store seed
+TimeSeries object seed
 result.engres v1 generation
 source/bytecode/data provenance
 ```

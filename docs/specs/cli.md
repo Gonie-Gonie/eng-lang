@@ -55,6 +55,7 @@ E-SCHEMA-CSV-002       CSV source missing required columns
 E-SCHEMA-MISSING-001   missing policy references unknown column
 E-ENTRY-NOT-FOUND-001  run/build entry point was not found
 E-ENTRY-MULTIPLE-001   run/build entry point selection is ambiguous
+W-STATS-SUM-001        HeatRate summed over Time should use integrate
 ```
 
 `--review` writes:
@@ -75,6 +76,9 @@ expected_types
 hover_hints
 type_info
 unit_derivations
+axis_info
+stats_info
+integrations
 schemas
 csv_promotions
 ```
@@ -165,6 +169,7 @@ Runs official smoke checks:
 - official good examples check
 - unit mismatch example produces errors
 - ambiguous power example produces a warning
+- HeatRate sum example produces W-STATS-SUM-001
 - missing CSV column example produces errors
 - missing entry example fails file run/build entry selection
 ```
