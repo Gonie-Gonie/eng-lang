@@ -1,0 +1,17 @@
+[package]
+name = "eng_runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+eng_compiler = { path = "../eng_compiler" }
+eng_report = { path = "../eng_report" }
+
+[lib]
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+

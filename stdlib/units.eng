@@ -1,0 +1,27 @@
+// EngLang preview unit and quantity registry.
+// The compiler skeleton uses this as the repository-local unit registry.
+
+quantity Length [m]
+quantity AbsoluteTemperature [K]
+quantity TemperatureDelta [K]
+quantity Conductance [W/K]
+quantity SpecificHeat [J/kg/K]
+quantity HeatRate [W]
+quantity ElectricPower [W]
+quantity Energy [J]
+quantity MassFlowRate [kg/s]
+quantity Ratio [1]
+
+unit m
+unit cm
+unit mm
+unit K
+unit degC
+unit W
+unit kW
+unit J
+unit Wh
+unit kWh
+unit MJ
+unit kg/s
+

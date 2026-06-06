@@ -1,0 +1,8 @@
+/target/
+/.dev/
+/build/
+/dist/
+*.engbc
+*.engres
+*.tmp
+

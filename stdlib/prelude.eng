@@ -1,0 +1,13 @@
+// EngLang preview standard library prelude.
+// This file reserves the public names used by official examples.
+
+type Args
+type Report
+type DateTime
+type Time
+
+fn integrate(series, over) -> Energy
+fn mean(series, axis) -> Dimensionless
+fn max(series) -> Dimensionless
+fn p95(series) -> Dimensionless
+

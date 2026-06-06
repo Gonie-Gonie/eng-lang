@@ -1,0 +1,12 @@
+script main(args: Args) -> Report {
+    UA: Conductance = 150 W/K
+    dT: TemperatureDelta = 5 K
+    Q_loss = UA * dT
+    L = 1 m + 20 cm + 3 mm
+
+    return report {
+        show Q_loss
+        show L
+    }
+}
+

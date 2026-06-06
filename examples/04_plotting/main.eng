@@ -1,0 +1,23 @@
+schema SensorData {
+    time: DateTime index
+    T_supply: AbsoluteTemperature [degC]
+    T_return: AbsoluteTemperature [degC]
+    m_dot: MassFlowRate [kg/s]
+}
+
+script main(args: Args) -> Report {
+    sensor = promote csv "../02_csv_plot/data/sensor.csv" as SensorData
+    cp = 4180 J/kg/K
+    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+    E_coil = integrate(Q_coil, over=Time)
+
+    return report {
+        summarize Q_coil by [mean, max, p95]
+        show E_coil
+        plot Q_coil over Time {
+            unit y = kW
+            title = "Coil heat rate"
+        }
+    }
+}
+

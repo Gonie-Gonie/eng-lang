@@ -1,0 +1,19 @@
+name: EngLang CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run repo-local setup
+        shell: cmd
+        run: .\dev.bat setup
+      - name: Run v0.1 CI checks
+        shell: cmd
+        run: .\dev.bat ci

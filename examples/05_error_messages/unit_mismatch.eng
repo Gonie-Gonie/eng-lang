@@ -1,0 +1,12 @@
+script main(args: Args) -> Report {
+    X = 1 m + 20
+    Q = 1 + 2 kW
+    T = 24 degC + 1
+
+    return report {
+        show X
+        show Q
+        show T
+    }
+}
+
