@@ -4,6 +4,7 @@ mod hover;
 mod lexer;
 mod parser;
 mod quantities;
+mod schema;
 mod semantic;
 mod source;
 mod type_info;
@@ -19,6 +20,7 @@ pub use hover::HoverHint;
 pub use lexer::{Keyword, Symbol, Token, TokenKind};
 pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSummary};
 pub use quantities::{all_quantity_completions, QuantityCompletion};
+pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
 pub use semantic::{SemanticProgram, SemanticType, TypedBinding};
 pub use source::SourceSpan;
 pub use type_info::{TypeInfo, TypeInfoSource};
@@ -123,10 +125,17 @@ pub fn check_file(path: impl AsRef<Path>, options: &CheckOptions) -> std::io::Re
 
 pub fn check_source(path: impl AsRef<Path>, source: &str, _options: &CheckOptions) -> CheckReport {
     let parsed = parser::parse_source(source);
-    let semantic_output = semantic::analyze(&parsed);
+    let source_path = path.as_ref();
+    let schema_analysis = schema::analyze_schema(&parsed, source_path.parent());
+    let mut semantic_output = semantic::analyze(&parsed);
+    semantic_output
+        .diagnostics
+        .extend(schema_analysis.diagnostics);
+    semantic_output.semantic_program.schemas = schema_analysis.schemas;
+    semantic_output.semantic_program.csv_promotions = schema_analysis.csv_promotions;
 
     CheckReport {
-        source_path: path.as_ref().to_path_buf(),
+        source_path: source_path.to_path_buf(),
         source_hash: hash_text(source),
         diagnostics: semantic_output.diagnostics,
         inferred_declarations: semantic_output.inferred_declarations,
@@ -174,6 +183,14 @@ pub fn build_bytecode(report: &CheckReport, source: &str) -> String {
     bytecode.push_str(&format!(
         "unit_derivations = {}\n",
         report.semantic_program.unit_derivations.len()
+    ));
+    bytecode.push_str(&format!(
+        "schemas = {}\n",
+        report.semantic_program.schemas.len()
+    ));
+    bytecode.push_str(&format!(
+        "csv_promotions = {}\n",
+        report.semantic_program.csv_promotions.len()
     ));
     bytecode.push_str("entry = script main\n");
     bytecode.push_str("instructions:\n");
@@ -424,6 +441,127 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("]\n");
         json.push_str("    }");
     }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"schemas\": [\n");
+    for (index, schema) in report.semantic_program.schemas.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&schema.name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", schema.line));
+        json.push_str("      \"columns\": [\n");
+        for (column_index, column) in schema.columns.iter().enumerate() {
+            if column_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&column.name)
+            ));
+            json.push_str(&format!(
+                "          \"type_name\": \"{}\",\n",
+                json_escape(&column.type_name)
+            ));
+            if let Some(unit) = &column.unit {
+                json.push_str(&format!("          \"unit\": \"{}\",\n", json_escape(unit)));
+            } else {
+                json.push_str("          \"unit\": null,\n");
+            }
+            json.push_str(&format!("          \"is_index\": {},\n", column.is_index));
+            json.push_str(&format!("          \"line\": {}\n", column.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"constraints\": [\n");
+        for (constraint_index, constraint) in schema.constraints.iter().enumerate() {
+            if constraint_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"text\": \"{}\",\n",
+                json_escape(&constraint.text)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", constraint.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"missing_policies\": [\n");
+        for (policy_index, policy) in schema.missing_policies.iter().enumerate() {
+            if policy_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"column\": \"{}\",\n",
+                json_escape(&policy.column)
+            ));
+            json.push_str(&format!(
+                "          \"policy\": \"{}\",\n",
+                json_escape(&policy.policy)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", policy.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"csv_promotions\": [\n");
+    for (index, promotion) in report.semantic_program.csv_promotions.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&promotion.binding)
+        ));
+        json.push_str(&format!(
+            "      \"schema_name\": \"{}\",\n",
+            json_escape(&promotion.schema_name)
+        ));
+        json.push_str(&format!(
+            "      \"source_literal\": \"{}\",\n",
+            json_escape(&promotion.source_literal)
+        ));
+        json.push_str(&format!(
+            "      \"resolved_path\": \"{}\",\n",
+            json_escape(&promotion.resolved_path)
+        ));
+        if let Some(hash) = &promotion.source_hash {
+            json.push_str(&format!(
+                "      \"source_hash\": \"{}\",\n",
+                json_escape(hash)
+            ));
+        } else {
+            json.push_str("      \"source_hash\": null,\n");
+        }
+        json.push_str(&format!("      \"row_count\": {},\n", promotion.row_count));
+        json.push_str("      \"headers\": [");
+        for (header_index, header) in promotion.headers.iter().enumerate() {
+            if header_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(header)));
+        }
+        json.push_str("],\n");
+        json.push_str("      \"missing_columns\": [");
+        for (missing_index, column) in promotion.missing_columns.iter().enumerate() {
+            if missing_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(column)));
+        }
+        json.push_str("],\n");
+        json.push_str(&format!("      \"line\": {}\n", promotion.line));
+        json.push_str("    }");
+    }
     json.push_str("\n  ]\n");
     json.push_str("}\n");
     json
@@ -582,6 +720,35 @@ mod tests {
 
         assert!(report.has_errors());
         assert_eq!(report.diagnostics[0].code, "E-PUBLIC-ANNOTATION-001");
+    }
+
+    #[test]
+    fn records_schema_symbol_table() {
+        let report = check_source(
+            "ok.eng",
+            "schema SensorData {\n    time: DateTime index\n    T_supply: AbsoluteTemperature [degC]\n    missing {\n        T_supply: interpolate max_gap=10 min\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert_eq!(report.semantic_program.schemas[0].name, "SensorData");
+        assert_eq!(report.semantic_program.schemas[0].columns.len(), 2);
+        assert!(report.semantic_program.schemas[0].columns[0].is_index);
+        assert_eq!(
+            report.semantic_program.schemas[0].missing_policies[0].column,
+            "T_supply"
+        );
+    }
+
+    #[test]
+    fn reports_unknown_promote_schema() {
+        let report = check_source(
+            "bad.eng",
+            "script main(args: Args) -> Report {\n    sensor = promote csv \"data/sensor.csv\" as MissingSchema\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert_eq!(report.diagnostics[0].code, "E-SCHEMA-PROMOTE-001");
     }
 
     #[test]

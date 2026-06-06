@@ -1,4 +1,6 @@
-use crate::ast::{AstItem, ExplicitDecl, FastBinding, SchemaDecl, ScriptDecl};
+use crate::ast::{
+    AstItem, ConstraintDecl, ExplicitDecl, FastBinding, MissingPolicyDecl, SchemaDecl, ScriptDecl,
+};
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
 
@@ -6,6 +8,8 @@ use crate::source::{source_lines, SourceSpan};
 pub enum ParseContext {
     TopLevel,
     Schema,
+    SchemaConstraints,
+    SchemaMissing,
     Script,
     Other,
 }
@@ -48,7 +52,9 @@ impl ParsedProgram {
                 AstItem::Schema(_) => schemas += 1,
                 AstItem::FastBinding(_) => fast_bindings += 1,
                 AstItem::ExplicitDecl(_) => explicit_declarations += 1,
-                AstItem::ReservedKeywordUse { .. } => {}
+                AstItem::Constraint(_)
+                | AstItem::MissingPolicy(_)
+                | AstItem::ReservedKeywordUse { .. } => {}
             }
         }
 
@@ -68,11 +74,17 @@ pub fn parse_source(source: &str) -> ParsedProgram {
     let mut parsed_lines = Vec::new();
     let mut items = Vec::new();
     let mut schema_depth = 0i32;
+    let mut constraints_depth = 0i32;
+    let mut missing_depth = 0i32;
     let mut script_depth = 0i32;
 
     for source_line in source_lines(source) {
         let tokens = lex_line(source_line.line, source_line.start, &source_line.text);
-        let context = if schema_depth > 0 {
+        let context = if missing_depth > 0 {
+            ParseContext::SchemaMissing
+        } else if constraints_depth > 0 {
+            ParseContext::SchemaConstraints
+        } else if schema_depth > 0 {
             ParseContext::Schema
         } else if script_depth > 0 {
             ParseContext::Script
@@ -93,6 +105,30 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             schema_depth += brace_delta(&tokens);
             if schema_depth <= 0 {
                 schema_depth = 0;
+            }
+        }
+
+        if schema_depth > 0 && starts_with_keyword(&tokens, Keyword::Constraints) {
+            constraints_depth += brace_delta(&tokens);
+            if constraints_depth == 0 {
+                constraints_depth = 1;
+            }
+        } else if constraints_depth > 0 {
+            constraints_depth += brace_delta(&tokens);
+            if constraints_depth <= 0 {
+                constraints_depth = 0;
+            }
+        }
+
+        if schema_depth > 0 && starts_with_keyword(&tokens, Keyword::Missing) {
+            missing_depth += brace_delta(&tokens);
+            if missing_depth == 0 {
+                missing_depth = 1;
+            }
+        } else if missing_depth > 0 {
+            missing_depth += brace_delta(&tokens);
+            if missing_depth <= 0 {
+                missing_depth = 0;
             }
         }
 
@@ -139,6 +175,12 @@ fn parse_line_items(
     }
     if let Some(declaration) = parse_explicit_decl(tokens, line_text, context) {
         items.push(AstItem::ExplicitDecl(declaration));
+    }
+    if let Some(constraint) = parse_constraint_decl(tokens, line_text, context) {
+        items.push(AstItem::Constraint(constraint));
+    }
+    if let Some(policy) = parse_missing_policy(tokens, line_text, context) {
+        items.push(AstItem::MissingPolicy(policy));
     }
     if let Some(keyword) = parse_reserved_keyword_use(tokens) {
         items.push(keyword);
@@ -197,6 +239,54 @@ fn parse_fast_binding(
         line: first.span.line,
         span: first.span,
         context,
+    })
+}
+
+fn parse_constraint_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<ConstraintDecl> {
+    if context != ParseContext::SchemaConstraints {
+        return None;
+    }
+    let first = tokens.first()?;
+    if matches!(
+        &first.kind,
+        TokenKind::Symbol(Symbol::LBrace | Symbol::RBrace)
+    ) {
+        return None;
+    }
+    Some(ConstraintDecl {
+        text: line_text.trim().to_owned(),
+        line: first.span.line,
+        span: first.span,
+    })
+}
+
+fn parse_missing_policy(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<MissingPolicyDecl> {
+    if context != ParseContext::SchemaMissing {
+        return None;
+    }
+    let [first, second, ..] = tokens else {
+        return None;
+    };
+    let TokenKind::Identifier(column) = &first.kind else {
+        return None;
+    };
+    if !matches!(second.kind, TokenKind::Symbol(Symbol::Colon)) {
+        return None;
+    }
+    let policy = line_text.split_once(':')?.1.trim().to_owned();
+    Some(MissingPolicyDecl {
+        column: column.clone(),
+        policy,
+        line: first.span.line,
+        span: first.span,
     })
 }
 

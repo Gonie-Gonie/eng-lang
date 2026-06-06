@@ -6,6 +6,7 @@ use crate::quantities::{
     candidates_for_unit, completion_labels, first_unit_in_expression,
     infer_quantity_from_name_and_unit, is_number_literal, QuantityCompletion,
 };
+use crate::schema::{CsvPromotion, SchemaInfo};
 use crate::type_info::{TypeInfo, TypeInfoSource};
 use crate::units::{unit_derivation, UnitDerivation};
 use crate::{Diagnostic, InferredDeclaration};
@@ -30,6 +31,8 @@ pub struct SemanticProgram {
     pub hover_hints: Vec<HoverHint>,
     pub type_infos: Vec<TypeInfo>,
     pub unit_derivations: Vec<UnitDerivation>,
+    pub schemas: Vec<SchemaInfo>,
+    pub csv_promotions: Vec<CsvPromotion>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -113,6 +116,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             hover_hints,
             type_infos,
             unit_derivations,
+            schemas: Vec::new(),
+            csv_promotions: Vec::new(),
         },
     }
 }

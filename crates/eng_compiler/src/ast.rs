@@ -23,6 +23,21 @@ pub struct FastBinding {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ConstraintDecl {
+    pub text: String,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MissingPolicyDecl {
+    pub column: String,
+    pub policy: String,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExplicitDecl {
     pub name: String,
     pub type_name: String,
@@ -37,7 +52,9 @@ pub struct ExplicitDecl {
 pub enum AstItem {
     Schema(SchemaDecl),
     Script(ScriptDecl),
+    Constraint(ConstraintDecl),
     FastBinding(FastBinding),
     ExplicitDecl(ExplicitDecl),
+    MissingPolicy(MissingPolicyDecl),
     ReservedKeywordUse { keyword: String, span: SourceSpan },
 }
