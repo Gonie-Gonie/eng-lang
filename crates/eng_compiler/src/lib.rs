@@ -752,6 +752,18 @@ mod tests {
     }
 
     #[test]
+    fn rejects_missing_policy_for_unknown_column() {
+        let report = check_source(
+            "bad.eng",
+            "schema SensorData {\n    time: DateTime index\n    missing {\n        T_supply: interpolate max_gap=10 min\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert_eq!(report.diagnostics[0].code, "E-SCHEMA-MISSING-001");
+    }
+
+    #[test]
     fn rejects_reserved_eq_binding() {
         let report = check_source("bad.eng", "eq = 1", &CheckOptions::default());
 

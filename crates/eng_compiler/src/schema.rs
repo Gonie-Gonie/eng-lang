@@ -116,6 +116,26 @@ pub fn analyze_schema(
         }
     }
 
+    for schema in &schemas {
+        for policy in &schema.missing_policies {
+            if !schema
+                .columns
+                .iter()
+                .any(|column| column.name == policy.column)
+            {
+                diagnostics.push(Diagnostic::error(
+                    "E-SCHEMA-MISSING-001",
+                    policy.line,
+                    &format!(
+                        "Missing policy references unknown schema column `{}`.",
+                        policy.column
+                    ),
+                    Some("Add the column to the schema or remove the missing policy."),
+                ));
+            }
+        }
+    }
+
     for item in &program.items {
         let AstItem::FastBinding(binding) = item else {
             continue;
