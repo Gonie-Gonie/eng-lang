@@ -171,6 +171,14 @@ E-DIM-ADD-002:
 금지:
 
 ```eng
+Q: HeatRate [kW] = 2 kW - 1
+```
+
+Expected type이 있어도 `1`을 자동으로 `1 kW`로 해석하지 않습니다.
+
+금지:
+
+```eng
 T = 24 degC + 1
 ```
 
@@ -210,6 +218,15 @@ Suggested annotations:
   power: MechanicalPower = 10 kW
 ```
 
+v0.2 name hint:
+
+```eng
+Q_cooling = 10 kW   // HeatRate
+P_fan = 10 kW       // ElectricPower
+shaft_power = 10 kW // MechanicalPower
+power = 10 kW       // warning remains ambiguous
+```
+
 Policy:
 
 ```text
@@ -237,4 +254,3 @@ v1.3 LSP는 다음을 제공해야 합니다.
 7. expand declaration quick fix
 8. where/block local scope 표시
 ```
-

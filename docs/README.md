@@ -14,6 +14,7 @@
 - [시스템 아키텍처](architecture/00_system_overview.md)
 - [Runtime artifact 설계](architecture/01_runtime_artifacts.md)
 - [Compiler frontend](architecture/02_compiler_frontend.md)
+- [Expected types and quantity completions](architecture/03_expected_types_and_quantities.md)
 - [CLI 명세](specs/cli.md)
 - [v8 문법 정책](specs/language-v8.md)
 
@@ -22,6 +23,7 @@
 - [로드맵](roadmap.md)
 - [릴리즈 acceptance checklist](release/acceptance-checklist.md)
 - [v0.1-preview release notes](release/v0.1-preview.md)
+- [v0.2-preview release notes](release/v0.2-preview.md)
 - [원본 v8 마스터 플랜](master-plan/EngLang_LongTerm_Development_Master_Plan_v8.md)
 
 ## 문서 작성 규칙

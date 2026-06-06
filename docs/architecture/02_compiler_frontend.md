@@ -96,13 +96,31 @@ W-ENTRY-MAIN-001
 
 Semantic output은 `TypedBinding` skeleton을 만들고, `review.json`, `.engbc`, `report.html`에 summary로 반영됩니다.
 
-## v0.2로 넘기는 일
+## v0.2에서 추가된 일
+
+```text
+- expected type internal API skeleton
+- quantity completion data table skeleton
+- ambiguous quantity warning refinement
+- dimensionless + physical operation checker expansion
+- inferred declaration hover data structure
+```
+
+`CheckReport`에는 이제 다음 semantic review data가 들어갑니다.
+
+```text
+semantic_program.typed_bindings
+semantic_program.expected_types
+semantic_program.hover_hints
+quantity_completion_count
+```
+
+## v0.3으로 넘기는 일
 
 ```text
 - expression parser
 - symbol table
-- expected type API
-- quantity completion data table
+- schema symbol table
+- typed CSV promote validation
 - richer span diagnostics
 ```
-

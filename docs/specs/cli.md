@@ -43,13 +43,26 @@ E-PUBLIC-ANNOTATION-001 schema column explicit annotation 필요
 E-DIM-ADD-001       Length + DimensionlessNumber 금지
 E-DIM-ADD-002       DimensionlessNumber + HeatRate 금지
 E-DIM-ADD-003       AbsoluteTemperature + DimensionlessNumber 금지
+E-DIM-ADD-004       기타 물리량 + DimensionlessNumber 금지
+E-RESERVED-KEYWORD-001 reserved keyword binding 금지
 W-QTY-AMBIG-001     power = 10 kW ambiguous quantity warning
+W-ENTRY-MAIN-001    preview entry point warning
 ```
 
 `--review`를 주면 다음 파일을 생성합니다.
 
 ```text
 build/check/<source-stem>.review.json
+```
+
+Review JSON에는 v0.2부터 다음 semantic skeleton도 포함됩니다.
+
+```text
+syntax_summary
+quantity_completion_count
+inferred_declarations
+expected_types
+hover_hints
 ```
 
 Exit code:
@@ -115,4 +128,3 @@ official examples smoke test입니다.
 
 - 정상 예제 3개 check
 - error 예제 1개가 실패 diagnostic을 내는지 확인
-

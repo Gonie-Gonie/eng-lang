@@ -110,4 +110,6 @@ stdlib/
 docs/
 ```
 
+`package` 명령은 기존 `dist/englang-preview`를 삭제한 뒤 다시 생성합니다.
+
 이 구조는 장기적으로 “zip 해제 후 Python 없이 `eng.exe doctor`와 `eng.exe run`이 되는 배포물”로 확장합니다.

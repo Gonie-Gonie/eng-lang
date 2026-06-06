@@ -48,6 +48,7 @@ build/
 - [재현 가능한 개발 환경 정책](docs/development/03_environment_reproducibility.md)
 - [시스템 아키텍처](docs/architecture/00_system_overview.md)
 - [Compiler frontend](docs/architecture/02_compiler_frontend.md)
+- [Expected types and quantity completions](docs/architecture/03_expected_types_and_quantities.md)
 - [CLI 명세](docs/specs/cli.md)
 - [v8 문법 정책](docs/specs/language-v8.md)
 - [로드맵](docs/roadmap.md)

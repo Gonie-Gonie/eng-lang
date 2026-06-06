@@ -39,6 +39,8 @@ v0.1 완료 기준:
 
 ## v0.2-preview
 
+현재 repo에 포함:
+
 ```text
 - expected type internal API skeleton
 - quantity completion data table skeleton

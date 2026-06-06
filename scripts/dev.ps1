@@ -157,6 +157,7 @@ function Invoke-Package {
     }
     Invoke-Native $cargo "build" "--workspace" "--release"
     $PackageRoot = Join-Path $RepoRoot "dist\englang-preview"
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $PackageRoot
     New-Item -ItemType Directory -Force -Path $PackageRoot | Out-Null
     Copy-Item -Force (Join-Path $RepoRoot "target\release\eng.exe") (Join-Path $PackageRoot "eng.exe")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "examples") (Join-Path $PackageRoot "examples")
