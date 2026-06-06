@@ -1,4 +1,5 @@
 use crate::ast::{AstItem, ExplicitDecl, FastBinding};
+use crate::entry::EntryPoint;
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType};
 use crate::hover::HoverHint;
 use crate::parser::{ParseContext, ParsedProgram};
@@ -33,6 +34,7 @@ pub struct SemanticProgram {
     pub unit_derivations: Vec<UnitDerivation>,
     pub schemas: Vec<SchemaInfo>,
     pub csv_promotions: Vec<CsvPromotion>,
+    pub entry_points: Vec<EntryPoint>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -50,6 +52,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut hover_hints = Vec::new();
     let mut type_infos = Vec::new();
     let mut unit_derivations = Vec::new();
+    let mut entry_points = Vec::new();
 
     for line in &program.lines {
         if line.tokens.iter().any(|token| {
@@ -69,13 +72,16 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
 
     for item in &program.items {
         match item {
-            AstItem::Script(script) if script.name != "main" => {
-                diagnostics.push(Diagnostic::warning(
-                    "W-ENTRY-MAIN-001",
-                    script.span.line,
-                    "Preview execution expects `script main(args: Args) -> Report`.",
-                    Some("Rename this entry to `main` or keep it as a non-entry script for later milestones."),
-                ));
+            AstItem::Script(script) => {
+                entry_points.push(EntryPoint::from_script(script));
+                if script.name != "main" {
+                    diagnostics.push(Diagnostic::warning(
+                        "W-ENTRY-MAIN-001",
+                        script.span.line,
+                        "Preview execution expects `script main(args: Args) -> Report`.",
+                        Some("Rename this entry to `main` or run with `--entry <name>`."),
+                    ));
+                }
             }
             AstItem::ExplicitDecl(declaration) => analyze_explicit_decl(
                 declaration,
@@ -118,6 +124,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             unit_derivations,
             schemas: Vec::new(),
             csv_promotions: Vec::new(),
+            entry_points,
         },
     }
 }

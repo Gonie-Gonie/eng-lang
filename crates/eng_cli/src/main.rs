@@ -3,7 +3,9 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use eng_compiler::{check_file, review_json, CheckOptions, Severity};
-use eng_runtime::{build_standalone, create_project, doctor, run_file, RunOptions, RuntimeError};
+use eng_runtime::{
+    build_standalone, create_project, doctor, run_file, BuildOptions, RunOptions, RuntimeError,
+};
 
 fn main() -> ExitCode {
     let mut args: Vec<String> = env::args().skip(1).collect();
@@ -16,6 +18,7 @@ fn main() -> ExitCode {
     match command.as_str() {
         "doctor" => command_doctor(),
         "check" => command_check(args),
+        "entries" => command_entries(args),
         "run" => command_run(args),
         "build" => command_build(args),
         "view" => command_view(args),
@@ -110,17 +113,47 @@ fn command_check(args: Vec<String>) -> ExitCode {
     }
 }
 
+fn command_entries(args: Vec<String>) -> ExitCode {
+    let Some(path) = first_non_flag(&args) else {
+        eprintln!("usage: eng entries <file.eng>");
+        return ExitCode::from(2);
+    };
+    let report = match check_file(&path, &CheckOptions::default()) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+
+    if report.semantic_program.entry_points.is_empty() {
+        println!("No entry points found.");
+    } else {
+        for entry in &report.semantic_program.entry_points {
+            println!("{}:{}: {}", path, entry.line, entry.signature());
+        }
+    }
+
+    if report.has_errors() {
+        print_diagnostics(&report);
+        ExitCode::from(2)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
 fn command_run(args: Vec<String>) -> ExitCode {
     let Some(path) = first_non_flag(&args) else {
-        eprintln!("usage: eng run <file.eng> [--open-report]");
+        eprintln!("usage: eng run <file.eng> [--entry <name>] [--open-report]");
         return ExitCode::from(2);
     };
     let open_report = args.iter().any(|arg| arg == "--open-report");
+    let entry = option_value(&args, "--entry");
 
     match run_file(
         Path::new(&path),
         Path::new("build"),
-        &RunOptions { open_report },
+        &RunOptions { open_report, entry },
     ) {
         Ok(output) => {
             println!("bytecode: {}", output.bytecode_path.display());
@@ -138,16 +171,25 @@ fn command_run(args: Vec<String>) -> ExitCode {
             eprintln!("{error}");
             ExitCode::from(1)
         }
+        Err(RuntimeError::Bytecode(error)) => {
+            eprintln!("{error}");
+            ExitCode::from(1)
+        }
+        Err(RuntimeError::Vm(error)) => {
+            eprintln!("{error}");
+            ExitCode::from(1)
+        }
     }
 }
 
 fn command_build(args: Vec<String>) -> ExitCode {
     let Some(path) = first_non_flag(&args) else {
-        eprintln!("usage: eng build <file.eng> [--standalone] [--profile repro]");
+        eprintln!("usage: eng build <file.eng> [--entry <name>] [--standalone] [--profile repro]");
         return ExitCode::from(2);
     };
+    let entry = option_value(&args, "--entry");
 
-    match build_standalone(Path::new(&path), Path::new("dist")) {
+    match build_standalone(Path::new(&path), Path::new("dist"), &BuildOptions { entry }) {
         Ok(output) => {
             println!("standalone package candidate");
             println!("executable: {}", output.executable_path.display());
@@ -161,6 +203,14 @@ fn command_build(args: Vec<String>) -> ExitCode {
             ExitCode::from(2)
         }
         Err(RuntimeError::Io(error)) => {
+            eprintln!("{error}");
+            ExitCode::from(1)
+        }
+        Err(RuntimeError::Bytecode(error)) => {
+            eprintln!("{error}");
+            ExitCode::from(1)
+        }
+        Err(RuntimeError::Vm(error)) => {
             eprintln!("{error}");
             ExitCode::from(1)
         }
@@ -279,11 +329,54 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         return ExitCode::from(2);
     }
     println!("ok: examples/05_error_messages/missing_csv_column.eng produced diagnostics");
+
+    match run_file(
+        Path::new("examples/05_error_messages/missing_entry.eng"),
+        Path::new("build/test-missing-entry"),
+        &RunOptions::default(),
+    ) {
+        Err(RuntimeError::Compile(report))
+            if report
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "E-ENTRY-NOT-FOUND-001") =>
+        {
+            println!("ok: examples/05_error_messages/missing_entry.eng requires an entry point");
+        }
+        Err(error) => {
+            eprintln!("expected missing_entry.eng to fail with E-ENTRY-NOT-FOUND-001: {error}");
+            return ExitCode::from(2);
+        }
+        Ok(_) => {
+            eprintln!("expected missing_entry.eng to fail");
+            return ExitCode::from(2);
+        }
+    }
     ExitCode::SUCCESS
 }
 
 fn first_non_flag(args: &[String]) -> Option<String> {
-    args.iter().find(|arg| !arg.starts_with('-')).cloned()
+    let mut skip_next = false;
+    for arg in args {
+        if skip_next {
+            skip_next = false;
+            continue;
+        }
+        if matches!(arg.as_str(), "--entry" | "--profile") {
+            skip_next = true;
+            continue;
+        }
+        if !arg.starts_with('-') {
+            return Some(arg.clone());
+        }
+    }
+    None
+}
+
+fn option_value(args: &[String], name: &str) -> Option<String> {
+    args.windows(2)
+        .find(|window| window[0] == name)
+        .map(|window| window[1].clone())
 }
 
 fn print_diagnostics(report: &eng_compiler::CheckReport) {
@@ -317,8 +410,9 @@ Usage:
   eng doctor
   eng new <project_name>
   eng check <file.eng> [--review]
-  eng run <file.eng> [--open-report]
-  eng build <file.eng> [--standalone] [--profile repro]
+  eng entries <file.eng>
+  eng run <file.eng> [--entry <name>] [--open-report]
+  eng build <file.eng> [--entry <name>] [--standalone] [--profile repro]
   eng view <result.engres>
   eng test <project_or_examples>
 

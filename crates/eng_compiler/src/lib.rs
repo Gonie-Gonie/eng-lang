@@ -1,4 +1,6 @@
 mod ast;
+mod bytecode;
+mod entry;
 mod expected;
 mod hover;
 mod lexer;
@@ -15,6 +17,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub use ast::{AstItem, ExplicitDecl, FastBinding, SchemaDecl, ScriptDecl};
+pub use bytecode::{
+    build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
+    BytecodeParseError, BytecodeProgram, BYTECODE_FORMAT, BYTECODE_VERSION,
+};
+pub use entry::{select_entry, EntryPoint};
 pub use expected::{ExpectedType, ExpectedTypeSource};
 pub use hover::HoverHint;
 pub use lexer::{Keyword, Symbol, Token, TokenKind};
@@ -146,58 +153,8 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, _options: &CheckOption
     }
 }
 
-pub fn build_bytecode(report: &CheckReport, source: &str) -> String {
-    let mut bytecode = String::new();
-    bytecode.push_str("ENGBYTECODE 0.1\n");
-    bytecode.push_str("format = engbc-preview-1\n");
-    bytecode.push_str(&format!("compiler_version = {}\n", COMPILER_VERSION));
-    bytecode.push_str(&format!("source_hash = {}\n", report.source_hash));
-    bytecode.push_str(&format!("source_bytes = {}\n", source.len()));
-    bytecode.push_str(&format!("source_lines = {}\n", report.syntax_summary.lines));
-    bytecode.push_str(&format!("tokens = {}\n", report.syntax_summary.tokens));
-    bytecode.push_str(&format!(
-        "ast_items = {}\n",
-        report.syntax_summary.ast_items
-    ));
-    bytecode.push_str(&format!(
-        "typed_bindings = {}\n",
-        report.semantic_program.typed_bindings.len()
-    ));
-    bytecode.push_str(&format!(
-        "expected_types = {}\n",
-        report.semantic_program.expected_types.len()
-    ));
-    bytecode.push_str(&format!(
-        "hover_hints = {}\n",
-        report.semantic_program.hover_hints.len()
-    ));
-    bytecode.push_str(&format!(
-        "quantity_completions = {}\n",
-        report.quantity_completion_count
-    ));
-    bytecode.push_str(&format!("unit_infos = {}\n", report.unit_info_count));
-    bytecode.push_str(&format!(
-        "type_infos = {}\n",
-        report.semantic_program.type_infos.len()
-    ));
-    bytecode.push_str(&format!(
-        "unit_derivations = {}\n",
-        report.semantic_program.unit_derivations.len()
-    ));
-    bytecode.push_str(&format!(
-        "schemas = {}\n",
-        report.semantic_program.schemas.len()
-    ));
-    bytecode.push_str(&format!(
-        "csv_promotions = {}\n",
-        report.semantic_program.csv_promotions.len()
-    ));
-    bytecode.push_str("entry = script main\n");
-    bytecode.push_str("instructions:\n");
-    bytecode.push_str("  0000 LOAD_TYPED_SOURCE\n");
-    bytecode.push_str("  0001 VALIDATE_SEMANTICS\n");
-    bytecode.push_str("  0002 EMIT_RESULT\n");
-    bytecode
+pub fn build_bytecode(report: &CheckReport, source: &str, entry: &EntryPoint) -> String {
+    encode_bytecode(&build_bytecode_program(report, source, entry))
 }
 
 pub fn review_json(report: &CheckReport) -> String {
@@ -279,6 +236,49 @@ pub fn review_json(report: &CheckReport) -> String {
         } else {
             json.push('\n');
         }
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"entry_points\": [\n");
+    for (index, entry) in report.semantic_program.entry_points.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"kind\": \"{}\",\n",
+            json_escape(&entry.kind)
+        ));
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&entry.name)
+        ));
+        if let Some(arg_name) = &entry.arg_name {
+            json.push_str(&format!(
+                "      \"arg_name\": \"{}\",\n",
+                json_escape(arg_name)
+            ));
+        } else {
+            json.push_str("      \"arg_name\": null,\n");
+        }
+        if let Some(arg_type) = &entry.arg_type {
+            json.push_str(&format!(
+                "      \"arg_type\": \"{}\",\n",
+                json_escape(arg_type)
+            ));
+        } else {
+            json.push_str("      \"arg_type\": null,\n");
+        }
+        if let Some(return_type) = &entry.return_type {
+            json.push_str(&format!(
+                "      \"return_type\": \"{}\",\n",
+                json_escape(return_type)
+            ));
+        } else {
+            json.push_str("      \"return_type\": null,\n");
+        }
+        json.push_str(&format!("      \"line\": {}\n", entry.line));
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -630,8 +630,62 @@ mod tests {
         );
 
         assert_eq!(report.syntax_summary.scripts, 1);
+        assert_eq!(report.semantic_program.entry_points[0].name, "main");
+        assert_eq!(
+            report.semantic_program.entry_points[0].arg_type.as_deref(),
+            Some("Args")
+        );
+        assert_eq!(
+            report.semantic_program.entry_points[0]
+                .return_type
+                .as_deref(),
+            Some("Report")
+        );
         assert_eq!(report.syntax_summary.fast_bindings, 1);
         assert_eq!(report.inferred_declarations[0].quantity_kind, "Length");
+    }
+
+    #[test]
+    fn selects_default_script_main_entry() {
+        let report = check_source(
+            "ok.eng",
+            "script main(args: Args) -> Report {\n    L = 1 m\n}\n",
+            &CheckOptions::default(),
+        );
+
+        let entry = select_entry(&report.semantic_program.entry_points, None).unwrap();
+
+        assert_eq!(entry.signature(), "script main(args: Args) -> Report");
+    }
+
+    #[test]
+    fn reports_missing_run_entry() {
+        let report = check_source("bad.eng", "L = 1 m\n", &CheckOptions::default());
+
+        let diagnostic = select_entry(&report.semantic_program.entry_points, None).unwrap_err();
+
+        assert_eq!(diagnostic.code, "E-ENTRY-NOT-FOUND-001");
+    }
+
+    #[test]
+    fn bytecode_v1_round_trips_entry_and_instructions() {
+        let source = "script main(args: Args) -> Report {\n    L = 1 m\n}\n";
+        let report = check_source("ok.eng", source, &CheckOptions::default());
+        let entry = select_entry(&report.semantic_program.entry_points, None).unwrap();
+
+        let bytecode = build_bytecode(&report, source, &entry);
+        let decoded = parse_bytecode(&bytecode).unwrap();
+
+        assert!(bytecode.starts_with("ENGBYTECODE 1\nformat = engbc-v1\n"));
+        assert!(bytecode.contains("entry = script main\n"));
+        assert!(bytecode.contains("0000|enter_entry|script|main\n"));
+        assert_eq!(decoded.entry.name, "main");
+        assert_eq!(
+            decoded.instructions.last(),
+            Some(&BytecodeInstruction::WriteResult {
+                format: "engres-v1".to_owned()
+            })
+        );
     }
 
     #[test]

@@ -213,10 +213,56 @@ fn parse_script_decl(tokens: &[Token]) -> Option<ScriptDecl> {
     let TokenKind::Identifier(name) = &second.kind else {
         return None;
     };
+    let (arg_name, arg_type) = parse_script_arg(tokens);
+    let return_type = parse_script_return(tokens);
     Some(ScriptDecl {
         name: name.clone(),
+        arg_name,
+        arg_type,
+        return_type,
         span: first.span,
     })
+}
+
+fn parse_script_arg(tokens: &[Token]) -> (Option<String>, Option<String>) {
+    for window in tokens.windows(5) {
+        let [open, arg_name, colon, arg_type, close] = window else {
+            continue;
+        };
+        if !matches!(open.kind, TokenKind::Symbol(Symbol::LParen))
+            || !matches!(colon.kind, TokenKind::Symbol(Symbol::Colon))
+            || !matches!(close.kind, TokenKind::Symbol(Symbol::RParen))
+        {
+            continue;
+        }
+        let Some(arg_name) = token_type_name(arg_name) else {
+            continue;
+        };
+        let Some(arg_type) = token_type_name(arg_type) else {
+            continue;
+        };
+        return (Some(arg_name), Some(arg_type));
+    }
+
+    (None, None)
+}
+
+fn parse_script_return(tokens: &[Token]) -> Option<String> {
+    for (index, token) in tokens.iter().enumerate() {
+        if !matches!(token.kind, TokenKind::Symbol(Symbol::Arrow)) {
+            continue;
+        }
+        return tokens.get(index + 1).and_then(token_type_name);
+    }
+    None
+}
+
+fn token_type_name(token: &Token) -> Option<String> {
+    match &token.kind {
+        TokenKind::Identifier(value) => Some(value.clone()),
+        TokenKind::Keyword(Keyword::Report) => Some("Report".to_owned()),
+        _ => None,
+    }
 }
 
 fn parse_fast_binding(

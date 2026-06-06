@@ -4,13 +4,26 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use eng_compiler::{build_bytecode, check_file, review_json, CheckOptions, CheckReport};
+use eng_compiler::{
+    build_bytecode, check_file, parse_bytecode, review_json, select_entry, CheckOptions,
+    CheckReport,
+};
+
+mod vm;
+
+pub use vm::{execute_bytecode, VmExecution, VmObject, VmObjectKind};
 
 pub const RUNTIME_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Clone, Debug, Default)]
 pub struct RunOptions {
     pub open_report: bool,
+    pub entry: Option<String>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct BuildOptions {
+    pub entry: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -52,6 +65,8 @@ impl DoctorReport {
 pub enum RuntimeError {
     Io(std::io::Error),
     Compile(Box<CheckReport>),
+    Bytecode(eng_compiler::BytecodeParseError),
+    Vm(vm::VmError),
 }
 
 impl fmt::Display for RuntimeError {
@@ -63,6 +78,8 @@ impl fmt::Display for RuntimeError {
                 "compile failed with {} error(s)",
                 report.diagnostic_count(eng_compiler::Severity::Error)
             ),
+            Self::Bytecode(error) => write!(formatter, "bytecode decode failed: {error}"),
+            Self::Vm(error) => write!(formatter, "VM execution failed: {error}"),
         }
     }
 }
@@ -72,6 +89,18 @@ impl Error for RuntimeError {}
 impl From<std::io::Error> for RuntimeError {
     fn from(value: std::io::Error) -> Self {
         Self::Io(value)
+    }
+}
+
+impl From<eng_compiler::BytecodeParseError> for RuntimeError {
+    fn from(value: eng_compiler::BytecodeParseError) -> Self {
+        Self::Bytecode(value)
+    }
+}
+
+impl From<vm::VmError> for RuntimeError {
+    fn from(value: vm::VmError) -> Self {
+        Self::Vm(value)
     }
 }
 
@@ -119,6 +148,18 @@ pub fn run_file(
     if check_report.has_errors() {
         return Err(RuntimeError::Compile(Box::new(check_report)));
     }
+    let entry = match select_entry(
+        &check_report.semantic_program.entry_points,
+        options.entry.as_deref(),
+    ) {
+        Ok(entry) => entry,
+        Err(diagnostic) => {
+            return Err(RuntimeError::Compile(with_diagnostic(
+                check_report,
+                diagnostic,
+            )))
+        }
+    };
 
     let stem = path
         .file_stem()
@@ -134,14 +175,21 @@ pub fn run_file(
     let plot_path = plots_dir.join("timeseries.svg");
     let report_path = result_dir.join("report.html");
 
-    fs::write(&bytecode_path, build_bytecode(&check_report, &source))?;
+    let bytecode = build_bytecode(&check_report, &source, &entry);
+    let bytecode_hash = hash_text(&bytecode);
+    fs::write(&bytecode_path, &bytecode)?;
+    let bytecode_program = parse_bytecode(&bytecode)?;
+    let execution = execute_bytecode(&bytecode_program)?;
     fs::write(&review_path, review_json(&check_report))?;
     fs::write(&plot_path, eng_report::render_svg("EngLang preview plot"))?;
     fs::write(
         &report_path,
         eng_report::render_html(&check_report, "plots/timeseries.svg"),
     )?;
-    fs::write(&result_path, result_json(path, &check_report))?;
+    fs::write(
+        &result_path,
+        result_json(path, &check_report, &execution, &bytecode_hash),
+    )?;
 
     if options.open_report {
         open_path(&report_path);
@@ -156,12 +204,30 @@ pub fn run_file(
     })
 }
 
-pub fn build_standalone(path: &Path, dist_root: &Path) -> Result<BuildOutput, RuntimeError> {
+pub fn build_standalone(
+    path: &Path,
+    dist_root: &Path,
+    options: &BuildOptions,
+) -> Result<BuildOutput, RuntimeError> {
     let source = fs::read_to_string(path)?;
     let check_report = check_file(path, &CheckOptions { review: true })?;
     if check_report.has_errors() {
         return Err(RuntimeError::Compile(Box::new(check_report)));
     }
+    let entry = match select_entry(
+        &check_report.semantic_program.entry_points,
+        options.entry.as_deref(),
+    ) {
+        Ok(entry) => entry,
+        Err(diagnostic) => {
+            return Err(RuntimeError::Compile(with_diagnostic(
+                check_report,
+                diagnostic,
+            )))
+        }
+    };
+    let bytecode = build_bytecode(&check_report, &source, &entry);
+    let bytecode_hash = hash_text(&bytecode);
 
     fs::create_dir_all(dist_root)?;
     let stem = path
@@ -180,9 +246,10 @@ pub fn build_standalone(path: &Path, dist_root: &Path) -> Result<BuildOutput, Ru
     fs::write(
         &package_path,
         format!(
-            "format = engpkg-preview-1\nsource_hash = {}\nbytecode_hash = {}\n",
+            "format = engpkg-preview-1\nsource_hash = {}\nbytecode_hash = {}\nentry = {}\n",
             check_report.source_hash,
-            source.len()
+            bytecode_hash,
+            entry.signature()
         ),
     )?;
     fs::write(
@@ -237,6 +304,14 @@ script main(args: Args) -> Report {
     Ok(())
 }
 
+fn with_diagnostic(
+    mut report: CheckReport,
+    diagnostic: eng_compiler::Diagnostic,
+) -> Box<CheckReport> {
+    report.diagnostics.push(diagnostic);
+    Box::new(report)
+}
+
 fn file_check(name: &'static str, path: &Path) -> DoctorCheck {
     DoctorCheck {
         name,
@@ -259,7 +334,12 @@ fn write_permission_check(repo_root: &Path) -> DoctorCheck {
     }
 }
 
-fn result_json(path: &Path, report: &CheckReport) -> String {
+fn result_json(
+    path: &Path,
+    report: &CheckReport,
+    execution: &VmExecution,
+    bytecode_hash: &str,
+) -> String {
     let mut data_hashes = String::new();
     for (index, promotion) in report.semantic_program.csv_promotions.iter().enumerate() {
         if index > 0 {
@@ -282,15 +362,93 @@ fn result_json(path: &Path, report: &CheckReport) -> String {
         data_hashes.push_str("      }");
     }
 
+    let mut objects = String::new();
+    for (index, object) in execution.objects.iter().enumerate() {
+        if index > 0 {
+            objects.push_str(",\n");
+        }
+        objects.push_str("      {\n");
+        objects.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&object.name)
+        ));
+        objects.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            vm_object_kind(object)
+        ));
+        objects.push_str(&format!(
+            "        \"type\": \"{}\"",
+            json_escape(&object.type_name)
+        ));
+        if let Some(display_unit) = &object.display_unit {
+            objects.push_str(&format!(
+                ",\n        \"display_unit\": \"{}\"",
+                json_escape(display_unit)
+            ));
+        }
+        if let Some(row_count) = object.row_count {
+            objects.push_str(&format!(",\n        \"row_count\": {row_count}"));
+        }
+        if let Some(len) = object.len {
+            objects.push_str(&format!(",\n        \"len\": {len}"));
+        }
+        if let Some(source_hash) = &object.source_hash {
+            objects.push_str(&format!(
+                ",\n        \"source_hash\": \"{}\"",
+                json_escape(source_hash)
+            ));
+        }
+        objects.push_str("\n      }");
+    }
+
+    let mut steps = String::new();
+    for (index, step) in execution.steps.iter().enumerate() {
+        if index > 0 {
+            steps.push_str(", ");
+        }
+        steps.push_str(&format!("\"{}\"", json_escape(step)));
+    }
+
     format!(
-        "{{\n  \"format\": \"engres-preview-1\",\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"preview\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"preview\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
+        eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
         report.source_hash,
+        bytecode_hash,
+        json_escape(&execution.entry.kind),
+        json_escape(&execution.entry.name),
+        json_escape(execution.entry.arg_name.as_deref().unwrap_or("args")),
+        json_escape(execution.entry.arg_type.as_deref().unwrap_or("Args")),
+        json_escape(execution.entry.return_type.as_deref().unwrap_or("Report")),
+        execution.scalar_count(),
+        execution.table_count(),
+        execution.array_count(),
+        objects,
+        json_escape(execution.entry.return_type.as_deref().unwrap_or("Report")),
+        json_escape(&execution.result_format),
+        steps,
         report.semantic_program.schemas.len(),
         report.semantic_program.csv_promotions.len(),
         data_hashes
     )
+}
+
+fn vm_object_kind(object: &VmObject) -> &'static str {
+    match object.kind {
+        VmObjectKind::Scalar => "scalar",
+        VmObjectKind::Table => "table",
+        VmObjectKind::Array => "array",
+    }
+}
+
+fn hash_text(source: &str) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in source.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
 }
 
 fn json_escape(value: &str) -> String {

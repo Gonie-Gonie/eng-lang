@@ -155,6 +155,23 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
         csv_promotions.push_str("<tr><td colspan=\"6\">No CSV promotions.</td></tr>");
     }
 
+    let mut entry_points = String::new();
+    for entry in &report.semantic_program.entry_points {
+        entry_points.push_str("<tr>");
+        entry_points.push_str(&format!(
+            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+            entry.line,
+            html_escape(&entry.kind),
+            html_escape(&entry.name),
+            html_escape(entry.arg_type.as_deref().unwrap_or("Args")),
+            html_escape(entry.return_type.as_deref().unwrap_or("Report"))
+        ));
+        entry_points.push_str("</tr>");
+    }
+    if entry_points.is_empty() {
+        entry_points.push_str("<tr><td colspan=\"5\">No entry points.</td></tr>");
+    }
+
     let error_count = report.diagnostic_count(Severity::Error);
     let warning_count = report.diagnostic_count(Severity::Warning);
     let syntax_items = report.syntax_summary.ast_items;
@@ -167,6 +184,7 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     let unit_derivation_count = report.semantic_program.unit_derivations.len();
     let schema_count = report.semantic_program.schemas.len();
     let csv_promotion_count = report.semantic_program.csv_promotions.len();
+    let entry_point_count = report.semantic_program.entry_points.len();
     let plot_relative_path = html_escape(plot_relative_path);
 
     format!(
@@ -263,9 +281,15 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
       <div class="metric"><span>Unit Derivations</span><strong>{unit_derivation_count}</strong></div>
       <div class="metric"><span>Schemas</span><strong>{schema_count}</strong></div>
       <div class="metric"><span>CSV Promotions</span><strong>{csv_promotion_count}</strong></div>
+      <div class="metric"><span>Entry Points</span><strong>{entry_point_count}</strong></div>
       <div class="metric"><span>Compiler</span><strong>{compiler_version}</strong></div>
       <div class="metric"><span>Report</span><strong>{report_version}</strong></div>
     </section>
+    <h2>Entry Points</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Kind</th><th>Name</th><th>Args</th><th>Returns</th></tr></thead>
+      <tbody>{entry_points}</tbody>
+    </table>
     <h2>Inferred Declarations</h2>
     <table>
       <thead><tr><th>Line</th><th>Name</th><th>Quantity</th><th>Display Unit</th><th>Expression</th></tr></thead>

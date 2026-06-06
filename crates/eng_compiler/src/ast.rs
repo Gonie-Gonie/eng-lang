@@ -10,6 +10,9 @@ pub struct SchemaDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ScriptDecl {
     pub name: String,
+    pub arg_name: Option<String>,
+    pub arg_type: Option<String>,
+    pub return_type: Option<String>,
     pub span: SourceSpan,
 }
 
