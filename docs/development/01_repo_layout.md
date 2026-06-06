@@ -8,7 +8,7 @@ Current v0.4-preview layout:
 |   |-- eng_cli/        user-facing eng.exe commands
 |   |-- eng_compiler/   lexer/parser, diagnostics, semantic/stats metadata, bytecode v1
 |   |-- eng_runtime/    run/build/doctor, VM seed, TimeSeries object store, artifacts
-|   `-- eng_report/     SVG plot and HTML review report renderer
+|   `-- eng_report/     PlotSpec, SVG plot, HTML review report renderer
 |-- docs/
 |   |-- architecture/   system and artifact design
 |   |-- development/    setup, workflow, reproducibility
@@ -132,7 +132,9 @@ Creates reviewable artifacts.
 Current outputs:
 
 ```text
-SVG preview plot
+PlotSpec v1
+SVG plot from PlotSpec
+plot manifest
 HTML review report
 ```
 

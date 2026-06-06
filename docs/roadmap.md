@@ -15,8 +15,9 @@ v0.1-preview  complete and tagged
 v0.2-preview  complete and tagged, with v9 backfill
 v0.3-preview  complete and tagged
 v0.4-preview  complete and tagged
-v0.5-preview  complete on main
-v0.6-preview  next target
+v0.5-preview  complete and tagged
+v0.6-preview  complete on main
+v0.7-alpha    next target
 ```
 
 ## v0.1-preview — Repository, CLI, Parser, Unit Seed
@@ -183,12 +184,13 @@ Required outputs:
 Required outputs:
 
 ```text
-- PlotSpec v1
-- line plot
-- axis unit labels
-- interactive-friendly plot data model
-- SVG export from PlotSpec
-- plot manifest
+[x] PlotSpec v1
+[x] line plot
+[x] axis unit labels
+[x] interactive-friendly plot data model
+[x] SVG export from PlotSpec
+[x] plot manifest
+[x] eng view basic plot listing
 ```
 
 ## v0.7-alpha — Basic Report and Review Artifact

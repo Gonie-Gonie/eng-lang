@@ -37,6 +37,8 @@ eng.exe doctor
 eng.exe entries examples\04_plotting\main.eng
 eng.exe run examples\04_plotting\main.eng --entry main
 eng.exe view build\result\result.engres
+type build\result\plots\plot_spec.json
+type build\result\plots\plot_manifest.json
 eng.exe check examples\05_error_messages\missing_csv_column.eng --review
 eng.exe check examples\05_error_messages\heat_rate_sum.eng --review
 eng.exe run examples\05_error_messages\missing_entry.eng
@@ -70,6 +72,18 @@ The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
 [x] HeatRate sum lint produces W-STATS-SUM-001
 [x] TimeSeries object appears in bytecode and VM object store
 [x] report.html includes axis/statistics/integration sections
+```
+
+## v0.6 Gate
+
+```text
+[x] official example creates PlotSpec v1
+[x] official example creates plot manifest
+[x] SVG export exists
+[x] SVG plot has unit-aware axis labels
+[x] result.engres records plot_spec_hash
+[x] eng view lists plot manifest
+[x] PlotSpec JSON/SVG unit tests pass
 ```
 
 ## v1.0 Demo Direction

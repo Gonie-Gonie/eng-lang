@@ -1,6 +1,6 @@
 # Bytecode VM and Result v1
 
-v0.4-preview established the first executable EngLang runtime path. v0.5-preview adds TimeSeries/statistics metadata to that path:
+v0.4-preview established the first executable EngLang runtime path. v0.5-preview adds TimeSeries/statistics metadata to that path. v0.6-preview adds PlotSpec/SVG/manifest output:
 
 ```text
 .eng source
@@ -9,6 +9,8 @@ v0.4-preview established the first executable EngLang runtime path. v0.5-preview
   -> .engbc bytecode v1
   -> native VM seed
   -> result.engres v1
+  -> PlotSpec v1
+  -> SVG + plot manifest
   -> review/report artifacts
 ```
 
@@ -36,7 +38,7 @@ Header:
 ENGBYTECODE 1
 format = engbc-v1
 bytecode_version = 1
-compiler_version = 0.5.0
+compiler_version = 0.6.0
 source_hash = ...
 source_bytes = ...
 source_lines = ...
@@ -108,6 +110,12 @@ typed_payload
 provenance
 ```
 
+v0.6 records:
+
+```text
+provenance.plot_spec_hash
+```
+
 The `typed_payload` is a Report seed. v0.5 adds lazy statistics and integration metadata:
 
 ```json
@@ -132,6 +140,8 @@ VM array seed unit test
 VM TimeSeries object unit test
 TimeSeries axis/statistics/integration compiler test
 HeatRate sum lint smoke
+PlotSpec JSON/SVG smoke
+plot manifest smoke
 entry not found run smoke
 official example run smoke
 ```

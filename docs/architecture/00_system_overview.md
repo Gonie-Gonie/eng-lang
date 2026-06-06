@@ -14,7 +14,7 @@ EngLang's official execution path is:
   -> HTML report + review.json
 ```
 
-The repository implements this path incrementally. v0.4-preview is the first version where `eng run` writes bytecode, decodes it, executes a native VM seed, and writes `result.engres` from the VM execution record. v0.5-preview adds TimeSeries/statistics metadata to the same path.
+The repository implements this path incrementally. v0.4-preview is the first version where `eng run` writes bytecode, decodes it, executes a native VM seed, and writes `result.engres` from the VM execution record. v0.5-preview adds TimeSeries/statistics metadata to the same path. v0.6-preview adds PlotSpec v1, SVG rendering from PlotSpec, and a plot manifest.
 
 ## Crates
 
@@ -58,6 +58,16 @@ lazy summary cache metadata
 integrate(HeatRate over Time) -> Energy metadata
 ```
 
+v0.6-preview adds:
+
+```text
+PlotSpec v1
+line plot model
+axis unit labels
+SVG export from PlotSpec
+plot manifest
+```
+
 The VM object store currently supports:
 
 ```text
@@ -93,6 +103,8 @@ build/result/result.engres
 build/result/review.json
 build/result/report.html
 build/result/plots/timeseries.svg
+build/result/plots/plot_spec.json
+build/result/plots/plot_manifest.json
 ```
 
 These artifacts carry:

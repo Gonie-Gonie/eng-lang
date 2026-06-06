@@ -125,7 +125,10 @@ build/
     result.engres
     review.json
     report.html
-    plots/timeseries.svg
+    plots/
+      plot_spec.json
+      plot_manifest.json
+      timeseries.svg
 ```
 
 `--open-report` attempts to open the generated `report.html` with the OS default browser.
@@ -146,7 +149,7 @@ The preview `.exe` remains a placeholder. The package records source hash, bytec
 
 ## `eng view <result.engres>`
 
-Prints the result path and the sibling `report.html` path when it exists.
+Prints the result path, the sibling `report.html` path, and the plot manifest path when it exists.
 
 The long-term result viewer will be connected to the typed `.engres` payload.
 
@@ -172,4 +175,5 @@ Runs official smoke checks:
 - HeatRate sum example produces W-STATS-SUM-001
 - missing CSV column example produces errors
 - missing entry example fails file run/build entry selection
+- official plotting example produces PlotSpec artifacts
 ```

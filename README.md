@@ -39,7 +39,10 @@ build/
     result.engres
     review.json
     report.html
-    plots/timeseries.svg
+    plots/
+      plot_spec.json
+      plot_manifest.json
+      timeseries.svg
 ```
 
 ## Development Milestones
@@ -66,14 +69,18 @@ v0.4-preview
 v0.5-preview
   TimeSeries[Time] inference, axis metadata, statistics summary metadata,
   lazy summary cache keys, integrate provenance, HeatRate sum lint.
+
+v0.6-preview
+  PlotSpec v1, line plot data model, unit-aware axis labels, SVG rendering
+  from PlotSpec, plot manifest, `eng view` plot listing.
 ```
 
 Active planning target:
 
 ```text
-v0.6-preview
-  PlotSpec v1, line plot planning, unit-aware axis labels, SVG export from
-  PlotSpec, plot manifest.
+v0.7-alpha
+  Report/review data model hardening, variable tables, schema summary,
+  plot manifest section, warning list.
 ```
 
 ## Documentation
@@ -90,6 +97,7 @@ v0.6-preview
 - [Data boundary and CSV promote](docs/architecture/04_data_boundary.md)
 - [Bytecode VM and result v1](docs/runtime/bytecode.md)
 - [TimeSeries statistics guide](docs/guide/timeseries_statistics.md)
+- [Plotting guide](docs/guide/plotting.md)
 - [Run command reference](docs/reference/cli_run.md)
 - [CLI specification](docs/specs/cli.md)
 - [v8/v9 language policy](docs/specs/language-v8.md)
