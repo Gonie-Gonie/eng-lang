@@ -58,10 +58,13 @@ git push origin v<version-or-milestone>
 Examples:
 
 ```text
-v1.0-stable
+v1.0.0
 v1.0.1
 v1.1-alpha
 ```
+
+Milestone tags such as `v1.0-stable` can remain as development markers. Public
+GitHub Release tags should prefer SemVer tags such as `v1.0.0` or `v1.0.1`.
 
 ## GitHub Actions Release
 
@@ -90,6 +93,10 @@ tag_name = v1.0-stable
 
 Use manual dispatch when a tag already existed before the release workflow was
 added.
+
+For a SemVer stable tag such as `v1.0.0`, the workflow first looks for
+`docs\release\v1.0.0.md`. If it does not exist, it falls back to
+`docs\release\v1.0-stable.md`.
 
 ## Release Notes
 

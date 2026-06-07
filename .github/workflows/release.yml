@@ -38,14 +38,19 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path build | Out-Null
           $tag = "${env:RELEASE_TAG}"
-          $notesPath = Join-Path "docs\release" "$tag.md"
-          if (Test-Path -LiteralPath $notesPath) {
+          $candidateNotes = @((Join-Path "docs\release" "$tag.md"))
+          if ($tag -match '^v(\d+\.\d+)\.0$') {
+            $candidateNotes += (Join-Path "docs\release" "v$($Matches[1])-stable.md")
+          }
+          $notesPath = $candidateNotes | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          if ($notesPath) {
             Copy-Item -LiteralPath $notesPath -Destination "build\release-notes.md" -Force
-          } else {
+          }
+          else {
             Set-Content -Path "build\release-notes.md" -Encoding utf8 -Value @"
           # EngLang $tag
 
-          Release notes were not found at docs/release/$tag.md.
+          Release notes were not found for $tag.
 
           Artifacts:
           - Windows portable zip
