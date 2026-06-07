@@ -49,6 +49,7 @@ pub struct ReportSpec {
     pub computed_integrations: Vec<ReportComputedIntegration>,
     pub policy_results: Vec<ReportPolicyResult>,
     pub systems: Vec<ReportSystemSummary>,
+    pub system_ir: Vec<ReportSystemIr>,
     pub plot_manifest: ReportPlotManifest,
     pub warnings: Vec<ReportWarning>,
     pub provenance: ReportProvenance,
@@ -200,6 +201,43 @@ pub struct ReportResidual {
     pub expression: String,
     pub dimension: String,
     pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportSystemIr {
+    pub name: String,
+    pub solver_boundary: ReportSolverBoundary,
+    pub equations: Vec<ReportEquationIr>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportSolverBoundary {
+    pub status: String,
+    pub reason: String,
+    pub parameter_count: usize,
+    pub state_count: usize,
+    pub input_count: usize,
+    pub equation_count: usize,
+    pub residual_count: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportEquationIr {
+    pub residual: String,
+    pub relation: String,
+    pub normalized_residual: String,
+    pub dependencies: Vec<ReportEquationDependency>,
+    pub derivative_states: Vec<String>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportEquationDependency {
+    pub name: String,
+    pub role: String,
+    pub quantity_kind: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -394,6 +432,57 @@ pub fn report_spec_from_report(
         .iter()
         .map(|system| system.residuals.len())
         .sum::<usize>();
+    let system_ir = report
+        .semantic_program
+        .systems
+        .iter()
+        .map(|system| ReportSystemIr {
+            name: system.name.clone(),
+            solver_boundary: ReportSolverBoundary {
+                status: "unsolved".to_owned(),
+                reason: "numeric solver deferred until the solver milestone".to_owned(),
+                parameter_count: system
+                    .variables
+                    .iter()
+                    .filter(|variable| variable.role == "parameter")
+                    .count(),
+                state_count: system
+                    .variables
+                    .iter()
+                    .filter(|variable| variable.role == "state")
+                    .count(),
+                input_count: system
+                    .variables
+                    .iter()
+                    .filter(|variable| variable.role == "input")
+                    .count(),
+                equation_count: system.equations.len(),
+                residual_count: system.residuals.len(),
+            },
+            equations: system
+                .equation_ir
+                .iter()
+                .map(|equation| ReportEquationIr {
+                    residual: equation.residual.clone(),
+                    relation: equation.relation.clone(),
+                    normalized_residual: equation.normalized_residual.clone(),
+                    dependencies: equation
+                        .dependencies
+                        .iter()
+                        .map(|dependency| ReportEquationDependency {
+                            name: dependency.name.clone(),
+                            role: dependency.role.clone(),
+                            quantity_kind: dependency.quantity_kind.clone(),
+                        })
+                        .collect(),
+                    derivative_states: equation.derivative_states.clone(),
+                    status: equation.status.clone(),
+                    line: equation.line,
+                })
+                .collect(),
+            line: system.line,
+        })
+        .collect();
 
     ReportSpec {
         source_path: report.source_path.display().to_string(),
@@ -409,6 +498,7 @@ pub fn report_spec_from_report(
         computed_integrations: Vec::new(),
         policy_results: Vec::new(),
         systems,
+        system_ir,
         plot_manifest: ReportPlotManifest {
             path: plot_manifest_relative_path.to_owned(),
             hash: plot_manifest_hash.to_owned(),
@@ -919,6 +1009,106 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             json.push_str("        }");
         }
         json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"system_ir\": [\n");
+    for (index, system) in spec.system_ir.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&system.name)
+        ));
+        json.push_str("      \"solver_boundary\": {\n");
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&system.solver_boundary.status)
+        ));
+        json.push_str(&format!(
+            "        \"reason\": \"{}\",\n",
+            json_escape(&system.solver_boundary.reason)
+        ));
+        json.push_str(&format!(
+            "        \"parameter_count\": {},\n",
+            system.solver_boundary.parameter_count
+        ));
+        json.push_str(&format!(
+            "        \"state_count\": {},\n",
+            system.solver_boundary.state_count
+        ));
+        json.push_str(&format!(
+            "        \"input_count\": {},\n",
+            system.solver_boundary.input_count
+        ));
+        json.push_str(&format!(
+            "        \"equation_count\": {},\n",
+            system.solver_boundary.equation_count
+        ));
+        json.push_str(&format!(
+            "        \"residual_count\": {}\n",
+            system.solver_boundary.residual_count
+        ));
+        json.push_str("      },\n");
+        json.push_str("      \"equations\": [\n");
+        for (equation_index, equation) in system.equations.iter().enumerate() {
+            if equation_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"residual\": \"{}\",\n",
+                json_escape(&equation.residual)
+            ));
+            json.push_str(&format!(
+                "          \"relation\": \"{}\",\n",
+                json_escape(&equation.relation)
+            ));
+            json.push_str(&format!(
+                "          \"normalized_residual\": \"{}\",\n",
+                json_escape(&equation.normalized_residual)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&equation.status)
+            ));
+            json.push_str("          \"dependencies\": [\n");
+            for (dependency_index, dependency) in equation.dependencies.iter().enumerate() {
+                if dependency_index > 0 {
+                    json.push_str(",\n");
+                }
+                json.push_str("            {\n");
+                json.push_str(&format!(
+                    "              \"name\": \"{}\",\n",
+                    json_escape(&dependency.name)
+                ));
+                json.push_str(&format!(
+                    "              \"role\": \"{}\",\n",
+                    json_escape(&dependency.role)
+                ));
+                json.push_str(&format!(
+                    "              \"quantity_kind\": \"{}\"\n",
+                    json_escape(&dependency.quantity_kind)
+                ));
+                json.push_str("            }");
+            }
+            json.push_str("\n          ],\n");
+            json.push_str("          \"derivative_states\": [");
+            for (state_index, state) in equation.derivative_states.iter().enumerate() {
+                if state_index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&format!("\"{}\"", json_escape(state)));
+            }
+            json.push_str("],\n");
+            json.push_str(&format!("          \"line\": {}\n", equation.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str(&format!("      \"line\": {}\n", system.line));
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -1760,7 +1950,15 @@ mod tests {
         assert_eq!(spec.provenance.system_count, 1);
         assert_eq!(spec.provenance.equation_count, 1);
         assert_eq!(spec.systems[0].equations[0].status, "unit_consistent");
+        assert_eq!(spec.system_ir[0].solver_boundary.status, "unsolved");
+        assert_eq!(spec.system_ir[0].equations[0].dependencies.len(), 5);
+        assert_eq!(
+            spec.system_ir[0].equations[0].derivative_states,
+            vec!["T".to_owned()]
+        );
         assert!(json.contains("\"system_summary\""));
+        assert!(json.contains("\"system_ir\""));
+        assert!(json.contains("\"solver_boundary\""));
         assert!(json.contains("\"RoomThermal.residual_1\""));
         assert!(html.contains("System Equations"));
         assert!(html.contains("unit_consistent"));

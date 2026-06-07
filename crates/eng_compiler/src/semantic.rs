@@ -61,11 +61,31 @@ pub struct ResidualInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EquationDependencyInfo {
+    pub name: String,
+    pub role: String,
+    pub quantity_kind: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EquationIrInfo {
+    pub system: String,
+    pub residual: String,
+    pub relation: String,
+    pub normalized_residual: String,
+    pub dependencies: Vec<EquationDependencyInfo>,
+    pub derivative_states: Vec<String>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SystemInfo {
     pub name: String,
     pub variables: Vec<SystemVariableInfo>,
     pub equations: Vec<EquationInfo>,
     pub residuals: Vec<ResidualInfo>,
+    pub equation_ir: Vec<EquationIrInfo>,
     pub line: usize,
 }
 
@@ -164,6 +184,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     variables: Vec::new(),
                     equations: Vec::new(),
                     residuals: Vec::new(),
+                    equation_ir: Vec::new(),
                     line: system.span.line,
                 });
                 current_system_index = Some(systems.len() - 1);
@@ -449,6 +470,8 @@ fn analyze_equation(
     } else {
         "unknown".to_owned()
     };
+    let dependencies = equation_dependencies(&equation.left, &equation.right, &system.variables);
+    let derivative_states = derivative_states(&equation.left, &equation.right, &system.variables);
 
     system.equations.push(EquationInfo {
         system: system.name.clone(),
@@ -463,11 +486,54 @@ fn analyze_equation(
     });
     system.residuals.push(ResidualInfo {
         system: system.name.clone(),
-        name: residual_name,
-        expression: residual_expression,
+        name: residual_name.clone(),
+        expression: residual_expression.clone(),
         dimension: residual_dimension,
         line: equation.line,
     });
+    system.equation_ir.push(EquationIrInfo {
+        system: system.name.clone(),
+        residual: residual_name,
+        relation: "eq".to_owned(),
+        normalized_residual: residual_expression,
+        dependencies,
+        derivative_states,
+        status: status.to_owned(),
+        line: equation.line,
+    });
+}
+
+fn equation_dependencies(
+    left: &str,
+    right: &str,
+    variables: &[SystemVariableInfo],
+) -> Vec<EquationDependencyInfo> {
+    let expression = format!("{left} {right}");
+    variables
+        .iter()
+        .filter(|variable| expression_mentions_identifier(&expression, &variable.name))
+        .map(|variable| EquationDependencyInfo {
+            name: variable.name.clone(),
+            role: variable.role.clone(),
+            quantity_kind: variable.quantity_kind.clone(),
+        })
+        .collect()
+}
+
+fn derivative_states(left: &str, right: &str, variables: &[SystemVariableInfo]) -> Vec<String> {
+    let expression = format!("{left} {right}");
+    variables
+        .iter()
+        .filter(|variable| variable.role == "state")
+        .filter(|variable| expression.contains(&format!("der({})", variable.name)))
+        .map(|variable| variable.name.clone())
+        .collect()
+}
+
+fn expression_mentions_identifier(expression: &str, identifier: &str) -> bool {
+    expression
+        .split(|character: char| !(character.is_ascii_alphanumeric() || character == '_'))
+        .any(|token| token == identifier)
 }
 
 fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {

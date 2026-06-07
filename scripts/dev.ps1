@@ -561,6 +561,11 @@ function Assert-SystemGolden {
     Assert-ArtifactNumber @(@($review.args_summary)[0].fields).Count $Golden.review.args_field_count "system review args field count"
     Assert-ArtifactNumber @($review.system_summary).Count $Golden.review.system_summary_count "system review.system_summary count"
     Assert-ArtifactNumber @(@($review.system_summary)[0].residuals).Count $Golden.review.residual_count "system review residual count"
+    Assert-ArtifactNumber @($review.system_ir).Count $Golden.review.system_ir_count "system review.system_ir count"
+    $reviewSystemIr = @($review.system_ir)[0]
+    Assert-ArtifactValue $reviewSystemIr.solver_boundary.status $Golden.review.solver_status "system review.solver_boundary.status"
+    Assert-ArtifactNumber @(@($reviewSystemIr.equations)[0].dependencies).Count $Golden.review.dependency_count "system review IR dependency count"
+    Assert-ArtifactNumber @(@($reviewSystemIr.equations)[0].derivative_states).Count $Golden.review.derivative_state_count "system review IR derivative state count"
 
     $reportSpec = Read-ArtifactJson (Join-Path $RepoRoot "build\result\report_spec.json")
     Assert-ArtifactValue $reportSpec.format $Golden.report_spec.format "system report_spec.format"
@@ -572,6 +577,11 @@ function Assert-SystemGolden {
     Assert-ArtifactNumber $reportSpec.provenance.system_count $Golden.report_spec.system_count "system report_spec.provenance.system_count"
     Assert-ArtifactNumber $reportSpec.provenance.equation_count $Golden.report_spec.equation_count "system report_spec.provenance.equation_count"
     Assert-ArtifactNumber $reportSpec.provenance.residual_count $Golden.report_spec.residual_count "system report_spec.provenance.residual_count"
+    Assert-ArtifactNumber @($reportSpec.system_ir).Count $Golden.report_spec.system_ir_count "system report_spec.system_ir count"
+    $reportSystemIr = @($reportSpec.system_ir)[0]
+    Assert-ArtifactValue $reportSystemIr.solver_boundary.status $Golden.report_spec.solver_status "system report_spec.solver_boundary.status"
+    Assert-ArtifactNumber @(@($reportSystemIr.equations)[0].dependencies).Count $Golden.report_spec.dependency_count "system report_spec IR dependency count"
+    Assert-ArtifactNumber @(@($reportSystemIr.equations)[0].derivative_states).Count $Golden.report_spec.derivative_state_count "system report_spec IR derivative state count"
 
     $result = Read-ArtifactJson (Join-Path $RepoRoot "build\result\result.engres")
     Assert-ArtifactValue $result.format $Golden.result.format "system result.format"
@@ -585,6 +595,13 @@ function Assert-SystemGolden {
     Assert-ArtifactNumber $result.provenance.system_count $Golden.result.system_count "system result.provenance.system_count"
     Assert-ArtifactNumber $result.provenance.equation_count $Golden.result.equation_count "system result.provenance.equation_count"
     Assert-ArtifactNumber $result.provenance.residual_count $Golden.result.residual_count "system result.provenance.residual_count"
+    Assert-ArtifactNumber @($result.typed_payload.solver_boundaries).Count $Golden.result.solver_boundary_count "system result.typed_payload.solver_boundaries count"
+    Assert-ArtifactNumber @($result.typed_payload.system_ir).Count $Golden.result.system_ir_count "system result.typed_payload.system_ir count"
+    $resultSolverBoundary = @($result.typed_payload.solver_boundaries)[0]
+    Assert-ArtifactValue $resultSolverBoundary.status $Golden.result.solver_status "system result.solver_boundary.status"
+    $resultSystemIr = @($result.typed_payload.system_ir)[0]
+    Assert-ArtifactNumber @(@($resultSystemIr.equations)[0].dependencies).Count $Golden.result.dependency_count "system result IR dependency count"
+    Assert-ArtifactNumber @(@($resultSystemIr.equations)[0].derivative_states).Count $Golden.result.derivative_state_count "system result IR derivative state count"
 }
 
 function Invoke-ArtifactsCheck {

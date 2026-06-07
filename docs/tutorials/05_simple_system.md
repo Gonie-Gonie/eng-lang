@@ -1,6 +1,6 @@
 # Simple System Tutorial
 
-v0.8-alpha introduces a minimal physical `system` surface. It validates equation dimensions and writes residual-only metadata into review/report artifacts. It does not run a full ODE solver yet.
+v0.8-alpha introduces a minimal physical `system` surface. It validates equation dimensions, writes residual metadata, records a small system IR, and makes the solver boundary explicit. It does not run a full ODE solver yet.
 
 ## Example
 
@@ -83,6 +83,7 @@ unit_consistent
 syntax_summary.systems
 syntax_summary.equations
 system_summary
+system_ir
 ```
 
 `report_spec.json` includes:
@@ -92,12 +93,15 @@ provenance.system_count
 provenance.equation_count
 provenance.residual_count
 system_summary
+system_ir
 ```
 
 `result.engres` includes:
 
 ```text
 typed_payload.systems
+typed_payload.solver_boundaries
+typed_payload.system_ir
 provenance.system_count
 provenance.equation_count
 provenance.residual_count
@@ -107,7 +111,7 @@ provenance.residual_count
 
 ## Residual Representation
 
-v0.8 lowers each accepted equation to residual metadata:
+v0.8 lowers each accepted equation to report-facing residual metadata:
 
 ```text
 RoomThermal.residual_1
@@ -115,7 +119,18 @@ C * der(T) - (UA * (T_out - T) + Q_internal)
 dimension = Power
 ```
 
-This is a report/review representation only. Numeric solving is deferred.
+The hardened artifact path also emits system IR:
+
+```text
+relation = C * der(T) eq UA * (T_out - T) + Q_internal
+normalized_residual = C * der(T) - (UA * (T_out - T) + Q_internal)
+dependencies = C(parameter), UA(parameter), T(state), T_out(input), Q_internal(input)
+derivative_states = T
+solver_boundary.status = unsolved
+```
+
+This is a report/review/runtime artifact representation only. Numeric solving
+is deferred.
 
 ## Error: Use `eq`, Not `==`
 
@@ -163,7 +178,7 @@ E-EQ-UNIT-001
 Deferred beyond v0.8:
 
 ```text
-- full symbolic IR
+- solve order
 - solver runtime
 - time stepping
 - Jacobian generation

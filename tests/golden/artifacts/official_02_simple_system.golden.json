@@ -13,7 +13,11 @@
     "args_struct_count": 1,
     "args_field_count": 1,
     "system_summary_count": 1,
-    "residual_count": 1
+    "residual_count": 1,
+    "system_ir_count": 1,
+    "solver_status": "unsolved",
+    "dependency_count": 5,
+    "derivative_state_count": 1
   },
   "report_spec": {
     "format": "eng-report-spec-v1",
@@ -24,7 +28,11 @@
     "args_field_count": 1,
     "system_count": 1,
     "equation_count": 1,
-    "residual_count": 1
+    "residual_count": 1,
+    "system_ir_count": 1,
+    "solver_status": "unsolved",
+    "dependency_count": 5,
+    "derivative_state_count": 1
   },
   "result": {
     "format": "engres-v1",
@@ -37,6 +45,11 @@
     "timeseries_count": 0,
     "system_count": 1,
     "equation_count": 1,
-    "residual_count": 1
+    "residual_count": 1,
+    "solver_boundary_count": 1,
+    "system_ir_count": 1,
+    "solver_status": "unsolved",
+    "dependency_count": 5,
+    "derivative_state_count": 1
   }
 }

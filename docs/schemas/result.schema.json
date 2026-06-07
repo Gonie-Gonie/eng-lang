@@ -40,7 +40,17 @@
     },
     "typed_payload": {
       "type": "object",
-      "required": ["kind", "status", "result_format", "vm_steps", "statistics", "integrations", "policy_results", "systems"]
+      "required": ["kind", "status", "result_format", "vm_steps", "statistics", "integrations", "policy_results", "systems", "solver_boundaries", "system_ir"],
+      "properties": {
+        "solver_boundaries": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/resultSolverBoundary" }
+        },
+        "system_ir": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/resultSystemIr" }
+        }
+      }
     },
     "provenance": {
       "type": "object",
@@ -55,6 +65,81 @@
         "report_spec_hash",
         "schema_hash"
       ]
+    }
+  },
+  "$defs": {
+    "resultSolverBoundary": {
+      "type": "object",
+      "required": [
+        "system",
+        "status",
+        "reason",
+        "parameter_count",
+        "state_count",
+        "input_count",
+        "equation_count",
+        "residual_count",
+        "line"
+      ],
+      "properties": {
+        "system": { "type": "string" },
+        "status": { "const": "unsolved" },
+        "reason": { "type": "string" },
+        "parameter_count": { "type": "integer", "minimum": 0 },
+        "state_count": { "type": "integer", "minimum": 0 },
+        "input_count": { "type": "integer", "minimum": 0 },
+        "equation_count": { "type": "integer", "minimum": 0 },
+        "residual_count": { "type": "integer", "minimum": 0 },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "resultSystemIr": {
+      "type": "object",
+      "required": ["name", "equations", "line"],
+      "properties": {
+        "name": { "type": "string" },
+        "equations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/equationIr" }
+        },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "equationIr": {
+      "type": "object",
+      "required": [
+        "residual",
+        "relation",
+        "normalized_residual",
+        "status",
+        "dependencies",
+        "derivative_states",
+        "line"
+      ],
+      "properties": {
+        "residual": { "type": "string" },
+        "relation": { "const": "eq" },
+        "normalized_residual": { "type": "string" },
+        "status": { "type": "string" },
+        "dependencies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/equationDependency" }
+        },
+        "derivative_states": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "equationDependency": {
+      "type": "object",
+      "required": ["name", "role", "quantity_kind"],
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "enum": ["parameter", "state", "input"] },
+        "quantity_kind": { "type": "string" }
+      }
     }
   }
 }

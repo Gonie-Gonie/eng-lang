@@ -88,7 +88,8 @@ v0.7-alpha
 v0.8-alpha
   Minimal system/equation support: system block, parameter/state/input,
   equation block, infix eq relation, der(), unit consistency diagnostics,
-  residual metadata, and report/review system summaries.
+  residual metadata, report/review system summaries, system IR dependencies,
+  and an explicit unsolved solver boundary.
 
 v0.9-alpha
   Portable demo hardening: Windows zip package, SHA256 checksum,
@@ -100,7 +101,8 @@ v1.0-stable
   Stable core release: typed CSV boundary, unit/quantity calculations,
   row-level CSV runtime pages, TimeSeries statistics, CSV-derived PlotSpec
   SVG/report, schema policy execution status, minimal system/equation metadata,
-  Args help metadata, and runnable packaged standalone bundles.
+  explicit solver-boundary artifacts, Args help metadata, and runnable packaged
+  standalone bundles.
 ```
 
 Active planning target:

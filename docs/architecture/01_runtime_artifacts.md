@@ -135,7 +135,26 @@ Current v1.0 fields:
         "violation_count": 0
       }
     ],
-    "systems": []
+    "systems": [],
+    "solver_boundaries": [
+      {
+        "system": "RoomThermal",
+        "status": "unsolved",
+        "reason": "numeric solver deferred until the solver milestone"
+      }
+    ],
+    "system_ir": [
+      {
+        "system": "RoomThermal",
+        "equations": [
+          {
+            "residual": "RoomThermal.residual_1",
+            "dependencies": [],
+            "derivative_states": ["T"]
+          }
+        ]
+      }
+    ]
   },
   "provenance": {
     "schema_count": 1,
@@ -182,6 +201,7 @@ axis_info
 stats_info
 integrations
 system_summary
+system_ir
 schema_summary
 schemas
 csv_promotions
@@ -217,6 +237,7 @@ computed_statistics
 computed_integrations
 policy_results
 system_summary
+system_ir
 plot_manifest
 warning_list
 ```
@@ -230,7 +251,7 @@ format = eng-plot-manifest-v1
 plot_count = 1
 ```
 
-The v0.8 system summary records residual-only equation metadata:
+The v0.8 system summary records report-facing equation metadata:
 
 ```text
 system name
@@ -238,6 +259,19 @@ parameter/state/input variables
 equations with left/right dimensions
 residual name and expression
 status = unit_consistent or unit_unresolved
+```
+
+The v1.0 hardening path also records a machine-readable `system_ir` section in
+`review.json` and `report_spec.json`:
+
+```text
+system name
+solver_boundary.status = unsolved
+solver_boundary.reason
+parameter/state/input/equation/residual counts
+equation relation and normalized residual
+parameter/state/input dependencies per residual
+derivative state mentions
 ```
 
 ## `report.html`

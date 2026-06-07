@@ -33,8 +33,8 @@ pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSu
 pub use quantities::{all_quantity_completions, QuantityCompletion};
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
 pub use semantic::{
-    ArgsFieldInfo, ArgsStructInfo, EquationInfo, ResidualInfo, SemanticProgram, SemanticType,
-    SystemInfo, SystemVariableInfo, TypedBinding,
+    ArgsFieldInfo, ArgsStructInfo, EquationDependencyInfo, EquationInfo, EquationIrInfo,
+    ResidualInfo, SemanticProgram, SemanticType, SystemInfo, SystemVariableInfo, TypedBinding,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -850,6 +850,7 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    push_system_ir_json(&mut json, &report.semantic_program.systems);
     json.push_str("  \"schema_summary\": [\n");
     for (index, schema) in report.semantic_program.schemas.iter().enumerate() {
         if index > 0 {
@@ -999,6 +1000,116 @@ pub fn review_json(report: &CheckReport) -> String {
     json.push_str("\n  ]\n");
     json.push_str("}\n");
     json
+}
+
+fn push_system_ir_json(json: &mut String, systems: &[SystemInfo]) {
+    json.push_str("  \"system_ir\": [\n");
+    for (system_index, system) in systems.iter().enumerate() {
+        if system_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&system.name)
+        ));
+        json.push_str("      \"solver_boundary\": {\n");
+        json.push_str("        \"status\": \"unsolved\",\n");
+        json.push_str(
+            "        \"reason\": \"numeric solver deferred until the solver milestone\",\n",
+        );
+        json.push_str(&format!(
+            "        \"parameter_count\": {},\n",
+            system
+                .variables
+                .iter()
+                .filter(|variable| variable.role == "parameter")
+                .count()
+        ));
+        json.push_str(&format!(
+            "        \"state_count\": {},\n",
+            system
+                .variables
+                .iter()
+                .filter(|variable| variable.role == "state")
+                .count()
+        ));
+        json.push_str(&format!(
+            "        \"input_count\": {},\n",
+            system
+                .variables
+                .iter()
+                .filter(|variable| variable.role == "input")
+                .count()
+        ));
+        json.push_str(&format!(
+            "        \"equation_count\": {},\n",
+            system.equations.len()
+        ));
+        json.push_str(&format!(
+            "        \"residual_count\": {}\n",
+            system.residuals.len()
+        ));
+        json.push_str("      },\n");
+        json.push_str("      \"equations\": [\n");
+        for (equation_index, equation) in system.equation_ir.iter().enumerate() {
+            if equation_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"residual\": \"{}\",\n",
+                json_escape(&equation.residual)
+            ));
+            json.push_str(&format!(
+                "          \"relation\": \"{}\",\n",
+                json_escape(&equation.relation)
+            ));
+            json.push_str(&format!(
+                "          \"normalized_residual\": \"{}\",\n",
+                json_escape(&equation.normalized_residual)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&equation.status)
+            ));
+            json.push_str("          \"dependencies\": [\n");
+            for (dependency_index, dependency) in equation.dependencies.iter().enumerate() {
+                if dependency_index > 0 {
+                    json.push_str(",\n");
+                }
+                json.push_str("            {\n");
+                json.push_str(&format!(
+                    "              \"name\": \"{}\",\n",
+                    json_escape(&dependency.name)
+                ));
+                json.push_str(&format!(
+                    "              \"role\": \"{}\",\n",
+                    json_escape(&dependency.role)
+                ));
+                json.push_str(&format!(
+                    "              \"quantity_kind\": \"{}\"\n",
+                    json_escape(&dependency.quantity_kind)
+                ));
+                json.push_str("            }");
+            }
+            json.push_str("\n          ],\n");
+            json.push_str("          \"derivative_states\": [");
+            for (state_index, state) in equation.derivative_states.iter().enumerate() {
+                if state_index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&format!("\"{}\"", json_escape(state)));
+            }
+            json.push_str("],\n");
+            json.push_str(&format!("          \"line\": {}\n", equation.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str(&format!("      \"line\": {}\n", system.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
 }
 
 impl fmt::Display for Diagnostic {
@@ -1213,6 +1324,11 @@ mod tests {
         assert_eq!(system.equations[0].right_dimension, "Power");
         assert_eq!(system.equations[0].status, "unit_consistent");
         assert_eq!(system.residuals[0].dimension, "Power");
+        assert_eq!(system.equation_ir[0].dependencies.len(), 5);
+        assert_eq!(
+            system.equation_ir[0].derivative_states,
+            vec!["T".to_owned()]
+        );
     }
 
     #[test]
@@ -1353,6 +1469,10 @@ mod tests {
         assert!(json.contains("\"systems\": 1"));
         assert!(json.contains("\"equations\": 1"));
         assert!(json.contains("\"system_summary\""));
+        assert!(json.contains("\"system_ir\""));
+        assert!(json.contains("\"solver_boundary\""));
+        assert!(json.contains("\"status\": \"unsolved\""));
+        assert!(json.contains("\"derivative_states\": [\"T\"]"));
         assert!(json.contains("\"RoomThermal\""));
         assert!(json.contains("\"unit_consistent\""));
         assert!(json.contains("\"RoomThermal.residual_1\""));

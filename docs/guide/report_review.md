@@ -67,6 +67,7 @@ diagnostics
 warning_list
 plot_manifest
 system_summary
+system_ir
 ```
 
 `plot_manifest` in `review.json` declares the runtime path that `eng run` will use. It does not carry the runtime manifest hash because `eng check --review` does not render plots.
@@ -93,6 +94,7 @@ schema_summary
 plot_manifest
 warning_list
 system_summary
+system_ir
 ```
 
 `plot_manifest` records:
@@ -114,9 +116,10 @@ equation_count
 residual_count
 ```
 
-## v0.8 System Summary
+## System Summary and IR
 
-When a file contains a physical `system`, review/report artifacts include residual-only metadata:
+When a file contains a physical `system`, review/report artifacts include
+report-facing residual metadata:
 
 ```text
 system_summary
@@ -131,6 +134,21 @@ For example:
 RoomThermal.residual_1
 C * der(T) - (UA * (T_out - T) + Q_internal)
 dimension = Power
+```
+
+The hardened system artifact contract also includes `system_ir`:
+
+```text
+system_ir
+  solver_boundary.status = unsolved
+  equations: relation, normalized residual, dependency list, derivative states
+```
+
+`result.engres` mirrors this data under:
+
+```text
+typed_payload.solver_boundaries
+typed_payload.system_ir
 ```
 
 ## Manual Checks
@@ -162,6 +180,7 @@ $spec.variable_table.Count
 $spec.unit_conversion_table.Count
 $spec.schema_summary.Count
 $spec.warning_list.Count
+$spec.system_ir.Count
 $spec.plot_manifest
 ```
 
@@ -175,12 +194,12 @@ $spec.plot_manifest
 
 ## Current Limits
 
-Deferred beyond v0.7:
+Deferred beyond the current v1.0 artifact contract:
 
 ```text
-- formal JSON Schema files
 - multi-plot report manifests
 - interactive report viewer
 - rendered review cards
 - stable binary report package
+- numeric system solver
 ```

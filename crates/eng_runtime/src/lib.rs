@@ -968,9 +968,11 @@ fn result_json(
         systems.push_str("\n        ]\n");
         systems.push_str("      }");
     }
+    let solver_boundaries = solver_boundaries_json(report);
+    let system_ir = system_ir_json(report);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -994,6 +996,8 @@ fn result_json(
         integrations,
         policy_results,
         systems,
+        solver_boundaries,
+        system_ir,
         report.semantic_program.schemas.len(),
         report.semantic_program.csv_promotions.len(),
         report.semantic_program.systems.len(),
@@ -1022,6 +1026,127 @@ fn vm_object_kind(object: &VmObject) -> &'static str {
         VmObjectKind::TimeSeries => "timeseries",
         VmObjectKind::Array => "array",
     }
+}
+
+fn solver_boundaries_json(report: &CheckReport) -> String {
+    let mut json = String::new();
+    for (index, system) in report.semantic_program.systems.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"system\": \"{}\",\n",
+            json_escape(&system.name)
+        ));
+        json.push_str("        \"status\": \"unsolved\",\n");
+        json.push_str(
+            "        \"reason\": \"numeric solver deferred until the solver milestone\",\n",
+        );
+        json.push_str(&format!(
+            "        \"parameter_count\": {},\n",
+            role_count(system, "parameter")
+        ));
+        json.push_str(&format!(
+            "        \"state_count\": {},\n",
+            role_count(system, "state")
+        ));
+        json.push_str(&format!(
+            "        \"input_count\": {},\n",
+            role_count(system, "input")
+        ));
+        json.push_str(&format!(
+            "        \"equation_count\": {},\n",
+            system.equations.len()
+        ));
+        json.push_str(&format!(
+            "        \"residual_count\": {},\n",
+            system.residuals.len()
+        ));
+        json.push_str(&format!("        \"line\": {}\n", system.line));
+        json.push_str("      }");
+    }
+    json
+}
+
+fn system_ir_json(report: &CheckReport) -> String {
+    let mut json = String::new();
+    for (index, system) in report.semantic_program.systems.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&system.name)
+        ));
+        json.push_str("        \"equations\": [\n");
+        for (equation_index, equation) in system.equation_ir.iter().enumerate() {
+            if equation_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"residual\": \"{}\",\n",
+                json_escape(&equation.residual)
+            ));
+            json.push_str(&format!(
+                "            \"relation\": \"{}\",\n",
+                json_escape(&equation.relation)
+            ));
+            json.push_str(&format!(
+                "            \"normalized_residual\": \"{}\",\n",
+                json_escape(&equation.normalized_residual)
+            ));
+            json.push_str(&format!(
+                "            \"status\": \"{}\",\n",
+                json_escape(&equation.status)
+            ));
+            json.push_str("            \"dependencies\": [\n");
+            for (dependency_index, dependency) in equation.dependencies.iter().enumerate() {
+                if dependency_index > 0 {
+                    json.push_str(",\n");
+                }
+                json.push_str("              {\n");
+                json.push_str(&format!(
+                    "                \"name\": \"{}\",\n",
+                    json_escape(&dependency.name)
+                ));
+                json.push_str(&format!(
+                    "                \"role\": \"{}\",\n",
+                    json_escape(&dependency.role)
+                ));
+                json.push_str(&format!(
+                    "                \"quantity_kind\": \"{}\"\n",
+                    json_escape(&dependency.quantity_kind)
+                ));
+                json.push_str("              }");
+            }
+            json.push_str("\n            ],\n");
+            json.push_str("            \"derivative_states\": [");
+            for (state_index, state) in equation.derivative_states.iter().enumerate() {
+                if state_index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&format!("\"{}\"", json_escape(state)));
+            }
+            json.push_str("],\n");
+            json.push_str(&format!("            \"line\": {}\n", equation.line));
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
+        json.push_str(&format!("        \"line\": {}\n", system.line));
+        json.push_str("      }");
+    }
+    json
+}
+
+fn role_count(system: &eng_compiler::SystemInfo, role: &str) -> usize {
+    system
+        .variables
+        .iter()
+        .filter(|variable| variable.role == role)
+        .count()
 }
 
 fn push_runtime_columns(json: &mut String, table: &runtime_data::RuntimeTable) {

@@ -131,6 +131,7 @@ computed statistics/integration payloads
 result.engres v1 generation
 source/bytecode/data provenance
 system residual-only payload metadata
+system IR dependency and solver-boundary payload metadata
 packaged standalone runner bundle
 ```
 
@@ -138,7 +139,7 @@ Long-term responsibilities:
 
 ```text
 numeric execution
-TimeSeries pages
+general TimeSeries pages
 PlotSpec payloads
 portable zip assembly
 portable clean-folder smoke

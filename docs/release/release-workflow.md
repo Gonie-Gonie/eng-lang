@@ -47,7 +47,8 @@ fragments must be marked explicitly as `eng partial`, `eng future`, or
 official CSV/plot and simple-system artifacts against
 `tests/golden/artifacts`. It verifies stable format headers, version numbers,
 release-critical counts, runtime table/statistics/integration values, policy
-execution results, PlotSpec points, and standalone `.engpkg` metadata.
+execution results, PlotSpec points, system IR dependencies, solver-boundary
+status, and standalone `.engpkg` metadata.
 
 Expected release files:
 

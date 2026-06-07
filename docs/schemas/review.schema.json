@@ -15,7 +15,8 @@
     "plot_manifest",
     "args_summary",
     "schema_summary",
-    "system_summary"
+    "system_summary",
+    "system_ir"
   ],
   "properties": {
     "format": { "const": "eng-review-preview-1" },
@@ -32,6 +33,82 @@
     "plot_manifest": { "type": "object" },
     "args_summary": { "type": "array" },
     "schema_summary": { "type": "array" },
-    "system_summary": { "type": "array" }
+    "system_summary": { "type": "array" },
+    "system_ir": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/systemIr" }
+    }
+  },
+  "$defs": {
+    "systemIr": {
+      "type": "object",
+      "required": ["name", "solver_boundary", "equations", "line"],
+      "properties": {
+        "name": { "type": "string" },
+        "solver_boundary": { "$ref": "#/$defs/solverBoundary" },
+        "equations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/equationIr" }
+        },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "solverBoundary": {
+      "type": "object",
+      "required": [
+        "status",
+        "reason",
+        "parameter_count",
+        "state_count",
+        "input_count",
+        "equation_count",
+        "residual_count"
+      ],
+      "properties": {
+        "status": { "const": "unsolved" },
+        "reason": { "type": "string" },
+        "parameter_count": { "type": "integer", "minimum": 0 },
+        "state_count": { "type": "integer", "minimum": 0 },
+        "input_count": { "type": "integer", "minimum": 0 },
+        "equation_count": { "type": "integer", "minimum": 0 },
+        "residual_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "equationIr": {
+      "type": "object",
+      "required": [
+        "residual",
+        "relation",
+        "normalized_residual",
+        "status",
+        "dependencies",
+        "derivative_states",
+        "line"
+      ],
+      "properties": {
+        "residual": { "type": "string" },
+        "relation": { "const": "eq" },
+        "normalized_residual": { "type": "string" },
+        "status": { "type": "string" },
+        "dependencies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/equationDependency" }
+        },
+        "derivative_states": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "equationDependency": {
+      "type": "object",
+      "required": ["name", "role", "quantity_kind"],
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "enum": ["parameter", "state", "input"] },
+        "quantity_kind": { "type": "string" }
+      }
+    }
   }
 }

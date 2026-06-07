@@ -38,18 +38,29 @@ The main issue is that several pillars are stable as artifact contracts, not as
 complete numeric engines. This is acceptable if the docs keep saying so, but the
 hardening queue must be explicit.
 
-Highest priority hardening:
+Completed v1.0 hardening backfills:
 
 ```text
 P1  docs/spec code block gate for supported docs
 P1  official examples directory and regression policy
-P1  row-level typed table and TimeSeries value materialization
-P1  real statistics kernels for mean/min/max/p95/integrate
+P1  row-level typed table and TimeSeries value materialization for official CSV
+P1  real statistics kernels for mean/min/max/p95/integrate on official TimeSeries
 P1  Args struct parsing and CLI help for standalone bundles
-P2  plot block option execution and non-line plot seeds
-P2  schema constraints and missing policy execution
-P2  system/equation IR beyond residual metadata
+P2  plot block option execution for official line plots
+P2  schema constraints and missing policy execution for official CSV
+P2  system/equation IR beyond residual metadata, with explicit solver boundary
 P2  review/report schema validation snapshots
+```
+
+Remaining intentional deferrals:
+
+```text
+P1  Args-derived runtime flag binding
+P2  bad-cell CSV fixtures and per-cell conversion diagnostics
+P2  duration_above and broader statistics kernels
+P2  bar/histogram plot seeds
+P2  missing value interpolation and broader constraint expressions
+P2  numeric system solver, solve order, ODE runner, and Jacobian seed
 ```
 
 ## Gap Register
@@ -339,6 +350,9 @@ Hardening detail:
 
 ### G-008 System/Eq IR and Solver Boundary
 
+Status: Implemented after v1.0.0 as a v1.0 hardening backfill. Numeric solving
+remains explicitly deferred.
+
 Plan expectation:
 
 ```text
@@ -352,22 +366,28 @@ Current state:
 - system, parameter/state/input, equation, eq, der() parse/check path exists
 - unit consistency diagnostics exist
 - residual metadata appears in review/report/result
-- no symbolic IR graph, solve order, ODE runner, or Jacobian seed yet
+- a small equation IR is emitted separately from report-facing residual strings
+- each residual records parameter/state/input dependencies
+- derivative state mentions are recorded per equation
+- review.json and report_spec.json include system_ir with solver_boundary.status = unsolved
+- result.engres includes typed_payload.solver_boundaries and typed_payload.system_ir
+- no solve order, ODE runner, numeric solver, or Jacobian seed yet
 ```
 
 Risk:
 
 ```text
-P2. v1.0 can represent a simple system, but cannot simulate it.
+P2 closed for artifact review and dependency inspection. v1.0 can represent a
+simple system and expose an unsolved boundary, but cannot simulate it.
 ```
 
 Hardening detail:
 
 ```text
-1. Add a small symbolic equation IR separate from report strings.
-2. Record state/input/parameter dependencies for each residual.
-3. Add a solver_boundary section to result/review that explicitly says unsolved.
-4. Keep numeric solver work deferred until the planned system/solver milestone.
+1. [x] Add a small symbolic equation IR separate from report strings.
+2. [x] Record state/input/parameter dependencies for each residual.
+3. [x] Add solver_boundary sections to review/report/result that explicitly say unsolved.
+4. [x] Keep numeric solver work deferred until the planned system/solver milestone.
 ```
 
 ### G-009 Review/Report Schema Validation
@@ -461,7 +481,7 @@ Then proceed with v1.1 while planning numeric/data backfill:
 Keep deferred until the appropriate later milestones:
 
 ```text
-8. G-008 numeric solver, Jacobian, and ODE runner
+8. G-008 numeric solver, solve order, Jacobian, and ODE runner
 9. optimized AOT/model.exe
 10. open domain/port and package ecosystem
 ```
@@ -470,5 +490,5 @@ Keep deferred until the appropriate later milestones:
 
 The v1.0.0 release remains valid as a stable artifact-contract release. Future
 docs should avoid implying that v1.0 includes full numeric statistics, full
-typed table runtime execution, Args-derived flag binding, or numeric system
-simulation.
+typed table runtime execution beyond the official CSV path, Args-derived flag
+binding, or numeric system simulation.

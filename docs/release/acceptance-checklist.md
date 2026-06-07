@@ -154,6 +154,11 @@ The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
 [x] mismatched equation dimensions produce E-EQ-UNIT-001
 [x] residual metadata appears in review.json
 [x] residual metadata appears in report_spec.json and result.engres
+[x] system_ir appears in review.json and report_spec.json
+[x] typed_payload.system_ir appears in result.engres
+[x] solver boundary status is explicit and unsolved in review/report/result artifacts
+[x] residual dependencies record parameter/state/input roles
+[x] derivative state mentions are recorded
 [x] report.html includes System Equations
 [x] official simple system example passes
 ```
@@ -195,7 +200,7 @@ The v1.0 demo must show:
 [x] supported docs/spec Eng snippets pass docs-check
 [x] official artifact schema/golden baselines pass artifacts-check
 [x] official CSV+plot example produces report and PlotSpec artifacts
-[x] official simple system example produces system report artifacts
+[x] official simple system example produces system summary, system_ir, and solver boundary artifacts
 [x] standalone build creates dist\<model>-standalone
 [x] standalone bundle includes eng.exe, run.bat, source, bytecode, engpkg, lock, ARGS_HELP.txt, and review
 [x] standalone .engpkg uses format = engpkg-stable-1

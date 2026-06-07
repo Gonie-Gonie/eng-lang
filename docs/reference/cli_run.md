@@ -63,7 +63,8 @@ This attempts to open `build\result\report.html`.
 target\debug\eng.exe run examples\official\02_simple_system\main.eng --entry main
 ```
 
-This writes system/equation/residual metadata into:
+This writes system/equation/residual metadata, system IR, and the explicit
+unsolved solver boundary into:
 
 ```text
 build\result\review.json
@@ -132,6 +133,7 @@ review.json
   variable_table
   unit_conversion_table
   system_summary
+  system_ir
   schema_summary
   warning_list
 
@@ -141,5 +143,6 @@ report_spec.json
   inferred_declaration_table
   unit_conversion_table
   system_summary
+  system_ir
   plot_manifest
 ```

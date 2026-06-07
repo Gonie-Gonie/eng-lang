@@ -1,8 +1,8 @@
 # TimeSeries Statistics Guide
 
-v0.5-preview adds the first TimeSeries and statistics metadata path.
-
-The current implementation is a typed seed, not a full numeric statistics engine. It records enough information for review artifacts, future IDE completion, and the runtime result payload.
+v0.5-preview adds the first TimeSeries and statistics path. The current v1.0
+hardening path computes numeric values for the official CSV coil example while
+keeping broader TimeSeries expression execution deferred.
 
 ## Example
 
@@ -74,7 +74,9 @@ Promoted CSV tables also expose the schema index as an axis seed:
 }
 ```
 
-The cache key marks a lazy summary. v0.5 does not compute numeric mean/max/p95 values yet.
+The cache key marks the summary identity. For the official CSV coil path,
+runtime pages materialize `Q_coil` and `result.engres` records computed
+mean/max/min/p95 values.
 
 ## Integration Metadata
 
@@ -118,6 +120,7 @@ W-STATS-SUM-001
 
 ```text
 object_store.timeseries_count
+object_store.objects[].points
 typed_payload.statistics
 typed_payload.integrations
 ```
@@ -134,15 +137,18 @@ The VM object store records TimeSeries objects as:
 }
 ```
 
+For the official CSV path, the object also carries stable point values and the
+typed payload records computed statistic values plus trapezoidal integration
+metadata.
+
 ## Deferred
 
 Later versions will add:
 
 ```text
-- row-level numeric TimeSeries values
 - time-weighted mean
-- min/max/p95 numeric kernels
-- summary materialization
+- broader TimeSeries expression execution
 - non-uniform time handling
-- statistics values in report cards
+- duration_above
+- statistics report cards
 ```

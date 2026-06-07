@@ -1,6 +1,6 @@
 # Bytecode VM and Result v1
 
-v0.4-preview established the first executable EngLang runtime path. v0.5-preview adds TimeSeries/statistics metadata to that path. v0.6-preview adds PlotSpec/SVG/manifest output. v0.8-alpha adds residual-only system metadata:
+v0.4-preview established the first executable EngLang runtime path. v0.5-preview adds TimeSeries/statistics metadata to that path. v0.6-preview adds PlotSpec/SVG/manifest output. v0.8-alpha adds system metadata, residuals, system IR dependencies, and an explicit unsolved solver boundary:
 
 ```text
 .eng source
@@ -122,12 +122,16 @@ v0.8 records:
 
 ```text
 typed_payload.systems
+typed_payload.solver_boundaries
+typed_payload.system_ir
 provenance.system_count
 provenance.equation_count
 provenance.residual_count
 ```
 
-The `typed_payload` is a Report seed. It carries lazy statistics, integration metadata, and residual-only system metadata:
+The `typed_payload` is a Report seed. It carries computed statistics for the
+official CSV path, integration metadata, policy results, and reviewable system
+metadata:
 
 ```json
 {
@@ -137,7 +141,10 @@ The `typed_payload` is a Report seed. It carries lazy statistics, integration me
   "vm_steps": [],
   "statistics": [],
   "integrations": [],
-  "systems": []
+  "policy_results": [],
+  "systems": [],
+  "solver_boundaries": [],
+  "system_ir": []
 }
 ```
 
@@ -169,8 +176,9 @@ typed IR serialization
 function table
 source maps
 row-level table values
-TimeSeries pages
-PlotSpec payloads
+general table expression execution
+general TimeSeries expression pages
+numeric solver execution
 binary bytecode encoding
 stable result schema validation
 ```
