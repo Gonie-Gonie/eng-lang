@@ -13,6 +13,7 @@ On Windows, use the root `dev.bat` wrapper for all development commands. It bypa
 .\dev.bat doctor
 .\dev.bat ci
 .\dev.bat docs-check
+.\dev.bat artifacts-check
 .\dev.bat run-example
 ```
 
@@ -172,6 +173,6 @@ spaces and Korean characters, then runs the portable `eng.exe` without relying
 on Rust or Python on the target side. It also builds and runs the standalone
 packaged runner from inside the extracted portable package.
 
-`docs-check` is included in `release-check`. It validates supported `eng`
-documentation snippets and requires design-only or future snippets to be marked
-explicitly.
+`docs-check` and `artifacts-check` are included in `release-check`.
+`docs-check` validates supported `eng` documentation snippets. `artifacts-check`
+validates the official example artifact schemas and golden baselines.

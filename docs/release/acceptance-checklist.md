@@ -29,8 +29,9 @@ Run from the repository root:
 .\dev.bat release-check
 ```
 
-`release-check` runs `ci`, `docs-check`, `package-smoke`, zip existence checks,
-checksum verification, and `dist\release-manifest.txt` generation.
+`release-check` runs `ci`, `docs-check`, `artifacts-check`, `package-smoke`,
+zip existence checks, checksum verification, and
+`dist\release-manifest.txt` generation.
 
 `package` writes both a portable zip and checksum:
 
@@ -175,6 +176,7 @@ The v1.0 demo must show:
 [x] official examples pass through eng test examples
 [x] official examples live under examples\official
 [x] supported docs/spec Eng snippets pass docs-check
+[x] official artifact schema/golden baselines pass artifacts-check
 [x] official CSV+plot example produces report and PlotSpec artifacts
 [x] official simple system example produces system report artifacts
 [x] standalone build creates dist\<model>-standalone

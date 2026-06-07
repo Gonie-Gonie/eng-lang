@@ -104,6 +104,7 @@ build/
 .\dev.bat clippy
 .\dev.bat ci
 .\dev.bat docs-check
+.\dev.bat artifacts-check
 .\dev.bat package
 .\dev.bat package-smoke
 .\dev.bat clean

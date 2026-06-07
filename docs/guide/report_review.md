@@ -2,6 +2,10 @@
 
 v0.7-alpha makes the review/report artifacts explicit enough for UI, LSP, packaging, and automated review tooling to consume.
 
+Artifact schema contracts live in `docs/schemas`. Golden baselines for official
+examples live in `tests/golden/artifacts` and are checked by
+`.\dev.bat artifacts-check`.
+
 ## Generate Artifacts
 
 ```bat

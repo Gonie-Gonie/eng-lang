@@ -108,6 +108,12 @@ For documentation/spec snippets:
 .\dev.bat docs-check
 ```
 
+For artifact schema or golden baseline changes:
+
+```bat
+.\dev.bat artifacts-check
+```
+
 For packaging/release work:
 
 ```bat

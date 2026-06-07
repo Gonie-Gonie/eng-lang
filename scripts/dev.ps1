@@ -272,6 +272,243 @@ function Invoke-DocsCheck {
     Write-Host "Docs check passed. Checked $checked Eng snippet(s), skipped $skipped marked snippet(s)."
 }
 
+function Assert-Artifact {
+    param(
+        [Parameter(Mandatory = $true)]
+        [bool] $Condition,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Message
+    )
+
+    if (-not $Condition) {
+        throw "Artifact check failed: $Message"
+    }
+}
+
+function Assert-ArtifactValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        $Actual,
+
+        [Parameter(Mandatory = $true)]
+        $Expected,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Label
+    )
+
+    Assert-Artifact ([string]$Actual -eq [string]$Expected) "$Label expected $Expected but got $Actual"
+}
+
+function Assert-ArtifactNumber {
+    param(
+        [Parameter(Mandatory = $true)]
+        $Actual,
+
+        [Parameter(Mandatory = $true)]
+        [int] $Expected,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Label
+    )
+
+    Assert-Artifact ([int]$Actual -eq $Expected) "$Label expected $Expected but got $Actual"
+}
+
+function Read-ArtifactJson {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Path
+    )
+
+    Assert-Artifact (Test-Path -LiteralPath $Path -PathType Leaf) "missing JSON artifact $Path"
+    return Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
+}
+
+function Read-KeyValueArtifact {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Path
+    )
+
+    Assert-Artifact (Test-Path -LiteralPath $Path -PathType Leaf) "missing key/value artifact $Path"
+    $values = @{}
+    foreach ($line in Get-Content -LiteralPath $Path -Encoding UTF8) {
+        $trimmed = $line.Trim()
+        if ($trimmed.Length -eq 0 -or $trimmed.StartsWith("#")) {
+            continue
+        }
+        $parts = $trimmed -split "\s*=\s*", 2
+        if ($parts.Count -eq 2) {
+            $values[$parts[0]] = $parts[1]
+        }
+    }
+    return $values
+}
+
+function Get-NormalizedArtifactPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Value
+    )
+
+    return $Value.Replace("/", "\")
+}
+
+function Assert-SchemaFilesPresent {
+    $schemaFiles = @(
+        "docs\schemas\review.schema.json",
+        "docs\schemas\report_spec.schema.json",
+        "docs\schemas\result.schema.json",
+        "docs\schemas\plotspec.schema.json",
+        "docs\schemas\engpkg.schema.json"
+    )
+
+    foreach ($schemaFile in $schemaFiles) {
+        $path = Join-Path $RepoRoot $schemaFile
+        Assert-Artifact (Test-Path -LiteralPath $path -PathType Leaf) "missing schema file $schemaFile"
+        $schema = Read-ArtifactJson $path
+        Assert-Artifact ([string]$schema.'$schema' -ne "") "$schemaFile does not declare a JSON schema dialect"
+        Assert-Artifact ([string]$schema.title -ne "") "$schemaFile does not declare a title"
+    }
+}
+
+function Assert-CsvPlotGolden {
+    param(
+        [Parameter(Mandatory = $true)]
+        $Golden,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Eng
+    )
+
+    Remove-Item -LiteralPath (Join-Path $RepoRoot "build\result") -Recurse -Force -ErrorAction SilentlyContinue
+    Invoke-Native $Eng "run" $Golden.source "--entry" "main"
+
+    $review = Read-ArtifactJson (Join-Path $RepoRoot "build\result\review.json")
+    Assert-ArtifactValue $review.format $Golden.review.format "review.format"
+    Assert-ArtifactNumber $review.review_schema_version $Golden.review.review_schema_version "review.review_schema_version"
+    Assert-ArtifactValue (Get-NormalizedArtifactPath $review.source_path) (Get-NormalizedArtifactPath $Golden.source) "review.source_path"
+    Assert-ArtifactNumber $review.syntax_summary.scripts $Golden.review.scripts "review.syntax_summary.scripts"
+    Assert-ArtifactNumber $review.syntax_summary.schemas $Golden.review.schemas "review.syntax_summary.schemas"
+    Assert-ArtifactNumber $review.syntax_summary.systems $Golden.review.systems "review.syntax_summary.systems"
+    Assert-ArtifactNumber $review.syntax_summary.equations $Golden.review.equations "review.syntax_summary.equations"
+    Assert-ArtifactNumber @($review.schema_summary).Count $Golden.review.schema_summary_count "review.schema_summary count"
+    Assert-ArtifactNumber @($review.csv_promotions).Count $Golden.review.csv_promotion_count "review.csv_promotions count"
+
+    $reportSpec = Read-ArtifactJson (Join-Path $RepoRoot "build\result\report_spec.json")
+    Assert-ArtifactValue $reportSpec.format $Golden.report_spec.format "report_spec.format"
+    Assert-ArtifactNumber $reportSpec.report_schema_version $Golden.report_spec.report_schema_version "report_spec.report_schema_version"
+    Assert-ArtifactNumber $reportSpec.provenance.schema_count $Golden.report_spec.schema_count "report_spec.provenance.schema_count"
+    Assert-ArtifactNumber $reportSpec.provenance.csv_promotion_count $Golden.report_spec.csv_promotion_count "report_spec.provenance.csv_promotion_count"
+    Assert-ArtifactNumber $reportSpec.provenance.system_count $Golden.report_spec.system_count "report_spec.provenance.system_count"
+    Assert-ArtifactNumber $reportSpec.provenance.residual_count $Golden.report_spec.residual_count "report_spec.provenance.residual_count"
+    Assert-ArtifactNumber $reportSpec.provenance.plot_spec_version $Golden.report_spec.plot_spec_version "report_spec.provenance.plot_spec_version"
+
+    $result = Read-ArtifactJson (Join-Path $RepoRoot "build\result\result.engres")
+    Assert-ArtifactValue $result.format $Golden.result.format "result.format"
+    Assert-ArtifactNumber $result.result_format_version $Golden.result.result_format_version "result.result_format_version"
+    Assert-ArtifactNumber $result.bytecode_version $Golden.result.bytecode_version "result.bytecode_version"
+    Assert-ArtifactValue $result.entry.name $Golden.result.entry_name "result.entry.name"
+    Assert-ArtifactNumber $result.object_store.table_count $Golden.result.table_count "result.object_store.table_count"
+    Assert-ArtifactNumber $result.object_store.timeseries_count $Golden.result.timeseries_count "result.object_store.timeseries_count"
+    Assert-ArtifactNumber $result.provenance.schema_count $Golden.result.schema_count "result.provenance.schema_count"
+    Assert-ArtifactNumber $result.provenance.csv_promotion_count $Golden.result.csv_promotion_count "result.provenance.csv_promotion_count"
+    Assert-ArtifactNumber @($result.typed_payload.statistics).Count $Golden.result.statistics_count "result.typed_payload.statistics count"
+    Assert-ArtifactNumber @($result.typed_payload.integrations).Count $Golden.result.integrations_count "result.typed_payload.integrations count"
+
+    $plotSpec = Read-ArtifactJson (Join-Path $RepoRoot "build\result\plots\plot_spec.json")
+    Assert-ArtifactValue $plotSpec.format $Golden.plot_spec.format "plot_spec.format"
+    Assert-ArtifactNumber $plotSpec.plot_spec_version $Golden.plot_spec.plot_spec_version "plot_spec.plot_spec_version"
+    Assert-ArtifactValue $plotSpec.plot_type $Golden.plot_spec.plot_type "plot_spec.plot_type"
+    Assert-ArtifactNumber @($plotSpec.series).Count $Golden.plot_spec.series_count "plot_spec.series count"
+    $firstSeries = @($plotSpec.series)[0]
+    Assert-ArtifactValue $firstSeries.name $Golden.plot_spec.first_series "plot_spec.series[0].name"
+    Assert-ArtifactNumber @($firstSeries.points).Count $Golden.plot_spec.point_count "plot_spec.series[0].points count"
+
+    Remove-Item -LiteralPath (Join-Path $RepoRoot "dist\main-standalone") -Recurse -Force -ErrorAction SilentlyContinue
+    Invoke-Native $Eng "build" $Golden.source "--entry" "main" "--standalone" "--profile" "repro"
+    $engpkg = Read-KeyValueArtifact (Join-Path $RepoRoot "dist\main-standalone\main.engpkg")
+    Assert-ArtifactValue $engpkg["format"] $Golden.engpkg.format "engpkg.format"
+    Assert-ArtifactValue $engpkg["package_format_version"] $Golden.engpkg.package_format_version "engpkg.package_format_version"
+    Assert-ArtifactValue $engpkg["runner"] $Golden.engpkg.runner "engpkg.runner"
+    Assert-ArtifactValue $engpkg["engine"] $Golden.engpkg.engine "engpkg.engine"
+    Assert-ArtifactValue $engpkg["source"] $Golden.engpkg.source "engpkg.source"
+    Assert-ArtifactValue $engpkg["bytecode"] $Golden.engpkg.bytecode "engpkg.bytecode"
+    Assert-ArtifactValue $engpkg["entry_name"] $Golden.engpkg.entry_name "engpkg.entry_name"
+
+    $lock = Read-KeyValueArtifact (Join-Path $RepoRoot "dist\main-standalone\main.lock")
+    Assert-ArtifactValue $lock["bytecode_version"] "1" "lock.bytecode_version"
+    Assert-ArtifactValue $lock["result_format_version"] "1" "lock.result_format_version"
+    Assert-ArtifactValue $lock["report_schema_version"] "1" "lock.report_schema_version"
+    Assert-ArtifactValue $lock["plot_spec_version"] "1" "lock.plot_spec_version"
+}
+
+function Assert-SystemGolden {
+    param(
+        [Parameter(Mandatory = $true)]
+        $Golden,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Eng
+    )
+
+    Remove-Item -LiteralPath (Join-Path $RepoRoot "build\result") -Recurse -Force -ErrorAction SilentlyContinue
+    Invoke-Native $Eng "run" $Golden.source "--entry" "main"
+
+    $review = Read-ArtifactJson (Join-Path $RepoRoot "build\result\review.json")
+    Assert-ArtifactValue $review.format $Golden.review.format "system review.format"
+    Assert-ArtifactNumber $review.review_schema_version $Golden.review.review_schema_version "system review.review_schema_version"
+    Assert-ArtifactNumber $review.syntax_summary.scripts $Golden.review.scripts "system review.syntax_summary.scripts"
+    Assert-ArtifactNumber $review.syntax_summary.schemas $Golden.review.schemas "system review.syntax_summary.schemas"
+    Assert-ArtifactNumber $review.syntax_summary.systems $Golden.review.systems "system review.syntax_summary.systems"
+    Assert-ArtifactNumber $review.syntax_summary.equations $Golden.review.equations "system review.syntax_summary.equations"
+    Assert-ArtifactNumber @($review.system_summary).Count $Golden.review.system_summary_count "system review.system_summary count"
+    Assert-ArtifactNumber @(@($review.system_summary)[0].residuals).Count $Golden.review.residual_count "system review residual count"
+
+    $reportSpec = Read-ArtifactJson (Join-Path $RepoRoot "build\result\report_spec.json")
+    Assert-ArtifactValue $reportSpec.format $Golden.report_spec.format "system report_spec.format"
+    Assert-ArtifactNumber $reportSpec.report_schema_version $Golden.report_spec.report_schema_version "system report_spec.report_schema_version"
+    Assert-ArtifactNumber $reportSpec.provenance.schema_count $Golden.report_spec.schema_count "system report_spec.provenance.schema_count"
+    Assert-ArtifactNumber $reportSpec.provenance.csv_promotion_count $Golden.report_spec.csv_promotion_count "system report_spec.provenance.csv_promotion_count"
+    Assert-ArtifactNumber $reportSpec.provenance.system_count $Golden.report_spec.system_count "system report_spec.provenance.system_count"
+    Assert-ArtifactNumber $reportSpec.provenance.equation_count $Golden.report_spec.equation_count "system report_spec.provenance.equation_count"
+    Assert-ArtifactNumber $reportSpec.provenance.residual_count $Golden.report_spec.residual_count "system report_spec.provenance.residual_count"
+
+    $result = Read-ArtifactJson (Join-Path $RepoRoot "build\result\result.engres")
+    Assert-ArtifactValue $result.format $Golden.result.format "system result.format"
+    Assert-ArtifactNumber $result.result_format_version $Golden.result.result_format_version "system result.result_format_version"
+    Assert-ArtifactNumber $result.bytecode_version $Golden.result.bytecode_version "system result.bytecode_version"
+    Assert-ArtifactValue $result.entry.name $Golden.result.entry_name "system result.entry.name"
+    Assert-ArtifactNumber $result.object_store.table_count $Golden.result.table_count "system result.object_store.table_count"
+    Assert-ArtifactNumber $result.object_store.timeseries_count $Golden.result.timeseries_count "system result.object_store.timeseries_count"
+    Assert-ArtifactNumber $result.provenance.system_count $Golden.result.system_count "system result.provenance.system_count"
+    Assert-ArtifactNumber $result.provenance.equation_count $Golden.result.equation_count "system result.provenance.equation_count"
+    Assert-ArtifactNumber $result.provenance.residual_count $Golden.result.residual_count "system result.provenance.residual_count"
+}
+
+function Invoke-ArtifactsCheck {
+    Set-DevEnvironment
+    $cargo = Get-Cargo
+    if ($null -eq $cargo) {
+        Write-Host "Cargo not found. Run .\dev.bat setup."
+        exit 1
+    }
+    Invoke-Native $cargo "build" "-p" "eng_cli"
+    $Eng = Join-Path $RepoRoot "target\debug\eng.exe"
+
+    Assert-SchemaFilesPresent
+    $goldenRoot = Join-Path $RepoRoot "tests\golden\artifacts"
+    $csvGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_01_csv_plot.golden.json")
+    $systemGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_02_simple_system.golden.json")
+
+    Assert-CsvPlotGolden $csvGolden $Eng
+    Assert-SystemGolden $systemGolden $Eng
+
+    Write-Host "Artifact check passed. Validated schema files and official golden artifacts."
+}
+
 function Invoke-RunExample {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -366,6 +603,7 @@ function Invoke-PackageSmoke {
 function Invoke-ReleaseCheck {
     Invoke-Ci
     Invoke-DocsCheck
+    Invoke-ArtifactsCheck
     Invoke-PackageSmoke
     $Version = Get-WorkspaceVersion
     $ZipPath = Join-Path $RepoRoot "dist\englang-preview-v$Version-windows-x64.zip"
@@ -398,6 +636,7 @@ sha256 = $ActualHash
 verified:
   dev.bat ci
   dev.bat docs-check
+  dev.bat artifacts-check
   dev.bat package-smoke
   standalone packaged runner
 "@
@@ -428,6 +667,7 @@ Usage:
   .\dev.bat clippy         Run clippy with warnings denied
   .\dev.bat ci             Run fmt, tests, clippy, and preview example
   .\dev.bat docs-check     Check supported documentation Eng snippets
+  .\dev.bat artifacts-check Validate artifact schemas and golden baselines
   .\dev.bat run-example    Run examples\official\01_csv_plot\main.eng
   .\dev.bat package        Build release, assemble dist\englang-preview, zip it, and write SHA256
   .\dev.bat package-smoke  Extract the portable zip under a Korean/space path and smoke it
@@ -449,6 +689,7 @@ switch ($Command) {
     "clippy" { Invoke-Clippy }
     "ci" { Invoke-Ci }
     "docs-check" { Invoke-DocsCheck }
+    "artifacts-check" { Invoke-ArtifactsCheck }
     "run-example" { Invoke-RunExample }
     "package" { Invoke-Package }
     "package-smoke" { Invoke-PackageSmoke }

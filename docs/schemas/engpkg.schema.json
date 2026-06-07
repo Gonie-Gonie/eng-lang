@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eng-lang.local/schemas/engpkg.schema.json",
+  "title": "EngLang Standalone Package Metadata",
+  "type": "object",
+  "required": [
+    "format",
+    "package_format_version",
+    "runner",
+    "engine",
+    "source",
+    "bytecode",
+    "source_hash",
+    "bytecode_hash",
+    "entry_name",
+    "entry"
+  ],
+  "properties": {
+    "format": { "const": "engpkg-stable-1" },
+    "package_format_version": { "const": "1" },
+    "runner": { "const": "run.bat" },
+    "engine": { "const": "eng.exe" },
+    "source": { "type": "string" },
+    "bytecode": { "type": "string" },
+    "source_hash": { "type": "string" },
+    "bytecode_hash": { "type": "string" },
+    "entry_name": { "type": "string" },
+    "entry": { "type": "string" }
+  }
+}

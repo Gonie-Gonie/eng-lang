@@ -347,6 +347,8 @@ Hardening detail:
 
 ### G-009 Review/Report Schema Validation
 
+Status: Implemented after v1.0.0 as a v1.0 hardening backfill.
+
 Plan expectation:
 
 ```text
@@ -358,7 +360,9 @@ Current state:
 ```text
 - review.json, report_spec.json, report.html, result.engres exist
 - unit tests assert key sections
-- there is no JSON schema file or snapshot/golden validation suite
+- docs/schemas defines the v1.0 structural artifact baselines
+- tests/golden/artifacts records official example golden expectations
+- artifacts-check validates official CSV/plot, simple-system, PlotSpec, and engpkg artifacts
 ```
 
 Risk:
@@ -370,10 +374,10 @@ P2. Artifact contracts can drift while still passing loose contains-based tests.
 Hardening detail:
 
 ```text
-1. Add docs/schemas for review/report/result/plotspec/engpkg.
-2. Add golden snapshots for official examples.
-3. Add hash-stable normalization for paths and generated timestamps.
-4. Add schema validation to release-check.
+1. [x] Add docs/schemas for review/report/result/plotspec/engpkg.
+2. [x] Add golden snapshots for official examples.
+3. [x] Add hash-stable normalization for paths and generated timestamps.
+4. [x] Add schema validation to release-check.
 ```
 
 ### G-010 Release/CI Matrix
@@ -391,7 +395,7 @@ Current state:
 - Windows release path is verified
 - Linux/macOS are intentionally outside the initial release gate
 - docs-check is in release-check
-- schema validation is not yet in release-check
+- artifacts-check schema/golden validation is in release-check
 ```
 
 Risk:
@@ -405,7 +409,7 @@ Hardening detail:
 
 ```text
 1. [x] Add docs-check after G-001.
-2. Add schema/golden artifact validation after G-009.
+2. [x] Add schema/golden artifact validation after G-009.
 3. Keep Windows-only release gate until cross-platform policy changes.
 4. Add a release post-check for downloaded zip checksum and doctor.
 ```

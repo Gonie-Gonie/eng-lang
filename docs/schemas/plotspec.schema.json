@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eng-lang.local/schemas/plotspec.schema.json",
+  "title": "EngLang PlotSpec Artifact",
+  "type": "object",
+  "required": [
+    "format",
+    "plot_spec_version",
+    "plot_type",
+    "title",
+    "x_axis",
+    "y_axis",
+    "series"
+  ],
+  "properties": {
+    "format": { "const": "eng-plotspec-v1" },
+    "plot_spec_version": { "const": 1 },
+    "plot_type": { "type": "string" },
+    "title": { "type": "string" },
+    "x_axis": { "type": "object", "required": ["name", "label", "unit"] },
+    "y_axis": { "type": "object", "required": ["name", "label", "unit"] },
+    "series": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "quantity_kind", "display_unit", "points"]
+      }
+    }
+  }
+}

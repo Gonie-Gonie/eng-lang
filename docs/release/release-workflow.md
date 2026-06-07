@@ -30,10 +30,11 @@ This command runs:
 ```text
 1. dev.bat ci
 2. dev.bat docs-check
-3. dev.bat package-smoke
-4. zip existence check
-5. SHA256 checksum verification
-6. dist/release-manifest.txt generation
+3. dev.bat artifacts-check
+4. dev.bat package-smoke
+5. zip existence check
+6. SHA256 checksum verification
+7. dist/release-manifest.txt generation
 ```
 
 `docs-check` extracts supported `eng` fenced code blocks from README and the
@@ -41,6 +42,11 @@ supported docs roots, checks current syntax snippets, and verifies snippets
 marked `eng error` fail with compiler diagnostics. Design-only or future
 fragments must be marked explicitly as `eng partial`, `eng future`, or
 `eng unchecked`.
+
+`artifacts-check` validates the schema files in `docs/schemas` and compares the
+official CSV/plot and simple-system artifacts against
+`tests/golden/artifacts`. It verifies stable format headers, version numbers,
+release-critical counts, PlotSpec shape, and standalone `.engpkg` metadata.
 
 Expected release files:
 

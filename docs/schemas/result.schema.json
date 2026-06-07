@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eng-lang.local/schemas/result.schema.json",
+  "title": "EngLang Result Artifact",
+  "type": "object",
+  "required": [
+    "format",
+    "result_format_version",
+    "runtime_version",
+    "compiler_version",
+    "bytecode_version",
+    "source_path",
+    "source_hash",
+    "bytecode_hash",
+    "numeric_profile",
+    "entry",
+    "object_store",
+    "typed_payload",
+    "provenance"
+  ],
+  "properties": {
+    "format": { "const": "engres-v1" },
+    "result_format_version": { "const": 1 },
+    "runtime_version": { "type": "string" },
+    "compiler_version": { "type": "string" },
+    "bytecode_version": { "const": 1 },
+    "source_path": { "type": "string" },
+    "source_hash": { "type": "string" },
+    "bytecode_hash": { "type": "string" },
+    "numeric_profile": { "type": "string" },
+    "entry": {
+      "type": "object",
+      "required": ["kind", "name", "arg_name", "arg_type", "return_type"]
+    },
+    "object_store": {
+      "type": "object",
+      "required": ["scalar_count", "table_count", "timeseries_count", "array_count", "objects"]
+    },
+    "typed_payload": {
+      "type": "object",
+      "required": ["kind", "status", "result_format", "vm_steps", "statistics", "integrations", "systems"]
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "schema_count",
+        "csv_promotion_count",
+        "system_count",
+        "equation_count",
+        "residual_count",
+        "data_hashes",
+        "plot_spec_hash",
+        "report_spec_hash",
+        "schema_hash"
+      ]
+    }
+  }
+}

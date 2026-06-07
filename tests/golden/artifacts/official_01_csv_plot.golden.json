@@ -1,0 +1,52 @@
+{
+  "name": "official_01_csv_plot",
+  "source": "examples\\official\\01_csv_plot\\main.eng",
+  "review": {
+    "format": "eng-review-preview-1",
+    "review_schema_version": 1,
+    "scripts": 1,
+    "schemas": 1,
+    "systems": 0,
+    "equations": 0,
+    "schema_summary_count": 1,
+    "csv_promotion_count": 1
+  },
+  "report_spec": {
+    "format": "eng-report-spec-v1",
+    "report_schema_version": 1,
+    "schema_count": 1,
+    "csv_promotion_count": 1,
+    "system_count": 0,
+    "residual_count": 0,
+    "plot_spec_version": 1
+  },
+  "result": {
+    "format": "engres-v1",
+    "result_format_version": 1,
+    "bytecode_version": 1,
+    "entry_name": "main",
+    "table_count": 1,
+    "timeseries_count": 1,
+    "schema_count": 1,
+    "csv_promotion_count": 1,
+    "statistics_count": 1,
+    "integrations_count": 1
+  },
+  "plot_spec": {
+    "format": "eng-plotspec-v1",
+    "plot_spec_version": 1,
+    "plot_type": "line",
+    "series_count": 1,
+    "first_series": "Q_coil",
+    "point_count": 8
+  },
+  "engpkg": {
+    "format": "engpkg-stable-1",
+    "package_format_version": "1",
+    "runner": "run.bat",
+    "engine": "eng.exe",
+    "source": "source/main.eng",
+    "bytecode": "main.engbc",
+    "entry_name": "main"
+  }
+}

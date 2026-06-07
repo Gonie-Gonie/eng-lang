@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eng-lang.local/schemas/report_spec.schema.json",
+  "title": "EngLang ReportSpec Artifact",
+  "type": "object",
+  "required": [
+    "format",
+    "report_schema_version",
+    "compiler_version",
+    "report_version",
+    "source_path",
+    "source_hash",
+    "provenance",
+    "variable_table",
+    "schema_summary",
+    "system_summary",
+    "plot_manifest"
+  ],
+  "properties": {
+    "format": { "const": "eng-report-spec-v1" },
+    "report_schema_version": { "const": 1 },
+    "compiler_version": { "type": "string" },
+    "report_version": { "type": "string" },
+    "source_path": { "type": "string" },
+    "source_hash": { "type": "string" },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "schema_count",
+        "csv_promotion_count",
+        "system_count",
+        "equation_count",
+        "residual_count",
+        "plot_spec_version"
+      ]
+    },
+    "variable_table": { "type": "array" },
+    "schema_summary": { "type": "array" },
+    "system_summary": { "type": "array" },
+    "plot_manifest": { "type": "object" }
+  }
+}
