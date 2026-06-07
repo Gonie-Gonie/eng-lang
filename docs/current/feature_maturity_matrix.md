@@ -23,7 +23,7 @@ language feature. Status terms are defined at the bottom of this file.
 | Args binding | Supported | String/path `--input` binding and help metadata | Bool/count/unit/duration conversion deferred | Add typed Args conversion |
 | Standalone package | Supported | Official package and package-smoke path | Broader platform matrix deferred | Maintain Windows portable path |
 | Example taxonomy | Supported | `examples/official` user-test namespace, compatibility regression examples, diagnostic fixtures, and data-quality fixtures | Historical release notes may mention older paths | Maintain IDE/CLI ordering and package docs |
-| Native tester IDE | Preview | Open/check/save/run, diagnostics, completions, PlotSpec preview, runtime summary | Not a full LSP/editor platform | v1.0.3 hardening |
+| Native tester IDE | Preview | Open/check/save/run, diagnostics, completions, variable/unit/schema/CSV inspector, PlotSpec preview, runtime summary | Not a full LSP/editor platform | v1.0.3 hardening |
 | VS Code extension | Preview | Packaged diagnostic/completion shape | Secondary editor path | Keep package smoke stable |
 | Integrated HVAC example | Preview | User-test workflow across supported subsystems | It is not proof of general solver/table support | Use as release manual test |
 | Uncertainty core | Experimental | Official seed example and artifacts on `main` | Not release-supported | v1.1 |

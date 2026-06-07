@@ -90,7 +90,10 @@ Result
   scrollable result panel.
 
 Right Sidebar
-  Tabbed Variables, Completions, and Runtime Summary surface. After Run, the
+  Tabbed Inspector, Completions, and Runtime Summary surface. Inspector shows
+  variables with quantity kind, display/canonical unit, dimension, source,
+  expression, and unit derivation path. It also shows schema columns,
+  constraints, missing policies, and CSV promotion summaries. After Run, the
   Runtime tab shows result status, uncertainty summaries, ML metrics,
   coefficients, loss history, policy count, and system count.
 

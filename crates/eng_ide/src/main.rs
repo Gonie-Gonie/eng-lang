@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use eframe::egui;
 use egui::text::{LayoutJob, TextFormat};
 use eng_compiler::{
-    all_quantity_completions, all_unit_infos, check_source, CheckOptions, Severity,
+    all_quantity_completions, all_unit_infos, check_source, CheckOptions, CheckReport, Severity,
 };
 use eng_runtime::{run_file, RunOptions, RuntimeError};
 use serde_json::Value;
@@ -201,6 +201,9 @@ struct EngIdeApp {
     source: String,
     diagnostics: Vec<DiagnosticView>,
     symbols: Vec<SymbolView>,
+    unit_derivations: Vec<UnitDerivationView>,
+    schemas: Vec<SchemaView>,
+    csv_promotions: Vec<CsvPromotionView>,
     status: String,
     run_log: String,
     entry: String,
@@ -238,6 +241,9 @@ impl EngIdeApp {
             source: String::new(),
             diagnostics: Vec::new(),
             symbols: Vec::new(),
+            unit_derivations: Vec::new(),
+            schemas: Vec::new(),
+            csv_promotions: Vec::new(),
             status: "Ready".to_owned(),
             run_log: String::new(),
             entry: "main".to_owned(),
@@ -278,6 +284,9 @@ impl EngIdeApp {
                 self.source.clear();
                 self.diagnostics.clear();
                 self.symbols.clear();
+                self.unit_derivations.clear();
+                self.schemas.clear();
+                self.csv_promotions.clear();
                 self.status = format!("Could not load {}: {error}", self.current_path.display());
             }
         }
@@ -331,6 +340,9 @@ impl EngIdeApp {
                 self.source.clear();
                 self.diagnostics.clear();
                 self.symbols.clear();
+                self.unit_derivations.clear();
+                self.schemas.clear();
+                self.csv_promotions.clear();
                 self.dirty = false;
             }
             self.status = format!("Workspace: {}", self.root.display());
@@ -396,6 +408,13 @@ impl EngIdeApp {
 
     fn check_current(&mut self) {
         let report = check_source(&self.current_path, &self.source, &CheckOptions::default());
+        self.apply_check_report(&report);
+        let errors = report.diagnostic_count(Severity::Error);
+        let warnings = report.diagnostic_count(Severity::Warning);
+        self.status = format!("Checked: {errors} errors, {warnings} warnings");
+    }
+
+    fn apply_check_report(&mut self, report: &CheckReport) {
         self.diagnostics = report
             .diagnostics
             .iter()
@@ -407,22 +426,115 @@ impl EngIdeApp {
                 help: diagnostic.help.clone(),
             })
             .collect();
+
+        self.unit_derivations = report
+            .semantic_program
+            .unit_derivations
+            .iter()
+            .map(|derivation| UnitDerivationView {
+                name: derivation.name.clone(),
+                line: derivation.line,
+                quantity_kind: derivation.quantity_kind.clone(),
+                source_unit: derivation.source_unit.clone(),
+                display_unit: derivation.display_unit.clone(),
+                canonical_unit: derivation.canonical_unit.clone(),
+                expression: derivation.expression.clone(),
+                steps: derivation.steps.clone(),
+            })
+            .collect();
+
         self.symbols = report
             .semantic_program
             .hover_hints
             .iter()
-            .map(|hover| SymbolView {
-                name: hover.name.clone(),
-                line: hover.line,
-                quantity_kind: hover.quantity_kind.clone(),
-                display_unit: hover.display_unit.clone(),
-                detail: hover.detail.clone(),
+            .map(|hover| {
+                let type_info = report
+                    .semantic_program
+                    .type_infos
+                    .iter()
+                    .find(|info| info.name == hover.name && info.line == hover.line);
+                let derivation = self
+                    .unit_derivations
+                    .iter()
+                    .find(|item| item.name == hover.name && item.line == hover.line);
+                SymbolView {
+                    name: hover.name.clone(),
+                    line: hover.line,
+                    quantity_kind: hover.quantity_kind.clone(),
+                    display_unit: hover.display_unit.clone(),
+                    canonical_unit: type_info
+                        .map(|info| info.canonical_unit.clone())
+                        .or_else(|| derivation.map(|item| item.canonical_unit.clone()))
+                        .unwrap_or_else(|| hover.display_unit.clone()),
+                    dimension: type_info
+                        .map(|info| info.dimension.clone())
+                        .unwrap_or_else(|| "-".to_owned()),
+                    source: type_info
+                        .map(|info| info.source.as_str().to_owned())
+                        .unwrap_or_else(|| "symbol".to_owned()),
+                    source_unit: derivation.and_then(|item| item.source_unit.clone()),
+                    expression: derivation.and_then(|item| item.expression.clone()),
+                    steps: derivation
+                        .map(|item| item.steps.clone())
+                        .unwrap_or_default(),
+                    detail: hover.detail.clone(),
+                }
             })
             .collect();
 
-        let errors = report.diagnostic_count(Severity::Error);
-        let warnings = report.diagnostic_count(Severity::Warning);
-        self.status = format!("Checked: {errors} errors, {warnings} warnings");
+        self.schemas = report
+            .semantic_program
+            .schemas
+            .iter()
+            .map(|schema| SchemaView {
+                name: schema.name.clone(),
+                line: schema.line,
+                columns: schema
+                    .columns
+                    .iter()
+                    .map(|column| SchemaColumnView {
+                        name: column.name.clone(),
+                        type_name: column.type_name.clone(),
+                        unit: column.unit.clone(),
+                        is_index: column.is_index,
+                        line: column.line,
+                    })
+                    .collect(),
+                constraints: schema
+                    .constraints
+                    .iter()
+                    .map(|constraint| TextLineView {
+                        text: constraint.text.clone(),
+                        line: constraint.line,
+                    })
+                    .collect(),
+                missing_policies: schema
+                    .missing_policies
+                    .iter()
+                    .map(|policy| MissingPolicyView {
+                        column: policy.column.clone(),
+                        policy: policy.policy.clone(),
+                        line: policy.line,
+                    })
+                    .collect(),
+            })
+            .collect();
+
+        self.csv_promotions = report
+            .semantic_program
+            .csv_promotions
+            .iter()
+            .map(|promotion| CsvPromotionView {
+                binding: promotion.binding.clone(),
+                schema_name: promotion.schema_name.clone(),
+                source_value: promotion.source_value.clone(),
+                resolved_path: promotion.resolved_path.clone(),
+                row_count: promotion.row_count,
+                headers: promotion.headers.clone(),
+                missing_columns: promotion.missing_columns.clone(),
+                line: promotion.line,
+            })
+            .collect();
     }
 
     fn run_current(&mut self) {
@@ -450,17 +562,7 @@ impl EngIdeApp {
                 self.right_tab = RightTab::Runtime;
             }
             Err(RuntimeError::Compile(report)) => {
-                self.diagnostics = report
-                    .diagnostics
-                    .iter()
-                    .map(|diagnostic| DiagnosticView {
-                        severity: diagnostic.severity.as_str().to_owned(),
-                        code: diagnostic.code.clone(),
-                        line: diagnostic.line,
-                        message: diagnostic.message.clone(),
-                        help: diagnostic.help.clone(),
-                    })
-                    .collect();
+                self.apply_check_report(&report);
                 self.run_log = "Run failed during compile. See Problems.".to_owned();
                 self.status = "Run failed".to_owned();
                 self.bottom_tab = BottomTab::Problems;
@@ -983,7 +1085,7 @@ impl EngIdeApp {
 
     fn show_right_panel(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            tab_button(ui, "Variables", self.right_tab == RightTab::Inspector)
+            tab_button(ui, "Inspector", self.right_tab == RightTab::Inspector)
                 .clicked()
                 .then(|| self.right_tab = RightTab::Inspector);
             tab_button(ui, "Completions", self.right_tab == RightTab::Completions)
@@ -1002,42 +1104,164 @@ impl EngIdeApp {
     }
 
     fn show_inspector(&mut self, ui: &mut egui::Ui) {
-        panel_header(ui, "Variables");
+        panel_header(ui, "Inspector");
         egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                metric_chip(ui, "Variables", &self.symbols.len().to_string(), ACCENT);
+                metric_chip(ui, "Schemas", &self.schemas.len().to_string(), ACCENT);
+                metric_chip(ui, "CSV", &self.csv_promotions.len().to_string(), ACCENT);
+            });
+            ui.add_space(8.0);
+
+            section_label(ui, "Variables");
             if self.symbols.is_empty() {
                 ui.label(egui::RichText::new("No symbols").color(MUTED));
             }
             for symbol in &self.symbols {
-                egui::Frame::none()
-                    .fill(PANEL_ALT)
-                    .rounding(egui::Rounding::same(5.0))
-                    .inner_margin(egui::Margin::symmetric(8.0, 6.0))
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new(&symbol.name).strong());
-                            ui.with_layout(
-                                egui::Layout::right_to_left(egui::Align::Center),
-                                |ui| {
-                                    ui.label(
-                                        egui::RichText::new(format!("L{}", symbol.line))
-                                            .color(MUTED),
-                                    );
-                                },
-                            );
+                runtime_card(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new(&symbol.name).strong());
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            status_pill(ui, &format!("L{}", symbol.line), MUTED);
                         });
-                        ui.label(
-                            egui::RichText::new(format!(
-                                "{} [{}]",
-                                symbol.quantity_kind, symbol.display_unit
-                            ))
-                            .color(MUTED),
-                        );
-                    })
-                    .response
-                    .on_hover_text(&symbol.detail);
+                    });
+                    key_value_row(ui, "quantity", &symbol.quantity_kind);
+                    key_value_row(ui, "display", &symbol.display_unit);
+                    key_value_row(ui, "canonical", &symbol.canonical_unit);
+                    key_value_row(ui, "dimension", &symbol.dimension);
+                    key_value_row(ui, "source", &symbol.source);
+                    if let Some(source_unit) = &symbol.source_unit {
+                        key_value_row(ui, "source unit", source_unit);
+                    }
+                    if let Some(expression) = &symbol.expression {
+                        key_value_row(ui, "expression", expression);
+                    }
+                    if !symbol.steps.is_empty() {
+                        key_value_row(ui, "unit path", &symbol.steps.join(" -> "));
+                    }
+                })
+                .response
+                .on_hover_text(&symbol.detail);
                 ui.add_space(5.0);
             }
+
+            self.show_unit_derivations(ui);
+            self.show_schema_inspector(ui);
+            self.show_csv_promotions(ui);
         });
+    }
+
+    fn show_unit_derivations(&self, ui: &mut egui::Ui) {
+        ui.add_space(8.0);
+        section_label(ui, "Unit Paths");
+        if self.unit_derivations.is_empty() {
+            ui.label(egui::RichText::new("No unit derivations").color(MUTED));
+            return;
+        }
+        for derivation in &self.unit_derivations {
+            runtime_card(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(&derivation.name).strong());
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        status_pill(ui, &format!("L{}", derivation.line), MUTED);
+                    });
+                });
+                key_value_row(ui, "quantity", &derivation.quantity_kind);
+                key_value_row(ui, "display", &derivation.display_unit);
+                key_value_row(ui, "canonical", &derivation.canonical_unit);
+                if let Some(source_unit) = &derivation.source_unit {
+                    key_value_row(ui, "source unit", source_unit);
+                }
+                if let Some(expression) = &derivation.expression {
+                    key_value_row(ui, "expression", expression);
+                }
+                if !derivation.steps.is_empty() {
+                    key_value_row(ui, "steps", &derivation.steps.join(" -> "));
+                }
+            });
+            ui.add_space(5.0);
+        }
+    }
+
+    fn show_schema_inspector(&self, ui: &mut egui::Ui) {
+        ui.add_space(8.0);
+        section_label(ui, "Schemas");
+        if self.schemas.is_empty() {
+            ui.label(egui::RichText::new("No schema declarations").color(MUTED));
+            return;
+        }
+        for schema in &self.schemas {
+            runtime_card(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(&schema.name).strong());
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        status_pill(ui, &format!("L{}", schema.line), MUTED);
+                    });
+                });
+                key_value_row(ui, "columns", &schema.columns.len().to_string());
+                for column in &schema.columns {
+                    let mut detail = format!("{} {}", column.name, column.type_name);
+                    if let Some(unit) = &column.unit {
+                        detail.push_str(&format!(" [{unit}]"));
+                    }
+                    if column.is_index {
+                        detail.push_str(" index");
+                    }
+                    key_value_row(ui, &format!("L{}", column.line), &detail);
+                }
+                if !schema.constraints.is_empty() {
+                    ui.add_space(4.0);
+                    key_value_row(ui, "constraints", &schema.constraints.len().to_string());
+                    for constraint in &schema.constraints {
+                        key_value_row(ui, &format!("L{}", constraint.line), &constraint.text);
+                    }
+                }
+                if !schema.missing_policies.is_empty() {
+                    ui.add_space(4.0);
+                    key_value_row(ui, "missing", &schema.missing_policies.len().to_string());
+                    for policy in &schema.missing_policies {
+                        key_value_row(
+                            ui,
+                            &format!("L{}", policy.line),
+                            &format!("{}: {}", policy.column, policy.policy),
+                        );
+                    }
+                }
+            });
+            ui.add_space(5.0);
+        }
+    }
+
+    fn show_csv_promotions(&self, ui: &mut egui::Ui) {
+        ui.add_space(8.0);
+        section_label(ui, "CSV Promotions");
+        if self.csv_promotions.is_empty() {
+            ui.label(egui::RichText::new("No CSV promotions").color(MUTED));
+            return;
+        }
+        for promotion in &self.csv_promotions {
+            runtime_card(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(&promotion.binding).strong());
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        status_pill(ui, &format!("L{}", promotion.line), MUTED);
+                    });
+                });
+                key_value_row(ui, "schema", &promotion.schema_name);
+                key_value_row(ui, "rows", &promotion.row_count.to_string());
+                key_value_row(ui, "source", &promotion.source_value);
+                if !promotion.resolved_path.is_empty() {
+                    key_value_row(ui, "resolved", &promotion.resolved_path);
+                }
+                key_value_row(ui, "headers", &compact_list(&promotion.headers, 8));
+                if promotion.missing_columns.is_empty() {
+                    key_value_row(ui, "missing", "none");
+                } else {
+                    key_value_row(ui, "missing", &promotion.missing_columns.join(", "));
+                }
+            });
+            ui.add_space(5.0);
+        }
     }
 
     fn show_completions(&mut self, ui: &mut egui::Ui) {
@@ -1429,7 +1653,68 @@ struct SymbolView {
     line: usize,
     quantity_kind: String,
     display_unit: String,
+    canonical_unit: String,
+    dimension: String,
+    source: String,
+    source_unit: Option<String>,
+    expression: Option<String>,
+    steps: Vec<String>,
     detail: String,
+}
+
+#[derive(Clone)]
+struct UnitDerivationView {
+    name: String,
+    line: usize,
+    quantity_kind: String,
+    source_unit: Option<String>,
+    display_unit: String,
+    canonical_unit: String,
+    expression: Option<String>,
+    steps: Vec<String>,
+}
+
+#[derive(Clone)]
+struct SchemaView {
+    name: String,
+    line: usize,
+    columns: Vec<SchemaColumnView>,
+    constraints: Vec<TextLineView>,
+    missing_policies: Vec<MissingPolicyView>,
+}
+
+#[derive(Clone)]
+struct SchemaColumnView {
+    name: String,
+    type_name: String,
+    unit: Option<String>,
+    is_index: bool,
+    line: usize,
+}
+
+#[derive(Clone)]
+struct TextLineView {
+    text: String,
+    line: usize,
+}
+
+#[derive(Clone)]
+struct MissingPolicyView {
+    column: String,
+    policy: String,
+    line: usize,
+}
+
+#[derive(Clone)]
+struct CsvPromotionView {
+    binding: String,
+    schema_name: String,
+    source_value: String,
+    resolved_path: String,
+    row_count: usize,
+    headers: Vec<String>,
+    missing_columns: Vec<String>,
+    line: usize,
 }
 
 #[derive(Clone)]
@@ -2283,6 +2568,23 @@ fn path_matches_segment(normalized_path: &str, segment: &str) -> bool {
         || normalized_path.contains(&format!("/{segment}/"))
 }
 
+fn compact_list(values: &[String], limit: usize) -> String {
+    if values.is_empty() {
+        return "-".to_owned();
+    }
+    if values.len() <= limit {
+        return values.join(", ");
+    }
+    let mut head = values
+        .iter()
+        .take(limit)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ");
+    head.push_str(&format!(" ... +{}", values.len() - limit));
+    head
+}
+
 fn relative_to(root: &Path, path: &Path) -> String {
     path.strip_prefix(root)
         .unwrap_or(path)
@@ -2395,13 +2697,16 @@ fn metric_chip(ui: &mut egui::Ui, label: &str, value: &str, color: egui::Color32
         });
 }
 
-fn runtime_card(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui)) {
+fn runtime_card(
+    ui: &mut egui::Ui,
+    add_contents: impl FnOnce(&mut egui::Ui),
+) -> egui::InnerResponse<()> {
     egui::Frame::none()
         .fill(PANEL_ALT)
         .stroke(egui::Stroke::new(1.0, BORDER))
         .rounding(egui::Rounding::same(6.0))
         .inner_margin(egui::Margin::symmetric(9.0, 7.0))
-        .show(ui, add_contents);
+        .show(ui, add_contents)
 }
 
 fn key_value_row(ui: &mut egui::Ui, key: &str, value: &str) {

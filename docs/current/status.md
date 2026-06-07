@@ -68,8 +68,8 @@ Preview means official examples or package paths exercise the feature, but the
 scope and limitations must remain explicit.
 
 - Native tester IDE (`eng-ide.exe`) for open/check/save/run, diagnostics,
-  completions, source editing, PlotSpec preview, runtime summaries, and artifact
-  links.
+  completions, source editing, variable/unit/schema/CSV inspection, PlotSpec
+  preview, runtime summaries, and artifact links.
 - VS Code extension preview packaged as a secondary editor path.
 - Integrated HVAC user-test example combining CSV promote, statistics, plotting,
   reporting, and system metadata.

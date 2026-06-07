@@ -20,7 +20,7 @@ work becomes the main priority.
 
 | Area | Status | Notes |
 |---|---|---|
-| Native IDE layout | Implemented on main | Explorer, Code/Result split, Variables/Completions/Runtime sidebar, bottom panels |
+| Native IDE layout | Implemented on main | Explorer, Code/Result split, Inspector/Completions/Runtime sidebar, bottom panels |
 | Native IDE scrolling | Implemented on main | Code and Result panes scroll independently; horizontal code scroll only for long lines |
 | Native IDE completion | Implemented on main | Current-file variables, identifiers, keywords, quantities, units, snippets, and Tab accept |
 | Native IDE auto-pairs | Implemented on main | Parentheses, brackets, braces, single quotes, and double quotes |
@@ -35,7 +35,7 @@ work becomes the main priority.
 | Master plan cleanup | Implemented on main | Active pointer plus current v9 plan; historical plans are left to git history |
 | `degC`/`°C` policy | Implemented on main | `degC` remains canonical; `°C` is supported as an AbsoluteTemperature alias with tests |
 | Official vs legacy examples | Implemented on main | `examples/README.md` defines official, compatibility regression, diagnostic, and data-quality namespaces; IDE and CLI smoke surface official examples first |
-| IDE variable/unit/schema inspector depth | Open | Basic variables exist; richer unit conversion and schema panels remain future hardening |
+| IDE variable/unit/schema inspector depth | Implemented on main | Variables show quantity, display/canonical unit, dimension, source, expression, and unit path; schemas and CSV promotions have dedicated inspector sections |
 
 ## Release Gate Additions
 
@@ -51,5 +51,7 @@ Before tagging or publishing `v1.0.3`, manually confirm:
   examples run from the IDE.
 - Explorer shows Official Examples before compatibility regression,
   diagnostic, and data-quality fixtures.
+- Variables inspector shows canonical units, dimensions, derivation steps,
+  schemas, and CSV promotion summaries for official examples.
 - The package docs folder contains curated PDF assets, not the full developer
   markdown tree.

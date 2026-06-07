@@ -240,10 +240,10 @@ Before publishing the next post-v1.0 hardening release:
 [x] native IDE text/buttons render with compact Segoe UI/monospace fallback fonts and explicit light theme
 [x] eng-ide.exe --smoke discovers examples and compiler completion metadata
 [x] native IDE supports check, save, run, report open, diagnostics, symbols, and completions
-[x] native IDE has Explorer, Code/Result main panes, Variables sidebar, and Problems/Output/Artifacts regions
+[x] native IDE has Explorer, Code/Result main panes, Inspector sidebar, and Problems/Output/Artifacts regions
 [x] native IDE main area is side-by-side Code and Result, with independent scrolling
 [x] native IDE Code/Result divider resizes the main panes without covering the right sidebar
-[x] native IDE Result pane does not cover or push the Variables/Completions/Runtime sidebar
+[x] native IDE Result pane does not cover or push the Inspector/Completions/Runtime sidebar
 [x] native IDE code pane shows horizontal scrolling only when long source lines require it
 [x] native IDE has Runtime Summary for result.engres uncertainty and ML artifacts
 [x] native IDE supports creating new .eng files from the Explorer
@@ -266,6 +266,7 @@ Before publishing the next post-v1.0 hardening release:
 [x] docs/master-plan/current.md points to the active v9 plan without keeping old plan copies
 [x] `°C` is accepted as a user-facing alias for canonical `degC` AbsoluteTemperature spelling
 [x] examples/README.md and IDE/CLI ordering distinguish official, regression, diagnostic, and data-quality examples
+[x] IDE Inspector shows variable unit paths, schema details, and CSV promotion summaries
 ```
 
 Release notes live in `docs/release/v<version>.md`.
