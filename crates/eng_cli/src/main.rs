@@ -676,6 +676,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !review.contains("\"uncertainty_info\"")
                 || !report_spec.contains("\"uncertainty\"")
                 || !plot_spec.contains("\"plot_type\": \"histogram\"")
+                || !plot_spec.contains("\"bins\"")
                 || !plot_spec.contains("Coil heat-rate uncertainty")
             {
                 eprintln!(

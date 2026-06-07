@@ -12,7 +12,7 @@ It is intentionally short so agents do not need to load every planning file.
   documents say otherwise.
 - Current `v1.1` detail work includes deterministic uncertainty samples,
   source validation diagnostics, scale/offset propagation metadata, histogram
-  artifacts, and IDE/report inspection.
+  bin metadata/artifacts, and IDE/report inspection.
 
 ## Read First
 

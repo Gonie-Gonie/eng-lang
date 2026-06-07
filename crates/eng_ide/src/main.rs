@@ -1934,7 +1934,16 @@ struct PlotPreview {
     x_label: String,
     y_label: String,
     series_name: String,
+    bins: Vec<PlotBinPreview>,
     points: Vec<(f64, f64)>,
+}
+
+#[derive(Clone, Copy)]
+struct PlotBinPreview {
+    lower: f64,
+    upper: f64,
+    center: f64,
+    count: f64,
 }
 
 impl PlotPreview {
@@ -1969,6 +1978,22 @@ impl PlotPreview {
                     .collect()
             })
             .unwrap_or_default();
+        let bins = series
+            .and_then(|item| item.get("bins"))
+            .and_then(Value::as_array)
+            .map(|bins| {
+                bins.iter()
+                    .filter_map(|bin| {
+                        Some(PlotBinPreview {
+                            lower: bin.get("lower")?.as_f64()?,
+                            upper: bin.get("upper")?.as_f64()?,
+                            center: bin.get("center")?.as_f64()?,
+                            count: bin.get("count")?.as_f64()?,
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
 
         Ok(Self {
             title,
@@ -1976,6 +2001,7 @@ impl PlotPreview {
             x_label,
             y_label,
             series_name,
+            bins,
             points,
         })
     }
@@ -2793,7 +2819,7 @@ fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
             MUTED,
         );
     } else {
-        let (min_x, max_x, min_y, max_y) = point_bounds(&plot.points);
+        let (min_x, max_x, min_y, max_y) = plot_bounds(plot);
         let x_ticks = tick_values(min_x, max_x, 5);
         let y_ticks = tick_values(min_y, max_y, 5);
         let to_screen = |point: (f64, f64)| -> egui::Pos2 {
@@ -2859,7 +2885,22 @@ fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
             );
         }
 
-        if plot.plot_type == "bar" || plot.plot_type == "histogram" {
+        if plot.plot_type == "histogram" && !plot.bins.is_empty() {
+            let baseline_y = to_screen((min_x, 0.0)).y;
+            for bin in &plot.bins {
+                let left = to_screen((bin.lower, 0.0)).x;
+                let right = to_screen((bin.upper, 0.0)).x;
+                let value_y = to_screen((bin.center, bin.count)).y;
+                let bar_rect = egui::Rect::from_min_max(
+                    egui::pos2(left.min(right), value_y.min(baseline_y)),
+                    egui::pos2(
+                        left.max(right).max(left.min(right) + 2.0),
+                        value_y.max(baseline_y),
+                    ),
+                );
+                painter.rect_filled(bar_rect, egui::Rounding::same(1.5), ACCENT);
+            }
+        } else if plot.plot_type == "bar" || plot.plot_type == "histogram" {
             let bar_width = (plot_rect.width() / plot.points.len().max(1) as f32) * 0.68;
             let baseline_value = if min_y <= 0.0 && max_y >= 0.0 {
                 0.0
@@ -2936,6 +2977,24 @@ fn point_bounds(points: &[(f64, f64)]) -> (f64, f64, f64, f64) {
         max_y = max_y.max(*y);
     }
     (min_x, max_x, min_y, max_y)
+}
+
+fn plot_bounds(plot: &PlotPreview) -> (f64, f64, f64, f64) {
+    if plot.plot_type == "histogram" && !plot.bins.is_empty() {
+        let min_x = plot
+            .bins
+            .iter()
+            .map(|bin| bin.lower.min(bin.upper))
+            .fold(f64::INFINITY, f64::min);
+        let max_x = plot
+            .bins
+            .iter()
+            .map(|bin| bin.lower.max(bin.upper))
+            .fold(f64::NEG_INFINITY, f64::max);
+        let max_y = plot.bins.iter().map(|bin| bin.count).fold(0.0, f64::max);
+        return (min_x, max_x, 0.0, max_y.max(1.0));
+    }
+    point_bounds(&plot.points)
 }
 
 fn normalized(value: f64, min: f64, max: f64) -> f64 {

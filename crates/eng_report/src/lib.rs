@@ -25,7 +25,16 @@ pub struct PlotSeries {
     pub name: String,
     pub quantity_kind: String,
     pub display_unit: String,
+    pub bins: Vec<PlotBin>,
     pub points: Vec<PlotPoint>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PlotBin {
+    pub lower: f64,
+    pub upper: f64,
+    pub center: f64,
+    pub count: usize,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1552,6 +1561,7 @@ pub fn plot_spec_from_report(report: &CheckReport) -> PlotSpec {
             name,
             quantity_kind: "TimeSeries".to_owned(),
             display_unit: unit,
+            bins: Vec::new(),
             points: preview_points(),
         }],
     }
@@ -1565,14 +1575,13 @@ pub fn render_svg_from_spec(spec: &PlotSpec) -> String {
     let title = xml_escape(&spec.title);
     let x_label = xml_escape(&axis_label(&spec.x_axis));
     let y_label = xml_escape(&axis_label(&spec.y_axis));
-    let series_points = spec
-        .series
-        .first()
+    let series = spec.series.first();
+    let series_points = series
         .map(|series| series.points.as_slice())
         .unwrap_or_default();
     let plot_body = match spec.plot_type.as_str() {
         "bar" => svg_rect_plot(series_points, "#0b6bcb", 0.68),
-        "histogram" => svg_rect_plot(series_points, "#4b7f52", 0.92),
+        "histogram" => svg_histogram_plot(series),
         "scatter" => svg_scatter_plot(series_points, "#0b6bcb"),
         _ => format!(
             r##"<polyline points="{}" fill="none" stroke="#0b6bcb" stroke-width="4"/>"##,
@@ -1594,24 +1603,19 @@ pub fn render_svg_from_spec(spec: &PlotSpec) -> String {
 }
 
 pub fn plot_spec_json(spec: &PlotSpec) -> String {
-    let mut points = String::new();
-    for (index, point) in spec
-        .series
-        .first()
-        .map(|series| series.points.as_slice())
-        .unwrap_or_default()
-        .iter()
-        .enumerate()
-    {
-        if index > 0 {
-            points.push_str(", ");
-        }
-        points.push_str(&format!("[{}, {}]", point.x, point.y));
-    }
-
     let series = spec.series.first();
+    let points = plot_points_json(
+        series
+            .map(|series| series.points.as_slice())
+            .unwrap_or_default(),
+    );
+    let bins = plot_bins_json(
+        series
+            .map(|series| series.bins.as_slice())
+            .unwrap_or_default(),
+    );
     format!(
-        "{{\n  \"format\": \"eng-plotspec-v1\",\n  \"plot_spec_version\": {PLOT_SPEC_VERSION},\n  \"plot_type\": \"{}\",\n  \"title\": \"{}\",\n  \"x_axis\": {{ \"name\": \"{}\", \"label\": \"{}\", \"unit\": \"{}\" }},\n  \"y_axis\": {{ \"name\": \"{}\", \"label\": \"{}\", \"unit\": \"{}\" }},\n  \"series\": [\n    {{\n      \"name\": \"{}\",\n      \"quantity_kind\": \"{}\",\n      \"display_unit\": \"{}\",\n      \"points\": [{}]\n    }}\n  ]\n}}\n",
+        "{{\n  \"format\": \"eng-plotspec-v1\",\n  \"plot_spec_version\": {PLOT_SPEC_VERSION},\n  \"plot_type\": \"{}\",\n  \"title\": \"{}\",\n  \"x_axis\": {{ \"name\": \"{}\", \"label\": \"{}\", \"unit\": \"{}\" }},\n  \"y_axis\": {{ \"name\": \"{}\", \"label\": \"{}\", \"unit\": \"{}\" }},\n  \"series\": [\n    {{\n      \"name\": \"{}\",\n      \"quantity_kind\": \"{}\",\n      \"display_unit\": \"{}\",\n      \"points\": [{}],\n      \"bins\": [{}]\n    }}\n  ]\n}}\n",
         json_escape(&spec.plot_type),
         json_escape(&spec.title),
         json_escape(&spec.x_axis.name),
@@ -1631,8 +1635,34 @@ pub fn plot_spec_json(spec: &PlotSpec) -> String {
                 .map(|series| series.display_unit.as_str())
                 .unwrap_or("unit")
         ),
-        points
+        points,
+        bins
     )
+}
+
+fn plot_points_json(points: &[PlotPoint]) -> String {
+    let mut json = String::new();
+    for (index, point) in points.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str(&format!("[{}, {}]", point.x, point.y));
+    }
+    json
+}
+
+fn plot_bins_json(bins: &[PlotBin]) -> String {
+    let mut json = String::new();
+    for (index, bin) in bins.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str(&format!(
+            "{{\"lower\": {}, \"upper\": {}, \"center\": {}, \"count\": {}}}",
+            bin.lower, bin.upper, bin.center, bin.count
+        ));
+    }
+    json
 }
 
 pub fn plot_manifest_json(
@@ -2324,6 +2354,7 @@ fn default_plot_spec(title: &str) -> PlotSpec {
             name: "preview".to_owned(),
             quantity_kind: "Value".to_owned(),
             display_unit: "preview".to_owned(),
+            bins: Vec::new(),
             points: preview_points(),
         }],
     }
@@ -2430,6 +2461,60 @@ fn svg_rect_plot(points: &[PlotPoint], fill: &str, width_fraction: f64) -> Strin
         .join("\n  ")
 }
 
+fn svg_histogram_plot(series: Option<&PlotSeries>) -> String {
+    let Some(series) = series else {
+        return String::new();
+    };
+    if series.bins.is_empty() {
+        return svg_rect_plot(&series.points, "#4b7f52", 0.92);
+    }
+
+    let min_x = series
+        .bins
+        .iter()
+        .map(|bin| bin.lower.min(bin.upper))
+        .fold(f64::INFINITY, f64::min);
+    let max_x = series
+        .bins
+        .iter()
+        .map(|bin| bin.lower.max(bin.upper))
+        .fold(f64::NEG_INFINITY, f64::max);
+    if (max_x - min_x).abs() <= f64::EPSILON {
+        return svg_rect_plot(&series.points, "#4b7f52", 0.92);
+    }
+    let y_span = series
+        .bins
+        .iter()
+        .map(|bin| bin.count)
+        .max()
+        .unwrap_or(1)
+        .max(1) as f64;
+
+    series
+        .bins
+        .iter()
+        .map(|bin| {
+            let x1 = 72.0 + ((bin.lower - min_x) / (max_x - min_x)) * 588.0;
+            let x2 = 72.0 + ((bin.upper - min_x) / (max_x - min_x)) * 588.0;
+            let x = x1.min(x2);
+            let width = (x2 - x1).abs().max(2.0);
+            let value_y = 250.0 - (bin.count as f64 / y_span) * 210.0;
+            let height = (250.0 - value_y).max(1.0);
+            format!(
+                r##"<rect x="{:.1}" y="{:.1}" width="{:.1}" height="{:.1}" fill="#4b7f52" opacity="0.88" data-bin-lower="{:.6}" data-bin-upper="{:.6}" data-bin-count="{}"/>"##,
+                x,
+                value_y,
+                width,
+                height,
+                bin.lower,
+                bin.upper,
+                bin.count
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n  ")
+}
+
 fn svg_scatter_plot(points: &[PlotPoint], fill: &str) -> String {
     if points.is_empty() {
         return String::new();
@@ -2512,6 +2597,28 @@ mod tests {
         assert!(histogram_svg.contains("<rect x="));
         assert!(!histogram_svg.contains("<polyline"));
 
+        spec.series[0].bins = vec![
+            PlotBin {
+                lower: 0.0,
+                upper: 1.0,
+                center: 0.5,
+                count: 2,
+            },
+            PlotBin {
+                lower: 1.0,
+                upper: 2.0,
+                center: 1.5,
+                count: 1,
+            },
+        ];
+        let binned_json = plot_spec_json(&spec);
+        let binned_svg = render_svg_from_spec(&spec);
+        assert!(binned_json.contains("\"bins\""));
+        assert!(binned_json.contains("\"count\": 2"));
+        assert!(binned_svg.contains("data-bin-lower"));
+        assert!(binned_svg.contains("data-bin-count=\"2\""));
+
+        spec.series[0].bins.clear();
         "scatter".clone_into(&mut spec.plot_type);
         let scatter_json = plot_spec_json(&spec);
         let scatter_svg = render_svg_from_spec(&spec);
@@ -2653,6 +2760,7 @@ mod tests {
                 name: "value".to_owned(),
                 quantity_kind: "HeatRate".to_owned(),
                 display_unit: "kW".to_owned(),
+                bins: Vec::new(),
                 points: vec![
                     PlotPoint { x: 0.0, y: 1.0 },
                     PlotPoint { x: 1.0, y: 2.5 },

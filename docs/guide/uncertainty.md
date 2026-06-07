@@ -67,7 +67,10 @@ return report {
 ```
 
 The runtime writes a histogram `PlotSpec` and SVG under the normal build result
-folder. In the native IDE, run the file and use the plot/report artifact buttons.
+folder. The histogram series keeps center/count `points` for renderer
+compatibility and `bins` entries with `lower`, `upper`, `center`, and `count`
+for reviewable bin edges. In the native IDE, run the file and use the
+plot/report artifact buttons.
 
 ## Runtime Contract
 

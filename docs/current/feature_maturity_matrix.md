@@ -17,7 +17,7 @@ language feature. Status terms are defined at the bottom of this file.
 | TimeSeries statistics | Supported | Official HeatRate TimeSeries path | General quantity rules and arbitrary TimeSeries expressions limited | Expand quantity-aware kernels |
 | `integrate(... over Time)` | Supported | HeatRate to Energy metadata and supported example | Wider signal types deferred | Generalize integration rules |
 | PlotSpec line plot | Supported | CSV-derived TimeSeries line plot and SVG | Multi-series and interactive consistency deferred | Expand PlotSpec semantics |
-| Bar/histogram plot seeds | Preview | Report/PlotSpec seed tests and IDE preview rendering | True histogram binning and full semantics deferred | Harden before support claim |
+| Bar/histogram plot seeds | Preview | Report/PlotSpec seed tests, uncertainty histogram bins, and IDE preview rendering | General histogram expressions and grouped bar semantics deferred | Harden before support claim |
 | Report/review artifacts | Supported | Official artifacts, schemas, report spec, review JSON | Rich report layout remains limited | Maintain schemas and improve IDE panels |
 | Minimal `system`/`eq` | Preview | One-state thermal system and unit diagnostics | Multi-state/nonlinear/adaptive solving deferred | Clarify solver boundary |
 | Args binding | Supported | String/path `--input` binding and help metadata | Bool/count/unit/duration conversion deferred | Add typed Args conversion |

@@ -5,7 +5,7 @@ use eng_compiler::{
     all_quantity_completions, all_unit_infos, normalize_unit, CheckReport, SchemaColumn, SchemaInfo,
 };
 use eng_report::{
-    PlotAxis, PlotPoint, PlotSeries, PlotSpec, ReportComputedIntegration,
+    PlotAxis, PlotBin, PlotPoint, PlotSeries, PlotSpec, ReportComputedIntegration,
     ReportComputedStatisticValue, ReportComputedStatistics, ReportMlCoefficient, ReportMlInfo,
     ReportPolicyResult, ReportPolicyViolation, ReportSpec, ReportUncertaintyInfo,
 };
@@ -97,6 +97,7 @@ impl RuntimeData {
             name: series.name.clone(),
             quantity_kind: series.quantity_kind.clone(),
             display_unit,
+            bins: Vec::new(),
             points,
         }];
 
@@ -123,11 +124,14 @@ impl RuntimeData {
             label: "Frequency".to_owned(),
             unit: "count".to_owned(),
         };
+        let bins = histogram_bins(&uncertainty.samples);
+        let points = histogram_points_from_bins(&bins);
         spec.series = vec![PlotSeries {
             name: uncertainty.binding.clone(),
             quantity_kind: uncertainty.quantity_kind.clone(),
             display_unit: uncertainty.display_unit.clone(),
-            points: histogram_points(&uncertainty.samples),
+            bins,
+            points,
         }];
     }
 
@@ -198,6 +202,7 @@ impl RuntimeData {
                 .clone()
                 .unwrap_or_else(|| "Model".to_owned()),
             display_unit: artifact.display_unit.clone(),
+            bins: Vec::new(),
             points,
         }];
     }
@@ -2482,16 +2487,18 @@ fn sample_summary(values: &[f64]) -> SampleSummary {
     }
 }
 
-fn histogram_points(values: &[f64]) -> Vec<PlotPoint> {
+fn histogram_bins(values: &[f64]) -> Vec<PlotBin> {
     if values.is_empty() {
         return Vec::new();
     }
     let lower = values.iter().copied().fold(f64::INFINITY, f64::min);
     let upper = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     if (upper - lower).abs() <= f64::EPSILON {
-        return vec![PlotPoint {
-            x: lower,
-            y: values.len() as f64,
+        return vec![PlotBin {
+            lower,
+            upper,
+            center: lower,
+            count: values.len(),
         }];
     }
     let bin_count = values.len().clamp(3, 12);
@@ -2506,9 +2513,28 @@ fn histogram_points(values: &[f64]) -> Vec<PlotPoint> {
     }
     bins.into_iter()
         .enumerate()
-        .map(|(index, count)| PlotPoint {
-            x: lower + (index as f64 + 0.5) * width,
-            y: count as f64,
+        .map(|(index, count)| {
+            let bin_lower = lower + index as f64 * width;
+            let bin_upper = if index + 1 == bin_count {
+                upper
+            } else {
+                bin_lower + width
+            };
+            PlotBin {
+                lower: bin_lower,
+                upper: bin_upper,
+                center: bin_lower + (bin_upper - bin_lower) * 0.5,
+                count,
+            }
+        })
+        .collect()
+}
+
+fn histogram_points_from_bins(bins: &[PlotBin]) -> Vec<PlotPoint> {
+    bins.iter()
+        .map(|bin| PlotPoint {
+            x: bin.center,
+            y: bin.count as f64,
         })
         .collect()
 }
@@ -3393,6 +3419,23 @@ script main(args: Args) -> Report {
         assert_eq!(plot_spec.plot_type, "histogram");
         assert_eq!(plot_spec.title, "Coil uncertainty");
         assert!(!plot_spec.series[0].points.is_empty());
+        assert_eq!(
+            plot_spec.series[0]
+                .bins
+                .iter()
+                .map(|bin| bin.count)
+                .sum::<usize>(),
+            runtime.uncertainties[0].sample_count
+        );
+        assert_eq!(
+            plot_spec.series[0].points.len(),
+            plot_spec.series[0].bins.len()
+        );
+        let plot_json = eng_report::plot_spec_json(&plot_spec);
+        let plot_svg = eng_report::render_svg_from_spec(&plot_spec);
+        assert!(plot_json.contains("\"bins\""));
+        assert!(plot_json.contains("\"lower\""));
+        assert!(plot_svg.contains("data-bin-lower"));
     }
 
     #[test]

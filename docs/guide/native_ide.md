@@ -86,8 +86,9 @@ Code
 Result
   Run Preview renders PlotSpec points inside the IDE with axes, grid lines,
   ticks, and plot-specific rendering for line, scatter, bar, and histogram
-  plots. Runtime Summary and Artifacts are shown below the plot in the same
-  scrollable result panel.
+  plots. Histogram previews use PlotSpec bin edges when available. Runtime
+  Summary and Artifacts are shown below the plot in the same scrollable result
+  panel.
 
 Right Sidebar
   Tabbed Inspector, Completions, and Runtime Summary surface. Inspector shows

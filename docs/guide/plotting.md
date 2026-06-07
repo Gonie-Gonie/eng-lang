@@ -59,9 +59,12 @@ The `points` array is the renderer-independent data model. v0.6 used
 deterministic sample points; the v1.0 hardening path uses runtime TimeSeries
 points for the official CSV example.
 
-`plot_type = "bar"` and `plot_type = "histogram"` are seed renderers. They
-consume existing PlotSpec points and emit SVG rectangles. Histogram binning from
-raw distributions is still a later plotting kernel.
+`plot_type = "bar"` consumes existing PlotSpec points and emits SVG rectangles.
+`plot_type = "histogram"` also renders rectangles; when produced by
+`plot distribution(...)`, the PlotSpec series includes `bins` with lower edge,
+upper edge, center, and count metadata in addition to center/count `points`.
+General-purpose raw-value histogram expressions outside the uncertainty plot
+path remain a later plotting kernel.
 
 ## SVG Export
 
@@ -141,8 +144,8 @@ Later versions will add:
 
 ```text
 - multiple series
-- histogram binning from raw values
+- general histogram expressions from arbitrary raw values
 - grouped/stacked bar semantics
 - interactive viewer
-- PlotSpec validation schema
+- stricter PlotSpec validation schema
 ```

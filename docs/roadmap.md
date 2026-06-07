@@ -333,7 +333,7 @@ Required outputs before v1.1 can be considered supported:
 - uncertainty metadata in review/report/result artifacts
 - simple propagation through source binding samples with scale/offset transform
   metadata
-- distribution summary/plot histogram
+- distribution summary and PlotSpec histogram with bin metadata
 - official uncertainty example and CLI smoke
 - uncertainty source validation diagnostics
 - diagnostics, IDE metadata, documentation, and release notes aligned

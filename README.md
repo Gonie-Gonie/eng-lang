@@ -153,7 +153,7 @@ v1.0.3
 v1.1
   Uncertainty core: Measured[T], Interval[T], distribution/ensemble paths,
   deterministic samples, source diagnostics, scale/offset propagation metadata,
-  histogram PlotSpec, and uncertainty report summaries.
+  histogram PlotSpec with bin metadata, and uncertainty report summaries.
   Experimental on main until v1.1 is explicitly targeted and released.
 
 v1.2

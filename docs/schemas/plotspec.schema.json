@@ -23,7 +23,26 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "quantity_kind", "display_unit", "points"]
+        "required": ["name", "quantity_kind", "display_unit", "points"],
+        "properties": {
+          "name": { "type": "string" },
+          "quantity_kind": { "type": "string" },
+          "display_unit": { "type": "string" },
+          "points": { "type": "array" },
+          "bins": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["lower", "upper", "center", "count"],
+              "properties": {
+                "lower": { "type": "number" },
+                "upper": { "type": "number" },
+                "center": { "type": "number" },
+                "count": { "type": "integer", "minimum": 0 }
+              }
+            }
+          }
+        }
       }
     }
   }

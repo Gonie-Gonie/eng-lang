@@ -366,6 +366,11 @@ x/y axis labels with units
 CSV-derived TimeSeries points for the official data path
 ```
 
+The v1.1 uncertainty path keeps the same PlotSpec version and adds optional
+series `bins` for `plot distribution(...)` histograms. Each bin records lower
+edge, upper edge, center, and count while `points` remains center/count data for
+older renderers.
+
 ## `plots/plot_manifest.json`
 
 Purpose:
