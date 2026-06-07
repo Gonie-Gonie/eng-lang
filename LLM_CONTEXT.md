@@ -33,6 +33,9 @@ It is intentionally short so agents do not need to load every planning file.
   for physical equations.
 - Temperature spelling: `degC` is the canonical ASCII spelling; `°C` is a
   supported user-facing alias for `AbsoluteTemperature`.
+- Examples taxonomy: `examples/official` is the user-test/release namespace.
+  Top-level numbered examples are compatibility regressions; diagnostic and
+  data-quality fixtures are intentionally separate.
 - Top-level side effects are disallowed for file run/build paths.
 - Public feature claims must match the feature maturity matrix.
 

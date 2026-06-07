@@ -39,6 +39,10 @@ Rust or Python installation is not required.
 Python is optional documentation tooling. EngLang checking, running, plotting,
 report generation, and packaged execution do not depend on Python.
 
+For user testing and release validation, start with `examples/official`. The
+top-level numbered examples are compatibility regressions, while diagnostic and
+data-quality fixtures live in separate folders. See [examples/README.md](examples/README.md).
+
 ## Current Stable Commands
 
 ```bat

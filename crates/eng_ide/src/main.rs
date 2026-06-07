@@ -744,8 +744,10 @@ impl EngIdeApp {
             .map(ToOwned::to_owned)
             .unwrap_or_else(|| path.to_string_lossy().to_string());
         let entries = sorted_visible_entries(path);
+        let label = explorer_directory_label(&self.root, path).unwrap_or(label);
+        let default_open = depth < 1 || is_official_examples_dir(&self.root, path);
         egui::CollapsingHeader::new(egui::RichText::new(label).strong().size(12.5).color(TEXT))
-            .default_open(depth < 1)
+            .default_open(default_open)
             .show(ui, |ui| {
                 for entry in entries {
                     if entry.is_dir() {
@@ -767,6 +769,7 @@ impl EngIdeApp {
             .and_then(|value| value.to_str())
             .unwrap_or("");
         let selected = entry == self.current_path;
+        let category = example_category_label(entry);
         let fill = if selected {
             egui::Color32::from_rgb(218, 235, 252)
         } else {
@@ -788,6 +791,9 @@ impl EngIdeApp {
                                     .size(10.5)
                                     .color(MUTED),
                             );
+                            if let Some(category) = category {
+                                ui.label(egui::RichText::new(category).size(10.5).color(ACCENT));
+                            }
                         });
                     }
                 });
@@ -797,7 +803,12 @@ impl EngIdeApp {
         if response.clicked() {
             self.open_file(entry.to_path_buf());
         }
-        response.on_hover_text(self.relative_path(entry));
+        let hover = if let Some(category) = category {
+            format!("{category}: {}", self.relative_path(entry))
+        } else {
+            self.relative_path(entry)
+        };
+        response.on_hover_text(hover);
         ui.add_space(1.0);
     }
 
@@ -2128,7 +2139,7 @@ fn collect_examples(root: &Path) -> Vec<PathBuf> {
     } else {
         collect_eng_files(root, &mut examples);
     }
-    examples.sort();
+    sort_example_paths(&mut examples);
     examples
 }
 
@@ -2181,12 +2192,95 @@ fn sorted_visible_entries(path: &Path) -> Vec<PathBuf> {
             }
         })
         .collect();
-    entries.sort_by(|a, b| {
-        b.is_dir()
-            .cmp(&a.is_dir())
-            .then_with(|| a.file_name().cmp(&b.file_name()))
-    });
+    entries.sort_by_key(|path| explorer_entry_sort_key(path));
     entries
+}
+
+fn sort_example_paths(paths: &mut [PathBuf]) {
+    paths.sort_by_key(|path| example_file_sort_key(path));
+}
+
+fn example_file_sort_key(path: &Path) -> (u8, String) {
+    (example_category_rank(path), normalized_path(path))
+}
+
+fn explorer_entry_sort_key(path: &Path) -> (u8, u8, String) {
+    let kind_rank = if path.is_dir() { 0 } else { 1 };
+    (
+        kind_rank,
+        example_category_rank(path),
+        path.file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase(),
+    )
+}
+
+fn example_category_rank(path: &Path) -> u8 {
+    let normalized = normalized_path(path);
+    if path_matches_segment(&normalized, "examples/official") {
+        0
+    } else if path_matches_segment(&normalized, "examples/05_error_messages") {
+        2
+    } else if path_matches_segment(&normalized, "examples/07_data_quality") {
+        3
+    } else if path_matches_segment(&normalized, "examples/scratch") {
+        4
+    } else if path_matches_segment(&normalized, "examples") {
+        1
+    } else {
+        5
+    }
+}
+
+fn example_category_label(path: &Path) -> Option<&'static str> {
+    let normalized = normalized_path(path);
+    if path_matches_segment(&normalized, "examples/official") {
+        Some("Official")
+    } else if path_matches_segment(&normalized, "examples/05_error_messages") {
+        Some("Diagnostic")
+    } else if path_matches_segment(&normalized, "examples/07_data_quality") {
+        Some("Data")
+    } else if path_matches_segment(&normalized, "examples/scratch") {
+        Some("Scratch")
+    } else if path_matches_segment(&normalized, "examples") {
+        Some("Regression")
+    } else {
+        None
+    }
+}
+
+fn explorer_directory_label(root: &Path, path: &Path) -> Option<String> {
+    let normalized = relative_to(root, path);
+    match normalized.as_str() {
+        "examples" => Some("Examples".to_owned()),
+        "examples/official" => Some("Official Examples".to_owned()),
+        "examples/05_error_messages" => Some("Diagnostic Fixtures".to_owned()),
+        "examples/07_data_quality" => Some("Data Quality Fixtures".to_owned()),
+        "examples/scratch" => Some("Scratch Files".to_owned()),
+        value if value.starts_with("examples/") && path.is_dir() => path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(|name| format!("Regression {name}")),
+        _ => None,
+    }
+}
+
+fn is_official_examples_dir(root: &Path, path: &Path) -> bool {
+    relative_to(root, path) == "examples/official"
+}
+
+fn normalized_path(path: &Path) -> String {
+    path.to_string_lossy()
+        .replace('\\', "/")
+        .to_ascii_lowercase()
+}
+
+fn path_matches_segment(normalized_path: &str, segment: &str) -> bool {
+    normalized_path == segment
+        || normalized_path.starts_with(&format!("{segment}/"))
+        || normalized_path.ends_with(&format!("/{segment}"))
+        || normalized_path.contains(&format!("/{segment}/"))
 }
 
 fn relative_to(root: &Path, path: &Path) -> String {

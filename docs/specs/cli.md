@@ -249,7 +249,8 @@ Creates a starter EngLang project:
 Runs official smoke checks:
 
 ```text
-- official good examples check
+- official user-test examples check first
+- compatibility regression examples check after official examples
 - unit mismatch example produces errors
 - ambiguous power example produces a warning
 - HeatRate sum example produces W-STATS-SUM-001

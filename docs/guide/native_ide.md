@@ -67,8 +67,9 @@ Top toolbar
 
 Left Explorer
   Opens .eng files from examples/, stdlib/, and selected tutorial sources.
-  Creates scratch .eng files from a starter template. Open File and Open Folder
-  use native OS dialogs.
+  `examples/official` is shown before compatibility regression, diagnostic,
+  and data-quality fixtures. Creates scratch .eng files from a starter
+  template. Open File and Open Folder use native OS dialogs.
 
 Main work area
   The center is split as Code on the left and Result on the right. The Result

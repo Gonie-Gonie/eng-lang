@@ -1,7 +1,8 @@
-# Official Examples
+# Official User-Test Examples
 
-These examples are part of the release gate. They are the paths users should
-copy first when starting from a stable EngLang preview.
+This is the release-facing example namespace. The portable package copies this
+folder, the native IDE shows it first, and release smoke checks exercise these
+paths before compatibility fixtures.
 
 ```text
 01_csv_plot
@@ -17,12 +18,16 @@ copy first when starting from a stable EngLang preview.
   statistics, integrate, PlotSpec/report, and simple system solver preview.
 
 04_uncertainty_core
-  Uncertainty core seed for measured values, intervals, deterministic
-  distributions/ensembles, propagation metadata, and in-report histogram output.
+  Experimental v1.1 uncertainty path for measured values, intervals,
+  deterministic distributions/ensembles, propagation metadata, and in-report
+  histogram output.
 
 05_data_driven_modeling
-  Data-driven modeling seed for train/test split, linear regression, basic MLP,
-  RMSE/MAE/R2 metrics, leakage lint, model card, and parity plot output.
+  Experimental v1.2 data-driven modeling path for train/test split, linear
+  regression, basic MLP, RMSE/MAE/R2 metrics, leakage lint, model card, and
+  parity plot output.
 ```
 
-Legacy numbered examples remain for compatibility and focused regression tests.
+Top-level numbered examples remain for compatibility and focused regression
+tests. Diagnostic and data-quality fixtures live in their own top-level
+folders; they are not the first user-facing examples.

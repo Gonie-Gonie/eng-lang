@@ -57,6 +57,10 @@ release-target path.
   reviewable report artifacts.
 - Temperature spelling policy: `degC` remains the canonical ASCII spelling, and
   `°C` is supported as a user-facing alias for `AbsoluteTemperature`.
+- Example taxonomy: `examples/official` is the release-facing user-test
+  namespace; top-level numbered examples are compatibility regression paths;
+  diagnostic and data-quality fixtures are separated by folder and surfaced
+  after official examples in the native IDE/CLI smoke path.
 
 ## Preview Features
 

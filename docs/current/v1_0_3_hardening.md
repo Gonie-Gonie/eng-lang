@@ -34,7 +34,7 @@ work becomes the main priority.
 | README link cleanup | Implemented on main | README points to current-status layer and short doc index |
 | Master plan cleanup | Implemented on main | Active pointer plus current v9 plan; historical plans are left to git history |
 | `degC`/`°C` policy | Implemented on main | `degC` remains canonical; `°C` is supported as an AbsoluteTemperature alias with tests |
-| Official vs legacy examples | Open | Current examples are usable, but directory taxonomy can be clearer later |
+| Official vs legacy examples | Implemented on main | `examples/README.md` defines official, compatibility regression, diagnostic, and data-quality namespaces; IDE and CLI smoke surface official examples first |
 | IDE variable/unit/schema inspector depth | Open | Basic variables exist; richer unit conversion and schema panels remain future hardening |
 
 ## Release Gate Additions
@@ -49,5 +49,7 @@ Before tagging or publishing `v1.0.3`, manually confirm:
   suggestion.
 - Official CSV+plot, integrated HVAC, uncertainty, and data-driven modeling
   examples run from the IDE.
+- Explorer shows Official Examples before compatibility regression,
+  diagnostic, and data-quality fixtures.
 - The package docs folder contains curated PDF assets, not the full developer
   markdown tree.

@@ -360,29 +360,41 @@ fn command_new(args: Vec<String>) -> ExitCode {
 }
 
 fn command_test(_args: Vec<String>) -> ExitCode {
-    let examples = [
-        "examples/01_units/main.eng",
-        "examples/official/01_csv_plot/main.eng",
-        "examples/official/02_simple_system/main.eng",
-        "examples/official/03_integrated_hvac/main.eng",
-        "examples/02_csv_plot/main.eng",
-        "examples/04_plotting/main.eng",
-        "examples/06_simple_system/main.eng",
+    let example_groups: [(&str, &[&str]); 2] = [
+        (
+            "official",
+            &[
+                "examples/official/01_csv_plot/main.eng",
+                "examples/official/02_simple_system/main.eng",
+                "examples/official/03_integrated_hvac/main.eng",
+            ],
+        ),
+        (
+            "compatibility regression",
+            &[
+                "examples/01_units/main.eng",
+                "examples/02_csv_plot/main.eng",
+                "examples/04_plotting/main.eng",
+                "examples/06_simple_system/main.eng",
+            ],
+        ),
     ];
 
-    for example in examples {
-        let report = match check_file(example, &CheckOptions::default()) {
-            Ok(report) => report,
-            Err(error) => {
-                eprintln!("{example}: {error}");
-                return ExitCode::from(1);
+    for (group, examples) in example_groups {
+        for example in examples {
+            let report = match check_file(example, &CheckOptions::default()) {
+                Ok(report) => report,
+                Err(error) => {
+                    eprintln!("{example}: {error}");
+                    return ExitCode::from(1);
+                }
+            };
+            if report.has_errors() {
+                print_diagnostics(&report);
+                return ExitCode::from(2);
             }
-        };
-        if report.has_errors() {
-            print_diagnostics(&report);
-            return ExitCode::from(2);
+            println!("ok: {group} example {example}");
         }
-        println!("ok: {example}");
     }
 
     let bad = match check_file(

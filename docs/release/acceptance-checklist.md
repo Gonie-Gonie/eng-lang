@@ -265,6 +265,7 @@ Before publishing the next post-v1.0 hardening release:
 [x] LLM_CONTEXT.md and docs/llm/load_map.yml define a small current-context path
 [x] docs/master-plan/current.md points to the active v9 plan without keeping old plan copies
 [x] `°C` is accepted as a user-facing alias for canonical `degC` AbsoluteTemperature spelling
+[x] examples/README.md and IDE/CLI ordering distinguish official, regression, diagnostic, and data-quality examples
 ```
 
 Release notes live in `docs/release/v<version>.md`.
