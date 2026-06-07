@@ -187,3 +187,7 @@ The v1.0 demo must show:
 Release notes live in `docs/release/v<version>.md`.
 
 The full release procedure lives in [release-workflow.md](release-workflow.md).
+
+Post-v1.0 implementation gaps and seed-only areas are tracked in
+[v1.0 gap audit](../development/05_v1_0_gap_audit.md). New release gates should
+pull from that register before claiming additional stable behavior.

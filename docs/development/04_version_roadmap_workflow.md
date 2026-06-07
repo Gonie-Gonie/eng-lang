@@ -13,6 +13,7 @@ The v9 master plan changes how development work is selected. Contributors should
 6. Run dev.bat ci.
 7. Commit and push at a reviewable unit.
 8. Update roadmap/release notes when the version state changes.
+9. After a stable or alpha milestone, run a gap audit before starting the next major feature arc.
 ```
 
 ## Issue Format
@@ -57,6 +58,23 @@ Avoid combining:
 - generated artifacts + source edits
 ```
 
+## Milestone Gap Audit
+
+After an alpha/stable milestone is tagged, compare the implemented behavior
+against the master plan and write down seed-only areas before moving on.
+
+The audit should classify each item as:
+
+```text
+Implemented
+Seed
+Gap
+Deferred
+```
+
+For v1.0, this register lives in
+[v1.0 gap audit](05_v1_0_gap_audit.md).
+
 ## v0.1/v0.2 Backfill Policy
 
 If v9 reveals a missed item for an already tagged preview version:
@@ -67,4 +85,3 @@ If v9 reveals a missed item for an already tagged preview version:
 3. Mention it as backfill in docs/roadmap.md.
 4. Keep the next active milestone unchanged unless the user asks for a patch tag.
 ```
-

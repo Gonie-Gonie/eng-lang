@@ -115,6 +115,7 @@ v1.1
 - [Daily workflow](docs/development/02_daily_workflow.md)
 - [Reproducible environment policy](docs/development/03_environment_reproducibility.md)
 - [Version roadmap workflow](docs/development/04_version_roadmap_workflow.md)
+- [v1.0 gap audit](docs/development/05_v1_0_gap_audit.md)
 - [System architecture](docs/architecture/00_system_overview.md)
 - [Compiler frontend](docs/architecture/02_compiler_frontend.md)
 - [Expected types and quantity completions](docs/architecture/03_expected_types_and_quantities.md)

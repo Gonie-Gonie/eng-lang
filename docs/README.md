@@ -9,6 +9,7 @@ This index maps the v9 master plan to the concrete repository work.
 3. [Daily workflow](development/02_daily_workflow.md)
 4. [Reproducible environment policy](development/03_environment_reproducibility.md)
 5. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
+6. [v1.0 gap audit and hardening register](development/05_v1_0_gap_audit.md)
 
 ## Architecture
 
