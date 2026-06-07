@@ -108,8 +108,9 @@ not part of the supported release contract.
   remains `not_available`. It does not provide native code generation or
   runtime acceleration yet.
 - `v1.5` standalone/AOT maturity: packaged runner manifests and locks record
-  runtime ABI, repro profile, dependency paths, and dependency hashes. Optimized
-  native `model.exe`/AOT is not implemented yet.
+  runtime ABI, repro profile, dependency paths, byte-based dependency hashes,
+  and the reserved executable-wrapper/AOT boundary. Optimized native
+  `model.exe`/AOT is not implemented yet.
 
 ## Deferred / Known Limitations
 

@@ -462,3 +462,7 @@ to `eng.exe run`, where they are bound to `struct Args` fields.
 `run.bat` executes the bundled `eng.exe` and writes normal run artifacts under
 `<model>-standalone/build/result`. This is a packaged runner, not an optimized
 AOT executable. Full AOT/native optimization remains a later milestone.
+
+See [Standalone package reference](../reference/standalone_package.md) for the
+field tables, dependency hash semantics, Args forwarding behavior, and reserved
+`model.exe` boundary.

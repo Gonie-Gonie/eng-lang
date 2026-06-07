@@ -21,7 +21,7 @@ language feature. Status terms are defined at the bottom of this file.
 | Report/review artifacts | Supported | Official artifacts, schemas, report spec, review JSON | Rich report layout remains limited | Maintain schemas and improve IDE panels |
 | Minimal `system`/`eq` | Preview | One-state thermal system and unit diagnostics | Multi-state/nonlinear/adaptive solving deferred | Clarify solver boundary |
 | Args binding | Supported | String/path `--input` binding and help metadata | Bool/count/unit/duration conversion deferred | Add typed Args conversion |
-| Standalone package | Supported | Official package and package-smoke path with Args help, runtime bundling, dependency copy/hash metadata, `.engpkg`, and `.lock` | Optimized native model.exe/AOT deferred | v1.5 gate |
+| Standalone package | Supported | Official package and package-smoke path with Args help, runtime bundling, dependency copy/byte-hash metadata, `.engpkg`, `.lock`, and package reference | Optimized native model.exe/AOT deferred | Maintain v1.5 package contract |
 | Example taxonomy | Supported | `examples/official` user-test namespace, compatibility regression examples, diagnostic fixtures, and data-quality fixtures | Historical release notes may mention older paths | Maintain IDE/CLI ordering and package docs |
 | Native tester IDE | Preview | Open/check/save/run, diagnostics, completions, variable/unit/schema/CSV inspector, PlotSpec preview, runtime summary | Not a full LSP/editor platform | v1.0.3 hardening |
 | VS Code extension | Preview | Packaged diagnostic/completion shape with optional `eng-lsp --snapshot` backend | Secondary editor path, not a persistent LSP client yet | Keep package smoke stable |

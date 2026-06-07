@@ -13,6 +13,7 @@ document:
 - [v1.3 LSP gate](docs/current/v1_3_lsp_gate.md)
 - [v1.4 JIT gate](docs/current/v1_4_jit_gate.md)
 - [v1.5 standalone/AOT gate](docs/current/v1_5_standalone_gate.md)
+- [Standalone package reference](docs/reference/standalone_package.md)
 - [LLM context](LLM_CONTEXT.md)
 - [LLM load map](docs/llm/load_map.yml)
 
@@ -182,9 +183,9 @@ v1.4
   metadata. Experimental on main; no native speedup claim.
 
 v1.5
-  Standalone/AOT maturity seed: packaged runner manifests record runtime ABI,
-  repro profile, dependency paths, and dependency hashes. Optimized native
-  model.exe/AOT remains deferred.
+  Standalone/AOT maturity: packaged runner manifests record runtime ABI, repro
+  profile, dependency paths, byte-based dependency hashes, and the reserved
+  model.exe/AOT boundary. Optimized native model.exe/AOT remains deferred.
 ```
 
 ## Documentation
@@ -197,6 +198,7 @@ v1.5
 - [v1.3 LSP gate](docs/current/v1_3_lsp_gate.md)
 - [v1.4 JIT gate](docs/current/v1_4_jit_gate.md)
 - [v1.5 standalone/AOT gate](docs/current/v1_5_standalone_gate.md)
+- [Standalone package reference](docs/reference/standalone_package.md)
 - [LLM context](LLM_CONTEXT.md)
 - [LLM load map](docs/llm/load_map.yml)
 - [Current master plan pointer](docs/master-plan/current.md)
@@ -216,6 +218,7 @@ v1.5
 - [v1.4 JIT gate](docs/current/v1_4_jit_gate.md)
 - [Report and review artifacts](docs/guide/report_review.md)
 - [Run command reference](docs/reference/cli_run.md)
+- [Standalone package reference](docs/reference/standalone_package.md)
 - [LSP snapshot reference](docs/reference/lsp_snapshot.md)
 - [Kernel plan reference](docs/reference/kernel_plan.md)
 - [JIT benchmark harness reference](docs/reference/jit_benchmark.md)

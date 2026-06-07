@@ -13,13 +13,14 @@ long-form planning documents.
 5. [v1.3 LSP gate](current/v1_3_lsp_gate.md)
 6. [v1.4 JIT gate](current/v1_4_jit_gate.md)
 7. [v1.5 standalone/AOT gate](current/v1_5_standalone_gate.md)
-8. [LLM load map](llm/load_map.yml)
-9. [Getting started](development/00_getting_started.md)
-10. [Repository layout](development/01_repo_layout.md)
-11. [Daily workflow](development/02_daily_workflow.md)
-12. [Reproducible environment policy](development/03_environment_reproducibility.md)
-13. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
-14. [Curated user documentation source](user/README.md)
+8. [Standalone package reference](reference/standalone_package.md)
+9. [LLM load map](llm/load_map.yml)
+10. [Getting started](development/00_getting_started.md)
+11. [Repository layout](development/01_repo_layout.md)
+12. [Daily workflow](development/02_daily_workflow.md)
+13. [Reproducible environment policy](development/03_environment_reproducibility.md)
+14. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
+15. [Curated user documentation source](user/README.md)
 
 ## Architecture
 
@@ -43,6 +44,7 @@ long-form planning documents.
 
 - [CLI specification](specs/cli.md)
 - [Run command reference](reference/cli_run.md)
+- [Standalone package reference](reference/standalone_package.md)
 - [LSP snapshot reference](reference/lsp_snapshot.md)
 - [Kernel plan reference](reference/kernel_plan.md)
 - [JIT benchmark harness reference](reference/jit_benchmark.md)

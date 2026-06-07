@@ -314,6 +314,10 @@ records runtime/compiler/package/bytecode/result/report/plot format versions,
 source and bytecode hashes, entry name, dependency count, dependency hashes, and
 `profile = repro`.
 
+See [Standalone package reference](../reference/standalone_package.md) for the
+full bundle layout, manifest and lock field tables, hash semantics, and the
+reserved `model.exe`/AOT boundary.
+
 ## `eng view <result.engres>`
 
 Prints the result path, the sibling `report.html` and `report_spec.json` paths, and the plot manifest path when it exists.

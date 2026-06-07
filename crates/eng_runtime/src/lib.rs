@@ -336,13 +336,14 @@ pub fn build_standalone(
         if let Some(parent) = destination.parent() {
             fs::create_dir_all(parent)?;
         }
-        fs::copy(Path::new(&promotion.resolved_path), &destination)?;
+        let dependency_source = Path::new(&promotion.resolved_path);
+        fs::copy(dependency_source, &destination)?;
         let relative_path = path_for_manifest(
             destination
                 .strip_prefix(&bundle_path)
                 .unwrap_or(destination.as_path()),
         );
-        let dependency_hash = hash_text(&fs::read_to_string(&promotion.resolved_path)?);
+        let dependency_hash = hash_bytes(&fs::read(dependency_source)?);
         bundled_dependencies.push((relative_path, dependency_hash));
     }
     bundled_dependencies.sort_by(|left, right| left.0.cmp(&right.0));
@@ -1732,8 +1733,12 @@ fn push_runtime_points(json: &mut String, points: &[runtime_data::RuntimePoint])
 }
 
 fn hash_text(source: &str) -> String {
+    hash_bytes(source.as_bytes())
+}
+
+fn hash_bytes(source: &[u8]) -> String {
     let mut hash = 0xcbf29ce484222325u64;
-    for byte in source.as_bytes() {
+    for byte in source {
         hash ^= u64::from(*byte);
         hash = hash.wrapping_mul(0x100000001b3);
     }

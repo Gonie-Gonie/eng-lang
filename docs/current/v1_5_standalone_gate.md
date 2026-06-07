@@ -35,14 +35,16 @@ compiler yet.
 - [x] `package-smoke` creates a clean extracted portable folder, runs the
   standalone bundle with a non-default `--input` override, and checks
   `result.engres.arg_values`.
+- [x] [Standalone package reference](../reference/standalone_package.md)
+  documents bundle layout, `.engpkg`, `.lock`, Args forwarding, dependency hash
+  semantics, and the reserved `model.exe`/AOT boundary.
+- [x] Dependency hashes are computed over raw file bytes, not UTF-8 text.
 
 ## Remaining Before Support Claim
 
-- [ ] Add a user-facing standalone package reference page with a field table.
-- [ ] Add native `model.exe` or document a reserved executable-wrapper plan.
-- [ ] Add full binary dependency hashing before non-text assets are bundled.
-- [ ] Keep optimized AOT/native compilation explicitly deferred until a real
-  backend exists.
+No open items remain for the v1.5 packaged-runner support boundary. Optimized
+native `model.exe`/AOT remains a future backend gate and is not claimed by this
+milestone.
 
 ## Verification
 
