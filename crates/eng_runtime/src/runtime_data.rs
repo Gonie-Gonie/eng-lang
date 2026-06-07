@@ -509,22 +509,10 @@ fn materialize_statistics(
                 .iter()
                 .find(|series| series.name == stats.source)
                 .map(|series| {
-                    let y_values = series
-                        .points
-                        .iter()
-                        .map(|point| point.y)
-                        .collect::<Vec<_>>();
                     stats
                         .statistics
                         .iter()
-                        .filter_map(|name| {
-                            statistic_value(name, &y_values).map(|value| (name, value))
-                        })
-                        .map(|(name, value)| RuntimeStatisticValue {
-                            name: name.clone(),
-                            value,
-                            unit: series.display_unit.clone(),
-                        })
+                        .filter_map(|name| statistic_value(name, series))
                         .collect::<Vec<_>>()
                 })
                 .unwrap_or_default();
@@ -1193,17 +1181,58 @@ fn number_before_unit(expression: &str, unit: &str) -> Option<f64> {
         .find_map(|part| part.parse::<f64>().ok())
 }
 
-fn statistic_value(name: &str, values: &[f64]) -> Option<f64> {
+fn number_with_optional_unit(text: &str) -> Option<(f64, Option<String>)> {
+    let parts = text.split_whitespace().collect::<Vec<_>>();
+    for (index, part) in parts.iter().enumerate() {
+        let number_part = part.trim_matches(|character| matches!(character, '(' | ')' | ','));
+        if let Ok(value) = number_part.parse::<f64>() {
+            let unit = parts
+                .get(index + 1)
+                .map(|unit| unit.trim_matches(|character| matches!(character, '(' | ')' | ',')))
+                .filter(|unit| !unit.is_empty())
+                .map(str::to_owned);
+            return Some((value, unit));
+        }
+    }
+    None
+}
+
+fn statistic_value(name: &str, series: &RuntimeTimeSeries) -> Option<RuntimeStatisticValue> {
+    let values = series
+        .points
+        .iter()
+        .map(|point| point.y)
+        .collect::<Vec<_>>();
     if values.is_empty() {
         return None;
     }
-    match name {
-        "mean" => Some(values.iter().sum::<f64>() / values.len() as f64),
-        "max" => values.iter().copied().reduce(f64::max),
-        "min" => values.iter().copied().reduce(f64::min),
-        "p95" => nearest_rank_percentile(values, 0.95),
-        _ => None,
-    }
+    let (value, unit) = match name {
+        "mean" => (
+            values.iter().sum::<f64>() / values.len() as f64,
+            series.display_unit.clone(),
+        ),
+        "max" => (
+            values.iter().copied().reduce(f64::max)?,
+            series.display_unit.clone(),
+        ),
+        "min" => (
+            values.iter().copied().reduce(f64::min)?,
+            series.display_unit.clone(),
+        ),
+        "p95" => (
+            nearest_rank_percentile(&values, 0.95)?,
+            series.display_unit.clone(),
+        ),
+        _ => {
+            let threshold = duration_above_threshold(name, &series.display_unit)?;
+            (duration_above(series, threshold)?, "s".to_owned())
+        }
+    };
+    Some(RuntimeStatisticValue {
+        name: name.to_owned(),
+        value,
+        unit,
+    })
 }
 
 fn nearest_rank_percentile(values: &[f64], percentile: f64) -> Option<f64> {
@@ -1214,6 +1243,51 @@ fn nearest_rank_percentile(values: &[f64], percentile: f64) -> Option<f64> {
     sorted.sort_by(f64::total_cmp);
     let rank = (percentile * sorted.len() as f64).ceil() as usize;
     sorted.get(rank.saturating_sub(1)).copied()
+}
+
+fn duration_above_threshold(name: &str, display_unit: &str) -> Option<f64> {
+    let inside = name
+        .trim()
+        .strip_prefix("duration_above(")?
+        .strip_suffix(')')?;
+    let (value, unit) = number_with_optional_unit(inside)?;
+    Some(
+        unit.as_deref()
+            .map(|unit| convert_display_value(value, unit, display_unit))
+            .unwrap_or(value),
+    )
+}
+
+fn duration_above(series: &RuntimeTimeSeries, threshold: f64) -> Option<f64> {
+    if series.x_unit != "s" || series.points.len() < 2 {
+        return None;
+    }
+    let mut duration = 0.0;
+    for window in series.points.windows(2) {
+        let dt = window[1].x - window[0].x;
+        if dt <= 0.0 {
+            return None;
+        }
+        let y0 = window[0].y;
+        let y1 = window[1].y;
+        let y0_above = y0 > threshold;
+        let y1_above = y1 > threshold;
+        if y0_above && y1_above {
+            duration += dt;
+        } else if y0_above != y1_above {
+            let dy = y1 - y0;
+            if dy.abs() <= f64::EPSILON {
+                continue;
+            }
+            let fraction = ((threshold - y0) / dy).clamp(0.0, 1.0);
+            duration += if y0_above {
+                fraction * dt
+            } else {
+                (1.0 - fraction) * dt
+            };
+        }
+    }
+    Some(duration)
 }
 
 fn trapezoidal_integral(series: &RuntimeTimeSeries) -> Option<f64> {
@@ -1364,8 +1438,22 @@ script main(args: Args) -> Report {
         assert_eq!(runtime.time_series[0].points.len(), 4);
         assert_eq!(runtime.time_series[0].points[1].x, 300.0);
         assert_eq!(round2(runtime.time_series[0].points[0].y), 4873.88);
-        assert_eq!(round2(runtime.statistics[0].values[0].value), 5072.43);
-        assert_eq!(round2(runtime.statistics[0].values[1].value), 5417.28);
+        assert_eq!(
+            round2(stat_value(&runtime.statistics[0].values, "mean").unwrap()),
+            5072.43
+        );
+        assert_eq!(
+            round2(stat_value(&runtime.statistics[0].values, "max").unwrap()),
+            5417.28
+        );
+        assert_eq!(
+            round2(stat_value(&runtime.statistics[0].values, "duration_above(5 kW)").unwrap()),
+            299.48
+        );
+        assert_eq!(
+            stat_unit(&runtime.statistics[0].values, "duration_above(5 kW)").as_deref(),
+            Some("s")
+        );
         assert_eq!(round2(runtime.integrations[0].value), 4543242.0);
         assert_eq!(runtime.policy_results.len(), 7);
         assert_eq!(
@@ -1392,5 +1480,19 @@ script main(args: Args) -> Report {
 
     fn round2(value: f64) -> f64 {
         (value * 100.0).round() / 100.0
+    }
+
+    fn stat_value(values: &[RuntimeStatisticValue], name: &str) -> Option<f64> {
+        values
+            .iter()
+            .find(|value| value.name == name)
+            .map(|value| value.value)
+    }
+
+    fn stat_unit(values: &[RuntimeStatisticValue], name: &str) -> Option<String> {
+        values
+            .iter()
+            .find(|value| value.name == name)
+            .map(|value| value.unit.clone())
     }
 }

@@ -449,6 +449,10 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactNumber @($reportSpec.computed_integrations).Count $Golden.report_spec.computed_integrations_count "report_spec.computed_integrations count"
     $reportStats = @($reportSpec.computed_statistics)[0]
     Assert-ArtifactValue $reportStats.status $Golden.report_spec.computed_statistics_status "report_spec.computed_statistics[0].status"
+    $reportDurationAbove = @($reportStats.values) | Where-Object { $_.name -eq "duration_above(5 kW)" } | Select-Object -First 1
+    Assert-Artifact ($null -ne $reportDurationAbove) "report_spec.computed_statistics missing duration_above(5 kW)"
+    Assert-ArtifactFloat $reportDurationAbove.value $Golden.report_spec.duration_above_5kw_s "report_spec.duration_above"
+    Assert-ArtifactValue $reportDurationAbove.unit $Golden.report_spec.duration_above_unit "report_spec.duration_above unit"
     $reportIntegration = @($reportSpec.computed_integrations)[0]
     Assert-ArtifactValue $reportIntegration.status $Golden.report_spec.computed_integration_status "report_spec.computed_integrations[0].status"
     Assert-ArtifactFloat $reportIntegration.value $Golden.report_spec.integration_value_j "report_spec.computed_integrations[0].value"
@@ -501,6 +505,10 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactFloat ((@($statsPayload.statistics) | Where-Object { $_.name -eq "mean" }).value) $Golden.result.mean_w "result.mean"
     Assert-ArtifactFloat ((@($statsPayload.statistics) | Where-Object { $_.name -eq "max" }).value) $Golden.result.max_w "result.max"
     Assert-ArtifactFloat ((@($statsPayload.statistics) | Where-Object { $_.name -eq "p95" }).value) $Golden.result.p95_w "result.p95"
+    $durationAbove = @($statsPayload.statistics) | Where-Object { $_.name -eq "duration_above(5 kW)" } | Select-Object -First 1
+    Assert-Artifact ($null -ne $durationAbove) "result.typed_payload.statistics missing duration_above(5 kW)"
+    Assert-ArtifactFloat $durationAbove.value $Golden.result.duration_above_5kw_s "result.duration_above"
+    Assert-ArtifactValue $durationAbove.unit $Golden.result.duration_above_unit "result.duration_above unit"
     $integrationPayload = @($result.typed_payload.integrations)[0]
     Assert-ArtifactValue $integrationPayload.status $Golden.result.integration_status "result.typed_payload.integrations[0].status"
     Assert-ArtifactFloat $integrationPayload.value $Golden.result.integration_value_j "result.typed_payload.integrations[0].value"

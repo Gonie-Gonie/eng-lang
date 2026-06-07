@@ -14,7 +14,7 @@ script main(args: Args) -> Report {
     E_coil = integrate(Q_coil, over=Time)
 
     return report {
-        summarize Q_coil by [mean, max, p95]
+        summarize Q_coil by [mean, max, p95, duration_above(5 kW)]
         show E_coil
         plot Q_coil over Time
     }
@@ -61,7 +61,7 @@ Promoted CSV tables also expose the schema index as an axis seed:
 
 ## Summary Metadata
 
-`summarize Q_coil by [mean, max, p95]` creates:
+`summarize Q_coil by [mean, max, p95, duration_above(5 kW)]` creates:
 
 ```json
 {
@@ -69,14 +69,20 @@ Promoted CSV tables also expose the schema index as an axis seed:
   "source_type": "TimeSeries[Time] of HeatRate",
   "quantity_kind": "HeatRate",
   "axis": "Time",
-  "statistics": ["mean", "max", "p95"],
+  "statistics": ["mean", "max", "p95", "duration_above(5 kW)"],
   "cache_key": "summary:Q_coil:Time"
 }
 ```
 
 The cache key marks the summary identity. For the official CSV coil path,
 runtime pages materialize `Q_coil` and `result.engres` records computed
-mean/max/min/p95 values.
+mean/max/p95 values plus `duration_above(...)` duration values in seconds.
+
+`duration_above(<threshold>)` evaluates the threshold in the TimeSeries display
+unit. When a threshold unit is supplied, the v1.0 hardening path supports the
+same W/kW conversion used by plot display conversion. The duration kernel uses
+Time-axis seconds and linearly interpolates threshold crossings between adjacent
+points.
 
 ## Integration Metadata
 
@@ -149,6 +155,5 @@ Later versions will add:
 - time-weighted mean
 - broader TimeSeries expression execution
 - non-uniform time handling
-- duration_above
 - statistics report cards
 ```

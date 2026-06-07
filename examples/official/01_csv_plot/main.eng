@@ -29,7 +29,7 @@ script main(args: Args) -> Report {
     E_coil = integrate(Q_coil, over=Time)
 
     return report {
-        summarize Q_coil by [mean, max, p95]
+        summarize Q_coil by [mean, max, p95, duration_above(5 kW)]
         show E_coil
         plot Q_coil over Time {
             unit y = kW

@@ -54,7 +54,7 @@ v0.5-preview adds:
 ```text
 TimeSeries[Time] of HeatRate
 axis metadata
-computed mean/max/p95 summary values for the official CSV path
+computed mean/max/p95/duration_above summary values for the official CSV path
 trapezoidal integrate(HeatRate over Time) -> Energy value
 ```
 
@@ -122,7 +122,7 @@ CSV source
   -> TimeSeries points
 ```
 
-The v1.0 hardening path parses official CSV DateTime and numeric quantity columns into runtime pages. The supported coil heat-rate expression path computes TimeSeries values, mean/max/min/p95 kernels, and trapezoidal HeatRate-over-Time integration without Python.
+The v1.0 hardening path parses official CSV DateTime and numeric quantity columns into runtime pages. The supported coil heat-rate expression path computes TimeSeries values, mean/max/min/p95/duration_above kernels, and trapezoidal HeatRate-over-Time integration without Python.
 
 ## Reviewability
 

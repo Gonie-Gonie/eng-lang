@@ -56,7 +56,7 @@ Remaining intentional deferrals:
 
 ```text
 P2  per-cell conversion diagnostics once conversion exists
-P2  duration_above and broader statistics kernels
+P2  time-weighted mean and broader statistics kernels
 P2  bar/histogram plot seeds
 P2  numeric system solver, solve order, ODE runner, and Jacobian seed
 ```
@@ -190,8 +190,8 @@ Hardening detail:
 
 ### G-004 Statistics Kernels
 
-Status: Implemented for mean/max/min/p95 and trapezoidal integrate on the
-official HeatRate TimeSeries path. duration_above remains deferred.
+Status: Implemented for mean/max/min/p95, duration_above, and trapezoidal
+integrate on the official HeatRate TimeSeries path.
 
 Plan expectation:
 
@@ -208,14 +208,14 @@ Current state:
 - result payload records computed statistics for Q_coil
 - report_spec.json records computed statistics and integrations
 - integrate(Q_coil, over=Time) records a trapezoidal Energy value
-- duration_above is not implemented
+- duration_above(5 kW) records seconds above threshold with linear crossing interpolation
 ```
 
 Risk:
 
 ```text
 P1 closed for the official data-analysis path. Remaining risk is limited to
-unsupported statistics and arbitrary TimeSeries expressions.
+unsupported statistics, time-weighted variants, and arbitrary TimeSeries expressions.
 ```
 
 Hardening detail:
@@ -225,7 +225,7 @@ Hardening detail:
 2. [x] Implement min/max/mean/p95 kernels for numeric series.
 3. [x] Implement integrate(HeatRate over Time) with DateTime-derived seconds.
 4. [x] Store computed values in result.engres and report_spec.json.
-5. [ ] Add duration_above as a v1.0.x or v1.1 backfill if it is needed before uncertainty.
+5. [x] Add duration_above as a v1.0 hardening backfill before uncertainty.
 ```
 
 ### G-005 Plot Data Materialization
