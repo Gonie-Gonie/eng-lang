@@ -60,7 +60,7 @@ This attempts to open `build\result\report.html`.
 ## Args Flags
 
 `struct Args` fields can be passed as `--<field> <value>` after the source path.
-String defaults are used when the flag is omitted.
+Defaults are used when the flag is omitted.
 
 ```bat
 target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main --input data/sensor.csv
@@ -80,6 +80,34 @@ script main(args: Args) -> Report {
 
 `review.json`, `report_spec.json`, and `result.engres` record `arg_values`
 with `source = default` or `source = cli`.
+
+Primitive typed Args are normalized before they are recorded:
+
+```text
+Bool/Boolean         true/false, yes/no, on/off, 1/0
+Int/Integer          signed whole number
+Count/usize/u32/u64  non-negative whole number
+Float/Number         finite numeric value
+Duration             s, min, h normalized to seconds
+```
+
+Example:
+
+```eng partial
+struct Args {
+    enabled: Bool = false
+    count: Count = 3
+    gain: Float = 1.0
+    window: Duration = 5 min
+}
+```
+
+```bat
+target\debug\eng.exe run model.eng --enabled yes --count 12 --gain 1.25 --window "10 min"
+```
+
+The recorded values are `enabled=true`, `count=12`, `gain=1.25`, and
+`window=600 s`. Invalid typed values produce `E-ARGS-TYPE-001`.
 
 ## Simple System Example
 

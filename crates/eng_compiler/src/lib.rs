@@ -196,7 +196,7 @@ fn resolve_arg_values(
     for args_struct in &program.args_structs {
         for field in &args_struct.fields {
             declared.insert(field.name.clone());
-            let (value, source) = if let Some(value) = overrides.get(&field.name) {
+            let (raw_value, source) = if let Some(value) = overrides.get(&field.name) {
                 (value.clone(), "cli")
             } else if let Some(default_value) = &field.default_value {
                 (strip_string_literal(default_value), "default")
@@ -210,6 +210,21 @@ fn resolve_arg_values(
                     ));
                 }
                 continue;
+            };
+            let value = match normalize_arg_value(&field.type_name, &raw_value) {
+                Ok(value) => value,
+                Err(message) => {
+                    diagnostics.push(Diagnostic::error(
+                        "E-ARGS-TYPE-001",
+                        field.line,
+                        &format!(
+                            "Args field `{}` expects {}, but got `{}`.",
+                            field.name, field.type_name, raw_value
+                        ),
+                        Some(&message),
+                    ));
+                    continue;
+                }
             };
             values.push(ArgValueInfo {
                 name: field.name.clone(),
@@ -234,6 +249,102 @@ fn resolve_arg_values(
     }
 
     (values, diagnostics)
+}
+
+fn normalize_arg_value(type_name: &str, value: &str) -> Result<String, String> {
+    let stripped = strip_string_literal(value);
+    let normalized_type = type_name.trim().to_ascii_lowercase();
+    match normalized_type.as_str() {
+        "string" | "path" | "filepath" => Ok(stripped),
+        "bool" | "boolean" => parse_bool_arg(&stripped).ok_or_else(|| {
+            "Use true/false, yes/no, on/off, or 1/0 for boolean Args fields.".to_owned()
+        }),
+        "int" | "integer" | "i32" | "i64" => stripped
+            .trim()
+            .parse::<i64>()
+            .map(|value| value.to_string())
+            .map_err(|_| "Use a whole-number integer value.".to_owned()),
+        "count" | "usize" | "u32" | "u64" => stripped
+            .trim()
+            .parse::<u64>()
+            .map(|value| value.to_string())
+            .map_err(|_| "Use a non-negative whole-number count.".to_owned()),
+        "float" | "number" | "f32" | "f64" => {
+            let parsed = stripped
+                .trim()
+                .parse::<f64>()
+                .map_err(|_| "Use a finite numeric value.".to_owned())?;
+            if parsed.is_finite() {
+                Ok(format_arg_number(parsed))
+            } else {
+                Err("Use a finite numeric value.".to_owned())
+            }
+        }
+        "duration" => normalize_duration_arg(&stripped),
+        _ => Ok(stripped),
+    }
+}
+
+fn parse_bool_arg(value: &str) -> Option<String> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "true" | "1" | "yes" | "y" | "on" => Some("true".to_owned()),
+        "false" | "0" | "no" | "n" | "off" => Some("false".to_owned()),
+        _ => None,
+    }
+}
+
+fn normalize_duration_arg(value: &str) -> Result<String, String> {
+    let (amount, unit) = parse_number_with_suffix(value)
+        .ok_or_else(|| "Use a duration such as `30 s`, `10 min`, or `1 h`.".to_owned())?;
+    if !amount.is_finite() || amount < 0.0 {
+        return Err("Use a non-negative finite duration.".to_owned());
+    }
+    let seconds = match unit.unwrap_or("s") {
+        "s" | "sec" | "secs" | "second" | "seconds" => amount,
+        "m" | "min" | "mins" | "minute" | "minutes" => amount * 60.0,
+        "h" | "hr" | "hrs" | "hour" | "hours" => amount * 3600.0,
+        _ => return Err("Supported duration units are s, min, and h.".to_owned()),
+    };
+    Ok(format!("{} s", format_arg_number(seconds)))
+}
+
+fn parse_number_with_suffix(value: &str) -> Option<(f64, Option<&str>)> {
+    let trimmed = value.trim();
+    let mut split_at = 0usize;
+    let mut saw_digit = false;
+    let mut previous = '\0';
+    for (index, character) in trimmed.char_indices() {
+        let allowed = character.is_ascii_digit()
+            || character == '.'
+            || ((character == '-' || character == '+')
+                && (index == 0 || previous == 'e' || previous == 'E'))
+            || ((character == 'e' || character == 'E') && saw_digit);
+        if !allowed {
+            break;
+        }
+        if character.is_ascii_digit() {
+            saw_digit = true;
+        }
+        split_at = index + character.len_utf8();
+        previous = character;
+    }
+    if !saw_digit {
+        return None;
+    }
+    let amount = trimmed[..split_at].parse::<f64>().ok()?;
+    let unit = trimmed[split_at..].trim();
+    Some((amount, (!unit.is_empty()).then_some(unit)))
+}
+
+fn format_arg_number(value: f64) -> String {
+    let mut text = format!("{value:.6}");
+    while text.contains('.') && text.ends_with('0') {
+        text.pop();
+    }
+    if text.ends_with('.') {
+        text.pop();
+    }
+    text
 }
 
 fn normalize_arg_name(name: &str) -> String {
@@ -1716,6 +1827,68 @@ mod tests {
         let review = review_json(&report);
         assert!(review.contains("\"args_summary\""));
         assert!(review.contains("\"case_name\""));
+    }
+
+    #[test]
+    fn resolves_typed_args_values() {
+        let report = check_source(
+            "ok.eng",
+            "struct Args {\n    enabled: Bool = false\n    count: Count = 3\n    gain: Float = 1.0\n    window: Duration = 5 min\n}\n\nscript main(args: Args) -> Report {\n    L = 1 m\n}\n",
+            &CheckOptions {
+                args: vec![
+                    ArgOverride {
+                        name: "enabled".to_owned(),
+                        value: "yes".to_owned(),
+                    },
+                    ArgOverride {
+                        name: "count".to_owned(),
+                        value: "12".to_owned(),
+                    },
+                    ArgOverride {
+                        name: "gain".to_owned(),
+                        value: "1.25".to_owned(),
+                    },
+                    ArgOverride {
+                        name: "window".to_owned(),
+                        value: "10 min".to_owned(),
+                    },
+                ],
+                ..CheckOptions::default()
+            },
+        );
+
+        assert!(!report.has_errors());
+        let value = |name: &str| {
+            report
+                .semantic_program
+                .arg_values
+                .iter()
+                .find(|value| value.name == name)
+                .map(|value| value.value.as_str())
+        };
+        assert_eq!(value("enabled"), Some("true"));
+        assert_eq!(value("count"), Some("12"));
+        assert_eq!(value("gain"), Some("1.25"));
+        assert_eq!(value("window"), Some("600 s"));
+    }
+
+    #[test]
+    fn rejects_invalid_typed_args_values() {
+        let report = check_source(
+            "bad.eng",
+            "struct Args {\n    enabled: Bool = maybe\n    count: Count = -1\n    window: Duration = 2 weeks\n}\n\nscript main(args: Args) -> Report {\n    L = 1 m\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert_eq!(
+            report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "E-ARGS-TYPE-001")
+                .count(),
+            3
+        );
     }
 
     #[test]

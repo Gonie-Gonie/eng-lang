@@ -15,7 +15,7 @@ executable. Native `model.exe` generation is reserved for a later backend gate.
 | Runtime | Current `eng.exe` is copied into the bundle | Separate single-model runtime binary |
 | Source | Entry source is copied under `source/` | Arbitrary project tree packaging |
 | Dependencies | Relative CSV promotions are copied under `source/` | Registry packages or binary asset bundles |
-| Args | `struct Args` help and forwarded CLI flags | Typed conversion beyond current string/path values |
+| Args | `struct Args` help, forwarded CLI flags, and primitive typed Args normalization | Quantity/unit-literal Args beyond primitive values |
 | Reproducibility | Manifest, lock, hashes, profile metadata | Cryptographic supply-chain attestation |
 
 ## Bundle Layout

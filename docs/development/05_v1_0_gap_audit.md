@@ -304,8 +304,10 @@ Current state:
 Risk:
 
 ```text
-P1 closed for string-valued Args fields and CSV path binding. Rich typed
-conversion for non-string Args values remains a later expansion.
+P1 closed for string-valued Args fields and CSV path binding. Primitive typed
+conversion now covers Bool/Boolean, Int/Integer, Count/usize/u32/u64,
+Float/Number, and Duration values normalized to seconds. Quantity/unit-literal
+Args remain a later expansion.
 ```
 
 Hardening detail:

@@ -64,6 +64,7 @@ E-SCHEMA-CSV-002       CSV source missing required columns
 E-SCHEMA-MISSING-001   missing policy references unknown column
 E-ARGS-UNKNOWN-001     CLI Args flag does not match struct Args
 E-ARGS-REQUIRED-001    required Args field was not provided for run
+E-ARGS-TYPE-001        Args value cannot be converted to the declared type
 E-ARGS-CSV-001         CSV promotion references an Args field without a value
 E-ENTRY-NOT-FOUND-001  run/build entry point was not found
 E-ENTRY-MULTIPLE-001   run/build entry point selection is ambiguous
@@ -318,7 +319,19 @@ build/
 `--open-report` attempts to open the generated `report.html` with the OS default browser.
 
 Args flags are matched against `struct Args` fields. Defaults are used when
-available, and resolved values are recorded in `arg_values`.
+available, primitive typed values are normalized, and resolved values are
+recorded in `arg_values`.
+
+Current typed Args conversion:
+
+```text
+String/Path          recorded as text
+Bool/Boolean         true/false, yes/no, on/off, 1/0 -> true/false
+Int/Integer          whole-number signed integer
+Count/usize/u32/u64  non-negative whole-number count
+Float/Number         finite numeric value
+Duration             s, min, h -> normalized seconds such as `600 s`
+```
 
 ```bat
 eng.exe run examples\official\01_csv_plot\main.eng --entry main --input data/sensor.csv
@@ -396,6 +409,7 @@ Runs official smoke checks:
 - official plotting example produces report and PlotSpec artifacts
 - official histogram example produces binned PlotSpec artifacts
 - Args CLI binding produces CSV run artifacts
+- typed Args values are normalized and invalid typed Args values produce E-ARGS-TYPE-001
 - official CSV example produces v1.4 JIT kernel candidates
 - bad DateTime and bad numeric CSV fixtures record parse_failures
 - numeric missing interpolation fixture executes

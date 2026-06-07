@@ -4,7 +4,7 @@ use std::process::Command;
 use std::process::ExitCode;
 use std::time::Instant;
 
-use eng_compiler::{check_file, review_json, ArgOverride, CheckOptions, Severity};
+use eng_compiler::{check_file, check_source, review_json, ArgOverride, CheckOptions, Severity};
 use eng_runtime::{
     build_standalone, create_project, doctor, run_file, BuildOptions, RunOptions, RuntimeError,
 };
@@ -953,6 +953,63 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(2);
         }
     }
+    let typed_args_report = check_source(
+        "typed_args.eng",
+        "struct Args {\n    enabled: Bool = false\n    count: Count = 3\n    gain: Float = 1.0\n    window: Duration = 5 min\n}\n\nscript main(args: Args) -> Report {\n    L = 1 m\n}\n",
+        &CheckOptions {
+            args: vec![
+                ArgOverride {
+                    name: "enabled".to_owned(),
+                    value: "yes".to_owned(),
+                },
+                ArgOverride {
+                    name: "count".to_owned(),
+                    value: "12".to_owned(),
+                },
+                ArgOverride {
+                    name: "gain".to_owned(),
+                    value: "1.25".to_owned(),
+                },
+                ArgOverride {
+                    name: "window".to_owned(),
+                    value: "10 min".to_owned(),
+                },
+            ],
+            ..CheckOptions::default()
+        },
+    );
+    if typed_args_report.has_errors()
+        || !typed_args_report
+            .semantic_program
+            .arg_values
+            .iter()
+            .any(|value| value.name == "enabled" && value.value == "true")
+        || !typed_args_report
+            .semantic_program
+            .arg_values
+            .iter()
+            .any(|value| value.name == "window" && value.value == "600 s")
+    {
+        eprintln!("expected typed Args values to be normalized");
+        return ExitCode::from(2);
+    }
+    println!("ok: typed Args values were normalized");
+
+    let invalid_typed_args_report = check_source(
+        "invalid_typed_args.eng",
+        "struct Args {\n    enabled: Bool = maybe\n}\n\nscript main(args: Args) -> Report {\n    L = 1 m\n}\n",
+        &CheckOptions::default(),
+    );
+    if !invalid_typed_args_report
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "E-ARGS-TYPE-001")
+    {
+        eprintln!("expected invalid typed Args values to produce E-ARGS-TYPE-001");
+        return ExitCode::from(2);
+    }
+    println!("ok: invalid typed Args values produced diagnostics");
+
     match run_file(
         Path::new("examples/official/02_simple_system/main.eng"),
         Path::new("build/test-system"),

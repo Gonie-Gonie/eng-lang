@@ -62,8 +62,9 @@ release-target path.
   report spec hashing.
 - Minimal `system`/`eq` parsing and unit diagnostics, with one-state thermal
   system metadata and fixed-step preview execution for official examples.
-- Args string/path binding for `--input` style official examples and packaged
-  runner help metadata.
+- Args string/path binding for `--input` style official examples, primitive
+  Bool/Int/Count/Float/Duration normalization, and packaged runner help
+  metadata.
 - Standalone package output with `.engpkg`, bytecode, lock, source/dependency
   copy, dependency hashes, Args help, and reviewable report artifacts.
 - Temperature spelling policy: `degC` remains the canonical ASCII spelling, and
@@ -137,7 +138,8 @@ not part of the supported release contract.
 - Multi-state, nonlinear, adaptive, or general equation-system solving is
   deferred.
 - Numeric component graph solving and domain package registries are deferred.
-- Typed Args conversion beyond string/path style bindings is deferred.
+- Quantity/unit-literal Args conversion beyond primitive typed Args is
+  deferred.
 - Full Unicode unit spelling support beyond the supported `°C` alias is
   deferred.
 
