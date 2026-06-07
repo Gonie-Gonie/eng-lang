@@ -11,8 +11,9 @@ It is intentionally short so agents do not need to load every planning file.
 - `v1.1` and `v1.2` code on `main` is experimental unless the current status
   documents say otherwise.
 - Current `v1.1` detail work includes deterministic uncertainty samples,
-  source validation diagnostics, scale/offset propagation metadata, histogram
-  bin metadata/artifacts, and IDE/report inspection.
+  source validation diagnostics, scale/offset propagation metadata,
+  propagation source terms, histogram bin metadata/artifacts, and IDE/report
+  inspection.
 
 ## Read First
 

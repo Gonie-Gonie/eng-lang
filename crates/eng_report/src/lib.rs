@@ -184,7 +184,15 @@ pub struct ReportUncertaintyInfo {
     pub p95: Option<String>,
     pub sample_count: usize,
     pub propagation_count: usize,
+    pub propagation: Vec<ReportUncertaintyPropagationTerm>,
     pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportUncertaintyPropagationTerm {
+    pub source: String,
+    pub role: String,
+    pub quantity_kind: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -518,6 +526,15 @@ pub fn report_spec_from_report(
             p95: None,
             sample_count: info.sample_count,
             propagation_count: info.propagation.len(),
+            propagation: info
+                .propagation
+                .iter()
+                .map(|term| ReportUncertaintyPropagationTerm {
+                    source: term.source.clone(),
+                    role: term.role.clone(),
+                    quantity_kind: term.quantity_kind.clone(),
+                })
+                .collect(),
             line: info.line,
         })
         .collect();
@@ -1112,6 +1129,9 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             "      \"propagation_count\": {},\n",
             uncertainty.propagation_count
         ));
+        json.push_str("      \"propagation\": [");
+        push_uncertainty_propagation_terms(&mut json, &uncertainty.propagation);
+        json.push_str("],\n");
         json.push_str(&format!("      \"line\": {}\n", uncertainty.line));
         json.push_str("    }");
     }
@@ -1897,15 +1917,17 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     let mut uncertainty = String::new();
     for info in &report.semantic_program.uncertainty_infos {
         let transform = uncertainty_transform_label(info.scale.as_deref(), info.offset.as_deref());
+        let propagation = uncertainty_propagation_label(&info.propagation);
         uncertainty.push_str("<tr>");
         uncertainty.push_str(&format!(
-            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><code>{}</code></td>",
+            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><code>{}</code></td>",
             info.line,
             html_escape(&info.binding),
             html_escape(&info.kind),
             html_escape(info.distribution.as_deref().unwrap_or("")),
             html_escape(info.method.as_deref().unwrap_or("")),
             html_escape(&transform),
+            html_escape(&propagation),
             html_escape(&info.quantity_kind),
             html_escape(&info.display_unit),
             info.sample_count,
@@ -1914,7 +1936,7 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
         uncertainty.push_str("</tr>");
     }
     if uncertainty.is_empty() {
-        uncertainty.push_str("<tr><td colspan=\"10\">No uncertainty metadata.</td></tr>");
+        uncertainty.push_str("<tr><td colspan=\"11\">No uncertainty metadata.</td></tr>");
     }
 
     let mut ml_info = String::new();
@@ -2227,7 +2249,7 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     </table>
     <h2>Uncertainty</h2>
     <table>
-      <thead><tr><th>Line</th><th>Binding</th><th>Kind</th><th>Distribution</th><th>Method</th><th>Transform</th><th>Quantity</th><th>Unit</th><th>Samples</th><th>Expression</th></tr></thead>
+      <thead><tr><th>Line</th><th>Binding</th><th>Kind</th><th>Distribution</th><th>Method</th><th>Transform</th><th>Propagation</th><th>Quantity</th><th>Unit</th><th>Samples</th><th>Expression</th></tr></thead>
       <tbody>{uncertainty}</tbody>
     </table>
     <h2>ML Models</h2>
@@ -2284,6 +2306,14 @@ fn uncertainty_transform_label(scale: Option<&str>, offset: Option<&str>) -> Str
     }
 }
 
+fn uncertainty_propagation_label(terms: &[eng_compiler::UncertaintyPropagationTerm]) -> String {
+    terms
+        .iter()
+        .map(|term| format!("{}:{}[{}]", term.source, term.role, term.quantity_kind))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 fn xml_escape(value: &str) -> String {
     html_escape(value)
 }
@@ -2333,6 +2363,23 @@ fn push_json_string_array(json: &mut String, values: &[String]) {
             json.push_str(", ");
         }
         json.push_str(&format!("\"{}\"", json_escape(value)));
+    }
+}
+
+fn push_uncertainty_propagation_terms(
+    json: &mut String,
+    terms: &[ReportUncertaintyPropagationTerm],
+) {
+    for (index, term) in terms.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str(&format!(
+            "{{\"source\": \"{}\", \"role\": \"{}\", \"quantity_kind\": \"{}\"}}",
+            json_escape(&term.source),
+            json_escape(&term.role),
+            json_escape(&term.quantity_kind)
+        ));
     }
 }
 
@@ -2672,12 +2719,17 @@ mod tests {
         assert_eq!(spec.uncertainty[0].sample_count, 31);
         assert_eq!(spec.uncertainty[1].scale.as_deref(), Some("1.1"));
         assert_eq!(spec.uncertainty[1].offset.as_deref(), Some("0.2 kW"));
+        assert_eq!(spec.uncertainty[1].propagation.len(), 1);
+        assert_eq!(spec.uncertainty[1].propagation[0].source, "Q_dist");
         assert!(json.contains("\"uncertainty\""));
         assert!(json.contains("\"scale\": \"1.1\""));
         assert!(json.contains("\"offset\": \"0.2 kW\""));
+        assert!(json.contains("\"propagation\""));
+        assert!(json.contains("\"source\": \"Q_dist\""));
         assert!(json.contains("\"Q_unc\""));
         assert!(html.contains("Uncertainty"));
         assert!(html.contains("scale=1.1, offset=0.2 kW"));
+        assert!(html.contains("Q_dist:Distribution[HeatRate]"));
         assert!(html.contains("Q_dist"));
     }
 

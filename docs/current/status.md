@@ -83,7 +83,8 @@ not part of the supported release contract.
 
 - `v1.1` uncertainty core: measured values, intervals, distributions,
   deterministic ensembles, source diagnostics, scale/offset propagation
-  metadata, deterministic samples, and distribution histogram bins.
+  metadata, propagation source terms, deterministic samples, and distribution
+  histogram bins.
 - `v1.2` data-driven modeling: regression, basic MLP/ANN seed, train/test
   metadata, RMSE/MAE/R2, model cards, leakage lint, and parity/residual plots.
 - General LSP/IDE service split beyond the current native tester IDE.

@@ -1367,6 +1367,9 @@ impl EngIdeApp {
                 if !transform.is_empty() {
                     key_value_row(ui, "transform", &transform);
                 }
+                if !item.propagation.is_empty() {
+                    key_value_row(ui, "propagation", &item.propagation.join(", "));
+                }
                 key_value_row(
                     ui,
                     "mean",
@@ -1839,11 +1842,27 @@ struct UncertaintyArtifactView {
     p50: Option<String>,
     p95: Option<String>,
     sample_count: usize,
+    propagation: Vec<String>,
     status: String,
 }
 
 impl UncertaintyArtifactView {
     fn from_json(value: &Value) -> Self {
+        let propagation = value
+            .get("propagation")
+            .and_then(Value::as_array)
+            .map(|terms| {
+                terms
+                    .iter()
+                    .filter_map(|term| {
+                        let source = term.get("source")?.as_str()?;
+                        let role = term.get("role")?.as_str()?;
+                        let quantity_kind = term.get("quantity_kind")?.as_str()?;
+                        Some(format!("{source}:{role}[{quantity_kind}]"))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
         Self {
             binding: json_field_string(value, "binding").unwrap_or_else(|| "unknown".to_owned()),
             kind: json_field_string(value, "kind").unwrap_or_else(|| "Uncertainty".to_owned()),
@@ -1859,6 +1878,7 @@ impl UncertaintyArtifactView {
             p50: json_field_string(value, "p50"),
             p95: json_field_string(value, "p95"),
             sample_count: json_field_usize(value, "sample_count").unwrap_or(0),
+            propagation,
             status: json_field_string(value, "status").unwrap_or_else(|| "unknown".to_owned()),
         }
     }

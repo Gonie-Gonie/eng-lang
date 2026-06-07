@@ -940,6 +940,9 @@ fn result_json(
             "        \"propagation_count\": {},\n",
             uncertainty.propagation_count
         ));
+        uncertainties.push_str("        \"propagation\": [");
+        push_uncertainty_propagation_terms(&mut uncertainties, &uncertainty.propagation);
+        uncertainties.push_str("],\n");
         uncertainties.push_str("        \"samples\": [");
         for (sample_index, sample) in uncertainty.samples.iter().enumerate() {
             if sample_index > 0 {
@@ -1743,6 +1746,23 @@ fn push_json_string_array(json: &mut String, values: &[String]) {
             json.push_str(", ");
         }
         json.push_str(&format!("\"{}\"", json_escape(value)));
+    }
+}
+
+fn push_uncertainty_propagation_terms(
+    json: &mut String,
+    terms: &[eng_report::ReportUncertaintyPropagationTerm],
+) {
+    for (index, term) in terms.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str(&format!(
+            "{{\"source\": \"{}\", \"role\": \"{}\", \"quantity_kind\": \"{}\"}}",
+            json_escape(&term.source),
+            json_escape(&term.role),
+            json_escape(&term.quantity_kind)
+        ));
     }
 }
 

@@ -194,6 +194,9 @@ user testing, but it is not yet a full stochastic propagation engine.
 `ensemble(...)` and `propagate(...)` are checked before runtime. Unknown
 uncertainty sources produce `E-UNC-SOURCE-001`; deterministic bindings used as
 uncertainty sources produce `E-UNC-SOURCE-002`.
+Propagation source terms are also carried through `review.json`,
+`result.engres`, runtime-updated `report_spec.json`, HTML reports, and the
+native IDE Runtime Summary.
 
 ## Data-driven Modeling Metadata
 

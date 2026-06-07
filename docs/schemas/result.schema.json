@@ -54,6 +54,10 @@
         "system_ir": {
           "type": "array",
           "items": { "$ref": "#/$defs/resultSystemIr" }
+        },
+        "uncertainties": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/resultUncertainty" }
         }
       }
     },
@@ -108,6 +112,48 @@
         "equation_count": { "type": "integer", "minimum": 0 },
         "residual_count": { "type": "integer", "minimum": 0 },
         "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "resultUncertainty": {
+      "type": "object",
+      "required": [
+        "binding",
+        "kind",
+        "quantity_kind",
+        "display_unit",
+        "sample_count",
+        "propagation_count",
+        "propagation",
+        "samples",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "kind": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "sample_count": { "type": "integer", "minimum": 0 },
+        "propagation_count": { "type": "integer", "minimum": 0 },
+        "propagation": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/uncertaintyPropagationTerm" }
+        },
+        "samples": {
+          "type": "array",
+          "items": { "type": "number" }
+        },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "uncertaintyPropagationTerm": {
+      "type": "object",
+      "required": ["source", "role", "quantity_kind"],
+      "properties": {
+        "source": { "type": "string" },
+        "role": { "type": "string" },
+        "quantity_kind": { "type": "string" }
       }
     },
     "resultSystemIr": {

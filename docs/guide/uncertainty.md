@@ -51,8 +51,8 @@ produce `E-UNC-SOURCE-002` when used as uncertainty sources.
 
 Each runtime uncertainty includes mean, standard deviation, lower/upper bounds,
 `p05`, `p50`, `p95`, `distribution`, `method`, optional `scale`/`offset`
-transform metadata, sample count, propagation count, and the generated sample
-vector.
+transform metadata, sample count, propagation count, propagation source terms,
+and the generated sample vector.
 
 ## Distribution Plot
 
@@ -95,8 +95,9 @@ typed_payload.uncertainties
 
 `review.json` includes `uncertainty_info` with declared transform strings.
 `result.engres` and runtime-updated `report_spec.json` include numeric
-`scale`/`offset` values when they were declared. `report.html` includes an
-Uncertainty table with a Transform column.
+`scale`/`offset` values when they were declared and propagation source terms
+when a source binding is involved. `report.html` includes an Uncertainty table
+with Transform and Propagation columns.
 
 The current propagation is deterministic and supports explicit linear
 scale/offset transforms with source validation. It is still not a full

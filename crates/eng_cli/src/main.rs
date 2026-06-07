@@ -672,6 +672,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             if !result.contains("\"uncertainties\"")
                 || !result.contains("\"propagated_linear\"")
                 || !result.contains("\"distribution\": \"uniform\"")
+                || !result.contains("\"propagation\"")
                 || !result.contains("\"p95\"")
                 || !review.contains("\"uncertainty_info\"")
                 || !report_spec.contains("\"uncertainty\"")

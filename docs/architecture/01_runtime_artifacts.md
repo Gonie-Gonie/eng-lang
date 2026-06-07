@@ -279,6 +279,10 @@ plot_manifest
 warning_list
 ```
 
+The v1.1 uncertainty section records declared uncertainty forms, deterministic
+runtime summaries when available, scale/offset transforms, and propagation
+source terms with source, role, and quantity kind.
+
 The plot manifest section records:
 
 ```text

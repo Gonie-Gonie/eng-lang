@@ -8,6 +8,7 @@ use eng_report::{
     PlotAxis, PlotBin, PlotPoint, PlotSeries, PlotSpec, ReportComputedIntegration,
     ReportComputedStatisticValue, ReportComputedStatistics, ReportMlCoefficient, ReportMlInfo,
     ReportPolicyResult, ReportPolicyViolation, ReportSpec, ReportUncertaintyInfo,
+    ReportUncertaintyPropagationTerm,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -295,6 +296,7 @@ impl RuntimeData {
                 p95: uncertainty.p95.map(format_number),
                 sample_count: uncertainty.sample_count,
                 propagation_count: uncertainty.propagation_count,
+                propagation: uncertainty.propagation.clone(),
                 line: uncertainty.line,
             })
             .collect()
@@ -485,6 +487,7 @@ pub struct RuntimeUncertainty {
     pub p95: Option<f64>,
     pub sample_count: usize,
     pub propagation_count: usize,
+    pub propagation: Vec<ReportUncertaintyPropagationTerm>,
     pub samples: Vec<f64>,
     pub status: String,
     pub line: usize,
@@ -1071,6 +1074,15 @@ fn materialize_uncertainty(
         p95,
         sample_count: samples.len(),
         propagation_count: info.propagation.len(),
+        propagation: info
+            .propagation
+            .iter()
+            .map(|term| ReportUncertaintyPropagationTerm {
+                source: term.source.clone(),
+                role: term.role.clone(),
+                quantity_kind: term.quantity_kind.clone(),
+            })
+            .collect(),
         samples,
         status: if source_missing {
             "source_unresolved".to_owned()
@@ -3413,6 +3425,11 @@ script main(args: Args) -> Report {
         assert_eq!(runtime.uncertainties[1].method.as_deref(), Some("linear"));
         assert_eq!(runtime.uncertainties[1].scale, Some(1.1));
         assert_eq!(runtime.uncertainties[1].offset, Some(0.2));
+        assert_eq!(runtime.uncertainties[1].propagation.len(), 1);
+        assert_eq!(
+            runtime.uncertainties[1].propagation[0].source,
+            "Q_coil_dist"
+        );
         assert!(runtime.uncertainties[0].p05.is_some());
         assert!(runtime.uncertainties[1].mean.unwrap() > runtime.uncertainties[0].mean.unwrap());
         assert_eq!(round2(runtime.uncertainties[0].mean.unwrap()), 5.0);
