@@ -13,6 +13,7 @@
     "variable_table",
     "warning_list",
     "plot_manifest",
+    "args_summary",
     "schema_summary",
     "system_summary"
   ],
@@ -29,6 +30,7 @@
     "variable_table": { "type": "array" },
     "warning_list": { "type": "array" },
     "plot_manifest": { "type": "object" },
+    "args_summary": { "type": "array" },
     "schema_summary": { "type": "array" },
     "system_summary": { "type": "array" }
   }

@@ -1,4 +1,4 @@
-use crate::ast::{AstItem, ExplicitDecl, FastBinding, SystemVariableDecl};
+use crate::ast::{AstItem, ExplicitDecl, FastBinding, StructFieldDecl, SystemVariableDecl};
 use crate::entry::EntryPoint;
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
@@ -70,6 +70,22 @@ pub struct SystemInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ArgsFieldInfo {
+    pub name: String,
+    pub type_name: String,
+    pub default_value: Option<String>,
+    pub required: bool,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ArgsStructInfo {
+    pub name: String,
+    pub fields: Vec<ArgsFieldInfo>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SemanticProgram {
     pub typed_bindings: Vec<TypedBinding>,
     pub expected_types: Vec<ExpectedType>,
@@ -83,6 +99,7 @@ pub struct SemanticProgram {
     pub stats_infos: Vec<StatsInfo>,
     pub integrations: Vec<IntegrationInfo>,
     pub systems: Vec<SystemInfo>,
+    pub args_structs: Vec<ArgsStructInfo>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -105,6 +122,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut integrations = Vec::new();
     let mut systems = Vec::new();
     let mut current_system_index = None;
+    let mut args_structs = Vec::new();
+    let mut current_args_struct_index = None;
 
     for line in &program.lines {
         if line.tokens.iter().any(|token| {
@@ -148,6 +167,19 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     line: system.span.line,
                 });
                 current_system_index = Some(systems.len() - 1);
+            }
+            AstItem::Struct(struct_decl) => {
+                args_structs.push(ArgsStructInfo {
+                    name: struct_decl.name.clone(),
+                    fields: Vec::new(),
+                    line: struct_decl.span.line,
+                });
+                current_args_struct_index = Some(args_structs.len() - 1);
+            }
+            AstItem::StructField(field) => {
+                if let Some(args_struct_index) = current_args_struct_index {
+                    analyze_struct_field(field, &mut args_structs[args_struct_index]);
+                }
             }
             AstItem::SystemVariable(variable) => {
                 if let Some(system_index) = current_system_index {
@@ -232,8 +264,19 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             stats_infos,
             integrations,
             systems,
+            args_structs,
         },
     }
+}
+
+fn analyze_struct_field(field: &StructFieldDecl, args_struct: &mut ArgsStructInfo) {
+    args_struct.fields.push(ArgsFieldInfo {
+        name: field.name.clone(),
+        type_name: field.type_name.clone(),
+        default_value: field.default_value.clone(),
+        required: field.default_value.is_none(),
+        line: field.line,
+    });
 }
 
 fn analyze_explicit_decl(

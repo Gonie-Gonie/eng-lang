@@ -544,16 +544,41 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         Ok(output) => {
             let package_text = std::fs::read_to_string(&output.package_path).unwrap_or_default();
             let lock_text = std::fs::read_to_string(&output.lock_path).unwrap_or_default();
+            let args_help_path = output.bundle_path.join("ARGS_HELP.txt");
+            let args_help_text = std::fs::read_to_string(&args_help_path).unwrap_or_default();
             if !output.runner_path.exists()
                 || !output.executable_path.exists()
                 || !output.bytecode_path.exists()
+                || !args_help_path.exists()
                 || !package_text.contains("format = engpkg-stable-1")
                 || !package_text.contains("runner = run.bat")
+                || !package_text.contains("args_help = ARGS_HELP.txt")
                 || !lock_text.contains("bytecode_version = 1")
                 || !lock_text.contains("result_format_version = 1")
+                || !args_help_text.contains("Args metadata")
             {
                 eprintln!("expected standalone build to create a stable runnable bundle");
                 return ExitCode::from(2);
+            }
+
+            let help_output = Command::new("cmd")
+                .arg("/C")
+                .arg("run.bat")
+                .arg("--help")
+                .current_dir(&output.bundle_path)
+                .output();
+            match help_output {
+                Ok(output)
+                    if output.status.success()
+                        && String::from_utf8_lossy(&output.stdout).contains("Args metadata") => {}
+                Ok(_) => {
+                    eprintln!("expected standalone runner --help to print Args metadata");
+                    return ExitCode::from(2);
+                }
+                Err(error) => {
+                    eprintln!("standalone runner --help failed: {error}");
+                    return ExitCode::from(2);
+                }
             }
 
             let status = Command::new("cmd")

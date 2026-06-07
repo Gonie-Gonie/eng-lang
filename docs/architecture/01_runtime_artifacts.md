@@ -144,6 +144,7 @@ variable_table
 warning_list
 plot_manifest
 entry_points
+args_summary
 inferred_declarations
 expected_types
 hover_hints
@@ -183,6 +184,7 @@ provenance
 variable_table
 inferred_declaration_table
 unit_conversion_table
+args_summary
 schema_summary
 system_summary
 plot_manifest
@@ -221,6 +223,7 @@ Current sections include:
 ```text
 summary metrics
 entry points
+Args metadata
 inferred declarations
 hover hints
 type info
@@ -282,6 +285,7 @@ dist/
     <model>.engbc
     <model>.engpkg
     <model>.lock
+    ARGS_HELP.txt
     <model>.review.html
     source/
       <file.eng>
@@ -300,6 +304,9 @@ source_hash = ...
 bytecode_hash = ...
 entry_name = main
 entry = script main(args: Args) -> Report
+args_schema = Args
+args_field_count = 1
+args_help = ARGS_HELP.txt
 ```
 
 The `.lock` records:
@@ -313,6 +320,9 @@ report_schema_version = 1
 plot_spec_version = 1
 profile = repro
 ```
+
+`run.bat --help` prints `ARGS_HELP.txt`, which is generated from `struct Args`
+metadata when available. Runtime flag binding from Args fields is deferred.
 
 `run.bat` executes the bundled `eng.exe` and writes normal run artifacts under
 `<model>-standalone/build/result`. This is a packaged runner, not an optimized

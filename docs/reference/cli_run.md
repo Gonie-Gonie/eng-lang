@@ -30,7 +30,7 @@ target\debug\eng.exe entries examples\official\01_csv_plot\main.eng
 Output:
 
 ```text
-examples\official\01_csv_plot\main.eng:21: script main(args: Args) -> Report
+examples\official\01_csv_plot\main.eng:25: script main(args: Args) -> Report
 ```
 
 ## Select an Entry

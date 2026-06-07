@@ -107,7 +107,7 @@ Lists script entry points discovered by the compiler.
 Example:
 
 ```text
-examples\official\01_csv_plot\main.eng:21: script main(args: Args) -> Report
+examples\official\01_csv_plot\main.eng:25: script main(args: Args) -> Report
 ```
 
 This command is useful before running files with multiple script entries.
@@ -152,6 +152,7 @@ dist/
   <model>-standalone/
     eng.exe
     run.bat
+    ARGS_HELP.txt
     <model>.engpkg
     <model>.lock
     <model>.engbc
@@ -166,8 +167,9 @@ into the bundle at the same relative path from `source/<file.eng>`. Running
 creates normal `build/result` artifacts inside the bundle.
 
 The `.engpkg` records package format, runner, engine, source, bytecode,
-source hash, bytecode hash, entry name, and selected entry signature. The lock
-file records runtime/compiler/bytecode/result/report/plot format versions.
+source hash, bytecode hash, entry name, selected entry signature, Args schema,
+Args field count, and Args help path. The lock file records
+runtime/compiler/bytecode/result/report/plot format versions.
 
 ## `eng view <result.engres>`
 

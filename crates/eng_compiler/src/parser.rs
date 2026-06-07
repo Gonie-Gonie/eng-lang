@@ -1,6 +1,7 @@
 use crate::ast::{
     AstItem, ConstraintDecl, EquationDecl, ExplicitDecl, FastBinding, MissingPolicyDecl,
-    SchemaDecl, ScriptDecl, SummaryDecl, SystemDecl, SystemVariableDecl,
+    SchemaDecl, ScriptDecl, StructDecl, StructFieldDecl, SummaryDecl, SystemDecl,
+    SystemVariableDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -12,6 +13,7 @@ pub enum ParseContext {
     SchemaConstraints,
     SchemaMissing,
     Script,
+    Struct,
     System,
     Equation,
     Other,
@@ -39,6 +41,8 @@ pub struct SyntaxSummary {
     pub scripts: usize,
     pub schemas: usize,
     pub systems: usize,
+    pub structs: usize,
+    pub struct_fields: usize,
     pub equations: usize,
     pub fast_bindings: usize,
     pub explicit_declarations: usize,
@@ -49,6 +53,8 @@ impl ParsedProgram {
         let mut scripts = 0usize;
         let mut schemas = 0usize;
         let mut systems = 0usize;
+        let mut structs = 0usize;
+        let mut struct_fields = 0usize;
         let mut equations = 0usize;
         let mut fast_bindings = 0usize;
         let mut explicit_declarations = 0usize;
@@ -58,6 +64,8 @@ impl ParsedProgram {
                 AstItem::Script(_) => scripts += 1,
                 AstItem::Schema(_) => schemas += 1,
                 AstItem::System(_) => systems += 1,
+                AstItem::Struct(_) => structs += 1,
+                AstItem::StructField(_) => struct_fields += 1,
                 AstItem::Equation(_) => equations += 1,
                 AstItem::FastBinding(_) => fast_bindings += 1,
                 AstItem::ExplicitDecl(_) => explicit_declarations += 1,
@@ -76,6 +84,8 @@ impl ParsedProgram {
             scripts,
             schemas,
             systems,
+            structs,
+            struct_fields,
             equations,
             fast_bindings,
             explicit_declarations,
@@ -90,6 +100,7 @@ pub fn parse_source(source: &str) -> ParsedProgram {
     let mut constraints_depth = 0i32;
     let mut missing_depth = 0i32;
     let mut script_depth = 0i32;
+    let mut struct_depth = 0i32;
     let mut system_depth = 0i32;
     let mut equation_depth = 0i32;
 
@@ -105,6 +116,8 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             ParseContext::Schema
         } else if script_depth > 0 {
             ParseContext::Script
+        } else if struct_depth > 0 {
+            ParseContext::Struct
         } else if system_depth > 0 {
             ParseContext::System
         } else {
@@ -163,6 +176,18 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             }
         }
 
+        if starts_with_keyword(&tokens, Keyword::Struct) {
+            struct_depth += brace_delta(&tokens);
+            if struct_depth == 0 {
+                struct_depth = 1;
+            }
+        } else if struct_depth > 0 {
+            struct_depth += brace_delta(&tokens);
+            if struct_depth <= 0 {
+                struct_depth = 0;
+            }
+        }
+
         if starts_with_keyword(&tokens, Keyword::System) {
             system_depth += brace_delta(&tokens);
             if system_depth == 0 {
@@ -213,6 +238,12 @@ fn parse_line_items(
     if let Some(script) = parse_script_decl(tokens) {
         items.push(AstItem::Script(script));
     }
+    if let Some(struct_decl) = parse_struct_decl(tokens) {
+        items.push(AstItem::Struct(struct_decl));
+    }
+    if let Some(field) = parse_struct_field_decl(tokens, line_text, context) {
+        items.push(AstItem::StructField(field));
+    }
     if let Some(system) = parse_system_decl(tokens) {
         items.push(AstItem::System(system));
     }
@@ -225,8 +256,10 @@ fn parse_line_items(
     if let Some(binding) = parse_fast_binding(tokens, line_text, context) {
         items.push(AstItem::FastBinding(binding));
     }
-    if let Some(declaration) = parse_explicit_decl(tokens, line_text, context) {
-        items.push(AstItem::ExplicitDecl(declaration));
+    if context != ParseContext::Struct {
+        if let Some(declaration) = parse_explicit_decl(tokens, line_text, context) {
+            items.push(AstItem::ExplicitDecl(declaration));
+        }
     }
     if let Some(constraint) = parse_constraint_decl(tokens, line_text, context) {
         items.push(AstItem::Constraint(constraint));
@@ -274,6 +307,22 @@ fn parse_system_decl(tokens: &[Token]) -> Option<SystemDecl> {
     })
 }
 
+fn parse_struct_decl(tokens: &[Token]) -> Option<StructDecl> {
+    let [first, second, ..] = tokens else {
+        return None;
+    };
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Struct)) {
+        return None;
+    }
+    let TokenKind::Identifier(name) = &second.kind else {
+        return None;
+    };
+    Some(StructDecl {
+        name: name.clone(),
+        span: first.span,
+    })
+}
+
 fn parse_script_decl(tokens: &[Token]) -> Option<ScriptDecl> {
     let [first, second, ..] = tokens else {
         return None;
@@ -291,6 +340,37 @@ fn parse_script_decl(tokens: &[Token]) -> Option<ScriptDecl> {
         arg_name,
         arg_type,
         return_type,
+        span: first.span,
+    })
+}
+
+fn parse_struct_field_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<StructFieldDecl> {
+    if context != ParseContext::Struct {
+        return None;
+    }
+    let [first, second, third, ..] = tokens else {
+        return None;
+    };
+    let TokenKind::Identifier(name) = &first.kind else {
+        return None;
+    };
+    if !matches!(second.kind, TokenKind::Symbol(Symbol::Colon)) {
+        return None;
+    }
+    let type_name = token_type_name(third)?;
+    let default_value = line_text
+        .split_once('=')
+        .map(|(_, right)| right.trim().to_owned());
+
+    Some(StructFieldDecl {
+        name: name.clone(),
+        type_name,
+        default_value,
+        line: first.span.line,
         span: first.span,
     })
 }

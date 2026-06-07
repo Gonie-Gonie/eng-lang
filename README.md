@@ -98,7 +98,7 @@ v0.9-alpha
 v1.0-stable
   Stable core release: typed CSV boundary, unit/quantity calculations,
   TimeSeries statistics, PlotSpec-driven SVG/report, minimal system/equation
-  metadata, and runnable packaged standalone bundles.
+  metadata, Args help metadata, and runnable packaged standalone bundles.
 ```
 
 Active planning target:

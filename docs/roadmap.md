@@ -312,7 +312,7 @@ Priority backfill:
 [x] docs-check command for supported docs/spec code blocks
 [x] examples/official/01_csv_plot and examples/official/02_simple_system
 [x] artifact schema/golden validation baseline
-[ ] Args metadata inventory for packaged runner help
+[x] Args metadata inventory for packaged runner help
 ```
 
 Required outputs:

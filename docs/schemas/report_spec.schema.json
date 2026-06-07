@@ -12,6 +12,7 @@
     "source_hash",
     "provenance",
     "variable_table",
+    "args_summary",
     "schema_summary",
     "system_summary",
     "plot_manifest"
@@ -35,6 +36,7 @@
       ]
     },
     "variable_table": { "type": "array" },
+    "args_summary": { "type": "array" },
     "schema_summary": { "type": "array" },
     "system_summary": { "type": "array" },
     "plot_manifest": { "type": "object" }

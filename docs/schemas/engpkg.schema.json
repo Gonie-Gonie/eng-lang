@@ -13,7 +13,10 @@
     "source_hash",
     "bytecode_hash",
     "entry_name",
-    "entry"
+    "entry",
+    "args_schema",
+    "args_field_count",
+    "args_help"
   ],
   "properties": {
     "format": { "const": "engpkg-stable-1" },
@@ -25,6 +28,9 @@
     "source_hash": { "type": "string" },
     "bytecode_hash": { "type": "string" },
     "entry_name": { "type": "string" },
-    "entry": { "type": "string" }
+    "entry": { "type": "string" },
+    "args_schema": { "type": "string" },
+    "args_field_count": { "type": "string" },
+    "args_help": { "const": "ARGS_HELP.txt" }
   }
 }

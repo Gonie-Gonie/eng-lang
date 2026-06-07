@@ -14,6 +14,7 @@
     "bytecode_hash",
     "numeric_profile",
     "entry",
+    "args_schema",
     "object_store",
     "typed_payload",
     "provenance"
@@ -32,6 +33,7 @@
       "type": "object",
       "required": ["kind", "name", "arg_name", "arg_type", "return_type"]
     },
+    "args_schema": { "type": "array" },
     "object_store": {
       "type": "object",
       "required": ["scalar_count", "table_count", "timeseries_count", "array_count", "objects"]

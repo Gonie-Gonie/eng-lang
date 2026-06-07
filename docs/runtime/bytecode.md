@@ -50,6 +50,7 @@ csv_promotions = ...
 entry = script main
 entry_args = args:Args
 entry_return = Report
+args_schema = Args metadata, when declared
 ```
 
 Object records:

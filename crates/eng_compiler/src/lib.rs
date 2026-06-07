@@ -18,8 +18,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub use ast::{
-    AstItem, EquationDecl, ExplicitDecl, FastBinding, SchemaDecl, ScriptDecl, SystemDecl,
-    SystemVariableDecl,
+    AstItem, EquationDecl, ExplicitDecl, FastBinding, SchemaDecl, ScriptDecl, StructDecl,
+    StructFieldDecl, SystemDecl, SystemVariableDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -33,8 +33,8 @@ pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSu
 pub use quantities::{all_quantity_completions, QuantityCompletion};
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
 pub use semantic::{
-    EquationInfo, ResidualInfo, SemanticProgram, SemanticType, SystemInfo, SystemVariableInfo,
-    TypedBinding,
+    ArgsFieldInfo, ArgsStructInfo, EquationInfo, ResidualInfo, SemanticProgram, SemanticType,
+    SystemInfo, SystemVariableInfo, TypedBinding,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -206,6 +206,14 @@ pub fn review_json(report: &CheckReport) -> String {
     json.push_str(&format!(
         "    \"systems\": {},\n",
         report.syntax_summary.systems
+    ));
+    json.push_str(&format!(
+        "    \"structs\": {},\n",
+        report.syntax_summary.structs
+    ));
+    json.push_str(&format!(
+        "    \"struct_fields\": {},\n",
+        report.syntax_summary.struct_fields
     ));
     json.push_str(&format!(
         "    \"equations\": {},\n",
@@ -381,6 +389,52 @@ pub fn review_json(report: &CheckReport) -> String {
             json.push_str("      \"return_type\": null,\n");
         }
         json.push_str(&format!("      \"line\": {}\n", entry.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"args_summary\": [\n");
+    for (index, args_struct) in report.semantic_program.args_structs.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&args_struct.name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", args_struct.line));
+        json.push_str(&format!(
+            "      \"field_count\": {},\n",
+            args_struct.fields.len()
+        ));
+        json.push_str("      \"fields\": [\n");
+        for (field_index, field) in args_struct.fields.iter().enumerate() {
+            if field_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&field.name)
+            ));
+            json.push_str(&format!(
+                "          \"type\": \"{}\",\n",
+                json_escape(&field.type_name)
+            ));
+            if let Some(default_value) = &field.default_value {
+                json.push_str(&format!(
+                    "          \"default\": \"{}\",\n",
+                    json_escape(default_value)
+                ));
+            } else {
+                json.push_str("          \"default\": null,\n");
+            }
+            json.push_str(&format!("          \"required\": {},\n", field.required));
+            json.push_str(&format!("          \"line\": {}\n", field.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -1023,6 +1077,33 @@ mod tests {
         );
         assert_eq!(report.syntax_summary.fast_bindings, 1);
         assert_eq!(report.inferred_declarations[0].quantity_kind, "Length");
+    }
+
+    #[test]
+    fn records_args_struct_metadata() {
+        let report = check_source(
+            "ok.eng",
+            "struct Args {\n    case_name: String = \"baseline\"\n}\n\nscript main(args: Args) -> Report {\n    L = 1 m\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert_eq!(report.syntax_summary.structs, 1);
+        assert_eq!(report.syntax_summary.struct_fields, 1);
+        assert_eq!(report.semantic_program.args_structs[0].name, "Args");
+        assert_eq!(
+            report.semantic_program.args_structs[0].fields[0].name,
+            "case_name"
+        );
+        assert_eq!(
+            report.semantic_program.args_structs[0].fields[0]
+                .default_value
+                .as_deref(),
+            Some("\"baseline\"")
+        );
+
+        let review = review_json(&report);
+        assert!(review.contains("\"args_summary\""));
+        assert!(review.contains("\"case_name\""));
     }
 
     #[test]

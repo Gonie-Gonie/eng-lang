@@ -18,6 +18,10 @@ schema SensorData {
     }
 }
 
+struct Args {
+    case_name: String = "baseline"
+}
+
 script main(args: Args) -> Report {
     sensor = promote csv "data/sensor.csv" as SensorData
     cp = 4180 J/kg/K

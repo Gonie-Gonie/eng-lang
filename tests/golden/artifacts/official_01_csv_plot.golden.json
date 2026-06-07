@@ -6,8 +6,12 @@
     "review_schema_version": 1,
     "scripts": 1,
     "schemas": 1,
+    "structs": 1,
+    "struct_fields": 1,
     "systems": 0,
     "equations": 0,
+    "args_struct_count": 1,
+    "args_field_count": 1,
     "schema_summary_count": 1,
     "csv_promotion_count": 1
   },
@@ -16,6 +20,8 @@
     "report_schema_version": 1,
     "schema_count": 1,
     "csv_promotion_count": 1,
+    "args_struct_count": 1,
+    "args_field_count": 1,
     "system_count": 0,
     "residual_count": 0,
     "plot_spec_version": 1
@@ -25,6 +31,8 @@
     "result_format_version": 1,
     "bytecode_version": 1,
     "entry_name": "main",
+    "args_struct_count": 1,
+    "args_field_count": 1,
     "table_count": 1,
     "timeseries_count": 1,
     "schema_count": 1,
@@ -47,6 +55,9 @@
     "engine": "eng.exe",
     "source": "source/main.eng",
     "bytecode": "main.engbc",
-    "entry_name": "main"
+    "entry_name": "main",
+    "args_schema": "Args",
+    "args_field_count": "1",
+    "args_help": "ARGS_HELP.txt"
   }
 }

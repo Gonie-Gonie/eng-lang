@@ -17,6 +17,21 @@ pub struct ScriptDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StructDecl {
+    pub name: String,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StructFieldDecl {
+    pub name: String,
+    pub type_name: String,
+    pub default_value: Option<String>,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SystemDecl {
     pub name: String,
     pub span: SourceSpan,
@@ -88,6 +103,8 @@ pub struct ExplicitDecl {
 pub enum AstItem {
     Schema(SchemaDecl),
     Script(ScriptDecl),
+    Struct(StructDecl),
+    StructField(StructFieldDecl),
     System(SystemDecl),
     SystemVariable(SystemVariableDecl),
     Equation(EquationDecl),

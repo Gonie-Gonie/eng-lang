@@ -143,6 +143,7 @@ The bundle contains:
 ```text
 eng.exe
 run.bat
+ARGS_HELP.txt
 main.engbc
 main.engpkg
 main.lock

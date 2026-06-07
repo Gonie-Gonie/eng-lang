@@ -44,6 +44,7 @@ pub struct ReportSpec {
     pub inferred_declarations: Vec<ReportInferredDeclaration>,
     pub unit_conversions: Vec<ReportUnitConversion>,
     pub schemas: Vec<ReportSchemaSummary>,
+    pub args: Vec<ReportArgsStruct>,
     pub systems: Vec<ReportSystemSummary>,
     pub plot_manifest: ReportPlotManifest,
     pub warnings: Vec<ReportWarning>,
@@ -88,6 +89,22 @@ pub struct ReportSchemaSummary {
     pub column_count: usize,
     pub constraint_count: usize,
     pub missing_policy_count: usize,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportArgsStruct {
+    pub name: String,
+    pub fields: Vec<ReportArgsField>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportArgsField {
+    pub name: String,
+    pub type_name: String,
+    pub default_value: Option<String>,
+    pub required: bool,
     pub line: usize,
 }
 
@@ -236,6 +253,27 @@ pub fn report_spec_from_report(
         })
         .collect();
 
+    let args = report
+        .semantic_program
+        .args_structs
+        .iter()
+        .map(|args_struct| ReportArgsStruct {
+            name: args_struct.name.clone(),
+            fields: args_struct
+                .fields
+                .iter()
+                .map(|field| ReportArgsField {
+                    name: field.name.clone(),
+                    type_name: field.type_name.clone(),
+                    default_value: field.default_value.clone(),
+                    required: field.required,
+                    line: field.line,
+                })
+                .collect(),
+            line: args_struct.line,
+        })
+        .collect();
+
     let warnings = report
         .diagnostics
         .iter()
@@ -312,6 +350,7 @@ pub fn report_spec_from_report(
         inferred_declarations,
         unit_conversions,
         schemas,
+        args,
         systems,
         plot_manifest: ReportPlotManifest {
             path: plot_manifest_relative_path.to_owned(),
@@ -512,6 +551,52 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             "      \"missing_policy_count\": {}\n",
             schema.missing_policy_count
         ));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"args_summary\": [\n");
+    for (index, args_struct) in spec.args.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&args_struct.name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", args_struct.line));
+        json.push_str(&format!(
+            "      \"field_count\": {},\n",
+            args_struct.fields.len()
+        ));
+        json.push_str("      \"fields\": [\n");
+        for (field_index, field) in args_struct.fields.iter().enumerate() {
+            if field_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&field.name)
+            ));
+            json.push_str(&format!(
+                "          \"type\": \"{}\",\n",
+                json_escape(&field.type_name)
+            ));
+            if let Some(default_value) = &field.default_value {
+                json.push_str(&format!(
+                    "          \"default\": \"{}\",\n",
+                    json_escape(default_value)
+                ));
+            } else {
+                json.push_str("          \"default\": null,\n");
+            }
+            json.push_str(&format!("          \"required\": {},\n", field.required));
+            json.push_str(&format!("          \"line\": {}\n", field.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -1035,6 +1120,36 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
         entry_points.push_str("<tr><td colspan=\"5\">No entry points.</td></tr>");
     }
 
+    let mut args_metadata = String::new();
+    for args_struct in &report.semantic_program.args_structs {
+        if args_struct.fields.is_empty() {
+            args_metadata.push_str("<tr>");
+            args_metadata.push_str(&format!(
+                "<td>{}</td><td>{}</td><td colspan=\"4\">No fields.</td>",
+                args_struct.line,
+                html_escape(&args_struct.name)
+            ));
+            args_metadata.push_str("</tr>");
+            continue;
+        }
+        for field in &args_struct.fields {
+            args_metadata.push_str("<tr>");
+            args_metadata.push_str(&format!(
+                "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+                field.line,
+                html_escape(&args_struct.name),
+                html_escape(&field.name),
+                html_escape(&field.type_name),
+                html_escape(field.default_value.as_deref().unwrap_or("")),
+                if field.required { "yes" } else { "no" }
+            ));
+            args_metadata.push_str("</tr>");
+        }
+    }
+    if args_metadata.is_empty() {
+        args_metadata.push_str("<tr><td colspan=\"6\">No Args metadata.</td></tr>");
+    }
+
     let error_count = report.diagnostic_count(Severity::Error);
     let warning_count = report.diagnostic_count(Severity::Warning);
     let syntax_items = report.syntax_summary.ast_items;
@@ -1174,6 +1289,11 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     <table>
       <thead><tr><th>Line</th><th>Kind</th><th>Name</th><th>Args</th><th>Returns</th></tr></thead>
       <tbody>{entry_points}</tbody>
+    </table>
+    <h2>Args Metadata</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Struct</th><th>Field</th><th>Type</th><th>Default</th><th>Required</th></tr></thead>
+      <tbody>{args_metadata}</tbody>
     </table>
     <h2>Inferred Declarations</h2>
     <table>

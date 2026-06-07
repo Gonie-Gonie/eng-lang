@@ -7,7 +7,7 @@ use std::process::Command;
 
 use eng_compiler::{
     build_bytecode, check_file, parse_bytecode, review_json, select_entry, CheckOptions,
-    CheckReport,
+    CheckReport, EntryPoint,
 };
 
 mod vm;
@@ -318,6 +318,8 @@ pub fn build_standalone(
         &runner_path,
         standalone_runner_script(source_file_name, &entry.name),
     )?;
+    let args_help_path = bundle_path.join("ARGS_HELP.txt");
+    fs::write(args_help_path, args_help_text(&check_report, &entry))?;
 
     let bytecode_path = bundle_path.join(format!("{stem}.engbc"));
     let package_path = bundle_path.join(format!("{stem}.engpkg"));
@@ -328,7 +330,7 @@ pub fn build_standalone(
     fs::write(
         &package_path,
         format!(
-            "format = engpkg-stable-1\npackage_format_version = 1\nrunner = run.bat\nengine = eng.exe\nsource = {}\nbytecode = {}\nsource_hash = {}\nbytecode_hash = {}\nentry_name = {}\nentry = {}\n",
+            "format = engpkg-stable-1\npackage_format_version = 1\nrunner = run.bat\nengine = eng.exe\nsource = {}\nbytecode = {}\nsource_hash = {}\nbytecode_hash = {}\nentry_name = {}\nentry = {}\nargs_schema = {}\nargs_field_count = {}\nargs_help = ARGS_HELP.txt\n",
             path_for_manifest(&Path::new("source").join(source_file_name)),
             path_for_manifest(
                 bytecode_path
@@ -340,7 +342,9 @@ pub fn build_standalone(
             check_report.source_hash,
             bytecode_hash,
             entry.name,
-            entry.signature()
+            entry.signature(),
+            entry.arg_type.as_deref().unwrap_or("Args"),
+            args_field_count(&check_report, &entry)
         ),
     )?;
     fs::write(
@@ -460,9 +464,68 @@ fn bundled_dependency_path(
 
 fn standalone_runner_script(source_file_name: &str, entry_name: &str) -> String {
     format!(
-        "@echo off\r\nsetlocal\r\ncd /d \"%~dp0\"\r\n\"%~dp0eng.exe\" run \"%~dp0source\\{}\" --entry {} %*\r\n",
+        "@echo off\r\nsetlocal\r\ncd /d \"%~dp0\"\r\nif \"%~1\"==\"--help\" goto help\r\nif \"%~1\"==\"-h\" goto help\r\nif \"%~1\"==\"/?\" goto help\r\n\"%~dp0eng.exe\" run \"%~dp0source\\{}\" --entry {} %*\r\nexit /b %ERRORLEVEL%\r\n:help\r\ntype \"%~dp0ARGS_HELP.txt\"\r\nexit /b 0\r\n",
         source_file_name, entry_name
     )
+}
+
+fn args_field_count(report: &CheckReport, entry: &EntryPoint) -> usize {
+    let arg_type = entry.arg_type.as_deref().unwrap_or("Args");
+    report
+        .semantic_program
+        .args_structs
+        .iter()
+        .find(|args_struct| args_struct.name == arg_type)
+        .map(|args_struct| args_struct.fields.len())
+        .unwrap_or(0)
+}
+
+fn args_help_text(report: &CheckReport, entry: &EntryPoint) -> String {
+    let arg_type = entry.arg_type.as_deref().unwrap_or("Args");
+    let mut text = String::new();
+    text.push_str("EngLang standalone package\n\n");
+    text.push_str("Entry:\n");
+    text.push_str(&format!("  {}\n\n", entry.signature()));
+    text.push_str("Args metadata:\n");
+
+    match report
+        .semantic_program
+        .args_structs
+        .iter()
+        .find(|args_struct| args_struct.name == arg_type)
+    {
+        Some(args_struct) if args_struct.fields.is_empty() => {
+            text.push_str(&format!("  struct {} has no fields.\n", args_struct.name));
+        }
+        Some(args_struct) => {
+            text.push_str(&format!("  struct {}\n", args_struct.name));
+            for field in &args_struct.fields {
+                let required = if field.required {
+                    "required"
+                } else {
+                    "optional"
+                };
+                text.push_str(&format!(
+                    "  --{} <{}>  {}",
+                    field.name, field.type_name, required
+                ));
+                if let Some(default_value) = &field.default_value {
+                    text.push_str(&format!("; default = {default_value}"));
+                }
+                text.push('\n');
+            }
+        }
+        None => {
+            text.push_str(&format!(
+                "  struct {arg_type} is not declared in this source.\n"
+            ));
+        }
+    }
+
+    text.push_str(
+        "\nNote: v1.0 records Args metadata for help. Runtime flag binding is deferred.\n",
+    );
+    text
 }
 
 fn path_for_manifest(path: &Path) -> String {
@@ -497,6 +560,51 @@ fn result_json(
             data_hashes.push_str("        \"hash\": null\n");
         }
         data_hashes.push_str("      }");
+    }
+
+    let mut args_schema = String::new();
+    for (args_index, args_struct) in report.semantic_program.args_structs.iter().enumerate() {
+        if args_index > 0 {
+            args_schema.push_str(",\n");
+        }
+        args_schema.push_str("    {\n");
+        args_schema.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&args_struct.name)
+        ));
+        args_schema.push_str(&format!("      \"line\": {},\n", args_struct.line));
+        args_schema.push_str(&format!(
+            "      \"field_count\": {},\n",
+            args_struct.fields.len()
+        ));
+        args_schema.push_str("      \"fields\": [\n");
+        for (field_index, field) in args_struct.fields.iter().enumerate() {
+            if field_index > 0 {
+                args_schema.push_str(",\n");
+            }
+            args_schema.push_str("        {\n");
+            args_schema.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&field.name)
+            ));
+            args_schema.push_str(&format!(
+                "          \"type\": \"{}\",\n",
+                json_escape(&field.type_name)
+            ));
+            if let Some(default_value) = &field.default_value {
+                args_schema.push_str(&format!(
+                    "          \"default\": \"{}\",\n",
+                    json_escape(default_value)
+                ));
+            } else {
+                args_schema.push_str("          \"default\": null,\n");
+            }
+            args_schema.push_str(&format!("          \"required\": {},\n", field.required));
+            args_schema.push_str(&format!("          \"line\": {}\n", field.line));
+            args_schema.push_str("        }");
+        }
+        args_schema.push_str("\n      ]\n");
+        args_schema.push_str("    }");
     }
 
     let mut objects = String::new();
@@ -688,7 +796,7 @@ fn result_json(
     }
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -699,6 +807,7 @@ fn result_json(
         json_escape(execution.entry.arg_name.as_deref().unwrap_or("args")),
         json_escape(execution.entry.arg_type.as_deref().unwrap_or("Args")),
         json_escape(execution.entry.return_type.as_deref().unwrap_or("Report")),
+        args_schema,
         execution.scalar_count(),
         execution.table_count(),
         execution.timeseries_count(),
