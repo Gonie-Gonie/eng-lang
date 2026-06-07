@@ -58,9 +58,9 @@ Current official examples:
 
 ```text
 examples/01_units/main.eng              unit/quantity basics
-examples/02_csv_plot/main.eng           typed CSV promote plus report
-examples/04_plotting/main.eng           CSV, statistics, PlotSpec, SVG, report
-examples/06_simple_system/main.eng      minimal system/equation report
+examples/official/01_csv_plot/main.eng  typed CSV, statistics, PlotSpec, report
+examples/official/02_simple_system/main.eng
+                                           minimal system/equation report
 ```
 
 Current error examples:

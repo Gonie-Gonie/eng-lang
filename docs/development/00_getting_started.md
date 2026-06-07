@@ -75,8 +75,8 @@ Ready.
 Or run the current official examples directly:
 
 ```bat
-target\debug\eng.exe run examples\04_plotting\main.eng --entry main
-target\debug\eng.exe run examples\06_simple_system\main.eng --entry main
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main
+target\debug\eng.exe run examples\official\02_simple_system\main.eng --entry main
 ```
 
 Generated artifacts:

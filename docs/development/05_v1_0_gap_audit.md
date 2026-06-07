@@ -100,6 +100,8 @@ Hardening detail:
 
 ### G-002 Official Examples Layout
 
+Status: Implemented after v1.0.0 as a v1.0 hardening backfill.
+
 Plan expectation:
 
 ```text
@@ -111,10 +113,10 @@ official examples are regression tested
 Current state:
 
 ```text
-- examples/02_csv_plot and examples/04_plotting act as official CSV/report/plot examples
-- examples/06_simple_system acts as the official simple system example
+- examples/official/01_csv_plot is the official CSV/report/plot example
+- examples/official/02_simple_system is the official simple system example
 - eng test examples runs these examples
-- there is no examples/official namespace yet
+- legacy numbered examples remain as compatibility smoke cases
 ```
 
 Risk:
@@ -127,11 +129,11 @@ single official namespace to copy, package, or document.
 Hardening detail:
 
 ```text
-1. Create examples/official/01_csv_plot.
-2. Create examples/official/02_simple_system.
-3. Keep numbered legacy examples or redirect docs to official examples.
-4. Update package-smoke to run official examples.
-5. Keep old examples as compatibility smoke cases until v1.1 or v1.2.
+1. [x] Create examples/official/01_csv_plot.
+2. [x] Create examples/official/02_simple_system.
+3. [x] Keep numbered legacy examples or redirect docs to official examples.
+4. [x] Update package-smoke to run official examples.
+5. [x] Keep old examples as compatibility smoke cases until v1.1 or v1.2.
 ```
 
 ### G-003 Typed Table Runtime Values

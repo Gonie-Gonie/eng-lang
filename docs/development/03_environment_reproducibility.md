@@ -134,7 +134,7 @@ README.txt
 Build a runnable model bundle:
 
 ```bat
-target\debug\eng.exe build examples\02_csv_plot\main.eng --entry main --standalone --profile repro
+target\debug\eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
 dist\main-standalone\run.bat
 ```
 
@@ -186,8 +186,7 @@ guards against path handling bugs before a preview package is shared.
 ```bat
 .\dev.bat clean
 .\dev.bat setup
-.\dev.bat ci
-.\dev.bat package-smoke
+.\dev.bat release-check
 ```
 
 This is the strongest local release sanity check before tagging.

@@ -1,0 +1,35 @@
+schema SensorData {
+    time: DateTime index
+    T_supply: AbsoluteTemperature [degC]
+    T_return: AbsoluteTemperature [degC]
+    m_dot: MassFlowRate [kg/s]
+
+    constraints {
+        time is monotonic
+        T_supply between 0 degC and 60 degC
+        T_return between 0 degC and 80 degC
+        m_dot >= 0 kg/s
+    }
+
+    missing {
+        T_supply: interpolate max_gap=10 min
+        T_return: interpolate max_gap=10 min
+        m_dot: error
+    }
+}
+
+script main(args: Args) -> Report {
+    sensor = promote csv "data/sensor.csv" as SensorData
+    cp = 4180 J/kg/K
+    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+    E_coil = integrate(Q_coil, over=Time)
+
+    return report {
+        summarize Q_coil by [mean, max, p95]
+        show E_coil
+        plot Q_coil over Time {
+            unit y = kW
+            title = "Coil heat rate"
+        }
+    }
+}

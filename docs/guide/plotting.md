@@ -13,7 +13,7 @@ plot Q_coil over Time {
 
 The preview parser does not fully execute the plot block options yet. The PlotSpec planner currently infers the first `TimeSeries[Time]` binding from semantic metadata and emits a line plot.
 
-For `examples/04_plotting/main.eng`, this produces:
+For `examples/official/01_csv_plot/main.eng`, this produces:
 
 ```text
 build/result/plots/plot_spec.json

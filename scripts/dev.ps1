@@ -279,7 +279,7 @@ function Invoke-RunExample {
         Write-Host "Cargo not found. Run .\dev.bat setup."
         exit 1
     }
-    $example = if ($Rest.Count -gt 0) { $Rest[0] } else { "examples\04_plotting\main.eng" }
+    $example = if ($Rest.Count -gt 0) { $Rest[0] } else { "examples\official\01_csv_plot\main.eng" }
     Invoke-Native $cargo "run" "-p" "eng_cli" "--" "run" $example
 }
 
@@ -311,9 +311,9 @@ required on the target PC.
 
 Recommended smoke commands:
   eng.exe doctor
-  eng.exe run examples\04_plotting\main.eng --entry main
-  eng.exe run examples\06_simple_system\main.eng --entry main
-  eng.exe build examples\02_csv_plot\main.eng --entry main --standalone --profile repro
+  eng.exe run examples\official\01_csv_plot\main.eng --entry main
+  eng.exe run examples\official\02_simple_system\main.eng --entry main
+  eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
   dist\main-standalone\run.bat
   eng.exe view build\result\result.engres
 
@@ -341,13 +341,13 @@ function Invoke-PackageSmoke {
     Push-Location $SmokeRoot
     try {
         Invoke-Native $Eng "doctor"
-        Invoke-Native $Eng "run" "examples\04_plotting\main.eng" "--entry" "main"
+        Invoke-Native $Eng "run" "examples\official\01_csv_plot\main.eng" "--entry" "main"
         Invoke-Native $Eng "view" "build\result\result.engres"
-        Invoke-Native $Eng "run" "examples\06_simple_system\main.eng" "--entry" "main"
+        Invoke-Native $Eng "run" "examples\official\02_simple_system\main.eng" "--entry" "main"
         if (-not (Test-Path (Join-Path $SmokeRoot "build\result\report_spec.json"))) {
             throw "portable smoke did not create build\result\report_spec.json"
         }
-        Invoke-Native $Eng "build" "examples\02_csv_plot\main.eng" "--entry" "main" "--standalone" "--profile" "repro"
+        Invoke-Native $Eng "build" "examples\official\01_csv_plot\main.eng" "--entry" "main" "--standalone" "--profile" "repro"
         $StandaloneRunner = Join-Path $SmokeRoot "dist\main-standalone\run.bat"
         if (-not (Test-Path $StandaloneRunner)) {
             throw "portable smoke did not create dist\main-standalone\run.bat"
@@ -428,7 +428,7 @@ Usage:
   .\dev.bat clippy         Run clippy with warnings denied
   .\dev.bat ci             Run fmt, tests, clippy, and preview example
   .\dev.bat docs-check     Check supported documentation Eng snippets
-  .\dev.bat run-example    Run examples\04_plotting\main.eng
+  .\dev.bat run-example    Run examples\official\01_csv_plot\main.eng
   .\dev.bat package        Build release, assemble dist\englang-preview, zip it, and write SHA256
   .\dev.bat package-smoke  Extract the portable zip under a Korean/space path and smoke it
   .\dev.bat release-check  Run full local release gate and verify checksum

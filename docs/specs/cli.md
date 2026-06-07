@@ -107,7 +107,7 @@ Lists script entry points discovered by the compiler.
 Example:
 
 ```text
-examples\04_plotting\main.eng:8: script main(args: Args) -> Report
+examples\official\01_csv_plot\main.eng:21: script main(args: Args) -> Report
 ```
 
 This command is useful before running files with multiple script entries.

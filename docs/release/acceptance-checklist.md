@@ -48,10 +48,10 @@ Optional manual smoke from `dist\englang-preview`:
 ```bat
 pushd dist\englang-preview
 eng.exe doctor
-eng.exe entries examples\04_plotting\main.eng
-eng.exe run examples\04_plotting\main.eng --entry main
+eng.exe entries examples\official\01_csv_plot\main.eng
+eng.exe run examples\official\01_csv_plot\main.eng --entry main
 eng.exe view build\result\result.engres
-eng.exe run examples\06_simple_system\main.eng --entry main
+eng.exe run examples\official\02_simple_system\main.eng --entry main
 eng.exe view build\result\result.engres
 type build\result\plots\plot_spec.json
 type build\result\plots\plot_manifest.json
@@ -61,7 +61,7 @@ eng.exe check examples\05_error_messages\heat_rate_sum.eng --review
 eng.exe check examples\05_error_messages\eq_boolean.eng --review
 eng.exe check examples\05_error_messages\equation_unit_mismatch.eng --review
 eng.exe run examples\05_error_messages\missing_entry.eng
-eng.exe build examples\02_csv_plot\main.eng --entry main --standalone --profile repro
+eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
 dist\main-standalone\run.bat
 popd
 ```
@@ -173,6 +173,7 @@ The v1.0 demo must show:
 ```text
 [x] workspace version is 1.0.0
 [x] official examples pass through eng test examples
+[x] official examples live under examples\official
 [x] supported docs/spec Eng snippets pass docs-check
 [x] official CSV+plot example produces report and PlotSpec artifacts
 [x] official simple system example produces system report artifacts

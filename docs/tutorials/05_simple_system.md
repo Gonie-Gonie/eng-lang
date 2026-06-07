@@ -7,7 +7,7 @@ v0.8-alpha introduces a minimal physical `system` surface. It validates equation
 Open:
 
 ```text
-examples/06_simple_system/main.eng
+examples/official/02_simple_system/main.eng
 ```
 
 The supported v0.8 shape is:
@@ -37,7 +37,7 @@ script main(args: Args) -> Report {
 Run it:
 
 ```bat
-target\debug\eng.exe run examples\06_simple_system\main.eng --entry main
+target\debug\eng.exe run examples\official\02_simple_system\main.eng --entry main
 ```
 
 Generated files include:

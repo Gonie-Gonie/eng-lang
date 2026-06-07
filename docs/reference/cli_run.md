@@ -5,7 +5,7 @@
 ## Basic Run
 
 ```bat
-target\debug\eng.exe run examples\04_plotting\main.eng
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng
 ```
 
 Output:
@@ -24,19 +24,19 @@ report:   build\result\report.html
 ## List Entries
 
 ```bat
-target\debug\eng.exe entries examples\04_plotting\main.eng
+target\debug\eng.exe entries examples\official\01_csv_plot\main.eng
 ```
 
 Output:
 
 ```text
-examples\04_plotting\main.eng:8: script main(args: Args) -> Report
+examples\official\01_csv_plot\main.eng:21: script main(args: Args) -> Report
 ```
 
 ## Select an Entry
 
 ```bat
-target\debug\eng.exe run examples\04_plotting\main.eng --entry main
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main
 ```
 
 Default rule:
@@ -52,7 +52,7 @@ Default rule:
 ## Open Report
 
 ```bat
-target\debug\eng.exe run examples\04_plotting\main.eng --open-report
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng --open-report
 ```
 
 This attempts to open `build\result\report.html`.
@@ -60,7 +60,7 @@ This attempts to open `build\result\report.html`.
 ## Simple System Example
 
 ```bat
-target\debug\eng.exe run examples\06_simple_system\main.eng --entry main
+target\debug\eng.exe run examples\official\02_simple_system\main.eng --entry main
 ```
 
 This writes system/equation/residual metadata into:

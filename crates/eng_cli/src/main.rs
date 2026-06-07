@@ -290,6 +290,8 @@ fn command_new(args: Vec<String>) -> ExitCode {
 fn command_test(_args: Vec<String>) -> ExitCode {
     let examples = [
         "examples/01_units/main.eng",
+        "examples/official/01_csv_plot/main.eng",
+        "examples/official/02_simple_system/main.eng",
         "examples/02_csv_plot/main.eng",
         "examples/04_plotting/main.eng",
         "examples/06_simple_system/main.eng",
@@ -442,7 +444,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     }
 
     match run_file(
-        Path::new("examples/04_plotting/main.eng"),
+        Path::new("examples/official/01_csv_plot/main.eng"),
         Path::new("build/test-plot"),
         &RunOptions::default(),
     ) {
@@ -451,7 +453,9 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 && output.plot_manifest_path.exists()
                 && output.report_spec_path.exists() =>
         {
-            println!("ok: examples/04_plotting/main.eng produced report and PlotSpec artifacts");
+            println!(
+                "ok: examples/official/01_csv_plot/main.eng produced report and PlotSpec artifacts"
+            );
         }
         Ok(_) => {
             eprintln!("expected plot example to produce report and PlotSpec artifacts");
@@ -463,7 +467,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/06_simple_system/main.eng"),
+        Path::new("examples/official/02_simple_system/main.eng"),
         Path::new("build/test-system"),
         &RunOptions::default(),
     ) {
@@ -477,7 +481,9 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 eprintln!("expected simple system run to produce system equation report data");
                 return ExitCode::from(2);
             }
-            println!("ok: examples/06_simple_system/main.eng produced system report artifacts");
+            println!(
+                "ok: examples/official/02_simple_system/main.eng produced system report artifacts"
+            );
         }
         Err(error) => {
             eprintln!("simple system example failed: {error}");
@@ -529,7 +535,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     }
 
     match build_standalone(
-        Path::new("examples/02_csv_plot/main.eng"),
+        Path::new("examples/official/01_csv_plot/main.eng"),
         Path::new("build/test-standalone"),
         &BuildOptions {
             entry: Some("main".to_owned()),

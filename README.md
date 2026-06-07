@@ -24,11 +24,11 @@ On Windows, use the root `dev.bat` wrapper for all development commands. It bypa
 target\debug\eng.exe doctor
 target\debug\eng.exe check examples\05_error_messages\unit_mismatch.eng --review
 target\debug\eng.exe check examples\05_error_messages\ambiguous_power.eng --review
-target\debug\eng.exe entries examples\04_plotting\main.eng
-target\debug\eng.exe run examples\04_plotting\main.eng
-target\debug\eng.exe run examples\06_simple_system\main.eng
-target\debug\eng.exe run examples\04_plotting\main.eng --entry main
-target\debug\eng.exe build examples\02_csv_plot\main.eng --entry main --standalone --profile repro
+target\debug\eng.exe entries examples\official\01_csv_plot\main.eng
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng
+target\debug\eng.exe run examples\official\02_simple_system\main.eng
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main
+target\debug\eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
 dist\main-standalone\run.bat
 target\debug\eng.exe view build\result\result.engres
 ```
@@ -159,9 +159,9 @@ Before a release package check:
 .\dev.bat release-check
 pushd dist\englang-preview
 eng.exe doctor
-eng.exe run examples\04_plotting\main.eng --entry main
-eng.exe run examples\06_simple_system\main.eng --entry main
-eng.exe build examples\02_csv_plot\main.eng --entry main --standalone --profile repro
+eng.exe run examples\official\01_csv_plot\main.eng --entry main
+eng.exe run examples\official\02_simple_system\main.eng --entry main
+eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
 dist\main-standalone\run.bat
 popd
 ```
