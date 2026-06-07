@@ -14,6 +14,7 @@ schema block
   -> required column validation
   -> CSV source hash provenance
   -> runtime column pages
+  -> source-unit to canonical-unit conversion metadata
   -> row-level policy checks
   -> review/report/result artifact metadata
 ```
@@ -142,6 +143,22 @@ csv_promotion_count
 data_hashes
 ```
 
+Runtime table column objects also include:
+
+```text
+unit
+canonical_unit
+values
+canonical_values
+conversion_failures
+```
+
+`values` preserve the CSV source/display unit used by the current v1.0
+calculation path. `canonical_values` record each numeric cell converted into
+the quantity's canonical unit when a registered conversion seed exists.
+Unsupported source units are recorded in `conversion_failures` with row,
+column, value, source unit, target unit, and message fields.
+
 `result.engres` and `report_spec.json` include runtime policy results:
 
 ```text
@@ -160,6 +177,8 @@ Implemented for the official CSV path:
 - RuntimeTable column values
 - DateTime index parsing to seconds offsets
 - numeric quantity column parsing
+- per-cell source-unit to canonical-unit metadata for registered units
+- per-cell conversion failure diagnostics for unsupported source units
 - time is monotonic checks
 - between checks
 - numeric bound checks such as m_dot >= 0 and m_dot <= 0.25
@@ -171,5 +190,4 @@ Deferred to later versions:
 
 ```text
 - broad row expression execution outside supported monotonic, between, and bound policies
-- per-cell unit conversion diagnostics once conversion exists
 ```

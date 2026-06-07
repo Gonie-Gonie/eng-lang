@@ -1,0 +1,30 @@
+schema SensorData {
+    time: DateTime index
+    T_supply: AbsoluteTemperature [degC]
+    T_return: AbsoluteTemperature [degC]
+    m_dot: MassFlowRate [lb/s]
+
+    constraints {
+        time is monotonic
+        m_dot >= 0 lb/s
+    }
+
+    missing {
+        m_dot: error
+    }
+}
+
+struct Args {
+    input: String = "data/unsupported_unit_conversion.csv"
+}
+
+script main(args: Args) -> Report {
+    sensor = promote csv args.input as SensorData
+    cp = 4180 J/kg/K
+    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+
+    return report {
+        summarize Q_coil by [mean, max]
+        plot Q_coil over Time
+    }
+}

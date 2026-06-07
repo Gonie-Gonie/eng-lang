@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::fs;
 
-use eng_compiler::{CheckReport, SchemaColumn, SchemaInfo};
+use eng_compiler::{
+    all_quantity_completions, all_unit_infos, CheckReport, SchemaColumn, SchemaInfo,
+};
 use eng_report::{
     PlotAxis, PlotPoint, PlotSeries, PlotSpec, ReportComputedIntegration,
     ReportComputedStatisticValue, ReportComputedStatistics, ReportPolicyResult,
@@ -161,9 +163,12 @@ pub struct RuntimeColumn {
     pub name: String,
     pub type_name: String,
     pub unit: Option<String>,
+    pub canonical_unit: Option<String>,
     pub is_index: bool,
     pub values: RuntimeValues,
+    pub canonical_values: Vec<Option<f64>>,
     pub missing_count: usize,
+    pub conversion_failures: Vec<RuntimeConversionFailure>,
 }
 
 impl RuntimeColumn {
@@ -186,6 +191,16 @@ pub struct RuntimeParseFailure {
     pub row: usize,
     pub column: String,
     pub value: String,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeConversionFailure {
+    pub row: usize,
+    pub column: String,
+    pub value: String,
+    pub source_unit: String,
+    pub target_unit: String,
     pub message: String,
 }
 
@@ -361,23 +376,55 @@ fn materialize_column(
             name: column.name.clone(),
             type_name: column.type_name.clone(),
             unit: column.unit.clone(),
+            canonical_unit: None,
             is_index: column.is_index,
             values: RuntimeValues::Text(values),
+            canonical_values: Vec::new(),
             missing_count,
+            conversion_failures: Vec::new(),
         };
     }
 
     if is_numeric_schema_type(&column.type_name) {
         let mut values = Vec::new();
+        let canonical_unit = canonical_unit_for_quantity(&column.type_name);
+        let mut canonical_values = Vec::new();
+        let mut conversion_failures = Vec::new();
         for (row_index, row) in rows.iter().enumerate() {
             let value = row.get(index).map(String::as_str).unwrap_or("").trim();
             if value.is_empty() {
                 missing_count += 1;
                 values.push(None);
+                if canonical_unit.is_some() {
+                    canonical_values.push(None);
+                }
                 continue;
             }
             match value.parse::<f64>() {
-                Ok(number) if number.is_finite() => values.push(Some(number)),
+                Ok(number) if number.is_finite() => {
+                    values.push(Some(number));
+                    if let Some(target_unit) = canonical_unit.as_deref() {
+                        match convert_to_canonical_unit(
+                            number,
+                            column.unit.as_deref(),
+                            target_unit,
+                            &column.type_name,
+                        ) {
+                            Ok(converted) => canonical_values.push(Some(converted)),
+                            Err(message) => {
+                                canonical_values.push(None);
+                                conversion_failures.push(RuntimeConversionFailure {
+                                    row: row_index + 2,
+                                    column: column.name.clone(),
+                                    value: value.to_owned(),
+                                    source_unit: column.unit.clone().unwrap_or_default(),
+                                    target_unit: target_unit.to_owned(),
+                                    message,
+                                });
+                            }
+                        }
+                    }
+                }
                 _ => {
                     parse_failures.push(RuntimeParseFailure {
                         row: row_index + 2,
@@ -386,6 +433,9 @@ fn materialize_column(
                         message: "expected finite numeric cell".to_owned(),
                     });
                     values.push(None);
+                    if canonical_unit.is_some() {
+                        canonical_values.push(None);
+                    }
                 }
             }
         }
@@ -393,9 +443,12 @@ fn materialize_column(
             name: column.name.clone(),
             type_name: column.type_name.clone(),
             unit: column.unit.clone(),
+            canonical_unit,
             is_index: column.is_index,
             values: RuntimeValues::Number(values),
+            canonical_values,
             missing_count,
+            conversion_failures,
         };
     }
 
@@ -412,9 +465,12 @@ fn materialize_column(
         name: column.name.clone(),
         type_name: column.type_name.clone(),
         unit: column.unit.clone(),
+        canonical_unit: None,
         is_index: column.is_index,
         values: RuntimeValues::Text(values),
+        canonical_values: Vec::new(),
         missing_count,
+        conversion_failures: Vec::new(),
     }
 }
 
@@ -1329,6 +1385,74 @@ fn convert_display_value(value: f64, from_unit: &str, to_unit: &str) -> f64 {
         ("kW", "W") => value * 1000.0,
         _ => value,
     }
+}
+
+fn canonical_unit_for_quantity(quantity_kind: &str) -> Option<String> {
+    all_quantity_completions()
+        .iter()
+        .find(|completion| completion.quantity_kind == quantity_kind)
+        .map(|completion| completion.canonical_unit.to_owned())
+}
+
+fn convert_to_canonical_unit(
+    value: f64,
+    source_unit: Option<&str>,
+    target_unit: &str,
+    quantity_kind: &str,
+) -> Result<f64, String> {
+    let source_unit = source_unit
+        .map(str::trim)
+        .filter(|unit| !unit.is_empty())
+        .unwrap_or(target_unit);
+
+    if source_unit.eq_ignore_ascii_case(target_unit) {
+        return Ok(value);
+    }
+
+    let Some(info) = all_unit_infos()
+        .iter()
+        .find(|info| info.symbol.eq_ignore_ascii_case(source_unit))
+    else {
+        return Err(format!(
+            "unsupported source unit `{source_unit}` for {quantity_kind}"
+        ));
+    };
+
+    if !info.canonical_unit.eq_ignore_ascii_case(target_unit)
+        || !unit_seed_matches_quantity(info.quantity_hint, quantity_kind)
+    {
+        return Err(format!(
+            "cannot convert `{source_unit}` to canonical `{target_unit}` for {quantity_kind}"
+        ));
+    }
+
+    let scale = info.scale_to_canonical.parse::<f64>().map_err(|_| {
+        format!(
+            "invalid conversion scale `{}` for unit `{source_unit}`",
+            info.scale_to_canonical
+        )
+    })?;
+    let offset = info
+        .affine_offset
+        .map(|offset| {
+            offset
+                .parse::<f64>()
+                .map_err(|_| format!("invalid affine offset `{offset}` for unit `{source_unit}`"))
+        })
+        .transpose()?
+        .unwrap_or(0.0);
+
+    Ok(value * scale + offset)
+}
+
+fn unit_seed_matches_quantity(seed_quantity: &str, quantity_kind: &str) -> bool {
+    seed_quantity == quantity_kind
+        || seed_quantity == "Power"
+            && matches!(
+                quantity_kind,
+                "HeatRate" | "ElectricPower" | "MechanicalPower"
+            )
+        || seed_quantity == "TemperatureDelta" && quantity_kind == "AbsoluteTemperature"
 }
 
 fn is_numeric_schema_type(type_name: &str) -> bool {

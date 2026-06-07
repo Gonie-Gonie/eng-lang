@@ -110,7 +110,15 @@ Current v1.0 fields:
     "objects": [
       {
         "kind": "table",
-        "columns": [],
+        "columns": [
+          {
+            "unit": "degC",
+            "canonical_unit": "K",
+            "values": [7.1],
+            "canonical_values": [280.25],
+            "conversion_failures": []
+          }
+        ],
         "parse_failures": []
       },
       {

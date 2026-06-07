@@ -50,12 +50,12 @@ P2  plot block option execution for official line plots
 P2  schema constraints and missing policy execution for official CSV
 P2  system/equation IR beyond residual metadata, with explicit solver boundary
 P2  review/report schema validation snapshots
+P2  per-cell CSV source-unit to canonical-unit conversion diagnostics
 ```
 
 Remaining intentional deferrals:
 
 ```text
-P2  per-cell conversion diagnostics once conversion exists
 P2  time-weighted mean and broader statistics kernels
 P2  numeric system solver and executable ODE runner
 ```
@@ -165,7 +165,9 @@ Current state:
 - VM table object is backed by RuntimeTable pages for promoted CSV data
 - DateTime index values and numeric quantity columns are parsed into result.engres
 - row count, column values, missing counts, parse failures, and source hash are recorded
+- numeric quantity columns record canonical_unit, canonical_values, and per-cell conversion failures
 - dedicated bad DateTime and bad numeric fixtures are exercised by eng test examples
+- unsupported unit conversion fixture records source_unit, target_unit, and row-level failures
 ```
 
 Risk:
@@ -184,7 +186,7 @@ Hardening detail:
 4. [x] Report row count, parse failures, and missing values in result.engres.
 5. [x] Add tests for the official CSV runtime page and computed values.
 6. [x] Add dedicated bad DateTime and bad numeric cell fixtures.
-7. [x] Keep unit conversion failure reporting deferred until per-cell unit conversion exists.
+7. [x] Add per-cell canonical conversion metadata and unit conversion failure reporting.
 ```
 
 ### G-004 Statistics Kernels
@@ -484,16 +486,16 @@ Completed before adding uncertainty semantics:
 7. G-005 real PlotSpec points
 8. G-007 schema policies, missing policies, and numeric constraint bounds
 9. G-008 system IR solver boundary and solver_plan seeds
+10. G-003 per-cell unit conversion diagnostics for CSV quantity columns
 ```
 
 Keep deferred until the appropriate later milestones:
 
 ```text
-1. per-cell conversion diagnostics once per-cell conversion exists
-2. time-weighted mean and broader statistics kernels
-3. numeric system solver and executable ODE runner
-4. optimized AOT/model.exe
-5. open domain/port and package ecosystem
+1. time-weighted mean and broader statistics kernels
+2. numeric system solver and executable ODE runner
+3. optimized AOT/model.exe
+4. open domain/port and package ecosystem
 ```
 
 ## Release Note Correction

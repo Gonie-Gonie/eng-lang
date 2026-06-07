@@ -220,6 +220,7 @@ The v1.0 demo must show:
 [x] standalone run.bat --help prints Args metadata
 [x] eng run binds Args flags and records arg_values
 [x] promote csv args.input resolves through default and CLI-provided Args values
+[x] CSV quantity columns record canonical_values and per-cell conversion failures
 [x] standalone run.bat creates report and PlotSpec artifacts inside the bundle
 [x] package-smoke verifies portable zip execution and standalone packaged runner execution
 [x] no Python/Rust install is required for portable or standalone packaged execution

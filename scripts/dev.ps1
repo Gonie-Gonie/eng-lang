@@ -495,6 +495,19 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactNumber $tableObject.row_count $Golden.result.table_row_count "result.sensor.row_count"
     Assert-ArtifactNumber @($tableObject.columns).Count $Golden.result.table_column_count "result.sensor.columns count"
     Assert-ArtifactNumber @($tableObject.parse_failures).Count $Golden.result.parse_failure_count "result.sensor.parse_failures count"
+    $tableConversionFailures = 0
+    foreach ($column in @($tableObject.columns)) {
+        $tableConversionFailures += @($column.conversion_failures).Count
+    }
+    Assert-ArtifactNumber $tableConversionFailures $Golden.result.table_conversion_failure_count "result.sensor conversion_failures count"
+    $tSupplyColumn = @($tableObject.columns) | Where-Object { $_.name -eq "T_supply" } | Select-Object -First 1
+    Assert-Artifact ($null -ne $tSupplyColumn) "result.sensor.columns missing T_supply"
+    Assert-ArtifactValue $tSupplyColumn.canonical_unit $Golden.result.t_supply_canonical_unit "result.sensor.T_supply.canonical_unit"
+    Assert-ArtifactFloat @($tSupplyColumn.canonical_values)[0] $Golden.result.first_t_supply_k "result.sensor.T_supply.canonical_values[0]"
+    $mDotColumn = @($tableObject.columns) | Where-Object { $_.name -eq "m_dot" } | Select-Object -First 1
+    Assert-Artifact ($null -ne $mDotColumn) "result.sensor.columns missing m_dot"
+    Assert-ArtifactValue $mDotColumn.canonical_unit $Golden.result.m_dot_canonical_unit "result.sensor.m_dot.canonical_unit"
+    Assert-ArtifactFloat @($mDotColumn.canonical_values)[0] $Golden.result.first_m_dot_kg_s "result.sensor.m_dot.canonical_values[0]"
     $seriesObject = @($result.object_store.objects) | Where-Object { $_.name -eq "Q_coil" } | Select-Object -First 1
     Assert-Artifact ($null -ne $seriesObject) "result.object_store.objects missing Q_coil TimeSeries"
     Assert-ArtifactNumber $seriesObject.len $Golden.result.timeseries_len "result.Q_coil.len"

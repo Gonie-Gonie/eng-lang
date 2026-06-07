@@ -4,7 +4,8 @@ v0.7-alpha makes the review/report artifacts explicit enough for UI, LSP, packag
 
 Artifact schema contracts live in `docs/schemas`. Golden baselines for official
 examples live in `tests/golden/artifacts` and are checked by
-`.\dev.bat artifacts-check`.
+`.\dev.bat artifacts-check`, including CSV source-unit to canonical-unit
+metadata in `result.engres`.
 
 ## Generate Artifacts
 

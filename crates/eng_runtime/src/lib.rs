@@ -1282,6 +1282,14 @@ fn push_runtime_columns(json: &mut String, table: &runtime_data::RuntimeTable) {
         } else {
             json.push_str("            \"unit\": null,\n");
         }
+        if let Some(unit) = &column.canonical_unit {
+            json.push_str(&format!(
+                "            \"canonical_unit\": \"{}\",\n",
+                json_escape(unit)
+            ));
+        } else {
+            json.push_str("            \"canonical_unit\": null,\n");
+        }
         json.push_str(&format!("            \"is_index\": {},\n", column.is_index));
         json.push_str(&format!("            \"len\": {},\n", column.len()));
         json.push_str(&format!(
@@ -1311,7 +1319,49 @@ fn push_runtime_columns(json: &mut String, table: &runtime_data::RuntimeTable) {
                 }
             }
         }
-        json.push_str("]\n");
+        json.push_str("],\n");
+        json.push_str("            \"canonical_values\": [");
+        for (value_index, value) in column.canonical_values.iter().enumerate() {
+            if value_index > 0 {
+                json.push_str(", ");
+            }
+            if let Some(value) = value {
+                json.push_str(&value.to_string());
+            } else {
+                json.push_str("null");
+            }
+        }
+        json.push_str("],\n");
+        json.push_str("            \"conversion_failures\": [\n");
+        for (failure_index, failure) in column.conversion_failures.iter().enumerate() {
+            if failure_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("              {\n");
+            json.push_str(&format!("                \"row\": {},\n", failure.row));
+            json.push_str(&format!(
+                "                \"column\": \"{}\",\n",
+                json_escape(&failure.column)
+            ));
+            json.push_str(&format!(
+                "                \"value\": \"{}\",\n",
+                json_escape(&failure.value)
+            ));
+            json.push_str(&format!(
+                "                \"source_unit\": \"{}\",\n",
+                json_escape(&failure.source_unit)
+            ));
+            json.push_str(&format!(
+                "                \"target_unit\": \"{}\",\n",
+                json_escape(&failure.target_unit)
+            ));
+            json.push_str(&format!(
+                "                \"message\": \"{}\"\n",
+                json_escape(&failure.message)
+            ));
+            json.push_str("              }");
+        }
+        json.push_str("\n            ]\n");
         json.push_str("          }");
     }
 }

@@ -582,6 +582,12 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     ) {
         return ExitCode::from(2);
     }
+    if !data_quality_fixture_records_conversion_failure(
+        "examples/07_data_quality/unsupported_unit_conversion.eng",
+        "build/test-unit-conversion-failure",
+    ) {
+        return ExitCode::from(2);
+    }
 
     let path_smoke_root = Path::new("build").join("path smoke").join("한글 경로");
     if let Err(error) = std::fs::create_dir_all(&path_smoke_root) {
@@ -796,6 +802,32 @@ fn data_quality_fixture_records_constraint_violation(source: &str, build_root: &
         }
         Err(error) => {
             eprintln!("constraint violation fixture failed: {error}");
+            false
+        }
+    }
+}
+
+fn data_quality_fixture_records_conversion_failure(source: &str, build_root: &str) -> bool {
+    match run_file(
+        Path::new(source),
+        Path::new(build_root),
+        &RunOptions::default(),
+    ) {
+        Ok(output) => {
+            let result = std::fs::read_to_string(output.result_path).unwrap_or_default();
+            if !result.contains("\"conversion_failures\"")
+                || !result.contains("\"source_unit\": \"lb/s\"")
+                || !result.contains("\"target_unit\": \"kg/s\"")
+                || !result.contains("unsupported source unit")
+            {
+                eprintln!("expected {source} to record per-cell unit conversion failures");
+                return false;
+            }
+            println!("ok: {source} recorded unit conversion failures");
+            true
+        }
+        Err(error) => {
+            eprintln!("unit conversion fixture failed: {error}");
             false
         }
     }
