@@ -1297,6 +1297,14 @@ function Invoke-PackageSmoke {
         if (-not (Test-Path (Join-Path $SmokeRoot "dist\main-standalone\build\result\plots\plot_spec.json"))) {
             throw "standalone packaged runner did not create PlotSpec artifacts"
         }
+        $StandaloneDir = Join-Path $SmokeRoot "dist\main-standalone"
+        Copy-Item -LiteralPath (Join-Path $StandaloneDir "source\data\sensor.csv") -Destination (Join-Path $StandaloneDir "source\data\sensor_override.csv") -Force
+        Invoke-Native $StandaloneRunner "--input" "data/sensor_override.csv"
+        $StandaloneResult = Read-ArtifactJson (Join-Path $StandaloneDir "build\result\result.engres")
+        $StandaloneInputArg = @($StandaloneResult.arg_values | Where-Object { $_.name -eq "input" })[0]
+        if ($StandaloneInputArg.value -ne "data/sensor_override.csv" -or $StandaloneInputArg.source -ne "cli") {
+            throw "standalone packaged runner did not record non-default Args override"
+        }
         $Version = Get-WorkspaceVersion
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\extension.js"))) {
             throw "portable package did not include VS Code extension source"

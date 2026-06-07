@@ -32,11 +32,13 @@ compiler yet.
 - [x] `.engpkg` exposes dependency paths and hashes.
 - [x] `.lock` exposes package/runtime ABI and dependency hash data.
 - [x] `artifacts-check` validates package manifest and lock fields.
+- [x] `package-smoke` creates a clean extracted portable folder, runs the
+  standalone bundle with a non-default `--input` override, and checks
+  `result.engres.arg_values`.
 
 ## Remaining Before Support Claim
 
 - [ ] Add a user-facing standalone package reference page with a field table.
-- [ ] Add clean-folder package smoke for a non-default Args override.
 - [ ] Add native `model.exe` or document a reserved executable-wrapper plan.
 - [ ] Add full binary dependency hashing before non-text assets are bundled.
 - [ ] Keep optimized AOT/native compilation explicitly deferred until a real
