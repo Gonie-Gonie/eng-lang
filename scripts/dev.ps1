@@ -246,6 +246,46 @@ function Invoke-PackageSmoke {
     Write-Host "Portable package smoke passed at $SmokeRoot"
 }
 
+function Invoke-ReleaseCheck {
+    Invoke-Ci
+    Invoke-PackageSmoke
+    $Version = Get-WorkspaceVersion
+    $ZipPath = Join-Path $RepoRoot "dist\englang-preview-v$Version-windows-x64.zip"
+    $ChecksumPath = "$ZipPath.sha256"
+    if (-not (Test-Path $ZipPath)) {
+        throw "release check did not create $ZipPath"
+    }
+    if (-not (Test-Path $ChecksumPath)) {
+        throw "release check did not create $ChecksumPath"
+    }
+    $ExpectedHash = (Get-Content -LiteralPath $ChecksumPath -Raw).Split(" ")[0].Trim()
+    $ActualHash = (Get-FileHash -Algorithm SHA256 $ZipPath).Hash.ToLowerInvariant()
+    if ($ExpectedHash -ne $ActualHash) {
+        throw "release checksum mismatch for $ZipPath"
+    }
+    $ManifestPath = Join-Path $RepoRoot "dist\release-manifest.txt"
+    $GitCommit = try {
+        (& git rev-parse --short HEAD 2>$null)
+    } catch {
+        "unknown"
+    }
+    Set-Content -Path $ManifestPath -Encoding ascii -Value @"
+EngLang release check
+
+version = $Version
+commit = $GitCommit
+zip = $(Split-Path -Leaf $ZipPath)
+sha256 = $ActualHash
+
+verified:
+  dev.bat ci
+  dev.bat package-smoke
+  standalone packaged runner
+"@
+    Write-Host "Release check passed."
+    Write-Host "Manifest prepared at $ManifestPath"
+}
+
 function Invoke-Clean {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -271,6 +311,7 @@ Usage:
   .\dev.bat run-example    Run examples\04_plotting\main.eng
   .\dev.bat package        Build release, assemble dist\englang-preview, zip it, and write SHA256
   .\dev.bat package-smoke  Extract the portable zip under a Korean/space path and smoke it
+  .\dev.bat release-check  Run full local release gate and verify checksum
   .\dev.bat clean          Remove build artifacts
 
 All PowerShell execution goes through dev.bat with ExecutionPolicy Bypass.
@@ -290,6 +331,7 @@ switch ($Command) {
     "run-example" { Invoke-RunExample }
     "package" { Invoke-Package }
     "package-smoke" { Invoke-PackageSmoke }
+    "release-check" { Invoke-ReleaseCheck }
     "clean" { Invoke-Clean }
     default { Show-Help }
 }

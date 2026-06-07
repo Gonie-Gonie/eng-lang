@@ -35,6 +35,7 @@ This index maps the v9 master plan to the concrete repository work.
 
 - [Roadmap](roadmap.md)
 - [Release acceptance checklist](release/acceptance-checklist.md)
+- [Release workflow](release/release-workflow.md)
 - [v0.1-preview release notes](release/v0.1-preview.md)
 - [v0.2-preview release notes](release/v0.2-preview.md)
 - [v0.3-preview release notes](release/v0.3-preview.md)

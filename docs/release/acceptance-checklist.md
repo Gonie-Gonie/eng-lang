@@ -26,10 +26,11 @@ Run from the repository root:
 ```bat
 .\dev.bat clean
 .\dev.bat setup
-.\dev.bat ci
-.\dev.bat package
-.\dev.bat package-smoke
+.\dev.bat release-check
 ```
+
+`release-check` runs `ci`, `package-smoke`, zip existence checks, checksum
+verification, and `dist\release-manifest.txt` generation.
 
 `package` writes both a portable zip and checksum:
 
@@ -184,3 +185,5 @@ The v1.0 demo must show:
 ```
 
 Release notes live in `docs/release/v<version>.md`.
+
+The full release procedure lives in [release-workflow.md](release-workflow.md).

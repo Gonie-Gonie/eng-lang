@@ -130,6 +130,7 @@ v1.1
 - [Fast assignment guide](docs/language/fast_assignment.md)
 - [Dimensionless policy guide](docs/language/dimensionless.md)
 - [Roadmap](docs/roadmap.md)
+- [Release workflow](docs/release/release-workflow.md)
 - [v9 master plan](docs/master-plan/EngLang_LongTerm_Development_Master_Plan_v9.md)
 - [v8 to v9 revision guide](docs/master-plan/EngLang_v8_to_v9_Revision_Guide.md)
 
@@ -153,8 +154,7 @@ Before committing a development slice:
 Before a release package check:
 
 ```bat
-.\dev.bat package
-.\dev.bat package-smoke
+.\dev.bat release-check
 pushd dist\englang-preview
 eng.exe doctor
 eng.exe run examples\04_plotting\main.eng --entry main

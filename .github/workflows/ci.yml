@@ -14,6 +14,6 @@ jobs:
       - name: Run repo-local setup
         shell: cmd
         run: .\dev.bat setup
-      - name: Run v0.1 CI checks
+      - name: Run workspace CI checks
         shell: cmd
         run: .\dev.bat ci
