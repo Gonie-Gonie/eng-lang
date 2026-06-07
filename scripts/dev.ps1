@@ -659,14 +659,21 @@ function Assert-CsvPlotGolden {
     $engpkg = Read-KeyValueArtifact (Join-Path $RepoRoot "dist\main-standalone\main.engpkg")
     Assert-ArtifactValue $engpkg["format"] $Golden.engpkg.format "engpkg.format"
     Assert-ArtifactValue $engpkg["package_format_version"] $Golden.engpkg.package_format_version "engpkg.package_format_version"
+    Assert-ArtifactValue $engpkg["runtime_abi"] $Golden.engpkg.runtime_abi "engpkg.runtime_abi"
+    Assert-ArtifactValue $engpkg["profile"] $Golden.engpkg.profile "engpkg.profile"
     Assert-ArtifactValue $engpkg["runner"] $Golden.engpkg.runner "engpkg.runner"
     Assert-ArtifactValue $engpkg["engine"] $Golden.engpkg.engine "engpkg.engine"
+    Assert-ArtifactValue $engpkg["source_root"] $Golden.engpkg.source_root "engpkg.source_root"
+    Assert-ArtifactValue $engpkg["artifact_root"] $Golden.engpkg.artifact_root "engpkg.artifact_root"
     Assert-ArtifactValue $engpkg["source"] $Golden.engpkg.source "engpkg.source"
     Assert-ArtifactValue $engpkg["bytecode"] $Golden.engpkg.bytecode "engpkg.bytecode"
     Assert-ArtifactValue $engpkg["entry_name"] $Golden.engpkg.entry_name "engpkg.entry_name"
     Assert-ArtifactValue $engpkg["args_schema"] $Golden.engpkg.args_schema "engpkg.args_schema"
     Assert-ArtifactValue $engpkg["args_field_count"] $Golden.engpkg.args_field_count "engpkg.args_field_count"
     Assert-ArtifactValue $engpkg["args_help"] $Golden.engpkg.args_help "engpkg.args_help"
+    Assert-ArtifactValue $engpkg["dependency_count"] $Golden.engpkg.dependency_count "engpkg.dependency_count"
+    Assert-ArtifactValue $engpkg["dependencies"] $Golden.engpkg.dependencies "engpkg.dependencies"
+    Assert-Artifact ($engpkg["dependency_hashes"].Contains(($Golden.engpkg.dependencies + ":"))) "engpkg.dependency_hashes does not include dependency path"
     $argsHelpPath = Join-Path $RepoRoot "dist\main-standalone\ARGS_HELP.txt"
     Assert-Artifact (Test-Path -LiteralPath $argsHelpPath -PathType Leaf) "missing standalone ARGS_HELP.txt"
     $argsHelpText = Get-Content -LiteralPath $argsHelpPath -Raw -Encoding UTF8
@@ -674,10 +681,16 @@ function Assert-CsvPlotGolden {
     Assert-Artifact ($argsHelpText.Contains("--input <String>")) "standalone ARGS_HELP.txt does not mention --input"
 
     $lock = Read-KeyValueArtifact (Join-Path $RepoRoot "dist\main-standalone\main.lock")
+    Assert-ArtifactValue $lock["package_format_version"] "1" "lock.package_format_version"
+    Assert-ArtifactValue $lock["runtime_abi"] "eng-runtime-cli-v1" "lock.runtime_abi"
     Assert-ArtifactValue $lock["bytecode_version"] "1" "lock.bytecode_version"
     Assert-ArtifactValue $lock["result_format_version"] "1" "lock.result_format_version"
     Assert-ArtifactValue $lock["report_schema_version"] "1" "lock.report_schema_version"
     Assert-ArtifactValue $lock["plot_spec_version"] "1" "lock.plot_spec_version"
+    Assert-ArtifactValue $lock["profile"] "repro" "lock.profile"
+    Assert-ArtifactValue $lock["entry_name"] $Golden.engpkg.entry_name "lock.entry_name"
+    Assert-ArtifactValue $lock["dependency_count"] $Golden.engpkg.dependency_count "lock.dependency_count"
+    Assert-Artifact ($lock["dependency_hashes"].Contains(($Golden.engpkg.dependencies + ":"))) "lock.dependency_hashes does not include dependency path"
 }
 
 function Assert-SystemGolden {

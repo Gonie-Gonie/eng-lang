@@ -416,8 +416,12 @@ The `.engpkg` records:
 ```text
 format = engpkg-stable-1
 package_format_version = 1
+runtime_abi = eng-runtime-cli-v1
+profile = repro
 runner = run.bat
 engine = eng.exe
+source_root = source
+artifact_root = build/result
 source = source/<file.eng>
 bytecode = <model>.engbc
 source_hash = ...
@@ -427,6 +431,9 @@ entry = script main(args: Args) -> Report
 args_schema = Args
 args_field_count = 1
 args_help = ARGS_HELP.txt
+dependency_count = 1
+dependencies = source/data/sensor.csv
+dependency_hashes = source/data/sensor.csv:<hash>
 ```
 
 The `.lock` records:
@@ -434,11 +441,18 @@ The `.lock` records:
 ```text
 runtime_version = ...
 compiler_version = ...
+package_format_version = 1
+runtime_abi = eng-runtime-cli-v1
 bytecode_version = 1
 result_format_version = 1
 report_schema_version = 1
 plot_spec_version = 1
 profile = repro
+source_hash = ...
+bytecode_hash = ...
+entry_name = main
+dependency_count = 1
+dependency_hashes = source/data/sensor.csv:<hash>
 ```
 
 `run.bat --help` prints `ARGS_HELP.txt`, which is generated from `struct Args`

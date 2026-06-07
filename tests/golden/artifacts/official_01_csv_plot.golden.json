@@ -118,13 +118,19 @@
   "engpkg": {
     "format": "engpkg-stable-1",
     "package_format_version": "1",
+    "runtime_abi": "eng-runtime-cli-v1",
+    "profile": "repro",
     "runner": "run.bat",
     "engine": "eng.exe",
+    "source_root": "source",
+    "artifact_root": "build/result",
     "source": "source/main.eng",
     "bytecode": "main.engbc",
     "entry_name": "main",
     "args_schema": "Args",
     "args_field_count": "1",
-    "args_help": "ARGS_HELP.txt"
+    "args_help": "ARGS_HELP.txt",
+    "dependency_count": "1",
+    "dependencies": "source/data/sensor.csv"
   }
 }

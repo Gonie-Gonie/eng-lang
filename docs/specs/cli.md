@@ -306,10 +306,13 @@ into the bundle at the same relative path from `source/<file.eng>`. Running
 and forwards extra Args flags. It creates normal `build/result` artifacts inside
 the bundle.
 
-The `.engpkg` records package format, runner, engine, source, bytecode,
-source hash, bytecode hash, entry name, selected entry signature, Args schema,
-Args field count, and Args help path. The lock file records
-runtime/compiler/bytecode/result/report/plot format versions.
+The `.engpkg` records package format, runtime ABI, repro profile, runner,
+engine, source and artifact roots, source, bytecode, source hash, bytecode hash,
+entry name, selected entry signature, Args schema, Args field count, Args help
+path, dependency count, dependency paths, and dependency hashes. The lock file
+records runtime/compiler/package/bytecode/result/report/plot format versions,
+source and bytecode hashes, entry name, dependency count, dependency hashes, and
+`profile = repro`.
 
 ## `eng view <result.engres>`
 

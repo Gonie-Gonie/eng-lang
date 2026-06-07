@@ -12,15 +12,16 @@ document:
 - [v1.2 data-driven modeling gate](docs/current/v1_2_data_driven_modeling_gate.md)
 - [v1.3 LSP gate](docs/current/v1_3_lsp_gate.md)
 - [v1.4 JIT gate](docs/current/v1_4_jit_gate.md)
+- [v1.5 standalone/AOT gate](docs/current/v1_5_standalone_gate.md)
 - [LLM context](LLM_CONTEXT.md)
 - [LLM load map](docs/llm/load_map.yml)
 
 The current stable baseline is `v1.0-stable`. The active release target is
 `v1.0.3`, focused on native IDE and documentation hardening. `v1.1`
-uncertainty, `v1.2` data-driven modeling, `v1.3` LSP/editor service, and
-`v1.4` JIT-planning code may exist on `main`, but those features are
-experimental until their language rules, runtime behavior, diagnostics, IDE
-metadata, examples, tests, and user documentation are aligned.
+uncertainty, `v1.2` data-driven modeling, `v1.3` LSP/editor service, `v1.4`
+JIT-planning, and `v1.5` standalone/AOT maturity code may exist on `main`, but
+those features are experimental until their language rules, runtime behavior,
+diagnostics, IDE metadata, examples, tests, and user documentation are aligned.
 
 ## Quick Start
 
@@ -179,6 +180,11 @@ v1.4
   display, hot-kernel detection for TimeSeries arithmetic/statistics/
   integration, coarse size/cost estimates, and interpreter-fallback lowering
   metadata. Experimental on main; no native speedup claim.
+
+v1.5
+  Standalone/AOT maturity seed: packaged runner manifests record runtime ABI,
+  repro profile, dependency paths, and dependency hashes. Optimized native
+  model.exe/AOT remains deferred.
 ```
 
 ## Documentation
@@ -188,6 +194,9 @@ v1.4
 - [Feature maturity matrix](docs/current/feature_maturity_matrix.md)
 - [v1.0.3 hardening register](docs/current/v1_0_3_hardening.md)
 - [v1.2 data-driven modeling gate](docs/current/v1_2_data_driven_modeling_gate.md)
+- [v1.3 LSP gate](docs/current/v1_3_lsp_gate.md)
+- [v1.4 JIT gate](docs/current/v1_4_jit_gate.md)
+- [v1.5 standalone/AOT gate](docs/current/v1_5_standalone_gate.md)
 - [LLM context](LLM_CONTEXT.md)
 - [LLM load map](docs/llm/load_map.yml)
 - [Current master plan pointer](docs/master-plan/current.md)

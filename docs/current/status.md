@@ -10,17 +10,19 @@ implementation seeds.
 |---|---|
 | Latest stable baseline | `v1.0-stable` |
 | Active release target | `v1.0.3` IDE/documentation hardening |
-| Next planned targets | `v1.1` uncertainty, `v1.2` data-driven modeling, `v1.3` LSP/editor service, `v1.4` JIT start |
+| Next planned targets | `v1.1` uncertainty, `v1.2` data-driven modeling, `v1.3` LSP/editor service, `v1.4` JIT start, `v1.5` standalone/AOT maturity |
 | Current package version | Workspace version `1.0.3` |
 
-`v1.1`, `v1.2`, `v1.3`, and `v1.4` support code may exist on `main`, but those
-features are not release-supported until their language rules, runtime
-behavior, diagnostics, IDE metadata, examples, tests, and user documentation are
-aligned.
+`v1.1`, `v1.2`, `v1.3`, `v1.4`, and `v1.5` support code may exist on `main`,
+but those features are not release-supported until their language rules,
+runtime behavior, diagnostics, IDE metadata, examples, tests, and user
+documentation are aligned.
 The current v1.2 implementation gate is tracked in
 [v1.2 data-driven modeling gate](v1_2_data_driven_modeling_gate.md).
 The current v1.3 LSP gate is tracked in [v1.3 LSP gate](v1_3_lsp_gate.md).
 The current v1.4 JIT gate is tracked in [v1.4 JIT gate](v1_4_jit_gate.md).
+The current v1.5 standalone gate is tracked in
+[v1.5 standalone/AOT gate](v1_5_standalone_gate.md).
 
 ## Core Execution Invariants
 
@@ -58,8 +60,8 @@ release-target path.
   system metadata and fixed-step preview execution for official examples.
 - Args string/path binding for `--input` style official examples and packaged
   runner help metadata.
-- Standalone package output with `.engpkg`, bytecode, lock, source copy, and
-  reviewable report artifacts.
+- Standalone package output with `.engpkg`, bytecode, lock, source/dependency
+  copy, dependency hashes, Args help, and reviewable report artifacts.
 - Temperature spelling policy: `degC` remains the canonical ASCII spelling, and
   `°C` is supported as a user-facing alias for `AbsoluteTemperature`.
 - Example taxonomy: `examples/official` is the release-facing user-test
@@ -105,6 +107,9 @@ not part of the supported release contract.
   `eng-jit-bench-v1` records interpreter baseline timings while `jit.status`
   remains `not_available`. It does not provide native code generation or
   runtime acceleration yet.
+- `v1.5` standalone/AOT maturity: packaged runner manifests and locks record
+  runtime ABI, repro profile, dependency paths, and dependency hashes. Optimized
+  native `model.exe`/AOT is not implemented yet.
 
 ## Deferred / Known Limitations
 

@@ -8,8 +8,9 @@ It is intentionally short so agents do not need to load every planning file.
 - Latest stable baseline: `v1.0-stable`
 - Active release target: `v1.0.3` IDE and documentation hardening
 - Next targets: `v1.1` uncertainty, `v1.2` data-driven modeling,
-  `v1.3` LSP/editor service hardening, then `v1.4` JIT start
-- `v1.1` through `v1.4` code on `main` is experimental unless the current
+  `v1.3` LSP/editor service hardening, `v1.4` JIT start, then `v1.5`
+  standalone/AOT maturity
+- `v1.1` through `v1.5` code on `main` is experimental unless the current
   status documents say otherwise.
 - Current `v1.1` detail work includes deterministic uncertainty samples,
   source validation diagnostics, scale/offset propagation metadata,
@@ -29,6 +30,9 @@ It is intentionally short so agents do not need to load every planning file.
   `eng-jit-bench-v1` interpreter baseline metadata documented in the v1.4 gate.
   Backend selection metadata exists, but `native-preview` is explicitly
   unavailable. It has no native codegen or speedup claim yet.
+- Current `v1.5` standalone detail work starts from the packaged runner path:
+  `.engpkg` and `.lock` record runtime ABI, repro profile, dependency paths,
+  and dependency hashes. Optimized native `model.exe`/AOT is still deferred.
 
 ## Read First
 
@@ -40,7 +44,8 @@ It is intentionally short so agents do not need to load every planning file.
 6. `docs/current/v1_2_data_driven_modeling_gate.md`
 7. `docs/current/v1_3_lsp_gate.md`
 8. `docs/current/v1_4_jit_gate.md`
-9. `docs/llm/load_map.yml`
+9. `docs/current/v1_5_standalone_gate.md`
+10. `docs/llm/load_map.yml`
 
 ## Core Invariants
 

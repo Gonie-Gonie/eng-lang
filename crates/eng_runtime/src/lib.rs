@@ -320,6 +320,7 @@ pub fn build_standalone(
     let bundled_source_path = source_dir.join(source_file_name);
     fs::write(&bundled_source_path, &source)?;
 
+    let mut bundled_dependencies = Vec::new();
     for promotion in &check_report.semantic_program.csv_promotions {
         let Some(destination) =
             bundled_dependency_path(&source_dir, &bundle_path, &promotion.source_value)
@@ -335,8 +336,16 @@ pub fn build_standalone(
         if let Some(parent) = destination.parent() {
             fs::create_dir_all(parent)?;
         }
-        fs::copy(Path::new(&promotion.resolved_path), destination)?;
+        fs::copy(Path::new(&promotion.resolved_path), &destination)?;
+        let relative_path = path_for_manifest(
+            destination
+                .strip_prefix(&bundle_path)
+                .unwrap_or(destination.as_path()),
+        );
+        let dependency_hash = hash_text(&fs::read_to_string(&promotion.resolved_path)?);
+        bundled_dependencies.push((relative_path, dependency_hash));
     }
+    bundled_dependencies.sort_by(|left, right| left.0.cmp(&right.0));
 
     let executable_path = bundle_path.join("eng.exe");
     fs::copy(env::current_exe()?, &executable_path)?;
@@ -358,7 +367,7 @@ pub fn build_standalone(
     fs::write(
         &package_path,
         format!(
-            "format = engpkg-stable-1\npackage_format_version = 1\nrunner = run.bat\nengine = eng.exe\nsource = {}\nbytecode = {}\nsource_hash = {}\nbytecode_hash = {}\nentry_name = {}\nentry = {}\nargs_schema = {}\nargs_field_count = {}\nargs_help = ARGS_HELP.txt\n",
+            "format = engpkg-stable-1\npackage_format_version = 1\nruntime_abi = eng-runtime-cli-v1\nprofile = repro\nrunner = run.bat\nengine = eng.exe\nsource_root = source\nartifact_root = build/result\nsource = {}\nbytecode = {}\nsource_hash = {}\nbytecode_hash = {}\nentry_name = {}\nentry = {}\nargs_schema = {}\nargs_field_count = {}\nargs_help = ARGS_HELP.txt\ndependency_count = {}\ndependencies = {}\ndependency_hashes = {}\n",
             path_for_manifest(&Path::new("source").join(source_file_name)),
             path_for_manifest(
                 bytecode_path
@@ -372,17 +381,25 @@ pub fn build_standalone(
             entry.name,
             entry.signature(),
             entry.arg_type.as_deref().unwrap_or("Args"),
-            args_field_count(&check_report, &entry)
+            args_field_count(&check_report, &entry),
+            bundled_dependencies.len(),
+            dependency_paths(&bundled_dependencies),
+            dependency_hashes(&bundled_dependencies)
         ),
     )?;
     fs::write(
         &lock_path,
         format!(
-            "runtime_version = {RUNTIME_VERSION}\ncompiler_version = {}\nbytecode_version = {}\nresult_format_version = 1\nreport_schema_version = {}\nplot_spec_version = {}\nprofile = repro\n",
+            "runtime_version = {RUNTIME_VERSION}\ncompiler_version = {}\npackage_format_version = 1\nruntime_abi = eng-runtime-cli-v1\nbytecode_version = {}\nresult_format_version = 1\nreport_schema_version = {}\nplot_spec_version = {}\nprofile = repro\nsource_hash = {}\nbytecode_hash = {}\nentry_name = {}\ndependency_count = {}\ndependency_hashes = {}\n",
             eng_compiler::COMPILER_VERSION,
             eng_compiler::BYTECODE_VERSION,
             eng_report::REPORT_SPEC_VERSION,
-            eng_report::PLOT_SPEC_VERSION
+            eng_report::PLOT_SPEC_VERSION,
+            check_report.source_hash,
+            bytecode_hash,
+            entry.name,
+            bundled_dependencies.len(),
+            dependency_hashes(&bundled_dependencies)
         ),
     )?;
     fs::write(
@@ -556,6 +573,28 @@ fn args_help_text(report: &CheckReport, entry: &EntryPoint) -> String {
 
 fn path_for_manifest(path: &Path) -> String {
     path.display().to_string().replace('\\', "/")
+}
+
+fn dependency_paths(dependencies: &[(String, String)]) -> String {
+    if dependencies.is_empty() {
+        return "-".to_owned();
+    }
+    dependencies
+        .iter()
+        .map(|dependency| dependency.0.as_str())
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
+fn dependency_hashes(dependencies: &[(String, String)]) -> String {
+    if dependencies.is_empty() {
+        return "-".to_owned();
+    }
+    dependencies
+        .iter()
+        .map(|dependency| format!("{}:{}", dependency.0, dependency.1))
+        .collect::<Vec<_>>()
+        .join(";")
 }
 
 fn apply_runtime_lengths(execution: &mut VmExecution, runtime_data: &RuntimeData) {

@@ -12,13 +12,14 @@ long-form planning documents.
 4. [v1.2 data-driven modeling gate](current/v1_2_data_driven_modeling_gate.md)
 5. [v1.3 LSP gate](current/v1_3_lsp_gate.md)
 6. [v1.4 JIT gate](current/v1_4_jit_gate.md)
-7. [LLM load map](llm/load_map.yml)
-8. [Getting started](development/00_getting_started.md)
-9. [Repository layout](development/01_repo_layout.md)
-10. [Daily workflow](development/02_daily_workflow.md)
-11. [Reproducible environment policy](development/03_environment_reproducibility.md)
-12. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
-13. [Curated user documentation source](user/README.md)
+7. [v1.5 standalone/AOT gate](current/v1_5_standalone_gate.md)
+8. [LLM load map](llm/load_map.yml)
+9. [Getting started](development/00_getting_started.md)
+10. [Repository layout](development/01_repo_layout.md)
+11. [Daily workflow](development/02_daily_workflow.md)
+12. [Reproducible environment policy](development/03_environment_reproducibility.md)
+13. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
+14. [Curated user documentation source](user/README.md)
 
 ## Architecture
 

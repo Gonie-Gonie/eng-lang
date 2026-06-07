@@ -26,6 +26,7 @@ v1.1          planned target; uncertainty code on main is experimental
 v1.2          planned target; data-driven modeling code on main is experimental
 v1.3          planned target; LSP/editor service code on main is experimental
 v1.4          planned target; JIT planning code on main is experimental
+v1.5          planned target; standalone package maturity code on main is experimental
 ```
 
 Use [current status](current/status.md) and the
@@ -424,6 +425,12 @@ Required outputs:
 - lock file
 - repro profile
 ```
+
+Status on `main`: packaged runner maturity exists with `eng.exe`, `run.bat`,
+source/CSV dependency bundling, `.engpkg`, `.lock`, Args help, dependency hash
+metadata, and repro profile metadata. Optimized native `model.exe`/AOT remains
+deferred. Track the exact support boundary in
+[docs/current/v1_5_standalone_gate.md](current/v1_5_standalone_gate.md).
 
 ## v2.0 — Open Domain/Port, Component Ecosystem, Advanced Platform
 

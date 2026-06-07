@@ -23,5 +23,6 @@ target\debug\eng.exe build examples\official\01_csv_plot\main.eng --entry main -
 dist\main-standalone\run.bat --help
 ```
 
-`struct Args` is currently used as metadata for standalone help. Runtime flag
-binding from Args fields is deferred.
+`struct Args` drives standalone help, and extra `run.bat --<field> <value>`
+flags are forwarded to `eng.exe run` so Args values are recorded in generated
+artifacts.

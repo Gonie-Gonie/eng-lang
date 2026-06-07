@@ -6,8 +6,12 @@
   "required": [
     "format",
     "package_format_version",
+    "runtime_abi",
+    "profile",
     "runner",
     "engine",
+    "source_root",
+    "artifact_root",
     "source",
     "bytecode",
     "source_hash",
@@ -16,13 +20,20 @@
     "entry",
     "args_schema",
     "args_field_count",
-    "args_help"
+    "args_help",
+    "dependency_count",
+    "dependencies",
+    "dependency_hashes"
   ],
   "properties": {
     "format": { "const": "engpkg-stable-1" },
     "package_format_version": { "const": "1" },
+    "runtime_abi": { "const": "eng-runtime-cli-v1" },
+    "profile": { "const": "repro" },
     "runner": { "const": "run.bat" },
     "engine": { "const": "eng.exe" },
+    "source_root": { "const": "source" },
+    "artifact_root": { "const": "build/result" },
     "source": { "type": "string" },
     "bytecode": { "type": "string" },
     "source_hash": { "type": "string" },
@@ -31,6 +42,9 @@
     "entry": { "type": "string" },
     "args_schema": { "type": "string" },
     "args_field_count": { "type": "string" },
-    "args_help": { "const": "ARGS_HELP.txt" }
+    "args_help": { "const": "ARGS_HELP.txt" },
+    "dependency_count": { "type": "string" },
+    "dependencies": { "type": "string" },
+    "dependency_hashes": { "type": "string" }
   }
 }

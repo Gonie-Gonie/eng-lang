@@ -7,6 +7,7 @@ default:
   - docs/current/v1_2_data_driven_modeling_gate.md
   - docs/current/v1_3_lsp_gate.md
   - docs/current/v1_4_jit_gate.md
+  - docs/current/v1_5_standalone_gate.md
 
 task_types:
   parser:
@@ -81,4 +82,13 @@ task_types:
     - docs/release/release-workflow.md
     - docs/release/acceptance-checklist.md
     - docs/release/v1.0.3.md
+    - docs/current/v1_5_standalone_gate.md
     - scripts/dev.ps1
+
+  standalone:
+    - docs/current/v1_5_standalone_gate.md
+    - docs/architecture/01_runtime_artifacts.md
+    - docs/specs/cli.md
+    - docs/schemas/engpkg.schema.json
+    - crates/eng_runtime/
+    - crates/eng_cli/
