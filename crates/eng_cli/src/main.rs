@@ -479,6 +479,49 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(2);
         }
     }
+
+    let path_smoke_root = Path::new("build").join("path smoke").join("한글 경로");
+    if let Err(error) = std::fs::create_dir_all(&path_smoke_root) {
+        eprintln!(
+            "failed to create Korean and space-containing path smoke folder {}: {error}",
+            path_smoke_root.display()
+        );
+        return ExitCode::from(2);
+    }
+    let path_smoke_source = path_smoke_root.join("main.eng");
+    let path_smoke_build = path_smoke_root.join("build output");
+    let source = r#"script main(args: Args) -> Report {
+    L = 1 m + 20 cm
+
+    return report {
+        show L
+    }
+}
+"#;
+    if let Err(error) = std::fs::write(&path_smoke_source, source) {
+        eprintln!(
+            "failed to write Korean and space-containing path smoke source {}: {error}",
+            path_smoke_source.display()
+        );
+        return ExitCode::from(2);
+    }
+    match run_file(
+        &path_smoke_source,
+        &path_smoke_build,
+        &RunOptions::default(),
+    ) {
+        Ok(output) if output.result_path.exists() && output.report_spec_path.exists() => {
+            println!("ok: Korean and space-containing path run smoke produced artifacts");
+        }
+        Ok(_) => {
+            eprintln!("expected Korean and space-containing path smoke to produce artifacts");
+            return ExitCode::from(2);
+        }
+        Err(error) => {
+            eprintln!("Korean and space-containing path smoke failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
     ExitCode::SUCCESS
 }
 

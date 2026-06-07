@@ -52,6 +52,24 @@ function Get-Cargo {
     return $null
 }
 
+function Get-WorkspaceVersion {
+    $inWorkspacePackage = $false
+    foreach ($line in Get-Content (Join-Path $RepoRoot "Cargo.toml")) {
+        $trimmed = $line.Trim()
+        if ($trimmed -eq "[workspace.package]") {
+            $inWorkspacePackage = $true
+            continue
+        }
+        if ($inWorkspacePackage -and $trimmed.StartsWith("[")) {
+            break
+        }
+        if ($inWorkspacePackage -and $line -match '^\s*version\s*=\s*"([^"]+)"') {
+            return $Matches[1]
+        }
+    }
+    throw "workspace package version not found in Cargo.toml"
+}
+
 function Invoke-Setup {
     Set-DevEnvironment
     if (-not (Test-Path (Join-Path $CargoHome "bin\cargo.exe"))) {
@@ -156,14 +174,65 @@ function Invoke-Package {
         exit 1
     }
     Invoke-Native $cargo "build" "--workspace" "--release"
+    $Version = Get-WorkspaceVersion
     $PackageRoot = Join-Path $RepoRoot "dist\englang-preview"
-    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $PackageRoot
+    $ZipPath = Join-Path $RepoRoot "dist\englang-preview-v$Version-windows-x64.zip"
+    $ChecksumPath = "$ZipPath.sha256"
+    Remove-Item -LiteralPath $PackageRoot -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $ChecksumPath -Force -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force -Path $PackageRoot | Out-Null
     Copy-Item -Force (Join-Path $RepoRoot "target\release\eng.exe") (Join-Path $PackageRoot "eng.exe")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "examples") (Join-Path $PackageRoot "examples")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "stdlib") (Join-Path $PackageRoot "stdlib")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "docs") (Join-Path $PackageRoot "docs")
+    Set-Content -Path (Join-Path $PackageRoot "README.txt") -Encoding ascii -Value @"
+EngLang Preview portable package
+
+This folder is self-contained for preview execution. Rust and Python are not
+required on the target PC.
+
+Recommended smoke commands:
+  eng.exe doctor
+  eng.exe run examples\04_plotting\main.eng --entry main
+  eng.exe run examples\06_simple_system\main.eng --entry main
+  eng.exe view build\result\result.engres
+
+Generated artifacts are written under build\result in the current folder.
+"@
+    Compress-Archive -Path (Join-Path $PackageRoot "*") -DestinationPath $ZipPath -Force
+    $Hash = Get-FileHash -Algorithm SHA256 $ZipPath
+    "$($Hash.Hash.ToLowerInvariant())  $(Split-Path -Leaf $ZipPath)" | Set-Content -Path $ChecksumPath -Encoding ascii -NoNewline
     Write-Host "Package prepared at $PackageRoot"
+    Write-Host "Zip prepared at $ZipPath"
+    Write-Host "Checksum prepared at $ChecksumPath"
+}
+
+function Invoke-PackageSmoke {
+    Invoke-Package
+    $Version = Get-WorkspaceVersion
+    $ZipPath = Join-Path $RepoRoot "dist\englang-preview-v$Version-windows-x64.zip"
+    $KoreanWord = -join @([char]0xD55C, [char]0xAE00)
+    $SmokeRoot = Join-Path $RepoRoot "dist\portable smoke $KoreanWord"
+    Remove-Item -LiteralPath $SmokeRoot -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force -Path $SmokeRoot | Out-Null
+    Expand-Archive -Path $ZipPath -DestinationPath $SmokeRoot -Force
+    $Eng = Join-Path $SmokeRoot "eng.exe"
+
+    Push-Location $SmokeRoot
+    try {
+        Invoke-Native $Eng "doctor"
+        Invoke-Native $Eng "run" "examples\04_plotting\main.eng" "--entry" "main"
+        Invoke-Native $Eng "view" "build\result\result.engres"
+        Invoke-Native $Eng "run" "examples\06_simple_system\main.eng" "--entry" "main"
+        if (-not (Test-Path (Join-Path $SmokeRoot "build\result\report_spec.json"))) {
+            throw "portable smoke did not create build\result\report_spec.json"
+        }
+    } finally {
+        Pop-Location
+    }
+
+    Write-Host "Portable package smoke passed at $SmokeRoot"
 }
 
 function Invoke-Clean {
@@ -189,7 +258,8 @@ Usage:
   .\dev.bat clippy         Run clippy with warnings denied
   .\dev.bat ci             Run fmt, tests, clippy, and preview example
   .\dev.bat run-example    Run examples\04_plotting\main.eng
-  .\dev.bat package        Build release and assemble dist\englang-preview
+  .\dev.bat package        Build release, assemble dist\englang-preview, zip it, and write SHA256
+  .\dev.bat package-smoke  Extract the portable zip under a Korean/space path and smoke it
   .\dev.bat clean          Remove build artifacts
 
 All PowerShell execution goes through dev.bat with ExecutionPolicy Bypass.
@@ -208,6 +278,7 @@ switch ($Command) {
     "ci" { Invoke-Ci }
     "run-example" { Invoke-RunExample }
     "package" { Invoke-Package }
+    "package-smoke" { Invoke-PackageSmoke }
     "clean" { Invoke-Clean }
     default { Show-Help }
 }
