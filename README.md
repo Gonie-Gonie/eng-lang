@@ -109,6 +109,10 @@ v1.0-stable
   SVG/report, schema policy execution status, minimal system/equation metadata,
   explicit solver-boundary artifacts, Args help/flag binding metadata, and
   runnable packaged standalone bundles.
+
+v1.0.1
+  Native portable tester IDE, VS Code extension preview, integrated HVAC
+  user-test example, release-ready IDE docs, and package-smoke IDE validation.
 ```
 
 Active planning target:

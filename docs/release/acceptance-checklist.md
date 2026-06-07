@@ -233,6 +233,7 @@ The v1.0 demo must show:
 Before publishing the post-v1.0 hardening release:
 
 ```text
+[x] workspace version is 1.0.1
 [x] native tester IDE binary is built as eng-ide.exe
 [x] portable package includes eng-ide.exe and eng-ide.bat
 [x] eng-ide.exe --smoke discovers examples and compiler completion metadata

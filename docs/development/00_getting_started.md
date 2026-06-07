@@ -53,7 +53,7 @@ and expose them through `dev.bat`.
 Expected shape:
 
 ```text
-EngLang 1.0.0
+EngLang 1.0.1
 
 Runtime              OK
 Standard library     OK

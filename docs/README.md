@@ -49,6 +49,7 @@ This index maps the v9 master plan to the concrete repository work.
 - [v0.8-alpha release notes](release/v0.8-alpha.md)
 - [v0.9-alpha release notes](release/v0.9-alpha.md)
 - [v1.0-stable release notes](release/v1.0-stable.md)
+- [v1.0.1 release notes](release/v1.0.1.md)
 - [v8 to v9 revision guide](master-plan/EngLang_v8_to_v9_Revision_Guide.md)
 - [v9 master plan](master-plan/EngLang_LongTerm_Development_Master_Plan_v9.md)
 - [v8 master plan](master-plan/EngLang_LongTerm_Development_Master_Plan_v8.md)
