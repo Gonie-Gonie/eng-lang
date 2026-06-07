@@ -177,12 +177,41 @@ fn smoke() -> eframe::Result<()> {
         );
         std::process::exit(3);
     }
+    let domain_example = examples
+        .iter()
+        .find(|path| path.ends_with("examples/official/06_domain_port/main.eng"))
+        .expect("official domain example is present");
+    let domain_source = match fs::read_to_string(domain_example) {
+        Ok(source) => source,
+        Err(error) => {
+            eprintln!(
+                "EngLang IDE smoke failed: could not read {}: {error}",
+                domain_example.display()
+            );
+            std::process::exit(4);
+        }
+    };
+    let domain_report = check_source(domain_example, &domain_source, &CheckOptions::default());
+    if domain_report.has_errors()
+        || domain_report.semantic_program.domains.is_empty()
+        || domain_report.semantic_program.components.is_empty()
+        || domain_report.semantic_program.connections.is_empty()
+    {
+        eprintln!(
+            "EngLang IDE smoke failed: {} did not produce domain/component metadata",
+            domain_example.display()
+        );
+        std::process::exit(5);
+    }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} kernel candidate(s)",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} kernel candidate(s), {} domain(s), {} component(s), {} connection(s)",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),
-        jit_plan.candidates.len()
+        jit_plan.candidates.len(),
+        domain_report.semantic_program.domains.len(),
+        domain_report.semantic_program.components.len(),
+        domain_report.semantic_program.connections.len()
     );
     Ok(())
 }
@@ -213,6 +242,9 @@ struct EngIdeApp {
     unit_derivations: Vec<UnitDerivationView>,
     schemas: Vec<SchemaView>,
     csv_promotions: Vec<CsvPromotionView>,
+    domains: Vec<DomainView>,
+    components: Vec<ComponentView>,
+    connections: Vec<ConnectionView>,
     jit_plan: Option<JitPlanView>,
     status: String,
     run_log: String,
@@ -254,6 +286,9 @@ impl EngIdeApp {
             unit_derivations: Vec::new(),
             schemas: Vec::new(),
             csv_promotions: Vec::new(),
+            domains: Vec::new(),
+            components: Vec::new(),
+            connections: Vec::new(),
             jit_plan: None,
             status: "Ready".to_owned(),
             run_log: String::new(),
@@ -298,6 +333,9 @@ impl EngIdeApp {
                 self.unit_derivations.clear();
                 self.schemas.clear();
                 self.csv_promotions.clear();
+                self.domains.clear();
+                self.components.clear();
+                self.connections.clear();
                 self.jit_plan = None;
                 self.status = format!("Could not load {}: {error}", self.current_path.display());
             }
@@ -355,6 +393,9 @@ impl EngIdeApp {
                 self.unit_derivations.clear();
                 self.schemas.clear();
                 self.csv_promotions.clear();
+                self.domains.clear();
+                self.components.clear();
+                self.connections.clear();
                 self.jit_plan = None;
                 self.dirty = false;
             }
@@ -546,6 +587,71 @@ impl EngIdeApp {
                 headers: promotion.headers.clone(),
                 missing_columns: promotion.missing_columns.clone(),
                 line: promotion.line,
+            })
+            .collect();
+
+        self.domains = report
+            .semantic_program
+            .domains
+            .iter()
+            .map(|domain| DomainView {
+                name: domain.name.clone(),
+                line: domain.line,
+                variables: domain
+                    .variables
+                    .iter()
+                    .map(|variable| DomainVariableView {
+                        role: variable.role.clone(),
+                        name: variable.name.clone(),
+                        quantity_kind: variable.quantity_kind.clone(),
+                        display_unit: variable.display_unit.clone(),
+                        canonical_unit: variable.canonical_unit.clone(),
+                        dimension: variable.dimension.clone(),
+                        line: variable.line,
+                    })
+                    .collect(),
+                conservations: domain
+                    .conservations
+                    .iter()
+                    .map(|conservation| DomainConservationView {
+                        text: conservation.text.clone(),
+                        status: conservation.status.clone(),
+                        line: conservation.line,
+                    })
+                    .collect(),
+            })
+            .collect();
+
+        self.components = report
+            .semantic_program
+            .components
+            .iter()
+            .map(|component| ComponentView {
+                name: component.name.clone(),
+                line: component.line,
+                ports: component
+                    .ports
+                    .iter()
+                    .map(|port| PortView {
+                        name: port.name.clone(),
+                        domain: port.domain.clone(),
+                        status: port.status.clone(),
+                        line: port.line,
+                    })
+                    .collect(),
+            })
+            .collect();
+
+        self.connections = report
+            .semantic_program
+            .connections
+            .iter()
+            .map(|connection| ConnectionView {
+                left: connection.left.clone(),
+                right: connection.right.clone(),
+                domain: connection.domain.clone(),
+                status: connection.status.clone(),
+                line: connection.line,
             })
             .collect();
 
@@ -1125,8 +1231,18 @@ impl EngIdeApp {
                 metric_chip(ui, "Variables", &self.symbols.len().to_string(), ACCENT);
                 metric_chip(ui, "Schemas", &self.schemas.len().to_string(), ACCENT);
                 metric_chip(ui, "CSV", &self.csv_promotions.len().to_string(), ACCENT);
+                metric_chip(ui, "Domains", &self.domains.len().to_string(), ACCENT);
+                metric_chip(ui, "Components", &self.components.len().to_string(), ACCENT);
+                metric_chip(
+                    ui,
+                    "Connections",
+                    &self.connections.len().to_string(),
+                    ACCENT,
+                );
             });
             ui.add_space(8.0);
+
+            self.show_domain_component_inspector(ui);
 
             section_label(ui, "Variables");
             if self.symbols.is_empty() {
@@ -1164,6 +1280,136 @@ impl EngIdeApp {
             self.show_schema_inspector(ui);
             self.show_csv_promotions(ui);
         });
+    }
+
+    fn show_domain_component_inspector(&self, ui: &mut egui::Ui) {
+        section_label(ui, "Domain Graph");
+        if self.domains.is_empty() && self.components.is_empty() && self.connections.is_empty() {
+            ui.label(egui::RichText::new("No domain/component declarations").color(MUTED));
+            ui.add_space(8.0);
+            return;
+        }
+
+        if !self.domains.is_empty() {
+            ui.label(egui::RichText::new("Domains").color(MUTED).size(12.0));
+            for domain in &self.domains {
+                runtime_card(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new(&domain.name).strong());
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            status_pill(ui, &format!("L{}", domain.line), MUTED);
+                        });
+                    });
+                    key_value_row(ui, "variables", &domain.variables.len().to_string());
+                    for variable in &domain.variables {
+                        let detail = format!(
+                            "{} {}: {} [{}] -> {}",
+                            variable.role,
+                            variable.name,
+                            variable.quantity_kind,
+                            variable.display_unit,
+                            variable.canonical_unit
+                        );
+                        key_value_row(ui, &format!("L{}", variable.line), &detail);
+                        key_value_row(ui, "dimension", &variable.dimension);
+                    }
+                    if !domain.conservations.is_empty() {
+                        key_value_row(ui, "conservation", &domain.conservations.len().to_string());
+                        for conservation in &domain.conservations {
+                            ui.horizontal_wrapped(|ui| {
+                                ui.add_sized(
+                                    [92.0, 18.0],
+                                    egui::Label::new(
+                                        egui::RichText::new(format!("L{}", conservation.line))
+                                            .color(MUTED)
+                                            .size(12.0),
+                                    ),
+                                );
+                                ui.label(
+                                    egui::RichText::new(&conservation.text)
+                                        .monospace()
+                                        .size(12.0),
+                                );
+                                status_pill(
+                                    ui,
+                                    &conservation.status,
+                                    status_color(&conservation.status),
+                                );
+                            });
+                        }
+                    }
+                });
+                ui.add_space(5.0);
+            }
+        }
+
+        if !self.components.is_empty() {
+            ui.add_space(6.0);
+            ui.label(egui::RichText::new("Components").color(MUTED).size(12.0));
+            for component in &self.components {
+                runtime_card(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new(&component.name).strong());
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            status_pill(ui, &format!("L{}", component.line), MUTED);
+                        });
+                    });
+                    key_value_row(ui, "ports", &component.ports.len().to_string());
+                    for port in &component.ports {
+                        ui.horizontal_wrapped(|ui| {
+                            ui.add_sized(
+                                [92.0, 18.0],
+                                egui::Label::new(
+                                    egui::RichText::new(format!("L{}", port.line))
+                                        .color(MUTED)
+                                        .size(12.0),
+                                ),
+                            );
+                            ui.label(
+                                egui::RichText::new(format!("{}: {}", port.name, port.domain))
+                                    .monospace()
+                                    .size(12.0),
+                            );
+                            status_pill(ui, &port.status, status_color(&port.status));
+                        });
+                    }
+                });
+                ui.add_space(5.0);
+            }
+        }
+
+        if !self.connections.is_empty() {
+            ui.add_space(6.0);
+            ui.label(egui::RichText::new("Connections").color(MUTED).size(12.0));
+            for connection in &self.connections {
+                runtime_card(ui, |ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(egui::RichText::new(format!("L{}", connection.line)).color(MUTED));
+                        ui.label(
+                            egui::RichText::new(format!(
+                                "{} -> {}",
+                                connection.left, connection.right
+                            ))
+                            .monospace()
+                            .strong(),
+                        );
+                    });
+                    key_value_row(ui, "domain", &connection.domain);
+                    ui.horizontal_wrapped(|ui| {
+                        ui.add_sized(
+                            [92.0, 18.0],
+                            egui::Label::new(egui::RichText::new("status").color(MUTED).size(12.0)),
+                        );
+                        status_pill(ui, &connection.status, status_color(&connection.status));
+                    });
+                });
+                ui.add_space(5.0);
+            }
+        }
+
+        ui.add_space(8.0);
+        ui.separator();
+        ui.add_space(8.0);
     }
 
     fn show_unit_derivations(&self, ui: &mut egui::Ui) {
@@ -1732,8 +1978,8 @@ impl eframe::App for EngIdeApp {
         if self.show_inspector_panel {
             egui::SidePanel::right("inspector")
                 .resizable(true)
-                .default_width(260.0)
-                .width_range(220.0..=380.0)
+                .default_width(320.0)
+                .width_range(260.0..=520.0)
                 .frame(panel_frame())
                 .show(ctx, |ui| self.show_right_panel(ui));
         }
@@ -1826,6 +2072,56 @@ struct CsvPromotionView {
     row_count: usize,
     headers: Vec<String>,
     missing_columns: Vec<String>,
+    line: usize,
+}
+
+#[derive(Clone)]
+struct DomainView {
+    name: String,
+    line: usize,
+    variables: Vec<DomainVariableView>,
+    conservations: Vec<DomainConservationView>,
+}
+
+#[derive(Clone)]
+struct DomainVariableView {
+    role: String,
+    name: String,
+    quantity_kind: String,
+    display_unit: String,
+    canonical_unit: String,
+    dimension: String,
+    line: usize,
+}
+
+#[derive(Clone)]
+struct DomainConservationView {
+    text: String,
+    status: String,
+    line: usize,
+}
+
+#[derive(Clone)]
+struct ComponentView {
+    name: String,
+    line: usize,
+    ports: Vec<PortView>,
+}
+
+#[derive(Clone)]
+struct PortView {
+    name: String,
+    domain: String,
+    status: String,
+    line: usize,
+}
+
+#[derive(Clone)]
+struct ConnectionView {
+    left: String,
+    right: String,
+    domain: String,
+    status: String,
     line: usize,
 }
 
@@ -2935,6 +3231,15 @@ fn status_pill(ui: &mut egui::Ui, text: &str, color: egui::Color32) {
         .show(ui, |ui| {
             ui.label(egui::RichText::new(text).color(color).size(11.5));
         });
+}
+
+fn status_color(status: &str) -> egui::Color32 {
+    match status {
+        "recorded" | "domain_resolved" | "domain_compatible" | "unit_consistent" => OK,
+        "unknown_domain" | "domain_mismatch" | "unresolved_endpoint" => ERROR,
+        "unvalidated" | "metadata_only" | "deferred" | "unsolved" => WARNING,
+        _ => MUTED,
+    }
 }
 
 fn section_label(ui: &mut egui::Ui, text: &str) {

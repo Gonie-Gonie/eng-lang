@@ -13,6 +13,7 @@ The goal is practical user testing before v1.1 uncertainty work starts:
 - see syntax highlighting and line-level diagnostic tinting
 - run compiler diagnostics while editing
 - inspect quantity/unit symbol metadata
+- inspect v2.0 domain/component declarations and connection status
 - use keyword, quantity, unit, and snippet completions
 - run the current file, preview PlotSpec data, inspect runtime summaries, and
   open generated artifacts
@@ -36,8 +37,9 @@ For a non-GUI smoke check:
 eng-ide.exe --smoke
 ```
 
-The smoke path checks that the IDE can discover example files and call the same
-compiler metadata path used by `eng.exe check`.
+The smoke path checks that the IDE can discover example files, call the same
+compiler metadata path used by `eng.exe check`, and read the official v2.0
+domain/component example.
 
 On Windows, `eng-ide.exe` is built as a GUI subsystem binary so launching it from
 Explorer does not create a separate console window.
@@ -93,9 +95,12 @@ Result
 Right Sidebar
   Tabbed Inspector, Completions, and Runtime Summary surface. Inspector shows
   variables with quantity kind, display/canonical unit, dimension, source,
-  expression, and unit derivation path. It also shows schema columns,
-  constraints, missing policies, and CSV promotion summaries. After Run, the
-  Runtime tab shows result status, uncertainty summaries, ML metrics,
+  expression, and unit derivation path. The Inspector also includes a Domain
+  Graph section for v2.0 files, showing domain variables, conservation
+  metadata, component ports, port resolution status, and connection domain
+  compatibility. It also shows schema columns, constraints, missing policies,
+  and CSV promotion summaries. After Run, the Runtime tab shows result status,
+  uncertainty summaries, ML metrics,
   coefficients, loss history, policy count, system count, and the experimental
   `eng-kernel-plan-v1` kernel plan for the current file, including estimated
   rows, input/output counts, operation-class count, scan count, and complexity
@@ -175,6 +180,16 @@ show TimeSeries arithmetic, integration, and statistics-fusion candidates with
 `backend = interpreter-fallback`, row estimates from the CSV source, and
 operation-class counts. This is not a speedup claim or native codegen path.
 
+Recommended v2.0 domain/component smoke:
+
+```text
+examples/official/06_domain_port/main.eng
+```
+
+Open it and inspect the right Sidebar > Inspector > Domain Graph section. It
+should show Thermal and Fluid domains, three components, and two
+`domain_compatible` connections.
+
 ## Completion Scope
 
 Current completion sources:
@@ -184,7 +199,8 @@ Current completion sources:
 - language keywords
 - built-in quantity kinds from eng_compiler
 - built-in units from eng_compiler
-- starter snippets for script, CSV schema, and simple thermal system blocks
+- starter snippets for script, CSV schema, simple thermal system, and
+  domain/component port blocks
 - uncertainty and ML user-test snippets
 ```
 

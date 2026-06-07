@@ -105,6 +105,8 @@ Current:
 - port domain validation;
 - connection compatibility diagnostics;
 - review JSON output;
+- report spec and HTML report sections;
+- native IDE Domain Graph inspector;
 - IDE/LSP/VS Code keyword and snippet completion.
 
 Deferred:

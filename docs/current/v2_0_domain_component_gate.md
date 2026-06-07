@@ -26,8 +26,12 @@ simulation yet.
   `connection_summary`.
 - `report_spec.json` and `report.html` expose the same domain/component surface
   so packaged runs and native IDE previews can show the declarations.
-- The native IDE, LSP, and VS Code preview expose domain/component keywords and
-  snippets for user testing.
+- The native IDE Inspector shows a Domain Graph section with domains,
+  variables, conservations, component ports, and connection status.
+- The native IDE smoke command verifies that the official domain example
+  produces non-empty domain/component/connection metadata.
+- The LSP and VS Code preview expose domain/component keywords and snippets for
+  user testing.
 
 ## Official Fixtures
 
@@ -42,7 +46,6 @@ simulation yet.
 
 ## Remaining Before Preview Claim
 
-- [ ] Add native IDE domain/component inspector panels, not only completions.
 - [ ] Add LSP snapshot fields or hover metadata for domain/component symbols.
 - [ ] Add package/version metadata for domain declarations.
 - [ ] Add at least one typed generic domain fixture such as `Fluid[Medium]`.
