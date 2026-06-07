@@ -6,7 +6,9 @@ It is intentionally short so agents do not need to load every planning file.
 ## Current Target
 
 - Latest stable baseline: `v1.0-stable`
-- Active release target: `v1.0.3` IDE and documentation hardening
+- Active development target: `v2.0` domain/component platform detail work
+- Next release package label remains `v1.0.3` until an explicit release
+  workflow is requested.
 - Next targets: `v1.1` uncertainty, `v1.2` data-driven modeling,
   `v1.3` LSP/editor service hardening, `v1.4` JIT start, then `v1.5`
   standalone/AOT maturity, then `v2.0` domain/component platform
@@ -23,7 +25,8 @@ It is intentionally short so agents do not need to load every planning file.
 - Current `v1.3` detail work includes an experimental `eng-lsp.exe` smoke,
   package-smoke inclusion, snapshot, optional VS Code snapshot backend,
   diagnostics, context-aware schema column completion, hover, and tested stdio
-  round-trip path documented in the v1.3 gate.
+  round-trip path documented in the v1.3 gate. The snapshot/hover surface also
+  includes v2.0 domain/component metadata.
 - Current `v1.4` detail work includes an experimental `eng_jit` crate,
   `eng.exe jit-plan`, `eng.exe jit-bench`, native IDE Runtime Summary
   kernel-plan display, `eng-kernel-plan-v1` hot-kernel metadata, and
@@ -35,9 +38,9 @@ It is intentionally short so agents do not need to load every planning file.
   and dependency hashes. Optimized native `model.exe`/AOT is still deferred.
 - Current `v2.0` domain/component detail work starts from metadata-first
   language support: user-defined domains, across/through variables,
-  conservation contracts, component ports, connection review metadata, and
-  invalid port-domain diagnostics. Numeric multi-domain simulation remains
-  deferred.
+  conservation contracts, component ports, connection review/report metadata,
+  native IDE Domain Graph inspection, LSP completion/hover metadata, and invalid
+  port-domain diagnostics. Numeric multi-domain simulation remains deferred.
 
 ## Read First
 

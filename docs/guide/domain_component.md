@@ -107,7 +107,9 @@ Current:
 - review JSON output;
 - report spec and HTML report sections;
 - native IDE Domain Graph inspector;
-- IDE/LSP/VS Code keyword and snippet completion.
+- LSP snapshot/completion/hover metadata for domains, variables, ports, and
+  connections;
+- IDE/VS Code keyword and snippet completion.
 
 Deferred:
 

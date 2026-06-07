@@ -7,8 +7,9 @@ wired into a release target and manually tested in an editor.
 ## Current Scope
 
 - `eng-lsp.exe` binary exists through the `eng_lsp` crate.
-- `eng-lsp --smoke` checks the official CSV example and prints diagnostic,
-  completion, and hover counts.
+- `eng-lsp --smoke` checks the official CSV example and the official v2.0
+  domain/component example, then prints diagnostic, completion, hover, and
+  domain-hover counts.
 - `eng-lsp --snapshot <file.eng>` emits `eng-lsp-snapshot-v1` JSON for
   diagnostics, completion items, and hover items.
 - `eng-lsp --snapshot-check <file.eng>` verifies that snapshot completion and
@@ -17,6 +18,11 @@ wired into a release target and manually tested in an editor.
   `eng-lsp.exe --smoke`.
 - `sensor.`-style member completion uses CSV promotion metadata to return
   schema columns for the promoted table.
+- Domain/component completion includes domain names, domain variables,
+  component names, and `Component.port` labels.
+- Hover metadata includes optional `kind` and `status` fields. Domain/component
+  sources emit `domain`, `domain_variable`, `domain_conservation`,
+  `component`, `component_port`, and `connection` hover kinds.
 - Default `eng-lsp` starts a minimal stdio JSON-RPC loop for:
   - `initialize`
   - `shutdown`
@@ -35,6 +41,8 @@ wired into a release target and manually tested in an editor.
 - [x] Completion requests at `promoted_table.` return the promoted schema's
   columns instead of the global keyword/unit list.
 - [x] Hover items are derived from compiler hover metadata.
+- [x] Domain/component hover and completion items are derived from compiler
+  semantic metadata.
 - [x] `dev.bat lsp-check` validates smoke and snapshot-check paths.
 - [x] `dev.bat ci` runs `lsp-check`.
 - [x] Workspace tests include `eng_lsp` snapshot coverage.
@@ -62,4 +70,5 @@ wired into a release target and manually tested in an editor.
 cargo test -p eng_lsp --test stdio
 target\debug\eng-lsp.exe --smoke
 target\debug\eng-lsp.exe --snapshot-check examples\official\01_csv_plot\main.eng
+target\debug\eng-lsp.exe --snapshot examples\official\06_domain_port\main.eng
 ```

@@ -35,10 +35,12 @@ pub struct LspCompletion {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LspHover {
     pub name: String,
+    pub kind: String,
     pub line: usize,
     pub detail: String,
     pub quantity_kind: String,
     pub display_unit: String,
+    pub status: Option<String>,
 }
 
 pub fn snapshot_for_path(path: &Path) -> std::io::Result<LspSnapshot> {
@@ -86,18 +88,7 @@ pub fn snapshot_from_report(report: &CheckReport) -> LspSnapshot {
             })
             .collect(),
         completions: completion_items(report),
-        hovers: report
-            .semantic_program
-            .hover_hints
-            .iter()
-            .map(|hover| LspHover {
-                name: hover.name.clone(),
-                line: hover.line,
-                detail: hover.detail.clone(),
-                quantity_kind: hover.quantity_kind.clone(),
-                display_unit: hover.display_unit.clone(),
-            })
-            .collect(),
+        hovers: hover_items(report),
     }
 }
 
@@ -135,19 +126,132 @@ pub fn completion_json(completion: &LspCompletion) -> Value {
 }
 
 pub fn hover_json(hover: &LspHover) -> Value {
+    let mut value = format!(
+        "**{}**\n\nKind: `{}`\n\n{}\n\nQuantity: `{}`\n\nDisplay unit: `{}`",
+        hover.name, hover.kind, hover.detail, hover.quantity_kind, hover.display_unit
+    );
+    if let Some(status) = &hover.status {
+        value.push_str(&format!("\n\nStatus: `{status}`"));
+    }
     json!({
         "name": hover.name,
+        "kind": hover.kind,
         "line": hover.line,
         "quantity_kind": hover.quantity_kind,
         "display_unit": hover.display_unit,
+        "status": hover.status,
         "contents": {
             "kind": "markdown",
-            "value": format!(
-                "**{}**\n\n{}\n\nQuantity: `{}`\n\nDisplay unit: `{}`",
-                hover.name, hover.detail, hover.quantity_kind, hover.display_unit
-            )
+            "value": value
         }
     })
+}
+
+pub fn hover_items(report: &CheckReport) -> Vec<LspHover> {
+    let mut hovers = report
+        .semantic_program
+        .hover_hints
+        .iter()
+        .map(|hover| LspHover {
+            name: hover.name.clone(),
+            kind: "variable".to_owned(),
+            line: hover.line,
+            detail: hover.detail.clone(),
+            quantity_kind: hover.quantity_kind.clone(),
+            display_unit: hover.display_unit.clone(),
+            status: None,
+        })
+        .collect::<Vec<_>>();
+
+    for domain in &report.semantic_program.domains {
+        hovers.push(LspHover {
+            name: domain.name.clone(),
+            kind: "domain".to_owned(),
+            line: domain.line,
+            detail: format!(
+                "{} variable(s), {} conservation contract(s)",
+                domain.variables.len(),
+                domain.conservations.len()
+            ),
+            quantity_kind: "domain".to_owned(),
+            display_unit: "-".to_owned(),
+            status: Some("metadata".to_owned()),
+        });
+        for variable in &domain.variables {
+            hovers.push(LspHover {
+                name: format!("{}.{}", domain.name, variable.name),
+                kind: "domain_variable".to_owned(),
+                line: variable.line,
+                detail: format!(
+                    "{} variable in domain {}; canonical unit {}; dimension {}",
+                    variable.role, domain.name, variable.canonical_unit, variable.dimension
+                ),
+                quantity_kind: variable.quantity_kind.clone(),
+                display_unit: variable.display_unit.clone(),
+                status: None,
+            });
+        }
+        for conservation in &domain.conservations {
+            hovers.push(LspHover {
+                name: format!("{}.conservation", domain.name),
+                kind: "domain_conservation".to_owned(),
+                line: conservation.line,
+                detail: conservation.text.clone(),
+                quantity_kind: "conservation".to_owned(),
+                display_unit: "-".to_owned(),
+                status: Some(conservation.status.clone()),
+            });
+        }
+    }
+
+    for component in &report.semantic_program.components {
+        hovers.push(LspHover {
+            name: component.name.clone(),
+            kind: "component".to_owned(),
+            line: component.line,
+            detail: format!("{} port(s)", component.ports.len()),
+            quantity_kind: "component".to_owned(),
+            display_unit: "-".to_owned(),
+            status: Some("metadata".to_owned()),
+        });
+        for port in &component.ports {
+            hovers.push(LspHover {
+                name: format!("{}.{}", component.name, port.name),
+                kind: "component_port".to_owned(),
+                line: port.line,
+                detail: format!(
+                    "port {} on component {} references domain {}",
+                    port.name, component.name, port.domain
+                ),
+                quantity_kind: "port".to_owned(),
+                display_unit: port.domain.clone(),
+                status: Some(port.status.clone()),
+            });
+        }
+    }
+
+    for connection in &report.semantic_program.connections {
+        hovers.push(LspHover {
+            name: format!("{} -> {}", connection.left, connection.right),
+            kind: "connection".to_owned(),
+            line: connection.line,
+            detail: format!(
+                "connects {} to {} in domain {}",
+                connection.left, connection.right, connection.domain
+            ),
+            quantity_kind: connection.domain.clone(),
+            display_unit: "-".to_owned(),
+            status: Some(connection.status.clone()),
+        });
+    }
+
+    hovers.sort_by(|left, right| {
+        left.line
+            .cmp(&right.line)
+            .then_with(|| left.kind.cmp(&right.kind))
+            .then_with(|| left.name.cmp(&right.name))
+    });
+    hovers
 }
 
 pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
@@ -209,6 +313,51 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
                     column.type_name,
                     column.unit.as_deref().unwrap_or("schema-defined")
                 ),
+            );
+        }
+    }
+
+    for domain in &report.semantic_program.domains {
+        push_completion(
+            &mut items,
+            &mut seen,
+            &domain.name,
+            "class",
+            &format!(
+                "domain, {} variable(s), {} conservation(s)",
+                domain.variables.len(),
+                domain.conservations.len()
+            ),
+        );
+        for variable in &domain.variables {
+            push_completion(
+                &mut items,
+                &mut seen,
+                &format!("{}.{}", domain.name, variable.name),
+                "property",
+                &format!(
+                    "{} {} [{}]",
+                    variable.role, variable.quantity_kind, variable.display_unit
+                ),
+            );
+        }
+    }
+
+    for component in &report.semantic_program.components {
+        push_completion(
+            &mut items,
+            &mut seen,
+            &component.name,
+            "class",
+            &format!("component, {} port(s)", component.ports.len()),
+        );
+        for port in &component.ports {
+            push_completion(
+                &mut items,
+                &mut seen,
+                &format!("{}.{}", component.name, port.name),
+                "property",
+                &format!("port domain {} ({})", port.domain, port.status),
             );
         }
     }
@@ -391,6 +540,45 @@ mod tests {
         let json = snapshot_json(&snapshot);
         assert_eq!(json["format"], LSP_SNAPSHOT_FORMAT);
         assert!(!json["diagnostics"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn snapshot_exposes_domain_component_hover_and_completion() {
+        let source = "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\nconnect RoomBoundary.heat -> AmbientBoundary.heat\n";
+        let snapshot = snapshot_for_source(Path::new("domain.eng"), source);
+
+        assert!(snapshot
+            .hovers
+            .iter()
+            .any(|hover| hover.kind == "domain" && hover.name == "Thermal"));
+        assert!(snapshot.hovers.iter().any(|hover| {
+            hover.kind == "domain_variable"
+                && hover.name == "Thermal.T"
+                && hover.quantity_kind == "AbsoluteTemperature"
+                && hover.display_unit == "degC"
+        }));
+        assert!(snapshot.hovers.iter().any(|hover| {
+            hover.kind == "component_port"
+                && hover.name == "RoomBoundary.heat"
+                && hover.status.as_deref() == Some("domain_resolved")
+        }));
+        assert!(snapshot.hovers.iter().any(|hover| {
+            hover.kind == "connection" && hover.status.as_deref() == Some("domain_compatible")
+        }));
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "Thermal"));
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "RoomBoundary.heat"));
+
+        let json = snapshot_json(&snapshot);
+        let hovers = json["hovers"].as_array().unwrap();
+        assert!(hovers
+            .iter()
+            .any(|hover| hover["kind"] == "connection" && hover["status"] == "domain_compatible"));
     }
 
     #[test]

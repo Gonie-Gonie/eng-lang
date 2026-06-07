@@ -115,8 +115,9 @@ not part of the supported release contract.
   `model.exe`/AOT is not implemented yet.
 - `v2.0` domain/component platform start: user-defined `domain` declarations,
   across/through variables, conservation metadata, `component` ports,
-  connection review metadata, and invalid port-domain diagnostics. It does not
-  provide numeric multi-domain simulation yet.
+  connection review/report metadata, native IDE Domain Graph inspection, LSP
+  domain/component completion and hover metadata, and invalid port-domain
+  diagnostics. It does not provide numeric multi-domain simulation yet.
 
 ## Deferred / Known Limitations
 

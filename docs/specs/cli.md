@@ -19,6 +19,9 @@ eng.exe view <result.engres>
 eng.exe test <project_or_examples>
 eng-ide.exe
 eng-ide.exe --smoke
+eng-lsp.exe --smoke
+eng-lsp.exe --snapshot <file.eng>
+eng-lsp.exe --snapshot-check <file.eng>
 ```
 
 ## `eng doctor`
@@ -67,6 +70,10 @@ E-ENTRY-MULTIPLE-001   run/build entry point selection is ambiguous
 W-STATS-SUM-001        HeatRate summed over Time should use integrate
 E-EQ-BOOL-001          physical equation used == instead of eq
 E-EQ-UNIT-001          physical equation dimensions do not match
+E-PORT-DOMAIN-001      component port references an unknown domain
+E-CONNECT-ENDPOINT-001 connection endpoint is not Component.port
+E-CONNECT-PORT-001     connection endpoint does not resolve to a port
+E-CONNECT-DOMAIN-001   connected ports have incompatible domains
 ```
 
 `--review` writes:
@@ -98,6 +105,9 @@ axis_info
 stats_info
 integrations
 system_summary
+domain_summary
+component_summary
+connection_summary
 schema_summary
 schemas
 csv_promotions
@@ -230,7 +240,26 @@ Current tester IDE features:
 ```
 
 `eng-ide.exe --smoke` checks the non-GUI path for release packages. It verifies
-that examples are discoverable and compiler completion metadata is available.
+that examples are discoverable, compiler completion metadata is available, and
+the official v2.0 domain/component example produces domain, component, and
+connection metadata.
+
+## `eng-lsp.exe`
+
+Starts the experimental stdio LSP server when no flags are supplied. The release
+package also supports smoke and snapshot commands:
+
+```bat
+eng-lsp.exe --smoke
+eng-lsp.exe --snapshot examples\official\06_domain_port\main.eng
+eng-lsp.exe --snapshot-check examples\official\01_csv_plot\main.eng
+```
+
+`--smoke` verifies the official CSV snapshot path and the official v2.0
+domain/component metadata path. `--snapshot` emits `eng-lsp-snapshot-v1` JSON
+with diagnostics, completion items, and hover items. Domain/component files
+include hover `kind`/`status` metadata and completion labels such as
+`Thermal`, `RoomBoundary`, and `RoomBoundary.heat`.
 
 ## `eng entries <file.eng>`
 

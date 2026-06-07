@@ -90,6 +90,7 @@ Current snapshot completions are global for the file and include:
 - EngLang keywords
 - current typed bindings
 - schema columns
+- domain names, domain variables, component names, and `Component.port` labels
 - quantity kinds
 - units
 
@@ -99,14 +100,17 @@ For example, `sensor.` returns the schema columns for the CSV promotion bound to
 
 ## Hovers
 
-Hover entries are derived from compiler hover metadata:
+Hover entries are derived from compiler hover metadata and selected semantic
+metadata:
 
 ```json
 {
   "name": "Q_coil",
+  "kind": "variable",
   "line": 28,
   "quantity_kind": "TimeSeries[Time] of HeatRate",
   "display_unit": "W",
+  "status": null,
   "contents": {
     "kind": "markdown",
     "value": "**Q_coil**\n\ninferred as TimeSeries[Time] of HeatRate [W]..."
@@ -118,6 +122,35 @@ Hover entries are derived from compiler hover metadata:
 request positions from zero-based LSP coordinates before matching hover lines.
 `quantity_kind` and `display_unit` are included for editor clients that want to
 render compact metadata without parsing the markdown body.
+
+`kind` and `status` are optional metadata extensions inside
+`eng-lsp-snapshot-v1`; consumers should continue to ignore unknown keys.
+Current hover kinds include:
+
+```text
+variable
+domain
+domain_variable
+domain_conservation
+component
+component_port
+connection
+```
+
+For v2.0 domain/component files, hovers expose domain declarations,
+across/through variables, conservation metadata, component ports, and connection
+status. Example connection hover:
+
+```json
+{
+  "name": "RoomBoundary.heat -> AmbientBoundary.heat",
+  "kind": "connection",
+  "line": 26,
+  "quantity_kind": "Thermal",
+  "display_unit": "-",
+  "status": "domain_compatible"
+}
+```
 
 ## Intended Consumers
 

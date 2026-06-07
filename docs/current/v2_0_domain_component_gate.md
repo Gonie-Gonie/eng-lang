@@ -30,8 +30,12 @@ simulation yet.
   variables, conservations, component ports, and connection status.
 - The native IDE smoke command verifies that the official domain example
   produces non-empty domain/component/connection metadata.
-- The LSP and VS Code preview expose domain/component keywords and snippets for
-  user testing.
+- LSP snapshots and hovers expose domain, domain-variable, conservation,
+  component, port, and connection metadata with `kind`/`status` fields.
+- LSP completions include domain names, domain variables, component names, and
+  `Component.port` labels.
+- The VS Code preview exposes domain/component keywords and snippets for user
+  testing.
 
 ## Official Fixtures
 
@@ -46,7 +50,6 @@ simulation yet.
 
 ## Remaining Before Preview Claim
 
-- [ ] Add LSP snapshot fields or hover metadata for domain/component symbols.
 - [ ] Add package/version metadata for domain declarations.
 - [ ] Add at least one typed generic domain fixture such as `Fluid[Medium]`.
 - [ ] Add medium/frame/axis compatibility diagnostics.

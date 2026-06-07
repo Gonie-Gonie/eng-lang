@@ -33,11 +33,46 @@ fn command_smoke() -> std::process::ExitCode {
     let path = Path::new("examples/official/01_csv_plot/main.eng");
     match snapshot_for_path(path) {
         Ok(snapshot) => {
+            let domain_path = Path::new("examples/official/06_domain_port/main.eng");
+            let domain_snapshot = match snapshot_for_path(domain_path) {
+                Ok(snapshot) => snapshot,
+                Err(error) => {
+                    eprintln!("EngLang LSP smoke failed: {error}");
+                    return std::process::ExitCode::from(1);
+                }
+            };
+            let domain_hover_count = domain_snapshot
+                .hovers
+                .iter()
+                .filter(|hover| {
+                    matches!(
+                        hover.kind.as_str(),
+                        "domain"
+                            | "domain_variable"
+                            | "component"
+                            | "component_port"
+                            | "connection"
+                    )
+                })
+                .count();
+            if domain_hover_count == 0
+                || !domain_snapshot
+                    .completions
+                    .iter()
+                    .any(|completion| completion.label == "RoomBoundary.heat")
+            {
+                eprintln!(
+                    "EngLang LSP smoke failed: {} produced no domain/component LSP metadata",
+                    domain_path.display()
+                );
+                return std::process::ExitCode::from(2);
+            }
             println!(
-                "EngLang LSP smoke OK: {} diagnostic(s), {} completion(s), {} hover item(s)",
+                "EngLang LSP smoke OK: {} diagnostic(s), {} completion(s), {} hover item(s), {} domain hover item(s)",
                 snapshot.diagnostics.len(),
                 snapshot.completions.len(),
-                snapshot.hovers.len()
+                snapshot.hovers.len(),
+                domain_hover_count
             );
             std::process::ExitCode::SUCCESS
         }
