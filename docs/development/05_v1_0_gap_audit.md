@@ -55,7 +55,7 @@ P2  review/report schema validation snapshots
 Remaining intentional deferrals:
 
 ```text
-P2  bad-cell CSV fixtures and per-cell conversion diagnostics
+P2  per-cell conversion diagnostics once conversion exists
 P2  duration_above and broader statistics kernels
 P2  bar/histogram plot seeds
 P2  missing value interpolation and broader constraint expressions
@@ -167,6 +167,7 @@ Current state:
 - VM table object is backed by RuntimeTable pages for promoted CSV data
 - DateTime index values and numeric quantity columns are parsed into result.engres
 - row count, column values, missing counts, parse failures, and source hash are recorded
+- dedicated bad DateTime and bad numeric fixtures are exercised by eng test examples
 ```
 
 Risk:
@@ -184,7 +185,7 @@ Hardening detail:
 3. [x] Parse numeric/unit columns into typed numeric arrays for the official path.
 4. [x] Report row count, parse failures, and missing values in result.engres.
 5. [x] Add tests for the official CSV runtime page and computed values.
-6. [ ] Add dedicated bad DateTime and bad numeric cell fixtures.
+6. [x] Add dedicated bad DateTime and bad numeric cell fixtures.
 7. [ ] Add unit conversion failure reporting once per-cell unit conversion exists.
 ```
 

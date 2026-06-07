@@ -514,7 +514,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         },
     ) {
         Ok(output) => {
-            let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
+            let result = std::fs::read_to_string(output.result_path).unwrap_or_default();
             let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
             if !result.contains("\"source\": \"cli\"")
                 || !result.contains("\"value\": \"data/sensor.csv\"")
@@ -554,6 +554,21 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             eprintln!("simple system example failed: {error}");
             return ExitCode::from(2);
         }
+    }
+
+    if !data_quality_fixture_records_parse_failure(
+        "examples/07_data_quality/bad_datetime_cell.eng",
+        "build/test-bad-datetime",
+        "expected UTC DateTime",
+    ) {
+        return ExitCode::from(2);
+    }
+    if !data_quality_fixture_records_parse_failure(
+        "examples/07_data_quality/bad_numeric_cell.eng",
+        "build/test-bad-numeric",
+        "expected finite numeric cell",
+    ) {
+        return ExitCode::from(2);
     }
 
     let path_smoke_root = Path::new("build").join("path smoke").join("한글 경로");
@@ -691,6 +706,32 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     ExitCode::SUCCESS
+}
+
+fn data_quality_fixture_records_parse_failure(
+    source: &str,
+    build_root: &str,
+    expected_message: &str,
+) -> bool {
+    match run_file(
+        Path::new(source),
+        Path::new(build_root),
+        &RunOptions::default(),
+    ) {
+        Ok(output) => {
+            let result = std::fs::read_to_string(output.result_path).unwrap_or_default();
+            if !result.contains("\"parse_failures\"") || !result.contains(expected_message) {
+                eprintln!("expected {source} to record parse_failures with `{expected_message}`");
+                return false;
+            }
+            println!("ok: {source} recorded parse_failures");
+            true
+        }
+        Err(error) => {
+            eprintln!("data quality fixture failed: {error}");
+            false
+        }
+    }
 }
 
 fn first_non_flag(args: &[String]) -> Option<String> {

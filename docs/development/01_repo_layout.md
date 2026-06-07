@@ -23,7 +23,8 @@ Current v1.0-stable layout:
 |   |-- 02_csv_plot/
 |   |-- 04_plotting/
 |   |-- 05_error_messages/
-|   `-- 06_simple_system/
+|   |-- 06_simple_system/
+|   `-- 07_data_quality/
 |-- scripts/
 |   `-- dev.ps1         the only PowerShell development entry
 |-- stdlib/             preview prelude and unit registry

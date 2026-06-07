@@ -100,6 +100,7 @@ The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
 [x] RuntimeTable columns and TimeSeries points appear in result.engres
 [x] TimeSeries object appears in bytecode and VM object store with runtime len
 [x] report.html includes axis/statistics/integration sections
+[x] bad DateTime and bad numeric CSV fixtures record parse_failures
 ```
 
 ## v0.6 Gate

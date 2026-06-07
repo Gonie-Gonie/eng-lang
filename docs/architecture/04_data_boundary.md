@@ -171,4 +171,5 @@ Deferred to later versions:
 ```text
 - missing value interpolation
 - broad row expression execution outside the official coil path
+- per-cell unit conversion diagnostics once conversion exists
 ```

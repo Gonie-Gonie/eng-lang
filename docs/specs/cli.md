@@ -216,5 +216,6 @@ Runs official smoke checks:
 - missing entry example fails file run/build entry selection
 - official plotting example produces report and PlotSpec artifacts
 - Args CLI binding produces CSV run artifacts
+- bad DateTime and bad numeric CSV fixtures record parse_failures
 - official simple system example produces system report artifacts
 ```
