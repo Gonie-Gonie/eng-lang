@@ -129,9 +129,15 @@ provenance.equation_count
 provenance.residual_count
 ```
 
+v1.1 records:
+
+```text
+typed_payload.uncertainties
+```
+
 The `typed_payload` is a Report seed. It carries computed statistics for the
 official CSV path, integration metadata, policy results, and reviewable system
-metadata:
+metadata. v1.1 also carries deterministic uncertainty seed summaries:
 
 ```json
 {
@@ -141,6 +147,7 @@ metadata:
   "vm_steps": [],
   "statistics": [],
   "integrations": [],
+  "uncertainties": [],
   "policy_results": [],
   "systems": [],
   "solver_boundaries": [],

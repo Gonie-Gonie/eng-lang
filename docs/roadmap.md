@@ -319,13 +319,14 @@ Priority backfill:
 Required outputs:
 
 ```text
-- Measured[T]
-- Interval[T]
-- Distribution[T] seed
-- Ensemble[T] seed
-- uncertainty metadata
-- simple propagation
-- distribution summary/plot
+[x] Measured[T]
+[x] Interval[T]
+[x] Distribution[T] deterministic seed
+[x] Ensemble[T] deterministic seed
+[x] uncertainty metadata in review/report/result artifacts
+[x] simple propagation seed through source binding samples
+[x] distribution summary/plot histogram
+[x] official uncertainty example and CLI smoke
 ```
 
 ## v1.2 — Data-driven Modeling and Basic ANN

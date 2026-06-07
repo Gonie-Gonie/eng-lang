@@ -149,6 +149,7 @@ v1.1
 - [Bytecode VM and result v1](docs/runtime/bytecode.md)
 - [TimeSeries statistics guide](docs/guide/timeseries_statistics.md)
 - [Plotting guide](docs/guide/plotting.md)
+- [Uncertainty core guide](docs/guide/uncertainty.md)
 - [Native tester IDE](docs/guide/native_ide.md)
 - [Report and review artifacts](docs/guide/report_review.md)
 - [Simple system tutorial](docs/tutorials/05_simple_system.md)

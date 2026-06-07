@@ -224,6 +224,7 @@ pub fn run_file(
     );
     report_spec.computed_statistics = runtime_data.report_computed_statistics();
     report_spec.computed_integrations = runtime_data.report_computed_integrations();
+    report_spec.uncertainty = runtime_data.report_uncertainty();
     report_spec.policy_results = runtime_data.report_policy_results();
     runtime_data.apply_system_solutions(&mut report_spec);
     let report_spec_json = eng_report::report_spec_json(&report_spec);
@@ -875,6 +876,68 @@ fn result_json(
         integrations.push_str("      }");
     }
 
+    let mut uncertainties = String::new();
+    for (index, uncertainty) in runtime_data.uncertainties.iter().enumerate() {
+        if index > 0 {
+            uncertainties.push_str(",\n");
+        }
+        uncertainties.push_str("      {\n");
+        uncertainties.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&uncertainty.binding)
+        ));
+        uncertainties.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&uncertainty.kind)
+        ));
+        uncertainties.push_str(&format!(
+            "        \"quantity_kind\": \"{}\",\n",
+            json_escape(&uncertainty.quantity_kind)
+        ));
+        uncertainties.push_str(&format!(
+            "        \"display_unit\": \"{}\",\n",
+            json_escape(&uncertainty.display_unit)
+        ));
+        uncertainties.push_str(&format!(
+            "        \"expression\": \"{}\",\n",
+            json_escape(&uncertainty.expression)
+        ));
+        if let Some(source) = &uncertainty.source {
+            uncertainties.push_str(&format!(
+                "        \"source\": \"{}\",\n",
+                json_escape(source)
+            ));
+        } else {
+            uncertainties.push_str("        \"source\": null,\n");
+        }
+        push_optional_json_number(&mut uncertainties, "mean", uncertainty.mean, 8);
+        push_optional_json_number(&mut uncertainties, "stddev", uncertainty.stddev, 8);
+        push_optional_json_number(&mut uncertainties, "lower", uncertainty.lower, 8);
+        push_optional_json_number(&mut uncertainties, "upper", uncertainty.upper, 8);
+        uncertainties.push_str(&format!(
+            "        \"sample_count\": {},\n",
+            uncertainty.sample_count
+        ));
+        uncertainties.push_str(&format!(
+            "        \"propagation_count\": {},\n",
+            uncertainty.propagation_count
+        ));
+        uncertainties.push_str("        \"samples\": [");
+        for (sample_index, sample) in uncertainty.samples.iter().enumerate() {
+            if sample_index > 0 {
+                uncertainties.push_str(", ");
+            }
+            uncertainties.push_str(&sample.to_string());
+        }
+        uncertainties.push_str("],\n");
+        uncertainties.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&uncertainty.status)
+        ));
+        uncertainties.push_str(&format!("        \"line\": {}\n", uncertainty.line));
+        uncertainties.push_str("      }");
+    }
+
     let mut policy_results = String::new();
     for (index, policy) in runtime_data.policy_results.iter().enumerate() {
         if index > 0 {
@@ -1026,7 +1089,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -1049,6 +1112,7 @@ fn result_json(
         steps,
         statistics,
         integrations,
+        uncertainties,
         policy_results,
         systems,
         solver_boundaries,
@@ -1538,6 +1602,14 @@ fn json_escape(value: &str) -> String {
         }
     }
     escaped
+}
+
+fn push_optional_json_number(json: &mut String, key: &str, value: Option<f64>, indent: usize) {
+    let spaces = " ".repeat(indent);
+    match value {
+        Some(value) => json.push_str(&format!("{spaces}\"{key}\": {value},\n")),
+        None => json.push_str(&format!("{spaces}\"{key}\": null,\n")),
+    }
 }
 
 fn open_path(path: &Path) {

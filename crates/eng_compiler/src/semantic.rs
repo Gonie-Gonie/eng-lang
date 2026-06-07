@@ -10,6 +10,7 @@ use crate::quantities::{
 use crate::schema::{CsvPromotion, SchemaInfo};
 use crate::stats::{AxisInfo, IntegrationInfo, StatsInfo};
 use crate::type_info::{TypeInfo, TypeInfoSource};
+use crate::uncertainty::UncertaintyInfo;
 use crate::units::{unit_derivation, UnitDerivation};
 use crate::{Diagnostic, InferredDeclaration};
 
@@ -152,6 +153,7 @@ pub struct SemanticProgram {
     pub axis_infos: Vec<AxisInfo>,
     pub stats_infos: Vec<StatsInfo>,
     pub integrations: Vec<IntegrationInfo>,
+    pub uncertainty_infos: Vec<UncertaintyInfo>,
     pub systems: Vec<SystemInfo>,
     pub args_structs: Vec<ArgsStructInfo>,
     pub arg_values: Vec<ArgValueInfo>,
@@ -175,6 +177,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut entry_points = Vec::new();
     let mut stats_infos = Vec::new();
     let mut integrations = Vec::new();
+    let mut uncertainty_infos = Vec::new();
     let mut systems = Vec::new();
     let mut current_system_index = None;
     let mut args_structs = Vec::new();
@@ -295,6 +298,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     type_infos: &mut type_infos,
                     unit_derivations: &mut unit_derivations,
                     integrations: &mut integrations,
+                    uncertainty_infos: &mut uncertainty_infos,
                 };
                 analyze_fast_binding(binding, &mut accum);
             }
@@ -330,6 +334,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             entry_points,
             stats_infos,
             integrations,
+            uncertainty_infos,
             systems,
             args_structs,
             arg_values: Vec::new(),
@@ -615,6 +620,9 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
     if let Some(integration) = crate::stats::integration_info(binding, accum.typed_bindings) {
         accum.integrations.push(integration);
     }
+    if let Some(uncertainty) = crate::uncertainty::uncertainty_info(binding, accum.typed_bindings) {
+        accum.uncertainty_infos.push(uncertainty);
+    }
 
     if let Some(semantic_type) = infer_quantity(&binding.name, &binding.expression) {
         let canonical_unit = default_unit_for_quantity(&semantic_type.quantity_kind);
@@ -667,6 +675,7 @@ struct SemanticAccum<'a> {
     type_infos: &'a mut Vec<TypeInfo>,
     unit_derivations: &'a mut Vec<UnitDerivation>,
     integrations: &'a mut Vec<IntegrationInfo>,
+    uncertainty_infos: &'a mut Vec<UncertaintyInfo>,
 }
 
 fn check_ambiguous_quantity(binding: &FastBinding, diagnostics: &mut Vec<Diagnostic>) {
@@ -828,6 +837,12 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
     let lowered_name = name.to_ascii_lowercase();
     let lowered_expression = expression.to_ascii_lowercase();
 
+    if let Some((quantity_kind, display_unit)) =
+        crate::uncertainty::uncertainty_semantic_type(name, expression)
+    {
+        return semantic_type(&quantity_kind, &display_unit);
+    }
+
     if lowered_expression.contains("promote csv") {
         return semantic_type("Table[Time]", "schema-defined");
     }
@@ -860,6 +875,10 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
 }
 
 fn default_unit_for_quantity(quantity_kind: &str) -> String {
+    if let Some((_, inner_quantity)) = crate::uncertainty::uncertainty_inner_quantity(quantity_kind)
+    {
+        return default_unit_for_quantity(&inner_quantity);
+    }
     if let Some((_, value_quantity)) = crate::stats::time_series_quantity(quantity_kind) {
         return default_unit_for_quantity(&value_quantity);
     }
@@ -872,6 +891,10 @@ fn default_unit_for_quantity(quantity_kind: &str) -> String {
 }
 
 fn dimension_for_quantity(quantity_kind: &str) -> String {
+    if let Some((_, inner_quantity)) = crate::uncertainty::uncertainty_inner_quantity(quantity_kind)
+    {
+        return dimension_for_quantity(&inner_quantity);
+    }
     if let Some((_, value_quantity)) = crate::stats::time_series_quantity(quantity_kind) {
         return dimension_for_quantity(&value_quantity);
     }

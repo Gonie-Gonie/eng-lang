@@ -15,6 +15,10 @@ copy first when starting from a stable EngLang preview.
 03_integrated_hvac
   Combined user-test path for Args, CSV policies, missing interpolation,
   statistics, integrate, PlotSpec/report, and simple system solver preview.
+
+04_uncertainty_core
+  Uncertainty core seed for measured values, intervals, deterministic
+  distributions/ensembles, propagation metadata, and in-report histogram output.
 ```
 
 Legacy numbered examples remain for compatibility and focused regression tests.

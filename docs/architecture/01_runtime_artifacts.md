@@ -144,6 +144,13 @@ Current v1.0 fields:
         "method": "trapezoidal"
       }
     ],
+    "uncertainties": [
+      {
+        "kind": "Distribution",
+        "status": "sampled_seed",
+        "sample_count": 31
+      }
+    ],
     "policy_results": [
       {
         "kind": "constraint",
@@ -217,6 +224,7 @@ unit_conversion_table
 axis_info
 stats_info
 integrations
+uncertainty_info
 system_summary
 system_ir
 schema_summary
@@ -253,6 +261,7 @@ arg_values
 schema_summary
 computed_statistics
 computed_integrations
+uncertainty
 policy_results
 system_summary
 system_ir

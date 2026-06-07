@@ -7,7 +7,7 @@ use eng_compiler::{
 use eng_report::{
     PlotAxis, PlotPoint, PlotSeries, PlotSpec, ReportComputedIntegration,
     ReportComputedStatisticValue, ReportComputedStatistics, ReportPolicyResult,
-    ReportPolicyViolation, ReportSpec,
+    ReportPolicyViolation, ReportSpec, ReportUncertaintyInfo,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -16,6 +16,7 @@ pub struct RuntimeData {
     pub time_series: Vec<RuntimeTimeSeries>,
     pub statistics: Vec<RuntimeStatistics>,
     pub integrations: Vec<RuntimeIntegration>,
+    pub uncertainties: Vec<RuntimeUncertainty>,
     pub policy_results: Vec<RuntimePolicyResult>,
     pub system_solutions: Vec<RuntimeSystemSolution>,
     pub plot_options: PlotOptions,
@@ -23,6 +24,17 @@ pub struct RuntimeData {
 
 impl RuntimeData {
     pub fn apply_plot_spec(&self, report: &CheckReport, spec: &mut PlotSpec) {
+        if let Some(distribution_name) = self.plot_options.distribution.as_deref() {
+            if let Some(uncertainty) = self
+                .uncertainties
+                .iter()
+                .find(|uncertainty| uncertainty.binding == distribution_name)
+            {
+                self.apply_uncertainty_plot(uncertainty, spec);
+                return;
+            }
+        }
+
         let requested_series = self
             .plot_options
             .series
@@ -80,6 +92,32 @@ impl RuntimeData {
         if spec.series.is_empty() && !report.semantic_program.typed_bindings.is_empty() {
             *spec = eng_report::plot_spec_from_report(report);
         }
+    }
+
+    fn apply_uncertainty_plot(&self, uncertainty: &RuntimeUncertainty, spec: &mut PlotSpec) {
+        let title = self
+            .plot_options
+            .title
+            .clone()
+            .unwrap_or_else(|| format!("{} distribution", uncertainty.binding));
+        spec.title = title;
+        spec.plot_type = "histogram".to_owned();
+        spec.x_axis = PlotAxis {
+            name: uncertainty.binding.clone(),
+            label: uncertainty.quantity_kind.clone(),
+            unit: uncertainty.display_unit.clone(),
+        };
+        spec.y_axis = PlotAxis {
+            name: "Frequency".to_owned(),
+            label: "Frequency".to_owned(),
+            unit: "count".to_owned(),
+        };
+        spec.series = vec![PlotSeries {
+            name: uncertainty.binding.clone(),
+            quantity_kind: uncertainty.quantity_kind.clone(),
+            display_unit: uncertainty.display_unit.clone(),
+            points: histogram_points(&uncertainty.samples),
+        }];
     }
 
     pub fn report_computed_statistics(&self) -> Vec<ReportComputedStatistics> {
@@ -143,6 +181,27 @@ impl RuntimeData {
                     })
                     .collect(),
                 line: policy.line,
+            })
+            .collect()
+    }
+
+    pub fn report_uncertainty(&self) -> Vec<ReportUncertaintyInfo> {
+        self.uncertainties
+            .iter()
+            .map(|uncertainty| ReportUncertaintyInfo {
+                binding: uncertainty.binding.clone(),
+                kind: uncertainty.kind.clone(),
+                quantity_kind: uncertainty.quantity_kind.clone(),
+                display_unit: uncertainty.display_unit.clone(),
+                expression: uncertainty.expression.clone(),
+                source: uncertainty.source.clone(),
+                mean: uncertainty.mean.map(format_number),
+                stddev: uncertainty.stddev.map(format_number),
+                lower: uncertainty.lower.map(format_number),
+                upper: uncertainty.upper.map(format_number),
+                sample_count: uncertainty.sample_count,
+                propagation_count: uncertainty.propagation_count,
+                line: uncertainty.line,
             })
             .collect()
     }
@@ -273,6 +332,25 @@ pub struct RuntimeIntegration {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeUncertainty {
+    pub binding: String,
+    pub kind: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub expression: String,
+    pub source: Option<String>,
+    pub mean: Option<f64>,
+    pub stddev: Option<f64>,
+    pub lower: Option<f64>,
+    pub upper: Option<f64>,
+    pub sample_count: usize,
+    pub propagation_count: usize,
+    pub samples: Vec<f64>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct RuntimeSystemSolution {
     pub system: String,
     pub status: String,
@@ -318,6 +396,7 @@ pub struct RuntimePolicyViolation {
 pub struct PlotOptions {
     pub series: Option<String>,
     pub axis: Option<String>,
+    pub distribution: Option<String>,
     pub plot_type: Option<String>,
     pub title: Option<String>,
     pub y_unit: Option<String>,
@@ -347,6 +426,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.time_series = materialize_time_series(report, &data.tables);
     data.statistics = materialize_statistics(report, &data.time_series);
     data.integrations = materialize_integrations(report, &data.time_series);
+    data.uncertainties = materialize_uncertainties(report);
     data.system_solutions = materialize_system_solutions(report);
     data
 }
@@ -668,6 +748,85 @@ fn materialize_integrations(
             }
         })
         .collect()
+}
+
+fn materialize_uncertainties(report: &CheckReport) -> Vec<RuntimeUncertainty> {
+    let mut uncertainties = Vec::new();
+    for info in &report.semantic_program.uncertainty_infos {
+        let uncertainty = materialize_uncertainty(info, &uncertainties);
+        uncertainties.push(uncertainty);
+    }
+    uncertainties
+}
+
+fn materialize_uncertainty(
+    info: &eng_compiler::UncertaintyInfo,
+    prior: &[RuntimeUncertainty],
+) -> RuntimeUncertainty {
+    let declared_mean = info.mean.as_deref().and_then(first_numeric_value);
+    let declared_stddev = info.stddev.as_deref().and_then(first_numeric_value);
+    let declared_lower = info.lower.as_deref().and_then(first_numeric_value);
+    let declared_upper = info.upper.as_deref().and_then(first_numeric_value);
+    let requested_count = info.sample_count.clamp(1, 256);
+    let source = info.source.as_deref().and_then(|source| {
+        prior
+            .iter()
+            .find(|uncertainty| uncertainty.binding == source)
+    });
+    let is_propagation = info
+        .expression
+        .trim_start()
+        .to_ascii_lowercase()
+        .starts_with("propagate(");
+
+    let mut samples = match info.kind.as_str() {
+        "Measured" => declared_mean.into_iter().collect::<Vec<_>>(),
+        "Interval" => interval_samples(declared_lower, declared_upper),
+        "Ensemble" => source
+            .map(|source| resample_deterministic(&source.samples, requested_count))
+            .unwrap_or_else(|| normal_samples(0.0, 1.0, requested_count)),
+        "Distribution" if is_propagation => source
+            .map(|source| resample_deterministic(&source.samples, requested_count))
+            .unwrap_or_else(|| {
+                normal_samples(
+                    declared_mean.unwrap_or(0.0),
+                    declared_stddev.unwrap_or(1.0),
+                    requested_count,
+                )
+            }),
+        "Distribution" => normal_samples(
+            declared_mean.unwrap_or(0.0),
+            declared_stddev.unwrap_or(1.0),
+            requested_count,
+        ),
+        _ => Vec::new(),
+    };
+    if samples.is_empty() {
+        samples.push(declared_mean.unwrap_or(0.0));
+    }
+    let summary = sample_summary(&samples);
+
+    RuntimeUncertainty {
+        binding: info.binding.clone(),
+        kind: info.kind.clone(),
+        quantity_kind: info.quantity_kind.clone(),
+        display_unit: info.display_unit.clone(),
+        expression: info.expression.clone(),
+        source: info.source.clone(),
+        mean: declared_mean.or(summary.mean),
+        stddev: declared_stddev.or(summary.stddev),
+        lower: declared_lower.or(summary.lower),
+        upper: declared_upper.or(summary.upper),
+        sample_count: samples.len(),
+        propagation_count: info.propagation.len(),
+        samples,
+        status: if is_propagation {
+            "propagated_seed".to_owned()
+        } else {
+            "sampled_seed".to_owned()
+        },
+        line: info.line,
+    }
 }
 
 fn materialize_system_solutions(report: &CheckReport) -> Vec<RuntimeSystemSolution> {
@@ -1341,7 +1500,10 @@ fn parse_plot_options(source: &str) -> PlotOptions {
     let after_plot = &source[plot_index + "plot ".len()..];
     let header_end = after_plot.find('{').unwrap_or(after_plot.len());
     let header = after_plot[..header_end].trim();
-    if let Some((series, axis)) = header.split_once(" over ") {
+    if let Some(distribution) = parse_distribution_header(header) {
+        options.distribution = Some(distribution);
+        options.plot_type = Some("histogram".to_owned());
+    } else if let Some((series, axis)) = header.split_once(" over ") {
         options.series = series.split_whitespace().next().map(str::to_owned);
         options.axis = axis.split_whitespace().next().map(str::to_owned);
     }
@@ -1363,6 +1525,19 @@ fn parse_plot_options(source: &str) -> PlotOptions {
         }
     }
     options
+}
+
+fn parse_distribution_header(header: &str) -> Option<String> {
+    let header = header.trim();
+    let inner = header
+        .strip_prefix("distribution(")
+        .and_then(|rest| rest.strip_suffix(')'))?;
+    inner
+        .split(',')
+        .next()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
 }
 
 fn supported_plot_type(value: &str) -> Option<String> {
@@ -1589,6 +1764,122 @@ fn convert_display_value(value: f64, from_unit: &str, to_unit: &str) -> f64 {
     }
 }
 
+fn first_numeric_value(text: &str) -> Option<f64> {
+    number_with_optional_unit(text).map(|(value, _)| value)
+}
+
+fn interval_samples(lower: Option<f64>, upper: Option<f64>) -> Vec<f64> {
+    match (lower, upper) {
+        (Some(lower), Some(upper)) if (upper - lower).abs() > f64::EPSILON => {
+            vec![lower, (lower + upper) * 0.5, upper]
+        }
+        (Some(value), _) | (_, Some(value)) => vec![value],
+        _ => Vec::new(),
+    }
+}
+
+fn normal_samples(mean: f64, stddev: f64, count: usize) -> Vec<f64> {
+    let count = count.clamp(1, 256);
+    if count == 1 || stddev == 0.0 {
+        return vec![mean; count];
+    }
+    let denominator = (count - 1) as f64;
+    (0..count)
+        .map(|index| {
+            let centered = (index as f64 / denominator) * 2.0 - 1.0;
+            mean + centered * 3.0 * stddev
+        })
+        .collect()
+}
+
+fn resample_deterministic(values: &[f64], count: usize) -> Vec<f64> {
+    if values.is_empty() {
+        return Vec::new();
+    }
+    let count = count.clamp(1, 256);
+    (0..count)
+        .map(|index| values[index % values.len()])
+        .collect()
+}
+
+#[derive(Clone, Copy, Debug)]
+struct SampleSummary {
+    mean: Option<f64>,
+    stddev: Option<f64>,
+    lower: Option<f64>,
+    upper: Option<f64>,
+}
+
+fn sample_summary(values: &[f64]) -> SampleSummary {
+    if values.is_empty() {
+        return SampleSummary {
+            mean: None,
+            stddev: None,
+            lower: None,
+            upper: None,
+        };
+    }
+    let mean = values.iter().sum::<f64>() / values.len() as f64;
+    let variance = values
+        .iter()
+        .map(|value| {
+            let delta = value - mean;
+            delta * delta
+        })
+        .sum::<f64>()
+        / values.len() as f64;
+    let lower = values.iter().copied().fold(f64::INFINITY, f64::min);
+    let upper = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    SampleSummary {
+        mean: Some(mean),
+        stddev: Some(variance.sqrt()),
+        lower: Some(lower),
+        upper: Some(upper),
+    }
+}
+
+fn histogram_points(values: &[f64]) -> Vec<PlotPoint> {
+    if values.is_empty() {
+        return Vec::new();
+    }
+    let lower = values.iter().copied().fold(f64::INFINITY, f64::min);
+    let upper = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    if (upper - lower).abs() <= f64::EPSILON {
+        return vec![PlotPoint {
+            x: lower,
+            y: values.len() as f64,
+        }];
+    }
+    let bin_count = values.len().clamp(3, 12);
+    let width = (upper - lower) / bin_count as f64;
+    let mut bins = vec![0usize; bin_count];
+    for value in values {
+        let mut index = ((value - lower) / width).floor() as usize;
+        if index >= bin_count {
+            index = bin_count - 1;
+        }
+        bins[index] += 1;
+    }
+    bins.into_iter()
+        .enumerate()
+        .map(|(index, count)| PlotPoint {
+            x: lower + (index as f64 + 0.5) * width,
+            y: count as f64,
+        })
+        .collect()
+}
+
+fn format_number(value: f64) -> String {
+    let mut text = format!("{value:.6}");
+    while text.contains('.') && text.ends_with('0') {
+        text.pop();
+    }
+    if text.ends_with('.') {
+        text.pop();
+    }
+    text
+}
+
 fn canonical_unit_for_quantity(quantity_kind: &str) -> Option<String> {
     all_quantity_completions()
         .iter()
@@ -1780,6 +2071,53 @@ script main(args: Args) -> Report {
         assert_eq!(options.y_unit.as_deref(), Some("kW"));
         assert_eq!(options.plot_type.as_deref(), Some("histogram"));
         assert_eq!(options.title.as_deref(), Some("Coil heat rate"));
+    }
+
+    #[test]
+    fn parses_distribution_plot_options() {
+        let options = parse_plot_options(
+            r#"
+script main(args: Args) -> Report {
+    return report {
+        plot distribution(Q_coil_dist) {
+            title = "Coil uncertainty"
+        }
+    }
+}
+"#,
+        );
+
+        assert_eq!(options.distribution.as_deref(), Some("Q_coil_dist"));
+        assert_eq!(options.plot_type.as_deref(), Some("histogram"));
+        assert_eq!(options.title.as_deref(), Some("Coil uncertainty"));
+    }
+
+    #[test]
+    fn materializes_uncertainty_samples_and_histogram_plot() {
+        let source = r#"
+script main(args: Args) -> Report {
+    Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)
+    Q_unc = propagate(Q_coil_dist, method=linear)
+
+    return report {
+        plot distribution(Q_coil_dist) {
+            title = "Coil uncertainty"
+        }
+    }
+}
+"#;
+        let report = eng_compiler::check_source("ok.eng", source, &CheckOptions::default());
+        let runtime = materialize_runtime_data(&report, source);
+        let mut plot_spec = eng_report::plot_spec_from_report(&report);
+        runtime.apply_plot_spec(&report, &mut plot_spec);
+
+        assert_eq!(runtime.uncertainties.len(), 2);
+        assert_eq!(runtime.uncertainties[0].sample_count, 31);
+        assert_eq!(runtime.uncertainties[1].status, "propagated_seed");
+        assert_eq!(round2(runtime.uncertainties[0].mean.unwrap()), 5.0);
+        assert_eq!(plot_spec.plot_type, "histogram");
+        assert_eq!(plot_spec.title, "Coil uncertainty");
+        assert!(!plot_spec.series[0].points.is_empty());
     }
 
     #[test]

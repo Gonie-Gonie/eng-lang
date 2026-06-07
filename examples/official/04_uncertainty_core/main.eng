@@ -1,0 +1,21 @@
+struct Args {
+    case_name: String = "coil_uncertainty_seed"
+}
+
+script main(args: Args) -> Report {
+    T_supply_meas = measured(12 degC, std=0.2 K)
+    T_return_band = interval(20 degC, 24 degC)
+    Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)
+    Q_coil_ensemble = ensemble(Q_coil_dist, samples=31)
+    Q_total_unc = propagate(Q_coil_dist, method=linear)
+
+    return report {
+        show T_supply_meas
+        show T_return_band
+        show Q_coil_ensemble
+        show Q_total_unc
+        plot distribution(Q_coil_dist) {
+            title = "Coil heat-rate uncertainty"
+        }
+    }
+}

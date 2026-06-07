@@ -165,6 +165,31 @@ typed_payload.solver_boundaries
 typed_payload.system_ir
 ```
 
+## Uncertainty Metadata
+
+v1.1 adds uncertainty seed metadata for:
+
+```text
+measured(...)
+interval(...)
+normal(...) / distribution(...)
+ensemble(...)
+propagate(...)
+```
+
+The same uncertainty surface appears in:
+
+```text
+review.json                 uncertainty_info
+report_spec.json            uncertainty
+result.engres               typed_payload.uncertainties
+report.html                 Uncertainty table
+plots/plot_spec.json        histogram when plot distribution(...) is requested
+```
+
+The runtime path is deterministic. It records samples and summary fields for
+user testing, but it is not yet a full stochastic propagation engine.
+
 ## Manual Checks
 
 PowerShell JSON checks:

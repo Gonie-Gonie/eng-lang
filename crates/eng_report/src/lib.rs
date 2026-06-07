@@ -48,6 +48,7 @@ pub struct ReportSpec {
     pub arg_values: Vec<ReportArgValue>,
     pub computed_statistics: Vec<ReportComputedStatistics>,
     pub computed_integrations: Vec<ReportComputedIntegration>,
+    pub uncertainty: Vec<ReportUncertaintyInfo>,
     pub policy_results: Vec<ReportPolicyResult>,
     pub systems: Vec<ReportSystemSummary>,
     pub system_ir: Vec<ReportSystemIr>,
@@ -150,6 +151,23 @@ pub struct ReportComputedIntegration {
     pub unit: String,
     pub method: String,
     pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportUncertaintyInfo {
+    pub binding: String,
+    pub kind: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub expression: String,
+    pub source: Option<String>,
+    pub mean: Option<String>,
+    pub stddev: Option<String>,
+    pub lower: Option<String>,
+    pub upper: Option<String>,
+    pub sample_count: usize,
+    pub propagation_count: usize,
+    pub line: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -425,6 +443,26 @@ pub fn report_spec_from_report(
             line: diagnostic.line,
         })
         .collect();
+    let uncertainty = report
+        .semantic_program
+        .uncertainty_infos
+        .iter()
+        .map(|info| ReportUncertaintyInfo {
+            binding: info.binding.clone(),
+            kind: info.kind.clone(),
+            quantity_kind: info.quantity_kind.clone(),
+            display_unit: info.display_unit.clone(),
+            expression: info.expression.clone(),
+            source: info.source.clone(),
+            mean: info.mean.clone(),
+            stddev: info.stddev.clone(),
+            lower: info.lower.clone(),
+            upper: info.upper.clone(),
+            sample_count: info.sample_count,
+            propagation_count: info.propagation.len(),
+            line: info.line,
+        })
+        .collect();
 
     let systems = report
         .semantic_program
@@ -565,6 +603,7 @@ pub fn report_spec_from_report(
         arg_values,
         computed_statistics: Vec::new(),
         computed_integrations: Vec::new(),
+        uncertainty,
         policy_results: Vec::new(),
         systems,
         system_ir,
@@ -928,6 +967,50 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             "      \"status\": \"{}\"\n",
             json_escape(&integration.status)
         ));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"uncertainty\": [\n");
+    for (index, uncertainty) in spec.uncertainty.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&uncertainty.binding)
+        ));
+        json.push_str(&format!(
+            "      \"kind\": \"{}\",\n",
+            json_escape(&uncertainty.kind)
+        ));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&uncertainty.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&uncertainty.display_unit)
+        ));
+        json.push_str(&format!(
+            "      \"expression\": \"{}\",\n",
+            json_escape(&uncertainty.expression)
+        ));
+        push_optional_json_string(&mut json, "source", uncertainty.source.as_deref(), 6);
+        push_optional_json_string(&mut json, "mean", uncertainty.mean.as_deref(), 6);
+        push_optional_json_string(&mut json, "stddev", uncertainty.stddev.as_deref(), 6);
+        push_optional_json_string(&mut json, "lower", uncertainty.lower.as_deref(), 6);
+        push_optional_json_string(&mut json, "upper", uncertainty.upper.as_deref(), 6);
+        json.push_str(&format!(
+            "      \"sample_count\": {},\n",
+            uncertainty.sample_count
+        ));
+        json.push_str(&format!(
+            "      \"propagation_count\": {},\n",
+            uncertainty.propagation_count
+        ));
+        json.push_str(&format!("      \"line\": {}\n", uncertainty.line));
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -1615,6 +1698,25 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
         integrations.push_str("<tr><td colspan=\"6\">No integrations.</td></tr>");
     }
 
+    let mut uncertainty = String::new();
+    for info in &report.semantic_program.uncertainty_infos {
+        uncertainty.push_str("<tr>");
+        uncertainty.push_str(&format!(
+            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><code>{}</code></td>",
+            info.line,
+            html_escape(&info.binding),
+            html_escape(&info.kind),
+            html_escape(&info.quantity_kind),
+            html_escape(&info.display_unit),
+            info.sample_count,
+            html_escape(&info.expression)
+        ));
+        uncertainty.push_str("</tr>");
+    }
+    if uncertainty.is_empty() {
+        uncertainty.push_str("<tr><td colspan=\"7\">No uncertainty metadata.</td></tr>");
+    }
+
     let mut system_equations = String::new();
     for system in &report.semantic_program.systems {
         for equation in &system.equations {
@@ -1733,6 +1835,7 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     let axis_info_count = report.semantic_program.axis_infos.len();
     let stats_info_count = report.semantic_program.stats_infos.len();
     let integration_count = report.semantic_program.integrations.len();
+    let uncertainty_count = report.semantic_program.uncertainty_infos.len();
     let system_count = report.semantic_program.systems.len();
     let equation_count = report
         .semantic_program
@@ -1846,6 +1949,7 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
       <div class="metric"><span>Axis Info</span><strong>{axis_info_count}</strong></div>
       <div class="metric"><span>Stats Info</span><strong>{stats_info_count}</strong></div>
       <div class="metric"><span>Integrations</span><strong>{integration_count}</strong></div>
+      <div class="metric"><span>Uncertainty</span><strong>{uncertainty_count}</strong></div>
       <div class="metric"><span>Systems</span><strong>{system_count}</strong></div>
       <div class="metric"><span>Equations</span><strong>{equation_count}</strong></div>
       <div class="metric"><span>Residuals</span><strong>{residual_count}</strong></div>
@@ -1899,6 +2003,11 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     <table>
       <thead><tr><th>Line</th><th>Binding</th><th>Source</th><th>Input</th><th>Axis</th><th>Result</th></tr></thead>
       <tbody>{integrations}</tbody>
+    </table>
+    <h2>Uncertainty</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Binding</th><th>Kind</th><th>Quantity</th><th>Unit</th><th>Samples</th><th>Expression</th></tr></thead>
+      <tbody>{uncertainty}</tbody>
     </table>
     <h2>System Equations</h2>
     <table>
@@ -1957,6 +2066,14 @@ fn json_escape(value: &str) -> String {
         }
     }
     escaped
+}
+
+fn push_optional_json_string(json: &mut String, key: &str, value: Option<&str>, indent: usize) {
+    let spaces = " ".repeat(indent);
+    match value {
+        Some(value) => json.push_str(&format!("{spaces}\"{key}\": \"{}\",\n", json_escape(value))),
+        None => json.push_str(&format!("{spaces}\"{key}\": null,\n")),
+    }
 }
 
 fn push_json_string_array(json: &mut String, values: &[String]) {
@@ -2166,6 +2283,27 @@ mod tests {
         assert!(json.contains("\"schema_summary\""));
         assert!(json.contains("\"plot_manifest\""));
         assert!(json.contains("\"warning_list\""));
+    }
+
+    #[test]
+    fn report_spec_and_html_include_uncertainty_metadata() {
+        let report = check_source(
+            "ok.eng",
+            "script main(args: Args) -> Report {\n    Q_dist = normal(mean=5 kW, std=0.8 kW, samples=31)\n    Q_unc = propagate(Q_dist, method=linear)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        let spec = report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        let json = report_spec_json(&spec);
+        let html = render_html(&report, "plots/timeseries.svg");
+
+        assert_eq!(spec.uncertainty.len(), 2);
+        assert_eq!(spec.uncertainty[0].kind, "Distribution");
+        assert_eq!(spec.uncertainty[0].sample_count, 31);
+        assert!(json.contains("\"uncertainty\""));
+        assert!(json.contains("\"Q_unc\""));
+        assert!(html.contains("Uncertainty"));
+        assert!(html.contains("Q_dist"));
     }
 
     #[test]

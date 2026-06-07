@@ -111,6 +111,15 @@ examples/official/03_integrated_hvac/main.eng
 See [Integrated HVAC user test](../tutorials/06_integrated_hvac.md) for the
 step-by-step flow.
 
+Recommended v1.1 uncertainty smoke:
+
+```text
+examples/official/04_uncertainty_core/main.eng
+```
+
+Run it and inspect the Plot SVG/Report artifacts to verify the in-report
+histogram and Uncertainty table.
+
 ## Completion Scope
 
 Current completion sources:

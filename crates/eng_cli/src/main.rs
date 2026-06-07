@@ -623,6 +623,41 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(2);
         }
     }
+    match run_file(
+        Path::new("examples/official/04_uncertainty_core/main.eng"),
+        Path::new("build/test-uncertainty-core"),
+        &RunOptions {
+            open_report: false,
+            entry: Some("main".to_owned()),
+            args: Vec::new(),
+        },
+    ) {
+        Ok(output) => {
+            let result = std::fs::read_to_string(output.result_path).unwrap_or_default();
+            let review = std::fs::read_to_string(output.review_path).unwrap_or_default();
+            let report_spec = std::fs::read_to_string(output.report_spec_path).unwrap_or_default();
+            let plot_spec = std::fs::read_to_string(output.plot_spec_path).unwrap_or_default();
+            if !result.contains("\"uncertainties\"")
+                || !result.contains("\"propagated_seed\"")
+                || !review.contains("\"uncertainty_info\"")
+                || !report_spec.contains("\"uncertainty\"")
+                || !plot_spec.contains("\"plot_type\": \"histogram\"")
+                || !plot_spec.contains("Coil heat-rate uncertainty")
+            {
+                eprintln!(
+                    "expected uncertainty example to produce review/report/result metadata and histogram plot"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/04_uncertainty_core/main.eng produced uncertainty artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("uncertainty core example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
 
     if !data_quality_fixture_records_parse_failure(
         "examples/07_data_quality/bad_datetime_cell.eng",

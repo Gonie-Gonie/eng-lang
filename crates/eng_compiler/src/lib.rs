@@ -11,6 +11,7 @@ mod semantic;
 mod source;
 mod stats;
 mod type_info;
+mod uncertainty;
 mod units;
 
 use std::collections::{HashMap, HashSet};
@@ -41,6 +42,7 @@ pub use semantic::{
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
 pub use type_info::{TypeInfo, TypeInfoSource};
+pub use uncertainty::{UncertaintyInfo, UncertaintyPropagationTerm};
 pub use units::{all_unit_infos, UnitDerivation, UnitInfo};
 
 pub const COMPILER_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -847,6 +849,58 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    json.push_str("  \"uncertainty_info\": [\n");
+    for (index, uncertainty) in report.semantic_program.uncertainty_infos.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&uncertainty.binding)
+        ));
+        json.push_str(&format!(
+            "      \"kind\": \"{}\",\n",
+            json_escape(&uncertainty.kind)
+        ));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&uncertainty.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&uncertainty.display_unit)
+        ));
+        json.push_str(&format!(
+            "      \"expression\": \"{}\",\n",
+            json_escape(&uncertainty.expression)
+        ));
+        push_optional_json_string(&mut json, "source", uncertainty.source.as_deref(), 6);
+        push_optional_json_string(&mut json, "mean", uncertainty.mean.as_deref(), 6);
+        push_optional_json_string(&mut json, "stddev", uncertainty.stddev.as_deref(), 6);
+        push_optional_json_string(&mut json, "lower", uncertainty.lower.as_deref(), 6);
+        push_optional_json_string(&mut json, "upper", uncertainty.upper.as_deref(), 6);
+        json.push_str(&format!(
+            "      \"sample_count\": {},\n",
+            uncertainty.sample_count
+        ));
+        json.push_str("      \"propagation\": [");
+        for (term_index, term) in uncertainty.propagation.iter().enumerate() {
+            if term_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!(
+                "{{ \"source\": \"{}\", \"role\": \"{}\", \"quantity_kind\": \"{}\" }}",
+                json_escape(&term.source),
+                json_escape(&term.role),
+                json_escape(&term.quantity_kind)
+            ));
+        }
+        json.push_str("],\n");
+        json.push_str(&format!("      \"line\": {}\n", uncertainty.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
     json.push_str("  \"system_summary\": [\n");
     for (index, system) in report.semantic_program.systems.iter().enumerate() {
         if index > 0 {
@@ -1321,6 +1375,14 @@ fn hash_text(source: &str) -> String {
     format!("{hash:016x}")
 }
 
+fn push_optional_json_string(json: &mut String, key: &str, value: Option<&str>, indent: usize) {
+    let spaces = " ".repeat(indent);
+    match value {
+        Some(value) => json.push_str(&format!("{spaces}\"{key}\": \"{}\",\n", json_escape(value))),
+        None => json.push_str(&format!("{spaces}\"{key}\": null,\n")),
+    }
+}
+
 fn json_escape(value: &str) -> String {
     let mut escaped = String::with_capacity(value.len());
     for character in value.chars() {
@@ -1491,6 +1553,41 @@ mod tests {
             report.semantic_program.integrations[0].input_quantity,
             "HeatRate"
         );
+    }
+
+    #[test]
+    fn records_uncertainty_core_metadata() {
+        let report = check_source(
+            "ok.eng",
+            "script main(args: Args) -> Report {\n    T_supply_meas = measured(12 degC, std=0.2 K)\n    T_return_band = interval(20 degC, 24 degC)\n    Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)\n    Q_coil_ensemble = ensemble(Q_coil_dist, samples=31)\n    Q_total_unc = propagate(Q_coil_dist, method=linear)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(report.semantic_program.uncertainty_infos.len(), 5);
+        assert_eq!(
+            report.semantic_program.uncertainty_infos[0].kind,
+            "Measured"
+        );
+        assert_eq!(
+            report.semantic_program.uncertainty_infos[2].sample_count,
+            31
+        );
+        assert_eq!(
+            report.semantic_program.uncertainty_infos[4]
+                .source
+                .as_deref(),
+            Some("Q_coil_dist")
+        );
+        assert_eq!(
+            report.semantic_program.uncertainty_infos[4].display_unit,
+            "W"
+        );
+
+        let review = review_json(&report);
+        assert!(review.contains("\"uncertainty_info\""));
+        assert!(review.contains("\"Measured[AbsoluteTemperature]\""));
+        assert!(review.contains("\"Distribution[HeatRate]\""));
     }
 
     #[test]
