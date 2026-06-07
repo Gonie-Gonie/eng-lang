@@ -8,6 +8,7 @@ default:
   - docs/current/v1_3_lsp_gate.md
   - docs/current/v1_4_jit_gate.md
   - docs/current/v1_5_standalone_gate.md
+  - docs/current/v2_0_domain_component_gate.md
   - docs/reference/standalone_package.md
 
 task_types:
@@ -94,3 +95,12 @@ task_types:
     - docs/schemas/engpkg.schema.json
     - crates/eng_runtime/
     - crates/eng_cli/
+
+  domain_component:
+    - docs/current/v2_0_domain_component_gate.md
+    - docs/guide/domain_component.md
+    - examples/official/06_domain_port/
+    - examples/05_error_messages/port_domain_mismatch.eng
+    - crates/eng_compiler/src/parser.rs
+    - crates/eng_compiler/src/semantic.rs
+    - crates/eng_compiler/src/lib.rs

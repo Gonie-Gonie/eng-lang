@@ -1,0 +1,19 @@
+domain Thermal {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+}
+
+domain Fluid {
+    across height: Length [m]
+    through m_dot: MassFlowRate [kg/s]
+}
+
+component Heater {
+    port heat: Thermal
+}
+
+component Pipe {
+    port inlet: Fluid
+}
+
+connect Heater.heat -> Pipe.inlet

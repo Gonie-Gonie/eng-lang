@@ -514,6 +514,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/01_csv_plot/main.eng",
                 "examples/official/02_simple_system/main.eng",
                 "examples/official/03_integrated_hvac/main.eng",
+                "examples/official/06_domain_port/main.eng",
             ],
         ),
         (
@@ -565,6 +566,29 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         return ExitCode::from(2);
     }
     println!("ok: official CSV example produced JIT kernel candidates");
+
+    let domain_port = match check_file(
+        "examples/official/06_domain_port/main.eng",
+        &CheckOptions::default(),
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    let domain_review = review_json(&domain_port);
+    if !domain_review.contains("\"domain_summary\"")
+        || !domain_review.contains("\"component_summary\"")
+        || !domain_review.contains("\"connection_summary\"")
+        || !domain_review.contains("\"domain_compatible\"")
+    {
+        eprintln!(
+            "expected domain port example to expose domain/component/connection review metadata"
+        );
+        return ExitCode::from(2);
+    }
+    println!("ok: examples/official/06_domain_port/main.eng produced domain port metadata");
 
     let bad = match check_file(
         "examples/05_error_messages/unit_mismatch.eng",
@@ -673,6 +697,26 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         return ExitCode::from(2);
     }
     println!("ok: examples/05_error_messages/equation_unit_mismatch.eng produced diagnostics");
+
+    let port_domain_mismatch = match check_file(
+        "examples/05_error_messages/port_domain_mismatch.eng",
+        &CheckOptions::default(),
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    if !port_domain_mismatch
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "E-CONNECT-DOMAIN-001")
+    {
+        eprintln!("expected port_domain_mismatch.eng to produce E-CONNECT-DOMAIN-001");
+        return ExitCode::from(2);
+    }
+    println!("ok: examples/05_error_messages/port_domain_mismatch.eng produced diagnostics");
 
     let missing_uncertainty_source = match check_file(
         "examples/05_error_messages/missing_uncertainty_source.eng",

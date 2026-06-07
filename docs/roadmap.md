@@ -451,6 +451,14 @@ Required outputs:
 - domain package ecosystem
 ```
 
+Status on `main`: the first metadata-first domain/component slice exists with
+`domain`, `across`, `through`, `conservation`, `component`, `port`, and
+`connect` parsing, port-domain diagnostics, review metadata, and
+`examples/official/06_domain_port`. Numeric multi-domain simulation,
+generic medium/frame/axis domains, and package ecosystem behavior remain
+deferred. Track the exact boundary in
+[docs/current/v2_0_domain_component_gate.md](current/v2_0_domain_component_gate.md).
+
 ## Work Breakdown Rules
 
 Issues should include a version target whenever possible.

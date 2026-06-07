@@ -21,7 +21,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub use ast::{
-    AstItem, EquationDecl, ExplicitDecl, FastBinding, SchemaDecl, ScriptDecl, StructDecl,
+    AstItem, ComponentDecl, ConnectDecl, ConservationDecl, DomainDecl, DomainVariableDecl,
+    EquationDecl, ExplicitDecl, FastBinding, PortDecl, SchemaDecl, ScriptDecl, StructDecl,
     StructFieldDecl, SystemDecl, SystemVariableDecl,
 };
 pub use bytecode::{
@@ -37,8 +38,9 @@ pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSu
 pub use quantities::{all_quantity_completions, normalize_unit, QuantityCompletion};
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
 pub use semantic::{
-    ArgValueInfo, ArgsFieldInfo, ArgsStructInfo, EquationDependencyInfo, EquationInfo,
-    EquationIrInfo, JacobianSeedInfo, OdeRunnerInfo, ResidualInfo, SemanticProgram, SemanticType,
+    ArgValueInfo, ArgsFieldInfo, ArgsStructInfo, ComponentInfo, ConnectionInfo, ConservationInfo,
+    DomainInfo, DomainVariableInfo, EquationDependencyInfo, EquationInfo, EquationIrInfo,
+    JacobianSeedInfo, OdeRunnerInfo, PortInfo, ResidualInfo, SemanticProgram, SemanticType,
     SolverPlanInfo, SystemInfo, SystemVariableInfo, TypedBinding,
 };
 pub use source::SourceSpan;
@@ -295,6 +297,26 @@ pub fn review_json(report: &CheckReport) -> String {
     json.push_str(&format!(
         "    \"systems\": {},\n",
         report.syntax_summary.systems
+    ));
+    json.push_str(&format!(
+        "    \"domains\": {},\n",
+        report.syntax_summary.domains
+    ));
+    json.push_str(&format!(
+        "    \"domain_variables\": {},\n",
+        report.syntax_summary.domain_variables
+    ));
+    json.push_str(&format!(
+        "    \"components\": {},\n",
+        report.syntax_summary.components
+    ));
+    json.push_str(&format!(
+        "    \"ports\": {},\n",
+        report.syntax_summary.ports
+    ));
+    json.push_str(&format!(
+        "    \"connections\": {},\n",
+        report.syntax_summary.connections
     ));
     json.push_str(&format!(
         "    \"structs\": {},\n",
@@ -956,6 +978,146 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    json.push_str("  \"domain_summary\": [\n");
+    for (index, domain) in report.semantic_program.domains.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&domain.name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", domain.line));
+        json.push_str(&format!(
+            "      \"variable_count\": {},\n",
+            domain.variables.len()
+        ));
+        json.push_str(&format!(
+            "      \"conservation_count\": {},\n",
+            domain.conservations.len()
+        ));
+        json.push_str("      \"variables\": [\n");
+        for (variable_index, variable) in domain.variables.iter().enumerate() {
+            if variable_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"role\": \"{}\",\n",
+                json_escape(&variable.role)
+            ));
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&variable.name)
+            ));
+            json.push_str(&format!(
+                "          \"quantity_kind\": \"{}\",\n",
+                json_escape(&variable.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&variable.display_unit)
+            ));
+            json.push_str(&format!(
+                "          \"canonical_unit\": \"{}\",\n",
+                json_escape(&variable.canonical_unit)
+            ));
+            json.push_str(&format!(
+                "          \"dimension\": \"{}\",\n",
+                json_escape(&variable.dimension)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", variable.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"conservations\": [\n");
+        for (conservation_index, conservation) in domain.conservations.iter().enumerate() {
+            if conservation_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"text\": \"{}\",\n",
+                json_escape(&conservation.text)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&conservation.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", conservation.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"component_summary\": [\n");
+    for (index, component) in report.semantic_program.components.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&component.name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", component.line));
+        json.push_str(&format!(
+            "      \"port_count\": {},\n",
+            component.ports.len()
+        ));
+        json.push_str("      \"ports\": [\n");
+        for (port_index, port) in component.ports.iter().enumerate() {
+            if port_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&port.name)
+            ));
+            json.push_str(&format!(
+                "          \"domain\": \"{}\",\n",
+                json_escape(&port.domain)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&port.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", port.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"connection_summary\": [\n");
+    for (index, connection) in report.semantic_program.connections.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"left\": \"{}\",\n",
+            json_escape(&connection.left)
+        ));
+        json.push_str(&format!(
+            "      \"right\": \"{}\",\n",
+            json_escape(&connection.right)
+        ));
+        json.push_str(&format!(
+            "      \"domain\": \"{}\",\n",
+            json_escape(&connection.domain)
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&connection.status)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", connection.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
     json.push_str("  \"system_summary\": [\n");
     for (index, system) in report.semantic_program.systems.iter().enumerate() {
         if index > 0 {
@@ -1529,6 +1691,64 @@ mod tests {
         assert_eq!(report.syntax_summary.equations, 1);
         assert_eq!(report.semantic_program.systems[0].name, "RoomThermal");
         assert_eq!(report.semantic_program.systems[0].variables.len(), 3);
+    }
+
+    #[test]
+    fn records_domain_component_and_connection_metadata() {
+        let report = check_source(
+            "ok.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Room {\n    port heat: Thermal\n}\n\ncomponent Ambient {\n    port heat: Thermal\n}\n\nconnect Room.heat -> Ambient.heat\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(report.syntax_summary.domains, 1);
+        assert_eq!(report.syntax_summary.domain_variables, 2);
+        assert_eq!(report.syntax_summary.components, 2);
+        assert_eq!(report.syntax_summary.ports, 2);
+        assert_eq!(report.syntax_summary.connections, 1);
+        assert_eq!(report.semantic_program.domains[0].name, "Thermal");
+        assert_eq!(
+            report.semantic_program.domains[0].variables[0].role,
+            "across"
+        );
+        assert_eq!(
+            report.semantic_program.domains[0].conservations[0].status,
+            "recorded"
+        );
+        assert_eq!(
+            report.semantic_program.components[0].ports[0].status,
+            "domain_resolved"
+        );
+        assert_eq!(
+            report.semantic_program.connections[0].status,
+            "domain_compatible"
+        );
+
+        let review = review_json(&report);
+        assert!(review.contains("\"domain_summary\""));
+        assert!(review.contains("\"component_summary\""));
+        assert!(review.contains("\"connection_summary\""));
+        assert!(review.contains("\"domain_compatible\""));
+    }
+
+    #[test]
+    fn rejects_incompatible_port_connection_domains() {
+        let report = check_source(
+            "bad.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n}\n\ndomain Fluid {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n}\n\ncomponent Heater {\n    port heat: Thermal\n}\n\ncomponent Pipe {\n    port inlet: Fluid\n}\n\nconnect Heater.heat -> Pipe.inlet\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-CONNECT-DOMAIN-001"));
+        assert_eq!(
+            report.semantic_program.connections[0].status,
+            "domain_mismatch"
+        );
     }
 
     #[test]

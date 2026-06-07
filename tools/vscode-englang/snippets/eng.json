@@ -44,6 +44,27 @@
     ],
     "description": "Create the v1.0 first-order thermal system shape."
   },
+  "Domain ports": {
+    "prefix": "domain ports",
+    "body": [
+      "domain ${1:Thermal} {",
+      "    across ${2:T}: AbsoluteTemperature [degC]",
+      "    through ${3:Q}: HeatRate [kW]",
+      "    conservation sum(${3:Q}) = 0",
+      "}",
+      "",
+      "component ${4:RoomBoundary} {",
+      "    port ${5:heat}: ${1:Thermal}",
+      "}",
+      "",
+      "component ${6:AmbientBoundary} {",
+      "    port ${7:heat}: ${1:Thermal}",
+      "}",
+      "",
+      "connect ${4:RoomBoundary}.${5:heat} -> ${6:AmbientBoundary}.${7:heat}"
+    ],
+    "description": "Create a domain, component ports, and a compatible connection."
+  },
   "Plot line": {
     "prefix": "plot line",
     "body": "return plot line ${1:series}",

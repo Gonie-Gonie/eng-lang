@@ -13,6 +13,7 @@ document:
 - [v1.3 LSP gate](docs/current/v1_3_lsp_gate.md)
 - [v1.4 JIT gate](docs/current/v1_4_jit_gate.md)
 - [v1.5 standalone/AOT gate](docs/current/v1_5_standalone_gate.md)
+- [v2.0 domain/component gate](docs/current/v2_0_domain_component_gate.md)
 - [Standalone package reference](docs/reference/standalone_package.md)
 - [LLM context](LLM_CONTEXT.md)
 - [LLM load map](docs/llm/load_map.yml)
@@ -186,6 +187,12 @@ v1.5
   Standalone/AOT maturity: packaged runner manifests record runtime ABI, repro
   profile, dependency paths, byte-based dependency hashes, and the reserved
   model.exe/AOT boundary. Optimized native model.exe/AOT remains deferred.
+
+v2.0
+  Domain/component platform start: user-defined domain declarations,
+  across/through variable metadata, conservation contracts, component ports,
+  connection review metadata, and invalid port-domain diagnostics. Experimental
+  on main; no multi-domain numeric solver claim.
 ```
 
 ## Documentation
@@ -198,6 +205,7 @@ v1.5
 - [v1.3 LSP gate](docs/current/v1_3_lsp_gate.md)
 - [v1.4 JIT gate](docs/current/v1_4_jit_gate.md)
 - [v1.5 standalone/AOT gate](docs/current/v1_5_standalone_gate.md)
+- [v2.0 domain/component gate](docs/current/v2_0_domain_component_gate.md)
 - [Standalone package reference](docs/reference/standalone_package.md)
 - [LLM context](LLM_CONTEXT.md)
 - [LLM load map](docs/llm/load_map.yml)
@@ -213,6 +221,7 @@ v1.5
 - [Plotting guide](docs/guide/plotting.md)
 - [Uncertainty core guide](docs/guide/uncertainty.md)
 - [Data-driven modeling guide](docs/guide/data_driven_modeling.md)
+- [Domain and component guide](docs/guide/domain_component.md)
 - [Native tester IDE](docs/guide/native_ide.md)
 - [v1.3 LSP gate](docs/current/v1_3_lsp_gate.md)
 - [v1.4 JIT gate](docs/current/v1_4_jit_gate.md)

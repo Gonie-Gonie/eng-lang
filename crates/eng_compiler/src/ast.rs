@@ -38,6 +38,51 @@ pub struct SystemDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DomainDecl {
+    pub name: String,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DomainVariableDecl {
+    pub role: String,
+    pub name: String,
+    pub type_name: String,
+    pub unit: Option<String>,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ConservationDecl {
+    pub text: String,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComponentDecl {
+    pub name: String,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PortDecl {
+    pub name: String,
+    pub domain: String,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ConnectDecl {
+    pub left: String,
+    pub right: String,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SystemVariableDecl {
     pub role: String,
     pub name: String,
@@ -106,6 +151,12 @@ pub enum AstItem {
     Struct(StructDecl),
     StructField(StructFieldDecl),
     System(SystemDecl),
+    Domain(DomainDecl),
+    DomainVariable(DomainVariableDecl),
+    Conservation(ConservationDecl),
+    Component(ComponentDecl),
+    Port(PortDecl),
+    Connect(ConnectDecl),
     SystemVariable(SystemVariableDecl),
     Equation(EquationDecl),
     Constraint(ConstraintDecl),

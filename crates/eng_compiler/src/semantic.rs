@@ -1,4 +1,7 @@
-use crate::ast::{AstItem, ExplicitDecl, FastBinding, StructFieldDecl, SystemVariableDecl};
+use crate::ast::{
+    AstItem, ConnectDecl, DomainVariableDecl, ExplicitDecl, FastBinding, PortDecl, StructFieldDecl,
+    SystemVariableDecl,
+};
 use crate::entry::EntryPoint;
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
@@ -116,6 +119,61 @@ pub struct SystemInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DomainVariableInfo {
+    pub role: String,
+    pub name: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub dimension: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ConservationInfo {
+    pub domain: String,
+    pub text: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DomainInfo {
+    pub name: String,
+    pub variables: Vec<DomainVariableInfo>,
+    pub conservations: Vec<ConservationInfo>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PortInfo {
+    pub name: String,
+    pub domain: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComponentInfo {
+    pub name: String,
+    pub ports: Vec<PortInfo>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ConnectionInfo {
+    pub left: String,
+    pub right: String,
+    pub left_component: String,
+    pub left_port: String,
+    pub right_component: String,
+    pub right_port: String,
+    pub domain: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ArgsFieldInfo {
     pub name: String,
     pub type_name: String,
@@ -157,6 +215,9 @@ pub struct SemanticProgram {
     pub uncertainty_infos: Vec<UncertaintyInfo>,
     pub ml_infos: Vec<MlInfo>,
     pub systems: Vec<SystemInfo>,
+    pub domains: Vec<DomainInfo>,
+    pub components: Vec<ComponentInfo>,
+    pub connections: Vec<ConnectionInfo>,
     pub args_structs: Vec<ArgsStructInfo>,
     pub arg_values: Vec<ArgValueInfo>,
 }
@@ -183,6 +244,11 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut ml_infos = Vec::new();
     let mut systems = Vec::new();
     let mut current_system_index = None;
+    let mut domains = Vec::new();
+    let mut current_domain_index = None;
+    let mut components = Vec::new();
+    let mut current_component_index = None;
+    let mut raw_connections = Vec::new();
     let mut args_structs = Vec::new();
     let mut current_args_struct_index = None;
 
@@ -241,6 +307,45 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 });
                 current_system_index = Some(systems.len() - 1);
             }
+            AstItem::Domain(domain) => {
+                domains.push(DomainInfo {
+                    name: domain.name.clone(),
+                    variables: Vec::new(),
+                    conservations: Vec::new(),
+                    line: domain.span.line,
+                });
+                current_domain_index = Some(domains.len() - 1);
+            }
+            AstItem::DomainVariable(variable) => {
+                if let Some(domain_index) = current_domain_index {
+                    analyze_domain_variable(variable, &mut domains[domain_index]);
+                }
+            }
+            AstItem::Conservation(conservation) => {
+                if let Some(domain_index) = current_domain_index {
+                    let domain = &mut domains[domain_index];
+                    domain.conservations.push(ConservationInfo {
+                        domain: domain.name.clone(),
+                        text: conservation.text.clone(),
+                        status: "recorded".to_owned(),
+                        line: conservation.line,
+                    });
+                }
+            }
+            AstItem::Component(component) => {
+                components.push(ComponentInfo {
+                    name: component.name.clone(),
+                    ports: Vec::new(),
+                    line: component.span.line,
+                });
+                current_component_index = Some(components.len() - 1);
+            }
+            AstItem::Port(port) => {
+                if let Some(component_index) = current_component_index {
+                    analyze_port(port, &mut components[component_index]);
+                }
+            }
+            AstItem::Connect(connect) => raw_connections.push(connect.clone()),
             AstItem::Struct(struct_decl) => {
                 args_structs.push(ArgsStructInfo {
                     name: struct_decl.name.clone(),
@@ -323,6 +428,13 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         }
     }
 
+    let connections = analyze_connections(
+        &domains,
+        &mut components,
+        &raw_connections,
+        &mut diagnostics,
+    );
+
     SemanticOutput {
         diagnostics,
         inferred_declarations,
@@ -341,6 +453,9 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             uncertainty_infos,
             ml_infos,
             systems,
+            domains,
+            components,
+            connections,
             args_structs,
             arg_values: Vec::new(),
         },
@@ -355,6 +470,156 @@ fn analyze_struct_field(field: &StructFieldDecl, args_struct: &mut ArgsStructInf
         required: field.default_value.is_none(),
         line: field.line,
     });
+}
+
+fn analyze_domain_variable(declaration: &DomainVariableDecl, domain: &mut DomainInfo) {
+    let display_unit = declaration
+        .unit
+        .clone()
+        .unwrap_or_else(|| default_unit_for_quantity(&declaration.type_name));
+    let canonical_unit = default_unit_for_quantity(&declaration.type_name);
+    let dimension = dimension_for_quantity(&declaration.type_name);
+    domain.variables.push(DomainVariableInfo {
+        role: declaration.role.clone(),
+        name: declaration.name.clone(),
+        quantity_kind: declaration.type_name.clone(),
+        display_unit,
+        canonical_unit,
+        dimension,
+        line: declaration.line,
+    });
+}
+
+fn analyze_port(declaration: &PortDecl, component: &mut ComponentInfo) {
+    component.ports.push(PortInfo {
+        name: declaration.name.clone(),
+        domain: declaration.domain.clone(),
+        status: "unvalidated".to_owned(),
+        line: declaration.line,
+    });
+}
+
+fn analyze_connections(
+    domains: &[DomainInfo],
+    components: &mut [ComponentInfo],
+    raw_connections: &[ConnectDecl],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Vec<ConnectionInfo> {
+    let mut connections = Vec::new();
+    for component in components.iter_mut() {
+        for port in &mut component.ports {
+            if domains.iter().any(|domain| domain.name == port.domain) {
+                port.status = "domain_resolved".to_owned();
+            } else {
+                port.status = "unknown_domain".to_owned();
+                diagnostics.push(Diagnostic::error(
+                    "E-PORT-DOMAIN-001",
+                    port.line,
+                    &format!(
+                        "Port `{}` on component `{}` references unknown domain `{}`.",
+                        port.name, component.name, port.domain
+                    ),
+                    Some("Declare the domain before using it in a component port."),
+                ));
+            }
+        }
+    }
+
+    for connection in raw_connections {
+        let Some((left_component, left_port)) = split_endpoint(&connection.left) else {
+            diagnostics.push(connection_endpoint_diagnostic(
+                &connection.left,
+                connection.line,
+            ));
+            continue;
+        };
+        let Some((right_component, right_port)) = split_endpoint(&connection.right) else {
+            diagnostics.push(connection_endpoint_diagnostic(
+                &connection.right,
+                connection.line,
+            ));
+            continue;
+        };
+        let left_domain = port_domain(components, &left_component, &left_port);
+        let right_domain = port_domain(components, &right_component, &right_port);
+        let (domain, status) = match (left_domain, right_domain) {
+            (Some(left_domain), Some(right_domain)) if left_domain == right_domain => {
+                (left_domain, "domain_compatible".to_owned())
+            }
+            (Some(left_domain), Some(right_domain)) => {
+                diagnostics.push(Diagnostic::error(
+                    "E-CONNECT-DOMAIN-001",
+                    connection.line,
+                    &format!(
+                        "Cannot connect `{}` ({}) to `{}` ({}).",
+                        connection.left, left_domain, connection.right, right_domain
+                    ),
+                    Some("Connect ports only when they declare the same domain."),
+                ));
+                ("mismatch".to_owned(), "domain_mismatch".to_owned())
+            }
+            _ => {
+                diagnostics.push(Diagnostic::error(
+                    "E-CONNECT-PORT-001",
+                    connection.line,
+                    "Connection endpoint does not resolve to a declared component port.",
+                    Some(
+                        "Use `connect Component.port -> Other.port` with declared component ports.",
+                    ),
+                ));
+                ("unknown".to_owned(), "unresolved_endpoint".to_owned())
+            }
+        };
+
+        connections.push(ConnectionInfo {
+            left: connection.left.clone(),
+            right: connection.right.clone(),
+            left_component,
+            left_port,
+            right_component,
+            right_port,
+            domain,
+            status,
+            line: connection.line,
+        });
+    }
+    connections
+}
+
+fn split_endpoint(endpoint: &str) -> Option<(String, String)> {
+    let (component, port) = endpoint.split_once('.')?;
+    let component = component.trim();
+    let port = port.trim();
+    if component.is_empty() || port.is_empty() {
+        return None;
+    }
+    Some((component.to_owned(), port.to_owned()))
+}
+
+fn port_domain(
+    components: &[ComponentInfo],
+    component_name: &str,
+    port_name: &str,
+) -> Option<String> {
+    components
+        .iter()
+        .find(|component| component.name == component_name)
+        .and_then(|component| {
+            component
+                .ports
+                .iter()
+                .find(|port| port.name == port_name && port.status == "domain_resolved")
+        })
+        .map(|port| port.domain.clone())
+}
+
+fn connection_endpoint_diagnostic(endpoint: &str, line: usize) -> Diagnostic {
+    Diagnostic::error(
+        "E-CONNECT-ENDPOINT-001",
+        line,
+        &format!("Connection endpoint `{endpoint}` is not a component port path."),
+        Some("Use `Component.port` on both sides of `connect ... -> ...`."),
+    )
 }
 
 fn analyze_explicit_decl(

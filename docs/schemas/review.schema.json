@@ -15,6 +15,9 @@
     "plot_manifest",
     "args_summary",
     "arg_values",
+    "domain_summary",
+    "component_summary",
+    "connection_summary",
     "schema_summary",
     "system_summary",
     "system_ir"
@@ -27,7 +30,17 @@
     "source_hash": { "type": "string" },
     "syntax_summary": {
       "type": "object",
-      "required": ["scripts", "schemas", "systems", "equations", "fast_bindings"]
+      "required": [
+        "scripts",
+        "schemas",
+        "systems",
+        "domains",
+        "components",
+        "ports",
+        "connections",
+        "equations",
+        "fast_bindings"
+      ]
     },
     "variable_table": { "type": "array" },
     "warning_list": { "type": "array" },
@@ -36,6 +49,18 @@
     "arg_values": {
       "type": "array",
       "items": { "$ref": "#/$defs/argValue" }
+    },
+    "domain_summary": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/domainSummary" }
+    },
+    "component_summary": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/componentSummary" }
+    },
+    "connection_summary": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/connectionSummary" }
     },
     "schema_summary": { "type": "array" },
     "system_summary": { "type": "array" },
@@ -67,6 +92,97 @@
         "equations": {
           "type": "array",
           "items": { "$ref": "#/$defs/equationIr" }
+        },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "domainSummary": {
+      "type": "object",
+      "required": [
+        "name",
+        "line",
+        "variable_count",
+        "conservation_count",
+        "variables",
+        "conservations"
+      ],
+      "properties": {
+        "name": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "variable_count": { "type": "integer", "minimum": 0 },
+        "conservation_count": { "type": "integer", "minimum": 0 },
+        "variables": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/domainVariable" }
+        },
+        "conservations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/domainConservation" }
+        }
+      }
+    },
+    "domainVariable": {
+      "type": "object",
+      "required": [
+        "role",
+        "name",
+        "quantity_kind",
+        "display_unit",
+        "canonical_unit",
+        "dimension",
+        "line"
+      ],
+      "properties": {
+        "role": { "enum": ["across", "through"] },
+        "name": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "canonical_unit": { "type": "string" },
+        "dimension": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "domainConservation": {
+      "type": "object",
+      "required": ["text", "status", "line"],
+      "properties": {
+        "text": { "type": "string" },
+        "status": { "const": "recorded" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "componentSummary": {
+      "type": "object",
+      "required": ["name", "line", "port_count", "ports"],
+      "properties": {
+        "name": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "port_count": { "type": "integer", "minimum": 0 },
+        "ports": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/componentPort" }
+        }
+      }
+    },
+    "componentPort": {
+      "type": "object",
+      "required": ["name", "domain", "status", "line"],
+      "properties": {
+        "name": { "type": "string" },
+        "domain": { "type": "string" },
+        "status": { "enum": ["domain_resolved", "unknown_domain", "unvalidated"] },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "connectionSummary": {
+      "type": "object",
+      "required": ["left", "right", "domain", "status", "line"],
+      "properties": {
+        "left": { "type": "string" },
+        "right": { "type": "string" },
+        "domain": { "type": "string" },
+        "status": {
+          "enum": ["domain_compatible", "domain_mismatch", "unresolved_endpoint"]
         },
         "line": { "type": "integer", "minimum": 1 }
       }

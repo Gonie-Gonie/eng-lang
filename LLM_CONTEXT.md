@@ -9,8 +9,8 @@ It is intentionally short so agents do not need to load every planning file.
 - Active release target: `v1.0.3` IDE and documentation hardening
 - Next targets: `v1.1` uncertainty, `v1.2` data-driven modeling,
   `v1.3` LSP/editor service hardening, `v1.4` JIT start, then `v1.5`
-  standalone/AOT maturity
-- `v1.1` through `v1.5` code on `main` is experimental unless the current
+  standalone/AOT maturity, then `v2.0` domain/component platform
+- `v1.1` through `v2.0` code on `main` is experimental unless the current
   status documents say otherwise.
 - Current `v1.1` detail work includes deterministic uncertainty samples,
   source validation diagnostics, scale/offset propagation metadata,
@@ -33,6 +33,11 @@ It is intentionally short so agents do not need to load every planning file.
 - Current `v1.5` standalone detail work starts from the packaged runner path:
   `.engpkg` and `.lock` record runtime ABI, repro profile, dependency paths,
   and dependency hashes. Optimized native `model.exe`/AOT is still deferred.
+- Current `v2.0` domain/component detail work starts from metadata-first
+  language support: user-defined domains, across/through variables,
+  conservation contracts, component ports, connection review metadata, and
+  invalid port-domain diagnostics. Numeric multi-domain simulation remains
+  deferred.
 
 ## Read First
 
@@ -45,7 +50,8 @@ It is intentionally short so agents do not need to load every planning file.
 7. `docs/current/v1_3_lsp_gate.md`
 8. `docs/current/v1_4_jit_gate.md`
 9. `docs/current/v1_5_standalone_gate.md`
-10. `docs/llm/load_map.yml`
+10. `docs/current/v2_0_domain_component_gate.md`
+11. `docs/llm/load_map.yml`
 
 ## Core Invariants
 

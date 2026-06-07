@@ -2,10 +2,14 @@ use crate::source::SourceSpan;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Keyword {
+    Across,
     As,
     Component,
+    Connect,
+    Conservation,
     Constraints,
     Csv,
+    Domain,
     Eq,
     Equation,
     Fn,
@@ -15,6 +19,7 @@ pub enum Keyword {
     Output,
     Parameter,
     Plot,
+    Port,
     Promote,
     Report,
     Return,
@@ -25,6 +30,7 @@ pub enum Keyword {
     Struct,
     Summarize,
     System,
+    Through,
     Where,
 }
 
@@ -285,10 +291,14 @@ fn token(
 
 fn keyword(value: &str) -> Option<Keyword> {
     match value {
+        "across" => Some(Keyword::Across),
         "as" => Some(Keyword::As),
         "component" => Some(Keyword::Component),
+        "connect" => Some(Keyword::Connect),
+        "conservation" => Some(Keyword::Conservation),
         "constraints" => Some(Keyword::Constraints),
         "csv" => Some(Keyword::Csv),
+        "domain" => Some(Keyword::Domain),
         "eq" => Some(Keyword::Eq),
         "equation" => Some(Keyword::Equation),
         "fn" => Some(Keyword::Fn),
@@ -298,6 +308,7 @@ fn keyword(value: &str) -> Option<Keyword> {
         "output" => Some(Keyword::Output),
         "parameter" => Some(Keyword::Parameter),
         "plot" => Some(Keyword::Plot),
+        "port" => Some(Keyword::Port),
         "promote" => Some(Keyword::Promote),
         "report" => Some(Keyword::Report),
         "return" => Some(Keyword::Return),
@@ -308,6 +319,7 @@ fn keyword(value: &str) -> Option<Keyword> {
         "struct" => Some(Keyword::Struct),
         "summarize" => Some(Keyword::Summarize),
         "system" => Some(Keyword::System),
+        "through" => Some(Keyword::Through),
         "where" => Some(Keyword::Where),
         _ => None,
     }

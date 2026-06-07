@@ -1,0 +1,35 @@
+domain Thermal {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+domain Fluid {
+    across height: Length [m]
+    through m_dot: MassFlowRate [kg/s]
+    conservation sum(m_dot) = 0
+}
+
+component RoomBoundary {
+    port heat: Thermal
+}
+
+component AmbientBoundary {
+    port heat: Thermal
+}
+
+component SupplyPipe {
+    port inlet: Fluid
+    port outlet: Fluid
+}
+
+connect RoomBoundary.heat -> AmbientBoundary.heat
+connect SupplyPipe.inlet -> SupplyPipe.outlet
+
+script main(args: Args) -> Report {
+    Q_design = 5 kW
+
+    return report {
+        show Q_design
+    }
+}

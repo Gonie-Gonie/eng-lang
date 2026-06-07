@@ -30,6 +30,7 @@ language feature. Status terms are defined at the bottom of this file.
 | Data-driven modeling / ML | Experimental | Official parity/residual examples, artifacts, source validation diagnostics, argument diagnostics, and v1.2 gate on `main` | Not release-supported | v1.2 gate |
 | LSP | Experimental | `eng-lsp.exe` smoke/snapshot, stdio round-trip tests, package-smoke inclusion, optional VS Code snapshot backend, line diagnostics, context-aware schema column completion, hover, and minimal stdio JSON-RPC on `main` | Not editor-validated as a release path | v1.3 gate |
 | JIT kernel planning | Experimental | `eng_jit`, `eng.exe jit-plan`, `eng.exe jit-bench`, backend selection metadata, native IDE Runtime Summary display, and `eng-kernel-plan-v1`/`eng-jit-bench-v1` metadata with coarse size/cost estimates for TimeSeries arithmetic/statistics/integration and system residual interface seeds | No native code generation or speedup claim | v1.4 gate |
+| Domain/component platform | Experimental | `domain`, `across`, `through`, `conservation`, `component`, `port`, and `connect` metadata with official fixture and invalid domain connection diagnostics | No numeric multi-domain solver, generic medium/frame/axis system, or package registry | v2.0 gate |
 
 ## Status Terms
 

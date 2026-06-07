@@ -1,5 +1,6 @@
 use crate::ast::{
-    AstItem, ConstraintDecl, EquationDecl, ExplicitDecl, FastBinding, MissingPolicyDecl,
+    AstItem, ComponentDecl, ConnectDecl, ConservationDecl, ConstraintDecl, DomainDecl,
+    DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, MissingPolicyDecl, PortDecl,
     SchemaDecl, ScriptDecl, StructDecl, StructFieldDecl, SummaryDecl, SystemDecl,
     SystemVariableDecl,
 };
@@ -15,6 +16,8 @@ pub enum ParseContext {
     Script,
     Struct,
     System,
+    Domain,
+    Component,
     Equation,
     Other,
 }
@@ -41,6 +44,11 @@ pub struct SyntaxSummary {
     pub scripts: usize,
     pub schemas: usize,
     pub systems: usize,
+    pub domains: usize,
+    pub domain_variables: usize,
+    pub components: usize,
+    pub ports: usize,
+    pub connections: usize,
     pub structs: usize,
     pub struct_fields: usize,
     pub equations: usize,
@@ -53,6 +61,11 @@ impl ParsedProgram {
         let mut scripts = 0usize;
         let mut schemas = 0usize;
         let mut systems = 0usize;
+        let mut domains = 0usize;
+        let mut domain_variables = 0usize;
+        let mut components = 0usize;
+        let mut ports = 0usize;
+        let mut connections = 0usize;
         let mut structs = 0usize;
         let mut struct_fields = 0usize;
         let mut equations = 0usize;
@@ -64,12 +77,18 @@ impl ParsedProgram {
                 AstItem::Script(_) => scripts += 1,
                 AstItem::Schema(_) => schemas += 1,
                 AstItem::System(_) => systems += 1,
+                AstItem::Domain(_) => domains += 1,
+                AstItem::DomainVariable(_) => domain_variables += 1,
+                AstItem::Component(_) => components += 1,
+                AstItem::Port(_) => ports += 1,
+                AstItem::Connect(_) => connections += 1,
                 AstItem::Struct(_) => structs += 1,
                 AstItem::StructField(_) => struct_fields += 1,
                 AstItem::Equation(_) => equations += 1,
                 AstItem::FastBinding(_) => fast_bindings += 1,
                 AstItem::ExplicitDecl(_) => explicit_declarations += 1,
                 AstItem::SystemVariable(_)
+                | AstItem::Conservation(_)
                 | AstItem::Constraint(_)
                 | AstItem::MissingPolicy(_)
                 | AstItem::Summary(_)
@@ -84,6 +103,11 @@ impl ParsedProgram {
             scripts,
             schemas,
             systems,
+            domains,
+            domain_variables,
+            components,
+            ports,
+            connections,
             structs,
             struct_fields,
             equations,
@@ -102,6 +126,8 @@ pub fn parse_source(source: &str) -> ParsedProgram {
     let mut script_depth = 0i32;
     let mut struct_depth = 0i32;
     let mut system_depth = 0i32;
+    let mut domain_depth = 0i32;
+    let mut component_depth = 0i32;
     let mut equation_depth = 0i32;
 
     for source_line in source_lines(source) {
@@ -118,6 +144,10 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             ParseContext::Script
         } else if struct_depth > 0 {
             ParseContext::Struct
+        } else if domain_depth > 0 {
+            ParseContext::Domain
+        } else if component_depth > 0 {
+            ParseContext::Component
         } else if system_depth > 0 {
             ParseContext::System
         } else {
@@ -200,6 +230,30 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             }
         }
 
+        if starts_with_keyword(&tokens, Keyword::Domain) {
+            domain_depth += brace_delta(&tokens);
+            if domain_depth == 0 {
+                domain_depth = 1;
+            }
+        } else if domain_depth > 0 {
+            domain_depth += brace_delta(&tokens);
+            if domain_depth <= 0 {
+                domain_depth = 0;
+            }
+        }
+
+        if starts_with_keyword(&tokens, Keyword::Component) {
+            component_depth += brace_delta(&tokens);
+            if component_depth == 0 {
+                component_depth = 1;
+            }
+        } else if component_depth > 0 {
+            component_depth += brace_delta(&tokens);
+            if component_depth <= 0 {
+                component_depth = 0;
+            }
+        }
+
         if system_depth > 0 && starts_with_keyword(&tokens, Keyword::Equation) {
             equation_depth += brace_delta(&tokens);
             if equation_depth == 0 {
@@ -246,6 +300,24 @@ fn parse_line_items(
     }
     if let Some(system) = parse_system_decl(tokens) {
         items.push(AstItem::System(system));
+    }
+    if let Some(domain) = parse_domain_decl(tokens) {
+        items.push(AstItem::Domain(domain));
+    }
+    if let Some(variable) = parse_domain_variable_decl(tokens, line_text, context) {
+        items.push(AstItem::DomainVariable(variable));
+    }
+    if let Some(conservation) = parse_conservation_decl(tokens, line_text, context) {
+        items.push(AstItem::Conservation(conservation));
+    }
+    if let Some(component) = parse_component_decl(tokens) {
+        items.push(AstItem::Component(component));
+    }
+    if let Some(port) = parse_port_decl(tokens, line_text, context) {
+        items.push(AstItem::Port(port));
+    }
+    if let Some(connect) = parse_connect_decl(tokens, line_text) {
+        items.push(AstItem::Connect(connect));
     }
     if let Some(variable) = parse_system_variable_decl(tokens, line_text, context) {
         items.push(AstItem::SystemVariable(variable));
@@ -305,6 +377,38 @@ fn parse_system_decl(tokens: &[Token]) -> Option<SystemDecl> {
         return None;
     };
     Some(SystemDecl {
+        name: name.clone(),
+        span: first.span,
+    })
+}
+
+fn parse_domain_decl(tokens: &[Token]) -> Option<DomainDecl> {
+    let [first, second, ..] = tokens else {
+        return None;
+    };
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Domain)) {
+        return None;
+    }
+    let TokenKind::Identifier(name) = &second.kind else {
+        return None;
+    };
+    Some(DomainDecl {
+        name: name.clone(),
+        span: first.span,
+    })
+}
+
+fn parse_component_decl(tokens: &[Token]) -> Option<ComponentDecl> {
+    let [first, second, ..] = tokens else {
+        return None;
+    };
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Component)) {
+        return None;
+    }
+    let TokenKind::Identifier(name) = &second.kind else {
+        return None;
+    };
+    Some(ComponentDecl {
         name: name.clone(),
         span: first.span,
     })
@@ -423,6 +527,109 @@ fn token_field_name(token: &Token) -> Option<String> {
         TokenKind::Keyword(Keyword::Input) => Some("input".to_owned()),
         _ => None,
     }
+}
+
+fn parse_domain_variable_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<DomainVariableDecl> {
+    if context != ParseContext::Domain {
+        return None;
+    }
+    let [first, second, third, ..] = tokens else {
+        return None;
+    };
+    let role = match first.kind {
+        TokenKind::Keyword(Keyword::Across) => "across",
+        TokenKind::Keyword(Keyword::Through) => "through",
+        _ => return None,
+    };
+    let TokenKind::Identifier(name) = &second.kind else {
+        return None;
+    };
+    if !matches!(third.kind, TokenKind::Symbol(Symbol::Colon)) {
+        return None;
+    }
+    let raw_after_colon = line_text.split_once(':')?.1.trim();
+    let (type_name, unit) = split_type_and_unit(raw_after_colon);
+
+    Some(DomainVariableDecl {
+        role: role.to_owned(),
+        name: name.clone(),
+        type_name,
+        unit,
+        line: first.span.line,
+        span: first.span,
+    })
+}
+
+fn parse_conservation_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<ConservationDecl> {
+    if context != ParseContext::Domain {
+        return None;
+    }
+    let first = tokens.first()?;
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Conservation)) {
+        return None;
+    }
+    Some(ConservationDecl {
+        text: line_text
+            .trim()
+            .strip_prefix("conservation")
+            .unwrap_or(line_text.trim())
+            .trim()
+            .to_owned(),
+        line: first.span.line,
+        span: first.span,
+    })
+}
+
+fn parse_port_decl(tokens: &[Token], line_text: &str, context: ParseContext) -> Option<PortDecl> {
+    if context != ParseContext::Component {
+        return None;
+    }
+    let [first, second, third, ..] = tokens else {
+        return None;
+    };
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Port)) {
+        return None;
+    }
+    let TokenKind::Identifier(name) = &second.kind else {
+        return None;
+    };
+    if !matches!(third.kind, TokenKind::Symbol(Symbol::Colon)) {
+        return None;
+    }
+    let domain = line_text.split_once(':')?.1.trim().to_owned();
+    Some(PortDecl {
+        name: name.clone(),
+        domain,
+        line: first.span.line,
+        span: first.span,
+    })
+}
+
+fn parse_connect_decl(tokens: &[Token], line_text: &str) -> Option<ConnectDecl> {
+    let first = tokens.first()?;
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Connect)) {
+        return None;
+    }
+    let raw = line_text
+        .trim()
+        .strip_prefix("connect")
+        .unwrap_or(line_text.trim())
+        .trim();
+    let (left, right) = raw.split_once("->")?;
+    Some(ConnectDecl {
+        left: left.trim().to_owned(),
+        right: right.trim().to_owned(),
+        line: first.span.line,
+        span: first.span,
+    })
 }
 
 fn parse_system_variable_decl(

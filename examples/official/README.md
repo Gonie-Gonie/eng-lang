@@ -27,6 +27,11 @@ paths before compatibility fixtures.
   regression, basic MLP, source and argument validation diagnostics,
   RMSE/MAE/R2 metrics, leakage lint, model card, parity plot output, and
   residual plot output via `residuals.eng`.
+
+06_domain_port
+  Experimental v2.0 domain/component path for user-defined domains,
+  across/through variables, conservation metadata, component ports,
+  domain-compatible connections, and invalid connection diagnostics.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression

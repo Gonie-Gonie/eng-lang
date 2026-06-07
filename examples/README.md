@@ -30,6 +30,11 @@ official/05_data_driven_modeling
   Experimental v1.2 seed for split/model/evaluation source diagnostics,
   argument diagnostics, deterministic metrics, leakage lint, model cards, and
   parity/residual plots. It is tested on main but not release-supported yet.
+
+official/06_domain_port
+  Experimental v2.0 fixture for user-defined domain declarations,
+  across/through variables, conservation metadata, components, ports, and
+  domain-compatible connection review.
 ```
 
 ## Compatibility Regression Examples
@@ -48,7 +53,7 @@ regression coverage. They are intentionally not the first user-facing namespace.
 
 `05_error_messages` contains examples that are expected to produce specific
 diagnostics or warnings. Use them when changing parser, semantic, unit, entry,
-or equation diagnostics.
+equation, domain, port, or connection diagnostics.
 
 ## Data-Quality Fixtures
 

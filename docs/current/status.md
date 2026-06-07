@@ -10,12 +10,12 @@ implementation seeds.
 |---|---|
 | Latest stable baseline | `v1.0-stable` |
 | Active release target | `v1.0.3` IDE/documentation hardening |
-| Next planned targets | `v1.1` uncertainty, `v1.2` data-driven modeling, `v1.3` LSP/editor service, `v1.4` JIT start, `v1.5` standalone/AOT maturity |
+| Next planned targets | `v1.1` uncertainty, `v1.2` data-driven modeling, `v1.3` LSP/editor service, `v1.4` JIT start, `v1.5` standalone/AOT maturity, `v2.0` domain/component platform |
 | Current package version | Workspace version `1.0.3` |
 
-`v1.1`, `v1.2`, `v1.3`, `v1.4`, and `v1.5` support code may exist on `main`,
-but those features are not release-supported until their language rules,
-runtime behavior, diagnostics, IDE metadata, examples, tests, and user
+`v1.1`, `v1.2`, `v1.3`, `v1.4`, `v1.5`, and `v2.0` support code may exist on
+`main`, but those features are not release-supported until their language
+rules, runtime behavior, diagnostics, IDE metadata, examples, tests, and user
 documentation are aligned.
 The current v1.2 implementation gate is tracked in
 [v1.2 data-driven modeling gate](v1_2_data_driven_modeling_gate.md).
@@ -23,6 +23,8 @@ The current v1.3 LSP gate is tracked in [v1.3 LSP gate](v1_3_lsp_gate.md).
 The current v1.4 JIT gate is tracked in [v1.4 JIT gate](v1_4_jit_gate.md).
 The current v1.5 standalone gate is tracked in
 [v1.5 standalone/AOT gate](v1_5_standalone_gate.md).
+The current v2.0 domain/component gate is tracked in
+[v2.0 domain/component gate](v2_0_domain_component_gate.md).
 
 ## Core Execution Invariants
 
@@ -111,6 +113,10 @@ not part of the supported release contract.
   runtime ABI, repro profile, dependency paths, byte-based dependency hashes,
   and the reserved executable-wrapper/AOT boundary. Optimized native
   `model.exe`/AOT is not implemented yet.
+- `v2.0` domain/component platform start: user-defined `domain` declarations,
+  across/through variables, conservation metadata, `component` ports,
+  connection review metadata, and invalid port-domain diagnostics. It does not
+  provide numeric multi-domain simulation yet.
 
 ## Deferred / Known Limitations
 
@@ -122,6 +128,7 @@ not part of the supported release contract.
   histogram binning hardening.
 - Multi-state, nonlinear, adaptive, or general equation-system solving is
   deferred.
+- Numeric component graph solving and domain package registries are deferred.
 - Typed Args conversion beyond string/path style bindings is deferred.
 - Full Unicode unit spelling support beyond the supported `°C` alias is
   deferred.
