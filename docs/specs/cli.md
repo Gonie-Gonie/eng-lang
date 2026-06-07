@@ -10,8 +10,8 @@ eng.exe doctor
 eng.exe new <project_name>
 eng.exe check <file.eng> [--review]
 eng.exe ide-check <file.eng>
-eng.exe jit-plan <file.eng>
-eng.exe jit-bench <file.eng> [--iterations N] [--entry <name>] [--<arg> <value>...]
+eng.exe jit-plan <file.eng> [--backend <name>]
+eng.exe jit-bench <file.eng> [--iterations N] [--entry <name>] [--backend <name>] [--<arg> <value>...]
 eng.exe entries <file.eng>
 eng.exe run <file.eng> [--entry <name>] [--open-report] [--<arg> <value>...]
 eng.exe build <file.eng> [--entry <name>] [--standalone] [--profile repro]
@@ -134,6 +134,10 @@ Prints experimental `eng-kernel-plan-v1` JSON for v1.4 hot-kernel planning.
 This command does not compile native code and does not change runtime
 execution. Its current backend is `interpreter-fallback`.
 
+Supported backend requests are `auto`, `interpreter-fallback`, and
+`native-preview`. `native-preview` records a request but still selects
+`interpreter-fallback` with `backend_selection.status = not_available`.
+
 Each candidate includes source, reason, lowering status, operation list, and a
 coarse planning estimate:
 
@@ -186,6 +190,7 @@ Current behavior:
 - default iterations: 3
 - allowed iterations: 1..100
 - `--entry <name>` selects the script entry
+- `--backend <name>` records backend selection metadata
 - other `--<arg> <value>` flags are forwarded as Eng Args overrides
 - `jit.status` is `not_available`
 - comparison_policy is `no-speedup-claim`

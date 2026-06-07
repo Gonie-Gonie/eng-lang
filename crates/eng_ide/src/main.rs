@@ -1493,8 +1493,11 @@ impl EngIdeApp {
         ui.horizontal_wrapped(|ui| {
             metric_chip(ui, "Format", &plan.format, MUTED);
             metric_chip(ui, "Backend", &plan.backend, WARNING);
+            metric_chip(ui, "Backend Status", &plan.backend_status, WARNING);
             metric_chip(ui, "Candidates", &plan.candidates.len().to_string(), ACCENT);
         });
+        key_value_row(ui, "requested", &plan.backend_requested);
+        key_value_row(ui, "selection", &plan.backend_reason);
         ui.add_space(6.0);
         ui.label(
             egui::RichText::new("Planning metadata only; execution still uses the normal runtime.")
@@ -1830,6 +1833,9 @@ struct CsvPromotionView {
 struct JitPlanView {
     format: String,
     backend: String,
+    backend_requested: String,
+    backend_status: String,
+    backend_reason: String,
     candidates: Vec<JitCandidateView>,
 }
 
@@ -1838,6 +1844,9 @@ impl JitPlanView {
         Self {
             format: plan.format.clone(),
             backend: plan.backend.clone(),
+            backend_requested: plan.backend_selection.requested.clone(),
+            backend_status: plan.backend_selection.status.clone(),
+            backend_reason: plan.backend_selection.reason.clone(),
             candidates: plan
                 .candidates
                 .iter()

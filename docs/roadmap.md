@@ -403,11 +403,12 @@ Required outputs:
 ```
 
 Status on `main`: experimental `eng_jit`, `eng.exe jit-plan`,
-`eng.exe jit-bench`, and the native IDE Runtime Summary expose
-`eng-kernel-plan-v1` hot-kernel metadata for TimeSeries arithmetic,
-integration, statistics fusion, and system residual interface seeds, including
-coarse size/cost estimates. `eng-jit-bench-v1` records interpreter baseline
-timings and marks the JIT side unavailable. Track the exact support boundary in
+`eng.exe jit-bench`, backend selection metadata, and the native IDE Runtime
+Summary expose `eng-kernel-plan-v1` hot-kernel metadata for TimeSeries
+arithmetic, integration, statistics fusion, and system residual interface
+seeds, including coarse size/cost estimates. `eng-jit-bench-v1` records
+interpreter baseline timings and marks the JIT side unavailable. Track the
+exact support boundary in
 [docs/current/v1_4_jit_gate.md](current/v1_4_jit_gate.md).
 
 ## v1.5 — Standalone/AOT Maturity

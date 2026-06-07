@@ -149,7 +149,7 @@ def build_document(version: str) -> Document:
                 code("eng-kernel-plan-v1"),
                 " JIT planning surface are experimental and intended for smoke checks and inspection. The ",
                 code("eng-jit-bench-v1"),
-                " harness records interpreter baseline timings only and marks JIT execution as unavailable. This release is not yet a full editor platform, not a general nonlinear solver, not a native JIT runtime, and not a complete domain package ecosystem. Those are later roadmap items. The public claim for this release is a stable, inspectable data-to-report core with a native test IDE.",
+                " harness records interpreter baseline timings only and marks JIT execution as unavailable. Backend selection metadata can record a native-preview request, but native execution remains unavailable. This release is not yet a full editor platform, not a general nonlinear solver, not a native JIT runtime, and not a complete domain package ecosystem. Those are later roadmap items. The public claim for this release is a stable, inspectable data-to-report core with a native test IDE.",
             ),
         ),
         settings=DocumentSettings(

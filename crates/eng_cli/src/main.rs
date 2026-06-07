@@ -48,10 +48,17 @@ fn main() -> ExitCode {
 
 fn command_jit_plan(args: Vec<String>) -> ExitCode {
     let Some(path) = first_non_flag(&args) else {
-        eprintln!("usage: eng jit-plan <file.eng>");
+        eprintln!("usage: eng jit-plan <file.eng> [--backend <name>]");
         return ExitCode::from(2);
     };
-    let check_args = match parse_arg_overrides(&args, &[], &[]) {
+    let requested_backend = match parse_jit_backend(&args) {
+        Ok(value) => value,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
+    let check_args = match parse_arg_overrides(&args, &["--backend"], &[]) {
         Ok(values) => values,
         Err(message) => {
             eprintln!("{message}");
@@ -77,14 +84,17 @@ fn command_jit_plan(args: Vec<String>) -> ExitCode {
         return ExitCode::from(2);
     }
 
-    let plan = eng_jit::plan_for_report(&report);
+    let plan =
+        eng_jit::plan_for_report_with_options(&report, &eng_jit::PlanOptions { requested_backend });
     println!("{}", eng_jit::plan_json_string(&plan));
     ExitCode::SUCCESS
 }
 
 fn command_jit_bench(args: Vec<String>) -> ExitCode {
     let Some(path) = first_non_flag(&args) else {
-        eprintln!("usage: eng jit-bench <file.eng> [--iterations N] [--entry <name>]");
+        eprintln!(
+            "usage: eng jit-bench <file.eng> [--iterations N] [--entry <name>] [--backend <name>]"
+        );
         return ExitCode::from(2);
     };
     let iterations = match option_value(&args, "--iterations") {
@@ -101,14 +111,22 @@ fn command_jit_bench(args: Vec<String>) -> ExitCode {
         },
         None => 3,
     };
-    let entry = option_value(&args, "--entry");
-    let runtime_args = match parse_arg_overrides(&args, &["--iterations", "--entry"], &[]) {
-        Ok(values) => values,
+    let requested_backend = match parse_jit_backend(&args) {
+        Ok(value) => value,
         Err(message) => {
             eprintln!("{message}");
             return ExitCode::from(2);
         }
     };
+    let entry = option_value(&args, "--entry");
+    let runtime_args =
+        match parse_arg_overrides(&args, &["--iterations", "--entry", "--backend"], &[]) {
+            Ok(values) => values,
+            Err(message) => {
+                eprintln!("{message}");
+                return ExitCode::from(2);
+            }
+        };
 
     let report = match check_file(
         &path,
@@ -128,7 +146,8 @@ fn command_jit_bench(args: Vec<String>) -> ExitCode {
         print_diagnostics(&report);
         return ExitCode::from(2);
     }
-    let plan = eng_jit::plan_for_report(&report);
+    let plan =
+        eng_jit::plan_for_report_with_options(&report, &eng_jit::PlanOptions { requested_backend });
 
     let mut interpreter_runs = Vec::new();
     for index in 0..iterations {
@@ -1316,9 +1335,29 @@ fn first_non_flag(args: &[String]) -> Option<String> {
 }
 
 fn option_value(args: &[String], name: &str) -> Option<String> {
+    let inline_prefix = format!("{name}=");
+    if let Some(value) = args
+        .iter()
+        .find_map(|arg| arg.strip_prefix(&inline_prefix).map(str::to_owned))
+    {
+        return Some(value);
+    }
     args.windows(2)
         .find(|window| window[0] == name)
         .map(|window| window[1].clone())
+}
+
+fn parse_jit_backend(args: &[String]) -> Result<String, String> {
+    let backend = option_value(args, "--backend")
+        .unwrap_or_else(|| eng_jit::DEFAULT_BACKEND_REQUEST.to_owned());
+    match backend.as_str() {
+        eng_jit::DEFAULT_BACKEND_REQUEST
+        | eng_jit::INTERPRETER_FALLBACK_BACKEND
+        | eng_jit::NATIVE_PREVIEW_BACKEND => Ok(backend),
+        _ => Err(format!(
+            "unknown JIT backend `{backend}`; expected auto, interpreter-fallback, or native-preview"
+        )),
+    }
 }
 
 fn parse_arg_overrides(
@@ -1338,8 +1377,11 @@ fn parse_arg_overrides(
             index += 1;
             continue;
         }
-        if known_value_flags.contains(&arg.as_str()) {
-            index += 2;
+        if let Some(flag) = known_value_flags
+            .iter()
+            .find(|flag| arg.as_str() == **flag || arg.starts_with(&format!("{}=", flag)))
+        {
+            index += if arg.as_str() == *flag { 2 } else { 1 };
             continue;
         }
         if let Some((name, value)) = arg.split_once('=') {

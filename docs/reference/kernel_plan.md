@@ -30,6 +30,12 @@ Within this format:
 {
   "format": "eng-kernel-plan-v1",
   "backend": "interpreter-fallback",
+  "backend_selection": {
+    "requested": "auto",
+    "selected": "interpreter-fallback",
+    "status": "selected",
+    "reason": "auto currently resolves to the interpreter fallback backend"
+  },
   "candidate_count": 3,
   "candidates": []
 }
@@ -37,6 +43,23 @@ Within this format:
 
 `backend = "interpreter-fallback"` means the normal EngLang runtime still owns
 execution. Current JIT planning makes no speedup claim.
+
+## Backend Selection
+
+Supported backend requests:
+
+```text
+auto
+interpreter-fallback
+native-preview
+```
+
+`auto` and `interpreter-fallback` select `interpreter-fallback`.
+
+`native-preview` records that a native backend was requested, but the current
+selection still falls back to `interpreter-fallback` with
+`status = "not_available"`. No native backend is compiled, cached, selected for
+execution, or benchmarked.
 
 ## Candidate Shape
 

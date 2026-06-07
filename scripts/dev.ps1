@@ -892,6 +892,7 @@ function Invoke-JitCheck {
     }
     Invoke-Native $cargo "test" "-p" "eng_jit" "--" "--nocapture"
     Invoke-Native $cargo "run" "-p" "eng_cli" "--" "jit-plan" "examples\official\01_csv_plot\main.eng"
+    Invoke-Native $cargo "run" "-p" "eng_cli" "--" "jit-plan" "examples\official\01_csv_plot\main.eng" "--backend" "native-preview"
     Invoke-Native $cargo "run" "-p" "eng_cli" "--" "jit-bench" "examples\official\01_csv_plot\main.eng" "--iterations" "1"
     Write-Host "JIT plan check passed."
 }

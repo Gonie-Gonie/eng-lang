@@ -10,6 +10,8 @@ generation, runtime acceleration, or production JIT support.
 - `eng.exe jit-plan <file.eng>` emits `eng-kernel-plan-v1` JSON.
 - `eng.exe jit-bench <file.eng>` emits `eng-jit-bench-v1` JSON with
   interpreter baseline measurements and `jit.status = "not_available"`.
+- `--backend auto|interpreter-fallback|native-preview` records backend selection
+  metadata. `native-preview` remains unavailable and selects fallback metadata.
 - The native IDE Runtime Summary shows the current file's kernel plan metadata
   beside normal runtime artifacts.
 - The plan uses `backend = "interpreter-fallback"` to make clear that execution
@@ -44,16 +46,20 @@ generation, runtime acceleration, or production JIT support.
   notes.
 - [x] `eng-jit-bench-v1` benchmark harness records interpreter timings, embeds
   the kernel plan, and explicitly marks the JIT side as not available.
+- [x] Backend selection metadata is explicit for `auto`,
+  `interpreter-fallback`, and `native-preview`; native preview requests are
+  recorded as unavailable without executing native code.
 
 ## Remaining Before Support Claim
 
-- [ ] Add native lowering backend selection only after the metadata contract and
-  tests are stable.
+- [ ] Implement an actual native lowering backend only after v1.4 metadata,
+  tests, and benchmark contracts remain stable across further examples.
 
 ## Verification
 
 ```bat
 .\dev.bat jit-check
 target\debug\eng.exe jit-plan examples\official\01_csv_plot\main.eng
+target\debug\eng.exe jit-plan examples\official\01_csv_plot\main.eng --backend native-preview
 target\debug\eng.exe jit-bench examples\official\01_csv_plot\main.eng --iterations 1
 ```

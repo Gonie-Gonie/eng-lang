@@ -27,7 +27,8 @@ It is intentionally short so agents do not need to load every planning file.
   `eng.exe jit-plan`, `eng.exe jit-bench`, native IDE Runtime Summary
   kernel-plan display, `eng-kernel-plan-v1` hot-kernel metadata, and
   `eng-jit-bench-v1` interpreter baseline metadata documented in the v1.4 gate.
-  It has no native codegen or speedup claim yet.
+  Backend selection metadata exists, but `native-preview` is explicitly
+  unavailable. It has no native codegen or speedup claim yet.
 
 ## Read First
 

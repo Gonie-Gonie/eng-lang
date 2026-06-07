@@ -64,6 +64,15 @@ This means no native backend has been selected, compiled, cached, or executed.
 Do not calculate or publish speedups from this artifact while `jit.status` is
 `not_available`.
 
+Use `--backend native-preview` only to test selection metadata:
+
+```bat
+eng.exe jit-bench examples\official\01_csv_plot\main.eng --iterations 1 --backend native-preview
+```
+
+The resulting `kernel_plan.backend_selection.status` remains `not_available`
+and `jit.status` remains `not_available`.
+
 ## Stability Policy
 
 `eng-jit-bench-v1` is experimental while v1.4 is not release-supported.

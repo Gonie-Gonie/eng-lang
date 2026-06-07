@@ -4,6 +4,9 @@ use eng_compiler::CheckReport;
 use serde_json::{json, Value};
 
 pub const KERNEL_PLAN_FORMAT: &str = "eng-kernel-plan-v1";
+pub const DEFAULT_BACKEND_REQUEST: &str = "auto";
+pub const INTERPRETER_FALLBACK_BACKEND: &str = "interpreter-fallback";
+pub const NATIVE_PREVIEW_BACKEND: &str = "native-preview";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct KernelCandidate {
@@ -32,13 +35,43 @@ pub struct KernelEstimate {
 pub struct NumericKernelPlan {
     pub format: String,
     pub backend: String,
+    pub backend_selection: BackendSelection,
     pub candidates: Vec<KernelCandidate>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BackendSelection {
+    pub requested: String,
+    pub selected: String,
+    pub status: String,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PlanOptions {
+    pub requested_backend: String,
+}
+
+impl Default for PlanOptions {
+    fn default() -> Self {
+        Self {
+            requested_backend: DEFAULT_BACKEND_REQUEST.to_owned(),
+        }
+    }
+}
+
 pub fn plan_for_report(report: &CheckReport) -> NumericKernelPlan {
+    plan_for_report_with_options(report, &PlanOptions::default())
+}
+
+pub fn plan_for_report_with_options(
+    report: &CheckReport,
+    options: &PlanOptions,
+) -> NumericKernelPlan {
     let mut seen = BTreeSet::new();
     let mut candidates = Vec::new();
     let row_estimates = timeseries_row_estimates(report);
+    let backend_selection = select_backend(&options.requested_backend);
 
     for stats in &report.semantic_program.stats_infos {
         let estimated_rows = row_estimates.get(&stats.source).copied();
@@ -153,7 +186,8 @@ pub fn plan_for_report(report: &CheckReport) -> NumericKernelPlan {
 
     NumericKernelPlan {
         format: KERNEL_PLAN_FORMAT.to_owned(),
-        backend: "interpreter-fallback".to_owned(),
+        backend: backend_selection.selected.clone(),
+        backend_selection,
         candidates,
     }
 }
@@ -162,6 +196,12 @@ pub fn plan_json(plan: &NumericKernelPlan) -> Value {
     json!({
         "format": plan.format,
         "backend": plan.backend,
+        "backend_selection": {
+            "requested": plan.backend_selection.requested,
+            "selected": plan.backend_selection.selected,
+            "status": plan.backend_selection.status,
+            "reason": plan.backend_selection.reason,
+        },
         "candidate_count": plan.candidates.len(),
         "candidates": plan.candidates.iter().map(candidate_json).collect::<Vec<_>>(),
     })
@@ -200,6 +240,35 @@ fn push_candidate(
     let key = format!("{}:{}:{}", candidate.kind, candidate.name, candidate.line);
     if seen.insert(key) {
         candidates.push(candidate);
+    }
+}
+
+fn select_backend(requested: &str) -> BackendSelection {
+    match requested {
+        DEFAULT_BACKEND_REQUEST => BackendSelection {
+            requested: requested.to_owned(),
+            selected: INTERPRETER_FALLBACK_BACKEND.to_owned(),
+            status: "selected".to_owned(),
+            reason: "auto currently resolves to the interpreter fallback backend".to_owned(),
+        },
+        INTERPRETER_FALLBACK_BACKEND => BackendSelection {
+            requested: requested.to_owned(),
+            selected: INTERPRETER_FALLBACK_BACKEND.to_owned(),
+            status: "selected".to_owned(),
+            reason: "interpreter fallback is the only executable v1.4 path".to_owned(),
+        },
+        NATIVE_PREVIEW_BACKEND => BackendSelection {
+            requested: requested.to_owned(),
+            selected: INTERPRETER_FALLBACK_BACKEND.to_owned(),
+            status: "not_available".to_owned(),
+            reason: "native lowering backend selection is recorded, but no native backend is implemented".to_owned(),
+        },
+        other => BackendSelection {
+            requested: other.to_owned(),
+            selected: INTERPRETER_FALLBACK_BACKEND.to_owned(),
+            status: "unknown_request".to_owned(),
+            reason: "unknown backend request; falling back to interpreter metadata".to_owned(),
+        },
     }
 }
 
@@ -393,7 +462,25 @@ mod tests {
 
         let json = plan_json(&plan);
         assert_eq!(json["format"], KERNEL_PLAN_FORMAT);
+        assert_eq!(json["backend"], INTERPRETER_FALLBACK_BACKEND);
+        assert_eq!(
+            json["backend_selection"]["requested"],
+            DEFAULT_BACKEND_REQUEST
+        );
         assert!(json["candidate_count"].as_u64().unwrap() >= 3);
         assert_eq!(json["candidates"][0]["estimate"]["estimated_rows"], 4);
+
+        let native_plan = plan_for_report_with_options(
+            &report,
+            &PlanOptions {
+                requested_backend: NATIVE_PREVIEW_BACKEND.to_owned(),
+            },
+        );
+        assert_eq!(native_plan.backend, INTERPRETER_FALLBACK_BACKEND);
+        assert_eq!(
+            native_plan.backend_selection.requested,
+            NATIVE_PREVIEW_BACKEND
+        );
+        assert_eq!(native_plan.backend_selection.status, "not_available");
     }
 }

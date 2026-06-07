@@ -98,13 +98,13 @@ not part of the supported release contract.
   diagnostics, context-aware schema column completion, hover, and tested minimal
   stdio JSON-RPC paths.
 - `v1.4` JIT start: experimental `eng_jit` crate, `eng.exe jit-plan`,
-  `eng.exe jit-bench`, and native IDE Runtime Summary display for
-  `eng-kernel-plan-v1` hot-kernel metadata covering TimeSeries arithmetic,
-  integration, statistics fusion, and system residual interface seeds,
-  including coarse row/source/operation/scan estimates. `eng-jit-bench-v1`
-  records interpreter baseline timings while `jit.status` remains
-  `not_available`. It does not provide native code generation or runtime
-  acceleration yet.
+  `eng.exe jit-bench`, backend selection metadata, and native IDE Runtime
+  Summary display for `eng-kernel-plan-v1` hot-kernel metadata covering
+  TimeSeries arithmetic, integration, statistics fusion, and system residual
+  interface seeds, including coarse row/source/operation/scan estimates.
+  `eng-jit-bench-v1` records interpreter baseline timings while `jit.status`
+  remains `not_available`. It does not provide native code generation or
+  runtime acceleration yet.
 
 ## Deferred / Known Limitations
 
