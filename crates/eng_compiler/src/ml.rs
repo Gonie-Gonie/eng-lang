@@ -1,4 +1,6 @@
 use crate::ast::FastBinding;
+use crate::semantic::TypedBinding;
+use crate::Diagnostic;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MlInfo {
@@ -53,6 +55,22 @@ pub fn ml_info(binding: &FastBinding) -> Option<MlInfo> {
     })
 }
 
+pub fn source_diagnostics(
+    binding: &FastBinding,
+    typed_bindings: &[TypedBinding],
+) -> Vec<Diagnostic> {
+    let Some(info) = ml_info(binding) else {
+        return Vec::new();
+    };
+
+    source_requirements(&info)
+        .into_iter()
+        .filter_map(|requirement| {
+            validate_source_requirement(&requirement, binding.line, typed_bindings)
+        })
+        .collect()
+}
+
 pub fn ml_semantic_type(expression: &str) -> Option<(String, String)> {
     let lowered = expression.trim().to_ascii_lowercase();
     if lowered.starts_with("train_test_split(") {
@@ -72,6 +90,179 @@ pub fn ml_semantic_type(expression: &str) -> Option<(String, String)> {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ExpectedMlSource {
+    TimeSeries,
+    TrainTestSplit,
+    Model,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct MlSourceRequirement {
+    call: &'static str,
+    role: &'static str,
+    source: Option<String>,
+    expected: ExpectedMlSource,
+}
+
+fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
+    let call = ml_call_name(&info.expression);
+    let mut requirements = match info.kind.as_str() {
+        "TrainTestSplit" => vec![MlSourceRequirement {
+            call,
+            role: "source",
+            source: info.source.clone(),
+            expected: ExpectedMlSource::TimeSeries,
+        }],
+        "RegressionModel" | "MlpModel" | "LeakageLint" => vec![MlSourceRequirement {
+            call,
+            role: "split",
+            source: info.source.clone(),
+            expected: ExpectedMlSource::TrainTestSplit,
+        }],
+        "ModelMetrics" => vec![MlSourceRequirement {
+            call,
+            role: "model",
+            source: info.source.clone(),
+            expected: ExpectedMlSource::Model,
+        }],
+        "ModelCard" => vec![MlSourceRequirement {
+            call,
+            role: "model",
+            source: info.source.clone(),
+            expected: ExpectedMlSource::Model,
+        }],
+        _ => Vec::new(),
+    };
+
+    if info.kind == "ModelMetrics" {
+        if let Some(split) = named_value(&info.expression, &["split"]) {
+            requirements.push(MlSourceRequirement {
+                call,
+                role: "split",
+                source: Some(split),
+                expected: ExpectedMlSource::TrainTestSplit,
+            });
+        }
+    }
+
+    requirements
+}
+
+fn validate_source_requirement(
+    requirement: &MlSourceRequirement,
+    line: usize,
+    typed_bindings: &[TypedBinding],
+) -> Option<Diagnostic> {
+    let Some(source) = requirement
+        .source
+        .as_deref()
+        .filter(|source| is_identifier(source))
+    else {
+        return Some(Diagnostic::error(
+            "E-ML-SOURCE-001",
+            line,
+            &format!(
+                "`{}` requires a prior {} binding as its {} argument.",
+                requirement.call,
+                expected_source_label(requirement.expected),
+                requirement.role
+            ),
+            Some(expected_source_help(requirement.expected)),
+        ));
+    };
+
+    let Some(source_binding) = typed_bindings
+        .iter()
+        .find(|typed_binding| typed_binding.name == source)
+    else {
+        return Some(Diagnostic::error(
+            "E-ML-SOURCE-001",
+            line,
+            &format!(
+                "Unknown ML {} `{source}` for `{}`.",
+                requirement.role, requirement.call
+            ),
+            Some("Check the source name or move the referenced ML binding before this expression."),
+        ));
+    };
+
+    if !matches_expected_source(
+        &source_binding.semantic_type.quantity_kind,
+        requirement.expected,
+    ) {
+        return Some(Diagnostic::error(
+            "E-ML-SOURCE-002",
+            line,
+            &format!(
+                "`{source}` is {}, but `{}` expects {} for its {} argument.",
+                source_binding.semantic_type.quantity_kind,
+                requirement.call,
+                expected_source_label(requirement.expected),
+                requirement.role
+            ),
+            Some(expected_source_help(requirement.expected)),
+        ));
+    }
+
+    None
+}
+
+fn matches_expected_source(quantity_kind: &str, expected: ExpectedMlSource) -> bool {
+    match expected {
+        ExpectedMlSource::TimeSeries => crate::stats::time_series_quantity(quantity_kind).is_some(),
+        ExpectedMlSource::TrainTestSplit => quantity_kind == "TrainTestSplit",
+        ExpectedMlSource::Model => {
+            quantity_kind.starts_with("Model[") && quantity_kind.ends_with(']')
+        }
+    }
+}
+
+fn expected_source_label(expected: ExpectedMlSource) -> &'static str {
+    match expected {
+        ExpectedMlSource::TimeSeries => "TimeSeries",
+        ExpectedMlSource::TrainTestSplit => "TrainTestSplit",
+        ExpectedMlSource::Model => "Model[Regression] or Model[MLP]",
+    }
+}
+
+fn expected_source_help(expected: ExpectedMlSource) -> &'static str {
+    match expected {
+        ExpectedMlSource::TimeSeries => {
+            "Compute a TimeSeries such as `Q_coil` before calling `train_test_split(Q_coil, ...)`."
+        }
+        ExpectedMlSource::TrainTestSplit => {
+            "Create `split = train_test_split(...)` first, then pass `split` to this ML call."
+        }
+        ExpectedMlSource::Model => {
+            "Create `reg_model = regression(split, ...)` or `mlp_model = mlp(split, ...)` first."
+        }
+    }
+}
+
+fn ml_call_name(expression: &str) -> &'static str {
+    let lowered = expression.trim_start().to_ascii_lowercase();
+    if lowered.starts_with("train_test_split(") {
+        "train_test_split"
+    } else if lowered.starts_with("regression(") {
+        "regression"
+    } else if lowered.starts_with("mlp(") {
+        "mlp"
+    } else if lowered.starts_with("ann(") {
+        "ann"
+    } else if lowered.starts_with("evaluate(") {
+        "evaluate"
+    } else if lowered.starts_with("metrics(") {
+        "metrics"
+    } else if lowered.starts_with("model_card(") {
+        "model_card"
+    } else if lowered.starts_with("leakage_lint(") {
+        "leakage_lint"
+    } else {
+        "ml"
+    }
+}
+
 fn default_algorithm(kind: &str) -> Option<String> {
     match kind {
         "RegressionModel" => Some("linear".to_owned()),
@@ -88,6 +279,15 @@ fn first_argument(expression: &str) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty() && !value.contains('='))
         .map(str::to_owned)
+}
+
+fn is_identifier(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|character| character.is_ascii_alphanumeric() || character == '_')
 }
 
 fn named_value(expression: &str, names: &[&str]) -> Option<String> {

@@ -8,13 +8,17 @@ user testing and artifact review, not a full production ML framework yet.
 Use fast bindings after a data-derived `TimeSeries` such as `Q_coil`:
 
 ```eng
-split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)
-reg_model = regression(split, algorithm=linear)
-mlp_model = mlp(split, hidden=[4], epochs=80, seed=7)
-reg_eval = evaluate(reg_model, split=split)
-mlp_eval = evaluate(mlp_model, split=split)
-reg_card = model_card(reg_model)
-leakage = leakage_lint(split)
+script main(args: Args) -> Report {
+    cp = 4180 J/kg/K
+    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)
+    reg_model = regression(split, algorithm=linear)
+    mlp_model = mlp(split, hidden=[4], epochs=80, seed=7)
+    reg_eval = evaluate(reg_model, split=split)
+    mlp_eval = evaluate(mlp_model, split=split)
+    reg_card = model_card(reg_model)
+    leakage = leakage_lint(split)
+}
 ```
 
 The compiler records these semantic types:
@@ -33,6 +37,22 @@ The portable stdlib documents this preview surface at:
 ```text
 stdlib/eng/ml.eng
 ```
+
+## Source Validation
+
+The compiler checks the staged ML binding chain before runtime:
+
+```text
+train_test_split(Q_coil, ...)      Q_coil must be a prior TimeSeries binding
+regression(split, ...)             split must be a prior TrainTestSplit binding
+mlp(split, ...) / ann(split, ...)  split must be a prior TrainTestSplit binding
+evaluate(model, split=split)       model must be a prior Model[...] binding
+model_card(model)                  model must be a prior Model[...] binding
+leakage_lint(split)                split must be a prior TrainTestSplit binding
+```
+
+Unknown or missing ML references produce `E-ML-SOURCE-001`. References with the
+wrong semantic type produce `E-ML-SOURCE-002`.
 
 ## Runtime Semantics
 

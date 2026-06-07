@@ -356,6 +356,7 @@ Required outputs before v1.2 can be considered supported:
 - residual/parity plot paths
 - model card
 - leakage lint
+- source validation diagnostics for split/model/evaluation links
 - official data-driven modeling example and CLI smoke
 - diagnostics, IDE metadata, documentation, and release notes aligned
 ```

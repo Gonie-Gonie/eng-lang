@@ -1724,7 +1724,7 @@ mod tests {
     fn records_data_driven_modeling_metadata() {
         let report = check_source(
             "ok.eng",
-            "script main(args: Args) -> Report {\n    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)\n    reg_model = regression(split, algorithm=linear)\n    mlp_model = mlp(split, hidden=[4], epochs=20, seed=7)\n    reg_eval = evaluate(reg_model, split=split)\n    reg_card = model_card(reg_model)\n    leakage = leakage_lint(split)\n}\n",
+            "script main(args: Args) -> Report {\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)\n    reg_model = regression(split, algorithm=linear)\n    mlp_model = mlp(split, hidden=[4], epochs=20, seed=7)\n    reg_eval = evaluate(reg_model, split=split)\n    reg_card = model_card(reg_model)\n    leakage = leakage_lint(split)\n}\n",
             &CheckOptions::default(),
         );
 
@@ -1757,6 +1757,66 @@ mod tests {
         assert!(review.contains("\"ml_info\""));
         assert!(review.contains("\"Model[MLP]\""));
         assert!(review.contains("\"LeakageLint\""));
+    }
+
+    #[test]
+    fn rejects_unresolved_ml_source() {
+        let report = check_source(
+            "bad.eng",
+            "script main(args: Args) -> Report {\n    split = train_test_split(Q_missing, target=Q_missing, features=[T_supply], test=0.25)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-ML-SOURCE-001"));
+    }
+
+    #[test]
+    fn rejects_invalid_ml_source_kind() {
+        let report = check_source(
+            "bad.eng",
+            "script main(args: Args) -> Report {\n    Q_coil = 5 kW\n    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply], test=0.25)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-ML-SOURCE-002"));
+    }
+
+    #[test]
+    fn rejects_ml_model_without_split_source() {
+        let report = check_source(
+            "bad.eng",
+            "script main(args: Args) -> Report {\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    reg_model = regression(Q_coil, algorithm=linear)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-ML-SOURCE-002"));
+    }
+
+    #[test]
+    fn rejects_evaluate_with_unresolved_split_reference() {
+        let report = check_source(
+            "bad.eng",
+            "script main(args: Args) -> Report {\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply], test=0.25)\n    reg_model = regression(split, algorithm=linear)\n    reg_eval = evaluate(reg_model, split=missing_split)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-ML-SOURCE-001"));
     }
 
     #[test]

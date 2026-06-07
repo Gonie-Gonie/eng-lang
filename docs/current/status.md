@@ -86,7 +86,8 @@ not part of the supported release contract.
   metadata, propagation source terms, deterministic samples, and distribution
   histogram bins.
 - `v1.2` data-driven modeling: regression, basic MLP/ANN seed, train/test
-  metadata, RMSE/MAE/R2, model cards, leakage lint, and parity/residual plots.
+  metadata, source validation diagnostics, RMSE/MAE/R2, model cards, leakage
+  lint, and parity/residual plots.
 - General LSP/IDE service split beyond the current native tester IDE.
 
 ## Deferred / Known Limitations
