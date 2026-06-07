@@ -1,5 +1,6 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -496,6 +497,96 @@ impl EngIdeApp {
         self.last_edit = Some(Instant::now());
     }
 
+    fn completion_items_for_filter(&self, filter: &str) -> Vec<CompletionItem> {
+        completion_items(filter, &self.symbols, &self.source)
+    }
+
+    fn first_completion_for_prefix(&self) -> Option<CompletionItem> {
+        let prefix = current_prefix(&self.source, self.cursor_char_index);
+        if prefix.is_empty() {
+            return None;
+        }
+        self.completion_items_for_filter(&prefix).into_iter().next()
+    }
+
+    fn accept_first_completion(&mut self) -> bool {
+        let Some(item) = self.first_completion_for_prefix() else {
+            return false;
+        };
+        self.insert_completion(&item.insert);
+        self.completion_filter = current_prefix(&self.source, self.cursor_char_index);
+        self.right_tab = RightTab::Completions;
+        true
+    }
+
+    fn update_completion_filter_from_cursor(&mut self) {
+        let prefix = current_prefix(&self.source, self.cursor_char_index);
+        if prefix.is_empty() {
+            self.completion_filter.clear();
+            return;
+        }
+        self.completion_filter = prefix;
+        self.right_tab = RightTab::Completions;
+    }
+
+    fn maybe_auto_close_pair(&mut self, before: &str) {
+        if before == self.source {
+            return;
+        }
+        let before_chars: Vec<char> = before.chars().collect();
+        let after_chars: Vec<char> = self.source.chars().collect();
+        if after_chars.len() != before_chars.len() + 1 {
+            return;
+        }
+        let prefix_len = before_chars
+            .iter()
+            .zip(after_chars.iter())
+            .take_while(|(before, after)| before == after)
+            .count();
+        if before_chars[prefix_len..] != after_chars[prefix_len + 1..] {
+            return;
+        }
+        if self.cursor_char_index != prefix_len + 1 {
+            return;
+        }
+        let inserted = after_chars[prefix_len];
+        let Some(closer) = matching_closer(inserted) else {
+            return;
+        };
+        if self
+            .source
+            .chars()
+            .nth(self.cursor_char_index)
+            .is_some_and(|next| next == closer)
+        {
+            return;
+        }
+        let cursor_byte = char_to_byte_index(&self.source, self.cursor_char_index);
+        self.source.insert(cursor_byte, closer);
+    }
+
+    fn remove_single_inserted_char(&mut self, before: &str, expected: char) -> bool {
+        let before_chars: Vec<char> = before.chars().collect();
+        let after_chars: Vec<char> = self.source.chars().collect();
+        if after_chars.len() != before_chars.len() + 1 {
+            return false;
+        }
+        let prefix_len = before_chars
+            .iter()
+            .zip(after_chars.iter())
+            .take_while(|(before, after)| before == after)
+            .count();
+        if after_chars.get(prefix_len).copied() != Some(expected) {
+            return false;
+        }
+        if before_chars[prefix_len..] != after_chars[prefix_len + 1..] {
+            return false;
+        }
+        self.source = before.to_owned();
+        self.cursor_char_index = prefix_len;
+        true
+    }
+
     fn resolve_path_input(&self) -> PathBuf {
         self.resolve_relative_or_absolute(self.path_input.trim())
     }
@@ -745,9 +836,17 @@ impl EngIdeApp {
                     .max_height(editor_height)
                     .max_width(editor_width)
                     .show(ui, |ui| {
-                        let content_width = editor_width.max(900.0);
+                        let content_width = editor_width.max(estimated_code_width(&self.source));
                         ui.set_min_size(egui::vec2(content_width, editor_height));
                         let line_count = self.source.lines().count().max(32);
+                        let source_before = self.source.clone();
+                        let completion_before_tab = self.first_completion_for_prefix();
+                        let tab_requested = ui.input(|input| {
+                            input.key_pressed(egui::Key::Tab)
+                                && !input.modifiers.shift
+                                && !input.modifiers.ctrl
+                                && !input.modifiers.alt
+                        });
                         let text_output = egui::TextEdit::multiline(&mut self.source)
                             .code_editor()
                             .desired_width(content_width)
@@ -763,6 +862,22 @@ impl EngIdeApp {
                             if let Some(cursor_range) = text_output.cursor_range {
                                 self.cursor_char_index = cursor_range.primary.ccursor.index;
                             }
+                            let mut accepted_completion = false;
+                            if tab_requested {
+                                if let Some(item) = completion_before_tab {
+                                    self.remove_single_inserted_char(&source_before, '\t');
+                                    self.insert_completion(&item.insert);
+                                    self.completion_filter =
+                                        current_prefix(&self.source, self.cursor_char_index);
+                                    self.right_tab = RightTab::Completions;
+                                    accepted_completion = true;
+                                } else if self.accept_first_completion() {
+                                    accepted_completion = true;
+                                }
+                            }
+                            if text_output.response.changed() && !accepted_completion {
+                                self.maybe_auto_close_pair(&source_before);
+                            }
                             if ui.input(|input| {
                                 input.key_pressed(egui::Key::Space) && input.modifiers.ctrl
                             }) {
@@ -770,8 +885,16 @@ impl EngIdeApp {
                                     current_prefix(&self.source, self.cursor_char_index);
                                 self.right_tab = RightTab::Completions;
                             }
+                            self.update_completion_filter_from_cursor();
                         }
                     });
+                let prefix = current_prefix(&self.source, self.cursor_char_index);
+                if let Some(item) = self.first_completion_for_prefix() {
+                    if !prefix.is_empty() && item.insert != prefix {
+                        ui.add_space(4.0);
+                        completion_hint(ui, &prefix, &item);
+                    }
+                }
             });
     }
 
@@ -916,13 +1039,29 @@ impl EngIdeApp {
         });
         ui.add_space(6.0);
         egui::ScrollArea::vertical().show(ui, |ui| {
-            for item in completion_items(&self.completion_filter) {
+            let items = self.completion_items_for_filter(&self.completion_filter);
+            for (index, item) in items.iter().enumerate() {
+                let fill = if index == 0 {
+                    egui::Color32::from_rgb(222, 235, 249)
+                } else {
+                    PANEL_ALT
+                };
                 let response = egui::Frame::none()
-                    .fill(PANEL_ALT)
+                    .fill(fill)
                     .rounding(egui::Rounding::same(5.0))
                     .inner_margin(egui::Margin::symmetric(8.0, 6.0))
                     .show(ui, |ui| {
-                        ui.label(egui::RichText::new(&item.label).strong());
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::new(&item.label).strong());
+                            if index == 0 {
+                                ui.with_layout(
+                                    egui::Layout::right_to_left(egui::Align::Center),
+                                    |ui| {
+                                        status_pill(ui, "Tab", ACCENT);
+                                    },
+                                );
+                            }
+                        });
                         ui.label(egui::RichText::new(&item.detail).color(MUTED).size(12.0));
                     })
                     .response;
@@ -1537,9 +1676,41 @@ impl PlotPreview {
     }
 }
 
-fn completion_items(filter: &str) -> Vec<CompletionItem> {
+fn completion_items(filter: &str, symbols: &[SymbolView], source: &str) -> Vec<CompletionItem> {
     let normalized = filter.trim().to_ascii_lowercase();
     let mut items = Vec::new();
+    let mut seen = HashSet::new();
+
+    for symbol in symbols {
+        push_completion(
+            &mut items,
+            &mut seen,
+            symbol.name.clone(),
+            symbol.name.clone(),
+            format!(
+                "variable, line {}, {} [{}]",
+                symbol.line, symbol.quantity_kind, symbol.display_unit
+            ),
+        );
+    }
+
+    let units = all_unit_infos();
+    let unit_symbols: HashSet<String> = units
+        .iter()
+        .map(|unit| unit.symbol.to_ascii_lowercase())
+        .collect();
+    for identifier in source_identifiers(source) {
+        if unit_symbols.contains(&identifier.to_ascii_lowercase()) {
+            continue;
+        }
+        push_completion(
+            &mut items,
+            &mut seen,
+            identifier.clone(),
+            identifier,
+            "source identifier".to_owned(),
+        );
+    }
 
     for keyword in [
         "schema",
@@ -1593,33 +1764,39 @@ fn completion_items(filter: &str) -> Vec<CompletionItem> {
         "scale",
         "offset",
     ] {
-        items.push(CompletionItem {
-            label: keyword.to_owned(),
-            insert: keyword.to_owned(),
-            detail: "language keyword".to_owned(),
-        });
+        push_completion(
+            &mut items,
+            &mut seen,
+            keyword.to_owned(),
+            keyword.to_owned(),
+            "language keyword".to_owned(),
+        );
     }
 
     for quantity in all_quantity_completions() {
-        items.push(CompletionItem {
-            label: quantity.quantity_kind.to_owned(),
-            insert: quantity.quantity_kind.to_owned(),
-            detail: format!(
+        push_completion(
+            &mut items,
+            &mut seen,
+            quantity.quantity_kind.to_owned(),
+            quantity.quantity_kind.to_owned(),
+            format!(
                 "quantity, canonical unit {}, {}",
                 quantity.canonical_unit, quantity.description
             ),
-        });
+        );
     }
 
-    for unit in all_unit_infos() {
-        items.push(CompletionItem {
-            label: unit.symbol.to_owned(),
-            insert: unit.symbol.to_owned(),
-            detail: format!(
+    for unit in units {
+        push_completion(
+            &mut items,
+            &mut seen,
+            unit.symbol.to_owned(),
+            unit.symbol.to_owned(),
+            format!(
                 "unit for {}, canonical {}",
                 unit.quantity_hint, unit.canonical_unit
             ),
-        });
+        );
     }
 
     for (label, insert, detail) in [
@@ -1654,20 +1831,74 @@ fn completion_items(filter: &str) -> Vec<CompletionItem> {
             "uncertainty distribution and histogram",
         ),
     ] {
-        items.push(CompletionItem {
-            label: label.to_owned(),
-            insert: insert.to_owned(),
-            detail: detail.to_owned(),
-        });
+        push_completion(
+            &mut items,
+            &mut seen,
+            label.to_owned(),
+            insert.to_owned(),
+            detail.to_owned(),
+        );
     }
 
-    items
-        .into_iter()
-        .filter(|item| {
-            normalized.is_empty() || item.label.to_ascii_lowercase().contains(&normalized)
-        })
-        .take(120)
-        .collect()
+    if normalized.is_empty() {
+        return items.into_iter().take(120).collect();
+    }
+
+    let mut starts = Vec::new();
+    let mut contains = Vec::new();
+    for item in items {
+        let label = item.label.to_ascii_lowercase();
+        let insert = item.insert.to_ascii_lowercase();
+        if label.starts_with(&normalized) || insert.starts_with(&normalized) {
+            starts.push(item);
+        } else if label.contains(&normalized) || insert.contains(&normalized) {
+            contains.push(item);
+        }
+    }
+    starts.extend(contains);
+    starts.into_iter().take(120).collect()
+}
+
+fn push_completion(
+    items: &mut Vec<CompletionItem>,
+    seen: &mut HashSet<String>,
+    label: String,
+    insert: String,
+    detail: String,
+) {
+    let key = insert.to_ascii_lowercase();
+    if seen.insert(key) {
+        items.push(CompletionItem {
+            label,
+            insert,
+            detail,
+        });
+    }
+}
+
+fn source_identifiers(source: &str) -> Vec<String> {
+    let mut identifiers = Vec::new();
+    let mut seen = HashSet::new();
+    let chars: Vec<char> = source.chars().collect();
+    let mut index = 0usize;
+    while index < chars.len() {
+        if chars[index].is_ascii_alphabetic() || chars[index] == '_' {
+            let start = index;
+            index += 1;
+            while index < chars.len()
+                && (chars[index].is_ascii_alphanumeric() || chars[index] == '_')
+            {
+                index += 1;
+            }
+            let token: String = chars[start..index].iter().collect();
+            if !is_keyword(&token) && token.len() > 1 && seen.insert(token.to_ascii_lowercase()) {
+                identifiers.push(token);
+            }
+        } else {
+            index += 1;
+        }
+    }
+    identifiers
 }
 
 fn highlight_eng(source: &str, diagnostics: &[DiagnosticView]) -> LayoutJob {
@@ -1853,12 +2084,36 @@ fn current_prefix(source: &str, cursor_char_index: usize) -> String {
         .collect()
 }
 
+fn estimated_code_width(source: &str) -> f32 {
+    let longest_line = source
+        .lines()
+        .map(|line| line.chars().count())
+        .max()
+        .unwrap_or(0);
+    if longest_line <= 92 {
+        0.0
+    } else {
+        (longest_line as f32 * 7.4 + 36.0).min(1800.0)
+    }
+}
+
 fn char_to_byte_index(source: &str, char_index: usize) -> usize {
     source
         .char_indices()
         .nth(char_index)
         .map(|(index, _)| index)
         .unwrap_or_else(|| source.len())
+}
+
+fn matching_closer(opener: char) -> Option<char> {
+    match opener {
+        '(' => Some(')'),
+        '[' => Some(']'),
+        '{' => Some('}'),
+        '"' => Some('"'),
+        '\'' => Some('\''),
+        _ => None,
+    }
 }
 
 fn workspace_root() -> PathBuf {
@@ -1969,6 +2224,37 @@ fn compact_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
         [76.0, 23.0],
         egui::Button::new(egui::RichText::new(text).size(12.0)),
     )
+}
+
+fn completion_hint(ui: &mut egui::Ui, prefix: &str, item: &CompletionItem) {
+    let display_insert = if item.insert.chars().count() > 48 {
+        item.label.as_str()
+    } else {
+        item.insert.as_str()
+    };
+    egui::Frame::none()
+        .fill(egui::Color32::from_rgb(245, 249, 255))
+        .stroke(egui::Stroke::new(
+            1.0,
+            egui::Color32::from_rgb(191, 219, 254),
+        ))
+        .rounding(egui::Rounding::same(4.0))
+        .inner_margin(egui::Margin::symmetric(8.0, 5.0))
+        .show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                status_pill(ui, "Tab", ACCENT);
+                ui.label(egui::RichText::new("complete").color(MUTED).size(12.0));
+                ui.label(egui::RichText::new(prefix).monospace().size(12.0));
+                ui.label(egui::RichText::new("to").color(MUTED).size(12.0));
+                ui.label(
+                    egui::RichText::new(display_insert)
+                        .monospace()
+                        .strong()
+                        .size(12.0),
+                );
+                ui.label(egui::RichText::new(&item.detail).color(MUTED).size(12.0));
+            });
+        });
 }
 
 fn tab_button(ui: &mut egui::Ui, text: &str, selected: bool) -> egui::Response {

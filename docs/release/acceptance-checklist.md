@@ -243,9 +243,14 @@ Before publishing the next post-v1.0 hardening release:
 [x] native IDE has Explorer, Code/Result main panes, Variables sidebar, and Problems/Output/Artifacts regions
 [x] native IDE main area is side-by-side Code and Result, with independent scrolling
 [x] native IDE Code/Result divider resizes the main panes without covering the right sidebar
+[x] native IDE Result pane does not cover or push the Variables/Completions/Runtime sidebar
+[x] native IDE code pane shows horizontal scrolling only when long source lines require it
 [x] native IDE has Runtime Summary for result.engres uncertainty and ML artifacts
 [x] native IDE supports creating new .eng files from the Explorer
 [x] native IDE provides syntax highlighting and line-level diagnostic tinting
+[x] native IDE suggests current-file variables, source identifiers, keywords, quantities, units, and snippets
+[x] native IDE applies the first completion suggestion with Tab
+[x] native IDE auto-closes parentheses, brackets, braces, and quotes
 [x] native IDE previews PlotSpec data inside the app after Run
 [x] in-IDE PlotSpec preview includes grid lines, x/y ticks, zero baseline handling, and line/scatter/bar/histogram rendering
 [x] official integrated HVAC example exercises CSV policies, statistics, plot/report, and system preview

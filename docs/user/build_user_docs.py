@@ -47,7 +47,7 @@ def build_document(version: str) -> Document:
                 paragraph(
                     "Use the Explorer to open official examples or create a new ",
                     code(".eng"),
-                    " file. The main area is split into scrollable Code on the left and scrollable Result on the right, with a draggable divider and separate Variables, Completions, and Runtime Summary sidebar.",
+                    " file. The main area is split into scrollable Code on the left and scrollable Result on the right, with a draggable divider and separate Variables, Completions, and Runtime Summary sidebar. While editing, the IDE suggests variables, identifiers, keywords, quantities, units, and snippets from the cursor prefix; press Tab to apply the first suggestion. Parentheses, brackets, braces, and quotes are closed automatically.",
                 ),
             ),
             Section(

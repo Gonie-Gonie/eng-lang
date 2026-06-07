@@ -79,7 +79,8 @@ Main work area
 Code
   Native multiline editor with EngLang syntax highlighting and line-level
   diagnostic backgrounds. The editor uses a compact Windows-friendly monospace
-  style and supports vertical and horizontal scrolling inside the code pane.
+  style and supports vertical scrolling by default. Horizontal scrolling appears
+  only when a source line is wider than the code pane.
 
 Result
   Run Preview renders PlotSpec points inside the IDE with axes, grid lines,
@@ -158,6 +159,7 @@ history.
 Current completion sources:
 
 ```text
+- variables and source identifiers from the current file
 - language keywords
 - built-in quantity kinds from eng_compiler
 - built-in units from eng_compiler
@@ -165,9 +167,15 @@ Current completion sources:
 - uncertainty and ML user-test snippets
 ```
 
+While editing, the IDE updates the completion filter from the cursor prefix and
+shows the first suggestion below the code pane. Press `Tab` to apply that
+suggestion. The Completions sidebar mirrors the same ordered list and still
+supports mouse insertion. The editor also auto-closes `()`, `[]`, `{}`, single
+quotes, and double quotes.
+
 This is a tester IDE completion surface, not a full LSP yet. It is enough for
 release users to explore current language examples and quickly produce new
-small scripts without remembering every quantity or unit spelling.
+small scripts without remembering every variable, quantity, or unit spelling.
 
 ## VS Code Extension Preview
 
