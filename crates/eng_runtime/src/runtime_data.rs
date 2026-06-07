@@ -1,0 +1,829 @@
+use std::collections::HashMap;
+use std::fs;
+
+use eng_compiler::{CheckReport, SchemaColumn, SchemaInfo};
+use eng_report::{
+    PlotAxis, PlotPoint, PlotSeries, PlotSpec, ReportComputedIntegration,
+    ReportComputedStatisticValue, ReportComputedStatistics,
+};
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RuntimeData {
+    pub tables: Vec<RuntimeTable>,
+    pub time_series: Vec<RuntimeTimeSeries>,
+    pub statistics: Vec<RuntimeStatistics>,
+    pub integrations: Vec<RuntimeIntegration>,
+    pub plot_options: PlotOptions,
+}
+
+impl RuntimeData {
+    pub fn apply_plot_spec(&self, report: &CheckReport, spec: &mut PlotSpec) {
+        let requested_series = self
+            .plot_options
+            .series
+            .as_deref()
+            .or_else(|| spec.series.first().map(|series| series.name.as_str()));
+        let series = requested_series
+            .and_then(|name| self.time_series.iter().find(|series| series.name == name))
+            .or_else(|| self.time_series.first());
+
+        let Some(series) = series else {
+            return;
+        };
+
+        let display_unit = self
+            .plot_options
+            .y_unit
+            .clone()
+            .unwrap_or_else(|| series.display_unit.clone());
+        let points = series
+            .points
+            .iter()
+            .map(|point| PlotPoint {
+                x: point.x,
+                y: convert_display_value(point.y, &series.display_unit, &display_unit),
+            })
+            .collect();
+
+        let title = self
+            .plot_options
+            .title
+            .clone()
+            .unwrap_or_else(|| format!("{} over {}", series.name, series.axis));
+
+        spec.title = title;
+        spec.x_axis = PlotAxis {
+            name: series.axis.clone(),
+            label: series.axis.clone(),
+            unit: series.x_unit.clone(),
+        };
+        spec.y_axis = PlotAxis {
+            name: series.quantity_kind.clone(),
+            label: series.quantity_kind.clone(),
+            unit: display_unit.clone(),
+        };
+        spec.series = vec![PlotSeries {
+            name: series.name.clone(),
+            quantity_kind: series.quantity_kind.clone(),
+            display_unit,
+            points,
+        }];
+
+        if spec.series.is_empty() && !report.semantic_program.typed_bindings.is_empty() {
+            *spec = eng_report::plot_spec_from_report(report);
+        }
+    }
+
+    pub fn report_computed_statistics(&self) -> Vec<ReportComputedStatistics> {
+        self.statistics
+            .iter()
+            .map(|summary| ReportComputedStatistics {
+                source: summary.source.clone(),
+                quantity_kind: summary.quantity_kind.clone(),
+                axis: summary.axis.clone(),
+                status: summary.status.clone(),
+                values: summary
+                    .values
+                    .iter()
+                    .map(|value| ReportComputedStatisticValue {
+                        name: value.name.clone(),
+                        value: value.value,
+                        unit: value.unit.clone(),
+                    })
+                    .collect(),
+            })
+            .collect()
+    }
+
+    pub fn report_computed_integrations(&self) -> Vec<ReportComputedIntegration> {
+        self.integrations
+            .iter()
+            .map(|integration| ReportComputedIntegration {
+                binding: integration.binding.clone(),
+                source: integration.source.clone(),
+                input_quantity: integration.input_quantity.clone(),
+                over_axis: integration.over_axis.clone(),
+                result_quantity: integration.result_quantity.clone(),
+                value: integration.value,
+                unit: integration.unit.clone(),
+                method: integration.method.clone(),
+                status: integration.status.clone(),
+            })
+            .collect()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTable {
+    pub binding: String,
+    pub schema_name: String,
+    pub source: String,
+    pub source_hash: Option<String>,
+    pub row_count: usize,
+    pub columns: Vec<RuntimeColumn>,
+    pub parse_failures: Vec<RuntimeParseFailure>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeColumn {
+    pub name: String,
+    pub type_name: String,
+    pub unit: Option<String>,
+    pub is_index: bool,
+    pub values: RuntimeValues,
+    pub missing_count: usize,
+}
+
+impl RuntimeColumn {
+    pub fn len(&self) -> usize {
+        match &self.values {
+            RuntimeValues::Text(values) => values.len(),
+            RuntimeValues::Number(values) => values.len(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum RuntimeValues {
+    Text(Vec<String>),
+    Number(Vec<Option<f64>>),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeParseFailure {
+    pub row: usize,
+    pub column: String,
+    pub value: String,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTimeSeries {
+    pub name: String,
+    pub axis: String,
+    pub x_unit: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub source_table: String,
+    pub source_expression: String,
+    pub points: Vec<RuntimePoint>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimePoint {
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeStatistics {
+    pub source: String,
+    pub quantity_kind: String,
+    pub axis: String,
+    pub cache_key: String,
+    pub status: String,
+    pub values: Vec<RuntimeStatisticValue>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeStatisticValue {
+    pub name: String,
+    pub value: f64,
+    pub unit: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeIntegration {
+    pub binding: String,
+    pub source: String,
+    pub input_quantity: String,
+    pub over_axis: String,
+    pub result_quantity: String,
+    pub value: f64,
+    pub unit: String,
+    pub method: String,
+    pub status: String,
+    pub interval_count: usize,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PlotOptions {
+    pub series: Option<String>,
+    pub axis: Option<String>,
+    pub title: Option<String>,
+    pub y_unit: Option<String>,
+}
+
+pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeData {
+    let mut data = RuntimeData {
+        plot_options: parse_plot_options(source),
+        ..RuntimeData::default()
+    };
+
+    for promotion in &report.semantic_program.csv_promotions {
+        let Some(schema) = report
+            .semantic_program
+            .schemas
+            .iter()
+            .find(|schema| schema.name == promotion.schema_name)
+        else {
+            continue;
+        };
+        if let Some(table) = materialize_table(schema, promotion) {
+            data.tables.push(table);
+        }
+    }
+
+    data.time_series = materialize_time_series(report, &data.tables);
+    data.statistics = materialize_statistics(report, &data.time_series);
+    data.integrations = materialize_integrations(report, &data.time_series);
+    data
+}
+
+fn materialize_table(
+    schema: &SchemaInfo,
+    promotion: &eng_compiler::CsvPromotion,
+) -> Option<RuntimeTable> {
+    let source = fs::read_to_string(&promotion.resolved_path).ok()?;
+    let rows = parse_csv(&source);
+    let headers = rows.first()?.clone();
+    let header_index = headers
+        .iter()
+        .enumerate()
+        .map(|(index, header)| (header.trim().to_owned(), index))
+        .collect::<HashMap<_, _>>();
+    let data_rows = rows.into_iter().skip(1).collect::<Vec<_>>();
+    let mut parse_failures = Vec::new();
+    let mut columns = Vec::new();
+
+    for column in &schema.columns {
+        let Some(index) = header_index.get(&column.name).copied() else {
+            continue;
+        };
+        columns.push(materialize_column(
+            column,
+            index,
+            &data_rows,
+            &mut parse_failures,
+        ));
+    }
+
+    Some(RuntimeTable {
+        binding: promotion.binding.clone(),
+        schema_name: promotion.schema_name.clone(),
+        source: promotion.source_literal.clone(),
+        source_hash: promotion.source_hash.clone(),
+        row_count: data_rows.len(),
+        columns,
+        parse_failures,
+    })
+}
+
+fn materialize_column(
+    column: &SchemaColumn,
+    index: usize,
+    rows: &[Vec<String>],
+    parse_failures: &mut Vec<RuntimeParseFailure>,
+) -> RuntimeColumn {
+    let mut missing_count = 0usize;
+    if column.type_name == "DateTime" {
+        let mut values = Vec::new();
+        for (row_index, row) in rows.iter().enumerate() {
+            let value = row.get(index).map(String::as_str).unwrap_or("").trim();
+            if value.is_empty() {
+                missing_count += 1;
+            } else if parse_utc_timestamp_seconds(value).is_none() {
+                parse_failures.push(RuntimeParseFailure {
+                    row: row_index + 2,
+                    column: column.name.clone(),
+                    value: value.to_owned(),
+                    message: "expected UTC DateTime like 2026-01-01T00:00:00Z".to_owned(),
+                });
+            }
+            values.push(value.to_owned());
+        }
+        return RuntimeColumn {
+            name: column.name.clone(),
+            type_name: column.type_name.clone(),
+            unit: column.unit.clone(),
+            is_index: column.is_index,
+            values: RuntimeValues::Text(values),
+            missing_count,
+        };
+    }
+
+    if is_numeric_schema_type(&column.type_name) {
+        let mut values = Vec::new();
+        for (row_index, row) in rows.iter().enumerate() {
+            let value = row.get(index).map(String::as_str).unwrap_or("").trim();
+            if value.is_empty() {
+                missing_count += 1;
+                values.push(None);
+                continue;
+            }
+            match value.parse::<f64>() {
+                Ok(number) if number.is_finite() => values.push(Some(number)),
+                _ => {
+                    parse_failures.push(RuntimeParseFailure {
+                        row: row_index + 2,
+                        column: column.name.clone(),
+                        value: value.to_owned(),
+                        message: "expected finite numeric cell".to_owned(),
+                    });
+                    values.push(None);
+                }
+            }
+        }
+        return RuntimeColumn {
+            name: column.name.clone(),
+            type_name: column.type_name.clone(),
+            unit: column.unit.clone(),
+            is_index: column.is_index,
+            values: RuntimeValues::Number(values),
+            missing_count,
+        };
+    }
+
+    let values = rows
+        .iter()
+        .map(|row| row.get(index).cloned().unwrap_or_default())
+        .inspect(|value| {
+            if value.trim().is_empty() {
+                missing_count += 1;
+            }
+        })
+        .collect();
+    RuntimeColumn {
+        name: column.name.clone(),
+        type_name: column.type_name.clone(),
+        unit: column.unit.clone(),
+        is_index: column.is_index,
+        values: RuntimeValues::Text(values),
+        missing_count,
+    }
+}
+
+fn materialize_time_series(
+    report: &CheckReport,
+    tables: &[RuntimeTable],
+) -> Vec<RuntimeTimeSeries> {
+    let mut series = Vec::new();
+    for binding in &report.semantic_program.typed_bindings {
+        let Some((axis, quantity_kind)) =
+            time_series_quantity(&binding.semantic_type.quantity_kind)
+        else {
+            continue;
+        };
+        let Some(inferred) = report
+            .inferred_declarations
+            .iter()
+            .find(|declaration| declaration.name == binding.name)
+        else {
+            continue;
+        };
+        if quantity_kind != "HeatRate" {
+            continue;
+        }
+        if let Some(runtime_series) = heat_rate_series(
+            &binding.name,
+            &axis,
+            &quantity_kind,
+            &binding.semantic_type.display_unit,
+            &inferred.expression,
+            report,
+            tables,
+        ) {
+            series.push(runtime_series);
+        }
+    }
+    series
+}
+
+fn heat_rate_series(
+    name: &str,
+    axis: &str,
+    quantity_kind: &str,
+    display_unit: &str,
+    expression: &str,
+    report: &CheckReport,
+    tables: &[RuntimeTable],
+) -> Option<RuntimeTimeSeries> {
+    let table = tables
+        .iter()
+        .find(|table| expression.contains(&format!("{}.", table.binding)))?;
+    let mass_flow = table.numeric_column_by_type("MassFlowRate")?;
+    let supply = table.temperature_column("supply")?;
+    let return_temp = table.temperature_column("return")?;
+    let cp = specific_heat_value(report, expression)?;
+    let (x_values, x_unit) = table.axis_values();
+
+    let mut points = Vec::new();
+    for index in 0..table.row_count {
+        let (Some(m_dot), Some(supply), Some(return_temp)) = (
+            optional_number_at(mass_flow, index),
+            optional_number_at(supply, index),
+            optional_number_at(return_temp, index),
+        ) else {
+            continue;
+        };
+        let x = x_values.get(index).copied().unwrap_or(index as f64);
+        points.push(RuntimePoint {
+            x,
+            y: m_dot * cp * (return_temp - supply),
+        });
+    }
+
+    Some(RuntimeTimeSeries {
+        name: name.to_owned(),
+        axis: axis.to_owned(),
+        x_unit,
+        quantity_kind: quantity_kind.to_owned(),
+        display_unit: display_unit.to_owned(),
+        source_table: table.binding.clone(),
+        source_expression: expression.to_owned(),
+        points,
+    })
+}
+
+fn materialize_statistics(
+    report: &CheckReport,
+    series: &[RuntimeTimeSeries],
+) -> Vec<RuntimeStatistics> {
+    report
+        .semantic_program
+        .stats_infos
+        .iter()
+        .map(|stats| {
+            let values = series
+                .iter()
+                .find(|series| series.name == stats.source)
+                .map(|series| {
+                    let y_values = series
+                        .points
+                        .iter()
+                        .map(|point| point.y)
+                        .collect::<Vec<_>>();
+                    stats
+                        .statistics
+                        .iter()
+                        .filter_map(|name| {
+                            statistic_value(name, &y_values).map(|value| (name, value))
+                        })
+                        .map(|(name, value)| RuntimeStatisticValue {
+                            name: name.clone(),
+                            value,
+                            unit: series.display_unit.clone(),
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            RuntimeStatistics {
+                source: stats.source.clone(),
+                quantity_kind: stats.quantity_kind.clone(),
+                axis: stats.axis.clone(),
+                cache_key: stats.cache_key.clone(),
+                status: if values.is_empty() {
+                    "unavailable".to_owned()
+                } else {
+                    "computed".to_owned()
+                },
+                values,
+            }
+        })
+        .collect()
+}
+
+fn materialize_integrations(
+    report: &CheckReport,
+    series: &[RuntimeTimeSeries],
+) -> Vec<RuntimeIntegration> {
+    report
+        .semantic_program
+        .integrations
+        .iter()
+        .map(|integration| {
+            let integrated = series
+                .iter()
+                .find(|series| series.name == integration.source)
+                .and_then(trapezoidal_integral);
+            RuntimeIntegration {
+                binding: integration.binding.clone(),
+                source: integration.source.clone(),
+                input_quantity: integration.input_quantity.clone(),
+                over_axis: integration.over_axis.clone(),
+                result_quantity: integration.result_quantity.clone(),
+                value: integrated.unwrap_or(0.0),
+                unit: "J".to_owned(),
+                method: "trapezoidal".to_owned(),
+                status: if integrated.is_some() {
+                    "computed".to_owned()
+                } else {
+                    "unavailable".to_owned()
+                },
+                interval_count: series
+                    .iter()
+                    .find(|series| series.name == integration.source)
+                    .map(|series| series.points.len().saturating_sub(1))
+                    .unwrap_or(0),
+            }
+        })
+        .collect()
+}
+
+impl RuntimeTable {
+    fn numeric_column_by_type(&self, type_name: &str) -> Option<&RuntimeColumn> {
+        self.columns.iter().find(|column| {
+            column.type_name == type_name && matches!(&column.values, RuntimeValues::Number(_))
+        })
+    }
+
+    fn temperature_column(&self, name_hint: &str) -> Option<&RuntimeColumn> {
+        self.columns.iter().find(|column| {
+            column.type_name == "AbsoluteTemperature"
+                && column.name.to_ascii_lowercase().contains(name_hint)
+                && matches!(&column.values, RuntimeValues::Number(_))
+        })
+    }
+
+    fn axis_values(&self) -> (Vec<f64>, String) {
+        let Some(column) = self
+            .columns
+            .iter()
+            .find(|column| column.is_index && column.type_name == "DateTime")
+        else {
+            return (
+                (0..self.row_count).map(|index| index as f64).collect(),
+                "sample".to_owned(),
+            );
+        };
+        let RuntimeValues::Text(values) = &column.values else {
+            return (
+                (0..self.row_count).map(|index| index as f64).collect(),
+                "sample".to_owned(),
+            );
+        };
+        let timestamps = values
+            .iter()
+            .map(|value| parse_utc_timestamp_seconds(value))
+            .collect::<Option<Vec<_>>>();
+        let Some(timestamps) = timestamps else {
+            return (
+                (0..self.row_count).map(|index| index as f64).collect(),
+                "sample".to_owned(),
+            );
+        };
+        let Some(first) = timestamps.first().copied() else {
+            return (Vec::new(), "s".to_owned());
+        };
+        (
+            timestamps
+                .iter()
+                .map(|timestamp| (*timestamp - first) as f64)
+                .collect(),
+            "s".to_owned(),
+        )
+    }
+}
+
+fn parse_plot_options(source: &str) -> PlotOptions {
+    let mut options = PlotOptions::default();
+    let Some(plot_index) = source.find("plot ") else {
+        return options;
+    };
+    let after_plot = &source[plot_index + "plot ".len()..];
+    let header_end = after_plot.find('{').unwrap_or(after_plot.len());
+    let header = after_plot[..header_end].trim();
+    if let Some((series, axis)) = header.split_once(" over ") {
+        options.series = series.split_whitespace().next().map(str::to_owned);
+        options.axis = axis.split_whitespace().next().map(str::to_owned);
+    }
+
+    let Some(block_start) = after_plot.find('{') else {
+        return options;
+    };
+    let Some(block_end) = after_plot[block_start + 1..].find('}') else {
+        return options;
+    };
+    let block = &after_plot[block_start + 1..block_start + 1 + block_end];
+    for line in block.lines().map(str::trim) {
+        if let Some(rest) = line.strip_prefix("unit y =") {
+            options.y_unit = rest.split_whitespace().next().map(str::to_owned);
+        } else if let Some(rest) = line.strip_prefix("title =") {
+            options.title = quoted_value(rest.trim());
+        }
+    }
+    options
+}
+
+fn quoted_value(value: &str) -> Option<String> {
+    let rest = value.strip_prefix('"')?;
+    let (quoted, _) = rest.split_once('"')?;
+    Some(quoted.to_owned())
+}
+
+fn specific_heat_value(report: &CheckReport, expression: &str) -> Option<f64> {
+    if let Some(value) = number_before_unit(expression, "J/kg/K") {
+        return Some(value);
+    }
+
+    report
+        .inferred_declarations
+        .iter()
+        .filter(|declaration| expression_contains_identifier(expression, &declaration.name))
+        .find_map(|declaration| number_before_unit(&declaration.expression, "J/kg/K"))
+}
+
+fn expression_contains_identifier(expression: &str, identifier: &str) -> bool {
+    expression
+        .split(|character: char| !(character.is_ascii_alphanumeric() || character == '_'))
+        .any(|token| token == identifier)
+}
+
+fn number_before_unit(expression: &str, unit: &str) -> Option<f64> {
+    let unit_index = expression.find(unit)?;
+    expression[..unit_index]
+        .split_whitespace()
+        .rev()
+        .find_map(|part| part.parse::<f64>().ok())
+}
+
+fn statistic_value(name: &str, values: &[f64]) -> Option<f64> {
+    if values.is_empty() {
+        return None;
+    }
+    match name {
+        "mean" => Some(values.iter().sum::<f64>() / values.len() as f64),
+        "max" => values.iter().copied().reduce(f64::max),
+        "min" => values.iter().copied().reduce(f64::min),
+        "p95" => nearest_rank_percentile(values, 0.95),
+        _ => None,
+    }
+}
+
+fn nearest_rank_percentile(values: &[f64], percentile: f64) -> Option<f64> {
+    if values.is_empty() {
+        return None;
+    }
+    let mut sorted = values.to_vec();
+    sorted.sort_by(f64::total_cmp);
+    let rank = (percentile * sorted.len() as f64).ceil() as usize;
+    sorted.get(rank.saturating_sub(1)).copied()
+}
+
+fn trapezoidal_integral(series: &RuntimeTimeSeries) -> Option<f64> {
+    if series.x_unit != "s" || series.points.len() < 2 {
+        return None;
+    }
+    let mut integral = 0.0;
+    for window in series.points.windows(2) {
+        let dt = window[1].x - window[0].x;
+        if dt <= 0.0 {
+            return None;
+        }
+        integral += (window[0].y + window[1].y) * 0.5 * dt;
+    }
+    Some(integral)
+}
+
+fn optional_number_at(column: &RuntimeColumn, index: usize) -> Option<f64> {
+    let RuntimeValues::Number(values) = &column.values else {
+        return None;
+    };
+    values.get(index).copied().flatten()
+}
+
+fn convert_display_value(value: f64, from_unit: &str, to_unit: &str) -> f64 {
+    match (from_unit, to_unit) {
+        ("W", "kW") => value / 1000.0,
+        ("kW", "W") => value * 1000.0,
+        _ => value,
+    }
+}
+
+fn is_numeric_schema_type(type_name: &str) -> bool {
+    !matches!(type_name, "DateTime" | "String")
+}
+
+fn time_series_quantity(quantity_kind: &str) -> Option<(String, String)> {
+    let rest = quantity_kind.strip_prefix("TimeSeries[")?;
+    let (axis, after_axis) = rest.split_once(']')?;
+    let quantity = after_axis.trim().strip_prefix("of ")?;
+    Some((axis.trim().to_owned(), quantity.trim().to_owned()))
+}
+
+fn parse_csv(source: &str) -> Vec<Vec<String>> {
+    source
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(parse_csv_line)
+        .collect()
+}
+
+fn parse_csv_line(line: &str) -> Vec<String> {
+    let mut fields = Vec::new();
+    let mut field = String::new();
+    let mut in_quotes = false;
+    let mut chars = line.chars().peekable();
+    while let Some(character) = chars.next() {
+        match character {
+            '"' if in_quotes && chars.peek() == Some(&'"') => {
+                field.push('"');
+                chars.next();
+            }
+            '"' => in_quotes = !in_quotes,
+            ',' if !in_quotes => {
+                fields.push(field.trim().to_owned());
+                field.clear();
+            }
+            _ => field.push(character),
+        }
+    }
+    fields.push(field.trim().to_owned());
+    fields
+}
+
+fn parse_utc_timestamp_seconds(value: &str) -> Option<i64> {
+    let value = value.strip_suffix('Z')?;
+    let (date, time) = value.split_once('T')?;
+    let mut date_parts = date.split('-');
+    let year = date_parts.next()?.parse::<i32>().ok()?;
+    let month = date_parts.next()?.parse::<u32>().ok()?;
+    let day = date_parts.next()?.parse::<u32>().ok()?;
+    if date_parts.next().is_some() {
+        return None;
+    }
+    let mut time_parts = time.split(':');
+    let hour = time_parts.next()?.parse::<u32>().ok()?;
+    let minute = time_parts.next()?.parse::<u32>().ok()?;
+    let second = time_parts.next()?.parse::<u32>().ok()?;
+    if time_parts.next().is_some()
+        || !(1..=12).contains(&month)
+        || !(1..=31).contains(&day)
+        || hour > 23
+        || minute > 59
+        || second > 59
+    {
+        return None;
+    }
+    Some(days_from_civil(year, month, day) * 86_400 + i64::from(hour * 3600 + minute * 60 + second))
+}
+
+fn days_from_civil(year: i32, month: u32, day: u32) -> i64 {
+    let year = year - i32::from(month <= 2);
+    let era = if year >= 0 { year } else { year - 399 } / 400;
+    let year_of_era = (year - era * 400) as u32;
+    let month = month as i32;
+    let day_of_year =
+        ((153 * (month + if month > 2 { -3 } else { 9 }) + 2) / 5 + day as i32 - 1) as u32;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    i64::from(era) * 146_097 + i64::from(day_of_era) - 719_468
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use eng_compiler::{check_file, CheckOptions};
+
+    #[test]
+    fn parses_plot_options() {
+        let options = parse_plot_options(
+            r#"
+script main(args: Args) -> Report {
+    return report {
+        plot Q_coil over Time {
+            unit y = kW
+            title = "Coil heat rate"
+        }
+    }
+}
+"#,
+        );
+
+        assert_eq!(options.series.as_deref(), Some("Q_coil"));
+        assert_eq!(options.axis.as_deref(), Some("Time"));
+        assert_eq!(options.y_unit.as_deref(), Some("kW"));
+        assert_eq!(options.title.as_deref(), Some("Coil heat rate"));
+    }
+
+    #[test]
+    fn computes_heat_rate_statistics_and_integral() {
+        let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/official/01_csv_plot/main.eng");
+        let source = std::fs::read_to_string(&source_path).unwrap();
+        let report = check_file(&source_path, &CheckOptions::default()).unwrap();
+        let runtime = materialize_runtime_data(&report, &source);
+
+        assert_eq!(runtime.tables[0].row_count, 4);
+        assert_eq!(runtime.time_series[0].points.len(), 4);
+        assert_eq!(runtime.time_series[0].points[1].x, 300.0);
+        assert_eq!(round2(runtime.time_series[0].points[0].y), 4873.88);
+        assert_eq!(round2(runtime.statistics[0].values[0].value), 5072.43);
+        assert_eq!(round2(runtime.statistics[0].values[1].value), 5417.28);
+        assert_eq!(round2(runtime.integrations[0].value), 4543242.0);
+    }
+
+    fn round2(value: f64) -> f64 {
+        (value * 100.0).round() / 100.0
+    }
+}

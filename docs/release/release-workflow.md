@@ -46,7 +46,8 @@ fragments must be marked explicitly as `eng partial`, `eng future`, or
 `artifacts-check` validates the schema files in `docs/schemas` and compares the
 official CSV/plot and simple-system artifacts against
 `tests/golden/artifacts`. It verifies stable format headers, version numbers,
-release-critical counts, PlotSpec shape, and standalone `.engpkg` metadata.
+release-critical counts, runtime table/statistics/integration values, PlotSpec
+points, and standalone `.engpkg` metadata.
 
 Expected release files:
 

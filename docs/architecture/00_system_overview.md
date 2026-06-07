@@ -14,7 +14,7 @@ EngLang's official execution path is:
   -> HTML report + report_spec.json + review.json
 ```
 
-The repository implements this path incrementally. v0.4-preview is the first version where `eng run` writes bytecode, decodes it, executes a native VM seed, and writes `result.engres` from the VM execution record. v0.5-preview adds TimeSeries/statistics metadata to the same path. v0.6-preview adds PlotSpec v1, SVG rendering from PlotSpec, and a plot manifest. v0.7-alpha hardens the review/report artifact contract with `report_spec.json`. v0.8-alpha adds minimal physical `system` and `eq` metadata with residual-only reporting.
+The repository implements this path incrementally. v0.4-preview is the first version where `eng run` writes bytecode, decodes it, executes a native VM seed, and writes `result.engres` from the VM execution record. v0.5-preview adds TimeSeries/statistics metadata to the same path. v0.6-preview adds PlotSpec v1, SVG rendering from PlotSpec, and a plot manifest. v0.7-alpha hardens the review/report artifact contract with `report_spec.json`. v0.8-alpha adds minimal physical `system` and `eq` metadata with residual-only reporting. The current v1.0 hardening path materializes the official CSV example into runtime table columns, TimeSeries points, computed summary statistics, trapezoidal integration, and CSV-derived PlotSpec points.
 
 ## Crates
 
@@ -54,8 +54,8 @@ v0.5-preview adds:
 ```text
 TimeSeries[Time] of HeatRate
 axis metadata
-lazy summary cache metadata
-integrate(HeatRate over Time) -> Energy metadata
+computed mean/max/p95 summary values for the official CSV path
+trapezoidal integrate(HeatRate over Time) -> Energy value
 ```
 
 v0.6-preview adds:
@@ -115,10 +115,12 @@ CSV source
   -> schema
   -> header validation
   -> source hash provenance
-  -> typed table object seed
+  -> typed table object
+  -> runtime column pages
+  -> TimeSeries points
 ```
 
-v0.5 builds TimeSeries/statistics metadata on top of this boundary. Numeric kernels remain deferred.
+The v1.0 hardening path parses official CSV DateTime and numeric quantity columns into runtime pages. The supported coil heat-rate expression path computes TimeSeries values, mean/max/min/p95 kernels, and trapezoidal HeatRate-over-Time integration without Python.
 
 ## Reviewability
 

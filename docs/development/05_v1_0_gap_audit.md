@@ -138,6 +138,9 @@ Hardening detail:
 
 ### G-003 Typed Table Runtime Values
 
+Status: Implemented for the official CSV runtime path after v1.0.0 hardening.
+General table-expression execution remains a follow-up.
+
 Plan expectation:
 
 ```text
@@ -151,28 +154,34 @@ Current state:
 ```text
 - CSV header validation and source hash exist
 - schema/promotion metadata appears in review/report/result
-- VM table object is a seed object
-- row values are not parsed into typed runtime pages
+- VM table object is backed by RuntimeTable pages for promoted CSV data
+- DateTime index values and numeric quantity columns are parsed into result.engres
+- row count, column values, missing counts, parse failures, and source hash are recorded
 ```
 
 Risk:
 
 ```text
-P1. Current data analysis is strongly typed at the boundary, but numeric
-execution still relies on semantic metadata instead of runtime table values.
+P1 closed for the official CSV+coil path. Broad expression VM support is still
+needed before arbitrary table formulas can claim full runtime execution.
 ```
 
 Hardening detail:
 
 ```text
-1. Add a RuntimeTable value with rows, typed columns, and source span/provenance.
-2. Parse DateTime index values into a stable internal representation.
-3. Parse numeric/unit columns into typed Quantity arrays.
-4. Report row count, parse failures, unit conversion failures, and missing values.
-5. Add tests for wrong unit, bad DateTime, and bad numeric cell.
+1. [x] Add a RuntimeTable value with rows, typed columns, and source provenance.
+2. [x] Parse DateTime index values into stable seconds offsets for runtime use.
+3. [x] Parse numeric/unit columns into typed numeric arrays for the official path.
+4. [x] Report row count, parse failures, and missing values in result.engres.
+5. [x] Add tests for the official CSV runtime page and computed values.
+6. [ ] Add dedicated bad DateTime and bad numeric cell fixtures.
+7. [ ] Add unit conversion failure reporting once per-cell unit conversion exists.
 ```
 
 ### G-004 Statistics Kernels
+
+Status: Implemented for mean/max/min/p95 and trapezoidal integrate on the
+official HeatRate TimeSeries path. duration_above remains deferred.
 
 Plan expectation:
 
@@ -186,29 +195,33 @@ Current state:
 - TimeSeries type metadata exists
 - summary/integration metadata exists
 - HeatRate sum lint exists
-- result payload marks summaries as lazy
-- numeric mean/max/p95/integrate values are not materialized
+- result payload records computed statistics for Q_coil
+- report_spec.json records computed statistics and integrations
+- integrate(Q_coil, over=Time) records a trapezoidal Energy value
 - duration_above is not implemented
 ```
 
 Risk:
 
 ```text
-P1. Reports can describe the requested computation, but cannot yet verify or
-display real computed statistics.
+P1 closed for the official data-analysis path. Remaining risk is limited to
+unsupported statistics and arbitrary TimeSeries expressions.
 ```
 
 Hardening detail:
 
 ```text
-1. Build TimeSeries pages from RuntimeTable columns.
-2. Implement min/max/mean/p95 kernels for numeric series.
-3. Implement integrate(HeatRate over Time) with unit-aware duration handling.
-4. Add duration_above as a v1.0.x or v1.1 backfill if it is needed before uncertainty.
-5. Store computed values in result.engres and report_spec.json.
+1. [x] Build TimeSeries pages from RuntimeTable columns.
+2. [x] Implement min/max/mean/p95 kernels for numeric series.
+3. [x] Implement integrate(HeatRate over Time) with DateTime-derived seconds.
+4. [x] Store computed values in result.engres and report_spec.json.
+5. [ ] Add duration_above as a v1.0.x or v1.1 backfill if it is needed before uncertainty.
 ```
 
 ### G-005 Plot Data Materialization
+
+Status: Implemented for the official CSV line plot. Bar/histogram remain
+deferred.
 
 Plan expectation:
 
@@ -221,25 +234,25 @@ Current state:
 ```text
 - PlotSpec v1, SVG, manifest, and unit-aware labels exist
 - line plot is generated
-- points are deterministic preview points
-- plot block options are not fully executed
+- points are generated from runtime TimeSeries pages for the official CSV path
+- plot title and y-axis unit options are applied
 - bar/histogram remain deferred
 ```
 
 Risk:
 
 ```text
-P2. Plot artifacts are stable, but the visual data is not yet sourced from real
-TimeSeries values.
+P2 closed for the official CSV line plot. Remaining plot risk is around
+additional plot types and broader plot block semantics.
 ```
 
 Hardening detail:
 
 ```text
-1. Generate PlotSpec points from runtime TimeSeries pages.
-2. Execute plot title and unit options from the plot block.
-3. Add snapshot tests for real CSV-derived points.
-4. Add bar/histogram seeds only after numeric pages exist.
+1. [x] Generate PlotSpec points from runtime TimeSeries pages.
+2. [x] Execute plot title and y-axis unit options from the plot block.
+3. [x] Add golden checks for real CSV-derived points.
+4. [ ] Add bar/histogram seeds only after numeric pages exist.
 ```
 
 ### G-006 Args Struct and Standalone CLI Help

@@ -91,10 +91,13 @@ The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
 [x] TimeSeries[Time] of HeatRate is inferred for Q_coil
 [x] axis metadata appears in review.json
 [x] summary statistics metadata appears in review.json
-[x] lazy summary cache key appears in result.engres
-[x] integrate(HeatRate over Time) -> Energy metadata appears in result.engres
+[x] computed mean/max/p95 values appear in result.engres
+[x] computed statistics appear in report_spec.json
+[x] trapezoidal integrate(HeatRate over Time) -> Energy value appears in result.engres
+[x] computed integration appears in report_spec.json
 [x] HeatRate sum lint produces W-STATS-SUM-001
-[x] TimeSeries object appears in bytecode and VM object store
+[x] RuntimeTable columns and TimeSeries points appear in result.engres
+[x] TimeSeries object appears in bytecode and VM object store with runtime len
 [x] report.html includes axis/statistics/integration sections
 ```
 
@@ -105,6 +108,8 @@ The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
 [x] official example creates plot manifest
 [x] SVG export exists
 [x] SVG plot has unit-aware axis labels
+[x] PlotSpec points are derived from the official CSV TimeSeries
+[x] plot title and y-axis unit option are applied
 [x] result.engres records plot_spec_hash
 [x] eng view lists plot manifest
 [x] PlotSpec JSON/SVG unit tests pass

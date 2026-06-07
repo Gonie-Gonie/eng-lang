@@ -10,8 +10,10 @@ use eng_compiler::{
     CheckReport, EntryPoint,
 };
 
+mod runtime_data;
 mod vm;
 
+use runtime_data::{materialize_runtime_data, RuntimeData, RuntimeValues};
 pub use vm::{execute_bytecode, VmExecution, VmObject, VmObjectKind};
 
 pub const RUNTIME_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -190,8 +192,11 @@ pub fn run_file(
     let bytecode_hash = hash_text(&bytecode);
     fs::write(&bytecode_path, &bytecode)?;
     let bytecode_program = parse_bytecode(&bytecode)?;
-    let execution = execute_bytecode(&bytecode_program)?;
-    let plot_spec = eng_report::plot_spec_from_report(&check_report);
+    let mut execution = execute_bytecode(&bytecode_program)?;
+    let runtime_data = materialize_runtime_data(&check_report, &source);
+    apply_runtime_lengths(&mut execution, &runtime_data);
+    let mut plot_spec = eng_report::plot_spec_from_report(&check_report);
+    runtime_data.apply_plot_spec(&check_report, &mut plot_spec);
     let plot_spec_json = eng_report::plot_spec_json(&plot_spec);
     let plot_spec_hash = hash_text(&plot_spec_json);
     let plot_svg = eng_report::render_svg_from_spec(&plot_spec);
@@ -203,11 +208,13 @@ pub fn run_file(
         &plot_svg_hash,
     );
     let plot_manifest_hash = hash_text(&plot_manifest_json);
-    let report_spec = eng_report::report_spec_from_report(
+    let mut report_spec = eng_report::report_spec_from_report(
         &check_report,
         "plots/plot_manifest.json",
         &plot_manifest_hash,
     );
+    report_spec.computed_statistics = runtime_data.report_computed_statistics();
+    report_spec.computed_integrations = runtime_data.report_computed_integrations();
     let report_spec_json = eng_report::report_spec_json(&report_spec);
     let report_spec_hash = hash_text(&report_spec_json);
     fs::write(&review_path, review_json(&check_report))?;
@@ -225,6 +232,7 @@ pub fn run_file(
             path,
             &check_report,
             &execution,
+            &runtime_data,
             &bytecode_hash,
             &plot_spec_hash,
             &report_spec_hash,
@@ -532,10 +540,26 @@ fn path_for_manifest(path: &Path) -> String {
     path.display().to_string().replace('\\', "/")
 }
 
+fn apply_runtime_lengths(execution: &mut VmExecution, runtime_data: &RuntimeData) {
+    for object in &mut execution.objects {
+        if object.kind != VmObjectKind::TimeSeries {
+            continue;
+        }
+        if let Some(series) = runtime_data
+            .time_series
+            .iter()
+            .find(|series| series.name == object.name)
+        {
+            object.len = Some(series.points.len());
+        }
+    }
+}
+
 fn result_json(
     path: &Path,
     report: &CheckReport,
     execution: &VmExecution,
+    runtime_data: &RuntimeData,
     bytecode_hash: &str,
     plot_spec_hash: &str,
     report_spec_hash: &str,
@@ -646,6 +670,34 @@ fn result_json(
                 json_escape(source_hash)
             ));
         }
+        if let Some(table) = runtime_data
+            .tables
+            .iter()
+            .find(|table| table.binding == object.name)
+        {
+            objects.push_str(",\n        \"columns\": [\n");
+            push_runtime_columns(&mut objects, table);
+            objects.push_str("\n        ],\n        \"parse_failures\": [\n");
+            push_parse_failures(&mut objects, table);
+            objects.push_str("\n        ]");
+        }
+        if let Some(series) = runtime_data
+            .time_series
+            .iter()
+            .find(|series| series.name == object.name)
+        {
+            objects.push_str(&format!(
+                ",\n        \"source_table\": \"{}\"",
+                json_escape(&series.source_table)
+            ));
+            objects.push_str(&format!(
+                ",\n        \"source_expression\": \"{}\"",
+                json_escape(&series.source_expression)
+            ));
+            objects.push_str(",\n        \"points\": [");
+            push_runtime_points(&mut objects, &series.points);
+            objects.push(']');
+        }
         objects.push_str("\n      }");
     }
 
@@ -675,19 +727,52 @@ fn result_json(
             "        \"axis\": \"{}\",\n",
             json_escape(&stats.axis)
         ));
-        statistics.push_str("        \"statistics\": [");
-        for (stat_index, statistic) in stats.statistics.iter().enumerate() {
-            if stat_index > 0 {
-                statistics.push_str(", ");
+        if let Some(computed) = runtime_data
+            .statistics
+            .iter()
+            .find(|summary| summary.source == stats.source)
+        {
+            statistics.push_str("        \"statistics\": [\n");
+            for (value_index, value) in computed.values.iter().enumerate() {
+                if value_index > 0 {
+                    statistics.push_str(",\n");
+                }
+                statistics.push_str("          {\n");
+                statistics.push_str(&format!(
+                    "            \"name\": \"{}\",\n",
+                    json_escape(&value.name)
+                ));
+                statistics.push_str(&format!("            \"value\": {},\n", value.value));
+                statistics.push_str(&format!(
+                    "            \"unit\": \"{}\"\n",
+                    json_escape(&value.unit)
+                ));
+                statistics.push_str("          }");
             }
-            statistics.push_str(&format!("\"{}\"", json_escape(statistic)));
+            statistics.push_str("\n        ],\n");
+            statistics.push_str(&format!(
+                "        \"cache_key\": \"{}\",\n",
+                json_escape(&computed.cache_key)
+            ));
+            statistics.push_str(&format!(
+                "        \"status\": \"{}\"\n",
+                json_escape(&computed.status)
+            ));
+        } else {
+            statistics.push_str("        \"statistics\": [");
+            for (stat_index, statistic) in stats.statistics.iter().enumerate() {
+                if stat_index > 0 {
+                    statistics.push_str(", ");
+                }
+                statistics.push_str(&format!("\"{}\"", json_escape(statistic)));
+            }
+            statistics.push_str("],\n");
+            statistics.push_str(&format!(
+                "        \"cache_key\": \"{}\",\n",
+                json_escape(&stats.cache_key)
+            ));
+            statistics.push_str("        \"status\": \"lazy\"\n");
         }
-        statistics.push_str("],\n");
-        statistics.push_str(&format!(
-            "        \"cache_key\": \"{}\",\n",
-            json_escape(&stats.cache_key)
-        ));
-        statistics.push_str("        \"status\": \"lazy\"\n");
         statistics.push_str("      }");
     }
 
@@ -714,9 +799,33 @@ fn result_json(
             json_escape(&integration.over_axis)
         ));
         integrations.push_str(&format!(
-            "        \"result_quantity\": \"{}\"\n",
+            "        \"result_quantity\": \"{}\"",
             json_escape(&integration.result_quantity)
         ));
+        if let Some(computed) = runtime_data
+            .integrations
+            .iter()
+            .find(|computed| computed.binding == integration.binding)
+        {
+            integrations.push_str(&format!(",\n        \"value\": {}", computed.value));
+            integrations.push_str(&format!(
+                ",\n        \"unit\": \"{}\"",
+                json_escape(&computed.unit)
+            ));
+            integrations.push_str(&format!(
+                ",\n        \"method\": \"{}\"",
+                json_escape(&computed.method)
+            ));
+            integrations.push_str(&format!(
+                ",\n        \"interval_count\": {}",
+                computed.interval_count
+            ));
+            integrations.push_str(&format!(
+                ",\n        \"status\": \"{}\"",
+                json_escape(&computed.status)
+            ));
+        }
+        integrations.push('\n');
         integrations.push_str("      }");
     }
 
@@ -846,6 +955,94 @@ fn vm_object_kind(object: &VmObject) -> &'static str {
         VmObjectKind::Table => "table",
         VmObjectKind::TimeSeries => "timeseries",
         VmObjectKind::Array => "array",
+    }
+}
+
+fn push_runtime_columns(json: &mut String, table: &runtime_data::RuntimeTable) {
+    for (index, column) in table.columns.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("          {\n");
+        json.push_str(&format!(
+            "            \"name\": \"{}\",\n",
+            json_escape(&column.name)
+        ));
+        json.push_str(&format!(
+            "            \"type\": \"{}\",\n",
+            json_escape(&column.type_name)
+        ));
+        if let Some(unit) = &column.unit {
+            json.push_str(&format!(
+                "            \"unit\": \"{}\",\n",
+                json_escape(unit)
+            ));
+        } else {
+            json.push_str("            \"unit\": null,\n");
+        }
+        json.push_str(&format!("            \"is_index\": {},\n", column.is_index));
+        json.push_str(&format!("            \"len\": {},\n", column.len()));
+        json.push_str(&format!(
+            "            \"missing_count\": {},\n",
+            column.missing_count
+        ));
+        json.push_str("            \"values\": [");
+        match &column.values {
+            RuntimeValues::Text(values) => {
+                for (value_index, value) in values.iter().enumerate() {
+                    if value_index > 0 {
+                        json.push_str(", ");
+                    }
+                    json.push_str(&format!("\"{}\"", json_escape(value)));
+                }
+            }
+            RuntimeValues::Number(values) => {
+                for (value_index, value) in values.iter().enumerate() {
+                    if value_index > 0 {
+                        json.push_str(", ");
+                    }
+                    if let Some(value) = value {
+                        json.push_str(&value.to_string());
+                    } else {
+                        json.push_str("null");
+                    }
+                }
+            }
+        }
+        json.push_str("]\n");
+        json.push_str("          }");
+    }
+}
+
+fn push_parse_failures(json: &mut String, table: &runtime_data::RuntimeTable) {
+    for (index, failure) in table.parse_failures.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("          {\n");
+        json.push_str(&format!("            \"row\": {},\n", failure.row));
+        json.push_str(&format!(
+            "            \"column\": \"{}\",\n",
+            json_escape(&failure.column)
+        ));
+        json.push_str(&format!(
+            "            \"value\": \"{}\",\n",
+            json_escape(&failure.value)
+        ));
+        json.push_str(&format!(
+            "            \"message\": \"{}\"\n",
+            json_escape(&failure.message)
+        ));
+        json.push_str("          }");
+    }
+}
+
+fn push_runtime_points(json: &mut String, points: &[runtime_data::RuntimePoint]) {
+    for (index, point) in points.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str(&format!("[{}, {}]", point.x, point.y));
     }
 }
 

@@ -74,7 +74,7 @@ Purpose:
 typed VM result container for report/view/build workflows
 ```
 
-Current v0.8 fields:
+Current v1.0 fields:
 
 ```json
 {
@@ -99,15 +99,35 @@ Current v0.8 fields:
     "table_count": 1,
     "timeseries_count": 1,
     "array_count": 0,
-    "objects": []
+    "objects": [
+      {
+        "kind": "table",
+        "columns": [],
+        "parse_failures": []
+      },
+      {
+        "kind": "timeseries",
+        "points": []
+      }
+    ]
   },
   "typed_payload": {
     "kind": "Report",
     "status": "ok",
     "result_format": "engres-v1",
     "vm_steps": [],
-    "statistics": [],
-    "integrations": [],
+    "statistics": [
+      {
+        "status": "computed",
+        "statistics": []
+      }
+    ],
+    "integrations": [
+      {
+        "status": "computed",
+        "method": "trapezoidal"
+      }
+    ],
     "systems": []
   },
   "provenance": {
@@ -186,6 +206,8 @@ inferred_declaration_table
 unit_conversion_table
 args_summary
 schema_summary
+computed_statistics
+computed_integrations
 system_summary
 plot_manifest
 warning_list
@@ -246,13 +268,13 @@ Purpose:
 interactive-friendly plot data model consumed by native renderers/viewers
 ```
 
-Current v0.6 format:
+Current v1.0 format:
 
 ```text
 eng-plotspec-v1
 line plot
 x/y axis labels with units
-preview points
+CSV-derived TimeSeries points for the official data path
 ```
 
 ## `plots/plot_manifest.json`

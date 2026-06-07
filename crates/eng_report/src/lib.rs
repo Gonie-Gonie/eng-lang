@@ -45,6 +45,8 @@ pub struct ReportSpec {
     pub unit_conversions: Vec<ReportUnitConversion>,
     pub schemas: Vec<ReportSchemaSummary>,
     pub args: Vec<ReportArgsStruct>,
+    pub computed_statistics: Vec<ReportComputedStatistics>,
+    pub computed_integrations: Vec<ReportComputedIntegration>,
     pub systems: Vec<ReportSystemSummary>,
     pub plot_manifest: ReportPlotManifest,
     pub warnings: Vec<ReportWarning>,
@@ -106,6 +108,35 @@ pub struct ReportArgsField {
     pub default_value: Option<String>,
     pub required: bool,
     pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComputedStatistics {
+    pub source: String,
+    pub quantity_kind: String,
+    pub axis: String,
+    pub status: String,
+    pub values: Vec<ReportComputedStatisticValue>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComputedStatisticValue {
+    pub name: String,
+    pub value: f64,
+    pub unit: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComputedIntegration {
+    pub binding: String,
+    pub source: String,
+    pub input_quantity: String,
+    pub over_axis: String,
+    pub result_quantity: String,
+    pub value: f64,
+    pub unit: String,
+    pub method: String,
+    pub status: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -351,6 +382,8 @@ pub fn report_spec_from_report(
         unit_conversions,
         schemas,
         args,
+        computed_statistics: Vec::new(),
+        computed_integrations: Vec::new(),
         systems,
         plot_manifest: ReportPlotManifest {
             path: plot_manifest_relative_path.to_owned(),
@@ -597,6 +630,93 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             json.push_str("        }");
         }
         json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"computed_statistics\": [\n");
+    for (index, summary) in spec.computed_statistics.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"source\": \"{}\",\n",
+            json_escape(&summary.source)
+        ));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&summary.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "      \"axis\": \"{}\",\n",
+            json_escape(&summary.axis)
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&summary.status)
+        ));
+        json.push_str("      \"values\": [\n");
+        for (value_index, value) in summary.values.iter().enumerate() {
+            if value_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&value.name)
+            ));
+            json.push_str(&format!("          \"value\": {},\n", value.value));
+            json.push_str(&format!(
+                "          \"unit\": \"{}\"\n",
+                json_escape(&value.unit)
+            ));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"computed_integrations\": [\n");
+    for (index, integration) in spec.computed_integrations.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&integration.binding)
+        ));
+        json.push_str(&format!(
+            "      \"source\": \"{}\",\n",
+            json_escape(&integration.source)
+        ));
+        json.push_str(&format!(
+            "      \"input_quantity\": \"{}\",\n",
+            json_escape(&integration.input_quantity)
+        ));
+        json.push_str(&format!(
+            "      \"over_axis\": \"{}\",\n",
+            json_escape(&integration.over_axis)
+        ));
+        json.push_str(&format!(
+            "      \"result_quantity\": \"{}\",\n",
+            json_escape(&integration.result_quantity)
+        ));
+        json.push_str(&format!("      \"value\": {},\n", integration.value));
+        json.push_str(&format!(
+            "      \"unit\": \"{}\",\n",
+            json_escape(&integration.unit)
+        ));
+        json.push_str(&format!(
+            "      \"method\": \"{}\",\n",
+            json_escape(&integration.method)
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\"\n",
+            json_escape(&integration.status)
+        ));
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");

@@ -14,6 +14,8 @@
     "variable_table",
     "args_summary",
     "schema_summary",
+    "computed_statistics",
+    "computed_integrations",
     "system_summary",
     "plot_manifest"
   ],
@@ -38,6 +40,8 @@
     "variable_table": { "type": "array" },
     "args_summary": { "type": "array" },
     "schema_summary": { "type": "array" },
+    "computed_statistics": { "type": "array" },
+    "computed_integrations": { "type": "array" },
     "system_summary": { "type": "array" },
     "plot_manifest": { "type": "object" }
   }

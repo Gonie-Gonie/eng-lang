@@ -72,7 +72,7 @@ no `:=` diagnostic
 dimensionless diagnostics
 ambiguous quantity warning
 schema and CSV promotion analysis
-TimeSeries/statistics metadata
+TimeSeries/statistics metadata and runtime value hooks
 system/equation/residual metadata
 HeatRate sum lint
 physical equation == diagnostic
@@ -124,8 +124,10 @@ Current runtime responsibilities:
 entry-required file run/build policy
 bytecode decode
 VM instruction execution
-object store seed
-TimeSeries object seed
+object store
+RuntimeTable CSV column pages
+TimeSeries point materialization for the official CSV path
+computed statistics/integration payloads
 result.engres v1 generation
 source/bytecode/data provenance
 system residual-only payload metadata

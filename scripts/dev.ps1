@@ -316,6 +316,25 @@ function Assert-ArtifactNumber {
     Assert-Artifact ([int]$Actual -eq $Expected) "$Label expected $Expected but got $Actual"
 }
 
+function Assert-ArtifactFloat {
+    param(
+        [Parameter(Mandatory = $true)]
+        $Actual,
+
+        [Parameter(Mandatory = $true)]
+        [double] $Expected,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Label,
+
+        [double] $Tolerance = 0.000001
+    )
+
+    $actualNumber = [double]$Actual
+    $delta = [math]::Abs($actualNumber - $Expected)
+    Assert-Artifact ($delta -le $Tolerance) "$Label expected $Expected but got $Actual"
+}
+
 function Read-ArtifactJson {
     param(
         [Parameter(Mandatory = $true)]
@@ -411,6 +430,13 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactNumber $reportSpec.provenance.system_count $Golden.report_spec.system_count "report_spec.provenance.system_count"
     Assert-ArtifactNumber $reportSpec.provenance.residual_count $Golden.report_spec.residual_count "report_spec.provenance.residual_count"
     Assert-ArtifactNumber $reportSpec.provenance.plot_spec_version $Golden.report_spec.plot_spec_version "report_spec.provenance.plot_spec_version"
+    Assert-ArtifactNumber @($reportSpec.computed_statistics).Count $Golden.report_spec.computed_statistics_count "report_spec.computed_statistics count"
+    Assert-ArtifactNumber @($reportSpec.computed_integrations).Count $Golden.report_spec.computed_integrations_count "report_spec.computed_integrations count"
+    $reportStats = @($reportSpec.computed_statistics)[0]
+    Assert-ArtifactValue $reportStats.status $Golden.report_spec.computed_statistics_status "report_spec.computed_statistics[0].status"
+    $reportIntegration = @($reportSpec.computed_integrations)[0]
+    Assert-ArtifactValue $reportIntegration.status $Golden.report_spec.computed_integration_status "report_spec.computed_integrations[0].status"
+    Assert-ArtifactFloat $reportIntegration.value $Golden.report_spec.integration_value_j "report_spec.computed_integrations[0].value"
 
     $result = Read-ArtifactJson (Join-Path $RepoRoot "build\result\result.engres")
     Assert-ArtifactValue $result.format $Golden.result.format "result.format"
@@ -425,15 +451,40 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactNumber $result.provenance.csv_promotion_count $Golden.result.csv_promotion_count "result.provenance.csv_promotion_count"
     Assert-ArtifactNumber @($result.typed_payload.statistics).Count $Golden.result.statistics_count "result.typed_payload.statistics count"
     Assert-ArtifactNumber @($result.typed_payload.integrations).Count $Golden.result.integrations_count "result.typed_payload.integrations count"
+    $tableObject = @($result.object_store.objects) | Where-Object { $_.name -eq "sensor" } | Select-Object -First 1
+    Assert-Artifact ($null -ne $tableObject) "result.object_store.objects missing sensor table"
+    Assert-ArtifactNumber $tableObject.row_count $Golden.result.table_row_count "result.sensor.row_count"
+    Assert-ArtifactNumber @($tableObject.columns).Count $Golden.result.table_column_count "result.sensor.columns count"
+    Assert-ArtifactNumber @($tableObject.parse_failures).Count $Golden.result.parse_failure_count "result.sensor.parse_failures count"
+    $seriesObject = @($result.object_store.objects) | Where-Object { $_.name -eq "Q_coil" } | Select-Object -First 1
+    Assert-Artifact ($null -ne $seriesObject) "result.object_store.objects missing Q_coil TimeSeries"
+    Assert-ArtifactNumber $seriesObject.len $Golden.result.timeseries_len "result.Q_coil.len"
+    Assert-ArtifactNumber @($seriesObject.points).Count $Golden.result.timeseries_point_count "result.Q_coil.points count"
+    Assert-ArtifactFloat @(@($seriesObject.points)[0])[1] $Golden.result.first_timeseries_y_w "result.Q_coil.points[0].y"
+    $statsPayload = @($result.typed_payload.statistics)[0]
+    Assert-ArtifactValue $statsPayload.status $Golden.result.statistics_status "result.typed_payload.statistics[0].status"
+    Assert-ArtifactFloat ((@($statsPayload.statistics) | Where-Object { $_.name -eq "mean" }).value) $Golden.result.mean_w "result.mean"
+    Assert-ArtifactFloat ((@($statsPayload.statistics) | Where-Object { $_.name -eq "max" }).value) $Golden.result.max_w "result.max"
+    Assert-ArtifactFloat ((@($statsPayload.statistics) | Where-Object { $_.name -eq "p95" }).value) $Golden.result.p95_w "result.p95"
+    $integrationPayload = @($result.typed_payload.integrations)[0]
+    Assert-ArtifactValue $integrationPayload.status $Golden.result.integration_status "result.typed_payload.integrations[0].status"
+    Assert-ArtifactFloat $integrationPayload.value $Golden.result.integration_value_j "result.typed_payload.integrations[0].value"
 
     $plotSpec = Read-ArtifactJson (Join-Path $RepoRoot "build\result\plots\plot_spec.json")
     Assert-ArtifactValue $plotSpec.format $Golden.plot_spec.format "plot_spec.format"
     Assert-ArtifactNumber $plotSpec.plot_spec_version $Golden.plot_spec.plot_spec_version "plot_spec.plot_spec_version"
     Assert-ArtifactValue $plotSpec.plot_type $Golden.plot_spec.plot_type "plot_spec.plot_type"
+    Assert-ArtifactValue $plotSpec.title $Golden.plot_spec.title "plot_spec.title"
+    Assert-ArtifactValue $plotSpec.x_axis.unit $Golden.plot_spec.x_unit "plot_spec.x_axis.unit"
+    Assert-ArtifactValue $plotSpec.y_axis.unit $Golden.plot_spec.y_unit "plot_spec.y_axis.unit"
     Assert-ArtifactNumber @($plotSpec.series).Count $Golden.plot_spec.series_count "plot_spec.series count"
     $firstSeries = @($plotSpec.series)[0]
     Assert-ArtifactValue $firstSeries.name $Golden.plot_spec.first_series "plot_spec.series[0].name"
     Assert-ArtifactNumber @($firstSeries.points).Count $Golden.plot_spec.point_count "plot_spec.series[0].points count"
+    Assert-ArtifactFloat @(@($firstSeries.points)[0])[0] $Golden.plot_spec.first_point_x "plot_spec.series[0].points[0].x"
+    Assert-ArtifactFloat @(@($firstSeries.points)[0])[1] $Golden.plot_spec.first_point_y "plot_spec.series[0].points[0].y"
+    Assert-ArtifactFloat @(@($firstSeries.points)[3])[0] $Golden.plot_spec.last_point_x "plot_spec.series[0].points[3].x"
+    Assert-ArtifactFloat @(@($firstSeries.points)[3])[1] $Golden.plot_spec.last_point_y "plot_spec.series[0].points[3].y"
 
     Remove-Item -LiteralPath (Join-Path $RepoRoot "dist\main-standalone") -Recurse -Force -ErrorAction SilentlyContinue
     Invoke-Native $Eng "build" $Golden.source "--entry" "main" "--standalone" "--profile" "repro"

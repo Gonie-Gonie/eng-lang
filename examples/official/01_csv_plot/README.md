@@ -5,9 +5,11 @@ This is the primary v1.0 data/report example. It covers:
 ```text
 - schema and typed CSV promotion
 - unit and quantity-aware coil heat-rate calculation
-- TimeSeries summary metadata
-- integrate(HeatRate over Time) metadata
-- PlotSpec v1, SVG export, report_spec.json, report.html, and result.engres
+- row-level CSV runtime table pages
+- computed TimeSeries summary values for mean, max, and p95
+- trapezoidal integrate(HeatRate over Time) result value
+- CSV-derived PlotSpec v1 points, SVG export, report_spec.json, report.html,
+  and result.engres
 - standalone bundle packaging
 ```
 

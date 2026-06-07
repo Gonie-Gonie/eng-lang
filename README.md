@@ -73,7 +73,8 @@ v0.4-preview
 
 v0.5-preview
   TimeSeries[Time] inference, axis metadata, statistics summary metadata,
-  lazy summary cache keys, integrate provenance, HeatRate sum lint.
+  computed mean/max/p95 values for the official CSV path, trapezoidal
+  integrate provenance, HeatRate sum lint.
 
 v0.6-preview
   PlotSpec v1, line plot data model, unit-aware axis labels, SVG rendering
@@ -97,8 +98,9 @@ v0.9-alpha
 
 v1.0-stable
   Stable core release: typed CSV boundary, unit/quantity calculations,
-  TimeSeries statistics, PlotSpec-driven SVG/report, minimal system/equation
-  metadata, Args help metadata, and runnable packaged standalone bundles.
+  row-level CSV runtime pages, TimeSeries statistics, CSV-derived PlotSpec
+  SVG/report, minimal system/equation metadata, Args help metadata, and
+  runnable packaged standalone bundles.
 ```
 
 Active planning target:
