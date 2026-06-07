@@ -110,9 +110,10 @@ v1.0-stable
   explicit solver-boundary artifacts, Args help/flag binding metadata, and
   runnable packaged standalone bundles.
 
-v1.0.1
-  Native portable tester IDE, VS Code extension preview, integrated HVAC
-  user-test example, release-ready IDE docs, and package-smoke IDE validation.
+v1.0.2
+  Native portable tester IDE with visible egui UI, no separate console window,
+  integrated HVAC user-test example, PDF user guide, VS Code extension preview,
+  and package-smoke IDE validation.
 ```
 
 Active planning target:
@@ -177,7 +178,7 @@ Before a release package check:
 pushd dist\englang-preview
 eng.exe doctor
 eng-ide.exe --smoke
-eng-ide.bat
+eng-ide.exe
 eng.exe run examples\official\01_csv_plot\main.eng --entry main
 eng.exe run examples\official\02_simple_system\main.eng --entry main
 eng.exe run examples\official\03_integrated_hvac\main.eng --entry main

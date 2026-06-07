@@ -1,3 +1,8 @@
+#![cfg_attr(
+    all(target_os = "windows", not(debug_assertions)),
+    windows_subsystem = "windows"
+)]
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -30,8 +35,26 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "EngLang IDE",
         options,
-        Box::new(|_cc| Box::new(EngIdeApp::new())),
+        Box::new(|cc| {
+            configure_ui(&cc.egui_ctx);
+            Box::new(EngIdeApp::new())
+        }),
     )
+}
+
+fn configure_ui(ctx: &egui::Context) {
+    ctx.set_visuals(egui::Visuals::light());
+    let mut style = (*ctx.style()).clone();
+    style.spacing.item_spacing = egui::vec2(8.0, 6.0);
+    style.spacing.button_padding = egui::vec2(12.0, 7.0);
+    style.visuals.window_fill = egui::Color32::from_rgb(248, 250, 252);
+    style.visuals.panel_fill = egui::Color32::from_rgb(248, 250, 252);
+    style.visuals.extreme_bg_color = egui::Color32::from_rgb(245, 247, 250);
+    style.visuals.widgets.noninteractive.fg_stroke.color = egui::Color32::from_rgb(17, 24, 39);
+    style.visuals.widgets.inactive.fg_stroke.color = egui::Color32::from_rgb(17, 24, 39);
+    style.visuals.widgets.hovered.fg_stroke.color = egui::Color32::from_rgb(15, 23, 42);
+    style.visuals.widgets.active.fg_stroke.color = egui::Color32::from_rgb(15, 23, 42);
+    ctx.set_style(style);
 }
 
 fn smoke() -> eframe::Result<()> {

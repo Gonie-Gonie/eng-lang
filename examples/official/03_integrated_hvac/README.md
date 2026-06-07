@@ -1,6 +1,6 @@
 # Official Example 03: Integrated HVAC
 
-This example is the v1.0.1 user-test scenario for the native tester IDE and
+This example is the v1.0.2 user-test scenario for the native tester IDE and
 portable release package.
 
 It exercises the stable core in one file:
@@ -28,7 +28,7 @@ From a portable package:
 
 ```bat
 eng.exe run examples\official\03_integrated_hvac\main.eng --entry main
-eng-ide.bat
+eng-ide.exe
 ```
 
 In the native tester IDE, open

@@ -65,6 +65,7 @@ jobs:
           path: |
             dist/englang-preview-v*-windows-x64.zip
             dist/englang-preview-v*-windows-x64.zip.sha256
+            dist/englang-user-test-guide-v*.pdf
             dist/release-manifest.txt
           if-no-files-found: error
 
@@ -77,6 +78,7 @@ jobs:
           files: |
             dist/englang-preview-v*-windows-x64.zip
             dist/englang-preview-v*-windows-x64.zip.sha256
+            dist/englang-user-test-guide-v*.pdf
             dist/release-manifest.txt
           fail_on_unmatched_files: true
           prerelease: ${{ contains(env.RELEASE_TAG, 'alpha') || contains(env.RELEASE_TAG, 'preview') || contains(env.RELEASE_TAG, 'beta') }}

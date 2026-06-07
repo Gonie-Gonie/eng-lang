@@ -115,7 +115,6 @@ dist/englang-preview
 dist/englang-preview-v<version>-windows-x64.zip
 dist/englang-preview-v<version>-windows-x64.zip.sha256
 dist/englang-preview/eng-ide.exe
-dist/englang-preview/eng-ide.bat
 dist/<model>-standalone/eng.exe
 dist/<model>-standalone/run.bat
 dist/<model>-standalone/<model>.engpkg

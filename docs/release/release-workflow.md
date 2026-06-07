@@ -57,6 +57,7 @@ Expected release files:
 ```text
 dist\englang-preview-v<version>-windows-x64.zip
 dist\englang-preview-v<version>-windows-x64.zip.sha256
+dist\englang-user-test-guide-v<version>.pdf
 dist\release-manifest.txt
 ```
 
@@ -65,10 +66,10 @@ The portable zip contains:
 ```text
 eng.exe
 eng-ide.exe
-eng-ide.bat
 examples\
 stdlib\
 docs\
+docs\EngLang_User_Test_Guide.pdf
 tools\englang-vscode-preview-<version>.vsix
 ```
 

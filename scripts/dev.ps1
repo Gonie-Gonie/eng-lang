@@ -845,6 +845,183 @@ function Invoke-IdePackage {
     Write-Host "VSIX prepared at $VsixPath"
 }
 
+function Escape-PdfText {
+    param([Parameter(Mandatory = $true)][string] $Text)
+    return $Text.Replace('\', '\\').Replace('(', '\(').Replace(')', '\)')
+}
+
+function Split-PdfText {
+    param(
+        [Parameter(Mandatory = $true)][string] $Text,
+        [Parameter(Mandatory = $true)][int] $MaxChars
+    )
+
+    $words = $Text.Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)
+    $lines = New-Object System.Collections.Generic.List[string]
+    $current = ""
+    foreach ($word in $words) {
+        if ($current.Length -eq 0) {
+            $current = $word
+        } elseif (($current.Length + 1 + $word.Length) -le $MaxChars) {
+            $current = "$current $word"
+        } else {
+            $lines.Add($current) | Out-Null
+            $current = $word
+        }
+    }
+    if ($current.Length -gt 0) {
+        $lines.Add($current) | Out-Null
+    }
+    return $lines
+}
+
+function New-UserGuidePdf {
+    param(
+        [Parameter(Mandatory = $true)][string] $Path,
+        [Parameter(Mandatory = $true)][string] $Version
+    )
+
+    $sections = @(
+        @{ Kind = "title"; Text = "EngLang User Test Guide" },
+        @{ Kind = "subtitle"; Text = "Portable Windows package v$Version" },
+        @{ Kind = "body"; Text = "This guide is the shortest supported path for evaluating EngLang without installing Rust, Python, Node, Visual Studio Build Tools, or a browser-based IDE. Extract the release zip, run the native tester IDE, and use the integrated HVAC example to exercise the stable compiler/runtime/report path." },
+        @{ Kind = "h1"; Text = "1. Package Contents" },
+        @{ Kind = "body"; Text = "The portable folder contains eng.exe for command-line execution, eng-ide.exe for native GUI testing, examples for supported workflows, stdlib for built-in language seeds, docs for reference material, and tools for the optional VS Code extension preview." },
+        @{ Kind = "h1"; Text = "2. First Smoke Test" },
+        @{ Kind = "step"; Text = "Open a command prompt in the extracted folder." },
+        @{ Kind = "step"; Text = "Run: eng.exe doctor" },
+        @{ Kind = "step"; Text = "Run: eng-ide.exe --smoke" },
+        @{ Kind = "body"; Text = "Both commands should exit successfully. The doctor command verifies runtime, standard library, unit registry, plot renderer, report generator, write permission, and example files. The IDE smoke command verifies that examples and compiler completion metadata are discoverable." },
+        @{ Kind = "h1"; Text = "3. Native IDE Workflow" },
+        @{ Kind = "step"; Text = "Run: eng-ide.exe" },
+        @{ Kind = "step"; Text = "Open examples/official/03_integrated_hvac/main.eng from the examples panel." },
+        @{ Kind = "step"; Text = "Press Check and confirm that the diagnostics panel reports zero errors." },
+        @{ Kind = "step"; Text = "Use Ctrl+Space in the editor to update the completion filter, then insert a keyword, quantity kind, unit, or starter snippet from the right panel." },
+        @{ Kind = "step"; Text = "Press Save after edits, then Run, then Open Report." },
+        @{ Kind = "body"; Text = "The IDE uses the same compiler and runtime crates as eng.exe. Diagnostics, symbols, completions, run artifacts, and report generation are therefore testing the real core path rather than duplicated editor logic." },
+        @{ Kind = "h1"; Text = "4. Integrated HVAC Example" },
+        @{ Kind = "body"; Text = "The integrated HVAC example is the recommended user test because one file exercises typed CSV promotion, DateTime parsing, missing-value interpolation, schema constraints, HeatRate calculation, TimeSeries statistics, trapezoidal integration, PlotSpec/SVG/report output, and the simple thermal system fixed-step ODE preview." },
+        @{ Kind = "body"; Text = "From the command line, run: eng.exe run examples/official/03_integrated_hvac/main.eng --entry main" },
+        @{ Kind = "h1"; Text = "5. Expected Output" },
+        @{ Kind = "body"; Text = "After a successful run, inspect build/result/report.html first. The result folder also contains result.engres, review.json, report_spec.json, plots/plot_spec.json, plots/plot_manifest.json, and plots/timeseries.svg." },
+        @{ Kind = "body"; Text = "The result should record policy_results with interpolation executed, statistics including median/std/p90/p95/duration_above, an integration result for E_coil, and systems[0].solver_result.status = computed." },
+        @{ Kind = "h1"; Text = "6. Useful Edits" },
+        @{ Kind = "step"; Text = "Change the plot title and run again to verify report regeneration." },
+        @{ Kind = "step"; Text = "Change duration_above(5 kW) to duration_above(4.5 kW) and compare computed statistics." },
+        @{ Kind = "step"; Text = "Temporarily change m_dot <= 0.30 kg/s to m_dot <= 0.20 kg/s and inspect policy results." },
+        @{ Kind = "step"; Text = "Type Heat and use completion to insert HeatRate or HeatCapacity." },
+        @{ Kind = "h1"; Text = "7. Troubleshooting" },
+        @{ Kind = "body"; Text = "If eng-ide.exe does not display text, use a v1.0.2 or newer package. v1.0.2 enables the default egui font set and applies an explicit light visual theme. If a run fails, check the diagnostics panel first, then run eng.exe check <file.eng> from the same folder." },
+        @{ Kind = "body"; Text = "If a CSV path fails, keep relative paths anchored next to the source file, as in the official examples. If a report does not open, open build/result/report.html manually." },
+        @{ Kind = "h1"; Text = "8. Current Boundaries" },
+        @{ Kind = "body"; Text = "This release is stable for the supported CSV, statistics, plotting, report, package, and simple thermal preview workflows. It is not a full LSP, not a production IDE, and not a general nonlinear or multi-equation solver. Those are later milestones." }
+    )
+
+    $pages = New-Object System.Collections.Generic.List[string]
+    $content = New-Object System.Collections.Generic.List[string]
+    $script:EngPdfY = 740
+    $script:EngPdfPageNumber = 1
+
+    function Add-PdfPage {
+        if ($content.Count -gt 0) {
+            $content.Add("BT /F1 8 Tf 54 34 Td (EngLang v$Version user test guide - page $script:EngPdfPageNumber) Tj ET") | Out-Null
+            $pages.Add(($content -join "`n")) | Out-Null
+            $content.Clear()
+            $script:EngPdfY = 740
+            $script:EngPdfPageNumber += 1
+        }
+    }
+
+    function Add-PdfLine {
+        param(
+            [string] $Text,
+            [int] $Size,
+            [int] $Leading,
+            [string] $Font = "F1",
+            [int] $X = 54
+        )
+        if ($script:EngPdfY -lt 72) {
+            Add-PdfPage
+        }
+        $escaped = Escape-PdfText $Text
+        $content.Add("BT /$Font $Size Tf $X $script:EngPdfY Td ($escaped) Tj ET") | Out-Null
+        $script:EngPdfY -= $Leading
+    }
+
+    foreach ($section in $sections) {
+        switch ($section.Kind) {
+            "title" {
+                Add-PdfLine $section.Text 22 30 "F2"
+            }
+            "subtitle" {
+                Add-PdfLine $section.Text 12 28 "F1"
+            }
+            "h1" {
+                $script:EngPdfY -= 8
+                Add-PdfLine $section.Text 15 22 "F2"
+            }
+            "step" {
+                $stepLines = @(Split-PdfText $section.Text 84)
+                for ($lineIndex = 0; $lineIndex -lt $stepLines.Count; $lineIndex++) {
+                    if ($lineIndex -eq 0) {
+                        Add-PdfLine "- $($stepLines[$lineIndex])" 10 15 "F1" 66
+                    } else {
+                        Add-PdfLine "  $($stepLines[$lineIndex])" 10 15 "F1" 78
+                    }
+                }
+                $script:EngPdfY -= 3
+            }
+            default {
+                foreach ($line in (Split-PdfText $section.Text 92)) {
+                    Add-PdfLine $line 10 15 "F1"
+                }
+                $script:EngPdfY -= 6
+            }
+        }
+    }
+    Add-PdfPage
+
+    $objects = New-Object System.Collections.Generic.List[string]
+    $objects.Add("<< /Type /Catalog /Pages 2 0 R >>") | Out-Null
+    $pageKids = New-Object System.Collections.Generic.List[string]
+    $pageObjectStart = 5
+    $contentObjectStart = $pageObjectStart + $pages.Count
+    for ($index = 0; $index -lt $pages.Count; $index++) {
+        $pageKids.Add("$($pageObjectStart + $index) 0 R") | Out-Null
+    }
+    $objects.Add("<< /Type /Pages /Kids [$($pageKids -join ' ')] /Count $($pages.Count) >>") | Out-Null
+    $objects.Add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>") | Out-Null
+    $objects.Add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>") | Out-Null
+
+    for ($index = 0; $index -lt $pages.Count; $index++) {
+        $contentObject = $contentObjectStart + $index
+        $objects.Add("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents $contentObject 0 R >>") | Out-Null
+    }
+    foreach ($page in $pages) {
+        $bytes = [System.Text.Encoding]::ASCII.GetBytes($page)
+        $objects.Add("<< /Length $($bytes.Length) >>`nstream`n$page`nendstream") | Out-Null
+    }
+
+    $pdf = New-Object System.Text.StringBuilder
+    [void] $pdf.Append("%PDF-1.4`n")
+    $offsets = New-Object System.Collections.Generic.List[int]
+    for ($index = 0; $index -lt $objects.Count; $index++) {
+        $offsets.Add([System.Text.Encoding]::ASCII.GetByteCount($pdf.ToString())) | Out-Null
+        [void] $pdf.Append("$($index + 1) 0 obj`n$($objects[$index])`nendobj`n")
+    }
+    $xrefOffset = [System.Text.Encoding]::ASCII.GetByteCount($pdf.ToString())
+    [void] $pdf.Append("xref`n0 $($objects.Count + 1)`n")
+    [void] $pdf.Append("0000000000 65535 f `n")
+    foreach ($offset in $offsets) {
+        [void] $pdf.Append(("{0:D10} 00000 n `n" -f $offset))
+    }
+    [void] $pdf.Append("trailer`n<< /Size $($objects.Count + 1) /Root 1 0 R >>`nstartxref`n$xrefOffset`n%%EOF`n")
+
+    $parent = Split-Path -Parent $Path
+    New-Item -ItemType Directory -Force -Path $parent | Out-Null
+    [System.IO.File]::WriteAllBytes($Path, [System.Text.Encoding]::ASCII.GetBytes($pdf.ToString()))
+}
+
 function Invoke-Package {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -866,14 +1043,11 @@ function Invoke-Package {
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "examples") (Join-Path $PackageRoot "examples")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "stdlib") (Join-Path $PackageRoot "stdlib")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "docs") (Join-Path $PackageRoot "docs")
+    $PackageGuidePath = Join-Path $PackageRoot "docs\EngLang_User_Test_Guide.pdf"
+    $ReleaseGuidePath = Join-Path $RepoRoot "dist\englang-user-test-guide-v$Version.pdf"
+    New-UserGuidePdf -Path $PackageGuidePath -Version $Version
+    Copy-Item -Force $PackageGuidePath $ReleaseGuidePath
     Invoke-IdePackage -PackageRoot $PackageRoot
-    Set-Content -Path (Join-Path $PackageRoot "eng-ide.bat") -Encoding ascii -Value @"
-@echo off
-setlocal
-cd /d "%~dp0"
-eng-ide.exe
-exit /b %ERRORLEVEL%
-"@
     Set-Content -Path (Join-Path $PackageRoot "README.txt") -Encoding ascii -Value @"
 EngLang portable package
 
@@ -883,7 +1057,7 @@ required on the target PC.
 Recommended smoke commands:
   eng.exe doctor
   eng-ide.exe --smoke
-  eng-ide.bat
+  eng-ide.exe
   eng.exe run examples\official\01_csv_plot\main.eng --entry main
   eng.exe run examples\official\02_simple_system\main.eng --entry main
   eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
@@ -897,6 +1071,7 @@ VS Code IDE preview:
   run "EngLang: Check Current File"
 
 Generated artifacts are written under build\result in the current folder.
+The concise user guide is docs\EngLang_User_Test_Guide.pdf.
 "@
     Compress-Archive -Path (Join-Path $PackageRoot "*") -DestinationPath $ZipPath -Force
     $Hash = Get-FileHash -Algorithm SHA256 $ZipPath
@@ -944,6 +1119,9 @@ function Invoke-PackageSmoke {
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\englang-vscode-preview-$Version.vsix"))) {
             throw "portable package did not include VS Code VSIX"
         }
+        if (-not (Test-Path (Join-Path $SmokeRoot "docs\EngLang_User_Test_Guide.pdf"))) {
+            throw "portable package did not include user guide PDF"
+        }
     } finally {
         Pop-Location
     }
@@ -966,6 +1144,10 @@ function Invoke-ReleaseCheck {
     if (-not (Test-Path $ChecksumPath)) {
         throw "release check did not create $ChecksumPath"
     }
+    $GuidePath = Join-Path $RepoRoot "dist\englang-user-test-guide-v$Version.pdf"
+    if (-not (Test-Path $GuidePath)) {
+        throw "release check did not create $GuidePath"
+    }
     $ExpectedHash = (Get-Content -LiteralPath $ChecksumPath -Raw).Split(" ")[0].Trim()
     $ActualHash = (Get-FileHash -Algorithm SHA256 $ZipPath).Hash.ToLowerInvariant()
     if ($ExpectedHash -ne $ActualHash) {
@@ -983,6 +1165,7 @@ EngLang release check
 version = $Version
 commit = $GitCommit
 zip = $(Split-Path -Leaf $ZipPath)
+user_guide = $(Split-Path -Leaf $GuidePath)
 sha256 = $ActualHash
 
 verified:

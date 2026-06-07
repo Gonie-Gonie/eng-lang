@@ -53,7 +53,7 @@ and expose them through `dev.bat`.
 Expected shape:
 
 ```text
-EngLang 1.0.1
+EngLang 1.0.2
 
 Runtime              OK
 Standard library     OK
@@ -127,7 +127,7 @@ During development:
 From a portable release package:
 
 ```bat
-eng-ide.bat
+eng-ide.exe
 ```
 
 The native tester IDE supports example browsing, source editing, live compiler

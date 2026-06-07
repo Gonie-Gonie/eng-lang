@@ -1,6 +1,6 @@
 # EngLang VS Code Extension Preview
 
-This extension is the v1.0.1 IDE preview for user testing. It intentionally uses
+This extension is the v1.0.2 IDE preview for user testing. It intentionally uses
 the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
 
 ## Features

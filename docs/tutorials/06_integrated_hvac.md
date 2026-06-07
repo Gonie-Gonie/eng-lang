@@ -25,7 +25,7 @@ tester IDE in one workflow.
 Extract the portable zip and run:
 
 ```bat
-eng-ide.bat
+eng-ide.exe
 ```
 
 Open:

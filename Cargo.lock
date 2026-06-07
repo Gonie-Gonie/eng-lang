@@ -536,7 +536,7 @@ dependencies = [
 
 [[package]]
 name = "eng_cli"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "eng_compiler",
  "eng_runtime",
@@ -544,11 +544,11 @@ dependencies = [
 
 [[package]]
 name = "eng_compiler"
-version = "1.0.1"
+version = "1.0.2"
 
 [[package]]
 name = "eng_ide"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "eframe",
  "eng_compiler",
@@ -557,14 +557,14 @@ dependencies = [
 
 [[package]]
 name = "eng_report"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "eng_compiler",
 ]
 
 [[package]]
 name = "eng_runtime"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "eng_compiler",
  "eng_report",

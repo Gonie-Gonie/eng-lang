@@ -1,6 +1,6 @@
 # Native Tester IDE
 
-The v1.0.1 hardening path includes a portable native tester IDE. It is built as
+The v1.0.2 hardening path includes a portable native tester IDE. It is built as
 `eng-ide.exe` from the Rust workspace and is shipped inside the portable Windows
 zip beside `eng.exe`.
 
@@ -24,7 +24,7 @@ on a target user PC after the portable package has been downloaded.
 Download and extract the EngLang portable zip, then run:
 
 ```bat
-eng-ide.bat
+eng-ide.exe
 ```
 
 or:
@@ -123,5 +123,5 @@ tools/englang-vscode-preview-<version>.vsix
 ```
 
 This extension shares the compiler-facing diagnostic/hover/completion shape,
-but it is secondary for v1.0.1. The primary no-install user test path is
+but it is secondary for v1.0.2. The primary no-install user test path is
 `eng-ide.exe`.
