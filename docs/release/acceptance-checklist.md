@@ -237,6 +237,7 @@ Before publishing the post-v1.0 hardening release:
 [x] portable package includes eng-ide.exe and eng-ide.bat
 [x] eng-ide.exe --smoke discovers examples and compiler completion metadata
 [x] native IDE supports check, save, run, report open, diagnostics, symbols, and completions
+[x] official integrated HVAC example exercises CSV policies, statistics, plot/report, and system preview
 [x] VS Code extension preview is packaged as a secondary IDE path
 [x] package-smoke verifies eng-ide.exe --smoke inside the extracted portable zip
 ```

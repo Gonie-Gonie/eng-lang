@@ -1,0 +1,51 @@
+schema IntegratedHvacData {
+    time: DateTime index
+    T_supply: AbsoluteTemperature [degC]
+    T_return: AbsoluteTemperature [degC]
+    m_dot: MassFlowRate [kg/s]
+
+    constraints {
+        time is monotonic
+        T_supply between 0 degC and 60 degC
+        T_return between 0 degC and 80 degC
+        m_dot >= 0 kg/s
+        m_dot <= 0.30 kg/s
+    }
+
+    missing {
+        T_supply: interpolate max_gap=10 min
+        T_return: interpolate max_gap=10 min
+        m_dot: error
+    }
+}
+
+struct Args {
+    input: String = "data/integrated_hvac.csv"
+}
+
+system RoomThermalPreview {
+    state T_room: AbsoluteTemperature = 21 degC
+    parameter C_room: HeatCapacity = 1500 kJ/K
+    parameter UA: Conductance = 220 W/K
+    input T_out: AbsoluteTemperature = 8 degC
+    input Q_internal: HeatRate = 750 W
+
+    equation energy_balance:
+        C_room * der(T_room) eq UA * (T_out - T_room) + Q_internal
+}
+
+script main(args: Args) -> Report {
+    sensor = promote csv args.input as IntegratedHvacData
+    cp_air = 4180 J/kg/K
+    Q_coil = sensor.m_dot * cp_air * (sensor.T_return - sensor.T_supply)
+    E_coil = integrate(Q_coil, over=Time)
+
+    return report {
+        summarize Q_coil by [mean, time_weighted_mean, max, median, std, p90, p95, duration_above(5 kW)]
+        show E_coil
+        plot Q_coil over Time {
+            unit y = kW
+            title = "Integrated HVAC coil heat rate"
+        }
+    }
+}

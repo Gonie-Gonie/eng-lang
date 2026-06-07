@@ -31,6 +31,7 @@ target\debug\eng.exe check examples\05_error_messages\ambiguous_power.eng --revi
 target\debug\eng.exe entries examples\official\01_csv_plot\main.eng
 target\debug\eng.exe run examples\official\01_csv_plot\main.eng
 target\debug\eng.exe run examples\official\02_simple_system\main.eng
+target\debug\eng.exe run examples\official\03_integrated_hvac\main.eng
 target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main
 target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main --input data/sensor.csv
 target\debug\eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
@@ -137,6 +138,7 @@ v1.1
 - [Native tester IDE](docs/guide/native_ide.md)
 - [Report and review artifacts](docs/guide/report_review.md)
 - [Simple system tutorial](docs/tutorials/05_simple_system.md)
+- [Integrated HVAC user test](docs/tutorials/06_integrated_hvac.md)
 - [Run command reference](docs/reference/cli_run.md)
 - [CLI specification](docs/specs/cli.md)
 - [v8/v9 language policy](docs/specs/language-v8.md)
@@ -174,6 +176,7 @@ eng-ide.exe --smoke
 eng-ide.bat
 eng.exe run examples\official\01_csv_plot\main.eng --entry main
 eng.exe run examples\official\02_simple_system\main.eng --entry main
+eng.exe run examples\official\03_integrated_hvac\main.eng --entry main
 eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
 dist\main-standalone\run.bat
 popd

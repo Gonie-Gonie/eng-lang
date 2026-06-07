@@ -24,6 +24,7 @@ This index maps the v9 master plan to the concrete repository work.
 - [Native tester IDE](guide/native_ide.md)
 - [Report and review artifacts](guide/report_review.md)
 - [Simple system tutorial](tutorials/05_simple_system.md)
+- [Integrated HVAC user test](tutorials/06_integrated_hvac.md)
 
 ## Reference
 

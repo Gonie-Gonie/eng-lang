@@ -90,6 +90,15 @@ Generated runtime artifacts are written under:
 build/ide-run/
 ```
 
+Recommended release user-test example:
+
+```text
+examples/official/03_integrated_hvac/main.eng
+```
+
+See [Integrated HVAC user test](../tutorials/06_integrated_hvac.md) for the
+step-by-step flow.
+
 ## Completion Scope
 
 Current completion sources:

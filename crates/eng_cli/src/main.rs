@@ -364,6 +364,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         "examples/01_units/main.eng",
         "examples/official/01_csv_plot/main.eng",
         "examples/official/02_simple_system/main.eng",
+        "examples/official/03_integrated_hvac/main.eng",
         "examples/02_csv_plot/main.eng",
         "examples/04_plotting/main.eng",
         "examples/06_simple_system/main.eng",
@@ -589,6 +590,36 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("simple system example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
+        Path::new("examples/official/03_integrated_hvac/main.eng"),
+        Path::new("build/test-integrated-hvac"),
+        &RunOptions {
+            open_report: false,
+            entry: Some("main".to_owned()),
+            args: Vec::new(),
+        },
+    ) {
+        Ok(output) => {
+            let result = std::fs::read_to_string(output.result_path).unwrap_or_default();
+            let plot_spec = std::fs::read_to_string(output.plot_spec_path).unwrap_or_default();
+            if !result.contains("\"policy_results\"")
+                || !result.contains("\"solver_result\"")
+                || !plot_spec.contains("\"Integrated HVAC coil heat rate\"")
+            {
+                eprintln!(
+                    "expected integrated HVAC example to produce policies, solver result, and plot title"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/03_integrated_hvac/main.eng produced integrated user-test artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("integrated HVAC example failed: {error}");
             return ExitCode::from(2);
         }
     }
