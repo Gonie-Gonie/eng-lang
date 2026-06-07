@@ -1,50 +1,59 @@
-# 처음 개발 환경 구성
+# Getting Started
 
-이 문서는 새 Windows PC에서 EngLang 개발을 시작하는 절차입니다. 목표는 repo를 받은 뒤 setup script만 실행하면 같은 compiler/runtime/tooling 버전으로 개발할 수 있게 하는 것입니다.
+This guide explains how to start EngLang development on a Windows PC. The goal
+is that every developer can clone the repository, run one setup command, and get
+the same compiler/runtime/tooling environment.
 
-## 대상 환경
+## Supported Environment
 
+```text
 - Windows 10/11 x64
-- 인터넷 연결: 최초 `setup` 때 rustup 다운로드용
 - Git
-- PowerShell 사용 가능 환경
+- Internet access for the first setup run
+- PowerShell available through Windows
+```
 
-Python, Visual Studio 전역 설치, 사용자 전역 Rust 설치는 필수가 아닙니다. setup은 repo 안의 `.dev`에 pinned Rust toolchain을 설치합니다.
+Python, Visual Studio Build Tools, and a global Rust installation are not
+required for the core preview path. Setup installs the pinned Rust toolchain
+inside the repository-local `.dev` folder.
 
-## 첫 setup
+## First Setup
 
-repo root에서 다음을 실행합니다.
+Run from the repository root:
 
 ```bat
 .\dev.bat setup
 ```
 
-setup이 수행하는 일:
+Setup performs:
 
 ```text
-1. .dev/cargo, .dev/rustup, .dev/cache 생성
-2. rustup-init.exe를 .dev/cache로 다운로드
-3. pinned toolchain 1.78.0-x86_64-pc-windows-gnu 설치
-4. Cargo dependency fetch
-5. cargo build --workspace
+1. create .dev/cargo, .dev/rustup, and .dev/cache
+2. download rustup-init.exe into .dev/cache when needed
+3. install 1.78.0-x86_64-pc-windows-gnu into .dev
+4. fetch locked Cargo dependencies
+5. build the Rust workspace
 ```
 
-PowerShell 실행 정책은 신경 쓰지 않아도 됩니다. `dev.bat`가 다음 옵션으로 공통 PowerShell entry를 호출합니다.
+All PowerShell execution goes through the common wrapper:
 
 ```bat
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\dev.ps1
 ```
 
-## setup 확인
+Do not add separate PowerShell entry scripts. Add new tasks to `scripts/dev.ps1`
+and expose them through `dev.bat`.
+
+## Check Setup
 
 ```bat
 .\dev.bat doctor
 ```
 
-기대 출력:
+Expected shape:
 
 ```text
-EngLang Preview 0.1.0
+EngLang Preview 0.9.0
 
 Runtime              OK
 Standard library     OK
@@ -57,19 +66,20 @@ Example files        OK
 Ready.
 ```
 
-## 예제 실행
+## Run Examples
 
 ```bat
 .\dev.bat run-example
 ```
 
-또는 직접 실행합니다.
+Or run the current official examples directly:
 
 ```bat
-target\debug\eng.exe run examples\04_plotting\main.eng
+target\debug\eng.exe run examples\04_plotting\main.eng --entry main
+target\debug\eng.exe run examples\06_simple_system\main.eng --entry main
 ```
 
-생성물:
+Generated artifacts:
 
 ```text
 build/
@@ -78,36 +88,45 @@ build/
     result.engres
     review.json
     report.html
-    plots/timeseries.svg
+    report_spec.json
+    plots/
+      plot_spec.json
+      plot_manifest.json
+      timeseries.svg
 ```
 
-`report.html`을 열면 inferred declaration, diagnostics, preview plot을 확인할 수 있습니다.
-
-## 자주 쓰는 명령
+## Common Commands
 
 ```bat
 .\dev.bat build
 .\dev.bat test
 .\dev.bat fmt
 .\dev.bat clippy
+.\dev.bat ci
 .\dev.bat package
+.\dev.bat package-smoke
 .\dev.bat clean
 ```
 
-## 문제가 생겼을 때
+`package-smoke` builds the portable zip, extracts it into a path containing
+spaces and Korean characters, and runs the packaged `eng.exe` without relying on
+Rust or Python in the target folder.
 
-`Cargo not found`가 나오면:
+## Troubleshooting
+
+If Cargo is not found:
 
 ```bat
 .\dev.bat setup
 ```
 
-빌드 산출물이 꼬였으면:
+If generated build output looks stale:
 
 ```bat
 .\dev.bat clean
 .\dev.bat setup
 ```
 
-회사망이나 보안망에서 rustup 다운로드가 막히면 `.dev/cache/rustup-init.exe`를 사내 미러 또는 수동 복사로 채운 뒤 다시 setup을 실행합니다. 이 경우에도 설치 위치는 repo-local `.dev`입니다.
-
+If a corporate network blocks the rustup download, pre-place
+`.dev/cache/rustup-init.exe` manually and run setup again. The final toolchain
+installation location is still repository-local.

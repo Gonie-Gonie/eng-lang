@@ -1,6 +1,6 @@
 # Repository Layout
 
-Current v0.8-alpha layout:
+Current v0.9-alpha layout:
 
 ```text
 .
@@ -109,7 +109,9 @@ report_spec.json
 plots/plot_spec.json
 plots/plot_manifest.json
 plots/timeseries.svg
-dist package placeholders
+dist/englang-preview
+dist/englang-preview-v<version>-windows-x64.zip
+dist/englang-preview-v<version>-windows-x64.zip.sha256
 ```
 
 Current runtime responsibilities:
@@ -133,6 +135,8 @@ TimeSeries pages
 PlotSpec payloads
 package execution
 standalone build orchestration
+portable zip assembly
+portable clean-folder smoke
 ```
 
 ## `eng_report`

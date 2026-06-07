@@ -85,14 +85,20 @@ v0.8-alpha
   Minimal system/equation support: system block, parameter/state/input,
   equation block, infix eq relation, der(), unit consistency diagnostics,
   residual metadata, and report/review system summaries.
+
+v0.9-alpha
+  Portable demo hardening: Windows zip package, SHA256 checksum,
+  package-smoke extraction under Korean and space-containing paths,
+  official CSV+plot and simple system examples, and no install-required
+  preview execution.
 ```
 
 Active planning target:
 
 ```text
-v0.9-alpha
-  Portable demo hardening: packaged preview, official CSV+plot and system
-  examples, path smoke tests, and no install-required preview execution.
+v1.0-stable
+  Stable core release across typed data analysis, plotting/report,
+  minimal system/equation, and packaged standalone execution.
 ```
 
 ## Documentation
@@ -142,6 +148,13 @@ Before a preview package check:
 
 ```bat
 .\dev.bat package
+.\dev.bat package-smoke
 dist\englang-preview\eng.exe doctor
-dist\englang-preview\eng.exe run examples\04_plotting\main.eng
+dist\englang-preview\eng.exe run examples\04_plotting\main.eng --entry main
+dist\englang-preview\eng.exe run examples\06_simple_system\main.eng --entry main
 ```
+
+`package` writes `dist\englang-preview-v<version>-windows-x64.zip` and a
+matching `.sha256` file. `package-smoke` extracts that zip into a path with
+spaces and Korean characters, then runs the portable `eng.exe` without relying
+on Rust or Python on the target side.

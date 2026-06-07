@@ -1,8 +1,8 @@
-# 일상 개발 workflow
+# Daily Development Workflow
 
-이 문서는 실제 개발 순서입니다.
+This document describes the normal development loop for EngLang.
 
-## 1. 최신 상태 확인
+## 1. Check Current State
 
 ```bat
 git status --short
@@ -10,81 +10,105 @@ git status --short
 .\dev.bat test
 ```
 
-`doctor`가 실패하면 기능 개발 전에 setup 문제부터 해결합니다.
+Fix setup or environment problems before starting feature work.
 
-## 2. 기능 위치 정하기
+## 2. Pick the Version Target
 
-변경 전 다음 질문에 답합니다.
+Development follows the v9 roadmap. Start with the target version, then read the
+required outputs and release gate for that version.
 
-```text
-1. Language 변경인가?
-2. Compiler 변경인가?
-3. Runtime 변경인가?
-4. Tooling 변경인가?
-5. Product/Docs 변경인가?
-```
-
-예:
-
-- 새 diagnostic: `crates/eng_compiler`
-- 새 report section: `crates/eng_report`
-- 새 `eng` command: `crates/eng_cli`
-- artifact layout 변경: `crates/eng_runtime`와 docs
-- setup 방식 변경: `scripts/dev.ps1`, `dev.bat`, development docs
-
-## 3. 구현
-
-작은 단위로 구현합니다.
-
-권장 순서:
+Useful questions:
 
 ```text
-1. example 또는 failing test 작성
-2. compiler/runtime/report code 수정
-3. docs/spec 갱신
-4. .\dev.bat fmt
-5. .\dev.bat test
-6. 필요 시 .\dev.bat clippy
+1. Is this a language change?
+2. Is this a compiler/frontend change?
+3. Is this a runtime/artifact change?
+4. Is this a tooling or packaging change?
+5. Is this product documentation or an example?
 ```
 
-## 4. 예제 정책
-
-사용자-facing 기능은 반드시 official example 또는 error example에 반영합니다.
-
-현재 예제:
-
-- `examples/01_units/main.eng`: unit/quantity 기본
-- `examples/02_csv_plot/main.eng`: typed CSV promote + report
-- `examples/04_plotting/main.eng`: plot/report workflow
-- `examples/05_error_messages/unit_mismatch.eng`: dimensionless 오류
-
-## 5. 문서 갱신 정책
-
-변경 종류별 문서:
+Common locations:
 
 ```text
-CLI 출력/옵션 변경       -> docs/specs/cli.md
-언어 문법 변경           -> docs/specs/language-v8.md
-artifact layout 변경     -> docs/architecture/01_runtime_artifacts.md
-setup 방식 변경          -> docs/development/00_getting_started.md
-workspace 구조 변경      -> docs/development/01_repo_layout.md
-milestone scope 변경     -> docs/roadmap.md
-release 조건 변경        -> docs/release/acceptance-checklist.md
+diagnostics and semantic checks    crates/eng_compiler
+report sections                    crates/eng_report
+eng command behavior               crates/eng_cli
+run/build artifact layout          crates/eng_runtime plus docs
+setup and packaging workflow       scripts/dev.ps1, dev.bat, development docs
 ```
 
-## 6. Merge 전 확인
+## 3. Implement in Reviewable Units
 
-```bat
-.\dev.bat fmt
-.\dev.bat test
-.\dev.bat clippy
-.\dev.bat run-example
+Preferred order:
+
+```text
+1. add or select an example/error case
+2. update compiler/runtime/report behavior
+3. update docs and release notes
+4. run .\dev.bat fmt
+5. run .\dev.bat test
+6. run .\dev.bat clippy when the change touches Rust behavior
 ```
 
-같은 검사를 한 번에 실행하려면 다음을 사용합니다.
+Commit after each independently useful unit that passes the relevant checks.
+
+## 4. Keep Public Examples Current
+
+Current official examples:
+
+```text
+examples/01_units/main.eng              unit/quantity basics
+examples/02_csv_plot/main.eng           typed CSV promote plus report
+examples/04_plotting/main.eng           CSV, statistics, PlotSpec, SVG, report
+examples/06_simple_system/main.eng      minimal system/equation report
+```
+
+Current error examples:
+
+```text
+examples/05_error_messages/unit_mismatch.eng
+examples/05_error_messages/ambiguous_power.eng
+examples/05_error_messages/heat_rate_sum.eng
+examples/05_error_messages/missing_csv_column.eng
+examples/05_error_messages/eq_boolean.eng
+examples/05_error_messages/equation_unit_mismatch.eng
+examples/05_error_messages/missing_entry.eng
+```
+
+Public behavior should have an example, a smoke test, or both.
+
+## 5. Update the Right Docs
+
+```text
+CLI output or options          docs/specs/cli.md
+language syntax or policy      docs/specs/language-v8.md
+artifact layout                docs/architecture/01_runtime_artifacts.md
+setup or packaging             docs/development/00_getting_started.md
+repo structure                 docs/development/01_repo_layout.md
+daily workflow                 docs/development/02_daily_workflow.md
+environment reproducibility    docs/development/03_environment_reproducibility.md
+milestone scope                docs/roadmap.md
+release gates                  docs/release/acceptance-checklist.md
+```
+
+Runtime artifact changes should also update the release notes for the active
+milestone.
+
+## 6. Verify Before Commit
+
+For a normal development slice:
 
 ```bat
 .\dev.bat ci
 ```
 
-기능이 artifact를 생성한다면 `build/result/report.html`을 열어 사람이 검토 가능한지 확인합니다.
+For packaging/release work:
+
+```bat
+.\dev.bat ci
+.\dev.bat package
+.\dev.bat package-smoke
+```
+
+If the change generates visual/report artifacts, inspect `build/result/report.html`
+and the generated PlotSpec/report files before release.

@@ -1,67 +1,75 @@
-# 재현 가능한 개발 환경 정책
+# Environment Reproducibility Policy
 
-EngLang은 Windows portable zip 우선 프로젝트입니다. 개발 환경도 같은 원칙을 따릅니다.
+EngLang is designed around a Windows portable preview package and a
+repository-local development toolchain. The core rule is simple: cloning the
+repository and running `dev.bat setup` should make the same development
+environment available on every supported PC.
 
-## 원칙
+## Policy
 
 ```text
-1. repo root의 dev.bat가 유일한 개발 진입점이다.
-2. PowerShell script는 scripts/dev.ps1 하나만 둔다.
-3. PowerShell 실행 정책은 dev.bat에서 우회한다.
-4. setup은 repo-local .dev에 toolchain을 설치한다.
-5. toolchain 버전은 rust-toolchain.toml에 pinning한다.
-6. core path는 Python을 요구하지 않는다.
-7. build/test/run-example은 같은 command로 모든 PC에서 반복 가능해야 한다.
-8. CI도 dev.bat setup과 dev.bat ci를 사용한다.
+1. The repository root dev.bat is the only development entry point.
+2. PowerShell implementation lives in scripts/dev.ps1.
+3. dev.bat always calls PowerShell with ExecutionPolicy Bypass.
+4. setup installs the toolchain under repo-local .dev.
+5. rust-toolchain.toml and scripts/dev.ps1 must agree on the pinned toolchain.
+6. The core run/report/plot path must not require Python.
+7. The packaged preview path must not require Rust or Python on the target PC.
+8. CI and local checks should use the same dev.bat commands.
 ```
 
-## Repo-local toolchain
+## Repo-Local Toolchain
 
-`scripts/dev.ps1`은 다음 환경 변수를 설정합니다.
+`scripts/dev.ps1` sets:
 
 ```text
 CARGO_HOME  = <repo>\.dev\cargo
 RUSTUP_HOME = <repo>\.dev\rustup
 PATH        = <repo>\.dev\cargo\bin;%PATH%
+ENG_REPO_ROOT = <repo>
 ```
 
-따라서 전역 Rust 설치가 있더라도 EngLang 개발 명령은 repo-local toolchain을 우선 사용합니다.
+If a global Rust installation exists, the wrapper can use it as a fallback, but
+the preferred and documented path is the repository-local toolchain.
 
 ## Pinned Rust
 
-현재 pin:
+Current pin:
 
 ```text
 1.78.0-x86_64-pc-windows-gnu
 ```
 
-이유:
+Reasons:
 
-- Windows PC에서 Visual Studio Build Tools 의존을 줄입니다.
-- toolchain이 명시되어 새 PC에서도 같은 compiler behavior를 사용합니다.
-- Rust edition 2021과 현재 preview 구현에 충분합니다.
+```text
+- avoids requiring Visual Studio Build Tools for the preview path
+- keeps compiler behavior consistent across Windows PCs
+- supports the current Rust 2021 implementation
+```
 
-toolchain을 바꾸는 PR은 다음을 함께 바꿉니다.
+When changing the pin, update:
 
 ```text
 rust-toolchain.toml
-scripts/dev.ps1의 $PinnedToolchain
+scripts/dev.ps1 $PinnedToolchain
 docs/development/03_environment_reproducibility.md
-릴리즈 노트
+release notes for the active milestone
 ```
 
-## Dependency 정책
+## Dependency Policy
 
-현재 Rust crates는 외부 dependency를 쓰지 않습니다. dependency를 추가할 때는 다음을 지킵니다.
+Rust dependencies are currently intentionally minimal. When adding dependencies:
 
 ```text
-1. Cargo.lock을 반드시 commit한다.
-2. dependency가 core path에 Python, node, system DLL runtime을 요구하지 않는지 확인한다.
-3. public artifact format에 영향을 주면 docs를 갱신한다.
-4. 보안/재현성 필요가 커지면 cargo vendor 도입을 검토한다.
+1. commit Cargo.lock
+2. confirm the core path still has no Python dependency
+3. confirm the package path still has no Rust/Python target dependency
+4. update docs when artifact formats or public behavior change
+5. consider cargo vendor only when reproducibility or security needs justify it
 ```
 
-향후 dependency가 늘어나면 vendoring 후보 구조:
+Future vendoring structure, if adopted:
 
 ```text
 vendor/
@@ -69,11 +77,9 @@ vendor/
 Cargo.lock
 ```
 
-단, 현재는 dependency가 없으므로 vendor directory를 만들지 않습니다.
+## Build Artifact Policy
 
-## Build artifact 정책
-
-Commit하지 않는 항목:
+Do not commit:
 
 ```text
 .dev/
@@ -84,7 +90,7 @@ dist/
 *.engres
 ```
 
-Commit하는 항목:
+Commit:
 
 ```text
 source code
@@ -95,21 +101,66 @@ Cargo.lock
 toolchain/config scripts
 ```
 
-## Packaging
+## Portable Packaging
+
+Build a preview package:
 
 ```bat
 .\dev.bat package
 ```
 
-현재 preview package는 다음을 `dist/englang-preview`에 모읍니다.
+This creates:
+
+```text
+dist\englang-preview\
+dist\englang-preview-v<version>-windows-x64.zip
+dist\englang-preview-v<version>-windows-x64.zip.sha256
+```
+
+The unpacked package contains:
 
 ```text
 eng.exe
 examples/
 stdlib/
 docs/
+README.txt
 ```
 
-`package` 명령은 기존 `dist/englang-preview`를 삭제한 뒤 다시 생성합니다.
+`README.txt` inside the package gives target-PC smoke commands.
 
-이 구조는 장기적으로 “zip 해제 후 Python 없이 `eng.exe doctor`와 `eng.exe run`이 되는 배포물”로 확장합니다.
+## Portable Smoke
+
+Run:
+
+```bat
+.\dev.bat package-smoke
+```
+
+This command:
+
+```text
+1. builds the release binary
+2. assembles dist\englang-preview
+3. writes the portable zip and SHA256 checksum
+4. extracts the zip under dist\portable smoke <Korean word>
+5. runs packaged eng.exe doctor from the extracted folder
+6. runs the official CSV+plot example
+7. runs eng.exe view on the generated result
+8. runs the official simple system example
+9. verifies build\result\report_spec.json exists
+```
+
+The smoke folder intentionally contains both a space and Korean characters. This
+guards against path handling bugs before a preview package is shared.
+
+## Clean Rebuild
+
+```bat
+.\dev.bat clean
+.\dev.bat setup
+.\dev.bat ci
+.\dev.bat package-smoke
+```
+
+This is the strongest local release sanity check before tagging.

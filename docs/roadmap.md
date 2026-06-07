@@ -19,7 +19,8 @@ v0.5-preview  complete and tagged
 v0.6-preview  complete on main
 v0.7-alpha    complete on main
 v0.8-alpha    complete on main
-v0.9-alpha    next target
+v0.9-alpha    complete on main
+v1.0-stable   next target
 ```
 
 ## v0.1-preview — Repository, CLI, Parser, Unit Seed
@@ -254,11 +255,24 @@ Release gate:
 Required outputs:
 
 ```text
-- Windows portable zip
-- official CSV+plot example
-- official simple system example
-- path tests for Korean and space-containing paths
-- no Python/Rust install required for packaged preview
+[x] Windows portable zip
+[x] SHA256 checksum for the portable zip
+[x] official CSV+plot example
+[x] official simple system example
+[x] path tests for Korean and space-containing paths
+[x] no Python/Rust install required for packaged preview
+```
+
+Release gate:
+
+```text
+[x] .\dev.bat ci
+[x] .\dev.bat package
+[x] .\dev.bat package-smoke
+[x] package-smoke extracts the zip under a path containing spaces and Korean characters
+[x] packaged eng.exe doctor passes from the extracted folder
+[x] packaged CSV+plot example produces result/report/PlotSpec artifacts
+[x] packaged simple system example produces result/report artifacts
 ```
 
 ## v1.0-stable — Stable Core Release

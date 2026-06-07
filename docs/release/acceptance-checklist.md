@@ -28,9 +28,21 @@ Run from the repository root:
 .\dev.bat setup
 .\dev.bat ci
 .\dev.bat package
+.\dev.bat package-smoke
 ```
 
-Smoke the portable package from `dist\englang-preview`:
+`package` writes both a portable zip and checksum:
+
+```text
+dist\englang-preview-v<version>-windows-x64.zip
+dist\englang-preview-v<version>-windows-x64.zip.sha256
+```
+
+`package-smoke` extracts that zip into a path containing spaces and Korean
+characters, then runs the packaged `eng.exe` without using Rust or Python from
+the target folder.
+
+Optional manual smoke from `dist\englang-preview`:
 
 ```bat
 eng.exe doctor
@@ -121,6 +133,21 @@ The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
 [x] residual metadata appears in report_spec.json and result.engres
 [x] report.html includes System Equations
 [x] official simple system example passes
+```
+
+## v0.9 Gate
+
+```text
+[x] package creates dist\englang-preview
+[x] package creates dist\englang-preview-v<version>-windows-x64.zip
+[x] package creates dist\englang-preview-v<version>-windows-x64.zip.sha256
+[x] package includes eng.exe, examples, stdlib, docs, and README.txt
+[x] package-smoke extracts the zip under a path with spaces and Korean characters
+[x] packaged eng.exe doctor passes in the extracted folder
+[x] packaged CSV+plot example runs and creates result/report/PlotSpec artifacts
+[x] packaged simple system example runs and creates result/report artifacts
+[x] eng test examples includes a Korean and space-containing source/build path smoke
+[x] no Python/Rust install is required for packaged preview execution
 ```
 
 ## v1.0 Demo Direction
