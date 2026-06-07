@@ -3,6 +3,7 @@ members = [
     "crates/eng_cli",
     "crates/eng_compiler",
     "crates/eng_ide",
+    "crates/eng_lsp",
     "crates/eng_report",
     "crates/eng_runtime",
 ]

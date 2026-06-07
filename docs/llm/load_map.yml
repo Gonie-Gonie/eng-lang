@@ -5,6 +5,7 @@ default:
   - docs/current/feature_maturity_matrix.md
   - docs/current/v1_0_3_hardening.md
   - docs/current/v1_2_data_driven_modeling_gate.md
+  - docs/current/v1_3_lsp_gate.md
 
 task_types:
   parser:
@@ -33,6 +34,11 @@ task_types:
     - docs/current/v1_0_3_hardening.md
     - crates/eng_ide/
     - crates/eng_cli/
+
+  lsp:
+    - docs/current/v1_3_lsp_gate.md
+    - crates/eng_lsp/
+    - tools/vscode-englang/
 
   report:
     - docs/architecture/01_runtime_artifacts.md

@@ -1,0 +1,17 @@
+[package]
+name = "eng_lsp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "eng-lsp"
+path = "src/main.rs"
+
+[dependencies]
+eng_compiler = { path = "../eng_compiler" }
+serde_json = "1"
+
+[lints]
+workspace = true

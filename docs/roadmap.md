@@ -24,6 +24,7 @@ v1.0-stable   latest stable baseline
 v1.0.3        active release target: IDE/documentation hardening
 v1.1          planned target; uncertainty code on main is experimental
 v1.2          planned target; data-driven modeling code on main is experimental
+v1.3          planned target; LSP/editor service code on main is experimental
 ```
 
 Use [current status](current/status.md) and the
@@ -379,6 +380,10 @@ Required outputs:
 - schema column completion seed
 - run/check/open report commands
 ```
+
+Status on `main`: experimental `eng-lsp.exe` smoke/snapshot and minimal stdio
+JSON-RPC support exist. Track the exact support boundary in
+[docs/current/v1_3_lsp_gate.md](current/v1_3_lsp_gate.md).
 
 ## v1.4 — Tester IDE Maturity and JIT Start
 

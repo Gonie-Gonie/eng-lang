@@ -7,7 +7,8 @@ It is intentionally short so agents do not need to load every planning file.
 
 - Latest stable baseline: `v1.0-stable`
 - Active release target: `v1.0.3` IDE and documentation hardening
-- Next targets: `v1.1` uncertainty, then `v1.2` data-driven modeling
+- Next targets: `v1.1` uncertainty, `v1.2` data-driven modeling, then
+  `v1.3` LSP/editor service hardening
 - `v1.1` and `v1.2` code on `main` is experimental unless the current status
   documents say otherwise.
 - Current `v1.1` detail work includes deterministic uncertainty samples,
@@ -18,6 +19,8 @@ It is intentionally short so agents do not need to load every planning file.
   TimeSeries -> train/test split -> model -> evaluation/model-card links and
   argument diagnostics for split/model/MLP options, with parity and residual
   plot smoke paths documented in the v1.2 gate.
+- Current `v1.3` detail work includes an experimental `eng-lsp.exe` smoke,
+  snapshot, diagnostics, completion, and hover path documented in the v1.3 gate.
 
 ## Read First
 
@@ -27,7 +30,8 @@ It is intentionally short so agents do not need to load every planning file.
 4. `docs/current/feature_maturity_matrix.md`
 5. `docs/current/v1_0_3_hardening.md`
 6. `docs/current/v1_2_data_driven_modeling_gate.md`
-7. `docs/llm/load_map.yml`
+7. `docs/current/v1_3_lsp_gate.md`
+8. `docs/llm/load_map.yml`
 
 ## Core Invariants
 
@@ -67,6 +71,7 @@ The current supported workspace is:
 - `eng_runtime`
 - `eng_report`
 - `eng_ide`
+- `eng_lsp`
 
 Do not split crates only because the long-term plan mentions future boundaries.
 Use the current architecture unless a concrete task requires a split.

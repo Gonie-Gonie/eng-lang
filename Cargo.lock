@@ -763,6 +763,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "eng_lsp"
+version = "1.0.3"
+dependencies = [
+ "eng_compiler",
+ "serde_json",
+]
+
+[[package]]
 name = "eng_report"
 version = "1.0.3"
 dependencies = [

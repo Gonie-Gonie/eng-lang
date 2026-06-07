@@ -1,0 +1,278 @@
+use std::collections::BTreeSet;
+use std::path::Path;
+
+use eng_compiler::{
+    all_quantity_completions, all_unit_infos, check_file, check_source, CheckOptions, CheckReport,
+    Severity,
+};
+use serde_json::{json, Value};
+
+pub const LSP_SNAPSHOT_FORMAT: &str = "eng-lsp-snapshot-v1";
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LspSnapshot {
+    pub diagnostics: Vec<LspDiagnostic>,
+    pub completions: Vec<LspCompletion>,
+    pub hovers: Vec<LspHover>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LspDiagnostic {
+    pub line: usize,
+    pub severity: String,
+    pub code: String,
+    pub message: String,
+    pub help: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LspCompletion {
+    pub label: String,
+    pub kind: String,
+    pub detail: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LspHover {
+    pub name: String,
+    pub line: usize,
+    pub detail: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+}
+
+pub fn snapshot_for_path(path: &Path) -> std::io::Result<LspSnapshot> {
+    let report = check_file(path, &CheckOptions::default())?;
+    Ok(snapshot_from_report(&report))
+}
+
+pub fn snapshot_for_source(path: &Path, source: &str) -> LspSnapshot {
+    let report = check_source(path, source, &CheckOptions::default());
+    snapshot_from_report(&report)
+}
+
+pub fn snapshot_from_report(report: &CheckReport) -> LspSnapshot {
+    LspSnapshot {
+        diagnostics: report
+            .diagnostics
+            .iter()
+            .map(|diagnostic| LspDiagnostic {
+                line: diagnostic.line,
+                severity: diagnostic.severity.as_str().to_owned(),
+                code: diagnostic.code.clone(),
+                message: diagnostic.message.clone(),
+                help: diagnostic.help.clone(),
+            })
+            .collect(),
+        completions: completion_items(report),
+        hovers: report
+            .semantic_program
+            .hover_hints
+            .iter()
+            .map(|hover| LspHover {
+                name: hover.name.clone(),
+                line: hover.line,
+                detail: hover.detail.clone(),
+                quantity_kind: hover.quantity_kind.clone(),
+                display_unit: hover.display_unit.clone(),
+            })
+            .collect(),
+    }
+}
+
+pub fn snapshot_json(snapshot: &LspSnapshot) -> Value {
+    json!({
+        "format": LSP_SNAPSHOT_FORMAT,
+        "diagnostics": snapshot.diagnostics.iter().map(diagnostic_json).collect::<Vec<_>>(),
+        "completions": snapshot.completions.iter().map(completion_json).collect::<Vec<_>>(),
+        "hovers": snapshot.hovers.iter().map(hover_json).collect::<Vec<_>>(),
+    })
+}
+
+pub fn diagnostic_json(diagnostic: &LspDiagnostic) -> Value {
+    json!({
+        "range": {
+            "start": { "line": diagnostic.line.saturating_sub(1), "character": 0 },
+            "end": { "line": diagnostic.line.saturating_sub(1), "character": 1 }
+        },
+        "severity": lsp_severity(&diagnostic.severity),
+        "source": "eng",
+        "code": diagnostic.code,
+        "message": match &diagnostic.help {
+            Some(help) => format!("{}\n{}", diagnostic.message, help),
+            None => diagnostic.message.clone(),
+        }
+    })
+}
+
+pub fn completion_json(completion: &LspCompletion) -> Value {
+    json!({
+        "label": completion.label,
+        "kind": completion_kind(&completion.kind),
+        "detail": completion.detail,
+    })
+}
+
+pub fn hover_json(hover: &LspHover) -> Value {
+    json!({
+        "name": hover.name,
+        "line": hover.line,
+        "contents": {
+            "kind": "markdown",
+            "value": format!(
+                "**{}**\n\n{}\n\nQuantity: `{}`\n\nDisplay unit: `{}`",
+                hover.name, hover.detail, hover.quantity_kind, hover.display_unit
+            )
+        }
+    })
+}
+
+pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
+    let mut seen = BTreeSet::new();
+    let mut items = Vec::new();
+
+    for keyword in [
+        "schema",
+        "script",
+        "struct",
+        "system",
+        "state",
+        "parameter",
+        "input",
+        "equation",
+        "promote",
+        "return",
+        "plot",
+        "integrate",
+        "train_test_split",
+        "regression",
+        "mlp",
+        "evaluate",
+        "model_card",
+        "leakage_lint",
+    ] {
+        push_completion(&mut items, &mut seen, keyword, "keyword", "EngLang keyword");
+    }
+
+    for binding in &report.semantic_program.typed_bindings {
+        push_completion(
+            &mut items,
+            &mut seen,
+            &binding.name,
+            "variable",
+            &format!(
+                "{} [{}]",
+                binding.semantic_type.quantity_kind, binding.semantic_type.display_unit
+            ),
+        );
+    }
+
+    for schema in &report.semantic_program.schemas {
+        for column in &schema.columns {
+            push_completion(
+                &mut items,
+                &mut seen,
+                &column.name,
+                "property",
+                &format!(
+                    "{} [{}]",
+                    column.type_name,
+                    column.unit.as_deref().unwrap_or("schema-defined")
+                ),
+            );
+        }
+    }
+
+    for quantity in all_quantity_completions() {
+        push_completion(
+            &mut items,
+            &mut seen,
+            quantity.quantity_kind,
+            "class",
+            &format!("canonical unit {}", quantity.canonical_unit),
+        );
+    }
+
+    for unit in all_unit_infos() {
+        push_completion(
+            &mut items,
+            &mut seen,
+            unit.symbol,
+            "unit",
+            &format!("{} unit", unit.quantity_hint),
+        );
+    }
+
+    items
+}
+
+pub fn severity_to_lsp(severity: &Severity) -> u8 {
+    match severity {
+        Severity::Error => 1,
+        Severity::Warning => 2,
+        Severity::Info => 3,
+    }
+}
+
+fn push_completion(
+    items: &mut Vec<LspCompletion>,
+    seen: &mut BTreeSet<String>,
+    label: &str,
+    kind: &str,
+    detail: &str,
+) {
+    if seen.insert(label.to_owned()) {
+        items.push(LspCompletion {
+            label: label.to_owned(),
+            kind: kind.to_owned(),
+            detail: detail.to_owned(),
+        });
+    }
+}
+
+fn lsp_severity(severity: &str) -> u8 {
+    match severity {
+        "error" => 1,
+        "warning" => 2,
+        _ => 3,
+    }
+}
+
+fn completion_kind(kind: &str) -> u8 {
+    match kind {
+        "keyword" => 14,
+        "variable" => 6,
+        "property" => 10,
+        "class" => 7,
+        "unit" => 3,
+        _ => 1,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn snapshot_exposes_lsp_diagnostics_hover_and_completion() {
+        let source = "script main(args: Args) -> Report {\n    Q = 2 kW - 1\n}\n";
+        let snapshot = snapshot_for_source(Path::new("bad.eng"), source);
+
+        assert!(snapshot
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-DIM-ADD-002"));
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "HeatRate"));
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "kW"));
+
+        let json = snapshot_json(&snapshot);
+        assert_eq!(json["format"], LSP_SNAPSHOT_FORMAT);
+        assert!(!json["diagnostics"].as_array().unwrap().is_empty());
+    }
+}

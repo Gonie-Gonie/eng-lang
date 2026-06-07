@@ -10,13 +10,14 @@ long-form planning documents.
 2. [Feature maturity matrix](current/feature_maturity_matrix.md)
 3. [v1.0.3 hardening register](current/v1_0_3_hardening.md)
 4. [v1.2 data-driven modeling gate](current/v1_2_data_driven_modeling_gate.md)
-5. [LLM load map](llm/load_map.yml)
-6. [Getting started](development/00_getting_started.md)
-7. [Repository layout](development/01_repo_layout.md)
-8. [Daily workflow](development/02_daily_workflow.md)
-9. [Reproducible environment policy](development/03_environment_reproducibility.md)
-10. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
-11. [Curated user documentation source](user/README.md)
+5. [v1.3 LSP gate](current/v1_3_lsp_gate.md)
+6. [LLM load map](llm/load_map.yml)
+7. [Getting started](development/00_getting_started.md)
+8. [Repository layout](development/01_repo_layout.md)
+9. [Daily workflow](development/02_daily_workflow.md)
+10. [Reproducible environment policy](development/03_environment_reproducibility.md)
+11. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
+12. [Curated user documentation source](user/README.md)
 
 ## Architecture
 

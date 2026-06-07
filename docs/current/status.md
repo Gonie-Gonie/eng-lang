@@ -10,14 +10,16 @@ implementation seeds.
 |---|---|
 | Latest stable baseline | `v1.0-stable` |
 | Active release target | `v1.0.3` IDE/documentation hardening |
-| Next planned targets | `v1.1` uncertainty, `v1.2` data-driven modeling |
+| Next planned targets | `v1.1` uncertainty, `v1.2` data-driven modeling, `v1.3` LSP/editor service |
 | Current package version | Workspace version `1.0.3` |
 
-`v1.1` and `v1.2` support code may exist on `main`, but those features are not
-release-supported until their language rules, runtime behavior, diagnostics,
-IDE metadata, examples, tests, and user documentation are aligned.
+`v1.1`, `v1.2`, and `v1.3` support code may exist on `main`, but those
+features are not release-supported until their language rules, runtime
+behavior, diagnostics, IDE metadata, examples, tests, and user documentation
+are aligned.
 The current v1.2 implementation gate is tracked in
 [v1.2 data-driven modeling gate](v1_2_data_driven_modeling_gate.md).
+The current v1.3 LSP gate is tracked in [v1.3 LSP gate](v1_3_lsp_gate.md).
 
 ## Core Execution Invariants
 
@@ -90,7 +92,8 @@ not part of the supported release contract.
 - `v1.2` data-driven modeling: regression, basic MLP/ANN seed, train/test
   metadata, source and argument validation diagnostics, RMSE/MAE/R2, model
   cards, leakage lint, and parity/residual plots.
-- General LSP/IDE service split beyond the current native tester IDE.
+- `v1.3` LSP/editor service: experimental `eng-lsp.exe` smoke, snapshot,
+  diagnostics, completion, hover, and minimal stdio JSON-RPC paths.
 
 ## Deferred / Known Limitations
 

@@ -28,7 +28,7 @@ language feature. Status terms are defined at the bottom of this file.
 | Integrated HVAC example | Preview | User-test workflow across supported subsystems | It is not proof of general solver/table support | Use as release manual test |
 | Uncertainty core | Experimental | Official example, deterministic samples, source diagnostics, propagation transform/source metadata, histogram artifact path on `main` | v1.1 release gate not completed | v1.1 |
 | Data-driven modeling / ML | Experimental | Official parity/residual examples, artifacts, source validation diagnostics, argument diagnostics, and v1.2 gate on `main` | Not release-supported | v1.2 gate |
-| LSP | Planned | Not an official runtime path | Native IDE currently owns tester workflow | v1.3 or later |
+| LSP | Experimental | `eng-lsp.exe` smoke/snapshot, line diagnostics, basic completion, hover, and minimal stdio JSON-RPC on `main` | Not packaged or editor-validated as a release path | v1.3 gate |
 
 ## Status Terms
 
