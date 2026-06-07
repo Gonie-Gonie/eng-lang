@@ -570,6 +570,12 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     ) {
         return ExitCode::from(2);
     }
+    if !data_quality_fixture_records_interpolation(
+        "examples/07_data_quality/interpolate_missing.eng",
+        "build/test-interpolate-missing",
+    ) {
+        return ExitCode::from(2);
+    }
 
     let path_smoke_root = Path::new("build").join("path smoke").join("한글 경로");
     if let Err(error) = std::fs::create_dir_all(&path_smoke_root) {
@@ -729,6 +735,34 @@ fn data_quality_fixture_records_parse_failure(
         }
         Err(error) => {
             eprintln!("data quality fixture failed: {error}");
+            false
+        }
+    }
+}
+
+fn data_quality_fixture_records_interpolation(source: &str, build_root: &str) -> bool {
+    match run_file(
+        Path::new(source),
+        Path::new(build_root),
+        &RunOptions::default(),
+    ) {
+        Ok(output) => {
+            let result = std::fs::read_to_string(output.result_path).unwrap_or_default();
+            if !result.contains("\"policy\": \"interpolate max_gap=10 min\"")
+                || !result.contains("\"status\": \"executed\"")
+                || !result.contains("[300,")
+                || !result.contains("[600, 4180]")
+            {
+                eprintln!(
+                    "expected {source} to execute interpolation and keep 3 TimeSeries points"
+                );
+                return false;
+            }
+            println!("ok: {source} executed missing-value interpolation");
+            true
+        }
+        Err(error) => {
+            eprintln!("interpolation fixture failed: {error}");
             false
         }
     }

@@ -113,8 +113,8 @@ E-SCHEMA-CSV-002
 E-SCHEMA-MISSING-001
   Missing policy references an unknown schema column.
 
-W-SCHEMA-POLICY-001
-  Interpolation missing policy is recorded, but runtime interpolation is not implemented yet.
+E-ARGS-CSV-001
+  CSV promotion path references an Args field without a value.
 ```
 
 ## Artifacts
@@ -164,12 +164,12 @@ Implemented for the official CSV path:
 - between checks
 - lower-bound checks such as m_dot >= 0
 - missing error policy checks
+- numeric missing value interpolation with surrounding values
 ```
 
 Deferred to later versions:
 
 ```text
-- missing value interpolation
 - broad row expression execution outside the official coil path
 - per-cell unit conversion diagnostics once conversion exists
 ```

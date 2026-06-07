@@ -58,7 +58,7 @@ Remaining intentional deferrals:
 P2  per-cell conversion diagnostics once conversion exists
 P2  duration_above and broader statistics kernels
 P2  bar/histogram plot seeds
-P2  missing value interpolation and broader constraint expressions
+P2  broader constraint expressions
 P2  numeric system solver, solve order, ODE runner, and Jacobian seed
 ```
 
@@ -311,7 +311,7 @@ Hardening detail:
 ### G-007 Schema Constraint and Missing Policy Execution
 
 Status: Implemented for the official CSV path after v1.0.0 hardening.
-Interpolation remains deferred.
+Broader constraint expression parsing remains deferred.
 
 Plan expectation:
 
@@ -328,14 +328,14 @@ Current state:
 - missing policy references are checked against schema columns
 - result.engres and report_spec.json record policy_results with recorded/validated/executed status
 - time monotonic, between, lower-bound, and missing error policies execute on runtime table pages
-- interpolation policies are surfaced as W-SCHEMA-POLICY-001 and validated only when no values are missing
+- interpolation policies execute on numeric runtime table pages
 ```
 
 Risk:
 
 ```text
-P2 closed for the official CSV policy set. Remaining risk is missing value
-interpolation and broader constraint syntax.
+P2 closed for the official CSV policy set. Remaining risk is broader
+constraint syntax.
 ```
 
 Hardening detail:
@@ -345,7 +345,7 @@ Hardening detail:
 2. [x] Surface non-executed interpolation policies as warnings in report/review.
 3. [x] Implement m_dot >= 0 style row checks.
 4. [x] Implement missing value error policy before interpolation.
-5. [ ] Implement missing value interpolation.
+5. [x] Implement missing value interpolation.
 6. [ ] Add broader constraint expression parsing.
 ```
 

@@ -1633,7 +1633,10 @@ mod tests {
             report.semantic_program.schemas[0].missing_policies[0].column,
             "T_supply"
         );
-        assert_eq!(report.diagnostics[0].code, "W-SCHEMA-POLICY-001");
+        assert!(!report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "W-SCHEMA-POLICY-001"));
         assert_eq!(
             report
                 .semantic_program

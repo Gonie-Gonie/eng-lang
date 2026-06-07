@@ -135,18 +135,6 @@ pub fn analyze_schema(
                     ),
                     Some("Add the column to the schema or remove the missing policy."),
                 ));
-            } else if policy.policy.trim_start().starts_with("interpolate") {
-                diagnostics.push(Diagnostic::warning(
-                    "W-SCHEMA-POLICY-001",
-                    policy.line,
-                    &format!(
-                        "Missing policy for `{}` is recorded, but runtime interpolation is not implemented yet.",
-                        policy.column
-                    ),
-                    Some(
-                        "The runtime records missing counts and executes `error` policies; interpolation remains a planned policy.",
-                    ),
-                ));
             }
         }
     }

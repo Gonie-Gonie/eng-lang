@@ -284,10 +284,10 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
         }
     }
 
+    data.policy_results = materialize_policy_results(report, &mut data.tables);
     data.time_series = materialize_time_series(report, &data.tables);
     data.statistics = materialize_statistics(report, &data.time_series);
     data.integrations = materialize_integrations(report, &data.time_series);
-    data.policy_results = materialize_policy_results(report, &data.tables);
     data
 }
 
@@ -583,7 +583,7 @@ fn materialize_integrations(
 
 fn materialize_policy_results(
     report: &CheckReport,
-    tables: &[RuntimeTable],
+    tables: &mut [RuntimeTable],
 ) -> Vec<RuntimePolicyResult> {
     let mut results = Vec::new();
     for promotion in &report.semantic_program.csv_promotions {
@@ -595,18 +595,26 @@ fn materialize_policy_results(
         else {
             continue;
         };
-        let Some(table) = tables
+        let Some(table_index) = tables
             .iter()
-            .find(|table| table.binding == promotion.binding)
+            .position(|table| table.binding == promotion.binding)
         else {
             continue;
         };
 
-        for constraint in &schema.constraints {
-            results.push(execute_constraint_policy(table, schema, constraint));
-        }
         for policy in &schema.missing_policies {
-            results.push(execute_missing_policy(table, schema, policy));
+            results.push(execute_missing_policy(
+                &mut tables[table_index],
+                schema,
+                policy,
+            ));
+        }
+        for constraint in &schema.constraints {
+            results.push(execute_constraint_policy(
+                &tables[table_index],
+                schema,
+                constraint,
+            ));
         }
     }
     results
@@ -827,11 +835,15 @@ fn execute_lower_bound_constraint(
 }
 
 fn execute_missing_policy(
-    table: &RuntimeTable,
+    table: &mut RuntimeTable,
     schema: &SchemaInfo,
     policy: &eng_compiler::MissingPolicy,
 ) -> RuntimePolicyResult {
-    let Some(column) = table.column(&policy.column) else {
+    let Some(column_index) = table
+        .columns
+        .iter()
+        .position(|column| column.name == policy.column)
+    else {
         return policy_result(
             table,
             schema,
@@ -846,7 +858,7 @@ fn execute_missing_policy(
             },
         );
     };
-    let missing_rows = missing_rows(column);
+    let missing_rows = missing_rows(&table.columns[column_index]);
     if policy.policy.trim() == "error" {
         let violations = missing_rows
             .iter()
@@ -865,19 +877,31 @@ fn execute_missing_policy(
                 target: &policy.column,
                 policy: &policy.policy,
                 status: "executed",
-                checked_rows: column.len(),
+                checked_rows: table.columns[column_index].len(),
                 violations,
                 line: policy.line,
             },
         );
     }
 
-    let status = if policy.policy.trim_start().starts_with("interpolate") && missing_rows.is_empty()
-    {
-        "validated"
-    } else {
-        "recorded"
-    };
+    if policy.policy.trim_start().starts_with("interpolate") {
+        let violations =
+            interpolate_missing_values(&mut table.columns[column_index], &missing_rows);
+        return policy_result(
+            table,
+            schema,
+            PolicyResultDraft {
+                kind: "missing",
+                target: &policy.column,
+                policy: &policy.policy,
+                status: "executed",
+                checked_rows: table.columns[column_index].len(),
+                violations,
+                line: policy.line,
+            },
+        );
+    }
+
     policy_result(
         table,
         schema,
@@ -885,12 +909,59 @@ fn execute_missing_policy(
             kind: "missing",
             target: &policy.column,
             policy: &policy.policy,
-            status,
-            checked_rows: column.len(),
+            status: "recorded",
+            checked_rows: table.columns[column_index].len(),
             violations: Vec::new(),
             line: policy.line,
         },
     )
+}
+
+fn interpolate_missing_values(
+    column: &mut RuntimeColumn,
+    missing_rows: &[usize],
+) -> Vec<RuntimePolicyViolation> {
+    let RuntimeValues::Number(values) = &mut column.values else {
+        return missing_rows
+            .iter()
+            .map(|row| RuntimePolicyViolation {
+                row: *row,
+                column: column.name.clone(),
+                value: String::new(),
+                message: "interpolation requires a numeric column".to_owned(),
+            })
+            .collect();
+    };
+
+    let mut violations = Vec::new();
+    for row in missing_rows {
+        let Some(index) = row.checked_sub(2) else {
+            continue;
+        };
+        if values.get(index).and_then(|value| *value).is_some() {
+            continue;
+        }
+        let previous = (0..index)
+            .rev()
+            .find_map(|candidate| values[candidate].map(|value| (candidate, value)));
+        let next = ((index + 1)..values.len())
+            .find_map(|candidate| values[candidate].map(|value| (candidate, value)));
+        let (Some((previous_index, previous_value)), Some((next_index, next_value))) =
+            (previous, next)
+        else {
+            violations.push(RuntimePolicyViolation {
+                row: *row,
+                column: column.name.clone(),
+                value: String::new(),
+                message: "cannot interpolate without surrounding numeric values".to_owned(),
+            });
+            continue;
+        };
+        let fraction = (index - previous_index) as f64 / (next_index - previous_index) as f64;
+        values[index] = Some(previous_value + (next_value - previous_value) * fraction);
+    }
+    column.missing_count = values.iter().filter(|value| value.is_none()).count();
+    violations
 }
 
 struct PolicyResultDraft<'a> {
@@ -1267,7 +1338,7 @@ script main(args: Args) -> Report {
                 .iter()
                 .filter(|policy| policy.status == "executed")
                 .count(),
-            5
+            7
         );
         assert_eq!(
             runtime
@@ -1275,7 +1346,7 @@ script main(args: Args) -> Report {
                 .iter()
                 .filter(|policy| policy.status == "validated")
                 .count(),
-            2
+            0
         );
         assert!(runtime
             .policy_results
