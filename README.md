@@ -18,7 +18,9 @@ On Windows, use the root `dev.bat` wrapper for all development commands. It bypa
 .\dev.bat run-example
 ```
 
-`setup` installs the pinned Rust toolchain into `.dev`, fetches dependencies, and builds the workspace. A global Rust installation and Python are not required for the core preview path.
+`setup` installs the pinned Rust toolchain and a portable Python documentation
+toolchain into `.dev`, fetches dependencies, and builds the workspace. A global
+Rust or Python installation is not required.
 
 ## Current Stable Commands
 
@@ -119,6 +121,12 @@ v1.0.2
 Active planning target:
 
 ```text
+v1.0.3
+  Native IDE quality hardening before the next release: VS Code-like explorer,
+  file creation, syntax highlighting, lint/problem surfacing, clearer
+  completions/symbol inspection, in-IDE PlotSpec preview, curated user PDF docs,
+  and repo-local portable Python/oodocs setup.
+
 v1.1
   Uncertainty core: Measured[T], Interval[T], distribution/ensemble seeds,
   uncertainty metadata, simple propagation, and uncertainty report summaries.
@@ -127,6 +135,7 @@ v1.1
 ## Documentation
 
 - [Documentation index](docs/README.md)
+- [Curated user documentation source](docs/user/README.md)
 - [Getting started](docs/development/00_getting_started.md)
 - [Repository layout](docs/development/01_repo_layout.md)
 - [Daily workflow](docs/development/02_daily_workflow.md)
@@ -187,12 +196,13 @@ dist\main-standalone\run.bat
 popd
 ```
 
-`package` writes `dist\englang-preview-v<version>-windows-x64.zip` and a
-matching `.sha256` file. `package-smoke` extracts that zip into a path with
-spaces and Korean characters, then runs the portable `eng.exe` and
-`eng-ide.exe --smoke` without relying on Rust or Python on the target side. It
-also builds and runs the standalone packaged runner from inside the extracted
-portable package.
+`package` writes `dist\englang-preview-v<version>-windows-x64.zip`, a matching
+`.sha256` file, and a curated PDF user guide. The portable package does not copy
+the full developer markdown documentation tree. `package-smoke` extracts that
+zip into a path with spaces and Korean characters, then runs the portable
+`eng.exe` and `eng-ide.exe --smoke` without relying on Rust or Python on the
+target side. It also builds and runs the standalone packaged runner from inside
+the extracted portable package.
 
 `docs-check` and `artifacts-check` are included in `release-check`.
 `docs-check` validates supported `eng` documentation snippets. `artifacts-check`

@@ -1,18 +1,20 @@
 # Native Tester IDE
 
-The v1.0.2 hardening path includes a portable native tester IDE. It is built as
+The v1.0.3 hardening path upgrades the portable native tester IDE. It is built as
 `eng-ide.exe` from the Rust workspace and is shipped inside the portable Windows
 zip beside `eng.exe`.
 
 The goal is practical user testing before v1.1 uncertainty work starts:
 
 ```text
-- open official and local .eng examples
+- browse official examples, stdlib, and tutorial sources
+- create new .eng files
 - edit source in a native GUI
+- see syntax highlighting and line-level diagnostic tinting
 - run compiler diagnostics while editing
-- inspect quantity/unit hover-style symbol metadata
+- inspect quantity/unit symbol metadata
 - use keyword, quantity, unit, and snippet completions
-- run the current file and open the generated report
+- run the current file, preview PlotSpec data, and open generated artifacts
 ```
 
 This tester IDE is intentionally native Rust GUI code using `eframe`/`egui`.
@@ -22,12 +24,6 @@ on a target user PC after the portable package has been downloaded.
 ## Portable User Flow
 
 Download and extract the EngLang portable zip, then run:
-
-```bat
-eng-ide.exe
-```
-
-or:
 
 ```bat
 eng-ide.exe
@@ -57,23 +53,26 @@ repository-local Rust toolchain as the rest of the project.
 
 ## Interface
 
-The native IDE has four main regions:
+The native IDE follows a familiar editor layout:
 
 ```text
 Top toolbar
-  Check, Save, Run, Open Report, entry selection, and current status.
+  Check, Save, Run, Report, Plot SVG, entry selection, diagnostic counts,
+  dirty state, and current status.
 
-Left examples panel
-  Discovers .eng files under examples/ and opens them into the editor.
+Left Explorer
+  Opens .eng files from examples/, stdlib/, and selected tutorial sources.
+  Creates scratch .eng files from a starter template.
 
-Center editor
-  Native multiline editor with Ctrl+Space completion filtering.
+Center editor and preview
+  Native multiline editor with EngLang syntax highlighting and line-level
+  diagnostic backgrounds. Run Preview renders PlotSpec points inside the IDE.
 
-Right intelligence panel
-  Completion insertion and compiler-derived symbol metadata.
+Right Inspector
+  Tabbed Symbols and Completions surface.
 
-Bottom diagnostics panel
-  Compiler diagnostics and run output.
+Bottom panel
+  Problems, Output, and Artifacts tabs.
 ```
 
 Diagnostics are produced by `eng_compiler::check_source`, so unsaved edits can
@@ -88,6 +87,19 @@ Generated runtime artifacts are written under:
 
 ```text
 build/ide-run/
+```
+
+After a successful run, the Artifacts tab shows:
+
+```text
+report.html
+report_spec.json
+plots/timeseries.svg
+plots/plot_spec.json
+plots/plot_manifest.json
+result.engres
+review.json
+main.engbc
 ```
 
 Recommended release user-test example:
@@ -123,5 +135,5 @@ tools/englang-vscode-preview-<version>.vsix
 ```
 
 This extension shares the compiler-facing diagnostic/hover/completion shape,
-but it is secondary for v1.0.2. The primary no-install user test path is
+but it is secondary for v1.0.3. The primary no-install user test path is
 `eng-ide.exe`.

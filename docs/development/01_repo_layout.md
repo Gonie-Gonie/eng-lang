@@ -18,6 +18,7 @@ Current v1.0-stable layout:
 |   |-- release/        acceptance checklist and release notes
 |   |-- runtime/        bytecode/VM/result contracts
 |   |-- tutorials/      step-by-step supported workflow docs
+|   |-- user/           curated release-facing user documentation source
 |   `-- specs/          CLI and language policy
 |-- examples/
 |   |-- 01_units/
@@ -29,6 +30,9 @@ Current v1.0-stable layout:
 |-- scripts/
 |   `-- dev.ps1         the only PowerShell development entry
 |-- stdlib/             preview prelude and unit registry
+|-- tools/
+|   |-- python/         repo-local Python requirements for documentation tooling
+|   `-- vscode-englang/ optional VS Code extension preview source
 |-- dev.bat             common execution-policy bypass wrapper
 |-- rust-toolchain.toml pinned Rust toolchain descriptor
 `-- Cargo.toml          Rust workspace
@@ -114,7 +118,9 @@ plots/timeseries.svg
 dist/englang-preview
 dist/englang-preview-v<version>-windows-x64.zip
 dist/englang-preview-v<version>-windows-x64.zip.sha256
+dist/englang-user-test-guide-v<version>.pdf
 dist/englang-preview/eng-ide.exe
+dist/englang-preview/docs/EngLang_User_Test_Guide.pdf
 dist/<model>-standalone/eng.exe
 dist/<model>-standalone/run.bat
 dist/<model>-standalone/<model>.engpkg
@@ -182,9 +188,12 @@ The official `eng.exe run` path must not depend on:
 ```text
 X Python backend
 X matplotlib plotting
-X Python package report generation
 X global user-machine toolchains
 X axis=0/axis=1 public APIs
 ```
+
+Development-time release documentation may use the repo-local portable Python
+environment installed by `dev.bat setup`. That tooling must stay outside the
+core `eng.exe run` path and outside target-PC package requirements.
 
 Use `dev.bat` for development tasks. Do not add extra PowerShell entry scripts unless they are routed through the shared wrapper.

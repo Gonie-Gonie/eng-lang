@@ -13,9 +13,9 @@ the same compiler/runtime/tooling environment.
 - PowerShell available through Windows
 ```
 
-Python, Visual Studio Build Tools, and a global Rust installation are not
-required for the core preview path. Setup installs the pinned Rust toolchain
-inside the repository-local `.dev` folder.
+Visual Studio Build Tools, global Rust, and global Python installations are not
+required. Setup installs the pinned Rust toolchain and a portable Python
+documentation toolchain inside the repository-local `.dev` folder.
 
 ## First Setup
 
@@ -28,11 +28,12 @@ Run from the repository root:
 Setup performs:
 
 ```text
-1. create .dev/cargo, .dev/rustup, and .dev/cache
+1. create .dev/cargo, .dev/rustup, .dev/python, and .dev/cache
 2. download rustup-init.exe into .dev/cache when needed
 3. install 1.96.0-x86_64-pc-windows-gnu into .dev
-4. fetch locked Cargo dependencies
-5. build the Rust workspace
+4. install portable Python 3.13.5 and Python documentation requirements
+5. fetch locked Cargo dependencies
+6. build the Rust workspace
 ```
 
 All PowerShell execution goes through the common wrapper:
@@ -53,7 +54,7 @@ and expose them through `dev.bat`.
 Expected shape:
 
 ```text
-EngLang 1.0.2
+EngLang 1.0.3
 
 Runtime              OK
 Standard library     OK
@@ -130,9 +131,9 @@ From a portable release package:
 eng-ide.exe
 ```
 
-The native tester IDE supports example browsing, source editing, live compiler
-diagnostics, completion insertion, symbol metadata, running the current file,
-and opening the generated report. See
+The native tester IDE supports file browsing, new file creation, source editing,
+syntax highlighting, live compiler diagnostics, completion insertion, symbol
+metadata, running the current file, PlotSpec preview, and artifact opening. See
 [Native tester IDE](../guide/native_ide.md).
 
 ## Troubleshooting

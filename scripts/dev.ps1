@@ -15,6 +15,13 @@ $CacheHome = Join-Path $DevHome "cache"
 $RustupInit = Join-Path $CacheHome "rustup-init.exe"
 $RustupUrl = "https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe"
 $PinnedToolchain = "1.96.0-x86_64-pc-windows-gnu"
+$PythonVersion = "3.13.5"
+$PythonHome = Join-Path $DevHome "python"
+$PythonZip = Join-Path $CacheHome "python-$PythonVersion-embed-amd64.zip"
+$PythonUrl = "https://www.python.org/ftp/python/$PythonVersion/python-$PythonVersion-embed-amd64.zip"
+$GetPipPath = Join-Path $CacheHome "get-pip.py"
+$GetPipUrl = "https://bootstrap.pypa.io/get-pip.py"
+$PythonRequirements = Join-Path $RepoRoot "tools\python\requirements.txt"
 
 function Invoke-Native {
     param(
@@ -35,8 +42,9 @@ function Set-DevEnvironment {
     New-Item -ItemType Directory -Force -Path $CargoHome, $RustupHome, $CacheHome | Out-Null
     $env:CARGO_HOME = $CargoHome
     $env:RUSTUP_HOME = $RustupHome
-    $env:PATH = "$CargoHome\bin;$env:PATH"
+    $env:PATH = "$CargoHome\bin;$PythonHome;$PythonHome\Scripts;$env:PATH"
     $env:ENG_REPO_ROOT = $RepoRoot
+    $env:PYTHONUTF8 = "1"
 }
 
 function Get-Cargo {
@@ -50,6 +58,88 @@ function Get-Cargo {
         return $globalCargo.Source
     }
     return $null
+}
+
+function Get-PortablePython {
+    Set-DevEnvironment
+    $python = Join-Path $PythonHome "python.exe"
+    if (Test-Path $python) {
+        return $python
+    }
+    return $null
+}
+
+function Enable-EmbeddedPythonSitePackages {
+    $pth = Get-ChildItem -LiteralPath $PythonHome -Filter "python*._pth" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -eq $pth) {
+        return
+    }
+
+    $lines = Get-Content -LiteralPath $pth.FullName -Encoding ascii
+    $updated = New-Object System.Collections.Generic.List[string]
+    $hasSitePackages = $false
+    $hasImportSite = $false
+    foreach ($line in $lines) {
+        if ($line.Trim() -eq "Lib\site-packages") {
+            $hasSitePackages = $true
+        }
+        if ($line.Trim() -eq "import site") {
+            $hasImportSite = $true
+            $updated.Add("import site") | Out-Null
+        } elseif ($line.Trim() -eq "#import site") {
+            $hasImportSite = $true
+            $updated.Add("import site") | Out-Null
+        } else {
+            $updated.Add($line) | Out-Null
+        }
+    }
+    if (-not $hasSitePackages) {
+        $updated.Add("Lib\site-packages") | Out-Null
+    }
+    if (-not $hasImportSite) {
+        $updated.Add("import site") | Out-Null
+    }
+    Set-Content -LiteralPath $pth.FullName -Encoding ascii -Value $updated
+}
+
+function Invoke-PortablePythonSetup {
+    Set-DevEnvironment
+    $python = Join-Path $PythonHome "python.exe"
+    if (-not (Test-Path $python)) {
+        if (-not (Test-Path $PythonZip)) {
+            Write-Host "Downloading portable Python $PythonVersion into .dev cache..."
+            Invoke-WebRequest -Uri $PythonUrl -OutFile $PythonZip
+        }
+        Write-Host "Installing portable Python into .dev..."
+        Remove-Item -LiteralPath $PythonHome -Recurse -Force -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Force -Path $PythonHome | Out-Null
+        Expand-Archive -Path $PythonZip -DestinationPath $PythonHome -Force
+        Enable-EmbeddedPythonSitePackages
+    } else {
+        Enable-EmbeddedPythonSitePackages
+    }
+
+    if (-not (Test-Path $GetPipPath)) {
+        Write-Host "Downloading get-pip.py into .dev cache..."
+        Invoke-WebRequest -Uri $GetPipUrl -OutFile $GetPipPath
+    }
+    $pipCheck = ""
+    $pipExit = 1
+    try {
+        $pipCheck = & $python -m pip --version 2>$null
+        $pipExit = $LASTEXITCODE
+    } catch {
+        $pipCheck = ""
+        $pipExit = 1
+    }
+    if ($pipExit -ne 0 -or [string]::IsNullOrWhiteSpace($pipCheck)) {
+        Write-Host "Installing pip into portable Python..."
+        Invoke-Native $python $GetPipPath
+    }
+    if (Test-Path $PythonRequirements) {
+        Write-Host "Installing Python documentation requirements..."
+        Invoke-Native $python "-m" "pip" "install" "-r" $PythonRequirements
+    }
 }
 
 function Get-WorkspaceVersion {
@@ -90,6 +180,7 @@ function Invoke-Setup {
         Write-Host "Generating Cargo.lock..."
         Invoke-Native $cargo "generate-lockfile"
     }
+    Invoke-PortablePythonSetup
     Write-Host "Fetching locked dependencies..."
     Invoke-Native $cargo "fetch" "--locked"
     Write-Host "Building workspace..."
@@ -875,6 +966,28 @@ function Split-PdfText {
     return $lines
 }
 
+function New-UserGuideWithOodocs {
+    param(
+        [Parameter(Mandatory = $true)][string] $Path,
+        [Parameter(Mandatory = $true)][string] $Version
+    )
+
+    $python = Get-PortablePython
+    $script = Join-Path $RepoRoot "docs\user\build_user_docs.py"
+    if ($null -eq $python -or -not (Test-Path $script)) {
+        return $false
+    }
+
+    try {
+        Invoke-Native $python $script "--pdf" $Path "--version" $Version
+        return (Test-Path $Path)
+    } catch {
+        Write-Host "OODocs user guide generation failed; using fallback PDF generator."
+        Write-Host $_
+        return $false
+    }
+}
+
 function New-UserGuidePdf {
     param(
         [Parameter(Mandatory = $true)][string] $Path,
@@ -884,9 +997,9 @@ function New-UserGuidePdf {
     $sections = @(
         @{ Kind = "title"; Text = "EngLang User Test Guide" },
         @{ Kind = "subtitle"; Text = "Portable Windows package v$Version" },
-        @{ Kind = "body"; Text = "This guide is the shortest supported path for evaluating EngLang without installing Rust, Python, Node, Visual Studio Build Tools, or a browser-based IDE. Extract the release zip, run the native tester IDE, and use the integrated HVAC example to exercise the stable compiler/runtime/report path." },
+        @{ Kind = "body"; Text = "EngLang is a native engineering language for workflows where units, physical quantities, schemas, axes, statistics, plots, reports, and provenance are checked as part of the program. This PDF is the curated user-facing guide for the portable package; developer notes and master plans stay in the repository." },
         @{ Kind = "h1"; Text = "1. Package Contents" },
-        @{ Kind = "body"; Text = "The portable folder contains eng.exe for command-line execution, eng-ide.exe for native GUI testing, examples for supported workflows, stdlib for built-in language seeds, docs for reference material, and tools for the optional VS Code extension preview." },
+        @{ Kind = "body"; Text = "The portable folder contains eng.exe for command-line execution, eng-ide.exe for native GUI testing, official examples, stdlib language seeds, tools for the optional VS Code extension preview, and this PDF. It intentionally does not ship the full developer documentation tree." },
         @{ Kind = "h1"; Text = "2. First Smoke Test" },
         @{ Kind = "step"; Text = "Open a command prompt in the extracted folder." },
         @{ Kind = "step"; Text = "Run: eng.exe doctor" },
@@ -894,27 +1007,27 @@ function New-UserGuidePdf {
         @{ Kind = "body"; Text = "Both commands should exit successfully. The doctor command verifies runtime, standard library, unit registry, plot renderer, report generator, write permission, and example files. The IDE smoke command verifies that examples and compiler completion metadata are discoverable." },
         @{ Kind = "h1"; Text = "3. Native IDE Workflow" },
         @{ Kind = "step"; Text = "Run: eng-ide.exe" },
-        @{ Kind = "step"; Text = "Open examples/official/03_integrated_hvac/main.eng from the examples panel." },
-        @{ Kind = "step"; Text = "Press Check and confirm that the diagnostics panel reports zero errors." },
-        @{ Kind = "step"; Text = "Use Ctrl+Space in the editor to update the completion filter, then insert a keyword, quantity kind, unit, or starter snippet from the right panel." },
-        @{ Kind = "step"; Text = "Press Save after edits, then Run, then Open Report." },
-        @{ Kind = "body"; Text = "The IDE uses the same compiler and runtime crates as eng.exe. Diagnostics, symbols, completions, run artifacts, and report generation are therefore testing the real core path rather than duplicated editor logic." },
+        @{ Kind = "step"; Text = "Use Explorer to open examples/official/03_integrated_hvac/main.eng or create a scratch .eng file." },
+        @{ Kind = "step"; Text = "Use Check for lint diagnostics. Error and warning counts are visible in the toolbar and details are listed in Problems." },
+        @{ Kind = "step"; Text = "Use Ctrl+Space in the editor to update completion filtering, then insert keywords, quantity kinds, units, or snippets from Completions." },
+        @{ Kind = "step"; Text = "Use Run to generate result artifacts. The IDE previews PlotSpec data and exposes report, plot, result, review, and manifest paths." },
+        @{ Kind = "body"; Text = "The IDE uses the same compiler and runtime crates as eng.exe. Diagnostics, symbols, completions, run artifacts, and report generation therefore test the real core path rather than duplicated editor logic." },
         @{ Kind = "h1"; Text = "4. Integrated HVAC Example" },
         @{ Kind = "body"; Text = "The integrated HVAC example is the recommended user test because one file exercises typed CSV promotion, DateTime parsing, missing-value interpolation, schema constraints, HeatRate calculation, TimeSeries statistics, trapezoidal integration, PlotSpec/SVG/report output, and the simple thermal system fixed-step ODE preview." },
         @{ Kind = "body"; Text = "From the command line, run: eng.exe run examples/official/03_integrated_hvac/main.eng --entry main" },
         @{ Kind = "h1"; Text = "5. Expected Output" },
         @{ Kind = "body"; Text = "After a successful run, inspect build/result/report.html first. The result folder also contains result.engres, review.json, report_spec.json, plots/plot_spec.json, plots/plot_manifest.json, and plots/timeseries.svg." },
         @{ Kind = "body"; Text = "The result should record policy_results with interpolation executed, statistics including median/std/p90/p95/duration_above, an integration result for E_coil, and systems[0].solver_result.status = computed." },
-        @{ Kind = "h1"; Text = "6. Useful Edits" },
+        @{ Kind = "h1"; Text = "6. Useful User Edits" },
         @{ Kind = "step"; Text = "Change the plot title and run again to verify report regeneration." },
         @{ Kind = "step"; Text = "Change duration_above(5 kW) to duration_above(4.5 kW) and compare computed statistics." },
         @{ Kind = "step"; Text = "Temporarily change m_dot <= 0.30 kg/s to m_dot <= 0.20 kg/s and inspect policy results." },
         @{ Kind = "step"; Text = "Type Heat and use completion to insert HeatRate or HeatCapacity." },
         @{ Kind = "h1"; Text = "7. Troubleshooting" },
-        @{ Kind = "body"; Text = "If eng-ide.exe does not display text, use a v1.0.2 or newer package. v1.0.2 enables the default egui font set and applies an explicit light visual theme. If a run fails, check the diagnostics panel first, then run eng.exe check <file.eng> from the same folder." },
+        @{ Kind = "body"; Text = "If a run fails, check Problems first, then run eng.exe check <file.eng> from the same folder. If the plot preview is empty, open the Artifacts tab and check plots/plot_spec.json and plots/timeseries.svg." },
         @{ Kind = "body"; Text = "If a CSV path fails, keep relative paths anchored next to the source file, as in the official examples. If a report does not open, open build/result/report.html manually." },
         @{ Kind = "h1"; Text = "8. Current Boundaries" },
-        @{ Kind = "body"; Text = "This release is stable for the supported CSV, statistics, plotting, report, package, and simple thermal preview workflows. It is not a full LSP, not a production IDE, and not a general nonlinear or multi-equation solver. Those are later milestones." }
+        @{ Kind = "body"; Text = "This release is stable for the supported CSV, statistics, plotting, report, package, and simple thermal preview workflows. It is not a full LSP, not a general nonlinear or multi-equation solver, and not a complete domain package ecosystem. Those are later milestones." }
     )
 
     $pages = New-Object System.Collections.Generic.List[string]
@@ -1034,18 +1147,21 @@ function Invoke-Package {
     $PackageRoot = Join-Path $RepoRoot "dist\englang-preview"
     $ZipPath = Join-Path $RepoRoot "dist\englang-preview-v$Version-windows-x64.zip"
     $ChecksumPath = "$ZipPath.sha256"
+    $ReleaseGuidePath = Join-Path $RepoRoot "dist\englang-user-test-guide-v$Version.pdf"
     Remove-Item -LiteralPath $PackageRoot -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $ChecksumPath -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $ReleaseGuidePath -Force -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force -Path $PackageRoot | Out-Null
     Copy-Item -Force (Join-Path $RepoRoot "target\release\eng.exe") (Join-Path $PackageRoot "eng.exe")
     Copy-Item -Force (Join-Path $RepoRoot "target\release\eng-ide.exe") (Join-Path $PackageRoot "eng-ide.exe")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "examples") (Join-Path $PackageRoot "examples")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "stdlib") (Join-Path $PackageRoot "stdlib")
-    Copy-Item -Recurse -Force (Join-Path $RepoRoot "docs") (Join-Path $PackageRoot "docs")
+    New-Item -ItemType Directory -Force -Path (Join-Path $PackageRoot "docs") | Out-Null
     $PackageGuidePath = Join-Path $PackageRoot "docs\EngLang_User_Test_Guide.pdf"
-    $ReleaseGuidePath = Join-Path $RepoRoot "dist\englang-user-test-guide-v$Version.pdf"
-    New-UserGuidePdf -Path $PackageGuidePath -Version $Version
+    if (-not (New-UserGuideWithOodocs -Path $PackageGuidePath -Version $Version)) {
+        New-UserGuidePdf -Path $PackageGuidePath -Version $Version
+    }
     Copy-Item -Force $PackageGuidePath $ReleaseGuidePath
     Invoke-IdePackage -PackageRoot $PackageRoot
     Set-Content -Path (Join-Path $PackageRoot "README.txt") -Encoding ascii -Value @"
@@ -1060,6 +1176,7 @@ Recommended smoke commands:
   eng-ide.exe
   eng.exe run examples\official\01_csv_plot\main.eng --entry main
   eng.exe run examples\official\02_simple_system\main.eng --entry main
+  eng.exe run examples\official\03_integrated_hvac\main.eng --entry main
   eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
   dist\main-standalone\run.bat --help
   dist\main-standalone\run.bat
@@ -1071,7 +1188,8 @@ VS Code IDE preview:
   run "EngLang: Check Current File"
 
 Generated artifacts are written under build\result in the current folder.
-The concise user guide is docs\EngLang_User_Test_Guide.pdf.
+The curated user guide is docs\EngLang_User_Test_Guide.pdf. Developer markdown
+docs are kept in the source repository and are not bundled into this package.
 "@
     Compress-Archive -Path (Join-Path $PackageRoot "*") -DestinationPath $ZipPath -Force
     $Hash = Get-FileHash -Algorithm SHA256 $ZipPath
@@ -1102,6 +1220,12 @@ function Invoke-PackageSmoke {
         if (-not (Test-Path (Join-Path $SmokeRoot "build\result\report_spec.json"))) {
             throw "portable smoke did not create build\result\report_spec.json"
         }
+        Invoke-Native $Eng "run" "examples\official\03_integrated_hvac\main.eng" "--entry" "main"
+        $IntegratedResult = Get-Content -LiteralPath (Join-Path $SmokeRoot "build\result\result.engres") -Raw
+        $IntegratedPlotSpec = Get-Content -LiteralPath (Join-Path $SmokeRoot "build\result\plots\plot_spec.json") -Raw
+        if (-not $IntegratedResult.Contains('"policy_results"') -or -not $IntegratedResult.Contains('"solver_result"') -or -not $IntegratedPlotSpec.Contains("Integrated HVAC coil heat rate")) {
+            throw "portable smoke integrated HVAC example did not produce expected policy, solver, and plot artifacts"
+        }
         Invoke-Native $Eng "build" "examples\official\01_csv_plot\main.eng" "--entry" "main" "--standalone" "--profile" "repro"
         $StandaloneRunner = Join-Path $SmokeRoot "dist\main-standalone\run.bat"
         if (-not (Test-Path $StandaloneRunner)) {
@@ -1121,6 +1245,10 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "docs\EngLang_User_Test_Guide.pdf"))) {
             throw "portable package did not include user guide PDF"
+        }
+        $BundledMarkdownDocs = @(Get-ChildItem -LiteralPath (Join-Path $SmokeRoot "docs") -Recurse -Filter "*.md" -ErrorAction SilentlyContinue)
+        if ($BundledMarkdownDocs.Count -gt 0) {
+            throw "portable package docs folder should contain curated release docs, not developer markdown files"
         }
     } finally {
         Pop-Location
@@ -1196,7 +1324,7 @@ function Show-Help {
 EngLang development wrapper
 
 Usage:
-  .\dev.bat setup          Install pinned local Rust toolchain in .dev and build
+  .\dev.bat setup          Install pinned local Rust and portable Python/oodocs in .dev, then build
   .\dev.bat doctor         Run eng doctor through the local toolchain
   .\dev.bat build          Build the Rust workspace
   .\dev.bat test           Run Rust tests and EngLang example smoke tests

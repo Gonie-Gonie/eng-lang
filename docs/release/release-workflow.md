@@ -15,7 +15,9 @@ Release work is separate from milestone implementation:
 ```
 
 Do not move an existing release tag. If a release needs a fix, create a new
-patch tag such as `v1.0.1`.
+patch tag such as `v1.0.3`. Do not repeat a release workflow while a hardening
+slice is still being implemented; keep release notes as draft until the manual
+IDE gate is clean.
 
 ## Local Release Gate
 
@@ -72,6 +74,9 @@ docs\
 docs\EngLang_User_Test_Guide.pdf
 tools\englang-vscode-preview-<version>.vsix
 ```
+
+The `docs\` folder in the portable zip is curated release documentation. It
+must not be a full copy of the repository's developer markdown tree.
 
 `package-smoke` also verifies that the portable package can run
 `eng-ide.exe --smoke` and build/run a standalone packaged runner without

@@ -10,6 +10,7 @@ This index maps the v9 master plan to the concrete repository work.
 4. [Reproducible environment policy](development/03_environment_reproducibility.md)
 5. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
 6. [v1.0 gap audit and hardening register](development/05_v1_0_gap_audit.md)
+7. [Curated user documentation source](user/README.md)
 
 ## Architecture
 
@@ -25,6 +26,7 @@ This index maps the v9 master plan to the concrete repository work.
 - [Report and review artifacts](guide/report_review.md)
 - [Simple system tutorial](tutorials/05_simple_system.md)
 - [Integrated HVAC user test](tutorials/06_integrated_hvac.md)
+- [Curated user documentation source](user/README.md)
 
 ## Reference
 
@@ -51,6 +53,7 @@ This index maps the v9 master plan to the concrete repository work.
 - [v1.0-stable release notes](release/v1.0-stable.md)
 - [v1.0.1 release notes](release/v1.0.1.md)
 - [v1.0.2 release notes](release/v1.0.2.md)
+- [v1.0.3 release notes draft](release/v1.0.3.md)
 - [v8 to v9 revision guide](master-plan/EngLang_v8_to_v9_Revision_Guide.md)
 - [v9 master plan](master-plan/EngLang_LongTerm_Development_Master_Plan_v9.md)
 - [v8 master plan](master-plan/EngLang_LongTerm_Development_Master_Plan_v8.md)
@@ -61,3 +64,5 @@ This index maps the v9 master plan to the concrete repository work.
 - Runtime artifact changes must update [Runtime artifacts](architecture/01_runtime_artifacts.md).
 - Bytecode/result changes must update [Bytecode VM and result v1](runtime/bytecode.md).
 - Core path changes must not add Python or interpreter dependencies.
+- Portable release packages should ship curated user PDFs, not the full
+  developer markdown tree.

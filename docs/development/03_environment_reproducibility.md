@@ -13,9 +13,10 @@ environment available on every supported PC.
 3. dev.bat always calls PowerShell with ExecutionPolicy Bypass.
 4. setup installs the toolchain under repo-local .dev.
 5. rust-toolchain.toml and scripts/dev.ps1 must agree on the pinned toolchain.
-6. The core run/report/plot path must not require Python.
-7. The packaged preview path must not require Rust or Python on the target PC.
-8. CI and local checks should use the same dev.bat commands.
+6. Portable Python is allowed for development-time documentation generation.
+7. The core run/report/plot path must not require Python.
+8. The packaged preview path must not require Rust or Python on the target PC.
+9. CI and local checks should use the same dev.bat commands.
 ```
 
 ## Repo-Local Toolchain
@@ -25,7 +26,7 @@ environment available on every supported PC.
 ```text
 CARGO_HOME  = <repo>\.dev\cargo
 RUSTUP_HOME = <repo>\.dev\rustup
-PATH        = <repo>\.dev\cargo\bin;%PATH%
+PATH        = <repo>\.dev\cargo\bin;<repo>\.dev\python;<repo>\.dev\python\Scripts;%PATH%
 ENG_REPO_ROOT = <repo>
 ```
 
@@ -64,9 +65,10 @@ Rust dependencies are currently intentionally minimal. When adding dependencies:
 ```text
 1. commit Cargo.lock
 2. confirm the core path still has no Python dependency
-3. confirm the package path still has no Rust/Python target dependency
-4. update docs when artifact formats or public behavior change
-5. consider cargo vendor only when reproducibility or security needs justify it
+3. confirm Python dependencies stay in tools/python/requirements.txt
+4. confirm the package path still has no Rust/Python target dependency
+5. update docs when artifact formats or public behavior change
+6. consider cargo vendor only when reproducibility or security needs justify it
 ```
 
 Future vendoring structure, if adopted:
@@ -121,13 +123,17 @@ The unpacked package contains:
 
 ```text
 eng.exe
+eng-ide.exe
 examples/
 stdlib/
 docs/
+tools/
 README.txt
 ```
 
-`README.txt` inside the package gives target-PC smoke commands.
+`docs/` in the package is curated release documentation, not a copy of the
+developer markdown tree. `README.txt` inside the package gives target-PC smoke
+commands.
 
 ## Standalone Bundle
 
@@ -173,10 +179,12 @@ This command:
 6. runs the official CSV+plot example
 7. runs eng.exe view on the generated result
 8. runs the official simple system example
-9. verifies build\result\report_spec.json exists
-10. builds a standalone bundle from the packaged eng.exe
-11. runs the standalone bundle's run.bat
-12. verifies the standalone bundle creates PlotSpec artifacts
+9. runs the official integrated HVAC user-test example
+10. verifies integrated HVAC policy, solver, and plot artifacts
+11. builds a standalone bundle from the packaged eng.exe
+12. runs the standalone bundle's run.bat
+13. verifies the standalone bundle creates PlotSpec artifacts
+14. verifies packaged docs contain the curated PDF and no developer markdown
 ```
 
 The smoke folder intentionally contains both a space and Korean characters. This

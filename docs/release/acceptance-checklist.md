@@ -228,20 +228,26 @@ The v1.0 demo must show:
 [x] no Python/Rust install is required for portable or standalone packaged execution
 ```
 
-## v1.0.2 Tester IDE Gate
+## v1.0.3 Native IDE and User Docs Gate
 
-Before publishing the post-v1.0 hardening release:
+Before publishing the next post-v1.0 hardening release:
 
 ```text
-[x] workspace version is 1.0.2
+[x] workspace version is 1.0.3
 [x] native tester IDE binary is built as eng-ide.exe
 [x] portable package includes eng-ide.exe
 [x] eng-ide.exe release build does not open a separate console window
 [x] native IDE text/buttons render with default egui fonts and explicit light theme
 [x] eng-ide.exe --smoke discovers examples and compiler completion metadata
 [x] native IDE supports check, save, run, report open, diagnostics, symbols, and completions
+[x] native IDE has Explorer, editor/preview, Inspector, and Problems/Output/Artifacts regions
+[x] native IDE supports creating new .eng files from the Explorer
+[x] native IDE provides syntax highlighting and line-level diagnostic tinting
+[x] native IDE previews PlotSpec data inside the app after Run
 [x] official integrated HVAC example exercises CSV policies, statistics, plot/report, and system preview
-[x] concise PDF user guide is generated and packaged
+[x] curated PDF user guide is generated and packaged
+[x] package docs folder does not include developer markdown files
+[x] setup installs repo-local portable Python and oodocs documentation requirements
 [x] VS Code extension preview is packaged as a secondary IDE path
 [x] package-smoke verifies eng-ide.exe --smoke inside the extracted portable zip
 ```

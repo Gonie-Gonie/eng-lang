@@ -133,13 +133,16 @@ Launches the native portable tester IDE.
 Current tester IDE features:
 
 ```text
-- examples panel
-- native source editor
+- Explorer for examples, stdlib, tutorials, and scratch .eng files
+- native source editor with EngLang syntax highlighting
 - live check_source diagnostics for unsaved edits
+- toolbar diagnostic counts and Problems panel
 - completion insertion for keywords, quantity kinds, units, and starter snippets
 - compiler-derived symbol metadata
 - save/check/run commands
-- generated report opening
+- generated report and plot opening
+- in-IDE PlotSpec preview
+- Artifacts tab for result, review, report, PlotSpec, manifest, SVG, and bytecode paths
 ```
 
 `eng-ide.exe --smoke` checks the non-GUI path for release packages. It verifies
