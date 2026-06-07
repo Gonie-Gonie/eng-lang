@@ -101,6 +101,7 @@ The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
 [x] TimeSeries object appears in bytecode and VM object store with runtime len
 [x] report.html includes axis/statistics/integration sections
 [x] bad DateTime and bad numeric CSV fixtures record parse_failures
+[x] constraint violation fixture records row-level policy violation
 ```
 
 ## v0.6 Gate
@@ -143,6 +144,7 @@ The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
 [x] official CSV constraints execute with zero violations
 [x] missing error policy executes with zero violations
 [x] numeric missing interpolation policies execute
+[x] numeric upper/lower strict/inclusive bound constraints execute
 ```
 
 ## v0.8 Gate

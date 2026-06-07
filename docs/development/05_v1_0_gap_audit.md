@@ -58,7 +58,6 @@ Remaining intentional deferrals:
 P2  per-cell conversion diagnostics once conversion exists
 P2  duration_above and broader statistics kernels
 P2  bar/histogram plot seeds
-P2  broader constraint expressions
 P2  numeric system solver, solve order, ODE runner, and Jacobian seed
 ```
 
@@ -311,7 +310,8 @@ Hardening detail:
 ### G-007 Schema Constraint and Missing Policy Execution
 
 Status: Implemented for the official CSV path after v1.0.0 hardening.
-Broader constraint expression parsing remains deferred.
+Numeric bound expression parsing now covers strict and inclusive upper/lower
+bounds.
 
 Plan expectation:
 
@@ -327,15 +327,17 @@ Current state:
 - constraints and missing policies are parsed/recorded
 - missing policy references are checked against schema columns
 - result.engres and report_spec.json record policy_results with recorded/validated/executed status
-- time monotonic, between, lower-bound, and missing error policies execute on runtime table pages
+- time monotonic, between, numeric bound, and missing error policies execute on runtime table pages
 - interpolation policies execute on numeric runtime table pages
+- constraint violation fixture records an upper-bound violation with row-level detail
 ```
 
 Risk:
 
 ```text
-P2 closed for the official CSV policy set. Remaining risk is broader
-constraint syntax.
+P2 closed for the official CSV policy set and numeric bound expression seeds.
+Arbitrary boolean row-expression execution remains outside the v1.0 stable
+boundary.
 ```
 
 Hardening detail:
@@ -346,7 +348,7 @@ Hardening detail:
 3. [x] Implement m_dot >= 0 style row checks.
 4. [x] Implement missing value error policy before interpolation.
 5. [x] Implement missing value interpolation.
-6. [ ] Add broader constraint expression parsing.
+6. [x] Add broader numeric bound constraint expression parsing.
 ```
 
 ### G-008 System/Eq IR and Solver Boundary

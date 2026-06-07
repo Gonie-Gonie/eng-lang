@@ -217,5 +217,7 @@ Runs official smoke checks:
 - official plotting example produces report and PlotSpec artifacts
 - Args CLI binding produces CSV run artifacts
 - bad DateTime and bad numeric CSV fixtures record parse_failures
+- numeric missing interpolation fixture executes
+- constraint violation fixture records upper-bound policy violation
 - official simple system example produces system report artifacts
 ```

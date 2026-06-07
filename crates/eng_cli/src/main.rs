@@ -576,6 +576,12 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     ) {
         return ExitCode::from(2);
     }
+    if !data_quality_fixture_records_constraint_violation(
+        "examples/07_data_quality/constraint_violation.eng",
+        "build/test-constraint-violation",
+    ) {
+        return ExitCode::from(2);
+    }
 
     let path_smoke_root = Path::new("build").join("path smoke").join("한글 경로");
     if let Err(error) = std::fs::create_dir_all(&path_smoke_root) {
@@ -763,6 +769,33 @@ fn data_quality_fixture_records_interpolation(source: &str, build_root: &str) ->
         }
         Err(error) => {
             eprintln!("interpolation fixture failed: {error}");
+            false
+        }
+    }
+}
+
+fn data_quality_fixture_records_constraint_violation(source: &str, build_root: &str) -> bool {
+    match run_file(
+        Path::new(source),
+        Path::new(build_root),
+        &RunOptions::default(),
+    ) {
+        Ok(output) => {
+            let result = std::fs::read_to_string(output.result_path).unwrap_or_default();
+            if !result.contains("\"policy\": \"m_dot <= 0.25 kg/s\"")
+                || !result.contains("\"violation_count\": 1")
+                || !result.contains("value is above upper bound 0.25")
+            {
+                eprintln!(
+                    "expected {source} to execute upper-bound constraint and record one violation"
+                );
+                return false;
+            }
+            println!("ok: {source} recorded constraint violation");
+            true
+        }
+        Err(error) => {
+            eprintln!("constraint violation fixture failed: {error}");
             false
         }
     }

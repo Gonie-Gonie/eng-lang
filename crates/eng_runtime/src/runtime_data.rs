@@ -632,8 +632,8 @@ fn execute_constraint_policy(
     if let Some((column, min, max)) = parse_between_constraint(text) {
         return execute_between_constraint(table, schema, constraint, &column, min, max);
     }
-    if let Some((column, min)) = parse_lower_bound_constraint(text) {
-        return execute_lower_bound_constraint(table, schema, constraint, &column, min);
+    if let Some(bound) = parse_bound_constraint(text) {
+        return execute_bound_constraint(table, schema, constraint, &bound);
     }
     policy_result(
         table,
@@ -779,20 +779,19 @@ fn execute_between_constraint(
     )
 }
 
-fn execute_lower_bound_constraint(
+fn execute_bound_constraint(
     table: &RuntimeTable,
     schema: &SchemaInfo,
     constraint: &eng_compiler::SchemaConstraint,
-    column_name: &str,
-    min: f64,
+    bound: &BoundConstraint,
 ) -> RuntimePolicyResult {
-    let Some(column) = table.column(column_name) else {
+    let Some(column) = table.column(&bound.column) else {
         return policy_result(
             table,
             schema,
             PolicyResultDraft {
                 kind: "constraint",
-                target: column_name,
+                target: &bound.column,
                 policy: &constraint.text,
                 status: "recorded",
                 checked_rows: 0,
@@ -807,12 +806,12 @@ fn execute_lower_bound_constraint(
         .enumerate()
         .filter_map(|(index, value)| {
             let value = (*value)?;
-            if value < min {
+            if !bound.accepts(value) {
                 Some(RuntimePolicyViolation {
                     row: index + 2,
-                    column: column_name.to_owned(),
+                    column: bound.column.clone(),
                     value: value.to_string(),
-                    message: format!("value is below lower bound {min}"),
+                    message: bound.violation_message(),
                 })
             } else {
                 None
@@ -824,7 +823,7 @@ fn execute_lower_bound_constraint(
         schema,
         PolicyResultDraft {
             kind: "constraint",
-            target: column_name,
+            target: &bound.column,
             policy: &constraint.text,
             status: "executed",
             checked_rows: values.len(),
@@ -1085,9 +1084,46 @@ fn parse_between_constraint(text: &str) -> Option<(String, f64, f64)> {
     ))
 }
 
-fn parse_lower_bound_constraint(text: &str) -> Option<(String, f64)> {
-    let (column, rest) = text.split_once(">=")?;
-    Some((column.trim().to_owned(), first_number(rest)?))
+#[derive(Clone, Debug, PartialEq)]
+struct BoundConstraint {
+    column: String,
+    operator: String,
+    threshold: f64,
+}
+
+impl BoundConstraint {
+    fn accepts(&self, value: f64) -> bool {
+        match self.operator.as_str() {
+            ">=" => value >= self.threshold,
+            ">" => value > self.threshold,
+            "<=" => value <= self.threshold,
+            "<" => value < self.threshold,
+            _ => true,
+        }
+    }
+
+    fn violation_message(&self) -> String {
+        match self.operator.as_str() {
+            ">=" => format!("value is below lower bound {}", self.threshold),
+            ">" => format!("value is not greater than {}", self.threshold),
+            "<=" => format!("value is above upper bound {}", self.threshold),
+            "<" => format!("value is not less than {}", self.threshold),
+            _ => "value violates bound constraint".to_owned(),
+        }
+    }
+}
+
+fn parse_bound_constraint(text: &str) -> Option<BoundConstraint> {
+    for operator in [">=", "<=", ">", "<"] {
+        if let Some((column, rest)) = text.split_once(operator) {
+            return Some(BoundConstraint {
+                column: column.trim().to_owned(),
+                operator: operator.to_owned(),
+                threshold: first_number(rest)?,
+            });
+        }
+    }
+    None
 }
 
 fn first_number(text: &str) -> Option<f64> {

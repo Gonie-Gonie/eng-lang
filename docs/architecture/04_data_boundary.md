@@ -162,7 +162,7 @@ Implemented for the official CSV path:
 - numeric quantity column parsing
 - time is monotonic checks
 - between checks
-- lower-bound checks such as m_dot >= 0
+- numeric bound checks such as m_dot >= 0 and m_dot <= 0.25
 - missing error policy checks
 - numeric missing value interpolation with surrounding values
 ```
@@ -170,6 +170,6 @@ Implemented for the official CSV path:
 Deferred to later versions:
 
 ```text
-- broad row expression execution outside the official coil path
+- broad row expression execution outside supported monotonic, between, and bound policies
 - per-cell unit conversion diagnostics once conversion exists
 ```
