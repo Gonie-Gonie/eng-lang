@@ -84,10 +84,18 @@ simulation yet.
 - `examples/05_error_messages/domain_unknown_quantity.eng`
   - verifies `E-DOMAIN-VAR-001`.
 
-## Remaining Before Numeric Claim
+## Remaining Before Metadata Preview Claim
 
-- [ ] Keep multi-domain numeric simulation deferred until a solver/graph runtime
-  exists.
+No open items remain for the current metadata-first v2.0 preview boundary.
+Domain/component syntax, structured generic metadata, domain contract
+diagnostics, review/report artifacts, native IDE metadata, LSP metadata, and
+official/diagnostic examples are implemented on `main`.
+
+## Numeric Claim Boundary
+
+Do not claim multi-domain numeric simulation until a solver/graph runtime
+exists. The current v2.0 preview records conservation and connection metadata;
+it does not solve the component graph.
 
 ## Deferred
 
