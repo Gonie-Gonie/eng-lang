@@ -16,6 +16,7 @@ The v1.0 hardening path executes the supported plot block options:
 
 ```text
 unit y = <unit>
+unit x = <unit>   # histogram value axis
 type = line | bar | histogram
 title = "<title>"
 ```
@@ -60,11 +61,19 @@ deterministic sample points; the v1.0 hardening path uses runtime TimeSeries
 points for the official CSV example.
 
 `plot_type = "bar"` consumes existing PlotSpec points and emits SVG rectangles.
-`plot_type = "histogram"` also renders rectangles; when produced by
-`plot distribution(...)`, the PlotSpec series includes `bins` with lower edge,
-upper edge, center, and count metadata in addition to center/count `points`.
-General-purpose raw-value histogram expressions outside the uncertainty plot
-path remain a later plotting kernel.
+`plot_type = "histogram"` bins TimeSeries y-values when requested through
+`type = histogram` or the clearer `plot histogram(Q_coil)` header:
+
+```eng partial
+plot histogram(Q_coil) {
+    unit x = kW
+    title = "Coil heat-rate distribution"
+}
+```
+
+Histogram PlotSpec series include `bins` with lower edge, upper edge, center,
+and count metadata in addition to center/count `points`. The same bin contract
+is used by `plot distribution(...)` for uncertainty summaries.
 
 ## SVG Export
 
@@ -136,6 +145,7 @@ SVG axis label smoke
 official run creates plot_spec.json
 official run creates plot_manifest.json
 eng view lists plot manifest
+official histogram run creates binned PlotSpec data
 ```
 
 ## Deferred
@@ -144,8 +154,8 @@ Later versions will add:
 
 ```text
 - multiple series
-- general histogram expressions from arbitrary raw values
 - grouped/stacked bar semantics
+- multiple histogram series and custom bin counts
 - interactive viewer
 - stricter PlotSpec validation schema
 ```

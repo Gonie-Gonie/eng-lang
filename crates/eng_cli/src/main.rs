@@ -901,6 +901,29 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("examples/official/01_csv_plot/histogram.eng"),
+        Path::new("build/test-plot-histogram"),
+        &RunOptions::default(),
+    ) {
+        Ok(output) => {
+            let plot_spec = std::fs::read_to_string(&output.plot_spec_path).unwrap_or_default();
+            if !plot_spec.contains("\"plot_type\": \"histogram\"")
+                || !plot_spec.contains("\"bins\": [{")
+                || !plot_spec.contains("Coil heat-rate distribution")
+            {
+                eprintln!("expected histogram example to produce binned PlotSpec artifacts");
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/01_csv_plot/histogram.eng produced histogram PlotSpec artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("histogram plot example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
         Path::new("examples/official/01_csv_plot/main.eng"),
         Path::new("build/test-plot-args"),
         &RunOptions {

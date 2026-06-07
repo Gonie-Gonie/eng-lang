@@ -86,6 +86,8 @@ scope and limitations must remain explicit.
   reporting, and system metadata.
 - Data-quality examples for parse failures, missing-value interpolation,
   constraint violations, and unit conversion failures.
+- TimeSeries raw-value histogram PlotSpec path through `plot histogram(...)`,
+  with bin metadata shared with uncertainty distribution plots.
 
 ## Experimental / Unreleased
 

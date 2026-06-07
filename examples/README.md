@@ -12,7 +12,7 @@ smoke checks.
 ```text
 official/01_csv_plot
   Supported CSV promote, HeatRate statistics, integration, PlotSpec, SVG,
-  report, and standalone packaging path.
+  report, raw-value histogram variant, and standalone packaging path.
 
 official/02_simple_system
   Preview physical system/equation metadata and fixed-step ODE preview.

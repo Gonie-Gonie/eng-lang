@@ -394,6 +394,7 @@ Runs official smoke checks:
 - invalid uncertainty argument example produces E-UNC-ARGS-001/002/003
 - missing entry example fails file run/build entry selection
 - official plotting example produces report and PlotSpec artifacts
+- official histogram example produces binned PlotSpec artifacts
 - Args CLI binding produces CSV run artifacts
 - official CSV example produces v1.4 JIT kernel candidates
 - bad DateTime and bad numeric CSV fixtures record parse_failures

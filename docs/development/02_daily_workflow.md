@@ -58,7 +58,9 @@ Current official examples:
 
 ```text
 examples/01_units/main.eng              unit/quantity basics
-examples/official/01_csv_plot/main.eng  typed CSV, statistics, PlotSpec, report
+examples/official/01_csv_plot/main.eng  typed CSV, statistics, line PlotSpec, report
+examples/official/01_csv_plot/histogram.eng
+                                           raw-value histogram PlotSpec bins
 examples/official/02_simple_system/main.eng
                                            minimal system/equation report
 ```

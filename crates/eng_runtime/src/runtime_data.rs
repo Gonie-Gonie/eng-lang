@@ -49,8 +49,9 @@ impl RuntimeData {
 
         let requested_series = self
             .plot_options
-            .series
+            .histogram
             .as_deref()
+            .or(self.plot_options.series.as_deref())
             .or_else(|| spec.series.first().map(|series| series.name.as_str()));
         let series = requested_series
             .and_then(|name| self.time_series.iter().find(|series| series.name == name))
@@ -59,6 +60,13 @@ impl RuntimeData {
         let Some(series) = series else {
             return;
         };
+
+        let histogram_requested = self.plot_options.histogram.is_some()
+            || self.plot_options.plot_type.as_deref() == Some("histogram");
+        if histogram_requested {
+            self.apply_time_series_histogram(series, spec);
+            return;
+        }
 
         let display_unit = self
             .plot_options
@@ -105,6 +113,47 @@ impl RuntimeData {
         if spec.series.is_empty() && !report.semantic_program.typed_bindings.is_empty() {
             *spec = eng_report::plot_spec_from_report(report);
         }
+    }
+
+    fn apply_time_series_histogram(&self, series: &RuntimeTimeSeries, spec: &mut PlotSpec) {
+        let display_unit = self
+            .plot_options
+            .x_unit
+            .clone()
+            .or_else(|| self.plot_options.y_unit.clone())
+            .unwrap_or_else(|| series.display_unit.clone());
+        let values = series
+            .points
+            .iter()
+            .map(|point| convert_display_value(point.y, &series.display_unit, &display_unit))
+            .collect::<Vec<_>>();
+        let bins = histogram_bins(&values);
+        let points = histogram_points_from_bins(&bins);
+        let title = self
+            .plot_options
+            .title
+            .clone()
+            .unwrap_or_else(|| format!("{} histogram", series.name));
+
+        spec.title = title;
+        spec.plot_type = "histogram".to_owned();
+        spec.x_axis = PlotAxis {
+            name: series.name.clone(),
+            label: series.quantity_kind.clone(),
+            unit: display_unit.clone(),
+        };
+        spec.y_axis = PlotAxis {
+            name: "Frequency".to_owned(),
+            label: "Frequency".to_owned(),
+            unit: "count".to_owned(),
+        };
+        spec.series = vec![PlotSeries {
+            name: series.name.clone(),
+            quantity_kind: series.quantity_kind.clone(),
+            display_unit,
+            bins,
+            points,
+        }];
     }
 
     fn apply_uncertainty_plot(&self, uncertainty: &RuntimeUncertainty, spec: &mut PlotSpec) {
@@ -609,10 +658,12 @@ pub struct RuntimePolicyViolation {
 pub struct PlotOptions {
     pub series: Option<String>,
     pub axis: Option<String>,
+    pub histogram: Option<String>,
     pub distribution: Option<String>,
     pub model_plot: Option<ModelPlotOptions>,
     pub plot_type: Option<String>,
     pub title: Option<String>,
+    pub x_unit: Option<String>,
     pub y_unit: Option<String>,
 }
 
@@ -2046,7 +2097,10 @@ fn parse_plot_options(source: &str) -> PlotOptions {
     let after_plot = &source[plot_index + "plot ".len()..];
     let header_end = after_plot.find('{').unwrap_or(after_plot.len());
     let header = after_plot[..header_end].trim();
-    if let Some(distribution) = parse_distribution_header(header) {
+    if let Some(histogram) = parse_histogram_header(header) {
+        options.histogram = Some(histogram);
+        options.plot_type = Some("histogram".to_owned());
+    } else if let Some(distribution) = parse_distribution_header(header) {
         options.distribution = Some(distribution);
         options.plot_type = Some("histogram".to_owned());
     } else if let Some(model_plot) = parse_model_plot_header(header) {
@@ -2069,7 +2123,9 @@ fn parse_plot_options(source: &str) -> PlotOptions {
     };
     let block = &after_plot[block_start + 1..block_start + 1 + block_end];
     for line in block.lines().map(str::trim) {
-        if let Some(rest) = line.strip_prefix("unit y =") {
+        if let Some(rest) = line.strip_prefix("unit x =") {
+            options.x_unit = rest.split_whitespace().next().map(str::to_owned);
+        } else if let Some(rest) = line.strip_prefix("unit y =") {
             options.y_unit = rest.split_whitespace().next().map(str::to_owned);
         } else if let Some(rest) = line.strip_prefix("type =") {
             options.plot_type = supported_plot_type(rest.trim());
@@ -2096,6 +2152,10 @@ fn parse_model_plot_header(header: &str) -> Option<ModelPlotOptions> {
 
 fn parse_distribution_header(header: &str) -> Option<String> {
     parse_call_header(header, "distribution")
+}
+
+fn parse_histogram_header(header: &str) -> Option<String> {
+    parse_call_header(header, "histogram")
 }
 
 fn parse_call_header(header: &str, name: &str) -> Option<String> {
@@ -3356,6 +3416,30 @@ script main(args: Args) -> Report {
     }
 
     #[test]
+    fn parses_histogram_plot_options() {
+        let options = parse_plot_options(
+            r#"
+script main(args: Args) -> Report {
+    return report {
+        plot histogram(Q_coil) {
+            unit x = kW
+            title = "Coil heat-rate distribution"
+        }
+    }
+}
+"#,
+        );
+
+        assert_eq!(options.histogram.as_deref(), Some("Q_coil"));
+        assert_eq!(options.plot_type.as_deref(), Some("histogram"));
+        assert_eq!(options.x_unit.as_deref(), Some("kW"));
+        assert_eq!(
+            options.title.as_deref(),
+            Some("Coil heat-rate distribution")
+        );
+    }
+
+    #[test]
     fn parses_model_plot_options() {
         let options = parse_plot_options(
             r#"
@@ -3619,6 +3703,28 @@ script main(args: Args) -> Report {
         assert_eq!(residual_plot_spec.title, "Regression residuals");
         assert_eq!(residual_plot_spec.y_axis.name, "Residual");
         assert!(!residual_plot_spec.series[0].points.is_empty());
+    }
+
+    #[test]
+    fn materializes_timeseries_histogram_plot() {
+        let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/official/01_csv_plot/histogram.eng");
+        let source = std::fs::read_to_string(&source_path).unwrap();
+        let report = check_file(&source_path, &CheckOptions::default()).unwrap();
+        let runtime = materialize_runtime_data(&report, &source);
+        let mut plot_spec = eng_report::plot_spec_from_report(&report);
+        runtime.apply_plot_spec(&report, &mut plot_spec);
+
+        assert_eq!(plot_spec.plot_type, "histogram");
+        assert_eq!(plot_spec.title, "Coil heat-rate distribution");
+        assert_eq!(plot_spec.x_axis.unit, "kW");
+        assert_eq!(plot_spec.y_axis.unit, "count");
+        assert!(!plot_spec.series[0].bins.is_empty());
+        assert_eq!(
+            plot_spec.series[0].points.len(),
+            plot_spec.series[0].bins.len()
+        );
     }
 
     fn round2(value: f64) -> f64 {

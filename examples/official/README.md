@@ -7,7 +7,8 @@ paths before compatibility fixtures.
 ```text
 01_csv_plot
   Typed CSV promote, unit-aware calculations, TimeSeries summary statistics,
-  integrate metadata, PlotSpec, SVG, report, and standalone packaging smoke.
+  integrate metadata, line and histogram PlotSpec/SVG output, report, and
+  standalone packaging smoke.
 
 02_simple_system
   Minimal physical system/equation surface with residual metadata, solver-plan
