@@ -82,8 +82,8 @@ Experimental means code and examples may exist on `main`, but the feature is
 not part of the supported release contract.
 
 - `v1.1` uncertainty core: measured values, intervals, distributions,
-  deterministic ensembles, scale/offset propagation metadata, deterministic
-  samples, and distribution plots.
+  deterministic ensembles, source diagnostics, scale/offset propagation
+  metadata, deterministic samples, and distribution plots.
 - `v1.2` data-driven modeling: regression, basic MLP/ANN seed, train/test
   metadata, RMSE/MAE/R2, model cards, leakage lint, and parity/residual plots.
 - General LSP/IDE service split beyond the current native tester IDE.

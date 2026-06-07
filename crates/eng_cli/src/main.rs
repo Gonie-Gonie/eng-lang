@@ -505,6 +505,26 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     }
     println!("ok: examples/05_error_messages/equation_unit_mismatch.eng produced diagnostics");
 
+    let missing_uncertainty_source = match check_file(
+        "examples/05_error_messages/missing_uncertainty_source.eng",
+        &CheckOptions::default(),
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    if !missing_uncertainty_source
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "E-UNC-SOURCE-001")
+    {
+        eprintln!("expected missing_uncertainty_source.eng to produce E-UNC-SOURCE-001");
+        return ExitCode::from(2);
+    }
+    println!("ok: examples/05_error_messages/missing_uncertainty_source.eng produced diagnostics");
+
     match run_file(
         Path::new("examples/05_error_messages/missing_entry.eng"),
         Path::new("build/test-missing-entry"),

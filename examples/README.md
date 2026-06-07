@@ -22,7 +22,9 @@ official/03_integrated_hvac
   interpolation, statistics, integration, plotting, reports, and system preview.
 
 official/04_uncertainty_core
-  Experimental v1.1 seed. It is tested on main but not release-supported yet.
+  Experimental v1.1 seed for deterministic uncertainty summaries, propagation
+  metadata, source diagnostics, and histogram artifacts. It is tested on main
+  but not release-supported yet.
 
 official/05_data_driven_modeling
   Experimental v1.2 seed. It is tested on main but not release-supported yet.

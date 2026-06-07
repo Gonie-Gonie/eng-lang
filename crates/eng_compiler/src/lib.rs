@@ -1673,6 +1673,36 @@ mod tests {
     }
 
     #[test]
+    fn rejects_unresolved_uncertainty_source() {
+        let report = check_source(
+            "bad.eng",
+            "script main(args: Args) -> Report {\n    Q_total_unc = propagate(Q_missing, method=linear)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-UNC-SOURCE-001"));
+    }
+
+    #[test]
+    fn rejects_non_uncertainty_source() {
+        let report = check_source(
+            "bad.eng",
+            "script main(args: Args) -> Report {\n    Q_coil = 5 kW\n    Q_total_unc = ensemble(Q_coil, samples=16)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-UNC-SOURCE-002"));
+    }
+
+    #[test]
     fn records_data_driven_modeling_metadata() {
         let report = check_source(
             "ok.eng",

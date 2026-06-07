@@ -191,6 +191,9 @@ The runtime path is deterministic. It records samples and summary fields for
 user testing, but it is not yet a full stochastic propagation engine.
 `propagate(..., scale=..., offset=...)` records declared transform metadata in
 `review.json` and numeric transform values in runtime result/report artifacts.
+`ensemble(...)` and `propagate(...)` are checked before runtime. Unknown
+uncertainty sources produce `E-UNC-SOURCE-001`; deterministic bindings used as
+uncertainty sources produce `E-UNC-SOURCE-002`.
 
 ## Data-driven Modeling Metadata
 

@@ -335,6 +335,7 @@ Required outputs before v1.1 can be considered supported:
   metadata
 - distribution summary/plot histogram
 - official uncertainty example and CLI smoke
+- uncertainty source validation diagnostics
 - diagnostics, IDE metadata, documentation, and release notes aligned
 ```
 

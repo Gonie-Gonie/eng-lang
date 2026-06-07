@@ -1006,6 +1006,7 @@ fn materialize_uncertainty(
         .as_deref()
         .and_then(first_numeric_value)
         .unwrap_or(0.0);
+    let source_missing = (info.kind == "Ensemble" || is_propagation) && source.is_none();
 
     let mut samples = match info.kind.as_str() {
         "Measured" => match (declared_mean, declared_stddev) {
@@ -1014,9 +1015,11 @@ fn materialize_uncertainty(
             _ => Vec::new(),
         },
         "Interval" => interval_samples(declared_lower, declared_upper),
+        "Ensemble" if source_missing => Vec::new(),
         "Ensemble" => source
             .map(|source| resample_deterministic(&source.samples, requested_count))
-            .unwrap_or_else(|| normal_samples(0.0, 1.0, requested_count)),
+            .unwrap_or_default(),
+        "Distribution" if is_propagation && source_missing => Vec::new(),
         "Distribution" if is_propagation => source
             .map(|source| {
                 resample_deterministic(&source.samples, requested_count)
@@ -1024,13 +1027,7 @@ fn materialize_uncertainty(
                     .map(|value| value * scale + offset)
                     .collect()
             })
-            .unwrap_or_else(|| {
-                normal_samples(
-                    declared_mean.unwrap_or(0.0),
-                    declared_stddev.unwrap_or(1.0),
-                    requested_count,
-                )
-            }),
+            .unwrap_or_default(),
         "Distribution" if distribution == "uniform" => {
             uniform_samples(declared_lower, declared_upper, requested_count)
         }
@@ -1070,7 +1067,9 @@ fn materialize_uncertainty(
         sample_count: samples.len(),
         propagation_count: info.propagation.len(),
         samples,
-        status: if is_propagation {
+        status: if source_missing {
+            "source_unresolved".to_owned()
+        } else if is_propagation {
             "propagated_linear".to_owned()
         } else if info.kind == "Measured" {
             "measured_sampled".to_owned()
@@ -3394,6 +3393,22 @@ script main(args: Args) -> Report {
         assert_eq!(plot_spec.plot_type, "histogram");
         assert_eq!(plot_spec.title, "Coil uncertainty");
         assert!(!plot_spec.series[0].points.is_empty());
+    }
+
+    #[test]
+    fn marks_unresolved_uncertainty_source_when_materialized() {
+        let source = r#"
+script main(args: Args) -> Report {
+    Q_unc = propagate(Q_missing, method=linear, samples=8)
+}
+"#;
+        let report = eng_compiler::check_source("bad.eng", source, &CheckOptions::default());
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert!(report.has_errors());
+        assert_eq!(runtime.uncertainties.len(), 1);
+        assert_eq!(runtime.uncertainties[0].status, "source_unresolved");
+        assert_eq!(runtime.uncertainties[0].sample_count, 1);
     }
 
     #[test]

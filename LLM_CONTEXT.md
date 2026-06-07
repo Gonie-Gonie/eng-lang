@@ -10,6 +10,9 @@ It is intentionally short so agents do not need to load every planning file.
 - Next targets: `v1.1` uncertainty, then `v1.2` data-driven modeling
 - `v1.1` and `v1.2` code on `main` is experimental unless the current status
   documents say otherwise.
+- Current `v1.1` detail work includes deterministic uncertainty samples,
+  source validation diagnostics, scale/offset propagation metadata, histogram
+  artifacts, and IDE/report inspection.
 
 ## Read First
 

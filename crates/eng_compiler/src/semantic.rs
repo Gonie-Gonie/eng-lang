@@ -625,6 +625,9 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
     if let Some(integration) = crate::stats::integration_info(binding, accum.typed_bindings) {
         accum.integrations.push(integration);
     }
+    if let Some(diagnostic) = crate::uncertainty::source_diagnostic(binding, accum.typed_bindings) {
+        accum.diagnostics.push(diagnostic);
+    }
     if let Some(uncertainty) = crate::uncertainty::uncertainty_info(binding, accum.typed_bindings) {
         accum.uncertainty_infos.push(uncertainty);
     }

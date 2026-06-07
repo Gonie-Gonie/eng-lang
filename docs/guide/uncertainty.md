@@ -44,6 +44,11 @@ The v1.1 implementation now materializes deterministic sample sets:
 - `propagate(source, method=linear, scale=..., offset=...)` resamples the source
   and applies the declared linear transform.
 
+`ensemble(...)` and `propagate(...)` require the first argument to be an
+uncertainty binding that was defined earlier in the same semantic pass. Unknown
+sources produce `E-UNC-SOURCE-001`; deterministic bindings such as `Q = 5 kW`
+produce `E-UNC-SOURCE-002` when used as uncertainty sources.
+
 Each runtime uncertainty includes mean, standard deviation, lower/upper bounds,
 `p05`, `p50`, `p95`, `distribution`, `method`, optional `scale`/`offset`
 transform metadata, sample count, propagation count, and the generated sample
@@ -91,9 +96,9 @@ typed_payload.uncertainties
 Uncertainty table with a Transform column.
 
 The current propagation is deterministic and supports explicit linear
-scale/offset transforms. It is still not a full Jacobian or Monte Carlo
-propagation engine, but it is concrete enough for user-facing artifact review,
-histogram testing, and IDE inspection.
+scale/offset transforms with source validation. It is still not a full
+Jacobian or Monte Carlo propagation engine, but it is concrete enough for
+user-facing artifact review, histogram testing, and IDE inspection.
 
 ## Official Example
 

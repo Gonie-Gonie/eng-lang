@@ -3,6 +3,7 @@ use crate::quantities::{
     candidates_for_unit, first_unit_in_expression, infer_quantity_from_name_and_unit,
 };
 use crate::semantic::TypedBinding;
+use crate::Diagnostic;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UncertaintyInfo {
@@ -56,6 +57,48 @@ pub fn uncertainty_info(
     if lowered.starts_with("propagate(") {
         return Some(propagation_info(binding, typed_bindings));
     }
+    None
+}
+
+pub fn source_diagnostic(
+    binding: &FastBinding,
+    typed_bindings: &[TypedBinding],
+) -> Option<Diagnostic> {
+    let call = source_required_call(&binding.expression)?;
+    let source = first_argument(&binding.expression);
+    let Some(source) = source.filter(|source| is_identifier(source)) else {
+        return Some(Diagnostic::error(
+            "E-UNC-SOURCE-001",
+            binding.line,
+            &format!("`{call}` requires a prior uncertainty binding as its first argument."),
+            Some("Define a measured, interval, distribution, or ensemble binding first, then reference that name."),
+        ));
+    };
+
+    let Some(source_binding) = typed_bindings
+        .iter()
+        .find(|typed_binding| typed_binding.name == source)
+    else {
+        return Some(Diagnostic::error(
+            "E-UNC-SOURCE-001",
+            binding.line,
+            &format!("Unknown uncertainty source `{source}` for `{call}`."),
+            Some("Check the source name or move the source uncertainty binding before this expression."),
+        ));
+    };
+
+    if uncertainty_inner_quantity(&source_binding.semantic_type.quantity_kind).is_none() {
+        return Some(Diagnostic::error(
+            "E-UNC-SOURCE-002",
+            binding.line,
+            &format!(
+                "`{source}` is {}, not an uncertainty source.",
+                source_binding.semantic_type.quantity_kind
+            ),
+            Some("Use measured(...), interval(...), normal(...), uniform(...), or ensemble(...) to create the source uncertainty."),
+        ));
+    }
+
     None
 }
 
@@ -323,6 +366,26 @@ fn first_argument(expression: &str) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty() && !value.contains('='))
         .map(str::to_owned)
+}
+
+fn source_required_call(expression: &str) -> Option<&'static str> {
+    let lowered = expression.trim_start().to_ascii_lowercase();
+    if lowered.starts_with("ensemble(") {
+        Some("ensemble")
+    } else if lowered.starts_with("propagate(") {
+        Some("propagate")
+    } else {
+        None
+    }
+}
+
+fn is_identifier(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|character| character.is_ascii_alphanumeric() || character == '_')
 }
 
 fn named_value(expression: &str, names: &[&str]) -> Option<String> {
