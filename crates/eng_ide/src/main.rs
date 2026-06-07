@@ -1527,7 +1527,27 @@ impl EngIdeApp {
                 });
                 key_value_row(ui, "source", &candidate.source);
                 key_value_row(ui, "reason", &candidate.reason);
+                key_value_row(
+                    ui,
+                    "estimate",
+                    &format!(
+                        "rows={}, inputs={}, outputs={}, ops={}, scans={}",
+                        candidate
+                            .estimate
+                            .estimated_rows
+                            .map(|value| value.to_string())
+                            .unwrap_or_else(|| "-".to_owned()),
+                        candidate.estimate.input_count,
+                        candidate.estimate.output_count,
+                        candidate.estimate.operation_count,
+                        candidate.estimate.scan_count
+                    ),
+                );
+                key_value_row(ui, "complexity", &candidate.estimate.complexity);
                 key_value_row(ui, "ops", &candidate.operations.join(" -> "));
+                if !candidate.estimate.notes.is_empty() {
+                    key_value_row(ui, "notes", &candidate.estimate.notes.join("; "));
+                }
             });
             ui.add_space(6.0);
         }
@@ -1836,6 +1856,7 @@ struct JitCandidateView {
     reason: String,
     lowering_status: String,
     operations: Vec<String>,
+    estimate: JitEstimateView,
 }
 
 impl JitCandidateView {
@@ -1848,6 +1869,32 @@ impl JitCandidateView {
             reason: candidate.reason.clone(),
             lowering_status: candidate.lowering_status.clone(),
             operations: candidate.operations.clone(),
+            estimate: JitEstimateView::from_estimate(&candidate.estimate),
+        }
+    }
+}
+
+#[derive(Clone)]
+struct JitEstimateView {
+    estimated_rows: Option<usize>,
+    input_count: usize,
+    output_count: usize,
+    operation_count: usize,
+    scan_count: usize,
+    complexity: String,
+    notes: Vec<String>,
+}
+
+impl JitEstimateView {
+    fn from_estimate(estimate: &eng_jit::KernelEstimate) -> Self {
+        Self {
+            estimated_rows: estimate.estimated_rows,
+            input_count: estimate.input_count,
+            output_count: estimate.output_count,
+            operation_count: estimate.operation_count,
+            scan_count: estimate.scan_count,
+            complexity: estimate.complexity.clone(),
+            notes: estimate.notes.clone(),
         }
     }
 }

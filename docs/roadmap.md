@@ -405,7 +405,8 @@ Required outputs:
 Status on `main`: experimental `eng_jit`, `eng.exe jit-plan`, and the native
 IDE Runtime Summary expose `eng-kernel-plan-v1` hot-kernel metadata for
 TimeSeries arithmetic, integration, statistics fusion, and system residual
-interface seeds. Track the exact support boundary in
+interface seeds, including coarse size/cost estimates. Track the exact support
+boundary in
 [docs/current/v1_4_jit_gate.md](current/v1_4_jit_gate.md).
 
 ## v1.5 — Standalone/AOT Maturity

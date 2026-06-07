@@ -100,8 +100,9 @@ not part of the supported release contract.
 - `v1.4` JIT start: experimental `eng_jit` crate, `eng.exe jit-plan`, and
   native IDE Runtime Summary display for `eng-kernel-plan-v1` hot-kernel
   metadata covering TimeSeries arithmetic, integration, statistics fusion, and
-  system residual interface seeds. It does not provide native code generation
-  or runtime acceleration yet.
+  system residual interface seeds, including coarse row/source/operation/scan
+  estimates. It does not provide native code generation or runtime acceleration
+  yet.
 
 ## Deferred / Known Limitations
 

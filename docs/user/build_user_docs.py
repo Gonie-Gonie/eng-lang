@@ -91,7 +91,7 @@ def build_document(version: str) -> Document:
                     code("result.engres"),
                     ". It also shows the experimental ",
                     code("eng-kernel-plan-v1"),
-                    " kernel plan for the current file, with backend, candidate kind, lowering status, source, reason, and operation list. This plan is inspection metadata only; execution still uses the normal runtime path.",
+                    " kernel plan for the current file, with backend, candidate kind, lowering status, estimated rows, input/output counts, operation-class count, scan count, source, reason, and operation list. This plan is inspection metadata only; execution still uses the normal runtime path.",
                 ),
             ),
         ),

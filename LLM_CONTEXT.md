@@ -25,8 +25,9 @@ It is intentionally short so agents do not need to load every planning file.
   round-trip path documented in the v1.3 gate.
 - Current `v1.4` detail work includes an experimental `eng_jit` crate,
   `eng.exe jit-plan`, native IDE Runtime Summary kernel-plan display, and
-  `eng-kernel-plan-v1` hot-kernel metadata documented in the v1.4 gate. It has
-  no native codegen or speedup claim yet.
+  `eng-kernel-plan-v1` hot-kernel metadata with coarse row/source/operation/scan
+  estimates documented in the v1.4 gate. It has no native codegen or speedup
+  claim yet.
 
 ## Read First
 

@@ -133,6 +133,22 @@ Prints experimental `eng-kernel-plan-v1` JSON for v1.4 hot-kernel planning.
 This command does not compile native code and does not change runtime
 execution. Its current backend is `interpreter-fallback`.
 
+Each candidate includes source, reason, lowering status, operation list, and a
+coarse planning estimate:
+
+```text
+estimated_rows
+input_count
+output_count
+operation_count
+scan_count
+complexity
+notes
+```
+
+These estimates are for inspection and benchmark selection only. They are not
+measured performance data.
+
 Current candidate kinds:
 
 ```text

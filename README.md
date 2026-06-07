@@ -176,8 +176,8 @@ v1.3
 v1.4
   JIT-start seed: eng_jit crate, eng-kernel-plan-v1 JSON, native IDE kernel
   plan display, hot-kernel detection for TimeSeries arithmetic/statistics/
-  integration, and interpreter-fallback lowering metadata. Experimental on
-  main; no native speedup claim.
+  integration, coarse size/cost estimates, and interpreter-fallback lowering
+  metadata. Experimental on main; no native speedup claim.
 ```
 
 ## Documentation

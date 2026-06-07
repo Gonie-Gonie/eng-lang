@@ -97,8 +97,10 @@ Right Sidebar
   constraints, missing policies, and CSV promotion summaries. After Run, the
   Runtime tab shows result status, uncertainty summaries, ML metrics,
   coefficients, loss history, policy count, system count, and the experimental
-  `eng-kernel-plan-v1` kernel plan for the current file. Kernel plan data is
-  planning metadata only; execution still uses the normal runtime path.
+  `eng-kernel-plan-v1` kernel plan for the current file, including estimated
+  rows, input/output counts, operation-class count, scan count, and complexity
+  label. Kernel plan data is planning metadata only; execution still uses the
+  normal runtime path.
 
 Bottom panel
   Problems, Output, and Artifacts tabs.
@@ -170,8 +172,8 @@ examples/official/01_csv_plot/main.eng
 
 Check or run it and inspect the Runtime Summary Kernel Plan section. It should
 show TimeSeries arithmetic, integration, and statistics-fusion candidates with
-`backend = interpreter-fallback`. This is not a speedup claim or native codegen
-path.
+`backend = interpreter-fallback`, row estimates from the CSV source, and
+operation-class counts. This is not a speedup claim or native codegen path.
 
 ## Completion Scope
 

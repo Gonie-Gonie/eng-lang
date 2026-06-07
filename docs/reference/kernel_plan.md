@@ -52,12 +52,48 @@ execution. Current JIT planning makes no speedup claim.
     "load_timeseries:Q_coil",
     "integrate_over:Time",
     "store:E_coil"
-  ]
+  ],
+  "estimate": {
+    "estimated_rows": 4,
+    "input_count": 1,
+    "output_count": 1,
+    "operation_count": 2,
+    "scan_count": 1,
+    "complexity": "O(n) TimeSeries integration",
+    "notes": [
+      "adjacent samples form trapezoid intervals",
+      "stores one integrated quantity"
+    ]
+  }
 }
 ```
 
 `line` is one-based and points at the source construct that produced the
 candidate.
+
+## Estimate Shape
+
+`estimate` is a planning estimate, not a measured benchmark result.
+
+```json
+{
+  "estimated_rows": 4,
+  "input_count": 1,
+  "output_count": 1,
+  "operation_count": 2,
+  "scan_count": 1,
+  "complexity": "O(n) TimeSeries integration",
+  "notes": []
+}
+```
+
+`estimated_rows` is inferred from CSV promotion metadata when the candidate can
+be traced to a TimeSeries source. It is `null` when row count is not known, such
+as interface-only system residual planning.
+
+`operation_count` is an operation-class count used for planning and inspection.
+It is not a floating-point operation count and must not be used for performance
+claims.
 
 ## Candidate Kinds
 
@@ -90,6 +126,7 @@ Use the kernel plan for:
 
 - v1.4 JIT gate smoke checks
 - native IDE Runtime/Inspector summaries
+- coarse candidate size/cost inspection before benchmark harness work
 - future benchmark harness selection
 - future backend lowering tests
 

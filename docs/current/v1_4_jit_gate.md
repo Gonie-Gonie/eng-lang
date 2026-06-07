@@ -37,10 +37,12 @@ generation, runtime acceleration, or production JIT support.
 - [x] Native IDE smoke verifies kernel candidate discovery, and the Runtime
   Summary panel shows format, backend, candidate count, candidate kind, source,
   reason, lowering status, and operation list.
+- [x] Kernel candidates include coarse size/cost estimates: inferred row count,
+  input/output count, operation-class count, scan count, complexity label, and
+  notes.
 
 ## Remaining Before Support Claim
 
-- [ ] Add candidate cost/size estimates rather than simple heuristic reasons.
 - [ ] Add a benchmark harness that compares interpreter and future JIT paths
   without making speedup claims.
 - [ ] Add native lowering backend selection only after the metadata contract and
