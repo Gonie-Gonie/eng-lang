@@ -13,8 +13,9 @@ Use fast bindings inside a `script`:
 T_supply_meas = measured(12 degC, std=0.2 K)
 T_return_band = interval(20 degC, 24 degC)
 Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)
+Q_aux_band = uniform(0.3 kW, 0.7 kW, samples=21)
 Q_coil_ensemble = ensemble(Q_coil_dist, samples=31)
-Q_total_unc = propagate(Q_coil_dist, method=linear)
+Q_total_unc = propagate(Q_coil_dist, method=linear, scale=1.08, offset=0.4 kW)
 ```
 
 The compiler records these semantic types:
@@ -28,6 +29,24 @@ Ensemble[T]
 
 `T` is inferred from the name and unit seed. For example, `Q_coil_dist` with
 `kW` is treated as `Distribution[HeatRate]`.
+
+## Runtime Semantics
+
+The v1.1 implementation now materializes deterministic sample sets:
+
+- `measured(value, std=...)` records the measured value and creates a small
+  deterministic normal sample when a standard deviation is supplied.
+- `interval(lower, upper)` records lower, midpoint, and upper samples.
+- `normal(mean=..., std=..., samples=n)` uses deterministic quantile samples,
+  so the same source always produces the same summary and histogram.
+- `uniform(lower, upper, samples=n)` samples evenly inside the declared band.
+- `ensemble(source, samples=n)` deterministically resamples a prior uncertainty.
+- `propagate(source, method=linear, scale=..., offset=...)` resamples the source
+  and applies the declared linear transform.
+
+Each runtime uncertainty includes mean, standard deviation, lower/upper bounds,
+`p05`, `p50`, `p95`, `distribution`, `method`, sample count, propagation count,
+and the generated sample vector.
 
 ## Distribution Plot
 
@@ -55,7 +74,10 @@ typed_payload.uncertainties
   quantity_kind
   display_unit
   source
+  distribution
+  method
   mean/stddev/lower/upper
+  p05/p50/p95
   sample_count
   samples
   status
@@ -64,16 +86,17 @@ typed_payload.uncertainties
 `review.json` includes `uncertainty_info`. `report_spec.json` includes
 `uncertainty`. `report.html` includes an Uncertainty table.
 
-The current propagation is a deterministic seed. It follows source bindings and
-copies/resamples source samples where possible, but it is not yet a full
-Jacobian or Monte Carlo propagation engine.
+The current propagation is deterministic and supports explicit linear
+scale/offset transforms. It is still not a full Jacobian or Monte Carlo
+propagation engine, but it is concrete enough for user-facing artifact review,
+histogram testing, and IDE inspection.
 
 ## Official Example
 
 Run:
 
 ```bat
-.\dev.bat run examples\official\04_uncertainty_core\main.eng
+.\target\debug\eng.exe run examples\official\04_uncertainty_core\main.eng --entry main
 ```
 
 or open this file in the native IDE:

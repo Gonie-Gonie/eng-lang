@@ -12,6 +12,8 @@ pub struct UncertaintyInfo {
     pub display_unit: String,
     pub expression: String,
     pub source: Option<String>,
+    pub distribution: Option<String>,
+    pub method: Option<String>,
     pub mean: Option<String>,
     pub stddev: Option<String>,
     pub lower: Option<String>,
@@ -40,7 +42,10 @@ pub fn uncertainty_info(
     if lowered.starts_with("interval(") {
         return Some(interval_info(binding, typed_bindings));
     }
-    if lowered.starts_with("normal(") || lowered.starts_with("distribution(") {
+    if lowered.starts_with("normal(")
+        || lowered.starts_with("uniform(")
+        || lowered.starts_with("distribution(")
+    {
         return Some(distribution_info(binding, typed_bindings));
     }
     if lowered.starts_with("ensemble(") {
@@ -58,7 +63,10 @@ pub fn uncertainty_semantic_type(name: &str, expression: &str) -> Option<(String
         "Measured"
     } else if lowered.starts_with("interval(") {
         "Interval"
-    } else if lowered.starts_with("normal(") || lowered.starts_with("distribution(") {
+    } else if lowered.starts_with("normal(")
+        || lowered.starts_with("uniform(")
+        || lowered.starts_with("distribution(")
+    {
         "Distribution"
     } else if lowered.starts_with("ensemble(") {
         "Ensemble"
@@ -96,6 +104,8 @@ fn measured_info(binding: &FastBinding, typed_bindings: &[TypedBinding]) -> Unce
         display_unit,
         expression: binding.expression.clone(),
         source: first_argument(&binding.expression),
+        distribution: Some("measured".to_owned()),
+        method: None,
         mean: first_value_with_unit(&binding.expression),
         stddev: named_value(&binding.expression, &["std", "sigma", "uncertainty"]),
         lower: None,
@@ -111,6 +121,10 @@ fn interval_info(binding: &FastBinding, typed_bindings: &[TypedBinding]) -> Unce
         first_unit_in_expression(&binding.expression).unwrap_or_else(|| "1".to_owned());
     let quantity_kind = infer_quantity(&binding.name, &binding.expression, &display_unit);
     let values = values_with_unit(&binding.expression);
+    let lower =
+        named_value(&binding.expression, &["lower", "min"]).or_else(|| values.first().cloned());
+    let upper =
+        named_value(&binding.expression, &["upper", "max"]).or_else(|| values.get(1).cloned());
     UncertaintyInfo {
         binding: binding.name.clone(),
         kind: "Interval".to_owned(),
@@ -118,10 +132,12 @@ fn interval_info(binding: &FastBinding, typed_bindings: &[TypedBinding]) -> Unce
         display_unit,
         expression: binding.expression.clone(),
         source: first_argument(&binding.expression),
+        distribution: Some("interval".to_owned()),
+        method: None,
         mean: None,
         stddev: None,
-        lower: values.first().cloned(),
-        upper: values.get(1).cloned(),
+        lower,
+        upper,
         sample_count: 2,
         propagation: propagation_terms(&binding.expression, typed_bindings),
         line: binding.line,
@@ -132,6 +148,12 @@ fn distribution_info(binding: &FastBinding, typed_bindings: &[TypedBinding]) -> 
     let display_unit =
         first_unit_in_expression(&binding.expression).unwrap_or_else(|| "1".to_owned());
     let quantity_kind = infer_quantity(&binding.name, &binding.expression, &display_unit);
+    let distribution = distribution_kind(&binding.expression);
+    let values = values_with_unit(&binding.expression);
+    let lower =
+        named_value(&binding.expression, &["lower", "min"]).or_else(|| values.first().cloned());
+    let upper =
+        named_value(&binding.expression, &["upper", "max"]).or_else(|| values.get(1).cloned());
     UncertaintyInfo {
         binding: binding.name.clone(),
         kind: "Distribution".to_owned(),
@@ -139,11 +161,13 @@ fn distribution_info(binding: &FastBinding, typed_bindings: &[TypedBinding]) -> 
         display_unit,
         expression: binding.expression.clone(),
         source: first_argument(&binding.expression),
+        distribution: Some(distribution),
+        method: None,
         mean: named_value(&binding.expression, &["mean", "mu"])
             .or_else(|| first_value_with_unit(&binding.expression)),
         stddev: named_value(&binding.expression, &["std", "sigma"]),
-        lower: None,
-        upper: None,
+        lower,
+        upper,
         sample_count: sample_count(&binding.expression).unwrap_or(64),
         propagation: propagation_terms(&binding.expression, typed_bindings),
         line: binding.line,
@@ -170,6 +194,11 @@ fn ensemble_info(binding: &FastBinding, typed_bindings: &[TypedBinding]) -> Unce
         display_unit: display_unit_for_binding(binding, typed_bindings),
         expression: binding.expression.clone(),
         source,
+        distribution: Some("ensemble".to_owned()),
+        method: Some(
+            named_value(&binding.expression, &["method"])
+                .unwrap_or_else(|| "deterministic_resample".to_owned()),
+        ),
         mean: None,
         stddev: None,
         lower: None,
@@ -204,6 +233,10 @@ fn propagation_info(binding: &FastBinding, typed_bindings: &[TypedBinding]) -> U
         display_unit: display_unit_for_binding(binding, typed_bindings),
         expression: binding.expression.clone(),
         source,
+        distribution: Some("propagated".to_owned()),
+        method: Some(
+            named_value(&binding.expression, &["method"]).unwrap_or_else(|| "linear".to_owned()),
+        ),
         mean: None,
         stddev: None,
         lower: None,
@@ -291,6 +324,19 @@ fn named_value(expression: &str, names: &[&str]) -> Option<String> {
         }
     }
     None
+}
+
+fn distribution_kind(expression: &str) -> String {
+    let lowered = expression.trim().to_ascii_lowercase();
+    if lowered.starts_with("normal(") {
+        return "normal".to_owned();
+    }
+    if lowered.starts_with("uniform(") {
+        return "uniform".to_owned();
+    }
+    named_value(expression, &["kind", "distribution"])
+        .map(|value| value.trim_matches('"').to_ascii_lowercase())
+        .unwrap_or_else(|| "normal".to_owned())
 }
 
 fn sample_count(expression: &str) -> Option<usize> {

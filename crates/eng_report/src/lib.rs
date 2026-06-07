@@ -162,13 +162,24 @@ pub struct ReportUncertaintyInfo {
     pub display_unit: String,
     pub expression: String,
     pub source: Option<String>,
+    pub distribution: Option<String>,
+    pub method: Option<String>,
     pub mean: Option<String>,
     pub stddev: Option<String>,
     pub lower: Option<String>,
     pub upper: Option<String>,
+    pub p05: Option<String>,
+    pub p50: Option<String>,
+    pub p95: Option<String>,
     pub sample_count: usize,
     pub propagation_count: usize,
     pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportMlCoefficient {
+    pub feature: String,
+    pub value: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -190,6 +201,10 @@ pub struct ReportMlInfo {
     pub mae: Option<f64>,
     pub r2: Option<f64>,
     pub leakage_status: Option<String>,
+    pub leakage_findings: Vec<String>,
+    pub coefficients: Vec<ReportMlCoefficient>,
+    pub intercept: Option<f64>,
+    pub loss_history: Vec<f64>,
     pub model_card: Option<String>,
     pub expression: String,
     pub line: usize,
@@ -479,10 +494,15 @@ pub fn report_spec_from_report(
             display_unit: info.display_unit.clone(),
             expression: info.expression.clone(),
             source: info.source.clone(),
+            distribution: info.distribution.clone(),
+            method: info.method.clone(),
             mean: info.mean.clone(),
             stddev: info.stddev.clone(),
             lower: info.lower.clone(),
             upper: info.upper.clone(),
+            p05: None,
+            p50: None,
+            p95: None,
             sample_count: info.sample_count,
             propagation_count: info.propagation.len(),
             line: info.line,
@@ -510,6 +530,10 @@ pub fn report_spec_from_report(
             mae: None,
             r2: None,
             leakage_status: None,
+            leakage_findings: Vec::new(),
+            coefficients: Vec::new(),
+            intercept: None,
+            loss_history: Vec::new(),
             model_card: None,
             expression: info.expression.clone(),
             line: info.line,
@@ -1051,10 +1075,20 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             json_escape(&uncertainty.expression)
         ));
         push_optional_json_string(&mut json, "source", uncertainty.source.as_deref(), 6);
+        push_optional_json_string(
+            &mut json,
+            "distribution",
+            uncertainty.distribution.as_deref(),
+            6,
+        );
+        push_optional_json_string(&mut json, "method", uncertainty.method.as_deref(), 6);
         push_optional_json_string(&mut json, "mean", uncertainty.mean.as_deref(), 6);
         push_optional_json_string(&mut json, "stddev", uncertainty.stddev.as_deref(), 6);
         push_optional_json_string(&mut json, "lower", uncertainty.lower.as_deref(), 6);
         push_optional_json_string(&mut json, "upper", uncertainty.upper.as_deref(), 6);
+        push_optional_json_string(&mut json, "p05", uncertainty.p05.as_deref(), 6);
+        push_optional_json_string(&mut json, "p50", uncertainty.p50.as_deref(), 6);
+        push_optional_json_string(&mut json, "p95", uncertainty.p95.as_deref(), 6);
         json.push_str(&format!(
             "      \"sample_count\": {},\n",
             uncertainty.sample_count
@@ -1106,6 +1140,30 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         push_optional_json_f64(&mut json, "mae", ml.mae, 6);
         push_optional_json_f64(&mut json, "r2", ml.r2, 6);
         push_optional_json_string(&mut json, "leakage_status", ml.leakage_status.as_deref(), 6);
+        json.push_str("      \"leakage_findings\": [");
+        push_json_string_array(&mut json, &ml.leakage_findings);
+        json.push_str("],\n");
+        json.push_str("      \"coefficients\": [");
+        for (coefficient_index, coefficient) in ml.coefficients.iter().enumerate() {
+            if coefficient_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!(
+                "{{\"feature\":\"{}\",\"value\":{}}}",
+                json_escape(&coefficient.feature),
+                coefficient.value
+            ));
+        }
+        json.push_str("],\n");
+        push_optional_json_f64(&mut json, "intercept", ml.intercept, 6);
+        json.push_str("      \"loss_history\": [");
+        for (loss_index, loss) in ml.loss_history.iter().enumerate() {
+            if loss_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&loss.to_string());
+        }
+        json.push_str("],\n");
         push_optional_json_string(&mut json, "model_card", ml.model_card.as_deref(), 6);
         json.push_str(&format!(
             "      \"expression\": \"{}\",\n",
@@ -1804,10 +1862,12 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     for info in &report.semantic_program.uncertainty_infos {
         uncertainty.push_str("<tr>");
         uncertainty.push_str(&format!(
-            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><code>{}</code></td>",
+            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><code>{}</code></td>",
             info.line,
             html_escape(&info.binding),
             html_escape(&info.kind),
+            html_escape(info.distribution.as_deref().unwrap_or("")),
+            html_escape(info.method.as_deref().unwrap_or("")),
             html_escape(&info.quantity_kind),
             html_escape(&info.display_unit),
             info.sample_count,
@@ -1816,7 +1876,7 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
         uncertainty.push_str("</tr>");
     }
     if uncertainty.is_empty() {
-        uncertainty.push_str("<tr><td colspan=\"7\">No uncertainty metadata.</td></tr>");
+        uncertainty.push_str("<tr><td colspan=\"9\">No uncertainty metadata.</td></tr>");
     }
 
     let mut ml_info = String::new();
@@ -2129,7 +2189,7 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     </table>
     <h2>Uncertainty</h2>
     <table>
-      <thead><tr><th>Line</th><th>Binding</th><th>Kind</th><th>Quantity</th><th>Unit</th><th>Samples</th><th>Expression</th></tr></thead>
+      <thead><tr><th>Line</th><th>Binding</th><th>Kind</th><th>Distribution</th><th>Method</th><th>Quantity</th><th>Unit</th><th>Samples</th><th>Expression</th></tr></thead>
       <tbody>{uncertainty}</tbody>
     </table>
     <h2>ML Models</h2>

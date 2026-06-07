@@ -638,7 +638,9 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             let report_spec = std::fs::read_to_string(output.report_spec_path).unwrap_or_default();
             let plot_spec = std::fs::read_to_string(output.plot_spec_path).unwrap_or_default();
             if !result.contains("\"uncertainties\"")
-                || !result.contains("\"propagated_seed\"")
+                || !result.contains("\"propagated_linear\"")
+                || !result.contains("\"distribution\": \"uniform\"")
+                || !result.contains("\"p95\"")
                 || !review.contains("\"uncertainty_info\"")
                 || !report_spec.contains("\"uncertainty\"")
                 || !plot_spec.contains("\"plot_type\": \"histogram\"")
@@ -676,6 +678,8 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !result.contains("\"rmse\"")
                 || !result.contains("\"model_card\"")
                 || !result.contains("\"leakage_status\"")
+                || !result.contains("\"coefficients\"")
+                || !result.contains("\"loss_history\"")
                 || !review.contains("\"ml_info\"")
                 || !report_spec.contains("\"ml\"")
                 || !plot_spec.contains("\"plot_type\": \"scatter\"")

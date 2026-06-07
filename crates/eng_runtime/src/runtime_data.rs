@@ -6,8 +6,8 @@ use eng_compiler::{
 };
 use eng_report::{
     PlotAxis, PlotPoint, PlotSeries, PlotSpec, ReportComputedIntegration,
-    ReportComputedStatisticValue, ReportComputedStatistics, ReportMlInfo, ReportPolicyResult,
-    ReportPolicyViolation, ReportSpec, ReportUncertaintyInfo,
+    ReportComputedStatisticValue, ReportComputedStatistics, ReportMlCoefficient, ReportMlInfo,
+    ReportPolicyResult, ReportPolicyViolation, ReportSpec, ReportUncertaintyInfo,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -277,10 +277,15 @@ impl RuntimeData {
                 display_unit: uncertainty.display_unit.clone(),
                 expression: uncertainty.expression.clone(),
                 source: uncertainty.source.clone(),
+                distribution: uncertainty.distribution.clone(),
+                method: uncertainty.method.clone(),
                 mean: uncertainty.mean.map(format_number),
                 stddev: uncertainty.stddev.map(format_number),
                 lower: uncertainty.lower.map(format_number),
                 upper: uncertainty.upper.map(format_number),
+                p05: uncertainty.p05.map(format_number),
+                p50: uncertainty.p50.map(format_number),
+                p95: uncertainty.p95.map(format_number),
                 sample_count: uncertainty.sample_count,
                 propagation_count: uncertainty.propagation_count,
                 line: uncertainty.line,
@@ -309,6 +314,17 @@ impl RuntimeData {
                 mae: artifact.mae,
                 r2: artifact.r2,
                 leakage_status: artifact.leakage_status.clone(),
+                leakage_findings: artifact.leakage_findings.clone(),
+                coefficients: artifact
+                    .coefficients
+                    .iter()
+                    .map(|coefficient| ReportMlCoefficient {
+                        feature: coefficient.feature.clone(),
+                        value: coefficient.value,
+                    })
+                    .collect(),
+                intercept: artifact.intercept,
+                loss_history: artifact.loss_history.clone(),
                 model_card: artifact.model_card.clone(),
                 expression: artifact.expression.clone(),
                 line: artifact.line,
@@ -449,10 +465,15 @@ pub struct RuntimeUncertainty {
     pub display_unit: String,
     pub expression: String,
     pub source: Option<String>,
+    pub distribution: Option<String>,
+    pub method: Option<String>,
     pub mean: Option<f64>,
     pub stddev: Option<f64>,
     pub lower: Option<f64>,
     pub upper: Option<f64>,
+    pub p05: Option<f64>,
+    pub p50: Option<f64>,
+    pub p95: Option<f64>,
     pub sample_count: usize,
     pub propagation_count: usize,
     pub samples: Vec<f64>,
@@ -479,12 +500,55 @@ pub struct RuntimeMlArtifact {
     pub mae: Option<f64>,
     pub r2: Option<f64>,
     pub leakage_status: Option<String>,
+    pub leakage_findings: Vec<String>,
+    pub coefficients: Vec<RuntimeMlCoefficient>,
+    pub intercept: Option<f64>,
+    pub loss_history: Vec<f64>,
     pub model_card: Option<String>,
     pub expression: String,
     pub display_unit: String,
     pub parity_points: Vec<RuntimePoint>,
     pub residual_points: Vec<RuntimePoint>,
     pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeMlCoefficient {
+    pub feature: String,
+    pub value: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct MlDataset {
+    feature_names: Vec<String>,
+    target_name: String,
+    display_unit: String,
+    rows: Vec<MlRow>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct MlRow {
+    features: Vec<f64>,
+    target: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct MlTrainingResult {
+    status: String,
+    actual: Vec<f64>,
+    predicted: Vec<f64>,
+    coefficients: Vec<RuntimeMlCoefficient>,
+    intercept: f64,
+    loss_history: Vec<f64>,
+    rmse: f64,
+    mae: f64,
+    r2: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct Standardization {
+    means: Vec<f64>,
+    scales: Vec<f64>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -571,7 +635,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.statistics = materialize_statistics(report, &data.time_series);
     data.integrations = materialize_integrations(report, &data.time_series);
     data.uncertainties = materialize_uncertainties(report);
-    data.ml_artifacts = materialize_ml_artifacts(report, &data.time_series);
+    data.ml_artifacts = materialize_ml_artifacts(report, &data.time_series, &data.tables);
     data.system_solutions = materialize_system_solutions(report);
     data
 }
@@ -913,6 +977,11 @@ fn materialize_uncertainty(
     let declared_lower = info.lower.as_deref().and_then(first_numeric_value);
     let declared_upper = info.upper.as_deref().and_then(first_numeric_value);
     let requested_count = info.sample_count.clamp(1, 256);
+    let distribution = info
+        .distribution
+        .clone()
+        .unwrap_or_else(|| info.kind.to_ascii_lowercase());
+    let method = info.method.clone();
     let source = info.source.as_deref().and_then(|source| {
         prior
             .iter()
@@ -923,15 +992,26 @@ fn materialize_uncertainty(
         .trim_start()
         .to_ascii_lowercase()
         .starts_with("propagate(");
+    let scale = named_numeric_value(&info.expression, &["scale", "gain"]).unwrap_or(1.0);
+    let offset = named_numeric_value(&info.expression, &["offset", "bias"]).unwrap_or(0.0);
 
     let mut samples = match info.kind.as_str() {
-        "Measured" => declared_mean.into_iter().collect::<Vec<_>>(),
+        "Measured" => match (declared_mean, declared_stddev) {
+            (Some(mean), Some(stddev)) => normal_samples(mean, stddev, requested_count.max(3)),
+            (Some(mean), None) => vec![mean],
+            _ => Vec::new(),
+        },
         "Interval" => interval_samples(declared_lower, declared_upper),
         "Ensemble" => source
             .map(|source| resample_deterministic(&source.samples, requested_count))
             .unwrap_or_else(|| normal_samples(0.0, 1.0, requested_count)),
         "Distribution" if is_propagation => source
-            .map(|source| resample_deterministic(&source.samples, requested_count))
+            .map(|source| {
+                resample_deterministic(&source.samples, requested_count)
+                    .into_iter()
+                    .map(|value| value * scale + offset)
+                    .collect()
+            })
             .unwrap_or_else(|| {
                 normal_samples(
                     declared_mean.unwrap_or(0.0),
@@ -939,6 +1019,9 @@ fn materialize_uncertainty(
                     requested_count,
                 )
             }),
+        "Distribution" if distribution == "uniform" => {
+            uniform_samples(declared_lower, declared_upper, requested_count)
+        }
         "Distribution" => normal_samples(
             declared_mean.unwrap_or(0.0),
             declared_stddev.unwrap_or(1.0),
@@ -950,6 +1033,9 @@ fn materialize_uncertainty(
         samples.push(declared_mean.unwrap_or(0.0));
     }
     let summary = sample_summary(&samples);
+    let p05 = quantile(&samples, 0.05);
+    let p50 = quantile(&samples, 0.50);
+    let p95 = quantile(&samples, 0.95);
 
     RuntimeUncertainty {
         binding: info.binding.clone(),
@@ -958,17 +1044,24 @@ fn materialize_uncertainty(
         display_unit: info.display_unit.clone(),
         expression: info.expression.clone(),
         source: info.source.clone(),
+        distribution: Some(distribution),
+        method,
         mean: declared_mean.or(summary.mean),
         stddev: declared_stddev.or(summary.stddev),
         lower: declared_lower.or(summary.lower),
         upper: declared_upper.or(summary.upper),
+        p05,
+        p50,
+        p95,
         sample_count: samples.len(),
         propagation_count: info.propagation.len(),
         samples,
         status: if is_propagation {
-            "propagated_seed".to_owned()
+            "propagated_linear".to_owned()
+        } else if info.kind == "Measured" {
+            "measured_sampled".to_owned()
         } else {
-            "sampled_seed".to_owned()
+            "sampled_distribution".to_owned()
         },
         line: info.line,
     }
@@ -977,10 +1070,11 @@ fn materialize_uncertainty(
 fn materialize_ml_artifacts(
     report: &CheckReport,
     series: &[RuntimeTimeSeries],
+    tables: &[RuntimeTable],
 ) -> Vec<RuntimeMlArtifact> {
     let mut artifacts = Vec::new();
     for info in &report.semantic_program.ml_infos {
-        let artifact = materialize_ml_artifact(info, &artifacts, series);
+        let artifact = materialize_ml_artifact(info, &artifacts, series, tables);
         artifacts.push(artifact);
     }
     artifacts
@@ -990,10 +1084,11 @@ fn materialize_ml_artifact(
     info: &eng_compiler::MlInfo,
     prior: &[RuntimeMlArtifact],
     series: &[RuntimeTimeSeries],
+    tables: &[RuntimeTable],
 ) -> RuntimeMlArtifact {
     match info.kind.as_str() {
-        "TrainTestSplit" => materialize_split_artifact(info, series),
-        "RegressionModel" | "MlpModel" => materialize_model_artifact(info, prior, series),
+        "TrainTestSplit" => materialize_split_artifact(info, series, tables),
+        "RegressionModel" | "MlpModel" => materialize_model_artifact(info, prior, series, tables),
         "ModelMetrics" => materialize_metrics_artifact(info, prior),
         "LeakageLint" => materialize_leakage_artifact(info, prior),
         "ModelCard" => materialize_model_card_artifact(info, prior),
@@ -1004,6 +1099,7 @@ fn materialize_ml_artifact(
 fn materialize_split_artifact(
     info: &eng_compiler::MlInfo,
     series: &[RuntimeTimeSeries],
+    tables: &[RuntimeTable],
 ) -> RuntimeMlArtifact {
     let source_series = info
         .source
@@ -1020,7 +1116,8 @@ fn materialize_split_artifact(
     let mut artifact = base_ml_artifact(info, "prepared");
     artifact.train_count = Some(train_count);
     artifact.test_count = Some(test_count);
-    artifact.leakage_status = Some(leakage_status(info));
+    artifact.leakage_findings = leakage_findings(info, source_series, tables);
+    artifact.leakage_status = Some(leakage_status_from_findings(&artifact.leakage_findings));
     artifact.display_unit = source_series
         .map(|series| series.display_unit.clone())
         .unwrap_or_else(|| "1".to_owned());
@@ -1031,6 +1128,7 @@ fn materialize_model_artifact(
     info: &eng_compiler::MlInfo,
     prior: &[RuntimeMlArtifact],
     series: &[RuntimeTimeSeries],
+    tables: &[RuntimeTable],
 ) -> RuntimeMlArtifact {
     let split = info
         .source
@@ -1039,73 +1137,97 @@ fn materialize_model_artifact(
     let source_name = split
         .and_then(|split| split.source.as_deref())
         .or(info.source.as_deref());
-    let source_series =
-        source_name.and_then(|source| series.iter().find(|series| series.name == source));
-    let train_count = split.and_then(|split| split.train_count).unwrap_or(0);
-    let test_count = split.and_then(|split| split.test_count).unwrap_or(0);
-    let actual = source_series
-        .map(|series| test_values(series, train_count, test_count))
-        .unwrap_or_default();
-    let mean = source_series
-        .map(|series| {
-            let values = series
-                .points
-                .iter()
-                .map(|point| point.y)
-                .collect::<Vec<_>>();
-            values.iter().sum::<f64>() / values.len().max(1) as f64
-        })
-        .unwrap_or(0.0);
-    let predicted = model_predictions(&actual, mean, &info.kind);
-    let (rmse, mae, r2) = regression_metrics(&actual, &predicted);
-    let parity_points = actual
-        .iter()
-        .zip(&predicted)
-        .map(|(actual, predicted)| RuntimePoint {
-            x: *actual,
-            y: *predicted,
-        })
-        .collect();
-    let residual_points = actual
-        .iter()
-        .zip(&predicted)
-        .enumerate()
-        .map(|(index, (actual, predicted))| RuntimePoint {
-            x: index as f64,
-            y: actual - predicted,
-        })
-        .collect();
-    let mut artifact = base_ml_artifact(info, "trained_seed");
-    artifact.target = info
+    let target = info
         .target
         .clone()
-        .or_else(|| split.and_then(|split| split.target.clone()));
-    artifact.features = if info.features.is_empty() {
+        .or_else(|| split.and_then(|split| split.target.clone()))
+        .or_else(|| source_name.map(str::to_owned));
+    let features = if info.features.is_empty() {
         split
             .map(|split| split.features.clone())
             .unwrap_or_default()
     } else {
         info.features.clone()
     };
-    artifact.train_count = Some(train_count);
-    artifact.test_count = Some(actual.len());
-    artifact.rmse = Some(rmse);
-    artifact.mae = Some(mae);
-    artifact.r2 = Some(r2);
-    artifact.leakage_status = split.and_then(|split| split.leakage_status.clone());
-    artifact.model_card = Some(model_card_text(
-        info,
-        train_count,
-        actual.len(),
-        rmse,
-        mae,
-        r2,
-    ));
+    let source_series =
+        source_name.and_then(|source| series.iter().find(|series| series.name == source));
+    let mut artifact = base_ml_artifact(info, "unavailable");
+    artifact.target = target.clone();
+    artifact.features = features.clone();
     artifact.display_unit = source_series
         .map(|series| series.display_unit.clone())
         .unwrap_or_else(|| "1".to_owned());
-    artifact.parity_points = parity_points;
-    artifact.residual_points = residual_points;
+    artifact.leakage_status = split.and_then(|split| split.leakage_status.clone());
+    artifact.leakage_findings = split
+        .map(|split| split.leakage_findings.clone())
+        .unwrap_or_default();
+
+    let Some(source_name) = source_name else {
+        artifact.leakage_findings.push("missing_source".to_owned());
+        artifact.leakage_status = Some(leakage_status_from_findings(&artifact.leakage_findings));
+        return artifact;
+    };
+    let dataset = match ml_dataset(source_name, target.as_deref(), &features, series, tables) {
+        Ok(dataset) => dataset,
+        Err(mut findings) => {
+            artifact.leakage_findings.append(&mut findings);
+            artifact.leakage_status =
+                Some(leakage_status_from_findings(&artifact.leakage_findings));
+            return artifact;
+        }
+    };
+    let total_count = dataset.rows.len();
+    let requested_train_count = split
+        .and_then(|split| split.train_count)
+        .unwrap_or_else(|| {
+            let test_fraction = parse_fraction(info.test_fraction.as_deref()).unwrap_or(0.25);
+            let test_count = ((total_count as f64 * test_fraction).round() as usize)
+                .clamp(1, total_count.saturating_sub(1).max(1));
+            total_count.saturating_sub(test_count)
+        });
+    let train_count = requested_train_count
+        .min(total_count.saturating_sub(1))
+        .max((total_count > 1) as usize);
+    let requested_test_count = split
+        .and_then(|split| split.test_count)
+        .unwrap_or_else(|| total_count.saturating_sub(train_count));
+    let test_count = requested_test_count
+        .min(total_count.saturating_sub(train_count))
+        .max((total_count > train_count) as usize);
+    let training = if info.kind == "MlpModel" {
+        train_mlp_model(info, &dataset, train_count, test_count)
+    } else {
+        train_linear_model(info, &dataset, train_count, test_count)
+    };
+    artifact.status = training.status;
+    artifact.train_count = Some(train_count);
+    artifact.test_count = Some(training.actual.len());
+    artifact.rmse = Some(training.rmse);
+    artifact.mae = Some(training.mae);
+    artifact.r2 = Some(training.r2);
+    artifact.coefficients = training.coefficients;
+    artifact.intercept = Some(training.intercept);
+    artifact.loss_history = training.loss_history;
+    artifact.parity_points = training
+        .actual
+        .iter()
+        .zip(&training.predicted)
+        .map(|(actual, predicted)| RuntimePoint {
+            x: *actual,
+            y: *predicted,
+        })
+        .collect();
+    artifact.residual_points = training
+        .actual
+        .iter()
+        .zip(&training.predicted)
+        .enumerate()
+        .map(|(index, (actual, predicted))| RuntimePoint {
+            x: index as f64,
+            y: actual - predicted,
+        })
+        .collect();
+    artifact.model_card = Some(model_card_text(info, &artifact, &dataset));
     artifact
 }
 
@@ -1128,6 +1250,10 @@ fn materialize_metrics_artifact(
         artifact.mae = source.mae;
         artifact.r2 = source.r2;
         artifact.leakage_status = source.leakage_status.clone();
+        artifact.leakage_findings = source.leakage_findings.clone();
+        artifact.coefficients = source.coefficients.clone();
+        artifact.intercept = source.intercept;
+        artifact.loss_history = source.loss_history.clone();
         artifact.model_card = source.model_card.clone();
         artifact.display_unit = source.display_unit.clone();
         artifact.parity_points = source.parity_points.clone();
@@ -1148,8 +1274,11 @@ fn materialize_leakage_artifact(
     artifact.leakage_status = Some(
         source
             .and_then(|source| source.leakage_status.clone())
-            .unwrap_or_else(|| leakage_status(info)),
+            .unwrap_or_else(|| leakage_status_from_findings(&leakage_findings(info, None, &[]))),
     );
+    artifact.leakage_findings = source
+        .map(|source| source.leakage_findings.clone())
+        .unwrap_or_else(|| leakage_findings(info, None, &[]));
     artifact
 }
 
@@ -1176,6 +1305,10 @@ fn materialize_model_card_artifact(
         artifact.mae = source.mae;
         artifact.r2 = source.r2;
         artifact.leakage_status = source.leakage_status.clone();
+        artifact.leakage_findings = source.leakage_findings.clone();
+        artifact.coefficients = source.coefficients.clone();
+        artifact.intercept = source.intercept;
+        artifact.loss_history = source.loss_history.clone();
     }
     artifact
 }
@@ -1199,6 +1332,10 @@ fn base_ml_artifact(info: &eng_compiler::MlInfo, status: &str) -> RuntimeMlArtif
         mae: None,
         r2: None,
         leakage_status: None,
+        leakage_findings: Vec::new(),
+        coefficients: Vec::new(),
+        intercept: None,
+        loss_history: Vec::new(),
         model_card: None,
         expression: info.expression.clone(),
         display_unit: "1".to_owned(),
@@ -2173,6 +2310,25 @@ fn first_numeric_value(text: &str) -> Option<f64> {
     number_with_optional_unit(text).map(|(value, _)| value)
 }
 
+fn named_numeric_value(expression: &str, names: &[&str]) -> Option<f64> {
+    let inside = expression
+        .find('(')
+        .zip(expression.rfind(')'))
+        .and_then(|(open, close)| (close > open).then(|| &expression[open + 1..close]))?;
+    for part in inside.split(',').map(str::trim) {
+        let Some((name, value)) = part.split_once('=') else {
+            continue;
+        };
+        if names
+            .iter()
+            .any(|candidate| name.trim().eq_ignore_ascii_case(candidate))
+        {
+            return first_numeric_value(value);
+        }
+    }
+    None
+}
+
 fn interval_samples(lower: Option<f64>, upper: Option<f64>) -> Vec<f64> {
     match (lower, upper) {
         (Some(lower), Some(upper)) if (upper - lower).abs() > f64::EPSILON => {
@@ -2188,11 +2344,29 @@ fn normal_samples(mean: f64, stddev: f64, count: usize) -> Vec<f64> {
     if count == 1 || stddev == 0.0 {
         return vec![mean; count];
     }
-    let denominator = (count - 1) as f64;
     (0..count)
         .map(|index| {
-            let centered = (index as f64 / denominator) * 2.0 - 1.0;
-            mean + centered * 3.0 * stddev
+            let probability = (index as f64 + 0.5) / count as f64;
+            mean + inverse_standard_normal(probability) * stddev
+        })
+        .collect()
+}
+
+fn uniform_samples(lower: Option<f64>, upper: Option<f64>, count: usize) -> Vec<f64> {
+    let Some(lower) = lower else {
+        return Vec::new();
+    };
+    let Some(upper) = upper else {
+        return Vec::new();
+    };
+    let count = count.clamp(1, 256);
+    if count == 1 || (upper - lower).abs() <= f64::EPSILON {
+        return vec![(lower + upper) * 0.5; count];
+    }
+    (0..count)
+        .map(|index| {
+            let fraction = (index as f64 + 0.5) / count as f64;
+            lower + (upper - lower) * fraction
         })
         .collect()
 }
@@ -2205,6 +2379,72 @@ fn resample_deterministic(values: &[f64], count: usize) -> Vec<f64> {
     (0..count)
         .map(|index| values[index % values.len()])
         .collect()
+}
+
+fn quantile(values: &[f64], probability: f64) -> Option<f64> {
+    if values.is_empty() {
+        return None;
+    }
+    let mut sorted = values.to_vec();
+    sorted.sort_by(f64::total_cmp);
+    if sorted.len() == 1 {
+        return sorted.first().copied();
+    }
+    let position = probability.clamp(0.0, 1.0) * (sorted.len() - 1) as f64;
+    let lower_index = position.floor() as usize;
+    let upper_index = position.ceil() as usize;
+    let lower = sorted[lower_index];
+    let upper = sorted[upper_index];
+    Some(lower + (upper - lower) * (position - lower_index as f64))
+}
+
+fn inverse_standard_normal(probability: f64) -> f64 {
+    let p = probability.clamp(1.0e-12, 1.0 - 1.0e-12);
+    const A: [f64; 6] = [
+        -3.969_683_028_665_376e1,
+        2.209_460_984_245_205e2,
+        -2.759_285_104_469_687e2,
+        1.383_577_518_672_69e2,
+        -3.066_479_806_614_716e1,
+        2.506_628_277_459_239,
+    ];
+    const B: [f64; 5] = [
+        -5.447_609_879_822_406e1,
+        1.615_858_368_580_409e2,
+        -1.556_989_798_598_866e2,
+        6.680_131_188_771_972e1,
+        -1.328_068_155_288_572e1,
+    ];
+    const C: [f64; 6] = [
+        -7.784_894_002_430_293e-3,
+        -3.223_964_580_411_365e-1,
+        -2.400_758_277_161_838,
+        -2.549_732_539_343_734,
+        4.374_664_141_464_968,
+        2.938_163_982_698_783,
+    ];
+    const D: [f64; 4] = [
+        7.784_695_709_041_462e-3,
+        3.224_671_290_700_398e-1,
+        2.445_134_137_142_996,
+        3.754_408_661_907_416,
+    ];
+    let plow = 0.02425;
+    let phigh = 1.0 - plow;
+    if p < plow {
+        let q = (-2.0 * p.ln()).sqrt();
+        return (((((C[0] * q + C[1]) * q + C[2]) * q + C[3]) * q + C[4]) * q + C[5])
+            / ((((D[0] * q + D[1]) * q + D[2]) * q + D[3]) * q + 1.0);
+    }
+    if p <= phigh {
+        let q = p - 0.5;
+        let r = q * q;
+        return (((((A[0] * r + A[1]) * r + A[2]) * r + A[3]) * r + A[4]) * r + A[5]) * q
+            / (((((B[0] * r + B[1]) * r + B[2]) * r + B[3]) * r + B[4]) * r + 1.0);
+    }
+    let q = (-2.0 * (1.0 - p).ln()).sqrt();
+    -(((((C[0] * q + C[1]) * q + C[2]) * q + C[3]) * q + C[4]) * q + C[5])
+        / ((((D[0] * q + D[1]) * q + D[2]) * q + D[3]) * q + 1.0)
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -2295,41 +2535,495 @@ fn parse_fraction(value: Option<&str>) -> Option<f64> {
     }
 }
 
-fn leakage_status(info: &eng_compiler::MlInfo) -> String {
-    let Some(target) = info.target.as_deref() else {
-        return "not_applicable".to_owned();
+fn leakage_findings(
+    info: &eng_compiler::MlInfo,
+    source_series: Option<&RuntimeTimeSeries>,
+    tables: &[RuntimeTable],
+) -> Vec<String> {
+    let mut findings = Vec::new();
+    if let Some(target) = info.target.as_deref() {
+        if info.features.iter().any(|feature| feature == target) {
+            findings.push(format!("target_in_features:{target}"));
+        }
+    } else if info.kind == "TrainTestSplit" {
+        findings.push("missing_target".to_owned());
+    }
+    if info.features.is_empty() && info.kind == "TrainTestSplit" {
+        findings.push("missing_features".to_owned());
+    }
+    let Some(source_series) = source_series else {
+        if info.kind == "TrainTestSplit" {
+            findings.push("missing_source_series".to_owned());
+        }
+        findings.sort();
+        findings.dedup();
+        return findings;
     };
-    if info.features.iter().any(|feature| feature == target) {
-        "failed_target_in_features".to_owned()
+    let Some(table) = tables
+        .iter()
+        .find(|table| table.binding == source_series.source_table)
+    else {
+        findings.push(format!(
+            "missing_source_table:{}",
+            source_series.source_table
+        ));
+        findings.sort();
+        findings.dedup();
+        return findings;
+    };
+    for feature in &info.features {
+        match table.column(feature) {
+            Some(column) if !matches!(&column.values, RuntimeValues::Number(_)) => {
+                findings.push(format!("non_numeric_feature:{feature}"));
+            }
+            Some(column) if column.is_index => {
+                findings.push(format!("index_feature_requires_temporal_review:{feature}"));
+            }
+            Some(_) => {}
+            None => findings.push(format!("missing_feature:{feature}")),
+        }
+    }
+    findings.sort();
+    findings.dedup();
+    findings
+}
+
+fn leakage_status_from_findings(findings: &[String]) -> String {
+    if findings.is_empty() {
+        return "passed".to_owned();
+    }
+    if findings
+        .iter()
+        .any(|finding| finding.starts_with("target_in_features:"))
+    {
+        return "failed_target_in_features".to_owned();
+    }
+    format!("failed_{}_findings", findings.len())
+}
+
+fn ml_dataset(
+    source_name: &str,
+    target_name: Option<&str>,
+    features: &[String],
+    series: &[RuntimeTimeSeries],
+    tables: &[RuntimeTable],
+) -> Result<MlDataset, Vec<String>> {
+    let source_series = series
+        .iter()
+        .find(|series| series.name == source_name)
+        .ok_or_else(|| vec![format!("missing_source_series:{source_name}")])?;
+    let target_name = target_name.unwrap_or(source_name);
+    let target_series = series
+        .iter()
+        .find(|series| series.name == target_name)
+        .unwrap_or(source_series);
+    let table = tables
+        .iter()
+        .find(|table| table.binding == source_series.source_table)
+        .ok_or_else(|| {
+            vec![format!(
+                "missing_source_table:{}",
+                source_series.source_table
+            )]
+        })?;
+    if features.is_empty() {
+        return Err(vec!["missing_features".to_owned()]);
+    }
+    let mut feature_columns = Vec::new();
+    let mut findings = Vec::new();
+    for feature in features {
+        match table.column(feature) {
+            Some(column) if matches!(&column.values, RuntimeValues::Number(_)) => {
+                feature_columns.push(column);
+            }
+            Some(_) => findings.push(format!("non_numeric_feature:{feature}")),
+            None => findings.push(format!("missing_feature:{feature}")),
+        }
+    }
+    if !findings.is_empty() {
+        return Err(findings);
+    }
+    let row_count = table
+        .row_count
+        .min(source_series.points.len())
+        .min(target_series.points.len());
+    let mut rows = Vec::new();
+    for index in 0..row_count {
+        let mut feature_values = Vec::with_capacity(feature_columns.len());
+        let mut complete = true;
+        for column in &feature_columns {
+            match numeric_column_value(column, index) {
+                Some(value) => feature_values.push(value),
+                None => {
+                    complete = false;
+                    break;
+                }
+            }
+        }
+        if complete {
+            rows.push(MlRow {
+                features: feature_values,
+                target: target_series.points[index].y,
+            });
+        }
+    }
+    if rows.len() < 2 {
+        return Err(vec![format!("insufficient_complete_rows:{}", rows.len())]);
+    }
+    Ok(MlDataset {
+        feature_names: features.to_vec(),
+        target_name: target_name.to_owned(),
+        display_unit: target_series.display_unit.clone(),
+        rows,
+    })
+}
+
+fn numeric_column_value(column: &RuntimeColumn, index: usize) -> Option<f64> {
+    column
+        .canonical_values
+        .get(index)
+        .copied()
+        .flatten()
+        .or_else(|| optional_number_at(column, index))
+}
+
+fn train_linear_model(
+    info: &eng_compiler::MlInfo,
+    dataset: &MlDataset,
+    train_count: usize,
+    test_count: usize,
+) -> MlTrainingResult {
+    let (train_rows, test_rows) = split_ml_rows(dataset, train_count, test_count);
+    let feature_count = dataset.feature_names.len();
+    let standardization = standardization(train_rows, feature_count);
+    let mut coefficients = vec![0.0; feature_count];
+    let mut intercept = mean_target(train_rows);
+    let epochs = info.epochs.unwrap_or(320).max(1);
+    let learning_rate = 0.08 / (feature_count.max(1) as f64).sqrt();
+    let checkpoint = (epochs / 5).max(1);
+    let mut loss_history = Vec::new();
+
+    for epoch in 0..epochs {
+        let mut intercept_gradient = 0.0;
+        let mut coefficient_gradients = vec![0.0; feature_count];
+        for row in train_rows {
+            let features = standardized_features(row, &standardization);
+            let predicted = intercept + dot(&coefficients, &features);
+            let error = predicted - row.target;
+            intercept_gradient += error;
+            for index in 0..feature_count {
+                coefficient_gradients[index] += error * features[index];
+            }
+        }
+        let scale = train_rows.len().max(1) as f64;
+        intercept -= learning_rate * intercept_gradient / scale;
+        for index in 0..feature_count {
+            coefficients[index] -= learning_rate * coefficient_gradients[index] / scale;
+        }
+        if epoch == 0 || (epoch + 1) % checkpoint == 0 || epoch + 1 == epochs {
+            loss_history.push(linear_rmse(
+                train_rows,
+                &standardization,
+                &coefficients,
+                intercept,
+            ));
+        }
+    }
+
+    let predicted = test_rows
+        .iter()
+        .map(|row| {
+            let features = standardized_features(row, &standardization);
+            intercept + dot(&coefficients, &features)
+        })
+        .collect::<Vec<_>>();
+    let actual = test_rows.iter().map(|row| row.target).collect::<Vec<_>>();
+    let (rmse, mae, r2) = regression_metrics(&actual, &predicted);
+    let original_intercept = intercept
+        - coefficients
+            .iter()
+            .enumerate()
+            .map(|(index, coefficient)| {
+                coefficient * standardization.means[index] / standardization.scales[index]
+            })
+            .sum::<f64>();
+    let original_coefficients = coefficients
+        .iter()
+        .enumerate()
+        .map(|(index, coefficient)| RuntimeMlCoefficient {
+            feature: dataset.feature_names[index].clone(),
+            value: coefficient / standardization.scales[index],
+        })
+        .collect();
+
+    MlTrainingResult {
+        status: "trained_linear".to_owned(),
+        actual,
+        predicted,
+        coefficients: original_coefficients,
+        intercept: original_intercept,
+        loss_history,
+        rmse,
+        mae,
+        r2,
+    }
+}
+
+fn train_mlp_model(
+    info: &eng_compiler::MlInfo,
+    dataset: &MlDataset,
+    train_count: usize,
+    test_count: usize,
+) -> MlTrainingResult {
+    let (train_rows, test_rows) = split_ml_rows(dataset, train_count, test_count);
+    let feature_count = dataset.feature_names.len();
+    let hidden_count = info
+        .hidden_layers
+        .first()
+        .copied()
+        .unwrap_or(4)
+        .clamp(1, 16);
+    let standardization = standardization(train_rows, feature_count);
+    let (target_mean, target_scale) = target_mean_scale(train_rows);
+    let seed = info
+        .seed
+        .as_deref()
+        .and_then(|seed| seed.parse::<u64>().ok())
+        .unwrap_or(1);
+    let mut hidden_weights = (0..hidden_count)
+        .map(|hidden| {
+            (0..feature_count)
+                .map(|feature| deterministic_weight(seed, hidden, feature))
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    let mut hidden_bias = vec![0.0; hidden_count];
+    let mut output_weights = (0..hidden_count)
+        .map(|hidden| deterministic_weight(seed.wrapping_add(17), hidden, 0))
+        .collect::<Vec<_>>();
+    let mut output_bias = 0.0;
+    let epochs = info.epochs.unwrap_or(240).max(1);
+    let learning_rate = 0.03;
+    let checkpoint = (epochs / 5).max(1);
+    let mut loss_history = Vec::new();
+
+    for epoch in 0..epochs {
+        for row in train_rows {
+            let features = standardized_features(row, &standardization);
+            let hidden = mlp_hidden(&features, &hidden_weights, &hidden_bias);
+            let predicted = output_bias + dot(&output_weights, &hidden);
+            let expected = (row.target - target_mean) / target_scale;
+            let error = predicted - expected;
+            let previous_output_weights = output_weights.clone();
+            output_bias -= learning_rate * error;
+            for hidden_index in 0..hidden_count {
+                output_weights[hidden_index] -= learning_rate * error * hidden[hidden_index];
+            }
+            for hidden_index in 0..hidden_count {
+                let hidden_delta = error
+                    * previous_output_weights[hidden_index]
+                    * (1.0 - hidden[hidden_index] * hidden[hidden_index]);
+                hidden_bias[hidden_index] -= learning_rate * hidden_delta;
+                for feature_index in 0..feature_count {
+                    hidden_weights[hidden_index][feature_index] -=
+                        learning_rate * hidden_delta * features[feature_index];
+                }
+            }
+        }
+        if epoch == 0 || (epoch + 1) % checkpoint == 0 || epoch + 1 == epochs {
+            loss_history.push(mlp_rmse(
+                train_rows,
+                &standardization,
+                &hidden_weights,
+                &hidden_bias,
+                &output_weights,
+                output_bias,
+            ));
+        }
+    }
+
+    let predicted = test_rows
+        .iter()
+        .map(|row| {
+            let features = standardized_features(row, &standardization);
+            let normalized = output_bias
+                + dot(
+                    &output_weights,
+                    &mlp_hidden(&features, &hidden_weights, &hidden_bias),
+                );
+            target_mean + normalized * target_scale
+        })
+        .collect::<Vec<_>>();
+    let actual = test_rows.iter().map(|row| row.target).collect::<Vec<_>>();
+    let (rmse, mae, r2) = regression_metrics(&actual, &predicted);
+    let coefficients = (0..feature_count)
+        .map(|feature_index| RuntimeMlCoefficient {
+            feature: dataset.feature_names[feature_index].clone(),
+            value: output_weights
+                .iter()
+                .enumerate()
+                .map(|(hidden_index, output_weight)| {
+                    hidden_weights[hidden_index][feature_index] * output_weight * target_scale
+                        / standardization.scales[feature_index]
+                })
+                .sum(),
+        })
+        .collect::<Vec<_>>();
+    let intercept = target_mean + output_bias * target_scale;
+
+    MlTrainingResult {
+        status: "trained_mlp".to_owned(),
+        actual,
+        predicted,
+        coefficients,
+        intercept,
+        loss_history,
+        rmse,
+        mae,
+        r2,
+    }
+}
+
+fn split_ml_rows(
+    dataset: &MlDataset,
+    train_count: usize,
+    test_count: usize,
+) -> (&[MlRow], &[MlRow]) {
+    let train_end = train_count.min(dataset.rows.len().saturating_sub(1));
+    let test_end = train_end.saturating_add(test_count).min(dataset.rows.len());
+    let train_rows = &dataset.rows[..train_end.max(1)];
+    let test_rows = if test_end > train_end {
+        &dataset.rows[train_end..test_end]
     } else {
-        "passed".to_owned()
-    }
+        train_rows
+    };
+    (train_rows, test_rows)
 }
 
-fn test_values(series: &RuntimeTimeSeries, train_count: usize, test_count: usize) -> Vec<f64> {
-    let start = train_count.min(series.points.len());
-    let end = start.saturating_add(test_count).min(series.points.len());
-    let slice = &series.points[start..end];
-    if slice.is_empty() {
-        return series.points.iter().map(|point| point.y).collect();
+fn standardization(rows: &[MlRow], feature_count: usize) -> Standardization {
+    let mut means = vec![0.0; feature_count];
+    for row in rows {
+        for (index, value) in row.features.iter().enumerate() {
+            means[index] += value;
+        }
     }
-    slice.iter().map(|point| point.y).collect()
+    let row_count = rows.len().max(1) as f64;
+    for mean in &mut means {
+        *mean /= row_count;
+    }
+    let mut scales = vec![0.0; feature_count];
+    for row in rows {
+        for (index, value) in row.features.iter().enumerate() {
+            let delta = value - means[index];
+            scales[index] += delta * delta;
+        }
+    }
+    for scale in &mut scales {
+        *scale = (*scale / row_count).sqrt();
+        if *scale <= f64::EPSILON {
+            *scale = 1.0;
+        }
+    }
+    Standardization { means, scales }
 }
 
-fn model_predictions(actual: &[f64], mean: f64, kind: &str) -> Vec<f64> {
-    let shrink = if kind == "MlpModel" { 0.96 } else { 0.92 };
-    actual
+fn standardized_features(row: &MlRow, standardization: &Standardization) -> Vec<f64> {
+    row.features
         .iter()
         .enumerate()
         .map(|(index, value)| {
-            let wave = if kind == "MlpModel" {
-                ((index + 1) as f64).sin() * 0.005 * mean.abs()
-            } else {
-                0.0
-            };
-            mean + (*value - mean) * shrink + wave
+            (value - standardization.means[index]) / standardization.scales[index]
         })
         .collect()
+}
+
+fn mean_target(rows: &[MlRow]) -> f64 {
+    rows.iter().map(|row| row.target).sum::<f64>() / rows.len().max(1) as f64
+}
+
+fn target_mean_scale(rows: &[MlRow]) -> (f64, f64) {
+    let mean = mean_target(rows);
+    let variance = rows
+        .iter()
+        .map(|row| {
+            let delta = row.target - mean;
+            delta * delta
+        })
+        .sum::<f64>()
+        / rows.len().max(1) as f64;
+    let scale = variance.sqrt();
+    (mean, if scale <= f64::EPSILON { 1.0 } else { scale })
+}
+
+fn dot(left: &[f64], right: &[f64]) -> f64 {
+    left.iter()
+        .zip(right)
+        .map(|(left, right)| left * right)
+        .sum()
+}
+
+fn linear_rmse(
+    rows: &[MlRow],
+    standardization: &Standardization,
+    coefficients: &[f64],
+    intercept: f64,
+) -> f64 {
+    let actual = rows.iter().map(|row| row.target).collect::<Vec<_>>();
+    let predicted = rows
+        .iter()
+        .map(|row| intercept + dot(coefficients, &standardized_features(row, standardization)))
+        .collect::<Vec<_>>();
+    regression_metrics(&actual, &predicted).0
+}
+
+fn mlp_hidden(features: &[f64], weights: &[Vec<f64>], bias: &[f64]) -> Vec<f64> {
+    weights
+        .iter()
+        .enumerate()
+        .map(|(index, row)| (bias[index] + dot(row, features)).tanh())
+        .collect()
+}
+
+fn mlp_rmse(
+    rows: &[MlRow],
+    standardization: &Standardization,
+    hidden_weights: &[Vec<f64>],
+    hidden_bias: &[f64],
+    output_weights: &[f64],
+    output_bias: f64,
+) -> f64 {
+    if rows.is_empty() {
+        return 0.0;
+    }
+    let actual = rows
+        .iter()
+        .map(|row| {
+            let (mean, scale) = target_mean_scale(rows);
+            (row.target - mean) / scale
+        })
+        .collect::<Vec<_>>();
+    let predicted = rows
+        .iter()
+        .map(|row| {
+            let features = standardized_features(row, standardization);
+            output_bias
+                + dot(
+                    output_weights,
+                    &mlp_hidden(&features, hidden_weights, hidden_bias),
+                )
+        })
+        .collect::<Vec<_>>();
+    regression_metrics(&actual, &predicted).0
+}
+
+fn deterministic_weight(seed: u64, row: usize, column: usize) -> f64 {
+    let mut value = seed
+        .wrapping_add((row as u64 + 1).wrapping_mul(1_103_515_245))
+        .wrapping_add((column as u64 + 1).wrapping_mul(12_345));
+    value ^= value >> 13;
+    value = value.wrapping_mul(0xff51afd7ed558ccd);
+    let unit = (value % 10_000) as f64 / 10_000.0;
+    (unit - 0.5) * 0.4
 }
 
 fn regression_metrics(actual: &[f64], predicted: &[f64]) -> (f64, f64, f64) {
@@ -2362,21 +3056,44 @@ fn regression_metrics(actual: &[f64], predicted: &[f64]) -> (f64, f64, f64) {
 
 fn model_card_text(
     info: &eng_compiler::MlInfo,
-    train_count: usize,
-    test_count: usize,
-    rmse: f64,
-    mae: f64,
-    r2: f64,
+    artifact: &RuntimeMlArtifact,
+    dataset: &MlDataset,
 ) -> String {
+    let coefficient_summary = artifact
+        .coefficients
+        .iter()
+        .take(4)
+        .map(|coefficient| {
+            format!(
+                "{}={}",
+                coefficient.feature,
+                format_number(coefficient.value)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    let loss_summary = match (artifact.loss_history.first(), artifact.loss_history.last()) {
+        (Some(first), Some(last)) => {
+            format!("loss {} -> {}", format_number(*first), format_number(*last))
+        }
+        _ => "loss unavailable".to_owned(),
+    };
     format!(
-        "{} {} seed: train={}, test={}, rmse={}, mae={}, r2={}",
+        "{} {}: target={}, features=[{}], rows={}, train={}, test={}, rmse={} {}, mae={} {}, r2={}, {}, coefficients=[{}]",
         info.binding,
         info.algorithm.as_deref().unwrap_or(info.kind.as_str()),
-        train_count,
-        test_count,
-        format_number(rmse),
-        format_number(mae),
-        format_number(r2)
+        dataset.target_name,
+        dataset.feature_names.join(", "),
+        dataset.rows.len(),
+        artifact.train_count.unwrap_or(0),
+        artifact.test_count.unwrap_or(0),
+        format_number(artifact.rmse.unwrap_or(0.0)),
+        dataset.display_unit,
+        format_number(artifact.mae.unwrap_or(0.0)),
+        dataset.display_unit,
+        format_number(artifact.r2.unwrap_or(0.0)),
+        loss_summary,
+        coefficient_summary
     )
 }
 
@@ -2618,7 +3335,7 @@ script main(args: Args) -> Report {
         let source = r#"
 script main(args: Args) -> Report {
     Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)
-    Q_unc = propagate(Q_coil_dist, method=linear)
+    Q_unc = propagate(Q_coil_dist, method=linear, scale=1.1, offset=0.2 kW)
 
     return report {
         plot distribution(Q_coil_dist) {
@@ -2634,7 +3351,14 @@ script main(args: Args) -> Report {
 
         assert_eq!(runtime.uncertainties.len(), 2);
         assert_eq!(runtime.uncertainties[0].sample_count, 31);
-        assert_eq!(runtime.uncertainties[1].status, "propagated_seed");
+        assert_eq!(
+            runtime.uncertainties[0].distribution.as_deref(),
+            Some("normal")
+        );
+        assert_eq!(runtime.uncertainties[1].status, "propagated_linear");
+        assert_eq!(runtime.uncertainties[1].method.as_deref(), Some("linear"));
+        assert!(runtime.uncertainties[0].p05.is_some());
+        assert!(runtime.uncertainties[1].mean.unwrap() > runtime.uncertainties[0].mean.unwrap());
         assert_eq!(round2(runtime.uncertainties[0].mean.unwrap()), 5.0);
         assert_eq!(plot_spec.plot_type, "histogram");
         assert_eq!(plot_spec.title, "Coil uncertainty");
@@ -2721,14 +3445,31 @@ script main(args: Args) -> Report {
         let mut plot_spec = eng_report::plot_spec_from_report(&report);
         runtime.apply_plot_spec(&report, &mut plot_spec);
 
-        assert!(runtime
+        let regression = runtime
             .ml_artifacts
             .iter()
-            .any(|artifact| artifact.kind == "RegressionModel" && artifact.rmse.unwrap() > 0.0));
-        assert!(runtime
+            .find(|artifact| artifact.kind == "RegressionModel")
+            .unwrap();
+        let mlp = runtime
             .ml_artifacts
             .iter()
-            .any(|artifact| artifact.kind == "MlpModel" && artifact.r2.unwrap() > 0.0));
+            .find(|artifact| artifact.kind == "MlpModel")
+            .unwrap();
+        assert_eq!(regression.status, "trained_linear");
+        assert_eq!(mlp.status, "trained_mlp");
+        assert_eq!(regression.coefficients.len(), 3);
+        assert_eq!(mlp.coefficients.len(), 3);
+        assert!(regression.intercept.is_some());
+        assert!(mlp.intercept.is_some());
+        assert!(regression.loss_history.len() >= 2);
+        assert!(mlp.loss_history.len() >= 2);
+        assert!(regression.rmse.unwrap() > 0.0);
+        assert!(mlp.rmse.unwrap() > 0.0);
+        assert!(regression
+            .model_card
+            .as_deref()
+            .unwrap()
+            .contains("coefficients=["));
         assert!(runtime
             .ml_artifacts
             .iter()

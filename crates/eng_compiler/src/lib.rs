@@ -878,6 +878,13 @@ pub fn review_json(report: &CheckReport) -> String {
             json_escape(&uncertainty.expression)
         ));
         push_optional_json_string(&mut json, "source", uncertainty.source.as_deref(), 6);
+        push_optional_json_string(
+            &mut json,
+            "distribution",
+            uncertainty.distribution.as_deref(),
+            6,
+        );
+        push_optional_json_string(&mut json, "method", uncertainty.method.as_deref(), 6);
         push_optional_json_string(&mut json, "mean", uncertainty.mean.as_deref(), 6);
         push_optional_json_string(&mut json, "stddev", uncertainty.stddev.as_deref(), 6);
         push_optional_json_string(&mut json, "lower", uncertainty.lower.as_deref(), 6);
@@ -1605,12 +1612,12 @@ mod tests {
     fn records_uncertainty_core_metadata() {
         let report = check_source(
             "ok.eng",
-            "script main(args: Args) -> Report {\n    T_supply_meas = measured(12 degC, std=0.2 K)\n    T_return_band = interval(20 degC, 24 degC)\n    Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)\n    Q_coil_ensemble = ensemble(Q_coil_dist, samples=31)\n    Q_total_unc = propagate(Q_coil_dist, method=linear)\n}\n",
+            "script main(args: Args) -> Report {\n    T_supply_meas = measured(12 degC, std=0.2 K)\n    T_return_band = interval(20 degC, 24 degC)\n    Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)\n    Q_uniform = uniform(4 kW, 6 kW, samples=11)\n    Q_coil_ensemble = ensemble(Q_coil_dist, samples=31)\n    Q_total_unc = propagate(Q_coil_dist, method=linear)\n}\n",
             &CheckOptions::default(),
         );
 
         assert!(!report.has_errors());
-        assert_eq!(report.semantic_program.uncertainty_infos.len(), 5);
+        assert_eq!(report.semantic_program.uncertainty_infos.len(), 6);
         assert_eq!(
             report.semantic_program.uncertainty_infos[0].kind,
             "Measured"
@@ -1620,18 +1627,31 @@ mod tests {
             31
         );
         assert_eq!(
-            report.semantic_program.uncertainty_infos[4]
+            report.semantic_program.uncertainty_infos[3]
+                .distribution
+                .as_deref(),
+            Some("uniform")
+        );
+        assert_eq!(
+            report.semantic_program.uncertainty_infos[5]
                 .source
                 .as_deref(),
             Some("Q_coil_dist")
         );
         assert_eq!(
-            report.semantic_program.uncertainty_infos[4].display_unit,
+            report.semantic_program.uncertainty_infos[5].display_unit,
             "W"
+        );
+        assert_eq!(
+            report.semantic_program.uncertainty_infos[5]
+                .method
+                .as_deref(),
+            Some("linear")
         );
 
         let review = review_json(&report);
         assert!(review.contains("\"uncertainty_info\""));
+        assert!(review.contains("\"distribution\": \"uniform\""));
         assert!(review.contains("\"Measured[AbsoluteTemperature]\""));
         assert!(review.contains("\"Distribution[HeatRate]\""));
     }

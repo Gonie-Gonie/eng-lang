@@ -10,7 +10,7 @@ Use fast bindings after a data-derived `TimeSeries` such as `Q_coil`:
 ```eng
 split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)
 reg_model = regression(split, algorithm=linear)
-mlp_model = mlp(split, hidden=[4], epochs=20, seed=7)
+mlp_model = mlp(split, hidden=[4], epochs=80, seed=7)
 reg_eval = evaluate(reg_model, split=split)
 mlp_eval = evaluate(mlp_model, split=split)
 reg_card = model_card(reg_model)
@@ -34,9 +34,25 @@ The portable stdlib documents this preview surface at:
 stdlib/eng/ml.eng
 ```
 
-## Metrics
+## Runtime Semantics
 
-Runtime artifacts include deterministic seed metrics:
+The v1.2 runtime now builds a real feature matrix from the promoted CSV table
+behind the source `TimeSeries`.
+
+- `train_test_split(...)` resolves the source series, source table, target, and
+  feature columns, then records deterministic train/test counts.
+- `leakage_lint(...)` records concrete findings such as target-in-features,
+  missing feature columns, non-numeric features, or index features that require
+  temporal review.
+- `regression(split, algorithm=linear)` trains a deterministic standardized
+  linear model and exports original-unit coefficients and intercept.
+- `mlp(split, hidden=[n], epochs=m, seed=s)` trains a small deterministic
+  one-hidden-layer tanh MLP from the same feature matrix.
+- `evaluate(model, split=split)` carries forward metrics, parity points,
+  residual points, coefficients, and loss history.
+- `model_card(model)` carries forward the model review summary.
+
+Runtime artifacts include:
 
 ```text
 RMSE
@@ -45,13 +61,18 @@ R2
 train_count
 test_count
 leakage_status
+leakage_findings
+coefficients
+intercept
+loss_history
 model_card
 ```
 
-The metric values are computed from the promoted CSV path through the
-`TimeSeries` test slice. The regression and MLP implementations are preview
-seeds, so use them to test artifact flow and model review UX rather than to make
-engineering decisions.
+Metric values are computed from the promoted CSV path through the `TimeSeries`
+test slice. This preview is deterministic and useful for artifact review,
+plotting, IDE inspection, and leakage-test workflows. It is not yet a
+production ML framework with cross-validation, hyperparameter search, or model
+persistence.
 
 ## Plots
 
@@ -96,6 +117,10 @@ typed_payload.ml
   test_count
   rmse / mae / r2
   leakage_status
+  leakage_findings
+  coefficients
+  intercept
+  loss_history
   model_card
   parity_points
   residual_points

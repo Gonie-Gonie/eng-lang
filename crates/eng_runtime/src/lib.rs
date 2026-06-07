@@ -911,10 +911,25 @@ fn result_json(
         } else {
             uncertainties.push_str("        \"source\": null,\n");
         }
+        push_optional_json_string(
+            &mut uncertainties,
+            "distribution",
+            uncertainty.distribution.as_deref(),
+            8,
+        );
+        push_optional_json_string(
+            &mut uncertainties,
+            "method",
+            uncertainty.method.as_deref(),
+            8,
+        );
         push_optional_json_number(&mut uncertainties, "mean", uncertainty.mean, 8);
         push_optional_json_number(&mut uncertainties, "stddev", uncertainty.stddev, 8);
         push_optional_json_number(&mut uncertainties, "lower", uncertainty.lower, 8);
         push_optional_json_number(&mut uncertainties, "upper", uncertainty.upper, 8);
+        push_optional_json_number(&mut uncertainties, "p05", uncertainty.p05, 8);
+        push_optional_json_number(&mut uncertainties, "p50", uncertainty.p50, 8);
+        push_optional_json_number(&mut uncertainties, "p95", uncertainty.p95, 8);
         uncertainties.push_str(&format!(
             "        \"sample_count\": {},\n",
             uncertainty.sample_count
@@ -990,6 +1005,30 @@ fn result_json(
             artifact.leakage_status.as_deref(),
             8,
         );
+        ml.push_str("        \"leakage_findings\": [");
+        push_json_string_array(&mut ml, &artifact.leakage_findings);
+        ml.push_str("],\n");
+        ml.push_str("        \"coefficients\": [");
+        for (coefficient_index, coefficient) in artifact.coefficients.iter().enumerate() {
+            if coefficient_index > 0 {
+                ml.push_str(", ");
+            }
+            ml.push_str(&format!(
+                "{{\"feature\":\"{}\",\"value\":{}}}",
+                json_escape(&coefficient.feature),
+                coefficient.value
+            ));
+        }
+        ml.push_str("],\n");
+        push_optional_json_number(&mut ml, "intercept", artifact.intercept, 8);
+        ml.push_str("        \"loss_history\": [");
+        for (loss_index, loss) in artifact.loss_history.iter().enumerate() {
+            if loss_index > 0 {
+                ml.push_str(", ");
+            }
+            ml.push_str(&loss.to_string());
+        }
+        ml.push_str("],\n");
         push_optional_json_string(&mut ml, "model_card", artifact.model_card.as_deref(), 8);
         ml.push_str("        \"parity_points\": [");
         push_runtime_points(&mut ml, &artifact.parity_points);
