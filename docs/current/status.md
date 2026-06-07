@@ -99,7 +99,7 @@ not part of the supported release contract.
   deterministic ensembles, source and argument diagnostics, scale/offset
   propagation metadata, propagation source terms, deterministic samples, and
   distribution histogram bins.
-- `v1.2` data-driven modeling: regression, basic MLP/ANN seed, train/test
+- `v1.2` data-driven modeling: regression, basic MLP/ANN path, train/test
   metadata, source and argument validation diagnostics, RMSE/MAE/R2, model
   cards, leakage lint, and parity/residual plots.
 - `v1.3` LSP/editor service: experimental `eng-lsp.exe` smoke, packaged
@@ -110,7 +110,7 @@ not part of the supported release contract.
   `eng.exe jit-bench`, backend selection metadata, and native IDE Runtime
   Summary display for `eng-kernel-plan-v1` hot-kernel metadata covering
   TimeSeries arithmetic, integration, statistics fusion, and system residual
-  interface seeds, including coarse row/source/operation/scan estimates.
+  interface metadata, including coarse row/source/operation/scan estimates.
   `eng-jit-bench-v1` records interpreter baseline timings while `jit.status`
   remains `not_available`. It does not provide native code generation or
   runtime acceleration yet.
@@ -133,8 +133,8 @@ not part of the supported release contract.
 - Arbitrary TimeSeries expressions are limited beyond the official typed CSV
   path.
 - General quantity rules for all statistics are not complete.
-- Plot semantics beyond current PlotSpec seeds need multi-series and true
-  histogram binning hardening.
+- Plot semantics beyond current PlotSpec paths need multi-series, custom
+  histogram bin counts, and grouped/stacked bar hardening.
 - Multi-state, nonlinear, adaptive, or general equation-system solving is
   deferred.
 - Numeric component graph solving and domain package registries are deferred.

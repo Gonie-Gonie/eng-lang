@@ -56,8 +56,6 @@ The current v1.1 scope is intentionally narrow and deterministic:
 - [ ] Keep full Monte Carlo engines, covariance matrices, Jacobian propagation,
   correlated variables, posterior inference, and optimization workflows
   explicitly deferred.
-- [ ] Keep general histogram expressions outside `plot distribution(...)`
-  deferred until the PlotSpec/report contract is expanded intentionally.
 - [ ] Keep runtime unit conversion inside uncertainty samples narrow; the
   compiler records display units, but v1.1 does not claim a full uncertainty
   unit algebra.

@@ -1,6 +1,6 @@
 # Data-driven Modeling
 
-v1.2 adds the first `eng.ml` preview surface. It is a deterministic seed for
+v1.2 adds the first `eng.ml` preview surface. It is a deterministic path for
 user testing and artifact review, not a full production ML framework yet.
 
 ## Supported Forms

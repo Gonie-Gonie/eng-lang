@@ -213,7 +213,7 @@ native IDE Runtime Summary.
 
 ## Data-driven Modeling Metadata
 
-v1.2 adds data-driven modeling seed metadata for:
+v1.2 adds data-driven modeling metadata for:
 
 ```text
 train_test_split(...)

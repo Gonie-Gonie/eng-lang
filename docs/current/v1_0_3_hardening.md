@@ -24,7 +24,7 @@ work becomes the main priority.
 | Native IDE scrolling | Implemented on main | Code and Result panes scroll independently; horizontal code scroll only for long lines |
 | Native IDE completion | Implemented on main | Current-file variables, identifiers, keywords, quantities, units, snippets, and Tab accept |
 | Native IDE auto-pairs | Implemented on main | Parentheses, brackets, braces, single quotes, and double quotes |
-| Native IDE plot preview | Implemented on main | Grid, ticks, zero baseline, line/scatter/bar/histogram rendering seeds |
+| Native IDE plot preview | Implemented on main | Grid, ticks, zero baseline, line/scatter/bar/histogram rendering paths |
 | Native IDE runtime summary | Implemented on main | Uncertainty and ML artifact summaries from `result.engres` |
 | Curated PDF user docs | Implemented on main | Package ships curated PDF instead of developer markdown tree |
 | Portable Python docs tooling | Implemented on main | Repo-local optional documentation toolchain only |

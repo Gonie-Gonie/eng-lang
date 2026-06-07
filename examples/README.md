@@ -27,7 +27,7 @@ official/04_uncertainty_core
   artifacts. It is tested on main but not release-supported yet.
 
 official/05_data_driven_modeling
-  Experimental v1.2 seed for split/model/evaluation source diagnostics,
+  Experimental v1.2 path for split/model/evaluation source diagnostics,
   argument diagnostics, deterministic metrics, leakage lint, model cards, and
   parity/residual plots. It is tested on main but not release-supported yet.
 

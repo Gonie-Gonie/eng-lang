@@ -166,18 +166,18 @@ v1.1
   Experimental on main until v1.1 is explicitly targeted and released.
 
 v1.2
-  Data-driven modeling seed: eng.ml preview surface, train/test split,
+  Data-driven modeling path: eng.ml preview surface, train/test split,
   regression/basic MLP, source and argument diagnostics, RMSE/MAE/R2, leakage
   lint, model card, and parity/residual plot smoke paths.
   Experimental on main until v1.2 is explicitly targeted and released.
 
 v1.3
-  LSP/editor service seed: eng-lsp.exe smoke, LSP snapshot JSON, line
+  LSP/editor service path: eng-lsp.exe smoke, LSP snapshot JSON, line
   diagnostics, basic completion, hover metadata, and minimal stdio JSON-RPC.
   Experimental on main until v1.3 is explicitly targeted and released.
 
 v1.4
-  JIT-start seed: eng_jit crate, eng-kernel-plan-v1 JSON, eng-jit-bench-v1
+  JIT-start path: eng_jit crate, eng-kernel-plan-v1 JSON, eng-jit-bench-v1
   interpreter baseline JSON, backend selection metadata, native IDE kernel plan
   display, hot-kernel detection for TimeSeries arithmetic/statistics/
   integration, coarse size/cost estimates, and interpreter-fallback lowering
