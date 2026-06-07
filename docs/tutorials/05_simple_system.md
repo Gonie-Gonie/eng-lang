@@ -2,8 +2,10 @@
 
 v0.8-alpha introduces a minimal physical `system` surface. It validates equation
 dimensions, writes residual metadata, records a small system IR, and makes the
-solver boundary explicit. The v1.0 hardening path also records metadata-only
-solve_order and Jacobian seed columns. It does not run a full ODE solver yet.
+solver boundary explicit. The v1.0 hardening path also records solve_order and
+Jacobian seed columns, then runs a fixed-step ODE preview for the official
+one-state thermal system in `eng run` artifacts. It does not run a full
+multi-state or nonlinear ODE solver yet.
 
 ## Example
 
@@ -22,8 +24,8 @@ system RoomThermal {
 
     state T: AbsoluteTemperature = 24 degC
 
-    input T_out: AbsoluteTemperature
-    input Q_internal: HeatRate
+    input T_out: AbsoluteTemperature = 10 degC
+    input Q_internal: HeatRate = 500 W
 
     equation {
         C * der(T) eq UA * (T_out - T) + Q_internal
@@ -135,8 +137,17 @@ derivative_states = T
 solver_boundary.status = unsolved
 ```
 
-This is a report/review/runtime artifact representation only. Numeric solving
-is deferred.
+`review.json` keeps this compiler-only unsolved boundary. During `eng run`,
+`report_spec.json` and `result.engres` mark the official one-state thermal ODE
+as computed and record:
+
+```text
+solver_plan.method = explicit_euler_fixed_step
+solver_result.state = T
+solver_result.step_count = 12
+solver_result.time_step = 300 s
+solver_result.final_value = 16.773071865745123 degC
+```
 
 ## Error: Use `eq`, Not `==`
 
@@ -181,13 +192,11 @@ E-EQ-UNIT-001
 
 ## Current Limits
 
-Deferred beyond v0.8:
+Deferred beyond the current hardening path:
 
 ```text
-- solve order
-- solver runtime
-- time stepping
 - Jacobian generation
 - connection/component graph
 - multi-equation system solving
+- adaptive or implicit ODE solving
 ```

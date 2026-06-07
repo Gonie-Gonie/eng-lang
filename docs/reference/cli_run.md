@@ -87,8 +87,9 @@ with `source = default` or `source = cli`.
 target\debug\eng.exe run examples\official\02_simple_system\main.eng --entry main
 ```
 
-This writes system/equation/residual metadata, system IR, metadata-only
-solver_plan, and the explicit unsolved solver boundary into:
+This writes system/equation/residual metadata, system IR, solver_plan metadata,
+and the runtime fixed-step ODE preview for the official simple thermal system
+into:
 
 ```text
 build\result\review.json

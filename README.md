@@ -90,7 +90,8 @@ v0.8-alpha
   Minimal system/equation support: system block, parameter/state/input,
   equation block, infix eq relation, der(), unit consistency diagnostics,
   residual metadata, report/review system summaries, system IR dependencies,
-  and an explicit unsolved solver boundary.
+  solver boundary metadata, and a fixed-step ODE preview for the official
+  simple thermal system.
 
 v0.9-alpha
   Portable demo hardening: Windows zip package, SHA256 checksum,

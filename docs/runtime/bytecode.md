@@ -1,6 +1,6 @@
 # Bytecode VM and Result v1
 
-v0.4-preview established the first executable EngLang runtime path. v0.5-preview adds TimeSeries/statistics metadata to that path. v0.6-preview adds PlotSpec/SVG/manifest output. v0.8-alpha adds system metadata, residuals, system IR dependencies, metadata-only solver_plan seeds, and an explicit unsolved solver boundary:
+v0.4-preview established the first executable EngLang runtime path. v0.5-preview adds TimeSeries/statistics metadata to that path. v0.6-preview adds PlotSpec/SVG/manifest output. v0.8-alpha adds system metadata, residuals, system IR dependencies, metadata-only solver_plan seeds, and an explicit solver boundary. The v1.0 hardening path adds a fixed-step ODE preview for the official one-state thermal system:
 
 ```text
 .eng source
@@ -179,6 +179,7 @@ row-level table values
 general table expression execution
 general TimeSeries expression pages
 numeric solver execution
+adaptive or multi-equation solver execution
 binary bytecode encoding
 stable result schema validation
 ```

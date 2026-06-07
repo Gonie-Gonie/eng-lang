@@ -4,8 +4,8 @@ system RoomThermal {
 
     state T: AbsoluteTemperature = 24 degC
 
-    input T_out: AbsoluteTemperature
-    input Q_internal: HeatRate
+    input T_out: AbsoluteTemperature = 10 degC
+    input Q_internal: HeatRate = 500 W
 
     equation {
         C * der(T) eq UA * (T_out - T) + Q_internal

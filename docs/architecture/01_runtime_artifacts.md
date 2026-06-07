@@ -155,8 +155,8 @@ Current v1.0 fields:
     "solver_boundaries": [
       {
         "system": "RoomThermal",
-        "status": "unsolved",
-        "reason": "numeric solver deferred until the solver milestone"
+        "status": "computed",
+        "reason": "recognized first-order thermal ODE and executed fixed-step preview"
       }
     ],
     "system_ir": [
@@ -295,6 +295,12 @@ equation relation and normalized residual
 parameter/state/input dependencies per residual
 derivative state mentions
 ```
+
+`review.json` remains compiler-only and records the unsolved metadata boundary.
+During `eng run`, `report_spec.json` and `result.engres` can upgrade the same
+system to `computed` for the official one-state thermal ODE. The result payload
+then records `solver_result` with method `explicit_euler_fixed_step`, state
+trajectory points, step count, time step, and final state value.
 
 ## `report.html`
 

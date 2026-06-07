@@ -164,10 +164,12 @@ The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
 [x] residual metadata appears in report_spec.json and result.engres
 [x] system_ir appears in review.json and report_spec.json
 [x] typed_payload.system_ir appears in result.engres
-[x] solver boundary status is explicit and unsolved in review/report/result artifacts
+[x] review solver boundary remains explicit and unsolved for compiler-only checks
+[x] report/result solver boundary is computed for the official one-state thermal ODE
 [x] solver_plan metadata appears in review/report/result system_ir
 [x] source-order solve_order and symbolic Jacobian seed are recorded
-[x] ODE runner status is explicit and deferred
+[x] ODE runner status is computed for the official simple system run
+[x] result.engres records solver_result step count and final state value
 [x] residual dependencies record parameter/state/input roles
 [x] derivative state mentions are recorded
 [x] report.html includes System Equations

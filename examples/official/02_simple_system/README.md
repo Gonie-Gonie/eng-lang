@@ -8,6 +8,7 @@ This is the primary v1.0 physical-system example. It covers:
 - equation block with `eq`
 - derivative dimension metadata through `der(T)`
 - residual metadata in review/report/result artifacts
+- fixed-step ODE preview in report_spec/result artifacts
 ```
 
 Run from the repository root:

@@ -9,8 +9,8 @@ copy first when starting from a stable EngLang preview.
   integrate metadata, PlotSpec, SVG, report, and standalone packaging smoke.
 
 02_simple_system
-  Minimal physical system/equation surface with residual metadata and report
-  review output.
+  Minimal physical system/equation surface with residual metadata, solver-plan
+  metadata, and fixed-step ODE preview output.
 ```
 
 Legacy numbered examples remain for compatibility and focused regression tests.

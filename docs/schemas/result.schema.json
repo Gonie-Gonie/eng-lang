@@ -100,7 +100,7 @@
       ],
       "properties": {
         "system": { "type": "string" },
-        "status": { "const": "unsolved" },
+        "status": { "enum": ["unsolved", "computed"] },
         "reason": { "type": "string" },
         "parameter_count": { "type": "integer", "minimum": 0 },
         "state_count": { "type": "integer", "minimum": 0 },
@@ -127,7 +127,7 @@
       "type": "object",
       "required": ["status", "method", "solve_order", "ode_runner", "jacobian_seed"],
       "properties": {
-        "status": { "const": "metadata_only" },
+        "status": { "enum": ["metadata_only", "computed"] },
         "method": { "type": "string" },
         "solve_order": {
           "type": "array",
@@ -144,7 +144,7 @@
       "type": "object",
       "required": ["status", "reason"],
       "properties": {
-        "status": { "const": "deferred" },
+        "status": { "enum": ["deferred", "computed"] },
         "reason": { "type": "string" }
       }
     },

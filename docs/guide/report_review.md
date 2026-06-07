@@ -153,6 +153,11 @@ system_ir
   equations: relation, normalized residual, dependency list, derivative states
 ```
 
+For `eng run`, `report_spec.json` and `result.engres` can upgrade that runtime
+boundary to `computed` when the official one-state thermal ODE pattern is
+recognized. `result.engres` then includes `typed_payload.systems[].solver_result`
+with the fixed-step trajectory and final state value.
+
 `result.engres` mirrors this data under:
 
 ```text
@@ -211,5 +216,5 @@ Deferred beyond the current v1.0 artifact contract:
 - interactive report viewer
 - rendered review cards
 - stable binary report package
-- numeric system solver and executable ODE runner
+- adaptive or multi-equation numeric system solver
 ```

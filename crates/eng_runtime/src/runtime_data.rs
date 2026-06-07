@@ -7,7 +7,7 @@ use eng_compiler::{
 use eng_report::{
     PlotAxis, PlotPoint, PlotSeries, PlotSpec, ReportComputedIntegration,
     ReportComputedStatisticValue, ReportComputedStatistics, ReportPolicyResult,
-    ReportPolicyViolation,
+    ReportPolicyViolation, ReportSpec,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -17,6 +17,7 @@ pub struct RuntimeData {
     pub statistics: Vec<RuntimeStatistics>,
     pub integrations: Vec<RuntimeIntegration>,
     pub policy_results: Vec<RuntimePolicyResult>,
+    pub system_solutions: Vec<RuntimeSystemSolution>,
     pub plot_options: PlotOptions,
 }
 
@@ -145,6 +146,24 @@ impl RuntimeData {
             })
             .collect()
     }
+
+    pub fn apply_system_solutions(&self, spec: &mut ReportSpec) {
+        for solution in &self.system_solutions {
+            let Some(system_ir) = spec
+                .system_ir
+                .iter_mut()
+                .find(|system| system.name == solution.system)
+            else {
+                continue;
+            };
+            system_ir.solver_boundary.status = solution.status.clone();
+            system_ir.solver_boundary.reason = solution.reason.clone();
+            system_ir.solver_plan.status = solution.status.clone();
+            system_ir.solver_plan.method = solution.method.clone();
+            system_ir.solver_plan.ode_runner.status = solution.status.clone();
+            system_ir.solver_plan.ode_runner.reason = solution.reason.clone();
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -254,6 +273,27 @@ pub struct RuntimeIntegration {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeSystemSolution {
+    pub system: String,
+    pub status: String,
+    pub method: String,
+    pub reason: String,
+    pub state: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub time_unit: String,
+    pub duration_s: f64,
+    pub time_step_s: f64,
+    pub step_count: usize,
+    pub initial_value: f64,
+    pub final_value: f64,
+    pub canonical_initial_value: f64,
+    pub canonical_final_value: f64,
+    pub points: Vec<RuntimePoint>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct RuntimePolicyResult {
     pub schema: String,
     pub binding: String,
@@ -307,6 +347,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.time_series = materialize_time_series(report, &data.tables);
     data.statistics = materialize_statistics(report, &data.time_series);
     data.integrations = materialize_integrations(report, &data.time_series);
+    data.system_solutions = materialize_system_solutions(report);
     data
 }
 
@@ -627,6 +668,119 @@ fn materialize_integrations(
             }
         })
         .collect()
+}
+
+fn materialize_system_solutions(report: &CheckReport) -> Vec<RuntimeSystemSolution> {
+    report
+        .semantic_program
+        .systems
+        .iter()
+        .filter_map(materialize_first_order_thermal_solution)
+        .collect()
+}
+
+fn materialize_first_order_thermal_solution(
+    system: &eng_compiler::SystemInfo,
+) -> Option<RuntimeSystemSolution> {
+    let equation = system.equations.first()?;
+    let state = system.variables.iter().find(|variable| {
+        variable.role == "state" && variable.quantity_kind == "AbsoluteTemperature"
+    })?;
+    let heat_capacity = system.variables.iter().find(|variable| {
+        variable.role == "parameter" && variable.quantity_kind == "HeatCapacity"
+    })?;
+    let conductance = system
+        .variables
+        .iter()
+        .find(|variable| variable.role == "parameter" && variable.quantity_kind == "Conductance")?;
+    let outdoor_temperature = system.variables.iter().find(|variable| {
+        variable.role == "input" && variable.quantity_kind == "AbsoluteTemperature"
+    })?;
+    let internal_heat = system
+        .variables
+        .iter()
+        .find(|variable| variable.role == "input" && variable.quantity_kind == "HeatRate")?;
+
+    if !equation.left.contains(&heat_capacity.name)
+        || !equation.left.contains(&format!("der({})", state.name))
+        || !equation.right.contains(&conductance.name)
+        || !equation.right.contains(&outdoor_temperature.name)
+        || !equation.right.contains(&state.name)
+        || !equation.right.contains(&internal_heat.name)
+    {
+        return None;
+    }
+
+    let heat_capacity_j_per_k = canonical_variable_value(heat_capacity)?;
+    let conductance_w_per_k = canonical_variable_value(conductance)?;
+    let outdoor_temperature_k = canonical_variable_value(outdoor_temperature)?;
+    let internal_heat_w = canonical_variable_value(internal_heat)?;
+    let initial_temperature_k = canonical_variable_value(state)?;
+
+    if heat_capacity_j_per_k <= 0.0 || conductance_w_per_k < 0.0 {
+        return None;
+    }
+
+    let duration_s = 3600.0;
+    let time_step_s = 300.0;
+    let step_count = (duration_s / time_step_s) as usize;
+    let mut temperature_k = initial_temperature_k;
+    let mut points = vec![RuntimePoint {
+        x: 0.0,
+        y: display_variable_value(temperature_k, state),
+    }];
+
+    for step in 1..=step_count {
+        let derivative_k_per_s = (conductance_w_per_k * (outdoor_temperature_k - temperature_k)
+            + internal_heat_w)
+            / heat_capacity_j_per_k;
+        temperature_k += derivative_k_per_s * time_step_s;
+        points.push(RuntimePoint {
+            x: step as f64 * time_step_s,
+            y: display_variable_value(temperature_k, state),
+        });
+    }
+
+    Some(RuntimeSystemSolution {
+        system: system.name.clone(),
+        status: "computed".to_owned(),
+        method: "explicit_euler_fixed_step".to_owned(),
+        reason: "recognized first-order thermal ODE and executed fixed-step preview".to_owned(),
+        state: state.name.clone(),
+        quantity_kind: state.quantity_kind.clone(),
+        display_unit: state.display_unit.clone(),
+        canonical_unit: state.canonical_unit.clone(),
+        time_unit: "s".to_owned(),
+        duration_s,
+        time_step_s,
+        step_count,
+        initial_value: display_variable_value(initial_temperature_k, state),
+        final_value: display_variable_value(temperature_k, state),
+        canonical_initial_value: initial_temperature_k,
+        canonical_final_value: temperature_k,
+        points,
+    })
+}
+
+fn canonical_variable_value(variable: &eng_compiler::SystemVariableInfo) -> Option<f64> {
+    let expression = variable.initial_value.as_deref()?;
+    let (value, unit) = number_with_optional_unit(expression)?;
+    convert_to_canonical_unit(
+        value,
+        unit.as_deref(),
+        &variable.canonical_unit,
+        &variable.quantity_kind,
+    )
+    .ok()
+}
+
+fn display_variable_value(value: f64, variable: &eng_compiler::SystemVariableInfo) -> f64 {
+    convert_from_canonical_unit(
+        value,
+        &variable.canonical_unit,
+        &variable.display_unit,
+        &variable.quantity_kind,
+    )
 }
 
 fn materialize_policy_results(
@@ -1491,6 +1645,24 @@ fn convert_to_canonical_unit(
         .unwrap_or(0.0);
 
     Ok(value * scale + offset)
+}
+
+fn convert_from_canonical_unit(
+    value: f64,
+    canonical_unit: &str,
+    display_unit: &str,
+    quantity_kind: &str,
+) -> f64 {
+    if canonical_unit.eq_ignore_ascii_case(display_unit) {
+        return value;
+    }
+
+    match (canonical_unit, display_unit, quantity_kind) {
+        ("K", "degC", "AbsoluteTemperature") => value - 273.15,
+        ("W", "kW", "HeatRate" | "ElectricPower" | "MechanicalPower") => value / 1000.0,
+        ("J/K", "kJ/K", "HeatCapacity") => value / 1000.0,
+        _ => value,
+    }
 }
 
 fn unit_seed_matches_quantity(seed_quantity: &str, quantity_kind: &str) -> bool {

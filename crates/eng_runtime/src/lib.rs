@@ -225,6 +225,7 @@ pub fn run_file(
     report_spec.computed_statistics = runtime_data.report_computed_statistics();
     report_spec.computed_integrations = runtime_data.report_computed_integrations();
     report_spec.policy_results = runtime_data.report_policy_results();
+    runtime_data.apply_system_solutions(&mut report_spec);
     let report_spec_json = eng_report::report_spec_json(&report_spec);
     let report_spec_hash = hash_text(&report_spec_json);
     fs::write(&review_path, review_json(&check_report))?;
@@ -1009,11 +1010,20 @@ fn result_json(
             ));
             systems.push_str("          }");
         }
-        systems.push_str("\n        ]\n");
+        systems.push_str("\n        ]");
+        if let Some(solution) = runtime_data
+            .system_solutions
+            .iter()
+            .find(|solution| solution.system == system.name)
+        {
+            systems.push_str(",\n        \"solver_result\": ");
+            push_system_solution_json(&mut systems, solution, "        ");
+        }
+        systems.push('\n');
         systems.push_str("      }");
     }
-    let solver_boundaries = solver_boundaries_json(report);
-    let system_ir = system_ir_json(report);
+    let solver_boundaries = solver_boundaries_json(report, runtime_data);
+    let system_ir = system_ir_json(report, runtime_data);
 
     format!(
         "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
@@ -1073,21 +1083,107 @@ fn vm_object_kind(object: &VmObject) -> &'static str {
     }
 }
 
-fn solver_boundaries_json(report: &CheckReport) -> String {
+fn push_system_solution_json(
+    json: &mut String,
+    solution: &runtime_data::RuntimeSystemSolution,
+    indent: &str,
+) {
+    json.push_str("{\n");
+    json.push_str(&format!(
+        "{indent}  \"status\": \"{}\",\n",
+        json_escape(&solution.status)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"method\": \"{}\",\n",
+        json_escape(&solution.method)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"reason\": \"{}\",\n",
+        json_escape(&solution.reason)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"state\": \"{}\",\n",
+        json_escape(&solution.state)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"quantity_kind\": \"{}\",\n",
+        json_escape(&solution.quantity_kind)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"display_unit\": \"{}\",\n",
+        json_escape(&solution.display_unit)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"canonical_unit\": \"{}\",\n",
+        json_escape(&solution.canonical_unit)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"time_unit\": \"{}\",\n",
+        json_escape(&solution.time_unit)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"duration\": {},\n",
+        solution.duration_s
+    ));
+    json.push_str(&format!(
+        "{indent}  \"time_step\": {},\n",
+        solution.time_step_s
+    ));
+    json.push_str(&format!(
+        "{indent}  \"step_count\": {},\n",
+        solution.step_count
+    ));
+    json.push_str(&format!(
+        "{indent}  \"initial_value\": {},\n",
+        solution.initial_value
+    ));
+    json.push_str(&format!(
+        "{indent}  \"final_value\": {},\n",
+        solution.final_value
+    ));
+    json.push_str(&format!(
+        "{indent}  \"canonical_initial_value\": {},\n",
+        solution.canonical_initial_value
+    ));
+    json.push_str(&format!(
+        "{indent}  \"canonical_final_value\": {},\n",
+        solution.canonical_final_value
+    ));
+    json.push_str(&format!("{indent}  \"points\": ["));
+    push_runtime_points(json, &solution.points);
+    json.push_str("]\n");
+    json.push_str(&format!("{indent}}}"));
+}
+
+fn solver_boundaries_json(report: &CheckReport, runtime_data: &RuntimeData) -> String {
     let mut json = String::new();
     for (index, system) in report.semantic_program.systems.iter().enumerate() {
         if index > 0 {
             json.push_str(",\n");
         }
+        let solution = runtime_data
+            .system_solutions
+            .iter()
+            .find(|solution| solution.system == system.name);
+        let status = solution
+            .map(|solution| solution.status.as_str())
+            .unwrap_or("unsolved");
+        let reason = solution
+            .map(|solution| solution.reason.as_str())
+            .unwrap_or("numeric solver deferred until the solver milestone");
         json.push_str("      {\n");
         json.push_str(&format!(
             "        \"system\": \"{}\",\n",
             json_escape(&system.name)
         ));
-        json.push_str("        \"status\": \"unsolved\",\n");
-        json.push_str(
-            "        \"reason\": \"numeric solver deferred until the solver milestone\",\n",
-        );
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(status)
+        ));
+        json.push_str(&format!(
+            "        \"reason\": \"{}\",\n",
+            json_escape(reason)
+        ));
         json.push_str(&format!(
             "        \"parameter_count\": {},\n",
             role_count(system, "parameter")
@@ -1114,18 +1210,22 @@ fn solver_boundaries_json(report: &CheckReport) -> String {
     json
 }
 
-fn system_ir_json(report: &CheckReport) -> String {
+fn system_ir_json(report: &CheckReport, runtime_data: &RuntimeData) -> String {
     let mut json = String::new();
     for (index, system) in report.semantic_program.systems.iter().enumerate() {
         if index > 0 {
             json.push_str(",\n");
         }
+        let solution = runtime_data
+            .system_solutions
+            .iter()
+            .find(|solution| solution.system == system.name);
         json.push_str("      {\n");
         json.push_str(&format!(
             "        \"name\": \"{}\",\n",
             json_escape(&system.name)
         ));
-        push_solver_plan_json(&mut json, &system.solver_plan, "        ");
+        push_solver_plan_json(&mut json, &system.solver_plan, "        ", solution);
         json.push_str(",\n");
         json.push_str("        \"equations\": [\n");
         for (equation_index, equation) in system.equation_ir.iter().enumerate() {
@@ -1188,15 +1288,33 @@ fn system_ir_json(report: &CheckReport) -> String {
     json
 }
 
-fn push_solver_plan_json(json: &mut String, plan: &eng_compiler::SolverPlanInfo, indent: &str) {
+fn push_solver_plan_json(
+    json: &mut String,
+    plan: &eng_compiler::SolverPlanInfo,
+    indent: &str,
+    solution: Option<&runtime_data::RuntimeSystemSolution>,
+) {
+    let status = solution
+        .map(|solution| solution.status.as_str())
+        .unwrap_or(&plan.status);
+    let method = solution
+        .map(|solution| solution.method.as_str())
+        .unwrap_or(&plan.method);
+    let ode_status = solution
+        .map(|solution| solution.status.as_str())
+        .unwrap_or(&plan.ode_runner.status);
+    let ode_reason = solution
+        .map(|solution| solution.reason.as_str())
+        .unwrap_or(&plan.ode_runner.reason);
+
     json.push_str(&format!("{indent}\"solver_plan\": {{\n"));
     json.push_str(&format!(
         "{indent}  \"status\": \"{}\",\n",
-        json_escape(&plan.status)
+        json_escape(status)
     ));
     json.push_str(&format!(
         "{indent}  \"method\": \"{}\",\n",
-        json_escape(&plan.method)
+        json_escape(method)
     ));
     json.push_str(&format!("{indent}  \"solve_order\": ["));
     for (index, residual) in plan.solve_order.iter().enumerate() {
@@ -1209,11 +1327,11 @@ fn push_solver_plan_json(json: &mut String, plan: &eng_compiler::SolverPlanInfo,
     json.push_str(&format!("{indent}  \"ode_runner\": {{\n"));
     json.push_str(&format!(
         "{indent}    \"status\": \"{}\",\n",
-        json_escape(&plan.ode_runner.status)
+        json_escape(ode_status)
     ));
     json.push_str(&format!(
         "{indent}    \"reason\": \"{}\"\n",
-        json_escape(&plan.ode_runner.reason)
+        json_escape(ode_reason)
     ));
     json.push_str(&format!("{indent}  }},\n"));
     json.push_str(&format!("{indent}  \"jacobian_seed\": [\n"));

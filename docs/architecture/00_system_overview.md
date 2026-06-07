@@ -14,7 +14,7 @@ EngLang's official execution path is:
   -> HTML report + report_spec.json + review.json
 ```
 
-The repository implements this path incrementally. v0.4-preview is the first version where `eng run` writes bytecode, decodes it, executes a native VM seed, and writes `result.engres` from the VM execution record. v0.5-preview adds TimeSeries/statistics metadata to the same path. v0.6-preview adds PlotSpec v1, SVG rendering from PlotSpec, and a plot manifest. v0.7-alpha hardens the review/report artifact contract with `report_spec.json`. v0.8-alpha adds minimal physical `system` and `eq` metadata. The current v1.0 hardening path materializes the official CSV example into runtime table columns, TimeSeries points, computed summary statistics, trapezoidal integration, CSV-derived PlotSpec points, and a reviewable system IR with an explicit unsolved solver boundary plus metadata-only solver_plan seeds.
+The repository implements this path incrementally. v0.4-preview is the first version where `eng run` writes bytecode, decodes it, executes a native VM seed, and writes `result.engres` from the VM execution record. v0.5-preview adds TimeSeries/statistics metadata to the same path. v0.6-preview adds PlotSpec v1, SVG rendering from PlotSpec, and a plot manifest. v0.7-alpha hardens the review/report artifact contract with `report_spec.json`. v0.8-alpha adds minimal physical `system` and `eq` metadata. The current v1.0 hardening path materializes the official CSV example into runtime table columns, TimeSeries points, computed summary statistics, trapezoidal integration, CSV-derived PlotSpec points, and a reviewable system IR with a computed fixed-step ODE preview for the official simple thermal system.
 
 ## Crates
 
@@ -96,6 +96,14 @@ solver_boundary status = unsolved
 solver_plan metadata-only solve_order and Jacobian seed columns
 ```
 
+v1.0 hardening adds:
+
+```text
+report_spec/result solver_boundary status = computed for the official one-state thermal ODE
+explicit_euler_fixed_step ODE runner preview
+solver_result trajectory in result.engres
+```
+
 The VM object store currently supports:
 
 ```text
@@ -107,7 +115,7 @@ array
 
 Schema columns remain public boundary metadata. They are not emitted as runtime scalar objects.
 
-System variables are also boundary metadata in v0.8. They appear in review/report variable tables, system summaries, the system IR dependency list, and solver_plan seed metadata, but they are not lowered as executable VM scalar objects yet.
+System variables are also boundary metadata in v0.8. They appear in review/report variable tables, system summaries, the system IR dependency list, and solver_plan seed metadata. The v1.0 hardening path additionally recognizes the official one-state thermal ODE and records a fixed-step runtime preview in run artifacts.
 
 ## Data Boundary
 

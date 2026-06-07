@@ -50,6 +50,7 @@ P1  Args struct parsing and CLI help for standalone bundles
 P2  plot block option execution for official line plots
 P2  schema constraints and missing policy execution for official CSV
 P2  system/equation IR beyond residual metadata, with explicit solver boundary
+P2  fixed-step ODE preview for the official one-state thermal system
 P2  review/report schema validation snapshots
 P2  per-cell CSV source-unit to canonical-unit conversion diagnostics
 ```
@@ -57,7 +58,7 @@ P2  per-cell CSV source-unit to canonical-unit conversion diagnostics
 Remaining intentional deferrals:
 
 ```text
-P2  numeric system solver and executable ODE runner
+P2  adaptive, nonlinear, and multi-equation numeric system solver
 ```
 
 ## Gap Register
@@ -364,14 +365,14 @@ Hardening detail:
 ### G-008 System/Eq IR and Solver Boundary
 
 Status: Implemented after v1.0.0 as a v1.0 hardening backfill. Solver plan
-metadata, source-order solve_order, ODE runner deferral, and symbolic Jacobian
-seed columns are recorded. Numeric solving remains explicitly deferred.
+metadata, source-order solve_order, symbolic Jacobian seed columns, and a
+fixed-step ODE preview for the official one-state thermal system are recorded.
 
 Plan expectation:
 
 ```text
 minimal system/equation in v1.0
-full solver explicitly deferred
+fixed time step simple ODE runner OR residual-only report
 ```
 
 Current state:
@@ -383,20 +384,22 @@ Current state:
 - a small equation IR is emitted separately from report-facing residual strings
 - each residual records parameter/state/input dependencies
 - derivative state mentions are recorded per equation
-- review.json and report_spec.json include system_ir with solver_boundary.status = unsolved
+- review.json includes compiler-owned system_ir with solver_boundary.status = unsolved
+- report_spec.json upgrades the official simple thermal ODE solver_boundary to computed during run
 - result.engres includes typed_payload.solver_boundaries and typed_payload.system_ir
-- review/report/result system_ir include solver_plan.status = metadata_only
+- review system_ir includes solver_plan.status = metadata_only
+- report/result system_ir include solver_plan.status = computed for the official ODE preview
 - source-order solve_order and symbolic Jacobian seed columns are recorded
-- ODE runner status is explicit and deferred
-- no executable numeric solver or ODE runner yet
+- ODE runner status is computed for the official one-state thermal ODE preview
+- result.engres records solver_result trajectory points, step count, and final state value
 ```
 
 Risk:
 
 ```text
-P2 closed for artifact review, dependency inspection, and solver seed metadata.
-v1.0 can represent a simple system and expose an unsolved boundary, but cannot
-simulate it.
+P2 closed for artifact review, dependency inspection, solver seed metadata, and
+the official one-state thermal ODE preview. Remaining solver risk is limited to
+adaptive, nonlinear, multi-state, and multi-equation solving.
 ```
 
 Hardening detail:
@@ -404,9 +407,9 @@ Hardening detail:
 ```text
 1. [x] Add a small symbolic equation IR separate from report strings.
 2. [x] Record state/input/parameter dependencies for each residual.
-3. [x] Add solver_boundary sections to review/report/result that explicitly say unsolved.
+3. [x] Add solver_boundary sections to review/report/result.
 4. [x] Add source-order solve_order and symbolic Jacobian seed metadata.
-5. [x] Keep numeric solver and executable ODE runner work deferred until the planned system/solver milestone.
+5. [x] Execute a fixed-step ODE preview for the official one-state thermal system.
 ```
 
 ### G-009 Review/Report Schema Validation
@@ -493,12 +496,13 @@ Completed before adding uncertainty semantics:
 8. G-007 schema policies, missing policies, and numeric constraint bounds
 9. G-008 system IR solver boundary and solver_plan seeds
 10. G-003 per-cell unit conversion diagnostics for CSV quantity columns
+11. G-008 fixed-step ODE preview for the official simple thermal system
 ```
 
 Keep deferred until the appropriate later milestones:
 
 ```text
-1. numeric system solver and executable ODE runner
+1. adaptive, nonlinear, and multi-equation numeric system solver
 2. optimized AOT/model.exe
 3. open domain/port and package ecosystem
 ```

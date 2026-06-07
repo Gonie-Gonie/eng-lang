@@ -646,6 +646,7 @@ function Assert-SystemGolden {
     $reportSystemIr = @($reportSpec.system_ir)[0]
     Assert-ArtifactValue $reportSystemIr.solver_boundary.status $Golden.report_spec.solver_status "system report_spec.solver_boundary.status"
     Assert-ArtifactValue $reportSystemIr.solver_plan.status $Golden.report_spec.solver_plan_status "system report_spec.solver_plan.status"
+    Assert-ArtifactValue $reportSystemIr.solver_plan.method $Golden.report_spec.solver_method "system report_spec.solver_plan.method"
     Assert-ArtifactNumber @($reportSystemIr.solver_plan.solve_order).Count $Golden.report_spec.solve_order_count "system report_spec solver_plan.solve_order count"
     Assert-ArtifactValue $reportSystemIr.solver_plan.ode_runner.status $Golden.report_spec.ode_runner_status "system report_spec solver_plan.ode_runner.status"
     Assert-ArtifactNumber @($reportSystemIr.solver_plan.jacobian_seed).Count $Golden.report_spec.jacobian_seed_count "system report_spec solver_plan.jacobian_seed count"
@@ -675,11 +676,18 @@ function Assert-SystemGolden {
     Assert-ArtifactValue $resultSolverBoundary.status $Golden.result.solver_status "system result.solver_boundary.status"
     $resultSystemIr = @($result.typed_payload.system_ir)[0]
     Assert-ArtifactValue $resultSystemIr.solver_plan.status $Golden.result.solver_plan_status "system result.solver_plan.status"
+    Assert-ArtifactValue $resultSystemIr.solver_plan.method $Golden.result.solver_method "system result.solver_plan.method"
     Assert-ArtifactNumber @($resultSystemIr.solver_plan.solve_order).Count $Golden.result.solve_order_count "system result solver_plan.solve_order count"
     Assert-ArtifactValue $resultSystemIr.solver_plan.ode_runner.status $Golden.result.ode_runner_status "system result solver_plan.ode_runner.status"
     Assert-ArtifactNumber @($resultSystemIr.solver_plan.jacobian_seed).Count $Golden.result.jacobian_seed_count "system result solver_plan.jacobian_seed count"
     Assert-ArtifactNumber @(@($resultSystemIr.equations)[0].dependencies).Count $Golden.result.dependency_count "system result IR dependency count"
     Assert-ArtifactNumber @(@($resultSystemIr.equations)[0].derivative_states).Count $Golden.result.derivative_state_count "system result IR derivative state count"
+    $resultSystemPayload = @($result.typed_payload.systems)[0]
+    Assert-ArtifactValue $resultSystemPayload.solver_result.status $Golden.result.solver_result_status "system result.solver_result.status"
+    Assert-ArtifactNumber $resultSystemPayload.solver_result.step_count $Golden.result.solver_step_count "system result.solver_result.step_count"
+    Assert-ArtifactFloat $resultSystemPayload.solver_result.duration $Golden.result.solver_duration_s "system result.solver_result.duration"
+    Assert-ArtifactFloat $resultSystemPayload.solver_result.time_step $Golden.result.solver_time_step_s "system result.solver_result.time_step"
+    Assert-ArtifactFloat $resultSystemPayload.solver_result.final_value $Golden.result.solver_final_temp_deg_c "system result.solver_result.final_value"
 }
 
 function Invoke-ArtifactsCheck {
