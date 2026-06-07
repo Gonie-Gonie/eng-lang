@@ -74,8 +74,8 @@ v0.4-preview
 
 v0.5-preview
   TimeSeries[Time] inference, axis metadata, statistics summary metadata,
-  computed mean/max/p95 values for the official CSV path, trapezoidal
-  integrate provenance, HeatRate sum lint.
+  computed mean/time_weighted_mean/median/std/p90/p95 values for the official
+  CSV path, trapezoidal integrate provenance, HeatRate sum lint.
 
 v0.6-preview
   PlotSpec v1, line plot data model, unit-aware axis labels, SVG rendering

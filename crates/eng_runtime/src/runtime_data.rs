@@ -1278,6 +1278,7 @@ fn statistic_value(name: &str, series: &RuntimeTimeSeries) -> Option<RuntimeStat
             values.iter().sum::<f64>() / values.len() as f64,
             series.display_unit.clone(),
         ),
+        "time_weighted_mean" => (time_weighted_mean(series)?, series.display_unit.clone()),
         "max" => (
             values.iter().copied().reduce(f64::max)?,
             series.display_unit.clone(),
@@ -1286,8 +1287,10 @@ fn statistic_value(name: &str, series: &RuntimeTimeSeries) -> Option<RuntimeStat
             values.iter().copied().reduce(f64::min)?,
             series.display_unit.clone(),
         ),
-        "p95" => (
-            nearest_rank_percentile(&values, 0.95)?,
+        "median" => (median(&values)?, series.display_unit.clone()),
+        "std" => (population_std(&values)?, series.display_unit.clone()),
+        percentile if percentile_fraction(percentile).is_some() => (
+            nearest_rank_percentile(&values, percentile_fraction(percentile)?)?,
             series.display_unit.clone(),
         ),
         _ => {
@@ -1310,6 +1313,43 @@ fn nearest_rank_percentile(values: &[f64], percentile: f64) -> Option<f64> {
     sorted.sort_by(f64::total_cmp);
     let rank = (percentile * sorted.len() as f64).ceil() as usize;
     sorted.get(rank.saturating_sub(1)).copied()
+}
+
+fn percentile_fraction(name: &str) -> Option<f64> {
+    let percentile = name.strip_prefix('p')?.parse::<u32>().ok()?;
+    (1..=100)
+        .contains(&percentile)
+        .then_some(percentile as f64 / 100.0)
+}
+
+fn median(values: &[f64]) -> Option<f64> {
+    if values.is_empty() {
+        return None;
+    }
+    let mut sorted = values.to_vec();
+    sorted.sort_by(f64::total_cmp);
+    let midpoint = sorted.len() / 2;
+    if sorted.len() & 1 == 0 {
+        Some((sorted[midpoint - 1] + sorted[midpoint]) * 0.5)
+    } else {
+        sorted.get(midpoint).copied()
+    }
+}
+
+fn population_std(values: &[f64]) -> Option<f64> {
+    if values.is_empty() {
+        return None;
+    }
+    let mean = values.iter().sum::<f64>() / values.len() as f64;
+    let variance = values
+        .iter()
+        .map(|value| {
+            let delta = value - mean;
+            delta * delta
+        })
+        .sum::<f64>()
+        / values.len() as f64;
+    Some(variance.sqrt())
 }
 
 fn duration_above_threshold(name: &str, display_unit: &str) -> Option<f64> {
@@ -1355,6 +1395,14 @@ fn duration_above(series: &RuntimeTimeSeries, threshold: f64) -> Option<f64> {
         }
     }
     Some(duration)
+}
+
+fn time_weighted_mean(series: &RuntimeTimeSeries) -> Option<f64> {
+    let total_duration = series.points.last()?.x - series.points.first()?.x;
+    if series.x_unit != "s" || total_duration <= 0.0 {
+        return None;
+    }
+    Some(trapezoidal_integral(series)? / total_duration)
 }
 
 fn trapezoidal_integral(series: &RuntimeTimeSeries) -> Option<f64> {
@@ -1580,7 +1628,23 @@ script main(args: Args) -> Report {
             5072.43
         );
         assert_eq!(
+            round2(stat_value(&runtime.statistics[0].values, "time_weighted_mean").unwrap()),
+            5048.05
+        );
+        assert_eq!(
             round2(stat_value(&runtime.statistics[0].values, "max").unwrap()),
+            5417.28
+        );
+        assert_eq!(
+            round2(stat_value(&runtime.statistics[0].values, "median").unwrap()),
+            4999.28
+        );
+        assert_eq!(
+            round2(stat_value(&runtime.statistics[0].values, "std").unwrap()),
+            205.58
+        );
+        assert_eq!(
+            round2(stat_value(&runtime.statistics[0].values, "p90").unwrap()),
             5417.28
         );
         assert_eq!(

@@ -45,6 +45,7 @@ P1  docs/spec code block gate for supported docs
 P1  official examples directory and regression policy
 P1  row-level typed table and TimeSeries value materialization for official CSV
 P1  real statistics kernels for mean/min/max/p95/integrate on official TimeSeries
+P1  time_weighted_mean, median, std, and pNN statistics for official TimeSeries
 P1  Args struct parsing and CLI help for standalone bundles
 P2  plot block option execution for official line plots
 P2  schema constraints and missing policy execution for official CSV
@@ -56,7 +57,6 @@ P2  per-cell CSV source-unit to canonical-unit conversion diagnostics
 Remaining intentional deferrals:
 
 ```text
-P2  time-weighted mean and broader statistics kernels
 P2  numeric system solver and executable ODE runner
 ```
 
@@ -191,13 +191,14 @@ Hardening detail:
 
 ### G-004 Statistics Kernels
 
-Status: Implemented for mean/max/min/p95, duration_above, and trapezoidal
-integrate on the official HeatRate TimeSeries path.
+Status: Implemented for mean/time_weighted_mean/max/min/median/std/pNN,
+duration_above, and trapezoidal integrate on the official HeatRate TimeSeries
+path.
 
 Plan expectation:
 
 ```text
-mean, max/min, p95, integrate, duration_above seed, lazy summary
+mean, max/min, percentile, std, integrate, duration_above seed, lazy summary
 ```
 
 Current state:
@@ -209,6 +210,8 @@ Current state:
 - result payload records computed statistics for Q_coil
 - report_spec.json records computed statistics and integrations
 - integrate(Q_coil, over=Time) records a trapezoidal Energy value
+- time_weighted_mean records trapezoidal integral divided by elapsed seconds
+- median, std, and pNN percentile kernels are computed for materialized points
 - duration_above(5 kW) records seconds above threshold with linear crossing interpolation
 ```
 
@@ -216,7 +219,8 @@ Risk:
 
 ```text
 P1 closed for the official data-analysis path. Remaining risk is limited to
-unsupported statistics, time-weighted variants, and arbitrary TimeSeries expressions.
+arbitrary TimeSeries expressions, report-card presentation, and richer
+quantity outputs such as std(AbsoluteTemperature) -> TemperatureDelta.
 ```
 
 Hardening detail:
@@ -227,6 +231,8 @@ Hardening detail:
 3. [x] Implement integrate(HeatRate over Time) with DateTime-derived seconds.
 4. [x] Store computed values in result.engres and report_spec.json.
 5. [x] Add duration_above as a v1.0 hardening backfill before uncertainty.
+6. [x] Add time_weighted_mean using trapezoidal integral over elapsed seconds.
+7. [x] Add median, std, and generic pNN percentile kernels.
 ```
 
 ### G-005 Plot Data Materialization
@@ -492,10 +498,9 @@ Completed before adding uncertainty semantics:
 Keep deferred until the appropriate later milestones:
 
 ```text
-1. time-weighted mean and broader statistics kernels
-2. numeric system solver and executable ODE runner
-3. optimized AOT/model.exe
-4. open domain/port and package ecosystem
+1. numeric system solver and executable ODE runner
+2. optimized AOT/model.exe
+3. open domain/port and package ecosystem
 ```
 
 ## Release Note Correction

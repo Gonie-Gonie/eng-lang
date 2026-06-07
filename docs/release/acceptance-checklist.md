@@ -92,7 +92,7 @@ The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
 [x] TimeSeries[Time] of HeatRate is inferred for Q_coil
 [x] axis metadata appears in review.json
 [x] summary statistics metadata appears in review.json
-[x] computed mean/max/p95 values appear in result.engres
+[x] computed mean/time_weighted_mean/median/std/p90/p95 values appear in result.engres
 [x] computed duration_above value appears in result.engres
 [x] computed statistics appear in report_spec.json
 [x] trapezoidal integrate(HeatRate over Time) -> Energy value appears in result.engres

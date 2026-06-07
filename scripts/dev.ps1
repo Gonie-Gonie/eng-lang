@@ -449,6 +449,10 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactNumber @($reportSpec.computed_integrations).Count $Golden.report_spec.computed_integrations_count "report_spec.computed_integrations count"
     $reportStats = @($reportSpec.computed_statistics)[0]
     Assert-ArtifactValue $reportStats.status $Golden.report_spec.computed_statistics_status "report_spec.computed_statistics[0].status"
+    Assert-ArtifactFloat ((@($reportStats.values) | Where-Object { $_.name -eq "time_weighted_mean" }).value) $Golden.report_spec.time_weighted_mean_w "report_spec.time_weighted_mean"
+    Assert-ArtifactFloat ((@($reportStats.values) | Where-Object { $_.name -eq "median" }).value) $Golden.report_spec.median_w "report_spec.median"
+    Assert-ArtifactFloat ((@($reportStats.values) | Where-Object { $_.name -eq "std" }).value) $Golden.report_spec.std_w "report_spec.std"
+    Assert-ArtifactFloat ((@($reportStats.values) | Where-Object { $_.name -eq "p90" }).value) $Golden.report_spec.p90_w "report_spec.p90"
     $reportDurationAbove = @($reportStats.values) | Where-Object { $_.name -eq "duration_above(5 kW)" } | Select-Object -First 1
     Assert-Artifact ($null -ne $reportDurationAbove) "report_spec.computed_statistics missing duration_above(5 kW)"
     Assert-ArtifactFloat $reportDurationAbove.value $Golden.report_spec.duration_above_5kw_s "report_spec.duration_above"
@@ -516,7 +520,11 @@ function Assert-CsvPlotGolden {
     $statsPayload = @($result.typed_payload.statistics)[0]
     Assert-ArtifactValue $statsPayload.status $Golden.result.statistics_status "result.typed_payload.statistics[0].status"
     Assert-ArtifactFloat ((@($statsPayload.statistics) | Where-Object { $_.name -eq "mean" }).value) $Golden.result.mean_w "result.mean"
+    Assert-ArtifactFloat ((@($statsPayload.statistics) | Where-Object { $_.name -eq "time_weighted_mean" }).value) $Golden.result.time_weighted_mean_w "result.time_weighted_mean"
     Assert-ArtifactFloat ((@($statsPayload.statistics) | Where-Object { $_.name -eq "max" }).value) $Golden.result.max_w "result.max"
+    Assert-ArtifactFloat ((@($statsPayload.statistics) | Where-Object { $_.name -eq "median" }).value) $Golden.result.median_w "result.median"
+    Assert-ArtifactFloat ((@($statsPayload.statistics) | Where-Object { $_.name -eq "std" }).value) $Golden.result.std_w "result.std"
+    Assert-ArtifactFloat ((@($statsPayload.statistics) | Where-Object { $_.name -eq "p90" }).value) $Golden.result.p90_w "result.p90"
     Assert-ArtifactFloat ((@($statsPayload.statistics) | Where-Object { $_.name -eq "p95" }).value) $Golden.result.p95_w "result.p95"
     $durationAbove = @($statsPayload.statistics) | Where-Object { $_.name -eq "duration_above(5 kW)" } | Select-Object -First 1
     Assert-Artifact ($null -ne $durationAbove) "result.typed_payload.statistics missing duration_above(5 kW)"

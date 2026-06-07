@@ -176,6 +176,7 @@ Required outputs:
 [x] TimeSeries[Time] type
 [x] axis metadata
 [x] mean/max/p95 summary seed
+[x] time_weighted_mean/median/std/pNN hardening kernels
 [x] integrate(HeatRate over Time) -> Energy metadata
 [x] lazy summary cache
 [x] HeatRate sum lint

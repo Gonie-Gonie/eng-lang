@@ -14,7 +14,7 @@ script main(args: Args) -> Report {
     E_coil = integrate(Q_coil, over=Time)
 
     return report {
-        summarize Q_coil by [mean, max, p95, duration_above(5 kW)]
+        summarize Q_coil by [mean, time_weighted_mean, max, median, std, p90, p95, duration_above(5 kW)]
         show E_coil
         plot Q_coil over Time
     }
@@ -61,7 +61,7 @@ Promoted CSV tables also expose the schema index as an axis seed:
 
 ## Summary Metadata
 
-`summarize Q_coil by [mean, max, p95, duration_above(5 kW)]` creates:
+`summarize Q_coil by [mean, time_weighted_mean, max, median, std, p90, p95, duration_above(5 kW)]` creates:
 
 ```json
 {
@@ -69,14 +69,22 @@ Promoted CSV tables also expose the schema index as an axis seed:
   "source_type": "TimeSeries[Time] of HeatRate",
   "quantity_kind": "HeatRate",
   "axis": "Time",
-  "statistics": ["mean", "max", "p95", "duration_above(5 kW)"],
+  "statistics": ["mean", "time_weighted_mean", "max", "median", "std", "p90", "p95", "duration_above(5 kW)"],
   "cache_key": "summary:Q_coil:Time"
 }
 ```
 
 The cache key marks the summary identity. For the official CSV coil path,
 runtime pages materialize `Q_coil` and `result.engres` records computed
-mean/max/p95 values plus `duration_above(...)` duration values in seconds.
+mean/time_weighted_mean/max/min/median/std/pNN values plus
+`duration_above(...)` duration values in seconds.
+
+`time_weighted_mean` uses the trapezoidal Time-axis integral divided by the
+elapsed seconds. `median` sorts the finite point values and averages the middle
+pair for even-length series. `std` is the population standard deviation for
+the materialized point values. Percentile names of the form `pNN` use the
+current nearest-rank percentile kernel, so `p95` keeps the same behavior as the
+original v1.0 artifact contract.
 
 `duration_above(<threshold>)` evaluates the threshold in the TimeSeries display
 unit. When a threshold unit is supplied, the v1.0 hardening path supports the
@@ -152,8 +160,7 @@ metadata.
 Later versions will add:
 
 ```text
-- time-weighted mean
 - broader TimeSeries expression execution
-- non-uniform time handling
 - statistics report cards
+- richer output quantity handling for statistics such as `std(AbsoluteTemperature)`
 ```

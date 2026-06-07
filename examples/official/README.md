@@ -5,7 +5,7 @@ copy first when starting from a stable EngLang preview.
 
 ```text
 01_csv_plot
-  Typed CSV promote, unit-aware calculations, TimeSeries summary metadata,
+  Typed CSV promote, unit-aware calculations, TimeSeries summary statistics,
   integrate metadata, PlotSpec, SVG, report, and standalone packaging smoke.
 
 02_simple_system
