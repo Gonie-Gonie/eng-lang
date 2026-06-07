@@ -124,8 +124,9 @@ Active planning target:
 v1.0.3
   Native IDE quality hardening before the next release: VS Code-like explorer,
   file creation, syntax highlighting, lint/problem surfacing, clearer
-  completions/symbol inspection, in-IDE PlotSpec preview, curated user PDF docs,
-  and repo-local portable Python/oodocs setup.
+  completions/symbol inspection, in-IDE PlotSpec preview, runtime artifact
+  summaries for uncertainty/ML user tests, curated user PDF docs, and
+  repo-local portable Python/oodocs setup.
 
 v1.1
   Uncertainty core: Measured[T], Interval[T], distribution/ensemble seeds,

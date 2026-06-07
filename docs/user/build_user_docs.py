@@ -70,6 +70,17 @@ def build_document(version: str) -> Document:
                     " files for external review.",
                 ),
             ),
+            Section(
+                "Inspect Runtime Output",
+                paragraph(
+                    "After a successful run, open the ",
+                    code("Runtime"),
+                    " tab in the right panel. It summarizes uncertainty distributions, propagation methods, "
+                    "p05/p50/p95 values, ML train/test counts, metrics, coefficients, leakage status, and loss history directly from ",
+                    code("result.engres"),
+                    ".",
+                ),
+            ),
         ),
         Chapter(
             "4. Recommended User Test",
@@ -87,9 +98,9 @@ def build_document(version: str) -> Document:
             paragraph(
                 "For uncertainty testing, open ",
                 code("examples/official/04_uncertainty_core/main.eng"),
-                ". For data-driven modeling testing, open ",
+                " and verify the in-IDE Runtime uncertainty summary plus the histogram preview. For data-driven modeling testing, open ",
                 code("examples/official/05_data_driven_modeling/main.eng"),
-                ".",
+                " and verify the in-IDE ML metrics, coefficients, loss history, and parity preview.",
             ),
         ),
         Chapter(

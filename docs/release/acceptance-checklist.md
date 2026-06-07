@@ -241,6 +241,7 @@ Before publishing the next post-v1.0 hardening release:
 [x] eng-ide.exe --smoke discovers examples and compiler completion metadata
 [x] native IDE supports check, save, run, report open, diagnostics, symbols, and completions
 [x] native IDE has Explorer, editor/preview, Inspector, and Problems/Output/Artifacts regions
+[x] native IDE has Runtime Summary for result.engres uncertainty and ML artifacts
 [x] native IDE supports creating new .eng files from the Explorer
 [x] native IDE provides syntax highlighting and line-level diagnostic tinting
 [x] native IDE previews PlotSpec data inside the app after Run

@@ -131,6 +131,7 @@ fn smoke() -> eframe::Result<()> {
 enum RightTab {
     Inspector,
     Completions,
+    Runtime,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -163,6 +164,7 @@ struct EngIdeApp {
     show_preview: bool,
     last_output: Option<RunOutputView>,
     plot_preview: Option<PlotPreview>,
+    artifact_summary: Option<ArtifactSummary>,
 }
 
 impl EngIdeApp {
@@ -198,6 +200,7 @@ impl EngIdeApp {
             show_preview: true,
             last_output: None,
             plot_preview: None,
+            artifact_summary: None,
         };
         app.path_input = app.relative_path(&app.current_path);
         app.load_current();
@@ -213,6 +216,9 @@ impl EngIdeApp {
                 self.dirty = false;
                 self.last_edit = None;
                 self.run_log.clear();
+                self.last_output = None;
+                self.plot_preview = None;
+                self.artifact_summary = None;
                 self.status = format!("Loaded {}", self.path_input);
             }
             Err(error) => {
@@ -383,10 +389,12 @@ impl EngIdeApp {
             Ok(output) => {
                 let output = RunOutputView::from_output(output, &self.root);
                 self.plot_preview = PlotPreview::from_plot_spec(&output.plot_spec_path).ok();
+                self.artifact_summary = ArtifactSummary::from_result(&output.result_path).ok();
                 self.run_log = output.summary();
                 self.last_output = Some(output);
                 self.status = "Run complete".to_owned();
                 self.bottom_tab = BottomTab::Artifacts;
+                self.right_tab = RightTab::Runtime;
             }
             Err(RuntimeError::Compile(report)) => {
                 self.diagnostics = report
@@ -705,11 +713,15 @@ impl EngIdeApp {
             tab_button(ui, "Completions", self.right_tab == RightTab::Completions)
                 .clicked()
                 .then(|| self.right_tab = RightTab::Completions);
+            tab_button(ui, "Runtime", self.right_tab == RightTab::Runtime)
+                .clicked()
+                .then(|| self.right_tab = RightTab::Runtime);
         });
         ui.separator();
         match self.right_tab {
             RightTab::Inspector => self.show_inspector(ui),
             RightTab::Completions => self.show_completions(ui),
+            RightTab::Runtime => self.show_runtime_inspector(ui),
         }
     }
 
@@ -780,6 +792,138 @@ impl EngIdeApp {
         });
     }
 
+    fn show_runtime_inspector(&self, ui: &mut egui::Ui) {
+        panel_header(ui, "Runtime Summary");
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            let Some(summary) = &self.artifact_summary else {
+                ui.label(
+                    egui::RichText::new("Run the current file to inspect result artifacts.")
+                        .color(MUTED),
+                );
+                return;
+            };
+            ui.horizontal_wrapped(|ui| {
+                metric_chip(ui, "Status", &summary.status, OK);
+                metric_chip(
+                    ui,
+                    "Uncertainty",
+                    &summary.uncertainties.len().to_string(),
+                    ACCENT,
+                );
+                metric_chip(ui, "ML", &summary.ml.len().to_string(), ACCENT);
+                metric_chip(ui, "Policies", &summary.policy_count.to_string(), ACCENT);
+                metric_chip(ui, "Systems", &summary.system_count.to_string(), ACCENT);
+            });
+            ui.add_space(8.0);
+
+            section_label(ui, "Uncertainty");
+            if summary.uncertainties.is_empty() {
+                ui.label(egui::RichText::new("No uncertainty artifacts in this run.").color(MUTED));
+            }
+            for item in &summary.uncertainties {
+                runtime_card(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new(&item.binding).strong());
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            status_pill(ui, &item.status, OK);
+                        });
+                    });
+                    ui.label(
+                        egui::RichText::new(format!(
+                            "{} / {} [{}]",
+                            item.kind, item.quantity_kind, item.display_unit
+                        ))
+                        .color(MUTED),
+                    );
+                    key_value_row(
+                        ui,
+                        "distribution",
+                        item.distribution.as_deref().unwrap_or(""),
+                    );
+                    key_value_row(ui, "method", item.method.as_deref().unwrap_or(""));
+                    key_value_row(
+                        ui,
+                        "mean",
+                        &item.mean.clone().unwrap_or_else(|| "-".to_owned()),
+                    );
+                    key_value_row(
+                        ui,
+                        "stddev",
+                        &item.stddev.clone().unwrap_or_else(|| "-".to_owned()),
+                    );
+                    key_value_row(
+                        ui,
+                        "p05/p50/p95",
+                        &format!(
+                            "{} / {} / {}",
+                            item.p05.as_deref().unwrap_or("-"),
+                            item.p50.as_deref().unwrap_or("-"),
+                            item.p95.as_deref().unwrap_or("-")
+                        ),
+                    );
+                    key_value_row(ui, "samples", &item.sample_count.to_string());
+                });
+                ui.add_space(6.0);
+            }
+
+            ui.add_space(8.0);
+            section_label(ui, "ML Models");
+            if summary.ml.is_empty() {
+                ui.label(egui::RichText::new("No ML artifacts in this run.").color(MUTED));
+            }
+            for item in &summary.ml {
+                runtime_card(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new(&item.binding).strong());
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            status_pill(ui, &item.status, OK);
+                        });
+                    });
+                    ui.label(egui::RichText::new(&item.kind).color(MUTED));
+                    if let Some(target) = &item.target {
+                        key_value_row(ui, "target", target);
+                    }
+                    if !item.features.is_empty() {
+                        key_value_row(ui, "features", &item.features.join(", "));
+                    }
+                    key_value_row(
+                        ui,
+                        "train/test",
+                        &format!(
+                            "{} / {}",
+                            item.train_count
+                                .map(|value| value.to_string())
+                                .unwrap_or_else(|| "-".to_owned()),
+                            item.test_count
+                                .map(|value| value.to_string())
+                                .unwrap_or_else(|| "-".to_owned())
+                        ),
+                    );
+                    key_value_row(
+                        ui,
+                        "rmse/mae/r2",
+                        &format!(
+                            "{} / {} / {}",
+                            item.rmse.as_deref().unwrap_or("-"),
+                            item.mae.as_deref().unwrap_or("-"),
+                            item.r2.as_deref().unwrap_or("-")
+                        ),
+                    );
+                    if let Some(leakage) = &item.leakage_status {
+                        key_value_row(ui, "leakage", leakage);
+                    }
+                    if !item.coefficients.is_empty() {
+                        key_value_row(ui, "coefficients", &item.coefficients.join(", "));
+                    }
+                    if let Some(loss) = &item.loss_summary {
+                        key_value_row(ui, "loss", loss);
+                    }
+                });
+                ui.add_space(6.0);
+            }
+        });
+    }
+
     fn show_bottom_panel(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             tab_button(ui, "Problems", self.bottom_tab == BottomTab::Problems)
@@ -842,6 +986,20 @@ impl EngIdeApp {
     fn show_artifacts(&self, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical().show(ui, |ui| {
             if let Some(output) = &self.last_output {
+                if let Some(summary) = &self.artifact_summary {
+                    ui.horizontal_wrapped(|ui| {
+                        metric_chip(ui, "Run", &summary.status, OK);
+                        metric_chip(
+                            ui,
+                            "Uncertainty",
+                            &summary.uncertainties.len().to_string(),
+                            ACCENT,
+                        );
+                        metric_chip(ui, "ML", &summary.ml.len().to_string(), ACCENT);
+                        metric_chip(ui, "Systems", &summary.system_count.to_string(), ACCENT);
+                    });
+                    ui.add_space(8.0);
+                }
                 artifact_row(ui, "Report HTML", &output.report_path);
                 artifact_row(ui, "ReportSpec JSON", &output.report_spec_path);
                 artifact_row(ui, "Plot SVG", &output.plot_path);
@@ -974,6 +1132,157 @@ impl RunOutputView {
     }
 }
 
+struct ArtifactSummary {
+    status: String,
+    uncertainties: Vec<UncertaintyArtifactView>,
+    ml: Vec<MlArtifactView>,
+    policy_count: usize,
+    system_count: usize,
+}
+
+impl ArtifactSummary {
+    fn from_result(path: &Path) -> Result<Self, String> {
+        let text = fs::read_to_string(path).map_err(|error| error.to_string())?;
+        let value: Value = serde_json::from_str(&text).map_err(|error| error.to_string())?;
+        let payload = value
+            .get("typed_payload")
+            .ok_or_else(|| "missing typed_payload".to_owned())?;
+        let status = json_string(payload, &["status"]).unwrap_or_else(|| "unknown".to_owned());
+        let uncertainties = payload
+            .get("uncertainties")
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .map(UncertaintyArtifactView::from_json)
+                    .collect()
+            })
+            .unwrap_or_default();
+        let ml = payload
+            .get("ml")
+            .and_then(Value::as_array)
+            .map(|items| items.iter().map(MlArtifactView::from_json).collect())
+            .unwrap_or_default();
+        let policy_count = payload
+            .get("policy_results")
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0);
+        let system_count = payload
+            .get("systems")
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0);
+        Ok(Self {
+            status,
+            uncertainties,
+            ml,
+            policy_count,
+            system_count,
+        })
+    }
+}
+
+struct UncertaintyArtifactView {
+    binding: String,
+    kind: String,
+    quantity_kind: String,
+    display_unit: String,
+    distribution: Option<String>,
+    method: Option<String>,
+    mean: Option<String>,
+    stddev: Option<String>,
+    p05: Option<String>,
+    p50: Option<String>,
+    p95: Option<String>,
+    sample_count: usize,
+    status: String,
+}
+
+impl UncertaintyArtifactView {
+    fn from_json(value: &Value) -> Self {
+        Self {
+            binding: json_field_string(value, "binding").unwrap_or_else(|| "unknown".to_owned()),
+            kind: json_field_string(value, "kind").unwrap_or_else(|| "Uncertainty".to_owned()),
+            quantity_kind: json_field_string(value, "quantity_kind").unwrap_or_default(),
+            display_unit: json_field_string(value, "display_unit").unwrap_or_default(),
+            distribution: json_field_string(value, "distribution"),
+            method: json_field_string(value, "method"),
+            mean: json_field_string(value, "mean"),
+            stddev: json_field_string(value, "stddev"),
+            p05: json_field_string(value, "p05"),
+            p50: json_field_string(value, "p50"),
+            p95: json_field_string(value, "p95"),
+            sample_count: json_field_usize(value, "sample_count").unwrap_or(0),
+            status: json_field_string(value, "status").unwrap_or_else(|| "unknown".to_owned()),
+        }
+    }
+}
+
+struct MlArtifactView {
+    binding: String,
+    kind: String,
+    target: Option<String>,
+    features: Vec<String>,
+    train_count: Option<usize>,
+    test_count: Option<usize>,
+    rmse: Option<String>,
+    mae: Option<String>,
+    r2: Option<String>,
+    leakage_status: Option<String>,
+    coefficients: Vec<String>,
+    loss_summary: Option<String>,
+    status: String,
+}
+
+impl MlArtifactView {
+    fn from_json(value: &Value) -> Self {
+        let loss_values = value
+            .get("loss_history")
+            .and_then(Value::as_array)
+            .map(|items| items.iter().filter_map(Value::as_f64).collect::<Vec<f64>>())
+            .unwrap_or_default();
+        let loss_summary = match (loss_values.first(), loss_values.last()) {
+            (Some(first), Some(last)) => Some(format!(
+                "{} -> {}",
+                format_json_number(*first),
+                format_json_number(*last)
+            )),
+            _ => None,
+        };
+        let coefficients = value
+            .get("coefficients")
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| {
+                        let feature = json_field_string(item, "feature")?;
+                        let value = item.get("value")?.as_f64()?;
+                        Some(format!("{feature}={}", format_json_number(value)))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        Self {
+            binding: json_field_string(value, "binding").unwrap_or_else(|| "unknown".to_owned()),
+            kind: json_field_string(value, "kind").unwrap_or_else(|| "ML".to_owned()),
+            target: json_field_string(value, "target"),
+            features: json_field_string_array(value, "features"),
+            train_count: json_field_usize(value, "train_count"),
+            test_count: json_field_usize(value, "test_count"),
+            rmse: json_field_string(value, "rmse"),
+            mae: json_field_string(value, "mae"),
+            r2: json_field_string(value, "r2"),
+            leakage_status: json_field_string(value, "leakage_status"),
+            coefficients,
+            loss_summary,
+            status: json_field_string(value, "status").unwrap_or_else(|| "unknown".to_owned()),
+        }
+    }
+}
+
 struct PlotPreview {
     title: String,
     plot_type: String,
@@ -1072,6 +1381,16 @@ fn completion_items(filter: &str) -> Vec<CompletionItem> {
         "median",
         "std",
         "duration_above",
+        "measured",
+        "interval",
+        "normal",
+        "uniform",
+        "ensemble",
+        "propagate",
+        "samples",
+        "sigma",
+        "scale",
+        "offset",
     ] {
         items.push(CompletionItem {
             label: keyword.to_owned(),
@@ -1127,6 +1446,11 @@ fn completion_items(filter: &str) -> Vec<CompletionItem> {
             "snippet: ML model",
             "split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)\nreg_model = regression(split, algorithm=linear)\nreg_eval = evaluate(reg_model, split=split)\n\nreturn report {\n    show reg_eval\n    plot parity(reg_eval) {\n        title = \"Regression parity\"\n    }\n}",
             "data-driven regression seed",
+        ),
+        (
+            "snippet: uncertainty",
+            "Q_dist = normal(mean=5 kW, std=0.8 kW, samples=31)\nQ_total = propagate(Q_dist, method=linear, scale=1.08, offset=0.4 kW)\n\nreturn report {\n    show Q_total\n    plot distribution(Q_dist) {\n        title = \"Uncertainty histogram\"\n    }\n}",
+            "uncertainty distribution and histogram",
         ),
     ] {
         items.push(CompletionItem {
@@ -1299,6 +1623,12 @@ fn is_keyword(token: &str) -> bool {
             | "leakage_lint"
             | "parity"
             | "residuals"
+            | "measured"
+            | "interval"
+            | "normal"
+            | "uniform"
+            | "ensemble"
+            | "propagate"
     )
 }
 
@@ -1454,6 +1784,44 @@ fn status_pill(ui: &mut egui::Ui, text: &str, color: egui::Color32) {
         });
 }
 
+fn section_label(ui: &mut egui::Ui, text: &str) {
+    ui.label(egui::RichText::new(text).size(14.0).strong().color(TEXT));
+    ui.add_space(4.0);
+}
+
+fn metric_chip(ui: &mut egui::Ui, label: &str, value: &str, color: egui::Color32) {
+    egui::Frame::none()
+        .fill(color.linear_multiply(0.08))
+        .stroke(egui::Stroke::new(1.0, color.linear_multiply(0.35)))
+        .rounding(egui::Rounding::same(5.0))
+        .inner_margin(egui::Margin::symmetric(8.0, 5.0))
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new(label).color(MUTED).size(12.0));
+                ui.label(egui::RichText::new(value).color(color).strong().size(12.0));
+            });
+        });
+}
+
+fn runtime_card(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui)) {
+    egui::Frame::none()
+        .fill(PANEL_ALT)
+        .stroke(egui::Stroke::new(1.0, BORDER))
+        .rounding(egui::Rounding::same(6.0))
+        .inner_margin(egui::Margin::symmetric(9.0, 7.0))
+        .show(ui, add_contents);
+}
+
+fn key_value_row(ui: &mut egui::Ui, key: &str, value: &str) {
+    ui.horizontal_wrapped(|ui| {
+        ui.add_sized(
+            [92.0, 18.0],
+            egui::Label::new(egui::RichText::new(key).color(MUTED).size(12.0)),
+        );
+        ui.label(egui::RichText::new(value).monospace().size(12.0));
+    });
+}
+
 fn artifact_row(ui: &mut egui::Ui, label: &str, path: &Path) {
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new(label).strong());
@@ -1600,6 +1968,53 @@ fn json_string(value: &Value, path: &[&str]) -> Option<String> {
         current = current.get(*key)?;
     }
     current.as_str().map(ToOwned::to_owned)
+}
+
+fn json_field_string(value: &Value, key: &str) -> Option<String> {
+    let field = value.get(key)?;
+    if field.is_null() {
+        return None;
+    }
+    if let Some(text) = field.as_str() {
+        return Some(text.to_owned());
+    }
+    if let Some(number) = field.as_f64() {
+        return Some(format_json_number(number));
+    }
+    field.as_bool().map(|value| value.to_string())
+}
+
+fn json_field_usize(value: &Value, key: &str) -> Option<usize> {
+    value
+        .get(key)
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+}
+
+fn json_field_string_array(value: &Value, key: &str) -> Vec<String> {
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str().map(ToOwned::to_owned))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn format_json_number(value: f64) -> String {
+    if value.abs() >= 1000.0 {
+        format!("{value:.3}")
+    } else if value.abs() >= 10.0 {
+        format!("{value:.4}")
+    } else {
+        format!("{value:.6}")
+            .trim_end_matches('0')
+            .trim_end_matches('.')
+            .to_owned()
+    }
 }
 
 fn axis_label(value: &Value, axis: &str) -> String {

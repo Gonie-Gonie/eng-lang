@@ -14,7 +14,8 @@ The goal is practical user testing before v1.1 uncertainty work starts:
 - run compiler diagnostics while editing
 - inspect quantity/unit symbol metadata
 - use keyword, quantity, unit, and snippet completions
-- run the current file, preview PlotSpec data, and open generated artifacts
+- run the current file, preview PlotSpec data, inspect runtime summaries, and
+  open generated artifacts
 ```
 
 This tester IDE is intentionally native Rust GUI code using `eframe`/`egui`.
@@ -76,7 +77,9 @@ Center editor and preview
   IDE and can be hidden from the toolbar.
 
 Right Inspector
-  Tabbed Symbols and Completions surface.
+  Tabbed Symbols, Completions, and Runtime Summary surface. After Run, the
+  Runtime tab shows result status, uncertainty summaries, ML metrics,
+  coefficients, loss history, policy count, and system count.
 
 Bottom panel
   Problems, Output, and Artifacts tabs.
@@ -125,7 +128,8 @@ examples/official/04_uncertainty_core/main.eng
 ```
 
 Run it and inspect the Plot SVG/Report artifacts to verify the in-report
-histogram and Uncertainty table.
+histogram and Uncertainty table. The Runtime Summary tab also shows
+distribution kind, propagation method, sample count, and p05/p50/p95 values.
 
 Recommended v1.2 data-driven modeling smoke:
 
@@ -134,7 +138,9 @@ examples/official/05_data_driven_modeling/main.eng
 ```
 
 Run it and inspect the Run Preview/Plot SVG/Report artifacts to verify the
-parity scatter plot and ML Models table.
+parity scatter plot and ML Models table. The Runtime Summary tab also shows
+train/test counts, RMSE/MAE/R2, leakage status, coefficient summary, and loss
+history.
 
 ## Completion Scope
 
@@ -145,6 +151,7 @@ Current completion sources:
 - built-in quantity kinds from eng_compiler
 - built-in units from eng_compiler
 - starter snippets for script, CSV schema, and simple thermal system blocks
+- uncertainty and ML user-test snippets
 ```
 
 This is a tester IDE completion surface, not a full LSP yet. It is enough for
