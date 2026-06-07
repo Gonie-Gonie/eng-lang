@@ -864,6 +864,7 @@ function Invoke-LspCheck {
         Write-Host "Cargo not found. Run .\dev.bat setup."
         exit 1
     }
+    Invoke-Native $cargo "test" "-p" "eng_lsp" "--test" "stdio" "--" "--nocapture"
     Invoke-Native $cargo "run" "-p" "eng_lsp" "--" "--smoke"
     Invoke-Native $cargo "run" "-p" "eng_lsp" "--" "--snapshot-check" "examples\official\01_csv_plot\main.eng"
     Write-Host "LSP check passed."
@@ -1357,7 +1358,7 @@ Usage:
   .\dev.bat ci             Run fmt, tests, clippy, and preview example
   .\dev.bat docs-check     Check supported documentation Eng snippets
   .\dev.bat ide-check      Validate the VS Code extension preview
-  .\dev.bat lsp-check      Validate eng-lsp.exe smoke and snapshot output
+  .\dev.bat lsp-check      Validate eng-lsp.exe stdio, smoke, and snapshot output
   .\dev.bat ide            Run the native EngLang tester IDE
   .\dev.bat artifacts-check Validate artifact schemas and golden baselines
   .\dev.bat run-example    Run examples\official\01_csv_plot\main.eng

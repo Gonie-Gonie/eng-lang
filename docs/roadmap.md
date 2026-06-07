@@ -382,8 +382,8 @@ Required outputs:
 ```
 
 Status on `main`: experimental `eng-lsp.exe` smoke/snapshot, portable package
-inclusion, and minimal stdio JSON-RPC support exist. Track the exact support
-boundary in
+inclusion, and tested minimal stdio JSON-RPC support exist. Track the exact
+support boundary in
 [docs/current/v1_3_lsp_gate.md](current/v1_3_lsp_gate.md).
 
 ## v1.4 — Tester IDE Maturity and JIT Start

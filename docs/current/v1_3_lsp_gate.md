@@ -34,6 +34,8 @@ wired into a release target and manually tested in an editor.
 - [x] `dev.bat lsp-check` validates smoke and snapshot-check paths.
 - [x] `dev.bat ci` runs `lsp-check`.
 - [x] Workspace tests include `eng_lsp` snapshot coverage.
+- [x] Integration tests spawn `eng-lsp.exe` and round-trip `initialize`,
+  `didOpen`, `completion`, `hover`, `shutdown`, and `exit` over stdio.
 - [x] `dev.bat package-smoke` validates the packaged `eng-lsp.exe --smoke`
   path.
 
@@ -52,6 +54,7 @@ wired into a release target and manually tested in an editor.
 
 ```bat
 .\dev.bat lsp-check
+cargo test -p eng_lsp --test stdio
 target\debug\eng-lsp.exe --smoke
 target\debug\eng-lsp.exe --snapshot-check examples\official\01_csv_plot\main.eng
 ```
