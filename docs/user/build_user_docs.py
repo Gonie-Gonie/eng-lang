@@ -47,7 +47,7 @@ def build_document(version: str) -> Document:
                 paragraph(
                     "Use the Explorer to open official examples or create a new ",
                     code(".eng"),
-                    " file. The editor provides EngLang syntax highlighting, diagnostics, symbol inspection, and completions.",
+                    " file. The main area is split into Code on the left and Result on the right, with Variables, Completions, and Runtime Summary in the sidebar.",
                 ),
             ),
             Section(
@@ -67,7 +67,7 @@ def build_document(version: str) -> Document:
                     code("plots/timeseries.svg"),
                     " and ",
                     code("report.html"),
-                    " files for external review.",
+                    " files for external review. The in-IDE preview includes grid lines, x/y ticks, zero baseline handling, and line/scatter/bar/histogram rendering.",
                 ),
             ),
             Section(

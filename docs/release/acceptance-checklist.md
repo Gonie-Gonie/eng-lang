@@ -241,10 +241,12 @@ Before publishing the next post-v1.0 hardening release:
 [x] eng-ide.exe --smoke discovers examples and compiler completion metadata
 [x] native IDE supports check, save, run, report open, diagnostics, symbols, and completions
 [x] native IDE has Explorer, editor/preview, Inspector, and Problems/Output/Artifacts regions
+[x] native IDE main area is side-by-side Code and Result, with independent scrolling
 [x] native IDE has Runtime Summary for result.engres uncertainty and ML artifacts
 [x] native IDE supports creating new .eng files from the Explorer
 [x] native IDE provides syntax highlighting and line-level diagnostic tinting
 [x] native IDE previews PlotSpec data inside the app after Run
+[x] in-IDE PlotSpec preview includes grid lines, x/y ticks, zero baseline handling, and line/scatter/bar/histogram rendering
 [x] official integrated HVAC example exercises CSV policies, statistics, plot/report, and system preview
 [x] curated PDF user guide is generated and packaged
 [x] package docs folder does not include developer markdown files

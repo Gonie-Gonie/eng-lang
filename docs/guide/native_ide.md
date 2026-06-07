@@ -62,7 +62,7 @@ The native IDE follows a familiar editor layout:
 ```text
 Top toolbar
   Check, Save, Run, Report, Plot SVG, entry selection, diagnostic counts,
-  Explorer/Inspector/Preview visibility toggles, dirty state, and current
+  Explorer/Sidebar/Result visibility toggles, dirty state, and current
   status.
 
 Left Explorer
@@ -70,13 +70,23 @@ Left Explorer
   Creates scratch .eng files from a starter template. Open File and Open Folder
   use native OS dialogs.
 
-Center editor and preview
+Main work area
+  The center is split as Code on the left and Result on the right. The Result
+  panel is resizable and independently scrollable, so plots, runtime summaries,
+  and artifact links can be reviewed without leaving the editor.
+
+Code
   Native multiline editor with EngLang syntax highlighting and line-level
   diagnostic backgrounds. The editor uses a larger monospace style and expands
-  to the available center width. Run Preview renders PlotSpec points inside the
-  IDE and can be hidden from the toolbar.
+  to the available center width.
 
-Right Inspector
+Result
+  Run Preview renders PlotSpec points inside the IDE with axes, grid lines,
+  ticks, and plot-specific rendering for line, scatter, bar, and histogram
+  plots. Runtime Summary and Artifacts are shown below the plot in the same
+  scrollable result panel.
+
+Right Sidebar
   Tabbed Symbols, Completions, and Runtime Summary surface. After Run, the
   Runtime tab shows result status, uncertainty summaries, ML metrics,
   coefficients, loss history, policy count, and system count.

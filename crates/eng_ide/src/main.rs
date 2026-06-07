@@ -508,8 +508,8 @@ impl EngIdeApp {
             }
             ui.separator();
             ui.toggle_value(&mut self.show_explorer, "Explorer");
-            ui.toggle_value(&mut self.show_inspector_panel, "Inspector");
-            ui.toggle_value(&mut self.show_preview, "Preview");
+            ui.toggle_value(&mut self.show_inspector_panel, "Sidebar");
+            ui.toggle_value(&mut self.show_preview, "Result");
             ui.separator();
             ui.label("Entry");
             ui.add_sized([110.0, 28.0], egui::TextEdit::singleline(&mut self.entry));
@@ -642,10 +642,11 @@ impl EngIdeApp {
                     job.wrap.max_width = wrap_width;
                     ui.fonts(|fonts| fonts.layout_job(job))
                 };
+                let available_rows = ((ui.available_height() - 16.0).max(360.0) / 18.0) as usize;
                 let text_output = egui::TextEdit::multiline(&mut self.source)
                     .code_editor()
                     .desired_width(f32::INFINITY)
-                    .desired_rows(30)
+                    .desired_rows(available_rows.max(24))
                     .lock_focus(true)
                     .layouter(&mut layouter)
                     .show(ui);
@@ -705,9 +706,41 @@ impl EngIdeApp {
             });
     }
 
+    fn show_result_panel(&mut self, ui: &mut egui::Ui) {
+        panel_header(ui, "Result");
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            self.show_plot_preview(ui);
+            ui.add_space(10.0);
+            egui::Frame::none()
+                .fill(PANEL)
+                .stroke(egui::Stroke::new(1.0, BORDER))
+                .rounding(egui::Rounding::same(6.0))
+                .inner_margin(egui::Margin::same(10.0))
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.heading(egui::RichText::new("Runtime").size(16.0));
+                        ui.label(egui::RichText::new("result.engres summary").color(MUTED));
+                    });
+                    ui.separator();
+                    self.show_runtime_summary_content(ui);
+                });
+            ui.add_space(10.0);
+            egui::Frame::none()
+                .fill(PANEL)
+                .stroke(egui::Stroke::new(1.0, BORDER))
+                .rounding(egui::Rounding::same(6.0))
+                .inner_margin(egui::Margin::same(10.0))
+                .show(ui, |ui| {
+                    ui.heading(egui::RichText::new("Artifacts").size(16.0));
+                    ui.separator();
+                    self.show_artifacts_content(ui);
+                });
+        });
+    }
+
     fn show_right_panel(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            tab_button(ui, "Inspector", self.right_tab == RightTab::Inspector)
+            tab_button(ui, "Variables", self.right_tab == RightTab::Inspector)
                 .clicked()
                 .then(|| self.right_tab = RightTab::Inspector);
             tab_button(ui, "Completions", self.right_tab == RightTab::Completions)
@@ -726,7 +759,7 @@ impl EngIdeApp {
     }
 
     fn show_inspector(&mut self, ui: &mut egui::Ui) {
-        panel_header(ui, "Symbols");
+        panel_header(ui, "Variables");
         egui::ScrollArea::vertical().show(ui, |ui| {
             if self.symbols.is_empty() {
                 ui.label(egui::RichText::new("No symbols").color(MUTED));
@@ -795,133 +828,137 @@ impl EngIdeApp {
     fn show_runtime_inspector(&self, ui: &mut egui::Ui) {
         panel_header(ui, "Runtime Summary");
         egui::ScrollArea::vertical().show(ui, |ui| {
-            let Some(summary) = &self.artifact_summary else {
-                ui.label(
-                    egui::RichText::new("Run the current file to inspect result artifacts.")
-                        .color(MUTED),
-                );
-                return;
-            };
-            ui.horizontal_wrapped(|ui| {
-                metric_chip(ui, "Status", &summary.status, OK);
-                metric_chip(
-                    ui,
-                    "Uncertainty",
-                    &summary.uncertainties.len().to_string(),
-                    ACCENT,
-                );
-                metric_chip(ui, "ML", &summary.ml.len().to_string(), ACCENT);
-                metric_chip(ui, "Policies", &summary.policy_count.to_string(), ACCENT);
-                metric_chip(ui, "Systems", &summary.system_count.to_string(), ACCENT);
-            });
-            ui.add_space(8.0);
-
-            section_label(ui, "Uncertainty");
-            if summary.uncertainties.is_empty() {
-                ui.label(egui::RichText::new("No uncertainty artifacts in this run.").color(MUTED));
-            }
-            for item in &summary.uncertainties {
-                runtime_card(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new(&item.binding).strong());
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            status_pill(ui, &item.status, OK);
-                        });
-                    });
-                    ui.label(
-                        egui::RichText::new(format!(
-                            "{} / {} [{}]",
-                            item.kind, item.quantity_kind, item.display_unit
-                        ))
-                        .color(MUTED),
-                    );
-                    key_value_row(
-                        ui,
-                        "distribution",
-                        item.distribution.as_deref().unwrap_or(""),
-                    );
-                    key_value_row(ui, "method", item.method.as_deref().unwrap_or(""));
-                    key_value_row(
-                        ui,
-                        "mean",
-                        &item.mean.clone().unwrap_or_else(|| "-".to_owned()),
-                    );
-                    key_value_row(
-                        ui,
-                        "stddev",
-                        &item.stddev.clone().unwrap_or_else(|| "-".to_owned()),
-                    );
-                    key_value_row(
-                        ui,
-                        "p05/p50/p95",
-                        &format!(
-                            "{} / {} / {}",
-                            item.p05.as_deref().unwrap_or("-"),
-                            item.p50.as_deref().unwrap_or("-"),
-                            item.p95.as_deref().unwrap_or("-")
-                        ),
-                    );
-                    key_value_row(ui, "samples", &item.sample_count.to_string());
-                });
-                ui.add_space(6.0);
-            }
-
-            ui.add_space(8.0);
-            section_label(ui, "ML Models");
-            if summary.ml.is_empty() {
-                ui.label(egui::RichText::new("No ML artifacts in this run.").color(MUTED));
-            }
-            for item in &summary.ml {
-                runtime_card(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new(&item.binding).strong());
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            status_pill(ui, &item.status, OK);
-                        });
-                    });
-                    ui.label(egui::RichText::new(&item.kind).color(MUTED));
-                    if let Some(target) = &item.target {
-                        key_value_row(ui, "target", target);
-                    }
-                    if !item.features.is_empty() {
-                        key_value_row(ui, "features", &item.features.join(", "));
-                    }
-                    key_value_row(
-                        ui,
-                        "train/test",
-                        &format!(
-                            "{} / {}",
-                            item.train_count
-                                .map(|value| value.to_string())
-                                .unwrap_or_else(|| "-".to_owned()),
-                            item.test_count
-                                .map(|value| value.to_string())
-                                .unwrap_or_else(|| "-".to_owned())
-                        ),
-                    );
-                    key_value_row(
-                        ui,
-                        "rmse/mae/r2",
-                        &format!(
-                            "{} / {} / {}",
-                            item.rmse.as_deref().unwrap_or("-"),
-                            item.mae.as_deref().unwrap_or("-"),
-                            item.r2.as_deref().unwrap_or("-")
-                        ),
-                    );
-                    if let Some(leakage) = &item.leakage_status {
-                        key_value_row(ui, "leakage", leakage);
-                    }
-                    if !item.coefficients.is_empty() {
-                        key_value_row(ui, "coefficients", &item.coefficients.join(", "));
-                    }
-                    if let Some(loss) = &item.loss_summary {
-                        key_value_row(ui, "loss", loss);
-                    }
-                });
-                ui.add_space(6.0);
-            }
+            self.show_runtime_summary_content(ui);
         });
+    }
+
+    fn show_runtime_summary_content(&self, ui: &mut egui::Ui) {
+        let Some(summary) = &self.artifact_summary else {
+            ui.label(
+                egui::RichText::new("Run the current file to inspect result artifacts.")
+                    .color(MUTED),
+            );
+            return;
+        };
+        ui.horizontal_wrapped(|ui| {
+            metric_chip(ui, "Status", &summary.status, OK);
+            metric_chip(
+                ui,
+                "Uncertainty",
+                &summary.uncertainties.len().to_string(),
+                ACCENT,
+            );
+            metric_chip(ui, "ML", &summary.ml.len().to_string(), ACCENT);
+            metric_chip(ui, "Policies", &summary.policy_count.to_string(), ACCENT);
+            metric_chip(ui, "Systems", &summary.system_count.to_string(), ACCENT);
+        });
+        ui.add_space(8.0);
+
+        section_label(ui, "Uncertainty");
+        if summary.uncertainties.is_empty() {
+            ui.label(egui::RichText::new("No uncertainty artifacts in this run.").color(MUTED));
+        }
+        for item in &summary.uncertainties {
+            runtime_card(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(&item.binding).strong());
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        status_pill(ui, &item.status, OK);
+                    });
+                });
+                ui.label(
+                    egui::RichText::new(format!(
+                        "{} / {} [{}]",
+                        item.kind, item.quantity_kind, item.display_unit
+                    ))
+                    .color(MUTED),
+                );
+                key_value_row(
+                    ui,
+                    "distribution",
+                    item.distribution.as_deref().unwrap_or(""),
+                );
+                key_value_row(ui, "method", item.method.as_deref().unwrap_or(""));
+                key_value_row(
+                    ui,
+                    "mean",
+                    &item.mean.clone().unwrap_or_else(|| "-".to_owned()),
+                );
+                key_value_row(
+                    ui,
+                    "stddev",
+                    &item.stddev.clone().unwrap_or_else(|| "-".to_owned()),
+                );
+                key_value_row(
+                    ui,
+                    "p05/p50/p95",
+                    &format!(
+                        "{} / {} / {}",
+                        item.p05.as_deref().unwrap_or("-"),
+                        item.p50.as_deref().unwrap_or("-"),
+                        item.p95.as_deref().unwrap_or("-")
+                    ),
+                );
+                key_value_row(ui, "samples", &item.sample_count.to_string());
+            });
+            ui.add_space(6.0);
+        }
+
+        ui.add_space(8.0);
+        section_label(ui, "ML Models");
+        if summary.ml.is_empty() {
+            ui.label(egui::RichText::new("No ML artifacts in this run.").color(MUTED));
+        }
+        for item in &summary.ml {
+            runtime_card(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(&item.binding).strong());
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        status_pill(ui, &item.status, OK);
+                    });
+                });
+                ui.label(egui::RichText::new(&item.kind).color(MUTED));
+                if let Some(target) = &item.target {
+                    key_value_row(ui, "target", target);
+                }
+                if !item.features.is_empty() {
+                    key_value_row(ui, "features", &item.features.join(", "));
+                }
+                key_value_row(
+                    ui,
+                    "train/test",
+                    &format!(
+                        "{} / {}",
+                        item.train_count
+                            .map(|value| value.to_string())
+                            .unwrap_or_else(|| "-".to_owned()),
+                        item.test_count
+                            .map(|value| value.to_string())
+                            .unwrap_or_else(|| "-".to_owned())
+                    ),
+                );
+                key_value_row(
+                    ui,
+                    "rmse/mae/r2",
+                    &format!(
+                        "{} / {} / {}",
+                        item.rmse.as_deref().unwrap_or("-"),
+                        item.mae.as_deref().unwrap_or("-"),
+                        item.r2.as_deref().unwrap_or("-")
+                    ),
+                );
+                if let Some(leakage) = &item.leakage_status {
+                    key_value_row(ui, "leakage", leakage);
+                }
+                if !item.coefficients.is_empty() {
+                    key_value_row(ui, "coefficients", &item.coefficients.join(", "));
+                }
+                if let Some(loss) = &item.loss_summary {
+                    key_value_row(ui, "loss", loss);
+                }
+            });
+            ui.add_space(6.0);
+        }
     }
 
     fn show_bottom_panel(&mut self, ui: &mut egui::Ui) {
@@ -985,33 +1022,37 @@ impl EngIdeApp {
 
     fn show_artifacts(&self, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical().show(ui, |ui| {
-            if let Some(output) = &self.last_output {
-                if let Some(summary) = &self.artifact_summary {
-                    ui.horizontal_wrapped(|ui| {
-                        metric_chip(ui, "Run", &summary.status, OK);
-                        metric_chip(
-                            ui,
-                            "Uncertainty",
-                            &summary.uncertainties.len().to_string(),
-                            ACCENT,
-                        );
-                        metric_chip(ui, "ML", &summary.ml.len().to_string(), ACCENT);
-                        metric_chip(ui, "Systems", &summary.system_count.to_string(), ACCENT);
-                    });
-                    ui.add_space(8.0);
-                }
-                artifact_row(ui, "Report HTML", &output.report_path);
-                artifact_row(ui, "ReportSpec JSON", &output.report_spec_path);
-                artifact_row(ui, "Plot SVG", &output.plot_path);
-                artifact_row(ui, "PlotSpec JSON", &output.plot_spec_path);
-                artifact_row(ui, "Plot Manifest", &output.plot_manifest_path);
-                artifact_row(ui, "Result", &output.result_path);
-                artifact_row(ui, "Review", &output.review_path);
-                artifact_row(ui, "Bytecode", &output.bytecode_path);
-            } else {
-                ui.label(egui::RichText::new("No artifacts yet").color(MUTED));
-            }
+            self.show_artifacts_content(ui);
         });
+    }
+
+    fn show_artifacts_content(&self, ui: &mut egui::Ui) {
+        if let Some(output) = &self.last_output {
+            if let Some(summary) = &self.artifact_summary {
+                ui.horizontal_wrapped(|ui| {
+                    metric_chip(ui, "Run", &summary.status, OK);
+                    metric_chip(
+                        ui,
+                        "Uncertainty",
+                        &summary.uncertainties.len().to_string(),
+                        ACCENT,
+                    );
+                    metric_chip(ui, "ML", &summary.ml.len().to_string(), ACCENT);
+                    metric_chip(ui, "Systems", &summary.system_count.to_string(), ACCENT);
+                });
+                ui.add_space(8.0);
+            }
+            artifact_row(ui, "Report HTML", &output.report_path);
+            artifact_row(ui, "ReportSpec JSON", &output.report_spec_path);
+            artifact_row(ui, "Plot SVG", &output.plot_path);
+            artifact_row(ui, "PlotSpec JSON", &output.plot_spec_path);
+            artifact_row(ui, "Plot Manifest", &output.plot_manifest_path);
+            artifact_row(ui, "Result", &output.result_path);
+            artifact_row(ui, "Review", &output.review_path);
+            artifact_row(ui, "Bytecode", &output.bytecode_path);
+        } else {
+            ui.label(egui::RichText::new("No artifacts yet").color(MUTED));
+        }
     }
 }
 
@@ -1041,10 +1082,19 @@ impl eframe::App for EngIdeApp {
         if self.show_inspector_panel {
             egui::SidePanel::right("inspector")
                 .resizable(true)
-                .default_width(300.0)
-                .width_range(220.0..=560.0)
+                .default_width(280.0)
+                .width_range(220.0..=460.0)
                 .frame(panel_frame())
                 .show(ctx, |ui| self.show_right_panel(ui));
+        }
+
+        if self.show_preview {
+            egui::SidePanel::right("result_panel")
+                .resizable(true)
+                .default_width(520.0)
+                .width_range(340.0..=820.0)
+                .frame(panel_frame())
+                .show(ctx, |ui| self.show_result_panel(ui));
         }
 
         egui::CentralPanel::default()
@@ -1055,10 +1105,6 @@ impl eframe::App for EngIdeApp {
             )
             .show(ctx, |ui| {
                 self.show_editor(ui);
-                if self.show_preview {
-                    ui.add_space(10.0);
-                    self.show_plot_preview(ui);
-                }
             });
     }
 }
@@ -1857,19 +1903,19 @@ fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
     );
 
     let plot_rect = egui::Rect::from_min_max(
-        rect.min + egui::vec2(58.0, 28.0),
-        rect.max - egui::vec2(22.0, 42.0),
-    );
-    painter.line_segment(
-        [plot_rect.left_bottom(), plot_rect.right_bottom()],
-        egui::Stroke::new(1.5, egui::Color32::from_rgb(65, 76, 90)),
-    );
-    painter.line_segment(
-        [plot_rect.left_bottom(), plot_rect.left_top()],
-        egui::Stroke::new(1.5, egui::Color32::from_rgb(65, 76, 90)),
+        rect.min + egui::vec2(66.0, 30.0),
+        rect.max - egui::vec2(28.0, 48.0),
     );
 
     if plot.points.is_empty() {
+        painter.line_segment(
+            [plot_rect.left_bottom(), plot_rect.right_bottom()],
+            egui::Stroke::new(1.4, egui::Color32::from_rgb(65, 76, 90)),
+        );
+        painter.line_segment(
+            [plot_rect.left_bottom(), plot_rect.left_top()],
+            egui::Stroke::new(1.4, egui::Color32::from_rgb(65, 76, 90)),
+        );
         painter.text(
             plot_rect.center(),
             egui::Align2::CENTER_CENTER,
@@ -1879,6 +1925,8 @@ fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
         );
     } else {
         let (min_x, max_x, min_y, max_y) = point_bounds(&plot.points);
+        let x_ticks = tick_values(min_x, max_x, 5);
+        let y_ticks = tick_values(min_y, max_y, 5);
         let to_screen = |point: (f64, f64)| -> egui::Pos2 {
             let x_t = normalized(point.0, min_x, max_x);
             let y_t = normalized(point.1, min_y, max_y);
@@ -1887,16 +1935,83 @@ fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
                 plot_rect.bottom() - (y_t as f32) * plot_rect.height(),
             )
         };
+
+        for tick in &x_ticks {
+            let x = to_screen((*tick, min_y)).x;
+            painter.line_segment(
+                [
+                    egui::pos2(x, plot_rect.top()),
+                    egui::pos2(x, plot_rect.bottom()),
+                ],
+                egui::Stroke::new(1.0, egui::Color32::from_rgb(226, 232, 240)),
+            );
+            painter.text(
+                egui::pos2(x, plot_rect.bottom() + 7.0),
+                egui::Align2::CENTER_TOP,
+                format_tick(*tick),
+                egui::FontId::proportional(10.5),
+                MUTED,
+            );
+        }
+        for tick in &y_ticks {
+            let y = to_screen((min_x, *tick)).y;
+            painter.line_segment(
+                [
+                    egui::pos2(plot_rect.left(), y),
+                    egui::pos2(plot_rect.right(), y),
+                ],
+                egui::Stroke::new(1.0, egui::Color32::from_rgb(226, 232, 240)),
+            );
+            painter.text(
+                egui::pos2(plot_rect.left() - 8.0, y),
+                egui::Align2::RIGHT_CENTER,
+                format_tick(*tick),
+                egui::FontId::proportional(10.5),
+                MUTED,
+            );
+        }
+
+        painter.line_segment(
+            [plot_rect.left_bottom(), plot_rect.right_bottom()],
+            egui::Stroke::new(1.5, egui::Color32::from_rgb(65, 76, 90)),
+        );
+        painter.line_segment(
+            [plot_rect.left_bottom(), plot_rect.left_top()],
+            egui::Stroke::new(1.5, egui::Color32::from_rgb(65, 76, 90)),
+        );
+        if min_y < 0.0 && max_y > 0.0 {
+            let zero_y = to_screen((min_x, 0.0)).y;
+            painter.line_segment(
+                [
+                    egui::pos2(plot_rect.left(), zero_y),
+                    egui::pos2(plot_rect.right(), zero_y),
+                ],
+                egui::Stroke::new(1.5, egui::Color32::from_rgb(148, 163, 184)),
+            );
+        }
+
         if plot.plot_type == "bar" || plot.plot_type == "histogram" {
             let bar_width = (plot_rect.width() / plot.points.len().max(1) as f32) * 0.68;
+            let baseline_value = if min_y <= 0.0 && max_y >= 0.0 {
+                0.0
+            } else if min_y > 0.0 {
+                min_y
+            } else {
+                max_y
+            };
+            let baseline_y = to_screen((min_x, baseline_value)).y;
             for point in &plot.points {
                 let screen = to_screen(*point);
-                let base = egui::pos2(screen.x, plot_rect.bottom());
                 let bar_rect = egui::Rect::from_center_size(
-                    egui::pos2(screen.x, (screen.y + base.y) * 0.5),
-                    egui::vec2(bar_width.max(2.0), (base.y - screen.y).abs().max(1.0)),
+                    egui::pos2(screen.x, (screen.y + baseline_y) * 0.5),
+                    egui::vec2(bar_width.max(2.0), (baseline_y - screen.y).abs().max(1.0)),
                 );
                 painter.rect_filled(bar_rect, egui::Rounding::same(2.0), ACCENT);
+            }
+        } else if plot.plot_type == "scatter" {
+            for point in plot.points.iter().copied().map(to_screen) {
+                painter.circle_filled(point, 3.2, egui::Color32::from_rgb(255, 255, 255));
+                painter.circle_stroke(point, 3.2, egui::Stroke::new(1.5, ACCENT));
             }
         } else {
             let points: Vec<egui::Pos2> = plot.points.iter().copied().map(to_screen).collect();
@@ -1959,6 +2074,27 @@ fn normalized(value: f64, min: f64, max: f64) -> f64 {
         0.5
     } else {
         ((value - min) / (max - min)).clamp(0.0, 1.0)
+    }
+}
+
+fn tick_values(min: f64, max: f64, count: usize) -> Vec<f64> {
+    let count = count.max(2);
+    if (max - min).abs() < f64::EPSILON {
+        return vec![min];
+    }
+    let step = (max - min) / (count - 1) as f64;
+    (0..count).map(|index| min + step * index as f64).collect()
+}
+
+fn format_tick(value: f64) -> String {
+    if value.abs() >= 1000.0 {
+        format!("{value:.0}")
+    } else if value.abs() >= 10.0 {
+        format!("{value:.1}")
+    } else if value.abs() >= 1.0 {
+        format!("{value:.2}")
+    } else {
+        format!("{value:.3}")
     }
 }
 
