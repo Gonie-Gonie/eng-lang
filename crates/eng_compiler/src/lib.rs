@@ -2087,6 +2087,25 @@ mod tests {
     }
 
     #[test]
+    fn rejects_invalid_uncertainty_arguments() {
+        let report = check_source(
+            "bad.eng",
+            "script main(args: Args) -> Report {\n    T_bad = measured(sensor_value, std=abc)\n    Q_bad_dist = normal(mean=5 kW, std=-0.8 kW, samples=0)\n    Q_bad_uniform = uniform(0.7 kW, 0.3 kW, samples=abc)\n    Q_source = normal(mean=4 kW, std=0.4 kW, samples=9)\n    Q_bad_prop = propagate(Q_source, method=quadratic, scale=abc)\n    Q_bad_distribution = distribution(kind=triangular, mean=5 kW, std=0.2 kW)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        let codes = report
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.code.as_str())
+            .collect::<Vec<_>>();
+        assert!(codes.contains(&"E-UNC-ARGS-001"));
+        assert!(codes.contains(&"E-UNC-ARGS-002"));
+        assert!(codes.contains(&"E-UNC-ARGS-003"));
+    }
+
+    #[test]
     fn records_data_driven_modeling_metadata() {
         let report = check_source(
             "ok.eng",

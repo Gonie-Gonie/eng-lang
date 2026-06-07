@@ -1,5 +1,5 @@
 struct Args {
-    case_name: String = "coil_uncertainty_seed"
+    case_name: String = "coil_uncertainty_core"
 }
 
 script main(args: Args) -> Report {

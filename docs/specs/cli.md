@@ -70,6 +70,11 @@ E-ENTRY-MULTIPLE-001   run/build entry point selection is ambiguous
 W-STATS-SUM-001        HeatRate summed over Time should use integrate
 E-EQ-BOOL-001          physical equation used == instead of eq
 E-EQ-UNIT-001          physical equation dimensions do not match
+E-UNC-SOURCE-001      missing or unknown uncertainty source reference
+E-UNC-SOURCE-002      referenced binding is not an uncertainty source
+E-UNC-ARGS-001        missing or malformed required uncertainty argument
+E-UNC-ARGS-002        invalid numeric/range/count/transform uncertainty argument
+E-UNC-ARGS-003        unsupported uncertainty option
 E-DOMAIN-CONTRACT-001  domain has no across variable
 E-DOMAIN-CONTRACT-002  domain has no through variable
 E-DOMAIN-CONTRACT-003  domain has no conservation contract
@@ -385,6 +390,8 @@ Runs official smoke checks:
 - physical equation using == produces E-EQ-BOOL-001
 - equation unit mismatch produces E-EQ-UNIT-001
 - missing CSV column example produces errors
+- missing uncertainty source example produces E-UNC-SOURCE-001
+- invalid uncertainty argument example produces E-UNC-ARGS-001/002/003
 - missing entry example fails file run/build entry selection
 - official plotting example produces report and PlotSpec artifacts
 - Args CLI binding produces CSV run artifacts

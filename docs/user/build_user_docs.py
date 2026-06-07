@@ -22,8 +22,8 @@ def build_document(version: str) -> Document:
             ),
             paragraph(
                 "The current release line is intentionally narrow: typed CSV import, unit-aware calculations, "
-                "TimeSeries statistics, PlotSpec/SVG/report generation, simple system metadata, uncertainty seeds, "
-                "data-driven modeling seeds, and packaged execution.",
+                "TimeSeries statistics, PlotSpec/SVG/report generation, simple system metadata, experimental uncertainty "
+                "and data-driven modeling paths, and packaged execution.",
             ),
         ),
         Chapter(

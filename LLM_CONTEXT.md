@@ -15,9 +15,9 @@ It is intentionally short so agents do not need to load every planning file.
 - `v1.1` through `v2.0` code on `main` is experimental unless the current
   status documents say otherwise.
 - Current `v1.1` detail work includes deterministic uncertainty samples,
-  source validation diagnostics, scale/offset propagation metadata,
-  propagation source terms, histogram bin metadata/artifacts, and IDE/report
-  inspection.
+  source and argument validation diagnostics, scale/offset propagation
+  metadata, propagation source terms, histogram bin metadata/artifacts, and
+  IDE/report inspection documented in the v1.1 gate.
 - Current `v1.2` detail work includes source validation diagnostics for
   TimeSeries -> train/test split -> model -> evaluation/model-card links and
   argument diagnostics for split/model/MLP options, with parity and residual
@@ -52,12 +52,13 @@ It is intentionally short so agents do not need to load every planning file.
 3. `docs/current/status.md`
 4. `docs/current/feature_maturity_matrix.md`
 5. `docs/current/v1_0_3_hardening.md`
-6. `docs/current/v1_2_data_driven_modeling_gate.md`
-7. `docs/current/v1_3_lsp_gate.md`
-8. `docs/current/v1_4_jit_gate.md`
-9. `docs/current/v1_5_standalone_gate.md`
-10. `docs/current/v2_0_domain_component_gate.md`
-11. `docs/llm/load_map.yml`
+6. `docs/current/v1_1_uncertainty_gate.md`
+7. `docs/current/v1_2_data_driven_modeling_gate.md`
+8. `docs/current/v1_3_lsp_gate.md`
+9. `docs/current/v1_4_jit_gate.md`
+10. `docs/current/v1_5_standalone_gate.md`
+11. `docs/current/v2_0_domain_component_gate.md`
+12. `docs/llm/load_map.yml`
 
 ## Core Invariants
 

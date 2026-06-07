@@ -102,6 +102,31 @@ pub fn source_diagnostic(
     None
 }
 
+pub fn argument_diagnostics(binding: &FastBinding) -> Vec<Diagnostic> {
+    let expression = binding.expression.trim();
+    let Some(call) = uncertainty_call_name(expression) else {
+        return Vec::new();
+    };
+
+    let mut diagnostics = Vec::new();
+    validate_sample_count_argument(call, expression, binding.line, &mut diagnostics);
+
+    match call {
+        "measured" => validate_measured_arguments(expression, binding.line, &mut diagnostics),
+        "interval" => validate_range_arguments(call, expression, binding.line, &mut diagnostics),
+        "normal" => validate_normal_arguments(call, expression, binding.line, &mut diagnostics),
+        "uniform" => validate_range_arguments(call, expression, binding.line, &mut diagnostics),
+        "distribution" => {
+            validate_distribution_arguments(expression, binding.line, &mut diagnostics)
+        }
+        "propagate" => validate_propagation_arguments(expression, binding.line, &mut diagnostics),
+        "ensemble" => {}
+        _ => {}
+    }
+
+    diagnostics
+}
+
 pub fn uncertainty_semantic_type(name: &str, expression: &str) -> Option<(String, String)> {
     let lowered = expression.trim().to_ascii_lowercase();
     let kind = if lowered.starts_with("measured(") {
@@ -136,6 +161,286 @@ pub fn uncertainty_inner_quantity(quantity_kind: &str) -> Option<(String, String
         }
     }
     None
+}
+
+fn validate_measured_arguments(expression: &str, line: usize, diagnostics: &mut Vec<Diagnostic>) {
+    if first_value_with_unit(expression)
+        .and_then(|value| numeric_prefix(&value))
+        .is_none()
+    {
+        diagnostics.push(Diagnostic::error(
+            "E-UNC-ARGS-001",
+            line,
+            "`measured` requires a numeric measured value.",
+            Some("Use `measured(12 degC, std=0.2 K)` or another numeric value with a unit."),
+        ));
+    }
+
+    validate_optional_non_negative_value(
+        expression,
+        &["std", "sigma", "uncertainty"],
+        "`measured` standard deviation",
+        line,
+        diagnostics,
+    );
+}
+
+fn validate_distribution_arguments(
+    expression: &str,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match distribution_kind(expression).as_str() {
+        "normal" => validate_normal_arguments("distribution", expression, line, diagnostics),
+        "uniform" => validate_range_arguments("distribution", expression, line, diagnostics),
+        unsupported => diagnostics.push(Diagnostic::error(
+            "E-UNC-ARGS-003",
+            line,
+            &format!("Unsupported uncertainty distribution `{unsupported}`."),
+            Some("The current v1.1 path supports `normal` and `uniform` distributions."),
+        )),
+    }
+}
+
+fn validate_normal_arguments(
+    call: &str,
+    expression: &str,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if distribution_mean(expression)
+        .and_then(|value| numeric_prefix(&value))
+        .is_none()
+    {
+        diagnostics.push(Diagnostic::error(
+            "E-UNC-ARGS-001",
+            line,
+            &format!("`{call}` requires a numeric `mean` value."),
+            Some("Use `normal(mean=5 kW, std=0.8 kW, samples=31)`."),
+        ));
+    }
+
+    validate_required_non_negative_value(
+        expression,
+        &["std", "sigma"],
+        &format!("`{call}` standard deviation"),
+        line,
+        diagnostics,
+    );
+}
+
+fn validate_range_arguments(
+    call: &str,
+    expression: &str,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let (lower, upper) = range_values(expression);
+    let lower_numeric = lower.as_deref().and_then(numeric_prefix);
+    let upper_numeric = upper.as_deref().and_then(numeric_prefix);
+
+    let (Some(lower_numeric), Some(upper_numeric)) = (lower_numeric, upper_numeric) else {
+        diagnostics.push(Diagnostic::error(
+            "E-UNC-ARGS-001",
+            line,
+            &format!("`{call}` requires two numeric bounds."),
+            Some("Use positional bounds such as `uniform(0.3 kW, 0.7 kW)` or named `lower=`/`upper=` bounds."),
+        ));
+        return;
+    };
+
+    if lower_numeric > upper_numeric {
+        diagnostics.push(Diagnostic::error(
+            "E-UNC-ARGS-002",
+            line,
+            &format!(
+                "`{call}` lower bound {lower_numeric} is greater than upper bound {upper_numeric}."
+            ),
+            Some("Swap the bounds or correct the declared interval/range."),
+        ));
+    }
+}
+
+fn validate_propagation_arguments(
+    expression: &str,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if let Some(method) = named_value(expression, &["method"]) {
+        let normalized = method.trim().trim_matches('"').to_ascii_lowercase();
+        if normalized != "linear" {
+            diagnostics.push(Diagnostic::error(
+                "E-UNC-ARGS-003",
+                line,
+                &format!("Unsupported uncertainty propagation method `{method}`."),
+                Some("The current v1.1 path supports `method=linear`."),
+            ));
+        }
+    }
+
+    validate_optional_numeric_value(
+        expression,
+        &["scale", "gain"],
+        "`propagate` scale/gain",
+        line,
+        diagnostics,
+    );
+    validate_optional_numeric_value(
+        expression,
+        &["offset", "bias"],
+        "`propagate` offset/bias",
+        line,
+        diagnostics,
+    );
+}
+
+fn validate_sample_count_argument(
+    call: &str,
+    expression: &str,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if let Some(value) = named_value(expression, &["samples", "n"]) {
+        match value.trim().parse::<usize>() {
+            Ok(count) if (1..=256).contains(&count) => {}
+            _ => diagnostics.push(Diagnostic::error(
+                "E-UNC-ARGS-002",
+                line,
+                &format!("`{call}` sample count `{value}` is invalid."),
+                Some("Use an integer `samples` value between 1 and 256."),
+            )),
+        }
+    }
+}
+
+fn validate_required_non_negative_value(
+    expression: &str,
+    names: &[&str],
+    label: &str,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match named_value(expression, names) {
+        Some(value) => validate_non_negative_value(&value, label, line, diagnostics),
+        None => diagnostics.push(Diagnostic::error(
+            "E-UNC-ARGS-001",
+            line,
+            &format!("{label} is required."),
+            Some("Provide a non-negative value such as `std=0.8 kW`."),
+        )),
+    }
+}
+
+fn validate_optional_non_negative_value(
+    expression: &str,
+    names: &[&str],
+    label: &str,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if let Some(value) = named_value(expression, names) {
+        validate_non_negative_value(&value, label, line, diagnostics);
+    }
+}
+
+fn validate_non_negative_value(
+    value: &str,
+    label: &str,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match numeric_prefix(value) {
+        Some(parsed) if parsed >= 0.0 => {}
+        Some(parsed) => diagnostics.push(Diagnostic::error(
+            "E-UNC-ARGS-002",
+            line,
+            &format!("{label} must be non-negative, but found {parsed}."),
+            Some("Use a zero or positive standard deviation."),
+        )),
+        None => diagnostics.push(Diagnostic::error(
+            "E-UNC-ARGS-001",
+            line,
+            &format!("{label} must be numeric."),
+            Some("Provide a numeric value with an optional unit."),
+        )),
+    }
+}
+
+fn validate_optional_numeric_value(
+    expression: &str,
+    names: &[&str],
+    label: &str,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if let Some(value) = named_value(expression, names) {
+        if numeric_prefix(&value).is_none() {
+            diagnostics.push(Diagnostic::error(
+                "E-UNC-ARGS-002",
+                line,
+                &format!("{label} value `{value}` must be numeric."),
+                Some("Use a numeric value such as `scale=1.08` or `offset=0.4 kW`."),
+            ));
+        }
+    }
+}
+
+fn distribution_mean(expression: &str) -> Option<String> {
+    named_value(expression, &["mean", "mu"]).or_else(|| first_value_with_unit(expression))
+}
+
+fn range_values(expression: &str) -> (Option<String>, Option<String>) {
+    let values = values_with_unit(expression);
+    let lower = named_value(expression, &["lower", "min"]).or_else(|| values.first().cloned());
+    let upper = named_value(expression, &["upper", "max"]).or_else(|| values.get(1).cloned());
+    (lower, upper)
+}
+
+fn uncertainty_call_name(expression: &str) -> Option<&'static str> {
+    let lowered = expression.trim_start().to_ascii_lowercase();
+    if lowered.starts_with("measured(") {
+        Some("measured")
+    } else if lowered.starts_with("interval(") {
+        Some("interval")
+    } else if lowered.starts_with("normal(") {
+        Some("normal")
+    } else if lowered.starts_with("uniform(") {
+        Some("uniform")
+    } else if lowered.starts_with("distribution(") {
+        Some("distribution")
+    } else if lowered.starts_with("ensemble(") {
+        Some("ensemble")
+    } else if lowered.starts_with("propagate(") {
+        Some("propagate")
+    } else {
+        None
+    }
+}
+
+fn numeric_prefix(value: &str) -> Option<f64> {
+    let trimmed = value.trim();
+    let mut end = 0;
+    let mut saw_digit = false;
+    let mut previous = '\0';
+    for (index, character) in trimmed.char_indices() {
+        let allowed = character.is_ascii_digit()
+            || character == '.'
+            || ((character == '-' || character == '+')
+                && (index == 0 || previous == 'e' || previous == 'E'))
+            || ((character == 'e' || character == 'E') && saw_digit);
+        if !allowed {
+            break;
+        }
+        if character.is_ascii_digit() {
+            saw_digit = true;
+        }
+        end = index + character.len_utf8();
+        previous = character;
+    }
+    if !saw_digit {
+        return None;
+    }
+    trimmed[..end].parse::<f64>().ok()
 }
 
 fn measured_info(binding: &FastBinding, typed_bindings: &[TypedBinding]) -> UncertaintyInfo {

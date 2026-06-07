@@ -340,11 +340,14 @@ Required outputs before v1.1 can be considered supported:
 - distribution summary and PlotSpec histogram with bin metadata
 - official uncertainty example and CLI smoke
 - uncertainty source validation diagnostics
+- uncertainty argument validation diagnostics for required numeric values,
+  bounds, sample counts, supported methods, and transforms
 - diagnostics, IDE metadata, documentation, and release notes aligned
 ```
 
-Status on `main`: experimental seed and official example support exist, but
-this is not release-supported until the v1.1 gate is explicitly completed.
+Status on `main`: experimental implementation and official example support
+exist, but this is not release-supported until the v1.1 gate is explicitly
+completed.
 
 ## v1.2 — Data-driven Modeling and Basic ANN
 

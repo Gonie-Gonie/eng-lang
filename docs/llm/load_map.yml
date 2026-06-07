@@ -4,6 +4,7 @@ default:
   - docs/current/status.md
   - docs/current/feature_maturity_matrix.md
   - docs/current/v1_0_3_hardening.md
+  - docs/current/v1_1_uncertainty_gate.md
   - docs/current/v1_2_data_driven_modeling_gate.md
   - docs/current/v1_3_lsp_gate.md
   - docs/current/v1_4_jit_gate.md
@@ -67,8 +68,10 @@ task_types:
     - crates/eng_runtime/
 
   uncertainty:
+    - docs/current/v1_1_uncertainty_gate.md
     - docs/guide/uncertainty.md
     - examples/official/04_uncertainty_core/
+    - examples/05_error_messages/invalid_uncertainty_arguments.eng
     - crates/eng_compiler/src/uncertainty.rs
     - crates/eng_runtime/src/runtime_data.rs
 

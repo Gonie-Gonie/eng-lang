@@ -4,7 +4,8 @@ The v1.0.3 hardening path upgrades the portable native tester IDE. It is built a
 `eng-ide.exe` from the Rust workspace and is shipped inside the portable Windows
 zip beside `eng.exe`.
 
-The goal is practical user testing before v1.1 uncertainty work starts:
+The goal is practical user testing before experimental v1.1+ features are
+promoted into a public release contract:
 
 ```text
 - browse official examples, stdlib, and tutorial sources

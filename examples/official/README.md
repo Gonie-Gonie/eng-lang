@@ -19,8 +19,8 @@ paths before compatibility fixtures.
 
 04_uncertainty_core
   Experimental v1.1 uncertainty path for measured values, intervals,
-  deterministic distributions/ensembles, propagation metadata, and in-report
-  histogram output.
+  deterministic distributions/ensembles, source and argument diagnostics,
+  propagation metadata, and in-report histogram output.
 
 05_data_driven_modeling
   Experimental v1.2 data-driven modeling path for train/test split, linear

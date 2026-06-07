@@ -17,6 +17,8 @@ implementation seeds.
 `main`, but those features are not release-supported until their language
 rules, runtime behavior, diagnostics, IDE metadata, examples, tests, and user
 documentation are aligned.
+The current v1.1 implementation gate is tracked in
+[v1.1 uncertainty gate](v1_1_uncertainty_gate.md).
 The current v1.2 implementation gate is tracked in
 [v1.2 data-driven modeling gate](v1_2_data_driven_modeling_gate.md).
 The current v1.3 LSP gate is tracked in [v1.3 LSP gate](v1_3_lsp_gate.md).
@@ -91,9 +93,9 @@ Experimental means code and examples may exist on `main`, but the feature is
 not part of the supported release contract.
 
 - `v1.1` uncertainty core: measured values, intervals, distributions,
-  deterministic ensembles, source diagnostics, scale/offset propagation
-  metadata, propagation source terms, deterministic samples, and distribution
-  histogram bins.
+  deterministic ensembles, source and argument diagnostics, scale/offset
+  propagation metadata, propagation source terms, deterministic samples, and
+  distribution histogram bins.
 - `v1.2` data-driven modeling: regression, basic MLP/ANN seed, train/test
   metadata, source and argument validation diagnostics, RMSE/MAE/R2, model
   cards, leakage lint, and parity/residual plots.

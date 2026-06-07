@@ -49,6 +49,19 @@ uncertainty binding that was defined earlier in the same semantic pass. Unknown
 sources produce `E-UNC-SOURCE-001`; deterministic bindings such as `Q = 5 kW`
 produce `E-UNC-SOURCE-002` when used as uncertainty sources.
 
+The compiler also validates the current v1.1 argument contract:
+
+```text
+E-UNC-ARGS-001  missing or malformed required uncertainty argument
+E-UNC-ARGS-002  invalid numeric, range, count, or transform argument
+E-UNC-ARGS-003  unsupported uncertainty option for the current v1.1 scope
+```
+
+This catches nonnumeric measured values, missing or negative standard
+deviations, reversed interval/uniform bounds, `samples` outside `1..=256`,
+unsupported `distribution(kind=...)` values, unsupported propagation methods,
+and nonnumeric `scale`/`offset` transforms before runtime.
+
 Each runtime uncertainty includes mean, standard deviation, lower/upper bounds,
 `p05`, `p50`, `p95`, `distribution`, `method`, optional `scale`/`offset`
 transform metadata, sample count, propagation count, propagation source terms,
@@ -110,6 +123,7 @@ Run:
 
 ```bat
 .\target\debug\eng.exe run examples\official\04_uncertainty_core\main.eng --entry main
+.\target\debug\eng.exe check examples\05_error_messages\invalid_uncertainty_arguments.eng --review
 ```
 
 or open this file in the native IDE:

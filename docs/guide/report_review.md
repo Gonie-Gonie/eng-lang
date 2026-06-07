@@ -177,7 +177,7 @@ typed_payload.system_ir
 
 ## Uncertainty Metadata
 
-v1.1 adds uncertainty seed metadata for:
+v1.1 adds uncertainty metadata for:
 
 ```text
 measured(...)
@@ -204,6 +204,9 @@ user testing, but it is not yet a full stochastic propagation engine.
 `ensemble(...)` and `propagate(...)` are checked before runtime. Unknown
 uncertainty sources produce `E-UNC-SOURCE-001`; deterministic bindings used as
 uncertainty sources produce `E-UNC-SOURCE-002`.
+Malformed required arguments produce `E-UNC-ARGS-001`; invalid numeric/range/
+count/transform arguments produce `E-UNC-ARGS-002`; unsupported distribution
+kinds or propagation methods produce `E-UNC-ARGS-003`.
 Propagation source terms are also carried through `review.json`,
 `result.engres`, runtime-updated `report_spec.json`, HTML reports, and the
 native IDE Runtime Summary.

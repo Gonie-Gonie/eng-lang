@@ -790,6 +790,30 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     }
     println!("ok: examples/05_error_messages/missing_uncertainty_source.eng produced diagnostics");
 
+    let invalid_uncertainty_arguments = match check_file(
+        "examples/05_error_messages/invalid_uncertainty_arguments.eng",
+        &CheckOptions::default(),
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    for expected_code in ["E-UNC-ARGS-001", "E-UNC-ARGS-002", "E-UNC-ARGS-003"] {
+        if !invalid_uncertainty_arguments
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == expected_code)
+        {
+            eprintln!("expected invalid_uncertainty_arguments.eng to produce {expected_code}");
+            return ExitCode::from(2);
+        }
+    }
+    println!(
+        "ok: examples/05_error_messages/invalid_uncertainty_arguments.eng produced diagnostics"
+    );
+
     let missing_ml_source = match check_file(
         "examples/05_error_messages/missing_ml_source.eng",
         &CheckOptions::default(),

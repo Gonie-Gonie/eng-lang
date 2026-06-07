@@ -160,9 +160,9 @@ v1.0.3
 
 v1.1
   Uncertainty core: Measured[T], Interval[T], distribution/ensemble paths,
-  deterministic samples, source diagnostics, scale/offset propagation metadata,
-  propagation source terms, histogram PlotSpec with bin metadata, and
-  uncertainty report summaries.
+  deterministic samples, source and argument diagnostics, scale/offset
+  propagation metadata, propagation source terms, histogram PlotSpec with bin
+  metadata, and uncertainty report summaries.
   Experimental on main until v1.1 is explicitly targeted and released.
 
 v1.2
@@ -205,6 +205,7 @@ v2.0
 - [Current project status](docs/current/status.md)
 - [Feature maturity matrix](docs/current/feature_maturity_matrix.md)
 - [v1.0.3 hardening register](docs/current/v1_0_3_hardening.md)
+- [v1.1 uncertainty gate](docs/current/v1_1_uncertainty_gate.md)
 - [v1.2 data-driven modeling gate](docs/current/v1_2_data_driven_modeling_gate.md)
 - [v1.3 LSP gate](docs/current/v1_3_lsp_gate.md)
 - [v1.4 JIT gate](docs/current/v1_4_jit_gate.md)
