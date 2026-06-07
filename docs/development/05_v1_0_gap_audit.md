@@ -57,7 +57,6 @@ Remaining intentional deferrals:
 ```text
 P2  per-cell conversion diagnostics once conversion exists
 P2  time-weighted mean and broader statistics kernels
-P2  bar/histogram plot seeds
 P2  numeric system solver, solve order, ODE runner, and Jacobian seed
 ```
 
@@ -230,8 +229,9 @@ Hardening detail:
 
 ### G-005 Plot Data Materialization
 
-Status: Implemented for the official CSV line plot. Bar/histogram remain
-deferred.
+Status: Implemented for the official CSV line plot and v1.0 plot-type seeds.
+Bar/histogram PlotSpec rendering seeds exist; full binning and multi-series
+plot semantics remain deferred.
 
 Plan expectation:
 
@@ -246,14 +246,16 @@ Current state:
 - line plot is generated
 - points are generated from runtime TimeSeries pages for the official CSV path
 - plot title and y-axis unit options are applied
-- bar/histogram remain deferred
+- plot type option can select line, bar, or histogram
+- bar/histogram SVG seeds render PlotSpec points as rect-based plots
 ```
 
 Risk:
 
 ```text
-P2 closed for the official CSV line plot. Remaining plot risk is around
-additional plot types and broader plot block semantics.
+P2 closed for the official CSV line plot and bar/histogram seed rendering.
+Remaining plot risk is around real histogram binning, multiple series, and
+broader plot block semantics.
 ```
 
 Hardening detail:
@@ -262,7 +264,7 @@ Hardening detail:
 1. [x] Generate PlotSpec points from runtime TimeSeries pages.
 2. [x] Execute plot title and y-axis unit options from the plot block.
 3. [x] Add golden checks for real CSV-derived points.
-4. [ ] Add bar/histogram seeds only after numeric pages exist.
+4. [x] Add bar/histogram seeds only after numeric pages exist.
 ```
 
 ### G-006 Args Struct and Standalone CLI Help

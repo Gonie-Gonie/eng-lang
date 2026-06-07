@@ -1271,17 +1271,25 @@ pub fn render_svg_from_spec(spec: &PlotSpec) -> String {
     let title = xml_escape(&spec.title);
     let x_label = xml_escape(&axis_label(&spec.x_axis));
     let y_label = xml_escape(&axis_label(&spec.y_axis));
-    let points = spec
+    let series_points = spec
         .series
         .first()
-        .map(|series| svg_points(&series.points))
+        .map(|series| series.points.as_slice())
         .unwrap_or_default();
+    let plot_body = match spec.plot_type.as_str() {
+        "bar" => svg_rect_plot(series_points, "#0b6bcb", 0.68),
+        "histogram" => svg_rect_plot(series_points, "#4b7f52", 0.92),
+        _ => format!(
+            r##"<polyline points="{}" fill="none" stroke="#0b6bcb" stroke-width="4"/>"##,
+            svg_points(series_points)
+        ),
+    };
     format!(
         r##"<svg xmlns="http://www.w3.org/2000/svg" width="720" height="320" viewBox="0 0 720 320" role="img" aria-label="{title}">
   <rect width="720" height="320" fill="#f7f8fb"/>
   <line x1="72" y1="250" x2="660" y2="250" stroke="#222" stroke-width="2"/>
   <line x1="72" y1="40" x2="72" y2="250" stroke="#222" stroke-width="2"/>
-  <polyline points="{points}" fill="none" stroke="#0b6bcb" stroke-width="4"/>
+  {plot_body}
   <text x="72" y="26" font-family="Segoe UI, Arial, sans-serif" font-size="20" fill="#111">{title}</text>
   <text x="328" y="294" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#333">{x_label}</text>
   <text x="18" y="156" transform="rotate(-90 18 156)" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#333">{y_label}</text>
@@ -1929,6 +1937,51 @@ fn svg_points(points: &[PlotPoint]) -> String {
         .join(" ")
 }
 
+fn svg_rect_plot(points: &[PlotPoint], fill: &str, width_fraction: f64) -> String {
+    if points.is_empty() {
+        return String::new();
+    }
+
+    let min_x = points
+        .iter()
+        .map(|point| point.x)
+        .fold(f64::INFINITY, f64::min);
+    let max_x = points
+        .iter()
+        .map(|point| point.x)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let min_y = points
+        .iter()
+        .map(|point| point.y)
+        .fold(f64::INFINITY, f64::min)
+        .min(0.0);
+    let max_y = points
+        .iter()
+        .map(|point| point.y)
+        .fold(f64::NEG_INFINITY, f64::max)
+        .max(0.0);
+    let x_span = (max_x - min_x).max(1.0);
+    let y_span = (max_y - min_y).max(1.0);
+    let slot_width = 588.0 / points.len().max(1) as f64;
+    let bar_width = (slot_width * width_fraction).clamp(4.0, 72.0);
+    let baseline_y = 250.0 - ((0.0 - min_y) / y_span) * 210.0;
+
+    points
+        .iter()
+        .map(|point| {
+            let center_x = 72.0 + ((point.x - min_x) / x_span) * 588.0;
+            let value_y = 250.0 - ((point.y - min_y) / y_span) * 210.0;
+            let x = center_x - bar_width * 0.5;
+            let y = value_y.min(baseline_y);
+            let height = (baseline_y - value_y).abs().max(1.0);
+            format!(
+                r#"<rect x="{x:.0}" y="{y:.0}" width="{bar_width:.0}" height="{height:.0}" fill="{fill}"/>"#
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n  ")
+}
+
 fn time_series_quantity(quantity_kind: &str) -> Option<(String, String)> {
     let rest = quantity_kind.strip_prefix("TimeSeries[")?;
     let (axis, after_axis) = rest.split_once(']')?;
@@ -1958,6 +2011,23 @@ mod tests {
         assert_eq!(spec.y_axis.unit, "W");
         assert!(json.contains("\"format\": \"eng-plotspec-v1\""));
         assert!(svg.contains("HeatRate (W)"));
+    }
+
+    #[test]
+    fn plotspec_renders_bar_and_histogram_seeds() {
+        let mut spec = sample_plot_spec("bar");
+        let bar_json = plot_spec_json(&spec);
+        let bar_svg = render_svg_from_spec(&spec);
+        assert!(bar_json.contains("\"plot_type\": \"bar\""));
+        assert!(bar_svg.contains("<rect x="));
+        assert!(!bar_svg.contains("<polyline"));
+
+        "histogram".clone_into(&mut spec.plot_type);
+        let histogram_json = plot_spec_json(&spec);
+        let histogram_svg = render_svg_from_spec(&spec);
+        assert!(histogram_json.contains("\"plot_type\": \"histogram\""));
+        assert!(histogram_svg.contains("<rect x="));
+        assert!(!histogram_svg.contains("<polyline"));
     }
 
     #[test]
@@ -2015,5 +2085,32 @@ mod tests {
         assert!(json.contains("\"RoomThermal.residual_1\""));
         assert!(html.contains("System Equations"));
         assert!(html.contains("unit_consistent"));
+    }
+
+    fn sample_plot_spec(plot_type: &str) -> PlotSpec {
+        PlotSpec {
+            title: "Seed plot".to_owned(),
+            plot_type: plot_type.to_owned(),
+            x_axis: PlotAxis {
+                name: "case".to_owned(),
+                label: "Case".to_owned(),
+                unit: String::new(),
+            },
+            y_axis: PlotAxis {
+                name: "value".to_owned(),
+                label: "Value".to_owned(),
+                unit: "kW".to_owned(),
+            },
+            series: vec![PlotSeries {
+                name: "value".to_owned(),
+                quantity_kind: "HeatRate".to_owned(),
+                display_unit: "kW".to_owned(),
+                points: vec![
+                    PlotPoint { x: 0.0, y: 1.0 },
+                    PlotPoint { x: 1.0, y: 2.5 },
+                    PlotPoint { x: 2.0, y: 1.5 },
+                ],
+            }],
+        }
     }
 }

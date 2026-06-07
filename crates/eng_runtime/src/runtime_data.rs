@@ -54,6 +54,9 @@ impl RuntimeData {
             .unwrap_or_else(|| format!("{} over {}", series.name, series.axis));
 
         spec.title = title;
+        if let Some(plot_type) = &self.plot_options.plot_type {
+            spec.plot_type.clone_from(plot_type);
+        }
         spec.x_axis = PlotAxis {
             name: series.axis.clone(),
             label: series.axis.clone(),
@@ -260,6 +263,7 @@ pub struct RuntimePolicyViolation {
 pub struct PlotOptions {
     pub series: Option<String>,
     pub axis: Option<String>,
+    pub plot_type: Option<String>,
     pub title: Option<String>,
     pub y_unit: Option<String>,
 }
@@ -1142,11 +1146,18 @@ fn parse_plot_options(source: &str) -> PlotOptions {
     for line in block.lines().map(str::trim) {
         if let Some(rest) = line.strip_prefix("unit y =") {
             options.y_unit = rest.split_whitespace().next().map(str::to_owned);
+        } else if let Some(rest) = line.strip_prefix("type =") {
+            options.plot_type = supported_plot_type(rest.trim());
         } else if let Some(rest) = line.strip_prefix("title =") {
             options.title = quoted_value(rest.trim());
         }
     }
     options
+}
+
+fn supported_plot_type(value: &str) -> Option<String> {
+    let plot_type = value.split_whitespace().next()?;
+    matches!(plot_type, "line" | "bar" | "histogram").then(|| plot_type.to_owned())
 }
 
 fn quoted_value(value: &str) -> Option<String> {
@@ -1412,6 +1423,7 @@ script main(args: Args) -> Report {
     return report {
         plot Q_coil over Time {
             unit y = kW
+            type = histogram
             title = "Coil heat rate"
         }
     }
@@ -1422,6 +1434,7 @@ script main(args: Args) -> Report {
         assert_eq!(options.series.as_deref(), Some("Q_coil"));
         assert_eq!(options.axis.as_deref(), Some("Time"));
         assert_eq!(options.y_unit.as_deref(), Some("kW"));
+        assert_eq!(options.plot_type.as_deref(), Some("histogram"));
         assert_eq!(options.title.as_deref(), Some("Coil heat rate"));
     }
 

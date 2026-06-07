@@ -114,6 +114,8 @@ The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
 [x] SVG plot has unit-aware axis labels
 [x] PlotSpec points are derived from the official CSV TimeSeries
 [x] plot title and y-axis unit option are applied
+[x] plot type option supports line, bar, and histogram seeds
+[x] bar/histogram PlotSpec seeds render SVG rectangles
 [x] result.engres records plot_spec_hash
 [x] eng view lists plot manifest
 [x] PlotSpec JSON/SVG unit tests pass
