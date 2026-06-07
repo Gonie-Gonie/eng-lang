@@ -744,6 +744,7 @@ name = "eng_cli"
 version = "1.0.3"
 dependencies = [
  "eng_compiler",
+ "eng_jit",
  "eng_runtime",
 ]
 
@@ -759,6 +760,14 @@ dependencies = [
  "eng_compiler",
  "eng_runtime",
  "rfd",
+ "serde_json",
+]
+
+[[package]]
+name = "eng_jit"
+version = "1.0.3"
+dependencies = [
+ "eng_compiler",
  "serde_json",
 ]
 

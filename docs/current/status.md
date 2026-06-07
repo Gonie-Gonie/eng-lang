@@ -10,16 +10,17 @@ implementation seeds.
 |---|---|
 | Latest stable baseline | `v1.0-stable` |
 | Active release target | `v1.0.3` IDE/documentation hardening |
-| Next planned targets | `v1.1` uncertainty, `v1.2` data-driven modeling, `v1.3` LSP/editor service |
+| Next planned targets | `v1.1` uncertainty, `v1.2` data-driven modeling, `v1.3` LSP/editor service, `v1.4` JIT start |
 | Current package version | Workspace version `1.0.3` |
 
-`v1.1`, `v1.2`, and `v1.3` support code may exist on `main`, but those
+`v1.1`, `v1.2`, `v1.3`, and `v1.4` support code may exist on `main`, but those
 features are not release-supported until their language rules, runtime
-behavior, diagnostics, IDE metadata, examples, tests, and user documentation
-are aligned.
+behavior, diagnostics, IDE metadata, examples, tests, and user documentation are
+aligned.
 The current v1.2 implementation gate is tracked in
 [v1.2 data-driven modeling gate](v1_2_data_driven_modeling_gate.md).
 The current v1.3 LSP gate is tracked in [v1.3 LSP gate](v1_3_lsp_gate.md).
+The current v1.4 JIT gate is tracked in [v1.4 JIT gate](v1_4_jit_gate.md).
 
 ## Core Execution Invariants
 
@@ -96,6 +97,10 @@ not part of the supported release contract.
   package-smoke inclusion, snapshot, optional VS Code snapshot backend,
   diagnostics, context-aware schema column completion, hover, and tested minimal
   stdio JSON-RPC paths.
+- `v1.4` JIT start: experimental `eng_jit` crate, `eng.exe jit-plan`, and
+  `eng-kernel-plan-v1` hot-kernel metadata for TimeSeries arithmetic,
+  integration, statistics fusion, and system residual interface seeds. It does
+  not provide native code generation or runtime acceleration yet.
 
 ## Deferred / Known Limitations
 
@@ -119,6 +124,7 @@ The supported current workspace structure is intentionally compact:
 |---|---|
 | `eng_cli` | CLI commands, package/release smoke paths, user-facing execution |
 | `eng_compiler` | Lexer, parser, AST, semantic checks, units, quantities, bytecode metadata |
+| `eng_jit` | Experimental hot-kernel detection and numeric lowering-plan metadata |
 | `eng_runtime` | Runtime execution, VM seed, CSV/data policies, `.engres` output |
 | `eng_report` | PlotSpec/SVG/report/review rendering and artifact schemas |
 | `eng_ide` | Native tester IDE and package smoke UI checks |

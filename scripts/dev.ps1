@@ -243,6 +243,7 @@ function Invoke-Ci {
     Invoke-Fmt
     Invoke-Test
     Invoke-LspCheck
+    Invoke-JitCheck
     Invoke-Clippy
     Invoke-RunExample
 }
@@ -882,6 +883,18 @@ function Invoke-LspCheck {
     Write-Host "LSP check passed."
 }
 
+function Invoke-JitCheck {
+    Set-DevEnvironment
+    $cargo = Get-Cargo
+    if ($null -eq $cargo) {
+        Write-Host "Cargo not found. Run .\dev.bat setup."
+        exit 1
+    }
+    Invoke-Native $cargo "test" "-p" "eng_jit" "--" "--nocapture"
+    Invoke-Native $cargo "run" "-p" "eng_cli" "--" "jit-plan" "examples\official\01_csv_plot\main.eng"
+    Write-Host "JIT plan check passed."
+}
+
 function Invoke-Ide {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -1334,6 +1347,7 @@ sha256 = $ActualHash
 
 verified:
   dev.bat ci
+  dev.bat jit-check
   dev.bat docs-check
   dev.bat ide-check
   dev.bat artifacts-check
@@ -1371,6 +1385,7 @@ Usage:
   .\dev.bat docs-check     Check supported documentation Eng snippets
   .\dev.bat ide-check      Validate the VS Code extension preview
   .\dev.bat lsp-check      Validate eng-lsp.exe stdio, smoke, and snapshot output
+  .\dev.bat jit-check      Validate v1.4 JIT kernel detection and plan output
   .\dev.bat ide            Run the native EngLang tester IDE
   .\dev.bat artifacts-check Validate artifact schemas and golden baselines
   .\dev.bat run-example    Run examples\official\01_csv_plot\main.eng
@@ -1396,6 +1411,7 @@ switch ($Command) {
     "docs-check" { Invoke-DocsCheck }
     "ide-check" { Invoke-IdeCheck }
     "lsp-check" { Invoke-LspCheck }
+    "jit-check" { Invoke-JitCheck }
     "ide" { Invoke-Ide }
     "artifacts-check" { Invoke-ArtifactsCheck }
     "run-example" { Invoke-RunExample }

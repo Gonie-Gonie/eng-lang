@@ -11,15 +11,16 @@ document:
 - [v1.0.3 hardening register](docs/current/v1_0_3_hardening.md)
 - [v1.2 data-driven modeling gate](docs/current/v1_2_data_driven_modeling_gate.md)
 - [v1.3 LSP gate](docs/current/v1_3_lsp_gate.md)
+- [v1.4 JIT gate](docs/current/v1_4_jit_gate.md)
 - [LLM context](LLM_CONTEXT.md)
 - [LLM load map](docs/llm/load_map.yml)
 
 The current stable baseline is `v1.0-stable`. The active release target is
 `v1.0.3`, focused on native IDE and documentation hardening. `v1.1`
-uncertainty, `v1.2` data-driven modeling, and `v1.3` LSP/editor service code
-may exist on `main`, but those features are experimental until their language
-rules, runtime behavior, diagnostics, IDE metadata, examples, tests, and user
-documentation are aligned.
+uncertainty, `v1.2` data-driven modeling, `v1.3` LSP/editor service, and
+`v1.4` JIT-planning code may exist on `main`, but those features are
+experimental until their language rules, runtime behavior, diagnostics, IDE
+metadata, examples, tests, and user documentation are aligned.
 
 ## Quick Start
 
@@ -171,6 +172,11 @@ v1.3
   LSP/editor service seed: eng-lsp.exe smoke, LSP snapshot JSON, line
   diagnostics, basic completion, hover metadata, and minimal stdio JSON-RPC.
   Experimental on main until v1.3 is explicitly targeted and released.
+
+v1.4
+  JIT-start seed: eng_jit crate, eng-kernel-plan-v1 JSON, hot-kernel detection
+  for TimeSeries arithmetic/statistics/integration, and interpreter-fallback
+  lowering metadata. Experimental on main; no native speedup claim.
 ```
 
 ## Documentation
@@ -196,9 +202,11 @@ v1.3
 - [Data-driven modeling guide](docs/guide/data_driven_modeling.md)
 - [Native tester IDE](docs/guide/native_ide.md)
 - [v1.3 LSP gate](docs/current/v1_3_lsp_gate.md)
+- [v1.4 JIT gate](docs/current/v1_4_jit_gate.md)
 - [Report and review artifacts](docs/guide/report_review.md)
 - [Run command reference](docs/reference/cli_run.md)
 - [LSP snapshot reference](docs/reference/lsp_snapshot.md)
+- [Kernel plan reference](docs/reference/kernel_plan.md)
 - [CLI specification](docs/specs/cli.md)
 - [v8/v9 language policy](docs/specs/language-v8.md)
 - [Roadmap](docs/roadmap.md)

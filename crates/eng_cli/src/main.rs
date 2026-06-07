@@ -20,6 +20,7 @@ fn main() -> ExitCode {
         "doctor" => command_doctor(),
         "check" => command_check(args),
         "ide-check" => command_ide_check(args),
+        "jit-plan" => command_jit_plan(args),
         "entries" => command_entries(args),
         "run" => command_run(args),
         "build" => command_build(args),
@@ -40,6 +41,42 @@ fn main() -> ExitCode {
             ExitCode::from(2)
         }
     }
+}
+
+fn command_jit_plan(args: Vec<String>) -> ExitCode {
+    let Some(path) = first_non_flag(&args) else {
+        eprintln!("usage: eng jit-plan <file.eng>");
+        return ExitCode::from(2);
+    };
+    let check_args = match parse_arg_overrides(&args, &[], &[]) {
+        Ok(values) => values,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
+    let report = match check_file(
+        &path,
+        &CheckOptions {
+            review: false,
+            args: check_args,
+            require_args: false,
+        },
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    if report.has_errors() {
+        print_diagnostics(&report);
+        return ExitCode::from(2);
+    }
+
+    let plan = eng_jit::plan_for_report(&report);
+    println!("{}", eng_jit::plan_json_string(&plan));
+    ExitCode::SUCCESS
 }
 
 fn command_ide_check(args: Vec<String>) -> ExitCode {
@@ -396,6 +433,28 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             println!("ok: {group} example {example}");
         }
     }
+
+    let jit_report = match check_file(
+        "examples/official/01_csv_plot/main.eng",
+        &CheckOptions::default(),
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    let jit_plan = eng_jit::plan_for_report(&jit_report);
+    if jit_plan.candidates.len() < 3
+        || !jit_plan
+            .candidates
+            .iter()
+            .any(|candidate| candidate.kind == "timeseries_integrate")
+    {
+        eprintln!("expected official CSV example to expose v1.4 JIT kernel candidates");
+        return ExitCode::from(2);
+    }
+    println!("ok: official CSV example produced JIT kernel candidates");
 
     let bad = match check_file(
         "examples/05_error_messages/unit_mismatch.eng",
@@ -1181,6 +1240,7 @@ Usage:
   eng new <project_name>
   eng check <file.eng> [--review]
   eng ide-check <file.eng>
+  eng jit-plan <file.eng>
   eng entries <file.eng>
   eng run <file.eng> [--entry <name>] [--open-report] [--<arg> <value>...]
   eng build <file.eng> [--entry <name>] [--standalone] [--profile repro]

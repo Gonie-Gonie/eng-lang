@@ -6,6 +6,7 @@ default:
   - docs/current/v1_0_3_hardening.md
   - docs/current/v1_2_data_driven_modeling_gate.md
   - docs/current/v1_3_lsp_gate.md
+  - docs/current/v1_4_jit_gate.md
 
 task_types:
   parser:
@@ -40,6 +41,12 @@ task_types:
     - docs/reference/lsp_snapshot.md
     - crates/eng_lsp/
     - tools/vscode-englang/
+
+  jit:
+    - docs/current/v1_4_jit_gate.md
+    - docs/reference/kernel_plan.md
+    - crates/eng_jit/
+    - crates/eng_cli/
 
   report:
     - docs/architecture/01_runtime_artifacts.md

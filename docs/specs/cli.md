@@ -10,6 +10,7 @@ eng.exe doctor
 eng.exe new <project_name>
 eng.exe check <file.eng> [--review]
 eng.exe ide-check <file.eng>
+eng.exe jit-plan <file.eng>
 eng.exe entries <file.eng>
 eng.exe run <file.eng> [--entry <name>] [--open-report] [--<arg> <value>...]
 eng.exe build <file.eng> [--entry <name>] [--standalone] [--profile repro]
@@ -117,6 +118,35 @@ writing it under `build/check`.
 This command is intended for IDE tools and extensions that need diagnostics,
 hover hints, type information, symbols, Args metadata, schema metadata, and
 completion counts without managing generated review files.
+
+Exit code:
+
+```text
+0 success
+1 IO/tooling failure
+2 compile/check failure
+```
+
+## `eng jit-plan <file.eng>`
+
+Prints experimental `eng-kernel-plan-v1` JSON for v1.4 hot-kernel planning.
+This command does not compile native code and does not change runtime
+execution. Its current backend is `interpreter-fallback`.
+
+Current candidate kinds:
+
+```text
+timeseries_arithmetic
+timeseries_integrate
+statistics_fusion
+system_residual
+```
+
+Example:
+
+```bat
+eng.exe jit-plan examples\official\01_csv_plot\main.eng
+```
 
 Exit code:
 
@@ -260,6 +290,7 @@ Runs official smoke checks:
 - missing entry example fails file run/build entry selection
 - official plotting example produces report and PlotSpec artifacts
 - Args CLI binding produces CSV run artifacts
+- official CSV example produces v1.4 JIT kernel candidates
 - bad DateTime and bad numeric CSV fixtures record parse_failures
 - numeric missing interpolation fixture executes
 - constraint violation fixture records upper-bound policy violation

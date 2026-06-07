@@ -25,6 +25,7 @@ v1.0.3        active release target: IDE/documentation hardening
 v1.1          planned target; uncertainty code on main is experimental
 v1.2          planned target; data-driven modeling code on main is experimental
 v1.3          planned target; LSP/editor service code on main is experimental
+v1.4          planned target; JIT planning code on main is experimental
 ```
 
 Use [current status](current/status.md) and the
@@ -400,6 +401,11 @@ Required outputs:
 - hot kernel detection
 - numeric kernel lowering interface
 ```
+
+Status on `main`: experimental `eng_jit` and `eng.exe jit-plan` expose
+`eng-kernel-plan-v1` hot-kernel metadata for TimeSeries arithmetic,
+integration, statistics fusion, and system residual interface seeds. Track the
+exact support boundary in [docs/current/v1_4_jit_gate.md](current/v1_4_jit_gate.md).
 
 ## v1.5 — Standalone/AOT Maturity
 

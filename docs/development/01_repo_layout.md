@@ -8,6 +8,8 @@ Current v1.0.3 hardening layout:
 |   |-- eng_cli/        user-facing eng.exe commands
 |   |-- eng_compiler/   lexer/parser, diagnostics, semantic/stats/system metadata, bytecode v1
 |   |-- eng_ide/        portable native tester IDE, built as eng-ide.exe
+|   |-- eng_jit/        experimental hot-kernel detection and lowering-plan metadata
+|   |-- eng_lsp/        experimental eng-lsp.exe smoke/snapshot/stdio editor service
 |   |-- eng_runtime/    run/build/doctor, VM seed, TimeSeries object store, artifacts
 |   `-- eng_report/     PlotSpec, SVG plot, HTML review report renderer
 |-- docs/
@@ -51,6 +53,8 @@ Current commands:
 doctor
 new
 check
+ide-check
+jit-plan
 entries
 run
 build
@@ -64,6 +68,29 @@ Rules:
 - CLI parsing stays dependency-light and std-only for the preview.
 - User-facing behavior changes must update docs/specs/cli.md.
 - Artifact changes must update docs/architecture/01_runtime_artifacts.md.
+```
+
+## `eng_jit`
+
+Plans future native numeric kernels without changing runtime execution.
+
+Current responsibilities:
+
+```text
+hot-kernel detection
+eng-kernel-plan-v1 JSON
+TimeSeries arithmetic candidate detection
+TimeSeries statistics fusion candidate detection
+TimeSeries integration candidate detection
+system residual interface-only candidates
+```
+
+Current boundary:
+
+```text
+backend = interpreter-fallback
+no native code generation
+no speedup claim
 ```
 
 ## `eng_compiler`

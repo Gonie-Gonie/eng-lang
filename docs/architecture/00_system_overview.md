@@ -25,6 +25,9 @@ eng_cli
 eng_compiler
   Source check, diagnostics, AST, semantic metadata, entry selection data, and bytecode v1.
 
+eng_jit
+  Experimental hot-kernel detection and numeric lowering-plan metadata.
+
 eng_runtime
   Run/build orchestration, bytecode VM seed, object store, result.engres generation, and doctor checks.
 
@@ -102,6 +105,15 @@ v1.0 hardening adds:
 report_spec/result solver_boundary status = computed for the official one-state thermal ODE
 explicit_euler_fixed_step ODE runner preview
 solver_result trajectory in result.engres
+```
+
+v1.4 experimental JIT planning adds:
+
+```text
+eng-kernel-plan-v1
+hot-kernel candidates for TimeSeries arithmetic/statistics/integration
+system residual interface seeds for future RHS/Jacobian kernels
+backend = interpreter-fallback
 ```
 
 The VM object store currently supports:

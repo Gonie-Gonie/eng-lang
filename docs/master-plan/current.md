@@ -20,7 +20,8 @@ day-to-day implementation decisions:
 3. [v1.0.3 hardening register](../current/v1_0_3_hardening.md)
 4. [v1.2 data-driven modeling gate](../current/v1_2_data_driven_modeling_gate.md)
 5. [v1.3 LSP gate](../current/v1_3_lsp_gate.md)
-6. [LLM load map](../llm/load_map.yml)
+6. [v1.4 JIT gate](../current/v1_4_jit_gate.md)
+7. [LLM load map](../llm/load_map.yml)
 
 The master plan describes intent. The current-status layer describes what is
 supported, preview-only, experimental, or deferred on `main`.

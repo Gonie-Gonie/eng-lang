@@ -7,10 +7,10 @@ It is intentionally short so agents do not need to load every planning file.
 
 - Latest stable baseline: `v1.0-stable`
 - Active release target: `v1.0.3` IDE and documentation hardening
-- Next targets: `v1.1` uncertainty, `v1.2` data-driven modeling, then
-  `v1.3` LSP/editor service hardening
-- `v1.1` and `v1.2` code on `main` is experimental unless the current status
-  documents say otherwise.
+- Next targets: `v1.1` uncertainty, `v1.2` data-driven modeling,
+  `v1.3` LSP/editor service hardening, then `v1.4` JIT start
+- `v1.1` through `v1.4` code on `main` is experimental unless the current
+  status documents say otherwise.
 - Current `v1.1` detail work includes deterministic uncertainty samples,
   source validation diagnostics, scale/offset propagation metadata,
   propagation source terms, histogram bin metadata/artifacts, and IDE/report
@@ -23,6 +23,9 @@ It is intentionally short so agents do not need to load every planning file.
   package-smoke inclusion, snapshot, optional VS Code snapshot backend,
   diagnostics, context-aware schema column completion, hover, and tested stdio
   round-trip path documented in the v1.3 gate.
+- Current `v1.4` detail work includes an experimental `eng_jit` crate,
+  `eng.exe jit-plan`, and `eng-kernel-plan-v1` hot-kernel metadata documented
+  in the v1.4 gate. It has no native codegen or speedup claim yet.
 
 ## Read First
 
@@ -33,7 +36,8 @@ It is intentionally short so agents do not need to load every planning file.
 5. `docs/current/v1_0_3_hardening.md`
 6. `docs/current/v1_2_data_driven_modeling_gate.md`
 7. `docs/current/v1_3_lsp_gate.md`
-8. `docs/llm/load_map.yml`
+8. `docs/current/v1_4_jit_gate.md`
+9. `docs/llm/load_map.yml`
 
 ## Core Invariants
 
@@ -74,6 +78,7 @@ The current supported workspace is:
 - `eng_report`
 - `eng_ide`
 - `eng_lsp`
+- `eng_jit`
 
 Do not split crates only because the long-term plan mentions future boundaries.
 Use the current architecture unless a concrete task requires a split.
