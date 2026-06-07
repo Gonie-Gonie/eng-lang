@@ -18,7 +18,8 @@ v0.4-preview  complete and tagged
 v0.5-preview  complete and tagged
 v0.6-preview  complete on main
 v0.7-alpha    complete on main
-v0.8-alpha    next target
+v0.8-alpha    complete on main
+v0.9-alpha    next target
 ```
 
 ## v0.1-preview — Repository, CLI, Parser, Unit Seed
@@ -226,14 +227,26 @@ Release gate:
 Required outputs:
 
 ```text
-- system block
-- parameter/state/input
-- equation block
-- eq relation
-- der()
-- equation unit check
-- simple residual representation
-- diagnostic when physical equations use ==
+[x] system block
+[x] parameter/state/input
+[x] equation block
+[x] eq relation
+[x] der()
+[x] equation unit check
+[x] simple residual representation
+[x] diagnostic when physical equations use ==
+```
+
+Release gate:
+
+```text
+[x] system parses
+[x] parameter/state/input variables appear in review/report variable tables
+[x] eq checks unit consistency
+[x] == diagnostic works
+[x] simple residual representation appears in review.json/report_spec.json/result.engres
+[x] simple system report shows equation summary
+[x] official simple system example passes
 ```
 
 ## v0.9-alpha — Portable Demo Hardening and Packaged Execution Candidate

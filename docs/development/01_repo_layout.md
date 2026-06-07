@@ -1,12 +1,12 @@
 # Repository Layout
 
-Current v0.7-alpha layout:
+Current v0.8-alpha layout:
 
 ```text
 .
 |-- crates/
 |   |-- eng_cli/        user-facing eng.exe commands
-|   |-- eng_compiler/   lexer/parser, diagnostics, semantic/stats metadata, bytecode v1
+|   |-- eng_compiler/   lexer/parser, diagnostics, semantic/stats/system metadata, bytecode v1
 |   |-- eng_runtime/    run/build/doctor, VM seed, TimeSeries object store, artifacts
 |   `-- eng_report/     PlotSpec, SVG plot, HTML review report renderer
 |-- docs/
@@ -16,12 +16,14 @@ Current v0.7-alpha layout:
 |   |-- reference/      command references
 |   |-- release/        acceptance checklist and release notes
 |   |-- runtime/        bytecode/VM/result contracts
+|   |-- tutorials/      step-by-step supported workflow docs
 |   `-- specs/          CLI and language policy
 |-- examples/
 |   |-- 01_units/
 |   |-- 02_csv_plot/
 |   |-- 04_plotting/
-|   `-- 05_error_messages/
+|   |-- 05_error_messages/
+|   `-- 06_simple_system/
 |-- scripts/
 |   `-- dev.ps1         the only PowerShell development entry
 |-- stdlib/             preview prelude and unit registry
@@ -71,7 +73,10 @@ dimensionless diagnostics
 ambiguous quantity warning
 schema and CSV promotion analysis
 TimeSeries/statistics metadata
+system/equation/residual metadata
 HeatRate sum lint
+physical equation == diagnostic
+equation unit consistency diagnostic
 entry selection data
 bytecode v1 encode/decode
 review.json serialization
@@ -117,6 +122,7 @@ object store seed
 TimeSeries object seed
 result.engres v1 generation
 source/bytecode/data provenance
+system residual-only payload metadata
 ```
 
 Long-term responsibilities:
@@ -140,6 +146,7 @@ PlotSpec v1
 SVG plot from PlotSpec
 plot manifest
 ReportSpec v1
+system equation summary
 HTML review report
 ```
 
@@ -151,6 +158,7 @@ report spec renderer
 review card renderer
 unit-aware axis labels
 provenance tables
+residual summary tables
 ```
 
 ## Core Path Rules

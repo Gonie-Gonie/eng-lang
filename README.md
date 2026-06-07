@@ -25,6 +25,7 @@ target\debug\eng.exe check examples\05_error_messages\unit_mismatch.eng --review
 target\debug\eng.exe check examples\05_error_messages\ambiguous_power.eng --review
 target\debug\eng.exe entries examples\04_plotting\main.eng
 target\debug\eng.exe run examples\04_plotting\main.eng
+target\debug\eng.exe run examples\06_simple_system\main.eng
 target\debug\eng.exe run examples\04_plotting\main.eng --entry main
 target\debug\eng.exe build examples\04_plotting\main.eng --standalone --profile repro
 target\debug\eng.exe view build\result\result.engres
@@ -79,14 +80,19 @@ v0.7-alpha
   Review schema hardening, ReportSpec v1, variable table, inferred declaration
   table, unit conversion table, schema summary, plot manifest section, warning
   list, and report_spec_hash provenance.
+
+v0.8-alpha
+  Minimal system/equation support: system block, parameter/state/input,
+  equation block, infix eq relation, der(), unit consistency diagnostics,
+  residual metadata, and report/review system summaries.
 ```
 
 Active planning target:
 
 ```text
-v0.8-alpha
-  Minimal system and equation syntax: system block, parameter/state/input,
-  equation block, eq relation, der(), and equation unit checks.
+v0.9-alpha
+  Portable demo hardening: packaged preview, official CSV+plot and system
+  examples, path smoke tests, and no install-required preview execution.
 ```
 
 ## Documentation
@@ -105,6 +111,7 @@ v0.8-alpha
 - [TimeSeries statistics guide](docs/guide/timeseries_statistics.md)
 - [Plotting guide](docs/guide/plotting.md)
 - [Report and review artifacts](docs/guide/report_review.md)
+- [Simple system tutorial](docs/tutorials/05_simple_system.md)
 - [Run command reference](docs/reference/cli_run.md)
 - [CLI specification](docs/specs/cli.md)
 - [v8/v9 language policy](docs/specs/language-v8.md)

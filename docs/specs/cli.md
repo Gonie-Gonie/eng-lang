@@ -56,6 +56,8 @@ E-SCHEMA-MISSING-001   missing policy references unknown column
 E-ENTRY-NOT-FOUND-001  run/build entry point was not found
 E-ENTRY-MULTIPLE-001   run/build entry point selection is ambiguous
 W-STATS-SUM-001        HeatRate summed over Time should use integrate
+E-EQ-BOOL-001          physical equation used == instead of eq
+E-EQ-UNIT-001          physical equation dimensions do not match
 ```
 
 `--review` writes:
@@ -84,6 +86,7 @@ unit_conversion_table
 axis_info
 stats_info
 integrations
+system_summary
 schema_summary
 schemas
 csv_promotions
@@ -180,7 +183,10 @@ Runs official smoke checks:
 - unit mismatch example produces errors
 - ambiguous power example produces a warning
 - HeatRate sum example produces W-STATS-SUM-001
+- physical equation using == produces E-EQ-BOOL-001
+- equation unit mismatch produces E-EQ-UNIT-001
 - missing CSV column example produces errors
 - missing entry example fails file run/build entry selection
 - official plotting example produces report and PlotSpec artifacts
+- official simple system example produces system report artifacts
 ```

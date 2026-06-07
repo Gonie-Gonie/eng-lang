@@ -74,7 +74,7 @@ Purpose:
 typed VM result container for report/view/build workflows
 ```
 
-Current v0.7 fields:
+Current v0.8 fields:
 
 ```json
 {
@@ -107,11 +107,15 @@ Current v0.7 fields:
     "result_format": "engres-v1",
     "vm_steps": [],
     "statistics": [],
-    "integrations": []
+    "integrations": [],
+    "systems": []
   },
   "provenance": {
     "schema_count": 1,
     "csv_promotion_count": 1,
+    "system_count": 1,
+    "equation_count": 1,
+    "residual_count": 1,
     "data_hashes": [],
     "unit_conversion_history": [],
     "plot_spec_hash": "...",
@@ -149,6 +153,7 @@ unit_conversion_table
 axis_info
 stats_info
 integrations
+system_summary
 schema_summary
 schemas
 csv_promotions
@@ -164,7 +169,7 @@ Purpose:
 machine-readable report/review contract for UI, LSP, packaging, and review tooling
 ```
 
-Current v0.7 format:
+Current v0.8 format:
 
 ```text
 eng-report-spec-v1
@@ -179,6 +184,7 @@ variable_table
 inferred_declaration_table
 unit_conversion_table
 schema_summary
+system_summary
 plot_manifest
 warning_list
 ```
@@ -190,6 +196,16 @@ path = plots/plot_manifest.json
 hash = <plot_manifest_hash>
 format = eng-plot-manifest-v1
 plot_count = 1
+```
+
+The v0.8 system summary records residual-only equation metadata:
+
+```text
+system name
+parameter/state/input variables
+equations with left/right dimensions
+residual name and expression
+status = unit_consistent or unit_unresolved
 ```
 
 ## `report.html`
@@ -212,6 +228,7 @@ unit derivations
 axis info
 statistics
 integrations
+system equations
 schemas
 CSV promotions
 diagnostics

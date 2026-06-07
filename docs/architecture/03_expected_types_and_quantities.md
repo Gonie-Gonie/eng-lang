@@ -65,6 +65,7 @@ AbsoluteTemperature [K]
 TemperatureDelta [K]
 Length [m]
 Conductance [W/K]
+HeatCapacity [J/K]
 SpecificHeat [J/kg/K]
 HeatRate [W]
 ElectricPower [W]
@@ -171,6 +172,7 @@ Source:
 explicit
 inferred
 public_boundary
+system_boundary
 ```
 
 ## UnitDerivation

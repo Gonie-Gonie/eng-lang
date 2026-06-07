@@ -62,6 +62,7 @@ csv_promotions
 diagnostics
 warning_list
 plot_manifest
+system_summary
 ```
 
 `plot_manifest` in `review.json` declares the runtime path that `eng run` will use. It does not carry the runtime manifest hash because `eng check --review` does not render plots.
@@ -87,6 +88,7 @@ unit_conversion_table
 schema_summary
 plot_manifest
 warning_list
+system_summary
 ```
 
 `plot_manifest` records:
@@ -103,6 +105,28 @@ The matching `result.engres` provenance includes:
 ```text
 plot_spec_hash
 report_spec_hash
+system_count
+equation_count
+residual_count
+```
+
+## v0.8 System Summary
+
+When a file contains a physical `system`, review/report artifacts include residual-only metadata:
+
+```text
+system_summary
+  variables: parameter/state/input
+  equations: left eq right with dimensions and status
+  residuals: generated residual name and expression
+```
+
+For example:
+
+```text
+RoomThermal.residual_1
+C * der(T) - (UA * (T_out - T) + Q_internal)
+dimension = Power
 ```
 
 ## Manual Checks

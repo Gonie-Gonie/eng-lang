@@ -57,6 +57,21 @@ target\debug\eng.exe run examples\04_plotting\main.eng --open-report
 
 This attempts to open `build\result\report.html`.
 
+## Simple System Example
+
+```bat
+target\debug\eng.exe run examples\06_simple_system\main.eng --entry main
+```
+
+This writes system/equation/residual metadata into:
+
+```text
+build\result\review.json
+build\result\report_spec.json
+build\result\result.engres
+build\result\report.html
+```
+
 ## Missing Entry Example
 
 `examples\05_error_messages\missing_entry.eng` is intentionally declaration-only:
@@ -116,6 +131,7 @@ review.json
   review_schema_version
   variable_table
   unit_conversion_table
+  system_summary
   schema_summary
   warning_list
 
@@ -124,5 +140,6 @@ report_spec.json
   variable_table
   inferred_declaration_table
   unit_conversion_table
+  system_summary
   plot_manifest
 ```

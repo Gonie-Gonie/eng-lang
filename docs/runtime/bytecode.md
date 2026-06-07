@@ -1,6 +1,6 @@
 # Bytecode VM and Result v1
 
-v0.4-preview established the first executable EngLang runtime path. v0.5-preview adds TimeSeries/statistics metadata to that path. v0.6-preview adds PlotSpec/SVG/manifest output:
+v0.4-preview established the first executable EngLang runtime path. v0.5-preview adds TimeSeries/statistics metadata to that path. v0.6-preview adds PlotSpec/SVG/manifest output. v0.8-alpha adds residual-only system metadata:
 
 ```text
 .eng source
@@ -11,7 +11,7 @@ v0.4-preview established the first executable EngLang runtime path. v0.5-preview
   -> result.engres v1
   -> PlotSpec v1
   -> SVG + plot manifest
-  -> review/report artifacts
+  -> review/report/system artifacts
 ```
 
 The VM is intentionally small, but it is a real execution boundary: `eng run` writes bytecode, decodes it, executes the instruction stream, and writes the result from the VM execution record.
@@ -93,12 +93,12 @@ timeseries
 array
 ```
 
-Schema columns are public boundary metadata, not runtime scalar values. The bytecode builder skips schema column bindings and emits runtime objects only for executable script bindings and promoted tables.
+Schema columns and v0.8 system variables are public boundary metadata, not runtime scalar values. The bytecode builder skips those bindings and emits runtime objects only for executable script bindings and promoted tables.
 TimeSeries objects carry axis, quantity, and display-unit metadata.
 
 ## Result v1
 
-`result.engres` uses JSON in v0.4/v0.5:
+`result.engres` uses JSON:
 
 ```text
 format = engres-v1
@@ -110,13 +110,23 @@ typed_payload
 provenance
 ```
 
-v0.6 records:
+v0.6/v0.7 records:
 
 ```text
 provenance.plot_spec_hash
+provenance.report_spec_hash
 ```
 
-The `typed_payload` is a Report seed. v0.5 adds lazy statistics and integration metadata:
+v0.8 records:
+
+```text
+typed_payload.systems
+provenance.system_count
+provenance.equation_count
+provenance.residual_count
+```
+
+The `typed_payload` is a Report seed. It carries lazy statistics, integration metadata, and residual-only system metadata:
 
 ```json
 {
@@ -125,7 +135,8 @@ The `typed_payload` is a Report seed. v0.5 adds lazy statistics and integration 
   "result_format": "engres-v1",
   "vm_steps": [],
   "statistics": [],
-  "integrations": []
+  "integrations": [],
+  "systems": []
 }
 ```
 
@@ -144,6 +155,7 @@ PlotSpec JSON/SVG smoke
 plot manifest smoke
 entry not found run smoke
 official example run smoke
+simple system run smoke
 ```
 
 ## Deferred

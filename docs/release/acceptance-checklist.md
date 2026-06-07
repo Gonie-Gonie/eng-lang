@@ -37,11 +37,15 @@ eng.exe doctor
 eng.exe entries examples\04_plotting\main.eng
 eng.exe run examples\04_plotting\main.eng --entry main
 eng.exe view build\result\result.engres
+eng.exe run examples\06_simple_system\main.eng --entry main
+eng.exe view build\result\result.engres
 type build\result\plots\plot_spec.json
 type build\result\plots\plot_manifest.json
 type build\result\report_spec.json
 eng.exe check examples\05_error_messages\missing_csv_column.eng --review
 eng.exe check examples\05_error_messages\heat_rate_sum.eng --review
+eng.exe check examples\05_error_messages\eq_boolean.eng --review
+eng.exe check examples\05_error_messages\equation_unit_mismatch.eng --review
 eng.exe run examples\05_error_messages\missing_entry.eng
 ```
 
@@ -101,6 +105,22 @@ The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
 [x] result.engres records report_spec_hash
 [x] eng view lists report_spec.json
 [x] official plotting example produces report and PlotSpec artifacts
+```
+
+## v0.8 Gate
+
+```text
+[x] system block parses
+[x] parameter/state/input variables appear in review.json
+[x] parameter/state/input variables appear in report_spec.json
+[x] eq relation checks unit consistency
+[x] der() contributes derivative dimension metadata
+[x] == in equation block produces E-EQ-BOOL-001
+[x] mismatched equation dimensions produce E-EQ-UNIT-001
+[x] residual metadata appears in review.json
+[x] residual metadata appears in report_spec.json and result.engres
+[x] report.html includes System Equations
+[x] official simple system example passes
 ```
 
 ## v1.0 Demo Direction
