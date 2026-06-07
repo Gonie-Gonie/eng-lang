@@ -40,10 +40,16 @@ pub struct SystemDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DomainDecl {
     pub name: String,
-    pub type_parameters: Vec<String>,
+    pub type_parameters: Vec<DomainTypeParameterDecl>,
     pub package: Option<String>,
     pub version: Option<String>,
     pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DomainTypeParameterDecl {
+    pub kind: String,
+    pub name: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -1,11 +1,13 @@
 domain Thermal {
     across T: AbsoluteTemperature [degC]
     through Q: HeatRate [kW]
+    conservation sum(Q) = 0
 }
 
 domain Fluid {
     across height: Length [m]
     through m_dot: MassFlowRate [kg/s]
+    conservation sum(m_dot) = 0
 }
 
 component Heater {

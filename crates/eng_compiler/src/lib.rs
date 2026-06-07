@@ -39,9 +39,9 @@ pub use quantities::{all_quantity_completions, normalize_unit, QuantityCompletio
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
 pub use semantic::{
     ArgValueInfo, ArgsFieldInfo, ArgsStructInfo, ComponentInfo, ConnectionInfo, ConservationInfo,
-    DomainInfo, DomainVariableInfo, EquationDependencyInfo, EquationInfo, EquationIrInfo,
-    JacobianSeedInfo, OdeRunnerInfo, PortInfo, ResidualInfo, SemanticProgram, SemanticType,
-    SolverPlanInfo, SystemInfo, SystemVariableInfo, TypedBinding,
+    DomainInfo, DomainTypeParameterInfo, DomainVariableInfo, EquationDependencyInfo, EquationInfo,
+    EquationIrInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo, ResidualInfo, SemanticProgram,
+    SemanticType, SolverPlanInfo, SystemInfo, SystemVariableInfo, TypedBinding,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -993,7 +993,12 @@ pub fn review_json(report: &CheckReport) -> String {
             if parameter_index > 0 {
                 json.push_str(", ");
             }
-            json.push_str(&format!("\"{}\"", json_escape(parameter)));
+            json.push_str(&format!(
+                "{{\"kind\": \"{}\", \"name\": \"{}\", \"display\": \"{}\"}}",
+                json_escape(&parameter.kind),
+                json_escape(&parameter.name),
+                json_escape(&parameter.display)
+            ));
         }
         json.push_str("],\n");
         match &domain.package {
@@ -1731,7 +1736,7 @@ mod tests {
     fn records_domain_component_and_connection_metadata() {
         let report = check_source(
             "ok.eng",
-            "domain Fluid[Medium] package \"eng.std.domains.fluid\" version \"0.1.0\" {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent Supply {\n    port outlet: Fluid[Water]\n}\n\ncomponent Return {\n    port inlet: Fluid[Water]\n}\n\nconnect Supply.outlet -> Return.inlet\n",
+            "domain Fluid[Medium M] package \"eng.std.domains.fluid\" version \"0.1.0\" {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent Supply {\n    port outlet: Fluid[Water]\n}\n\ncomponent Return {\n    port inlet: Fluid[Water]\n}\n\nconnect Supply.outlet -> Return.inlet\n",
             &CheckOptions::default(),
         );
 
@@ -1743,8 +1748,16 @@ mod tests {
         assert_eq!(report.syntax_summary.connections, 1);
         assert_eq!(report.semantic_program.domains[0].name, "Fluid");
         assert_eq!(
-            report.semantic_program.domains[0].type_parameters,
-            vec!["Medium".to_owned()]
+            report.semantic_program.domains[0].type_parameters[0].kind,
+            "Medium"
+        );
+        assert_eq!(
+            report.semantic_program.domains[0].type_parameters[0].name,
+            "M"
+        );
+        assert_eq!(
+            report.semantic_program.domains[0].type_parameters[0].display,
+            "Medium M"
         );
         assert_eq!(
             report.semantic_program.domains[0].package.as_deref(),
@@ -1784,6 +1797,8 @@ mod tests {
         assert!(review.contains("\"component_summary\""));
         assert!(review.contains("\"connection_summary\""));
         assert!(review.contains("\"type_parameters\""));
+        assert!(review.contains("\"kind\": \"Medium\""));
+        assert!(review.contains("\"name\": \"M\""));
         assert!(review.contains("\"package\": \"eng.std.domains.fluid\""));
         assert!(review.contains("\"Fluid[Water]\""));
         assert!(review.contains("\"domain_compatible\""));
@@ -1793,7 +1808,7 @@ mod tests {
     fn rejects_incompatible_port_connection_domains() {
         let report = check_source(
             "bad.eng",
-            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n}\n\ndomain Fluid {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n}\n\ncomponent Heater {\n    port heat: Thermal\n}\n\ncomponent Pipe {\n    port inlet: Fluid\n}\n\nconnect Heater.heat -> Pipe.inlet\n",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ndomain Fluid {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent Heater {\n    port heat: Thermal\n}\n\ncomponent Pipe {\n    port inlet: Fluid\n}\n\nconnect Heater.heat -> Pipe.inlet\n",
             &CheckOptions::default(),
         );
 
@@ -1828,7 +1843,7 @@ mod tests {
             ("Axis", "X", "Y", "E-CONNECT-AXIS-001", "axis_mismatch"),
         ] {
             let source = format!(
-                "domain Generic[{parameter}] {{\n    across x: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n}}\n\ncomponent Left {{\n    port p: Generic[{left}]\n}}\n\ncomponent Right {{\n    port p: Generic[{right}]\n}}\n\nconnect Left.p -> Right.p\n"
+                "domain Generic[{parameter} P] {{\n    across x: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}}\n\ncomponent Left {{\n    port p: Generic[{left}]\n}}\n\ncomponent Right {{\n    port p: Generic[{right}]\n}}\n\nconnect Left.p -> Right.p\n"
             );
             let report = check_source("bad.eng", &source, &CheckOptions::default());
 
@@ -1848,7 +1863,7 @@ mod tests {
     fn rejects_generic_domain_arity_mismatch() {
         let report = check_source(
             "bad.eng",
-            "domain Fluid[Medium] {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n}\n\ncomponent Pipe {\n    port inlet: Fluid\n}\n",
+            "domain Fluid[Medium M] {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent Pipe {\n    port inlet: Fluid\n}\n",
             &CheckOptions::default(),
         );
 
@@ -1861,6 +1876,25 @@ mod tests {
             report.semantic_program.components[0].ports[0].status,
             "generic_arity_mismatch"
         );
+    }
+
+    #[test]
+    fn rejects_incomplete_domain_contracts() {
+        let report = check_source(
+            "bad.eng",
+            "domain Incomplete {\n    across x: Length [m]\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-DOMAIN-CONTRACT-002"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-DOMAIN-CONTRACT-003"));
     }
 
     #[test]

@@ -115,11 +115,12 @@ not part of the supported release contract.
   `model.exe`/AOT is not implemented yet.
 - `v2.0` domain/component platform start: user-defined `domain` declarations,
   across/through variables, conservation metadata, `component` ports,
-  package/version metadata, generic domain parameters such as `Fluid[Medium]`,
-  connection review/report metadata, native IDE Domain Graph inspection, LSP
+  package/version metadata, structured generic domain parameters such as
+  `Fluid[Medium M]` and `MechanicalNode[Frame F, Axis DOF]`, connection
+  review/report metadata, native IDE Domain Graph inspection, LSP
   domain/component completion and hover metadata, invalid port-domain
-  diagnostics, and medium/frame/axis compatibility diagnostics. It does not
-  provide numeric multi-domain simulation yet.
+  diagnostics, domain contract diagnostics, and medium/frame/axis compatibility
+  diagnostics. It does not provide numeric multi-domain simulation yet.
 
 ## Deferred / Known Limitations
 

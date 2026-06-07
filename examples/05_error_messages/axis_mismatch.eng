@@ -1,6 +1,7 @@
-domain DirectionalHeat[Axis] package "eng.std.domains.directional_heat" version "0.1.0" {
+domain DirectionalHeat[Axis DOF] package "eng.std.domains.directional_heat" version "0.1.0" {
     across T: AbsoluteTemperature [degC]
     through Q: HeatRate [kW]
+    conservation sum(Q) = 0
 }
 
 component XFace {

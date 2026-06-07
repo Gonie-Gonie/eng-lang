@@ -1,0 +1,4 @@
+domain NoBalance {
+    across x: Length [m]
+    through m_dot: MassFlowRate [kg/s]
+}

@@ -76,6 +76,10 @@ component_summary
 connection_summary
 ```
 
+For the v2.0 domain/component preview, each `domain_summary.type_parameters`
+entry is an object with `kind`, `name`, and `display` fields. For example,
+`Fluid[Medium M]` records `{ kind: "Medium", name: "M", display: "Medium M" }`.
+
 `plot_manifest` in `review.json` declares the runtime path that `eng run` will use. It does not carry the runtime manifest hash because `eng check --review` does not render plots.
 
 ## `report_spec.json`

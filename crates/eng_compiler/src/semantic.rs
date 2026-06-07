@@ -1,6 +1,6 @@
 use crate::ast::{
-    AstItem, ConnectDecl, DomainVariableDecl, ExplicitDecl, FastBinding, PortDecl, StructFieldDecl,
-    SystemVariableDecl,
+    AstItem, ConnectDecl, DomainTypeParameterDecl, DomainVariableDecl, ExplicitDecl, FastBinding,
+    PortDecl, StructFieldDecl, SystemVariableDecl,
 };
 use crate::entry::EntryPoint;
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
@@ -138,9 +138,16 @@ pub struct ConservationInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DomainTypeParameterInfo {
+    pub kind: String,
+    pub name: String,
+    pub display: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DomainInfo {
     pub name: String,
-    pub type_parameters: Vec<String>,
+    pub type_parameters: Vec<DomainTypeParameterInfo>,
     pub package: Option<String>,
     pub version: Option<String>,
     pub variables: Vec<DomainVariableInfo>,
@@ -315,7 +322,11 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             AstItem::Domain(domain) => {
                 domains.push(DomainInfo {
                     name: domain.name.clone(),
-                    type_parameters: domain.type_parameters.clone(),
+                    type_parameters: domain
+                        .type_parameters
+                        .iter()
+                        .map(domain_type_parameter_info)
+                        .collect(),
                     package: domain.package.clone(),
                     version: domain.version.clone(),
                     variables: Vec::new(),
@@ -436,6 +447,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         }
     }
 
+    validate_domain_contracts(&domains, &mut diagnostics);
+
     let connections = analyze_connections(
         &domains,
         &mut components,
@@ -496,6 +509,69 @@ fn analyze_domain_variable(declaration: &DomainVariableDecl, domain: &mut Domain
         dimension,
         line: declaration.line,
     });
+}
+
+fn domain_type_parameter_info(parameter: &DomainTypeParameterDecl) -> DomainTypeParameterInfo {
+    let display = if parameter.kind == parameter.name {
+        parameter.kind.clone()
+    } else {
+        format!("{} {}", parameter.kind, parameter.name)
+    };
+    DomainTypeParameterInfo {
+        kind: parameter.kind.clone(),
+        name: parameter.name.clone(),
+        display,
+    }
+}
+
+fn validate_domain_contracts(domains: &[DomainInfo], diagnostics: &mut Vec<Diagnostic>) {
+    for domain in domains {
+        if !domain
+            .variables
+            .iter()
+            .any(|variable| variable.role == "across")
+        {
+            diagnostics.push(Diagnostic::error(
+                "E-DOMAIN-CONTRACT-001",
+                domain.line,
+                &format!("Domain `{}` has no across variable.", domain.name),
+                Some("Add at least one `across <name>: <Quantity> [unit]` declaration."),
+            ));
+        }
+        if !domain
+            .variables
+            .iter()
+            .any(|variable| variable.role == "through")
+        {
+            diagnostics.push(Diagnostic::error(
+                "E-DOMAIN-CONTRACT-002",
+                domain.line,
+                &format!("Domain `{}` has no through variable.", domain.name),
+                Some("Add at least one `through <name>: <Quantity> [unit]` declaration."),
+            ));
+        }
+        if domain.conservations.is_empty() {
+            diagnostics.push(Diagnostic::error(
+                "E-DOMAIN-CONTRACT-003",
+                domain.line,
+                &format!("Domain `{}` has no conservation contract.", domain.name),
+                Some("Add a `conservation ...` line that records the domain balance contract."),
+            ));
+        }
+        for variable in &domain.variables {
+            if variable.dimension == "unknown" {
+                diagnostics.push(Diagnostic::error(
+                    "E-DOMAIN-VAR-001",
+                    variable.line,
+                    &format!(
+                        "Domain variable `{}.{}` uses unknown quantity kind `{}`.",
+                        domain.name, variable.name, variable.quantity_kind
+                    ),
+                    Some("Use a known quantity kind from the EngLang quantity registry."),
+                ));
+            }
+        }
+    }
 }
 
 fn analyze_port(declaration: &PortDecl, component: &mut ComponentInfo) {
@@ -716,7 +792,7 @@ fn first_mismatched_parameter(
                 domain
                     .type_parameters
                     .get(index)
-                    .cloned()
+                    .map(|parameter| parameter.kind.clone())
                     .unwrap_or_else(|| "Parameter".to_owned())
             })
         })

@@ -12,11 +12,17 @@ simulation yet.
 ## Current Scope On Main
 
 - `domain <Name> { ... }` declares a user-defined domain.
-- `domain <Name>[Param] package "package.id" version "semver-ish" { ... }`
-  records generic type-parameter, package, and version metadata.
+- `domain <Name>[Kind LocalName] package "package.id" version "semver-ish" { ... }`
+  records structured generic type-parameter, package, and version metadata.
+- Single-name parameters such as `[Medium]` remain accepted; typed parameters
+  such as `[Medium M]` preserve `kind`, `name`, and `display` metadata.
 - `across <name>: <Quantity> [unit]` records across variables.
 - `through <name>: <Quantity> [unit]` records through variables.
 - `conservation <text>` records the domain conservation contract as metadata.
+- Domains missing an `across`, `through`, or `conservation` contract part
+  produce `E-DOMAIN-CONTRACT-001`, `E-DOMAIN-CONTRACT-002`, or
+  `E-DOMAIN-CONTRACT-003`.
+- Domain variables with unknown quantity kinds produce `E-DOMAIN-VAR-001`.
 - `component <Name> { port <name>: <Domain> }` declares component ports.
 - `port <name>: <Domain>[Argument]` instantiates a generic domain reference,
   such as `Fluid[Water]`.
@@ -52,7 +58,9 @@ simulation yet.
 - `examples/official/06_domain_port/main.eng`
   - declares Thermal and Fluid domains;
   - records package/version metadata;
-  - declares `Fluid[Medium]` and instantiates `Fluid[Water]` ports;
+  - declares `Fluid[Medium M]` and instantiates `Fluid[Water]` ports;
+  - declares `MechanicalNode[Frame F, Axis DOF]` and instantiates
+    `MechanicalNode[World, X]` ports;
   - records across/through variables and conservation metadata;
   - declares components and ports;
   - records domain-compatible connections;
@@ -67,6 +75,14 @@ simulation yet.
   - verifies `E-CONNECT-AXIS-001`.
 - `examples/05_error_messages/generic_domain_arity.eng`
   - verifies `E-PORT-DOMAIN-002`.
+- `examples/05_error_messages/domain_missing_across.eng`
+  - verifies `E-DOMAIN-CONTRACT-001`.
+- `examples/05_error_messages/domain_missing_through.eng`
+  - verifies `E-DOMAIN-CONTRACT-002`.
+- `examples/05_error_messages/domain_missing_conservation.eng`
+  - verifies `E-DOMAIN-CONTRACT-003`.
+- `examples/05_error_messages/domain_unknown_quantity.eng`
+  - verifies `E-DOMAIN-VAR-001`.
 
 ## Remaining Before Numeric Claim
 
@@ -92,6 +108,10 @@ target\debug\eng.exe check examples\05_error_messages\medium_mismatch.eng
 target\debug\eng.exe check examples\05_error_messages\frame_mismatch.eng
 target\debug\eng.exe check examples\05_error_messages\axis_mismatch.eng
 target\debug\eng.exe check examples\05_error_messages\generic_domain_arity.eng
+target\debug\eng.exe check examples\05_error_messages\domain_missing_across.eng
+target\debug\eng.exe check examples\05_error_messages\domain_missing_through.eng
+target\debug\eng.exe check examples\05_error_messages\domain_missing_conservation.eng
+target\debug\eng.exe check examples\05_error_messages\domain_unknown_quantity.eng
 target\debug\eng.exe test examples
 ```
 
@@ -101,5 +121,5 @@ diagnostic codes.
 After the runnable official fixture completes, inspect
 `build\result\report_spec.json` and `build\result\report.html` for
 `domain_summary`, `component_summary`, `connection_summary`,
-`type_parameters`, `package`, `version`, `Fluid[Water]`, and
-`domain_compatible` rows.
+`type_parameters`, `kind`, `name`, `display`, `package`, `version`,
+`Fluid[Water]`, `MechanicalNode[World, X]`, and `domain_compatible` rows.

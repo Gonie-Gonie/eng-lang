@@ -1,8 +1,8 @@
 use crate::ast::{
     AstItem, ComponentDecl, ConnectDecl, ConservationDecl, ConstraintDecl, DomainDecl,
-    DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, MissingPolicyDecl, PortDecl,
-    SchemaDecl, ScriptDecl, StructDecl, StructFieldDecl, SummaryDecl, SystemDecl,
-    SystemVariableDecl,
+    DomainTypeParameterDecl, DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding,
+    MissingPolicyDecl, PortDecl, SchemaDecl, ScriptDecl, StructDecl, StructFieldDecl, SummaryDecl,
+    SystemDecl, SystemVariableDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -394,14 +394,17 @@ fn parse_domain_decl(tokens: &[Token]) -> Option<DomainDecl> {
     };
     Some(DomainDecl {
         name: name.clone(),
-        type_parameters: parse_bracketed_identifiers_after(tokens, 2),
+        type_parameters: parse_domain_type_parameters_after(tokens, 2),
         package: parse_metadata_value(tokens, "package"),
         version: parse_metadata_value(tokens, "version"),
         span: first.span,
     })
 }
 
-fn parse_bracketed_identifiers_after(tokens: &[Token], start_index: usize) -> Vec<String> {
+fn parse_domain_type_parameters_after(
+    tokens: &[Token],
+    start_index: usize,
+) -> Vec<DomainTypeParameterDecl> {
     let Some(open_index) =
         tokens
             .iter()
@@ -425,13 +428,31 @@ fn parse_bracketed_identifiers_after(tokens: &[Token], start_index: usize) -> Ve
         return Vec::new();
     };
 
-    tokens[open_index + 1..close_index]
-        .iter()
-        .filter_map(|token| match &token.kind {
-            TokenKind::Identifier(value) => Some(value.clone()),
-            _ => None,
-        })
-        .collect()
+    let mut parameters = Vec::new();
+    let mut group = Vec::new();
+    for token in &tokens[open_index + 1..close_index] {
+        if matches!(token.kind, TokenKind::Symbol(Symbol::Comma)) {
+            push_domain_type_parameter(&mut parameters, &group);
+            group.clear();
+            continue;
+        }
+        if let TokenKind::Identifier(value) = &token.kind {
+            group.push(value.clone());
+        }
+    }
+    push_domain_type_parameter(&mut parameters, &group);
+    parameters
+}
+
+fn push_domain_type_parameter(parameters: &mut Vec<DomainTypeParameterDecl>, group: &[String]) {
+    let Some(kind) = group.first() else {
+        return;
+    };
+    let name = group.get(1).cloned().unwrap_or_else(|| kind.clone());
+    parameters.push(DomainTypeParameterDecl {
+        kind: kind.clone(),
+        name,
+    });
 }
 
 fn parse_metadata_value(tokens: &[Token], key: &str) -> Option<String> {

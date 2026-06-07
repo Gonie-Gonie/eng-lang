@@ -1,0 +1,4 @@
+domain PositionOnly {
+    across x: Length [m]
+    conservation x is shared at connected ports
+}

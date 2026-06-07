@@ -188,9 +188,10 @@ examples/official/06_domain_port/main.eng
 ```
 
 Open it and inspect the right Sidebar > Inspector > Domain Graph section. It
-should show Thermal and `Fluid[Medium]` domains, package/version metadata,
-three components, `Fluid[Water]` ports, and two `domain_compatible`
-connections.
+should show Thermal, `Fluid[Medium M]`, and
+`MechanicalNode[Frame F, Axis DOF]` domains, package/version metadata, five
+components, `Fluid[Water]` and `MechanicalNode[World, X]` ports, and three
+`domain_compatible` connections.
 
 ## Completion Scope
 

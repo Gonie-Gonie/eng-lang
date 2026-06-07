@@ -191,10 +191,12 @@ v1.5
 v2.0
   Domain/component platform start: user-defined domain declarations,
   across/through variable metadata, conservation contracts, component ports,
-  package/version metadata, generic domain arguments, connection review/report
-  metadata, native IDE Domain Graph inspection, LSP hover/completion metadata,
-  invalid port-domain diagnostics, and medium/frame/axis compatibility
-  diagnostics. Experimental on main; no multi-domain numeric solver claim.
+  package/version metadata, structured generic domain parameters such as
+  Fluid[Medium M] and MechanicalNode[Frame F, Axis DOF], connection
+  review/report metadata, native IDE Domain Graph inspection, LSP
+  hover/completion metadata, invalid port-domain diagnostics, domain contract
+  diagnostics, and medium/frame/axis compatibility diagnostics. Experimental
+  on main; no multi-domain numeric solver claim.
 ```
 
 ## Documentation

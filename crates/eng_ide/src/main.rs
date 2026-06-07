@@ -596,7 +596,15 @@ impl EngIdeApp {
             .iter()
             .map(|domain| DomainView {
                 name: domain.name.clone(),
-                type_parameters: domain.type_parameters.clone(),
+                type_parameters: domain
+                    .type_parameters
+                    .iter()
+                    .map(|parameter| DomainParameterView {
+                        kind: parameter.kind.clone(),
+                        name: parameter.name.clone(),
+                        display: parameter.display.clone(),
+                    })
+                    .collect(),
                 package: domain.package.clone(),
                 version: domain.version.clone(),
                 line: domain.line,
@@ -1306,7 +1314,11 @@ impl EngIdeApp {
                         });
                     });
                     key_value_row(ui, "variables", &domain.variables.len().to_string());
-                    key_value_row(ui, "parameters", &compact_list(&domain.type_parameters, 4));
+                    key_value_row(
+                        ui,
+                        "parameters",
+                        &domain_parameter_list(&domain.type_parameters),
+                    );
                     if let Some(package) = &domain.package {
                         key_value_row(ui, "package", package);
                     }
@@ -2094,12 +2106,19 @@ struct CsvPromotionView {
 #[derive(Clone)]
 struct DomainView {
     name: String,
-    type_parameters: Vec<String>,
+    type_parameters: Vec<DomainParameterView>,
     package: Option<String>,
     version: Option<String>,
     line: usize,
     variables: Vec<DomainVariableView>,
     conservations: Vec<DomainConservationView>,
+}
+
+#[derive(Clone)]
+struct DomainParameterView {
+    kind: String,
+    name: String,
+    display: String,
 }
 
 #[derive(Clone)]
@@ -2677,7 +2696,7 @@ fn completion_items(filter: &str, symbols: &[SymbolView], source: &str) -> Vec<C
         ),
         (
             "snippet: domain ports",
-            "domain Thermal package \"eng.std.domains.thermal\" version \"0.1.0\" {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ndomain Fluid[Medium] package \"eng.std.domains.fluid\" version \"0.1.0\" {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n}\n\ncomponent SupplyPipe {\n    port inlet: Fluid[Water]\n    port outlet: Fluid[Water]\n}\n\nconnect SupplyPipe.inlet -> SupplyPipe.outlet",
+            "domain Thermal package \"eng.std.domains.thermal\" version \"0.1.0\" {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ndomain Fluid[Medium M] package \"eng.std.domains.fluid\" version \"0.1.0\" {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ndomain MechanicalNode[Frame F, Axis DOF] package \"eng.std.domains.mechanical\" version \"0.1.0\" {\n    across x: Length [m]\n    through P: MechanicalPower [W]\n    conservation sum(P) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n}\n\ncomponent SupplyPipe {\n    port inlet: Fluid[Water]\n    port outlet: Fluid[Water]\n}\n\ncomponent ShaftA {\n    port shaft: MechanicalNode[World, X]\n}\n\ncomponent ShaftB {\n    port shaft: MechanicalNode[World, X]\n}\n\nconnect SupplyPipe.inlet -> SupplyPipe.outlet\nconnect ShaftA.shaft -> ShaftB.shaft",
             "domain package/version, generic ports, and connection",
         ),
         (
@@ -3161,6 +3180,27 @@ fn compact_list(values: &[String], limit: usize) -> String {
         .join(", ");
     head.push_str(&format!(" ... +{}", values.len() - limit));
     head
+}
+
+fn domain_parameter_list(parameters: &[DomainParameterView]) -> String {
+    if parameters.is_empty() {
+        "-".to_owned()
+    } else {
+        parameters
+            .iter()
+            .map(|parameter| {
+                if parameter.kind == parameter.name {
+                    parameter.display.clone()
+                } else {
+                    format!(
+                        "{} ({} {})",
+                        parameter.display, parameter.kind, parameter.name
+                    )
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
 }
 
 fn runtime_transform_label(scale: Option<&str>, offset: Option<&str>) -> String {

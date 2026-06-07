@@ -1,0 +1,5 @@
+domain UnknownQuantityDomain {
+    across x: Displacement [m]
+    through m_dot: MassFlowRate [kg/s]
+    conservation sum(m_dot) = 0
+}

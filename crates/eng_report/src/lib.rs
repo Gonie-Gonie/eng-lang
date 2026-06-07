@@ -1,4 +1,4 @@
-use eng_compiler::{CheckReport, Severity};
+use eng_compiler::{CheckReport, DomainTypeParameterInfo, Severity};
 
 pub const REPORT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const REPORT_SPEC_VERSION: u32 = 1;
@@ -257,12 +257,19 @@ pub struct ReportPolicyViolation {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ReportDomainSummary {
     pub name: String,
-    pub type_parameters: Vec<String>,
+    pub type_parameters: Vec<ReportDomainTypeParameter>,
     pub package: Option<String>,
     pub version: Option<String>,
     pub variables: Vec<ReportDomainVariable>,
     pub conservations: Vec<ReportDomainConservation>,
     pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportDomainTypeParameter {
+    pub kind: String,
+    pub name: String,
+    pub display: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -637,7 +644,15 @@ pub fn report_spec_from_report(
         .iter()
         .map(|domain| ReportDomainSummary {
             name: domain.name.clone(),
-            type_parameters: domain.type_parameters.clone(),
+            type_parameters: domain
+                .type_parameters
+                .iter()
+                .map(|parameter| ReportDomainTypeParameter {
+                    kind: parameter.kind.clone(),
+                    name: parameter.name.clone(),
+                    display: parameter.display.clone(),
+                })
+                .collect(),
             package: domain.package.clone(),
             version: domain.version.clone(),
             variables: domain
@@ -1436,7 +1451,12 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             if parameter_index > 0 {
                 json.push_str(", ");
             }
-            json.push_str(&format!("\"{}\"", json_escape(parameter)));
+            json.push_str(&format!(
+                "{{\"kind\": \"{}\", \"name\": \"{}\", \"display\": \"{}\"}}",
+                json_escape(&parameter.kind),
+                json_escape(&parameter.name),
+                json_escape(&parameter.display)
+            ));
         }
         json.push_str("],\n");
         match &domain.package {
@@ -2294,7 +2314,7 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
             html_escape(&domain_signature),
             html_escape(package),
             html_escape(version),
-            html_escape(&format_string_list(&domain.type_parameters))
+            html_escape(&format_domain_parameter_list(&domain.type_parameters))
         ));
         domain_summary.push_str("</tr>");
         for variable in &domain.variables {
@@ -2724,19 +2744,23 @@ fn html_escape(value: &str) -> String {
         .replace('"', "&quot;")
 }
 
-fn format_domain_signature(name: &str, parameters: &[String]) -> String {
+fn format_domain_signature(name: &str, parameters: &[DomainTypeParameterInfo]) -> String {
     if parameters.is_empty() {
         name.to_owned()
     } else {
-        format!("{name}[{}]", parameters.join(", "))
+        format!("{name}[{}]", format_domain_parameter_list(parameters))
     }
 }
 
-fn format_string_list(values: &[String]) -> String {
-    if values.is_empty() {
+fn format_domain_parameter_list(parameters: &[DomainTypeParameterInfo]) -> String {
+    if parameters.is_empty() {
         "-".to_owned()
     } else {
-        values.join(", ")
+        parameters
+            .iter()
+            .map(|parameter| parameter.display.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
     }
 }
 
@@ -3242,7 +3266,7 @@ mod tests {
     fn report_spec_and_html_include_domain_component_sections() {
         let report = check_source(
             "ok.eng",
-            "domain Fluid[Medium] package \"eng.std.domains.fluid\" version \"0.1.0\" {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent Supply {\n    port outlet: Fluid[Water]\n}\n\ncomponent Return {\n    port inlet: Fluid[Water]\n}\n\nconnect Supply.outlet -> Return.inlet\n",
+            "domain Fluid[Medium M] package \"eng.std.domains.fluid\" version \"0.1.0\" {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent Supply {\n    port outlet: Fluid[Water]\n}\n\ncomponent Return {\n    port inlet: Fluid[Water]\n}\n\nconnect Supply.outlet -> Return.inlet\n",
             &CheckOptions::default(),
         );
 
@@ -3254,7 +3278,9 @@ mod tests {
         assert_eq!(spec.provenance.component_count, 2);
         assert_eq!(spec.provenance.connection_count, 1);
         assert_eq!(spec.domains[0].name, "Fluid");
-        assert_eq!(spec.domains[0].type_parameters, vec!["Medium".to_owned()]);
+        assert_eq!(spec.domains[0].type_parameters[0].kind, "Medium");
+        assert_eq!(spec.domains[0].type_parameters[0].name, "M");
+        assert_eq!(spec.domains[0].type_parameters[0].display, "Medium M");
         assert_eq!(
             spec.domains[0].package.as_deref(),
             Some("eng.std.domains.fluid")
@@ -3272,9 +3298,12 @@ mod tests {
         assert!(json.contains("\"component_summary\""));
         assert!(json.contains("\"connection_summary\""));
         assert!(json.contains("\"package\": \"eng.std.domains.fluid\""));
+        assert!(json.contains("\"kind\": \"Medium\""));
+        assert!(json.contains("\"display\": \"Medium M\""));
         assert!(json.contains("\"type_arguments\": [\"Water\"]"));
         assert!(json.contains("\"domain_count\": 1"));
         assert!(html.contains("Domains"));
+        assert!(html.contains("Fluid[Medium M]"));
         assert!(html.contains("eng.std.domains.fluid"));
         assert!(html.contains("Component Ports"));
         assert!(html.contains("Connections"));

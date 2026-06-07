@@ -141,7 +141,7 @@ connection
 For v2.0 domain/component files, hovers expose domain declarations,
 across/through variables, conservation metadata, component ports, and connection
 status. Domain hovers may include package/version metadata and generic
-parameter signatures such as `Fluid[Medium]`; port hovers may include
+parameter signatures such as `Fluid[Medium M]`; port hovers may include
 instantiated arguments such as `Fluid[Water]`. Example connection hover:
 
 ```json

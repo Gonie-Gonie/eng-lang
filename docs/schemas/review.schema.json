@@ -113,7 +113,7 @@
         "name": { "type": "string" },
         "type_parameters": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": { "$ref": "#/$defs/domainTypeParameter" }
         },
         "package": { "type": ["string", "null"] },
         "version": { "type": ["string", "null"] },
@@ -128,6 +128,15 @@
           "type": "array",
           "items": { "$ref": "#/$defs/domainConservation" }
         }
+      }
+    },
+    "domainTypeParameter": {
+      "type": "object",
+      "required": ["kind", "name", "display"],
+      "properties": {
+        "kind": { "type": "string" },
+        "name": { "type": "string" },
+        "display": { "type": "string" }
       }
     },
     "domainVariable": {

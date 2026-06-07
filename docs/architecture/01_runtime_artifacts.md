@@ -285,6 +285,11 @@ plot_manifest
 warning_list
 ```
 
+`domain_summary.type_parameters` stores structured v2.0 metadata as objects
+with `kind`, `name`, and `display`, so report/IDE/LSP consumers can distinguish
+the parameter kind (`Medium`, `Frame`, `Axis`) from the local parameter name
+used in a package declaration.
+
 The v1.1 uncertainty section records declared uncertainty forms, deterministic
 runtime summaries when available, scale/offset transforms, and propagation
 source terms with source, role, and quantity kind.

@@ -441,8 +441,8 @@ Required outputs:
 - user-defined domain
 - across/through variables
 - conservation contract
-- Fluid[Medium]
-- MechanicalNode[Frame, Axis]
+- Fluid[Medium M]
+- MechanicalNode[Frame F, Axis DOF]
 - component/connect
 - connection summary report
 - multi-domain warnings
@@ -453,10 +453,10 @@ Required outputs:
 
 Status on `main`: the first metadata-first domain/component slice exists with
 `domain`, `across`, `through`, `conservation`, `component`, `port`, and
-`connect` parsing, port-domain diagnostics, review metadata, and
-`examples/official/06_domain_port`. Numeric multi-domain simulation,
-generic medium/frame/axis domains, and package ecosystem behavior remain
-deferred. Track the exact boundary in
+`connect` parsing, structured generic domain parameters, domain contract
+diagnostics, port-domain diagnostics, review/report metadata, IDE/LSP metadata,
+and `examples/official/06_domain_port`. Numeric multi-domain simulation and
+package ecosystem behavior remain deferred. Track the exact boundary in
 [docs/current/v2_0_domain_component_gate.md](current/v2_0_domain_component_gate.md).
 
 ## Work Breakdown Rules

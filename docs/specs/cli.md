@@ -70,6 +70,10 @@ E-ENTRY-MULTIPLE-001   run/build entry point selection is ambiguous
 W-STATS-SUM-001        HeatRate summed over Time should use integrate
 E-EQ-BOOL-001          physical equation used == instead of eq
 E-EQ-UNIT-001          physical equation dimensions do not match
+E-DOMAIN-CONTRACT-001  domain has no across variable
+E-DOMAIN-CONTRACT-002  domain has no through variable
+E-DOMAIN-CONTRACT-003  domain has no conservation contract
+E-DOMAIN-VAR-001       domain variable uses an unknown quantity kind
 E-PORT-DOMAIN-001      component port references an unknown domain
 E-PORT-DOMAIN-002      generic domain reference has wrong argument count
 E-CONNECT-ENDPOINT-001 connection endpoint is not Component.port

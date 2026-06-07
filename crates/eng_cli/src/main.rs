@@ -735,6 +735,22 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             "examples/05_error_messages/generic_domain_arity.eng",
             "E-PORT-DOMAIN-002",
         ),
+        (
+            "examples/05_error_messages/domain_missing_across.eng",
+            "E-DOMAIN-CONTRACT-001",
+        ),
+        (
+            "examples/05_error_messages/domain_missing_through.eng",
+            "E-DOMAIN-CONTRACT-002",
+        ),
+        (
+            "examples/05_error_messages/domain_missing_conservation.eng",
+            "E-DOMAIN-CONTRACT-003",
+        ),
+        (
+            "examples/05_error_messages/domain_unknown_quantity.eng",
+            "E-DOMAIN-VAR-001",
+        ),
     ] {
         let report = match check_file(fixture, &CheckOptions::default()) {
             Ok(report) => report,

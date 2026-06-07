@@ -28,18 +28,33 @@ domain Thermal package "eng.std.domains.thermal" version "0.1.0" {
 Across/through variables use the existing quantity registry. Current examples
 use `AbsoluteTemperature`, `HeatRate`, `Length`, and `MassFlowRate`.
 
-Generic metadata is supported for domain references:
+Generic metadata is supported for domain references. A parameter may be written
+as a single identifier, or as `<Kind> <Name>` when the package wants to preserve
+both the semantic kind and the local parameter name:
 
 ```eng
-domain Fluid[Medium] package "eng.std.domains.fluid" version "0.1.0" {
+domain Fluid[Medium M] package "eng.std.domains.fluid" version "0.1.0" {
     across height: Length [m]
     through m_dot: MassFlowRate [kg/s]
     conservation sum(m_dot) = 0
 }
+
+domain MechanicalNode[Frame F, Axis DOF] package "eng.std.domains.mechanical" version "0.1.0" {
+    across x: Length [m]
+    through P: MechanicalPower [W]
+    conservation sum(P) = 0
+}
 ```
 
-`Medium`, `Frame`, and `Axis` are metadata parameters. They are checked at
-connection time but do not create a numeric solver yet.
+`Medium`, `Frame`, and `Axis` are parameter kinds. `M`, `F`, and `DOF` are local
+parameter names. Review/report/LSP metadata keeps `kind`, `name`, and `display`
+for each entry in `type_parameters`.
+
+Every user-defined domain must declare at least one `across` variable, at least
+one `through` variable, and at least one `conservation` line. Missing contract
+parts produce `E-DOMAIN-CONTRACT-001`, `E-DOMAIN-CONTRACT-002`, or
+`E-DOMAIN-CONTRACT-003`. Domain variables must use known quantity kinds; unknown
+quantity kinds produce `E-DOMAIN-VAR-001`.
 
 ## Component Ports
 
@@ -58,8 +73,9 @@ Each `port` names a component boundary and references a declared domain. If the
 domain is missing, checking reports `E-PORT-DOMAIN-001`.
 
 Generic domain ports must provide the expected number of type arguments. For
-example, `Fluid[Medium]` expects `Fluid[Water]`, `Fluid[Air]`, or another
-single argument at the port boundary; plain `Fluid` reports
+example, `Fluid[Medium M]` expects `Fluid[Water]`, `Fluid[Air]`, or another
+single argument at the port boundary. `MechanicalNode[Frame F, Axis DOF]`
+expects two arguments such as `MechanicalNode[World, X]`. Plain `Fluid` reports
 `E-PORT-DOMAIN-002`.
 
 ## Connections
@@ -73,6 +89,10 @@ Connections use source-order metadata. Both endpoints must be written as
 
 | Diagnostic | Trigger |
 |---|---|
+| `E-DOMAIN-CONTRACT-001` | Domain has no `across` variable. |
+| `E-DOMAIN-CONTRACT-002` | Domain has no `through` variable. |
+| `E-DOMAIN-CONTRACT-003` | Domain has no `conservation` line. |
+| `E-DOMAIN-VAR-001` | Domain variable uses an unknown quantity kind. |
 | `E-CONNECT-ENDPOINT-001` | Endpoint is not written as `Component.port`. |
 | `E-CONNECT-PORT-001` | Endpoint does not resolve to a declared component port. |
 | `E-CONNECT-DOMAIN-001` | Both ports resolve, but their domains differ. |
@@ -119,8 +139,9 @@ re-parsing source files.
 ## Official Examples
 
 - `examples/official/06_domain_port/main.eng`
-  shows compatible Thermal and `Fluid[Water]` domain connections with package
-  and version metadata.
+  shows compatible Thermal, `Fluid[Water]`, and
+  `MechanicalNode[World, X]` domain connections with package/version metadata
+  and structured generic parameter metadata.
 - `examples/05_error_messages/port_domain_mismatch.eng`
   intentionally connects a Thermal port to a Fluid port and should report
   `E-CONNECT-DOMAIN-001` with a non-zero check exit.
@@ -130,6 +151,10 @@ re-parsing source files.
   arguments.
 - `examples/05_error_messages/generic_domain_arity.eng`
   intentionally omits the required generic domain argument.
+- `examples/05_error_messages/domain_missing_across.eng`,
+  `domain_missing_through.eng`, `domain_missing_conservation.eng`, and
+  `domain_unknown_quantity.eng`
+  intentionally violate user-defined domain contract rules.
 
 ## Support Boundary
 
@@ -137,7 +162,8 @@ Current:
 
 - parser and semantic metadata;
 - domain package/version metadata;
-- generic domain parameter and port argument metadata;
+- structured generic domain parameter and port argument metadata;
+- domain contract diagnostics;
 - domain variable quantity/unit metadata;
 - port domain validation;
 - connection compatibility diagnostics;

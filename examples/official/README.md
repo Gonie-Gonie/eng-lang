@@ -31,7 +31,8 @@ paths before compatibility fixtures.
 06_domain_port
   Experimental v2.0 domain/component path for user-defined domains,
   across/through variables, conservation metadata, component ports,
-  domain-compatible connections, and invalid connection diagnostics.
+  structured generic parameters, domain-compatible connections, contract
+  diagnostics, and invalid connection diagnostics.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression

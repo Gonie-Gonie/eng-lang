@@ -3,7 +3,7 @@ use std::path::Path;
 
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, check_file, check_source, CheckOptions, CheckReport,
-    Severity,
+    DomainTypeParameterInfo, Severity,
 };
 use serde_json::{json, Value};
 
@@ -466,11 +466,18 @@ fn push_completion(
     }
 }
 
-fn domain_signature(name: &str, parameters: &[String]) -> String {
+fn domain_signature(name: &str, parameters: &[DomainTypeParameterInfo]) -> String {
     if parameters.is_empty() {
         name.to_owned()
     } else {
-        format!("{name}[{}]", parameters.join(", "))
+        format!(
+            "{name}[{}]",
+            parameters
+                .iter()
+                .map(|parameter| parameter.display.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 }
 

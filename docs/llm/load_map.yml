@@ -105,6 +105,10 @@ task_types:
     - examples/05_error_messages/frame_mismatch.eng
     - examples/05_error_messages/axis_mismatch.eng
     - examples/05_error_messages/generic_domain_arity.eng
+    - examples/05_error_messages/domain_missing_across.eng
+    - examples/05_error_messages/domain_missing_through.eng
+    - examples/05_error_messages/domain_missing_conservation.eng
+    - examples/05_error_messages/domain_unknown_quantity.eng
     - crates/eng_compiler/src/parser.rs
     - crates/eng_compiler/src/semantic.rs
     - crates/eng_compiler/src/lib.rs

@@ -20,11 +20,12 @@ wired into a release target and manually tested in an editor.
   schema columns for the promoted table.
 - Domain/component completion includes domain names, domain variables,
   component names, and `Component.port` labels with generic domain details such
-  as `Fluid[Water]`.
+  as `Fluid[Water]` and `MechanicalNode[World, X]`.
 - Hover metadata includes optional `kind` and `status` fields. Domain/component
   sources emit `domain`, `domain_variable`, `domain_conservation`,
   `component`, `component_port`, and `connection` hover kinds, including
-  package/version and generic argument metadata when present.
+  package/version and structured generic parameter metadata such as
+  `Fluid[Medium M]` when present.
 - Default `eng-lsp` starts a minimal stdio JSON-RPC loop for:
   - `initialize`
   - `shutdown`

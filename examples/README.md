@@ -34,7 +34,8 @@ official/05_data_driven_modeling
 official/06_domain_port
   Experimental v2.0 fixture for user-defined domain declarations,
   across/through variables, conservation metadata, components, ports, and
-  domain-compatible connection review.
+  domain-compatible connection review. It includes structured generic
+  parameters such as Fluid[Medium M] and MechanicalNode[Frame F, Axis DOF].
 ```
 
 ## Compatibility Regression Examples
