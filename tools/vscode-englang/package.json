@@ -1,0 +1,80 @@
+{
+  "name": "englang",
+  "displayName": "EngLang",
+  "description": "EngLang IDE preview with diagnostics, hover, completion, and run commands.",
+  "version": "1.0.0",
+  "publisher": "englang",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:englang"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "englang",
+        "aliases": [
+          "EngLang",
+          "eng"
+        ],
+        "extensions": [
+          ".eng"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "englang",
+        "scopeName": "source.englang",
+        "path": "./syntaxes/eng.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "englang",
+        "path": "./snippets/eng.json"
+      }
+    ],
+    "configuration": {
+      "title": "EngLang",
+      "properties": {
+        "englang.runtimePath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to eng.exe. Leave empty to use the bundled executable, workspace executable, or PATH."
+        },
+        "englang.lintOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run EngLang diagnostics when .eng files are opened or saved."
+        },
+        "englang.runEntry": {
+          "type": "string",
+          "default": "main",
+          "description": "Default entry passed to eng run from the editor command."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "englang.checkFile",
+        "title": "EngLang: Check Current File"
+      },
+      {
+        "command": "englang.runFile",
+        "title": "EngLang: Run Current File"
+      },
+      {
+        "command": "englang.openReport",
+        "title": "EngLang: Open Last Report"
+      }
+    ]
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "Script main": {
+    "prefix": "script main",
+    "body": [
+      "script main() -> Report {",
+      "    ${1:value} = ${2:1 kW}",
+      "    return plot line ${1:value}",
+      "}"
+    ],
+    "description": "Create a main script that returns a report."
+  },
+  "Args struct": {
+    "prefix": "struct Args",
+    "body": [
+      "struct Args {",
+      "    ${1:input}: String = \"${2:data/sensor.csv}\"",
+      "}"
+    ],
+    "description": "Create an Args struct with a default CSV path."
+  },
+  "CSV schema": {
+    "prefix": "schema csv",
+    "body": [
+      "schema ${1:Sensor} {",
+      "    ${2:time}: DateTime [iso8601]",
+      "    ${3:T_supply}: AbsoluteTemperature [degC]",
+      "    ${4:heat}: HeatRate [kW]",
+      "}"
+    ],
+    "description": "Create a typed CSV schema."
+  },
+  "System model": {
+    "prefix": "system thermal",
+    "body": [
+      "system ${1:Room} {",
+      "    state ${2:T}: AbsoluteTemperature = ${3:20 degC}",
+      "    parameter ${4:C}: HeatCapacity = ${5:1200 kJ/K}",
+      "    parameter ${6:UA}: Conductance = ${7:250 W/K}",
+      "    input ${8:T_out}: AbsoluteTemperature = ${9:10 degC}",
+      "    input ${10:Q_internal}: HeatRate = ${11:500 W}",
+      "    equation energy_balance:",
+      "        ${4:C} * der(${2:T}) eq ${6:UA} * (${8:T_out} - ${2:T}) + ${10:Q_internal}",
+      "}"
+    ],
+    "description": "Create the v1.0 first-order thermal system shape."
+  },
+  "Plot line": {
+    "prefix": "plot line",
+    "body": "return plot line ${1:series}",
+    "description": "Return a line plot report."
+  }
+}

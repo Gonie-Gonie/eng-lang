@@ -30,7 +30,7 @@ Setup performs:
 ```text
 1. create .dev/cargo, .dev/rustup, and .dev/cache
 2. download rustup-init.exe into .dev/cache when needed
-3. install 1.78.0-x86_64-pc-windows-gnu into .dev
+3. install 1.96.0-x86_64-pc-windows-gnu into .dev
 4. fetch locked Cargo dependencies
 5. build the Rust workspace
 ```
@@ -104,6 +104,7 @@ build/
 .\dev.bat clippy
 .\dev.bat ci
 .\dev.bat docs-check
+.\dev.bat ide --smoke
 .\dev.bat artifacts-check
 .\dev.bat package
 .\dev.bat package-smoke
@@ -111,9 +112,28 @@ build/
 ```
 
 `package-smoke` builds the portable zip, extracts it into a path containing
-spaces and Korean characters, and runs the packaged `eng.exe` without relying on
-Rust or Python in the target folder. It also builds a standalone bundle and runs
-that bundle's `run.bat`.
+spaces and Korean characters, and runs the packaged `eng.exe` plus
+`eng-ide.exe --smoke` without relying on Rust or Python in the target folder.
+It also builds a standalone bundle and runs that bundle's `run.bat`.
+
+## Native Tester IDE
+
+During development:
+
+```bat
+.\dev.bat ide
+```
+
+From a portable release package:
+
+```bat
+eng-ide.bat
+```
+
+The native tester IDE supports example browsing, source editing, live compiler
+diagnostics, completion insertion, symbol metadata, running the current file,
+and opening the generated report. See
+[Native tester IDE](../guide/native_ide.md).
 
 ## Troubleshooting
 

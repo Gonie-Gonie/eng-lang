@@ -37,7 +37,7 @@ the preferred and documented path is the repository-local toolchain.
 Current pin:
 
 ```text
-1.78.0-x86_64-pc-windows-gnu
+1.96.0-x86_64-pc-windows-gnu
 ```
 
 Reasons:

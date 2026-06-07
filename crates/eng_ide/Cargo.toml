@@ -1,0 +1,18 @@
+[package]
+name = "eng_ide"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "eng-ide"
+path = "src/main.rs"
+
+[dependencies]
+eframe = { version = "0.27", default-features = false, features = ["glow"] }
+eng_compiler = { path = "../eng_compiler" }
+eng_runtime = { path = "../eng_runtime" }
+
+[lints]
+workspace = true

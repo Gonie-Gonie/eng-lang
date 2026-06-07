@@ -21,6 +21,7 @@ This index maps the v9 master plan to the concrete repository work.
 - [Bytecode VM and result v1](runtime/bytecode.md)
 - [TimeSeries statistics guide](guide/timeseries_statistics.md)
 - [Plotting guide](guide/plotting.md)
+- [Native tester IDE](guide/native_ide.md)
 - [Report and review artifacts](guide/report_review.md)
 - [Simple system tutorial](tutorials/05_simple_system.md)
 

@@ -228,6 +228,19 @@ The v1.0 demo must show:
 [x] no Python/Rust install is required for portable or standalone packaged execution
 ```
 
+## v1.0.1 Tester IDE Gate
+
+Before publishing the post-v1.0 hardening release:
+
+```text
+[x] native tester IDE binary is built as eng-ide.exe
+[x] portable package includes eng-ide.exe and eng-ide.bat
+[x] eng-ide.exe --smoke discovers examples and compiler completion metadata
+[x] native IDE supports check, save, run, report open, diagnostics, symbols, and completions
+[x] VS Code extension preview is packaged as a secondary IDE path
+[x] package-smoke verifies eng-ide.exe --smoke inside the extracted portable zip
+```
+
 Release notes live in `docs/release/v<version>.md`.
 
 The full release procedure lives in [release-workflow.md](release-workflow.md).

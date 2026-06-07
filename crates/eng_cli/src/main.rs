@@ -19,6 +19,7 @@ fn main() -> ExitCode {
     match command.as_str() {
         "doctor" => command_doctor(),
         "check" => command_check(args),
+        "ide-check" => command_ide_check(args),
         "entries" => command_entries(args),
         "run" => command_run(args),
         "build" => command_build(args),
@@ -38,6 +39,42 @@ fn main() -> ExitCode {
             print_help();
             ExitCode::from(2)
         }
+    }
+}
+
+fn command_ide_check(args: Vec<String>) -> ExitCode {
+    let Some(path) = first_non_flag(&args) else {
+        eprintln!("usage: eng ide-check <file.eng>");
+        return ExitCode::from(2);
+    };
+    let check_args = match parse_arg_overrides(&args, &[], &[]) {
+        Ok(values) => values,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
+    let report = match check_file(
+        &path,
+        &CheckOptions {
+            review: true,
+            args: check_args,
+            require_args: false,
+        },
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+
+    print!("{}", review_json(&report));
+
+    if report.has_errors() {
+        ExitCode::from(2)
+    } else {
+        ExitCode::SUCCESS
     }
 }
 
@@ -932,6 +969,7 @@ Usage:
   eng doctor
   eng new <project_name>
   eng check <file.eng> [--review]
+  eng ide-check <file.eng>
   eng entries <file.eng>
   eng run <file.eng> [--entry <name>] [--open-report] [--<arg> <value>...]
   eng build <file.eng> [--entry <name>] [--standalone] [--profile repro]

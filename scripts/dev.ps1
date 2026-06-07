@@ -14,7 +14,7 @@ $RustupHome = Join-Path $DevHome "rustup"
 $CacheHome = Join-Path $DevHome "cache"
 $RustupInit = Join-Path $CacheHome "rustup-init.exe"
 $RustupUrl = "https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe"
-$PinnedToolchain = "1.78.0-x86_64-pc-windows-gnu"
+$PinnedToolchain = "1.96.0-x86_64-pc-windows-gnu"
 
 function Invoke-Native {
     param(
@@ -722,6 +722,129 @@ function Invoke-RunExample {
     Invoke-Native $cargo "run" "-p" "eng_cli" "--" "run" $example
 }
 
+function Invoke-IdeCheck {
+    $ExtensionRoot = Join-Path $RepoRoot "tools\vscode-englang"
+    $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
+    $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
+
+    if (-not (Test-Path $PackageJsonPath)) {
+        throw "missing VS Code extension package.json at $PackageJsonPath"
+    }
+    if (-not (Test-Path $ExtensionJsPath)) {
+        throw "missing VS Code extension entrypoint at $ExtensionJsPath"
+    }
+
+    $Package = Get-Content -LiteralPath $PackageJsonPath -Raw | ConvertFrom-Json
+    if ($Package.name -ne "englang") {
+        throw "VS Code extension package name must be englang"
+    }
+    if ($Package.main -ne "./extension.js") {
+        throw "VS Code extension main must be ./extension.js"
+    }
+    $Language = $Package.contributes.languages | Select-Object -First 1
+    if ($Language.id -ne "englang") {
+        throw "VS Code extension must contribute englang language id"
+    }
+    if ($Language.extensions -notcontains ".eng") {
+        throw "VS Code extension must register .eng files"
+    }
+    $Commands = @($Package.contributes.commands | ForEach-Object { $_.command })
+    foreach ($Required in @("englang.checkFile", "englang.runFile", "englang.openReport")) {
+        if ($Commands -notcontains $Required) {
+            throw "VS Code extension missing command $Required"
+        }
+    }
+
+    $Node = Get-Command node -ErrorAction SilentlyContinue
+    if ($null -ne $Node) {
+        Invoke-Native $Node.Source "--check" $ExtensionJsPath
+    } else {
+        Write-Host "Node not found; skipped extension.js syntax check."
+    }
+
+    Write-Host "IDE extension check passed."
+}
+
+function Invoke-Ide {
+    Set-DevEnvironment
+    $cargo = Get-Cargo
+    if ($null -eq $cargo) {
+        Write-Host "Cargo not found. Run .\dev.bat setup."
+        exit 1
+    }
+    Invoke-Native $cargo "run" "-p" "eng_ide" "--" @Rest
+}
+
+function New-VsixManifest {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Path,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Version
+    )
+
+    Set-Content -Path $Path -Encoding ascii -Value @"
+<?xml version="1.0" encoding="utf-8"?>
+<PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
+  <Metadata>
+    <Identity Language="en-US" Id="englang" Version="$Version" Publisher="englang" />
+    <DisplayName>EngLang</DisplayName>
+    <Description xml:space="preserve">EngLang IDE preview with diagnostics, hover, completion, and run commands.</Description>
+    <Tags>EngLang, language, engineering</Tags>
+    <Categories>Programming Languages</Categories>
+    <GalleryFlags>Public</GalleryFlags>
+    <Properties>
+      <Property Id="Microsoft.VisualStudio.Code.Engine" Value="^1.85.0" />
+    </Properties>
+  </Metadata>
+  <Installation>
+    <InstallationTarget Id="Microsoft.VisualStudio.Code" />
+  </Installation>
+  <Dependencies />
+  <Assets>
+    <Asset Type="Microsoft.VisualStudio.Code.Manifest" Path="extension/package.json" Addressable="true" />
+    <Asset Type="Microsoft.VisualStudio.Code.Content" Path="extension" Addressable="true" />
+  </Assets>
+</PackageManifest>
+"@
+}
+
+function Invoke-IdePackage {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $PackageRoot
+    )
+
+    Invoke-IdeCheck
+    $Version = Get-WorkspaceVersion
+    $ExtensionSource = Join-Path $RepoRoot "tools\vscode-englang"
+    $ToolsRoot = Join-Path $PackageRoot "tools"
+    $ExtensionOut = Join-Path $ToolsRoot "vscode-englang"
+    $VsixStage = Join-Path $RepoRoot "build\vscode-vsix"
+    $VsixExtensionRoot = Join-Path $VsixStage "extension"
+    $VsixPath = Join-Path $ToolsRoot "englang-vscode-preview-$Version.vsix"
+    $ReleaseEng = Join-Path $RepoRoot "target\release\eng.exe"
+
+    New-Item -ItemType Directory -Force -Path $ToolsRoot | Out-Null
+    Remove-Item -LiteralPath $ExtensionOut -Recurse -Force -ErrorAction SilentlyContinue
+    Copy-Item -Recurse -Force $ExtensionSource $ExtensionOut
+
+    Remove-Item -LiteralPath $VsixStage -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force -Path $VsixExtensionRoot | Out-Null
+    Copy-Item -Recurse -Force (Join-Path $ExtensionSource "*") $VsixExtensionRoot
+    New-Item -ItemType Directory -Force -Path (Join-Path $VsixExtensionRoot "bin") | Out-Null
+    Copy-Item -Force $ReleaseEng (Join-Path $VsixExtensionRoot "bin\eng.exe")
+    New-VsixManifest -Path (Join-Path $VsixStage "extension.vsixmanifest") -Version $Version
+    $VsixZipPath = "$VsixPath.zip"
+    Remove-Item -LiteralPath $VsixZipPath -Force -ErrorAction SilentlyContinue
+    Compress-Archive -Path (Join-Path $VsixStage "*") -DestinationPath $VsixZipPath -Force
+    Move-Item -LiteralPath $VsixZipPath -Destination $VsixPath -Force
+
+    Write-Host "VS Code extension prepared at $ExtensionOut"
+    Write-Host "VSIX prepared at $VsixPath"
+}
+
 function Invoke-Package {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -739,9 +862,18 @@ function Invoke-Package {
     Remove-Item -LiteralPath $ChecksumPath -Force -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force -Path $PackageRoot | Out-Null
     Copy-Item -Force (Join-Path $RepoRoot "target\release\eng.exe") (Join-Path $PackageRoot "eng.exe")
+    Copy-Item -Force (Join-Path $RepoRoot "target\release\eng-ide.exe") (Join-Path $PackageRoot "eng-ide.exe")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "examples") (Join-Path $PackageRoot "examples")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "stdlib") (Join-Path $PackageRoot "stdlib")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "docs") (Join-Path $PackageRoot "docs")
+    Invoke-IdePackage -PackageRoot $PackageRoot
+    Set-Content -Path (Join-Path $PackageRoot "eng-ide.bat") -Encoding ascii -Value @"
+@echo off
+setlocal
+cd /d "%~dp0"
+eng-ide.exe
+exit /b %ERRORLEVEL%
+"@
     Set-Content -Path (Join-Path $PackageRoot "README.txt") -Encoding ascii -Value @"
 EngLang portable package
 
@@ -750,12 +882,19 @@ required on the target PC.
 
 Recommended smoke commands:
   eng.exe doctor
+  eng-ide.exe --smoke
+  eng-ide.bat
   eng.exe run examples\official\01_csv_plot\main.eng --entry main
   eng.exe run examples\official\02_simple_system\main.eng --entry main
   eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
   dist\main-standalone\run.bat --help
   dist\main-standalone\run.bat
   eng.exe view build\result\result.engres
+
+VS Code IDE preview:
+  code --install-extension tools\englang-vscode-preview-$Version.vsix
+  open a .eng file
+  run "EngLang: Check Current File"
 
 Generated artifacts are written under build\result in the current folder.
 "@
@@ -781,6 +920,7 @@ function Invoke-PackageSmoke {
     Push-Location $SmokeRoot
     try {
         Invoke-Native $Eng "doctor"
+        Invoke-Native (Join-Path $SmokeRoot "eng-ide.exe") "--smoke"
         Invoke-Native $Eng "run" "examples\official\01_csv_plot\main.eng" "--entry" "main"
         Invoke-Native $Eng "view" "build\result\result.engres"
         Invoke-Native $Eng "run" "examples\official\02_simple_system\main.eng" "--entry" "main"
@@ -797,6 +937,13 @@ function Invoke-PackageSmoke {
         if (-not (Test-Path (Join-Path $SmokeRoot "dist\main-standalone\build\result\plots\plot_spec.json"))) {
             throw "standalone packaged runner did not create PlotSpec artifacts"
         }
+        $Version = Get-WorkspaceVersion
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\extension.js"))) {
+            throw "portable package did not include VS Code extension source"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\englang-vscode-preview-$Version.vsix"))) {
+            throw "portable package did not include VS Code VSIX"
+        }
     } finally {
         Pop-Location
     }
@@ -807,6 +954,7 @@ function Invoke-PackageSmoke {
 function Invoke-ReleaseCheck {
     Invoke-Ci
     Invoke-DocsCheck
+    Invoke-IdeCheck
     Invoke-ArtifactsCheck
     Invoke-PackageSmoke
     $Version = Get-WorkspaceVersion
@@ -840,9 +988,11 @@ sha256 = $ActualHash
 verified:
   dev.bat ci
   dev.bat docs-check
+  dev.bat ide-check
   dev.bat artifacts-check
   dev.bat package-smoke
   standalone packaged runner
+  eng-ide.exe smoke
 "@
     Write-Host "Release check passed."
     Write-Host "Manifest prepared at $ManifestPath"
@@ -871,6 +1021,8 @@ Usage:
   .\dev.bat clippy         Run clippy with warnings denied
   .\dev.bat ci             Run fmt, tests, clippy, and preview example
   .\dev.bat docs-check     Check supported documentation Eng snippets
+  .\dev.bat ide-check      Validate the VS Code extension preview
+  .\dev.bat ide            Run the native EngLang tester IDE
   .\dev.bat artifacts-check Validate artifact schemas and golden baselines
   .\dev.bat run-example    Run examples\official\01_csv_plot\main.eng
   .\dev.bat package        Build release, assemble dist\englang-preview, zip it, and write SHA256
@@ -893,6 +1045,8 @@ switch ($Command) {
     "clippy" { Invoke-Clippy }
     "ci" { Invoke-Ci }
     "docs-check" { Invoke-DocsCheck }
+    "ide-check" { Invoke-IdeCheck }
+    "ide" { Invoke-Ide }
     "artifacts-check" { Invoke-ArtifactsCheck }
     "run-example" { Invoke-RunExample }
     "package" { Invoke-Package }

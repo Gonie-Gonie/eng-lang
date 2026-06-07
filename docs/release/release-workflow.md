@@ -30,11 +30,12 @@ This command runs:
 ```text
 1. dev.bat ci
 2. dev.bat docs-check
-3. dev.bat artifacts-check
-4. dev.bat package-smoke
-5. zip existence check
-6. SHA256 checksum verification
-7. dist/release-manifest.txt generation
+3. dev.bat ide-check
+4. dev.bat artifacts-check
+5. dev.bat package-smoke
+6. zip existence check
+7. SHA256 checksum verification
+8. dist/release-manifest.txt generation
 ```
 
 `docs-check` extracts supported `eng` fenced code blocks from README and the
@@ -59,8 +60,21 @@ dist\englang-preview-v<version>-windows-x64.zip.sha256
 dist\release-manifest.txt
 ```
 
-`package-smoke` also verifies that the portable package can build and run a
-standalone packaged runner without requiring Rust or Python on the target side.
+The portable zip contains:
+
+```text
+eng.exe
+eng-ide.exe
+eng-ide.bat
+examples\
+stdlib\
+docs\
+tools\englang-vscode-preview-<version>.vsix
+```
+
+`package-smoke` also verifies that the portable package can run
+`eng-ide.exe --smoke` and build/run a standalone packaged runner without
+requiring Rust or Python on the target side.
 
 ## Tag Release
 
@@ -143,5 +157,6 @@ After the workflow completes:
 [ ] release-manifest.txt is attached
 [ ] checksum matches the zip
 [ ] release notes render correctly
+[ ] downloaded zip runs eng-ide.exe --smoke on a clean Windows folder
 [ ] downloaded zip runs eng.exe doctor on a clean Windows folder
 ```

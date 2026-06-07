@@ -7,6 +7,7 @@ Current v1.0-stable layout:
 |-- crates/
 |   |-- eng_cli/        user-facing eng.exe commands
 |   |-- eng_compiler/   lexer/parser, diagnostics, semantic/stats/system metadata, bytecode v1
+|   |-- eng_ide/        portable native tester IDE, built as eng-ide.exe
 |   |-- eng_runtime/    run/build/doctor, VM seed, TimeSeries object store, artifacts
 |   `-- eng_report/     PlotSpec, SVG plot, HTML review report renderer
 |-- docs/
@@ -113,6 +114,8 @@ plots/timeseries.svg
 dist/englang-preview
 dist/englang-preview-v<version>-windows-x64.zip
 dist/englang-preview-v<version>-windows-x64.zip.sha256
+dist/englang-preview/eng-ide.exe
+dist/englang-preview/eng-ide.bat
 dist/<model>-standalone/eng.exe
 dist/<model>-standalone/run.bat
 dist/<model>-standalone/<model>.engpkg

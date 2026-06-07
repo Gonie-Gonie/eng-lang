@@ -1,6 +1,7 @@
 # CLI Specification
 
-The initial user-facing entry point is one executable: `eng.exe`.
+The core user-facing entry point is `eng.exe`. Portable tester IDE releases also
+ship `eng-ide.exe` as a native GUI companion.
 
 ## Commands
 
@@ -8,11 +9,14 @@ The initial user-facing entry point is one executable: `eng.exe`.
 eng.exe doctor
 eng.exe new <project_name>
 eng.exe check <file.eng> [--review]
+eng.exe ide-check <file.eng>
 eng.exe entries <file.eng>
 eng.exe run <file.eng> [--entry <name>] [--open-report] [--<arg> <value>...]
 eng.exe build <file.eng> [--entry <name>] [--standalone] [--profile repro]
 eng.exe view <result.engres>
 eng.exe test <project_or_examples>
+eng-ide.exe
+eng-ide.exe --smoke
 ```
 
 ## `eng doctor`
@@ -104,6 +108,42 @@ Exit code:
 1 IO/tooling failure
 2 compile/check failure
 ```
+
+## `eng ide-check <file.eng>`
+
+Prints the same review JSON used by `eng check --review` to stdout instead of
+writing it under `build/check`.
+
+This command is intended for IDE tools and extensions that need diagnostics,
+hover hints, type information, symbols, Args metadata, schema metadata, and
+completion counts without managing generated review files.
+
+Exit code:
+
+```text
+0 success
+1 IO/tooling failure
+2 compile/check failure
+```
+
+## `eng-ide.exe`
+
+Launches the native portable tester IDE.
+
+Current tester IDE features:
+
+```text
+- examples panel
+- native source editor
+- live check_source diagnostics for unsaved edits
+- completion insertion for keywords, quantity kinds, units, and starter snippets
+- compiler-derived symbol metadata
+- save/check/run commands
+- generated report opening
+```
+
+`eng-ide.exe --smoke` checks the non-GUI path for release packages. It verifies
+that examples are discoverable and compiler completion metadata is available.
 
 ## `eng entries <file.eng>`
 

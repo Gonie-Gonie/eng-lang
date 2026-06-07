@@ -13,6 +13,7 @@ On Windows, use the root `dev.bat` wrapper for all development commands. It bypa
 .\dev.bat doctor
 .\dev.bat ci
 .\dev.bat docs-check
+.\dev.bat ide --smoke
 .\dev.bat artifacts-check
 .\dev.bat run-example
 ```
@@ -23,6 +24,8 @@ On Windows, use the root `dev.bat` wrapper for all development commands. It bypa
 
 ```bat
 target\debug\eng.exe doctor
+target\debug\eng-ide.exe --smoke
+target\debug\eng-ide.exe
 target\debug\eng.exe check examples\05_error_messages\unit_mismatch.eng --review
 target\debug\eng.exe check examples\05_error_messages\ambiguous_power.eng --review
 target\debug\eng.exe entries examples\official\01_csv_plot\main.eng
@@ -131,6 +134,7 @@ v1.1
 - [Bytecode VM and result v1](docs/runtime/bytecode.md)
 - [TimeSeries statistics guide](docs/guide/timeseries_statistics.md)
 - [Plotting guide](docs/guide/plotting.md)
+- [Native tester IDE](docs/guide/native_ide.md)
 - [Report and review artifacts](docs/guide/report_review.md)
 - [Simple system tutorial](docs/tutorials/05_simple_system.md)
 - [Run command reference](docs/reference/cli_run.md)
@@ -166,6 +170,8 @@ Before a release package check:
 .\dev.bat release-check
 pushd dist\englang-preview
 eng.exe doctor
+eng-ide.exe --smoke
+eng-ide.bat
 eng.exe run examples\official\01_csv_plot\main.eng --entry main
 eng.exe run examples\official\02_simple_system\main.eng --entry main
 eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
@@ -175,9 +181,10 @@ popd
 
 `package` writes `dist\englang-preview-v<version>-windows-x64.zip` and a
 matching `.sha256` file. `package-smoke` extracts that zip into a path with
-spaces and Korean characters, then runs the portable `eng.exe` without relying
-on Rust or Python on the target side. It also builds and runs the standalone
-packaged runner from inside the extracted portable package.
+spaces and Korean characters, then runs the portable `eng.exe` and
+`eng-ide.exe --smoke` without relying on Rust or Python on the target side. It
+also builds and runs the standalone packaged runner from inside the extracted
+portable package.
 
 `docs-check` and `artifacts-check` are included in `release-check`.
 `docs-check` validates supported `eng` documentation snippets. `artifacts-check`
