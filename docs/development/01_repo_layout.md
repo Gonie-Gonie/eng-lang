@@ -1,6 +1,6 @@
 # Repository Layout
 
-Current v1.0-stable layout:
+Current v1.0.3 hardening layout:
 
 ```text
 .
@@ -12,8 +12,10 @@ Current v1.0-stable layout:
 |   `-- eng_report/     PlotSpec, SVG plot, HTML review report renderer
 |-- docs/
 |   |-- architecture/   system and artifact design
+|   |-- current/        status, feature maturity, and active hardening register
 |   |-- development/    setup, workflow, reproducibility
-|   |-- master-plan/    source v8/v9 planning documents
+|   |-- llm/            compact load maps for future agent work
+|   |-- master-plan/    current planning pointer and active v9 plan
 |   |-- reference/      command references
 |   |-- release/        acceptance checklist and release notes
 |   |-- runtime/        bytecode/VM/result contracts
@@ -21,6 +23,7 @@ Current v1.0-stable layout:
 |   |-- user/           curated release-facing user documentation source
 |   `-- specs/          CLI and language policy
 |-- examples/
+|   |-- official/       release-facing examples and manual user-test paths
 |   |-- 01_units/
 |   |-- 02_csv_plot/
 |   |-- 04_plotting/

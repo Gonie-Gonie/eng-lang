@@ -11,18 +11,25 @@ Pick the target version first, then read the detailed design chapters.
 ## Current Status
 
 ```text
-v0.1-preview  complete and tagged
-v0.2-preview  complete and tagged, with v9 backfill
-v0.3-preview  complete and tagged
-v0.4-preview  complete and tagged
-v0.5-preview  complete and tagged
-v0.6-preview  complete on main
-v0.7-alpha    complete on main
-v0.8-alpha    complete on main
-v0.9-alpha    complete on main
-v1.0-stable   complete on main
-v1.1          next target
+v0.1-preview  complete historical milestone
+v0.2-preview  complete historical milestone, with v9 backfill
+v0.3-preview  complete historical milestone
+v0.4-preview  complete historical milestone
+v0.5-preview  complete historical milestone
+v0.6-preview  implemented on main
+v0.7-alpha    implemented on main
+v0.8-alpha    implemented on main
+v0.9-alpha    implemented on main
+v1.0-stable   latest stable baseline
+v1.0.3        active release target: IDE/documentation hardening
+v1.1          planned target; uncertainty code on main is experimental
+v1.2          planned target; data-driven modeling code on main is experimental
 ```
+
+Use [current status](current/status.md) and the
+[feature maturity matrix](current/feature_maturity_matrix.md) as the
+authoritative state layer. This roadmap describes version intent and required
+outputs; it is not by itself a support claim.
 
 ## v0.1-preview — Repository, CLI, Parser, Unit Seed
 
@@ -316,34 +323,42 @@ Priority backfill:
 [x] Args metadata inventory for packaged runner help
 ```
 
-Required outputs:
+Required outputs before v1.1 can be considered supported:
 
 ```text
-[x] Measured[T]
-[x] Interval[T]
-[x] Distribution[T] deterministic seed
-[x] Ensemble[T] deterministic seed
-[x] uncertainty metadata in review/report/result artifacts
-[x] simple propagation seed through source binding samples
-[x] distribution summary/plot histogram
-[x] official uncertainty example and CLI smoke
+- Measured[T]
+- Interval[T]
+- Distribution[T] deterministic path
+- Ensemble[T] deterministic path
+- uncertainty metadata in review/report/result artifacts
+- simple propagation through source binding samples
+- distribution summary/plot histogram
+- official uncertainty example and CLI smoke
+- diagnostics, IDE metadata, documentation, and release notes aligned
 ```
+
+Status on `main`: experimental seed and official example support exist, but
+this is not release-supported until the v1.1 gate is explicitly completed.
 
 ## v1.2 — Data-driven Modeling and Basic ANN
 
-Required outputs:
+Required outputs before v1.2 can be considered supported:
 
 ```text
-[x] eng.ml preview package surface in stdlib/eng/ml.eng
-[x] regression deterministic seed
-[x] basic ANN/MLP deterministic seed
-[x] train/test split metadata and runtime counts
-[x] RMSE/MAE/R2 metrics
-[x] residual/parity plot seeds
-[x] model card seed
-[x] leakage lint seed
-[x] official data-driven modeling example and CLI smoke
+- eng.ml preview package surface in stdlib/eng/ml.eng
+- regression deterministic path
+- basic ANN/MLP deterministic path
+- train/test split metadata and runtime counts
+- RMSE/MAE/R2 metrics
+- residual/parity plot paths
+- model card
+- leakage lint
+- official data-driven modeling example and CLI smoke
+- diagnostics, IDE metadata, documentation, and release notes aligned
 ```
+
+Status on `main`: experimental seed and official example support exist, but
+this is not release-supported until the v1.2 gate is explicitly completed.
 
 ## v1.3 — LSP and VS Code Extension
 

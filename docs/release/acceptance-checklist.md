@@ -259,6 +259,11 @@ Before publishing the next post-v1.0 hardening release:
 [x] setup installs repo-local portable Python and oodocs documentation requirements
 [x] VS Code extension preview is packaged as a secondary IDE path
 [x] package-smoke verifies eng-ide.exe --smoke inside the extracted portable zip
+[x] README points first to current status, feature maturity, and v1.0.3 hardening docs
+[x] docs/current/status.md separates supported, preview, experimental, and deferred scope
+[x] docs/current/feature_maturity_matrix.md defines feature maturity and no seed-only completion policy
+[x] LLM_CONTEXT.md and docs/llm/load_map.yml define a small current-context path
+[x] docs/master-plan/current.md points to the active v9 plan without keeping old plan copies
 ```
 
 Release notes live in `docs/release/v<version>.md`.

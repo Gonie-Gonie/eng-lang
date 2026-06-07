@@ -1,16 +1,21 @@
 # EngLang Documentation
 
-This index maps the v9 master plan to the concrete repository work.
+This index maps the current repository status to the concrete documentation
+needed for implementation. Start with the current-status layer before opening
+long-form planning documents.
 
 ## Start Here
 
-1. [Getting started](development/00_getting_started.md)
-2. [Repository layout](development/01_repo_layout.md)
-3. [Daily workflow](development/02_daily_workflow.md)
-4. [Reproducible environment policy](development/03_environment_reproducibility.md)
-5. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
-6. [v1.0 gap audit and hardening register](development/05_v1_0_gap_audit.md)
-7. [Curated user documentation source](user/README.md)
+1. [Current project status](current/status.md)
+2. [Feature maturity matrix](current/feature_maturity_matrix.md)
+3. [v1.0.3 hardening register](current/v1_0_3_hardening.md)
+4. [LLM load map](llm/load_map.yml)
+5. [Getting started](development/00_getting_started.md)
+6. [Repository layout](development/01_repo_layout.md)
+7. [Daily workflow](development/02_daily_workflow.md)
+8. [Reproducible environment policy](development/03_environment_reproducibility.md)
+9. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
+10. [Curated user documentation source](user/README.md)
 
 ## Architecture
 
@@ -41,6 +46,7 @@ This index maps the v9 master plan to the concrete repository work.
 ## Planning and Release
 
 - [Roadmap](roadmap.md)
+- [Current master plan pointer](master-plan/current.md)
 - [Release acceptance checklist](release/acceptance-checklist.md)
 - [Release workflow](release/release-workflow.md)
 - [v0.1-preview release notes](release/v0.1-preview.md)
@@ -56,9 +62,7 @@ This index maps the v9 master plan to the concrete repository work.
 - [v1.0.1 release notes](release/v1.0.1.md)
 - [v1.0.2 release notes](release/v1.0.2.md)
 - [v1.0.3 release notes draft](release/v1.0.3.md)
-- [v8 to v9 revision guide](master-plan/EngLang_v8_to_v9_Revision_Guide.md)
 - [v9 master plan](master-plan/EngLang_LongTerm_Development_Master_Plan_v9.md)
-- [v8 master plan](master-plan/EngLang_LongTerm_Development_Master_Plan_v8.md)
 
 ## Documentation Rules
 

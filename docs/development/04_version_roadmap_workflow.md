@@ -16,6 +16,10 @@ The v9 master plan changes how development work is selected. Contributors should
 9. After a stable or alpha milestone, run a gap audit before starting the next major feature arc.
 ```
 
+Before marking a feature done, check
+[feature_maturity_matrix.md](../current/feature_maturity_matrix.md). An official
+example passing is not enough by itself.
+
 ## Issue Format
 
 Example:
@@ -66,10 +70,45 @@ against the master plan and write down seed-only areas before moving on.
 The audit should classify each item as:
 
 ```text
-Implemented
-Seed
-Gap
+Prototype
+Preview
+Supported
+Stable
+Experimental
+Planned
 Deferred
+```
+
+Definitions:
+
+```text
+Prototype
+  Internal spike or seed. Do not present as a release feature.
+
+Preview
+  Usable through official examples or package paths with explicit limitations.
+
+Supported
+  Documented, tested, has diagnostics or IDE metadata where relevant, and is
+  part of the release-target contract.
+
+Stable
+  Public behavior with a breaking-change policy.
+
+Experimental
+  May exist on main, but is not release-supported.
+
+Planned
+  Intended future work.
+```
+
+Completion policy:
+
+```text
+A feature is not complete merely because an example passes.
+A feature is complete only when its language rule, compiler check,
+runtime or check behavior, diagnostic, IDE metadata, official example,
+and documentation are aligned for the stated scope.
 ```
 
 For v1.0, this register lives in

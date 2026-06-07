@@ -2,7 +2,21 @@
 
 EngLang is a native programming language project for engineering simulation workflows. Its goal is to let the compiler and runtime understand units, physical quantity kinds, schemas, axes, statistics, plotting, reports, and provenance as first-class parts of engineering code.
 
-The current repository follows the v9 master plan. The v9 change keeps the v8 language decisions, including fast `=` declarations and no `:=`, but reorganizes development around a version-by-version execution roadmap from `v0.1-preview` through `v2.0`.
+The current repository follows the v9 master plan. For day-to-day work, start
+from the current-status layer instead of loading every historical planning
+document:
+
+- [Current project status](docs/current/status.md)
+- [Feature maturity matrix](docs/current/feature_maturity_matrix.md)
+- [v1.0.3 hardening register](docs/current/v1_0_3_hardening.md)
+- [LLM context](LLM_CONTEXT.md)
+- [LLM load map](docs/llm/load_map.yml)
+
+The current stable baseline is `v1.0-stable`. The active release target is
+`v1.0.3`, focused on native IDE and documentation hardening. `v1.1`
+uncertainty and `v1.2` data-driven modeling code may exist on `main`, but those
+features are experimental until their language rules, runtime behavior,
+diagnostics, IDE metadata, examples, tests, and user documentation are aligned.
 
 ## Quick Start
 
@@ -21,6 +35,9 @@ On Windows, use the root `dev.bat` wrapper for all development commands. It bypa
 `setup` installs the pinned Rust toolchain and a portable Python documentation
 toolchain into `.dev`, fetches dependencies, and builds the workspace. A global
 Rust or Python installation is not required.
+
+Python is optional documentation tooling. EngLang checking, running, plotting,
+report generation, and packaged execution do not depend on Python.
 
 ## Current Stable Commands
 
@@ -112,10 +129,11 @@ v1.0-stable
   explicit solver-boundary artifacts, Args help/flag binding metadata, and
   runnable packaged standalone bundles.
 
-v1.0.2
-  Native portable tester IDE with visible egui UI, no separate console window,
-  integrated HVAC user-test example, PDF user guide, VS Code extension preview,
-  and package-smoke IDE validation.
+v1.0.1 / v1.0.2 internal hardening notes
+  Native portable tester IDE, integrated HVAC user-test example, PDF user guide,
+  VS Code extension preview, and package-smoke IDE validation were developed on
+  main as preparation for the next public hardening release. Treat these as
+  internal notes, not the active public release target.
 ```
 
 Active planning target:
@@ -131,26 +149,29 @@ v1.0.3
 v1.1
   Uncertainty core: Measured[T], Interval[T], distribution/ensemble seeds,
   uncertainty metadata, simple propagation, and uncertainty report summaries.
+  Experimental on main until v1.1 is explicitly targeted and released.
 
 v1.2
   Data-driven modeling seed: eng.ml preview surface, train/test split,
   regression/basic MLP, RMSE/MAE/R2, leakage lint, model card, and parity plot.
+  Experimental on main until v1.2 is explicitly targeted and released.
 ```
 
 ## Documentation
 
 - [Documentation index](docs/README.md)
-- [Curated user documentation source](docs/user/README.md)
+- [Current project status](docs/current/status.md)
+- [Feature maturity matrix](docs/current/feature_maturity_matrix.md)
+- [v1.0.3 hardening register](docs/current/v1_0_3_hardening.md)
+- [LLM context](LLM_CONTEXT.md)
+- [LLM load map](docs/llm/load_map.yml)
+- [Current master plan pointer](docs/master-plan/current.md)
 - [Getting started](docs/development/00_getting_started.md)
 - [Repository layout](docs/development/01_repo_layout.md)
 - [Daily workflow](docs/development/02_daily_workflow.md)
 - [Reproducible environment policy](docs/development/03_environment_reproducibility.md)
 - [Version roadmap workflow](docs/development/04_version_roadmap_workflow.md)
-- [v1.0 gap audit](docs/development/05_v1_0_gap_audit.md)
 - [System architecture](docs/architecture/00_system_overview.md)
-- [Compiler frontend](docs/architecture/02_compiler_frontend.md)
-- [Expected types and quantity completions](docs/architecture/03_expected_types_and_quantities.md)
-- [Data boundary and CSV promote](docs/architecture/04_data_boundary.md)
 - [Bytecode VM and result v1](docs/runtime/bytecode.md)
 - [TimeSeries statistics guide](docs/guide/timeseries_statistics.md)
 - [Plotting guide](docs/guide/plotting.md)
@@ -158,17 +179,11 @@ v1.2
 - [Data-driven modeling guide](docs/guide/data_driven_modeling.md)
 - [Native tester IDE](docs/guide/native_ide.md)
 - [Report and review artifacts](docs/guide/report_review.md)
-- [Simple system tutorial](docs/tutorials/05_simple_system.md)
-- [Integrated HVAC user test](docs/tutorials/06_integrated_hvac.md)
 - [Run command reference](docs/reference/cli_run.md)
 - [CLI specification](docs/specs/cli.md)
 - [v8/v9 language policy](docs/specs/language-v8.md)
-- [Fast assignment guide](docs/language/fast_assignment.md)
-- [Dimensionless policy guide](docs/language/dimensionless.md)
 - [Roadmap](docs/roadmap.md)
 - [Release workflow](docs/release/release-workflow.md)
-- [v9 master plan](docs/master-plan/EngLang_LongTerm_Development_Master_Plan_v9.md)
-- [v8 to v9 revision guide](docs/master-plan/EngLang_v8_to_v9_Revision_Guide.md)
 
 ## Core Invariants
 

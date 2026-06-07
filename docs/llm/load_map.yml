@@ -1,0 +1,67 @@
+default:
+  - README.md
+  - LLM_CONTEXT.md
+  - docs/current/status.md
+  - docs/current/feature_maturity_matrix.md
+  - docs/current/v1_0_3_hardening.md
+
+task_types:
+  parser:
+    - docs/specs/language-v8.md
+    - docs/language/fast_assignment.md
+    - docs/language/dimensionless.md
+    - crates/eng_compiler/
+
+  units:
+    - docs/architecture/03_expected_types_and_quantities.md
+    - docs/language/fast_assignment.md
+    - docs/language/dimensionless.md
+    - stdlib/units.eng
+    - crates/eng_compiler/src/units.rs
+    - crates/eng_compiler/src/quantities.rs
+
+  csv_promote:
+    - docs/architecture/04_data_boundary.md
+    - docs/guide/timeseries_statistics.md
+    - examples/official/01_csv_plot/
+    - crates/eng_compiler/src/schema.rs
+    - crates/eng_runtime/src/runtime_data.rs
+
+  ide:
+    - docs/guide/native_ide.md
+    - docs/current/v1_0_3_hardening.md
+    - crates/eng_ide/
+    - crates/eng_cli/
+
+  report:
+    - docs/architecture/01_runtime_artifacts.md
+    - docs/guide/report_review.md
+    - docs/guide/plotting.md
+    - docs/schemas/
+    - crates/eng_report/
+
+  system:
+    - docs/tutorials/05_simple_system.md
+    - examples/official/02_simple_system/
+    - examples/official/03_integrated_hvac/
+    - crates/eng_compiler/src/semantic.rs
+    - crates/eng_runtime/
+
+  uncertainty:
+    - docs/guide/uncertainty.md
+    - examples/official/04_uncertainty_core/
+    - crates/eng_compiler/src/uncertainty.rs
+    - crates/eng_runtime/src/runtime_data.rs
+
+  data_driven_modeling:
+    - docs/guide/data_driven_modeling.md
+    - stdlib/eng/ml.eng
+    - examples/official/05_data_driven_modeling/
+    - crates/eng_compiler/src/ml.rs
+    - crates/eng_runtime/src/runtime_data.rs
+
+  release:
+    - docs/release/release-workflow.md
+    - docs/release/acceptance-checklist.md
+    - docs/release/v1.0.3.md
+    - scripts/dev.ps1
