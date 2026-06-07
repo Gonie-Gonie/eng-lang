@@ -98,9 +98,10 @@ not part of the supported release contract.
   diagnostics, context-aware schema column completion, hover, and tested minimal
   stdio JSON-RPC paths.
 - `v1.4` JIT start: experimental `eng_jit` crate, `eng.exe jit-plan`, and
-  `eng-kernel-plan-v1` hot-kernel metadata for TimeSeries arithmetic,
-  integration, statistics fusion, and system residual interface seeds. It does
-  not provide native code generation or runtime acceleration yet.
+  native IDE Runtime Summary display for `eng-kernel-plan-v1` hot-kernel
+  metadata covering TimeSeries arithmetic, integration, statistics fusion, and
+  system residual interface seeds. It does not provide native code generation
+  or runtime acceleration yet.
 
 ## Deferred / Known Limitations
 

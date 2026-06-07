@@ -758,6 +758,7 @@ version = "1.0.3"
 dependencies = [
  "eframe",
  "eng_compiler",
+ "eng_jit",
  "eng_runtime",
  "rfd",
  "serde_json",

@@ -89,7 +89,9 @@ def build_document(version: str) -> Document:
                     " tab in the right panel. It summarizes uncertainty distributions, propagation methods, "
                     "p05/p50/p95 values, ML train/test counts, metrics, coefficients, leakage status, and loss history directly from ",
                     code("result.engres"),
-                    ".",
+                    ". It also shows the experimental ",
+                    code("eng-kernel-plan-v1"),
+                    " kernel plan for the current file, with backend, candidate kind, lowering status, source, reason, and operation list. This plan is inspection metadata only; execution still uses the normal runtime path.",
                 ),
             ),
         ),
@@ -143,7 +145,9 @@ def build_document(version: str) -> Document:
             paragraph(
                 "The packaged ",
                 code("eng-lsp.exe"),
-                " path is experimental and intended for smoke checks. This release is not yet a full editor platform, not a general nonlinear solver, and not a complete domain package ecosystem. Those are later roadmap items. The public claim for this release is a stable, inspectable data-to-report core with a native test IDE.",
+                " path and the ",
+                code("eng-kernel-plan-v1"),
+                " JIT planning surface are experimental and intended for smoke checks and inspection. This release is not yet a full editor platform, not a general nonlinear solver, not a native JIT runtime, and not a complete domain package ecosystem. Those are later roadmap items. The public claim for this release is a stable, inspectable data-to-report core with a native test IDE.",
             ),
         ),
         settings=DocumentSettings(

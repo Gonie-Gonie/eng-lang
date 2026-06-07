@@ -8,6 +8,8 @@ generation, runtime acceleration, or production JIT support.
 
 - `eng_jit` crate exists as the JIT planning boundary.
 - `eng.exe jit-plan <file.eng>` emits `eng-kernel-plan-v1` JSON.
+- The native IDE Runtime Summary shows the current file's kernel plan metadata
+  beside normal runtime artifacts.
 - The plan uses `backend = "interpreter-fallback"` to make clear that execution
   still uses the normal runtime path.
 - Hot-kernel detection currently covers:
@@ -32,10 +34,12 @@ generation, runtime acceleration, or production JIT support.
   `eng.exe jit-plan examples\official\01_csv_plot\main.eng`.
 - [x] `eng-kernel-plan-v1` compatibility rules are documented in
   [Kernel plan reference](../reference/kernel_plan.md).
+- [x] Native IDE smoke verifies kernel candidate discovery, and the Runtime
+  Summary panel shows format, backend, candidate count, candidate kind, source,
+  reason, lowering status, and operation list.
 
 ## Remaining Before Support Claim
 
-- [ ] Feed JIT plan summaries into the native IDE Runtime/Inspector panel.
 - [ ] Add candidate cost/size estimates rather than simple heuristic reasons.
 - [ ] Add a benchmark harness that compares interpreter and future JIT paths
   without making speedup claims.

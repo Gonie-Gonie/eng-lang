@@ -169,11 +169,20 @@ fn smoke() -> eframe::Result<()> {
         eprintln!("EngLang IDE smoke failed: {} has errors", first.display());
         std::process::exit(2);
     }
+    let jit_plan = eng_jit::plan_for_report(&report);
+    if jit_plan.candidates.is_empty() {
+        eprintln!(
+            "EngLang IDE smoke failed: {} produced no kernel plan candidates",
+            first.display()
+        );
+        std::process::exit(3);
+    }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s)",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} kernel candidate(s)",
         examples.len(),
         all_quantity_completions().len(),
-        all_unit_infos().len()
+        all_unit_infos().len(),
+        jit_plan.candidates.len()
     );
     Ok(())
 }
@@ -204,6 +213,7 @@ struct EngIdeApp {
     unit_derivations: Vec<UnitDerivationView>,
     schemas: Vec<SchemaView>,
     csv_promotions: Vec<CsvPromotionView>,
+    jit_plan: Option<JitPlanView>,
     status: String,
     run_log: String,
     entry: String,
@@ -244,6 +254,7 @@ impl EngIdeApp {
             unit_derivations: Vec::new(),
             schemas: Vec::new(),
             csv_promotions: Vec::new(),
+            jit_plan: None,
             status: "Ready".to_owned(),
             run_log: String::new(),
             entry: "main".to_owned(),
@@ -287,6 +298,7 @@ impl EngIdeApp {
                 self.unit_derivations.clear();
                 self.schemas.clear();
                 self.csv_promotions.clear();
+                self.jit_plan = None;
                 self.status = format!("Could not load {}: {error}", self.current_path.display());
             }
         }
@@ -343,6 +355,7 @@ impl EngIdeApp {
                 self.unit_derivations.clear();
                 self.schemas.clear();
                 self.csv_promotions.clear();
+                self.jit_plan = None;
                 self.dirty = false;
             }
             self.status = format!("Workspace: {}", self.root.display());
@@ -535,6 +548,8 @@ impl EngIdeApp {
                 line: promotion.line,
             })
             .collect();
+
+        self.jit_plan = Some(JitPlanView::from_plan(&eng_jit::plan_for_report(report)));
     }
 
     fn run_current(&mut self) {
@@ -1321,6 +1336,8 @@ impl EngIdeApp {
                 egui::RichText::new("Run the current file to inspect result artifacts.")
                     .color(MUTED),
             );
+            ui.add_space(8.0);
+            self.show_jit_plan(ui);
             return;
         };
         ui.horizontal_wrapped(|ui| {
@@ -1334,6 +1351,14 @@ impl EngIdeApp {
             metric_chip(ui, "ML", &summary.ml.len().to_string(), ACCENT);
             metric_chip(ui, "Policies", &summary.policy_count.to_string(), ACCENT);
             metric_chip(ui, "Systems", &summary.system_count.to_string(), ACCENT);
+            if let Some(plan) = &self.jit_plan {
+                metric_chip(
+                    ui,
+                    "Kernel Plan",
+                    &plan.candidates.len().to_string(),
+                    ACCENT,
+                );
+            }
         });
         ui.add_space(8.0);
 
@@ -1447,6 +1472,62 @@ impl EngIdeApp {
                 if let Some(loss) = &item.loss_summary {
                     key_value_row(ui, "loss", loss);
                 }
+            });
+            ui.add_space(6.0);
+        }
+
+        ui.add_space(8.0);
+        self.show_jit_plan(ui);
+    }
+
+    fn show_jit_plan(&self, ui: &mut egui::Ui) {
+        section_label(ui, "Kernel Plan");
+        let Some(plan) = &self.jit_plan else {
+            ui.label(
+                egui::RichText::new("Check the current file to inspect kernel candidates.")
+                    .color(MUTED),
+            );
+            return;
+        };
+
+        ui.horizontal_wrapped(|ui| {
+            metric_chip(ui, "Format", &plan.format, MUTED);
+            metric_chip(ui, "Backend", &plan.backend, WARNING);
+            metric_chip(ui, "Candidates", &plan.candidates.len().to_string(), ACCENT);
+        });
+        ui.add_space(6.0);
+        ui.label(
+            egui::RichText::new("Planning metadata only; execution still uses the normal runtime.")
+                .color(MUTED)
+                .size(12.0),
+        );
+        ui.add_space(6.0);
+
+        if plan.candidates.is_empty() {
+            ui.label(egui::RichText::new("No kernel candidates in this file.").color(MUTED));
+            return;
+        }
+
+        for candidate in &plan.candidates {
+            runtime_card(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(&candidate.name).strong());
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        status_pill(ui, &format!("L{}", candidate.line), MUTED);
+                    });
+                });
+                ui.horizontal_wrapped(|ui| {
+                    status_pill(ui, &candidate.kind, ACCENT);
+                    let status_color = if candidate.lowering_status == "interface_only" {
+                        WARNING
+                    } else {
+                        OK
+                    };
+                    status_pill(ui, &candidate.lowering_status, status_color);
+                });
+                key_value_row(ui, "source", &candidate.source);
+                key_value_row(ui, "reason", &candidate.reason);
+                key_value_row(ui, "ops", &candidate.operations.join(" -> "));
             });
             ui.add_space(6.0);
         }
@@ -1723,6 +1804,52 @@ struct CsvPromotionView {
     headers: Vec<String>,
     missing_columns: Vec<String>,
     line: usize,
+}
+
+#[derive(Clone)]
+struct JitPlanView {
+    format: String,
+    backend: String,
+    candidates: Vec<JitCandidateView>,
+}
+
+impl JitPlanView {
+    fn from_plan(plan: &eng_jit::NumericKernelPlan) -> Self {
+        Self {
+            format: plan.format.clone(),
+            backend: plan.backend.clone(),
+            candidates: plan
+                .candidates
+                .iter()
+                .map(JitCandidateView::from_candidate)
+                .collect(),
+        }
+    }
+}
+
+#[derive(Clone)]
+struct JitCandidateView {
+    name: String,
+    kind: String,
+    line: usize,
+    source: String,
+    reason: String,
+    lowering_status: String,
+    operations: Vec<String>,
+}
+
+impl JitCandidateView {
+    fn from_candidate(candidate: &eng_jit::KernelCandidate) -> Self {
+        Self {
+            name: candidate.name.clone(),
+            kind: candidate.kind.clone(),
+            line: candidate.line,
+            source: candidate.source.clone(),
+            reason: candidate.reason.clone(),
+            lowering_status: candidate.lowering_status.clone(),
+            operations: candidate.operations.clone(),
+        }
+    }
 }
 
 #[derive(Clone)]

@@ -96,7 +96,9 @@ Right Sidebar
   expression, and unit derivation path. It also shows schema columns,
   constraints, missing policies, and CSV promotion summaries. After Run, the
   Runtime tab shows result status, uncertainty summaries, ML metrics,
-  coefficients, loss history, policy count, and system count.
+  coefficients, loss history, policy count, system count, and the experimental
+  `eng-kernel-plan-v1` kernel plan for the current file. Kernel plan data is
+  planning metadata only; execution still uses the normal runtime path.
 
 Bottom panel
   Problems, Output, and Artifacts tabs.
@@ -159,6 +161,17 @@ Run it and inspect the Run Preview/Plot SVG/Report artifacts to verify the
 parity scatter plot, residual bar plot, and ML Models table. The Runtime
 Summary tab also shows train/test counts, RMSE/MAE/R2, leakage status,
 coefficient summary, and loss history.
+
+Recommended v1.4 JIT planning smoke:
+
+```text
+examples/official/01_csv_plot/main.eng
+```
+
+Check or run it and inspect the Runtime Summary Kernel Plan section. It should
+show TimeSeries arithmetic, integration, and statistics-fusion candidates with
+`backend = interpreter-fallback`. This is not a speedup claim or native codegen
+path.
 
 ## Completion Scope
 
