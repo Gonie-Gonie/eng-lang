@@ -196,6 +196,8 @@ Recommended smoke commands:
   eng.exe doctor
   eng.exe run examples\04_plotting\main.eng --entry main
   eng.exe run examples\06_simple_system\main.eng --entry main
+  eng.exe build examples\02_csv_plot\main.eng --entry main --standalone --profile repro
+  dist\main-standalone\run.bat
   eng.exe view build\result\result.engres
 
 Generated artifacts are written under build\result in the current folder.
@@ -227,6 +229,15 @@ function Invoke-PackageSmoke {
         Invoke-Native $Eng "run" "examples\06_simple_system\main.eng" "--entry" "main"
         if (-not (Test-Path (Join-Path $SmokeRoot "build\result\report_spec.json"))) {
             throw "portable smoke did not create build\result\report_spec.json"
+        }
+        Invoke-Native $Eng "build" "examples\02_csv_plot\main.eng" "--entry" "main" "--standalone" "--profile" "repro"
+        $StandaloneRunner = Join-Path $SmokeRoot "dist\main-standalone\run.bat"
+        if (-not (Test-Path $StandaloneRunner)) {
+            throw "portable smoke did not create dist\main-standalone\run.bat"
+        }
+        Invoke-Native $StandaloneRunner
+        if (-not (Test-Path (Join-Path $SmokeRoot "dist\main-standalone\build\result\plots\plot_spec.json"))) {
+            throw "standalone packaged runner did not create PlotSpec artifacts"
         }
     } finally {
         Pop-Location
