@@ -20,8 +20,10 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
 4. Open the extracted folder or any EngLang project folder.
 5. Open a `.eng` file and run `EngLang: Check Current File`.
 
-The packaged VSIX contains `eng.exe`, so no Rust setup is required for IDE
-preview diagnostics.
+The packaged VSIX contains `eng.exe` and experimental `eng-lsp.exe`, so no Rust
+setup is required for IDE preview diagnostics or LSP smoke checks. The
+extension still uses direct `eng.exe` commands in this preview; switching to the
+LSP server is tracked separately.
 
 ## Install From Source
 
@@ -39,6 +41,6 @@ englang.runtimePath = C:\path\to\eng.exe
 
 ## Current Scope
 
-This is not a full LSP server yet. Diagnostics are refreshed on open/save and
-manual check. Unsaved buffer diagnostics are intentionally conservative because
-schema and CSV paths are resolved relative to real files.
+This is not a full LSP-backed extension yet. Diagnostics are refreshed on
+open/save and manual check. Unsaved buffer diagnostics are intentionally
+conservative because schema and CSV paths are resolved relative to real files.

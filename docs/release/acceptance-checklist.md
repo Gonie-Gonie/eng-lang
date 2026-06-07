@@ -183,6 +183,7 @@ The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
 [x] package creates dist\englang-preview-v<version>-windows-x64.zip
 [x] package creates dist\englang-preview-v<version>-windows-x64.zip.sha256
 [x] package includes eng.exe, examples, stdlib, docs, and README.txt
+[x] package includes experimental eng-lsp.exe for editor-service smoke checks
 [x] package-smoke extracts the zip under a path with spaces and Korean characters
 [x] packaged eng.exe doctor passes in the extracted folder
 [x] packaged CSV+plot example runs and creates result/report/PlotSpec artifacts
@@ -259,6 +260,7 @@ Before publishing the next post-v1.0 hardening release:
 [x] setup installs repo-local portable Python and oodocs documentation requirements
 [x] VS Code extension preview is packaged as a secondary IDE path
 [x] package-smoke verifies eng-ide.exe --smoke inside the extracted portable zip
+[x] package-smoke verifies eng-lsp.exe --smoke inside the extracted portable zip
 [x] README points first to current status, feature maturity, and v1.0.3 hardening docs
 [x] docs/current/status.md separates supported, preview, experimental, and deferred scope
 [x] docs/current/feature_maturity_matrix.md defines feature maturity and no seed-only completion policy

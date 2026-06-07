@@ -13,6 +13,8 @@ wired into a release target and manually tested in an editor.
   diagnostics, completion items, and hover items.
 - `eng-lsp --snapshot-check <file.eng>` verifies that snapshot completion and
   hover data are non-empty without printing the full JSON.
+- The portable package includes `eng-lsp.exe` and package smoke runs
+  `eng-lsp.exe --smoke`.
 - Default `eng-lsp` starts a minimal stdio JSON-RPC loop for:
   - `initialize`
   - `shutdown`
@@ -32,10 +34,11 @@ wired into a release target and manually tested in an editor.
 - [x] `dev.bat lsp-check` validates smoke and snapshot-check paths.
 - [x] `dev.bat ci` runs `lsp-check`.
 - [x] Workspace tests include `eng_lsp` snapshot coverage.
+- [x] `dev.bat package-smoke` validates the packaged `eng-lsp.exe --smoke`
+  path.
 
 ## Remaining Before Support Claim
 
-- [ ] Package `eng-lsp.exe` intentionally when v1.3 becomes a release target.
 - [ ] Decide whether the VS Code extension should keep direct `eng ide-check`
   calls or switch to the LSP server.
 - [ ] Add editor-level manual tests for diagnostics, completion, and hover in

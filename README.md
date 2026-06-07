@@ -51,6 +51,7 @@ data-quality fixtures live in separate folders. See [examples/README.md](example
 ```bat
 target\debug\eng.exe doctor
 target\debug\eng-ide.exe --smoke
+target\debug\eng-lsp.exe --smoke
 target\debug\eng-ide.exe
 target\debug\eng.exe check examples\05_error_messages\unit_mismatch.eng --review
 target\debug\eng.exe check examples\05_error_messages\ambiguous_power.eng --review
@@ -228,6 +229,7 @@ Before a release package check:
 pushd dist\englang-preview
 eng.exe doctor
 eng-ide.exe --smoke
+eng-lsp.exe --smoke
 eng-ide.exe
 eng.exe run examples\official\01_csv_plot\main.eng --entry main
 eng.exe run examples\official\02_simple_system\main.eng --entry main
@@ -241,9 +243,9 @@ popd
 `.sha256` file, and a curated PDF user guide. The portable package does not copy
 the full developer markdown documentation tree. `package-smoke` extracts that
 zip into a path with spaces and Korean characters, then runs the portable
-`eng.exe` and `eng-ide.exe --smoke` without relying on Rust or Python on the
-target side. It also builds and runs the standalone packaged runner from inside
-the extracted portable package.
+`eng.exe`, `eng-ide.exe --smoke`, and experimental `eng-lsp.exe --smoke`
+without relying on Rust or Python on the target side. It also builds and runs
+the standalone packaged runner from inside the extracted portable package.
 
 `docs-check` and `artifacts-check` are included in `release-check`.
 `docs-check` validates supported `eng` documentation snippets. `artifacts-check`

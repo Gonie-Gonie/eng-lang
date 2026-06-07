@@ -33,7 +33,18 @@ def build_document(version: str) -> Document:
                 code("eng-ide.exe"),
                 " for the native IDE or ",
                 code("eng.exe"),
-                " for command-line checks. The target PC does not need Rust, Node, Visual Studio Build Tools, or a browser IDE.",
+                " for command-line checks. The package also includes experimental ",
+                code("eng-lsp.exe"),
+                " for editor-service smoke checks. The target PC does not need Rust, Node, Visual Studio Build Tools, or a browser IDE.",
+            ),
+            paragraph(
+                "Recommended first commands are ",
+                code("eng.exe doctor"),
+                ", ",
+                code("eng-ide.exe --smoke"),
+                ", and ",
+                code("eng-lsp.exe --smoke"),
+                ".",
             ),
             paragraph(
                 "The package documentation is intentionally curated. Developer notes, master plans, and release checklists "
@@ -130,8 +141,9 @@ def build_document(version: str) -> Document:
         Chapter(
             "6. Current Boundaries",
             paragraph(
-                "This release is not a full LSP, not a general nonlinear solver, and not a complete domain package ecosystem. "
-                "Those are later roadmap items. The public claim for this release is a stable, inspectable data-to-report core with a native test IDE.",
+                "The packaged ",
+                code("eng-lsp.exe"),
+                " path is experimental and intended for smoke checks. This release is not yet a full editor platform, not a general nonlinear solver, and not a complete domain package ecosystem. Those are later roadmap items. The public claim for this release is a stable, inspectable data-to-report core with a native test IDE.",
             ),
         ),
         settings=DocumentSettings(

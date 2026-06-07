@@ -92,8 +92,9 @@ not part of the supported release contract.
 - `v1.2` data-driven modeling: regression, basic MLP/ANN seed, train/test
   metadata, source and argument validation diagnostics, RMSE/MAE/R2, model
   cards, leakage lint, and parity/residual plots.
-- `v1.3` LSP/editor service: experimental `eng-lsp.exe` smoke, snapshot,
-  diagnostics, completion, hover, and minimal stdio JSON-RPC paths.
+- `v1.3` LSP/editor service: experimental `eng-lsp.exe` smoke, packaged
+  package-smoke inclusion, snapshot, diagnostics, completion, hover, and minimal
+  stdio JSON-RPC paths.
 
 ## Deferred / Known Limitations
 

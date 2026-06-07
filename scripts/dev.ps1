@@ -929,6 +929,7 @@ function Invoke-IdePackage {
     $VsixExtensionRoot = Join-Path $VsixStage "extension"
     $VsixPath = Join-Path $ToolsRoot "englang-vscode-preview-$Version.vsix"
     $ReleaseEng = Join-Path $RepoRoot "target\release\eng.exe"
+    $ReleaseLsp = Join-Path $RepoRoot "target\release\eng-lsp.exe"
 
     New-Item -ItemType Directory -Force -Path $ToolsRoot | Out-Null
     Remove-Item -LiteralPath $ExtensionOut -Recurse -Force -ErrorAction SilentlyContinue
@@ -939,6 +940,7 @@ function Invoke-IdePackage {
     Copy-Item -Recurse -Force (Join-Path $ExtensionSource "*") $VsixExtensionRoot
     New-Item -ItemType Directory -Force -Path (Join-Path $VsixExtensionRoot "bin") | Out-Null
     Copy-Item -Force $ReleaseEng (Join-Path $VsixExtensionRoot "bin\eng.exe")
+    Copy-Item -Force $ReleaseLsp (Join-Path $VsixExtensionRoot "bin\eng-lsp.exe")
     New-VsixManifest -Path (Join-Path $VsixStage "extension.vsixmanifest") -Version $Version
     $VsixZipPath = "$VsixPath.zip"
     Remove-Item -LiteralPath $VsixZipPath -Force -ErrorAction SilentlyContinue
@@ -1012,12 +1014,13 @@ function New-UserGuidePdf {
         @{ Kind = "subtitle"; Text = "Portable Windows package v$Version" },
         @{ Kind = "body"; Text = "EngLang is a native engineering language for workflows where units, physical quantities, schemas, axes, statistics, plots, reports, and provenance are checked as part of the program. This PDF is the curated user-facing guide for the portable package; developer notes and master plans stay in the repository." },
         @{ Kind = "h1"; Text = "1. Package Contents" },
-        @{ Kind = "body"; Text = "The portable folder contains eng.exe for command-line execution, eng-ide.exe for native GUI testing, official examples, stdlib language seeds, tools for the optional VS Code extension preview, and this PDF. It intentionally does not ship the full developer documentation tree." },
+        @{ Kind = "body"; Text = "The portable folder contains eng.exe for command-line execution, eng-ide.exe for native GUI testing, eng-lsp.exe for experimental editor-service smoke checks, official examples, stdlib language seeds, tools for the optional VS Code extension preview, and this PDF. It intentionally does not ship the full developer documentation tree." },
         @{ Kind = "h1"; Text = "2. First Smoke Test" },
         @{ Kind = "step"; Text = "Open a command prompt in the extracted folder." },
         @{ Kind = "step"; Text = "Run: eng.exe doctor" },
         @{ Kind = "step"; Text = "Run: eng-ide.exe --smoke" },
-        @{ Kind = "body"; Text = "Both commands should exit successfully. The doctor command verifies runtime, standard library, unit registry, plot renderer, report generator, write permission, and example files. The IDE smoke command verifies that examples and compiler completion metadata are discoverable." },
+        @{ Kind = "step"; Text = "Run: eng-lsp.exe --smoke" },
+        @{ Kind = "body"; Text = "All three commands should exit successfully. The doctor command verifies runtime, standard library, unit registry, plot renderer, report generator, write permission, and example files. The IDE smoke command verifies that examples and compiler completion metadata are discoverable. The LSP smoke command verifies the experimental editor-service diagnostics, completion, and hover metadata path." },
         @{ Kind = "h1"; Text = "3. Native IDE Workflow" },
         @{ Kind = "step"; Text = "Run: eng-ide.exe" },
         @{ Kind = "step"; Text = "Use Explorer to open examples/official/03_integrated_hvac/main.eng or create a scratch .eng file." },
@@ -1040,7 +1043,7 @@ function New-UserGuidePdf {
         @{ Kind = "body"; Text = "If a run fails, check Problems first, then run eng.exe check <file.eng> from the same folder. If the plot preview is empty, open the Artifacts tab and check plots/plot_spec.json and plots/timeseries.svg." },
         @{ Kind = "body"; Text = "If a CSV path fails, keep relative paths anchored next to the source file, as in the official examples. If a report does not open, open build/result/report.html manually." },
         @{ Kind = "h1"; Text = "8. Current Boundaries" },
-        @{ Kind = "body"; Text = "This release is stable for the supported CSV, statistics, plotting, report, package, and simple thermal preview workflows. It is not a full LSP, not a general nonlinear or multi-equation solver, and not a complete domain package ecosystem. Those are later milestones." }
+        @{ Kind = "body"; Text = "This release is stable for the supported CSV, statistics, plotting, report, package, and simple thermal preview workflows. The packaged eng-lsp.exe is experimental and intended for smoke checks only. This is not yet a full editor platform, not a general nonlinear or multi-equation solver, and not a complete domain package ecosystem. Those are later milestones." }
     )
 
     $pages = New-Object System.Collections.Generic.List[string]
@@ -1168,6 +1171,7 @@ function Invoke-Package {
     New-Item -ItemType Directory -Force -Path $PackageRoot | Out-Null
     Copy-Item -Force (Join-Path $RepoRoot "target\release\eng.exe") (Join-Path $PackageRoot "eng.exe")
     Copy-Item -Force (Join-Path $RepoRoot "target\release\eng-ide.exe") (Join-Path $PackageRoot "eng-ide.exe")
+    Copy-Item -Force (Join-Path $RepoRoot "target\release\eng-lsp.exe") (Join-Path $PackageRoot "eng-lsp.exe")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "examples") (Join-Path $PackageRoot "examples")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "stdlib") (Join-Path $PackageRoot "stdlib")
     New-Item -ItemType Directory -Force -Path (Join-Path $PackageRoot "docs") | Out-Null
@@ -1186,6 +1190,7 @@ required on the target PC.
 Recommended smoke commands:
   eng.exe doctor
   eng-ide.exe --smoke
+  eng-lsp.exe --smoke
   eng-ide.exe
   eng.exe run examples\official\01_csv_plot\main.eng --entry main
   eng.exe run examples\official\02_simple_system\main.eng --entry main
@@ -1222,11 +1227,13 @@ function Invoke-PackageSmoke {
     New-Item -ItemType Directory -Force -Path $SmokeRoot | Out-Null
     Expand-Archive -Path $ZipPath -DestinationPath $SmokeRoot -Force
     $Eng = Join-Path $SmokeRoot "eng.exe"
+    $Lsp = Join-Path $SmokeRoot "eng-lsp.exe"
 
     Push-Location $SmokeRoot
     try {
         Invoke-Native $Eng "doctor"
         Invoke-Native (Join-Path $SmokeRoot "eng-ide.exe") "--smoke"
+        Invoke-Native $Lsp "--smoke"
         Invoke-Native $Eng "run" "examples\official\01_csv_plot\main.eng" "--entry" "main"
         Invoke-Native $Eng "view" "build\result\result.engres"
         Invoke-Native $Eng "run" "examples\official\02_simple_system\main.eng" "--entry" "main"
@@ -1252,6 +1259,9 @@ function Invoke-PackageSmoke {
         $Version = Get-WorkspaceVersion
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\extension.js"))) {
             throw "portable package did not include VS Code extension source"
+        }
+        if (-not (Test-Path $Lsp)) {
+            throw "portable package did not include eng-lsp.exe"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\englang-vscode-preview-$Version.vsix"))) {
             throw "portable package did not include VS Code VSIX"
@@ -1317,6 +1327,7 @@ verified:
   dev.bat package-smoke
   standalone packaged runner
   eng-ide.exe smoke
+  eng-lsp.exe smoke
 "@
     Write-Host "Release check passed."
     Write-Host "Manifest prepared at $ManifestPath"

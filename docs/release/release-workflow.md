@@ -68,6 +68,7 @@ The portable zip contains:
 ```text
 eng.exe
 eng-ide.exe
+eng-lsp.exe
 examples\
 stdlib\
 docs\
@@ -79,8 +80,8 @@ The `docs\` folder in the portable zip is curated release documentation. It
 must not be a full copy of the repository's developer markdown tree.
 
 `package-smoke` also verifies that the portable package can run
-`eng-ide.exe --smoke` and build/run a standalone packaged runner without
-requiring Rust or Python on the target side.
+`eng-ide.exe --smoke`, run experimental `eng-lsp.exe --smoke`, and build/run a
+standalone packaged runner without requiring Rust or Python on the target side.
 
 ## Tag Release
 
@@ -164,5 +165,6 @@ After the workflow completes:
 [ ] checksum matches the zip
 [ ] release notes render correctly
 [ ] downloaded zip runs eng-ide.exe --smoke on a clean Windows folder
+[ ] downloaded zip runs eng-lsp.exe --smoke on a clean Windows folder
 [ ] downloaded zip runs eng.exe doctor on a clean Windows folder
 ```
