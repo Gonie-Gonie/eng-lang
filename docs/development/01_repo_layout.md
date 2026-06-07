@@ -1,6 +1,6 @@
 # Repository Layout
 
-Current v0.4-preview layout:
+Current v0.7-alpha layout:
 
 ```text
 .
@@ -75,6 +75,7 @@ HeatRate sum lint
 entry selection data
 bytecode v1 encode/decode
 review.json serialization
+review_schema_version and table sections
 ```
 
 Long-term responsibilities:
@@ -99,6 +100,9 @@ Current outputs:
 .engres
 review.json
 report.html
+report_spec.json
+plots/plot_spec.json
+plots/plot_manifest.json
 plots/timeseries.svg
 dist package placeholders
 ```
@@ -135,6 +139,7 @@ Current outputs:
 PlotSpec v1
 SVG plot from PlotSpec
 plot manifest
+ReportSpec v1
 HTML review report
 ```
 

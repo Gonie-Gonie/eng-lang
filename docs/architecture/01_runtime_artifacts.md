@@ -11,6 +11,7 @@ build/
     result.engres
     review.json
     report.html
+    report_spec.json
     plots/
       plot_spec.json
       plot_manifest.json
@@ -73,7 +74,7 @@ Purpose:
 typed VM result container for report/view/build workflows
 ```
 
-Current v0.4 fields:
+Current v0.7 fields:
 
 ```json
 {
@@ -114,6 +115,7 @@ Current v0.4 fields:
     "data_hashes": [],
     "unit_conversion_history": [],
     "plot_spec_hash": "...",
+    "report_spec_hash": "...",
     "schema_hash": "preview"
   }
 }
@@ -130,20 +132,64 @@ semantic review artifact for humans, tooling, and LLM-assisted code review
 Current sections:
 
 ```text
+review_schema_version
 syntax_summary
 quantity_completion_count
 diagnostics
+variable_table
+warning_list
+plot_manifest
 entry_points
 inferred_declarations
 expected_types
 hover_hints
 type_info
 unit_derivations
+unit_conversion_table
 axis_info
 stats_info
 integrations
+schema_summary
 schemas
 csv_promotions
+```
+
+`review.json` is produced by both `eng check --review` and `eng run`. The `plot_manifest` section declares the runtime plot manifest location, while the runtime-specific manifest hash is recorded in `report_spec.json`.
+
+## `report_spec.json`
+
+Purpose:
+
+```text
+machine-readable report/review contract for UI, LSP, packaging, and review tooling
+```
+
+Current v0.7 format:
+
+```text
+eng-report-spec-v1
+report_schema_version = 1
+```
+
+Current sections:
+
+```text
+provenance
+variable_table
+inferred_declaration_table
+unit_conversion_table
+schema_summary
+plot_manifest
+warning_list
+```
+
+The plot manifest section records:
+
+```text
+path = plots/plot_manifest.json
+hash = <plot_manifest_hash>
+format = eng-plot-manifest-v1
+plot_count = 1
 ```
 
 ## `report.html`

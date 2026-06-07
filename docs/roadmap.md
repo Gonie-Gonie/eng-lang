@@ -17,7 +17,8 @@ v0.3-preview  complete and tagged
 v0.4-preview  complete and tagged
 v0.5-preview  complete and tagged
 v0.6-preview  complete on main
-v0.7-alpha    next target
+v0.7-alpha    complete on main
+v0.8-alpha    next target
 ```
 
 ## v0.1-preview — Repository, CLI, Parser, Unit Seed
@@ -198,14 +199,26 @@ Required outputs:
 Required outputs:
 
 ```text
-- review.json schema
-- report data model
-- variable table
-- inferred declaration table
-- unit conversion table
-- schema summary
-- plot manifest section
-- warning list
+[x] review.json schema
+[x] report data model
+[x] variable table
+[x] inferred declaration table
+[x] unit conversion table
+[x] schema summary
+[x] plot manifest section
+[x] warning list
+```
+
+Release gate:
+
+```text
+[x] review.json generated with review_schema_version
+[x] report_spec.json generated with eng-report-spec-v1
+[x] report data includes variables and unit conversions
+[x] schema summary appears in review/report artifacts
+[x] plot manifest path/hash appears in report_spec.json
+[x] warning list appears in review/report artifacts
+[x] official plotting example has review output
 ```
 
 ## v0.8-alpha — Minimal `system` and `eq`

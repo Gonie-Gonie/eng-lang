@@ -11,10 +11,10 @@ EngLang's official execution path is:
   -> .engres typed result
   -> PlotSpec
   -> SVG plot
-  -> HTML report + review.json
+  -> HTML report + report_spec.json + review.json
 ```
 
-The repository implements this path incrementally. v0.4-preview is the first version where `eng run` writes bytecode, decodes it, executes a native VM seed, and writes `result.engres` from the VM execution record. v0.5-preview adds TimeSeries/statistics metadata to the same path. v0.6-preview adds PlotSpec v1, SVG rendering from PlotSpec, and a plot manifest.
+The repository implements this path incrementally. v0.4-preview is the first version where `eng run` writes bytecode, decodes it, executes a native VM seed, and writes `result.engres` from the VM execution record. v0.5-preview adds TimeSeries/statistics metadata to the same path. v0.6-preview adds PlotSpec v1, SVG rendering from PlotSpec, and a plot manifest. v0.7-alpha hardens the review/report artifact contract with `report_spec.json`.
 
 ## Crates
 
@@ -29,7 +29,7 @@ eng_runtime
   Run/build orchestration, bytecode VM seed, object store, result.engres generation, and doctor checks.
 
 eng_report
-  SVG and HTML review artifact generation.
+  PlotSpec, SVG, ReportSpec, and HTML review artifact generation.
 
 stdlib
   Repo-local prelude and unit registry seed.
@@ -68,6 +68,19 @@ SVG export from PlotSpec
 plot manifest
 ```
 
+v0.7-alpha adds:
+
+```text
+review_schema_version
+ReportSpec v1
+variable table
+inferred declaration table
+unit conversion table
+schema summary
+plot manifest path/hash section
+warning list
+```
+
 The VM object store currently supports:
 
 ```text
@@ -102,6 +115,7 @@ build/<stem>.engbc
 build/result/result.engres
 build/result/review.json
 build/result/report.html
+build/result/report_spec.json
 build/result/plots/timeseries.svg
 build/result/plots/plot_spec.json
 build/result/plots/plot_manifest.json
@@ -112,12 +126,14 @@ These artifacts carry:
 ```text
 source hash
 bytecode hash
+report spec hash
 compiler version
 runtime version
 entry metadata
 schema/CSV provenance
 diagnostics
 typed binding summaries
+variable/unit conversion/warning tables
 object store summary
 ```
 

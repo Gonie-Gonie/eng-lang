@@ -39,6 +39,7 @@ eng.exe run examples\04_plotting\main.eng --entry main
 eng.exe view build\result\result.engres
 type build\result\plots\plot_spec.json
 type build\result\plots\plot_manifest.json
+type build\result\report_spec.json
 eng.exe check examples\05_error_messages\missing_csv_column.eng --review
 eng.exe check examples\05_error_messages\heat_rate_sum.eng --review
 eng.exe run examples\05_error_messages\missing_entry.eng
@@ -84,6 +85,22 @@ The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
 [x] result.engres records plot_spec_hash
 [x] eng view lists plot manifest
 [x] PlotSpec JSON/SVG unit tests pass
+```
+
+## v0.7 Gate
+
+```text
+[x] review.json generated with review_schema_version
+[x] review.json includes variable_table
+[x] review.json includes unit_conversion_table
+[x] review.json includes schema_summary
+[x] review.json includes warning_list
+[x] report_spec.json generated with eng-report-spec-v1
+[x] report_spec.json includes inferred_declaration_table
+[x] report_spec.json includes plot_manifest path/hash
+[x] result.engres records report_spec_hash
+[x] eng view lists report_spec.json
+[x] official plotting example produces report and PlotSpec artifacts
 ```
 
 ## v1.0 Demo Direction

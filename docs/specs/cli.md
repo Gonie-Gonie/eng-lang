@@ -67,18 +67,24 @@ build/check/<source-stem>.review.json
 Review JSON includes:
 
 ```text
+review_schema_version
 syntax_summary
 quantity_completion_count
 diagnostics
+variable_table
+warning_list
+plot_manifest
 entry_points
 inferred_declarations
 expected_types
 hover_hints
 type_info
 unit_derivations
+unit_conversion_table
 axis_info
 stats_info
 integrations
+schema_summary
 schemas
 csv_promotions
 ```
@@ -125,6 +131,7 @@ build/
     result.engres
     review.json
     report.html
+    report_spec.json
     plots/
       plot_spec.json
       plot_manifest.json
@@ -149,7 +156,7 @@ The preview `.exe` remains a placeholder. The package records source hash, bytec
 
 ## `eng view <result.engres>`
 
-Prints the result path, the sibling `report.html` path, and the plot manifest path when it exists.
+Prints the result path, the sibling `report.html` and `report_spec.json` paths, and the plot manifest path when it exists.
 
 The long-term result viewer will be connected to the typed `.engres` payload.
 
@@ -175,5 +182,5 @@ Runs official smoke checks:
 - HeatRate sum example produces W-STATS-SUM-001
 - missing CSV column example produces errors
 - missing entry example fails file run/build entry selection
-- official plotting example produces PlotSpec artifacts
+- official plotting example produces report and PlotSpec artifacts
 ```

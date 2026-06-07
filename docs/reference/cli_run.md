@@ -14,7 +14,10 @@ Output:
 bytecode: build\main.engbc
 result:   build\result\result.engres
 review:   build\result\review.json
+reportspec: build\result\report_spec.json
 plot:     build\result\plots\timeseries.svg
+plotspec: build\result\plots\plot_spec.json
+manifest: build\result\plots\plot_manifest.json
 report:   build\result\report.html
 ```
 
@@ -87,6 +90,9 @@ After a successful run:
 ```bat
 type build\main.engbc
 type build\result\result.engres
+type build\result\review.json
+type build\result\report_spec.json
+type build\result\plots\plot_manifest.json
 target\debug\eng.exe view build\result\result.engres
 ```
 
@@ -105,4 +111,18 @@ result.engres
   object_store
   typed_payload
   provenance
+
+review.json
+  review_schema_version
+  variable_table
+  unit_conversion_table
+  schema_summary
+  warning_list
+
+report_spec.json
+  format = eng-report-spec-v1
+  variable_table
+  inferred_declaration_table
+  unit_conversion_table
+  plot_manifest
 ```

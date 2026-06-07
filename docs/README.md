@@ -20,6 +20,7 @@ This index maps the v9 master plan to the concrete repository work.
 - [Bytecode VM and result v1](runtime/bytecode.md)
 - [TimeSeries statistics guide](guide/timeseries_statistics.md)
 - [Plotting guide](guide/plotting.md)
+- [Report and review artifacts](guide/report_review.md)
 
 ## Reference
 
@@ -39,6 +40,7 @@ This index maps the v9 master plan to the concrete repository work.
 - [v0.4-preview release notes](release/v0.4-preview.md)
 - [v0.5-preview release notes](release/v0.5-preview.md)
 - [v0.6-preview release notes](release/v0.6-preview.md)
+- [v0.7-alpha release notes](release/v0.7-alpha.md)
 - [v8 to v9 revision guide](master-plan/EngLang_v8_to_v9_Revision_Guide.md)
 - [v9 master plan](master-plan/EngLang_LongTerm_Development_Master_Plan_v9.md)
 - [v8 master plan](master-plan/EngLang_LongTerm_Development_Master_Plan_v8.md)
