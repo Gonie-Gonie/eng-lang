@@ -74,7 +74,7 @@ Purpose:
 typed VM result container for report/view/build workflows
 ```
 
-Current v1.0 fields:
+Current result fields:
 
 ```json
 {
@@ -285,12 +285,12 @@ plot_manifest
 warning_list
 ```
 
-`domain_summary.type_parameters` stores structured v2.0 metadata as objects
+`domain_summary.type_parameters` stores structured domain/component track metadata as objects
 with `kind`, `name`, and `display`, so report/IDE/LSP consumers can distinguish
 the parameter kind (`Medium`, `Frame`, `Axis`) from the local parameter name
 used in a package declaration.
 
-The v1.1 uncertainty section records declared uncertainty forms, deterministic
+The uncertainty track section records declared uncertainty forms, deterministic
 runtime summaries when available, scale/offset transforms, and propagation
 source terms with source, role, and quantity kind.
 
@@ -313,7 +313,7 @@ residual name and expression
 status = unit_consistent or unit_unresolved
 ```
 
-The v1.0 hardening path also records a machine-readable `system_ir` section in
+The current system/equation preview also records a machine-readable `system_ir` section in
 `review.json` and `report_spec.json`:
 
 ```text
@@ -372,7 +372,7 @@ Purpose:
 interactive-friendly plot data model consumed by native renderers/viewers
 ```
 
-Current v1.0 format:
+Current preview format:
 
 ```text
 eng-plotspec-v1
@@ -381,7 +381,7 @@ x/y axis labels with units
 CSV-derived TimeSeries points for the official data path
 ```
 
-The v1.1 uncertainty path keeps the same PlotSpec version and adds optional
+The uncertainty track path keeps the same PlotSpec version and adds optional
 series `bins` for `plot distribution(...)` histograms. Each bin records lower
 edge, upper edge, center, and count while `points` remains center/count data for
 older renderers.
@@ -406,7 +406,7 @@ Python-free plot artifact generated from PlotSpec v1 by the native report crate
 
 ## `eng build --standalone`
 
-The v1.0 build command creates a runnable packaged bundle:
+The current preview build command creates a runnable packaged bundle:
 
 ```text
 dist/

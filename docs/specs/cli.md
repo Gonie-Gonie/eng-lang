@@ -154,7 +154,7 @@ Exit code:
 
 ## `eng jit-plan <file.eng>`
 
-Prints experimental `eng-kernel-plan-v1` JSON for v1.4 hot-kernel planning.
+Prints experimental `eng-kernel-plan-v1` JSON for runtime optimization track hot-kernel planning.
 This command does not compile native code and does not change runtime
 execution. Its current backend is `interpreter-fallback`.
 
@@ -203,7 +203,7 @@ Exit code:
 
 ## `eng jit-bench <file.eng>`
 
-Runs an experimental `eng-jit-bench-v1` benchmark harness for v1.4 planning.
+Runs an experimental `eng-jit-bench-v1` benchmark harness for runtime optimization track planning.
 The harness measures the current interpreter/runtime path for a small number of
 iterations and includes the current `eng-kernel-plan-v1` metadata in the same
 JSON output.
@@ -257,7 +257,7 @@ Current tester IDE features:
 
 `eng-ide.exe --smoke` checks the non-GUI path for release packages. It verifies
 that examples are discoverable, compiler completion metadata is available, and
-the official v2.0 domain/component example produces domain, component, and
+the official domain/component track example produces domain, component, and
 connection metadata.
 
 ## `eng-lsp.exe`
@@ -271,7 +271,7 @@ eng-lsp.exe --snapshot examples\official\06_domain_port\main.eng
 eng-lsp.exe --snapshot-check examples\official\01_csv_plot\main.eng
 ```
 
-`--smoke` verifies the official CSV snapshot path and the official v2.0
+`--smoke` verifies the official CSV snapshot path and the official domain/component track
 domain/component metadata path. `--snapshot` emits `eng-lsp-snapshot-v1` JSON
 with diagnostics, completion items, and hover items. Domain/component files
 include hover `kind`/`status` metadata and completion labels such as
@@ -412,7 +412,7 @@ Runs official smoke checks:
 - official histogram example produces binned PlotSpec artifacts
 - Args CLI binding produces CSV run artifacts
 - typed Args values are normalized and invalid typed Args values produce E-ARGS-TYPE-001
-- official CSV example produces v1.4 JIT kernel candidates
+- official CSV example produces runtime optimization track kernel candidates
 - bad DateTime and bad numeric CSV fixtures record parse_failures
 - numeric missing interpolation fixture executes
 - constraint violation fixture records upper-bound policy violation

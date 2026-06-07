@@ -54,7 +54,7 @@ and expose them through `dev.bat`.
 Expected shape:
 
 ```text
-EngLang 1.0.3
+EngLang 0.1.0-preview
 
 Runtime              OK
 Standard library     OK

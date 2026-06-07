@@ -1,7 +1,8 @@
-# Data-driven Modeling
+# Data-driven Modeling Track
 
-v1.2 adds the first `eng.ml` preview surface. It is a deterministic path for
-user testing and artifact review, not a full production ML framework yet.
+This guide documents the current experimental data-driven modeling track. It is
+a deterministic path for user testing and artifact review, not a full
+production ML framework yet.
 
 ## Supported Forms
 
@@ -54,7 +55,7 @@ leakage_lint(split)                split must be a prior TrainTestSplit binding
 Unknown or missing ML references produce `E-ML-SOURCE-001`. References with the
 wrong semantic type produce `E-ML-SOURCE-002`.
 
-The compiler also checks the current v1.2 argument contract:
+The compiler also checks the current data-driven modeling track argument contract:
 
 ```text
 train_test_split(...)  requires target=<TimeSeriesName>, features=[...], and test=<fraction>
@@ -68,7 +69,7 @@ Missing or malformed required ML arguments produce `E-ML-ARGS-001` or
 
 ## Runtime Semantics
 
-The v1.2 runtime now builds a real feature matrix from the promoted CSV table
+The current runtime builds a real feature matrix from the promoted CSV table
 behind the source `TimeSeries`.
 
 - `train_test_split(...)` resolves the source series, source table, target, and

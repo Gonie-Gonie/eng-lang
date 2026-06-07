@@ -255,7 +255,7 @@ fn select_backend(requested: &str) -> BackendSelection {
             requested: requested.to_owned(),
             selected: INTERPRETER_FALLBACK_BACKEND.to_owned(),
             status: "selected".to_owned(),
-            reason: "interpreter fallback is the only executable v1.4 path".to_owned(),
+            reason: "interpreter fallback is the only executable runtime optimization track path".to_owned(),
         },
         NATIVE_PREVIEW_BACKEND => BackendSelection {
             requested: requested.to_owned(),

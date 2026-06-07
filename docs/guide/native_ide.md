@@ -1,11 +1,11 @@
 # Native Tester IDE
 
-The v1.0.3 hardening path upgrades the portable native tester IDE. It is built as
+The public preview ships a portable native tester IDE. It is built as
 `eng-ide.exe` from the Rust workspace and is shipped inside the portable Windows
 zip beside `eng.exe`.
 
-The goal is practical user testing before experimental v1.1+ features are
-promoted into a public release contract:
+The goal is practical user testing while future-track features remain clearly
+separate from the public release contract:
 
 ```text
 - browse official examples, stdlib, and tutorial sources
@@ -14,7 +14,7 @@ promoted into a public release contract:
 - see syntax highlighting and line-level diagnostic tinting
 - run compiler diagnostics while editing
 - inspect quantity/unit symbol metadata
-- inspect v2.0 domain/component declarations and connection status
+- inspect domain/component track declarations and connection status
 - use keyword, quantity, unit, and snippet completions
 - run the current file, preview PlotSpec data, inspect runtime summaries, and
   open generated artifacts
@@ -39,8 +39,8 @@ eng-ide.exe --smoke
 ```
 
 The smoke path checks that the IDE can discover example files, call the same
-compiler metadata path used by `eng.exe check`, and read the official v2.0
-domain/component example.
+compiler metadata path used by `eng.exe check`, and read the official
+domain/component track example.
 
 On Windows, `eng-ide.exe` is built as a GUI subsystem binary so launching it from
 Explorer does not create a separate console window.
@@ -98,7 +98,7 @@ Right Sidebar
   Tabbed Inspector, Completions, and Runtime Summary surface. Inspector shows
   variables with quantity kind, display/canonical unit, dimension, source,
   expression, and unit derivation path. The Inspector also includes a Domain
-  Graph section for v2.0 files, showing domain variables, conservation
+  Graph section for domain/component track files, showing domain variables, conservation
   metadata, package/version metadata, generic domain parameters, component port
   arguments, port resolution status, and connection domain compatibility. It
   also shows schema columns, constraints, missing policies, and CSV promotion
@@ -175,7 +175,7 @@ examples/official/03_integrated_hvac/main.eng
 See [Integrated HVAC user test](../tutorials/06_integrated_hvac.md) for the
 step-by-step flow.
 
-Recommended v1.1 uncertainty smoke:
+Recommended uncertainty-track smoke:
 
 ```text
 examples/official/04_uncertainty_core/main.eng
@@ -185,7 +185,7 @@ Run it and inspect the Plot SVG/Report artifacts to verify the in-report
 histogram and Uncertainty table. The Runtime Summary tab also shows
 distribution kind, propagation method, sample count, and p05/p50/p95 values.
 
-Recommended v1.2 data-driven modeling smoke:
+Recommended data-driven modeling track smoke:
 
 ```text
 examples/official/05_data_driven_modeling/main.eng
@@ -197,7 +197,7 @@ parity scatter plot, residual bar plot, and ML Models table. The Runtime
 Summary tab also shows train/test counts, RMSE/MAE/R2, leakage status,
 coefficient summary, and loss history.
 
-Recommended v1.4 JIT planning smoke:
+Recommended runtime optimization track smoke:
 
 ```text
 examples/official/01_csv_plot/main.eng
@@ -208,7 +208,7 @@ show TimeSeries arithmetic, integration, and statistics-fusion candidates with
 `backend = interpreter-fallback`, row estimates from the CSV source, and
 operation-class counts. This is not a speedup claim or native codegen path.
 
-Recommended v2.0 domain/component smoke:
+Recommended domain/component track smoke:
 
 ```text
 examples/official/06_domain_port/main.eng
@@ -253,5 +253,5 @@ tools/englang-vscode-preview-<version>.vsix
 ```
 
 This extension shares the compiler-facing diagnostic/hover/completion shape,
-but it is secondary for v1.0.3. The primary no-install user test path is
+but it is secondary for the current public preview. The primary no-install user test path is
 `eng-ide.exe`.

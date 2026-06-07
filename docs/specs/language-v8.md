@@ -242,7 +242,8 @@ repro profile or strict lint:
 
 ## IDE/LSP 요구사항
 
-v1.3 LSP는 다음을 제공해야 합니다.
+IDE/LSP track은 다음을 제공해야 합니다. 이 항목은 공개 release
+version 번호가 아니라 tooling maturity track으로 관리합니다.
 
 ```text
 1. `=`가 new binding인지 assignment인지 표시

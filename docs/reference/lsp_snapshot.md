@@ -15,7 +15,7 @@ The current format marker is:
 
 ## Stability Policy
 
-`eng-lsp-snapshot-v1` is experimental while v1.3 is not release-supported, but
+`eng-lsp-snapshot-v1` is experimental and not public release-supported, but
 it has a clear compatibility rule so tools can be built against it safely:
 
 - Existing top-level keys keep their current type within `eng-lsp-snapshot-v1`.
@@ -138,7 +138,7 @@ component_port
 connection
 ```
 
-For v2.0 domain/component files, hovers expose domain declarations,
+For domain/component track files, hovers expose domain declarations,
 across/through variables, conservation metadata, component ports, and connection
 status. Domain hovers may include package/version metadata and generic
 parameter signatures such as `Fluid[Medium M]`; port hovers may include

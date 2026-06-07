@@ -7,6 +7,14 @@
 
 ---
 
+> Version policy notice:
+> This long-form v9 plan is retained as historical planning source material.
+> The active public version line has been simplified to `v0.1-preview`,
+> `v0.2-preview`, and later preview/stable releases. High-numbered labels in
+> this document such as `v1.1`, `v1.2`, or `v2.0` are historical planning
+> labels only. Use `docs/current/version_plan.md`, `docs/current/tracks.md`,
+> and `docs/current/status.md` for current release and development ordering.
+
 ## 0. Executive Summary
 
 EngLang은 Python 위에서 돌아가는 DSL이 아니다.  
@@ -13448,4 +13456,3 @@ v9에서 수정된 점:
 ```
 
 이 장을 통해 개발자는 “지금 무엇을 구현해야 하는가”를 version 기준으로 판단하고, 세부 설계는 기존 장을 참조한다.
-

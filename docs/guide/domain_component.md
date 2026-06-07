@@ -1,6 +1,6 @@
 # Domain And Component Guide
 
-This guide documents the current experimental v2.0 domain/component surface.
+This guide documents the current experimental domain/component track surface.
 It is metadata-first: the compiler records domains, ports, and connections and
 checks domain compatibility, but it does not solve a multi-domain component
 graph yet.
@@ -126,7 +126,7 @@ connection_summary
 ```
 
 They appear in `review.json`, `build/result/report_spec.json`, and
-`build/result/report.html`. This is the v2.0 preview surface for user testing:
+`build/result/report.html`. This is the domain/component track preview surface for user testing:
 the report shows which domains exist, package/version metadata, generic type
 parameters, which component ports reference them, port type arguments, and
 whether each connection is currently `domain_compatible` or diagnostic-only.

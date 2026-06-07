@@ -1,6 +1,7 @@
 # Plotting Guide
 
-v0.6-preview adds PlotSpec v1 and SVG export from the native report crate.
+The plot/report track emits PlotSpec v1 and SVG output from the native report
+crate.
 
 ## Example
 
@@ -12,7 +13,7 @@ plot Q_coil over Time {
 }
 ```
 
-The v1.0 hardening path executes the supported plot block options:
+The current preview executes the supported plot block options:
 
 ```text
 unit y = <unit>
@@ -56,9 +57,9 @@ Example:
 }
 ```
 
-The `points` array is the renderer-independent data model. v0.6 used
-deterministic sample points; the v1.0 hardening path uses runtime TimeSeries
-points for the official CSV example.
+The `points` array is the renderer-independent data model. The current preview
+uses runtime TimeSeries points for the official CSV example and deterministic
+fallback points only when materialized runtime data is not available.
 
 `plot_type = "bar"` consumes existing PlotSpec points and emits SVG rectangles.
 `plot_type = "histogram"` bins TimeSeries y-values when requested through

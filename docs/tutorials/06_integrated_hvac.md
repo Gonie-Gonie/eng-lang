@@ -1,7 +1,7 @@
 # Integrated HVAC User Test
 
-This tutorial is the recommended pre-v1.1 user test. It uses the official
-integrated HVAC example to exercise the stable EngLang core and the native
+This tutorial is the recommended public preview user test. It uses the official
+integrated HVAC example to exercise the supported preview workflow and the native
 tester IDE in one workflow.
 
 ## What This Covers

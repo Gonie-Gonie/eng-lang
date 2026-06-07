@@ -5,60 +5,40 @@ It is intentionally short so agents do not need to load every planning file.
 
 ## Current Target
 
-- Latest stable baseline: `v1.0-stable`
-- Active development target: `v2.0` domain/component platform detail work
-- Next release package label remains `v1.0.3` until an explicit release
-  workflow is requested.
-- Next targets: `v1.1` uncertainty, `v1.2` data-driven modeling,
-  `v1.3` LSP/editor service hardening, `v1.4` JIT start, then `v1.5`
-  standalone/AOT maturity, then `v2.0` domain/component platform
-- `v1.1` through `v2.0` code on `main` is experimental unless the current
-  status documents say otherwise.
-- Current `v1.1` detail work includes deterministic uncertainty samples,
-  source and argument validation diagnostics, scale/offset propagation
-  metadata, propagation source terms, histogram bin metadata/artifacts, and
-  IDE/report inspection documented in the v1.1 gate.
-- Current `v1.2` detail work includes source validation diagnostics for
-  TimeSeries -> train/test split -> model -> evaluation/model-card links and
-  argument diagnostics for split/model/MLP options, with parity and residual
-  plot smoke paths documented in the v1.2 gate.
-- Current `v1.3` detail work includes an experimental `eng-lsp.exe` smoke,
-  package-smoke inclusion, snapshot, optional VS Code snapshot backend,
-  diagnostics, context-aware schema column completion, hover, and tested stdio
-  round-trip path documented in the v1.3 gate. The snapshot/hover surface also
-  includes v2.0 domain/component metadata.
-- Current `v1.4` detail work includes an experimental `eng_jit` crate,
-  `eng.exe jit-plan`, `eng.exe jit-bench`, native IDE Runtime Summary
-  kernel-plan display, `eng-kernel-plan-v1` hot-kernel metadata, and
-  `eng-jit-bench-v1` interpreter baseline metadata documented in the v1.4 gate.
-  Backend selection metadata exists, but `native-preview` is explicitly
-  unavailable. It has no native codegen or speedup claim yet.
-- Current `v1.5` standalone detail work starts from the packaged runner path:
-  `.engpkg` and `.lock` record runtime ABI, repro profile, dependency paths,
-  and dependency hashes. Optimized native `model.exe`/AOT is still deferred.
-- Current `v2.0` domain/component detail work starts from metadata-first
-  language support: user-defined domains, across/through variables,
-  conservation contracts, component ports, package/version metadata, generic
-  domain parameters and arguments, structured parameter kind/name/display
-  metadata, source-order connection review/report metadata, native IDE Domain
-  Graph inspection, LSP completion/hover metadata, invalid port-domain
-  diagnostics, domain contract diagnostics, and medium/frame/axis compatibility
-  diagnostics. Numeric multi-domain simulation remains deferred.
+- Current public line: `v0.1-preview`
+- Active target: `v0.2-preview` IDE and documentation hardening
+- Workspace package version: `0.1.0-preview`
+- EngLang is preview software. The language and artifact formats are not
+  stable.
+- Public release versions describe packages. Long-term capabilities are tracked
+  as development tracks, not as high-numbered versions.
+- `v1.0` is reserved for a genuinely stable core.
 
 ## Read First
 
 1. `README.md`
 2. `LLM_CONTEXT.md`
 3. `docs/current/status.md`
-4. `docs/current/feature_maturity_matrix.md`
-5. `docs/current/v1_0_3_hardening.md`
-6. `docs/current/v1_1_uncertainty_gate.md`
-7. `docs/current/v1_2_data_driven_modeling_gate.md`
-8. `docs/current/v1_3_lsp_gate.md`
-9. `docs/current/v1_4_jit_gate.md`
-10. `docs/current/v1_5_standalone_gate.md`
-11. `docs/current/v2_0_domain_component_gate.md`
-12. `docs/llm/load_map.yml`
+4. `docs/current/version_plan.md`
+5. `docs/current/feature_maturity_matrix.md`
+6. `docs/current/tracks.md`
+7. `docs/llm/load_map.yml`
+
+## Current Public Preview
+
+The current public preview supports:
+
+- typed CSV promote
+- unit-aware TimeSeries calculation
+- statistics and integration metadata
+- PlotSpec/SVG output
+- review/report artifacts
+- basic packaged execution
+- native tester IDE user workflow
+
+Implementation seeds for uncertainty, data-driven modeling, LSP, JIT/AOT, and
+domain/component work may exist on `main`, but they are future tracks unless
+the current status documents explicitly promote a narrow preview scope.
 
 ## Core Invariants
 
@@ -83,15 +63,15 @@ It is intentionally short so agents do not need to load every planning file.
 
 - `Prototype`: internal spike or seed.
 - `Preview`: works through official examples or package paths with limitations.
-- `Supported`: documented, tested, has diagnostics or IDE metadata where
-  relevant, and is part of the release-target contract.
+- `Supported preview`: documented, tested, has diagnostics or IDE metadata
+  where relevant, and is part of the current public preview contract.
 - `Stable`: public behavior with a breaking-change policy.
-- `Experimental`: may exist on `main`, but is not release-supported.
+- `Experimental`: may exist on `main`, but is not public-supported.
 - `Planned`: intended future work.
 
 ## Current Architecture
 
-The current supported workspace is:
+The current workspace is:
 
 - `eng_cli`
 - `eng_compiler`

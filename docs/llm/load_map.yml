@@ -2,14 +2,9 @@ default:
   - README.md
   - LLM_CONTEXT.md
   - docs/current/status.md
+  - docs/current/version_plan.md
   - docs/current/feature_maturity_matrix.md
-  - docs/current/v1_0_3_hardening.md
-  - docs/current/v1_1_uncertainty_gate.md
-  - docs/current/v1_2_data_driven_modeling_gate.md
-  - docs/current/v1_3_lsp_gate.md
-  - docs/current/v1_4_jit_gate.md
-  - docs/current/v1_5_standalone_gate.md
-  - docs/current/v2_0_domain_component_gate.md
+  - docs/current/tracks.md
   - docs/reference/standalone_package.md
 
 task_types:
@@ -36,18 +31,18 @@ task_types:
 
   ide:
     - docs/guide/native_ide.md
-    - docs/current/v1_0_3_hardening.md
+    - docs/current/tracks.md
     - crates/eng_ide/
     - crates/eng_cli/
 
   lsp:
-    - docs/current/v1_3_lsp_gate.md
+    - docs/current/tracks.md
     - docs/reference/lsp_snapshot.md
     - crates/eng_lsp/
     - tools/vscode-englang/
 
   jit:
-    - docs/current/v1_4_jit_gate.md
+    - docs/current/tracks.md
     - docs/reference/kernel_plan.md
     - docs/reference/jit_benchmark.md
     - crates/eng_jit/
@@ -68,7 +63,7 @@ task_types:
     - crates/eng_runtime/
 
   uncertainty:
-    - docs/current/v1_1_uncertainty_gate.md
+    - docs/current/tracks.md
     - docs/guide/uncertainty.md
     - examples/official/04_uncertainty_core/
     - examples/05_error_messages/invalid_uncertainty_arguments.eng
@@ -76,7 +71,7 @@ task_types:
     - crates/eng_runtime/src/runtime_data.rs
 
   data_driven_modeling:
-    - docs/current/v1_2_data_driven_modeling_gate.md
+    - docs/current/tracks.md
     - docs/guide/data_driven_modeling.md
     - stdlib/eng/ml.eng
     - examples/official/05_data_driven_modeling/
@@ -84,14 +79,14 @@ task_types:
     - crates/eng_runtime/src/runtime_data.rs
 
   release:
+    - docs/current/version_plan.md
     - docs/release/release-workflow.md
     - docs/release/acceptance-checklist.md
-    - docs/release/v1.0.3.md
-    - docs/current/v1_5_standalone_gate.md
+    - docs/release/v0.1-preview.md
     - scripts/dev.ps1
 
   standalone:
-    - docs/current/v1_5_standalone_gate.md
+    - docs/current/tracks.md
     - docs/reference/standalone_package.md
     - docs/architecture/01_runtime_artifacts.md
     - docs/specs/cli.md
@@ -100,7 +95,7 @@ task_types:
     - crates/eng_cli/
 
   domain_component:
-    - docs/current/v2_0_domain_component_gate.md
+    - docs/current/tracks.md
     - docs/guide/domain_component.md
     - examples/official/06_domain_port/
     - examples/05_error_messages/port_domain_mismatch.eng

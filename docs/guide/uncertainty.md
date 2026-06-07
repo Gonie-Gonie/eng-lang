@@ -1,9 +1,9 @@
-# Uncertainty Core
+# Uncertainty Track
 
-v1.1 adds the first uncertainty surface for user testing. The implementation is
-deterministic and review-oriented: every uncertainty expression is recorded in
-compiler metadata, runtime result JSON, report spec JSON, HTML reports, and the
-plot path when a distribution plot is requested.
+This guide documents the current experimental uncertainty track. The
+implementation is deterministic and review-oriented: every uncertainty
+expression is recorded in compiler metadata, runtime result JSON, report spec
+JSON, HTML reports, and the plot path when a distribution plot is requested.
 
 ## Supported Forms
 
@@ -32,7 +32,7 @@ Ensemble[T]
 
 ## Runtime Semantics
 
-The v1.1 implementation now materializes deterministic sample sets:
+The current implementation materializes deterministic sample sets:
 
 - `measured(value, std=...)` records the measured value and creates a small
   deterministic normal sample when a standard deviation is supplied.
@@ -49,12 +49,12 @@ uncertainty binding that was defined earlier in the same semantic pass. Unknown
 sources produce `E-UNC-SOURCE-001`; deterministic bindings such as `Q = 5 kW`
 produce `E-UNC-SOURCE-002` when used as uncertainty sources.
 
-The compiler also validates the current v1.1 argument contract:
+The compiler also validates the current uncertainty-track argument contract:
 
 ```text
 E-UNC-ARGS-001  missing or malformed required uncertainty argument
 E-UNC-ARGS-002  invalid numeric, range, count, or transform argument
-E-UNC-ARGS-003  unsupported uncertainty option for the current v1.1 scope
+E-UNC-ARGS-003  unsupported uncertainty option for the current uncertainty-track scope
 ```
 
 This catches nonnumeric measured values, missing or negative standard

@@ -1,32 +1,24 @@
 # Current Project Status
 
 This page is the authoritative short-form status layer for contributors and LLM
-agents. It distinguishes supported behavior from preview and experimental
-implementation seeds.
+agents. It separates public release versions from long-term development tracks.
 
 ## Release State
 
 | Field | Value |
 |---|---|
-| Latest stable baseline | `v1.0-stable` |
-| Active release target | `v1.0.3` IDE/documentation hardening |
-| Next planned targets | `v1.1` uncertainty, `v1.2` data-driven modeling, `v1.3` LSP/editor service, `v1.4` JIT start, `v1.5` standalone/AOT maturity, `v2.0` domain/component platform |
-| Current package version | Workspace version `1.0.3` |
+| Current public line | `v0.1-preview` |
+| Active target | `v0.2-preview` IDE/documentation hardening |
+| Workspace package version | `0.1.0-preview` |
+| Release channel | `preview` |
 
-`v1.1`, `v1.2`, `v1.3`, `v1.4`, `v1.5`, and `v2.0` support code may exist on
-`main`, but those features are not release-supported until their language
-rules, runtime behavior, diagnostics, IDE metadata, examples, tests, and user
-documentation are aligned.
-The current v1.1 implementation gate is tracked in
-[v1.1 uncertainty gate](v1_1_uncertainty_gate.md).
-The current v1.2 implementation gate is tracked in
-[v1.2 data-driven modeling gate](v1_2_data_driven_modeling_gate.md).
-The current v1.3 LSP gate is tracked in [v1.3 LSP gate](v1_3_lsp_gate.md).
-The current v1.4 JIT gate is tracked in [v1.4 JIT gate](v1_4_jit_gate.md).
-The current v1.5 standalone gate is tracked in
-[v1.5 standalone/AOT gate](v1_5_standalone_gate.md).
-The current v2.0 domain/component gate is tracked in
-[v2.0 domain/component gate](v2_0_domain_component_gate.md).
+EngLang is preview software. The language, runtime behavior, and artifact
+formats are not stable. Earlier high-numbered release names are not part of the
+current public version line.
+
+Future capabilities are tracked in [development tracks](tracks.md), not as
+public release versions. A track may have implementation seeds on `main` without
+being part of the public release contract.
 
 ## Core Execution Invariants
 
@@ -41,10 +33,10 @@ The current v2.0 domain/component gate is tracked in
 - Public features need examples, tests, diagnostics or metadata where relevant,
   and reviewable artifacts.
 
-## Supported Features
+## Supported Preview Features
 
-Supported means the behavior is documented, tested, and usable in the current
-release-target path.
+Supported preview means the behavior is documented, tested, and usable through
+the current public preview workflow, but it is not yet a stable contract.
 
 - Fast `=` declarations in script/local expression contexts.
 - Unit and quantity checking for supported arithmetic and official examples.
@@ -52,9 +44,9 @@ release-target path.
 - Ambiguous quantity warnings for unit-only declarations such as `power = 10 kW`.
 - Typed CSV promote for the official typed schema import path.
 - DateTime-indexed table metadata and row-level CSV runtime pages.
-- TimeSeries statistics on the supported official HeatRate path, including
-  mean, time-weighted mean, median, standard deviation, percentiles, and
-  trapezoidal integration metadata.
+- TimeSeries statistics on the official HeatRate path, including mean,
+  time-weighted mean, median, standard deviation, percentiles, and trapezoidal
+  integration metadata.
 - PlotSpec v1 line plot data, unit-aware axis labels, SVG export, and plot
   manifest artifacts.
 - Report/review artifacts with variable tables, inferred declarations, unit
@@ -69,63 +61,35 @@ release-target path.
   copy, dependency hashes, Args help, and reviewable report artifacts.
 - Temperature spelling policy: `degC` remains the canonical ASCII spelling, and
   `°C` is supported as a user-facing alias for `AbsoluteTemperature`.
-- Example taxonomy: `examples/official` is the release-facing user-test
-  namespace; top-level numbered examples are compatibility regression paths;
-  diagnostic and data-quality fixtures are separated by folder and surfaced
-  after official examples in the native IDE/CLI smoke path.
+- Example taxonomy: `examples/official` is the user-test namespace; top-level
+  numbered examples are compatibility regression paths; diagnostic and
+  data-quality fixtures are separated by folder.
 
-## Preview Features
-
-Preview means official examples or package paths exercise the feature, but the
-scope and limitations must remain explicit.
+## Preview Tooling
 
 - Native tester IDE (`eng-ide.exe`) for open/check/save/run, diagnostics,
   completions, source editing, variable/unit/schema/CSV inspection, PlotSpec
-  preview, runtime summaries, and artifact links.
+  preview, runtime summaries, UI settings, and artifact links.
 - VS Code extension preview packaged as a secondary editor path.
 - Integrated HVAC user-test example combining CSV promote, statistics, plotting,
   reporting, and system metadata.
 - Data-quality examples for parse failures, missing-value interpolation,
   constraint violations, and unit conversion failures.
 - TimeSeries raw-value histogram PlotSpec path through `plot histogram(...)`,
-  with bin metadata shared with uncertainty distribution plots.
+  with bin metadata shared with future-track distribution plots.
 
-## Experimental / Unreleased
+## Future Tracks On Main
 
-Experimental means code and examples may exist on `main`, but the feature is
-not part of the supported release contract.
+The following tracks may have implementation seeds, examples, tests, and IDE
+metadata on `main`, but they are not public release versions:
 
-- `v1.1` uncertainty core: measured values, intervals, distributions,
-  deterministic ensembles, source and argument diagnostics, scale/offset
-  propagation metadata, propagation source terms, deterministic samples, and
-  distribution histogram bins.
-- `v1.2` data-driven modeling: regression, basic MLP/ANN path, train/test
-  metadata, source and argument validation diagnostics, RMSE/MAE/R2, model
-  cards, leakage lint, and parity/residual plots.
-- `v1.3` LSP/editor service: experimental `eng-lsp.exe` smoke, packaged
-  package-smoke inclusion, snapshot, optional VS Code snapshot backend,
-  diagnostics, context-aware schema column completion, hover, and tested minimal
-  stdio JSON-RPC paths.
-- `v1.4` JIT start: experimental `eng_jit` crate, `eng.exe jit-plan`,
-  `eng.exe jit-bench`, backend selection metadata, and native IDE Runtime
-  Summary display for `eng-kernel-plan-v1` hot-kernel metadata covering
-  TimeSeries arithmetic, integration, statistics fusion, and system residual
-  interface metadata, including coarse row/source/operation/scan estimates.
-  `eng-jit-bench-v1` records interpreter baseline timings while `jit.status`
-  remains `not_available`. It does not provide native code generation or
-  runtime acceleration yet.
-- `v1.5` standalone/AOT maturity: packaged runner manifests and locks record
-  runtime ABI, repro profile, dependency paths, byte-based dependency hashes,
-  and the reserved executable-wrapper/AOT boundary. Optimized native
-  `model.exe`/AOT is not implemented yet.
-- `v2.0` domain/component platform start: user-defined `domain` declarations,
-  across/through variables, conservation metadata, `component` ports,
-  package/version metadata, structured generic domain parameters such as
-  `Fluid[Medium M]` and `MechanicalNode[Frame F, Axis DOF]`, connection
-  review/report metadata, native IDE Domain Graph inspection, LSP
-  domain/component completion and hover metadata, invalid port-domain
-  diagnostics, domain contract diagnostics, and medium/frame/axis compatibility
-  diagnostics. It does not provide numeric multi-domain simulation yet.
+- Uncertainty track
+- Data-driven modeling track
+- IDE/LSP track
+- Runtime optimization/JIT/AOT track
+- Domain/component track
+
+See [development tracks](tracks.md) for the current scope and limitations.
 
 ## Deferred / Known Limitations
 
@@ -155,6 +119,7 @@ The supported current workspace structure is intentionally compact:
 | `eng_runtime` | Runtime execution, VM seed, CSV/data policies, `.engres` output |
 | `eng_report` | PlotSpec/SVG/report/review rendering and artifact schemas |
 | `eng_ide` | Native tester IDE and package smoke UI checks |
+| `eng_lsp` | Experimental editor-service smoke and snapshot paths |
 
 Future crate splitting should be documented as planned work, not assumed as the
 current architecture.

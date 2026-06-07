@@ -197,7 +197,7 @@ fn validate_distribution_arguments(
             "E-UNC-ARGS-003",
             line,
             &format!("Unsupported uncertainty distribution `{unsupported}`."),
-            Some("The current v1.1 path supports `normal` and `uniform` distributions."),
+            Some("The current uncertainty track supports `normal` and `uniform` distributions."),
         )),
     }
 }
@@ -273,7 +273,7 @@ fn validate_propagation_arguments(
                 "E-UNC-ARGS-003",
                 line,
                 &format!("Unsupported uncertainty propagation method `{method}`."),
-                Some("The current v1.1 path supports `method=linear`."),
+                Some("The current uncertainty track supports `method=linear`."),
             ));
         }
     }

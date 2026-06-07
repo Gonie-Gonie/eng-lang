@@ -1,8 +1,8 @@
 # Data Boundary and CSV Promote
 
-v0.3-preview introduced the first typed data boundary seed. The current v1.0
-hardening path materializes the official CSV example into runtime table pages,
-TimeSeries values, computed statistics, and policy execution status.
+The data-boundary track materializes the official CSV example into runtime
+table pages, TimeSeries values, computed statistics, and policy execution
+status.
 
 The implemented preview path is:
 
@@ -153,7 +153,7 @@ canonical_values
 conversion_failures
 ```
 
-`values` preserve the CSV source/display unit used by the current v1.0
+`values` preserve the CSV source/display unit used by the current preview
 calculation path. `canonical_values` record each numeric cell converted into
 the quantity's canonical unit when a registered conversion seed exists.
 Unsupported source units are recorded in `conversion_failures` with row,

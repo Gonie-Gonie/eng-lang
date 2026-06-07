@@ -1,9 +1,9 @@
 # Official Example 03: Integrated HVAC
 
-This example is the v1.0.3 user-test scenario for the native tester IDE and
+This example is the public preview user-test scenario for the native tester IDE and
 portable release package.
 
-It exercises the stable core in one file:
+It exercises the supported preview workflow in one file:
 
 ```text
 - Args default CSV path

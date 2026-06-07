@@ -1,19 +1,21 @@
-# Version Roadmap Workflow
+# Version And Track Workflow
 
-The v9 master plan changes how development work is selected. Contributors should start from the version target, not from a broad feature list.
+EngLang separates public release versions from long-term development tracks.
+Contributors should start from the current public preview scope or the relevant
+track, not from a broad feature list.
 
 ## Standard Workflow
 
 ```text
-1. Pick the current target version.
-2. Read that version's goals, required outputs, tests, and release gate.
-3. Open the cross-reference map in the v9 master plan for detailed design sections.
-4. Create or select an issue with a version target.
+1. Pick the current public preview scope or development track.
+2. Read `docs/current/version_plan.md`, `docs/current/status.md`, and `docs/current/tracks.md`.
+3. Open the v9 master plan only for long-term design sections.
+4. Create or select an issue with a preview or track target.
 5. Implement code, tests, examples, and docs together.
 6. Run dev.bat ci.
 7. Commit and push at a reviewable unit.
-8. Update roadmap/release notes when the version state changes.
-9. After a stable or alpha milestone, run a gap audit before starting the next major feature arc.
+8. Update roadmap/release notes when the public preview state changes.
+9. After a public preview, run a gap audit before promoting any feature to stable.
 ```
 
 Before marking a feature done, check
@@ -26,12 +28,12 @@ Example:
 
 ```text
 Title:
-  v0.3: validate CSV headers against schema columns
+  data-boundary: validate CSV headers against schema columns
 
 Labels:
   area:compiler
   area:schema
-  milestone:v0.3-preview
+  track:data-boundary
 
 Definition of Done:
   - schema symbol table includes required columns
@@ -64,7 +66,7 @@ Avoid combining:
 
 ## Milestone Gap Audit
 
-After an alpha/stable milestone is tagged, compare the implemented behavior
+After a public preview is tagged, compare the implemented behavior
 against the master plan and write down seed-only areas before moving on.
 
 The audit should classify each item as:
@@ -90,7 +92,7 @@ Preview
 
 Supported
   Documented, tested, has diagnostics or IDE metadata where relevant, and is
-  part of the release-target contract.
+  part of the current public preview contract.
 
 Stable
   Public behavior with a breaking-change policy.
@@ -111,16 +113,16 @@ runtime or check behavior, diagnostic, IDE metadata, official example,
 and documentation are aligned for the stated scope.
 ```
 
-For v1.0, this register lives in
-[v1.0 gap audit](05_v1_0_gap_audit.md).
+The historical gap audit remains in [gap audit](05_historical_stable_core_gap_audit.md), but
+current planning should use [tracks](../current/tracks.md).
 
-## v0.1/v0.2 Backfill Policy
+## Backfill Policy
 
-If v9 reveals a missed item for an already tagged preview version:
+If a missed item is found after a preview release:
 
 ```text
 1. Add the missing item as a normal main-branch commit.
 2. Do not move existing tags.
-3. Mention it as backfill in docs/roadmap.md.
-4. Keep the next active milestone unchanged unless the user asks for a patch tag.
+3. Mention it in docs/roadmap.md or the relevant track doc.
+4. Keep the next active preview unchanged unless the user asks for a patch label.
 ```

@@ -19,18 +19,18 @@ paths before compatibility fixtures.
   statistics, integrate, PlotSpec/report, and simple system solver preview.
 
 04_uncertainty_core
-  Experimental v1.1 uncertainty path for measured values, intervals,
+  Experimental uncertainty-track path for measured values, intervals,
   deterministic distributions/ensembles, source and argument diagnostics,
   propagation metadata, and in-report histogram output.
 
 05_data_driven_modeling
-  Experimental v1.2 data-driven modeling path for train/test split, linear
+  Experimental data-driven modeling track path for train/test split, linear
   regression, basic MLP, source and argument validation diagnostics,
   RMSE/MAE/R2 metrics, leakage lint, model card, parity plot output, and
   residual plot output via `residuals.eng`.
 
 06_domain_port
-  Experimental v2.0 domain/component path for user-defined domains,
+  Experimental domain/component track path for user-defined domains,
   across/through variables, conservation metadata, component ports,
   structured generic parameters, domain-compatible connections, contract
   diagnostics, and invalid connection diagnostics.

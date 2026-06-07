@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: "Existing release tag to build, for example v1.0-stable"
+        description: "Existing release tag to build, for example v0.1-preview"
         required: true
         type: string
 
@@ -39,9 +39,6 @@ jobs:
           New-Item -ItemType Directory -Force -Path build | Out-Null
           $tag = "${env:RELEASE_TAG}"
           $candidateNotes = @((Join-Path "docs\release" "$tag.md"))
-          if ($tag -match '^v(\d+\.\d+)\.0$') {
-            $candidateNotes += (Join-Path "docs\release" "v$($Matches[1])-stable.md")
-          }
           $notesPath = $candidateNotes | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
           if ($notesPath) {
             Copy-Item -LiteralPath $notesPath -Destination "build\release-notes.md" -Force

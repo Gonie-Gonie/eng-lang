@@ -1,7 +1,7 @@
 # Kernel Plan Reference
 
 `eng.exe jit-plan <file.eng>` emits experimental hot-kernel metadata for the
-v1.4 JIT-start path. The output is a planning artifact only. It does not mean
+runtime optimization track. The output is a planning artifact only. It does not mean
 native code has been generated, selected, cached, or executed.
 
 The current format marker is:
@@ -14,7 +14,7 @@ The current format marker is:
 
 ## Stability Policy
 
-`eng-kernel-plan-v1` is experimental while v1.4 is not release-supported.
+`eng-kernel-plan-v1` is experimental and not public release-supported.
 Within this format:
 
 - Existing top-level keys keep their current type.
@@ -147,7 +147,7 @@ boundary but should not be benchmarked or presented as executable JIT work.
 
 Use the kernel plan for:
 
-- v1.4 JIT gate smoke checks
+- runtime optimization track smoke checks
 - native IDE Runtime/Inspector summaries
 - coarse candidate size/cost inspection
 - `eng-jit-bench-v1` interpreter baseline harness metadata

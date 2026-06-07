@@ -1,6 +1,10 @@
 # Bytecode VM and Result v1
 
-v0.4-preview established the first executable EngLang runtime path. v0.5-preview adds TimeSeries/statistics metadata to that path. v0.6-preview adds PlotSpec/SVG/manifest output. v0.8-alpha adds system metadata, residuals, system IR dependencies, metadata-only solver_plan seeds, and an explicit solver boundary. The v1.0 hardening path adds a fixed-step ODE preview for the official one-state thermal system:
+The current public preview has an executable EngLang runtime path with
+TimeSeries/statistics metadata, PlotSpec/SVG/manifest output, system metadata,
+residuals, system IR dependencies, metadata-only solver_plan seeds, an explicit
+solver boundary, and a fixed-step ODE preview for the official one-state
+thermal system:
 
 ```text
 .eng source
@@ -111,14 +115,14 @@ typed_payload
 provenance
 ```
 
-v0.6/v0.7 records:
+Plot/report preview records:
 
 ```text
 provenance.plot_spec_hash
 provenance.report_spec_hash
 ```
 
-v0.8 records:
+System/equation preview records:
 
 ```text
 typed_payload.systems
@@ -129,13 +133,13 @@ provenance.equation_count
 provenance.residual_count
 ```
 
-v1.1 records:
+Uncertainty track records:
 
 ```text
 typed_payload.uncertainties
 ```
 
-v1.2 records:
+Data-driven modeling track records:
 
 ```text
 typed_payload.ml
@@ -143,8 +147,8 @@ typed_payload.ml
 
 The `typed_payload` is a Report seed. It carries computed statistics for the
 official CSV path, integration metadata, policy results, and reviewable system
-metadata. v1.1 also carries deterministic uncertainty summaries. v1.2
-carries deterministic data-driven modeling metrics and plot points:
+metadata. Future-track fields may carry deterministic uncertainty summaries and
+data-driven modeling metrics/plot points:
 
 ```json
 {

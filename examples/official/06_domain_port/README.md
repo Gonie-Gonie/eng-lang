@@ -1,6 +1,6 @@
 # Official 06 Domain Port
 
-Experimental v2.0 user-test fixture for the open domain/port and component
+Experimental domain/component track user-test fixture for the open domain/port and component
 connection surface.
 
 This example is intentionally metadata-first:

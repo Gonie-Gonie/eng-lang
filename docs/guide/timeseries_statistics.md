@@ -1,8 +1,7 @@
 # TimeSeries Statistics Guide
 
-v0.5-preview adds the first TimeSeries and statistics path. The current v1.0
-hardening path computes numeric values for the official CSV coil example while
-keeping broader TimeSeries expression execution deferred.
+The TimeSeries/statistics path computes numeric values for the official CSV
+coil example while keeping broader TimeSeries expression execution deferred.
 
 ## Example
 
@@ -84,13 +83,13 @@ elapsed seconds. `median` sorts the finite point values and averages the middle
 pair for even-length series. `std` is the population standard deviation for
 the materialized point values. Percentile names of the form `pNN` use the
 current nearest-rank percentile kernel, so `p95` keeps the same behavior as the
-original v1.0 artifact contract.
+current artifact contract.
 
 `duration_above(<threshold>)` evaluates the threshold in the TimeSeries display
-unit. When a threshold unit is supplied, the v1.0 hardening path supports the
-same W/kW conversion used by plot display conversion. The duration kernel uses
-Time-axis seconds and linearly interpolates threshold crossings between adjacent
-points.
+unit. When a threshold unit is supplied, the current preview supports the same
+W/kW conversion used by plot display conversion. The duration kernel uses
+Time-axis seconds and linearly interpolates threshold crossings between
+adjacent points.
 
 ## Integration Metadata
 

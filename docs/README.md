@@ -7,22 +7,17 @@ long-form planning documents.
 ## Start Here
 
 1. [Current project status](current/status.md)
-2. [Feature maturity matrix](current/feature_maturity_matrix.md)
-3. [v1.0.3 hardening register](current/v1_0_3_hardening.md)
-4. [v1.1 uncertainty gate](current/v1_1_uncertainty_gate.md)
-5. [v1.2 data-driven modeling gate](current/v1_2_data_driven_modeling_gate.md)
-6. [v1.3 LSP gate](current/v1_3_lsp_gate.md)
-7. [v1.4 JIT gate](current/v1_4_jit_gate.md)
-8. [v1.5 standalone/AOT gate](current/v1_5_standalone_gate.md)
-9. [v2.0 domain/component gate](current/v2_0_domain_component_gate.md)
-10. [Standalone package reference](reference/standalone_package.md)
-11. [LLM load map](llm/load_map.yml)
-12. [Getting started](development/00_getting_started.md)
-13. [Repository layout](development/01_repo_layout.md)
-14. [Daily workflow](development/02_daily_workflow.md)
-15. [Reproducible environment policy](development/03_environment_reproducibility.md)
-16. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
-17. [Curated user documentation source](user/README.md)
+2. [Version plan](current/version_plan.md)
+3. [Feature maturity matrix](current/feature_maturity_matrix.md)
+4. [Development tracks](current/tracks.md)
+5. [Standalone package reference](reference/standalone_package.md)
+6. [LLM load map](llm/load_map.yml)
+7. [Getting started](development/00_getting_started.md)
+8. [Repository layout](development/01_repo_layout.md)
+9. [Daily workflow](development/02_daily_workflow.md)
+10. [Reproducible environment policy](development/03_environment_reproducibility.md)
+11. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
+12. [Curated user documentation source](user/README.md)
 
 ## Architecture
 
@@ -34,9 +29,9 @@ long-form planning documents.
 - [Bytecode VM and result v1](runtime/bytecode.md)
 - [TimeSeries statistics guide](guide/timeseries_statistics.md)
 - [Plotting guide](guide/plotting.md)
-- [Uncertainty core guide](guide/uncertainty.md)
-- [Data-driven modeling guide](guide/data_driven_modeling.md)
-- [Domain and component guide](guide/domain_component.md)
+- [Uncertainty track guide](guide/uncertainty.md)
+- [Data-driven modeling track guide](guide/data_driven_modeling.md)
+- [Domain and component track guide](guide/domain_component.md)
 - [Native tester IDE](guide/native_ide.md)
 - [Report and review artifacts](guide/report_review.md)
 - [Simple system tutorial](tutorials/05_simple_system.md)
@@ -55,32 +50,23 @@ long-form planning documents.
 - [Fast assignment guide](language/fast_assignment.md)
 - [Dimensionless policy guide](language/dimensionless.md)
 
-## Planning and Release
+## Planning And Release
 
 - [Roadmap](roadmap.md)
-- [Current master plan pointer](master-plan/current.md)
+- [Current planning pointer](master-plan/current.md)
 - [Release acceptance checklist](release/acceptance-checklist.md)
 - [Release workflow](release/release-workflow.md)
 - [v0.1-preview release notes](release/v0.1-preview.md)
-- [v0.2-preview release notes](release/v0.2-preview.md)
-- [v0.3-preview release notes](release/v0.3-preview.md)
-- [v0.4-preview release notes](release/v0.4-preview.md)
-- [v0.5-preview release notes](release/v0.5-preview.md)
-- [v0.6-preview release notes](release/v0.6-preview.md)
-- [v0.7-alpha release notes](release/v0.7-alpha.md)
-- [v0.8-alpha release notes](release/v0.8-alpha.md)
-- [v0.9-alpha release notes](release/v0.9-alpha.md)
-- [v1.0-stable release notes](release/v1.0-stable.md)
-- [v1.0.1 release notes](release/v1.0.1.md)
-- [v1.0.2 release notes](release/v1.0.2.md)
-- [v1.0.3 release notes draft](release/v1.0.3.md)
-- [v9 master plan](master-plan/EngLang_LongTerm_Development_Master_Plan_v9.md)
+- Long-form v9 plan is linked from the planning pointer only as historical
+  technical intent; do not use its old milestone labels as release names.
 
 ## Documentation Rules
 
-- Public behavior changes must update README, CLI docs, examples, and release notes.
+- Public behavior changes must update README, current status, maturity matrix,
+  examples, and release notes.
 - Runtime artifact changes must update [Runtime artifacts](architecture/01_runtime_artifacts.md).
 - Bytecode/result changes must update [Bytecode VM and result v1](runtime/bytecode.md).
 - Core path changes must not add Python or interpreter dependencies.
 - Portable release packages should ship curated user PDFs, not the full
   developer markdown tree.
+- Public release versions and future development tracks must remain separate.

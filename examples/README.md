@@ -18,21 +18,21 @@ official/02_simple_system
   Preview physical system/equation metadata and fixed-step ODE preview.
 
 official/03_integrated_hvac
-  Recommended v1.0.3 user test. Combines Args, CSV policies, missing-value
+  Recommended public preview user test. Combines Args, CSV policies, missing-value
   interpolation, statistics, integration, plotting, reports, and system preview.
 
 official/04_uncertainty_core
-  Experimental v1.1 path for deterministic uncertainty summaries, propagation
+  Experimental uncertainty-track path for deterministic uncertainty summaries, propagation
   metadata/source terms, source and argument diagnostics, and histogram bin
   artifacts. It is tested on main but not release-supported yet.
 
 official/05_data_driven_modeling
-  Experimental v1.2 path for split/model/evaluation source diagnostics,
+  Experimental data-driven modeling track path for split/model/evaluation source diagnostics,
   argument diagnostics, deterministic metrics, leakage lint, model cards, and
   parity/residual plots. It is tested on main but not release-supported yet.
 
 official/06_domain_port
-  Experimental v2.0 fixture for user-defined domain declarations,
+  Experimental domain/component track fixture for user-defined domain declarations,
   across/through variables, conservation metadata, components, ports, and
   domain-compatible connection review. It includes structured generic
   parameters such as Fluid[Medium M] and MechanicalNode[Frame F, Axis DOF].

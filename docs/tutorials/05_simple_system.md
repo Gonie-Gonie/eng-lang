@@ -1,11 +1,11 @@
 # Simple System Tutorial
 
-v0.8-alpha introduces a minimal physical `system` surface. It validates equation
-dimensions, writes residual metadata, records a small system IR, and makes the
-solver boundary explicit. The v1.0 hardening path also records solve_order and
-Jacobian seed columns, then runs a fixed-step ODE preview for the official
-one-state thermal system in `eng run` artifacts. It does not run a full
-multi-state or nonlinear ODE solver yet.
+The current preview includes a minimal physical `system` surface. It validates
+equation dimensions, writes residual metadata, records a small system IR, makes
+the solver boundary explicit, records solve_order and Jacobian seed columns,
+then runs a fixed-step ODE preview for the official one-state thermal system in
+`eng run` artifacts. It does not run a full multi-state or nonlinear ODE solver
+yet.
 
 ## Example
 
@@ -15,7 +15,7 @@ Open:
 examples/official/02_simple_system/main.eng
 ```
 
-The supported v0.8 shape is:
+The supported preview shape is:
 
 ```eng
 system RoomThermal {

@@ -1,6 +1,6 @@
 # Standalone Package Reference
 
-This page defines the supported v1.5 packaged-runner contract for
+This page defines the current preview packaged-runner contract for
 `eng.exe build <file.eng> --entry <name> --standalone --profile repro`.
 
 The supported artifact is a reproducible Windows package directory that runs
@@ -9,7 +9,7 @@ executable. Native `model.exe` generation is reserved for a later backend gate.
 
 ## Support Boundary
 
-| Area | Supported in v1.5 | Not Claimed |
+| Area | Supported in current preview | Not Claimed |
 |---|---|---|
 | Runner | `run.bat` invokes bundled `eng.exe run` | Optimized native execution |
 | Runtime | Current `eng.exe` is copied into the bundle | Separate single-model runtime binary |
@@ -101,8 +101,8 @@ packaged-runner behavior.
 
 | Field | Example | Meaning |
 |---|---|---|
-| `runtime_version` | `1.0.3` | Runtime version embedded in the bundled CLI. |
-| `compiler_version` | `1.0.3` | Compiler/build version used to create the package. |
+| `runtime_version` | `0.1.0-preview` | Runtime version embedded in the bundled CLI. |
+| `compiler_version` | `0.1.0-preview` | Compiler/build version used to create the package. |
 | `package_format_version` | `1` | Package format used by `.engpkg`. |
 | `runtime_abi` | `eng-runtime-cli-v1` | CLI ABI expected by the runner. |
 | `bytecode_version` | `1` | Bytecode format version. |
@@ -132,10 +132,10 @@ semicolons.
 
 ## Reserved `model.exe` Plan
 
-The v1.5 package reserves a future executable-wrapper/AOT boundary without
+The current package reserves a future executable-wrapper/AOT boundary without
 claiming it now:
 
-1. `run.bat` remains the supported v1.5 launcher.
+1. `run.bat` remains the supported preview launcher.
 2. `engine = eng.exe` means the packaged runner depends on the general EngLang
    CLI runtime.
 3. A future `model.exe` must either embed a selected entry and runtime ABI or

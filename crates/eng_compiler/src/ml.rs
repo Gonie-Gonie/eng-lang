@@ -345,7 +345,7 @@ fn validate_regression_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic
                 "E-ML-ARGS-003",
                 info.line,
                 &format!("Unsupported regression algorithm `{algorithm}`."),
-                Some("The current v1.2 path supports `algorithm=linear`."),
+                Some("The current data-driven modeling track supports `algorithm=linear`."),
             ));
         }
     }

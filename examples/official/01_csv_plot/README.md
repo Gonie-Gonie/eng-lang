@@ -1,6 +1,6 @@
 # Official CSV Plot Example
 
-This is the primary v1.0 data/report example. It covers:
+This is the primary data/report preview example. It covers:
 
 ```text
 - schema and typed CSV promotion

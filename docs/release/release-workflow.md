@@ -1,170 +1,113 @@
 # Release Workflow
 
-This document defines the repeatable EngLang release process.
+This document defines the repeatable EngLang preview release process.
 
-## Release Ownership
+## Version Policy
 
-Release work is separate from milestone implementation:
+Current public release line:
 
 ```text
-1. milestone code and docs are completed on main
-2. local release gate passes
-3. release tag is created and pushed
-4. GitHub Actions rebuilds from the tag
-5. release assets are attached to the GitHub Release
+v0.1-preview
 ```
 
-Do not move an existing release tag. If a release needs a fix, create a new
-patch tag such as `v1.0.3`. Do not repeat a release workflow while a hardening
-slice is still being implemented; keep release notes as draft until the manual
-IDE gate is clean.
+Cargo uses the SemVer-compatible workspace package version:
 
-## Local Release Gate
+```text
+0.1.0-preview
+```
 
-Run from the repository root:
+Release assets use the public label:
+
+```text
+dist\englang-preview-v0.1-preview-windows-x64.zip
+dist\englang-preview-v0.1-preview-windows-x64.zip.sha256
+dist\englang-user-test-guide-v0.1-preview.pdf
+dist\release-manifest.txt
+```
+
+## Local Gate
+
+Run:
 
 ```bat
 .\dev.bat release-check
 ```
 
-This command runs:
+`release-check` performs:
 
 ```text
 1. dev.bat ci
-2. dev.bat docs-check
-3. dev.bat ide-check
-4. dev.bat artifacts-check
-5. dev.bat package-smoke
-6. zip existence check
-7. SHA256 checksum verification
-8. dist/release-manifest.txt generation
+2. docs-check
+3. IDE extension check
+4. artifacts-check
+5. package
+6. package-smoke in a clean folder with spaces and Korean characters
+7. checksum verification
+8. release-manifest.txt generation
 ```
 
-`docs-check` extracts supported `eng` fenced code blocks from README and the
-supported docs roots, checks current syntax snippets, and verifies snippets
-marked `eng error` fail with compiler diagnostics. Design-only or future
-fragments must be marked explicitly as `eng partial`, `eng future`, or
-`eng unchecked`.
+The package smoke verifies that the portable package can run without Rust or
+Python installed on the target side.
 
-`artifacts-check` validates the schema files in `docs/schemas` and compares the
-official CSV/plot and simple-system artifacts against
-`tests/golden/artifacts`. It verifies stable format headers, version numbers,
-release-critical counts, runtime table/statistics/integration values, policy
-execution results, CSV canonical-unit conversion metadata, PlotSpec points,
-system IR dependencies, solver-boundary status, Args resolved values, and
-standalone `.engpkg` metadata.
+## Package Contents
 
-Expected release files:
-
-```text
-dist\englang-preview-v<version>-windows-x64.zip
-dist\englang-preview-v<version>-windows-x64.zip.sha256
-dist\englang-user-test-guide-v<version>.pdf
-dist\release-manifest.txt
-```
-
-The portable zip contains:
+The unpacked portable folder contains:
 
 ```text
 eng.exe
 eng-ide.exe
 eng-lsp.exe
-examples\
-stdlib\
-docs\
-docs\EngLang_User_Test_Guide.pdf
-tools\englang-vscode-preview-<version>.vsix
+examples/
+stdlib/
+docs/EngLang_User_Test_Guide.pdf
+tools/vscode-englang/
+tools/englang-vscode-preview-0.1.0-preview.vsix
+README.txt
 ```
 
-The `docs\` folder in the portable zip is curated release documentation. It
-must not be a full copy of the repository's developer markdown tree.
+The package `docs\` folder is curated release documentation. It must not bundle
+the full developer markdown tree.
 
-`package-smoke` also verifies that the portable package can run
-`eng-ide.exe --smoke`, run experimental `eng-lsp.exe --smoke`, and build/run a
-standalone packaged runner without requiring Rust or Python on the target side.
-
-## Tag Release
+## Tagging
 
 After `release-check` passes and the worktree is clean:
 
 ```bat
-git tag v<version-or-milestone>
-git push origin v<version-or-milestone>
+git tag v0.1-preview
+git push origin v0.1-preview
 ```
 
-Examples:
+Do not reuse old high-numbered release names for the current public line. If a
+preview needs a fix, create the next public preview label such as
+`v0.2-preview` or a clearly scoped patch label only after updating
+`docs/current/version_plan.md`.
+
+## GitHub Release
+
+Use `docs\release\v0.1-preview.md` as the public release note.
+
+Attach:
 
 ```text
-v1.0.0
-v1.0.1
-v1.1-alpha
+dist\englang-preview-v0.1-preview-windows-x64.zip
+dist\englang-preview-v0.1-preview-windows-x64.zip.sha256
+dist\englang-user-test-guide-v0.1-preview.pdf
+dist\release-manifest.txt
 ```
 
-Milestone tags such as `v1.0-stable` can remain as development markers. Public
-GitHub Release tags should prefer SemVer tags such as `v1.0.0` or `v1.0.1`.
+## Manual Verification
 
-## GitHub Actions Release
-
-`.github/workflows/release.yml` runs on:
+Before publishing:
 
 ```text
-- tag push matching v*
-- manual workflow_dispatch with tag_name
-```
-
-The workflow:
-
-```text
-1. checks out the tag
-2. runs dev.bat setup
-3. runs dev.bat release-check
-4. uploads zip/checksum/manifest as workflow artifacts
-5. publishes or updates the GitHub Release for the tag
-```
-
-For an existing tag, run the workflow manually with:
-
-```text
-tag_name = v1.0-stable
-```
-
-Use manual dispatch when a tag already existed before the release workflow was
-added.
-
-For a SemVer stable tag such as `v1.0.0`, the workflow first looks for
-`docs\release\v1.0.0.md`. If it does not exist, it falls back to
-`docs\release\v1.0-stable.md`.
-
-## Release Notes
-
-Release notes live in:
-
-```text
-docs\release\<tag>.md
-```
-
-Examples:
-
-```text
-docs\release\v1.0-stable.md
-docs\release\v1.1-alpha.md
-```
-
-If no matching file exists, the workflow publishes a minimal fallback note. A
-real release should add the matching release note before tag push.
-
-## Post-Release Checks
-
-After the workflow completes:
-
-```text
-[ ] GitHub Release exists for the tag
-[ ] zip asset is attached
-[ ] .sha256 asset is attached
-[ ] release-manifest.txt is attached
-[ ] checksum matches the zip
-[ ] release notes render correctly
-[ ] downloaded zip runs eng-ide.exe --smoke on a clean Windows folder
-[ ] downloaded zip runs eng-lsp.exe --smoke on a clean Windows folder
-[ ] downloaded zip runs eng.exe doctor on a clean Windows folder
+[ ] release-check passed locally
+[ ] worktree is clean
+[ ] release note says this is preview software
+[ ] portable package smoke passed in a clean folder
+[ ] eng.exe doctor passes from the extracted package
+[ ] eng-ide.exe --smoke passes from the extracted package
+[ ] eng-lsp.exe --smoke passes from the extracted package
+[ ] official CSV, simple system, and integrated HVAC examples run
+[ ] package docs folder contains the curated PDF only
+[ ] release assets match v0.1-preview public labels
 ```

@@ -1,6 +1,7 @@
 # Report and Review Artifacts
 
-v0.7-alpha makes the review/report artifacts explicit enough for UI, LSP, packaging, and automated review tooling to consume.
+The current public preview makes the review/report artifacts explicit enough
+for UI, IDE tooling, packaging, and automated review tooling to consume.
 
 Artifact schema contracts live in `docs/schemas`. Golden baselines for official
 examples live in `tests/golden/artifacts` and are checked by
@@ -44,7 +45,7 @@ target\debug\eng.exe check examples\official\01_csv_plot\main.eng --review
 target\debug\eng.exe run examples\official\01_csv_plot\main.eng
 ```
 
-The v0.7 contract includes:
+The current preview contract includes:
 
 ```text
 format = eng-review-preview-1
@@ -76,7 +77,7 @@ component_summary
 connection_summary
 ```
 
-For the v2.0 domain/component preview, each `domain_summary.type_parameters`
+For the domain/component track preview, each `domain_summary.type_parameters`
 entry is an object with `kind`, `name`, and `display` fields. For example,
 `Fluid[Medium M]` records `{ kind: "Medium", name: "M", display: "Medium M" }`.
 
@@ -86,7 +87,7 @@ entry is an object with `kind`, `name`, and `display` fields. For example,
 
 `report_spec.json` is the runtime report contract. It is written by `eng run` beside `report.html` and `result.engres`.
 
-The v0.7 contract includes:
+The current preview contract includes:
 
 ```text
 format = eng-report-spec-v1
@@ -177,7 +178,7 @@ typed_payload.system_ir
 
 ## Uncertainty Metadata
 
-v1.1 adds uncertainty metadata for:
+The uncertainty track adds metadata for:
 
 ```text
 measured(...)
@@ -213,7 +214,7 @@ native IDE Runtime Summary.
 
 ## Data-driven Modeling Metadata
 
-v1.2 adds data-driven modeling metadata for:
+The data-driven modeling track adds metadata for:
 
 ```text
 train_test_split(...)
@@ -300,7 +301,7 @@ $spec.plot_manifest
 
 ## Current Limits
 
-Deferred beyond the current v1.0 artifact contract:
+Deferred beyond the current preview artifact contract:
 
 ```text
 - multi-plot report manifests

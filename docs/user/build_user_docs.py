@@ -21,9 +21,8 @@ def build_document(version: str) -> Document:
                 " should be checked as part of the program rather than as after-the-fact spreadsheet convention.",
             ),
             paragraph(
-                "The current release line is intentionally narrow: typed CSV import, unit-aware calculations, "
-                "TimeSeries statistics, PlotSpec/SVG/report generation, simple system metadata, experimental uncertainty "
-                "and data-driven modeling paths, and packaged execution.",
+                "The current public line is a preview: typed CSV import, unit-aware calculations, "
+                "TimeSeries statistics, PlotSpec/SVG/report generation, native IDE user testing, and basic packaged execution.",
             ),
         ),
         Chapter(
@@ -109,9 +108,9 @@ def build_document(version: str) -> Document:
                 ".",
             ),
             paragraph(
-                "For uncertainty testing, open ",
+                "For future-track smoke testing, open ",
                 code("examples/official/04_uncertainty_core/main.eng"),
-                " and verify the in-IDE Runtime uncertainty summary plus the histogram preview. For data-driven modeling testing, open ",
+                " and verify the in-IDE Runtime uncertainty summary plus the histogram preview. For data-driven modeling smoke testing, open ",
                 code("examples/official/05_data_driven_modeling/main.eng"),
                 " and verify the in-IDE ML metrics, coefficients, loss history, and parity preview.",
             ),
@@ -136,8 +135,8 @@ def build_document(version: str) -> Document:
                 ".",
             ),
             paragraph(
-                "The result records policy execution, computed statistics, integration provenance, uncertainty summaries, "
-                "ML metrics/model-card metadata, plot hashes, and system solver boundary metadata.",
+                "The result records policy execution, computed statistics, integration provenance, plot hashes, and "
+                "system solver boundary metadata. Future-track examples may also record uncertainty and ML preview metadata.",
             ),
         ),
         Chapter(
@@ -149,7 +148,7 @@ def build_document(version: str) -> Document:
                 code("eng-kernel-plan-v1"),
                 " JIT planning surface are experimental and intended for smoke checks and inspection. The ",
                 code("eng-jit-bench-v1"),
-                " harness records interpreter baseline timings only and marks JIT execution as unavailable. Backend selection metadata can record a native-preview request, but native execution remains unavailable. This release is not yet a full editor platform, not a general nonlinear solver, not a native JIT runtime, and not a complete domain package ecosystem. Those are later roadmap items. The public claim for this release is a stable, inspectable data-to-report core with a native test IDE.",
+                " harness records interpreter baseline timings only and marks JIT execution as unavailable. Backend selection metadata can record a native-preview request, but native execution remains unavailable. This release is not a stable language contract, not a full editor platform, not a general nonlinear solver, not a native JIT runtime, and not a complete domain package ecosystem. Those are future tracks. The public claim for this release is a preview data-to-report workflow with a native test IDE.",
             ),
         ),
         settings=DocumentSettings(

@@ -1,7 +1,8 @@
 # JIT Benchmark Harness Reference
 
 `eng.exe jit-bench <file.eng>` emits an experimental `eng-jit-bench-v1`
-artifact. It is a v1.4 planning harness, not a performance claim.
+artifact. It is a runtime optimization track planning harness, not a
+performance claim.
 
 The current harness measures only the normal interpreter/runtime path. The JIT
 side is present in the JSON shape as `status = "not_available"` so future native
@@ -75,7 +76,7 @@ and `jit.status` remains `not_available`.
 
 ## Stability Policy
 
-`eng-jit-bench-v1` is experimental while v1.4 is not release-supported.
+`eng-jit-bench-v1` is experimental and not public release-supported.
 
 - Existing top-level keys keep their current type.
 - New optional keys may be added.

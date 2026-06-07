@@ -1,6 +1,6 @@
 # Artifact Schemas
 
-These schema files document the stable v1.0 artifact contracts used by the
+These schema files document the current preview artifact contracts used by the
 release gate.
 
 ```text

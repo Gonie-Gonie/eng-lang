@@ -160,6 +160,14 @@ function Get-WorkspaceVersion {
     throw "workspace package version not found in Cargo.toml"
 }
 
+function Get-PublicVersion {
+    $Version = Get-WorkspaceVersion
+    if ($Version -match '^([0-9]+)\.([0-9]+)\.0-preview$') {
+        return "$($Matches[1]).$($Matches[2])-preview"
+    }
+    return $Version
+}
+
 function Invoke-Setup {
     Set-DevEnvironment
     if (-not (Test-Path (Join-Path $CargoHome "bin\cargo.exe"))) {
@@ -1084,7 +1092,7 @@ function New-UserGuidePdf {
         @{ Kind = "body"; Text = "If a run fails, check Problems first, then run eng.exe check <file.eng> from the same folder. If the plot preview is empty, open the Artifacts tab and check plots/plot_spec.json and plots/timeseries.svg." },
         @{ Kind = "body"; Text = "If a CSV path fails, keep relative paths anchored next to the source file, as in the official examples. If a report does not open, open build/result/report.html manually." },
         @{ Kind = "h1"; Text = "8. Current Boundaries" },
-        @{ Kind = "body"; Text = "This release is stable for the supported CSV, statistics, plotting, report, package, and simple thermal preview workflows. The packaged eng-lsp.exe is experimental and intended for smoke checks only. This is not yet a full editor platform, not a general nonlinear or multi-equation solver, and not a complete domain package ecosystem. Those are later milestones." }
+        @{ Kind = "body"; Text = "This is a public preview release. The supported user-test workflows cover CSV promote, unit-aware TimeSeries calculations, PlotSpec/SVG output, review/report artifacts, basic packaged execution, and the native tester IDE. Language and artifact formats are not yet stable. Uncertainty, ML, LSP, JIT/AOT, and domain/component work are future tracks unless explicitly marked preview-supported." }
     )
 
     $pages = New-Object System.Collections.Generic.List[string]
@@ -1201,10 +1209,11 @@ function Invoke-Package {
     }
     Invoke-Native $cargo "build" "--workspace" "--release"
     $Version = Get-WorkspaceVersion
+    $PublicVersion = Get-PublicVersion
     $PackageRoot = Join-Path $RepoRoot "dist\englang-preview"
-    $ZipPath = Join-Path $RepoRoot "dist\englang-preview-v$Version-windows-x64.zip"
+    $ZipPath = Join-Path $RepoRoot "dist\englang-preview-v$PublicVersion-windows-x64.zip"
     $ChecksumPath = "$ZipPath.sha256"
-    $ReleaseGuidePath = Join-Path $RepoRoot "dist\englang-user-test-guide-v$Version.pdf"
+    $ReleaseGuidePath = Join-Path $RepoRoot "dist\englang-user-test-guide-v$PublicVersion.pdf"
     Remove-Item -LiteralPath $PackageRoot -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $ChecksumPath -Force -ErrorAction SilentlyContinue
@@ -1217,8 +1226,8 @@ function Invoke-Package {
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "stdlib") (Join-Path $PackageRoot "stdlib")
     New-Item -ItemType Directory -Force -Path (Join-Path $PackageRoot "docs") | Out-Null
     $PackageGuidePath = Join-Path $PackageRoot "docs\EngLang_User_Test_Guide.pdf"
-    if (-not (New-UserGuideWithOodocs -Path $PackageGuidePath -Version $Version)) {
-        New-UserGuidePdf -Path $PackageGuidePath -Version $Version
+    if (-not (New-UserGuideWithOodocs -Path $PackageGuidePath -Version $PublicVersion)) {
+        New-UserGuidePdf -Path $PackageGuidePath -Version $PublicVersion
     }
     Copy-Item -Force $PackageGuidePath $ReleaseGuidePath
     Invoke-IdePackage -PackageRoot $PackageRoot
@@ -1261,7 +1270,8 @@ docs are kept in the source repository and are not bundled into this package.
 function Invoke-PackageSmoke {
     Invoke-Package
     $Version = Get-WorkspaceVersion
-    $ZipPath = Join-Path $RepoRoot "dist\englang-preview-v$Version-windows-x64.zip"
+    $PublicVersion = Get-PublicVersion
+    $ZipPath = Join-Path $RepoRoot "dist\englang-preview-v$PublicVersion-windows-x64.zip"
     $KoreanWord = -join @([char]0xD55C, [char]0xAE00)
     $SmokeRoot = Join-Path $RepoRoot "dist\portable smoke $KoreanWord"
     Remove-Item -LiteralPath $SmokeRoot -Recurse -Force -ErrorAction SilentlyContinue
@@ -1336,7 +1346,8 @@ function Invoke-ReleaseCheck {
     Invoke-ArtifactsCheck
     Invoke-PackageSmoke
     $Version = Get-WorkspaceVersion
-    $ZipPath = Join-Path $RepoRoot "dist\englang-preview-v$Version-windows-x64.zip"
+    $PublicVersion = Get-PublicVersion
+    $ZipPath = Join-Path $RepoRoot "dist\englang-preview-v$PublicVersion-windows-x64.zip"
     $ChecksumPath = "$ZipPath.sha256"
     if (-not (Test-Path $ZipPath)) {
         throw "release check did not create $ZipPath"
@@ -1344,7 +1355,7 @@ function Invoke-ReleaseCheck {
     if (-not (Test-Path $ChecksumPath)) {
         throw "release check did not create $ChecksumPath"
     }
-    $GuidePath = Join-Path $RepoRoot "dist\englang-user-test-guide-v$Version.pdf"
+    $GuidePath = Join-Path $RepoRoot "dist\englang-user-test-guide-v$PublicVersion.pdf"
     if (-not (Test-Path $GuidePath)) {
         throw "release check did not create $GuidePath"
     }
@@ -1362,7 +1373,8 @@ function Invoke-ReleaseCheck {
     Set-Content -Path $ManifestPath -Encoding ascii -Value @"
 EngLang release check
 
-version = $Version
+version = $PublicVersion
+workspace_package_version = $Version
 commit = $GitCommit
 zip = $(Split-Path -Leaf $ZipPath)
 user_guide = $(Split-Path -Leaf $GuidePath)
@@ -1408,7 +1420,7 @@ Usage:
   .\dev.bat docs-check     Check supported documentation Eng snippets
   .\dev.bat ide-check      Validate the VS Code extension preview
   .\dev.bat lsp-check      Validate eng-lsp.exe stdio, smoke, and snapshot output
-  .\dev.bat jit-check      Validate v1.4 JIT kernel detection, plan, and bench output
+  .\dev.bat jit-check      Validate runtime optimization track kernel planning and bench output
   .\dev.bat ide            Run the native EngLang tester IDE
   .\dev.bat artifacts-check Validate artifact schemas and golden baselines
   .\dev.bat run-example    Run examples\official\01_csv_plot\main.eng

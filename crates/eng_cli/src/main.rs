@@ -562,7 +562,9 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             .iter()
             .any(|candidate| candidate.kind == "timeseries_integrate")
     {
-        eprintln!("expected official CSV example to expose v1.4 JIT kernel candidates");
+        eprintln!(
+            "expected official CSV example to expose runtime optimization track kernel candidates"
+        );
         return ExitCode::from(2);
     }
     println!("ok: official CSV example produced JIT kernel candidates");

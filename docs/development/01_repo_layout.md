@@ -1,6 +1,6 @@
 # Repository Layout
 
-Current v1.0.3 hardening layout:
+Current public preview layout:
 
 ```text
 .
@@ -14,10 +14,10 @@ Current v1.0.3 hardening layout:
 |   `-- eng_report/     PlotSpec, SVG plot, HTML review report renderer
 |-- docs/
 |   |-- architecture/   system and artifact design
-|   |-- current/        status, feature maturity, and active hardening register
+|   |-- current/        status, version plan, feature maturity, and tracks
 |   |-- development/    setup, workflow, reproducibility
 |   |-- llm/            compact load maps for future agent work
-|   |-- master-plan/    current planning pointer and active v9 plan
+|   |-- master-plan/    current planning pointer and historical long-form plan
 |   |-- reference/      command references
 |   |-- release/        acceptance checklist and release notes
 |   |-- runtime/        bytecode/VM/result contracts

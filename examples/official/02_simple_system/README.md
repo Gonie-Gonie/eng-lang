@@ -1,6 +1,6 @@
 # Official Simple System Example
 
-This is the primary v1.0 physical-system example. It covers:
+This is the primary physical-system preview example. It covers:
 
 ```text
 - system block

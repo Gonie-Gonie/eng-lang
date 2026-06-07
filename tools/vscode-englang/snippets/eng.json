@@ -42,7 +42,7 @@
       "        ${4:C} * der(${2:T}) eq ${6:UA} * (${8:T_out} - ${2:T}) + ${10:Q_internal}",
       "}"
     ],
-    "description": "Create the v1.0 first-order thermal system shape."
+    "description": "Create the first-order thermal system preview shape."
   },
   "Domain ports": {
     "prefix": "domain ports",
