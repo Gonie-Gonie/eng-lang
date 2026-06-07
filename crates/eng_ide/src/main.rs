@@ -1,7 +1,4 @@
-#![cfg_attr(
-    all(target_os = "windows", not(debug_assertions)),
-    windows_subsystem = "windows"
-)]
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -43,8 +40,8 @@ fn main() -> eframe::Result<()> {
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1400.0, 860.0])
-            .with_min_inner_size([980.0, 620.0]),
+            .with_inner_size([1600.0, 920.0])
+            .with_min_inner_size([1120.0, 680.0]),
         ..Default::default()
     };
     eframe::run_native(
@@ -63,6 +60,22 @@ fn configure_ui(ctx: &egui::Context) {
     style.spacing.item_spacing = egui::vec2(8.0, 6.0);
     style.spacing.button_padding = egui::vec2(12.0, 7.0);
     style.spacing.window_margin = egui::Margin::same(10.0);
+    style.text_styles.insert(
+        egui::TextStyle::Body,
+        egui::FontId::new(14.5, egui::FontFamily::Proportional),
+    );
+    style.text_styles.insert(
+        egui::TextStyle::Button,
+        egui::FontId::new(14.0, egui::FontFamily::Proportional),
+    );
+    style.text_styles.insert(
+        egui::TextStyle::Heading,
+        egui::FontId::new(19.0, egui::FontFamily::Proportional),
+    );
+    style.text_styles.insert(
+        egui::TextStyle::Monospace,
+        egui::FontId::new(15.0, egui::FontFamily::Monospace),
+    );
     style.visuals.window_fill = BG;
     style.visuals.panel_fill = BG;
     style.visuals.extreme_bg_color = PANEL_ALT;
@@ -145,6 +158,9 @@ struct EngIdeApp {
     completion_filter: String,
     right_tab: RightTab,
     bottom_tab: BottomTab,
+    show_explorer: bool,
+    show_inspector_panel: bool,
+    show_preview: bool,
     last_output: Option<RunOutputView>,
     plot_preview: Option<PlotPreview>,
 }
@@ -177,6 +193,9 @@ impl EngIdeApp {
             completion_filter: String::new(),
             right_tab: RightTab::Inspector,
             bottom_tab: BottomTab::Problems,
+            show_explorer: true,
+            show_inspector_panel: true,
+            show_preview: true,
             last_output: None,
             plot_preview: None,
         };
@@ -217,6 +236,46 @@ impl EngIdeApp {
     fn open_path_input(&mut self) {
         let path = self.resolve_path_input();
         self.open_file(path);
+    }
+
+    fn browse_file(&mut self) {
+        let start_dir = self
+            .current_path
+            .parent()
+            .unwrap_or(self.root.as_path())
+            .to_path_buf();
+        if let Some(path) = rfd::FileDialog::new()
+            .set_directory(start_dir)
+            .add_filter("EngLang", &["eng"])
+            .add_filter("Markdown", &["md"])
+            .pick_file()
+        {
+            self.open_file(path);
+        }
+    }
+
+    fn browse_folder(&mut self) {
+        if let Some(path) = rfd::FileDialog::new()
+            .set_directory(&self.root)
+            .pick_folder()
+        {
+            if self.dirty {
+                self.save_current();
+            }
+            self.root = path;
+            self.examples = collect_examples(&self.root);
+            if let Some(first) = self.examples.first().cloned() {
+                self.open_file(first);
+            } else {
+                self.current_path = self.root.join("main.eng");
+                self.path_input = self.relative_path(&self.current_path);
+                self.source.clear();
+                self.diagnostics.clear();
+                self.symbols.clear();
+                self.dirty = false;
+            }
+            self.status = format!("Workspace: {}", self.root.display());
+        }
     }
 
     fn create_new_file(&mut self) {
@@ -440,6 +499,10 @@ impl EngIdeApp {
                 }
             }
             ui.separator();
+            ui.toggle_value(&mut self.show_explorer, "Explorer");
+            ui.toggle_value(&mut self.show_inspector_panel, "Inspector");
+            ui.toggle_value(&mut self.show_preview, "Preview");
+            ui.separator();
             ui.label("Entry");
             ui.add_sized([110.0, 28.0], egui::TextEdit::singleline(&mut self.entry));
             ui.separator();
@@ -459,8 +522,9 @@ impl EngIdeApp {
         ui.add_space(3.0);
         ui.horizontal(|ui| {
             ui.label("File");
+            let path_width = (ui.available_width() - 210.0).max(180.0);
             let response = ui.add_sized(
-                [ui.available_width() - 72.0, 26.0],
+                [path_width, 26.0],
                 egui::TextEdit::singleline(&mut self.path_input),
             );
             if response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
@@ -469,11 +533,30 @@ impl EngIdeApp {
             if ui.button("Open").clicked() {
                 self.open_path_input();
             }
+            if ui.button("Browse...").clicked() {
+                self.browse_file();
+            }
+            if ui.button("Folder...").clicked() {
+                self.browse_folder();
+            }
         });
     }
 
     fn show_explorer(&mut self, ui: &mut egui::Ui) {
         panel_header(ui, "Explorer");
+        ui.horizontal(|ui| {
+            if ui.button("Open File...").clicked() {
+                self.browse_file();
+            }
+            if ui.button("Open Folder...").clicked() {
+                self.browse_folder();
+            }
+            if ui.button("Explorer").clicked() {
+                open_path(&self.root);
+            }
+        });
+        ui.label(egui::RichText::new(self.root.display().to_string()).color(MUTED));
+        ui.add_space(6.0);
         ui.horizontal(|ui| {
             ui.add_sized(
                 [ui.available_width() - 62.0, 25.0],
@@ -486,12 +569,7 @@ impl EngIdeApp {
         ui.add_space(8.0);
 
         egui::ScrollArea::vertical().show(ui, |ui| {
-            let roots = [
-                self.root.join("examples"),
-                self.root.join("stdlib"),
-                self.root.join("docs").join("tutorials"),
-            ];
-            for path in roots {
+            for path in explorer_roots(&self.root) {
                 if path.exists() {
                     self.show_directory(ui, &path, 0);
                 }
@@ -558,6 +636,7 @@ impl EngIdeApp {
                 };
                 let text_output = egui::TextEdit::multiline(&mut self.source)
                     .code_editor()
+                    .desired_width(f32::INFINITY)
                     .desired_rows(30)
                     .lock_focus(true)
                     .layouter(&mut layouter)
@@ -792,19 +871,23 @@ impl eframe::App for EngIdeApp {
             .frame(panel_frame())
             .show(ctx, |ui| self.show_bottom_panel(ui));
 
-        egui::SidePanel::left("explorer")
-            .resizable(true)
-            .default_width(290.0)
-            .width_range(220.0..=420.0)
-            .frame(panel_frame())
-            .show(ctx, |ui| self.show_explorer(ui));
+        if self.show_explorer {
+            egui::SidePanel::left("explorer")
+                .resizable(true)
+                .default_width(250.0)
+                .width_range(170.0..=520.0)
+                .frame(panel_frame())
+                .show(ctx, |ui| self.show_explorer(ui));
+        }
 
-        egui::SidePanel::right("inspector")
-            .resizable(true)
-            .default_width(340.0)
-            .width_range(260.0..=520.0)
-            .frame(panel_frame())
-            .show(ctx, |ui| self.show_right_panel(ui));
+        if self.show_inspector_panel {
+            egui::SidePanel::right("inspector")
+                .resizable(true)
+                .default_width(300.0)
+                .width_range(220.0..=560.0)
+                .frame(panel_frame())
+                .show(ctx, |ui| self.show_right_panel(ui));
+        }
 
         egui::CentralPanel::default()
             .frame(
@@ -814,8 +897,10 @@ impl eframe::App for EngIdeApp {
             )
             .show(ctx, |ui| {
                 self.show_editor(ui);
-                ui.add_space(10.0);
-                self.show_plot_preview(ui);
+                if self.show_preview {
+                    ui.add_space(10.0);
+                    self.show_plot_preview(ui);
+                }
             });
     }
 }
@@ -1160,7 +1245,7 @@ fn append_chars(
 
 fn code_format(color: egui::Color32, background: egui::Color32) -> TextFormat {
     TextFormat {
-        font_id: egui::FontId::monospace(14.0),
+        font_id: egui::FontId::monospace(15.0),
         color,
         background,
         ..Default::default()
@@ -1251,9 +1336,31 @@ fn workspace_root() -> PathBuf {
 
 fn collect_examples(root: &Path) -> Vec<PathBuf> {
     let mut examples = Vec::new();
-    collect_eng_files(&root.join("examples"), &mut examples);
+    let examples_root = root.join("examples");
+    if examples_root.exists() {
+        collect_eng_files(&examples_root, &mut examples);
+    } else {
+        collect_eng_files(root, &mut examples);
+    }
     examples.sort();
     examples
+}
+
+fn explorer_roots(root: &Path) -> Vec<PathBuf> {
+    let preferred = [
+        root.join("examples"),
+        root.join("stdlib"),
+        root.join("docs").join("tutorials"),
+    ];
+    let roots = preferred
+        .into_iter()
+        .filter(|path| path.exists())
+        .collect::<Vec<_>>();
+    if roots.is_empty() {
+        vec![root.to_path_buf()]
+    } else {
+        roots
+    }
 }
 
 fn collect_eng_files(path: &Path, output: &mut Vec<PathBuf>) {

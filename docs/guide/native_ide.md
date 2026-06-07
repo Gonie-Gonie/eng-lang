@@ -38,6 +38,9 @@ eng-ide.exe --smoke
 The smoke path checks that the IDE can discover example files and call the same
 compiler metadata path used by `eng.exe check`.
 
+On Windows, `eng-ide.exe` is built as a GUI subsystem binary so launching it from
+Explorer does not create a separate console window.
+
 ## Development Flow
 
 From the repository root:
@@ -58,15 +61,19 @@ The native IDE follows a familiar editor layout:
 ```text
 Top toolbar
   Check, Save, Run, Report, Plot SVG, entry selection, diagnostic counts,
-  dirty state, and current status.
+  Explorer/Inspector/Preview visibility toggles, dirty state, and current
+  status.
 
 Left Explorer
   Opens .eng files from examples/, stdlib/, and selected tutorial sources.
-  Creates scratch .eng files from a starter template.
+  Creates scratch .eng files from a starter template. Open File and Open Folder
+  use native OS dialogs.
 
 Center editor and preview
   Native multiline editor with EngLang syntax highlighting and line-level
-  diagnostic backgrounds. Run Preview renders PlotSpec points inside the IDE.
+  diagnostic backgrounds. The editor uses a larger monospace style and expands
+  to the available center width. Run Preview renders PlotSpec points inside the
+  IDE and can be hidden from the toolbar.
 
 Right Inspector
   Tabbed Symbols and Completions surface.
