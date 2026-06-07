@@ -1362,6 +1362,11 @@ impl EngIdeApp {
                     item.distribution.as_deref().unwrap_or(""),
                 );
                 key_value_row(ui, "method", item.method.as_deref().unwrap_or(""));
+                let transform =
+                    runtime_transform_label(item.scale.as_deref(), item.offset.as_deref());
+                if !transform.is_empty() {
+                    key_value_row(ui, "transform", &transform);
+                }
                 key_value_row(
                     ui,
                     "mean",
@@ -1826,6 +1831,8 @@ struct UncertaintyArtifactView {
     display_unit: String,
     distribution: Option<String>,
     method: Option<String>,
+    scale: Option<String>,
+    offset: Option<String>,
     mean: Option<String>,
     stddev: Option<String>,
     p05: Option<String>,
@@ -1844,6 +1851,8 @@ impl UncertaintyArtifactView {
             display_unit: json_field_string(value, "display_unit").unwrap_or_default(),
             distribution: json_field_string(value, "distribution"),
             method: json_field_string(value, "method"),
+            scale: json_field_string(value, "scale"),
+            offset: json_field_string(value, "offset"),
             mean: json_field_string(value, "mean"),
             stddev: json_field_string(value, "stddev"),
             p05: json_field_string(value, "p05"),
@@ -2583,6 +2592,15 @@ fn compact_list(values: &[String], limit: usize) -> String {
         .join(", ");
     head.push_str(&format!(" ... +{}", values.len() - limit));
     head
+}
+
+fn runtime_transform_label(scale: Option<&str>, offset: Option<&str>) -> String {
+    match (scale, offset) {
+        (Some(scale), Some(offset)) => format!("scale={scale}, offset={offset}"),
+        (Some(scale), None) => format!("scale={scale}"),
+        (None, Some(offset)) => format!("offset={offset}"),
+        (None, None) => String::new(),
+    }
 }
 
 fn relative_to(root: &Path, path: &Path) -> String {

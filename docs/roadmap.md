@@ -331,7 +331,8 @@ Required outputs before v1.1 can be considered supported:
 - Distribution[T] deterministic path
 - Ensemble[T] deterministic path
 - uncertainty metadata in review/report/result artifacts
-- simple propagation through source binding samples
+- simple propagation through source binding samples with scale/offset transform
+  metadata
 - distribution summary/plot histogram
 - official uncertainty example and CLI smoke
 - diagnostics, IDE metadata, documentation, and release notes aligned

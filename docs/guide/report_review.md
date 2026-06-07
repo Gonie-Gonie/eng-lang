@@ -189,6 +189,8 @@ plots/plot_spec.json        histogram when plot distribution(...) is requested
 
 The runtime path is deterministic. It records samples and summary fields for
 user testing, but it is not yet a full stochastic propagation engine.
+`propagate(..., scale=..., offset=...)` records declared transform metadata in
+`review.json` and numeric transform values in runtime result/report artifacts.
 
 ## Data-driven Modeling Metadata
 

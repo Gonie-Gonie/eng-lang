@@ -885,6 +885,8 @@ pub fn review_json(report: &CheckReport) -> String {
             6,
         );
         push_optional_json_string(&mut json, "method", uncertainty.method.as_deref(), 6);
+        push_optional_json_string(&mut json, "scale", uncertainty.scale.as_deref(), 6);
+        push_optional_json_string(&mut json, "offset", uncertainty.offset.as_deref(), 6);
         push_optional_json_string(&mut json, "mean", uncertainty.mean.as_deref(), 6);
         push_optional_json_string(&mut json, "stddev", uncertainty.stddev.as_deref(), 6);
         push_optional_json_string(&mut json, "lower", uncertainty.lower.as_deref(), 6);
@@ -1612,7 +1614,7 @@ mod tests {
     fn records_uncertainty_core_metadata() {
         let report = check_source(
             "ok.eng",
-            "script main(args: Args) -> Report {\n    T_supply_meas = measured(12 degC, std=0.2 K)\n    T_return_band = interval(20 degC, 24 degC)\n    Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)\n    Q_uniform = uniform(4 kW, 6 kW, samples=11)\n    Q_coil_ensemble = ensemble(Q_coil_dist, samples=31)\n    Q_total_unc = propagate(Q_coil_dist, method=linear)\n}\n",
+            "script main(args: Args) -> Report {\n    T_supply_meas = measured(12 degC, std=0.2 K)\n    T_return_band = interval(20 degC, 24 degC)\n    Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)\n    Q_uniform = uniform(4 kW, 6 kW, samples=11)\n    Q_coil_ensemble = ensemble(Q_coil_dist, samples=31)\n    Q_total_unc = propagate(Q_coil_dist, method=linear, scale=1.08, offset=0.4 kW)\n}\n",
             &CheckOptions::default(),
         );
 
@@ -1648,10 +1650,24 @@ mod tests {
                 .as_deref(),
             Some("linear")
         );
+        assert_eq!(
+            report.semantic_program.uncertainty_infos[5]
+                .scale
+                .as_deref(),
+            Some("1.08")
+        );
+        assert_eq!(
+            report.semantic_program.uncertainty_infos[5]
+                .offset
+                .as_deref(),
+            Some("0.4 kW")
+        );
 
         let review = review_json(&report);
         assert!(review.contains("\"uncertainty_info\""));
         assert!(review.contains("\"distribution\": \"uniform\""));
+        assert!(review.contains("\"scale\": \"1.08\""));
+        assert!(review.contains("\"offset\": \"0.4 kW\""));
         assert!(review.contains("\"Measured[AbsoluteTemperature]\""));
         assert!(review.contains("\"Distribution[HeatRate]\""));
     }

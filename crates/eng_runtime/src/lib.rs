@@ -923,6 +923,8 @@ fn result_json(
             uncertainty.method.as_deref(),
             8,
         );
+        push_optional_json_number(&mut uncertainties, "scale", uncertainty.scale, 8);
+        push_optional_json_number(&mut uncertainties, "offset", uncertainty.offset, 8);
         push_optional_json_number(&mut uncertainties, "mean", uncertainty.mean, 8);
         push_optional_json_number(&mut uncertainties, "stddev", uncertainty.stddev, 8);
         push_optional_json_number(&mut uncertainties, "lower", uncertainty.lower, 8);

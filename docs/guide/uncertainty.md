@@ -45,8 +45,9 @@ The v1.1 implementation now materializes deterministic sample sets:
   and applies the declared linear transform.
 
 Each runtime uncertainty includes mean, standard deviation, lower/upper bounds,
-`p05`, `p50`, `p95`, `distribution`, `method`, sample count, propagation count,
-and the generated sample vector.
+`p05`, `p50`, `p95`, `distribution`, `method`, optional `scale`/`offset`
+transform metadata, sample count, propagation count, and the generated sample
+vector.
 
 ## Distribution Plot
 
@@ -76,6 +77,7 @@ typed_payload.uncertainties
   source
   distribution
   method
+  scale/offset
   mean/stddev/lower/upper
   p05/p50/p95
   sample_count
@@ -83,8 +85,10 @@ typed_payload.uncertainties
   status
 ```
 
-`review.json` includes `uncertainty_info`. `report_spec.json` includes
-`uncertainty`. `report.html` includes an Uncertainty table.
+`review.json` includes `uncertainty_info` with declared transform strings.
+`result.engres` and runtime-updated `report_spec.json` include numeric
+`scale`/`offset` values when they were declared. `report.html` includes an
+Uncertainty table with a Transform column.
 
 The current propagation is deterministic and supports explicit linear
 scale/offset transforms. It is still not a full Jacobian or Monte Carlo

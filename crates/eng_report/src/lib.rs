@@ -164,6 +164,8 @@ pub struct ReportUncertaintyInfo {
     pub source: Option<String>,
     pub distribution: Option<String>,
     pub method: Option<String>,
+    pub scale: Option<String>,
+    pub offset: Option<String>,
     pub mean: Option<String>,
     pub stddev: Option<String>,
     pub lower: Option<String>,
@@ -496,6 +498,8 @@ pub fn report_spec_from_report(
             source: info.source.clone(),
             distribution: info.distribution.clone(),
             method: info.method.clone(),
+            scale: info.scale.clone(),
+            offset: info.offset.clone(),
             mean: info.mean.clone(),
             stddev: info.stddev.clone(),
             lower: info.lower.clone(),
@@ -1082,6 +1086,8 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             6,
         );
         push_optional_json_string(&mut json, "method", uncertainty.method.as_deref(), 6);
+        push_optional_json_string(&mut json, "scale", uncertainty.scale.as_deref(), 6);
+        push_optional_json_string(&mut json, "offset", uncertainty.offset.as_deref(), 6);
         push_optional_json_string(&mut json, "mean", uncertainty.mean.as_deref(), 6);
         push_optional_json_string(&mut json, "stddev", uncertainty.stddev.as_deref(), 6);
         push_optional_json_string(&mut json, "lower", uncertainty.lower.as_deref(), 6);
@@ -1860,14 +1866,16 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
 
     let mut uncertainty = String::new();
     for info in &report.semantic_program.uncertainty_infos {
+        let transform = uncertainty_transform_label(info.scale.as_deref(), info.offset.as_deref());
         uncertainty.push_str("<tr>");
         uncertainty.push_str(&format!(
-            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><code>{}</code></td>",
+            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><code>{}</code></td>",
             info.line,
             html_escape(&info.binding),
             html_escape(&info.kind),
             html_escape(info.distribution.as_deref().unwrap_or("")),
             html_escape(info.method.as_deref().unwrap_or("")),
+            html_escape(&transform),
             html_escape(&info.quantity_kind),
             html_escape(&info.display_unit),
             info.sample_count,
@@ -1876,7 +1884,7 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
         uncertainty.push_str("</tr>");
     }
     if uncertainty.is_empty() {
-        uncertainty.push_str("<tr><td colspan=\"9\">No uncertainty metadata.</td></tr>");
+        uncertainty.push_str("<tr><td colspan=\"10\">No uncertainty metadata.</td></tr>");
     }
 
     let mut ml_info = String::new();
@@ -2189,7 +2197,7 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     </table>
     <h2>Uncertainty</h2>
     <table>
-      <thead><tr><th>Line</th><th>Binding</th><th>Kind</th><th>Distribution</th><th>Method</th><th>Quantity</th><th>Unit</th><th>Samples</th><th>Expression</th></tr></thead>
+      <thead><tr><th>Line</th><th>Binding</th><th>Kind</th><th>Distribution</th><th>Method</th><th>Transform</th><th>Quantity</th><th>Unit</th><th>Samples</th><th>Expression</th></tr></thead>
       <tbody>{uncertainty}</tbody>
     </table>
     <h2>ML Models</h2>
@@ -2235,6 +2243,15 @@ fn html_escape(value: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
+}
+
+fn uncertainty_transform_label(scale: Option<&str>, offset: Option<&str>) -> String {
+    match (scale, offset) {
+        (Some(scale), Some(offset)) => format!("scale={scale}, offset={offset}"),
+        (Some(scale), None) => format!("scale={scale}"),
+        (None, Some(offset)) => format!("offset={offset}"),
+        (None, None) => String::new(),
+    }
 }
 
 fn xml_escape(value: &str) -> String {
@@ -2535,7 +2552,7 @@ mod tests {
     fn report_spec_and_html_include_uncertainty_metadata() {
         let report = check_source(
             "ok.eng",
-            "script main(args: Args) -> Report {\n    Q_dist = normal(mean=5 kW, std=0.8 kW, samples=31)\n    Q_unc = propagate(Q_dist, method=linear)\n}\n",
+            "script main(args: Args) -> Report {\n    Q_dist = normal(mean=5 kW, std=0.8 kW, samples=31)\n    Q_unc = propagate(Q_dist, method=linear, scale=1.1, offset=0.2 kW)\n}\n",
             &CheckOptions::default(),
         );
 
@@ -2546,9 +2563,14 @@ mod tests {
         assert_eq!(spec.uncertainty.len(), 2);
         assert_eq!(spec.uncertainty[0].kind, "Distribution");
         assert_eq!(spec.uncertainty[0].sample_count, 31);
+        assert_eq!(spec.uncertainty[1].scale.as_deref(), Some("1.1"));
+        assert_eq!(spec.uncertainty[1].offset.as_deref(), Some("0.2 kW"));
         assert!(json.contains("\"uncertainty\""));
+        assert!(json.contains("\"scale\": \"1.1\""));
+        assert!(json.contains("\"offset\": \"0.2 kW\""));
         assert!(json.contains("\"Q_unc\""));
         assert!(html.contains("Uncertainty"));
+        assert!(html.contains("scale=1.1, offset=0.2 kW"));
         assert!(html.contains("Q_dist"));
     }
 

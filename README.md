@@ -151,8 +151,9 @@ v1.0.3
   repo-local portable Python/oodocs setup.
 
 v1.1
-  Uncertainty core: Measured[T], Interval[T], distribution/ensemble seeds,
-  uncertainty metadata, simple propagation, and uncertainty report summaries.
+  Uncertainty core: Measured[T], Interval[T], distribution/ensemble paths,
+  deterministic samples, scale/offset propagation metadata, histogram PlotSpec,
+  and uncertainty report summaries.
   Experimental on main until v1.1 is explicitly targeted and released.
 
 v1.2

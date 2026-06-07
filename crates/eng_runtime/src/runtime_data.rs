@@ -279,6 +279,8 @@ impl RuntimeData {
                 source: uncertainty.source.clone(),
                 distribution: uncertainty.distribution.clone(),
                 method: uncertainty.method.clone(),
+                scale: uncertainty.scale.map(format_number),
+                offset: uncertainty.offset.map(format_number),
                 mean: uncertainty.mean.map(format_number),
                 stddev: uncertainty.stddev.map(format_number),
                 lower: uncertainty.lower.map(format_number),
@@ -467,6 +469,8 @@ pub struct RuntimeUncertainty {
     pub source: Option<String>,
     pub distribution: Option<String>,
     pub method: Option<String>,
+    pub scale: Option<f64>,
+    pub offset: Option<f64>,
     pub mean: Option<f64>,
     pub stddev: Option<f64>,
     pub lower: Option<f64>,
@@ -992,8 +996,16 @@ fn materialize_uncertainty(
         .trim_start()
         .to_ascii_lowercase()
         .starts_with("propagate(");
-    let scale = named_numeric_value(&info.expression, &["scale", "gain"]).unwrap_or(1.0);
-    let offset = named_numeric_value(&info.expression, &["offset", "bias"]).unwrap_or(0.0);
+    let scale = info
+        .scale
+        .as_deref()
+        .and_then(first_numeric_value)
+        .unwrap_or(1.0);
+    let offset = info
+        .offset
+        .as_deref()
+        .and_then(first_numeric_value)
+        .unwrap_or(0.0);
 
     let mut samples = match info.kind.as_str() {
         "Measured" => match (declared_mean, declared_stddev) {
@@ -1046,6 +1058,8 @@ fn materialize_uncertainty(
         source: info.source.clone(),
         distribution: Some(distribution),
         method,
+        scale: info.scale.as_ref().map(|_| scale),
+        offset: info.offset.as_ref().map(|_| offset),
         mean: declared_mean.or(summary.mean),
         stddev: declared_stddev.or(summary.stddev),
         lower: declared_lower.or(summary.lower),
@@ -2315,25 +2329,6 @@ fn first_numeric_value(text: &str) -> Option<f64> {
     number_with_optional_unit(text).map(|(value, _)| value)
 }
 
-fn named_numeric_value(expression: &str, names: &[&str]) -> Option<f64> {
-    let inside = expression
-        .find('(')
-        .zip(expression.rfind(')'))
-        .and_then(|(open, close)| (close > open).then(|| &expression[open + 1..close]))?;
-    for part in inside.split(',').map(str::trim) {
-        let Some((name, value)) = part.split_once('=') else {
-            continue;
-        };
-        if names
-            .iter()
-            .any(|candidate| name.trim().eq_ignore_ascii_case(candidate))
-        {
-            return first_numeric_value(value);
-        }
-    }
-    None
-}
-
 fn interval_samples(lower: Option<f64>, upper: Option<f64>) -> Vec<f64> {
     match (lower, upper) {
         (Some(lower), Some(upper)) if (upper - lower).abs() > f64::EPSILON => {
@@ -3391,6 +3386,8 @@ script main(args: Args) -> Report {
         );
         assert_eq!(runtime.uncertainties[1].status, "propagated_linear");
         assert_eq!(runtime.uncertainties[1].method.as_deref(), Some("linear"));
+        assert_eq!(runtime.uncertainties[1].scale, Some(1.1));
+        assert_eq!(runtime.uncertainties[1].offset, Some(0.2));
         assert!(runtime.uncertainties[0].p05.is_some());
         assert!(runtime.uncertainties[1].mean.unwrap() > runtime.uncertainties[0].mean.unwrap());
         assert_eq!(round2(runtime.uncertainties[0].mean.unwrap()), 5.0);
