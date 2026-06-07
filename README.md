@@ -29,6 +29,7 @@ target\debug\eng.exe entries examples\official\01_csv_plot\main.eng
 target\debug\eng.exe run examples\official\01_csv_plot\main.eng
 target\debug\eng.exe run examples\official\02_simple_system\main.eng
 target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main --input data/sensor.csv
 target\debug\eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
 dist\main-standalone\run.bat
 target\debug\eng.exe view build\result\result.engres
@@ -101,8 +102,8 @@ v1.0-stable
   Stable core release: typed CSV boundary, unit/quantity calculations,
   row-level CSV runtime pages, TimeSeries statistics, CSV-derived PlotSpec
   SVG/report, schema policy execution status, minimal system/equation metadata,
-  explicit solver-boundary artifacts, Args help metadata, and runnable packaged
-  standalone bundles.
+  explicit solver-boundary artifacts, Args help/flag binding metadata, and
+  runnable packaged standalone bundles.
 ```
 
 Active planning target:

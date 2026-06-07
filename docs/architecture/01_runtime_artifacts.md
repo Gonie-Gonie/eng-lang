@@ -94,6 +94,14 @@ Current v1.0 fields:
     "arg_type": "Args",
     "return_type": "Report"
   },
+  "arg_values": [
+    {
+      "name": "input",
+      "type": "String",
+      "value": "data/sensor.csv",
+      "source": "default"
+    }
+  ],
   "object_store": {
     "scalar_count": 2,
     "table_count": 1,
@@ -191,6 +199,7 @@ warning_list
 plot_manifest
 entry_points
 args_summary
+arg_values
 inferred_declarations
 expected_types
 hover_hints
@@ -232,6 +241,7 @@ variable_table
 inferred_declaration_table
 unit_conversion_table
 args_summary
+arg_values
 schema_summary
 computed_statistics
 computed_integrations
@@ -386,7 +396,8 @@ profile = repro
 ```
 
 `run.bat --help` prints `ARGS_HELP.txt`, which is generated from `struct Args`
-metadata when available. Runtime flag binding from Args fields is deferred.
+metadata when available. Extra `run.bat --<field> <value>` flags are forwarded
+to `eng.exe run`, where they are bound to `struct Args` fields.
 
 `run.bat` executes the bundled `eng.exe` and writes normal run artifacts under
 `<model>-standalone/build/result`. This is a packaged runner, not an optimized

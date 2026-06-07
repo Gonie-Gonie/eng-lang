@@ -99,6 +99,16 @@ pub struct ArgsFieldInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ArgValueInfo {
+    pub name: String,
+    pub type_name: String,
+    pub value: String,
+    pub source: String,
+    pub required: bool,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ArgsStructInfo {
     pub name: String,
     pub fields: Vec<ArgsFieldInfo>,
@@ -120,6 +130,7 @@ pub struct SemanticProgram {
     pub integrations: Vec<IntegrationInfo>,
     pub systems: Vec<SystemInfo>,
     pub args_structs: Vec<ArgsStructInfo>,
+    pub arg_values: Vec<ArgValueInfo>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -286,6 +297,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             integrations,
             systems,
             args_structs,
+            arg_values: Vec::new(),
         },
     }
 }

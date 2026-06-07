@@ -6,8 +6,8 @@ use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 
 use eng_compiler::{
-    build_bytecode, check_file, parse_bytecode, review_json, select_entry, CheckOptions,
-    CheckReport, EntryPoint,
+    build_bytecode, check_file, parse_bytecode, review_json, select_entry, ArgOverride,
+    CheckOptions, CheckReport, EntryPoint,
 };
 
 mod runtime_data;
@@ -22,11 +22,13 @@ pub const RUNTIME_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub struct RunOptions {
     pub open_report: bool,
     pub entry: Option<String>,
+    pub args: Vec<ArgOverride>,
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct BuildOptions {
     pub entry: Option<String>,
+    pub args: Vec<ArgOverride>,
 }
 
 #[derive(Clone, Debug)]
@@ -154,7 +156,14 @@ pub fn run_file(
     options: &RunOptions,
 ) -> Result<RunOutput, RuntimeError> {
     let source = fs::read_to_string(path)?;
-    let check_report = check_file(path, &CheckOptions { review: true })?;
+    let check_report = check_file(
+        path,
+        &CheckOptions {
+            review: true,
+            args: options.args.clone(),
+            require_args: true,
+        },
+    )?;
     if check_report.has_errors() {
         return Err(RuntimeError::Compile(Box::new(check_report)));
     }
@@ -262,7 +271,14 @@ pub fn build_standalone(
     options: &BuildOptions,
 ) -> Result<BuildOutput, RuntimeError> {
     let source = fs::read_to_string(path)?;
-    let check_report = check_file(path, &CheckOptions { review: true })?;
+    let check_report = check_file(
+        path,
+        &CheckOptions {
+            review: true,
+            args: options.args.clone(),
+            require_args: false,
+        },
+    )?;
     if check_report.has_errors() {
         return Err(RuntimeError::Compile(Box::new(check_report)));
     }
@@ -303,13 +319,13 @@ pub fn build_standalone(
 
     for promotion in &check_report.semantic_program.csv_promotions {
         let Some(destination) =
-            bundled_dependency_path(&source_dir, &bundle_path, &promotion.source_literal)
+            bundled_dependency_path(&source_dir, &bundle_path, &promotion.source_value)
         else {
             return Err(RuntimeError::Io(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 format!(
                     "CSV dependency `{}` cannot be bundled because it escapes the standalone bundle",
-                    promotion.source_literal
+                    promotion.source_value
                 ),
             )));
         };
@@ -531,9 +547,7 @@ fn args_help_text(report: &CheckReport, entry: &EntryPoint) -> String {
         }
     }
 
-    text.push_str(
-        "\nNote: v1.0 records Args metadata for help. Runtime flag binding is deferred.\n",
-    );
+    text.push_str("\nFlags are forwarded to eng.exe run and recorded in arg_values.\n");
     text
 }
 
@@ -578,6 +592,10 @@ fn result_json(
         data_hashes.push_str(&format!(
             "        \"source\": \"{}\",\n",
             json_escape(&promotion.source_literal)
+        ));
+        data_hashes.push_str(&format!(
+            "        \"source_value\": \"{}\",\n",
+            json_escape(&promotion.source_value)
         ));
         if let Some(hash) = &promotion.source_hash {
             data_hashes.push_str(&format!("        \"hash\": \"{}\"\n", json_escape(hash)));
@@ -630,6 +648,32 @@ fn result_json(
         }
         args_schema.push_str("\n      ]\n");
         args_schema.push_str("    }");
+    }
+    let mut arg_values = String::new();
+    for (index, arg) in report.semantic_program.arg_values.iter().enumerate() {
+        if index > 0 {
+            arg_values.push_str(",\n");
+        }
+        arg_values.push_str("    {\n");
+        arg_values.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&arg.name)
+        ));
+        arg_values.push_str(&format!(
+            "      \"type\": \"{}\",\n",
+            json_escape(&arg.type_name)
+        ));
+        arg_values.push_str(&format!(
+            "      \"value\": \"{}\",\n",
+            json_escape(&arg.value)
+        ));
+        arg_values.push_str(&format!(
+            "      \"source\": \"{}\",\n",
+            json_escape(&arg.source)
+        ));
+        arg_values.push_str(&format!("      \"required\": {},\n", arg.required));
+        arg_values.push_str(&format!("      \"line\": {}\n", arg.line));
+        arg_values.push_str("    }");
     }
 
     let mut objects = String::new();
@@ -972,7 +1016,7 @@ fn result_json(
     let system_ir = system_ir_json(report);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -984,6 +1028,7 @@ fn result_json(
         json_escape(execution.entry.arg_type.as_deref().unwrap_or("Args")),
         json_escape(execution.entry.return_type.as_deref().unwrap_or("Report")),
         args_schema,
+        arg_values,
         execution.scalar_count(),
         execution.table_count(),
         execution.timeseries_count(),

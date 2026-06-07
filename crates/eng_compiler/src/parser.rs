@@ -358,9 +358,7 @@ fn parse_struct_field_decl(
     let [first, second, third, ..] = tokens else {
         return None;
     };
-    let TokenKind::Identifier(name) = &first.kind else {
-        return None;
-    };
+    let name = token_field_name(first)?;
     if !matches!(second.kind, TokenKind::Symbol(Symbol::Colon)) {
         return None;
     }
@@ -370,7 +368,7 @@ fn parse_struct_field_decl(
         .map(|(_, right)| right.trim().to_owned());
 
     Some(StructFieldDecl {
-        name: name.clone(),
+        name,
         type_name,
         default_value,
         line: first.span.line,
@@ -415,6 +413,14 @@ fn token_type_name(token: &Token) -> Option<String> {
     match &token.kind {
         TokenKind::Identifier(value) => Some(value.clone()),
         TokenKind::Keyword(Keyword::Report) => Some("Report".to_owned()),
+        _ => None,
+    }
+}
+
+fn token_field_name(token: &Token) -> Option<String> {
+    match &token.kind {
+        TokenKind::Identifier(value) => Some(value.clone()),
+        TokenKind::Keyword(Keyword::Input) => Some("input".to_owned()),
         _ => None,
     }
 }

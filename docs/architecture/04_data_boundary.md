@@ -62,7 +62,24 @@ The compiler recognizes:
 sensor = promote csv "data/sensor.csv" as SensorData
 ```
 
-The path is resolved relative to the `.eng` source file.
+The path is resolved relative to the `.eng` source file. CSV paths can also
+come from `struct Args`:
+
+```eng partial
+struct Args {
+    input: String = "data/sensor.csv"
+}
+
+script main(args: Args) -> Report {
+    sensor = promote csv args.input as SensorData
+}
+```
+
+Run-time flags override defaults:
+
+```bat
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main --input data/sensor.csv
+```
 
 Recorded promotion metadata:
 
@@ -70,6 +87,7 @@ Recorded promotion metadata:
 binding
 schema name
 source literal
+source value after Args binding
 resolved path
 source hash
 CSV headers
@@ -106,6 +124,7 @@ W-SCHEMA-POLICY-001
 ```text
 schemas
 csv_promotions
+arg_values
 ```
 
 `report.html` includes:

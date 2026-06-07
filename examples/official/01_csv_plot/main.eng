@@ -19,11 +19,11 @@ schema SensorData {
 }
 
 struct Args {
-    case_name: String = "baseline"
+    input: String = "data/sensor.csv"
 }
 
 script main(args: Args) -> Report {
-    sensor = promote csv "data/sensor.csv" as SensorData
+    sensor = promote csv args.input as SensorData
     cp = 4180 J/kg/K
     Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
     E_coil = integrate(Q_coil, over=Time)

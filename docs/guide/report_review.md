@@ -60,6 +60,8 @@ hover_hints
 type_info
 unit_derivations
 unit_conversion_table
+args_summary
+arg_values
 schema_summary
 schemas
 csv_promotions
@@ -90,6 +92,8 @@ provenance
 variable_table
 inferred_declaration_table
 unit_conversion_table
+args_summary
+arg_values
 schema_summary
 plot_manifest
 warning_list
@@ -178,6 +182,7 @@ Inspect section counts:
 $spec = Get-Content build\result\report_spec.json -Raw | ConvertFrom-Json
 $spec.variable_table.Count
 $spec.unit_conversion_table.Count
+$spec.arg_values
 $spec.schema_summary.Count
 $spec.warning_list.Count
 $spec.system_ir.Count

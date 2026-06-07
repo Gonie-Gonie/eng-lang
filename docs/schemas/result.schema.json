@@ -15,6 +15,7 @@
     "numeric_profile",
     "entry",
     "args_schema",
+    "arg_values",
     "object_store",
     "typed_payload",
     "provenance"
@@ -34,6 +35,10 @@
       "required": ["kind", "name", "arg_name", "arg_type", "return_type"]
     },
     "args_schema": { "type": "array" },
+    "arg_values": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/argValue" }
+    },
     "object_store": {
       "type": "object",
       "required": ["scalar_count", "table_count", "timeseries_count", "array_count", "objects"]
@@ -68,6 +73,18 @@
     }
   },
   "$defs": {
+    "argValue": {
+      "type": "object",
+      "required": ["name", "type", "value", "source", "required", "line"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "value": { "type": "string" },
+        "source": { "enum": ["default", "cli"] },
+        "required": { "type": "boolean" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
     "resultSolverBoundary": {
       "type": "object",
       "required": [

@@ -9,7 +9,7 @@ eng.exe doctor
 eng.exe new <project_name>
 eng.exe check <file.eng> [--review]
 eng.exe entries <file.eng>
-eng.exe run <file.eng> [--entry <name>] [--open-report]
+eng.exe run <file.eng> [--entry <name>] [--open-report] [--<arg> <value>...]
 eng.exe build <file.eng> [--entry <name>] [--standalone] [--profile repro]
 eng.exe view <result.engres>
 eng.exe test <project_or_examples>
@@ -53,6 +53,9 @@ E-SCHEMA-PROMOTE-001   unknown schema in promote csv
 E-SCHEMA-CSV-001       CSV source cannot be read
 E-SCHEMA-CSV-002       CSV source missing required columns
 E-SCHEMA-MISSING-001   missing policy references unknown column
+E-ARGS-UNKNOWN-001     CLI Args flag does not match struct Args
+E-ARGS-REQUIRED-001    required Args field was not provided for run
+E-ARGS-CSV-001         CSV promotion references an Args field without a value
 E-ENTRY-NOT-FOUND-001  run/build entry point was not found
 E-ENTRY-MULTIPLE-001   run/build entry point selection is ambiguous
 W-STATS-SUM-001        HeatRate summed over Time should use integrate
@@ -77,6 +80,8 @@ variable_table
 warning_list
 plot_manifest
 entry_points
+args_summary
+arg_values
 inferred_declarations
 expected_types
 hover_hints
@@ -112,7 +117,7 @@ examples\official\01_csv_plot\main.eng:25: script main(args: Args) -> Report
 
 This command is useful before running files with multiple script entries.
 
-## `eng run <file.eng> [--entry <name>] [--open-report]`
+## `eng run <file.eng> [--entry <name>] [--open-report] [--<arg> <value>...]`
 
 Runs the selected entry through bytecode v1 and the native VM seed.
 
@@ -143,6 +148,13 @@ build/
 
 `--open-report` attempts to open the generated `report.html` with the OS default browser.
 
+Args flags are matched against `struct Args` fields. Defaults are used when
+available, and resolved values are recorded in `arg_values`.
+
+```bat
+eng.exe run examples\official\01_csv_plot\main.eng --entry main --input data/sensor.csv
+```
+
 ## `eng build <file.eng> [--entry <name>] --standalone --profile repro`
 
 Creates a runnable standalone package bundle:
@@ -163,8 +175,9 @@ dist/
 
 For CSV promotions that use relative paths, the referenced CSV files are copied
 into the bundle at the same relative path from `source/<file.eng>`. Running
-`run.bat` executes the bundled `eng.exe run source\<file.eng> --entry <name>` and
-creates normal `build/result` artifacts inside the bundle.
+`run.bat` executes the bundled `eng.exe run source\<file.eng> --entry <name>`
+and forwards extra Args flags. It creates normal `build/result` artifacts inside
+the bundle.
 
 The `.engpkg` records package format, runner, engine, source, bytecode,
 source hash, bytecode hash, entry name, selected entry signature, Args schema,
@@ -202,5 +215,6 @@ Runs official smoke checks:
 - missing CSV column example produces errors
 - missing entry example fails file run/build entry selection
 - official plotting example produces report and PlotSpec artifacts
+- Args CLI binding produces CSV run artifacts
 - official simple system example produces system report artifacts
 ```

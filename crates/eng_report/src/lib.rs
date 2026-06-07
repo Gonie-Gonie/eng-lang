@@ -45,6 +45,7 @@ pub struct ReportSpec {
     pub unit_conversions: Vec<ReportUnitConversion>,
     pub schemas: Vec<ReportSchemaSummary>,
     pub args: Vec<ReportArgsStruct>,
+    pub arg_values: Vec<ReportArgValue>,
     pub computed_statistics: Vec<ReportComputedStatistics>,
     pub computed_integrations: Vec<ReportComputedIntegration>,
     pub policy_results: Vec<ReportPolicyResult>,
@@ -108,6 +109,16 @@ pub struct ReportArgsField {
     pub name: String,
     pub type_name: String,
     pub default_value: Option<String>,
+    pub required: bool,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportArgValue {
+    pub name: String,
+    pub type_name: String,
+    pub value: String,
+    pub source: String,
     pub required: bool,
     pub line: usize,
 }
@@ -365,6 +376,19 @@ pub fn report_spec_from_report(
             line: args_struct.line,
         })
         .collect();
+    let arg_values = report
+        .semantic_program
+        .arg_values
+        .iter()
+        .map(|arg| ReportArgValue {
+            name: arg.name.clone(),
+            type_name: arg.type_name.clone(),
+            value: arg.value.clone(),
+            source: arg.source.clone(),
+            required: arg.required,
+            line: arg.line,
+        })
+        .collect();
 
     let warnings = report
         .diagnostics
@@ -494,6 +518,7 @@ pub fn report_spec_from_report(
         unit_conversions,
         schemas,
         args,
+        arg_values,
         computed_statistics: Vec::new(),
         computed_integrations: Vec::new(),
         policy_results: Vec::new(),
@@ -744,6 +769,34 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             json.push_str("        }");
         }
         json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"arg_values\": [\n");
+    for (index, arg) in spec.arg_values.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&arg.name)
+        ));
+        json.push_str(&format!(
+            "      \"type\": \"{}\",\n",
+            json_escape(&arg.type_name)
+        ));
+        json.push_str(&format!(
+            "      \"value\": \"{}\",\n",
+            json_escape(&arg.value)
+        ));
+        json.push_str(&format!(
+            "      \"source\": \"{}\",\n",
+            json_escape(&arg.source)
+        ));
+        json.push_str(&format!("      \"required\": {},\n", arg.required));
+        json.push_str(&format!("      \"line\": {}\n", arg.line));
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");

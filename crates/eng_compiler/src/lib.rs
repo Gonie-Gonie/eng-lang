@@ -13,6 +13,7 @@ mod stats;
 mod type_info;
 mod units;
 
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -33,8 +34,9 @@ pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSu
 pub use quantities::{all_quantity_completions, QuantityCompletion};
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
 pub use semantic::{
-    ArgsFieldInfo, ArgsStructInfo, EquationDependencyInfo, EquationInfo, EquationIrInfo,
-    ResidualInfo, SemanticProgram, SemanticType, SystemInfo, SystemVariableInfo, TypedBinding,
+    ArgValueInfo, ArgsFieldInfo, ArgsStructInfo, EquationDependencyInfo, EquationInfo,
+    EquationIrInfo, ResidualInfo, SemanticProgram, SemanticType, SystemInfo, SystemVariableInfo,
+    TypedBinding,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -130,6 +132,14 @@ impl CheckReport {
 #[derive(Clone, Debug, Default)]
 pub struct CheckOptions {
     pub review: bool,
+    pub args: Vec<ArgOverride>,
+    pub require_args: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ArgOverride {
+    pub name: String,
+    pub value: String,
 }
 
 pub fn check_file(path: impl AsRef<Path>, options: &CheckOptions) -> std::io::Result<CheckReport> {
@@ -138,16 +148,20 @@ pub fn check_file(path: impl AsRef<Path>, options: &CheckOptions) -> std::io::Re
     Ok(check_source(path, &source, options))
 }
 
-pub fn check_source(path: impl AsRef<Path>, source: &str, _options: &CheckOptions) -> CheckReport {
+pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions) -> CheckReport {
     let parsed = parser::parse_source(source);
     let source_path = path.as_ref();
-    let schema_analysis = schema::analyze_schema(&parsed, source_path.parent());
     let mut semantic_output = semantic::analyze(&parsed);
+    let (arg_values, arg_diagnostics) =
+        resolve_arg_values(&semantic_output.semantic_program, options);
+    let schema_analysis = schema::analyze_schema(&parsed, source_path.parent(), &arg_values);
+    semantic_output.diagnostics.extend(arg_diagnostics);
     semantic_output
         .diagnostics
         .extend(schema_analysis.diagnostics);
     semantic_output.semantic_program.schemas = schema_analysis.schemas;
     semantic_output.semantic_program.csv_promotions = schema_analysis.csv_promotions;
+    semantic_output.semantic_program.arg_values = arg_values;
 
     CheckReport {
         source_path: source_path.to_path_buf(),
@@ -158,6 +172,77 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, _options: &CheckOption
         semantic_program: semantic_output.semantic_program,
         quantity_completion_count: quantities::completion_count(),
         unit_info_count: units::unit_info_count(),
+    }
+}
+
+fn resolve_arg_values(
+    program: &SemanticProgram,
+    options: &CheckOptions,
+) -> (Vec<ArgValueInfo>, Vec<Diagnostic>) {
+    let mut diagnostics = Vec::new();
+    let mut overrides = HashMap::new();
+    for arg in &options.args {
+        overrides.insert(normalize_arg_name(&arg.name), arg.value.clone());
+    }
+
+    let mut declared = HashSet::new();
+    let mut values = Vec::new();
+    for args_struct in &program.args_structs {
+        for field in &args_struct.fields {
+            declared.insert(field.name.clone());
+            let (value, source) = if let Some(value) = overrides.get(&field.name) {
+                (value.clone(), "cli")
+            } else if let Some(default_value) = &field.default_value {
+                (strip_string_literal(default_value), "default")
+            } else {
+                if options.require_args {
+                    diagnostics.push(Diagnostic::error(
+                        "E-ARGS-REQUIRED-001",
+                        field.line,
+                        &format!("Required Args field `{}` was not provided.", field.name),
+                        Some("Pass it as `--<name> <value>` when running the script."),
+                    ));
+                }
+                continue;
+            };
+            values.push(ArgValueInfo {
+                name: field.name.clone(),
+                type_name: field.type_name.clone(),
+                value,
+                source: source.to_owned(),
+                required: field.required,
+                line: field.line,
+            });
+        }
+    }
+
+    for name in overrides.keys() {
+        if !declared.contains(name) {
+            diagnostics.push(Diagnostic::error(
+                "E-ARGS-UNKNOWN-001",
+                1,
+                &format!("Unknown Args field `{name}`."),
+                Some("Declare the field in struct Args or remove the flag."),
+            ));
+        }
+    }
+
+    (values, diagnostics)
+}
+
+fn normalize_arg_name(name: &str) -> String {
+    name.trim_start_matches("--").replace('-', "_")
+}
+
+fn strip_string_literal(value: &str) -> String {
+    let trimmed = value.trim();
+    if let Some(inner) = trimmed
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+    {
+        inner.to_owned()
+    } else {
+        trimmed.to_owned()
     }
 }
 
@@ -435,6 +520,34 @@ pub fn review_json(report: &CheckReport) -> String {
             json.push_str("        }");
         }
         json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"arg_values\": [\n");
+    for (index, arg) in report.semantic_program.arg_values.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&arg.name)
+        ));
+        json.push_str(&format!(
+            "      \"type\": \"{}\",\n",
+            json_escape(&arg.type_name)
+        ));
+        json.push_str(&format!(
+            "      \"value\": \"{}\",\n",
+            json_escape(&arg.value)
+        ));
+        json.push_str(&format!(
+            "      \"source\": \"{}\",\n",
+            json_escape(&arg.source)
+        ));
+        json.push_str(&format!("      \"required\": {},\n", arg.required));
+        json.push_str(&format!("      \"line\": {}\n", arg.line));
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -964,6 +1077,10 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str(&format!(
             "      \"source_literal\": \"{}\",\n",
             json_escape(&promotion.source_literal)
+        ));
+        json.push_str(&format!(
+            "      \"source_value\": \"{}\",\n",
+            json_escape(&promotion.source_value)
         ));
         json.push_str(&format!(
             "      \"resolved_path\": \"{}\",\n",

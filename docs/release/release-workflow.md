@@ -48,7 +48,7 @@ official CSV/plot and simple-system artifacts against
 `tests/golden/artifacts`. It verifies stable format headers, version numbers,
 release-critical counts, runtime table/statistics/integration values, policy
 execution results, PlotSpec points, system IR dependencies, solver-boundary
-status, and standalone `.engpkg` metadata.
+status, Args resolved values, and standalone `.engpkg` metadata.
 
 Expected release files:
 

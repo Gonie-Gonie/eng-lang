@@ -55,7 +55,6 @@ P2  review/report schema validation snapshots
 Remaining intentional deferrals:
 
 ```text
-P1  Args-derived runtime flag binding
 P2  bad-cell CSV fixtures and per-cell conversion diagnostics
 P2  duration_above and broader statistics kernels
 P2  bar/histogram plot seeds
@@ -268,8 +267,7 @@ Hardening detail:
 
 ### G-006 Args Struct and Standalone CLI Help
 
-Status: Metadata/help base implemented after v1.0.0. Runtime flag binding is
-still deferred.
+Status: Implemented after v1.0.0 as a v1.0 hardening backfill.
 
 Plan expectation:
 
@@ -284,17 +282,19 @@ Current state:
 - script entry metadata records arg name/type
 - struct Args fields/defaults are parsed as Args metadata
 - review.json, report_spec.json, result.engres, and .engpkg record Args metadata
+- review.json, report_spec.json, and result.engres record resolved arg_values
 - standalone bundles include ARGS_HELP.txt
 - run.bat --help prints Args metadata
 - standalone run.bat still forwards extra args to eng.exe run
-- eng run does not map --input or other flags into args
+- eng run maps `--input data/sensor.csv` style flags into Args values
+- promote csv args.input resolves through default or CLI-provided Args values
 ```
 
 Risk:
 
 ```text
-P1. Packaged execution works for fixed-source examples, but not yet for
-user-configurable model packages.
+P1 closed for string-valued Args fields and CSV path binding. Rich typed
+conversion for non-string Args values remains a later expansion.
 ```
 
 Hardening detail:
@@ -302,9 +302,9 @@ Hardening detail:
 ```text
 1. [x] Parse struct declarations needed for Args.
 2. [x] Record Args fields and defaults in review/result/package metadata.
-3. Add eng run flag binding from Args fields.
+3. [x] Add eng run flag binding from Args fields.
 4. [x] Generate standalone run.bat help or package help from Args metadata.
-5. [partial] Add clean-folder tests for --help and a user-provided CSV path.
+5. [x] Add smoke tests for --help and a user-provided CSV path.
 ```
 
 ### G-007 Schema Constraint and Missing Policy Execution
@@ -467,7 +467,7 @@ Do this before adding uncertainty semantics:
 1. G-001 docs-check command and supported-doc snippet policy
 2. G-002 official examples namespace
 3. G-009 artifact schema/golden validation baseline
-4. G-006 Args metadata inventory, even if full flag binding waits
+4. G-006 Args metadata, resolved values, and CSV path flag binding
 ```
 
 Then proceed with v1.1 while planning numeric/data backfill:
@@ -490,5 +490,5 @@ Keep deferred until the appropriate later milestones:
 
 The v1.0.0 release remains valid as a stable artifact-contract release. Future
 docs should avoid implying that v1.0 includes full numeric statistics, full
-typed table runtime execution beyond the official CSV path, Args-derived flag
-binding, or numeric system simulation.
+typed table runtime execution beyond the official CSV path, rich typed Args
+conversion beyond string-valued flags, or numeric system simulation.

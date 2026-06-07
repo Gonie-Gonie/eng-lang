@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 
 use crate::ast::AstItem;
 use crate::parser::ParseContext;
+use crate::semantic::ArgValueInfo;
 use crate::source::SourceSpan;
 use crate::Diagnostic;
 
@@ -43,6 +44,7 @@ pub struct CsvPromotion {
     pub binding: String,
     pub schema_name: String,
     pub source_literal: String,
+    pub source_value: String,
     pub resolved_path: String,
     pub source_hash: Option<String>,
     pub headers: Vec<String>,
@@ -61,6 +63,7 @@ pub struct SchemaAnalysis {
 pub fn analyze_schema(
     program: &crate::parser::ParsedProgram,
     source_base: Option<&Path>,
+    arg_values: &[ArgValueInfo],
 ) -> SchemaAnalysis {
     let mut schemas: Vec<SchemaInfo> = Vec::new();
     let mut csv_promotions = Vec::new();
@@ -166,12 +169,38 @@ pub fn analyze_schema(
                 Some("Define the schema before the `promote csv` expression."),
             ));
         }
-
-        let resolved_path = resolve_csv_path(source_base, &source_literal);
-        let csv_read = read_csv_header(&resolved_path);
         let mut headers = Vec::new();
         let mut row_count = 0usize;
         let mut source_hash = None;
+
+        let source_value = match resolve_source_value(&source_literal, arg_values) {
+            Ok(value) => value,
+            Err(arg_name) => {
+                diagnostics.push(Diagnostic::error(
+                    "E-ARGS-CSV-001",
+                    binding.line,
+                    &format!(
+                        "CSV promotion path references `args.{arg_name}`, but no value is available."
+                    ),
+                    Some("Provide the field with `--<name> <value>` or add a default to struct Args."),
+                ));
+                csv_promotions.push(CsvPromotion {
+                    binding: binding.name.clone(),
+                    schema_name,
+                    source_literal,
+                    source_value: String::new(),
+                    resolved_path: String::new(),
+                    source_hash: None,
+                    headers,
+                    row_count,
+                    missing_columns: Vec::new(),
+                    line: binding.line,
+                });
+                continue;
+            }
+        };
+        let resolved_path = resolve_csv_path(source_base, &source_value);
+        let csv_read = read_csv_header(&resolved_path);
 
         match csv_read {
             Ok(csv) => {
@@ -182,7 +211,7 @@ pub fn analyze_schema(
             Err(error) => diagnostics.push(Diagnostic::error(
                 "E-SCHEMA-CSV-001",
                 binding.line,
-                &format!("Cannot read CSV source `{source_literal}`: {error}."),
+                &format!("Cannot read CSV source `{source_value}`: {error}."),
                 Some("Check that the path is relative to the .eng source file."),
             )),
         }
@@ -214,6 +243,7 @@ pub fn analyze_schema(
             binding: binding.name.clone(),
             schema_name,
             source_literal,
+            source_value,
             resolved_path: resolved_path.display().to_string(),
             source_hash,
             headers,
@@ -261,6 +291,20 @@ fn parse_promote_csv(expression: &str) -> Option<(String, String)> {
         .to_owned();
 
     Some((source_literal, schema_name))
+}
+
+fn resolve_source_value(
+    source_literal: &str,
+    arg_values: &[ArgValueInfo],
+) -> Result<String, String> {
+    if let Some(arg_name) = source_literal.strip_prefix("args.") {
+        return arg_values
+            .iter()
+            .find(|arg| arg.name == arg_name)
+            .map(|arg| arg.value.clone())
+            .ok_or_else(|| arg_name.to_owned());
+    }
+    Ok(source_literal.to_owned())
 }
 
 fn resolve_csv_path(source_base: Option<&Path>, source_literal: &str) -> PathBuf {

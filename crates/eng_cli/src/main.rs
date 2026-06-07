@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::process::ExitCode;
 
-use eng_compiler::{check_file, review_json, CheckOptions, Severity};
+use eng_compiler::{check_file, review_json, ArgOverride, CheckOptions, Severity};
 use eng_runtime::{
     build_standalone, create_project, doctor, run_file, BuildOptions, RunOptions, RuntimeError,
 };
@@ -71,10 +71,19 @@ fn command_check(args: Vec<String>) -> ExitCode {
         return ExitCode::from(2);
     };
     let write_review = args.iter().any(|arg| arg == "--review");
+    let check_args = match parse_arg_overrides(&args, &[], &["--review"]) {
+        Ok(values) => values,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
     let report = match check_file(
         &path,
         &CheckOptions {
             review: write_review,
+            args: check_args,
+            require_args: false,
         },
     ) {
         Ok(report) => report,
@@ -150,11 +159,22 @@ fn command_run(args: Vec<String>) -> ExitCode {
     };
     let open_report = args.iter().any(|arg| arg == "--open-report");
     let entry = option_value(&args, "--entry");
+    let runtime_args = match parse_arg_overrides(&args, &["--entry"], &["--open-report"]) {
+        Ok(values) => values,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
 
     match run_file(
         Path::new(&path),
         Path::new("build"),
-        &RunOptions { open_report, entry },
+        &RunOptions {
+            open_report,
+            entry,
+            args: runtime_args,
+        },
     ) {
         Ok(output) => {
             println!("bytecode: {}", output.bytecode_path.display());
@@ -192,8 +212,23 @@ fn command_build(args: Vec<String>) -> ExitCode {
         return ExitCode::from(2);
     };
     let entry = option_value(&args, "--entry");
+    let build_args = match parse_arg_overrides(&args, &["--entry", "--profile"], &["--standalone"])
+    {
+        Ok(values) => values,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
 
-    match build_standalone(Path::new(&path), Path::new("dist"), &BuildOptions { entry }) {
+    match build_standalone(
+        Path::new(&path),
+        Path::new("dist"),
+        &BuildOptions {
+            entry,
+            args: build_args,
+        },
+    ) {
         Ok(output) => {
             println!("standalone package");
             println!("bundle:     {}", output.bundle_path.display());
@@ -467,6 +502,36 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("examples/official/01_csv_plot/main.eng"),
+        Path::new("build/test-plot-args"),
+        &RunOptions {
+            open_report: false,
+            entry: Some("main".to_owned()),
+            args: vec![ArgOverride {
+                name: "input".to_owned(),
+                value: "data/sensor.csv".to_owned(),
+            }],
+        },
+    ) {
+        Ok(output) => {
+            let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
+            let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
+            if !result.contains("\"source\": \"cli\"")
+                || !result.contains("\"value\": \"data/sensor.csv\"")
+                || !review.contains("\"source_literal\": \"args.input\"")
+                || !review.contains("\"source_value\": \"data/sensor.csv\"")
+            {
+                eprintln!("expected Args CLI binding to be recorded in run artifacts");
+                return ExitCode::from(2);
+            }
+            println!("ok: Args CLI binding produced CSV run artifacts");
+        }
+        Err(error) => {
+            eprintln!("Args CLI binding example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
         Path::new("examples/official/02_simple_system/main.eng"),
         Path::new("build/test-system"),
         &RunOptions::default(),
@@ -539,6 +604,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         Path::new("build/test-standalone"),
         &BuildOptions {
             entry: Some("main".to_owned()),
+            args: Vec::new(),
         },
     ) {
         Ok(output) => {
@@ -651,6 +717,50 @@ fn option_value(args: &[String], name: &str) -> Option<String> {
         .map(|window| window[1].clone())
 }
 
+fn parse_arg_overrides(
+    args: &[String],
+    known_value_flags: &[&str],
+    known_bool_flags: &[&str],
+) -> Result<Vec<ArgOverride>, String> {
+    let mut values = Vec::new();
+    let mut index = 0usize;
+    while index < args.len() {
+        let arg = &args[index];
+        if !arg.starts_with("--") {
+            index += 1;
+            continue;
+        }
+        if known_bool_flags.contains(&arg.as_str()) {
+            index += 1;
+            continue;
+        }
+        if known_value_flags.contains(&arg.as_str()) {
+            index += 2;
+            continue;
+        }
+        if let Some((name, value)) = arg.split_once('=') {
+            values.push(ArgOverride {
+                name: name.trim_start_matches("--").replace('-', "_"),
+                value: value.to_owned(),
+            });
+            index += 1;
+            continue;
+        }
+        let Some(value) = args.get(index + 1) else {
+            return Err(format!("missing value for Args flag `{arg}`"));
+        };
+        if value.starts_with("--") {
+            return Err(format!("missing value for Args flag `{arg}`"));
+        }
+        values.push(ArgOverride {
+            name: arg.trim_start_matches("--").replace('-', "_"),
+            value: value.clone(),
+        });
+        index += 2;
+    }
+    Ok(values)
+}
+
 fn print_diagnostics(report: &eng_compiler::CheckReport) {
     for diagnostic in &report.diagnostics {
         println!(
@@ -683,7 +793,7 @@ Usage:
   eng new <project_name>
   eng check <file.eng> [--review]
   eng entries <file.eng>
-  eng run <file.eng> [--entry <name>] [--open-report]
+  eng run <file.eng> [--entry <name>] [--open-report] [--<arg> <value>...]
   eng build <file.eng> [--entry <name>] [--standalone] [--profile repro]
   eng view <result.engres>
   eng test <project_or_examples>

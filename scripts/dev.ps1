@@ -417,8 +417,16 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactNumber $review.syntax_summary.equations $Golden.review.equations "review.syntax_summary.equations"
     Assert-ArtifactNumber @($review.args_summary).Count $Golden.review.args_struct_count "review.args_summary count"
     Assert-ArtifactNumber @(@($review.args_summary)[0].fields).Count $Golden.review.args_field_count "review args field count"
+    Assert-ArtifactNumber @($review.arg_values).Count $Golden.review.arg_value_count "review.arg_values count"
+    $reviewArgValue = @($review.arg_values)[0]
+    Assert-ArtifactValue $reviewArgValue.name $Golden.review.arg_value_name "review.arg_values[0].name"
+    Assert-ArtifactValue $reviewArgValue.value $Golden.review.arg_value "review.arg_values[0].value"
+    Assert-ArtifactValue $reviewArgValue.source $Golden.review.arg_value_source "review.arg_values[0].source"
     Assert-ArtifactNumber @($review.schema_summary).Count $Golden.review.schema_summary_count "review.schema_summary count"
     Assert-ArtifactNumber @($review.csv_promotions).Count $Golden.review.csv_promotion_count "review.csv_promotions count"
+    $reviewPromotion = @($review.csv_promotions)[0]
+    Assert-ArtifactValue $reviewPromotion.source_literal $Golden.review.csv_source_literal "review.csv_promotions[0].source_literal"
+    Assert-ArtifactValue $reviewPromotion.source_value $Golden.review.csv_source_value "review.csv_promotions[0].source_value"
     $policyWarnings = @(@($review.warning_list) | Where-Object { $_.code -eq "W-SCHEMA-POLICY-001" })
     Assert-ArtifactNumber $policyWarnings.Count $Golden.review.policy_warning_count "review schema policy warning count"
 
@@ -429,6 +437,11 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactNumber $reportSpec.provenance.csv_promotion_count $Golden.report_spec.csv_promotion_count "report_spec.provenance.csv_promotion_count"
     Assert-ArtifactNumber @($reportSpec.args_summary).Count $Golden.report_spec.args_struct_count "report_spec.args_summary count"
     Assert-ArtifactNumber @(@($reportSpec.args_summary)[0].fields).Count $Golden.report_spec.args_field_count "report_spec args field count"
+    Assert-ArtifactNumber @($reportSpec.arg_values).Count $Golden.report_spec.arg_value_count "report_spec.arg_values count"
+    $reportArgValue = @($reportSpec.arg_values)[0]
+    Assert-ArtifactValue $reportArgValue.name $Golden.report_spec.arg_value_name "report_spec.arg_values[0].name"
+    Assert-ArtifactValue $reportArgValue.value $Golden.report_spec.arg_value "report_spec.arg_values[0].value"
+    Assert-ArtifactValue $reportArgValue.source $Golden.report_spec.arg_value_source "report_spec.arg_values[0].source"
     Assert-ArtifactNumber $reportSpec.provenance.system_count $Golden.report_spec.system_count "report_spec.provenance.system_count"
     Assert-ArtifactNumber $reportSpec.provenance.residual_count $Golden.report_spec.residual_count "report_spec.provenance.residual_count"
     Assert-ArtifactNumber $reportSpec.provenance.plot_spec_version $Golden.report_spec.plot_spec_version "report_spec.provenance.plot_spec_version"
@@ -458,6 +471,14 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactValue $result.entry.name $Golden.result.entry_name "result.entry.name"
     Assert-ArtifactNumber @($result.args_schema).Count $Golden.result.args_struct_count "result.args_schema count"
     Assert-ArtifactNumber @(@($result.args_schema)[0].fields).Count $Golden.result.args_field_count "result args field count"
+    Assert-ArtifactNumber @($result.arg_values).Count $Golden.result.arg_value_count "result.arg_values count"
+    $resultArgValue = @($result.arg_values)[0]
+    Assert-ArtifactValue $resultArgValue.name $Golden.result.arg_value_name "result.arg_values[0].name"
+    Assert-ArtifactValue $resultArgValue.value $Golden.result.arg_value "result.arg_values[0].value"
+    Assert-ArtifactValue $resultArgValue.source $Golden.result.arg_value_source "result.arg_values[0].source"
+    $resultDataHash = @($result.provenance.data_hashes)[0]
+    Assert-ArtifactValue $resultDataHash.source $Golden.result.csv_source_literal "result.provenance.data_hashes[0].source"
+    Assert-ArtifactValue $resultDataHash.source_value $Golden.result.csv_source_value "result.provenance.data_hashes[0].source_value"
     Assert-ArtifactNumber $result.object_store.scalar_count $Golden.result.scalar_count "result.object_store.scalar_count"
     Assert-ArtifactNumber $result.object_store.table_count $Golden.result.table_count "result.object_store.table_count"
     Assert-ArtifactNumber $result.object_store.timeseries_count $Golden.result.timeseries_count "result.object_store.timeseries_count"
@@ -528,6 +549,7 @@ function Assert-CsvPlotGolden {
     Assert-Artifact (Test-Path -LiteralPath $argsHelpPath -PathType Leaf) "missing standalone ARGS_HELP.txt"
     $argsHelpText = Get-Content -LiteralPath $argsHelpPath -Raw -Encoding UTF8
     Assert-Artifact ($argsHelpText.Contains("Args metadata")) "standalone ARGS_HELP.txt does not mention Args metadata"
+    Assert-Artifact ($argsHelpText.Contains("--input <String>")) "standalone ARGS_HELP.txt does not mention --input"
 
     $lock = Read-KeyValueArtifact (Join-Path $RepoRoot "dist\main-standalone\main.lock")
     Assert-ArtifactValue $lock["bytecode_version"] "1" "lock.bytecode_version"
@@ -559,6 +581,11 @@ function Assert-SystemGolden {
     Assert-ArtifactNumber $review.syntax_summary.equations $Golden.review.equations "system review.syntax_summary.equations"
     Assert-ArtifactNumber @($review.args_summary).Count $Golden.review.args_struct_count "system review.args_summary count"
     Assert-ArtifactNumber @(@($review.args_summary)[0].fields).Count $Golden.review.args_field_count "system review args field count"
+    Assert-ArtifactNumber @($review.arg_values).Count $Golden.review.arg_value_count "system review.arg_values count"
+    $reviewArgValue = @($review.arg_values)[0]
+    Assert-ArtifactValue $reviewArgValue.name $Golden.review.arg_value_name "system review.arg_values[0].name"
+    Assert-ArtifactValue $reviewArgValue.value $Golden.review.arg_value "system review.arg_values[0].value"
+    Assert-ArtifactValue $reviewArgValue.source $Golden.review.arg_value_source "system review.arg_values[0].source"
     Assert-ArtifactNumber @($review.system_summary).Count $Golden.review.system_summary_count "system review.system_summary count"
     Assert-ArtifactNumber @(@($review.system_summary)[0].residuals).Count $Golden.review.residual_count "system review residual count"
     Assert-ArtifactNumber @($review.system_ir).Count $Golden.review.system_ir_count "system review.system_ir count"
@@ -574,6 +601,11 @@ function Assert-SystemGolden {
     Assert-ArtifactNumber $reportSpec.provenance.csv_promotion_count $Golden.report_spec.csv_promotion_count "system report_spec.provenance.csv_promotion_count"
     Assert-ArtifactNumber @($reportSpec.args_summary).Count $Golden.report_spec.args_struct_count "system report_spec.args_summary count"
     Assert-ArtifactNumber @(@($reportSpec.args_summary)[0].fields).Count $Golden.report_spec.args_field_count "system report_spec args field count"
+    Assert-ArtifactNumber @($reportSpec.arg_values).Count $Golden.report_spec.arg_value_count "system report_spec.arg_values count"
+    $reportArgValue = @($reportSpec.arg_values)[0]
+    Assert-ArtifactValue $reportArgValue.name $Golden.report_spec.arg_value_name "system report_spec.arg_values[0].name"
+    Assert-ArtifactValue $reportArgValue.value $Golden.report_spec.arg_value "system report_spec.arg_values[0].value"
+    Assert-ArtifactValue $reportArgValue.source $Golden.report_spec.arg_value_source "system report_spec.arg_values[0].source"
     Assert-ArtifactNumber $reportSpec.provenance.system_count $Golden.report_spec.system_count "system report_spec.provenance.system_count"
     Assert-ArtifactNumber $reportSpec.provenance.equation_count $Golden.report_spec.equation_count "system report_spec.provenance.equation_count"
     Assert-ArtifactNumber $reportSpec.provenance.residual_count $Golden.report_spec.residual_count "system report_spec.provenance.residual_count"
@@ -590,6 +622,11 @@ function Assert-SystemGolden {
     Assert-ArtifactValue $result.entry.name $Golden.result.entry_name "system result.entry.name"
     Assert-ArtifactNumber @($result.args_schema).Count $Golden.result.args_struct_count "system result.args_schema count"
     Assert-ArtifactNumber @(@($result.args_schema)[0].fields).Count $Golden.result.args_field_count "system result args field count"
+    Assert-ArtifactNumber @($result.arg_values).Count $Golden.result.arg_value_count "system result.arg_values count"
+    $resultArgValue = @($result.arg_values)[0]
+    Assert-ArtifactValue $resultArgValue.name $Golden.result.arg_value_name "system result.arg_values[0].name"
+    Assert-ArtifactValue $resultArgValue.value $Golden.result.arg_value "system result.arg_values[0].value"
+    Assert-ArtifactValue $resultArgValue.source $Golden.result.arg_value_source "system result.arg_values[0].source"
     Assert-ArtifactNumber $result.object_store.table_count $Golden.result.table_count "system result.object_store.table_count"
     Assert-ArtifactNumber $result.object_store.timeseries_count $Golden.result.timeseries_count "system result.object_store.timeseries_count"
     Assert-ArtifactNumber $result.provenance.system_count $Golden.result.system_count "system result.provenance.system_count"

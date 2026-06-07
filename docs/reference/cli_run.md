@@ -57,6 +57,30 @@ target\debug\eng.exe run examples\official\01_csv_plot\main.eng --open-report
 
 This attempts to open `build\result\report.html`.
 
+## Args Flags
+
+`struct Args` fields can be passed as `--<field> <value>` after the source path.
+String defaults are used when the flag is omitted.
+
+```bat
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main --input data/sensor.csv
+```
+
+The official CSV example uses:
+
+```eng partial
+struct Args {
+    input: String = "data/sensor.csv"
+}
+
+script main(args: Args) -> Report {
+    sensor = promote csv args.input as SensorData
+}
+```
+
+`review.json`, `report_spec.json`, and `result.engres` record `arg_values`
+with `source = default` or `source = cli`.
+
 ## Simple System Example
 
 ```bat
@@ -124,6 +148,7 @@ Inspect:
 result.engres
   format = engres-v1
   entry
+  arg_values
   object_store
   typed_payload
   provenance
@@ -132,6 +157,7 @@ review.json
   review_schema_version
   variable_table
   unit_conversion_table
+  arg_values
   system_summary
   system_ir
   schema_summary
@@ -142,6 +168,7 @@ report_spec.json
   variable_table
   inferred_declaration_table
   unit_conversion_table
+  arg_values
   system_summary
   system_ir
   plot_manifest

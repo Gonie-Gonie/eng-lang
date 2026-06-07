@@ -13,6 +13,7 @@
     "provenance",
     "variable_table",
     "args_summary",
+    "arg_values",
     "schema_summary",
     "computed_statistics",
     "computed_integrations",
@@ -41,6 +42,10 @@
     },
     "variable_table": { "type": "array" },
     "args_summary": { "type": "array" },
+    "arg_values": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/argValue" }
+    },
     "schema_summary": { "type": "array" },
     "computed_statistics": { "type": "array" },
     "computed_integrations": { "type": "array" },
@@ -53,6 +58,18 @@
     "plot_manifest": { "type": "object" }
   },
   "$defs": {
+    "argValue": {
+      "type": "object",
+      "required": ["name", "type", "value", "source", "required", "line"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "value": { "type": "string" },
+        "source": { "enum": ["default", "cli"] },
+        "required": { "type": "boolean" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
     "systemIr": {
       "type": "object",
       "required": ["name", "solver_boundary", "equations", "line"],

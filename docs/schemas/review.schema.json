@@ -14,6 +14,7 @@
     "warning_list",
     "plot_manifest",
     "args_summary",
+    "arg_values",
     "schema_summary",
     "system_summary",
     "system_ir"
@@ -32,6 +33,10 @@
     "warning_list": { "type": "array" },
     "plot_manifest": { "type": "object" },
     "args_summary": { "type": "array" },
+    "arg_values": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/argValue" }
+    },
     "schema_summary": { "type": "array" },
     "system_summary": { "type": "array" },
     "system_ir": {
@@ -40,6 +45,18 @@
     }
   },
   "$defs": {
+    "argValue": {
+      "type": "object",
+      "required": ["name", "type", "value", "source", "required", "line"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "value": { "type": "string" },
+        "source": { "enum": ["default", "cli"] },
+        "required": { "type": "boolean" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
     "systemIr": {
       "type": "object",
       "required": ["name", "solver_boundary", "equations", "line"],
