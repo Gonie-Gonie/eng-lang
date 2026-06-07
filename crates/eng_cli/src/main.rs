@@ -159,6 +159,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
             println!("bytecode: {}", output.bytecode_path.display());
             println!("result:   {}", output.result_path.display());
             println!("review:   {}", output.review_path.display());
+            println!("reportspec: {}", output.report_spec_path.display());
             println!("plot:     {}", output.plot_path.display());
             println!("plotspec: {}", output.plot_spec_path.display());
             println!("manifest: {}", output.plot_manifest_path.display());
@@ -240,6 +241,15 @@ fn command_view(args: Vec<String>) -> ExitCode {
         println!("report: {}", report_path.display());
     } else {
         println!("report: not found next to result");
+    }
+    let report_spec_path = result_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join("report_spec.json");
+    if report_spec_path.exists() {
+        println!("spec:   {}", report_spec_path.display());
+    } else {
+        println!("spec:   not found next to result");
     }
     let plot_manifest_path = result_path
         .parent()
@@ -390,11 +400,15 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         Path::new("build/test-plot"),
         &RunOptions::default(),
     ) {
-        Ok(output) if output.plot_spec_path.exists() && output.plot_manifest_path.exists() => {
-            println!("ok: examples/04_plotting/main.eng produced PlotSpec artifacts");
+        Ok(output)
+            if output.plot_spec_path.exists()
+                && output.plot_manifest_path.exists()
+                && output.report_spec_path.exists() =>
+        {
+            println!("ok: examples/04_plotting/main.eng produced report and PlotSpec artifacts");
         }
         Ok(_) => {
-            eprintln!("expected plot example to produce PlotSpec artifacts");
+            eprintln!("expected plot example to produce report and PlotSpec artifacts");
             return ExitCode::from(2);
         }
         Err(error) => {

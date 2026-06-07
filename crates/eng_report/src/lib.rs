@@ -1,6 +1,7 @@
 use eng_compiler::{CheckReport, Severity};
 
 pub const REPORT_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const REPORT_SPEC_VERSION: u32 = 1;
 pub const PLOT_SPEC_VERSION: u32 = 1;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -31,6 +32,419 @@ pub struct PlotSeries {
 pub struct PlotPoint {
     pub x: f64,
     pub y: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportSpec {
+    pub source_path: String,
+    pub source_hash: String,
+    pub compiler_version: String,
+    pub report_version: String,
+    pub variables: Vec<ReportVariable>,
+    pub inferred_declarations: Vec<ReportInferredDeclaration>,
+    pub unit_conversions: Vec<ReportUnitConversion>,
+    pub schemas: Vec<ReportSchemaSummary>,
+    pub plot_manifest: ReportPlotManifest,
+    pub warnings: Vec<ReportWarning>,
+    pub provenance: ReportProvenance,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportVariable {
+    pub name: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub dimension: String,
+    pub source: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportInferredDeclaration {
+    pub name: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub expression: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportUnitConversion {
+    pub name: String,
+    pub quantity_kind: String,
+    pub source_unit: Option<String>,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub steps: Vec<String>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportSchemaSummary {
+    pub name: String,
+    pub columns: Vec<String>,
+    pub column_count: usize,
+    pub constraint_count: usize,
+    pub missing_policy_count: usize,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportPlotManifest {
+    pub path: String,
+    pub hash: String,
+    pub format: String,
+    pub plot_count: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportWarning {
+    pub code: String,
+    pub message: String,
+    pub help: Option<String>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportProvenance {
+    pub syntax_items: usize,
+    pub schema_count: usize,
+    pub csv_promotion_count: usize,
+    pub plot_spec_version: u32,
+}
+
+pub fn report_spec_from_report(
+    report: &CheckReport,
+    plot_manifest_relative_path: &str,
+    plot_manifest_hash: &str,
+) -> ReportSpec {
+    let variables = report
+        .semantic_program
+        .typed_bindings
+        .iter()
+        .map(|binding| {
+            let type_info = report
+                .semantic_program
+                .type_infos
+                .iter()
+                .find(|info| info.name == binding.name && info.line == binding.line);
+            ReportVariable {
+                name: binding.name.clone(),
+                quantity_kind: binding.semantic_type.quantity_kind.clone(),
+                display_unit: binding.semantic_type.display_unit.clone(),
+                canonical_unit: type_info
+                    .map(|info| info.canonical_unit.clone())
+                    .unwrap_or_else(|| "unknown".to_owned()),
+                dimension: type_info
+                    .map(|info| info.dimension.clone())
+                    .unwrap_or_else(|| "unknown".to_owned()),
+                source: type_info
+                    .map(|info| info.source.as_str().to_owned())
+                    .unwrap_or_else(|| "runtime".to_owned()),
+                line: binding.line,
+            }
+        })
+        .collect();
+
+    let inferred_declarations = report
+        .inferred_declarations
+        .iter()
+        .map(|declaration| ReportInferredDeclaration {
+            name: declaration.name.clone(),
+            quantity_kind: declaration.quantity_kind.clone(),
+            display_unit: declaration.display_unit.clone(),
+            expression: declaration.expression.clone(),
+            line: declaration.line,
+        })
+        .collect();
+
+    let unit_conversions = report
+        .semantic_program
+        .unit_derivations
+        .iter()
+        .map(|derivation| ReportUnitConversion {
+            name: derivation.name.clone(),
+            quantity_kind: derivation.quantity_kind.clone(),
+            source_unit: derivation.source_unit.clone(),
+            display_unit: derivation.display_unit.clone(),
+            canonical_unit: derivation.canonical_unit.clone(),
+            steps: derivation.steps.clone(),
+            line: derivation.line,
+        })
+        .collect();
+
+    let schemas = report
+        .semantic_program
+        .schemas
+        .iter()
+        .map(|schema| ReportSchemaSummary {
+            name: schema.name.clone(),
+            columns: schema
+                .columns
+                .iter()
+                .map(|column| column.name.clone())
+                .collect(),
+            column_count: schema.columns.len(),
+            constraint_count: schema.constraints.len(),
+            missing_policy_count: schema.missing_policies.len(),
+            line: schema.line,
+        })
+        .collect();
+
+    let warnings = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == Severity::Warning)
+        .map(|diagnostic| ReportWarning {
+            code: diagnostic.code.clone(),
+            message: diagnostic.message.clone(),
+            help: diagnostic.help.clone(),
+            line: diagnostic.line,
+        })
+        .collect();
+
+    ReportSpec {
+        source_path: report.source_path.display().to_string(),
+        source_hash: report.source_hash.clone(),
+        compiler_version: eng_compiler::COMPILER_VERSION.to_owned(),
+        report_version: REPORT_VERSION.to_owned(),
+        variables,
+        inferred_declarations,
+        unit_conversions,
+        schemas,
+        plot_manifest: ReportPlotManifest {
+            path: plot_manifest_relative_path.to_owned(),
+            hash: plot_manifest_hash.to_owned(),
+            format: "eng-plot-manifest-v1".to_owned(),
+            plot_count: 1,
+        },
+        warnings,
+        provenance: ReportProvenance {
+            syntax_items: report.syntax_summary.ast_items,
+            schema_count: report.semantic_program.schemas.len(),
+            csv_promotion_count: report.semantic_program.csv_promotions.len(),
+            plot_spec_version: PLOT_SPEC_VERSION,
+        },
+    }
+}
+
+pub fn report_spec_json(spec: &ReportSpec) -> String {
+    let mut json = String::new();
+    json.push_str("{\n");
+    json.push_str("  \"format\": \"eng-report-spec-v1\",\n");
+    json.push_str(&format!(
+        "  \"report_schema_version\": {REPORT_SPEC_VERSION},\n"
+    ));
+    json.push_str(&format!(
+        "  \"compiler_version\": \"{}\",\n",
+        json_escape(&spec.compiler_version)
+    ));
+    json.push_str(&format!(
+        "  \"report_version\": \"{}\",\n",
+        json_escape(&spec.report_version)
+    ));
+    json.push_str(&format!(
+        "  \"source_path\": \"{}\",\n",
+        json_escape(&spec.source_path)
+    ));
+    json.push_str(&format!(
+        "  \"source_hash\": \"{}\",\n",
+        json_escape(&spec.source_hash)
+    ));
+    json.push_str("  \"provenance\": {\n");
+    json.push_str(&format!(
+        "    \"syntax_items\": {},\n",
+        spec.provenance.syntax_items
+    ));
+    json.push_str(&format!(
+        "    \"schema_count\": {},\n",
+        spec.provenance.schema_count
+    ));
+    json.push_str(&format!(
+        "    \"csv_promotion_count\": {},\n",
+        spec.provenance.csv_promotion_count
+    ));
+    json.push_str(&format!(
+        "    \"plot_spec_version\": {}\n",
+        spec.provenance.plot_spec_version
+    ));
+    json.push_str("  },\n");
+
+    json.push_str("  \"variable_table\": [\n");
+    for (index, variable) in spec.variables.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&variable.name)
+        ));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&variable.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&variable.display_unit)
+        ));
+        json.push_str(&format!(
+            "      \"canonical_unit\": \"{}\",\n",
+            json_escape(&variable.canonical_unit)
+        ));
+        json.push_str(&format!(
+            "      \"dimension\": \"{}\",\n",
+            json_escape(&variable.dimension)
+        ));
+        json.push_str(&format!(
+            "      \"source\": \"{}\",\n",
+            json_escape(&variable.source)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", variable.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"inferred_declaration_table\": [\n");
+    for (index, declaration) in spec.inferred_declarations.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&declaration.name)
+        ));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&declaration.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&declaration.display_unit)
+        ));
+        json.push_str(&format!(
+            "      \"expression\": \"{}\",\n",
+            json_escape(&declaration.expression)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", declaration.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"unit_conversion_table\": [\n");
+    for (index, conversion) in spec.unit_conversions.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&conversion.name)
+        ));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&conversion.quantity_kind)
+        ));
+        if let Some(source_unit) = &conversion.source_unit {
+            json.push_str(&format!(
+                "      \"source_unit\": \"{}\",\n",
+                json_escape(source_unit)
+            ));
+        } else {
+            json.push_str("      \"source_unit\": null,\n");
+        }
+        json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&conversion.display_unit)
+        ));
+        json.push_str(&format!(
+            "      \"canonical_unit\": \"{}\",\n",
+            json_escape(&conversion.canonical_unit)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", conversion.line));
+        json.push_str("      \"steps\": [");
+        push_json_string_array(&mut json, &conversion.steps);
+        json.push_str("]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"schema_summary\": [\n");
+    for (index, schema) in spec.schemas.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&schema.name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", schema.line));
+        json.push_str("      \"columns\": [");
+        push_json_string_array(&mut json, &schema.columns);
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "      \"column_count\": {},\n",
+            schema.column_count
+        ));
+        json.push_str(&format!(
+            "      \"constraint_count\": {},\n",
+            schema.constraint_count
+        ));
+        json.push_str(&format!(
+            "      \"missing_policy_count\": {}\n",
+            schema.missing_policy_count
+        ));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"plot_manifest\": {\n");
+    json.push_str(&format!(
+        "    \"path\": \"{}\",\n",
+        json_escape(&spec.plot_manifest.path)
+    ));
+    json.push_str(&format!(
+        "    \"hash\": \"{}\",\n",
+        json_escape(&spec.plot_manifest.hash)
+    ));
+    json.push_str(&format!(
+        "    \"format\": \"{}\",\n",
+        json_escape(&spec.plot_manifest.format)
+    ));
+    json.push_str(&format!(
+        "    \"plot_count\": {}\n",
+        spec.plot_manifest.plot_count
+    ));
+    json.push_str("  },\n");
+
+    json.push_str("  \"warning_list\": [\n");
+    for (index, warning) in spec.warnings.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"code\": \"{}\",\n",
+            json_escape(&warning.code)
+        ));
+        json.push_str(&format!(
+            "      \"message\": \"{}\",\n",
+            json_escape(&warning.message)
+        ));
+        if let Some(help) = &warning.help {
+            json.push_str(&format!("      \"help\": \"{}\",\n", json_escape(help)));
+        } else {
+            json.push_str("      \"help\": null,\n");
+        }
+        json.push_str(&format!("      \"line\": {}\n", warning.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ]\n");
+    json.push_str("}\n");
+    json
 }
 
 pub fn plot_spec_from_report(report: &CheckReport) -> PlotSpec {
@@ -583,6 +997,15 @@ fn json_escape(value: &str) -> String {
     escaped
 }
 
+fn push_json_string_array(json: &mut String, values: &[String]) {
+    for (index, value) in values.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str(&format!("\"{}\"", json_escape(value)));
+    }
+}
+
 fn default_plot_spec(title: &str) -> PlotSpec {
     PlotSpec {
         title: title.to_owned(),
@@ -691,5 +1114,33 @@ mod tests {
         assert_eq!(spec.y_axis.unit, "W");
         assert!(json.contains("\"format\": \"eng-plotspec-v1\""));
         assert!(svg.contains("HeatRate (W)"));
+    }
+
+    #[test]
+    fn report_spec_collects_v07_review_tables() {
+        let report = check_source(
+            "ok.eng",
+            "schema SensorData {\n    time: DateTime index\n    T_supply: AbsoluteTemperature [degC]\n}\n\nscript main(args: Args) -> Report {\n    power = 10 kW\n    L = 1 m + 20 cm\n}\n",
+            &CheckOptions::default(),
+        );
+
+        let spec = report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        let json = report_spec_json(&spec);
+
+        assert_eq!(spec.plot_manifest.path, "plots/plot_manifest.json");
+        assert_eq!(spec.plot_manifest.hash, "abc123");
+        assert!(spec.variables.iter().any(|variable| variable.name == "L"));
+        assert_eq!(spec.schemas[0].name, "SensorData");
+        assert!(spec
+            .warnings
+            .iter()
+            .any(|warning| warning.code == "W-QTY-AMBIG-001"));
+        assert!(json.contains("\"format\": \"eng-report-spec-v1\""));
+        assert!(json.contains("\"variable_table\""));
+        assert!(json.contains("\"inferred_declaration_table\""));
+        assert!(json.contains("\"unit_conversion_table\""));
+        assert!(json.contains("\"schema_summary\""));
+        assert!(json.contains("\"plot_manifest\""));
+        assert!(json.contains("\"warning_list\""));
     }
 }

@@ -163,6 +163,7 @@ pub fn review_json(report: &CheckReport) -> String {
     let mut json = String::new();
     json.push_str("{\n");
     json.push_str("  \"format\": \"eng-review-preview-1\",\n");
+    json.push_str("  \"review_schema_version\": 1,\n");
     json.push_str(&format!(
         "  \"compiler_version\": \"{}\",\n",
         json_escape(COMPILER_VERSION)
@@ -214,6 +215,56 @@ pub fn review_json(report: &CheckReport) -> String {
         report.unit_info_count
     ));
 
+    json.push_str("  \"variable_table\": [\n");
+    for (index, binding) in report.semantic_program.typed_bindings.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        let type_info = report
+            .semantic_program
+            .type_infos
+            .iter()
+            .find(|info| info.name == binding.name && info.line == binding.line);
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&binding.name)
+        ));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&binding.semantic_type.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&binding.semantic_type.display_unit)
+        ));
+        json.push_str(&format!(
+            "      \"canonical_unit\": \"{}\",\n",
+            json_escape(
+                type_info
+                    .map(|info| info.canonical_unit.as_str())
+                    .unwrap_or("unknown")
+            )
+        ));
+        json.push_str(&format!(
+            "      \"dimension\": \"{}\",\n",
+            json_escape(
+                type_info
+                    .map(|info| info.dimension.as_str())
+                    .unwrap_or("unknown")
+            )
+        ));
+        json.push_str(&format!(
+            "      \"source\": \"{}\",\n",
+            type_info
+                .map(|info| info.source.as_str())
+                .unwrap_or("runtime")
+        ));
+        json.push_str(&format!("      \"line\": {}\n", binding.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
     json.push_str("  \"diagnostics\": [\n");
     for (index, diagnostic) in report.diagnostics.iter().enumerate() {
         if index > 0 {
@@ -241,6 +292,41 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+
+    json.push_str("  \"warning_list\": [\n");
+    for (warning_index, diagnostic) in report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == Severity::Warning)
+        .enumerate()
+    {
+        if warning_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"code\": \"{}\",\n",
+            json_escape(&diagnostic.code)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", diagnostic.line));
+        json.push_str(&format!(
+            "      \"message\": \"{}\"",
+            json_escape(&diagnostic.message)
+        ));
+        if let Some(help) = &diagnostic.help {
+            json.push_str(&format!(",\n      \"help\": \"{}\"\n", json_escape(help)));
+        } else {
+            json.push('\n');
+        }
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"plot_manifest\": {\n");
+    json.push_str("    \"path\": \"plots/plot_manifest.json\",\n");
+    json.push_str("    \"producer\": \"eng run\",\n");
+    json.push_str("    \"available_in_check\": false\n");
+    json.push_str("  },\n");
 
     json.push_str("  \"entry_points\": [\n");
     for (index, entry) in report.semantic_program.entry_points.iter().enumerate() {
@@ -444,6 +530,48 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    json.push_str("  \"unit_conversion_table\": [\n");
+    for (index, derivation) in report.semantic_program.unit_derivations.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&derivation.name)
+        ));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&derivation.quantity_kind)
+        ));
+        if let Some(source_unit) = &derivation.source_unit {
+            json.push_str(&format!(
+                "      \"source_unit\": \"{}\",\n",
+                json_escape(source_unit)
+            ));
+        } else {
+            json.push_str("      \"source_unit\": null,\n");
+        }
+        json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&derivation.display_unit)
+        ));
+        json.push_str(&format!(
+            "      \"canonical_unit\": \"{}\",\n",
+            json_escape(&derivation.canonical_unit)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", derivation.line));
+        json.push_str("      \"steps\": [");
+        for (step_index, step) in derivation.steps.iter().enumerate() {
+            if step_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(step)));
+        }
+        json.push_str("]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
     json.push_str("  \"axis_info\": [\n");
     for (index, axis) in report.semantic_program.axis_infos.iter().enumerate() {
         if index > 0 {
@@ -535,6 +663,32 @@ pub fn review_json(report: &CheckReport) -> String {
             json_escape(&integration.result_quantity)
         ));
         json.push_str(&format!("      \"line\": {}\n", integration.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"schema_summary\": [\n");
+    for (index, schema) in report.semantic_program.schemas.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&schema.name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", schema.line));
+        json.push_str(&format!(
+            "      \"column_count\": {},\n",
+            schema.columns.len()
+        ));
+        json.push_str(&format!(
+            "      \"constraint_count\": {},\n",
+            schema.constraints.len()
+        ));
+        json.push_str(&format!(
+            "      \"missing_policy_count\": {}\n",
+            schema.missing_policies.len()
+        ));
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -897,6 +1051,25 @@ mod tests {
             "m"
         );
         assert!(report.unit_info_count > 0);
+    }
+
+    #[test]
+    fn review_json_exposes_v07_review_contract_sections() {
+        let report = check_source(
+            "ok.eng",
+            "schema SensorData {\n    time: DateTime index\n    T_supply: AbsoluteTemperature [degC]\n}\n\nscript main(args: Args) -> Report {\n    power = 10 kW\n    L = 1 m + 20 cm\n}\n",
+            &CheckOptions::default(),
+        );
+
+        let json = review_json(&report);
+
+        assert!(json.contains("\"review_schema_version\": 1"));
+        assert!(json.contains("\"variable_table\""));
+        assert!(json.contains("\"unit_conversion_table\""));
+        assert!(json.contains("\"schema_summary\""));
+        assert!(json.contains("\"plot_manifest\""));
+        assert!(json.contains("\"warning_list\""));
+        assert!(json.contains("\"W-QTY-AMBIG-001\""));
     }
 
     #[test]
