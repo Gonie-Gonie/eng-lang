@@ -55,6 +55,8 @@ release-target path.
   runner help metadata.
 - Standalone package output with `.engpkg`, bytecode, lock, source copy, and
   reviewable report artifacts.
+- Temperature spelling policy: `degC` remains the canonical ASCII spelling, and
+  `°C` is supported as a user-facing alias for `AbsoluteTemperature`.
 
 ## Preview Features
 
@@ -92,8 +94,8 @@ not part of the supported release contract.
 - Multi-state, nonlinear, adaptive, or general equation-system solving is
   deferred.
 - Typed Args conversion beyond string/path style bindings is deferred.
-- User-facing `°C` alias documentation and behavior should be clarified against
-  the current canonical `degC` spelling.
+- Full Unicode unit spelling support beyond the supported `°C` alias is
+  deferred.
 
 ## Current Crate Architecture
 

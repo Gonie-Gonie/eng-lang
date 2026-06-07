@@ -34,7 +34,7 @@ pub use hover::HoverHint;
 pub use lexer::{Keyword, Symbol, Token, TokenKind};
 pub use ml::MlInfo;
 pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSummary};
-pub use quantities::{all_quantity_completions, QuantityCompletion};
+pub use quantities::{all_quantity_completions, normalize_unit, QuantityCompletion};
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
 pub use semantic::{
     ArgValueInfo, ArgsFieldInfo, ArgsStructInfo, EquationDependencyInfo, EquationInfo,
@@ -1830,6 +1830,35 @@ mod tests {
             "m"
         );
         assert!(report.unit_info_count > 0);
+    }
+
+    #[test]
+    fn accepts_celsius_symbol_alias_for_absolute_temperature() {
+        let report = check_source(
+            "ok.eng",
+            "schema SensorData {\n    T_supply: AbsoluteTemperature [°C]\n}\n\nscript main() -> Report {\n    T_room = 24 °C\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(
+            report.semantic_program.schemas[0].columns[0]
+                .unit
+                .as_deref(),
+            Some("°C")
+        );
+        assert_eq!(
+            report.inferred_declarations[0].quantity_kind,
+            "AbsoluteTemperature"
+        );
+        assert_eq!(report.inferred_declarations[0].display_unit, "K");
+        let room_derivation = report
+            .semantic_program
+            .unit_derivations
+            .iter()
+            .find(|derivation| derivation.name == "T_room")
+            .expect("T_room derivation");
+        assert_eq!(room_derivation.source_unit.as_deref(), Some("°C"));
     }
 
     #[test]

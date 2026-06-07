@@ -13,8 +13,8 @@ work becomes the main priority.
 - Reduce LLM context loading by adding current-status and load-map documents.
 - Clarify that Python is optional documentation tooling, not part of the core
   execution path.
-- Clarify `degC` as the current canonical spelling and decide whether `°C`
-  aliases are supported or planned.
+- Clarify `degC` as the current canonical spelling and support `°C` as a
+  user-facing alias for `AbsoluteTemperature`.
 
 ## Hardening Items
 
@@ -33,7 +33,7 @@ work becomes the main priority.
 | LLM context/load map | Implemented on main | `LLM_CONTEXT.md` and `docs/llm/load_map.yml` |
 | README link cleanup | Implemented on main | README points to current-status layer and short doc index |
 | Master plan cleanup | Implemented on main | Active pointer plus current v9 plan; historical plans are left to git history |
-| `degC`/`°C` policy | Open | Current canonical spelling is `degC`; alias policy needs a decision |
+| `degC`/`°C` policy | Implemented on main | `degC` remains canonical; `°C` is supported as an AbsoluteTemperature alias with tests |
 | Official vs legacy examples | Open | Current examples are usable, but directory taxonomy can be clearer later |
 | IDE variable/unit/schema inspector depth | Open | Basic variables exist; richer unit conversion and schema panels remain future hardening |
 

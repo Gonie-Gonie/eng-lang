@@ -31,6 +31,8 @@ It is intentionally short so agents do not need to load every planning file.
   model/estimator language and remain clearly separated from physical systems.
 - Physical equations use `eq`. `==` is comparison syntax and should not be used
   for physical equations.
+- Temperature spelling: `degC` is the canonical ASCII spelling; `°C` is a
+  supported user-facing alias for `AbsoluteTemperature`.
 - Top-level side effects are disallowed for file run/build paths.
 - Public feature claims must match the feature maturity matrix.
 

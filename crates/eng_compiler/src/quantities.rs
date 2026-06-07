@@ -189,7 +189,11 @@ pub fn is_number_literal(value: &str) -> bool {
 }
 
 pub fn normalize_unit(unit: &str) -> String {
-    trim_expression_punctuation(unit).to_ascii_lowercase()
+    let normalized = trim_expression_punctuation(unit).to_ascii_lowercase();
+    match normalized.as_str() {
+        "°c" | "℃" => "degc".to_owned(),
+        _ => normalized,
+    }
 }
 
 pub fn completion_labels(completions: &[QuantityCompletion]) -> String {

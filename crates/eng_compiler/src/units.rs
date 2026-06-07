@@ -1,4 +1,4 @@
-use crate::quantities::first_unit_in_expression;
+use crate::quantities::{first_unit_in_expression, normalize_unit};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct UnitInfo {
@@ -57,6 +57,14 @@ pub const UNIT_INFOS: &[UnitInfo] = &[
     },
     UnitInfo {
         symbol: "degC",
+        canonical_unit: "K",
+        quantity_hint: "AbsoluteTemperature",
+        dimension: "Temperature",
+        scale_to_canonical: "1",
+        affine_offset: Some("273.15"),
+    },
+    UnitInfo {
+        symbol: "°C",
         canonical_unit: "K",
         quantity_hint: "AbsoluteTemperature",
         dimension: "Temperature",
@@ -162,9 +170,18 @@ pub fn unit_info_count() -> usize {
 }
 
 pub fn unit_info_for_symbol(symbol: &str) -> Option<UnitInfo> {
-    UNIT_INFOS
+    if let Some(info) = UNIT_INFOS
         .iter()
         .find(|unit| unit.symbol.eq_ignore_ascii_case(symbol))
+        .copied()
+    {
+        return Some(info);
+    }
+
+    let normalized_symbol = normalize_unit(symbol);
+    UNIT_INFOS
+        .iter()
+        .find(|unit| normalize_unit(unit.symbol) == normalized_symbol)
         .copied()
 }
 

@@ -9,7 +9,7 @@ language feature. Status terms are defined at the bottom of this file.
 | `:=` rejection | Supported | Parser/compiler diagnostic | None for current public syntax | Maintain |
 | Dimensionless policy | Supported | Addition/subtraction and expected-type diagnostics | Broader algebra coverage grows with expression support | Maintain and expand tests |
 | Quantity/unit registry | Supported | Built-in quantities/units and IDE completions | User-defined units deferred | Maintain |
-| `degC` temperature spelling | Supported | Canonical docs/examples spelling | User-facing `°C` alias is not clarified | Decide alias policy |
+| `degC` / `°C` temperature spelling | Supported | `degC` canonical ASCII spelling; `°C` user-facing alias for AbsoluteTemperature | Broader Unicode unit aliases deferred | Maintain alias tests and docs |
 | CSV promote | Supported | Official typed schema import path | Arbitrary table formula support deferred | Generalize table expressions later |
 | DateTime index | Supported | Official CSV TimeSeries path | More calendar/timezone semantics deferred | Maintain metadata |
 | Missing policies | Preview | Official/data-quality paths | General policy DSL is limited | Harden policy semantics |

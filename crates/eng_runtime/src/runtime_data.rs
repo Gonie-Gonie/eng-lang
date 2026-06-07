@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 
 use eng_compiler::{
-    all_quantity_completions, all_unit_infos, CheckReport, SchemaColumn, SchemaInfo,
+    all_quantity_completions, all_unit_infos, normalize_unit, CheckReport, SchemaColumn, SchemaInfo,
 };
 use eng_report::{
     PlotAxis, PlotPoint, PlotSeries, PlotSpec, ReportComputedIntegration,
@@ -2299,9 +2299,14 @@ fn optional_number_at(column: &RuntimeColumn, index: usize) -> Option<f64> {
 }
 
 fn convert_display_value(value: f64, from_unit: &str, to_unit: &str) -> f64 {
-    match (from_unit, to_unit) {
-        ("W", "kW") => value / 1000.0,
-        ("kW", "W") => value * 1000.0,
+    let from_unit = normalize_unit(from_unit);
+    let to_unit = normalize_unit(to_unit);
+    match (from_unit.as_str(), to_unit.as_str()) {
+        ("w", "kw") => value / 1000.0,
+        ("kw", "w") => value * 1000.0,
+        ("degc", "degc") => value,
+        ("k", "degc") => value - 273.15,
+        ("degc", "k") => value + 273.15,
         _ => value,
     }
 }
@@ -3115,20 +3120,23 @@ fn convert_to_canonical_unit(
         .filter(|unit| !unit.is_empty())
         .unwrap_or(target_unit);
 
-    if source_unit.eq_ignore_ascii_case(target_unit) {
+    let normalized_source_unit = normalize_unit(source_unit);
+    let normalized_target_unit = normalize_unit(target_unit);
+
+    if normalized_source_unit == normalized_target_unit {
         return Ok(value);
     }
 
     let Some(info) = all_unit_infos()
         .iter()
-        .find(|info| info.symbol.eq_ignore_ascii_case(source_unit))
+        .find(|info| normalize_unit(info.symbol) == normalized_source_unit)
     else {
         return Err(format!(
             "unsupported source unit `{source_unit}` for {quantity_kind}"
         ));
     };
 
-    if !info.canonical_unit.eq_ignore_ascii_case(target_unit)
+    if normalize_unit(info.canonical_unit) != normalized_target_unit
         || !unit_seed_matches_quantity(info.quantity_hint, quantity_kind)
     {
         return Err(format!(
@@ -3161,14 +3169,20 @@ fn convert_from_canonical_unit(
     display_unit: &str,
     quantity_kind: &str,
 ) -> f64 {
-    if canonical_unit.eq_ignore_ascii_case(display_unit) {
+    let normalized_canonical_unit = normalize_unit(canonical_unit);
+    let normalized_display_unit = normalize_unit(display_unit);
+    if normalized_canonical_unit == normalized_display_unit {
         return value;
     }
 
-    match (canonical_unit, display_unit, quantity_kind) {
-        ("K", "degC", "AbsoluteTemperature") => value - 273.15,
-        ("W", "kW", "HeatRate" | "ElectricPower" | "MechanicalPower") => value / 1000.0,
-        ("J/K", "kJ/K", "HeatCapacity") => value / 1000.0,
+    match (
+        normalized_canonical_unit.as_str(),
+        normalized_display_unit.as_str(),
+        quantity_kind,
+    ) {
+        ("k", "degc", "AbsoluteTemperature") => value - 273.15,
+        ("w", "kw", "HeatRate" | "ElectricPower" | "MechanicalPower") => value / 1000.0,
+        ("j/k", "kj/k", "HeatCapacity") => value / 1000.0,
         _ => value,
     }
 }
@@ -3328,6 +3342,26 @@ script main(args: Args) -> Report {
         assert_eq!(model_plot.source, "reg_eval");
         assert_eq!(options.plot_type.as_deref(), Some("scatter"));
         assert_eq!(options.title.as_deref(), Some("Regression parity"));
+    }
+
+    #[test]
+    fn celsius_symbol_alias_converts_like_degc() {
+        assert_eq!(
+            round2(
+                convert_to_canonical_unit(24.0, Some("°C"), "K", "AbsoluteTemperature").unwrap()
+            ),
+            297.15
+        );
+        assert_eq!(
+            round2(convert_from_canonical_unit(
+                297.15,
+                "K",
+                "°C",
+                "AbsoluteTemperature"
+            )),
+            24.0
+        );
+        assert_eq!(convert_display_value(24.0, "°C", "degC"), 24.0);
     }
 
     #[test]

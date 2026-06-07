@@ -189,6 +189,8 @@ v1.2
 
 - The core execution path must not depend on Python.
 - The official lowering direction is `.eng -> typed IR -> .engbc -> eng runtime -> .engres -> PlotSpec -> SVG/HTML review artifacts`.
+- `degC` is the canonical ASCII temperature spelling; `°C` is supported as an
+  AbsoluteTemperature alias.
 - User-facing execution starts from one `eng.exe`.
 - PowerShell scripts are run through the shared `dev.bat` wrapper.
 - Public features must include examples, tests, and reviewable artifacts.
