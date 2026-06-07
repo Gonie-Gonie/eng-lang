@@ -218,6 +218,7 @@ pub struct ReportResidual {
 pub struct ReportSystemIr {
     pub name: String,
     pub solver_boundary: ReportSolverBoundary,
+    pub solver_plan: ReportSolverPlan,
     pub equations: Vec<ReportEquationIr>,
     pub line: usize,
 }
@@ -231,6 +232,29 @@ pub struct ReportSolverBoundary {
     pub input_count: usize,
     pub equation_count: usize,
     pub residual_count: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportSolverPlan {
+    pub status: String,
+    pub method: String,
+    pub solve_order: Vec<String>,
+    pub ode_runner: ReportOdeRunner,
+    pub jacobian_seed: Vec<ReportJacobianSeed>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportOdeRunner {
+    pub status: String,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportJacobianSeed {
+    pub residual: String,
+    pub with_respect_to: Vec<String>,
+    pub derivative_states: Vec<String>,
+    pub status: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -482,6 +506,26 @@ pub fn report_spec_from_report(
                     .count(),
                 equation_count: system.equations.len(),
                 residual_count: system.residuals.len(),
+            },
+            solver_plan: ReportSolverPlan {
+                status: system.solver_plan.status.clone(),
+                method: system.solver_plan.method.clone(),
+                solve_order: system.solver_plan.solve_order.clone(),
+                ode_runner: ReportOdeRunner {
+                    status: system.solver_plan.ode_runner.status.clone(),
+                    reason: system.solver_plan.ode_runner.reason.clone(),
+                },
+                jacobian_seed: system
+                    .solver_plan
+                    .jacobian_seed
+                    .iter()
+                    .map(|seed| ReportJacobianSeed {
+                        residual: seed.residual.clone(),
+                        with_respect_to: seed.with_respect_to.clone(),
+                        derivative_states: seed.derivative_states.clone(),
+                        status: seed.status.clone(),
+                    })
+                    .collect(),
             },
             equations: system
                 .equation_ir
@@ -1106,6 +1150,8 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             system.solver_boundary.residual_count
         ));
         json.push_str("      },\n");
+        push_report_solver_plan_json(&mut json, &system.solver_plan, "      ");
+        json.push_str(",\n");
         json.push_str("      \"equations\": [\n");
         for (equation_index, equation) in system.equations.iter().enumerate() {
             if equation_index > 0 {
@@ -1356,6 +1402,70 @@ pub fn plot_manifest_json(
         json_escape(&axis_label(&spec.x_axis)),
         json_escape(&axis_label(&spec.y_axis))
     )
+}
+
+fn push_report_solver_plan_json(json: &mut String, plan: &ReportSolverPlan, indent: &str) {
+    json.push_str(&format!("{indent}\"solver_plan\": {{\n"));
+    json.push_str(&format!(
+        "{indent}  \"status\": \"{}\",\n",
+        json_escape(&plan.status)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"method\": \"{}\",\n",
+        json_escape(&plan.method)
+    ));
+    json.push_str(&format!("{indent}  \"solve_order\": ["));
+    for (index, residual) in plan.solve_order.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str(&format!("\"{}\"", json_escape(residual)));
+    }
+    json.push_str("],\n");
+    json.push_str(&format!("{indent}  \"ode_runner\": {{\n"));
+    json.push_str(&format!(
+        "{indent}    \"status\": \"{}\",\n",
+        json_escape(&plan.ode_runner.status)
+    ));
+    json.push_str(&format!(
+        "{indent}    \"reason\": \"{}\"\n",
+        json_escape(&plan.ode_runner.reason)
+    ));
+    json.push_str(&format!("{indent}  }},\n"));
+    json.push_str(&format!("{indent}  \"jacobian_seed\": [\n"));
+    for (seed_index, seed) in plan.jacobian_seed.iter().enumerate() {
+        if seed_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}    {{\n"));
+        json.push_str(&format!(
+            "{indent}      \"residual\": \"{}\",\n",
+            json_escape(&seed.residual)
+        ));
+        json.push_str(&format!("{indent}      \"with_respect_to\": ["));
+        for (variable_index, variable) in seed.with_respect_to.iter().enumerate() {
+            if variable_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(variable)));
+        }
+        json.push_str("],\n");
+        json.push_str(&format!("{indent}      \"derivative_states\": ["));
+        for (state_index, state) in seed.derivative_states.iter().enumerate() {
+            if state_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(state)));
+        }
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "{indent}      \"status\": \"{}\"\n",
+            json_escape(&seed.status)
+        ));
+        json.push_str(&format!("{indent}    }}"));
+    }
+    json.push_str(&format!("\n{indent}  ]\n"));
+    json.push_str(&format!("{indent}}}"));
 }
 
 pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
@@ -2074,6 +2184,15 @@ mod tests {
         assert_eq!(spec.provenance.equation_count, 1);
         assert_eq!(spec.systems[0].equations[0].status, "unit_consistent");
         assert_eq!(spec.system_ir[0].solver_boundary.status, "unsolved");
+        assert_eq!(spec.system_ir[0].solver_plan.status, "metadata_only");
+        assert_eq!(
+            spec.system_ir[0].solver_plan.solve_order,
+            vec!["RoomThermal.residual_1".to_owned()]
+        );
+        assert_eq!(
+            spec.system_ir[0].solver_plan.jacobian_seed[0].with_respect_to,
+            vec!["T".to_owned()]
+        );
         assert_eq!(spec.system_ir[0].equations[0].dependencies.len(), 5);
         assert_eq!(
             spec.system_ir[0].equations[0].derivative_states,
@@ -2082,6 +2201,8 @@ mod tests {
         assert!(json.contains("\"system_summary\""));
         assert!(json.contains("\"system_ir\""));
         assert!(json.contains("\"solver_boundary\""));
+        assert!(json.contains("\"solver_plan\""));
+        assert!(json.contains("\"jacobian_seed\""));
         assert!(json.contains("\"RoomThermal.residual_1\""));
         assert!(html.contains("System Equations"));
         assert!(html.contains("unit_consistent"));

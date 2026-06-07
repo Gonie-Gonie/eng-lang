@@ -132,7 +132,7 @@ computed statistics/integration payloads
 result.engres v1 generation
 source/bytecode/data provenance
 system residual-only payload metadata
-system IR dependency and solver-boundary payload metadata
+system IR dependency, solver-plan, and solver-boundary payload metadata
 packaged standalone runner bundle
 ```
 

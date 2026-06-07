@@ -1125,6 +1125,8 @@ fn system_ir_json(report: &CheckReport) -> String {
             "        \"name\": \"{}\",\n",
             json_escape(&system.name)
         ));
+        push_solver_plan_json(&mut json, &system.solver_plan, "        ");
+        json.push_str(",\n");
         json.push_str("        \"equations\": [\n");
         for (equation_index, equation) in system.equation_ir.iter().enumerate() {
             if equation_index > 0 {
@@ -1184,6 +1186,70 @@ fn system_ir_json(report: &CheckReport) -> String {
         json.push_str("      }");
     }
     json
+}
+
+fn push_solver_plan_json(json: &mut String, plan: &eng_compiler::SolverPlanInfo, indent: &str) {
+    json.push_str(&format!("{indent}\"solver_plan\": {{\n"));
+    json.push_str(&format!(
+        "{indent}  \"status\": \"{}\",\n",
+        json_escape(&plan.status)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"method\": \"{}\",\n",
+        json_escape(&plan.method)
+    ));
+    json.push_str(&format!("{indent}  \"solve_order\": ["));
+    for (index, residual) in plan.solve_order.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str(&format!("\"{}\"", json_escape(residual)));
+    }
+    json.push_str("],\n");
+    json.push_str(&format!("{indent}  \"ode_runner\": {{\n"));
+    json.push_str(&format!(
+        "{indent}    \"status\": \"{}\",\n",
+        json_escape(&plan.ode_runner.status)
+    ));
+    json.push_str(&format!(
+        "{indent}    \"reason\": \"{}\"\n",
+        json_escape(&plan.ode_runner.reason)
+    ));
+    json.push_str(&format!("{indent}  }},\n"));
+    json.push_str(&format!("{indent}  \"jacobian_seed\": [\n"));
+    for (seed_index, seed) in plan.jacobian_seed.iter().enumerate() {
+        if seed_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}    {{\n"));
+        json.push_str(&format!(
+            "{indent}      \"residual\": \"{}\",\n",
+            json_escape(&seed.residual)
+        ));
+        json.push_str(&format!("{indent}      \"with_respect_to\": ["));
+        for (variable_index, variable) in seed.with_respect_to.iter().enumerate() {
+            if variable_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(variable)));
+        }
+        json.push_str("],\n");
+        json.push_str(&format!("{indent}      \"derivative_states\": ["));
+        for (state_index, state) in seed.derivative_states.iter().enumerate() {
+            if state_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(state)));
+        }
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "{indent}      \"status\": \"{}\"\n",
+            json_escape(&seed.status)
+        ));
+        json.push_str(&format!("{indent}    }}"));
+    }
+    json.push_str(&format!("\n{indent}  ]\n"));
+    json.push_str(&format!("{indent}}}"));
 }
 
 fn role_count(system: &eng_compiler::SystemInfo, role: &str) -> usize {

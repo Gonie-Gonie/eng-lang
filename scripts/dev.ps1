@@ -599,6 +599,10 @@ function Assert-SystemGolden {
     Assert-ArtifactNumber @($review.system_ir).Count $Golden.review.system_ir_count "system review.system_ir count"
     $reviewSystemIr = @($review.system_ir)[0]
     Assert-ArtifactValue $reviewSystemIr.solver_boundary.status $Golden.review.solver_status "system review.solver_boundary.status"
+    Assert-ArtifactValue $reviewSystemIr.solver_plan.status $Golden.review.solver_plan_status "system review.solver_plan.status"
+    Assert-ArtifactNumber @($reviewSystemIr.solver_plan.solve_order).Count $Golden.review.solve_order_count "system review solver_plan.solve_order count"
+    Assert-ArtifactValue $reviewSystemIr.solver_plan.ode_runner.status $Golden.review.ode_runner_status "system review solver_plan.ode_runner.status"
+    Assert-ArtifactNumber @($reviewSystemIr.solver_plan.jacobian_seed).Count $Golden.review.jacobian_seed_count "system review solver_plan.jacobian_seed count"
     Assert-ArtifactNumber @(@($reviewSystemIr.equations)[0].dependencies).Count $Golden.review.dependency_count "system review IR dependency count"
     Assert-ArtifactNumber @(@($reviewSystemIr.equations)[0].derivative_states).Count $Golden.review.derivative_state_count "system review IR derivative state count"
 
@@ -620,6 +624,10 @@ function Assert-SystemGolden {
     Assert-ArtifactNumber @($reportSpec.system_ir).Count $Golden.report_spec.system_ir_count "system report_spec.system_ir count"
     $reportSystemIr = @($reportSpec.system_ir)[0]
     Assert-ArtifactValue $reportSystemIr.solver_boundary.status $Golden.report_spec.solver_status "system report_spec.solver_boundary.status"
+    Assert-ArtifactValue $reportSystemIr.solver_plan.status $Golden.report_spec.solver_plan_status "system report_spec.solver_plan.status"
+    Assert-ArtifactNumber @($reportSystemIr.solver_plan.solve_order).Count $Golden.report_spec.solve_order_count "system report_spec solver_plan.solve_order count"
+    Assert-ArtifactValue $reportSystemIr.solver_plan.ode_runner.status $Golden.report_spec.ode_runner_status "system report_spec solver_plan.ode_runner.status"
+    Assert-ArtifactNumber @($reportSystemIr.solver_plan.jacobian_seed).Count $Golden.report_spec.jacobian_seed_count "system report_spec solver_plan.jacobian_seed count"
     Assert-ArtifactNumber @(@($reportSystemIr.equations)[0].dependencies).Count $Golden.report_spec.dependency_count "system report_spec IR dependency count"
     Assert-ArtifactNumber @(@($reportSystemIr.equations)[0].derivative_states).Count $Golden.report_spec.derivative_state_count "system report_spec IR derivative state count"
 
@@ -645,6 +653,10 @@ function Assert-SystemGolden {
     $resultSolverBoundary = @($result.typed_payload.solver_boundaries)[0]
     Assert-ArtifactValue $resultSolverBoundary.status $Golden.result.solver_status "system result.solver_boundary.status"
     $resultSystemIr = @($result.typed_payload.system_ir)[0]
+    Assert-ArtifactValue $resultSystemIr.solver_plan.status $Golden.result.solver_plan_status "system result.solver_plan.status"
+    Assert-ArtifactNumber @($resultSystemIr.solver_plan.solve_order).Count $Golden.result.solve_order_count "system result solver_plan.solve_order count"
+    Assert-ArtifactValue $resultSystemIr.solver_plan.ode_runner.status $Golden.result.ode_runner_status "system result solver_plan.ode_runner.status"
+    Assert-ArtifactNumber @($resultSystemIr.solver_plan.jacobian_seed).Count $Golden.result.jacobian_seed_count "system result solver_plan.jacobian_seed count"
     Assert-ArtifactNumber @(@($resultSystemIr.equations)[0].dependencies).Count $Golden.result.dependency_count "system result IR dependency count"
     Assert-ArtifactNumber @(@($resultSystemIr.equations)[0].derivative_states).Count $Golden.result.derivative_state_count "system result IR derivative state count"
 }

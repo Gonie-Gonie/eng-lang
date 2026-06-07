@@ -145,6 +145,10 @@ The hardened system artifact contract also includes `system_ir`:
 ```text
 system_ir
   solver_boundary.status = unsolved
+  solver_plan.status = metadata_only
+  solver_plan.solve_order
+  solver_plan.ode_runner.status = deferred
+  solver_plan.jacobian_seed
   equations: relation, normalized residual, dependency list, derivative states
 ```
 
@@ -206,5 +210,5 @@ Deferred beyond the current v1.0 artifact contract:
 - interactive report viewer
 - rendered review cards
 - stable binary report package
-- numeric system solver
+- numeric system solver and executable ODE runner
 ```

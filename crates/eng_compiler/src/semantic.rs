@@ -80,12 +80,36 @@ pub struct EquationIrInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SolverPlanInfo {
+    pub status: String,
+    pub method: String,
+    pub solve_order: Vec<String>,
+    pub ode_runner: OdeRunnerInfo,
+    pub jacobian_seed: Vec<JacobianSeedInfo>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct OdeRunnerInfo {
+    pub status: String,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct JacobianSeedInfo {
+    pub residual: String,
+    pub with_respect_to: Vec<String>,
+    pub derivative_states: Vec<String>,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SystemInfo {
     pub name: String,
     pub variables: Vec<SystemVariableInfo>,
     pub equations: Vec<EquationInfo>,
     pub residuals: Vec<ResidualInfo>,
     pub equation_ir: Vec<EquationIrInfo>,
+    pub solver_plan: SolverPlanInfo,
     pub line: usize,
 }
 
@@ -196,6 +220,17 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     equations: Vec::new(),
                     residuals: Vec::new(),
                     equation_ir: Vec::new(),
+                    solver_plan: SolverPlanInfo {
+                        status: "metadata_only".to_owned(),
+                        method: "source_order_symbolic_seed".to_owned(),
+                        solve_order: Vec::new(),
+                        ode_runner: OdeRunnerInfo {
+                            status: "deferred".to_owned(),
+                            reason: "numeric ODE runner deferred until the solver milestone"
+                                .to_owned(),
+                        },
+                        jacobian_seed: Vec::new(),
+                    },
                     line: system.span.line,
                 });
                 current_system_index = Some(systems.len() - 1);
@@ -484,6 +519,11 @@ fn analyze_equation(
     };
     let dependencies = equation_dependencies(&equation.left, &equation.right, &system.variables);
     let derivative_states = derivative_states(&equation.left, &equation.right, &system.variables);
+    let jacobian_variables = dependencies
+        .iter()
+        .filter(|dependency| dependency.role == "state")
+        .map(|dependency| dependency.name.clone())
+        .collect::<Vec<_>>();
 
     system.equations.push(EquationInfo {
         system: system.name.clone(),
@@ -502,6 +542,13 @@ fn analyze_equation(
         expression: residual_expression.clone(),
         dimension: residual_dimension,
         line: equation.line,
+    });
+    system.solver_plan.solve_order.push(residual_name.clone());
+    system.solver_plan.jacobian_seed.push(JacobianSeedInfo {
+        residual: residual_name.clone(),
+        with_respect_to: jacobian_variables,
+        derivative_states: derivative_states.clone(),
+        status: "symbolic_seed".to_owned(),
     });
     system.equation_ir.push(EquationIrInfo {
         system: system.name.clone(),

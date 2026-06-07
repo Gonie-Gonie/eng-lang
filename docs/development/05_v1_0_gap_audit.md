@@ -57,7 +57,7 @@ Remaining intentional deferrals:
 ```text
 P2  per-cell conversion diagnostics once conversion exists
 P2  time-weighted mean and broader statistics kernels
-P2  numeric system solver, solve order, ODE runner, and Jacobian seed
+P2  numeric system solver and executable ODE runner
 ```
 
 ## Gap Register
@@ -355,8 +355,9 @@ Hardening detail:
 
 ### G-008 System/Eq IR and Solver Boundary
 
-Status: Implemented after v1.0.0 as a v1.0 hardening backfill. Numeric solving
-remains explicitly deferred.
+Status: Implemented after v1.0.0 as a v1.0 hardening backfill. Solver plan
+metadata, source-order solve_order, ODE runner deferral, and symbolic Jacobian
+seed columns are recorded. Numeric solving remains explicitly deferred.
 
 Plan expectation:
 
@@ -376,14 +377,18 @@ Current state:
 - derivative state mentions are recorded per equation
 - review.json and report_spec.json include system_ir with solver_boundary.status = unsolved
 - result.engres includes typed_payload.solver_boundaries and typed_payload.system_ir
-- no solve order, ODE runner, numeric solver, or Jacobian seed yet
+- review/report/result system_ir include solver_plan.status = metadata_only
+- source-order solve_order and symbolic Jacobian seed columns are recorded
+- ODE runner status is explicit and deferred
+- no executable numeric solver or ODE runner yet
 ```
 
 Risk:
 
 ```text
-P2 closed for artifact review and dependency inspection. v1.0 can represent a
-simple system and expose an unsolved boundary, but cannot simulate it.
+P2 closed for artifact review, dependency inspection, and solver seed metadata.
+v1.0 can represent a simple system and expose an unsolved boundary, but cannot
+simulate it.
 ```
 
 Hardening detail:
@@ -392,7 +397,8 @@ Hardening detail:
 1. [x] Add a small symbolic equation IR separate from report strings.
 2. [x] Record state/input/parameter dependencies for each residual.
 3. [x] Add solver_boundary sections to review/report/result that explicitly say unsolved.
-4. [x] Keep numeric solver work deferred until the planned system/solver milestone.
+4. [x] Add source-order solve_order and symbolic Jacobian seed metadata.
+5. [x] Keep numeric solver and executable ODE runner work deferred until the planned system/solver milestone.
 ```
 
 ### G-009 Review/Report Schema Validation
@@ -486,7 +492,7 @@ Then proceed with v1.1 while planning numeric/data backfill:
 Keep deferred until the appropriate later milestones:
 
 ```text
-8. G-008 numeric solver, solve order, Jacobian, and ODE runner
+8. G-008 numeric solver and executable ODE runner
 9. optimized AOT/model.exe
 10. open domain/port and package ecosystem
 ```

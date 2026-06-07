@@ -279,6 +279,10 @@ system name
 solver_boundary.status = unsolved
 solver_boundary.reason
 parameter/state/input/equation/residual counts
+solver_plan.status = metadata_only
+source-order solve_order residual list
+ODE runner status = deferred
+Jacobian seed state columns per residual
 equation relation and normalized residual
 parameter/state/input dependencies per residual
 derivative state mentions

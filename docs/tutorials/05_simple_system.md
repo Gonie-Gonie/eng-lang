@@ -1,6 +1,9 @@
 # Simple System Tutorial
 
-v0.8-alpha introduces a minimal physical `system` surface. It validates equation dimensions, writes residual metadata, records a small system IR, and makes the solver boundary explicit. It does not run a full ODE solver yet.
+v0.8-alpha introduces a minimal physical `system` surface. It validates equation
+dimensions, writes residual metadata, records a small system IR, and makes the
+solver boundary explicit. The v1.0 hardening path also records metadata-only
+solve_order and Jacobian seed columns. It does not run a full ODE solver yet.
 
 ## Example
 
@@ -84,6 +87,7 @@ syntax_summary.systems
 syntax_summary.equations
 system_summary
 system_ir
+system_ir.solver_plan
 ```
 
 `report_spec.json` includes:
@@ -94,6 +98,7 @@ provenance.equation_count
 provenance.residual_count
 system_summary
 system_ir
+system_ir.solver_plan
 ```
 
 `result.engres` includes:
@@ -102,6 +107,7 @@ system_ir
 typed_payload.systems
 typed_payload.solver_boundaries
 typed_payload.system_ir
+typed_payload.system_ir[].solver_plan
 provenance.system_count
 provenance.equation_count
 provenance.residual_count

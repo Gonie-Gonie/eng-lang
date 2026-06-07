@@ -35,8 +35,8 @@ pub use quantities::{all_quantity_completions, QuantityCompletion};
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
 pub use semantic::{
     ArgValueInfo, ArgsFieldInfo, ArgsStructInfo, EquationDependencyInfo, EquationInfo,
-    EquationIrInfo, ResidualInfo, SemanticProgram, SemanticType, SystemInfo, SystemVariableInfo,
-    TypedBinding,
+    EquationIrInfo, JacobianSeedInfo, OdeRunnerInfo, ResidualInfo, SemanticProgram, SemanticType,
+    SolverPlanInfo, SystemInfo, SystemVariableInfo, TypedBinding,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -1168,6 +1168,8 @@ fn push_system_ir_json(json: &mut String, systems: &[SystemInfo]) {
             system.residuals.len()
         ));
         json.push_str("      },\n");
+        push_solver_plan_json(json, &system.solver_plan, "      ");
+        json.push_str(",\n");
         json.push_str("      \"equations\": [\n");
         for (equation_index, equation) in system.equation_ir.iter().enumerate() {
             if equation_index > 0 {
@@ -1227,6 +1229,70 @@ fn push_system_ir_json(json: &mut String, systems: &[SystemInfo]) {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+}
+
+fn push_solver_plan_json(json: &mut String, plan: &SolverPlanInfo, indent: &str) {
+    json.push_str(&format!("{indent}\"solver_plan\": {{\n"));
+    json.push_str(&format!(
+        "{indent}  \"status\": \"{}\",\n",
+        json_escape(&plan.status)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"method\": \"{}\",\n",
+        json_escape(&plan.method)
+    ));
+    json.push_str(&format!("{indent}  \"solve_order\": ["));
+    for (index, residual) in plan.solve_order.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str(&format!("\"{}\"", json_escape(residual)));
+    }
+    json.push_str("],\n");
+    json.push_str(&format!("{indent}  \"ode_runner\": {{\n"));
+    json.push_str(&format!(
+        "{indent}    \"status\": \"{}\",\n",
+        json_escape(&plan.ode_runner.status)
+    ));
+    json.push_str(&format!(
+        "{indent}    \"reason\": \"{}\"\n",
+        json_escape(&plan.ode_runner.reason)
+    ));
+    json.push_str(&format!("{indent}  }},\n"));
+    json.push_str(&format!("{indent}  \"jacobian_seed\": [\n"));
+    for (seed_index, seed) in plan.jacobian_seed.iter().enumerate() {
+        if seed_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}    {{\n"));
+        json.push_str(&format!(
+            "{indent}      \"residual\": \"{}\",\n",
+            json_escape(&seed.residual)
+        ));
+        json.push_str(&format!("{indent}      \"with_respect_to\": ["));
+        for (variable_index, variable) in seed.with_respect_to.iter().enumerate() {
+            if variable_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(variable)));
+        }
+        json.push_str("],\n");
+        json.push_str(&format!("{indent}      \"derivative_states\": ["));
+        for (state_index, state) in seed.derivative_states.iter().enumerate() {
+            if state_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(state)));
+        }
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "{indent}      \"status\": \"{}\"\n",
+            json_escape(&seed.status)
+        ));
+        json.push_str(&format!("{indent}    }}"));
+    }
+    json.push_str(&format!("\n{indent}  ]\n"));
+    json.push_str(&format!("{indent}}}"));
 }
 
 impl fmt::Display for Diagnostic {
@@ -1442,6 +1508,16 @@ mod tests {
         assert_eq!(system.equations[0].status, "unit_consistent");
         assert_eq!(system.residuals[0].dimension, "Power");
         assert_eq!(system.equation_ir[0].dependencies.len(), 5);
+        assert_eq!(system.solver_plan.status, "metadata_only");
+        assert_eq!(
+            system.solver_plan.solve_order,
+            vec!["RoomThermal.residual_1".to_owned()]
+        );
+        assert_eq!(
+            system.solver_plan.jacobian_seed[0].with_respect_to,
+            vec!["T".to_owned()]
+        );
+        assert_eq!(system.solver_plan.ode_runner.status, "deferred");
         assert_eq!(
             system.equation_ir[0].derivative_states,
             vec!["T".to_owned()]
@@ -1588,6 +1664,10 @@ mod tests {
         assert!(json.contains("\"system_summary\""));
         assert!(json.contains("\"system_ir\""));
         assert!(json.contains("\"solver_boundary\""));
+        assert!(json.contains("\"solver_plan\""));
+        assert!(json.contains("\"solve_order\": [\"RoomThermal.residual_1\"]"));
+        assert!(json.contains("\"jacobian_seed\""));
+        assert!(json.contains("\"ode_runner\""));
         assert!(json.contains("\"status\": \"unsolved\""));
         assert!(json.contains("\"derivative_states\": [\"T\"]"));
         assert!(json.contains("\"RoomThermal\""));

@@ -87,8 +87,8 @@ with `source = default` or `source = cli`.
 target\debug\eng.exe run examples\official\02_simple_system\main.eng --entry main
 ```
 
-This writes system/equation/residual metadata, system IR, and the explicit
-unsolved solver boundary into:
+This writes system/equation/residual metadata, system IR, metadata-only
+solver_plan, and the explicit unsolved solver boundary into:
 
 ```text
 build\result\review.json
@@ -160,6 +160,7 @@ review.json
   arg_values
   system_summary
   system_ir
+  system_ir.solver_plan
   schema_summary
   warning_list
 
@@ -171,5 +172,6 @@ report_spec.json
   arg_values
   system_summary
   system_ir
+  system_ir.solver_plan
   plot_manifest
 ```

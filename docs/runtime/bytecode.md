@@ -1,6 +1,6 @@
 # Bytecode VM and Result v1
 
-v0.4-preview established the first executable EngLang runtime path. v0.5-preview adds TimeSeries/statistics metadata to that path. v0.6-preview adds PlotSpec/SVG/manifest output. v0.8-alpha adds system metadata, residuals, system IR dependencies, and an explicit unsolved solver boundary:
+v0.4-preview established the first executable EngLang runtime path. v0.5-preview adds TimeSeries/statistics metadata to that path. v0.6-preview adds PlotSpec/SVG/manifest output. v0.8-alpha adds system metadata, residuals, system IR dependencies, metadata-only solver_plan seeds, and an explicit unsolved solver boundary:
 
 ```text
 .eng source

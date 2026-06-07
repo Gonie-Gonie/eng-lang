@@ -14,7 +14,7 @@ EngLang's official execution path is:
   -> HTML report + report_spec.json + review.json
 ```
 
-The repository implements this path incrementally. v0.4-preview is the first version where `eng run` writes bytecode, decodes it, executes a native VM seed, and writes `result.engres` from the VM execution record. v0.5-preview adds TimeSeries/statistics metadata to the same path. v0.6-preview adds PlotSpec v1, SVG rendering from PlotSpec, and a plot manifest. v0.7-alpha hardens the review/report artifact contract with `report_spec.json`. v0.8-alpha adds minimal physical `system` and `eq` metadata. The current v1.0 hardening path materializes the official CSV example into runtime table columns, TimeSeries points, computed summary statistics, trapezoidal integration, CSV-derived PlotSpec points, and a reviewable system IR with an explicit unsolved solver boundary.
+The repository implements this path incrementally. v0.4-preview is the first version where `eng run` writes bytecode, decodes it, executes a native VM seed, and writes `result.engres` from the VM execution record. v0.5-preview adds TimeSeries/statistics metadata to the same path. v0.6-preview adds PlotSpec v1, SVG rendering from PlotSpec, and a plot manifest. v0.7-alpha hardens the review/report artifact contract with `report_spec.json`. v0.8-alpha adds minimal physical `system` and `eq` metadata. The current v1.0 hardening path materializes the official CSV example into runtime table columns, TimeSeries points, computed summary statistics, trapezoidal integration, CSV-derived PlotSpec points, and a reviewable system IR with an explicit unsolved solver boundary plus metadata-only solver_plan seeds.
 
 ## Crates
 
@@ -93,6 +93,7 @@ equation unit consistency diagnostics
 residual metadata in review/report/result artifacts
 system_ir dependency metadata in review/report/result artifacts
 solver_boundary status = unsolved
+solver_plan metadata-only solve_order and Jacobian seed columns
 ```
 
 The VM object store currently supports:
@@ -106,7 +107,7 @@ array
 
 Schema columns remain public boundary metadata. They are not emitted as runtime scalar objects.
 
-System variables are also boundary metadata in v0.8. They appear in review/report variable tables, system summaries, and the system IR dependency list, but they are not lowered as executable VM scalar objects yet.
+System variables are also boundary metadata in v0.8. They appear in review/report variable tables, system summaries, the system IR dependency list, and solver_plan seed metadata, but they are not lowered as executable VM scalar objects yet.
 
 ## Data Boundary
 

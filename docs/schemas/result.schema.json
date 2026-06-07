@@ -112,14 +112,56 @@
     },
     "resultSystemIr": {
       "type": "object",
-      "required": ["name", "equations", "line"],
+      "required": ["name", "solver_plan", "equations", "line"],
       "properties": {
         "name": { "type": "string" },
+        "solver_plan": { "$ref": "#/$defs/solverPlan" },
         "equations": {
           "type": "array",
           "items": { "$ref": "#/$defs/equationIr" }
         },
         "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "solverPlan": {
+      "type": "object",
+      "required": ["status", "method", "solve_order", "ode_runner", "jacobian_seed"],
+      "properties": {
+        "status": { "const": "metadata_only" },
+        "method": { "type": "string" },
+        "solve_order": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "ode_runner": { "$ref": "#/$defs/odeRunner" },
+        "jacobian_seed": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/jacobianSeed" }
+        }
+      }
+    },
+    "odeRunner": {
+      "type": "object",
+      "required": ["status", "reason"],
+      "properties": {
+        "status": { "const": "deferred" },
+        "reason": { "type": "string" }
+      }
+    },
+    "jacobianSeed": {
+      "type": "object",
+      "required": ["residual", "with_respect_to", "derivative_states", "status"],
+      "properties": {
+        "residual": { "type": "string" },
+        "with_respect_to": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "derivative_states": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "status": { "const": "symbolic_seed" }
       }
     },
     "equationIr": {
