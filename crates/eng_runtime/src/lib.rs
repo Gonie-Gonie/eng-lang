@@ -1,7 +1,8 @@
+use std::env;
 use std::error::Error;
 use std::fmt;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 
 use eng_compiler::{
@@ -40,9 +41,13 @@ pub struct RunOutput {
 
 #[derive(Clone, Debug)]
 pub struct BuildOutput {
+    pub bundle_path: PathBuf,
     pub executable_path: PathBuf,
+    pub runner_path: PathBuf,
     pub package_path: PathBuf,
     pub lock_path: PathBuf,
+    pub bytecode_path: PathBuf,
+    pub source_path: PathBuf,
     pub review_path: PathBuf,
 }
 
@@ -267,34 +272,85 @@ pub fn build_standalone(
     let bytecode = build_bytecode(&check_report, &source, &entry);
     let bytecode_hash = hash_text(&bytecode);
 
-    fs::create_dir_all(dist_root)?;
     let stem = path
         .file_stem()
         .and_then(|value| value.to_str())
         .unwrap_or("model");
-    let executable_path = dist_root.join(format!("{stem}.exe"));
-    let package_path = dist_root.join(format!("{stem}.engpkg"));
-    let lock_path = dist_root.join(format!("{stem}.lock"));
-    let review_path = dist_root.join(format!("{stem}.review.html"));
+    fs::create_dir_all(dist_root)?;
+    let bundle_path = dist_root.join(format!("{stem}-standalone"));
+    if bundle_path.exists() {
+        fs::remove_dir_all(&bundle_path)?;
+    }
+    fs::create_dir_all(&bundle_path)?;
 
+    let source_dir = bundle_path.join("source");
+    fs::create_dir_all(&source_dir)?;
+    let source_file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("main.eng");
+    let bundled_source_path = source_dir.join(source_file_name);
+    fs::write(&bundled_source_path, &source)?;
+
+    for promotion in &check_report.semantic_program.csv_promotions {
+        let Some(destination) =
+            bundled_dependency_path(&source_dir, &bundle_path, &promotion.source_literal)
+        else {
+            return Err(RuntimeError::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "CSV dependency `{}` cannot be bundled because it escapes the standalone bundle",
+                    promotion.source_literal
+                ),
+            )));
+        };
+        if let Some(parent) = destination.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::copy(Path::new(&promotion.resolved_path), destination)?;
+    }
+
+    let executable_path = bundle_path.join("eng.exe");
+    fs::copy(env::current_exe()?, &executable_path)?;
+
+    let runner_path = bundle_path.join("run.bat");
     fs::write(
-        &executable_path,
-        "EngLang standalone package placeholder. Use eng.exe run for preview execution.\n",
+        &runner_path,
+        standalone_runner_script(source_file_name, &entry.name),
     )?;
+
+    let bytecode_path = bundle_path.join(format!("{stem}.engbc"));
+    let package_path = bundle_path.join(format!("{stem}.engpkg"));
+    let lock_path = bundle_path.join(format!("{stem}.lock"));
+    let review_path = bundle_path.join(format!("{stem}.review.html"));
+
+    fs::write(&bytecode_path, &bytecode)?;
     fs::write(
         &package_path,
         format!(
-            "format = engpkg-preview-1\nsource_hash = {}\nbytecode_hash = {}\nentry = {}\n",
+            "format = engpkg-stable-1\npackage_format_version = 1\nrunner = run.bat\nengine = eng.exe\nsource = {}\nbytecode = {}\nsource_hash = {}\nbytecode_hash = {}\nentry_name = {}\nentry = {}\n",
+            path_for_manifest(&Path::new("source").join(source_file_name)),
+            path_for_manifest(
+                bytecode_path
+                    .file_name()
+                    .map(PathBuf::from)
+                    .as_deref()
+                    .unwrap_or_else(|| Path::new("model.engbc"))
+            ),
             check_report.source_hash,
             bytecode_hash,
+            entry.name,
             entry.signature()
         ),
     )?;
     fs::write(
         &lock_path,
         format!(
-            "runtime_version = {RUNTIME_VERSION}\ncompiler_version = {}\nprofile = repro\n",
-            eng_compiler::COMPILER_VERSION
+            "runtime_version = {RUNTIME_VERSION}\ncompiler_version = {}\nbytecode_version = {}\nresult_format_version = 1\nreport_schema_version = {}\nplot_spec_version = {}\nprofile = repro\n",
+            eng_compiler::COMPILER_VERSION,
+            eng_compiler::BYTECODE_VERSION,
+            eng_report::REPORT_SPEC_VERSION,
+            eng_report::PLOT_SPEC_VERSION
         ),
     )?;
     fs::write(
@@ -303,9 +359,13 @@ pub fn build_standalone(
     )?;
 
     Ok(BuildOutput {
+        bundle_path,
         executable_path,
+        runner_path,
         package_path,
         lock_path,
+        bytecode_path,
+        source_path: bundled_source_path,
         review_path,
     })
 }
@@ -370,6 +430,43 @@ fn write_permission_check(repo_root: &Path) -> DoctorCheck {
         ok: result.is_ok(),
         detail: build_root.display().to_string(),
     }
+}
+
+fn bundled_dependency_path(
+    source_dir: &Path,
+    bundle_root: &Path,
+    source_literal: &str,
+) -> Option<PathBuf> {
+    let mut destination = source_dir.to_path_buf();
+    for component in Path::new(source_literal).components() {
+        match component {
+            Component::Normal(value) => destination.push(value),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                destination.pop();
+                if !destination.starts_with(bundle_root) {
+                    return None;
+                }
+            }
+            Component::Prefix(_) | Component::RootDir => return None,
+        }
+    }
+    if destination.starts_with(bundle_root) {
+        Some(destination)
+    } else {
+        None
+    }
+}
+
+fn standalone_runner_script(source_file_name: &str, entry_name: &str) -> String {
+    format!(
+        "@echo off\r\nsetlocal\r\ncd /d \"%~dp0\"\r\n\"%~dp0eng.exe\" run \"%~dp0source\\{}\" --entry {} %*\r\n",
+        source_file_name, entry_name
+    )
+}
+
+fn path_for_manifest(path: &Path) -> String {
+    path.display().to_string().replace('\\', "/")
 }
 
 fn result_json(

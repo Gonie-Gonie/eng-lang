@@ -1,5 +1,6 @@
 use std::env;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::process::ExitCode;
 
 use eng_compiler::{check_file, review_json, CheckOptions, Severity};
@@ -194,10 +195,14 @@ fn command_build(args: Vec<String>) -> ExitCode {
 
     match build_standalone(Path::new(&path), Path::new("dist"), &BuildOptions { entry }) {
         Ok(output) => {
-            println!("standalone package candidate");
+            println!("standalone package");
+            println!("bundle:     {}", output.bundle_path.display());
             println!("executable: {}", output.executable_path.display());
+            println!("runner:     {}", output.runner_path.display());
             println!("package:    {}", output.package_path.display());
             println!("lock:       {}", output.lock_path.display());
+            println!("bytecode:   {}", output.bytecode_path.display());
+            println!("source:     {}", output.source_path.display());
             println!("review:     {}", output.review_path.display());
             ExitCode::SUCCESS
         }
@@ -519,6 +524,72 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("Korean and space-containing path smoke failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+
+    match build_standalone(
+        Path::new("examples/02_csv_plot/main.eng"),
+        Path::new("build/test-standalone"),
+        &BuildOptions {
+            entry: Some("main".to_owned()),
+        },
+    ) {
+        Ok(output) => {
+            let package_text = std::fs::read_to_string(&output.package_path).unwrap_or_default();
+            let lock_text = std::fs::read_to_string(&output.lock_path).unwrap_or_default();
+            if !output.runner_path.exists()
+                || !output.executable_path.exists()
+                || !output.bytecode_path.exists()
+                || !package_text.contains("format = engpkg-stable-1")
+                || !package_text.contains("runner = run.bat")
+                || !lock_text.contains("bytecode_version = 1")
+                || !lock_text.contains("result_format_version = 1")
+            {
+                eprintln!("expected standalone build to create a stable runnable bundle");
+                return ExitCode::from(2);
+            }
+
+            let status = Command::new("cmd")
+                .arg("/C")
+                .arg("run.bat")
+                .current_dir(&output.bundle_path)
+                .status();
+            match status {
+                Ok(status) if status.success() => {
+                    let report_spec = output
+                        .bundle_path
+                        .join("build")
+                        .join("result")
+                        .join("report_spec.json");
+                    let plot_spec = output
+                        .bundle_path
+                        .join("build")
+                        .join("result")
+                        .join("plots")
+                        .join("plot_spec.json");
+                    if !report_spec.exists() || !plot_spec.exists() {
+                        eprintln!(
+                            "expected standalone runner to produce report and PlotSpec artifacts"
+                        );
+                        return ExitCode::from(2);
+                    }
+                    println!(
+                        "ok: standalone packaged runner produced report and PlotSpec artifacts"
+                    );
+                }
+                Ok(status) => {
+                    eprintln!("standalone runner failed with status {status}");
+                    return ExitCode::from(2);
+                }
+                Err(error) => {
+                    eprintln!("failed to run standalone runner: {error}");
+                    return ExitCode::from(2);
+                }
+            }
+        }
+        Err(error) => {
+            eprintln!("standalone build smoke failed: {error}");
             return ExitCode::from(2);
         }
     }
