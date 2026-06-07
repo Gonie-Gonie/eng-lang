@@ -9,6 +9,7 @@ document:
 - [Current project status](docs/current/status.md)
 - [Feature maturity matrix](docs/current/feature_maturity_matrix.md)
 - [v1.0.3 hardening register](docs/current/v1_0_3_hardening.md)
+- [v1.2 data-driven modeling gate](docs/current/v1_2_data_driven_modeling_gate.md)
 - [LLM context](LLM_CONTEXT.md)
 - [LLM load map](docs/llm/load_map.yml)
 
@@ -159,7 +160,8 @@ v1.1
 
 v1.2
   Data-driven modeling seed: eng.ml preview surface, train/test split,
-  regression/basic MLP, RMSE/MAE/R2, leakage lint, model card, and parity plot.
+  regression/basic MLP, source and argument diagnostics, RMSE/MAE/R2, leakage
+  lint, model card, and parity/residual plot smoke paths.
   Experimental on main until v1.2 is explicitly targeted and released.
 ```
 
@@ -169,6 +171,7 @@ v1.2
 - [Current project status](docs/current/status.md)
 - [Feature maturity matrix](docs/current/feature_maturity_matrix.md)
 - [v1.0.3 hardening register](docs/current/v1_0_3_hardening.md)
+- [v1.2 data-driven modeling gate](docs/current/v1_2_data_driven_modeling_gate.md)
 - [LLM context](LLM_CONTEXT.md)
 - [LLM load map](docs/llm/load_map.yml)
 - [Current master plan pointer](docs/master-plan/current.md)

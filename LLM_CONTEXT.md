@@ -16,7 +16,8 @@ It is intentionally short so agents do not need to load every planning file.
   inspection.
 - Current `v1.2` detail work includes source validation diagnostics for
   TimeSeries -> train/test split -> model -> evaluation/model-card links and
-  argument diagnostics for split/model/MLP options.
+  argument diagnostics for split/model/MLP options, with parity and residual
+  plot smoke paths documented in the v1.2 gate.
 
 ## Read First
 
@@ -25,7 +26,8 @@ It is intentionally short so agents do not need to load every planning file.
 3. `docs/current/status.md`
 4. `docs/current/feature_maturity_matrix.md`
 5. `docs/current/v1_0_3_hardening.md`
-6. `docs/llm/load_map.yml`
+6. `docs/current/v1_2_data_driven_modeling_gate.md`
+7. `docs/llm/load_map.yml`
 
 ## Core Invariants
 

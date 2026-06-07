@@ -16,6 +16,8 @@ implementation seeds.
 `v1.1` and `v1.2` support code may exist on `main`, but those features are not
 release-supported until their language rules, runtime behavior, diagnostics,
 IDE metadata, examples, tests, and user documentation are aligned.
+The current v1.2 implementation gate is tracked in
+[v1.2 data-driven modeling gate](v1_2_data_driven_modeling_gate.md).
 
 ## Core Execution Invariants
 

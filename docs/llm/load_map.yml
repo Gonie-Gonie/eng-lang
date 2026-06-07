@@ -4,6 +4,7 @@ default:
   - docs/current/status.md
   - docs/current/feature_maturity_matrix.md
   - docs/current/v1_0_3_hardening.md
+  - docs/current/v1_2_data_driven_modeling_gate.md
 
 task_types:
   parser:
@@ -54,6 +55,7 @@ task_types:
     - crates/eng_runtime/src/runtime_data.rs
 
   data_driven_modeling:
+    - docs/current/v1_2_data_driven_modeling_gate.md
     - docs/guide/data_driven_modeling.md
     - stdlib/eng/ml.eng
     - examples/official/05_data_driven_modeling/
