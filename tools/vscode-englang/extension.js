@@ -126,13 +126,15 @@ async function checkActiveFile(diagnostics, context) {
 }
 
 function checkDocument(document, diagnostics, context) {
-  const runtime = findRuntime(context, document);
+  const backend = diagnosticsBackend(document);
+  const runtime = backend === "lsp-snapshot" ? findLspRuntime(context, document) : findRuntime(context, document);
+  const args = backend === "lsp-snapshot" ? ["--snapshot", document.uri.fsPath] : ["ide-check", document.uri.fsPath];
   const cwd = workspaceRoot(document);
-  output.appendLine(`check ${document.uri.fsPath}`);
+  output.appendLine(`${backend} check ${document.uri.fsPath}`);
 
   cp.execFile(
     runtime,
-    ["ide-check", document.uri.fsPath],
+    args,
     { cwd, maxBuffer: 10 * 1024 * 1024 },
     (error, stdout, stderr) => {
       if (stderr && stderr.trim().length > 0) {
@@ -143,14 +145,14 @@ function checkDocument(document, diagnostics, context) {
       try {
         review = JSON.parse(stdout);
       } catch (parseError) {
-        output.appendLine(`Unable to parse eng ide-check output: ${parseError.message}`);
+        output.appendLine(`Unable to parse EngLang ${backend} output: ${parseError.message}`);
         if (error) {
           output.appendLine(error.message);
         }
         diagnostics.set(document.uri, [
           new vscode.Diagnostic(
             firstLineRange(document),
-            "EngLang runtime did not return IDE JSON. Check englang.runtimePath.",
+            "EngLang runtime did not return editor JSON. Check englang.runtimePath or englang.lspPath.",
             vscode.DiagnosticSeverity.Error
           )
         ]);
@@ -159,8 +161,8 @@ function checkDocument(document, diagnostics, context) {
 
       reviewCache.set(document.uri.fsPath, review);
       diagnostics.set(document.uri, toDiagnostics(document, review));
-      const errors = review.diagnostics?.filter((item) => item.severity === "error").length ?? 0;
-      const warnings = review.diagnostics?.filter((item) => item.severity === "warning").length ?? 0;
+      const errors = review.diagnostics?.filter((item) => severityName(item.severity) === "error").length ?? 0;
+      const warnings = review.diagnostics?.filter((item) => severityName(item.severity) === "warning").length ?? 0;
       output.appendLine(`diagnostics: ${errors} error(s), ${warnings} warning(s)`);
     }
   );
@@ -168,15 +170,12 @@ function checkDocument(document, diagnostics, context) {
 
 function toDiagnostics(document, review) {
   return (review.diagnostics ?? []).map((item) => {
-    const line = Math.max(0, (item.line ?? 1) - 1);
+    const line = item.range?.start?.line ?? Math.max(0, (item.line ?? 1) - 1);
     const textLine = document.lineAt(Math.min(line, document.lineCount - 1));
-    const range = new vscode.Range(line, 0, line, Math.max(1, textLine.text.length));
-    const severity =
-      item.severity === "error"
-        ? vscode.DiagnosticSeverity.Error
-        : item.severity === "warning"
-          ? vscode.DiagnosticSeverity.Warning
-          : vscode.DiagnosticSeverity.Information;
+    const startCharacter = item.range?.start?.character ?? 0;
+    const endCharacter = item.range?.end?.character ?? Math.max(1, textLine.text.length);
+    const range = new vscode.Range(line, startCharacter, line, Math.max(startCharacter + 1, endCharacter));
+    const severity = toVscodeSeverity(item.severity);
     const diagnostic = new vscode.Diagnostic(range, item.message, severity);
     diagnostic.code = item.code;
     diagnostic.source = "eng";
@@ -185,6 +184,27 @@ function toDiagnostics(document, review) {
     }
     return diagnostic;
   });
+}
+
+function severityName(severity) {
+  if (severity === 1 || severity === "error") {
+    return "error";
+  }
+  if (severity === 2 || severity === "warning") {
+    return "warning";
+  }
+  return "info";
+}
+
+function toVscodeSeverity(severity) {
+  const name = severityName(severity);
+  if (name === "error") {
+    return vscode.DiagnosticSeverity.Error;
+  }
+  if (name === "warning") {
+    return vscode.DiagnosticSeverity.Warning;
+  }
+  return vscode.DiagnosticSeverity.Information;
 }
 
 async function runActiveFile(context) {
@@ -247,9 +267,16 @@ class EngHoverProvider {
     const line = position.line + 1;
     const hover =
       (review.hover_hints ?? []).find((item) => item.line === line && item.name === word) ??
+      (review.hovers ?? []).find((item) => item.line === line && item.name === word) ??
       (review.type_info ?? []).find((item) => item.name === word);
     if (!hover) {
       return undefined;
+    }
+
+    if (hover.contents?.value) {
+      const markdown = new vscode.MarkdownString(hover.contents.value);
+      markdown.isTrusted = false;
+      return new vscode.Hover(markdown, wordRange);
     }
 
     const markdown = new vscode.MarkdownString();
@@ -273,34 +300,51 @@ class EngHoverProvider {
 }
 
 class EngCompletionProvider {
-  provideCompletionItems() {
+  provideCompletionItems(document) {
     const items = [];
+    const seen = new Set();
+    const review = reviewCache.get(document.uri.fsPath);
+
+    for (const completion of review?.completions ?? []) {
+      const item = new vscode.CompletionItem(completion.label, completion.kind ?? vscode.CompletionItemKind.Text);
+      item.detail = completion.detail;
+      addCompletion(items, seen, item);
+    }
 
     for (const keyword of KEYWORDS) {
       const item = new vscode.CompletionItem(keyword, vscode.CompletionItemKind.Keyword);
       item.detail = "EngLang keyword";
-      items.push(item);
+      addCompletion(items, seen, item);
     }
 
     for (const [quantity, canonicalUnit, description] of QUANTITIES) {
       const item = new vscode.CompletionItem(quantity, vscode.CompletionItemKind.Class);
       item.detail = `quantity kind, canonical unit ${canonicalUnit}`;
       item.documentation = description;
-      items.push(item);
+      addCompletion(items, seen, item);
     }
 
     for (const unit of UNITS) {
       const item = new vscode.CompletionItem(unit, vscode.CompletionItemKind.Unit);
       item.detail = "EngLang unit";
-      items.push(item);
+      addCompletion(items, seen, item);
     }
 
-    items.push(snippet("schema csv", "schema ${1:Sensor} {\n    ${2:time}: DateTime [iso8601]\n    ${3:heat}: HeatRate [kW]\n}", "Typed CSV schema"));
-    items.push(snippet("script main", "script main() -> Report {\n    ${1:value} = ${2:1 kW}\n    return plot line ${1:value}\n}", "Main report script"));
-    items.push(snippet("system thermal", "system ${1:Room} {\n    state ${2:T}: AbsoluteTemperature = ${3:20 degC}\n    parameter ${4:C}: HeatCapacity = ${5:1200 kJ/K}\n    parameter ${6:UA}: Conductance = ${7:250 W/K}\n    input ${8:T_out}: AbsoluteTemperature = ${9:10 degC}\n    input ${10:Q_internal}: HeatRate = ${11:500 W}\n    equation energy_balance:\n        ${4:C} * der(${2:T}) eq ${6:UA} * (${8:T_out} - ${2:T}) + ${10:Q_internal}\n}", "First-order thermal system"));
+    addCompletion(items, seen, snippet("schema csv", "schema ${1:Sensor} {\n    ${2:time}: DateTime [iso8601]\n    ${3:heat}: HeatRate [kW]\n}", "Typed CSV schema"));
+    addCompletion(items, seen, snippet("script main", "script main() -> Report {\n    ${1:value} = ${2:1 kW}\n    return plot line ${1:value}\n}", "Main report script"));
+    addCompletion(items, seen, snippet("system thermal", "system ${1:Room} {\n    state ${2:T}: AbsoluteTemperature = ${3:20 degC}\n    parameter ${4:C}: HeatCapacity = ${5:1200 kJ/K}\n    parameter ${6:UA}: Conductance = ${7:250 W/K}\n    input ${8:T_out}: AbsoluteTemperature = ${9:10 degC}\n    input ${10:Q_internal}: HeatRate = ${11:500 W}\n    equation energy_balance:\n        ${4:C} * der(${2:T}) eq ${6:UA} * (${8:T_out} - ${2:T}) + ${10:Q_internal}\n}", "First-order thermal system"));
 
     return items;
   }
+}
+
+function addCompletion(items, seen, item) {
+  const label = typeof item.label === "string" ? item.label : item.label?.label;
+  if (!label || seen.has(label)) {
+    return;
+  }
+  seen.add(label);
+  items.push(item);
 }
 
 function snippet(label, body, detail) {
@@ -316,6 +360,10 @@ function isEngDocument(document) {
 
 function workspaceRoot(document) {
   return vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath ?? path.dirname(document.uri.fsPath);
+}
+
+function diagnosticsBackend(document) {
+  return vscode.workspace.getConfiguration("englang", document.uri).get("diagnosticsBackend", "eng-cli");
 }
 
 function findRuntime(context, document) {
@@ -336,6 +384,26 @@ function findRuntime(context, document) {
   }
 
   return "eng.exe";
+}
+
+function findLspRuntime(context, document) {
+  const configPath = vscode.workspace.getConfiguration("englang", document.uri).get("lspPath", "");
+  const candidates = [
+    configPath,
+    path.join(context.extensionPath, "bin", "eng-lsp.exe"),
+    path.join(context.extensionPath, "..", "..", "eng-lsp.exe"),
+    path.join(workspaceRoot(document), "eng-lsp.exe"),
+    path.join(workspaceRoot(document), "target", "debug", "eng-lsp.exe"),
+    path.join(workspaceRoot(document), "target", "release", "eng-lsp.exe")
+  ].filter((candidate) => candidate && candidate.trim().length > 0);
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return "eng-lsp.exe";
 }
 
 function firstLineRange(document) {

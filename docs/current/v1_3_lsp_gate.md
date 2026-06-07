@@ -44,11 +44,12 @@ wired into a release target and manually tested in an editor.
   path.
 - [x] `eng-lsp-snapshot-v1` compatibility rules are documented in
   [LSP snapshot reference](../reference/lsp_snapshot.md).
+- [x] VS Code extension keeps `eng.exe ide-check` as the default preview
+  backend and offers optional `eng-lsp.exe --snapshot` diagnostics metadata via
+  `englang.diagnosticsBackend = lsp-snapshot`.
 
 ## Remaining Before Support Claim
 
-- [ ] Decide whether the VS Code extension should keep direct `eng ide-check`
-  calls or switch to the LSP server.
 - [ ] Add editor-level manual tests for diagnostics, completion, and hover in
   VS Code or another LSP client.
 - [ ] Add precise diagnostic ranges when compiler spans are ready across all

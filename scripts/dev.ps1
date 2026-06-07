@@ -846,6 +846,18 @@ function Invoke-IdeCheck {
             throw "VS Code extension missing command $Required"
         }
     }
+    $Properties = $Package.contributes.configuration.properties
+    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsBackend", "englang.lintOnSave", "englang.runEntry")) {
+        if ($null -eq $Properties.$RequiredProperty) {
+            throw "VS Code extension missing configuration property $RequiredProperty"
+        }
+    }
+    $BackendEnum = @($Properties."englang.diagnosticsBackend".enum)
+    foreach ($RequiredBackend in @("eng-cli", "lsp-snapshot")) {
+        if ($BackendEnum -notcontains $RequiredBackend) {
+            throw "VS Code extension diagnosticsBackend missing enum value $RequiredBackend"
+        }
+    }
 
     $Node = Get-Command node -ErrorAction SilentlyContinue
     if ($null -ne $Node) {

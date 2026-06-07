@@ -7,6 +7,7 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
 
 - `.eng` language registration and syntax highlighting
 - diagnostics from `eng ide-check`
+- optional diagnostics/completion/hover metadata from `eng-lsp --snapshot`
 - hover from compiler review metadata
 - quantity, unit, keyword, and snippet completion
 - commands to check, run, and open the latest generated report
@@ -21,9 +22,13 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
 5. Open a `.eng` file and run `EngLang: Check Current File`.
 
 The packaged VSIX contains `eng.exe` and experimental `eng-lsp.exe`, so no Rust
-setup is required for IDE preview diagnostics or LSP smoke checks. The
-extension still uses direct `eng.exe` commands in this preview; switching to the
-LSP server is tracked separately.
+setup is required for IDE preview diagnostics or LSP smoke checks. The default
+diagnostics backend still uses direct `eng.exe` commands. To exercise the
+snapshot path, set:
+
+```text
+englang.diagnosticsBackend = lsp-snapshot
+```
 
 ## Install From Source
 
@@ -37,10 +42,14 @@ Then open this folder as an extension development host, or set:
 
 ```text
 englang.runtimePath = C:\path\to\eng.exe
+englang.lspPath = C:\path\to\eng-lsp.exe
 ```
 
 ## Current Scope
 
-This is not a full LSP-backed extension yet. Diagnostics are refreshed on
-open/save and manual check. Unsaved buffer diagnostics are intentionally
-conservative because schema and CSV paths are resolved relative to real files.
+This is not a persistent LSP-client extension yet. Diagnostics are refreshed on
+open/save and manual check. The optional `lsp-snapshot` backend uses
+`eng-lsp.exe --snapshot` for diagnostics, hover metadata, and completion
+metadata, while run/report commands still use `eng.exe`. Unsaved buffer
+diagnostics are intentionally conservative because schema and CSV paths are
+resolved relative to real files.

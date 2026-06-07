@@ -105,6 +105,8 @@ Hover entries are derived from compiler hover metadata:
 {
   "name": "Q_coil",
   "line": 28,
+  "quantity_kind": "TimeSeries[Time] of HeatRate",
+  "display_unit": "W",
   "contents": {
     "kind": "markdown",
     "value": "**Q_coil**\n\ninferred as TimeSeries[Time] of HeatRate [W]..."
@@ -114,6 +116,8 @@ Hover entries are derived from compiler hover metadata:
 
 `line` is one-based because it mirrors compiler metadata. LSP responses convert
 request positions from zero-based LSP coordinates before matching hover lines.
+`quantity_kind` and `display_unit` are included for editor clients that want to
+render compact metadata without parsing the markdown body.
 
 ## Intended Consumers
 

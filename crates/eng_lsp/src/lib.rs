@@ -138,6 +138,8 @@ pub fn hover_json(hover: &LspHover) -> Value {
     json!({
         "name": hover.name,
         "line": hover.line,
+        "quantity_kind": hover.quantity_kind,
+        "display_unit": hover.display_unit,
         "contents": {
             "kind": "markdown",
             "value": format!(

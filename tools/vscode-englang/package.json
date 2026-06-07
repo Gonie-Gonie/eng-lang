@@ -50,6 +50,20 @@
           "default": "",
           "description": "Path to eng.exe. Leave empty to use the bundled executable, workspace executable, or PATH."
         },
+        "englang.lspPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to eng-lsp.exe. Leave empty to use the bundled executable, workspace executable, or PATH."
+        },
+        "englang.diagnosticsBackend": {
+          "type": "string",
+          "default": "eng-cli",
+          "enum": [
+            "eng-cli",
+            "lsp-snapshot"
+          ],
+          "description": "Diagnostics backend. eng-cli uses eng.exe ide-check; lsp-snapshot uses eng-lsp.exe --snapshot."
+        },
         "englang.lintOnSave": {
           "type": "boolean",
           "default": true,

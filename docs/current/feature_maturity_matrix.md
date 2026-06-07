@@ -24,11 +24,11 @@ language feature. Status terms are defined at the bottom of this file.
 | Standalone package | Supported | Official package and package-smoke path | Broader platform matrix deferred | Maintain Windows portable path |
 | Example taxonomy | Supported | `examples/official` user-test namespace, compatibility regression examples, diagnostic fixtures, and data-quality fixtures | Historical release notes may mention older paths | Maintain IDE/CLI ordering and package docs |
 | Native tester IDE | Preview | Open/check/save/run, diagnostics, completions, variable/unit/schema/CSV inspector, PlotSpec preview, runtime summary | Not a full LSP/editor platform | v1.0.3 hardening |
-| VS Code extension | Preview | Packaged diagnostic/completion shape | Secondary editor path | Keep package smoke stable |
+| VS Code extension | Preview | Packaged diagnostic/completion shape with optional `eng-lsp --snapshot` backend | Secondary editor path, not a persistent LSP client yet | Keep package smoke stable |
 | Integrated HVAC example | Preview | User-test workflow across supported subsystems | It is not proof of general solver/table support | Use as release manual test |
 | Uncertainty core | Experimental | Official example, deterministic samples, source diagnostics, propagation transform/source metadata, histogram artifact path on `main` | v1.1 release gate not completed | v1.1 |
 | Data-driven modeling / ML | Experimental | Official parity/residual examples, artifacts, source validation diagnostics, argument diagnostics, and v1.2 gate on `main` | Not release-supported | v1.2 gate |
-| LSP | Experimental | `eng-lsp.exe` smoke/snapshot, stdio round-trip tests, package-smoke inclusion, line diagnostics, context-aware schema column completion, hover, and minimal stdio JSON-RPC on `main` | Not editor-validated as a release path | v1.3 gate |
+| LSP | Experimental | `eng-lsp.exe` smoke/snapshot, stdio round-trip tests, package-smoke inclusion, optional VS Code snapshot backend, line diagnostics, context-aware schema column completion, hover, and minimal stdio JSON-RPC on `main` | Not editor-validated as a release path | v1.3 gate |
 
 ## Status Terms
 
