@@ -1,0 +1,34 @@
+schema HvacTrainingData {
+    time: DateTime index
+    T_supply: AbsoluteTemperature [degC]
+    T_return: AbsoluteTemperature [degC]
+    m_dot: MassFlowRate [kg/s]
+
+    constraints {
+        time is monotonic
+        T_supply between 0 degC and 60 degC
+        T_return between 0 degC and 80 degC
+        m_dot >= 0 kg/s
+    }
+}
+
+struct Args {
+    input: String = "data/hvac_training.csv"
+}
+
+script main(args: Args) -> Report {
+    sensor = promote csv args.input as HvacTrainingData
+    cp = 4180 J/kg/K
+    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+
+    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)
+    reg_model = regression(split, algorithm=linear)
+    reg_eval = evaluate(reg_model, split=split)
+
+    return report {
+        show reg_eval
+        plot residuals(reg_eval) {
+            title = "Regression residuals"
+        }
+    }
+}

@@ -152,12 +152,13 @@ Recommended v1.2 data-driven modeling smoke:
 
 ```text
 examples/official/05_data_driven_modeling/main.eng
+examples/official/05_data_driven_modeling/residuals.eng
 ```
 
 Run it and inspect the Run Preview/Plot SVG/Report artifacts to verify the
-parity scatter plot and ML Models table. The Runtime Summary tab also shows
-train/test counts, RMSE/MAE/R2, leakage status, coefficient summary, and loss
-history.
+parity scatter plot, residual bar plot, and ML Models table. The Runtime
+Summary tab also shows train/test counts, RMSE/MAE/R2, leakage status,
+coefficient summary, and loss history.
 
 ## Completion Scope
 

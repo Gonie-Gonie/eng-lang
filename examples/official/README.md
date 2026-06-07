@@ -25,7 +25,8 @@ paths before compatibility fixtures.
 05_data_driven_modeling
   Experimental v1.2 data-driven modeling path for train/test split, linear
   regression, basic MLP, source and argument validation diagnostics,
-  RMSE/MAE/R2 metrics, leakage lint, model card, and parity plot output.
+  RMSE/MAE/R2 metrics, leakage lint, model card, parity plot output, and
+  residual plot output via `residuals.eng`.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression

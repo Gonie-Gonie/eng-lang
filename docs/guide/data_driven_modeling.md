@@ -174,3 +174,16 @@ or open this file in the native IDE:
 ```text
 examples/official/05_data_driven_modeling/main.eng
 ```
+
+The main example renders the parity scatter plot. The residual bar plot path is
+available as:
+
+```bat
+.\target\debug\eng.exe run examples\official\05_data_driven_modeling\residuals.eng --entry main
+```
+
+or in the native IDE:
+
+```text
+examples/official/05_data_driven_modeling/residuals.eng
+```

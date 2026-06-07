@@ -773,6 +773,36 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(2);
         }
     }
+    match run_file(
+        Path::new("examples/official/05_data_driven_modeling/residuals.eng"),
+        Path::new("build/test-data-driven-modeling-residuals"),
+        &RunOptions {
+            open_report: false,
+            entry: Some("main".to_owned()),
+            args: Vec::new(),
+        },
+    ) {
+        Ok(output) => {
+            let result = std::fs::read_to_string(output.result_path).unwrap_or_default();
+            let plot_spec = std::fs::read_to_string(output.plot_spec_path).unwrap_or_default();
+            if !result.contains("\"residual_points\"")
+                || !plot_spec.contains("\"plot_type\": \"bar\"")
+                || !plot_spec.contains("Regression residuals")
+            {
+                eprintln!(
+                    "expected data-driven residual example to produce residual points and bar plot"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/05_data_driven_modeling/residuals.eng produced residual plot artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("data-driven residual example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
 
     if !data_quality_fixture_records_parse_failure(
         "examples/07_data_quality/bad_datetime_cell.eng",

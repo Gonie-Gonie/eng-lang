@@ -3374,6 +3374,26 @@ script main(args: Args) -> Report {
         assert_eq!(model_plot.source, "reg_eval");
         assert_eq!(options.plot_type.as_deref(), Some("scatter"));
         assert_eq!(options.title.as_deref(), Some("Regression parity"));
+
+        let residual_options = parse_plot_options(
+            r#"
+script main(args: Args) -> Report {
+    return report {
+        plot residuals(reg_eval) {
+            title = "Regression residuals"
+        }
+    }
+}
+"#,
+        );
+        let residual_plot = residual_options.model_plot.as_ref().unwrap();
+        assert_eq!(residual_plot.kind, "residuals");
+        assert_eq!(residual_plot.source, "reg_eval");
+        assert_eq!(residual_options.plot_type.as_deref(), Some("bar"));
+        assert_eq!(
+            residual_options.title.as_deref(),
+            Some("Regression residuals")
+        );
     }
 
     #[test]
@@ -3585,6 +3605,20 @@ script main(args: Args) -> Report {
         assert_eq!(plot_spec.plot_type, "scatter");
         assert_eq!(plot_spec.title, "Regression parity");
         assert!(!plot_spec.series[0].points.is_empty());
+
+        let residual_source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/official/05_data_driven_modeling/residuals.eng");
+        let residual_source = std::fs::read_to_string(&residual_source_path).unwrap();
+        let residual_report = check_file(&residual_source_path, &CheckOptions::default()).unwrap();
+        let residual_runtime = materialize_runtime_data(&residual_report, &residual_source);
+        let mut residual_plot_spec = eng_report::plot_spec_from_report(&residual_report);
+        residual_runtime.apply_plot_spec(&residual_report, &mut residual_plot_spec);
+
+        assert_eq!(residual_plot_spec.plot_type, "bar");
+        assert_eq!(residual_plot_spec.title, "Regression residuals");
+        assert_eq!(residual_plot_spec.y_axis.name, "Residual");
+        assert!(!residual_plot_spec.series[0].points.is_empty());
     }
 
     fn round2(value: f64) -> f64 {
