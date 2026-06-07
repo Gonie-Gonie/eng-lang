@@ -51,6 +51,27 @@ pub fn snapshot_for_source(path: &Path, source: &str) -> LspSnapshot {
     snapshot_from_report(&report)
 }
 
+pub fn completion_items_for_path_position(
+    path: &Path,
+    line: usize,
+    character: usize,
+) -> std::io::Result<Vec<LspCompletion>> {
+    let source = std::fs::read_to_string(path)?;
+    Ok(completion_items_for_source_position(
+        path, &source, line, character,
+    ))
+}
+
+pub fn completion_items_for_source_position(
+    path: &Path,
+    source: &str,
+    line: usize,
+    character: usize,
+) -> Vec<LspCompletion> {
+    let report = check_source(path, source, &CheckOptions::default());
+    completion_items_at(&report, source, line, character)
+}
+
 pub fn snapshot_from_report(report: &CheckReport) -> LspSnapshot {
     LspSnapshot {
         diagnostics: report
@@ -206,6 +227,53 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
     items
 }
 
+pub fn completion_items_at(
+    report: &CheckReport,
+    source: &str,
+    line: usize,
+    character: usize,
+) -> Vec<LspCompletion> {
+    if let Some((receiver, prefix)) = member_completion_context(source, line, character) {
+        if let Some(schema_name) = report
+            .semantic_program
+            .csv_promotions
+            .iter()
+            .find(|promotion| promotion.binding == receiver)
+            .map(|promotion| promotion.schema_name.as_str())
+        {
+            if let Some(schema) = report
+                .semantic_program
+                .schemas
+                .iter()
+                .find(|schema| schema.name == schema_name)
+            {
+                let mut seen = BTreeSet::new();
+                let mut items = Vec::new();
+                for column in &schema.columns {
+                    if prefix.is_empty() || column.name.starts_with(&prefix) {
+                        push_completion(
+                            &mut items,
+                            &mut seen,
+                            &column.name,
+                            "property",
+                            &format!(
+                                "{} [{}] from {}: {}",
+                                column.type_name,
+                                column.unit.as_deref().unwrap_or("schema-defined"),
+                                receiver,
+                                schema.name
+                            ),
+                        );
+                    }
+                }
+                return items;
+            }
+        }
+    }
+
+    completion_items(report)
+}
+
 pub fn severity_to_lsp(severity: &Severity) -> u8 {
     match severity {
         Severity::Error => 1,
@@ -249,6 +317,46 @@ fn completion_kind(kind: &str) -> u8 {
     }
 }
 
+fn member_completion_context(
+    source: &str,
+    line: usize,
+    character: usize,
+) -> Option<(String, String)> {
+    let line_text = source.lines().nth(line)?;
+    let before_cursor = line_text
+        .chars()
+        .take(character)
+        .collect::<String>()
+        .trim_end()
+        .to_owned();
+    let bytes = before_cursor.as_bytes();
+    let mut prefix_end = bytes.len();
+    let mut prefix_start = prefix_end;
+    while prefix_start > 0 && is_ident_byte(bytes[prefix_start - 1]) {
+        prefix_start -= 1;
+    }
+    if prefix_start == 0 || bytes[prefix_start - 1] != b'.' {
+        return None;
+    }
+    let receiver_end = prefix_start - 1;
+    let mut receiver_start = receiver_end;
+    while receiver_start > 0 && is_ident_byte(bytes[receiver_start - 1]) {
+        receiver_start -= 1;
+    }
+    if receiver_start == receiver_end {
+        return None;
+    }
+    prefix_end = prefix_end.max(prefix_start);
+    Some((
+        before_cursor[receiver_start..receiver_end].to_owned(),
+        before_cursor[prefix_start..prefix_end].to_owned(),
+    ))
+}
+
+fn is_ident_byte(byte: u8) -> bool {
+    byte == b'_' || byte.is_ascii_alphanumeric()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -274,5 +382,46 @@ mod tests {
         let json = snapshot_json(&snapshot);
         assert_eq!(json["format"], LSP_SNAPSHOT_FORMAT);
         assert!(!json["diagnostics"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn member_completion_uses_csv_promotion_schema_columns() {
+        let source = r#"schema SensorData {
+    time: DateTime index
+    T_supply: AbsoluteTemperature [degC]
+    T_return: AbsoluteTemperature [degC]
+    m_dot: MassFlowRate [kg/s]
+}
+
+script main() -> Report {
+    sensor = promote csv "missing.csv" as SensorData
+    Q = sensor.T
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.contains("sensor.T"))
+            .unwrap();
+        let character =
+            source.lines().nth(line).unwrap().find("sensor.T").unwrap() + "sensor.T".len();
+        let report = check_source(
+            Path::new("completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "T_supply"));
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "T_return"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "schema"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "m_dot"));
     }
 }

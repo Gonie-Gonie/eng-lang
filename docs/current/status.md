@@ -93,8 +93,8 @@ not part of the supported release contract.
   metadata, source and argument validation diagnostics, RMSE/MAE/R2, model
   cards, leakage lint, and parity/residual plots.
 - `v1.3` LSP/editor service: experimental `eng-lsp.exe` smoke, packaged
-  package-smoke inclusion, snapshot, diagnostics, completion, hover, and tested
-  minimal stdio JSON-RPC paths.
+  package-smoke inclusion, snapshot, diagnostics, context-aware schema column
+  completion, hover, and tested minimal stdio JSON-RPC paths.
 
 ## Deferred / Known Limitations
 

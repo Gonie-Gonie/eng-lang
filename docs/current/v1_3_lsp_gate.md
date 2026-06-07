@@ -15,6 +15,8 @@ wired into a release target and manually tested in an editor.
   hover data are non-empty without printing the full JSON.
 - The portable package includes `eng-lsp.exe` and package smoke runs
   `eng-lsp.exe --smoke`.
+- `sensor.`-style member completion uses CSV promotion metadata to return
+  schema columns for the promoted table.
 - Default `eng-lsp` starts a minimal stdio JSON-RPC loop for:
   - `initialize`
   - `shutdown`
@@ -30,6 +32,8 @@ wired into a release target and manually tested in an editor.
 - [x] LSP-shaped diagnostics are derived from compiler diagnostics.
 - [x] Completion items include keywords, current typed bindings, schema
   columns, quantity kinds, and units.
+- [x] Completion requests at `promoted_table.` return the promoted schema's
+  columns instead of the global keyword/unit list.
 - [x] Hover items are derived from compiler hover metadata.
 - [x] `dev.bat lsp-check` validates smoke and snapshot-check paths.
 - [x] `dev.bat ci` runs `lsp-check`.
@@ -45,7 +49,6 @@ wired into a release target and manually tested in an editor.
   calls or switch to the LSP server.
 - [ ] Add editor-level manual tests for diagnostics, completion, and hover in
   VS Code or another LSP client.
-- [ ] Add schema-column completion context beyond global column labels.
 - [ ] Add precise diagnostic ranges when compiler spans are ready across all
   diagnostics; current LSP ranges are line-based.
 - [ ] Add a documented stability policy for `eng-lsp-snapshot-v1`.

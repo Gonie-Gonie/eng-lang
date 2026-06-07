@@ -14,6 +14,24 @@ fn stdio_server_round_trips_core_lsp_requests() {
     let source =
         std::fs::read_to_string(&source_path).expect("official example should be readable");
     let uri = file_uri(&source_path);
+    let q_coil_line = source
+        .lines()
+        .position(|line| line.contains("Q_coil ="))
+        .expect("official example should define Q_coil");
+    let q_coil_hover_char = source
+        .lines()
+        .nth(q_coil_line)
+        .unwrap()
+        .find("Q_coil")
+        .unwrap()
+        + "Q_coil".len();
+    let member_completion_char = source
+        .lines()
+        .nth(q_coil_line)
+        .unwrap()
+        .find("sensor.")
+        .unwrap()
+        + "sensor.".len();
 
     let mut child = Command::new(server)
         .stdin(Stdio::piped())
@@ -66,7 +84,7 @@ fn stdio_server_round_trips_core_lsp_requests() {
             "method": "textDocument/completion",
             "params": {
                 "textDocument": { "uri": uri },
-                "position": { "line": 27, "character": 6 }
+                "position": { "line": q_coil_line, "character": q_coil_hover_char }
             }
         }),
     );
@@ -88,15 +106,36 @@ fn stdio_server_round_trips_core_lsp_requests() {
         json!({
             "jsonrpc": "2.0",
             "id": 3,
+            "method": "textDocument/completion",
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": q_coil_line, "character": member_completion_char }
+            }
+        }),
+    );
+    let member_completion = read_message(&mut stdout);
+    assert_eq!(member_completion["id"], 3);
+    let member_items = member_completion["result"]
+        .as_array()
+        .expect("member completion result should be an array");
+    assert!(member_items.iter().any(|item| item["label"] == "m_dot"));
+    assert!(member_items.iter().any(|item| item["label"] == "T_return"));
+    assert!(!member_items.iter().any(|item| item["label"] == "HeatRate"));
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 4,
             "method": "textDocument/hover",
             "params": {
                 "textDocument": { "uri": uri },
-                "position": { "line": 27, "character": 6 }
+                "position": { "line": q_coil_line, "character": q_coil_hover_char }
             }
         }),
     );
     let hover = read_message(&mut stdout);
-    assert_eq!(hover["id"], 3);
+    assert_eq!(hover["id"], 4);
     let hover_text = hover["result"]["contents"]["value"]
         .as_str()
         .expect("hover should return markdown contents");
@@ -107,12 +146,12 @@ fn stdio_server_round_trips_core_lsp_requests() {
         &mut stdin,
         json!({
             "jsonrpc": "2.0",
-            "id": 4,
+            "id": 5,
             "method": "shutdown"
         }),
     );
     let shutdown = read_message(&mut stdout);
-    assert_eq!(shutdown["id"], 4);
+    assert_eq!(shutdown["id"], 5);
     assert!(shutdown["result"].is_null());
 
     write_message(

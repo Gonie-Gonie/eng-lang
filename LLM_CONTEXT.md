@@ -20,8 +20,9 @@ It is intentionally short so agents do not need to load every planning file.
   argument diagnostics for split/model/MLP options, with parity and residual
   plot smoke paths documented in the v1.2 gate.
 - Current `v1.3` detail work includes an experimental `eng-lsp.exe` smoke,
-  package-smoke inclusion, snapshot, diagnostics, completion, hover, and tested
-  stdio round-trip path documented in the v1.3 gate.
+  package-smoke inclusion, snapshot, diagnostics, context-aware schema column
+  completion, hover, and tested stdio round-trip path documented in the v1.3
+  gate.
 
 ## Read First
 

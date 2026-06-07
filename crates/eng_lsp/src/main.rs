@@ -3,7 +3,8 @@ use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 use eng_lsp::{
-    completion_json, diagnostic_json, hover_json, snapshot_for_path, snapshot_for_source,
+    completion_items_for_path_position, completion_items_for_source_position, completion_json,
+    diagnostic_json, hover_json, snapshot_for_path, snapshot_for_source,
 };
 use serde_json::{json, Value};
 
@@ -151,16 +152,10 @@ fn run_lsp() -> io::Result<()> {
                 }
             }
             "textDocument/completion" => {
-                let snapshot = snapshot_for_request(&request, &documents);
-                let items = snapshot
-                    .map(|snapshot| {
-                        snapshot
-                            .completions
-                            .iter()
-                            .map(completion_json)
-                            .collect::<Vec<_>>()
-                    })
-                    .unwrap_or_default();
+                let items = completions_for_request(&request, &documents)
+                    .iter()
+                    .map(completion_json)
+                    .collect::<Vec<_>>();
                 write_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": items }),
@@ -223,6 +218,28 @@ fn snapshot_for_request(
         return Some(snapshot_for_source(&path, text));
     }
     snapshot_for_path(&path).ok()
+}
+
+fn completions_for_request(
+    request: &Value,
+    documents: &HashMap<String, String>,
+) -> Vec<eng_lsp::LspCompletion> {
+    let Some(uri) = request_uri(request) else {
+        return Vec::new();
+    };
+    let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
+    let line = request
+        .pointer("/params/position/line")
+        .and_then(Value::as_u64)
+        .unwrap_or(0) as usize;
+    let character = request
+        .pointer("/params/position/character")
+        .and_then(Value::as_u64)
+        .unwrap_or(0) as usize;
+    if let Some(text) = documents.get(uri) {
+        return completion_items_for_source_position(&path, text, line, character);
+    }
+    completion_items_for_path_position(&path, line, character).unwrap_or_default()
 }
 
 fn hover_for_request(
