@@ -184,7 +184,7 @@ Hardening detail:
 4. [x] Report row count, parse failures, and missing values in result.engres.
 5. [x] Add tests for the official CSV runtime page and computed values.
 6. [x] Add dedicated bad DateTime and bad numeric cell fixtures.
-7. [ ] Add unit conversion failure reporting once per-cell unit conversion exists.
+7. [x] Keep unit conversion failure reporting deferred until per-cell unit conversion exists.
 ```
 
 ### G-004 Statistics Kernels
@@ -470,31 +470,30 @@ Hardening detail:
 4. Add a release post-check for downloaded zip checksum and doctor.
 ```
 
-## Recommended Order Before v1.1
+## v1.0 Hardening Closure
 
-Do this before adding uncertainty semantics:
+Completed before adding uncertainty semantics:
 
 ```text
 1. G-001 docs-check command and supported-doc snippet policy
 2. G-002 official examples namespace
 3. G-009 artifact schema/golden validation baseline
 4. G-006 Args metadata, resolved values, and CSV path flag binding
-```
-
-Then proceed with v1.1 while planning numeric/data backfill:
-
-```text
 5. G-003 RuntimeTable values
 6. G-004 real statistics kernels
 7. G-005 real PlotSpec points
+8. G-007 schema policies, missing policies, and numeric constraint bounds
+9. G-008 system IR solver boundary and solver_plan seeds
 ```
 
 Keep deferred until the appropriate later milestones:
 
 ```text
-8. G-008 numeric solver and executable ODE runner
-9. optimized AOT/model.exe
-10. open domain/port and package ecosystem
+1. per-cell conversion diagnostics once per-cell conversion exists
+2. time-weighted mean and broader statistics kernels
+3. numeric system solver and executable ODE runner
+4. optimized AOT/model.exe
+5. open domain/port and package ecosystem
 ```
 
 ## Release Note Correction
