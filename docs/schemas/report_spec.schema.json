@@ -18,6 +18,9 @@
     "computed_statistics",
     "computed_integrations",
     "policy_results",
+    "domain_summary",
+    "component_summary",
+    "connection_summary",
     "system_summary",
     "system_ir",
     "plot_manifest"
@@ -34,6 +37,9 @@
       "required": [
         "schema_count",
         "csv_promotion_count",
+        "domain_count",
+        "component_count",
+        "connection_count",
         "system_count",
         "equation_count",
         "residual_count",
@@ -54,6 +60,18 @@
       "items": { "$ref": "#/$defs/uncertainty" }
     },
     "policy_results": { "type": "array" },
+    "domain_summary": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/domainSummary" }
+    },
+    "component_summary": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/componentSummary" }
+    },
+    "connection_summary": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/connectionSummary" }
+    },
     "system_summary": { "type": "array" },
     "system_ir": {
       "type": "array",
@@ -107,6 +125,97 @@
         "source": { "type": "string" },
         "role": { "type": "string" },
         "quantity_kind": { "type": "string" }
+      }
+    },
+    "domainSummary": {
+      "type": "object",
+      "required": [
+        "name",
+        "line",
+        "variable_count",
+        "conservation_count",
+        "variables",
+        "conservations"
+      ],
+      "properties": {
+        "name": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "variable_count": { "type": "integer", "minimum": 0 },
+        "conservation_count": { "type": "integer", "minimum": 0 },
+        "variables": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/domainVariable" }
+        },
+        "conservations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/domainConservation" }
+        }
+      }
+    },
+    "domainVariable": {
+      "type": "object",
+      "required": [
+        "role",
+        "name",
+        "quantity_kind",
+        "display_unit",
+        "canonical_unit",
+        "dimension",
+        "line"
+      ],
+      "properties": {
+        "role": { "enum": ["across", "through"] },
+        "name": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "canonical_unit": { "type": "string" },
+        "dimension": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "domainConservation": {
+      "type": "object",
+      "required": ["text", "status", "line"],
+      "properties": {
+        "text": { "type": "string" },
+        "status": { "const": "recorded" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "componentSummary": {
+      "type": "object",
+      "required": ["name", "line", "port_count", "ports"],
+      "properties": {
+        "name": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "port_count": { "type": "integer", "minimum": 0 },
+        "ports": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/componentPort" }
+        }
+      }
+    },
+    "componentPort": {
+      "type": "object",
+      "required": ["name", "domain", "status", "line"],
+      "properties": {
+        "name": { "type": "string" },
+        "domain": { "type": "string" },
+        "status": { "enum": ["domain_resolved", "unknown_domain", "unvalidated"] },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "connectionSummary": {
+      "type": "object",
+      "required": ["left", "right", "domain", "status", "line"],
+      "properties": {
+        "left": { "type": "string" },
+        "right": { "type": "string" },
+        "domain": { "type": "string" },
+        "status": {
+          "enum": ["domain_compatible", "domain_mismatch", "unresolved_endpoint"]
+        },
+        "line": { "type": "integer", "minimum": 1 }
       }
     },
     "systemIr": {

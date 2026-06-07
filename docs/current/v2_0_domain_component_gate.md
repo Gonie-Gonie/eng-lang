@@ -6,8 +6,8 @@ eventual package ecosystems.
 
 The current support boundary is metadata-first. The compiler recognizes domain,
 component, port, and connection declarations; validates port domain references;
-and records review metadata. It does not run a multi-domain numeric simulation
-yet.
+and records review/report metadata. It does not run a multi-domain numeric
+simulation yet.
 
 ## Current Scope On Main
 
@@ -24,6 +24,8 @@ yet.
 - Unresolved component ports produce `E-CONNECT-PORT-001`.
 - `review.json` exposes `domain_summary`, `component_summary`, and
   `connection_summary`.
+- `report_spec.json` and `report.html` expose the same domain/component surface
+  so packaged runs and native IDE previews can show the declarations.
 - The native IDE, LSP, and VS Code preview expose domain/component keywords and
   snippets for user testing.
 
@@ -40,7 +42,6 @@ yet.
 
 ## Remaining Before Preview Claim
 
-- [ ] Add domain/component sections to `report_spec.json` and `report.html`.
 - [ ] Add native IDE domain/component inspector panels, not only completions.
 - [ ] Add LSP snapshot fields or hover metadata for domain/component symbols.
 - [ ] Add package/version metadata for domain declarations.
@@ -63,6 +64,7 @@ yet.
 
 ```bat
 cargo test -p eng_compiler
+target\debug\eng.exe run examples\official\06_domain_port\main.eng --entry main
 target\debug\eng.exe check examples\official\06_domain_port\main.eng --review
 target\debug\eng.exe check examples\05_error_messages\port_domain_mismatch.eng
 target\debug\eng.exe test examples
@@ -70,3 +72,8 @@ target\debug\eng.exe test examples
 
 The mismatch fixture is expected to exit non-zero with
 `E-CONNECT-DOMAIN-001`.
+
+After the runnable official fixture completes, inspect
+`build\result\report_spec.json` and `build\result\report.html` for
+`domain_summary`, `component_summary`, `connection_summary`, and
+`domain_compatible` rows.

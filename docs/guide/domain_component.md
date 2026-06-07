@@ -56,7 +56,7 @@ Connections use source-order metadata. Both endpoints must be written as
 | `E-CONNECT-PORT-001` | Endpoint does not resolve to a declared component port. |
 | `E-CONNECT-DOMAIN-001` | Both ports resolve, but their domains differ. |
 
-## Review Metadata
+## Artifact Surface
 
 `eng check --review` writes domain/component information to `review.json`:
 
@@ -64,7 +64,13 @@ Connections use source-order metadata. Both endpoints must be written as
 target\debug\eng.exe check examples\official\06_domain_port\main.eng --review
 ```
 
-The review artifact includes:
+`eng run` also carries the same metadata into the user-facing report artifacts:
+
+```bat
+target\debug\eng.exe run examples\official\06_domain_port\main.eng --entry main
+```
+
+The current domain/component artifact sections are:
 
 ```text
 domain_summary
@@ -72,9 +78,15 @@ component_summary
 connection_summary
 ```
 
-These sections are the current review surface for v2.0 user testing. ReportSpec
-and HTML report sections are planned next and are tracked in
-[v2.0 domain/component gate](../current/v2_0_domain_component_gate.md).
+They appear in `review.json`, `build/result/report_spec.json`, and
+`build/result/report.html`. This is the v2.0 preview surface for user testing:
+the report shows which domains exist, which component ports reference them, and
+whether each connection is currently `domain_compatible` or diagnostic-only.
+
+The generated `report_spec.json` follows
+[`docs/schemas/report_spec.schema.json`](../schemas/report_spec.schema.json), so
+portable and native IDE releases can render the same metadata without
+re-parsing source files.
 
 ## Official Examples
 
@@ -98,7 +110,6 @@ Current:
 Deferred:
 
 - graph solving;
-- generated connection report sections;
 - generic domains such as `Fluid[Medium]`;
 - frame/axis compatibility;
 - domain package versioning and registries.

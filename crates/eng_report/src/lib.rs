@@ -60,6 +60,9 @@ pub struct ReportSpec {
     pub uncertainty: Vec<ReportUncertaintyInfo>,
     pub ml: Vec<ReportMlInfo>,
     pub policy_results: Vec<ReportPolicyResult>,
+    pub domains: Vec<ReportDomainSummary>,
+    pub components: Vec<ReportComponentSummary>,
+    pub connections: Vec<ReportConnectionSummary>,
     pub systems: Vec<ReportSystemSummary>,
     pub system_ir: Vec<ReportSystemIr>,
     pub plot_manifest: ReportPlotManifest,
@@ -252,6 +255,56 @@ pub struct ReportPolicyViolation {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct ReportDomainSummary {
+    pub name: String,
+    pub variables: Vec<ReportDomainVariable>,
+    pub conservations: Vec<ReportDomainConservation>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportDomainVariable {
+    pub role: String,
+    pub name: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub dimension: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportDomainConservation {
+    pub text: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComponentSummary {
+    pub name: String,
+    pub ports: Vec<ReportPort>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportPort {
+    pub name: String,
+    pub domain: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportConnectionSummary {
+    pub left: String,
+    pub right: String,
+    pub domain: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct ReportSystemSummary {
     pub name: String,
     pub variables: Vec<ReportSystemVariable>,
@@ -373,6 +426,9 @@ pub struct ReportProvenance {
     pub syntax_items: usize,
     pub schema_count: usize,
     pub csv_promotion_count: usize,
+    pub domain_count: usize,
+    pub component_count: usize,
+    pub connection_count: usize,
     pub system_count: usize,
     pub equation_count: usize,
     pub residual_count: usize,
@@ -570,6 +626,69 @@ pub fn report_spec_from_report(
         })
         .collect();
 
+    let domains = report
+        .semantic_program
+        .domains
+        .iter()
+        .map(|domain| ReportDomainSummary {
+            name: domain.name.clone(),
+            variables: domain
+                .variables
+                .iter()
+                .map(|variable| ReportDomainVariable {
+                    role: variable.role.clone(),
+                    name: variable.name.clone(),
+                    quantity_kind: variable.quantity_kind.clone(),
+                    display_unit: variable.display_unit.clone(),
+                    canonical_unit: variable.canonical_unit.clone(),
+                    dimension: variable.dimension.clone(),
+                    line: variable.line,
+                })
+                .collect(),
+            conservations: domain
+                .conservations
+                .iter()
+                .map(|conservation| ReportDomainConservation {
+                    text: conservation.text.clone(),
+                    status: conservation.status.clone(),
+                    line: conservation.line,
+                })
+                .collect(),
+            line: domain.line,
+        })
+        .collect::<Vec<_>>();
+    let components = report
+        .semantic_program
+        .components
+        .iter()
+        .map(|component| ReportComponentSummary {
+            name: component.name.clone(),
+            ports: component
+                .ports
+                .iter()
+                .map(|port| ReportPort {
+                    name: port.name.clone(),
+                    domain: port.domain.clone(),
+                    status: port.status.clone(),
+                    line: port.line,
+                })
+                .collect(),
+            line: component.line,
+        })
+        .collect::<Vec<_>>();
+    let connections = report
+        .semantic_program
+        .connections
+        .iter()
+        .map(|connection| ReportConnectionSummary {
+            left: connection.left.clone(),
+            right: connection.right.clone(),
+            domain: connection.domain.clone(),
+            status: connection.status.clone(),
+            line: connection.line,
+        })
+        .collect::<Vec<_>>();
+
     let systems = report
         .semantic_program
         .systems
@@ -712,6 +831,9 @@ pub fn report_spec_from_report(
         uncertainty,
         ml,
         policy_results: Vec::new(),
+        domains,
+        components,
+        connections,
         systems,
         system_ir,
         plot_manifest: ReportPlotManifest {
@@ -725,6 +847,9 @@ pub fn report_spec_from_report(
             syntax_items: report.syntax_summary.ast_items,
             schema_count: report.semantic_program.schemas.len(),
             csv_promotion_count: report.semantic_program.csv_promotions.len(),
+            domain_count: report.semantic_program.domains.len(),
+            component_count: report.semantic_program.components.len(),
+            connection_count: report.semantic_program.connections.len(),
             system_count: report.semantic_program.systems.len(),
             equation_count,
             residual_count,
@@ -768,6 +893,18 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
     json.push_str(&format!(
         "    \"csv_promotion_count\": {},\n",
         spec.provenance.csv_promotion_count
+    ));
+    json.push_str(&format!(
+        "    \"domain_count\": {},\n",
+        spec.provenance.domain_count
+    ));
+    json.push_str(&format!(
+        "    \"component_count\": {},\n",
+        spec.provenance.component_count
+    ));
+    json.push_str(&format!(
+        "    \"connection_count\": {},\n",
+        spec.provenance.connection_count
     ));
     json.push_str(&format!(
         "    \"system_count\": {},\n",
@@ -1270,6 +1407,149 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         }
         json.push_str("\n      ],\n");
         json.push_str(&format!("      \"line\": {}\n", policy.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"domain_summary\": [\n");
+    for (index, domain) in spec.domains.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&domain.name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", domain.line));
+        json.push_str(&format!(
+            "      \"variable_count\": {},\n",
+            domain.variables.len()
+        ));
+        json.push_str(&format!(
+            "      \"conservation_count\": {},\n",
+            domain.conservations.len()
+        ));
+        json.push_str("      \"variables\": [\n");
+        for (variable_index, variable) in domain.variables.iter().enumerate() {
+            if variable_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"role\": \"{}\",\n",
+                json_escape(&variable.role)
+            ));
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&variable.name)
+            ));
+            json.push_str(&format!(
+                "          \"quantity_kind\": \"{}\",\n",
+                json_escape(&variable.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&variable.display_unit)
+            ));
+            json.push_str(&format!(
+                "          \"canonical_unit\": \"{}\",\n",
+                json_escape(&variable.canonical_unit)
+            ));
+            json.push_str(&format!(
+                "          \"dimension\": \"{}\",\n",
+                json_escape(&variable.dimension)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", variable.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"conservations\": [\n");
+        for (conservation_index, conservation) in domain.conservations.iter().enumerate() {
+            if conservation_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"text\": \"{}\",\n",
+                json_escape(&conservation.text)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&conservation.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", conservation.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"component_summary\": [\n");
+    for (index, component) in spec.components.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&component.name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", component.line));
+        json.push_str(&format!(
+            "      \"port_count\": {},\n",
+            component.ports.len()
+        ));
+        json.push_str("      \"ports\": [\n");
+        for (port_index, port) in component.ports.iter().enumerate() {
+            if port_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&port.name)
+            ));
+            json.push_str(&format!(
+                "          \"domain\": \"{}\",\n",
+                json_escape(&port.domain)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&port.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", port.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"connection_summary\": [\n");
+    for (index, connection) in spec.connections.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"left\": \"{}\",\n",
+            json_escape(&connection.left)
+        ));
+        json.push_str(&format!(
+            "      \"right\": \"{}\",\n",
+            json_escape(&connection.right)
+        ));
+        json.push_str(&format!(
+            "      \"domain\": \"{}\",\n",
+            json_escape(&connection.domain)
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&connection.status)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", connection.line));
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -1958,6 +2238,75 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
         ml_info.push_str("<tr><td colspan=\"7\">No ML metadata.</td></tr>");
     }
 
+    let mut domain_summary = String::new();
+    for domain in &report.semantic_program.domains {
+        for variable in &domain.variables {
+            domain_summary.push_str("<tr>");
+            domain_summary.push_str(&format!(
+                "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+                variable.line,
+                html_escape(&domain.name),
+                html_escape(&variable.role),
+                html_escape(&variable.name),
+                html_escape(&variable.quantity_kind),
+                html_escape(&variable.display_unit),
+                html_escape(&variable.canonical_unit),
+                html_escape(&variable.dimension)
+            ));
+            domain_summary.push_str("</tr>");
+        }
+        for conservation in &domain.conservations {
+            domain_summary.push_str("<tr>");
+            domain_summary.push_str(&format!(
+                "<td>{}</td><td>{}</td><td>conservation</td><td colspan=\"4\"><code>{}</code></td><td>{}</td>",
+                conservation.line,
+                html_escape(&domain.name),
+                html_escape(&conservation.text),
+                html_escape(&conservation.status)
+            ));
+            domain_summary.push_str("</tr>");
+        }
+    }
+    if domain_summary.is_empty() {
+        domain_summary.push_str("<tr><td colspan=\"8\">No domain metadata.</td></tr>");
+    }
+
+    let mut component_summary = String::new();
+    for component in &report.semantic_program.components {
+        for port in &component.ports {
+            component_summary.push_str("<tr>");
+            component_summary.push_str(&format!(
+                "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+                port.line,
+                html_escape(&component.name),
+                html_escape(&port.name),
+                html_escape(&port.domain),
+                html_escape(&port.status)
+            ));
+            component_summary.push_str("</tr>");
+        }
+    }
+    if component_summary.is_empty() {
+        component_summary.push_str("<tr><td colspan=\"5\">No component ports.</td></tr>");
+    }
+
+    let mut connection_summary = String::new();
+    for connection in &report.semantic_program.connections {
+        connection_summary.push_str("<tr>");
+        connection_summary.push_str(&format!(
+            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+            connection.line,
+            html_escape(&connection.left),
+            html_escape(&connection.right),
+            html_escape(&connection.domain),
+            html_escape(&connection.status)
+        ));
+        connection_summary.push_str("</tr>");
+    }
+    if connection_summary.is_empty() {
+        connection_summary.push_str("<tr><td colspan=\"5\">No component connections.</td></tr>");
+    }
+
     let mut system_equations = String::new();
     for system in &report.semantic_program.systems {
         for equation in &system.equations {
@@ -2078,6 +2427,9 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     let integration_count = report.semantic_program.integrations.len();
     let uncertainty_count = report.semantic_program.uncertainty_infos.len();
     let ml_info_count = report.semantic_program.ml_infos.len();
+    let domain_count = report.semantic_program.domains.len();
+    let component_count = report.semantic_program.components.len();
+    let connection_count = report.semantic_program.connections.len();
     let system_count = report.semantic_program.systems.len();
     let equation_count = report
         .semantic_program
@@ -2193,6 +2545,9 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
       <div class="metric"><span>Integrations</span><strong>{integration_count}</strong></div>
       <div class="metric"><span>Uncertainty</span><strong>{uncertainty_count}</strong></div>
       <div class="metric"><span>ML Info</span><strong>{ml_info_count}</strong></div>
+      <div class="metric"><span>Domains</span><strong>{domain_count}</strong></div>
+      <div class="metric"><span>Components</span><strong>{component_count}</strong></div>
+      <div class="metric"><span>Connections</span><strong>{connection_count}</strong></div>
       <div class="metric"><span>Systems</span><strong>{system_count}</strong></div>
       <div class="metric"><span>Equations</span><strong>{equation_count}</strong></div>
       <div class="metric"><span>Residuals</span><strong>{residual_count}</strong></div>
@@ -2256,6 +2611,21 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     <table>
       <thead><tr><th>Line</th><th>Binding</th><th>Kind</th><th>Source</th><th>Target</th><th>Features</th><th>Expression</th></tr></thead>
       <tbody>{ml_info}</tbody>
+    </table>
+    <h2>Domains</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Domain</th><th>Role</th><th>Name</th><th>Quantity</th><th>Display Unit</th><th>Canonical Unit</th><th>Dimension/Status</th></tr></thead>
+      <tbody>{domain_summary}</tbody>
+    </table>
+    <h2>Component Ports</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Component</th><th>Port</th><th>Domain</th><th>Status</th></tr></thead>
+      <tbody>{component_summary}</tbody>
+    </table>
+    <h2>Connections</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Left</th><th>Right</th><th>Domain</th><th>Status</th></tr></thead>
+      <tbody>{connection_summary}</tbody>
     </table>
     <h2>System Equations</h2>
     <table>
@@ -2793,6 +3163,35 @@ mod tests {
         assert!(json.contains("\"RoomThermal.residual_1\""));
         assert!(html.contains("System Equations"));
         assert!(html.contains("unit_consistent"));
+    }
+
+    #[test]
+    fn report_spec_and_html_include_domain_component_sections() {
+        let report = check_source(
+            "ok.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\nconnect RoomBoundary.heat -> AmbientBoundary.heat\n",
+            &CheckOptions::default(),
+        );
+
+        let spec = report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        let json = report_spec_json(&spec);
+        let html = render_html(&report, "plots/timeseries.svg");
+
+        assert_eq!(spec.provenance.domain_count, 1);
+        assert_eq!(spec.provenance.component_count, 2);
+        assert_eq!(spec.provenance.connection_count, 1);
+        assert_eq!(spec.domains[0].name, "Thermal");
+        assert_eq!(spec.domains[0].variables[0].role, "across");
+        assert_eq!(spec.components[0].ports[0].status, "domain_resolved");
+        assert_eq!(spec.connections[0].status, "domain_compatible");
+        assert!(json.contains("\"domain_summary\""));
+        assert!(json.contains("\"component_summary\""));
+        assert!(json.contains("\"connection_summary\""));
+        assert!(json.contains("\"domain_count\": 1"));
+        assert!(html.contains("Domains"));
+        assert!(html.contains("Component Ports"));
+        assert!(html.contains("Connections"));
+        assert!(html.contains("domain_compatible"));
     }
 
     fn sample_plot_spec(plot_type: &str) -> PlotSpec {
