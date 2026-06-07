@@ -190,6 +190,44 @@ plots/plot_spec.json        histogram when plot distribution(...) is requested
 The runtime path is deterministic. It records samples and summary fields for
 user testing, but it is not yet a full stochastic propagation engine.
 
+## Data-driven Modeling Metadata
+
+v1.2 adds data-driven modeling seed metadata for:
+
+```text
+train_test_split(...)
+regression(...)
+mlp(...) / ann(...)
+evaluate(...) / metrics(...)
+model_card(...)
+leakage_lint(...)
+```
+
+The same ML surface appears in:
+
+```text
+review.json                 ml_info
+report_spec.json            ml
+result.engres               typed_payload.ml
+report.html                 ML Models table
+plots/plot_spec.json        scatter parity or bar residual plot
+```
+
+Runtime metrics include:
+
+```text
+RMSE
+MAE
+R2
+train_count
+test_count
+leakage_status
+model_card
+```
+
+These metrics are deterministic preview values for user testing and artifact
+review. Full ML training maturity is a later roadmap item.
+
 ## Manual Checks
 
 PowerShell JSON checks:

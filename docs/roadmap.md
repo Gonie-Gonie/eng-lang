@@ -334,14 +334,15 @@ Required outputs:
 Required outputs:
 
 ```text
-- eng.ml package
-- regression
-- basic ANN/MLP
-- train/test split
-- RMSE/MAE/R2
-- residual/parity plot
-- model card
-- leakage lint
+[x] eng.ml preview package surface in stdlib/eng/ml.eng
+[x] regression deterministic seed
+[x] basic ANN/MLP deterministic seed
+[x] train/test split metadata and runtime counts
+[x] RMSE/MAE/R2 metrics
+[x] residual/parity plot seeds
+[x] model card seed
+[x] leakage lint seed
+[x] official data-driven modeling example and CLI smoke
 ```
 
 ## v1.3 — LSP and VS Code Extension

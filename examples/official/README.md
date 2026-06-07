@@ -19,6 +19,10 @@ copy first when starting from a stable EngLang preview.
 04_uncertainty_core
   Uncertainty core seed for measured values, intervals, deterministic
   distributions/ensembles, propagation metadata, and in-report histogram output.
+
+05_data_driven_modeling
+  Data-driven modeling seed for train/test split, linear regression, basic MLP,
+  RMSE/MAE/R2 metrics, leakage lint, model card, and parity plot output.
 ```
 
 Legacy numbered examples remain for compatibility and focused regression tests.

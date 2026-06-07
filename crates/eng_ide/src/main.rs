@@ -968,9 +968,20 @@ fn completion_items(filter: &str) -> Vec<CompletionItem> {
         "line",
         "bar",
         "histogram",
+        "scatter",
+        "parity",
+        "residuals",
         "der",
         "eq",
         "integrate",
+        "train_test_split",
+        "regression",
+        "mlp",
+        "ann",
+        "evaluate",
+        "metrics",
+        "model_card",
+        "leakage_lint",
         "mean",
         "max",
         "median",
@@ -1026,6 +1037,11 @@ fn completion_items(filter: &str) -> Vec<CompletionItem> {
             "snippet: plot report",
             "return report {\n    summarize value by [mean, max, median, std]\n    plot value over Time {\n        unit y = kW\n        title = \"Preview\"\n    }\n}",
             "report with plot",
+        ),
+        (
+            "snippet: ML model",
+            "split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)\nreg_model = regression(split, algorithm=linear)\nreg_eval = evaluate(reg_model, split=split)\n\nreturn report {\n    show reg_eval\n    plot parity(reg_eval) {\n        title = \"Regression parity\"\n    }\n}",
+            "data-driven regression seed",
         ),
     ] {
         items.push(CompletionItem {
@@ -1188,6 +1204,16 @@ fn is_keyword(token: &str) -> bool {
             | "eq"
             | "der"
             | "integrate"
+            | "train_test_split"
+            | "regression"
+            | "mlp"
+            | "ann"
+            | "evaluate"
+            | "metrics"
+            | "model_card"
+            | "leakage_lint"
+            | "parity"
+            | "residuals"
     )
 }
 

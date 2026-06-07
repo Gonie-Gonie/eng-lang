@@ -658,6 +658,43 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(2);
         }
     }
+    match run_file(
+        Path::new("examples/official/05_data_driven_modeling/main.eng"),
+        Path::new("build/test-data-driven-modeling"),
+        &RunOptions {
+            open_report: false,
+            entry: Some("main".to_owned()),
+            args: Vec::new(),
+        },
+    ) {
+        Ok(output) => {
+            let result = std::fs::read_to_string(output.result_path).unwrap_or_default();
+            let review = std::fs::read_to_string(output.review_path).unwrap_or_default();
+            let report_spec = std::fs::read_to_string(output.report_spec_path).unwrap_or_default();
+            let plot_spec = std::fs::read_to_string(output.plot_spec_path).unwrap_or_default();
+            if !result.contains("\"ml\"")
+                || !result.contains("\"rmse\"")
+                || !result.contains("\"model_card\"")
+                || !result.contains("\"leakage_status\"")
+                || !review.contains("\"ml_info\"")
+                || !report_spec.contains("\"ml\"")
+                || !plot_spec.contains("\"plot_type\": \"scatter\"")
+                || !plot_spec.contains("Regression parity")
+            {
+                eprintln!(
+                    "expected data-driven example to produce ML metrics, model card, leakage lint, and parity plot"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/05_data_driven_modeling/main.eng produced ML artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("data-driven modeling example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
 
     if !data_quality_fixture_records_parse_failure(
         "examples/07_data_quality/bad_datetime_cell.eng",

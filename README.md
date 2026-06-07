@@ -130,6 +130,10 @@ v1.0.3
 v1.1
   Uncertainty core: Measured[T], Interval[T], distribution/ensemble seeds,
   uncertainty metadata, simple propagation, and uncertainty report summaries.
+
+v1.2
+  Data-driven modeling seed: eng.ml preview surface, train/test split,
+  regression/basic MLP, RMSE/MAE/R2, leakage lint, model card, and parity plot.
 ```
 
 ## Documentation
@@ -150,6 +154,7 @@ v1.1
 - [TimeSeries statistics guide](docs/guide/timeseries_statistics.md)
 - [Plotting guide](docs/guide/plotting.md)
 - [Uncertainty core guide](docs/guide/uncertainty.md)
+- [Data-driven modeling guide](docs/guide/data_driven_modeling.md)
 - [Native tester IDE](docs/guide/native_ide.md)
 - [Report and review artifacts](docs/guide/report_review.md)
 - [Simple system tutorial](docs/tutorials/05_simple_system.md)

@@ -120,6 +120,15 @@ examples/official/04_uncertainty_core/main.eng
 Run it and inspect the Plot SVG/Report artifacts to verify the in-report
 histogram and Uncertainty table.
 
+Recommended v1.2 data-driven modeling smoke:
+
+```text
+examples/official/05_data_driven_modeling/main.eng
+```
+
+Run it and inspect the Run Preview/Plot SVG/Report artifacts to verify the
+parity scatter plot and ML Models table.
+
 ## Completion Scope
 
 Current completion sources:

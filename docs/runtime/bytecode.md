@@ -135,9 +135,16 @@ v1.1 records:
 typed_payload.uncertainties
 ```
 
+v1.2 records:
+
+```text
+typed_payload.ml
+```
+
 The `typed_payload` is a Report seed. It carries computed statistics for the
 official CSV path, integration metadata, policy results, and reviewable system
-metadata. v1.1 also carries deterministic uncertainty seed summaries:
+metadata. v1.1 also carries deterministic uncertainty seed summaries. v1.2
+carries deterministic data-driven modeling metrics and plot points:
 
 ```json
 {
@@ -148,6 +155,7 @@ metadata. v1.1 also carries deterministic uncertainty seed summaries:
   "statistics": [],
   "integrations": [],
   "uncertainties": [],
+  "ml": [],
   "policy_results": [],
   "systems": [],
   "solver_boundaries": [],

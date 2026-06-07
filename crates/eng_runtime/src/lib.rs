@@ -225,6 +225,7 @@ pub fn run_file(
     report_spec.computed_statistics = runtime_data.report_computed_statistics();
     report_spec.computed_integrations = runtime_data.report_computed_integrations();
     report_spec.uncertainty = runtime_data.report_uncertainty();
+    report_spec.ml = runtime_data.report_ml();
     report_spec.policy_results = runtime_data.report_policy_results();
     runtime_data.apply_system_solutions(&mut report_spec);
     let report_spec_json = eng_report::report_spec_json(&report_spec);
@@ -938,6 +939,72 @@ fn result_json(
         uncertainties.push_str("      }");
     }
 
+    let mut ml = String::new();
+    for (index, artifact) in runtime_data.ml_artifacts.iter().enumerate() {
+        if index > 0 {
+            ml.push_str(",\n");
+        }
+        ml.push_str("      {\n");
+        ml.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&artifact.binding)
+        ));
+        ml.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&artifact.kind)
+        ));
+        push_optional_json_string(&mut ml, "source", artifact.source.as_deref(), 8);
+        push_optional_json_string(&mut ml, "target", artifact.target.as_deref(), 8);
+        ml.push_str("        \"features\": [");
+        push_json_string_array(&mut ml, &artifact.features);
+        ml.push_str("],\n");
+        push_optional_json_string(&mut ml, "algorithm", artifact.algorithm.as_deref(), 8);
+        push_optional_json_string(
+            &mut ml,
+            "test_fraction",
+            artifact.test_fraction.as_deref(),
+            8,
+        );
+        push_optional_json_string(&mut ml, "seed", artifact.seed.as_deref(), 8);
+        ml.push_str("        \"hidden_layers\": [");
+        for (layer_index, layer) in artifact.hidden_layers.iter().enumerate() {
+            if layer_index > 0 {
+                ml.push_str(", ");
+            }
+            ml.push_str(&layer.to_string());
+        }
+        ml.push_str("],\n");
+        push_optional_json_usize(&mut ml, "epochs", artifact.epochs, 8);
+        ml.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&artifact.status)
+        ));
+        push_optional_json_usize(&mut ml, "train_count", artifact.train_count, 8);
+        push_optional_json_usize(&mut ml, "test_count", artifact.test_count, 8);
+        push_optional_json_number(&mut ml, "rmse", artifact.rmse, 8);
+        push_optional_json_number(&mut ml, "mae", artifact.mae, 8);
+        push_optional_json_number(&mut ml, "r2", artifact.r2, 8);
+        push_optional_json_string(
+            &mut ml,
+            "leakage_status",
+            artifact.leakage_status.as_deref(),
+            8,
+        );
+        push_optional_json_string(&mut ml, "model_card", artifact.model_card.as_deref(), 8);
+        ml.push_str("        \"parity_points\": [");
+        push_runtime_points(&mut ml, &artifact.parity_points);
+        ml.push_str("],\n");
+        ml.push_str("        \"residual_points\": [");
+        push_runtime_points(&mut ml, &artifact.residual_points);
+        ml.push_str("],\n");
+        ml.push_str(&format!(
+            "        \"expression\": \"{}\",\n",
+            json_escape(&artifact.expression)
+        ));
+        ml.push_str(&format!("        \"line\": {}\n", artifact.line));
+        ml.push_str("      }");
+    }
+
     let mut policy_results = String::new();
     for (index, policy) in runtime_data.policy_results.iter().enumerate() {
         if index > 0 {
@@ -1089,7 +1156,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -1113,6 +1180,7 @@ fn result_json(
         statistics,
         integrations,
         uncertainties,
+        ml,
         policy_results,
         systems,
         solver_boundaries,
@@ -1609,6 +1677,31 @@ fn push_optional_json_number(json: &mut String, key: &str, value: Option<f64>, i
     match value {
         Some(value) => json.push_str(&format!("{spaces}\"{key}\": {value},\n")),
         None => json.push_str(&format!("{spaces}\"{key}\": null,\n")),
+    }
+}
+
+fn push_optional_json_usize(json: &mut String, key: &str, value: Option<usize>, indent: usize) {
+    let spaces = " ".repeat(indent);
+    match value {
+        Some(value) => json.push_str(&format!("{spaces}\"{key}\": {value},\n")),
+        None => json.push_str(&format!("{spaces}\"{key}\": null,\n")),
+    }
+}
+
+fn push_optional_json_string(json: &mut String, key: &str, value: Option<&str>, indent: usize) {
+    let spaces = " ".repeat(indent);
+    match value {
+        Some(value) => json.push_str(&format!("{spaces}\"{key}\": \"{}\",\n", json_escape(value))),
+        None => json.push_str(&format!("{spaces}\"{key}\": null,\n")),
+    }
+}
+
+fn push_json_string_array(json: &mut String, values: &[String]) {
+    for (index, value) in values.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str(&format!("\"{}\"", json_escape(value)));
     }
 }
 

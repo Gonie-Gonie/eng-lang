@@ -6,7 +6,7 @@ use eng_compiler::{
 };
 use eng_report::{
     PlotAxis, PlotPoint, PlotSeries, PlotSpec, ReportComputedIntegration,
-    ReportComputedStatisticValue, ReportComputedStatistics, ReportPolicyResult,
+    ReportComputedStatisticValue, ReportComputedStatistics, ReportMlInfo, ReportPolicyResult,
     ReportPolicyViolation, ReportSpec, ReportUncertaintyInfo,
 };
 
@@ -17,6 +17,7 @@ pub struct RuntimeData {
     pub statistics: Vec<RuntimeStatistics>,
     pub integrations: Vec<RuntimeIntegration>,
     pub uncertainties: Vec<RuntimeUncertainty>,
+    pub ml_artifacts: Vec<RuntimeMlArtifact>,
     pub policy_results: Vec<RuntimePolicyResult>,
     pub system_solutions: Vec<RuntimeSystemSolution>,
     pub plot_options: PlotOptions,
@@ -31,6 +32,16 @@ impl RuntimeData {
                 .find(|uncertainty| uncertainty.binding == distribution_name)
             {
                 self.apply_uncertainty_plot(uncertainty, spec);
+                return;
+            }
+        }
+        if let Some(model_plot) = &self.plot_options.model_plot {
+            if let Some(artifact) = self
+                .ml_artifacts
+                .iter()
+                .find(|artifact| artifact.binding == model_plot.source)
+            {
+                self.apply_model_plot(model_plot, artifact, spec);
                 return;
             }
         }
@@ -120,6 +131,77 @@ impl RuntimeData {
         }];
     }
 
+    fn apply_model_plot(
+        &self,
+        model_plot: &ModelPlotOptions,
+        artifact: &RuntimeMlArtifact,
+        spec: &mut PlotSpec,
+    ) {
+        let title = self.plot_options.title.clone().unwrap_or_else(|| {
+            format!(
+                "{} {}",
+                artifact.binding,
+                if model_plot.kind == "parity" {
+                    "parity"
+                } else {
+                    "residuals"
+                }
+            )
+        });
+        spec.title = title;
+        spec.plot_type = if model_plot.kind == "parity" {
+            "scatter".to_owned()
+        } else {
+            "bar".to_owned()
+        };
+        spec.x_axis = PlotAxis {
+            name: if model_plot.kind == "parity" {
+                "Actual".to_owned()
+            } else {
+                "Sample".to_owned()
+            },
+            label: if model_plot.kind == "parity" {
+                "Actual".to_owned()
+            } else {
+                "Sample".to_owned()
+            },
+            unit: artifact.display_unit.clone(),
+        };
+        spec.y_axis = PlotAxis {
+            name: if model_plot.kind == "parity" {
+                "Predicted".to_owned()
+            } else {
+                "Residual".to_owned()
+            },
+            label: if model_plot.kind == "parity" {
+                "Predicted".to_owned()
+            } else {
+                "Residual".to_owned()
+            },
+            unit: artifact.display_unit.clone(),
+        };
+        let points = if model_plot.kind == "parity" {
+            artifact.parity_points.clone()
+        } else {
+            artifact.residual_points.clone()
+        }
+        .into_iter()
+        .map(|point| PlotPoint {
+            x: point.x,
+            y: point.y,
+        })
+        .collect();
+        spec.series = vec![PlotSeries {
+            name: artifact.binding.clone(),
+            quantity_kind: artifact
+                .target
+                .clone()
+                .unwrap_or_else(|| "Model".to_owned()),
+            display_unit: artifact.display_unit.clone(),
+            points,
+        }];
+    }
+
     pub fn report_computed_statistics(&self) -> Vec<ReportComputedStatistics> {
         self.statistics
             .iter()
@@ -202,6 +284,34 @@ impl RuntimeData {
                 sample_count: uncertainty.sample_count,
                 propagation_count: uncertainty.propagation_count,
                 line: uncertainty.line,
+            })
+            .collect()
+    }
+
+    pub fn report_ml(&self) -> Vec<ReportMlInfo> {
+        self.ml_artifacts
+            .iter()
+            .map(|artifact| ReportMlInfo {
+                binding: artifact.binding.clone(),
+                kind: artifact.kind.clone(),
+                source: artifact.source.clone(),
+                target: artifact.target.clone(),
+                features: artifact.features.clone(),
+                algorithm: artifact.algorithm.clone(),
+                test_fraction: artifact.test_fraction.clone(),
+                seed: artifact.seed.clone(),
+                hidden_layers: artifact.hidden_layers.clone(),
+                epochs: artifact.epochs,
+                status: artifact.status.clone(),
+                train_count: artifact.train_count,
+                test_count: artifact.test_count,
+                rmse: artifact.rmse,
+                mae: artifact.mae,
+                r2: artifact.r2,
+                leakage_status: artifact.leakage_status.clone(),
+                model_card: artifact.model_card.clone(),
+                expression: artifact.expression.clone(),
+                line: artifact.line,
             })
             .collect()
     }
@@ -351,6 +461,33 @@ pub struct RuntimeUncertainty {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeMlArtifact {
+    pub binding: String,
+    pub kind: String,
+    pub source: Option<String>,
+    pub target: Option<String>,
+    pub features: Vec<String>,
+    pub algorithm: Option<String>,
+    pub test_fraction: Option<String>,
+    pub seed: Option<String>,
+    pub hidden_layers: Vec<usize>,
+    pub epochs: Option<usize>,
+    pub status: String,
+    pub train_count: Option<usize>,
+    pub test_count: Option<usize>,
+    pub rmse: Option<f64>,
+    pub mae: Option<f64>,
+    pub r2: Option<f64>,
+    pub leakage_status: Option<String>,
+    pub model_card: Option<String>,
+    pub expression: String,
+    pub display_unit: String,
+    pub parity_points: Vec<RuntimePoint>,
+    pub residual_points: Vec<RuntimePoint>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct RuntimeSystemSolution {
     pub system: String,
     pub status: String,
@@ -397,9 +534,16 @@ pub struct PlotOptions {
     pub series: Option<String>,
     pub axis: Option<String>,
     pub distribution: Option<String>,
+    pub model_plot: Option<ModelPlotOptions>,
     pub plot_type: Option<String>,
     pub title: Option<String>,
     pub y_unit: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ModelPlotOptions {
+    pub kind: String,
+    pub source: String,
 }
 
 pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeData {
@@ -427,6 +571,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.statistics = materialize_statistics(report, &data.time_series);
     data.integrations = materialize_integrations(report, &data.time_series);
     data.uncertainties = materialize_uncertainties(report);
+    data.ml_artifacts = materialize_ml_artifacts(report, &data.time_series);
     data.system_solutions = materialize_system_solutions(report);
     data
 }
@@ -825,6 +970,240 @@ fn materialize_uncertainty(
         } else {
             "sampled_seed".to_owned()
         },
+        line: info.line,
+    }
+}
+
+fn materialize_ml_artifacts(
+    report: &CheckReport,
+    series: &[RuntimeTimeSeries],
+) -> Vec<RuntimeMlArtifact> {
+    let mut artifacts = Vec::new();
+    for info in &report.semantic_program.ml_infos {
+        let artifact = materialize_ml_artifact(info, &artifacts, series);
+        artifacts.push(artifact);
+    }
+    artifacts
+}
+
+fn materialize_ml_artifact(
+    info: &eng_compiler::MlInfo,
+    prior: &[RuntimeMlArtifact],
+    series: &[RuntimeTimeSeries],
+) -> RuntimeMlArtifact {
+    match info.kind.as_str() {
+        "TrainTestSplit" => materialize_split_artifact(info, series),
+        "RegressionModel" | "MlpModel" => materialize_model_artifact(info, prior, series),
+        "ModelMetrics" => materialize_metrics_artifact(info, prior),
+        "LeakageLint" => materialize_leakage_artifact(info, prior),
+        "ModelCard" => materialize_model_card_artifact(info, prior),
+        _ => base_ml_artifact(info, "metadata"),
+    }
+}
+
+fn materialize_split_artifact(
+    info: &eng_compiler::MlInfo,
+    series: &[RuntimeTimeSeries],
+) -> RuntimeMlArtifact {
+    let source_series = info
+        .source
+        .as_deref()
+        .and_then(|source| series.iter().find(|series| series.name == source));
+    let len = source_series.map(|series| series.points.len()).unwrap_or(0);
+    let test_fraction = parse_fraction(info.test_fraction.as_deref()).unwrap_or(0.25);
+    let test_count = if len > 1 {
+        ((len as f64 * test_fraction).round() as usize).clamp(1, len - 1)
+    } else {
+        0
+    };
+    let train_count = len.saturating_sub(test_count);
+    let mut artifact = base_ml_artifact(info, "prepared");
+    artifact.train_count = Some(train_count);
+    artifact.test_count = Some(test_count);
+    artifact.leakage_status = Some(leakage_status(info));
+    artifact.display_unit = source_series
+        .map(|series| series.display_unit.clone())
+        .unwrap_or_else(|| "1".to_owned());
+    artifact
+}
+
+fn materialize_model_artifact(
+    info: &eng_compiler::MlInfo,
+    prior: &[RuntimeMlArtifact],
+    series: &[RuntimeTimeSeries],
+) -> RuntimeMlArtifact {
+    let split = info
+        .source
+        .as_deref()
+        .and_then(|source| prior.iter().find(|artifact| artifact.binding == source));
+    let source_name = split
+        .and_then(|split| split.source.as_deref())
+        .or(info.source.as_deref());
+    let source_series =
+        source_name.and_then(|source| series.iter().find(|series| series.name == source));
+    let train_count = split.and_then(|split| split.train_count).unwrap_or(0);
+    let test_count = split.and_then(|split| split.test_count).unwrap_or(0);
+    let actual = source_series
+        .map(|series| test_values(series, train_count, test_count))
+        .unwrap_or_default();
+    let mean = source_series
+        .map(|series| {
+            let values = series
+                .points
+                .iter()
+                .map(|point| point.y)
+                .collect::<Vec<_>>();
+            values.iter().sum::<f64>() / values.len().max(1) as f64
+        })
+        .unwrap_or(0.0);
+    let predicted = model_predictions(&actual, mean, &info.kind);
+    let (rmse, mae, r2) = regression_metrics(&actual, &predicted);
+    let parity_points = actual
+        .iter()
+        .zip(&predicted)
+        .map(|(actual, predicted)| RuntimePoint {
+            x: *actual,
+            y: *predicted,
+        })
+        .collect();
+    let residual_points = actual
+        .iter()
+        .zip(&predicted)
+        .enumerate()
+        .map(|(index, (actual, predicted))| RuntimePoint {
+            x: index as f64,
+            y: actual - predicted,
+        })
+        .collect();
+    let mut artifact = base_ml_artifact(info, "trained_seed");
+    artifact.target = info
+        .target
+        .clone()
+        .or_else(|| split.and_then(|split| split.target.clone()));
+    artifact.features = if info.features.is_empty() {
+        split
+            .map(|split| split.features.clone())
+            .unwrap_or_default()
+    } else {
+        info.features.clone()
+    };
+    artifact.train_count = Some(train_count);
+    artifact.test_count = Some(actual.len());
+    artifact.rmse = Some(rmse);
+    artifact.mae = Some(mae);
+    artifact.r2 = Some(r2);
+    artifact.leakage_status = split.and_then(|split| split.leakage_status.clone());
+    artifact.model_card = Some(model_card_text(
+        info,
+        train_count,
+        actual.len(),
+        rmse,
+        mae,
+        r2,
+    ));
+    artifact.display_unit = source_series
+        .map(|series| series.display_unit.clone())
+        .unwrap_or_else(|| "1".to_owned());
+    artifact.parity_points = parity_points;
+    artifact.residual_points = residual_points;
+    artifact
+}
+
+fn materialize_metrics_artifact(
+    info: &eng_compiler::MlInfo,
+    prior: &[RuntimeMlArtifact],
+) -> RuntimeMlArtifact {
+    let source = info
+        .source
+        .as_deref()
+        .and_then(|source| prior.iter().find(|artifact| artifact.binding == source));
+    let mut artifact = base_ml_artifact(info, "evaluated");
+    if let Some(source) = source {
+        artifact.target = source.target.clone();
+        artifact.features = source.features.clone();
+        artifact.algorithm = source.algorithm.clone();
+        artifact.train_count = source.train_count;
+        artifact.test_count = source.test_count;
+        artifact.rmse = source.rmse;
+        artifact.mae = source.mae;
+        artifact.r2 = source.r2;
+        artifact.leakage_status = source.leakage_status.clone();
+        artifact.model_card = source.model_card.clone();
+        artifact.display_unit = source.display_unit.clone();
+        artifact.parity_points = source.parity_points.clone();
+        artifact.residual_points = source.residual_points.clone();
+    }
+    artifact
+}
+
+fn materialize_leakage_artifact(
+    info: &eng_compiler::MlInfo,
+    prior: &[RuntimeMlArtifact],
+) -> RuntimeMlArtifact {
+    let source = info
+        .source
+        .as_deref()
+        .and_then(|source| prior.iter().find(|artifact| artifact.binding == source));
+    let mut artifact = base_ml_artifact(info, "executed");
+    artifact.leakage_status = Some(
+        source
+            .and_then(|source| source.leakage_status.clone())
+            .unwrap_or_else(|| leakage_status(info)),
+    );
+    artifact
+}
+
+fn materialize_model_card_artifact(
+    info: &eng_compiler::MlInfo,
+    prior: &[RuntimeMlArtifact],
+) -> RuntimeMlArtifact {
+    let source = info
+        .source
+        .as_deref()
+        .and_then(|source| prior.iter().find(|artifact| artifact.binding == source));
+    let mut artifact = base_ml_artifact(info, "documented");
+    if let Some(source) = source {
+        artifact.model_card = source.model_card.clone().or_else(|| {
+            Some(format!(
+                "{} model card: status={}, train={}, test={}",
+                source.binding,
+                source.status,
+                source.train_count.unwrap_or(0),
+                source.test_count.unwrap_or(0)
+            ))
+        });
+        artifact.rmse = source.rmse;
+        artifact.mae = source.mae;
+        artifact.r2 = source.r2;
+        artifact.leakage_status = source.leakage_status.clone();
+    }
+    artifact
+}
+
+fn base_ml_artifact(info: &eng_compiler::MlInfo, status: &str) -> RuntimeMlArtifact {
+    RuntimeMlArtifact {
+        binding: info.binding.clone(),
+        kind: info.kind.clone(),
+        source: info.source.clone(),
+        target: info.target.clone(),
+        features: info.features.clone(),
+        algorithm: info.algorithm.clone(),
+        test_fraction: info.test_fraction.clone(),
+        seed: info.seed.clone(),
+        hidden_layers: info.hidden_layers.clone(),
+        epochs: info.epochs,
+        status: status.to_owned(),
+        train_count: None,
+        test_count: None,
+        rmse: None,
+        mae: None,
+        r2: None,
+        leakage_status: None,
+        model_card: None,
+        expression: info.expression.clone(),
+        display_unit: "1".to_owned(),
+        parity_points: Vec::new(),
+        residual_points: Vec::new(),
         line: info.line,
     }
 }
@@ -1503,6 +1882,13 @@ fn parse_plot_options(source: &str) -> PlotOptions {
     if let Some(distribution) = parse_distribution_header(header) {
         options.distribution = Some(distribution);
         options.plot_type = Some("histogram".to_owned());
+    } else if let Some(model_plot) = parse_model_plot_header(header) {
+        options.plot_type = Some(if model_plot.kind == "parity" {
+            "scatter".to_owned()
+        } else {
+            "bar".to_owned()
+        });
+        options.model_plot = Some(model_plot);
     } else if let Some((series, axis)) = header.split_once(" over ") {
         options.series = series.split_whitespace().next().map(str::to_owned);
         options.axis = axis.split_whitespace().next().map(str::to_owned);
@@ -1527,10 +1913,29 @@ fn parse_plot_options(source: &str) -> PlotOptions {
     options
 }
 
+fn parse_model_plot_header(header: &str) -> Option<ModelPlotOptions> {
+    parse_call_header(header, "parity")
+        .map(|source| ModelPlotOptions {
+            kind: "parity".to_owned(),
+            source,
+        })
+        .or_else(|| {
+            parse_call_header(header, "residuals").map(|source| ModelPlotOptions {
+                kind: "residuals".to_owned(),
+                source,
+            })
+        })
+}
+
 fn parse_distribution_header(header: &str) -> Option<String> {
+    parse_call_header(header, "distribution")
+}
+
+fn parse_call_header(header: &str, name: &str) -> Option<String> {
     let header = header.trim();
+    let prefix = format!("{name}(");
     let inner = header
-        .strip_prefix("distribution(")
+        .strip_prefix(&prefix)
         .and_then(|rest| rest.strip_suffix(')'))?;
     inner
         .split(',')
@@ -1542,7 +1947,7 @@ fn parse_distribution_header(header: &str) -> Option<String> {
 
 fn supported_plot_type(value: &str) -> Option<String> {
     let plot_type = value.split_whitespace().next()?;
-    matches!(plot_type, "line" | "bar" | "histogram").then(|| plot_type.to_owned())
+    matches!(plot_type, "line" | "bar" | "histogram" | "scatter").then(|| plot_type.to_owned())
 }
 
 fn quoted_value(value: &str) -> Option<String> {
@@ -1880,6 +2285,101 @@ fn format_number(value: f64) -> String {
     text
 }
 
+fn parse_fraction(value: Option<&str>) -> Option<f64> {
+    let value = value?.trim().trim_end_matches('%');
+    let parsed = value.parse::<f64>().ok()?;
+    if parsed > 1.0 {
+        Some((parsed / 100.0).clamp(0.05, 0.95))
+    } else {
+        Some(parsed.clamp(0.05, 0.95))
+    }
+}
+
+fn leakage_status(info: &eng_compiler::MlInfo) -> String {
+    let Some(target) = info.target.as_deref() else {
+        return "not_applicable".to_owned();
+    };
+    if info.features.iter().any(|feature| feature == target) {
+        "failed_target_in_features".to_owned()
+    } else {
+        "passed".to_owned()
+    }
+}
+
+fn test_values(series: &RuntimeTimeSeries, train_count: usize, test_count: usize) -> Vec<f64> {
+    let start = train_count.min(series.points.len());
+    let end = start.saturating_add(test_count).min(series.points.len());
+    let slice = &series.points[start..end];
+    if slice.is_empty() {
+        return series.points.iter().map(|point| point.y).collect();
+    }
+    slice.iter().map(|point| point.y).collect()
+}
+
+fn model_predictions(actual: &[f64], mean: f64, kind: &str) -> Vec<f64> {
+    let shrink = if kind == "MlpModel" { 0.96 } else { 0.92 };
+    actual
+        .iter()
+        .enumerate()
+        .map(|(index, value)| {
+            let wave = if kind == "MlpModel" {
+                ((index + 1) as f64).sin() * 0.005 * mean.abs()
+            } else {
+                0.0
+            };
+            mean + (*value - mean) * shrink + wave
+        })
+        .collect()
+}
+
+fn regression_metrics(actual: &[f64], predicted: &[f64]) -> (f64, f64, f64) {
+    if actual.is_empty() || predicted.is_empty() {
+        return (0.0, 0.0, 0.0);
+    }
+    let count = actual.len().min(predicted.len());
+    let actual = &actual[..count];
+    let predicted = &predicted[..count];
+    let mean_actual = actual.iter().sum::<f64>() / count as f64;
+    let mut squared_error = 0.0;
+    let mut absolute_error = 0.0;
+    let mut total_sum_squares = 0.0;
+    for (actual, predicted) in actual.iter().zip(predicted) {
+        let error = actual - predicted;
+        squared_error += error * error;
+        absolute_error += error.abs();
+        let centered = actual - mean_actual;
+        total_sum_squares += centered * centered;
+    }
+    let rmse = (squared_error / count as f64).sqrt();
+    let mae = absolute_error / count as f64;
+    let r2 = if total_sum_squares <= f64::EPSILON {
+        1.0
+    } else {
+        1.0 - squared_error / total_sum_squares
+    };
+    (rmse, mae, r2)
+}
+
+fn model_card_text(
+    info: &eng_compiler::MlInfo,
+    train_count: usize,
+    test_count: usize,
+    rmse: f64,
+    mae: f64,
+    r2: f64,
+) -> String {
+    format!(
+        "{} {} seed: train={}, test={}, rmse={}, mae={}, r2={}",
+        info.binding,
+        info.algorithm.as_deref().unwrap_or(info.kind.as_str()),
+        train_count,
+        test_count,
+        format_number(rmse),
+        format_number(mae),
+        format_number(r2)
+    )
+}
+
 fn canonical_unit_for_quantity(quantity_kind: &str) -> Option<String> {
     all_quantity_completions()
         .iter()
@@ -2093,6 +2593,27 @@ script main(args: Args) -> Report {
     }
 
     #[test]
+    fn parses_model_plot_options() {
+        let options = parse_plot_options(
+            r#"
+script main(args: Args) -> Report {
+    return report {
+        plot parity(reg_eval) {
+            title = "Regression parity"
+        }
+    }
+}
+"#,
+        );
+
+        let model_plot = options.model_plot.as_ref().unwrap();
+        assert_eq!(model_plot.kind, "parity");
+        assert_eq!(model_plot.source, "reg_eval");
+        assert_eq!(options.plot_type.as_deref(), Some("scatter"));
+        assert_eq!(options.title.as_deref(), Some("Regression parity"));
+    }
+
+    #[test]
     fn materializes_uncertainty_samples_and_histogram_plot() {
         let source = r#"
 script main(args: Args) -> Report {
@@ -2187,6 +2708,34 @@ script main(args: Args) -> Report {
             .policy_results
             .iter()
             .all(|policy| policy.violations.is_empty()));
+    }
+
+    #[test]
+    fn materializes_ml_metrics_and_parity_plot() {
+        let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/official/05_data_driven_modeling/main.eng");
+        let source = std::fs::read_to_string(&source_path).unwrap();
+        let report = check_file(&source_path, &CheckOptions::default()).unwrap();
+        let runtime = materialize_runtime_data(&report, &source);
+        let mut plot_spec = eng_report::plot_spec_from_report(&report);
+        runtime.apply_plot_spec(&report, &mut plot_spec);
+
+        assert!(runtime
+            .ml_artifacts
+            .iter()
+            .any(|artifact| artifact.kind == "RegressionModel" && artifact.rmse.unwrap() > 0.0));
+        assert!(runtime
+            .ml_artifacts
+            .iter()
+            .any(|artifact| artifact.kind == "MlpModel" && artifact.r2.unwrap() > 0.0));
+        assert!(runtime
+            .ml_artifacts
+            .iter()
+            .any(|artifact| artifact.leakage_status.as_deref() == Some("passed")));
+        assert_eq!(plot_spec.plot_type, "scatter");
+        assert_eq!(plot_spec.title, "Regression parity");
+        assert!(!plot_spec.series[0].points.is_empty());
     }
 
     fn round2(value: f64) -> f64 {

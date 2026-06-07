@@ -49,6 +49,7 @@ pub struct ReportSpec {
     pub computed_statistics: Vec<ReportComputedStatistics>,
     pub computed_integrations: Vec<ReportComputedIntegration>,
     pub uncertainty: Vec<ReportUncertaintyInfo>,
+    pub ml: Vec<ReportMlInfo>,
     pub policy_results: Vec<ReportPolicyResult>,
     pub systems: Vec<ReportSystemSummary>,
     pub system_ir: Vec<ReportSystemIr>,
@@ -167,6 +168,30 @@ pub struct ReportUncertaintyInfo {
     pub upper: Option<String>,
     pub sample_count: usize,
     pub propagation_count: usize,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportMlInfo {
+    pub binding: String,
+    pub kind: String,
+    pub source: Option<String>,
+    pub target: Option<String>,
+    pub features: Vec<String>,
+    pub algorithm: Option<String>,
+    pub test_fraction: Option<String>,
+    pub seed: Option<String>,
+    pub hidden_layers: Vec<usize>,
+    pub epochs: Option<usize>,
+    pub status: String,
+    pub train_count: Option<usize>,
+    pub test_count: Option<usize>,
+    pub rmse: Option<f64>,
+    pub mae: Option<f64>,
+    pub r2: Option<f64>,
+    pub leakage_status: Option<String>,
+    pub model_card: Option<String>,
+    pub expression: String,
     pub line: usize,
 }
 
@@ -463,6 +488,33 @@ pub fn report_spec_from_report(
             line: info.line,
         })
         .collect();
+    let ml = report
+        .semantic_program
+        .ml_infos
+        .iter()
+        .map(|info| ReportMlInfo {
+            binding: info.binding.clone(),
+            kind: info.kind.clone(),
+            source: info.source.clone(),
+            target: info.target.clone(),
+            features: info.features.clone(),
+            algorithm: info.algorithm.clone(),
+            test_fraction: info.test_fraction.clone(),
+            seed: info.seed.clone(),
+            hidden_layers: info.hidden_layers.clone(),
+            epochs: info.epochs,
+            status: "metadata".to_owned(),
+            train_count: None,
+            test_count: None,
+            rmse: None,
+            mae: None,
+            r2: None,
+            leakage_status: None,
+            model_card: None,
+            expression: info.expression.clone(),
+            line: info.line,
+        })
+        .collect();
 
     let systems = report
         .semantic_program
@@ -604,6 +656,7 @@ pub fn report_spec_from_report(
         computed_statistics: Vec::new(),
         computed_integrations: Vec::new(),
         uncertainty,
+        ml,
         policy_results: Vec::new(),
         systems,
         system_ir,
@@ -1015,6 +1068,54 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
     }
     json.push_str("\n  ],\n");
 
+    json.push_str("  \"ml\": [\n");
+    for (index, ml) in spec.ml.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&ml.binding)
+        ));
+        json.push_str(&format!("      \"kind\": \"{}\",\n", json_escape(&ml.kind)));
+        push_optional_json_string(&mut json, "source", ml.source.as_deref(), 6);
+        push_optional_json_string(&mut json, "target", ml.target.as_deref(), 6);
+        json.push_str("      \"features\": [");
+        push_json_string_array(&mut json, &ml.features);
+        json.push_str("],\n");
+        push_optional_json_string(&mut json, "algorithm", ml.algorithm.as_deref(), 6);
+        push_optional_json_string(&mut json, "test_fraction", ml.test_fraction.as_deref(), 6);
+        push_optional_json_string(&mut json, "seed", ml.seed.as_deref(), 6);
+        json.push_str("      \"hidden_layers\": [");
+        for (layer_index, layer) in ml.hidden_layers.iter().enumerate() {
+            if layer_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&layer.to_string());
+        }
+        json.push_str("],\n");
+        push_optional_json_usize(&mut json, "epochs", ml.epochs, 6);
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&ml.status)
+        ));
+        push_optional_json_usize(&mut json, "train_count", ml.train_count, 6);
+        push_optional_json_usize(&mut json, "test_count", ml.test_count, 6);
+        push_optional_json_f64(&mut json, "rmse", ml.rmse, 6);
+        push_optional_json_f64(&mut json, "mae", ml.mae, 6);
+        push_optional_json_f64(&mut json, "r2", ml.r2, 6);
+        push_optional_json_string(&mut json, "leakage_status", ml.leakage_status.as_deref(), 6);
+        push_optional_json_string(&mut json, "model_card", ml.model_card.as_deref(), 6);
+        json.push_str(&format!(
+            "      \"expression\": \"{}\",\n",
+            json_escape(&ml.expression)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", ml.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
     json.push_str("  \"policy_results\": [\n");
     for (index, policy) in spec.policy_results.iter().enumerate() {
         if index > 0 {
@@ -1408,6 +1509,7 @@ pub fn render_svg_from_spec(spec: &PlotSpec) -> String {
     let plot_body = match spec.plot_type.as_str() {
         "bar" => svg_rect_plot(series_points, "#0b6bcb", 0.68),
         "histogram" => svg_rect_plot(series_points, "#4b7f52", 0.92),
+        "scatter" => svg_scatter_plot(series_points, "#0b6bcb"),
         _ => format!(
             r##"<polyline points="{}" fill="none" stroke="#0b6bcb" stroke-width="4"/>"##,
             svg_points(series_points)
@@ -1717,6 +1819,25 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
         uncertainty.push_str("<tr><td colspan=\"7\">No uncertainty metadata.</td></tr>");
     }
 
+    let mut ml_info = String::new();
+    for info in &report.semantic_program.ml_infos {
+        ml_info.push_str("<tr>");
+        ml_info.push_str(&format!(
+            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><code>{}</code></td>",
+            info.line,
+            html_escape(&info.binding),
+            html_escape(&info.kind),
+            html_escape(info.source.as_deref().unwrap_or("")),
+            html_escape(info.target.as_deref().unwrap_or("")),
+            html_escape(&info.features.join(", ")),
+            html_escape(&info.expression)
+        ));
+        ml_info.push_str("</tr>");
+    }
+    if ml_info.is_empty() {
+        ml_info.push_str("<tr><td colspan=\"7\">No ML metadata.</td></tr>");
+    }
+
     let mut system_equations = String::new();
     for system in &report.semantic_program.systems {
         for equation in &system.equations {
@@ -1836,6 +1957,7 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     let stats_info_count = report.semantic_program.stats_infos.len();
     let integration_count = report.semantic_program.integrations.len();
     let uncertainty_count = report.semantic_program.uncertainty_infos.len();
+    let ml_info_count = report.semantic_program.ml_infos.len();
     let system_count = report.semantic_program.systems.len();
     let equation_count = report
         .semantic_program
@@ -1950,6 +2072,7 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
       <div class="metric"><span>Stats Info</span><strong>{stats_info_count}</strong></div>
       <div class="metric"><span>Integrations</span><strong>{integration_count}</strong></div>
       <div class="metric"><span>Uncertainty</span><strong>{uncertainty_count}</strong></div>
+      <div class="metric"><span>ML Info</span><strong>{ml_info_count}</strong></div>
       <div class="metric"><span>Systems</span><strong>{system_count}</strong></div>
       <div class="metric"><span>Equations</span><strong>{equation_count}</strong></div>
       <div class="metric"><span>Residuals</span><strong>{residual_count}</strong></div>
@@ -2008,6 +2131,11 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     <table>
       <thead><tr><th>Line</th><th>Binding</th><th>Kind</th><th>Quantity</th><th>Unit</th><th>Samples</th><th>Expression</th></tr></thead>
       <tbody>{uncertainty}</tbody>
+    </table>
+    <h2>ML Models</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Binding</th><th>Kind</th><th>Source</th><th>Target</th><th>Features</th><th>Expression</th></tr></thead>
+      <tbody>{ml_info}</tbody>
     </table>
     <h2>System Equations</h2>
     <table>
@@ -2072,6 +2200,22 @@ fn push_optional_json_string(json: &mut String, key: &str, value: Option<&str>, 
     let spaces = " ".repeat(indent);
     match value {
         Some(value) => json.push_str(&format!("{spaces}\"{key}\": \"{}\",\n", json_escape(value))),
+        None => json.push_str(&format!("{spaces}\"{key}\": null,\n")),
+    }
+}
+
+fn push_optional_json_usize(json: &mut String, key: &str, value: Option<usize>, indent: usize) {
+    let spaces = " ".repeat(indent);
+    match value {
+        Some(value) => json.push_str(&format!("{spaces}\"{key}\": {value},\n")),
+        None => json.push_str(&format!("{spaces}\"{key}\": null,\n")),
+    }
+}
+
+fn push_optional_json_f64(json: &mut String, key: &str, value: Option<f64>, indent: usize) {
+    let spaces = " ".repeat(indent);
+    match value {
+        Some(value) => json.push_str(&format!("{spaces}\"{key}\": {value},\n")),
         None => json.push_str(&format!("{spaces}\"{key}\": null,\n")),
     }
 }
@@ -2209,6 +2353,41 @@ fn svg_rect_plot(points: &[PlotPoint], fill: &str, width_fraction: f64) -> Strin
         .join("\n  ")
 }
 
+fn svg_scatter_plot(points: &[PlotPoint], fill: &str) -> String {
+    if points.is_empty() {
+        return String::new();
+    }
+
+    let min_x = points
+        .iter()
+        .map(|point| point.x)
+        .fold(f64::INFINITY, f64::min);
+    let max_x = points
+        .iter()
+        .map(|point| point.x)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let min_y = points
+        .iter()
+        .map(|point| point.y)
+        .fold(f64::INFINITY, f64::min);
+    let max_y = points
+        .iter()
+        .map(|point| point.y)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let x_span = (max_x - min_x).max(1.0);
+    let y_span = (max_y - min_y).max(1.0);
+
+    points
+        .iter()
+        .map(|point| {
+            let x = 72.0 + ((point.x - min_x) / x_span) * 588.0;
+            let y = 250.0 - ((point.y - min_y) / y_span) * 210.0;
+            format!(r#"<circle cx="{x:.0}" cy="{y:.0}" r="5" fill="{fill}"/>"#)
+        })
+        .collect::<Vec<_>>()
+        .join("\n  ")
+}
+
 fn time_series_quantity(quantity_kind: &str) -> Option<(String, String)> {
     let rest = quantity_kind.strip_prefix("TimeSeries[")?;
     let (axis, after_axis) = rest.split_once(']')?;
@@ -2255,6 +2434,13 @@ mod tests {
         assert!(histogram_json.contains("\"plot_type\": \"histogram\""));
         assert!(histogram_svg.contains("<rect x="));
         assert!(!histogram_svg.contains("<polyline"));
+
+        "scatter".clone_into(&mut spec.plot_type);
+        let scatter_json = plot_spec_json(&spec);
+        let scatter_svg = render_svg_from_spec(&spec);
+        assert!(scatter_json.contains("\"plot_type\": \"scatter\""));
+        assert!(scatter_svg.contains("<circle cx="));
+        assert!(!scatter_svg.contains("<polyline"));
     }
 
     #[test]
@@ -2304,6 +2490,27 @@ mod tests {
         assert!(json.contains("\"Q_unc\""));
         assert!(html.contains("Uncertainty"));
         assert!(html.contains("Q_dist"));
+    }
+
+    #[test]
+    fn report_spec_and_html_include_ml_metadata() {
+        let report = check_source(
+            "ok.eng",
+            "script main(args: Args) -> Report {\n    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return], test=0.5, seed=7)\n    reg_model = regression(split, algorithm=linear)\n    reg_eval = evaluate(reg_model, split=split)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        let spec = report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        let json = report_spec_json(&spec);
+        let html = render_html(&report, "plots/timeseries.svg");
+
+        assert_eq!(spec.ml.len(), 3);
+        assert_eq!(spec.ml[0].kind, "TrainTestSplit");
+        assert_eq!(spec.ml[1].kind, "RegressionModel");
+        assert!(json.contains("\"ml\""));
+        assert!(json.contains("\"ModelMetrics\""));
+        assert!(html.contains("ML Models"));
+        assert!(html.contains("reg_model"));
     }
 
     #[test]

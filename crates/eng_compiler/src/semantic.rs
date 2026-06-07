@@ -2,6 +2,7 @@ use crate::ast::{AstItem, ExplicitDecl, FastBinding, StructFieldDecl, SystemVari
 use crate::entry::EntryPoint;
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
+use crate::ml::MlInfo;
 use crate::parser::{ParseContext, ParsedProgram};
 use crate::quantities::{
     candidates_for_unit, completion_labels, first_unit_in_expression,
@@ -154,6 +155,7 @@ pub struct SemanticProgram {
     pub stats_infos: Vec<StatsInfo>,
     pub integrations: Vec<IntegrationInfo>,
     pub uncertainty_infos: Vec<UncertaintyInfo>,
+    pub ml_infos: Vec<MlInfo>,
     pub systems: Vec<SystemInfo>,
     pub args_structs: Vec<ArgsStructInfo>,
     pub arg_values: Vec<ArgValueInfo>,
@@ -178,6 +180,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut stats_infos = Vec::new();
     let mut integrations = Vec::new();
     let mut uncertainty_infos = Vec::new();
+    let mut ml_infos = Vec::new();
     let mut systems = Vec::new();
     let mut current_system_index = None;
     let mut args_structs = Vec::new();
@@ -299,6 +302,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     unit_derivations: &mut unit_derivations,
                     integrations: &mut integrations,
                     uncertainty_infos: &mut uncertainty_infos,
+                    ml_infos: &mut ml_infos,
                 };
                 analyze_fast_binding(binding, &mut accum);
             }
@@ -335,6 +339,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             stats_infos,
             integrations,
             uncertainty_infos,
+            ml_infos,
             systems,
             args_structs,
             arg_values: Vec::new(),
@@ -623,6 +628,9 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
     if let Some(uncertainty) = crate::uncertainty::uncertainty_info(binding, accum.typed_bindings) {
         accum.uncertainty_infos.push(uncertainty);
     }
+    if let Some(ml_info) = crate::ml::ml_info(binding) {
+        accum.ml_infos.push(ml_info);
+    }
 
     if let Some(semantic_type) = infer_quantity(&binding.name, &binding.expression) {
         let canonical_unit = default_unit_for_quantity(&semantic_type.quantity_kind);
@@ -676,6 +684,7 @@ struct SemanticAccum<'a> {
     unit_derivations: &'a mut Vec<UnitDerivation>,
     integrations: &'a mut Vec<IntegrationInfo>,
     uncertainty_infos: &'a mut Vec<UncertaintyInfo>,
+    ml_infos: &'a mut Vec<MlInfo>,
 }
 
 fn check_ambiguous_quantity(binding: &FastBinding, diagnostics: &mut Vec<Diagnostic>) {
@@ -840,6 +849,10 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
     if let Some((quantity_kind, display_unit)) =
         crate::uncertainty::uncertainty_semantic_type(name, expression)
     {
+        return semantic_type(&quantity_kind, &display_unit);
+    }
+
+    if let Some((quantity_kind, display_unit)) = crate::ml::ml_semantic_type(expression) {
         return semantic_type(&quantity_kind, &display_unit);
     }
 

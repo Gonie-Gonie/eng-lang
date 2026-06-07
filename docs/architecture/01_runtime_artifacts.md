@@ -151,6 +151,14 @@ Current v1.0 fields:
         "sample_count": 31
       }
     ],
+    "ml": [
+      {
+        "kind": "RegressionModel",
+        "status": "trained_seed",
+        "rmse": 41.79,
+        "r2": 0.94
+      }
+    ],
     "policy_results": [
       {
         "kind": "constraint",
@@ -225,6 +233,7 @@ axis_info
 stats_info
 integrations
 uncertainty_info
+ml_info
 system_summary
 system_ir
 schema_summary
@@ -262,6 +271,7 @@ schema_summary
 computed_statistics
 computed_integrations
 uncertainty
+ml
 policy_results
 system_summary
 system_ir

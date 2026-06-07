@@ -22,7 +22,8 @@ def build_document(version: str) -> Document:
             ),
             paragraph(
                 "The current release line is intentionally narrow: typed CSV import, unit-aware calculations, "
-                "TimeSeries statistics, PlotSpec/SVG/report generation, simple system metadata, and packaged execution.",
+                "TimeSeries statistics, PlotSpec/SVG/report generation, simple system metadata, uncertainty seeds, "
+                "data-driven modeling seeds, and packaged execution.",
             ),
         ),
         Chapter(
@@ -83,6 +84,13 @@ def build_document(version: str) -> Document:
                 code("eng.exe run examples\\official\\03_integrated_hvac\\main.eng --entry main"),
                 ".",
             ),
+            paragraph(
+                "For uncertainty testing, open ",
+                code("examples/official/04_uncertainty_core/main.eng"),
+                ". For data-driven modeling testing, open ",
+                code("examples/official/05_data_driven_modeling/main.eng"),
+                ".",
+            ),
         ),
         Chapter(
             "5. Expected Artifacts",
@@ -104,7 +112,8 @@ def build_document(version: str) -> Document:
                 ".",
             ),
             paragraph(
-                "The result records policy execution, computed statistics, integration provenance, plot hashes, and system solver boundary metadata.",
+                "The result records policy execution, computed statistics, integration provenance, uncertainty summaries, "
+                "ML metrics/model-card metadata, plot hashes, and system solver boundary metadata.",
             ),
         ),
         Chapter(

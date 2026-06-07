@@ -4,6 +4,7 @@ mod entry;
 mod expected;
 mod hover;
 mod lexer;
+mod ml;
 mod parser;
 mod quantities;
 mod schema;
@@ -31,6 +32,7 @@ pub use entry::{select_entry, EntryPoint};
 pub use expected::{ExpectedType, ExpectedTypeSource};
 pub use hover::HoverHint;
 pub use lexer::{Keyword, Symbol, Token, TokenKind};
+pub use ml::MlInfo;
 pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSummary};
 pub use quantities::{all_quantity_completions, QuantityCompletion};
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
@@ -901,6 +903,50 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    json.push_str("  \"ml_info\": [\n");
+    for (index, ml) in report.semantic_program.ml_infos.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&ml.binding)
+        ));
+        json.push_str(&format!("      \"kind\": \"{}\",\n", json_escape(&ml.kind)));
+        push_optional_json_string(&mut json, "source", ml.source.as_deref(), 6);
+        push_optional_json_string(&mut json, "target", ml.target.as_deref(), 6);
+        json.push_str("      \"features\": [");
+        for (feature_index, feature) in ml.features.iter().enumerate() {
+            if feature_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(feature)));
+        }
+        json.push_str("],\n");
+        push_optional_json_string(&mut json, "algorithm", ml.algorithm.as_deref(), 6);
+        push_optional_json_string(&mut json, "test_fraction", ml.test_fraction.as_deref(), 6);
+        push_optional_json_string(&mut json, "seed", ml.seed.as_deref(), 6);
+        json.push_str("      \"hidden_layers\": [");
+        for (layer_index, layer) in ml.hidden_layers.iter().enumerate() {
+            if layer_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&layer.to_string());
+        }
+        json.push_str("],\n");
+        match ml.epochs {
+            Some(epochs) => json.push_str(&format!("      \"epochs\": {},\n", epochs)),
+            None => json.push_str("      \"epochs\": null,\n"),
+        }
+        json.push_str(&format!(
+            "      \"expression\": \"{}\",\n",
+            json_escape(&ml.expression)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", ml.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
     json.push_str("  \"system_summary\": [\n");
     for (index, system) in report.semantic_program.systems.iter().enumerate() {
         if index > 0 {
@@ -1588,6 +1634,45 @@ mod tests {
         assert!(review.contains("\"uncertainty_info\""));
         assert!(review.contains("\"Measured[AbsoluteTemperature]\""));
         assert!(review.contains("\"Distribution[HeatRate]\""));
+    }
+
+    #[test]
+    fn records_data_driven_modeling_metadata() {
+        let report = check_source(
+            "ok.eng",
+            "script main(args: Args) -> Report {\n    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)\n    reg_model = regression(split, algorithm=linear)\n    mlp_model = mlp(split, hidden=[4], epochs=20, seed=7)\n    reg_eval = evaluate(reg_model, split=split)\n    reg_card = model_card(reg_model)\n    leakage = leakage_lint(split)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(report.semantic_program.ml_infos.len(), 6);
+        assert_eq!(report.semantic_program.ml_infos[0].kind, "TrainTestSplit");
+        assert_eq!(
+            report.semantic_program.ml_infos[0].features,
+            vec![
+                "T_supply".to_owned(),
+                "T_return".to_owned(),
+                "m_dot".to_owned()
+            ]
+        );
+        assert_eq!(report.semantic_program.ml_infos[2].kind, "MlpModel");
+        assert_eq!(report.semantic_program.ml_infos[2].hidden_layers, vec![4]);
+        assert_eq!(
+            report
+                .semantic_program
+                .typed_bindings
+                .iter()
+                .find(|binding| binding.name == "reg_model")
+                .unwrap()
+                .semantic_type
+                .quantity_kind,
+            "Model[Regression]"
+        );
+
+        let review = review_json(&report);
+        assert!(review.contains("\"ml_info\""));
+        assert!(review.contains("\"Model[MLP]\""));
+        assert!(review.contains("\"LeakageLint\""));
     }
 
     #[test]

@@ -1,0 +1,13 @@
+# eng.ml preview package surface
+#
+# v1.2 implements these forms as compiler/runtime-recognized fast bindings:
+#
+#   split = train_test_split(Q, target=Q, features=[...], test=0.5, seed=7)
+#   model = regression(split, algorithm=linear)
+#   model = mlp(split, hidden=[8], epochs=40, seed=7)
+#   eval = evaluate(model, split=split)
+#   card = model_card(model)
+#   lint = leakage_lint(split)
+#
+# This file is intentionally declarative documentation for the portable stdlib.
+# Import/package execution is a later milestone.
