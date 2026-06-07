@@ -71,6 +71,20 @@ pub fn source_diagnostics(
         .collect()
 }
 
+pub fn argument_diagnostics(binding: &FastBinding) -> Vec<Diagnostic> {
+    let Some(info) = ml_info(binding) else {
+        return Vec::new();
+    };
+    let mut diagnostics = Vec::new();
+    match info.kind.as_str() {
+        "TrainTestSplit" => validate_train_test_split_arguments(&info, &mut diagnostics),
+        "RegressionModel" => validate_regression_arguments(&info, &mut diagnostics),
+        "MlpModel" => validate_mlp_arguments(&info, &mut diagnostics),
+        _ => {}
+    }
+    diagnostics
+}
+
 pub fn ml_semantic_type(expression: &str) -> Option<(String, String)> {
     let lowered = expression.trim().to_ascii_lowercase();
     if lowered.starts_with("train_test_split(") {
@@ -134,6 +148,17 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
         }],
         _ => Vec::new(),
     };
+
+    if info.kind == "TrainTestSplit" {
+        if let Some(target) = &info.target {
+            requirements.push(MlSourceRequirement {
+                call,
+                role: "target",
+                source: Some(target.clone()),
+                expected: ExpectedMlSource::TimeSeries,
+            });
+        }
+    }
 
     if info.kind == "ModelMetrics" {
         if let Some(split) = named_value(&info.expression, &["split"]) {
@@ -263,6 +288,146 @@ fn ml_call_name(expression: &str) -> &'static str {
     }
 }
 
+fn validate_train_test_split_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic>) {
+    if info
+        .target
+        .as_deref()
+        .filter(|target| is_identifier(target))
+        .is_none()
+    {
+        diagnostics.push(Diagnostic::error(
+            "E-ML-ARGS-001",
+            info.line,
+            "`train_test_split` requires `target=<TimeSeriesName>`.",
+            Some("Pass the target series explicitly, for example `target=Q_coil`."),
+        ));
+    }
+
+    if info.features.is_empty() {
+        diagnostics.push(Diagnostic::error(
+            "E-ML-ARGS-001",
+            info.line,
+            "`train_test_split` requires at least one feature column in `features=[...]`.",
+            Some("List feature columns such as `features=[T_supply, T_return, m_dot]`."),
+        ));
+    } else if let Some(feature) = info.features.iter().find(|feature| !is_identifier(feature)) {
+        diagnostics.push(Diagnostic::error(
+            "E-ML-ARGS-001",
+            info.line,
+            &format!("Feature `{feature}` is not a valid identifier."),
+            Some("Use bare schema column names in `features=[...]`; runtime leakage lint checks whether they exist in the source table."),
+        ));
+    }
+
+    match info.test_fraction.as_deref() {
+        Some(value) if parse_test_fraction(value).is_some() => {}
+        Some(value) => diagnostics.push(Diagnostic::error(
+            "E-ML-ARGS-002",
+            info.line,
+            &format!("`test={value}` is not a valid held-out fraction."),
+            Some("Use a value between 0 and 1, or a percentage such as `20%`."),
+        )),
+        None => diagnostics.push(Diagnostic::error(
+            "E-ML-ARGS-001",
+            info.line,
+            "`train_test_split` requires `test=<fraction>`.",
+            Some("Use an explicit held-out fraction such as `test=0.25`."),
+        )),
+    }
+
+    validate_optional_integer(&info.expression, "seed", info.line, diagnostics);
+}
+
+fn validate_regression_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic>) {
+    if let Some(algorithm) = named_value(&info.expression, &["algorithm"]) {
+        if algorithm != "linear" {
+            diagnostics.push(Diagnostic::error(
+                "E-ML-ARGS-003",
+                info.line,
+                &format!("Unsupported regression algorithm `{algorithm}`."),
+                Some("The current v1.2 path supports `algorithm=linear`."),
+            ));
+        }
+    }
+}
+
+fn validate_mlp_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic>) {
+    match named_value(&info.expression, &["hidden", "layers"]) {
+        Some(value) if valid_positive_usize_list(&value) => {}
+        Some(value) => diagnostics.push(Diagnostic::error(
+            "E-ML-ARGS-002",
+            info.line,
+            &format!("`hidden={value}` must contain positive integer layer sizes."),
+            Some("Use a list such as `hidden=[4]` or `hidden=[8, 4]`."),
+        )),
+        None => diagnostics.push(Diagnostic::error(
+            "E-ML-ARGS-001",
+            info.line,
+            "`mlp` requires `hidden=[...]`.",
+            Some("Use explicit hidden layer sizes such as `hidden=[4]`."),
+        )),
+    }
+
+    match named_value(&info.expression, &["epochs"]) {
+        Some(value) if parse_positive_usize(&value).is_some() => {}
+        Some(value) => diagnostics.push(Diagnostic::error(
+            "E-ML-ARGS-002",
+            info.line,
+            &format!("`epochs={value}` must be a positive integer."),
+            Some("Use an explicit training budget such as `epochs=80`."),
+        )),
+        None => diagnostics.push(Diagnostic::error(
+            "E-ML-ARGS-001",
+            info.line,
+            "`mlp` requires `epochs=<positive integer>`.",
+            Some("Use an explicit training budget such as `epochs=80`."),
+        )),
+    }
+
+    validate_optional_integer(&info.expression, "seed", info.line, diagnostics);
+}
+
+fn parse_test_fraction(value: &str) -> Option<f64> {
+    let trimmed = value.trim();
+    let parsed = if let Some(percent) = trimmed.strip_suffix('%') {
+        percent.trim().parse::<f64>().ok()? / 100.0
+    } else {
+        trimmed.parse::<f64>().ok()?
+    };
+    (parsed > 0.0 && parsed < 1.0).then_some(parsed)
+}
+
+fn validate_optional_integer(
+    expression: &str,
+    name: &str,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if let Some(value) = named_value(expression, &[name]) {
+        if value.trim().parse::<usize>().is_err() {
+            diagnostics.push(Diagnostic::error(
+                "E-ML-ARGS-002",
+                line,
+                &format!("`{name}={value}` must be a non-negative integer."),
+                Some("Use an integer seed such as `seed=7`."),
+            ));
+        }
+    }
+}
+
+fn valid_positive_usize_list(value: &str) -> bool {
+    let values = list_items(value);
+    !values.is_empty()
+        && values
+            .iter()
+            .all(|value| parse_positive_usize(value).is_some())
+}
+
+fn parse_positive_usize(value: &str) -> Option<usize> {
+    let parsed = value.trim().parse::<usize>().ok()?;
+    (parsed > 0).then_some(parsed)
+}
+
 fn default_algorithm(kind: &str) -> Option<String> {
     match kind {
         "RegressionModel" => Some("linear".to_owned()),
@@ -305,27 +470,25 @@ fn named_value(expression: &str, names: &[&str]) -> Option<String> {
 
 fn list_value(expression: &str, name: &str) -> Vec<String> {
     named_value(expression, &[name])
-        .map(|value| {
-            value
-                .trim()
-                .trim_start_matches('[')
-                .trim_end_matches(']')
-                .split(',')
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .map(str::to_owned)
-                .collect()
-        })
+        .map(|value| list_items(&value).into_iter().map(str::to_owned).collect())
         .unwrap_or_default()
 }
 
 fn parse_usize_list(value: &str) -> Vec<usize> {
+    list_items(value)
+        .into_iter()
+        .filter_map(|part| part.parse::<usize>().ok())
+        .collect()
+}
+
+fn list_items(value: &str) -> Vec<&str> {
     value
         .trim()
         .trim_start_matches('[')
         .trim_end_matches(']')
         .split(',')
-        .filter_map(|part| part.trim().parse::<usize>().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
         .collect()
 }
 

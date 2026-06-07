@@ -9,5 +9,9 @@
 #   card = model_card(model)
 #   lint = leakage_lint(split)
 #
+# The compiler validates source order/type and the required v1.2 arguments:
+# target, features, test fraction, supported algorithm, hidden layers, epochs,
+# and integer seeds.
+#
 # This file is intentionally declarative documentation for the portable stdlib.
 # Import/package execution is a later milestone.

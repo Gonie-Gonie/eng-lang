@@ -15,7 +15,8 @@ It is intentionally short so agents do not need to load every planning file.
   propagation source terms, histogram bin metadata/artifacts, and IDE/report
   inspection.
 - Current `v1.2` detail work includes source validation diagnostics for
-  TimeSeries -> train/test split -> model -> evaluation/model-card links.
+  TimeSeries -> train/test split -> model -> evaluation/model-card links and
+  argument diagnostics for split/model/MLP options.
 
 ## Read First
 

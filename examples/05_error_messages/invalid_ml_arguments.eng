@@ -1,0 +1,5 @@
+script main(args: Args) -> Report {
+    cp = 4180 J/kg/K
+    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+    split = train_test_split(Q_coil, features=[], test=1.5)
+}

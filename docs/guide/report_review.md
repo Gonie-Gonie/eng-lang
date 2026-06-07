@@ -236,6 +236,9 @@ model_card
 The compiler validates ML source links before runtime. Missing or unknown
 TimeSeries/split/model references produce `E-ML-SOURCE-001`; references with
 the wrong semantic type produce `E-ML-SOURCE-002`.
+It also validates required split/model/MLP options: malformed arguments produce
+`E-ML-ARGS-001` or `E-ML-ARGS-002`, and unsupported model options produce
+`E-ML-ARGS-003`.
 
 These metrics are deterministic preview values for user testing and artifact
 review. Full ML training maturity is a later roadmap item.

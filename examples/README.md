@@ -28,8 +28,8 @@ official/04_uncertainty_core
 
 official/05_data_driven_modeling
   Experimental v1.2 seed for split/model/evaluation source diagnostics,
-  deterministic metrics, leakage lint, model cards, and parity plots. It is
-  tested on main but not release-supported yet.
+  argument diagnostics, deterministic metrics, leakage lint, model cards, and
+  parity plots. It is tested on main but not release-supported yet.
 ```
 
 ## Compatibility Regression Examples

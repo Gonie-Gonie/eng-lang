@@ -357,6 +357,7 @@ Required outputs before v1.2 can be considered supported:
 - model card
 - leakage lint
 - source validation diagnostics for split/model/evaluation links
+- argument validation diagnostics for split/model/MLP options
 - official data-driven modeling example and CLI smoke
 - diagnostics, IDE metadata, documentation, and release notes aligned
 ```

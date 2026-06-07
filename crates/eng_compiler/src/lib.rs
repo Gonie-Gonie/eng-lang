@@ -1820,6 +1820,57 @@ mod tests {
     }
 
     #[test]
+    fn rejects_missing_ml_split_arguments() {
+        let report = check_source(
+            "bad.eng",
+            "script main(args: Args) -> Report {\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    split = train_test_split(Q_coil, features=[], test=1.5)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-ML-ARGS-001"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-ML-ARGS-002"));
+    }
+
+    #[test]
+    fn rejects_unsupported_ml_algorithm() {
+        let report = check_source(
+            "bad.eng",
+            "script main(args: Args) -> Report {\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply], test=0.25)\n    reg_model = regression(split, algorithm=tree)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-ML-ARGS-003"));
+    }
+
+    #[test]
+    fn rejects_invalid_mlp_arguments() {
+        let report = check_source(
+            "bad.eng",
+            "script main(args: Args) -> Report {\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply], test=0.25)\n    mlp_model = mlp(split, hidden=[0], epochs=0, seed=abc)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        let ml_arg_errors = report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "E-ML-ARGS-002")
+            .count();
+        assert!(ml_arg_errors >= 3);
+    }
+
+    #[test]
     fn records_unit_consistent_system_equation_and_residual() {
         let report = check_source(
             "ok.eng",

@@ -545,6 +545,26 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     }
     println!("ok: examples/05_error_messages/missing_ml_source.eng produced diagnostics");
 
+    let invalid_ml_arguments = match check_file(
+        "examples/05_error_messages/invalid_ml_arguments.eng",
+        &CheckOptions::default(),
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    if !invalid_ml_arguments
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "E-ML-ARGS-001")
+    {
+        eprintln!("expected invalid_ml_arguments.eng to produce E-ML-ARGS-001");
+        return ExitCode::from(2);
+    }
+    println!("ok: examples/05_error_messages/invalid_ml_arguments.eng produced diagnostics");
+
     match run_file(
         Path::new("examples/05_error_messages/missing_entry.eng"),
         Path::new("build/test-missing-entry"),

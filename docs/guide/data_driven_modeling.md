@@ -38,7 +38,7 @@ The portable stdlib documents this preview surface at:
 stdlib/eng/ml.eng
 ```
 
-## Source Validation
+## Source And Argument Validation
 
 The compiler checks the staged ML binding chain before runtime:
 
@@ -53,6 +53,18 @@ leakage_lint(split)                split must be a prior TrainTestSplit binding
 
 Unknown or missing ML references produce `E-ML-SOURCE-001`. References with the
 wrong semantic type produce `E-ML-SOURCE-002`.
+
+The compiler also checks the current v1.2 argument contract:
+
+```text
+train_test_split(...)  requires target=<TimeSeriesName>, features=[...], and test=<fraction>
+regression(...)        supports algorithm=linear
+mlp(...) / ann(...)    requires hidden=[positive integers] and epochs=<positive integer>
+seed=...               must be a non-negative integer when present
+```
+
+Missing or malformed required ML arguments produce `E-ML-ARGS-001` or
+`E-ML-ARGS-002`. Unsupported ML options produce `E-ML-ARGS-003`.
 
 ## Runtime Semantics
 
