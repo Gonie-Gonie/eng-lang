@@ -198,6 +198,7 @@ v1.3
 - [v1.3 LSP gate](docs/current/v1_3_lsp_gate.md)
 - [Report and review artifacts](docs/guide/report_review.md)
 - [Run command reference](docs/reference/cli_run.md)
+- [LSP snapshot reference](docs/reference/lsp_snapshot.md)
 - [CLI specification](docs/specs/cli.md)
 - [v8/v9 language policy](docs/specs/language-v8.md)
 - [Roadmap](docs/roadmap.md)

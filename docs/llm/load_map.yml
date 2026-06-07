@@ -37,6 +37,7 @@ task_types:
 
   lsp:
     - docs/current/v1_3_lsp_gate.md
+    - docs/reference/lsp_snapshot.md
     - crates/eng_lsp/
     - tools/vscode-englang/
 

@@ -41,6 +41,7 @@ long-form planning documents.
 
 - [CLI specification](specs/cli.md)
 - [Run command reference](reference/cli_run.md)
+- [LSP snapshot reference](reference/lsp_snapshot.md)
 - [v8/v9 language policy](specs/language-v8.md)
 - [Fast assignment guide](language/fast_assignment.md)
 - [Dimensionless policy guide](language/dimensionless.md)

@@ -42,6 +42,8 @@ wired into a release target and manually tested in an editor.
   `didOpen`, `completion`, `hover`, `shutdown`, and `exit` over stdio.
 - [x] `dev.bat package-smoke` validates the packaged `eng-lsp.exe --smoke`
   path.
+- [x] `eng-lsp-snapshot-v1` compatibility rules are documented in
+  [LSP snapshot reference](../reference/lsp_snapshot.md).
 
 ## Remaining Before Support Claim
 
@@ -51,7 +53,6 @@ wired into a release target and manually tested in an editor.
   VS Code or another LSP client.
 - [ ] Add precise diagnostic ranges when compiler spans are ready across all
   diagnostics; current LSP ranges are line-based.
-- [ ] Add a documented stability policy for `eng-lsp-snapshot-v1`.
 
 ## Verification
 
