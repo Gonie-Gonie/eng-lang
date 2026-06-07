@@ -2,7 +2,7 @@
   "name": "englang",
   "displayName": "EngLang",
   "description": "EngLang IDE preview with diagnostics, hover, completion, and run commands.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "englang",
   "license": "MIT",
   "engines": {
