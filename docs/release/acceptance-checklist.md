@@ -131,6 +131,17 @@ The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
 [x] official plotting example produces report and PlotSpec artifacts
 ```
 
+## v0.7/v1.0 Policy Gate
+
+```text
+[x] schema missing policies do not leak as runtime scalar objects
+[x] interpolation policies emit W-SCHEMA-POLICY-001 until runtime interpolation exists
+[x] result.engres records policy_results
+[x] report_spec.json records policy_results
+[x] official CSV constraints execute with zero violations
+[x] missing error policy executes with zero violations
+```
+
 ## v0.8 Gate
 
 ```text

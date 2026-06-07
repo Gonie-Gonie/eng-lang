@@ -419,6 +419,8 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactNumber @(@($review.args_summary)[0].fields).Count $Golden.review.args_field_count "review args field count"
     Assert-ArtifactNumber @($review.schema_summary).Count $Golden.review.schema_summary_count "review.schema_summary count"
     Assert-ArtifactNumber @($review.csv_promotions).Count $Golden.review.csv_promotion_count "review.csv_promotions count"
+    $policyWarnings = @(@($review.warning_list) | Where-Object { $_.code -eq "W-SCHEMA-POLICY-001" })
+    Assert-ArtifactNumber $policyWarnings.Count $Golden.review.policy_warning_count "review schema policy warning count"
 
     $reportSpec = Read-ArtifactJson (Join-Path $RepoRoot "build\result\report_spec.json")
     Assert-ArtifactValue $reportSpec.format $Golden.report_spec.format "report_spec.format"
@@ -437,6 +439,17 @@ function Assert-CsvPlotGolden {
     $reportIntegration = @($reportSpec.computed_integrations)[0]
     Assert-ArtifactValue $reportIntegration.status $Golden.report_spec.computed_integration_status "report_spec.computed_integrations[0].status"
     Assert-ArtifactFloat $reportIntegration.value $Golden.report_spec.integration_value_j "report_spec.computed_integrations[0].value"
+    $reportPolicies = @($reportSpec.policy_results)
+    Assert-ArtifactNumber $reportPolicies.Count $Golden.report_spec.policy_result_count "report_spec.policy_results count"
+    $reportExecutedPolicies = @($reportPolicies | Where-Object { $_.status -eq "executed" })
+    $reportValidatedPolicies = @($reportPolicies | Where-Object { $_.status -eq "validated" })
+    Assert-ArtifactNumber $reportExecutedPolicies.Count $Golden.report_spec.policy_executed_count "report_spec.policy_results executed count"
+    Assert-ArtifactNumber $reportValidatedPolicies.Count $Golden.report_spec.policy_validated_count "report_spec.policy_results validated count"
+    $reportPolicyViolationCount = 0
+    foreach ($policy in $reportPolicies) {
+        $reportPolicyViolationCount += [int]$policy.violation_count
+    }
+    Assert-ArtifactNumber $reportPolicyViolationCount $Golden.report_spec.policy_violation_count "report_spec.policy_results violation count"
 
     $result = Read-ArtifactJson (Join-Path $RepoRoot "build\result\result.engres")
     Assert-ArtifactValue $result.format $Golden.result.format "result.format"
@@ -445,6 +458,7 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactValue $result.entry.name $Golden.result.entry_name "result.entry.name"
     Assert-ArtifactNumber @($result.args_schema).Count $Golden.result.args_struct_count "result.args_schema count"
     Assert-ArtifactNumber @(@($result.args_schema)[0].fields).Count $Golden.result.args_field_count "result args field count"
+    Assert-ArtifactNumber $result.object_store.scalar_count $Golden.result.scalar_count "result.object_store.scalar_count"
     Assert-ArtifactNumber $result.object_store.table_count $Golden.result.table_count "result.object_store.table_count"
     Assert-ArtifactNumber $result.object_store.timeseries_count $Golden.result.timeseries_count "result.object_store.timeseries_count"
     Assert-ArtifactNumber $result.provenance.schema_count $Golden.result.schema_count "result.provenance.schema_count"
@@ -469,6 +483,17 @@ function Assert-CsvPlotGolden {
     $integrationPayload = @($result.typed_payload.integrations)[0]
     Assert-ArtifactValue $integrationPayload.status $Golden.result.integration_status "result.typed_payload.integrations[0].status"
     Assert-ArtifactFloat $integrationPayload.value $Golden.result.integration_value_j "result.typed_payload.integrations[0].value"
+    $resultPolicies = @($result.typed_payload.policy_results)
+    Assert-ArtifactNumber $resultPolicies.Count $Golden.result.policy_result_count "result.typed_payload.policy_results count"
+    $resultExecutedPolicies = @($resultPolicies | Where-Object { $_.status -eq "executed" })
+    $resultValidatedPolicies = @($resultPolicies | Where-Object { $_.status -eq "validated" })
+    Assert-ArtifactNumber $resultExecutedPolicies.Count $Golden.result.policy_executed_count "result.typed_payload.policy_results executed count"
+    Assert-ArtifactNumber $resultValidatedPolicies.Count $Golden.result.policy_validated_count "result.typed_payload.policy_results validated count"
+    $resultPolicyViolationCount = 0
+    foreach ($policy in $resultPolicies) {
+        $resultPolicyViolationCount += [int]$policy.violation_count
+    }
+    Assert-ArtifactNumber $resultPolicyViolationCount $Golden.result.policy_violation_count "result.typed_payload.policy_results violation count"
 
     $plotSpec = Read-ArtifactJson (Join-Path $RepoRoot "build\result\plots\plot_spec.json")
     Assert-ArtifactValue $plotSpec.format $Golden.plot_spec.format "plot_spec.format"

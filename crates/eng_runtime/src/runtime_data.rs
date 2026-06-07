@@ -4,7 +4,8 @@ use std::fs;
 use eng_compiler::{CheckReport, SchemaColumn, SchemaInfo};
 use eng_report::{
     PlotAxis, PlotPoint, PlotSeries, PlotSpec, ReportComputedIntegration,
-    ReportComputedStatisticValue, ReportComputedStatistics,
+    ReportComputedStatisticValue, ReportComputedStatistics, ReportPolicyResult,
+    ReportPolicyViolation,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -13,6 +14,7 @@ pub struct RuntimeData {
     pub time_series: Vec<RuntimeTimeSeries>,
     pub statistics: Vec<RuntimeStatistics>,
     pub integrations: Vec<RuntimeIntegration>,
+    pub policy_results: Vec<RuntimePolicyResult>,
     pub plot_options: PlotOptions,
 }
 
@@ -111,6 +113,33 @@ impl RuntimeData {
             })
             .collect()
     }
+
+    pub fn report_policy_results(&self) -> Vec<ReportPolicyResult> {
+        self.policy_results
+            .iter()
+            .map(|policy| ReportPolicyResult {
+                schema: policy.schema.clone(),
+                binding: policy.binding.clone(),
+                kind: policy.kind.clone(),
+                target: policy.target.clone(),
+                policy: policy.policy.clone(),
+                status: policy.status.clone(),
+                checked_rows: policy.checked_rows,
+                violation_count: policy.violations.len(),
+                violations: policy
+                    .violations
+                    .iter()
+                    .map(|violation| ReportPolicyViolation {
+                        row: violation.row,
+                        column: violation.column.clone(),
+                        value: violation.value.clone(),
+                        message: violation.message.clone(),
+                    })
+                    .collect(),
+                line: policy.line,
+            })
+            .collect()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -206,6 +235,27 @@ pub struct RuntimeIntegration {
     pub interval_count: usize,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimePolicyResult {
+    pub schema: String,
+    pub binding: String,
+    pub kind: String,
+    pub target: String,
+    pub policy: String,
+    pub status: String,
+    pub checked_rows: usize,
+    pub violations: Vec<RuntimePolicyViolation>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimePolicyViolation {
+    pub row: usize,
+    pub column: String,
+    pub value: String,
+    pub message: String,
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PlotOptions {
     pub series: Option<String>,
@@ -237,6 +287,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.time_series = materialize_time_series(report, &data.tables);
     data.statistics = materialize_statistics(report, &data.time_series);
     data.integrations = materialize_integrations(report, &data.time_series);
+    data.policy_results = materialize_policy_results(report, &data.tables);
     data
 }
 
@@ -530,7 +581,351 @@ fn materialize_integrations(
         .collect()
 }
 
+fn materialize_policy_results(
+    report: &CheckReport,
+    tables: &[RuntimeTable],
+) -> Vec<RuntimePolicyResult> {
+    let mut results = Vec::new();
+    for promotion in &report.semantic_program.csv_promotions {
+        let Some(schema) = report
+            .semantic_program
+            .schemas
+            .iter()
+            .find(|schema| schema.name == promotion.schema_name)
+        else {
+            continue;
+        };
+        let Some(table) = tables
+            .iter()
+            .find(|table| table.binding == promotion.binding)
+        else {
+            continue;
+        };
+
+        for constraint in &schema.constraints {
+            results.push(execute_constraint_policy(table, schema, constraint));
+        }
+        for policy in &schema.missing_policies {
+            results.push(execute_missing_policy(table, schema, policy));
+        }
+    }
+    results
+}
+
+fn execute_constraint_policy(
+    table: &RuntimeTable,
+    schema: &SchemaInfo,
+    constraint: &eng_compiler::SchemaConstraint,
+) -> RuntimePolicyResult {
+    let text = constraint.text.trim();
+    if let Some(column) = text.strip_suffix(" is monotonic").map(str::trim) {
+        return execute_monotonic_constraint(table, schema, constraint, column);
+    }
+    if let Some((column, min, max)) = parse_between_constraint(text) {
+        return execute_between_constraint(table, schema, constraint, &column, min, max);
+    }
+    if let Some((column, min)) = parse_lower_bound_constraint(text) {
+        return execute_lower_bound_constraint(table, schema, constraint, &column, min);
+    }
+    policy_result(
+        table,
+        schema,
+        PolicyResultDraft {
+            kind: "constraint",
+            target: text,
+            policy: text,
+            status: "recorded",
+            checked_rows: 0,
+            violations: Vec::new(),
+            line: constraint.line,
+        },
+    )
+}
+
+fn execute_monotonic_constraint(
+    table: &RuntimeTable,
+    schema: &SchemaInfo,
+    constraint: &eng_compiler::SchemaConstraint,
+    column_name: &str,
+) -> RuntimePolicyResult {
+    let Some(column) = table.column(column_name) else {
+        return policy_result(
+            table,
+            schema,
+            PolicyResultDraft {
+                kind: "constraint",
+                target: column_name,
+                policy: &constraint.text,
+                status: "recorded",
+                checked_rows: 0,
+                violations: Vec::new(),
+                line: constraint.line,
+            },
+        );
+    };
+    let RuntimeValues::Text(values) = &column.values else {
+        return policy_result(
+            table,
+            schema,
+            PolicyResultDraft {
+                kind: "constraint",
+                target: column_name,
+                policy: &constraint.text,
+                status: "recorded",
+                checked_rows: 0,
+                violations: Vec::new(),
+                line: constraint.line,
+            },
+        );
+    };
+    let mut previous = None;
+    let mut violations = Vec::new();
+    for (index, value) in values.iter().enumerate() {
+        let Some(timestamp) = parse_utc_timestamp_seconds(value) else {
+            violations.push(RuntimePolicyViolation {
+                row: index + 2,
+                column: column_name.to_owned(),
+                value: value.clone(),
+                message: "cannot evaluate monotonic policy for invalid DateTime".to_owned(),
+            });
+            continue;
+        };
+        if previous.is_some_and(|previous| timestamp < previous) {
+            violations.push(RuntimePolicyViolation {
+                row: index + 2,
+                column: column_name.to_owned(),
+                value: value.clone(),
+                message: "DateTime value is earlier than the previous row".to_owned(),
+            });
+        }
+        previous = Some(timestamp);
+    }
+    policy_result(
+        table,
+        schema,
+        PolicyResultDraft {
+            kind: "constraint",
+            target: column_name,
+            policy: &constraint.text,
+            status: "executed",
+            checked_rows: values.len(),
+            violations,
+            line: constraint.line,
+        },
+    )
+}
+
+fn execute_between_constraint(
+    table: &RuntimeTable,
+    schema: &SchemaInfo,
+    constraint: &eng_compiler::SchemaConstraint,
+    column_name: &str,
+    min: f64,
+    max: f64,
+) -> RuntimePolicyResult {
+    let Some(column) = table.column(column_name) else {
+        return policy_result(
+            table,
+            schema,
+            PolicyResultDraft {
+                kind: "constraint",
+                target: column_name,
+                policy: &constraint.text,
+                status: "recorded",
+                checked_rows: 0,
+                violations: Vec::new(),
+                line: constraint.line,
+            },
+        );
+    };
+    let values = numeric_values(column);
+    let violations = values
+        .iter()
+        .enumerate()
+        .filter_map(|(index, value)| {
+            let value = (*value)?;
+            if value < min || value > max {
+                Some(RuntimePolicyViolation {
+                    row: index + 2,
+                    column: column_name.to_owned(),
+                    value: value.to_string(),
+                    message: format!("value is outside [{min}, {max}]"),
+                })
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    policy_result(
+        table,
+        schema,
+        PolicyResultDraft {
+            kind: "constraint",
+            target: column_name,
+            policy: &constraint.text,
+            status: "executed",
+            checked_rows: values.len(),
+            violations,
+            line: constraint.line,
+        },
+    )
+}
+
+fn execute_lower_bound_constraint(
+    table: &RuntimeTable,
+    schema: &SchemaInfo,
+    constraint: &eng_compiler::SchemaConstraint,
+    column_name: &str,
+    min: f64,
+) -> RuntimePolicyResult {
+    let Some(column) = table.column(column_name) else {
+        return policy_result(
+            table,
+            schema,
+            PolicyResultDraft {
+                kind: "constraint",
+                target: column_name,
+                policy: &constraint.text,
+                status: "recorded",
+                checked_rows: 0,
+                violations: Vec::new(),
+                line: constraint.line,
+            },
+        );
+    };
+    let values = numeric_values(column);
+    let violations = values
+        .iter()
+        .enumerate()
+        .filter_map(|(index, value)| {
+            let value = (*value)?;
+            if value < min {
+                Some(RuntimePolicyViolation {
+                    row: index + 2,
+                    column: column_name.to_owned(),
+                    value: value.to_string(),
+                    message: format!("value is below lower bound {min}"),
+                })
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    policy_result(
+        table,
+        schema,
+        PolicyResultDraft {
+            kind: "constraint",
+            target: column_name,
+            policy: &constraint.text,
+            status: "executed",
+            checked_rows: values.len(),
+            violations,
+            line: constraint.line,
+        },
+    )
+}
+
+fn execute_missing_policy(
+    table: &RuntimeTable,
+    schema: &SchemaInfo,
+    policy: &eng_compiler::MissingPolicy,
+) -> RuntimePolicyResult {
+    let Some(column) = table.column(&policy.column) else {
+        return policy_result(
+            table,
+            schema,
+            PolicyResultDraft {
+                kind: "missing",
+                target: &policy.column,
+                policy: &policy.policy,
+                status: "recorded",
+                checked_rows: 0,
+                violations: Vec::new(),
+                line: policy.line,
+            },
+        );
+    };
+    let missing_rows = missing_rows(column);
+    if policy.policy.trim() == "error" {
+        let violations = missing_rows
+            .iter()
+            .map(|row| RuntimePolicyViolation {
+                row: *row,
+                column: policy.column.clone(),
+                value: String::new(),
+                message: "missing value violates `error` policy".to_owned(),
+            })
+            .collect::<Vec<_>>();
+        return policy_result(
+            table,
+            schema,
+            PolicyResultDraft {
+                kind: "missing",
+                target: &policy.column,
+                policy: &policy.policy,
+                status: "executed",
+                checked_rows: column.len(),
+                violations,
+                line: policy.line,
+            },
+        );
+    }
+
+    let status = if policy.policy.trim_start().starts_with("interpolate") && missing_rows.is_empty()
+    {
+        "validated"
+    } else {
+        "recorded"
+    };
+    policy_result(
+        table,
+        schema,
+        PolicyResultDraft {
+            kind: "missing",
+            target: &policy.column,
+            policy: &policy.policy,
+            status,
+            checked_rows: column.len(),
+            violations: Vec::new(),
+            line: policy.line,
+        },
+    )
+}
+
+struct PolicyResultDraft<'a> {
+    kind: &'a str,
+    target: &'a str,
+    policy: &'a str,
+    status: &'a str,
+    checked_rows: usize,
+    violations: Vec<RuntimePolicyViolation>,
+    line: usize,
+}
+
+fn policy_result(
+    table: &RuntimeTable,
+    schema: &SchemaInfo,
+    draft: PolicyResultDraft<'_>,
+) -> RuntimePolicyResult {
+    RuntimePolicyResult {
+        schema: schema.name.clone(),
+        binding: table.binding.clone(),
+        kind: draft.kind.to_owned(),
+        target: draft.target.to_owned(),
+        policy: draft.policy.to_owned(),
+        status: draft.status.to_owned(),
+        checked_rows: draft.checked_rows,
+        violations: draft.violations,
+        line: draft.line,
+    }
+}
+
 impl RuntimeTable {
+    fn column(&self, name: &str) -> Option<&RuntimeColumn> {
+        self.columns.iter().find(|column| column.name == name)
+    }
+
     fn numeric_column_by_type(&self, type_name: &str) -> Option<&RuntimeColumn> {
         self.columns.iter().find(|column| {
             column.type_name == type_name && matches!(&column.values, RuntimeValues::Number(_))
@@ -583,6 +978,50 @@ impl RuntimeTable {
             "s".to_owned(),
         )
     }
+}
+
+fn numeric_values(column: &RuntimeColumn) -> &[Option<f64>] {
+    let RuntimeValues::Number(values) = &column.values else {
+        return &[];
+    };
+    values
+}
+
+fn missing_rows(column: &RuntimeColumn) -> Vec<usize> {
+    match &column.values {
+        RuntimeValues::Text(values) => values
+            .iter()
+            .enumerate()
+            .filter(|(_, value)| value.trim().is_empty())
+            .map(|(index, _)| index + 2)
+            .collect(),
+        RuntimeValues::Number(values) => values
+            .iter()
+            .enumerate()
+            .filter(|(_, value)| value.is_none())
+            .map(|(index, _)| index + 2)
+            .collect(),
+    }
+}
+
+fn parse_between_constraint(text: &str) -> Option<(String, f64, f64)> {
+    let (column, rest) = text.split_once(" between ")?;
+    let (min_part, max_part) = rest.split_once(" and ")?;
+    Some((
+        column.trim().to_owned(),
+        first_number(min_part)?,
+        first_number(max_part)?,
+    ))
+}
+
+fn parse_lower_bound_constraint(text: &str) -> Option<(String, f64)> {
+    let (column, rest) = text.split_once(">=")?;
+    Some((column.trim().to_owned(), first_number(rest)?))
+}
+
+fn first_number(text: &str) -> Option<f64> {
+    text.split_whitespace()
+        .find_map(|part| part.parse::<f64>().ok())
 }
 
 fn parse_plot_options(source: &str) -> PlotOptions {
@@ -821,6 +1260,27 @@ script main(args: Args) -> Report {
         assert_eq!(round2(runtime.statistics[0].values[0].value), 5072.43);
         assert_eq!(round2(runtime.statistics[0].values[1].value), 5417.28);
         assert_eq!(round2(runtime.integrations[0].value), 4543242.0);
+        assert_eq!(runtime.policy_results.len(), 7);
+        assert_eq!(
+            runtime
+                .policy_results
+                .iter()
+                .filter(|policy| policy.status == "executed")
+                .count(),
+            5
+        );
+        assert_eq!(
+            runtime
+                .policy_results
+                .iter()
+                .filter(|policy| policy.status == "validated")
+                .count(),
+            2
+        );
+        assert!(runtime
+            .policy_results
+            .iter()
+            .all(|policy| policy.violations.is_empty()));
     }
 
     fn round2(value: f64) -> f64 {

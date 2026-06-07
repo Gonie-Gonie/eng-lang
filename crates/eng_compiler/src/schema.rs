@@ -118,11 +118,11 @@ pub fn analyze_schema(
 
     for schema in &schemas {
         for policy in &schema.missing_policies {
-            if !schema
+            let column_exists = schema
                 .columns
                 .iter()
-                .any(|column| column.name == policy.column)
-            {
+                .any(|column| column.name == policy.column);
+            if !column_exists {
                 diagnostics.push(Diagnostic::error(
                     "E-SCHEMA-MISSING-001",
                     policy.line,
@@ -131,6 +131,18 @@ pub fn analyze_schema(
                         policy.column
                     ),
                     Some("Add the column to the schema or remove the missing policy."),
+                ));
+            } else if policy.policy.trim_start().starts_with("interpolate") {
+                diagnostics.push(Diagnostic::warning(
+                    "W-SCHEMA-POLICY-001",
+                    policy.line,
+                    &format!(
+                        "Missing policy for `{}` is recorded, but runtime interpolation is not implemented yet.",
+                        policy.column
+                    ),
+                    Some(
+                        "The runtime records missing counts and executes `error` policies; interpolation remains a planned policy.",
+                    ),
                 ));
             }
         }

@@ -40,7 +40,7 @@
     },
     "typed_payload": {
       "type": "object",
-      "required": ["kind", "status", "result_format", "vm_steps", "statistics", "integrations", "systems"]
+      "required": ["kind", "status", "result_format", "vm_steps", "statistics", "integrations", "policy_results", "systems"]
     },
     "provenance": {
       "type": "object",

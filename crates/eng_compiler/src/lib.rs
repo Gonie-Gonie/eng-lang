@@ -1396,6 +1396,16 @@ mod tests {
             report.semantic_program.schemas[0].missing_policies[0].column,
             "T_supply"
         );
+        assert_eq!(report.diagnostics[0].code, "W-SCHEMA-POLICY-001");
+        assert_eq!(
+            report
+                .semantic_program
+                .type_infos
+                .iter()
+                .filter(|info| info.name == "T_supply")
+                .count(),
+            1
+        );
     }
 
     #[test]

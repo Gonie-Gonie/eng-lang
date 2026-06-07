@@ -6,6 +6,7 @@ This is the primary v1.0 data/report example. It covers:
 - schema and typed CSV promotion
 - unit and quantity-aware coil heat-rate calculation
 - row-level CSV runtime table pages
+- schema constraint and missing policy execution status
 - computed TimeSeries summary values for mean, max, and p95
 - trapezoidal integrate(HeatRate over Time) result value
 - CSV-derived PlotSpec v1 points, SVG export, report_spec.json, report.html,

@@ -128,6 +128,13 @@ Current v1.0 fields:
         "method": "trapezoidal"
       }
     ],
+    "policy_results": [
+      {
+        "kind": "constraint",
+        "status": "executed",
+        "violation_count": 0
+      }
+    ],
     "systems": []
   },
   "provenance": {
@@ -208,6 +215,7 @@ args_summary
 schema_summary
 computed_statistics
 computed_integrations
+policy_results
 system_summary
 plot_manifest
 warning_list

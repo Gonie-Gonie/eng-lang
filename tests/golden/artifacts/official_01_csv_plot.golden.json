@@ -13,7 +13,8 @@
     "args_struct_count": 1,
     "args_field_count": 1,
     "schema_summary_count": 1,
-    "csv_promotion_count": 1
+    "csv_promotion_count": 1,
+    "policy_warning_count": 2
   },
   "report_spec": {
     "format": "eng-report-spec-v1",
@@ -29,7 +30,11 @@
     "computed_integrations_count": 1,
     "computed_statistics_status": "computed",
     "computed_integration_status": "computed",
-    "integration_value_j": 4543242.0
+    "integration_value_j": 4543242.0,
+    "policy_result_count": 7,
+    "policy_executed_count": 5,
+    "policy_validated_count": 2,
+    "policy_violation_count": 0
   },
   "result": {
     "format": "engres-v1",
@@ -38,6 +43,7 @@
     "entry_name": "main",
     "args_struct_count": 1,
     "args_field_count": 1,
+    "scalar_count": 2,
     "table_count": 1,
     "timeseries_count": 1,
     "schema_count": 1,
@@ -55,7 +61,11 @@
     "max_w": 5417.28,
     "p95_w": 5417.28,
     "integration_status": "computed",
-    "integration_value_j": 4543242.0
+    "integration_value_j": 4543242.0,
+    "policy_result_count": 7,
+    "policy_executed_count": 5,
+    "policy_validated_count": 2,
+    "policy_violation_count": 0
   },
   "plot_spec": {
     "format": "eng-plotspec-v1",

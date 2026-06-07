@@ -47,6 +47,7 @@ pub struct ReportSpec {
     pub args: Vec<ReportArgsStruct>,
     pub computed_statistics: Vec<ReportComputedStatistics>,
     pub computed_integrations: Vec<ReportComputedIntegration>,
+    pub policy_results: Vec<ReportPolicyResult>,
     pub systems: Vec<ReportSystemSummary>,
     pub plot_manifest: ReportPlotManifest,
     pub warnings: Vec<ReportWarning>,
@@ -137,6 +138,28 @@ pub struct ReportComputedIntegration {
     pub unit: String,
     pub method: String,
     pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportPolicyResult {
+    pub schema: String,
+    pub binding: String,
+    pub kind: String,
+    pub target: String,
+    pub policy: String,
+    pub status: String,
+    pub checked_rows: usize,
+    pub violation_count: usize,
+    pub violations: Vec<ReportPolicyViolation>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportPolicyViolation {
+    pub row: usize,
+    pub column: String,
+    pub value: String,
+    pub message: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -384,6 +407,7 @@ pub fn report_spec_from_report(
         args,
         computed_statistics: Vec::new(),
         computed_integrations: Vec::new(),
+        policy_results: Vec::new(),
         systems,
         plot_manifest: ReportPlotManifest {
             path: plot_manifest_relative_path.to_owned(),
@@ -717,6 +741,71 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             "      \"status\": \"{}\"\n",
             json_escape(&integration.status)
         ));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"policy_results\": [\n");
+    for (index, policy) in spec.policy_results.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"schema\": \"{}\",\n",
+            json_escape(&policy.schema)
+        ));
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&policy.binding)
+        ));
+        json.push_str(&format!(
+            "      \"kind\": \"{}\",\n",
+            json_escape(&policy.kind)
+        ));
+        json.push_str(&format!(
+            "      \"target\": \"{}\",\n",
+            json_escape(&policy.target)
+        ));
+        json.push_str(&format!(
+            "      \"policy\": \"{}\",\n",
+            json_escape(&policy.policy)
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&policy.status)
+        ));
+        json.push_str(&format!(
+            "      \"checked_rows\": {},\n",
+            policy.checked_rows
+        ));
+        json.push_str(&format!(
+            "      \"violation_count\": {},\n",
+            policy.violation_count
+        ));
+        json.push_str("      \"violations\": [\n");
+        for (violation_index, violation) in policy.violations.iter().enumerate() {
+            if violation_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!("          \"row\": {},\n", violation.row));
+            json.push_str(&format!(
+                "          \"column\": \"{}\",\n",
+                json_escape(&violation.column)
+            ));
+            json.push_str(&format!(
+                "          \"value\": \"{}\",\n",
+                json_escape(&violation.value)
+            ));
+            json.push_str(&format!(
+                "          \"message\": \"{}\"\n",
+                json_escape(&violation.message)
+            ));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str(&format!("      \"line\": {}\n", policy.line));
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");

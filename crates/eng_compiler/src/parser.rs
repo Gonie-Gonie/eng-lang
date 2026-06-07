@@ -256,7 +256,10 @@ fn parse_line_items(
     if let Some(binding) = parse_fast_binding(tokens, line_text, context) {
         items.push(AstItem::FastBinding(binding));
     }
-    if context != ParseContext::Struct {
+    if !matches!(
+        context,
+        ParseContext::Struct | ParseContext::SchemaConstraints | ParseContext::SchemaMissing
+    ) {
         if let Some(declaration) = parse_explicit_decl(tokens, line_text, context) {
             items.push(AstItem::ExplicitDecl(declaration));
         }

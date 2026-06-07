@@ -215,6 +215,7 @@ pub fn run_file(
     );
     report_spec.computed_statistics = runtime_data.report_computed_statistics();
     report_spec.computed_integrations = runtime_data.report_computed_integrations();
+    report_spec.policy_results = runtime_data.report_policy_results();
     let report_spec_json = eng_report::report_spec_json(&report_spec);
     let report_spec_hash = hash_text(&report_spec_json);
     fs::write(&review_path, review_json(&check_report))?;
@@ -829,6 +830,70 @@ fn result_json(
         integrations.push_str("      }");
     }
 
+    let mut policy_results = String::new();
+    for (index, policy) in runtime_data.policy_results.iter().enumerate() {
+        if index > 0 {
+            policy_results.push_str(",\n");
+        }
+        policy_results.push_str("      {\n");
+        policy_results.push_str(&format!(
+            "        \"schema\": \"{}\",\n",
+            json_escape(&policy.schema)
+        ));
+        policy_results.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&policy.binding)
+        ));
+        policy_results.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&policy.kind)
+        ));
+        policy_results.push_str(&format!(
+            "        \"target\": \"{}\",\n",
+            json_escape(&policy.target)
+        ));
+        policy_results.push_str(&format!(
+            "        \"policy\": \"{}\",\n",
+            json_escape(&policy.policy)
+        ));
+        policy_results.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&policy.status)
+        ));
+        policy_results.push_str(&format!(
+            "        \"checked_rows\": {},\n",
+            policy.checked_rows
+        ));
+        policy_results.push_str(&format!(
+            "        \"violation_count\": {},\n",
+            policy.violations.len()
+        ));
+        policy_results.push_str("        \"violations\": [\n");
+        for (violation_index, violation) in policy.violations.iter().enumerate() {
+            if violation_index > 0 {
+                policy_results.push_str(",\n");
+            }
+            policy_results.push_str("          {\n");
+            policy_results.push_str(&format!("            \"row\": {},\n", violation.row));
+            policy_results.push_str(&format!(
+                "            \"column\": \"{}\",\n",
+                json_escape(&violation.column)
+            ));
+            policy_results.push_str(&format!(
+                "            \"value\": \"{}\",\n",
+                json_escape(&violation.value)
+            ));
+            policy_results.push_str(&format!(
+                "            \"message\": \"{}\"\n",
+                json_escape(&violation.message)
+            ));
+            policy_results.push_str("          }");
+        }
+        policy_results.push_str("\n        ],\n");
+        policy_results.push_str(&format!("        \"line\": {}\n", policy.line));
+        policy_results.push_str("      }");
+    }
+
     let mut systems = String::new();
     for (system_index, system) in report.semantic_program.systems.iter().enumerate() {
         if system_index > 0 {
@@ -905,7 +970,7 @@ fn result_json(
     }
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -927,6 +992,7 @@ fn result_json(
         steps,
         statistics,
         integrations,
+        policy_results,
         systems,
         report.semantic_program.schemas.len(),
         report.semantic_program.csv_promotions.len(),

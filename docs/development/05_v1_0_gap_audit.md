@@ -298,6 +298,9 @@ Hardening detail:
 
 ### G-007 Schema Constraint and Missing Policy Execution
 
+Status: Implemented for the official CSV path after v1.0.0 hardening.
+Interpolation remains deferred.
+
 Plan expectation:
 
 ```text
@@ -311,23 +314,27 @@ Current state:
 ```text
 - constraints and missing policies are parsed/recorded
 - missing policy references are checked against schema columns
-- row-level constraints and interpolation are not executed
+- result.engres and report_spec.json record policy_results with recorded/validated/executed status
+- time monotonic, between, lower-bound, and missing error policies execute on runtime table pages
+- interpolation policies are surfaced as W-SCHEMA-POLICY-001 and validated only when no values are missing
 ```
 
 Risk:
 
 ```text
-P2. Users can write policies that appear in review artifacts but do not affect
-runtime data yet.
+P2 closed for the official CSV policy set. Remaining risk is missing value
+interpolation and broader constraint syntax.
 ```
 
 Hardening detail:
 
 ```text
-1. Add policy status fields: recorded, validated, executed.
-2. Surface non-executed policies as warnings in report/review until implemented.
-3. Implement m_dot >= 0 style row checks.
-4. Implement missing value error policy before interpolation.
+1. [x] Add policy status fields: recorded, validated, executed.
+2. [x] Surface non-executed interpolation policies as warnings in report/review.
+3. [x] Implement m_dot >= 0 style row checks.
+4. [x] Implement missing value error policy before interpolation.
+5. [ ] Implement missing value interpolation.
+6. [ ] Add broader constraint expression parsing.
 ```
 
 ### G-008 System/Eq IR and Solver Boundary

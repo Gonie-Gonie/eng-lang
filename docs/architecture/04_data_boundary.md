@@ -1,6 +1,8 @@
 # Data Boundary and CSV Promote
 
-v0.3-preview introduces the first typed data boundary seed.
+v0.3-preview introduced the first typed data boundary seed. The current v1.0
+hardening path materializes the official CSV example into runtime table pages,
+TimeSeries values, computed statistics, and policy execution status.
 
 The implemented preview path is:
 
@@ -11,6 +13,8 @@ schema block
   -> CSV header read
   -> required column validation
   -> CSV source hash provenance
+  -> runtime column pages
+  -> row-level policy checks
   -> review/report/result artifact metadata
 ```
 
@@ -90,6 +94,9 @@ E-SCHEMA-CSV-002
 
 E-SCHEMA-MISSING-001
   Missing policy references an unknown schema column.
+
+W-SCHEMA-POLICY-001
+  Interpolation missing policy is recorded, but runtime interpolation is not implemented yet.
 ```
 
 ## Artifacts
@@ -116,17 +123,33 @@ csv_promotion_count
 data_hashes
 ```
 
+`result.engres` and `report_spec.json` include runtime policy results:
+
+```text
+kind = constraint | missing
+status = recorded | validated | executed
+checked_rows
+violation_count
+violations
+```
+
 ## Current Limits
 
-This is still a preview seed.
+Implemented for the official CSV path:
+
+```text
+- RuntimeTable column values
+- DateTime index parsing to seconds offsets
+- numeric quantity column parsing
+- time is monotonic checks
+- between checks
+- lower-bound checks such as m_dot >= 0
+- missing error policy checks
+```
 
 Deferred to later versions:
 
 ```text
-- typed table object runtime
-- DateTime value parsing
-- row-level type conversion
-- row-level constraint execution
 - missing value interpolation
-- TimeSeries construction
+- broad row expression execution outside the official coil path
 ```
