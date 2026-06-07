@@ -746,6 +746,7 @@ dependencies = [
  "eng_compiler",
  "eng_jit",
  "eng_runtime",
+ "serde_json",
 ]
 
 [[package]]

@@ -126,8 +126,8 @@ Use the kernel plan for:
 
 - v1.4 JIT gate smoke checks
 - native IDE Runtime/Inspector summaries
-- coarse candidate size/cost inspection before benchmark harness work
-- future benchmark harness selection
+- coarse candidate size/cost inspection
+- `eng-jit-bench-v1` interpreter baseline harness metadata
 - future backend lowering tests
 
 Do not use the kernel plan as:

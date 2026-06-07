@@ -45,6 +45,7 @@ task_types:
   jit:
     - docs/current/v1_4_jit_gate.md
     - docs/reference/kernel_plan.md
+    - docs/reference/jit_benchmark.md
     - crates/eng_jit/
     - crates/eng_cli/
 

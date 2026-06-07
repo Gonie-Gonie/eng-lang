@@ -174,10 +174,11 @@ v1.3
   Experimental on main until v1.3 is explicitly targeted and released.
 
 v1.4
-  JIT-start seed: eng_jit crate, eng-kernel-plan-v1 JSON, native IDE kernel
-  plan display, hot-kernel detection for TimeSeries arithmetic/statistics/
-  integration, coarse size/cost estimates, and interpreter-fallback lowering
-  metadata. Experimental on main; no native speedup claim.
+  JIT-start seed: eng_jit crate, eng-kernel-plan-v1 JSON, eng-jit-bench-v1
+  interpreter baseline JSON, native IDE kernel plan display, hot-kernel
+  detection for TimeSeries arithmetic/statistics/integration, coarse size/cost
+  estimates, and interpreter-fallback lowering metadata. Experimental on main;
+  no native speedup claim.
 ```
 
 ## Documentation
@@ -208,6 +209,7 @@ v1.4
 - [Run command reference](docs/reference/cli_run.md)
 - [LSP snapshot reference](docs/reference/lsp_snapshot.md)
 - [Kernel plan reference](docs/reference/kernel_plan.md)
+- [JIT benchmark harness reference](docs/reference/jit_benchmark.md)
 - [CLI specification](docs/specs/cli.md)
 - [v8/v9 language policy](docs/specs/language-v8.md)
 - [Roadmap](docs/roadmap.md)

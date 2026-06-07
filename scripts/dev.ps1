@@ -892,6 +892,7 @@ function Invoke-JitCheck {
     }
     Invoke-Native $cargo "test" "-p" "eng_jit" "--" "--nocapture"
     Invoke-Native $cargo "run" "-p" "eng_cli" "--" "jit-plan" "examples\official\01_csv_plot\main.eng"
+    Invoke-Native $cargo "run" "-p" "eng_cli" "--" "jit-bench" "examples\official\01_csv_plot\main.eng" "--iterations" "1"
     Write-Host "JIT plan check passed."
 }
 
@@ -1385,7 +1386,7 @@ Usage:
   .\dev.bat docs-check     Check supported documentation Eng snippets
   .\dev.bat ide-check      Validate the VS Code extension preview
   .\dev.bat lsp-check      Validate eng-lsp.exe stdio, smoke, and snapshot output
-  .\dev.bat jit-check      Validate v1.4 JIT kernel detection and plan output
+  .\dev.bat jit-check      Validate v1.4 JIT kernel detection, plan, and bench output
   .\dev.bat ide            Run the native EngLang tester IDE
   .\dev.bat artifacts-check Validate artifact schemas and golden baselines
   .\dev.bat run-example    Run examples\official\01_csv_plot\main.eng

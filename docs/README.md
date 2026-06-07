@@ -44,6 +44,7 @@ long-form planning documents.
 - [Run command reference](reference/cli_run.md)
 - [LSP snapshot reference](reference/lsp_snapshot.md)
 - [Kernel plan reference](reference/kernel_plan.md)
+- [JIT benchmark harness reference](reference/jit_benchmark.md)
 - [v8/v9 language policy](specs/language-v8.md)
 - [Fast assignment guide](language/fast_assignment.md)
 - [Dimensionless policy guide](language/dimensionless.md)

@@ -8,6 +8,8 @@ generation, runtime acceleration, or production JIT support.
 
 - `eng_jit` crate exists as the JIT planning boundary.
 - `eng.exe jit-plan <file.eng>` emits `eng-kernel-plan-v1` JSON.
+- `eng.exe jit-bench <file.eng>` emits `eng-jit-bench-v1` JSON with
+  interpreter baseline measurements and `jit.status = "not_available"`.
 - The native IDE Runtime Summary shows the current file's kernel plan metadata
   beside normal runtime artifacts.
 - The plan uses `backend = "interpreter-fallback"` to make clear that execution
@@ -17,8 +19,8 @@ generation, runtime acceleration, or production JIT support.
   - TimeSeries integration bindings
   - TimeSeries statistics fusion opportunities
   - system residuals as an interface-only RHS/Jacobian seed
-- `dev.bat jit-check` validates the crate test and official CSV `jit-plan`
-  output.
+- `dev.bat jit-check` validates the crate test, official CSV `jit-plan`, and
+  official CSV `jit-bench --iterations 1` output.
 - `dev.bat ci` runs `jit-check`.
 
 ## Completed On Main
@@ -40,11 +42,11 @@ generation, runtime acceleration, or production JIT support.
 - [x] Kernel candidates include coarse size/cost estimates: inferred row count,
   input/output count, operation-class count, scan count, complexity label, and
   notes.
+- [x] `eng-jit-bench-v1` benchmark harness records interpreter timings, embeds
+  the kernel plan, and explicitly marks the JIT side as not available.
 
 ## Remaining Before Support Claim
 
-- [ ] Add a benchmark harness that compares interpreter and future JIT paths
-  without making speedup claims.
 - [ ] Add native lowering backend selection only after the metadata contract and
   tests are stable.
 
@@ -53,4 +55,5 @@ generation, runtime acceleration, or production JIT support.
 ```bat
 .\dev.bat jit-check
 target\debug\eng.exe jit-plan examples\official\01_csv_plot\main.eng
+target\debug\eng.exe jit-bench examples\official\01_csv_plot\main.eng --iterations 1
 ```

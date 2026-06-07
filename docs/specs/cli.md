@@ -11,6 +11,7 @@ eng.exe new <project_name>
 eng.exe check <file.eng> [--review]
 eng.exe ide-check <file.eng>
 eng.exe jit-plan <file.eng>
+eng.exe jit-bench <file.eng> [--iterations N] [--entry <name>] [--<arg> <value>...]
 eng.exe entries <file.eng>
 eng.exe run <file.eng> [--entry <name>] [--open-report] [--<arg> <value>...]
 eng.exe build <file.eng> [--entry <name>] [--standalone] [--profile repro]
@@ -170,6 +171,38 @@ Exit code:
 0 success
 1 IO/tooling failure
 2 compile/check failure
+```
+
+## `eng jit-bench <file.eng>`
+
+Runs an experimental `eng-jit-bench-v1` benchmark harness for v1.4 planning.
+The harness measures the current interpreter/runtime path for a small number of
+iterations and includes the current `eng-kernel-plan-v1` metadata in the same
+JSON output.
+
+Current behavior:
+
+```text
+- default iterations: 3
+- allowed iterations: 1..100
+- `--entry <name>` selects the script entry
+- other `--<arg> <value>` flags are forwarded as Eng Args overrides
+- `jit.status` is `not_available`
+- comparison_policy is `no-speedup-claim`
+```
+
+Example:
+
+```bat
+eng.exe jit-bench examples\official\01_csv_plot\main.eng --iterations 1
+```
+
+Exit code:
+
+```text
+0 success
+1 IO/tooling failure
+2 compile/check/runtime setup failure
 ```
 
 ## `eng-ide.exe`

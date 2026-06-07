@@ -9,6 +9,7 @@ repository.workspace = true
 eng_compiler = { path = "../eng_compiler" }
 eng_jit = { path = "../eng_jit" }
 eng_runtime = { path = "../eng_runtime" }
+serde_json = "1"
 
 [[bin]]
 name = "eng"

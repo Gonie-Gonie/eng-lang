@@ -2,11 +2,13 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::process::ExitCode;
+use std::time::Instant;
 
 use eng_compiler::{check_file, review_json, ArgOverride, CheckOptions, Severity};
 use eng_runtime::{
     build_standalone, create_project, doctor, run_file, BuildOptions, RunOptions, RuntimeError,
 };
+use serde_json::json;
 
 fn main() -> ExitCode {
     let mut args: Vec<String> = env::args().skip(1).collect();
@@ -21,6 +23,7 @@ fn main() -> ExitCode {
         "check" => command_check(args),
         "ide-check" => command_ide_check(args),
         "jit-plan" => command_jit_plan(args),
+        "jit-bench" => command_jit_bench(args),
         "entries" => command_entries(args),
         "run" => command_run(args),
         "build" => command_build(args),
@@ -76,6 +79,94 @@ fn command_jit_plan(args: Vec<String>) -> ExitCode {
 
     let plan = eng_jit::plan_for_report(&report);
     println!("{}", eng_jit::plan_json_string(&plan));
+    ExitCode::SUCCESS
+}
+
+fn command_jit_bench(args: Vec<String>) -> ExitCode {
+    let Some(path) = first_non_flag(&args) else {
+        eprintln!("usage: eng jit-bench <file.eng> [--iterations N] [--entry <name>]");
+        return ExitCode::from(2);
+    };
+    let iterations = match option_value(&args, "--iterations") {
+        Some(value) => match value.parse::<usize>() {
+            Ok(value) if (1..=100).contains(&value) => value,
+            Ok(_) => {
+                eprintln!("--iterations must be between 1 and 100");
+                return ExitCode::from(2);
+            }
+            Err(error) => {
+                eprintln!("invalid --iterations value: {error}");
+                return ExitCode::from(2);
+            }
+        },
+        None => 3,
+    };
+    let entry = option_value(&args, "--entry");
+    let runtime_args = match parse_arg_overrides(&args, &["--iterations", "--entry"], &[]) {
+        Ok(values) => values,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
+
+    let report = match check_file(
+        &path,
+        &CheckOptions {
+            review: false,
+            args: runtime_args.clone(),
+            require_args: false,
+        },
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    if report.has_errors() {
+        print_diagnostics(&report);
+        return ExitCode::from(2);
+    }
+    let plan = eng_jit::plan_for_report(&report);
+
+    let mut interpreter_runs = Vec::new();
+    for index in 0..iterations {
+        let build_root = PathBuf::from("build")
+            .join("jit-bench")
+            .join(format!("iter-{index:03}"));
+        let started = Instant::now();
+        match run_file(
+            Path::new(&path),
+            &build_root,
+            &RunOptions {
+                open_report: false,
+                entry: entry.clone(),
+                args: runtime_args.clone(),
+            },
+        ) {
+            Ok(output) => {
+                interpreter_runs.push(BenchRun {
+                    iteration: index + 1,
+                    elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
+                    result_path: output.result_path.display().to_string(),
+                });
+            }
+            Err(RuntimeError::Compile(report)) => {
+                print_diagnostics(&report);
+                return ExitCode::from(2);
+            }
+            Err(error) => {
+                eprintln!("{error}");
+                return ExitCode::from(1);
+            }
+        }
+    }
+
+    println!(
+        "{}",
+        jit_bench_json(&path, iterations, &plan, &interpreter_runs)
+    );
     ExitCode::SUCCESS
 }
 
@@ -1033,6 +1124,72 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+struct BenchRun {
+    iteration: usize,
+    elapsed_ms: f64,
+    result_path: String,
+}
+
+fn jit_bench_json(
+    source_path: &str,
+    iterations: usize,
+    plan: &eng_jit::NumericKernelPlan,
+    interpreter_runs: &[BenchRun],
+) -> String {
+    let elapsed = interpreter_runs
+        .iter()
+        .map(|run| run.elapsed_ms)
+        .collect::<Vec<_>>();
+    let total_ms = elapsed.iter().sum::<f64>();
+    let min_ms = elapsed.iter().copied().reduce(f64::min).unwrap_or_default();
+    let max_ms = elapsed.iter().copied().reduce(f64::max).unwrap_or_default();
+    let average_ms = if elapsed.is_empty() {
+        0.0
+    } else {
+        total_ms / elapsed.len() as f64
+    };
+
+    json!({
+        "format": "eng-jit-bench-v1",
+        "source_path": source_path,
+        "iterations_requested": iterations,
+        "comparison_policy": "no-speedup-claim",
+        "kernel_plan": eng_jit::plan_json(plan),
+        "interpreter": {
+            "status": "measured",
+            "runs": interpreter_runs.iter().map(|run| {
+                json!({
+                    "iteration": run.iteration,
+                    "elapsed_ms": rounded_ms(run.elapsed_ms),
+                    "result_path": run.result_path,
+                })
+            }).collect::<Vec<_>>(),
+            "summary": {
+                "average_ms": rounded_ms(average_ms),
+                "min_ms": rounded_ms(min_ms),
+                "max_ms": rounded_ms(max_ms),
+                "total_ms": rounded_ms(total_ms),
+            },
+        },
+        "jit": {
+            "status": "not_available",
+            "backend": plan.backend,
+            "runs": [],
+            "summary": null,
+        },
+        "notes": [
+            "Interpreter timings are local smoke measurements.",
+            "JIT timings are intentionally absent until a native backend exists.",
+            "Do not use this artifact as a speedup claim."
+        ],
+    })
+    .to_string()
+}
+
+fn rounded_ms(value: f64) -> f64 {
+    (value * 1000.0).round() / 1000.0
+}
+
 fn data_quality_fixture_records_parse_failure(
     source: &str,
     build_root: &str,
@@ -1241,6 +1398,7 @@ Usage:
   eng check <file.eng> [--review]
   eng ide-check <file.eng>
   eng jit-plan <file.eng>
+  eng jit-bench <file.eng> [--iterations N] [--entry <name>] [--<arg> <value>...]
   eng entries <file.eng>
   eng run <file.eng> [--entry <name>] [--open-report] [--<arg> <value>...]
   eng build <file.eng> [--entry <name>] [--standalone] [--profile repro]
