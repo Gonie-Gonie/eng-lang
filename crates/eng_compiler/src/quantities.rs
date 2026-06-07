@@ -32,6 +32,12 @@ pub const QUANTITY_COMPLETIONS: &[QuantityCompletion] = &[
         description: "Thermal conductance.",
     },
     QuantityCompletion {
+        quantity_kind: "HeatCapacity",
+        canonical_unit: "J/K",
+        dimension: "Energy/Temperature",
+        description: "Thermal capacitance or lumped heat capacity.",
+    },
+    QuantityCompletion {
         quantity_kind: "SpecificHeat",
         canonical_unit: "J/kg/K",
         dimension: "Energy/Mass/Temperature",
@@ -95,6 +101,7 @@ pub fn candidates_for_unit(unit: &str) -> Vec<QuantityCompletion> {
         "k" => completions_for(&["AbsoluteTemperature", "TemperatureDelta"]),
         "degc" => completions_for(&["AbsoluteTemperature"]),
         "w/k" => completions_for(&["Conductance"]),
+        "j/k" | "kj/k" => completions_for(&["HeatCapacity"]),
         "j/kg/k" => completions_for(&["SpecificHeat"]),
         "w" | "kw" => completions_for(&["HeatRate", "ElectricPower", "MechanicalPower"]),
         "j" | "wh" | "kwh" | "mj" => completions_for(&["Energy"]),
@@ -147,6 +154,12 @@ pub fn first_unit_in_expression(expression: &str) -> Option<String> {
 
     if expression.contains("J/kg/K") {
         return Some("J/kg/K".to_owned());
+    }
+    if expression.contains("kJ/K") {
+        return Some("kJ/K".to_owned());
+    }
+    if expression.contains("J/K") {
+        return Some("J/K".to_owned());
     }
     if expression.contains("W/K") {
         return Some("W/K".to_owned());

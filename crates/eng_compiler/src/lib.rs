@@ -17,7 +17,10 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub use ast::{AstItem, ExplicitDecl, FastBinding, SchemaDecl, ScriptDecl};
+pub use ast::{
+    AstItem, EquationDecl, ExplicitDecl, FastBinding, SchemaDecl, ScriptDecl, SystemDecl,
+    SystemVariableDecl,
+};
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
     BytecodeParseError, BytecodeProgram, BYTECODE_FORMAT, BYTECODE_VERSION,
@@ -29,7 +32,10 @@ pub use lexer::{Keyword, Symbol, Token, TokenKind};
 pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSummary};
 pub use quantities::{all_quantity_completions, QuantityCompletion};
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
-pub use semantic::{SemanticProgram, SemanticType, TypedBinding};
+pub use semantic::{
+    EquationInfo, ResidualInfo, SemanticProgram, SemanticType, SystemInfo, SystemVariableInfo,
+    TypedBinding,
+};
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
 pub use type_info::{TypeInfo, TypeInfoSource};
@@ -196,6 +202,14 @@ pub fn review_json(report: &CheckReport) -> String {
     json.push_str(&format!(
         "    \"schemas\": {},\n",
         report.syntax_summary.schemas
+    ));
+    json.push_str(&format!(
+        "    \"systems\": {},\n",
+        report.syntax_summary.systems
+    ));
+    json.push_str(&format!(
+        "    \"equations\": {},\n",
+        report.syntax_summary.equations
     ));
     json.push_str(&format!(
         "    \"fast_bindings\": {},\n",
@@ -666,6 +680,122 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    json.push_str("  \"system_summary\": [\n");
+    for (index, system) in report.semantic_program.systems.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&system.name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", system.line));
+        json.push_str(&format!(
+            "      \"variable_count\": {},\n",
+            system.variables.len()
+        ));
+        json.push_str(&format!(
+            "      \"equation_count\": {},\n",
+            system.equations.len()
+        ));
+        json.push_str(&format!(
+            "      \"residual_count\": {},\n",
+            system.residuals.len()
+        ));
+        json.push_str("      \"variables\": [\n");
+        for (variable_index, variable) in system.variables.iter().enumerate() {
+            if variable_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"role\": \"{}\",\n",
+                json_escape(&variable.role)
+            ));
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&variable.name)
+            ));
+            json.push_str(&format!(
+                "          \"quantity_kind\": \"{}\",\n",
+                json_escape(&variable.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&variable.display_unit)
+            ));
+            json.push_str(&format!(
+                "          \"dimension\": \"{}\",\n",
+                json_escape(&variable.dimension)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", variable.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"equations\": [\n");
+        for (equation_index, equation) in system.equations.iter().enumerate() {
+            if equation_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"left\": \"{}\",\n",
+                json_escape(&equation.left)
+            ));
+            json.push_str(&format!(
+                "          \"relation\": \"{}\",\n",
+                json_escape(&equation.relation)
+            ));
+            json.push_str(&format!(
+                "          \"right\": \"{}\",\n",
+                json_escape(&equation.right)
+            ));
+            json.push_str(&format!(
+                "          \"left_dimension\": \"{}\",\n",
+                json_escape(&equation.left_dimension)
+            ));
+            json.push_str(&format!(
+                "          \"right_dimension\": \"{}\",\n",
+                json_escape(&equation.right_dimension)
+            ));
+            json.push_str(&format!(
+                "          \"residual\": \"{}\",\n",
+                json_escape(&equation.residual)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&equation.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", equation.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"residuals\": [\n");
+        for (residual_index, residual) in system.residuals.iter().enumerate() {
+            if residual_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&residual.name)
+            ));
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&residual.expression)
+            ));
+            json.push_str(&format!(
+                "          \"dimension\": \"{}\",\n",
+                json_escape(&residual.dimension)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", residual.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
     json.push_str("  \"schema_summary\": [\n");
     for (index, schema) in report.semantic_program.schemas.iter().enumerate() {
         if index > 0 {
@@ -896,6 +1026,20 @@ mod tests {
     }
 
     #[test]
+    fn parser_records_system_and_equation_items() {
+        let report = check_source(
+            "ok.eng",
+            "system RoomThermal {\n    parameter C: HeatCapacity = 500 kJ/K\n    state T: AbsoluteTemperature = 24 degC\n    input T_out: AbsoluteTemperature\n    equation {\n        C * der(T) eq T_out\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert_eq!(report.syntax_summary.systems, 1);
+        assert_eq!(report.syntax_summary.equations, 1);
+        assert_eq!(report.semantic_program.systems[0].name, "RoomThermal");
+        assert_eq!(report.semantic_program.systems[0].variables.len(), 3);
+    }
+
+    #[test]
     fn selects_default_script_main_entry() {
         let report = check_source(
             "ok.eng",
@@ -972,6 +1116,49 @@ mod tests {
             report.semantic_program.integrations[0].input_quantity,
             "HeatRate"
         );
+    }
+
+    #[test]
+    fn records_unit_consistent_system_equation_and_residual() {
+        let report = check_source(
+            "ok.eng",
+            "system RoomThermal {\n    parameter C: HeatCapacity = 500 kJ/K\n    parameter UA: Conductance = 150 W/K\n    state T: AbsoluteTemperature = 24 degC\n    input T_out: AbsoluteTemperature\n    input Q_internal: HeatRate\n    equation {\n        C * der(T) eq UA * (T_out - T) + Q_internal\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        let system = &report.semantic_program.systems[0];
+        assert_eq!(system.equations[0].left_dimension, "Power");
+        assert_eq!(system.equations[0].right_dimension, "Power");
+        assert_eq!(system.equations[0].status, "unit_consistent");
+        assert_eq!(system.residuals[0].dimension, "Power");
+    }
+
+    #[test]
+    fn rejects_boolean_equality_in_equation_block() {
+        let report = check_source(
+            "bad.eng",
+            "system RoomThermal {\n    parameter C: HeatCapacity = 500 kJ/K\n    state T: AbsoluteTemperature = 24 degC\n    input T_out: AbsoluteTemperature\n    equation {\n        C * der(T) == T_out\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert_eq!(report.diagnostics[0].code, "E-EQ-BOOL-001");
+    }
+
+    #[test]
+    fn rejects_unit_mismatched_system_equation() {
+        let report = check_source(
+            "bad.eng",
+            "system RoomThermal {\n    parameter C: HeatCapacity = 500 kJ/K\n    state T: AbsoluteTemperature = 24 degC\n    input T_out: AbsoluteTemperature\n    equation {\n        C * der(T) eq T_out\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-EQ-UNIT-001"));
     }
 
     #[test]
@@ -1070,6 +1257,24 @@ mod tests {
         assert!(json.contains("\"plot_manifest\""));
         assert!(json.contains("\"warning_list\""));
         assert!(json.contains("\"W-QTY-AMBIG-001\""));
+    }
+
+    #[test]
+    fn review_json_exposes_v08_system_sections() {
+        let report = check_source(
+            "ok.eng",
+            "system RoomThermal {\n    parameter C: HeatCapacity = 500 kJ/K\n    parameter UA: Conductance = 150 W/K\n    state T: AbsoluteTemperature = 24 degC\n    input T_out: AbsoluteTemperature\n    input Q_internal: HeatRate\n    equation {\n        C * der(T) eq UA * (T_out - T) + Q_internal\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+
+        let json = review_json(&report);
+
+        assert!(json.contains("\"systems\": 1"));
+        assert!(json.contains("\"equations\": 1"));
+        assert!(json.contains("\"system_summary\""));
+        assert!(json.contains("\"RoomThermal\""));
+        assert!(json.contains("\"unit_consistent\""));
+        assert!(json.contains("\"RoomThermal.residual_1\""));
     }
 
     #[test]

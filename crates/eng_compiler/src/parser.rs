@@ -1,6 +1,6 @@
 use crate::ast::{
-    AstItem, ConstraintDecl, ExplicitDecl, FastBinding, MissingPolicyDecl, SchemaDecl, ScriptDecl,
-    SummaryDecl,
+    AstItem, ConstraintDecl, EquationDecl, ExplicitDecl, FastBinding, MissingPolicyDecl,
+    SchemaDecl, ScriptDecl, SummaryDecl, SystemDecl, SystemVariableDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -12,6 +12,8 @@ pub enum ParseContext {
     SchemaConstraints,
     SchemaMissing,
     Script,
+    System,
+    Equation,
     Other,
 }
 
@@ -36,6 +38,8 @@ pub struct SyntaxSummary {
     pub ast_items: usize,
     pub scripts: usize,
     pub schemas: usize,
+    pub systems: usize,
+    pub equations: usize,
     pub fast_bindings: usize,
     pub explicit_declarations: usize,
 }
@@ -44,6 +48,8 @@ impl ParsedProgram {
     pub fn summary(&self) -> SyntaxSummary {
         let mut scripts = 0usize;
         let mut schemas = 0usize;
+        let mut systems = 0usize;
+        let mut equations = 0usize;
         let mut fast_bindings = 0usize;
         let mut explicit_declarations = 0usize;
 
@@ -51,9 +57,12 @@ impl ParsedProgram {
             match item {
                 AstItem::Script(_) => scripts += 1,
                 AstItem::Schema(_) => schemas += 1,
+                AstItem::System(_) => systems += 1,
+                AstItem::Equation(_) => equations += 1,
                 AstItem::FastBinding(_) => fast_bindings += 1,
                 AstItem::ExplicitDecl(_) => explicit_declarations += 1,
-                AstItem::Constraint(_)
+                AstItem::SystemVariable(_)
+                | AstItem::Constraint(_)
                 | AstItem::MissingPolicy(_)
                 | AstItem::Summary(_)
                 | AstItem::ReservedKeywordUse { .. } => {}
@@ -66,6 +75,8 @@ impl ParsedProgram {
             ast_items: self.items.len(),
             scripts,
             schemas,
+            systems,
+            equations,
             fast_bindings,
             explicit_declarations,
         }
@@ -79,10 +90,14 @@ pub fn parse_source(source: &str) -> ParsedProgram {
     let mut constraints_depth = 0i32;
     let mut missing_depth = 0i32;
     let mut script_depth = 0i32;
+    let mut system_depth = 0i32;
+    let mut equation_depth = 0i32;
 
     for source_line in source_lines(source) {
         let tokens = lex_line(source_line.line, source_line.start, &source_line.text);
-        let context = if missing_depth > 0 {
+        let context = if equation_depth > 0 {
+            ParseContext::Equation
+        } else if missing_depth > 0 {
             ParseContext::SchemaMissing
         } else if constraints_depth > 0 {
             ParseContext::SchemaConstraints
@@ -90,6 +105,8 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             ParseContext::Schema
         } else if script_depth > 0 {
             ParseContext::Script
+        } else if system_depth > 0 {
+            ParseContext::System
         } else {
             ParseContext::TopLevel
         };
@@ -146,6 +163,30 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             }
         }
 
+        if starts_with_keyword(&tokens, Keyword::System) {
+            system_depth += brace_delta(&tokens);
+            if system_depth == 0 {
+                system_depth = 1;
+            }
+        } else if system_depth > 0 {
+            system_depth += brace_delta(&tokens);
+            if system_depth <= 0 {
+                system_depth = 0;
+            }
+        }
+
+        if system_depth > 0 && starts_with_keyword(&tokens, Keyword::Equation) {
+            equation_depth += brace_delta(&tokens);
+            if equation_depth == 0 {
+                equation_depth = 1;
+            }
+        } else if equation_depth > 0 {
+            equation_depth += brace_delta(&tokens);
+            if equation_depth <= 0 {
+                equation_depth = 0;
+            }
+        }
+
         parsed_lines.push(ParsedLine {
             line: source_line.line,
             text: source_line.text,
@@ -171,6 +212,15 @@ fn parse_line_items(
     }
     if let Some(script) = parse_script_decl(tokens) {
         items.push(AstItem::Script(script));
+    }
+    if let Some(system) = parse_system_decl(tokens) {
+        items.push(AstItem::System(system));
+    }
+    if let Some(variable) = parse_system_variable_decl(tokens, line_text, context) {
+        items.push(AstItem::SystemVariable(variable));
+    }
+    if let Some(equation) = parse_equation_decl(tokens, line_text, context) {
+        items.push(AstItem::Equation(equation));
     }
     if let Some(binding) = parse_fast_binding(tokens, line_text, context) {
         items.push(AstItem::FastBinding(binding));
@@ -203,6 +253,22 @@ fn parse_schema_decl(tokens: &[Token]) -> Option<SchemaDecl> {
         return None;
     };
     Some(SchemaDecl {
+        name: name.clone(),
+        span: first.span,
+    })
+}
+
+fn parse_system_decl(tokens: &[Token]) -> Option<SystemDecl> {
+    let [first, second, ..] = tokens else {
+        return None;
+    };
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::System)) {
+        return None;
+    }
+    let TokenKind::Identifier(name) = &second.kind else {
+        return None;
+    };
+    Some(SystemDecl {
         name: name.clone(),
         span: first.span,
     })
@@ -268,6 +334,76 @@ fn token_type_name(token: &Token) -> Option<String> {
         TokenKind::Keyword(Keyword::Report) => Some("Report".to_owned()),
         _ => None,
     }
+}
+
+fn parse_system_variable_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<SystemVariableDecl> {
+    if context != ParseContext::System {
+        return None;
+    }
+    let [first, second, third, ..] = tokens else {
+        return None;
+    };
+    let role = match first.kind {
+        TokenKind::Keyword(Keyword::Parameter) => "parameter",
+        TokenKind::Keyword(Keyword::State) => "state",
+        TokenKind::Keyword(Keyword::Input) => "input",
+        _ => return None,
+    };
+    let TokenKind::Identifier(name) = &second.kind else {
+        return None;
+    };
+    if !matches!(third.kind, TokenKind::Symbol(Symbol::Colon)) {
+        return None;
+    }
+
+    let raw_after_colon = line_text.split_once(':')?.1.trim();
+    let (type_part, expression) = raw_after_colon
+        .split_once('=')
+        .map(|(left, right)| (left.trim(), Some(right.trim().to_owned())))
+        .unwrap_or((raw_after_colon, None));
+    let (type_name, unit) = split_type_and_unit(type_part);
+
+    Some(SystemVariableDecl {
+        role: role.to_owned(),
+        name: name.clone(),
+        type_name,
+        unit,
+        expression,
+        line: first.span.line,
+        span: first.span,
+    })
+}
+
+fn parse_equation_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<EquationDecl> {
+    if context != ParseContext::Equation {
+        return None;
+    }
+    let first = tokens.first()?;
+    if matches!(
+        &first.kind,
+        TokenKind::Symbol(Symbol::LBrace | Symbol::RBrace)
+    ) {
+        return None;
+    }
+
+    let eq_token = tokens
+        .iter()
+        .find(|token| matches!(token.kind, TokenKind::Keyword(Keyword::Eq)))?;
+    let (left, right) = line_text.split_once(" eq ")?;
+    Some(EquationDecl {
+        left: left.trim().to_owned(),
+        right: right.trim().to_owned(),
+        line: eq_token.span.line,
+        span: eq_token.span,
+    })
 }
 
 fn parse_fast_binding(

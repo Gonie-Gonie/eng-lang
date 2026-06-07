@@ -287,6 +287,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         "examples/01_units/main.eng",
         "examples/02_csv_plot/main.eng",
         "examples/04_plotting/main.eng",
+        "examples/06_simple_system/main.eng",
     ];
 
     for example in examples {
@@ -372,6 +373,46 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     }
     println!("ok: examples/05_error_messages/missing_csv_column.eng produced diagnostics");
 
+    let eq_boolean = match check_file(
+        "examples/05_error_messages/eq_boolean.eng",
+        &CheckOptions::default(),
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    if !eq_boolean
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "E-EQ-BOOL-001")
+    {
+        eprintln!("expected eq_boolean.eng to produce E-EQ-BOOL-001");
+        return ExitCode::from(2);
+    }
+    println!("ok: examples/05_error_messages/eq_boolean.eng produced diagnostics");
+
+    let equation_unit_mismatch = match check_file(
+        "examples/05_error_messages/equation_unit_mismatch.eng",
+        &CheckOptions::default(),
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    if !equation_unit_mismatch
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "E-EQ-UNIT-001")
+    {
+        eprintln!("expected equation_unit_mismatch.eng to produce E-EQ-UNIT-001");
+        return ExitCode::from(2);
+    }
+    println!("ok: examples/05_error_messages/equation_unit_mismatch.eng produced diagnostics");
+
     match run_file(
         Path::new("examples/05_error_messages/missing_entry.eng"),
         Path::new("build/test-missing-entry"),
@@ -413,6 +454,28 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("plot example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
+        Path::new("examples/06_simple_system/main.eng"),
+        Path::new("build/test-system"),
+        &RunOptions::default(),
+    ) {
+        Ok(output) => {
+            let report_html = std::fs::read_to_string(&output.report_path).unwrap_or_default();
+            let report_spec = std::fs::read_to_string(&output.report_spec_path).unwrap_or_default();
+            if !report_html.contains("System Equations")
+                || !report_spec.contains("\"system_summary\"")
+                || !report_spec.contains("\"unit_consistent\"")
+            {
+                eprintln!("expected simple system run to produce system equation report data");
+                return ExitCode::from(2);
+            }
+            println!("ok: examples/06_simple_system/main.eng produced system report artifacts");
+        }
+        Err(error) => {
+            eprintln!("simple system example failed: {error}");
             return ExitCode::from(2);
         }
     }

@@ -1,0 +1,11 @@
+system RoomThermal {
+    parameter C: HeatCapacity = 500 kJ/K
+
+    state T: AbsoluteTemperature = 24 degC
+
+    input T_out: AbsoluteTemperature
+
+    equation {
+        C * der(T) eq T_out
+    }
+}

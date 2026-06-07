@@ -5,6 +5,7 @@ quantity Length [m]
 quantity AbsoluteTemperature [K]
 quantity TemperatureDelta [K]
 quantity Conductance [W/K]
+quantity HeatCapacity [J/K]
 quantity SpecificHeat [J/kg/K]
 quantity HeatRate [W]
 quantity ElectricPower [W]
@@ -20,8 +21,9 @@ unit degC
 unit W
 unit kW
 unit J
+unit J/K
+unit kJ/K
 unit Wh
 unit kWh
 unit MJ
 unit kg/s
-

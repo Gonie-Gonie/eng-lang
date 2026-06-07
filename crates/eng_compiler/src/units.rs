@@ -128,6 +128,22 @@ pub const UNIT_INFOS: &[UnitInfo] = &[
         affine_offset: None,
     },
     UnitInfo {
+        symbol: "J/K",
+        canonical_unit: "J/K",
+        quantity_hint: "HeatCapacity",
+        dimension: "Energy/Temperature",
+        scale_to_canonical: "1",
+        affine_offset: None,
+    },
+    UnitInfo {
+        symbol: "kJ/K",
+        canonical_unit: "J/K",
+        quantity_hint: "HeatCapacity",
+        dimension: "Energy/Temperature",
+        scale_to_canonical: "1000",
+        affine_offset: None,
+    },
+    UnitInfo {
         symbol: "kg/s",
         canonical_unit: "kg/s",
         quantity_hint: "MassFlowRate",

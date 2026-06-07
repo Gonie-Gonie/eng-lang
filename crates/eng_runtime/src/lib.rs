@@ -515,8 +515,83 @@ fn result_json(
         integrations.push_str("      }");
     }
 
+    let mut systems = String::new();
+    for (system_index, system) in report.semantic_program.systems.iter().enumerate() {
+        if system_index > 0 {
+            systems.push_str(",\n");
+        }
+        systems.push_str("      {\n");
+        systems.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&system.name)
+        ));
+        systems.push_str(&format!(
+            "        \"variable_count\": {},\n",
+            system.variables.len()
+        ));
+        systems.push_str("        \"equations\": [\n");
+        for (equation_index, equation) in system.equations.iter().enumerate() {
+            if equation_index > 0 {
+                systems.push_str(",\n");
+            }
+            systems.push_str("          {\n");
+            systems.push_str(&format!(
+                "            \"left\": \"{}\",\n",
+                json_escape(&equation.left)
+            ));
+            systems.push_str(&format!(
+                "            \"relation\": \"{}\",\n",
+                json_escape(&equation.relation)
+            ));
+            systems.push_str(&format!(
+                "            \"right\": \"{}\",\n",
+                json_escape(&equation.right)
+            ));
+            systems.push_str(&format!(
+                "            \"left_dimension\": \"{}\",\n",
+                json_escape(&equation.left_dimension)
+            ));
+            systems.push_str(&format!(
+                "            \"right_dimension\": \"{}\",\n",
+                json_escape(&equation.right_dimension)
+            ));
+            systems.push_str(&format!(
+                "            \"residual\": \"{}\",\n",
+                json_escape(&equation.residual)
+            ));
+            systems.push_str(&format!(
+                "            \"status\": \"{}\"\n",
+                json_escape(&equation.status)
+            ));
+            systems.push_str("          }");
+        }
+        systems.push_str("\n        ],\n");
+        systems.push_str("        \"residuals\": [\n");
+        for (residual_index, residual) in system.residuals.iter().enumerate() {
+            if residual_index > 0 {
+                systems.push_str(",\n");
+            }
+            systems.push_str("          {\n");
+            systems.push_str(&format!(
+                "            \"name\": \"{}\",\n",
+                json_escape(&residual.name)
+            ));
+            systems.push_str(&format!(
+                "            \"expression\": \"{}\",\n",
+                json_escape(&residual.expression)
+            ));
+            systems.push_str(&format!(
+                "            \"dimension\": \"{}\"\n",
+                json_escape(&residual.dimension)
+            ));
+            systems.push_str("          }");
+        }
+        systems.push_str("\n        ]\n");
+        systems.push_str("      }");
+    }
+
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -537,8 +612,22 @@ fn result_json(
         steps,
         statistics,
         integrations,
+        systems,
         report.semantic_program.schemas.len(),
         report.semantic_program.csv_promotions.len(),
+        report.semantic_program.systems.len(),
+        report
+            .semantic_program
+            .systems
+            .iter()
+            .map(|system| system.equations.len())
+            .sum::<usize>(),
+        report
+            .semantic_program
+            .systems
+            .iter()
+            .map(|system| system.residuals.len())
+            .sum::<usize>(),
         data_hashes,
         plot_spec_hash,
         report_spec_hash

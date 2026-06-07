@@ -44,6 +44,7 @@ pub struct ReportSpec {
     pub inferred_declarations: Vec<ReportInferredDeclaration>,
     pub unit_conversions: Vec<ReportUnitConversion>,
     pub schemas: Vec<ReportSchemaSummary>,
+    pub systems: Vec<ReportSystemSummary>,
     pub plot_manifest: ReportPlotManifest,
     pub warnings: Vec<ReportWarning>,
     pub provenance: ReportProvenance,
@@ -91,6 +92,46 @@ pub struct ReportSchemaSummary {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct ReportSystemSummary {
+    pub name: String,
+    pub variables: Vec<ReportSystemVariable>,
+    pub equations: Vec<ReportEquation>,
+    pub residuals: Vec<ReportResidual>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportSystemVariable {
+    pub role: String,
+    pub name: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub dimension: String,
+    pub initial_value: Option<String>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportEquation {
+    pub left: String,
+    pub relation: String,
+    pub right: String,
+    pub left_dimension: String,
+    pub right_dimension: String,
+    pub residual: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportResidual {
+    pub name: String,
+    pub expression: String,
+    pub dimension: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct ReportPlotManifest {
     pub path: String,
     pub hash: String,
@@ -111,6 +152,9 @@ pub struct ReportProvenance {
     pub syntax_items: usize,
     pub schema_count: usize,
     pub csv_promotion_count: usize,
+    pub system_count: usize,
+    pub equation_count: usize,
+    pub residual_count: usize,
     pub plot_spec_version: u32,
 }
 
@@ -204,6 +248,61 @@ pub fn report_spec_from_report(
         })
         .collect();
 
+    let systems = report
+        .semantic_program
+        .systems
+        .iter()
+        .map(|system| ReportSystemSummary {
+            name: system.name.clone(),
+            variables: system
+                .variables
+                .iter()
+                .map(|variable| ReportSystemVariable {
+                    role: variable.role.clone(),
+                    name: variable.name.clone(),
+                    quantity_kind: variable.quantity_kind.clone(),
+                    display_unit: variable.display_unit.clone(),
+                    dimension: variable.dimension.clone(),
+                    initial_value: variable.initial_value.clone(),
+                    line: variable.line,
+                })
+                .collect(),
+            equations: system
+                .equations
+                .iter()
+                .map(|equation| ReportEquation {
+                    left: equation.left.clone(),
+                    relation: equation.relation.clone(),
+                    right: equation.right.clone(),
+                    left_dimension: equation.left_dimension.clone(),
+                    right_dimension: equation.right_dimension.clone(),
+                    residual: equation.residual.clone(),
+                    status: equation.status.clone(),
+                    line: equation.line,
+                })
+                .collect(),
+            residuals: system
+                .residuals
+                .iter()
+                .map(|residual| ReportResidual {
+                    name: residual.name.clone(),
+                    expression: residual.expression.clone(),
+                    dimension: residual.dimension.clone(),
+                    line: residual.line,
+                })
+                .collect(),
+            line: system.line,
+        })
+        .collect::<Vec<_>>();
+    let equation_count = systems
+        .iter()
+        .map(|system| system.equations.len())
+        .sum::<usize>();
+    let residual_count = systems
+        .iter()
+        .map(|system| system.residuals.len())
+        .sum::<usize>();
+
     ReportSpec {
         source_path: report.source_path.display().to_string(),
         source_hash: report.source_hash.clone(),
@@ -213,6 +312,7 @@ pub fn report_spec_from_report(
         inferred_declarations,
         unit_conversions,
         schemas,
+        systems,
         plot_manifest: ReportPlotManifest {
             path: plot_manifest_relative_path.to_owned(),
             hash: plot_manifest_hash.to_owned(),
@@ -224,6 +324,9 @@ pub fn report_spec_from_report(
             syntax_items: report.syntax_summary.ast_items,
             schema_count: report.semantic_program.schemas.len(),
             csv_promotion_count: report.semantic_program.csv_promotions.len(),
+            system_count: report.semantic_program.systems.len(),
+            equation_count,
+            residual_count,
             plot_spec_version: PLOT_SPEC_VERSION,
         },
     }
@@ -264,6 +367,18 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
     json.push_str(&format!(
         "    \"csv_promotion_count\": {},\n",
         spec.provenance.csv_promotion_count
+    ));
+    json.push_str(&format!(
+        "    \"system_count\": {},\n",
+        spec.provenance.system_count
+    ));
+    json.push_str(&format!(
+        "    \"equation_count\": {},\n",
+        spec.provenance.equation_count
+    ));
+    json.push_str(&format!(
+        "    \"residual_count\": {},\n",
+        spec.provenance.residual_count
     ));
     json.push_str(&format!(
         "    \"plot_spec_version\": {}\n",
@@ -397,6 +512,119 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             "      \"missing_policy_count\": {}\n",
             schema.missing_policy_count
         ));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"system_summary\": [\n");
+    for (index, system) in spec.systems.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&system.name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", system.line));
+        json.push_str("      \"variables\": [\n");
+        for (variable_index, variable) in system.variables.iter().enumerate() {
+            if variable_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"role\": \"{}\",\n",
+                json_escape(&variable.role)
+            ));
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&variable.name)
+            ));
+            json.push_str(&format!(
+                "          \"quantity_kind\": \"{}\",\n",
+                json_escape(&variable.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&variable.display_unit)
+            ));
+            json.push_str(&format!(
+                "          \"dimension\": \"{}\",\n",
+                json_escape(&variable.dimension)
+            ));
+            if let Some(initial_value) = &variable.initial_value {
+                json.push_str(&format!(
+                    "          \"initial_value\": \"{}\",\n",
+                    json_escape(initial_value)
+                ));
+            } else {
+                json.push_str("          \"initial_value\": null,\n");
+            }
+            json.push_str(&format!("          \"line\": {}\n", variable.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"equations\": [\n");
+        for (equation_index, equation) in system.equations.iter().enumerate() {
+            if equation_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"left\": \"{}\",\n",
+                json_escape(&equation.left)
+            ));
+            json.push_str(&format!(
+                "          \"relation\": \"{}\",\n",
+                json_escape(&equation.relation)
+            ));
+            json.push_str(&format!(
+                "          \"right\": \"{}\",\n",
+                json_escape(&equation.right)
+            ));
+            json.push_str(&format!(
+                "          \"left_dimension\": \"{}\",\n",
+                json_escape(&equation.left_dimension)
+            ));
+            json.push_str(&format!(
+                "          \"right_dimension\": \"{}\",\n",
+                json_escape(&equation.right_dimension)
+            ));
+            json.push_str(&format!(
+                "          \"residual\": \"{}\",\n",
+                json_escape(&equation.residual)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&equation.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", equation.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"residuals\": [\n");
+        for (residual_index, residual) in system.residuals.iter().enumerate() {
+            if residual_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&residual.name)
+            ));
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&residual.expression)
+            ));
+            json.push_str(&format!(
+                "          \"dimension\": \"{}\",\n",
+                json_escape(&residual.dimension)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", residual.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -732,6 +960,29 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
         integrations.push_str("<tr><td colspan=\"6\">No integrations.</td></tr>");
     }
 
+    let mut system_equations = String::new();
+    for system in &report.semantic_program.systems {
+        for equation in &system.equations {
+            system_equations.push_str("<tr>");
+            system_equations.push_str(&format!(
+                "<td>{}</td><td>{}</td><td><code>{} {} {}</code></td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+                equation.line,
+                html_escape(&system.name),
+                html_escape(&equation.left),
+                html_escape(&equation.relation),
+                html_escape(&equation.right),
+                html_escape(&equation.left_dimension),
+                html_escape(&equation.right_dimension),
+                html_escape(&equation.residual),
+                html_escape(&equation.status)
+            ));
+            system_equations.push_str("</tr>");
+        }
+    }
+    if system_equations.is_empty() {
+        system_equations.push_str("<tr><td colspan=\"7\">No system equations.</td></tr>");
+    }
+
     let mut schemas = String::new();
     for schema in &report.semantic_program.schemas {
         schemas.push_str("<tr>");
@@ -797,6 +1048,19 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     let axis_info_count = report.semantic_program.axis_infos.len();
     let stats_info_count = report.semantic_program.stats_infos.len();
     let integration_count = report.semantic_program.integrations.len();
+    let system_count = report.semantic_program.systems.len();
+    let equation_count = report
+        .semantic_program
+        .systems
+        .iter()
+        .map(|system| system.equations.len())
+        .sum::<usize>();
+    let residual_count = report
+        .semantic_program
+        .systems
+        .iter()
+        .map(|system| system.residuals.len())
+        .sum::<usize>();
     let schema_count = report.semantic_program.schemas.len();
     let csv_promotion_count = report.semantic_program.csv_promotions.len();
     let entry_point_count = report.semantic_program.entry_points.len();
@@ -897,6 +1161,9 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
       <div class="metric"><span>Axis Info</span><strong>{axis_info_count}</strong></div>
       <div class="metric"><span>Stats Info</span><strong>{stats_info_count}</strong></div>
       <div class="metric"><span>Integrations</span><strong>{integration_count}</strong></div>
+      <div class="metric"><span>Systems</span><strong>{system_count}</strong></div>
+      <div class="metric"><span>Equations</span><strong>{equation_count}</strong></div>
+      <div class="metric"><span>Residuals</span><strong>{residual_count}</strong></div>
       <div class="metric"><span>Schemas</span><strong>{schema_count}</strong></div>
       <div class="metric"><span>CSV Promotions</span><strong>{csv_promotion_count}</strong></div>
       <div class="metric"><span>Entry Points</span><strong>{entry_point_count}</strong></div>
@@ -942,6 +1209,11 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     <table>
       <thead><tr><th>Line</th><th>Binding</th><th>Source</th><th>Input</th><th>Axis</th><th>Result</th></tr></thead>
       <tbody>{integrations}</tbody>
+    </table>
+    <h2>System Equations</h2>
+    <table>
+      <thead><tr><th>Line</th><th>System</th><th>Equation</th><th>Left Dimension</th><th>Right Dimension</th><th>Residual</th><th>Status</th></tr></thead>
+      <tbody>{system_equations}</tbody>
     </table>
     <h2>Schemas</h2>
     <table>
@@ -1142,5 +1414,26 @@ mod tests {
         assert!(json.contains("\"schema_summary\""));
         assert!(json.contains("\"plot_manifest\""));
         assert!(json.contains("\"warning_list\""));
+    }
+
+    #[test]
+    fn report_spec_and_html_include_system_equation_summary() {
+        let report = check_source(
+            "ok.eng",
+            "system RoomThermal {\n    parameter C: HeatCapacity = 500 kJ/K\n    parameter UA: Conductance = 150 W/K\n    state T: AbsoluteTemperature = 24 degC\n    input T_out: AbsoluteTemperature\n    input Q_internal: HeatRate\n    equation {\n        C * der(T) eq UA * (T_out - T) + Q_internal\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+
+        let spec = report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        let json = report_spec_json(&spec);
+        let html = render_html(&report, "plots/timeseries.svg");
+
+        assert_eq!(spec.provenance.system_count, 1);
+        assert_eq!(spec.provenance.equation_count, 1);
+        assert_eq!(spec.systems[0].equations[0].status, "unit_consistent");
+        assert!(json.contains("\"system_summary\""));
+        assert!(json.contains("\"RoomThermal.residual_1\""));
+        assert!(html.contains("System Equations"));
+        assert!(html.contains("unit_consistent"));
     }
 }

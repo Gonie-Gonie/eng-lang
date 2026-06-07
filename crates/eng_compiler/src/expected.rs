@@ -7,6 +7,7 @@ pub enum ExpectedTypeSource {
     ExplicitAnnotation,
     AssignmentTarget,
     PublicBoundary,
+    SystemBoundary,
     Unknown,
 }
 
@@ -16,6 +17,7 @@ impl ExpectedTypeSource {
             Self::ExplicitAnnotation => "explicit_annotation",
             Self::AssignmentTarget => "assignment_target",
             Self::PublicBoundary => "public_boundary",
+            Self::SystemBoundary => "system_boundary",
             Self::Unknown => "unknown",
         }
     }

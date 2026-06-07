@@ -1,6 +1,6 @@
-use crate::ast::{AstItem, ExplicitDecl, FastBinding};
+use crate::ast::{AstItem, ExplicitDecl, FastBinding, SystemVariableDecl};
 use crate::entry::EntryPoint;
-use crate::expected::{expected_type_from_explicit_decl, ExpectedType};
+use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
 use crate::parser::{ParseContext, ParsedProgram};
 use crate::quantities::{
@@ -27,6 +27,49 @@ pub struct TypedBinding {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SystemVariableInfo {
+    pub role: String,
+    pub name: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub dimension: String,
+    pub initial_value: Option<String>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EquationInfo {
+    pub system: String,
+    pub left: String,
+    pub right: String,
+    pub relation: String,
+    pub left_dimension: String,
+    pub right_dimension: String,
+    pub residual: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ResidualInfo {
+    pub system: String,
+    pub name: String,
+    pub expression: String,
+    pub dimension: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SystemInfo {
+    pub name: String,
+    pub variables: Vec<SystemVariableInfo>,
+    pub equations: Vec<EquationInfo>,
+    pub residuals: Vec<ResidualInfo>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SemanticProgram {
     pub typed_bindings: Vec<TypedBinding>,
     pub expected_types: Vec<ExpectedType>,
@@ -39,6 +82,7 @@ pub struct SemanticProgram {
     pub axis_infos: Vec<AxisInfo>,
     pub stats_infos: Vec<StatsInfo>,
     pub integrations: Vec<IntegrationInfo>,
+    pub systems: Vec<SystemInfo>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -59,6 +103,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut entry_points = Vec::new();
     let mut stats_infos = Vec::new();
     let mut integrations = Vec::new();
+    let mut systems = Vec::new();
+    let mut current_system_index = None;
 
     for line in &program.lines {
         if line.tokens.iter().any(|token| {
@@ -74,10 +120,53 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 Some("Use `name = ...` for local declaration or assignment."),
             ));
         }
+        if line.context == ParseContext::Equation
+            && line.tokens.iter().any(|token| {
+                matches!(
+                    token.kind,
+                    crate::lexer::TokenKind::Symbol(crate::lexer::Symbol::EqualEqual)
+                )
+            })
+        {
+            diagnostics.push(Diagnostic::error(
+                "E-EQ-BOOL-001",
+                line.line,
+                "Use `eq` for physical equations. `==` returns Bool.",
+                Some("Replace `==` with `eq` inside equation blocks."),
+            ));
+        }
     }
 
     for item in &program.items {
         match item {
+            AstItem::System(system) => {
+                systems.push(SystemInfo {
+                    name: system.name.clone(),
+                    variables: Vec::new(),
+                    equations: Vec::new(),
+                    residuals: Vec::new(),
+                    line: system.span.line,
+                });
+                current_system_index = Some(systems.len() - 1);
+            }
+            AstItem::SystemVariable(variable) => {
+                if let Some(system_index) = current_system_index {
+                    analyze_system_variable(
+                        variable,
+                        &mut systems[system_index],
+                        &mut expected_types,
+                        &mut hover_hints,
+                        &mut typed_bindings,
+                        &mut type_infos,
+                        &mut unit_derivations,
+                    );
+                }
+            }
+            AstItem::Equation(equation) => {
+                if let Some(system_index) = current_system_index {
+                    analyze_equation(equation, &mut systems[system_index], &mut diagnostics);
+                }
+            }
             AstItem::Script(script) => {
                 entry_points.push(EntryPoint::from_script(script));
                 if script.name != "main" {
@@ -142,6 +231,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             entry_points,
             stats_infos,
             integrations,
+            systems,
         },
     }
 }
@@ -204,6 +294,137 @@ fn analyze_explicit_decl(
         &canonical_unit,
         declaration.line,
     ));
+}
+
+fn analyze_system_variable(
+    declaration: &SystemVariableDecl,
+    system: &mut SystemInfo,
+    expected_types: &mut Vec<ExpectedType>,
+    hover_hints: &mut Vec<HoverHint>,
+    typed_bindings: &mut Vec<TypedBinding>,
+    type_infos: &mut Vec<TypeInfo>,
+    unit_derivations: &mut Vec<UnitDerivation>,
+) {
+    let display_unit = declaration
+        .unit
+        .clone()
+        .or_else(|| {
+            declaration
+                .expression
+                .as_deref()
+                .and_then(first_unit_in_expression)
+        })
+        .unwrap_or_else(|| default_unit_for_quantity(&declaration.type_name));
+    let canonical_unit = default_unit_for_quantity(&declaration.type_name);
+    let dimension = dimension_for_quantity(&declaration.type_name);
+
+    expected_types.push(ExpectedType {
+        name: declaration.name.clone(),
+        quantity_kind: declaration.type_name.clone(),
+        display_unit: Some(display_unit.clone()),
+        source: ExpectedTypeSource::SystemBoundary,
+        line: declaration.line,
+        span: declaration.span,
+    });
+    typed_bindings.push(TypedBinding {
+        name: declaration.name.clone(),
+        semantic_type: SemanticType {
+            quantity_kind: declaration.type_name.clone(),
+            display_unit: display_unit.clone(),
+        },
+        line: declaration.line,
+    });
+    hover_hints.push(HoverHint::explicit(
+        declaration.name.clone(),
+        declaration.type_name.clone(),
+        display_unit.clone(),
+        declaration.expression.clone(),
+        declaration.span,
+    ));
+    type_infos.push(TypeInfo {
+        name: declaration.name.clone(),
+        quantity_kind: declaration.type_name.clone(),
+        display_unit: display_unit.clone(),
+        canonical_unit: canonical_unit.clone(),
+        dimension: dimension.clone(),
+        source: TypeInfoSource::SystemBoundary,
+        line: declaration.line,
+        span: declaration.span,
+    });
+    unit_derivations.push(unit_derivation(
+        &declaration.name,
+        declaration.expression.as_deref(),
+        &declaration.type_name,
+        &display_unit,
+        &canonical_unit,
+        declaration.line,
+    ));
+    system.variables.push(SystemVariableInfo {
+        role: declaration.role.clone(),
+        name: declaration.name.clone(),
+        quantity_kind: declaration.type_name.clone(),
+        display_unit,
+        canonical_unit,
+        dimension,
+        initial_value: declaration.expression.clone(),
+        line: declaration.line,
+    });
+}
+
+fn analyze_equation(
+    equation: &crate::ast::EquationDecl,
+    system: &mut SystemInfo,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let left_dimension = expression_dimension(&equation.left, &system.variables)
+        .unwrap_or_else(|| "unknown".to_owned());
+    let right_dimension = expression_dimension(&equation.right, &system.variables)
+        .unwrap_or_else(|| "unknown".to_owned());
+    let status = if left_dimension != "unknown"
+        && right_dimension != "unknown"
+        && dimensions_compatible(&left_dimension, &right_dimension)
+    {
+        "unit_consistent"
+    } else {
+        if left_dimension != "unknown" && right_dimension != "unknown" {
+            diagnostics.push(Diagnostic::error(
+                "E-EQ-UNIT-001",
+                equation.line,
+                &format!(
+                    "Equation dimensions do not match: left is {}, right is {}.",
+                    left_dimension, right_dimension
+                ),
+                Some("Both sides of a physical equation must have the same dimension."),
+            ));
+        }
+        "unit_unresolved"
+    };
+    let residual_name = format!("{}.residual_{}", system.name, system.residuals.len() + 1);
+    let residual_expression = format!("{} - ({})", equation.left, equation.right);
+    let residual_dimension = if status == "unit_consistent" {
+        left_dimension.clone()
+    } else {
+        "unknown".to_owned()
+    };
+
+    system.equations.push(EquationInfo {
+        system: system.name.clone(),
+        left: equation.left.clone(),
+        right: equation.right.clone(),
+        relation: "eq".to_owned(),
+        left_dimension,
+        right_dimension,
+        residual: residual_name.clone(),
+        status: status.to_owned(),
+        line: equation.line,
+    });
+    system.residuals.push(ResidualInfo {
+        system: system.name.clone(),
+        name: residual_name,
+        expression: residual_expression,
+        dimension: residual_dimension,
+        line: equation.line,
+    });
 }
 
 fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
@@ -492,6 +713,155 @@ fn dimension_for_quantity(quantity_kind: &str) -> String {
         .find(|completion| completion.quantity_kind == quantity_kind)
         .map(|completion| completion.dimension.to_owned())
         .unwrap_or_else(|| "unknown".to_owned())
+}
+
+fn expression_dimension(expression: &str, variables: &[SystemVariableInfo]) -> Option<String> {
+    let expression = strip_outer_parens(expression.trim());
+    if expression.is_empty() {
+        return None;
+    }
+
+    let additive_terms = split_top_level(expression, &['+', '-']);
+    if additive_terms.len() > 1 {
+        let mut dimensions = Vec::new();
+        for term in additive_terms {
+            dimensions.push(expression_dimension(&term, variables)?);
+        }
+        let first = dimensions.first()?.clone();
+        if dimensions
+            .iter()
+            .all(|dimension| dimensions_compatible(&first, dimension))
+        {
+            return Some(first);
+        }
+        return Some("mismatch".to_owned());
+    }
+
+    let factors = split_top_level(expression, &['*']);
+    if factors.len() > 1 {
+        let mut dimension = expression_dimension(&factors[0], variables)?;
+        for factor in factors.iter().skip(1) {
+            let factor_dimension = expression_dimension(factor, variables)?;
+            dimension = multiply_dimensions(&dimension, &factor_dimension);
+        }
+        return Some(dimension);
+    }
+
+    if let Some(inner) = expression
+        .strip_prefix("der(")
+        .and_then(|value| value.strip_suffix(')'))
+    {
+        let inner_dimension = expression_dimension(inner, variables)?;
+        return Some(derivative_dimension(&inner_dimension));
+    }
+
+    if is_identifier(expression) {
+        return variables
+            .iter()
+            .find(|variable| variable.name == expression)
+            .map(|variable| variable.dimension.clone());
+    }
+
+    if let Some(unit) = first_unit_in_expression(expression) {
+        if let Some(quantity) = candidates_for_unit(&unit).first() {
+            return Some(quantity.dimension.to_owned());
+        }
+    }
+
+    None
+}
+
+fn strip_outer_parens(mut expression: &str) -> &str {
+    loop {
+        let trimmed = expression.trim();
+        if !(trimmed.starts_with('(') && trimmed.ends_with(')')) {
+            return trimmed;
+        }
+        let inner = &trimmed[1..trimmed.len() - 1];
+        if !is_balanced(inner) {
+            return trimmed;
+        }
+        expression = inner;
+    }
+}
+
+fn is_balanced(expression: &str) -> bool {
+    let mut depth = 0i32;
+    for character in expression.chars() {
+        match character {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth < 0 {
+                    return false;
+                }
+            }
+            _ => {}
+        }
+    }
+    depth == 0
+}
+
+fn split_top_level(expression: &str, operators: &[char]) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut depth = 0i32;
+    let mut start = 0usize;
+
+    for (index, character) in expression.char_indices() {
+        match character {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            other if depth == 0 && operators.contains(&other) => {
+                if index == 0 {
+                    continue;
+                }
+                let part = expression[start..index].trim();
+                if !part.is_empty() {
+                    parts.push(part.to_owned());
+                }
+                start = index + other.len_utf8();
+            }
+            _ => {}
+        }
+    }
+
+    let tail = expression[start..].trim();
+    if !tail.is_empty() {
+        parts.push(tail.to_owned());
+    }
+    parts
+}
+
+fn derivative_dimension(dimension: &str) -> String {
+    if dimension == "Dimensionless" {
+        "1/Time".to_owned()
+    } else {
+        format!("{dimension}/Time")
+    }
+}
+
+fn multiply_dimensions(left: &str, right: &str) -> String {
+    match (left, right) {
+        ("Dimensionless", other) | (other, "Dimensionless") => other.to_owned(),
+        ("Energy/Temperature", "Temperature/Time")
+        | ("Temperature/Time", "Energy/Temperature")
+        | ("Power/Temperature", "Temperature")
+        | ("Temperature", "Power/Temperature") => "Power".to_owned(),
+        _ => format!("{left}*{right}"),
+    }
+}
+
+fn dimensions_compatible(left: &str, right: &str) -> bool {
+    left == right
+}
+
+fn is_identifier(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|character| character.is_ascii_alphanumeric() || character == '_')
 }
 
 fn semantic_type(quantity_kind: &str, display_unit: &str) -> Option<SemanticType> {

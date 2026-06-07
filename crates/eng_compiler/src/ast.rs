@@ -17,6 +17,31 @@ pub struct ScriptDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SystemDecl {
+    pub name: String,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SystemVariableDecl {
+    pub role: String,
+    pub name: String,
+    pub type_name: String,
+    pub unit: Option<String>,
+    pub expression: Option<String>,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EquationDecl {
+    pub left: String,
+    pub right: String,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FastBinding {
     pub name: String,
     pub expression: String,
@@ -63,6 +88,9 @@ pub struct ExplicitDecl {
 pub enum AstItem {
     Schema(SchemaDecl),
     Script(ScriptDecl),
+    System(SystemDecl),
+    SystemVariable(SystemVariableDecl),
+    Equation(EquationDecl),
     Constraint(ConstraintDecl),
     FastBinding(FastBinding),
     ExplicitDecl(ExplicitDecl),

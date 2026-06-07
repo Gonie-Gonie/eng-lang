@@ -182,7 +182,12 @@ pub fn build_bytecode_program(
 
 fn is_public_boundary_binding(report: &CheckReport, name: &str, line: usize) -> bool {
     report.semantic_program.type_infos.iter().any(|info| {
-        info.name == name && info.line == line && info.source == TypeInfoSource::PublicBoundary
+        info.name == name
+            && info.line == line
+            && matches!(
+                info.source,
+                TypeInfoSource::PublicBoundary | TypeInfoSource::SystemBoundary
+            )
     })
 }
 
