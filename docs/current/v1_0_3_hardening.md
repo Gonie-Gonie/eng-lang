@@ -22,6 +22,7 @@ work becomes the main priority.
 |---|---|---|
 | Native IDE layout | Implemented on main | Explorer, Code/Result split, Inspector/Completions/Runtime sidebar, bottom panels |
 | Native IDE scrolling | Implemented on main | Code and Result panes scroll independently; horizontal code scroll only for long lines |
+| Native IDE user settings | Implemented on main | Settings controls light/dark theme, density, font sizes, window presets, soft wrapping, and panel defaults saved under `build/ide/settings.json` |
 | Native IDE completion | Implemented on main | Current-file variables, identifiers, keywords, quantities, units, snippets, and Tab accept |
 | Native IDE auto-pairs | Implemented on main | Parentheses, brackets, braces, single quotes, and double quotes |
 | Native IDE plot preview | Implemented on main | Grid, ticks, zero baseline, line/scatter/bar/histogram rendering paths |
@@ -42,6 +43,8 @@ work becomes the main priority.
 Before tagging or publishing `v1.0.3`, manually confirm:
 
 - The packaged `eng-ide.exe` opens without a console window.
+- Settings can switch Light/Dark theme, adjust UI/code font sizes, apply window
+  presets, and save preferences under `build/ide/settings.json`.
 - The Result pane does not cover or push the right sidebar.
 - Code editing scrolls vertically by default and horizontally only for long
   lines.

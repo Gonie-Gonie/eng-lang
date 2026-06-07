@@ -238,7 +238,8 @@ Before publishing the next post-v1.0 hardening release:
 [x] native tester IDE binary is built as eng-ide.exe
 [x] portable package includes eng-ide.exe
 [x] eng-ide.exe release build does not open a separate console window
-[x] native IDE text/buttons render with compact Segoe UI/monospace fallback fonts and explicit light theme
+[x] native IDE text/buttons render with Segoe UI/monospace fallback fonts and configurable light/dark theme
+[x] native IDE Settings controls UI density, font sizes, window presets, soft wrapping, and panel default sizes
 [x] eng-ide.exe --smoke discovers examples and compiler completion metadata
 [x] native IDE supports check, save, run, report open, diagnostics, symbols, and completions
 [x] native IDE has Explorer, Code/Result main panes, Inspector sidebar, and Problems/Output/Artifacts regions

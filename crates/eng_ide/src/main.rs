@@ -12,7 +12,7 @@ use eng_compiler::{
     all_quantity_completions, all_unit_infos, check_source, CheckOptions, CheckReport, Severity,
 };
 use eng_runtime::{run_file, RunOptions, RuntimeError};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 const ACCENT: egui::Color32 = egui::Color32::from_rgb(28, 111, 202);
 const BG: egui::Color32 = egui::Color32::from_rgb(246, 248, 251);
@@ -24,10 +24,235 @@ const MUTED: egui::Color32 = egui::Color32::from_rgb(99, 112, 130);
 const ERROR: egui::Color32 = egui::Color32::from_rgb(184, 44, 44);
 const WARNING: egui::Color32 = egui::Color32::from_rgb(173, 112, 20);
 const OK: egui::Color32 = egui::Color32::from_rgb(43, 131, 91);
-const RESULT_DEFAULT_WIDTH: f32 = 480.0;
 const RESULT_MIN_WIDTH: f32 = 320.0;
 const CODE_MIN_WIDTH: f32 = 420.0;
 const SPLITTER_WIDTH: f32 = 7.0;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum UiTheme {
+    Light,
+    Dark,
+}
+
+impl UiTheme {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Light => "light",
+            Self::Dark => "dark",
+        }
+    }
+
+    fn from_str(value: &str) -> Self {
+        match value {
+            "dark" => Self::Dark,
+            _ => Self::Light,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum UiDensity {
+    Comfortable,
+    Compact,
+}
+
+impl UiDensity {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Comfortable => "comfortable",
+            Self::Compact => "compact",
+        }
+    }
+
+    fn from_str(value: &str) -> Self {
+        match value {
+            "compact" => Self::Compact,
+            _ => Self::Comfortable,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct UiSettings {
+    theme: UiTheme,
+    density: UiDensity,
+    body_font_size: f32,
+    button_font_size: f32,
+    heading_font_size: f32,
+    code_font_size: f32,
+    window_width: f32,
+    window_height: f32,
+    explorer_width: f32,
+    inspector_width: f32,
+    bottom_height: f32,
+    result_width: f32,
+    soft_wrap_code: bool,
+}
+
+impl Default for UiSettings {
+    fn default() -> Self {
+        Self {
+            theme: UiTheme::Light,
+            density: UiDensity::Comfortable,
+            body_font_size: 12.5,
+            button_font_size: 12.0,
+            heading_font_size: 15.0,
+            code_font_size: 13.0,
+            window_width: 1600.0,
+            window_height: 920.0,
+            explorer_width: 250.0,
+            inspector_width: 340.0,
+            bottom_height: 200.0,
+            result_width: 520.0,
+            soft_wrap_code: true,
+        }
+    }
+}
+
+impl UiSettings {
+    fn load(root: &Path) -> Self {
+        let mut settings = Self::default();
+        let Ok(text) = fs::read_to_string(settings_path(root)) else {
+            return settings;
+        };
+        let Ok(value) = serde_json::from_str::<Value>(&text) else {
+            return settings;
+        };
+        if let Some(theme) = value.get("theme").and_then(Value::as_str) {
+            settings.theme = UiTheme::from_str(theme);
+        }
+        if let Some(density) = value.get("density").and_then(Value::as_str) {
+            settings.density = UiDensity::from_str(density);
+        }
+        settings.body_font_size = json_f32(&value, "body_font_size")
+            .unwrap_or(settings.body_font_size)
+            .clamp(10.5, 18.0);
+        settings.button_font_size = json_f32(&value, "button_font_size")
+            .unwrap_or(settings.button_font_size)
+            .clamp(10.5, 18.0);
+        settings.heading_font_size = json_f32(&value, "heading_font_size")
+            .unwrap_or(settings.heading_font_size)
+            .clamp(12.0, 24.0);
+        settings.code_font_size = json_f32(&value, "code_font_size")
+            .unwrap_or(settings.code_font_size)
+            .clamp(11.0, 20.0);
+        settings.window_width = json_f32(&value, "window_width")
+            .unwrap_or(settings.window_width)
+            .clamp(1120.0, 3840.0);
+        settings.window_height = json_f32(&value, "window_height")
+            .unwrap_or(settings.window_height)
+            .clamp(680.0, 2160.0);
+        settings.explorer_width = json_f32(&value, "explorer_width")
+            .unwrap_or(settings.explorer_width)
+            .clamp(180.0, 520.0);
+        settings.inspector_width = json_f32(&value, "inspector_width")
+            .unwrap_or(settings.inspector_width)
+            .clamp(260.0, 640.0);
+        settings.bottom_height = json_f32(&value, "bottom_height")
+            .unwrap_or(settings.bottom_height)
+            .clamp(140.0, 420.0);
+        settings.result_width = json_f32(&value, "result_width")
+            .unwrap_or(settings.result_width)
+            .clamp(RESULT_MIN_WIDTH, 900.0);
+        if let Some(soft_wrap) = value.get("soft_wrap_code").and_then(Value::as_bool) {
+            settings.soft_wrap_code = soft_wrap;
+        }
+        settings
+    }
+
+    fn save(&self, root: &Path) -> Result<(), String> {
+        let path = settings_path(root);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        let value = json!({
+            "theme": self.theme.as_str(),
+            "density": self.density.as_str(),
+            "body_font_size": self.body_font_size,
+            "button_font_size": self.button_font_size,
+            "heading_font_size": self.heading_font_size,
+            "code_font_size": self.code_font_size,
+            "window_width": self.window_width,
+            "window_height": self.window_height,
+            "explorer_width": self.explorer_width,
+            "inspector_width": self.inspector_width,
+            "bottom_height": self.bottom_height,
+            "result_width": self.result_width,
+            "soft_wrap_code": self.soft_wrap_code,
+        });
+        let text = serde_json::to_string_pretty(&value).map_err(|error| error.to_string())?;
+        fs::write(path, text).map_err(|error| error.to_string())
+    }
+}
+
+#[derive(Clone, Copy)]
+struct ThemePalette {
+    accent: egui::Color32,
+    bg: egui::Color32,
+    panel: egui::Color32,
+    panel_alt: egui::Color32,
+    border: egui::Color32,
+    text: egui::Color32,
+    muted: egui::Color32,
+    editor_bg: egui::Color32,
+    selected: egui::Color32,
+    hint_bg: egui::Color32,
+    plot_bg: egui::Color32,
+    grid: egui::Color32,
+    axis: egui::Color32,
+    string: egui::Color32,
+    number: egui::Color32,
+    quantity: egui::Color32,
+    diag_error_bg: egui::Color32,
+    diag_warning_bg: egui::Color32,
+}
+
+impl ThemePalette {
+    fn for_theme(theme: UiTheme) -> Self {
+        match theme {
+            UiTheme::Light => Self {
+                accent: ACCENT,
+                bg: BG,
+                panel: PANEL,
+                panel_alt: PANEL_ALT,
+                border: BORDER,
+                text: TEXT,
+                muted: MUTED,
+                editor_bg: egui::Color32::from_rgb(255, 255, 255),
+                selected: egui::Color32::from_rgb(218, 235, 252),
+                hint_bg: egui::Color32::from_rgb(245, 249, 255),
+                plot_bg: egui::Color32::from_rgb(250, 252, 255),
+                grid: egui::Color32::from_rgb(226, 232, 240),
+                axis: egui::Color32::from_rgb(65, 76, 90),
+                string: egui::Color32::from_rgb(138, 78, 23),
+                number: egui::Color32::from_rgb(126, 76, 175),
+                quantity: egui::Color32::from_rgb(120, 72, 156),
+                diag_error_bg: egui::Color32::from_rgb(255, 239, 239),
+                diag_warning_bg: egui::Color32::from_rgb(255, 248, 226),
+            },
+            UiTheme::Dark => Self {
+                accent: egui::Color32::from_rgb(96, 165, 250),
+                bg: egui::Color32::from_rgb(24, 28, 36),
+                panel: egui::Color32::from_rgb(31, 36, 46),
+                panel_alt: egui::Color32::from_rgb(38, 44, 56),
+                border: egui::Color32::from_rgb(62, 72, 88),
+                text: egui::Color32::from_rgb(229, 234, 242),
+                muted: egui::Color32::from_rgb(162, 174, 191),
+                editor_bg: egui::Color32::from_rgb(22, 26, 34),
+                selected: egui::Color32::from_rgb(35, 68, 105),
+                hint_bg: egui::Color32::from_rgb(32, 47, 67),
+                plot_bg: egui::Color32::from_rgb(24, 30, 40),
+                grid: egui::Color32::from_rgb(49, 59, 73),
+                axis: egui::Color32::from_rgb(176, 188, 204),
+                string: egui::Color32::from_rgb(245, 158, 91),
+                number: egui::Color32::from_rgb(196, 181, 253),
+                quantity: egui::Color32::from_rgb(216, 180, 254),
+                diag_error_bg: egui::Color32::from_rgb(72, 34, 38),
+                diag_warning_bg: egui::Color32::from_rgb(70, 54, 28),
+            },
+        }
+    }
+}
 
 fn main() -> eframe::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -43,9 +268,11 @@ fn main() -> eframe::Result<()> {
         return Ok(());
     }
 
+    let root = workspace_root();
+    let settings = UiSettings::load(&root);
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1600.0, 920.0])
+            .with_inner_size([settings.window_width, settings.window_height])
             .with_min_inner_size([1120.0, 680.0]),
         ..Default::default()
     };
@@ -53,48 +280,88 @@ fn main() -> eframe::Result<()> {
         "EngLang IDE",
         options,
         Box::new(|cc| {
-            configure_ui(&cc.egui_ctx);
-            Box::new(EngIdeApp::new())
+            configure_ui(&cc.egui_ctx, &settings);
+            Box::new(EngIdeApp::new(settings))
         }),
     )
 }
 
-fn configure_ui(ctx: &egui::Context) {
+fn configure_ui(ctx: &egui::Context, settings: &UiSettings) {
     configure_fonts(ctx);
-    ctx.set_visuals(egui::Visuals::light());
+    configure_ui_style(ctx, settings);
+}
+
+fn configure_ui_style(ctx: &egui::Context, settings: &UiSettings) {
+    let palette = ThemePalette::for_theme(settings.theme);
+    let mut visuals = match settings.theme {
+        UiTheme::Light => egui::Visuals::light(),
+        UiTheme::Dark => egui::Visuals::dark(),
+    };
+    visuals.window_fill = palette.bg;
+    visuals.panel_fill = palette.bg;
+    visuals.extreme_bg_color = palette.panel_alt;
+    visuals.widgets.noninteractive.fg_stroke.color = palette.text;
+    visuals.widgets.inactive.bg_fill = palette.panel_alt;
+    visuals.widgets.inactive.fg_stroke.color = palette.text;
+    visuals.widgets.hovered.bg_fill = palette.selected;
+    visuals.widgets.hovered.fg_stroke.color = palette.text;
+    visuals.widgets.active.bg_fill = palette.selected;
+    visuals.widgets.active.fg_stroke.color = palette.text;
+    visuals.selection.bg_fill = palette.selected;
+    visuals.selection.stroke.color = palette.accent;
+    ctx.set_visuals(visuals);
+
     let mut style = (*ctx.style()).clone();
-    style.spacing.item_spacing = egui::vec2(6.0, 4.0);
-    style.spacing.button_padding = egui::vec2(9.0, 5.0);
-    style.spacing.window_margin = egui::Margin::same(8.0);
+    let compact = settings.density == UiDensity::Compact;
+    style.spacing.item_spacing = if compact {
+        egui::vec2(5.0, 3.0)
+    } else {
+        egui::vec2(6.0, 4.0)
+    };
+    style.spacing.button_padding = if compact {
+        egui::vec2(7.0, 4.0)
+    } else {
+        egui::vec2(9.0, 5.0)
+    };
+    style.spacing.window_margin = egui::Margin::same(if compact { 6.0 } else { 8.0 });
     style.text_styles.insert(
         egui::TextStyle::Body,
-        egui::FontId::new(13.0, egui::FontFamily::Proportional),
+        egui::FontId::new(settings.body_font_size, egui::FontFamily::Proportional),
     );
     style.text_styles.insert(
         egui::TextStyle::Button,
-        egui::FontId::new(12.5, egui::FontFamily::Proportional),
+        egui::FontId::new(settings.button_font_size, egui::FontFamily::Proportional),
     );
     style.text_styles.insert(
         egui::TextStyle::Heading,
-        egui::FontId::new(16.0, egui::FontFamily::Proportional),
+        egui::FontId::new(settings.heading_font_size, egui::FontFamily::Proportional),
     );
     style.text_styles.insert(
         egui::TextStyle::Monospace,
-        egui::FontId::new(13.5, egui::FontFamily::Monospace),
+        egui::FontId::new(settings.code_font_size, egui::FontFamily::Monospace),
     );
-    style.visuals.window_fill = BG;
-    style.visuals.panel_fill = BG;
-    style.visuals.extreme_bg_color = PANEL_ALT;
-    style.visuals.widgets.noninteractive.fg_stroke.color = TEXT;
-    style.visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(234, 238, 244);
-    style.visuals.widgets.inactive.fg_stroke.color = TEXT;
-    style.visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(222, 235, 249);
-    style.visuals.widgets.hovered.fg_stroke.color = egui::Color32::from_rgb(12, 74, 130);
-    style.visuals.widgets.active.bg_fill = egui::Color32::from_rgb(204, 224, 246);
-    style.visuals.widgets.active.fg_stroke.color = egui::Color32::from_rgb(9, 61, 108);
-    style.visuals.selection.bg_fill = egui::Color32::from_rgb(185, 220, 252);
-    style.visuals.selection.stroke.color = ACCENT;
+    style.visuals = ctx.style().visuals.clone();
     ctx.set_style(style);
+}
+
+fn settings_path(root: &Path) -> PathBuf {
+    root.join("build").join("ide").join("settings.json")
+}
+
+fn json_f32(value: &Value, key: &str) -> Option<f32> {
+    value
+        .get(key)
+        .and_then(Value::as_f64)
+        .map(|number| number as f32)
+}
+
+fn ui_palette(ui: &egui::Ui) -> ThemePalette {
+    let theme = if ui.visuals().dark_mode {
+        UiTheme::Dark
+    } else {
+        UiTheme::Light
+    };
+    ThemePalette::for_theme(theme)
 }
 
 fn configure_fonts(ctx: &egui::Context) {
@@ -258,6 +525,8 @@ struct EngIdeApp {
     show_explorer: bool,
     show_inspector_panel: bool,
     show_preview: bool,
+    show_settings: bool,
+    settings: UiSettings,
     result_width: f32,
     last_output: Option<RunOutputView>,
     plot_preview: Option<PlotPreview>,
@@ -265,7 +534,7 @@ struct EngIdeApp {
 }
 
 impl EngIdeApp {
-    fn new() -> Self {
+    fn new(settings: UiSettings) -> Self {
         let root = workspace_root();
         let examples = collect_examples(&root);
         let current_path = examples
@@ -302,7 +571,9 @@ impl EngIdeApp {
             show_explorer: true,
             show_inspector_panel: true,
             show_preview: true,
-            result_width: RESULT_DEFAULT_WIDTH,
+            show_settings: false,
+            result_width: settings.result_width,
+            settings,
             last_output: None,
             plot_preview: None,
             artifact_summary: None,
@@ -889,6 +1160,9 @@ impl EngIdeApp {
             ui.toggle_value(&mut self.show_explorer, "Explorer");
             ui.toggle_value(&mut self.show_inspector_panel, "Sidebar");
             ui.toggle_value(&mut self.show_preview, "Result");
+            if ui.button("Settings").clicked() {
+                self.show_settings = true;
+            }
             ui.separator();
             ui.label("Entry");
             ui.add_sized([110.0, 28.0], egui::TextEdit::singleline(&mut self.entry));
@@ -904,7 +1178,7 @@ impl EngIdeApp {
             if self.dirty {
                 status_pill(ui, "Unsaved", WARNING);
             }
-            ui.label(egui::RichText::new(&self.status).color(MUTED));
+            ui.label(egui::RichText::new(&self.status).color(ui_palette(ui).muted));
         });
         ui.add_space(3.0);
         ui.horizontal(|ui| {
@@ -929,6 +1203,217 @@ impl EngIdeApp {
         });
     }
 
+    fn show_settings_window(&mut self, ctx: &egui::Context) {
+        let mut open = self.show_settings;
+        egui::Window::new("Settings")
+            .open(&mut open)
+            .default_width(430.0)
+            .default_height(560.0)
+            .resizable(true)
+            .show(ctx, |ui| {
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        let mut changed = false;
+                        let mut save_requested = false;
+
+                        panel_header(ui, "Appearance");
+                        ui.horizontal(|ui| {
+                            ui.label("Theme");
+                            changed |= ui
+                                .radio_value(&mut self.settings.theme, UiTheme::Light, "Light")
+                                .changed();
+                            changed |= ui
+                                .radio_value(&mut self.settings.theme, UiTheme::Dark, "Dark")
+                                .changed();
+                        });
+                        ui.horizontal(|ui| {
+                            ui.label("Density");
+                            changed |= ui
+                                .radio_value(
+                                    &mut self.settings.density,
+                                    UiDensity::Comfortable,
+                                    "Comfortable",
+                                )
+                                .changed();
+                            changed |= ui
+                                .radio_value(
+                                    &mut self.settings.density,
+                                    UiDensity::Compact,
+                                    "Compact",
+                                )
+                                .changed();
+                        });
+                        ui.add_space(4.0);
+                        changed |= ui
+                            .add(
+                                egui::Slider::new(&mut self.settings.body_font_size, 10.5..=18.0)
+                                    .text("UI font"),
+                            )
+                            .changed();
+                        changed |= ui
+                            .add(
+                                egui::Slider::new(&mut self.settings.button_font_size, 10.5..=18.0)
+                                    .text("Button font"),
+                            )
+                            .changed();
+                        changed |= ui
+                            .add(
+                                egui::Slider::new(
+                                    &mut self.settings.heading_font_size,
+                                    12.0..=24.0,
+                                )
+                                .text("Heading font"),
+                            )
+                            .changed();
+                        changed |= ui
+                            .add(
+                                egui::Slider::new(&mut self.settings.code_font_size, 11.0..=20.0)
+                                    .text("Code font"),
+                            )
+                            .changed();
+                        changed |= ui
+                            .checkbox(
+                                &mut self.settings.soft_wrap_code,
+                                "Soft-wrap long code lines",
+                            )
+                            .changed();
+
+                        ui.add_space(10.0);
+                        panel_header(ui, "Layout");
+                        changed |= ui
+                            .add(
+                                egui::Slider::new(&mut self.settings.explorer_width, 180.0..=520.0)
+                                    .text("Explorer width"),
+                            )
+                            .changed();
+                        changed |= ui
+                            .add(
+                                egui::Slider::new(
+                                    &mut self.settings.inspector_width,
+                                    260.0..=640.0,
+                                )
+                                .text("Sidebar width"),
+                            )
+                            .changed();
+                        changed |= ui
+                            .add(
+                                egui::Slider::new(
+                                    &mut self.settings.result_width,
+                                    RESULT_MIN_WIDTH..=900.0,
+                                )
+                                .text("Result width"),
+                            )
+                            .changed();
+                        changed |= ui
+                            .add(
+                                egui::Slider::new(&mut self.settings.bottom_height, 140.0..=420.0)
+                                    .text("Bottom panel height"),
+                            )
+                            .changed();
+                        if changed {
+                            self.result_width = self.settings.result_width;
+                        }
+
+                        ui.add_space(10.0);
+                        panel_header(ui, "Window Size");
+                        ui.horizontal_wrapped(|ui| {
+                            if compact_button(ui, "1366x768").clicked() {
+                                self.apply_window_preset(ctx, 1366.0, 768.0);
+                                changed = true;
+                            }
+                            if compact_button(ui, "1600x920").clicked() {
+                                self.apply_window_preset(ctx, 1600.0, 920.0);
+                                changed = true;
+                            }
+                            if compact_button(ui, "1920x1080").clicked() {
+                                self.apply_window_preset(ctx, 1920.0, 1080.0);
+                                changed = true;
+                            }
+                        });
+                        ui.horizontal(|ui| {
+                            changed |= ui
+                                .add(
+                                    egui::Slider::new(
+                                        &mut self.settings.window_width,
+                                        1120.0..=3840.0,
+                                    )
+                                    .text("Width"),
+                                )
+                                .changed();
+                            changed |= ui
+                                .add(
+                                    egui::Slider::new(
+                                        &mut self.settings.window_height,
+                                        680.0..=2160.0,
+                                    )
+                                    .text("Height"),
+                                )
+                                .changed();
+                        });
+                        if ui.button("Apply window size").clicked() {
+                            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
+                                self.settings.window_width,
+                                self.settings.window_height,
+                            )));
+                            changed = true;
+                        }
+
+                        ui.add_space(10.0);
+                        ui.horizontal(|ui| {
+                            if primary_button(ui, "Save Settings").clicked() {
+                                save_requested = true;
+                            }
+                            if ui.button("Reset UI").clicked() {
+                                self.settings = UiSettings::default();
+                                self.result_width = self.settings.result_width;
+                                ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
+                                    egui::vec2(
+                                        self.settings.window_width,
+                                        self.settings.window_height,
+                                    ),
+                                ));
+                                changed = true;
+                                save_requested = true;
+                            }
+                        });
+                        ui.label(
+                            egui::RichText::new(
+                                "Saved to build/ide/settings.json for this portable copy.",
+                            )
+                            .color(ui_palette(ui).muted)
+                            .size(12.0),
+                        );
+
+                        if changed {
+                            configure_ui_style(ctx, &self.settings);
+                            save_requested = true;
+                        }
+                        if save_requested {
+                            self.save_ui_settings();
+                        }
+                    });
+            });
+        self.show_settings = open;
+    }
+
+    fn apply_window_preset(&mut self, ctx: &egui::Context, width: f32, height: f32) {
+        self.settings.window_width = width;
+        self.settings.window_height = height;
+        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(width, height)));
+    }
+
+    fn save_ui_settings(&mut self) {
+        match self.settings.save(&self.root) {
+            Ok(()) => {
+                self.status = "Settings saved".to_owned();
+            }
+            Err(error) => {
+                self.status = format!("Settings save failed: {error}");
+            }
+        }
+    }
+
     fn show_explorer(&mut self, ui: &mut egui::Ui) {
         panel_header(ui, "Explorer");
         ui.horizontal_wrapped(|ui| {
@@ -944,7 +1429,7 @@ impl EngIdeApp {
         });
         ui.label(
             egui::RichText::new(self.root.display().to_string())
-                .color(MUTED)
+                .color(ui_palette(ui).muted)
                 .monospace()
                 .size(11.5),
         );
@@ -982,17 +1467,22 @@ impl EngIdeApp {
         let entries = sorted_visible_entries(path);
         let label = explorer_directory_label(&self.root, path).unwrap_or(label);
         let default_open = depth < 1 || is_official_examples_dir(&self.root, path);
-        egui::CollapsingHeader::new(egui::RichText::new(label).strong().size(12.5).color(TEXT))
-            .default_open(default_open)
-            .show(ui, |ui| {
-                for entry in entries {
-                    if entry.is_dir() {
-                        self.show_directory(ui, &entry, depth + 1);
-                    } else {
-                        self.show_file_row(ui, &entry, depth + 1);
-                    }
+        egui::CollapsingHeader::new(
+            egui::RichText::new(label)
+                .strong()
+                .size(12.5)
+                .color(ui_palette(ui).text),
+        )
+        .default_open(default_open)
+        .show(ui, |ui| {
+            for entry in entries {
+                if entry.is_dir() {
+                    self.show_directory(ui, &entry, depth + 1);
+                } else {
+                    self.show_file_row(ui, &entry, depth + 1);
                 }
-            });
+            }
+        });
     }
 
     fn show_file_row(&mut self, ui: &mut egui::Ui, entry: &Path, depth: usize) {
@@ -1007,7 +1497,7 @@ impl EngIdeApp {
         let selected = entry == self.current_path;
         let category = example_category_label(entry);
         let fill = if selected {
-            egui::Color32::from_rgb(218, 235, 252)
+            ui_palette(ui).selected
         } else {
             egui::Color32::TRANSPARENT
         };
@@ -1019,16 +1509,24 @@ impl EngIdeApp {
                 ui.set_min_width(ui.available_width());
                 ui.horizontal(|ui| {
                     ui.add_space(depth as f32 * 10.0);
-                    ui.label(egui::RichText::new(display).size(12.5).color(TEXT));
+                    ui.label(
+                        egui::RichText::new(display)
+                            .size(12.5)
+                            .color(ui_palette(ui).text),
+                    );
                     if !extension.is_empty() {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             ui.label(
                                 egui::RichText::new(extension.to_ascii_uppercase())
                                     .size(10.5)
-                                    .color(MUTED),
+                                    .color(ui_palette(ui).muted),
                             );
                             if let Some(category) = category {
-                                ui.label(egui::RichText::new(category).size(10.5).color(ACCENT));
+                                ui.label(
+                                    egui::RichText::new(category)
+                                        .size(10.5)
+                                        .color(ui_palette(ui).accent),
+                                );
                             }
                         });
                     }
@@ -1049,9 +1547,12 @@ impl EngIdeApp {
     }
 
     fn show_editor(&mut self, ui: &mut egui::Ui) {
+        let palette = ui_palette(ui);
+        let code_font_size = self.settings.code_font_size;
+        let soft_wrap_code = self.settings.soft_wrap_code;
         egui::Frame::none()
-            .fill(PANEL)
-            .stroke(egui::Stroke::new(1.0, BORDER))
+            .fill(palette.editor_bg)
+            .stroke(egui::Stroke::new(1.0, palette.border))
             .rounding(egui::Rounding::same(4.0))
             .inner_margin(egui::Margin::same(8.0))
             .show(ui, |ui| {
@@ -1065,15 +1566,19 @@ impl EngIdeApp {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.label(
                             egui::RichText::new(format!("{} lines", self.source.lines().count()))
-                                .color(MUTED),
+                                .color(ui_palette(ui).muted),
                         );
                     });
                 });
                 ui.separator();
                 let diagnostics = self.diagnostics.clone();
                 let mut layouter = move |ui: &egui::Ui, text: &str, wrap_width: f32| {
-                    let mut job = highlight_eng(text, &diagnostics);
-                    job.wrap.max_width = wrap_width;
+                    let mut job = highlight_eng(text, &diagnostics, ui_palette(ui), code_font_size);
+                    job.wrap.max_width = if soft_wrap_code {
+                        wrap_width
+                    } else {
+                        f32::INFINITY
+                    };
                     ui.fonts(|fonts| fonts.layout_job(job))
                 };
                 let editor_height = ui.available_height().max(260.0);
@@ -1083,7 +1588,11 @@ impl EngIdeApp {
                     .max_height(editor_height)
                     .max_width(editor_width)
                     .show(ui, |ui| {
-                        let content_width = editor_width.max(estimated_code_width(&self.source));
+                        let content_width = if soft_wrap_code {
+                            editor_width
+                        } else {
+                            editor_width.max(estimated_code_width(&self.source, code_font_size))
+                        };
                         ui.set_min_size(egui::vec2(content_width, editor_height));
                         let line_count = self.source.lines().count().max(32);
                         let source_before = self.source.clone();
@@ -1098,6 +1607,7 @@ impl EngIdeApp {
                             .code_editor()
                             .desired_width(content_width)
                             .desired_rows(line_count + 2)
+                            .font(egui::TextStyle::Monospace)
                             .lock_focus(true)
                             .layouter(&mut layouter)
                             .show(ui);
@@ -1147,8 +1657,8 @@ impl EngIdeApp {
 
     fn show_plot_preview(&mut self, ui: &mut egui::Ui) {
         egui::Frame::none()
-            .fill(PANEL)
-            .stroke(egui::Stroke::new(1.0, BORDER))
+            .fill(ui_palette(ui).panel)
+            .stroke(egui::Stroke::new(1.0, ui_palette(ui).border))
             .rounding(egui::Rounding::same(4.0))
             .inner_margin(egui::Margin::same(8.0))
             .show(ui, |ui| {
@@ -1170,14 +1680,14 @@ impl EngIdeApp {
                 } else if self.last_output.is_some() {
                     ui.label(
                         egui::RichText::new("Run succeeded, but no PlotSpec preview was found.")
-                            .color(MUTED),
+                            .color(ui_palette(ui).muted),
                     );
                 } else {
                     ui.label(
                         egui::RichText::new(
                             "Run the current file to see generated plots and artifacts here.",
                         )
-                        .color(MUTED),
+                        .color(ui_palette(ui).muted),
                     );
                 }
             });
@@ -1191,22 +1701,25 @@ impl EngIdeApp {
                 self.show_plot_preview(ui);
                 ui.add_space(10.0);
                 egui::Frame::none()
-                    .fill(PANEL)
-                    .stroke(egui::Stroke::new(1.0, BORDER))
+                    .fill(ui_palette(ui).panel)
+                    .stroke(egui::Stroke::new(1.0, ui_palette(ui).border))
                     .rounding(egui::Rounding::same(4.0))
                     .inner_margin(egui::Margin::same(8.0))
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
                             ui.heading(egui::RichText::new("Runtime").size(14.0));
-                            ui.label(egui::RichText::new("result.engres summary").color(MUTED));
+                            ui.label(
+                                egui::RichText::new("result.engres summary")
+                                    .color(ui_palette(ui).muted),
+                            );
                         });
                         ui.separator();
                         self.show_runtime_summary_content(ui);
                     });
                 ui.add_space(10.0);
                 egui::Frame::none()
-                    .fill(PANEL)
-                    .stroke(egui::Stroke::new(1.0, BORDER))
+                    .fill(ui_palette(ui).panel)
+                    .stroke(egui::Stroke::new(1.0, ui_palette(ui).border))
                     .rounding(egui::Rounding::same(4.0))
                     .inner_margin(egui::Margin::same(8.0))
                     .show(ui, |ui| {
@@ -1241,16 +1754,41 @@ impl EngIdeApp {
         panel_header(ui, "Inspector");
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
-                metric_chip(ui, "Variables", &self.symbols.len().to_string(), ACCENT);
-                metric_chip(ui, "Schemas", &self.schemas.len().to_string(), ACCENT);
-                metric_chip(ui, "CSV", &self.csv_promotions.len().to_string(), ACCENT);
-                metric_chip(ui, "Domains", &self.domains.len().to_string(), ACCENT);
-                metric_chip(ui, "Components", &self.components.len().to_string(), ACCENT);
+                metric_chip(
+                    ui,
+                    "Variables",
+                    &self.symbols.len().to_string(),
+                    ui_palette(ui).accent,
+                );
+                metric_chip(
+                    ui,
+                    "Schemas",
+                    &self.schemas.len().to_string(),
+                    ui_palette(ui).accent,
+                );
+                metric_chip(
+                    ui,
+                    "CSV",
+                    &self.csv_promotions.len().to_string(),
+                    ui_palette(ui).accent,
+                );
+                metric_chip(
+                    ui,
+                    "Domains",
+                    &self.domains.len().to_string(),
+                    ui_palette(ui).accent,
+                );
+                metric_chip(
+                    ui,
+                    "Components",
+                    &self.components.len().to_string(),
+                    ui_palette(ui).accent,
+                );
                 metric_chip(
                     ui,
                     "Connections",
                     &self.connections.len().to_string(),
-                    ACCENT,
+                    ui_palette(ui).accent,
                 );
             });
             ui.add_space(8.0);
@@ -1259,14 +1797,14 @@ impl EngIdeApp {
 
             section_label(ui, "Variables");
             if self.symbols.is_empty() {
-                ui.label(egui::RichText::new("No symbols").color(MUTED));
+                ui.label(egui::RichText::new("No symbols").color(ui_palette(ui).muted));
             }
             for symbol in &self.symbols {
                 runtime_card(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.label(egui::RichText::new(&symbol.name).strong());
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            status_pill(ui, &format!("L{}", symbol.line), MUTED);
+                            status_pill(ui, &format!("L{}", symbol.line), ui_palette(ui).muted);
                         });
                     });
                     key_value_row(ui, "quantity", &symbol.quantity_kind);
@@ -1298,19 +1836,25 @@ impl EngIdeApp {
     fn show_domain_component_inspector(&self, ui: &mut egui::Ui) {
         section_label(ui, "Domain Graph");
         if self.domains.is_empty() && self.components.is_empty() && self.connections.is_empty() {
-            ui.label(egui::RichText::new("No domain/component declarations").color(MUTED));
+            ui.label(
+                egui::RichText::new("No domain/component declarations").color(ui_palette(ui).muted),
+            );
             ui.add_space(8.0);
             return;
         }
 
         if !self.domains.is_empty() {
-            ui.label(egui::RichText::new("Domains").color(MUTED).size(12.0));
+            ui.label(
+                egui::RichText::new("Domains")
+                    .color(ui_palette(ui).muted)
+                    .size(12.0),
+            );
             for domain in &self.domains {
                 runtime_card(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.label(egui::RichText::new(&domain.name).strong());
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            status_pill(ui, &format!("L{}", domain.line), MUTED);
+                            status_pill(ui, &format!("L{}", domain.line), ui_palette(ui).muted);
                         });
                     });
                     key_value_row(ui, "variables", &domain.variables.len().to_string());
@@ -1345,7 +1889,7 @@ impl EngIdeApp {
                                     [92.0, 18.0],
                                     egui::Label::new(
                                         egui::RichText::new(format!("L{}", conservation.line))
-                                            .color(MUTED)
+                                            .color(ui_palette(ui).muted)
                                             .size(12.0),
                                     ),
                                 );
@@ -1357,7 +1901,7 @@ impl EngIdeApp {
                                 status_pill(
                                     ui,
                                     &conservation.status,
-                                    status_color(&conservation.status),
+                                    status_color(&conservation.status, ui_palette(ui)),
                                 );
                             });
                         }
@@ -1369,13 +1913,17 @@ impl EngIdeApp {
 
         if !self.components.is_empty() {
             ui.add_space(6.0);
-            ui.label(egui::RichText::new("Components").color(MUTED).size(12.0));
+            ui.label(
+                egui::RichText::new("Components")
+                    .color(ui_palette(ui).muted)
+                    .size(12.0),
+            );
             for component in &self.components {
                 runtime_card(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.label(egui::RichText::new(&component.name).strong());
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            status_pill(ui, &format!("L{}", component.line), MUTED);
+                            status_pill(ui, &format!("L{}", component.line), ui_palette(ui).muted);
                         });
                     });
                     key_value_row(ui, "ports", &component.ports.len().to_string());
@@ -1385,7 +1933,7 @@ impl EngIdeApp {
                                 [92.0, 18.0],
                                 egui::Label::new(
                                     egui::RichText::new(format!("L{}", port.line))
-                                        .color(MUTED)
+                                        .color(ui_palette(ui).muted)
                                         .size(12.0),
                                 ),
                             );
@@ -1394,7 +1942,11 @@ impl EngIdeApp {
                                     .monospace()
                                     .size(12.0),
                             );
-                            status_pill(ui, &port.status, status_color(&port.status));
+                            status_pill(
+                                ui,
+                                &port.status,
+                                status_color(&port.status, ui_palette(ui)),
+                            );
                         });
                         if !port.type_arguments.is_empty() {
                             key_value_row(ui, "arguments", &compact_list(&port.type_arguments, 4));
@@ -1408,11 +1960,18 @@ impl EngIdeApp {
 
         if !self.connections.is_empty() {
             ui.add_space(6.0);
-            ui.label(egui::RichText::new("Connections").color(MUTED).size(12.0));
+            ui.label(
+                egui::RichText::new("Connections")
+                    .color(ui_palette(ui).muted)
+                    .size(12.0),
+            );
             for connection in &self.connections {
                 runtime_card(ui, |ui| {
                     ui.horizontal_wrapped(|ui| {
-                        ui.label(egui::RichText::new(format!("L{}", connection.line)).color(MUTED));
+                        ui.label(
+                            egui::RichText::new(format!("L{}", connection.line))
+                                .color(ui_palette(ui).muted),
+                        );
                         ui.label(
                             egui::RichText::new(format!(
                                 "{} -> {}",
@@ -1426,9 +1985,17 @@ impl EngIdeApp {
                     ui.horizontal_wrapped(|ui| {
                         ui.add_sized(
                             [92.0, 18.0],
-                            egui::Label::new(egui::RichText::new("status").color(MUTED).size(12.0)),
+                            egui::Label::new(
+                                egui::RichText::new("status")
+                                    .color(ui_palette(ui).muted)
+                                    .size(12.0),
+                            ),
                         );
-                        status_pill(ui, &connection.status, status_color(&connection.status));
+                        status_pill(
+                            ui,
+                            &connection.status,
+                            status_color(&connection.status, ui_palette(ui)),
+                        );
                     });
                 });
                 ui.add_space(5.0);
@@ -1444,7 +2011,7 @@ impl EngIdeApp {
         ui.add_space(8.0);
         section_label(ui, "Unit Paths");
         if self.unit_derivations.is_empty() {
-            ui.label(egui::RichText::new("No unit derivations").color(MUTED));
+            ui.label(egui::RichText::new("No unit derivations").color(ui_palette(ui).muted));
             return;
         }
         for derivation in &self.unit_derivations {
@@ -1452,7 +2019,7 @@ impl EngIdeApp {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(&derivation.name).strong());
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        status_pill(ui, &format!("L{}", derivation.line), MUTED);
+                        status_pill(ui, &format!("L{}", derivation.line), ui_palette(ui).muted);
                     });
                 });
                 key_value_row(ui, "quantity", &derivation.quantity_kind);
@@ -1476,7 +2043,7 @@ impl EngIdeApp {
         ui.add_space(8.0);
         section_label(ui, "Schemas");
         if self.schemas.is_empty() {
-            ui.label(egui::RichText::new("No schema declarations").color(MUTED));
+            ui.label(egui::RichText::new("No schema declarations").color(ui_palette(ui).muted));
             return;
         }
         for schema in &self.schemas {
@@ -1484,7 +2051,7 @@ impl EngIdeApp {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(&schema.name).strong());
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        status_pill(ui, &format!("L{}", schema.line), MUTED);
+                        status_pill(ui, &format!("L{}", schema.line), ui_palette(ui).muted);
                     });
                 });
                 key_value_row(ui, "columns", &schema.columns.len().to_string());
@@ -1525,7 +2092,7 @@ impl EngIdeApp {
         ui.add_space(8.0);
         section_label(ui, "CSV Promotions");
         if self.csv_promotions.is_empty() {
-            ui.label(egui::RichText::new("No CSV promotions").color(MUTED));
+            ui.label(egui::RichText::new("No CSV promotions").color(ui_palette(ui).muted));
             return;
         }
         for promotion in &self.csv_promotions {
@@ -1533,7 +2100,7 @@ impl EngIdeApp {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(&promotion.binding).strong());
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        status_pill(ui, &format!("L{}", promotion.line), MUTED);
+                        status_pill(ui, &format!("L{}", promotion.line), ui_palette(ui).muted);
                     });
                 });
                 key_value_row(ui, "schema", &promotion.schema_name);
@@ -1566,9 +2133,9 @@ impl EngIdeApp {
             let items = self.completion_items_for_filter(&self.completion_filter);
             for (index, item) in items.iter().enumerate() {
                 let fill = if index == 0 {
-                    egui::Color32::from_rgb(222, 235, 249)
+                    ui_palette(ui).selected
                 } else {
-                    PANEL_ALT
+                    ui_palette(ui).panel_alt
                 };
                 let response = egui::Frame::none()
                     .fill(fill)
@@ -1581,12 +2148,16 @@ impl EngIdeApp {
                                 ui.with_layout(
                                     egui::Layout::right_to_left(egui::Align::Center),
                                     |ui| {
-                                        status_pill(ui, "Tab", ACCENT);
+                                        status_pill(ui, "Tab", ui_palette(ui).accent);
                                     },
                                 );
                             }
                         });
-                        ui.label(egui::RichText::new(&item.detail).color(MUTED).size(12.0));
+                        ui.label(
+                            egui::RichText::new(&item.detail)
+                                .color(ui_palette(ui).muted)
+                                .size(12.0),
+                        );
                     })
                     .response;
                 if response.interact(egui::Sense::click()).clicked() {
@@ -1608,7 +2179,7 @@ impl EngIdeApp {
         let Some(summary) = &self.artifact_summary else {
             ui.label(
                 egui::RichText::new("Run the current file to inspect result artifacts.")
-                    .color(MUTED),
+                    .color(ui_palette(ui).muted),
             );
             ui.add_space(8.0);
             self.show_jit_plan(ui);
@@ -1620,17 +2191,32 @@ impl EngIdeApp {
                 ui,
                 "Uncertainty",
                 &summary.uncertainties.len().to_string(),
-                ACCENT,
+                ui_palette(ui).accent,
             );
-            metric_chip(ui, "ML", &summary.ml.len().to_string(), ACCENT);
-            metric_chip(ui, "Policies", &summary.policy_count.to_string(), ACCENT);
-            metric_chip(ui, "Systems", &summary.system_count.to_string(), ACCENT);
+            metric_chip(
+                ui,
+                "ML",
+                &summary.ml.len().to_string(),
+                ui_palette(ui).accent,
+            );
+            metric_chip(
+                ui,
+                "Policies",
+                &summary.policy_count.to_string(),
+                ui_palette(ui).accent,
+            );
+            metric_chip(
+                ui,
+                "Systems",
+                &summary.system_count.to_string(),
+                ui_palette(ui).accent,
+            );
             if let Some(plan) = &self.jit_plan {
                 metric_chip(
                     ui,
                     "Kernel Plan",
                     &plan.candidates.len().to_string(),
-                    ACCENT,
+                    ui_palette(ui).accent,
                 );
             }
         });
@@ -1638,7 +2224,10 @@ impl EngIdeApp {
 
         section_label(ui, "Uncertainty");
         if summary.uncertainties.is_empty() {
-            ui.label(egui::RichText::new("No uncertainty artifacts in this run.").color(MUTED));
+            ui.label(
+                egui::RichText::new("No uncertainty artifacts in this run.")
+                    .color(ui_palette(ui).muted),
+            );
         }
         for item in &summary.uncertainties {
             runtime_card(ui, |ui| {
@@ -1653,7 +2242,7 @@ impl EngIdeApp {
                         "{} / {} [{}]",
                         item.kind, item.quantity_kind, item.display_unit
                     ))
-                    .color(MUTED),
+                    .color(ui_palette(ui).muted),
                 );
                 key_value_row(
                     ui,
@@ -1697,7 +2286,9 @@ impl EngIdeApp {
         ui.add_space(8.0);
         section_label(ui, "ML Models");
         if summary.ml.is_empty() {
-            ui.label(egui::RichText::new("No ML artifacts in this run.").color(MUTED));
+            ui.label(
+                egui::RichText::new("No ML artifacts in this run.").color(ui_palette(ui).muted),
+            );
         }
         for item in &summary.ml {
             runtime_card(ui, |ui| {
@@ -1707,7 +2298,7 @@ impl EngIdeApp {
                         status_pill(ui, &item.status, OK);
                     });
                 });
-                ui.label(egui::RichText::new(&item.kind).color(MUTED));
+                ui.label(egui::RichText::new(&item.kind).color(ui_palette(ui).muted));
                 if let Some(target) = &item.target {
                     key_value_row(ui, "target", target);
                 }
@@ -1759,29 +2350,37 @@ impl EngIdeApp {
         let Some(plan) = &self.jit_plan else {
             ui.label(
                 egui::RichText::new("Check the current file to inspect kernel candidates.")
-                    .color(MUTED),
+                    .color(ui_palette(ui).muted),
             );
             return;
         };
 
         ui.horizontal_wrapped(|ui| {
-            metric_chip(ui, "Format", &plan.format, MUTED);
+            metric_chip(ui, "Format", &plan.format, ui_palette(ui).muted);
             metric_chip(ui, "Backend", &plan.backend, WARNING);
             metric_chip(ui, "Backend Status", &plan.backend_status, WARNING);
-            metric_chip(ui, "Candidates", &plan.candidates.len().to_string(), ACCENT);
+            metric_chip(
+                ui,
+                "Candidates",
+                &plan.candidates.len().to_string(),
+                ui_palette(ui).accent,
+            );
         });
         key_value_row(ui, "requested", &plan.backend_requested);
         key_value_row(ui, "selection", &plan.backend_reason);
         ui.add_space(6.0);
         ui.label(
             egui::RichText::new("Planning metadata only; execution still uses the normal runtime.")
-                .color(MUTED)
+                .color(ui_palette(ui).muted)
                 .size(12.0),
         );
         ui.add_space(6.0);
 
         if plan.candidates.is_empty() {
-            ui.label(egui::RichText::new("No kernel candidates in this file.").color(MUTED));
+            ui.label(
+                egui::RichText::new("No kernel candidates in this file.")
+                    .color(ui_palette(ui).muted),
+            );
             return;
         }
 
@@ -1790,11 +2389,11 @@ impl EngIdeApp {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(&candidate.name).strong());
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        status_pill(ui, &format!("L{}", candidate.line), MUTED);
+                        status_pill(ui, &format!("L{}", candidate.line), ui_palette(ui).muted);
                     });
                 });
                 ui.horizontal_wrapped(|ui| {
-                    status_pill(ui, &candidate.kind, ACCENT);
+                    status_pill(ui, &candidate.kind, ui_palette(ui).accent);
                     let status_color = if candidate.lowering_status == "interface_only" {
                         WARNING
                     } else {
@@ -1867,12 +2466,17 @@ impl EngIdeApp {
                             .color(color)
                             .strong(),
                     );
-                    ui.label(egui::RichText::new(format!("L{}", diagnostic.line)).color(MUTED));
+                    ui.label(
+                        egui::RichText::new(format!("L{}", diagnostic.line))
+                            .color(ui_palette(ui).muted),
+                    );
                     ui.label(egui::RichText::new(&diagnostic.code).monospace());
                     ui.label(&diagnostic.message);
                 });
                 if let Some(help) = &diagnostic.help {
-                    ui.label(egui::RichText::new(format!("help: {help}")).color(MUTED));
+                    ui.label(
+                        egui::RichText::new(format!("help: {help}")).color(ui_palette(ui).muted),
+                    );
                 }
                 ui.add_space(6.0);
             }
@@ -1882,7 +2486,7 @@ impl EngIdeApp {
     fn show_output(&self, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical().show(ui, |ui| {
             if self.run_log.is_empty() {
-                ui.label(egui::RichText::new("No run output").color(MUTED));
+                ui.label(egui::RichText::new("No run output").color(ui_palette(ui).muted));
             } else {
                 ui.monospace(&self.run_log);
             }
@@ -1904,10 +2508,20 @@ impl EngIdeApp {
                         ui,
                         "Uncertainty",
                         &summary.uncertainties.len().to_string(),
-                        ACCENT,
+                        ui_palette(ui).accent,
                     );
-                    metric_chip(ui, "ML", &summary.ml.len().to_string(), ACCENT);
-                    metric_chip(ui, "Systems", &summary.system_count.to_string(), ACCENT);
+                    metric_chip(
+                        ui,
+                        "ML",
+                        &summary.ml.len().to_string(),
+                        ui_palette(ui).accent,
+                    );
+                    metric_chip(
+                        ui,
+                        "Systems",
+                        &summary.system_count.to_string(),
+                        ui_palette(ui).accent,
+                    );
                 });
                 ui.add_space(8.0);
             }
@@ -1920,7 +2534,7 @@ impl EngIdeApp {
             artifact_row(ui, "Review", &output.review_path);
             artifact_row(ui, "Bytecode", &output.bytecode_path);
         } else {
-            ui.label(egui::RichText::new("No artifacts yet").color(MUTED));
+            ui.label(egui::RichText::new("No artifacts yet").color(ui_palette(ui).muted));
         }
     }
 
@@ -1961,9 +2575,9 @@ impl EngIdeApp {
                 self.result_width = (self.result_width - delta_x).clamp(min_result, max_result);
             }
             let splitter_color = if splitter_response.hovered() || splitter_response.dragged() {
-                ACCENT
+                ui_palette(ui).accent
             } else {
-                BORDER
+                ui_palette(ui).border
             };
             ui.painter().rect_filled(
                 splitter_rect.shrink2(egui::vec2(2.5, 0.0)),
@@ -1982,45 +2596,50 @@ impl EngIdeApp {
 
 impl eframe::App for EngIdeApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        configure_ui_style(ctx, &self.settings);
         self.maybe_auto_check(ctx);
 
         egui::TopBottomPanel::top("toolbar")
-            .frame(panel_frame())
+            .frame(panel_frame(ctx))
             .show(ctx, |ui| self.show_toolbar(ui));
 
         egui::TopBottomPanel::bottom("bottom_panel")
             .resizable(true)
-            .default_height(190.0)
-            .frame(panel_frame())
+            .default_height(self.settings.bottom_height)
+            .frame(panel_frame(ctx))
             .show(ctx, |ui| self.show_bottom_panel(ui));
 
         if self.show_explorer {
             egui::SidePanel::left("explorer")
                 .resizable(true)
-                .default_width(230.0)
-                .width_range(180.0..=420.0)
-                .frame(panel_frame())
+                .default_width(self.settings.explorer_width)
+                .width_range(180.0..=520.0)
+                .frame(panel_frame(ctx))
                 .show(ctx, |ui| self.show_explorer(ui));
         }
 
         if self.show_inspector_panel {
             egui::SidePanel::right("inspector")
                 .resizable(true)
-                .default_width(320.0)
-                .width_range(260.0..=520.0)
-                .frame(panel_frame())
+                .default_width(self.settings.inspector_width)
+                .width_range(260.0..=640.0)
+                .frame(panel_frame(ctx))
                 .show(ctx, |ui| self.show_right_panel(ui));
         }
 
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::none()
-                    .fill(BG)
+                    .fill(ThemePalette::for_theme(self.settings.theme).bg)
                     .inner_margin(egui::Margin::same(8.0)),
             )
             .show(ctx, |ui| {
                 self.show_workspace(ui);
             });
+
+        if self.show_settings {
+            self.show_settings_window(ctx);
+        }
     }
 }
 
@@ -2785,7 +3404,12 @@ fn source_identifiers(source: &str) -> Vec<String> {
     identifiers
 }
 
-fn highlight_eng(source: &str, diagnostics: &[DiagnosticView]) -> LayoutJob {
+fn highlight_eng(
+    source: &str,
+    diagnostics: &[DiagnosticView],
+    palette: ThemePalette,
+    code_font_size: f32,
+) -> LayoutJob {
     let mut job = LayoutJob::default();
     for (line_index, line) in source.lines().enumerate() {
         let line_number = line_index + 1;
@@ -2793,25 +3417,39 @@ fn highlight_eng(source: &str, diagnostics: &[DiagnosticView]) -> LayoutJob {
             .iter()
             .any(|diagnostic| diagnostic.line == line_number && diagnostic.severity == "error")
         {
-            egui::Color32::from_rgb(255, 239, 239)
+            palette.diag_error_bg
         } else if diagnostics
             .iter()
             .any(|diagnostic| diagnostic.line == line_number && diagnostic.severity == "warning")
         {
-            egui::Color32::from_rgb(255, 248, 226)
+            palette.diag_warning_bg
         } else {
             egui::Color32::TRANSPARENT
         };
-        append_highlighted_line(&mut job, line, background);
-        job.append("\n", 0.0, code_format(TEXT, background));
+        append_highlighted_line(&mut job, line, background, palette, code_font_size);
+        job.append(
+            "\n",
+            0.0,
+            code_format(palette.text, background, code_font_size),
+        );
     }
     if source.is_empty() {
-        job.append("", 0.0, code_format(TEXT, egui::Color32::TRANSPARENT));
+        job.append(
+            "",
+            0.0,
+            code_format(palette.text, egui::Color32::TRANSPARENT, code_font_size),
+        );
     }
     job
 }
 
-fn append_highlighted_line(job: &mut LayoutJob, line: &str, background: egui::Color32) {
+fn append_highlighted_line(
+    job: &mut LayoutJob,
+    line: &str,
+    background: egui::Color32,
+    palette: ThemePalette,
+    code_font_size: f32,
+) {
     let chars: Vec<char> = line.chars().collect();
     let mut index = 0usize;
     while index < chars.len() {
@@ -2829,11 +3467,18 @@ fn append_highlighted_line(job: &mut LayoutJob, line: &str, background: egui::Co
             append_chars(
                 job,
                 &chars[start..index],
-                egui::Color32::from_rgb(138, 78, 23),
+                palette.string,
                 background,
+                code_font_size,
             );
         } else if character == '#' {
-            append_chars(job, &chars[index..], MUTED, background);
+            append_chars(
+                job,
+                &chars[index..],
+                palette.muted,
+                background,
+                code_font_size,
+            );
             break;
         } else if character.is_ascii_digit() {
             let start = index;
@@ -2846,8 +3491,9 @@ fn append_highlighted_line(job: &mut LayoutJob, line: &str, background: egui::Co
             append_chars(
                 job,
                 &chars[start..index],
-                egui::Color32::from_rgb(126, 76, 175),
+                palette.number,
                 background,
+                code_font_size,
             );
         } else if character.is_ascii_alphabetic() || character == '_' {
             let start = index;
@@ -2859,15 +3505,21 @@ fn append_highlighted_line(job: &mut LayoutJob, line: &str, background: egui::Co
             }
             let token: String = chars[start..index].iter().collect();
             let color = if is_keyword(&token) {
-                ACCENT
+                palette.accent
             } else if is_quantity_like(&token) {
-                egui::Color32::from_rgb(120, 72, 156)
+                palette.quantity
             } else {
-                TEXT
+                palette.text
             };
-            append_chars(job, &chars[start..index], color, background);
+            append_chars(job, &chars[start..index], color, background, code_font_size);
         } else {
-            append_chars(job, &chars[index..index + 1], TEXT, background);
+            append_chars(
+                job,
+                &chars[index..index + 1],
+                palette.text,
+                background,
+                code_font_size,
+            );
             index += 1;
         }
     }
@@ -2878,14 +3530,15 @@ fn append_chars(
     chars: &[char],
     color: egui::Color32,
     background: egui::Color32,
+    code_font_size: f32,
 ) {
     let text: String = chars.iter().collect();
-    job.append(&text, 0.0, code_format(color, background));
+    job.append(&text, 0.0, code_format(color, background, code_font_size));
 }
 
-fn code_format(color: egui::Color32, background: egui::Color32) -> TextFormat {
+fn code_format(color: egui::Color32, background: egui::Color32, code_font_size: f32) -> TextFormat {
     TextFormat {
-        font_id: egui::FontId::monospace(13.5),
+        font_id: egui::FontId::monospace(code_font_size),
         color,
         background,
         ..Default::default()
@@ -2977,7 +3630,7 @@ fn current_prefix(source: &str, cursor_char_index: usize) -> String {
         .collect()
 }
 
-fn estimated_code_width(source: &str) -> f32 {
+fn estimated_code_width(source: &str, code_font_size: f32) -> f32 {
     let longest_line = source
         .lines()
         .map(|line| line.chars().count())
@@ -2986,7 +3639,7 @@ fn estimated_code_width(source: &str) -> f32 {
     if longest_line <= 92 {
         0.0
     } else {
-        (longest_line as f32 * 7.4 + 36.0).min(1800.0)
+        (longest_line as f32 * (code_font_size * 0.57) + 36.0).min(2400.0)
     }
 }
 
@@ -3219,26 +3872,38 @@ fn relative_to(root: &Path, path: &Path) -> String {
         .replace('\\', "/")
 }
 
-fn panel_frame() -> egui::Frame {
+fn panel_frame(ctx: &egui::Context) -> egui::Frame {
+    let palette = if ctx.style().visuals.dark_mode {
+        ThemePalette::for_theme(UiTheme::Dark)
+    } else {
+        ThemePalette::for_theme(UiTheme::Light)
+    };
     egui::Frame::none()
-        .fill(PANEL)
-        .stroke(egui::Stroke::new(1.0, BORDER))
+        .fill(palette.panel)
+        .stroke(egui::Stroke::new(1.0, palette.border))
         .inner_margin(egui::Margin::same(8.0))
 }
 
 fn panel_header(ui: &mut egui::Ui, text: &str) {
-    ui.label(egui::RichText::new(text).size(14.0).strong().color(TEXT));
+    let palette = ui_palette(ui);
+    ui.label(
+        egui::RichText::new(text)
+            .size(14.0)
+            .strong()
+            .color(palette.text),
+    );
     ui.add_space(2.0);
 }
 
 fn primary_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
+    let palette = ui_palette(ui);
     ui.add(
         egui::Button::new(
             egui::RichText::new(text)
                 .color(egui::Color32::WHITE)
                 .strong(),
         )
-        .fill(ACCENT),
+        .fill(palette.accent),
     )
 }
 
@@ -3250,39 +3915,54 @@ fn compact_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
 }
 
 fn completion_hint(ui: &mut egui::Ui, prefix: &str, item: &CompletionItem) {
+    let palette = ui_palette(ui);
     let display_insert = if item.insert.chars().count() > 48 {
         item.label.as_str()
     } else {
         item.insert.as_str()
     };
     egui::Frame::none()
-        .fill(egui::Color32::from_rgb(245, 249, 255))
-        .stroke(egui::Stroke::new(
-            1.0,
-            egui::Color32::from_rgb(191, 219, 254),
-        ))
+        .fill(palette.hint_bg)
+        .stroke(egui::Stroke::new(1.0, palette.border))
         .rounding(egui::Rounding::same(4.0))
         .inner_margin(egui::Margin::symmetric(8.0, 5.0))
         .show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
-                status_pill(ui, "Tab", ACCENT);
-                ui.label(egui::RichText::new("complete").color(MUTED).size(12.0));
+                status_pill(ui, "Tab", palette.accent);
+                ui.label(
+                    egui::RichText::new("complete")
+                        .color(palette.muted)
+                        .size(12.0),
+                );
                 ui.label(egui::RichText::new(prefix).monospace().size(12.0));
-                ui.label(egui::RichText::new("to").color(MUTED).size(12.0));
+                ui.label(egui::RichText::new("to").color(palette.muted).size(12.0));
                 ui.label(
                     egui::RichText::new(display_insert)
                         .monospace()
                         .strong()
                         .size(12.0),
                 );
-                ui.label(egui::RichText::new(&item.detail).color(MUTED).size(12.0));
+                ui.label(
+                    egui::RichText::new(&item.detail)
+                        .color(palette.muted)
+                        .size(12.0),
+                );
             });
         });
 }
 
 fn tab_button(ui: &mut egui::Ui, text: &str, selected: bool) -> egui::Response {
-    let fill = if selected { ACCENT } else { PANEL_ALT };
-    let color = if selected { egui::Color32::WHITE } else { TEXT };
+    let palette = ui_palette(ui);
+    let fill = if selected {
+        palette.accent
+    } else {
+        palette.panel_alt
+    };
+    let color = if selected {
+        egui::Color32::WHITE
+    } else {
+        palette.text
+    };
     ui.add(
         egui::Button::new(egui::RichText::new(text).color(color).size(12.0))
             .fill(fill)
@@ -3305,7 +3985,7 @@ fn status_pill(ui: &mut egui::Ui, text: &str, color: egui::Color32) {
         });
 }
 
-fn status_color(status: &str) -> egui::Color32 {
+fn status_color(status: &str, palette: ThemePalette) -> egui::Color32 {
     match status {
         "recorded" | "domain_resolved" | "domain_compatible" | "unit_consistent" => OK,
         "unknown_domain"
@@ -3317,16 +3997,22 @@ fn status_color(status: &str) -> egui::Color32 {
         | "domain_parameter_mismatch"
         | "unresolved_endpoint" => ERROR,
         "unvalidated" | "metadata_only" | "deferred" | "unsolved" => WARNING,
-        _ => MUTED,
+        _ => palette.muted,
     }
 }
 
 fn section_label(ui: &mut egui::Ui, text: &str) {
-    ui.label(egui::RichText::new(text).size(12.5).strong().color(TEXT));
+    ui.label(
+        egui::RichText::new(text)
+            .size(12.5)
+            .strong()
+            .color(ui_palette(ui).text),
+    );
     ui.add_space(3.0);
 }
 
 fn metric_chip(ui: &mut egui::Ui, label: &str, value: &str, color: egui::Color32) {
+    let palette = ui_palette(ui);
     egui::Frame::none()
         .fill(color.linear_multiply(0.08))
         .stroke(egui::Stroke::new(1.0, color.linear_multiply(0.35)))
@@ -3334,7 +4020,7 @@ fn metric_chip(ui: &mut egui::Ui, label: &str, value: &str, color: egui::Color32
         .inner_margin(egui::Margin::symmetric(8.0, 5.0))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(label).color(MUTED).size(12.0));
+                ui.label(egui::RichText::new(label).color(palette.muted).size(12.0));
                 ui.label(egui::RichText::new(value).color(color).strong().size(12.0));
             });
         });
@@ -3344,19 +4030,21 @@ fn runtime_card(
     ui: &mut egui::Ui,
     add_contents: impl FnOnce(&mut egui::Ui),
 ) -> egui::InnerResponse<()> {
+    let palette = ui_palette(ui);
     egui::Frame::none()
-        .fill(PANEL_ALT)
-        .stroke(egui::Stroke::new(1.0, BORDER))
+        .fill(palette.panel_alt)
+        .stroke(egui::Stroke::new(1.0, palette.border))
         .rounding(egui::Rounding::same(6.0))
         .inner_margin(egui::Margin::symmetric(9.0, 7.0))
         .show(ui, add_contents)
 }
 
 fn key_value_row(ui: &mut egui::Ui, key: &str, value: &str) {
+    let palette = ui_palette(ui);
     ui.horizontal_wrapped(|ui| {
         ui.add_sized(
             [92.0, 18.0],
-            egui::Label::new(egui::RichText::new(key).color(MUTED).size(12.0)),
+            egui::Label::new(egui::RichText::new(key).color(palette.muted).size(12.0)),
         );
         ui.label(egui::RichText::new(value).monospace().size(12.0));
     });
@@ -3376,24 +4064,22 @@ fn artifact_row(ui: &mut egui::Ui, label: &str, path: &Path) {
 }
 
 fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
+    let palette = ui_palette(ui);
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new(&plot.title).strong());
         ui.label(
-            egui::RichText::new(format!("{} / {}", plot.plot_type, plot.series_name)).color(MUTED),
+            egui::RichText::new(format!("{} / {}", plot.plot_type, plot.series_name))
+                .color(palette.muted),
         );
     });
     let desired = egui::vec2(ui.available_width(), 260.0);
     let (rect, _) = ui.allocate_exact_size(desired, egui::Sense::hover());
     let painter = ui.painter_at(rect);
-    painter.rect_filled(
-        rect,
-        egui::Rounding::same(6.0),
-        egui::Color32::from_rgb(250, 252, 255),
-    );
+    painter.rect_filled(rect, egui::Rounding::same(6.0), palette.plot_bg);
     painter.rect_stroke(
         rect,
         egui::Rounding::same(6.0),
-        egui::Stroke::new(1.0, BORDER),
+        egui::Stroke::new(1.0, palette.border),
     );
 
     let plot_rect = egui::Rect::from_min_max(
@@ -3404,18 +4090,18 @@ fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
     if plot.points.is_empty() {
         painter.line_segment(
             [plot_rect.left_bottom(), plot_rect.right_bottom()],
-            egui::Stroke::new(1.4, egui::Color32::from_rgb(65, 76, 90)),
+            egui::Stroke::new(1.4, palette.axis),
         );
         painter.line_segment(
             [plot_rect.left_bottom(), plot_rect.left_top()],
-            egui::Stroke::new(1.4, egui::Color32::from_rgb(65, 76, 90)),
+            egui::Stroke::new(1.4, palette.axis),
         );
         painter.text(
             plot_rect.center(),
             egui::Align2::CENTER_CENTER,
             "No points",
             egui::FontId::proportional(14.0),
-            MUTED,
+            palette.muted,
         );
     } else {
         let (min_x, max_x, min_y, max_y) = plot_bounds(plot);
@@ -3437,14 +4123,14 @@ fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
                     egui::pos2(x, plot_rect.top()),
                     egui::pos2(x, plot_rect.bottom()),
                 ],
-                egui::Stroke::new(1.0, egui::Color32::from_rgb(226, 232, 240)),
+                egui::Stroke::new(1.0, palette.grid),
             );
             painter.text(
                 egui::pos2(x, plot_rect.bottom() + 7.0),
                 egui::Align2::CENTER_TOP,
                 format_tick(*tick),
                 egui::FontId::proportional(10.5),
-                MUTED,
+                palette.muted,
             );
         }
         for tick in &y_ticks {
@@ -3454,24 +4140,24 @@ fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
                     egui::pos2(plot_rect.left(), y),
                     egui::pos2(plot_rect.right(), y),
                 ],
-                egui::Stroke::new(1.0, egui::Color32::from_rgb(226, 232, 240)),
+                egui::Stroke::new(1.0, palette.grid),
             );
             painter.text(
                 egui::pos2(plot_rect.left() - 8.0, y),
                 egui::Align2::RIGHT_CENTER,
                 format_tick(*tick),
                 egui::FontId::proportional(10.5),
-                MUTED,
+                palette.muted,
             );
         }
 
         painter.line_segment(
             [plot_rect.left_bottom(), plot_rect.right_bottom()],
-            egui::Stroke::new(1.5, egui::Color32::from_rgb(65, 76, 90)),
+            egui::Stroke::new(1.5, palette.axis),
         );
         painter.line_segment(
             [plot_rect.left_bottom(), plot_rect.left_top()],
-            egui::Stroke::new(1.5, egui::Color32::from_rgb(65, 76, 90)),
+            egui::Stroke::new(1.5, palette.axis),
         );
         if min_y < 0.0 && max_y > 0.0 {
             let zero_y = to_screen((min_x, 0.0)).y;
@@ -3480,7 +4166,7 @@ fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
                     egui::pos2(plot_rect.left(), zero_y),
                     egui::pos2(plot_rect.right(), zero_y),
                 ],
-                egui::Stroke::new(1.5, egui::Color32::from_rgb(148, 163, 184)),
+                egui::Stroke::new(1.5, palette.grid),
             );
         }
 
@@ -3497,7 +4183,7 @@ fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
                         value_y.max(baseline_y),
                     ),
                 );
-                painter.rect_filled(bar_rect, egui::Rounding::same(1.5), ACCENT);
+                painter.rect_filled(bar_rect, egui::Rounding::same(1.5), palette.accent);
             }
         } else if plot.plot_type == "bar" || plot.plot_type == "histogram" {
             let bar_width = (plot_rect.width() / plot.points.len().max(1) as f32) * 0.68;
@@ -3515,22 +4201,22 @@ fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
                     egui::pos2(screen.x, (screen.y + baseline_y) * 0.5),
                     egui::vec2(bar_width.max(2.0), (baseline_y - screen.y).abs().max(1.0)),
                 );
-                painter.rect_filled(bar_rect, egui::Rounding::same(2.0), ACCENT);
+                painter.rect_filled(bar_rect, egui::Rounding::same(2.0), palette.accent);
             }
         } else if plot.plot_type == "scatter" {
             for point in plot.points.iter().copied().map(to_screen) {
-                painter.circle_filled(point, 3.2, egui::Color32::from_rgb(255, 255, 255));
-                painter.circle_stroke(point, 3.2, egui::Stroke::new(1.5, ACCENT));
+                painter.circle_filled(point, 3.2, palette.plot_bg);
+                painter.circle_stroke(point, 3.2, egui::Stroke::new(1.5, palette.accent));
             }
         } else {
             let points: Vec<egui::Pos2> = plot.points.iter().copied().map(to_screen).collect();
             painter.add(egui::Shape::line(
                 points.clone(),
-                egui::Stroke::new(2.5, ACCENT),
+                egui::Stroke::new(2.5, palette.accent),
             ));
             for point in points.iter().step_by((points.len() / 24).max(1)) {
-                painter.circle_filled(*point, 2.8, egui::Color32::from_rgb(255, 255, 255));
-                painter.circle_stroke(*point, 2.8, egui::Stroke::new(1.2, ACCENT));
+                painter.circle_filled(*point, 2.8, palette.plot_bg);
+                painter.circle_stroke(*point, 2.8, egui::Stroke::new(1.2, palette.accent));
             }
         }
         painter.text(
@@ -3538,14 +4224,14 @@ fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
             egui::Align2::LEFT_CENTER,
             format!("y min {:.3}, max {:.3}", min_y, max_y),
             egui::FontId::proportional(12.0),
-            MUTED,
+            palette.muted,
         );
         painter.text(
             plot_rect.right_bottom() + egui::vec2(0.0, 18.0),
             egui::Align2::RIGHT_CENTER,
             format!("x {:.3}..{:.3}", min_x, max_x),
             egui::FontId::proportional(12.0),
-            MUTED,
+            palette.muted,
         );
     }
     painter.text(
@@ -3553,14 +4239,14 @@ fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
         egui::Align2::CENTER_CENTER,
         &plot.x_label,
         egui::FontId::proportional(13.0),
-        TEXT,
+        palette.text,
     );
     painter.text(
         rect.left_center() + egui::vec2(18.0, 0.0),
         egui::Align2::CENTER_CENTER,
         &plot.y_label,
         egui::FontId::proportional(13.0),
-        TEXT,
+        palette.text,
     );
 }
 

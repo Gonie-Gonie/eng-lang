@@ -251,6 +251,8 @@ Current tester IDE features:
 - generated report and plot opening
 - in-IDE PlotSpec preview
 - Artifacts tab for result, review, report, PlotSpec, manifest, SVG, and bytecode paths
+- Settings window for light/dark theme, UI density, font sizes, window presets,
+  soft wrapping, and panel default sizes
 ```
 
 `eng-ide.exe --smoke` checks the non-GUI path for release packages. It verifies

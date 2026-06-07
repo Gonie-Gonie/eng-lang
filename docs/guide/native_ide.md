@@ -66,7 +66,7 @@ The native IDE follows a familiar editor layout:
 Top toolbar
   Check, Save, Run, Report, Plot SVG, entry selection, diagnostic counts,
   Explorer/Sidebar/Result visibility toggles, dirty state, and current
-  status.
+  status. Settings opens appearance, font, window-size, and layout controls.
 
 Left Explorer
   Opens .eng files from examples/, stdlib/, and selected tutorial sources.
@@ -82,9 +82,10 @@ Main work area
 
 Code
   Native multiline editor with EngLang syntax highlighting and line-level
-  diagnostic backgrounds. The editor uses a compact Windows-friendly monospace
-  style and supports vertical scrolling by default. Horizontal scrolling appears
-  only when a source line is wider than the code pane.
+  diagnostic backgrounds. The editor uses a Windows-friendly monospace stack,
+  configurable code font size, and supports vertical scrolling by default.
+  Long source lines can be soft-wrapped or left to horizontal scrolling from
+  Settings.
 
 Result
   Run Preview renders PlotSpec points inside the IDE with axes, grid lines,
@@ -112,6 +113,31 @@ Right Sidebar
 Bottom panel
   Problems, Output, and Artifacts tabs.
 ```
+
+## User Settings
+
+The toolbar `Settings` button controls the tester IDE without editing config
+files by hand:
+
+```text
+- Light or Dark theme
+- Comfortable or Compact density
+- UI, button, heading, and code font sizes
+- long-line soft wrap for the code editor
+- Explorer, right Sidebar, Result pane, and bottom panel default sizes
+- 1366x768, 1600x920, and 1920x1080 window presets
+- custom window width/height
+```
+
+Settings are applied immediately and saved for the current portable copy at:
+
+```text
+build/ide/settings.json
+```
+
+That file is intentionally under `build/` so repository users do not commit
+personal UI preferences, while an extracted portable package can still remember
+the tester's preferred theme, font scale, and layout.
 
 Diagnostics are produced by `eng_compiler::check_source`, so unsaved edits can
 be checked without writing temporary source files. Running a program saves the
