@@ -2716,6 +2716,7 @@ mod tests {
 
         assert_eq!(spec.uncertainty.len(), 2);
         assert_eq!(spec.uncertainty[0].kind, "Distribution");
+        assert_eq!(spec.uncertainty[0].display_unit, "kW");
         assert_eq!(spec.uncertainty[0].sample_count, 31);
         assert_eq!(spec.uncertainty[1].scale.as_deref(), Some("1.1"));
         assert_eq!(spec.uncertainty[1].offset.as_deref(), Some("0.2 kW"));

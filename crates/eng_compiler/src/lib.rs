@@ -1635,6 +1635,10 @@ mod tests {
             Some("uniform")
         );
         assert_eq!(
+            report.semantic_program.uncertainty_infos[2].display_unit,
+            "kW"
+        );
+        assert_eq!(
             report.semantic_program.uncertainty_infos[5]
                 .source
                 .as_deref(),
@@ -1642,8 +1646,22 @@ mod tests {
         );
         assert_eq!(
             report.semantic_program.uncertainty_infos[5].display_unit,
-            "W"
+            "kW"
         );
+        let ensemble_type = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "Q_coil_ensemble")
+            .expect("Q_coil_ensemble type");
+        assert_eq!(ensemble_type.semantic_type.display_unit, "kW");
+        let propagated_type = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "Q_total_unc")
+            .expect("Q_total_unc type");
+        assert_eq!(propagated_type.semantic_type.display_unit, "kW");
         assert_eq!(
             report.semantic_program.uncertainty_infos[5]
                 .method

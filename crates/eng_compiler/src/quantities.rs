@@ -138,7 +138,14 @@ pub fn infer_quantity_from_name_and_unit(name: &str, unit: &str) -> Option<Quant
 }
 
 pub fn first_unit_in_expression(expression: &str) -> Option<String> {
-    let words: Vec<String> = expression
+    let normalized = expression
+        .chars()
+        .map(|character| match character {
+            '(' | ')' | ',' | ';' | '[' | ']' | '{' | '}' | '"' | '\'' | '=' => ' ',
+            other => other,
+        })
+        .collect::<String>();
+    let words: Vec<String> = normalized
         .split_whitespace()
         .map(|word| trim_expression_punctuation(word).to_owned())
         .collect();

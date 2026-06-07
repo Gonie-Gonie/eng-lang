@@ -3417,6 +3417,7 @@ script main(args: Args) -> Report {
 
         assert_eq!(runtime.uncertainties.len(), 2);
         assert_eq!(runtime.uncertainties[0].sample_count, 31);
+        assert_eq!(runtime.uncertainties[0].display_unit, "kW");
         assert_eq!(
             runtime.uncertainties[0].distribution.as_deref(),
             Some("normal")
@@ -3435,6 +3436,7 @@ script main(args: Args) -> Report {
         assert_eq!(round2(runtime.uncertainties[0].mean.unwrap()), 5.0);
         assert_eq!(plot_spec.plot_type, "histogram");
         assert_eq!(plot_spec.title, "Coil uncertainty");
+        assert_eq!(plot_spec.x_axis.unit, "kW");
         assert!(!plot_spec.series[0].points.is_empty());
         assert_eq!(
             plot_spec.series[0]

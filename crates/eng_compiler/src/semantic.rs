@@ -628,14 +628,25 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
     if let Some(diagnostic) = crate::uncertainty::source_diagnostic(binding, accum.typed_bindings) {
         accum.diagnostics.push(diagnostic);
     }
-    if let Some(uncertainty) = crate::uncertainty::uncertainty_info(binding, accum.typed_bindings) {
-        accum.uncertainty_infos.push(uncertainty);
+    let uncertainty = crate::uncertainty::uncertainty_info(binding, accum.typed_bindings);
+    if let Some(uncertainty) = &uncertainty {
+        accum.uncertainty_infos.push(uncertainty.clone());
     }
     if let Some(ml_info) = crate::ml::ml_info(binding) {
         accum.ml_infos.push(ml_info);
     }
 
-    if let Some(semantic_type) = infer_quantity(&binding.name, &binding.expression) {
+    let inferred_semantic_type = uncertainty
+        .as_ref()
+        .and_then(|uncertainty| {
+            semantic_type(
+                &format!("{}[{}]", uncertainty.kind, uncertainty.quantity_kind),
+                &uncertainty.display_unit,
+            )
+        })
+        .or_else(|| infer_quantity(&binding.name, &binding.expression));
+
+    if let Some(semantic_type) = inferred_semantic_type {
         let canonical_unit = default_unit_for_quantity(&semantic_type.quantity_kind);
         let dimension = dimension_for_quantity(&semantic_type.quantity_kind);
         accum.inferred_declarations.push(InferredDeclaration {
