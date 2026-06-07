@@ -45,6 +45,7 @@ the target folder.
 Optional manual smoke from `dist\englang-preview`:
 
 ```bat
+pushd dist\englang-preview
 eng.exe doctor
 eng.exe entries examples\04_plotting\main.eng
 eng.exe run examples\04_plotting\main.eng --entry main
@@ -59,6 +60,9 @@ eng.exe check examples\05_error_messages\heat_rate_sum.eng --review
 eng.exe check examples\05_error_messages\eq_boolean.eng --review
 eng.exe check examples\05_error_messages\equation_unit_mismatch.eng --review
 eng.exe run examples\05_error_messages\missing_entry.eng
+eng.exe build examples\02_csv_plot\main.eng --entry main --standalone --profile repro
+dist\main-standalone\run.bat
+popd
 ```
 
 The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
@@ -155,12 +159,28 @@ The missing-entry command should fail with `E-ENTRY-NOT-FOUND-001`.
 The v1.0 demo must show:
 
 ```text
-1. typed CSV boundary
-2. unit/quantity-aware calculations
-3. TimeSeries statistics
-4. PlotSpec-driven SVG/report
-5. reviewable result/report/provenance
-6. packaged or portable execution
+[x] typed CSV boundary
+[x] unit/quantity-aware calculations
+[x] TimeSeries statistics
+[x] PlotSpec-driven SVG/report
+[x] reviewable result/report/provenance
+[x] packaged or portable execution
+```
+
+## v1.0 Gate
+
+```text
+[x] workspace version is 1.0.0
+[x] official examples pass through eng test examples
+[x] official CSV+plot example produces report and PlotSpec artifacts
+[x] official simple system example produces system report artifacts
+[x] standalone build creates dist\<model>-standalone
+[x] standalone bundle includes eng.exe, run.bat, source, bytecode, engpkg, lock, and review
+[x] standalone .engpkg uses format = engpkg-stable-1
+[x] standalone lock records bytecode/result/report/plot format versions
+[x] standalone run.bat creates report and PlotSpec artifacts inside the bundle
+[x] package-smoke verifies portable zip execution and standalone packaged runner execution
+[x] no Python/Rust install is required for portable or standalone packaged execution
 ```
 
 Release notes live in `docs/release/v<version>.md`.

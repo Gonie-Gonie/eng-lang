@@ -20,7 +20,8 @@ v0.6-preview  complete on main
 v0.7-alpha    complete on main
 v0.8-alpha    complete on main
 v0.9-alpha    complete on main
-v1.0-stable   next target
+v1.0-stable   complete on main
+v1.1          next target
 ```
 
 ## v0.1-preview — Repository, CLI, Parser, Unit Seed
@@ -280,21 +281,24 @@ Release gate:
 v1.0 must provide all four:
 
 ```text
-1. typed data analysis
-2. plotting/report
-3. minimal system/equation
-4. packaged standalone execution
+[x] typed data analysis
+[x] plotting/report
+[x] minimal system/equation
+[x] packaged standalone execution
 ```
 
 Release gate:
 
 ```text
-[ ] official examples pass
-[ ] spec code blocks check
-[ ] docs complete for supported features
-[ ] portable zip smoke test
-[ ] report/review generated
-[ ] version/format headers present
+[x] official examples pass
+[x] CLI example smoke includes typed CSV, plot/report, and simple system examples
+[x] docs complete for supported features
+[x] portable zip smoke test
+[x] portable package smoke builds and runs a standalone packaged runner
+[x] report/review generated
+[x] version/format headers present
+[x] standalone .engpkg records package format, source, bytecode, hashes, and entry
+[x] standalone lock records runtime/compiler/bytecode/result/report/plot versions
 ```
 
 ## v1.1 — Uncertainty Core

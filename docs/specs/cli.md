@@ -145,17 +145,29 @@ build/
 
 ## `eng build <file.eng> [--entry <name>] --standalone --profile repro`
 
-Creates a preview standalone package candidate:
+Creates a runnable standalone package bundle:
 
 ```text
 dist/
-  <model>.exe
-  <model>.engpkg
-  <model>.lock
-  <model>.review.html
+  <model>-standalone/
+    eng.exe
+    run.bat
+    <model>.engpkg
+    <model>.lock
+    <model>.engbc
+    <model>.review.html
+    source/
+      <file.eng>
 ```
 
-The preview `.exe` remains a placeholder. The package records source hash, bytecode hash, and selected entry.
+For CSV promotions that use relative paths, the referenced CSV files are copied
+into the bundle at the same relative path from `source/<file.eng>`. Running
+`run.bat` executes the bundled `eng.exe run source\<file.eng> --entry <name>` and
+creates normal `build/result` artifacts inside the bundle.
+
+The `.engpkg` records package format, runner, engine, source, bytecode,
+source hash, bytecode hash, entry name, and selected entry signature. The lock
+file records runtime/compiler/bytecode/result/report/plot format versions.
 
 ## `eng view <result.engres>`
 

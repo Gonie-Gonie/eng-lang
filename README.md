@@ -17,7 +17,7 @@ On Windows, use the root `dev.bat` wrapper for all development commands. It bypa
 
 `setup` installs the pinned Rust toolchain into `.dev`, fetches dependencies, and builds the workspace. A global Rust installation and Python are not required for the core preview path.
 
-## Current Preview Commands
+## Current Stable Commands
 
 ```bat
 target\debug\eng.exe doctor
@@ -27,7 +27,8 @@ target\debug\eng.exe entries examples\04_plotting\main.eng
 target\debug\eng.exe run examples\04_plotting\main.eng
 target\debug\eng.exe run examples\06_simple_system\main.eng
 target\debug\eng.exe run examples\04_plotting\main.eng --entry main
-target\debug\eng.exe build examples\04_plotting\main.eng --standalone --profile repro
+target\debug\eng.exe build examples\02_csv_plot\main.eng --entry main --standalone --profile repro
+dist\main-standalone\run.bat
 target\debug\eng.exe view build\result\result.engres
 ```
 
@@ -91,14 +92,19 @@ v0.9-alpha
   package-smoke extraction under Korean and space-containing paths,
   official CSV+plot and simple system examples, and no install-required
   preview execution.
+
+v1.0-stable
+  Stable core release: typed CSV boundary, unit/quantity calculations,
+  TimeSeries statistics, PlotSpec-driven SVG/report, minimal system/equation
+  metadata, and runnable packaged standalone bundles.
 ```
 
 Active planning target:
 
 ```text
-v1.0-stable
-  Stable core release across typed data analysis, plotting/report,
-  minimal system/equation, and packaged standalone execution.
+v1.1
+  Uncertainty core: Measured[T], Interval[T], distribution/ensemble seeds,
+  uncertainty metadata, simple propagation, and uncertainty report summaries.
 ```
 
 ## Documentation
@@ -144,17 +150,22 @@ Before committing a development slice:
 .\dev.bat ci
 ```
 
-Before a preview package check:
+Before a release package check:
 
 ```bat
 .\dev.bat package
 .\dev.bat package-smoke
-dist\englang-preview\eng.exe doctor
-dist\englang-preview\eng.exe run examples\04_plotting\main.eng --entry main
-dist\englang-preview\eng.exe run examples\06_simple_system\main.eng --entry main
+pushd dist\englang-preview
+eng.exe doctor
+eng.exe run examples\04_plotting\main.eng --entry main
+eng.exe run examples\06_simple_system\main.eng --entry main
+eng.exe build examples\02_csv_plot\main.eng --entry main --standalone --profile repro
+dist\main-standalone\run.bat
+popd
 ```
 
 `package` writes `dist\englang-preview-v<version>-windows-x64.zip` and a
 matching `.sha256` file. `package-smoke` extracts that zip into a path with
 spaces and Korean characters, then runs the portable `eng.exe` without relying
-on Rust or Python on the target side.
+on Rust or Python on the target side. It also builds and runs the standalone
+packaged runner from inside the extracted portable package.

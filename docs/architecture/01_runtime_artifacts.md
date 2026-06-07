@@ -272,23 +272,48 @@ Python-free plot artifact generated from PlotSpec v1 by the native report crate
 
 ## `eng build --standalone`
 
-The preview build command creates:
+The v1.0 build command creates a runnable packaged bundle:
 
 ```text
 dist/
-  <model>.exe
-  <model>.engpkg
-  <model>.lock
-  <model>.review.html
+  <model>-standalone/
+    eng.exe
+    run.bat
+    <model>.engbc
+    <model>.engpkg
+    <model>.lock
+    <model>.review.html
+    source/
+      <file.eng>
 ```
 
 The `.engpkg` records:
 
 ```text
-format = engpkg-preview-1
+format = engpkg-stable-1
+package_format_version = 1
+runner = run.bat
+engine = eng.exe
+source = source/<file.eng>
+bytecode = <model>.engbc
 source_hash = ...
 bytecode_hash = ...
+entry_name = main
 entry = script main(args: Args) -> Report
 ```
 
-The executable remains a placeholder until packaged standalone execution is implemented.
+The `.lock` records:
+
+```text
+runtime_version = ...
+compiler_version = ...
+bytecode_version = 1
+result_format_version = 1
+report_schema_version = 1
+plot_spec_version = 1
+profile = repro
+```
+
+`run.bat` executes the bundled `eng.exe` and writes normal run artifacts under
+`<model>-standalone/build/result`. This is a packaged runner, not an optimized
+AOT executable. Full AOT/native optimization remains a later milestone.

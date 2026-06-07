@@ -53,7 +53,7 @@ and expose them through `dev.bat`.
 Expected shape:
 
 ```text
-EngLang Preview 0.9.0
+EngLang 1.0.0
 
 Runtime              OK
 Standard library     OK
@@ -110,7 +110,8 @@ build/
 
 `package-smoke` builds the portable zip, extracts it into a path containing
 spaces and Korean characters, and runs the packaged `eng.exe` without relying on
-Rust or Python in the target folder.
+Rust or Python in the target folder. It also builds a standalone bundle and runs
+that bundle's `run.bat`.
 
 ## Troubleshooting
 

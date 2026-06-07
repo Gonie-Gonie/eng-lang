@@ -103,7 +103,7 @@ toolchain/config scripts
 
 ## Portable Packaging
 
-Build a preview package:
+Build a portable package:
 
 ```bat
 .\dev.bat package
@@ -129,6 +129,30 @@ README.txt
 
 `README.txt` inside the package gives target-PC smoke commands.
 
+## Standalone Bundle
+
+Build a runnable model bundle:
+
+```bat
+target\debug\eng.exe build examples\02_csv_plot\main.eng --entry main --standalone --profile repro
+dist\main-standalone\run.bat
+```
+
+The bundle contains:
+
+```text
+eng.exe
+run.bat
+main.engbc
+main.engpkg
+main.lock
+main.review.html
+source/main.eng
+source/data/sensor.csv
+```
+
+`run.bat` writes normal `build/result` artifacts inside the bundle.
+
 ## Portable Smoke
 
 Run:
@@ -149,6 +173,9 @@ This command:
 7. runs eng.exe view on the generated result
 8. runs the official simple system example
 9. verifies build\result\report_spec.json exists
+10. builds a standalone bundle from the packaged eng.exe
+11. runs the standalone bundle's run.bat
+12. verifies the standalone bundle creates PlotSpec artifacts
 ```
 
 The smoke folder intentionally contains both a space and Korean characters. This

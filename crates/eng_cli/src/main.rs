@@ -30,7 +30,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         "--version" | "version" => {
-            println!("EngLang Preview {}", env!("CARGO_PKG_VERSION"));
+            println!("EngLang {}", env!("CARGO_PKG_VERSION"));
             ExitCode::SUCCESS
         }
         other => {
@@ -45,7 +45,7 @@ fn command_doctor() -> ExitCode {
     let repo_root = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let report = doctor(&repo_root);
 
-    println!("EngLang Preview {}", env!("CARGO_PKG_VERSION"));
+    println!("EngLang {}", env!("CARGO_PKG_VERSION"));
     println!();
     for check in &report.checks {
         println!(
@@ -645,7 +645,7 @@ fn file_stem(path: &str) -> String {
 
 fn print_help() {
     println!(
-        r#"EngLang Preview {version}
+        r#"EngLang {version}
 
 Usage:
   eng doctor

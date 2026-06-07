@@ -1,6 +1,6 @@
 # Repository Layout
 
-Current v0.9-alpha layout:
+Current v1.0-stable layout:
 
 ```text
 .
@@ -112,6 +112,10 @@ plots/timeseries.svg
 dist/englang-preview
 dist/englang-preview-v<version>-windows-x64.zip
 dist/englang-preview-v<version>-windows-x64.zip.sha256
+dist/<model>-standalone/eng.exe
+dist/<model>-standalone/run.bat
+dist/<model>-standalone/<model>.engpkg
+dist/<model>-standalone/<model>.lock
 ```
 
 Current runtime responsibilities:
@@ -125,6 +129,7 @@ TimeSeries object seed
 result.engres v1 generation
 source/bytecode/data provenance
 system residual-only payload metadata
+packaged standalone runner bundle
 ```
 
 Long-term responsibilities:
@@ -133,10 +138,9 @@ Long-term responsibilities:
 numeric execution
 TimeSeries pages
 PlotSpec payloads
-package execution
-standalone build orchestration
 portable zip assembly
 portable clean-folder smoke
+AOT/optimized standalone execution
 ```
 
 ## `eng_report`

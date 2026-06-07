@@ -187,7 +187,7 @@ function Invoke-Package {
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "stdlib") (Join-Path $PackageRoot "stdlib")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "docs") (Join-Path $PackageRoot "docs")
     Set-Content -Path (Join-Path $PackageRoot "README.txt") -Encoding ascii -Value @"
-EngLang Preview portable package
+EngLang portable package
 
 This folder is self-contained for preview execution. Rust and Python are not
 required on the target PC.
