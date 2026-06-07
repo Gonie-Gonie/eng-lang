@@ -237,11 +237,12 @@ Before publishing the next post-v1.0 hardening release:
 [x] native tester IDE binary is built as eng-ide.exe
 [x] portable package includes eng-ide.exe
 [x] eng-ide.exe release build does not open a separate console window
-[x] native IDE text/buttons render with default egui fonts and explicit light theme
+[x] native IDE text/buttons render with compact Segoe UI/monospace fallback fonts and explicit light theme
 [x] eng-ide.exe --smoke discovers examples and compiler completion metadata
 [x] native IDE supports check, save, run, report open, diagnostics, symbols, and completions
-[x] native IDE has Explorer, editor/preview, Inspector, and Problems/Output/Artifacts regions
+[x] native IDE has Explorer, Code/Result main panes, Variables sidebar, and Problems/Output/Artifacts regions
 [x] native IDE main area is side-by-side Code and Result, with independent scrolling
+[x] native IDE Code/Result divider resizes the main panes without covering the right sidebar
 [x] native IDE has Runtime Summary for result.engres uncertainty and ML artifacts
 [x] native IDE supports creating new .eng files from the Explorer
 [x] native IDE provides syntax highlighting and line-level diagnostic tinting

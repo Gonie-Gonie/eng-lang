@@ -72,13 +72,14 @@ Left Explorer
 
 Main work area
   The center is split as Code on the left and Result on the right. The Result
-  panel is resizable and independently scrollable, so plots, runtime summaries,
-  and artifact links can be reviewed without leaving the editor.
+  pane is separated by a draggable divider and independently scrollable, so
+  plots, runtime summaries, and artifact links can be reviewed without leaving
+  the editor or covering the right sidebar.
 
 Code
   Native multiline editor with EngLang syntax highlighting and line-level
-  diagnostic backgrounds. The editor uses a larger monospace style and expands
-  to the available center width.
+  diagnostic backgrounds. The editor uses a compact Windows-friendly monospace
+  style and supports vertical and horizontal scrolling inside the code pane.
 
 Result
   Run Preview renders PlotSpec points inside the IDE with axes, grid lines,
@@ -87,7 +88,7 @@ Result
   scrollable result panel.
 
 Right Sidebar
-  Tabbed Symbols, Completions, and Runtime Summary surface. After Run, the
+  Tabbed Variables, Completions, and Runtime Summary surface. After Run, the
   Runtime tab shows result status, uncertainty summaries, ML metrics,
   coefficients, loss history, policy count, and system count.
 

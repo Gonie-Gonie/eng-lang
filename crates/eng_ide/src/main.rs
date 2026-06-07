@@ -23,6 +23,10 @@ const MUTED: egui::Color32 = egui::Color32::from_rgb(99, 112, 130);
 const ERROR: egui::Color32 = egui::Color32::from_rgb(184, 44, 44);
 const WARNING: egui::Color32 = egui::Color32::from_rgb(173, 112, 20);
 const OK: egui::Color32 = egui::Color32::from_rgb(43, 131, 91);
+const RESULT_DEFAULT_WIDTH: f32 = 480.0;
+const RESULT_MIN_WIDTH: f32 = 320.0;
+const CODE_MIN_WIDTH: f32 = 420.0;
+const SPLITTER_WIDTH: f32 = 7.0;
 
 fn main() -> eframe::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -55,26 +59,27 @@ fn main() -> eframe::Result<()> {
 }
 
 fn configure_ui(ctx: &egui::Context) {
+    configure_fonts(ctx);
     ctx.set_visuals(egui::Visuals::light());
     let mut style = (*ctx.style()).clone();
-    style.spacing.item_spacing = egui::vec2(8.0, 6.0);
-    style.spacing.button_padding = egui::vec2(12.0, 7.0);
-    style.spacing.window_margin = egui::Margin::same(10.0);
+    style.spacing.item_spacing = egui::vec2(6.0, 4.0);
+    style.spacing.button_padding = egui::vec2(9.0, 5.0);
+    style.spacing.window_margin = egui::Margin::same(8.0);
     style.text_styles.insert(
         egui::TextStyle::Body,
-        egui::FontId::new(14.5, egui::FontFamily::Proportional),
+        egui::FontId::new(13.0, egui::FontFamily::Proportional),
     );
     style.text_styles.insert(
         egui::TextStyle::Button,
-        egui::FontId::new(14.0, egui::FontFamily::Proportional),
+        egui::FontId::new(12.5, egui::FontFamily::Proportional),
     );
     style.text_styles.insert(
         egui::TextStyle::Heading,
-        egui::FontId::new(19.0, egui::FontFamily::Proportional),
+        egui::FontId::new(16.0, egui::FontFamily::Proportional),
     );
     style.text_styles.insert(
         egui::TextStyle::Monospace,
-        egui::FontId::new(15.0, egui::FontFamily::Monospace),
+        egui::FontId::new(13.5, egui::FontFamily::Monospace),
     );
     style.visuals.window_fill = BG;
     style.visuals.panel_fill = BG;
@@ -89,6 +94,51 @@ fn configure_ui(ctx: &egui::Context) {
     style.visuals.selection.bg_fill = egui::Color32::from_rgb(185, 220, 252);
     style.visuals.selection.stroke.color = ACCENT;
     ctx.set_style(style);
+}
+
+fn configure_fonts(ctx: &egui::Context) {
+    let mut fonts = egui::FontDefinitions::default();
+    install_font_if_present(
+        &mut fonts,
+        egui::FontFamily::Proportional,
+        "segoe_ui",
+        &[
+            "C:\\Windows\\Fonts\\segoeui.ttf",
+            "C:\\Windows\\Fonts\\segoeuisl.ttf",
+        ],
+    );
+    install_font_if_present(
+        &mut fonts,
+        egui::FontFamily::Monospace,
+        "eng_mono",
+        &[
+            "C:\\Windows\\Fonts\\CascadiaMono.ttf",
+            "C:\\Windows\\Fonts\\consola.ttf",
+            "C:\\Windows\\Fonts\\cour.ttf",
+        ],
+    );
+    ctx.set_fonts(fonts);
+}
+
+fn install_font_if_present(
+    fonts: &mut egui::FontDefinitions,
+    family: egui::FontFamily,
+    name: &str,
+    candidates: &[&str],
+) {
+    for candidate in candidates {
+        if let Ok(bytes) = fs::read(candidate) {
+            fonts
+                .font_data
+                .insert(name.to_owned(), egui::FontData::from_owned(bytes));
+            fonts
+                .families
+                .entry(family)
+                .or_default()
+                .insert(0, name.to_owned());
+            return;
+        }
+    }
 }
 
 fn smoke() -> eframe::Result<()> {
@@ -162,6 +212,7 @@ struct EngIdeApp {
     show_explorer: bool,
     show_inspector_panel: bool,
     show_preview: bool,
+    result_width: f32,
     last_output: Option<RunOutputView>,
     plot_preview: Option<PlotPreview>,
     artifact_summary: Option<ArtifactSummary>,
@@ -198,6 +249,7 @@ impl EngIdeApp {
             show_explorer: true,
             show_inspector_panel: true,
             show_preview: true,
+            result_width: RESULT_DEFAULT_WIDTH,
             last_output: None,
             plot_preview: None,
             artifact_summary: None,
@@ -552,37 +604,46 @@ impl EngIdeApp {
 
     fn show_explorer(&mut self, ui: &mut egui::Ui) {
         panel_header(ui, "Explorer");
-        ui.horizontal(|ui| {
-            if ui.button("Open File...").clicked() {
+        ui.horizontal_wrapped(|ui| {
+            if compact_button(ui, "Open File").clicked() {
                 self.browse_file();
             }
-            if ui.button("Open Folder...").clicked() {
+            if compact_button(ui, "Open Folder").clicked() {
                 self.browse_folder();
             }
-            if ui.button("Explorer").clicked() {
+            if compact_button(ui, "Reveal").clicked() {
                 open_path(&self.root);
             }
         });
-        ui.label(egui::RichText::new(self.root.display().to_string()).color(MUTED));
+        ui.label(
+            egui::RichText::new(self.root.display().to_string())
+                .color(MUTED)
+                .monospace()
+                .size(11.5),
+        );
         ui.add_space(6.0);
         ui.horizontal(|ui| {
             ui.add_sized(
-                [ui.available_width() - 62.0, 25.0],
+                [(ui.available_width() - 84.0).max(90.0), 23.0],
                 egui::TextEdit::singleline(&mut self.new_file_input),
             );
-            if ui.button("New").clicked() {
+            if compact_button(ui, "New").clicked() {
                 self.create_new_file();
             }
         });
-        ui.add_space(8.0);
+        ui.add_space(6.0);
+        ui.separator();
+        section_label(ui, "Workspace");
 
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            for path in explorer_roots(&self.root) {
-                if path.exists() {
-                    self.show_directory(ui, &path, 0);
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                for path in explorer_roots(&self.root) {
+                    if path.exists() {
+                        self.show_directory(ui, &path, 0);
+                    }
                 }
-            }
-        });
+            });
     }
 
     fn show_directory(&mut self, ui: &mut egui::Ui, path: &Path, depth: usize) {
@@ -592,38 +653,73 @@ impl EngIdeApp {
             .map(ToOwned::to_owned)
             .unwrap_or_else(|| path.to_string_lossy().to_string());
         let entries = sorted_visible_entries(path);
-        egui::CollapsingHeader::new(egui::RichText::new(label).strong())
-            .default_open(depth < 2)
+        egui::CollapsingHeader::new(egui::RichText::new(label).strong().size(12.5).color(TEXT))
+            .default_open(depth < 1)
             .show(ui, |ui| {
                 for entry in entries {
                     if entry.is_dir() {
                         self.show_directory(ui, &entry, depth + 1);
                     } else {
-                        let display = entry
-                            .file_name()
-                            .and_then(|value| value.to_str())
-                            .unwrap_or("file");
-                        let selected = entry == self.current_path;
-                        let response = ui.selectable_label(selected, display);
-                        if response.clicked() {
-                            self.open_file(entry.clone());
-                        }
-                        response.on_hover_text(self.relative_path(&entry));
+                        self.show_file_row(ui, &entry, depth + 1);
                     }
                 }
             });
+    }
+
+    fn show_file_row(&mut self, ui: &mut egui::Ui, entry: &Path, depth: usize) {
+        let display = entry
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("file");
+        let extension = entry
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("");
+        let selected = entry == self.current_path;
+        let fill = if selected {
+            egui::Color32::from_rgb(218, 235, 252)
+        } else {
+            egui::Color32::TRANSPARENT
+        };
+        let response = egui::Frame::none()
+            .fill(fill)
+            .rounding(egui::Rounding::same(4.0))
+            .inner_margin(egui::Margin::symmetric(4.0, 2.0))
+            .show(ui, |ui| {
+                ui.set_min_width(ui.available_width());
+                ui.horizontal(|ui| {
+                    ui.add_space(depth as f32 * 10.0);
+                    ui.label(egui::RichText::new(display).size(12.5).color(TEXT));
+                    if !extension.is_empty() {
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.label(
+                                egui::RichText::new(extension.to_ascii_uppercase())
+                                    .size(10.5)
+                                    .color(MUTED),
+                            );
+                        });
+                    }
+                });
+            })
+            .response
+            .interact(egui::Sense::click());
+        if response.clicked() {
+            self.open_file(entry.to_path_buf());
+        }
+        response.on_hover_text(self.relative_path(entry));
+        ui.add_space(1.0);
     }
 
     fn show_editor(&mut self, ui: &mut egui::Ui) {
         egui::Frame::none()
             .fill(PANEL)
             .stroke(egui::Stroke::new(1.0, BORDER))
-            .rounding(egui::Rounding::same(6.0))
-            .inner_margin(egui::Margin::same(10.0))
+            .rounding(egui::Rounding::same(4.0))
+            .inner_margin(egui::Margin::same(8.0))
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.heading(
-                        egui::RichText::new(self.relative_path(&self.current_path)).size(16.0),
+                        egui::RichText::new(self.relative_path(&self.current_path)).size(14.0),
                     );
                     if self.dirty {
                         ui.label(egui::RichText::new("modified").color(WARNING));
@@ -642,29 +738,40 @@ impl EngIdeApp {
                     job.wrap.max_width = wrap_width;
                     ui.fonts(|fonts| fonts.layout_job(job))
                 };
-                let available_rows = ((ui.available_height() - 16.0).max(360.0) / 18.0) as usize;
-                let text_output = egui::TextEdit::multiline(&mut self.source)
-                    .code_editor()
-                    .desired_width(f32::INFINITY)
-                    .desired_rows(available_rows.max(24))
-                    .lock_focus(true)
-                    .layouter(&mut layouter)
-                    .show(ui);
-                if text_output.response.changed() {
-                    self.dirty = true;
-                    self.last_edit = Some(Instant::now());
-                }
-                if text_output.response.has_focus() {
-                    if let Some(cursor_range) = text_output.cursor_range {
-                        self.cursor_char_index = cursor_range.primary.ccursor.index;
-                    }
-                    if ui.input(|input| input.key_pressed(egui::Key::Space) && input.modifiers.ctrl)
-                    {
-                        self.completion_filter =
-                            current_prefix(&self.source, self.cursor_char_index);
-                        self.right_tab = RightTab::Completions;
-                    }
-                }
+                let editor_height = ui.available_height().max(260.0);
+                let editor_width = ui.available_width().max(CODE_MIN_WIDTH);
+                egui::ScrollArea::both()
+                    .auto_shrink([false, false])
+                    .max_height(editor_height)
+                    .max_width(editor_width)
+                    .show(ui, |ui| {
+                        let content_width = editor_width.max(900.0);
+                        ui.set_min_size(egui::vec2(content_width, editor_height));
+                        let line_count = self.source.lines().count().max(32);
+                        let text_output = egui::TextEdit::multiline(&mut self.source)
+                            .code_editor()
+                            .desired_width(content_width)
+                            .desired_rows(line_count + 2)
+                            .lock_focus(true)
+                            .layouter(&mut layouter)
+                            .show(ui);
+                        if text_output.response.changed() {
+                            self.dirty = true;
+                            self.last_edit = Some(Instant::now());
+                        }
+                        if text_output.response.has_focus() {
+                            if let Some(cursor_range) = text_output.cursor_range {
+                                self.cursor_char_index = cursor_range.primary.ccursor.index;
+                            }
+                            if ui.input(|input| {
+                                input.key_pressed(egui::Key::Space) && input.modifiers.ctrl
+                            }) {
+                                self.completion_filter =
+                                    current_prefix(&self.source, self.cursor_char_index);
+                                self.right_tab = RightTab::Completions;
+                            }
+                        }
+                    });
             });
     }
 
@@ -672,14 +779,14 @@ impl EngIdeApp {
         egui::Frame::none()
             .fill(PANEL)
             .stroke(egui::Stroke::new(1.0, BORDER))
-            .rounding(egui::Rounding::same(6.0))
-            .inner_margin(egui::Margin::same(10.0))
+            .rounding(egui::Rounding::same(4.0))
+            .inner_margin(egui::Margin::same(8.0))
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.heading(egui::RichText::new("Run Preview").size(16.0));
+                    ui.heading(egui::RichText::new("Run Preview").size(14.0));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if let Some(output) = &self.last_output {
-                            if ui.button("Open Result Folder").clicked() {
+                            if compact_button(ui, "Open Folder").clicked() {
                                 if let Some(parent) = output.result_path.parent() {
                                     open_path(parent);
                                 }
@@ -708,34 +815,36 @@ impl EngIdeApp {
 
     fn show_result_panel(&mut self, ui: &mut egui::Ui) {
         panel_header(ui, "Result");
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            self.show_plot_preview(ui);
-            ui.add_space(10.0);
-            egui::Frame::none()
-                .fill(PANEL)
-                .stroke(egui::Stroke::new(1.0, BORDER))
-                .rounding(egui::Rounding::same(6.0))
-                .inner_margin(egui::Margin::same(10.0))
-                .show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.heading(egui::RichText::new("Runtime").size(16.0));
-                        ui.label(egui::RichText::new("result.engres summary").color(MUTED));
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                self.show_plot_preview(ui);
+                ui.add_space(10.0);
+                egui::Frame::none()
+                    .fill(PANEL)
+                    .stroke(egui::Stroke::new(1.0, BORDER))
+                    .rounding(egui::Rounding::same(4.0))
+                    .inner_margin(egui::Margin::same(8.0))
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.heading(egui::RichText::new("Runtime").size(14.0));
+                            ui.label(egui::RichText::new("result.engres summary").color(MUTED));
+                        });
+                        ui.separator();
+                        self.show_runtime_summary_content(ui);
                     });
-                    ui.separator();
-                    self.show_runtime_summary_content(ui);
-                });
-            ui.add_space(10.0);
-            egui::Frame::none()
-                .fill(PANEL)
-                .stroke(egui::Stroke::new(1.0, BORDER))
-                .rounding(egui::Rounding::same(6.0))
-                .inner_margin(egui::Margin::same(10.0))
-                .show(ui, |ui| {
-                    ui.heading(egui::RichText::new("Artifacts").size(16.0));
-                    ui.separator();
-                    self.show_artifacts_content(ui);
-                });
-        });
+                ui.add_space(10.0);
+                egui::Frame::none()
+                    .fill(PANEL)
+                    .stroke(egui::Stroke::new(1.0, BORDER))
+                    .rounding(egui::Rounding::same(4.0))
+                    .inner_margin(egui::Margin::same(8.0))
+                    .show(ui, |ui| {
+                        ui.heading(egui::RichText::new("Artifacts").size(14.0));
+                        ui.separator();
+                        self.show_artifacts_content(ui);
+                    });
+            });
     }
 
     fn show_right_panel(&mut self, ui: &mut egui::Ui) {
@@ -1054,6 +1163,61 @@ impl EngIdeApp {
             ui.label(egui::RichText::new("No artifacts yet").color(MUTED));
         }
     }
+
+    fn show_workspace(&mut self, ui: &mut egui::Ui) {
+        if !self.show_preview {
+            self.show_editor(ui);
+            return;
+        }
+
+        let available = ui.available_size_before_wrap();
+        if available.x < 520.0 {
+            self.show_editor(ui);
+            return;
+        }
+
+        let gap = 8.0;
+        let usable_width = (available.x - SPLITTER_WIDTH - gap).max(1.0);
+        let min_result = RESULT_MIN_WIDTH.min((usable_width * 0.45).max(220.0));
+        let min_code = CODE_MIN_WIDTH.min((usable_width - min_result).max(260.0));
+        let max_result = (usable_width - min_code).max(min_result);
+        self.result_width = self.result_width.clamp(min_result, max_result);
+        let code_width = (usable_width - self.result_width).max(120.0);
+
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing = egui::vec2(0.0, 0.0);
+            ui.allocate_ui_with_layout(
+                egui::vec2(code_width, available.y),
+                egui::Layout::top_down(egui::Align::Min),
+                |ui| self.show_editor(ui),
+            );
+            ui.add_space(gap * 0.5);
+            let (splitter_rect, splitter_response) = ui.allocate_exact_size(
+                egui::vec2(SPLITTER_WIDTH, available.y),
+                egui::Sense::click_and_drag(),
+            );
+            if splitter_response.dragged() {
+                let delta_x = ui.input(|input| input.pointer.delta().x);
+                self.result_width = (self.result_width - delta_x).clamp(min_result, max_result);
+            }
+            let splitter_color = if splitter_response.hovered() || splitter_response.dragged() {
+                ACCENT
+            } else {
+                BORDER
+            };
+            ui.painter().rect_filled(
+                splitter_rect.shrink2(egui::vec2(2.5, 0.0)),
+                egui::Rounding::same(3.0),
+                splitter_color,
+            );
+            ui.add_space(gap * 0.5);
+            ui.allocate_ui_with_layout(
+                egui::vec2(self.result_width, available.y),
+                egui::Layout::top_down(egui::Align::Min),
+                |ui| self.show_result_panel(ui),
+            );
+        });
+    }
 }
 
 impl eframe::App for EngIdeApp {
@@ -1066,15 +1230,15 @@ impl eframe::App for EngIdeApp {
 
         egui::TopBottomPanel::bottom("bottom_panel")
             .resizable(true)
-            .default_height(210.0)
+            .default_height(190.0)
             .frame(panel_frame())
             .show(ctx, |ui| self.show_bottom_panel(ui));
 
         if self.show_explorer {
             egui::SidePanel::left("explorer")
                 .resizable(true)
-                .default_width(250.0)
-                .width_range(170.0..=520.0)
+                .default_width(230.0)
+                .width_range(180.0..=420.0)
                 .frame(panel_frame())
                 .show(ctx, |ui| self.show_explorer(ui));
         }
@@ -1082,29 +1246,20 @@ impl eframe::App for EngIdeApp {
         if self.show_inspector_panel {
             egui::SidePanel::right("inspector")
                 .resizable(true)
-                .default_width(280.0)
-                .width_range(220.0..=460.0)
+                .default_width(260.0)
+                .width_range(220.0..=380.0)
                 .frame(panel_frame())
                 .show(ctx, |ui| self.show_right_panel(ui));
-        }
-
-        if self.show_preview {
-            egui::SidePanel::right("result_panel")
-                .resizable(true)
-                .default_width(520.0)
-                .width_range(340.0..=820.0)
-                .frame(panel_frame())
-                .show(ctx, |ui| self.show_result_panel(ui));
         }
 
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::none()
                     .fill(BG)
-                    .inner_margin(egui::Margin::same(10.0)),
+                    .inner_margin(egui::Margin::same(8.0)),
             )
             .show(ctx, |ui| {
-                self.show_editor(ui);
+                self.show_workspace(ui);
             });
     }
 }
@@ -1615,7 +1770,7 @@ fn append_chars(
 
 fn code_format(color: egui::Color32, background: egui::Color32) -> TextFormat {
     TextFormat {
-        font_id: egui::FontId::monospace(15.0),
+        font_id: egui::FontId::monospace(13.5),
         color,
         background,
         ..Default::default()
@@ -1790,12 +1945,12 @@ fn panel_frame() -> egui::Frame {
     egui::Frame::none()
         .fill(PANEL)
         .stroke(egui::Stroke::new(1.0, BORDER))
-        .inner_margin(egui::Margin::same(10.0))
+        .inner_margin(egui::Margin::same(8.0))
 }
 
 fn panel_header(ui: &mut egui::Ui, text: &str) {
-    ui.label(egui::RichText::new(text).size(16.0).strong().color(TEXT));
-    ui.add_space(4.0);
+    ui.label(egui::RichText::new(text).size(14.0).strong().color(TEXT));
+    ui.add_space(2.0);
 }
 
 fn primary_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
@@ -1809,10 +1964,21 @@ fn primary_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
     )
 }
 
+fn compact_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
+    ui.add_sized(
+        [76.0, 23.0],
+        egui::Button::new(egui::RichText::new(text).size(12.0)),
+    )
+}
+
 fn tab_button(ui: &mut egui::Ui, text: &str, selected: bool) -> egui::Response {
     let fill = if selected { ACCENT } else { PANEL_ALT };
     let color = if selected { egui::Color32::WHITE } else { TEXT };
-    ui.add(egui::Button::new(egui::RichText::new(text).color(color)).fill(fill))
+    ui.add(
+        egui::Button::new(egui::RichText::new(text).color(color).size(12.0))
+            .fill(fill)
+            .min_size(egui::vec2(0.0, 23.0)),
+    )
 }
 
 fn status_badge(ui: &mut egui::Ui, label: &str, count: usize, color: egui::Color32) {
@@ -1824,15 +1990,15 @@ fn status_pill(ui: &mut egui::Ui, text: &str, color: egui::Color32) {
         .fill(color.linear_multiply(0.10))
         .stroke(egui::Stroke::new(1.0, color.linear_multiply(0.55)))
         .rounding(egui::Rounding::same(4.0))
-        .inner_margin(egui::Margin::symmetric(8.0, 4.0))
+        .inner_margin(egui::Margin::symmetric(7.0, 3.0))
         .show(ui, |ui| {
-            ui.label(egui::RichText::new(text).color(color).size(12.0));
+            ui.label(egui::RichText::new(text).color(color).size(11.5));
         });
 }
 
 fn section_label(ui: &mut egui::Ui, text: &str) {
-    ui.label(egui::RichText::new(text).size(14.0).strong().color(TEXT));
-    ui.add_space(4.0);
+    ui.label(egui::RichText::new(text).size(12.5).strong().color(TEXT));
+    ui.add_space(3.0);
 }
 
 fn metric_chip(ui: &mut egui::Ui, label: &str, value: &str, color: egui::Color32) {
