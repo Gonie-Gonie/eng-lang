@@ -140,6 +140,9 @@ pub struct ConservationInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DomainInfo {
     pub name: String,
+    pub type_parameters: Vec<String>,
+    pub package: Option<String>,
+    pub version: Option<String>,
     pub variables: Vec<DomainVariableInfo>,
     pub conservations: Vec<ConservationInfo>,
     pub line: usize,
@@ -149,6 +152,8 @@ pub struct DomainInfo {
 pub struct PortInfo {
     pub name: String,
     pub domain: String,
+    pub domain_name: String,
+    pub type_arguments: Vec<String>,
     pub status: String,
     pub line: usize,
 }
@@ -310,6 +315,9 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             AstItem::Domain(domain) => {
                 domains.push(DomainInfo {
                     name: domain.name.clone(),
+                    type_parameters: domain.type_parameters.clone(),
+                    package: domain.package.clone(),
+                    version: domain.version.clone(),
                     variables: Vec::new(),
                     conservations: Vec::new(),
                     line: domain.span.line,
@@ -491,9 +499,12 @@ fn analyze_domain_variable(declaration: &DomainVariableDecl, domain: &mut Domain
 }
 
 fn analyze_port(declaration: &PortDecl, component: &mut ComponentInfo) {
+    let domain_ref = parse_domain_reference(&declaration.domain);
     component.ports.push(PortInfo {
         name: declaration.name.clone(),
-        domain: declaration.domain.clone(),
+        domain: domain_ref.canonical(),
+        domain_name: domain_ref.name,
+        type_arguments: domain_ref.type_arguments,
         status: "unvalidated".to_owned(),
         line: declaration.line,
     });
@@ -508,9 +519,10 @@ fn analyze_connections(
     let mut connections = Vec::new();
     for component in components.iter_mut() {
         for port in &mut component.ports {
-            if domains.iter().any(|domain| domain.name == port.domain) {
-                port.status = "domain_resolved".to_owned();
-            } else {
+            let Some(domain) = domains
+                .iter()
+                .find(|domain| domain.name == port.domain_name)
+            else {
                 port.status = "unknown_domain".to_owned();
                 diagnostics.push(Diagnostic::error(
                     "E-PORT-DOMAIN-001",
@@ -521,7 +533,29 @@ fn analyze_connections(
                     ),
                     Some("Declare the domain before using it in a component port."),
                 ));
+                continue;
+            };
+            if port.type_arguments.len() != domain.type_parameters.len() {
+                port.status = "generic_arity_mismatch".to_owned();
+                diagnostics.push(Diagnostic::error(
+                    "E-PORT-DOMAIN-002",
+                    port.line,
+                    &format!(
+                        "Port `{}` on component `{}` references `{}` with {} type argument(s), but domain `{}` expects {}.",
+                        port.name,
+                        component.name,
+                        port.domain,
+                        port.type_arguments.len(),
+                        domain.name,
+                        domain.type_parameters.len()
+                    ),
+                    Some(
+                        "Use `Domain[Argument]` for generic domains or remove arguments for non-generic domains.",
+                    ),
+                ));
+                continue;
             }
+            port.status = "domain_resolved".to_owned();
         }
     }
 
@@ -540,19 +574,43 @@ fn analyze_connections(
             ));
             continue;
         };
-        let left_domain = port_domain(components, &left_component, &left_port);
-        let right_domain = port_domain(components, &right_component, &right_port);
-        let (domain, status) = match (left_domain, right_domain) {
-            (Some(left_domain), Some(right_domain)) if left_domain == right_domain => {
-                (left_domain, "domain_compatible".to_owned())
+        let left_resolved = resolved_port(components, &left_component, &left_port);
+        let right_resolved = resolved_port(components, &right_component, &right_port);
+        let (domain, status) = match (left_resolved, right_resolved) {
+            (Some(left), Some(right))
+                if left.domain_name == right.domain_name
+                    && left.type_arguments == right.type_arguments =>
+            {
+                (left.domain.clone(), "domain_compatible".to_owned())
             }
-            (Some(left_domain), Some(right_domain)) => {
+            (Some(left), Some(right)) if left.domain_name == right.domain_name => {
+                let parameter_name =
+                    first_mismatched_parameter(domains, &left.domain_name, left, right)
+                        .unwrap_or_else(|| "Parameter".to_owned());
+                let (code, status, label) = parameter_mismatch_diagnostic(&parameter_name);
+                diagnostics.push(Diagnostic::error(
+                    code,
+                    connection.line,
+                    &format!(
+                        "Cannot connect `{}` ({}) to `{}` ({}): {} differs.",
+                        connection.left, left.domain, connection.right, right.domain, label
+                    ),
+                    Some(
+                        "Use matching generic domain arguments on both connected component ports.",
+                    ),
+                ));
+                (
+                    format!("{} != {}", left.domain, right.domain),
+                    status.to_owned(),
+                )
+            }
+            (Some(left), Some(right)) => {
                 diagnostics.push(Diagnostic::error(
                     "E-CONNECT-DOMAIN-001",
                     connection.line,
                     &format!(
                         "Cannot connect `{}` ({}) to `{}` ({}).",
-                        connection.left, left_domain, connection.right, right_domain
+                        connection.left, left.domain, connection.right, right.domain
                     ),
                     Some("Connect ports only when they declare the same domain."),
                 ));
@@ -586,6 +644,99 @@ fn analyze_connections(
     connections
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct DomainReference {
+    name: String,
+    type_arguments: Vec<String>,
+}
+
+impl DomainReference {
+    fn canonical(&self) -> String {
+        domain_signature(&self.name, &self.type_arguments)
+    }
+}
+
+fn parse_domain_reference(raw: &str) -> DomainReference {
+    let trimmed = raw.split("//").next().unwrap_or(raw).trim();
+    let Some((name, rest)) = trimmed.split_once('[') else {
+        return DomainReference {
+            name: trimmed.to_owned(),
+            type_arguments: Vec::new(),
+        };
+    };
+    let arguments = rest
+        .split_once(']')
+        .map(|(inside, _)| inside)
+        .unwrap_or(rest)
+        .split(',')
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .collect();
+    DomainReference {
+        name: name.trim().to_owned(),
+        type_arguments: arguments,
+    }
+}
+
+fn domain_signature(name: &str, arguments: &[String]) -> String {
+    if arguments.is_empty() {
+        name.to_owned()
+    } else {
+        format!("{name}[{}]", arguments.join(", "))
+    }
+}
+
+fn resolved_port<'a>(
+    components: &'a [ComponentInfo],
+    component_name: &str,
+    port_name: &str,
+) -> Option<&'a PortInfo> {
+    components
+        .iter()
+        .find(|component| component.name == component_name)?
+        .ports
+        .iter()
+        .find(|port| port.name == port_name && port.status == "domain_resolved")
+}
+
+fn first_mismatched_parameter(
+    domains: &[DomainInfo],
+    domain_name: &str,
+    left: &PortInfo,
+    right: &PortInfo,
+) -> Option<String> {
+    let domain = domains.iter().find(|domain| domain.name == domain_name)?;
+    left.type_arguments
+        .iter()
+        .zip(&right.type_arguments)
+        .enumerate()
+        .find_map(|(index, (left, right))| {
+            (left != right).then(|| {
+                domain
+                    .type_parameters
+                    .get(index)
+                    .cloned()
+                    .unwrap_or_else(|| "Parameter".to_owned())
+            })
+        })
+}
+
+fn parameter_mismatch_diagnostic(
+    parameter_name: &str,
+) -> (&'static str, &'static str, &'static str) {
+    match parameter_name {
+        "Medium" => ("E-CONNECT-MEDIUM-001", "medium_mismatch", "medium"),
+        "Frame" => ("E-CONNECT-FRAME-001", "frame_mismatch", "frame"),
+        "Axis" => ("E-CONNECT-AXIS-001", "axis_mismatch", "axis"),
+        _ => (
+            "E-CONNECT-DOMAIN-PARAM-001",
+            "domain_parameter_mismatch",
+            "domain parameter",
+        ),
+    }
+}
+
 fn split_endpoint(endpoint: &str) -> Option<(String, String)> {
     let (component, port) = endpoint.split_once('.')?;
     let component = component.trim();
@@ -594,23 +745,6 @@ fn split_endpoint(endpoint: &str) -> Option<(String, String)> {
         return None;
     }
     Some((component.to_owned(), port.to_owned()))
-}
-
-fn port_domain(
-    components: &[ComponentInfo],
-    component_name: &str,
-    port_name: &str,
-) -> Option<String> {
-    components
-        .iter()
-        .find(|component| component.name == component_name)
-        .and_then(|component| {
-            component
-                .ports
-                .iter()
-                .find(|port| port.name == port_name && port.status == "domain_resolved")
-        })
-        .map(|port| port.domain.clone())
 }
 
 fn connection_endpoint_diagnostic(endpoint: &str, line: usize) -> Diagnostic {

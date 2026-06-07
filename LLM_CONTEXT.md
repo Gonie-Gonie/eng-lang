@@ -38,9 +38,11 @@ It is intentionally short so agents do not need to load every planning file.
   and dependency hashes. Optimized native `model.exe`/AOT is still deferred.
 - Current `v2.0` domain/component detail work starts from metadata-first
   language support: user-defined domains, across/through variables,
-  conservation contracts, component ports, connection review/report metadata,
-  native IDE Domain Graph inspection, LSP completion/hover metadata, and invalid
-  port-domain diagnostics. Numeric multi-domain simulation remains deferred.
+  conservation contracts, component ports, package/version metadata, generic
+  domain parameters and arguments, source-order connection review/report
+  metadata, native IDE Domain Graph inspection, LSP completion/hover metadata,
+  invalid port-domain diagnostics, and medium/frame/axis compatibility
+  diagnostics. Numeric multi-domain simulation remains deferred.
 
 ## Read First
 

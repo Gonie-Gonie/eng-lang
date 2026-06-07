@@ -100,6 +100,9 @@
       "type": "object",
       "required": [
         "name",
+        "type_parameters",
+        "package",
+        "version",
         "line",
         "variable_count",
         "conservation_count",
@@ -108,6 +111,12 @@
       ],
       "properties": {
         "name": { "type": "string" },
+        "type_parameters": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "package": { "type": ["string", "null"] },
+        "version": { "type": ["string", "null"] },
         "line": { "type": "integer", "minimum": 1 },
         "variable_count": { "type": "integer", "minimum": 0 },
         "conservation_count": { "type": "integer", "minimum": 0 },
@@ -166,11 +175,23 @@
     },
     "componentPort": {
       "type": "object",
-      "required": ["name", "domain", "status", "line"],
+      "required": ["name", "domain", "domain_name", "type_arguments", "status", "line"],
       "properties": {
         "name": { "type": "string" },
         "domain": { "type": "string" },
-        "status": { "enum": ["domain_resolved", "unknown_domain", "unvalidated"] },
+        "domain_name": { "type": "string" },
+        "type_arguments": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "status": {
+          "enum": [
+            "domain_resolved",
+            "unknown_domain",
+            "generic_arity_mismatch",
+            "unvalidated"
+          ]
+        },
         "line": { "type": "integer", "minimum": 1 }
       }
     },
@@ -182,7 +203,15 @@
         "right": { "type": "string" },
         "domain": { "type": "string" },
         "status": {
-          "enum": ["domain_compatible", "domain_mismatch", "unresolved_endpoint"]
+          "enum": [
+            "domain_compatible",
+            "domain_mismatch",
+            "medium_mismatch",
+            "frame_mismatch",
+            "axis_mismatch",
+            "domain_parameter_mismatch",
+            "unresolved_endpoint"
+          ]
         },
         "line": { "type": "integer", "minimum": 1 }
       }

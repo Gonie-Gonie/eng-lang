@@ -5,9 +5,11 @@ connection surface.
 
 This example is intentionally metadata-first:
 
-- `domain Thermal` declares across/through variables and a conservation
-  contract.
-- `domain Fluid` shows a second user-defined domain for compatibility checks.
+- `domain Thermal package "eng.std.domains.thermal" version "0.1.0"` declares
+  across/through variables, package metadata, version metadata, and a
+  conservation contract.
+- `domain Fluid[Medium] package "eng.std.domains.fluid" version "0.1.0"` shows
+  a generic domain whose component ports are instantiated as `Fluid[Water]`.
 - `component` declarations expose named `port` entries.
 - `connect` records component-port connections and validates domain
   compatibility.
@@ -18,9 +20,10 @@ Current support boundary:
 
 - check/review metadata and connection diagnostics are supported for this
   example;
+- report spec, HTML report, native IDE, and LSP snapshot metadata expose the
+  domain package/version and generic argument surface;
 - numeric multi-domain simulation is not implemented;
-- medium/frame/axis generic domains and package versioning remain later v2.0
-  milestones.
+- medium/frame/axis compatibility diagnostics are metadata checks only.
 
 Useful commands:
 

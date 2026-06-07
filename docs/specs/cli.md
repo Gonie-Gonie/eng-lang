@@ -71,9 +71,13 @@ W-STATS-SUM-001        HeatRate summed over Time should use integrate
 E-EQ-BOOL-001          physical equation used == instead of eq
 E-EQ-UNIT-001          physical equation dimensions do not match
 E-PORT-DOMAIN-001      component port references an unknown domain
+E-PORT-DOMAIN-002      generic domain reference has wrong argument count
 E-CONNECT-ENDPOINT-001 connection endpoint is not Component.port
 E-CONNECT-PORT-001     connection endpoint does not resolve to a port
 E-CONNECT-DOMAIN-001   connected ports have incompatible domains
+E-CONNECT-MEDIUM-001   connected generic ports have incompatible Medium arguments
+E-CONNECT-FRAME-001    connected generic ports have incompatible Frame arguments
+E-CONNECT-AXIS-001     connected generic ports have incompatible Axis arguments
 ```
 
 `--review` writes:

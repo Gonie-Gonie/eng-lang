@@ -236,6 +236,9 @@ uncertainty_info
 ml_info
 system_summary
 system_ir
+domain_summary
+component_summary
+connection_summary
 schema_summary
 schemas
 csv_promotions
@@ -275,6 +278,9 @@ ml
 policy_results
 system_summary
 system_ir
+domain_summary
+component_summary
+connection_summary
 plot_manifest
 warning_list
 ```

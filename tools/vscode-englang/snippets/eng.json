@@ -47,23 +47,30 @@
   "Domain ports": {
     "prefix": "domain ports",
     "body": [
-      "domain ${1:Thermal} {",
-      "    across ${2:T}: AbsoluteTemperature [degC]",
-      "    through ${3:Q}: HeatRate [kW]",
-      "    conservation sum(${3:Q}) = 0",
+      "domain ${1:Thermal} package \"${2:eng.std.domains.thermal}\" version \"${3:0.1.0}\" {",
+      "    across ${4:T}: AbsoluteTemperature [degC]",
+      "    through ${5:Q}: HeatRate [kW]",
+      "    conservation sum(${5:Q}) = 0",
       "}",
       "",
-      "component ${4:RoomBoundary} {",
-      "    port ${5:heat}: ${1:Thermal}",
+      "domain ${6:Fluid}[${7:Medium}] package \"${8:eng.std.domains.fluid}\" version \"${9:0.1.0}\" {",
+      "    across ${10:height}: Length [m]",
+      "    through ${11:m_dot}: MassFlowRate [kg/s]",
+      "    conservation sum(${11:m_dot}) = 0",
       "}",
       "",
-      "component ${6:AmbientBoundary} {",
-      "    port ${7:heat}: ${1:Thermal}",
+      "component ${12:RoomBoundary} {",
+      "    port ${13:heat}: ${1:Thermal}",
       "}",
       "",
-      "connect ${4:RoomBoundary}.${5:heat} -> ${6:AmbientBoundary}.${7:heat}"
+      "component ${14:SupplyPipe} {",
+      "    port ${15:inlet}: ${6:Fluid}[${16:Water}]",
+      "    port ${17:outlet}: ${6:Fluid}[${16:Water}]",
+      "}",
+      "",
+      "connect ${14:SupplyPipe}.${15:inlet} -> ${14:SupplyPipe}.${17:outlet}"
     ],
-    "description": "Create a domain, component ports, and a compatible connection."
+    "description": "Create package/version domains, generic ports, and a compatible connection."
   },
   "Plot line": {
     "prefix": "plot line",

@@ -1,0 +1,14 @@
+domain Fluid[Medium] package "eng.std.domains.fluid" version "0.1.0" {
+    across height: Length [m]
+    through m_dot: MassFlowRate [kg/s]
+}
+
+component WaterPipe {
+    port inlet: Fluid[Water]
+}
+
+component AirPipe {
+    port inlet: Fluid[Air]
+}
+
+connect WaterPipe.inlet -> AirPipe.inlet

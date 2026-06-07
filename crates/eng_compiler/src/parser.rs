@@ -394,8 +394,70 @@ fn parse_domain_decl(tokens: &[Token]) -> Option<DomainDecl> {
     };
     Some(DomainDecl {
         name: name.clone(),
+        type_parameters: parse_bracketed_identifiers_after(tokens, 2),
+        package: parse_metadata_value(tokens, "package"),
+        version: parse_metadata_value(tokens, "version"),
         span: first.span,
     })
+}
+
+fn parse_bracketed_identifiers_after(tokens: &[Token], start_index: usize) -> Vec<String> {
+    let Some(open_index) =
+        tokens
+            .iter()
+            .enumerate()
+            .skip(start_index)
+            .find_map(|(index, token)| {
+                matches!(token.kind, TokenKind::Symbol(Symbol::LBracket)).then_some(index)
+            })
+    else {
+        return Vec::new();
+    };
+    let Some(close_index) =
+        tokens
+            .iter()
+            .enumerate()
+            .skip(open_index + 1)
+            .find_map(|(index, token)| {
+                matches!(token.kind, TokenKind::Symbol(Symbol::RBracket)).then_some(index)
+            })
+    else {
+        return Vec::new();
+    };
+
+    tokens[open_index + 1..close_index]
+        .iter()
+        .filter_map(|token| match &token.kind {
+            TokenKind::Identifier(value) => Some(value.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+fn parse_metadata_value(tokens: &[Token], key: &str) -> Option<String> {
+    tokens.windows(2).find_map(|window| {
+        let [left, right] = window else {
+            return None;
+        };
+        if !metadata_key_matches(left, key) {
+            return None;
+        }
+        match &right.kind {
+            TokenKind::StringLiteral(value)
+            | TokenKind::Identifier(value)
+            | TokenKind::Number(value) => Some(value.clone()),
+            _ => None,
+        }
+    })
+}
+
+fn metadata_key_matches(token: &Token, key: &str) -> bool {
+    match (&token.kind, key) {
+        (TokenKind::Identifier(identifier), expected) => identifier == expected,
+        (TokenKind::Keyword(Keyword::Package), "package") => true,
+        (TokenKind::Keyword(Keyword::Version), "version") => true,
+        _ => false,
+    }
 }
 
 fn parse_component_decl(tokens: &[Token]) -> Option<ComponentDecl> {

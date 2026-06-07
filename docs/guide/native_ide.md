@@ -97,10 +97,11 @@ Right Sidebar
   variables with quantity kind, display/canonical unit, dimension, source,
   expression, and unit derivation path. The Inspector also includes a Domain
   Graph section for v2.0 files, showing domain variables, conservation
-  metadata, component ports, port resolution status, and connection domain
-  compatibility. It also shows schema columns, constraints, missing policies,
-  and CSV promotion summaries. After Run, the Runtime tab shows result status,
-  uncertainty summaries, ML metrics,
+  metadata, package/version metadata, generic domain parameters, component port
+  arguments, port resolution status, and connection domain compatibility. It
+  also shows schema columns, constraints, missing policies, and CSV promotion
+  summaries. After Run, the Runtime tab shows result status, uncertainty
+  summaries, ML metrics,
   coefficients, loss history, policy count, system count, and the experimental
   `eng-kernel-plan-v1` kernel plan for the current file, including estimated
   rows, input/output counts, operation-class count, scan count, and complexity
@@ -187,8 +188,9 @@ examples/official/06_domain_port/main.eng
 ```
 
 Open it and inspect the right Sidebar > Inspector > Domain Graph section. It
-should show Thermal and Fluid domains, three components, and two
-`domain_compatible` connections.
+should show Thermal and `Fluid[Medium]` domains, package/version metadata,
+three components, `Fluid[Water]` ports, and two `domain_compatible`
+connections.
 
 ## Completion Scope
 

@@ -1,0 +1,14 @@
+domain Position[Frame] package "eng.std.domains.position" version "0.1.0" {
+    across x: Length [m]
+    through m_dot: MassFlowRate [kg/s]
+}
+
+component WorldSensor {
+    port position: Position[World]
+}
+
+component BodySensor {
+    port position: Position[Body]
+}
+
+connect WorldSensor.position -> BodySensor.position

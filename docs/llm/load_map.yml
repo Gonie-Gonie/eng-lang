@@ -101,6 +101,13 @@ task_types:
     - docs/guide/domain_component.md
     - examples/official/06_domain_port/
     - examples/05_error_messages/port_domain_mismatch.eng
+    - examples/05_error_messages/medium_mismatch.eng
+    - examples/05_error_messages/frame_mismatch.eng
+    - examples/05_error_messages/axis_mismatch.eng
+    - examples/05_error_messages/generic_domain_arity.eng
     - crates/eng_compiler/src/parser.rs
     - crates/eng_compiler/src/semantic.rs
     - crates/eng_compiler/src/lib.rs
+    - crates/eng_report/src/lib.rs
+    - crates/eng_ide/src/main.rs
+    - crates/eng_lsp/src/lib.rs

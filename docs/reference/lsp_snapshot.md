@@ -90,7 +90,8 @@ Current snapshot completions are global for the file and include:
 - EngLang keywords
 - current typed bindings
 - schema columns
-- domain names, domain variables, component names, and `Component.port` labels
+- domain names, domain variables, component names, and `Component.port` labels.
+  Generic ports include canonical labels such as `Fluid[Water]` in `detail`.
 - quantity kinds
 - units
 
@@ -139,7 +140,9 @@ connection
 
 For v2.0 domain/component files, hovers expose domain declarations,
 across/through variables, conservation metadata, component ports, and connection
-status. Example connection hover:
+status. Domain hovers may include package/version metadata and generic
+parameter signatures such as `Fluid[Medium]`; port hovers may include
+instantiated arguments such as `Fluid[Water]`. Example connection hover:
 
 ```json
 {

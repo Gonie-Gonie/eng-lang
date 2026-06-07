@@ -12,16 +12,26 @@ simulation yet.
 ## Current Scope On Main
 
 - `domain <Name> { ... }` declares a user-defined domain.
+- `domain <Name>[Param] package "package.id" version "semver-ish" { ... }`
+  records generic type-parameter, package, and version metadata.
 - `across <name>: <Quantity> [unit]` records across variables.
 - `through <name>: <Quantity> [unit]` records through variables.
 - `conservation <text>` records the domain conservation contract as metadata.
 - `component <Name> { port <name>: <Domain> }` declares component ports.
+- `port <name>: <Domain>[Argument]` instantiates a generic domain reference,
+  such as `Fluid[Water]`.
 - `connect Component.port -> Other.port` records a connection.
 - Port declarations referencing unknown domains produce `E-PORT-DOMAIN-001`.
+- Ports with the wrong number of generic domain arguments produce
+  `E-PORT-DOMAIN-002`.
 - Connections between ports of different domains produce
   `E-CONNECT-DOMAIN-001`.
+- Connections between the same generic domain with different `Medium`, `Frame`,
+  or `Axis` arguments produce `E-CONNECT-MEDIUM-001`,
+  `E-CONNECT-FRAME-001`, or `E-CONNECT-AXIS-001`.
 - Malformed connection endpoints produce `E-CONNECT-ENDPOINT-001`.
 - Unresolved component ports produce `E-CONNECT-PORT-001`.
+- Connection summaries are emitted in source order, not graph-topology order.
 - `review.json` exposes `domain_summary`, `component_summary`, and
   `connection_summary`.
 - `report_spec.json` and `report.html` expose the same domain/component surface
@@ -41,20 +51,25 @@ simulation yet.
 
 - `examples/official/06_domain_port/main.eng`
   - declares Thermal and Fluid domains;
+  - records package/version metadata;
+  - declares `Fluid[Medium]` and instantiates `Fluid[Water]` ports;
   - records across/through variables and conservation metadata;
   - declares components and ports;
   - records domain-compatible connections;
   - keeps a `script main` entry so the file remains runnable.
 - `examples/05_error_messages/port_domain_mismatch.eng`
   - verifies `E-CONNECT-DOMAIN-001`.
+- `examples/05_error_messages/medium_mismatch.eng`
+  - verifies `E-CONNECT-MEDIUM-001`.
+- `examples/05_error_messages/frame_mismatch.eng`
+  - verifies `E-CONNECT-FRAME-001`.
+- `examples/05_error_messages/axis_mismatch.eng`
+  - verifies `E-CONNECT-AXIS-001`.
+- `examples/05_error_messages/generic_domain_arity.eng`
+  - verifies `E-PORT-DOMAIN-002`.
 
-## Remaining Before Preview Claim
+## Remaining Before Numeric Claim
 
-- [ ] Add package/version metadata for domain declarations.
-- [ ] Add at least one typed generic domain fixture such as `Fluid[Medium]`.
-- [ ] Add medium/frame/axis compatibility diagnostics.
-- [ ] Define whether connection summaries are ordered by source order or graph
-  topology.
 - [ ] Keep multi-domain numeric simulation deferred until a solver/graph runtime
   exists.
 
@@ -73,13 +88,18 @@ cargo test -p eng_compiler
 target\debug\eng.exe run examples\official\06_domain_port\main.eng --entry main
 target\debug\eng.exe check examples\official\06_domain_port\main.eng --review
 target\debug\eng.exe check examples\05_error_messages\port_domain_mismatch.eng
+target\debug\eng.exe check examples\05_error_messages\medium_mismatch.eng
+target\debug\eng.exe check examples\05_error_messages\frame_mismatch.eng
+target\debug\eng.exe check examples\05_error_messages\axis_mismatch.eng
+target\debug\eng.exe check examples\05_error_messages\generic_domain_arity.eng
 target\debug\eng.exe test examples
 ```
 
-The mismatch fixture is expected to exit non-zero with
-`E-CONNECT-DOMAIN-001`.
+The mismatch fixtures are expected to exit non-zero with their listed
+diagnostic codes.
 
 After the runnable official fixture completes, inspect
 `build\result\report_spec.json` and `build\result\report.html` for
-`domain_summary`, `component_summary`, `connection_summary`, and
+`domain_summary`, `component_summary`, `connection_summary`,
+`type_parameters`, `package`, `version`, `Fluid[Water]`, and
 `domain_compatible` rows.

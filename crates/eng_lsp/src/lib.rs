@@ -169,9 +169,12 @@ pub fn hover_items(report: &CheckReport) -> Vec<LspHover> {
             kind: "domain".to_owned(),
             line: domain.line,
             detail: format!(
-                "{} variable(s), {} conservation contract(s)",
+                "{}, {} variable(s), {} conservation contract(s), package {}, version {}",
+                domain_signature(&domain.name, &domain.type_parameters),
                 domain.variables.len(),
-                domain.conservations.len()
+                domain.conservations.len(),
+                domain.package.as_deref().unwrap_or("-"),
+                domain.version.as_deref().unwrap_or("-")
             ),
             quantity_kind: "domain".to_owned(),
             display_unit: "-".to_owned(),
@@ -220,8 +223,12 @@ pub fn hover_items(report: &CheckReport) -> Vec<LspHover> {
                 kind: "component_port".to_owned(),
                 line: port.line,
                 detail: format!(
-                    "port {} on component {} references domain {}",
-                    port.name, component.name, port.domain
+                    "port {} on component {} references domain {} (base {}, arguments {})",
+                    port.name,
+                    component.name,
+                    port.domain,
+                    port.domain_name,
+                    string_list(&port.type_arguments)
                 ),
                 quantity_kind: "port".to_owned(),
                 display_unit: port.domain.clone(),
@@ -270,6 +277,8 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         "component",
         "port",
         "connect",
+        "package",
+        "version",
         "state",
         "parameter",
         "input",
@@ -324,7 +333,8 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
             &domain.name,
             "class",
             &format!(
-                "domain, {} variable(s), {} conservation(s)",
+                "domain {}, {} variable(s), {} conservation(s)",
+                domain_signature(&domain.name, &domain.type_parameters),
                 domain.variables.len(),
                 domain.conservations.len()
             ),
@@ -453,6 +463,22 @@ fn push_completion(
             kind: kind.to_owned(),
             detail: detail.to_owned(),
         });
+    }
+}
+
+fn domain_signature(name: &str, parameters: &[String]) -> String {
+    if parameters.is_empty() {
+        name.to_owned()
+    } else {
+        format!("{name}[{}]", parameters.join(", "))
+    }
+}
+
+fn string_list(values: &[String]) -> String {
+    if values.is_empty() {
+        "-".to_owned()
+    } else {
+        values.join(", ")
     }
 }
 

@@ -17,6 +17,7 @@ pub enum Keyword {
     Missing,
     Model,
     Output,
+    Package,
     Parameter,
     Plot,
     Port,
@@ -31,6 +32,7 @@ pub enum Keyword {
     Summarize,
     System,
     Through,
+    Version,
     Where,
 }
 
@@ -306,6 +308,7 @@ fn keyword(value: &str) -> Option<Keyword> {
         "missing" => Some(Keyword::Missing),
         "model" => Some(Keyword::Model),
         "output" => Some(Keyword::Output),
+        "package" => Some(Keyword::Package),
         "parameter" => Some(Keyword::Parameter),
         "plot" => Some(Keyword::Plot),
         "port" => Some(Keyword::Port),
@@ -320,6 +323,7 @@ fn keyword(value: &str) -> Option<Keyword> {
         "summarize" => Some(Keyword::Summarize),
         "system" => Some(Keyword::System),
         "through" => Some(Keyword::Through),
+        "version" => Some(Keyword::Version),
         "where" => Some(Keyword::Where),
         _ => None,
     }

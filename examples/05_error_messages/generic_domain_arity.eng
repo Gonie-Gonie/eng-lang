@@ -1,0 +1,8 @@
+domain Fluid[Medium] package "eng.std.domains.fluid" version "0.1.0" {
+    across height: Length [m]
+    through m_dot: MassFlowRate [kg/s]
+}
+
+component Pipe {
+    port inlet: Fluid
+}

@@ -59,6 +59,8 @@ const KEYWORDS = [
   "component",
   "port",
   "connect",
+  "package",
+  "version",
   "state",
   "parameter",
   "input",
@@ -340,7 +342,7 @@ class EngCompletionProvider {
     addCompletion(items, seen, snippet("schema csv", "schema ${1:Sensor} {\n    ${2:time}: DateTime [iso8601]\n    ${3:heat}: HeatRate [kW]\n}", "Typed CSV schema"));
     addCompletion(items, seen, snippet("script main", "script main() -> Report {\n    ${1:value} = ${2:1 kW}\n    return plot line ${1:value}\n}", "Main report script"));
     addCompletion(items, seen, snippet("system thermal", "system ${1:Room} {\n    state ${2:T}: AbsoluteTemperature = ${3:20 degC}\n    parameter ${4:C}: HeatCapacity = ${5:1200 kJ/K}\n    parameter ${6:UA}: Conductance = ${7:250 W/K}\n    input ${8:T_out}: AbsoluteTemperature = ${9:10 degC}\n    input ${10:Q_internal}: HeatRate = ${11:500 W}\n    equation energy_balance:\n        ${4:C} * der(${2:T}) eq ${6:UA} * (${8:T_out} - ${2:T}) + ${10:Q_internal}\n}", "First-order thermal system"));
-    addCompletion(items, seen, snippet("domain ports", "domain ${1:Thermal} {\n    across ${2:T}: AbsoluteTemperature [degC]\n    through ${3:Q}: HeatRate [kW]\n    conservation sum(${3:Q}) = 0\n}\n\ncomponent ${4:RoomBoundary} {\n    port ${5:heat}: ${1:Thermal}\n}\n\ncomponent ${6:AmbientBoundary} {\n    port ${7:heat}: ${1:Thermal}\n}\n\nconnect ${4:RoomBoundary}.${5:heat} -> ${6:AmbientBoundary}.${7:heat}", "Domain, component ports, and connection"));
+    addCompletion(items, seen, snippet("domain ports", "domain ${1:Thermal} package \"${2:eng.std.domains.thermal}\" version \"${3:0.1.0}\" {\n    across ${4:T}: AbsoluteTemperature [degC]\n    through ${5:Q}: HeatRate [kW]\n    conservation sum(${5:Q}) = 0\n}\n\ndomain ${6:Fluid}[${7:Medium}] package \"${8:eng.std.domains.fluid}\" version \"${9:0.1.0}\" {\n    across ${10:height}: Length [m]\n    through ${11:m_dot}: MassFlowRate [kg/s]\n    conservation sum(${11:m_dot}) = 0\n}\n\ncomponent ${12:RoomBoundary} {\n    port ${13:heat}: ${1:Thermal}\n}\n\ncomponent ${14:SupplyPipe} {\n    port ${15:inlet}: ${6:Fluid}[${16:Water}]\n    port ${17:outlet}: ${6:Fluid}[${16:Water}]\n}\n\nconnect ${14:SupplyPipe}.${15:inlet} -> ${14:SupplyPipe}.${17:outlet}", "Domain package/version, generic ports, and connection"));
 
     return items;
   }

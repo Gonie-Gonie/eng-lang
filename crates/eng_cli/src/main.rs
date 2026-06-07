@@ -718,6 +718,42 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     }
     println!("ok: examples/05_error_messages/port_domain_mismatch.eng produced diagnostics");
 
+    for (fixture, expected_code) in [
+        (
+            "examples/05_error_messages/medium_mismatch.eng",
+            "E-CONNECT-MEDIUM-001",
+        ),
+        (
+            "examples/05_error_messages/frame_mismatch.eng",
+            "E-CONNECT-FRAME-001",
+        ),
+        (
+            "examples/05_error_messages/axis_mismatch.eng",
+            "E-CONNECT-AXIS-001",
+        ),
+        (
+            "examples/05_error_messages/generic_domain_arity.eng",
+            "E-PORT-DOMAIN-002",
+        ),
+    ] {
+        let report = match check_file(fixture, &CheckOptions::default()) {
+            Ok(report) => report,
+            Err(error) => {
+                eprintln!("{error}");
+                return ExitCode::from(1);
+            }
+        };
+        if !report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == expected_code)
+        {
+            eprintln!("expected {fixture} to produce {expected_code}");
+            return ExitCode::from(2);
+        }
+        println!("ok: {fixture} produced {expected_code}");
+    }
+
     let missing_uncertainty_source = match check_file(
         "examples/05_error_messages/missing_uncertainty_source.eng",
         &CheckOptions::default(),

@@ -596,6 +596,9 @@ impl EngIdeApp {
             .iter()
             .map(|domain| DomainView {
                 name: domain.name.clone(),
+                type_parameters: domain.type_parameters.clone(),
+                package: domain.package.clone(),
+                version: domain.version.clone(),
                 line: domain.line,
                 variables: domain
                     .variables
@@ -635,6 +638,8 @@ impl EngIdeApp {
                     .map(|port| PortView {
                         name: port.name.clone(),
                         domain: port.domain.clone(),
+                        domain_name: port.domain_name.clone(),
+                        type_arguments: port.type_arguments.clone(),
                         status: port.status.clone(),
                         line: port.line,
                     })
@@ -1301,6 +1306,13 @@ impl EngIdeApp {
                         });
                     });
                     key_value_row(ui, "variables", &domain.variables.len().to_string());
+                    key_value_row(ui, "parameters", &compact_list(&domain.type_parameters, 4));
+                    if let Some(package) = &domain.package {
+                        key_value_row(ui, "package", package);
+                    }
+                    if let Some(version) = &domain.version {
+                        key_value_row(ui, "version", version);
+                    }
                     for variable in &domain.variables {
                         let detail = format!(
                             "{} {}: {} [{}] -> {}",
@@ -1372,6 +1384,10 @@ impl EngIdeApp {
                             );
                             status_pill(ui, &port.status, status_color(&port.status));
                         });
+                        if !port.type_arguments.is_empty() {
+                            key_value_row(ui, "arguments", &compact_list(&port.type_arguments, 4));
+                        }
+                        key_value_row(ui, "domain base", &port.domain_name);
                     }
                 });
                 ui.add_space(5.0);
@@ -2078,6 +2094,9 @@ struct CsvPromotionView {
 #[derive(Clone)]
 struct DomainView {
     name: String,
+    type_parameters: Vec<String>,
+    package: Option<String>,
+    version: Option<String>,
     line: usize,
     variables: Vec<DomainVariableView>,
     conservations: Vec<DomainConservationView>,
@@ -2112,6 +2131,8 @@ struct ComponentView {
 struct PortView {
     name: String,
     domain: String,
+    domain_name: String,
+    type_arguments: Vec<String>,
     status: String,
     line: usize,
 }
@@ -2554,6 +2575,8 @@ fn completion_items(filter: &str, symbols: &[SymbolView], source: &str) -> Vec<C
         "component",
         "port",
         "connect",
+        "package",
+        "version",
         "state",
         "parameter",
         "input",
@@ -2654,8 +2677,8 @@ fn completion_items(filter: &str, symbols: &[SymbolView], source: &str) -> Vec<C
         ),
         (
             "snippet: domain ports",
-            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\nconnect RoomBoundary.heat -> AmbientBoundary.heat",
-            "domain, component ports, and connection",
+            "domain Thermal package \"eng.std.domains.thermal\" version \"0.1.0\" {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ndomain Fluid[Medium] package \"eng.std.domains.fluid\" version \"0.1.0\" {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n}\n\ncomponent SupplyPipe {\n    port inlet: Fluid[Water]\n    port outlet: Fluid[Water]\n}\n\nconnect SupplyPipe.inlet -> SupplyPipe.outlet",
+            "domain package/version, generic ports, and connection",
         ),
         (
             "snippet: plot report",
@@ -2857,6 +2880,15 @@ fn is_keyword(token: &str) -> bool {
             | "script"
             | "struct"
             | "system"
+            | "domain"
+            | "across"
+            | "through"
+            | "conservation"
+            | "component"
+            | "port"
+            | "connect"
+            | "package"
+            | "version"
             | "state"
             | "parameter"
             | "input"
@@ -3236,7 +3268,14 @@ fn status_pill(ui: &mut egui::Ui, text: &str, color: egui::Color32) {
 fn status_color(status: &str) -> egui::Color32 {
     match status {
         "recorded" | "domain_resolved" | "domain_compatible" | "unit_consistent" => OK,
-        "unknown_domain" | "domain_mismatch" | "unresolved_endpoint" => ERROR,
+        "unknown_domain"
+        | "generic_arity_mismatch"
+        | "domain_mismatch"
+        | "medium_mismatch"
+        | "frame_mismatch"
+        | "axis_mismatch"
+        | "domain_parameter_mismatch"
+        | "unresolved_endpoint" => ERROR,
         "unvalidated" | "metadata_only" | "deferred" | "unsolved" => WARNING,
         _ => MUTED,
     }

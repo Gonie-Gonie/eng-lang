@@ -71,6 +71,9 @@ warning_list
 plot_manifest
 system_summary
 system_ir
+domain_summary
+component_summary
+connection_summary
 ```
 
 `plot_manifest` in `review.json` declares the runtime path that `eng run` will use. It does not carry the runtime manifest hash because `eng check --review` does not render plots.
@@ -96,6 +99,9 @@ unit_conversion_table
 args_summary
 arg_values
 schema_summary
+domain_summary
+component_summary
+connection_summary
 plot_manifest
 warning_list
 system_summary

@@ -257,6 +257,9 @@ pub struct ReportPolicyViolation {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ReportDomainSummary {
     pub name: String,
+    pub type_parameters: Vec<String>,
+    pub package: Option<String>,
+    pub version: Option<String>,
     pub variables: Vec<ReportDomainVariable>,
     pub conservations: Vec<ReportDomainConservation>,
     pub line: usize,
@@ -291,6 +294,8 @@ pub struct ReportComponentSummary {
 pub struct ReportPort {
     pub name: String,
     pub domain: String,
+    pub domain_name: String,
+    pub type_arguments: Vec<String>,
     pub status: String,
     pub line: usize,
 }
@@ -632,6 +637,9 @@ pub fn report_spec_from_report(
         .iter()
         .map(|domain| ReportDomainSummary {
             name: domain.name.clone(),
+            type_parameters: domain.type_parameters.clone(),
+            package: domain.package.clone(),
+            version: domain.version.clone(),
             variables: domain
                 .variables
                 .iter()
@@ -669,6 +677,8 @@ pub fn report_spec_from_report(
                 .map(|port| ReportPort {
                     name: port.name.clone(),
                     domain: port.domain.clone(),
+                    domain_name: port.domain_name.clone(),
+                    type_arguments: port.type_arguments.clone(),
                     status: port.status.clone(),
                     line: port.line,
                 })
@@ -1421,6 +1431,28 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             "      \"name\": \"{}\",\n",
             json_escape(&domain.name)
         ));
+        json.push_str("      \"type_parameters\": [");
+        for (parameter_index, parameter) in domain.type_parameters.iter().enumerate() {
+            if parameter_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(parameter)));
+        }
+        json.push_str("],\n");
+        match &domain.package {
+            Some(package) => json.push_str(&format!(
+                "      \"package\": \"{}\",\n",
+                json_escape(package)
+            )),
+            None => json.push_str("      \"package\": null,\n"),
+        }
+        match &domain.version {
+            Some(version) => json.push_str(&format!(
+                "      \"version\": \"{}\",\n",
+                json_escape(version)
+            )),
+            None => json.push_str("      \"version\": null,\n"),
+        }
         json.push_str(&format!("      \"line\": {},\n", domain.line));
         json.push_str(&format!(
             "      \"variable_count\": {},\n",
@@ -1515,6 +1547,18 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
                 "          \"domain\": \"{}\",\n",
                 json_escape(&port.domain)
             ));
+            json.push_str(&format!(
+                "          \"domain_name\": \"{}\",\n",
+                json_escape(&port.domain_name)
+            ));
+            json.push_str("          \"type_arguments\": [");
+            for (argument_index, argument) in port.type_arguments.iter().enumerate() {
+                if argument_index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&format!("\"{}\"", json_escape(argument)));
+            }
+            json.push_str("],\n");
             json.push_str(&format!(
                 "          \"status\": \"{}\",\n",
                 json_escape(&port.status)
@@ -2240,12 +2284,25 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
 
     let mut domain_summary = String::new();
     for domain in &report.semantic_program.domains {
+        let domain_signature = format_domain_signature(&domain.name, &domain.type_parameters);
+        let package = domain.package.as_deref().unwrap_or("-");
+        let version = domain.version.as_deref().unwrap_or("-");
+        domain_summary.push_str("<tr>");
+        domain_summary.push_str(&format!(
+            "<td>{}</td><td>{}</td><td>metadata</td><td colspan=\"2\">package {}</td><td>version {}</td><td>{}</td><td>metadata</td>",
+            domain.line,
+            html_escape(&domain_signature),
+            html_escape(package),
+            html_escape(version),
+            html_escape(&format_string_list(&domain.type_parameters))
+        ));
+        domain_summary.push_str("</tr>");
         for variable in &domain.variables {
             domain_summary.push_str("<tr>");
             domain_summary.push_str(&format!(
                 "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
                 variable.line,
-                html_escape(&domain.name),
+                html_escape(&domain_signature),
                 html_escape(&variable.role),
                 html_escape(&variable.name),
                 html_escape(&variable.quantity_kind),
@@ -2260,7 +2317,7 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
             domain_summary.push_str(&format!(
                 "<td>{}</td><td>{}</td><td>conservation</td><td colspan=\"4\"><code>{}</code></td><td>{}</td>",
                 conservation.line,
-                html_escape(&domain.name),
+                html_escape(&domain_signature),
                 html_escape(&conservation.text),
                 html_escape(&conservation.status)
             ));
@@ -2665,6 +2722,22 @@ fn html_escape(value: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
+}
+
+fn format_domain_signature(name: &str, parameters: &[String]) -> String {
+    if parameters.is_empty() {
+        name.to_owned()
+    } else {
+        format!("{name}[{}]", parameters.join(", "))
+    }
+}
+
+fn format_string_list(values: &[String]) -> String {
+    if values.is_empty() {
+        "-".to_owned()
+    } else {
+        values.join(", ")
+    }
 }
 
 fn uncertainty_transform_label(scale: Option<&str>, offset: Option<&str>) -> String {
@@ -3169,7 +3242,7 @@ mod tests {
     fn report_spec_and_html_include_domain_component_sections() {
         let report = check_source(
             "ok.eng",
-            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\nconnect RoomBoundary.heat -> AmbientBoundary.heat\n",
+            "domain Fluid[Medium] package \"eng.std.domains.fluid\" version \"0.1.0\" {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent Supply {\n    port outlet: Fluid[Water]\n}\n\ncomponent Return {\n    port inlet: Fluid[Water]\n}\n\nconnect Supply.outlet -> Return.inlet\n",
             &CheckOptions::default(),
         );
 
@@ -3180,15 +3253,29 @@ mod tests {
         assert_eq!(spec.provenance.domain_count, 1);
         assert_eq!(spec.provenance.component_count, 2);
         assert_eq!(spec.provenance.connection_count, 1);
-        assert_eq!(spec.domains[0].name, "Thermal");
+        assert_eq!(spec.domains[0].name, "Fluid");
+        assert_eq!(spec.domains[0].type_parameters, vec!["Medium".to_owned()]);
+        assert_eq!(
+            spec.domains[0].package.as_deref(),
+            Some("eng.std.domains.fluid")
+        );
+        assert_eq!(spec.domains[0].version.as_deref(), Some("0.1.0"));
         assert_eq!(spec.domains[0].variables[0].role, "across");
         assert_eq!(spec.components[0].ports[0].status, "domain_resolved");
+        assert_eq!(spec.components[0].ports[0].domain, "Fluid[Water]");
+        assert_eq!(
+            spec.components[0].ports[0].type_arguments,
+            vec!["Water".to_owned()]
+        );
         assert_eq!(spec.connections[0].status, "domain_compatible");
         assert!(json.contains("\"domain_summary\""));
         assert!(json.contains("\"component_summary\""));
         assert!(json.contains("\"connection_summary\""));
+        assert!(json.contains("\"package\": \"eng.std.domains.fluid\""));
+        assert!(json.contains("\"type_arguments\": [\"Water\"]"));
         assert!(json.contains("\"domain_count\": 1"));
         assert!(html.contains("Domains"));
+        assert!(html.contains("eng.std.domains.fluid"));
         assert!(html.contains("Component Ports"));
         assert!(html.contains("Connections"));
         assert!(html.contains("domain_compatible"));

@@ -1,0 +1,14 @@
+domain DirectionalHeat[Axis] package "eng.std.domains.directional_heat" version "0.1.0" {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+}
+
+component XFace {
+    port heat: DirectionalHeat[X]
+}
+
+component YFace {
+    port heat: DirectionalHeat[Y]
+}
+
+connect XFace.heat -> YFace.heat

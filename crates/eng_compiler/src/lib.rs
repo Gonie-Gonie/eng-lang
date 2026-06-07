@@ -988,6 +988,28 @@ pub fn review_json(report: &CheckReport) -> String {
             "      \"name\": \"{}\",\n",
             json_escape(&domain.name)
         ));
+        json.push_str("      \"type_parameters\": [");
+        for (parameter_index, parameter) in domain.type_parameters.iter().enumerate() {
+            if parameter_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(parameter)));
+        }
+        json.push_str("],\n");
+        match &domain.package {
+            Some(package) => json.push_str(&format!(
+                "      \"package\": \"{}\",\n",
+                json_escape(package)
+            )),
+            None => json.push_str("      \"package\": null,\n"),
+        }
+        match &domain.version {
+            Some(version) => json.push_str(&format!(
+                "      \"version\": \"{}\",\n",
+                json_escape(version)
+            )),
+            None => json.push_str("      \"version\": null,\n"),
+        }
         json.push_str(&format!("      \"line\": {},\n", domain.line));
         json.push_str(&format!(
             "      \"variable_count\": {},\n",
@@ -1081,6 +1103,18 @@ pub fn review_json(report: &CheckReport) -> String {
                 "          \"domain\": \"{}\",\n",
                 json_escape(&port.domain)
             ));
+            json.push_str(&format!(
+                "          \"domain_name\": \"{}\",\n",
+                json_escape(&port.domain_name)
+            ));
+            json.push_str("          \"type_arguments\": [");
+            for (argument_index, argument) in port.type_arguments.iter().enumerate() {
+                if argument_index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&format!("\"{}\"", json_escape(argument)));
+            }
+            json.push_str("],\n");
             json.push_str(&format!(
                 "          \"status\": \"{}\",\n",
                 json_escape(&port.status)
@@ -1697,7 +1731,7 @@ mod tests {
     fn records_domain_component_and_connection_metadata() {
         let report = check_source(
             "ok.eng",
-            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Room {\n    port heat: Thermal\n}\n\ncomponent Ambient {\n    port heat: Thermal\n}\n\nconnect Room.heat -> Ambient.heat\n",
+            "domain Fluid[Medium] package \"eng.std.domains.fluid\" version \"0.1.0\" {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent Supply {\n    port outlet: Fluid[Water]\n}\n\ncomponent Return {\n    port inlet: Fluid[Water]\n}\n\nconnect Supply.outlet -> Return.inlet\n",
             &CheckOptions::default(),
         );
 
@@ -1707,7 +1741,19 @@ mod tests {
         assert_eq!(report.syntax_summary.components, 2);
         assert_eq!(report.syntax_summary.ports, 2);
         assert_eq!(report.syntax_summary.connections, 1);
-        assert_eq!(report.semantic_program.domains[0].name, "Thermal");
+        assert_eq!(report.semantic_program.domains[0].name, "Fluid");
+        assert_eq!(
+            report.semantic_program.domains[0].type_parameters,
+            vec!["Medium".to_owned()]
+        );
+        assert_eq!(
+            report.semantic_program.domains[0].package.as_deref(),
+            Some("eng.std.domains.fluid")
+        );
+        assert_eq!(
+            report.semantic_program.domains[0].version.as_deref(),
+            Some("0.1.0")
+        );
         assert_eq!(
             report.semantic_program.domains[0].variables[0].role,
             "across"
@@ -1721,6 +1767,14 @@ mod tests {
             "domain_resolved"
         );
         assert_eq!(
+            report.semantic_program.components[0].ports[0].domain,
+            "Fluid[Water]"
+        );
+        assert_eq!(
+            report.semantic_program.components[0].ports[0].type_arguments,
+            vec!["Water".to_owned()]
+        );
+        assert_eq!(
             report.semantic_program.connections[0].status,
             "domain_compatible"
         );
@@ -1729,6 +1783,9 @@ mod tests {
         assert!(review.contains("\"domain_summary\""));
         assert!(review.contains("\"component_summary\""));
         assert!(review.contains("\"connection_summary\""));
+        assert!(review.contains("\"type_parameters\""));
+        assert!(review.contains("\"package\": \"eng.std.domains.fluid\""));
+        assert!(review.contains("\"Fluid[Water]\""));
         assert!(review.contains("\"domain_compatible\""));
     }
 
@@ -1748,6 +1805,61 @@ mod tests {
         assert_eq!(
             report.semantic_program.connections[0].status,
             "domain_mismatch"
+        );
+    }
+
+    #[test]
+    fn rejects_generic_domain_parameter_mismatches() {
+        for (parameter, left, right, expected_code, expected_status) in [
+            (
+                "Medium",
+                "Water",
+                "Air",
+                "E-CONNECT-MEDIUM-001",
+                "medium_mismatch",
+            ),
+            (
+                "Frame",
+                "World",
+                "Body",
+                "E-CONNECT-FRAME-001",
+                "frame_mismatch",
+            ),
+            ("Axis", "X", "Y", "E-CONNECT-AXIS-001", "axis_mismatch"),
+        ] {
+            let source = format!(
+                "domain Generic[{parameter}] {{\n    across x: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n}}\n\ncomponent Left {{\n    port p: Generic[{left}]\n}}\n\ncomponent Right {{\n    port p: Generic[{right}]\n}}\n\nconnect Left.p -> Right.p\n"
+            );
+            let report = check_source("bad.eng", &source, &CheckOptions::default());
+
+            assert!(report.has_errors());
+            assert!(report
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == expected_code));
+            assert_eq!(
+                report.semantic_program.connections[0].status,
+                expected_status
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_generic_domain_arity_mismatch() {
+        let report = check_source(
+            "bad.eng",
+            "domain Fluid[Medium] {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n}\n\ncomponent Pipe {\n    port inlet: Fluid\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-PORT-DOMAIN-002"));
+        assert_eq!(
+            report.semantic_program.components[0].ports[0].status,
+            "generic_arity_mismatch"
         );
     }
 
