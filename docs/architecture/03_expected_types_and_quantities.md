@@ -50,7 +50,7 @@ Expected type이 있어도 dimensionless literal에 자동 단위를 붙이지 �
 
 따라서 다음은 오류입니다.
 
-```eng
+```eng error
 Q: HeatRate [kW] = 2 kW - 1
 ```
 
@@ -118,7 +118,7 @@ v0.2는 addition뿐 아니라 subtraction도 검사합니다.
 
 오류:
 
-```eng
+```eng error
 X = 1 m + 20
 Q = 1 + 2 kW
 Q_expected: HeatRate [kW] = 2 kW - 1
@@ -127,7 +127,7 @@ T = 24 degC + 1
 
 허용:
 
-```eng
+```eng partial
 L = 1 m + 20 cm
 Q = 1 kW + 2 kW
 scale = 0.85

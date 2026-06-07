@@ -54,7 +54,7 @@ schema SensorData {
 
 The compiler recognizes:
 
-```eng
+```eng partial
 sensor = promote csv "data/sensor.csv" as SensorData
 ```
 
@@ -130,4 +130,3 @@ Deferred to later versions:
 - missing value interpolation
 - TimeSeries construction
 ```
-

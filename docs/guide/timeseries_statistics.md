@@ -6,7 +6,7 @@ The current implementation is a typed seed, not a full numeric statistics engine
 
 ## Example
 
-```eng
+```eng partial
 script main(args: Args) -> Report {
     sensor = promote csv "data/sensor.csv" as SensorData
     cp = 4180 J/kg/K
@@ -100,7 +100,7 @@ integrate(HeatRate over Time) -> Energy
 
 This is intentionally warned:
 
-```eng
+```eng partial
 E_bad = sum(Q_coil, axis=Time)
 ```
 

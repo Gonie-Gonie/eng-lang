@@ -12,6 +12,7 @@ On Windows, use the root `dev.bat` wrapper for all development commands. It bypa
 .\dev.bat setup
 .\dev.bat doctor
 .\dev.bat ci
+.\dev.bat docs-check
 .\dev.bat run-example
 ```
 
@@ -170,3 +171,7 @@ matching `.sha256` file. `package-smoke` extracts that zip into a path with
 spaces and Korean characters, then runs the portable `eng.exe` without relying
 on Rust or Python on the target side. It also builds and runs the standalone
 packaged runner from inside the extracted portable package.
+
+`docs-check` is included in `release-check`. It validates supported `eng`
+documentation snippets and requires design-only or future snippets to be marked
+explicitly.

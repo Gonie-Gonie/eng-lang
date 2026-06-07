@@ -53,7 +53,7 @@ build/result/result.engres
 
 The equation:
 
-```eng
+```eng partial
 C * der(T) eq UA * (T_out - T) + Q_internal
 ```
 
@@ -121,7 +121,7 @@ This is a report/review representation only. Numeric solving is deferred.
 
 This is intentionally invalid:
 
-```eng
+```eng partial
 C * der(T) == UA * (T_out - T) + Q_internal
 ```
 
@@ -142,7 +142,7 @@ Use `eq` for physical equations. `==` returns Bool.
 
 This is intentionally invalid:
 
-```eng
+```eng partial
 C * der(T) eq T_out
 ```
 

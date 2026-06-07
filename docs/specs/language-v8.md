@@ -16,7 +16,7 @@
 
 ## 금지: `:=`
 
-```eng
+```eng error
 Q := UA * dT
 ```
 
@@ -96,7 +96,7 @@ schema SensorData {
 
 금지:
 
-```eng
+```eng error
 schema SensorData {
     T_supply = 24 degC
 }
@@ -141,7 +141,7 @@ display unit = J by default
 
 금지:
 
-```eng
+```eng error
 X = 1 m + 20
 ```
 
@@ -157,7 +157,7 @@ If 20 means centimeters, write:
 
 금지:
 
-```eng
+```eng error
 Q = 1 + 2 kW
 ```
 
@@ -170,7 +170,7 @@ E-DIM-ADD-002:
 
 금지:
 
-```eng
+```eng error
 Q: HeatRate [kW] = 2 kW - 1
 ```
 
@@ -178,7 +178,7 @@ Expected type이 있어도 `1`을 자동으로 `1 kW`로 해석하지 않습니�
 
 금지:
 
-```eng
+```eng error
 T = 24 degC + 1
 ```
 
@@ -193,7 +193,7 @@ E-DIM-ADD-003:
 
 허용:
 
-```eng
+```eng partial
 Q_loss = 0.85 * Q_nominal
 L2 = 2 * L
 L3 = L / 2

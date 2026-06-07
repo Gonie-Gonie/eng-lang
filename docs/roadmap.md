@@ -309,7 +309,7 @@ Before or alongside v1.1, address the v1.0 hardening register in
 Priority backfill:
 
 ```text
-[ ] docs-check command for supported docs/spec code blocks
+[x] docs-check command for supported docs/spec code blocks
 [ ] examples/official/01_csv_plot and examples/official/02_simple_system
 [ ] artifact schema/golden validation baseline
 [ ] Args metadata inventory for packaged runner help

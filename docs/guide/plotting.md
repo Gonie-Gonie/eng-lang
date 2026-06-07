@@ -4,7 +4,7 @@ v0.6-preview adds PlotSpec v1 and SVG export from the native report crate.
 
 ## Example
 
-```eng
+```eng partial
 plot Q_coil over Time {
     unit y = kW
     title = "Coil heat rate"

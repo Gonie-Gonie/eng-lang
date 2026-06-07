@@ -155,6 +155,123 @@ function Invoke-Ci {
     Invoke-RunExample
 }
 
+function Get-CodeFences {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Path
+    )
+
+    $lines = Get-Content -LiteralPath $Path -Encoding UTF8
+    $inFence = $false
+    $info = ""
+    $startLine = 0
+    $body = New-Object System.Collections.Generic.List[string]
+
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        $line = $lines[$index]
+        if ($line -match '^```(.*)$') {
+            if (-not $inFence) {
+                $inFence = $true
+                $info = $Matches[1].Trim()
+                $startLine = $index + 1
+                $body.Clear()
+            } else {
+                [pscustomobject]@{
+                    File = $Path
+                    StartLine = $startLine
+                    Info = $info
+                    Body = ($body -join [Environment]::NewLine)
+                }
+                $inFence = $false
+                $info = ""
+                $startLine = 0
+                $body.Clear()
+            }
+        } elseif ($inFence) {
+            $body.Add($line) | Out-Null
+        }
+    }
+
+    if ($inFence) {
+        throw "Unclosed code fence in $Path starting at line $startLine"
+    }
+}
+
+function Invoke-DocsCheck {
+    Set-DevEnvironment
+    $cargo = Get-Cargo
+    if ($null -eq $cargo) {
+        Write-Host "Cargo not found. Run .\dev.bat setup."
+        exit 1
+    }
+    Invoke-Native $cargo "build" "-p" "eng_cli"
+    $Eng = Join-Path $RepoRoot "target\debug\eng.exe"
+    $DocsCheckRoot = Join-Path $RepoRoot "build\docs-check"
+    $Utf8NoBom = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false
+    Remove-Item -LiteralPath $DocsCheckRoot -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force -Path $DocsCheckRoot | Out-Null
+
+    $targets = @(
+        "README.md",
+        "docs\specs",
+        "docs\reference",
+        "docs\guide",
+        "docs\tutorials",
+        "docs\architecture",
+        "docs\runtime"
+    )
+    $markdownFiles = New-Object System.Collections.Generic.List[string]
+    foreach ($target in $targets) {
+        $path = Join-Path $RepoRoot $target
+        if (Test-Path -LiteralPath $path -PathType Leaf) {
+            $markdownFiles.Add($path) | Out-Null
+        } elseif (Test-Path -LiteralPath $path -PathType Container) {
+            Get-ChildItem -LiteralPath $path -Recurse -Filter "*.md" | ForEach-Object {
+                $markdownFiles.Add($_.FullName) | Out-Null
+            }
+        }
+    }
+
+    $checked = 0
+    $skipped = 0
+    $snippetIndex = 0
+    foreach ($file in $markdownFiles) {
+        foreach ($fence in (Get-CodeFences -Path $file)) {
+            $info = $fence.Info.ToLowerInvariant()
+            if (-not $info.StartsWith("eng")) {
+                continue
+            }
+            if ($info -match '\b(future|partial|unchecked)\b') {
+                $skipped += 1
+                continue
+            }
+            $expectFailure = $info -match '\b(error|fail)\b'
+            $snippetIndex += 1
+            $safeName = $file.Substring($RepoRoot.Length).TrimStart('\') -replace '[\\/:*?"<>| ]', '_'
+            $snippetPath = Join-Path $DocsCheckRoot ("{0:D4}_{1}.eng" -f $snippetIndex, $safeName)
+            [System.IO.File]::WriteAllText($snippetPath, $fence.Body, $Utf8NoBom)
+
+            & $Eng "check" $snippetPath
+            $exitCode = $LASTEXITCODE
+            if ($expectFailure) {
+                if ($exitCode -eq 0) {
+                    throw "Docs snippet was expected to fail but passed: $($fence.File):$($fence.StartLine)"
+                }
+                if ($exitCode -ne 2) {
+                    throw "Docs snippet failed with unexpected exit code $exitCode`: $($fence.File):$($fence.StartLine)"
+                }
+            } else {
+                if ($exitCode -ne 0) {
+                    throw "Docs snippet failed: $($fence.File):$($fence.StartLine)"
+                }
+            }
+            $checked += 1
+        }
+    }
+
+    Write-Host "Docs check passed. Checked $checked Eng snippet(s), skipped $skipped marked snippet(s)."
+}
+
 function Invoke-RunExample {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -248,6 +365,7 @@ function Invoke-PackageSmoke {
 
 function Invoke-ReleaseCheck {
     Invoke-Ci
+    Invoke-DocsCheck
     Invoke-PackageSmoke
     $Version = Get-WorkspaceVersion
     $ZipPath = Join-Path $RepoRoot "dist\englang-preview-v$Version-windows-x64.zip"
@@ -279,6 +397,7 @@ sha256 = $ActualHash
 
 verified:
   dev.bat ci
+  dev.bat docs-check
   dev.bat package-smoke
   standalone packaged runner
 "@
@@ -308,6 +427,7 @@ Usage:
   .\dev.bat fmt            Format Rust code
   .\dev.bat clippy         Run clippy with warnings denied
   .\dev.bat ci             Run fmt, tests, clippy, and preview example
+  .\dev.bat docs-check     Check supported documentation Eng snippets
   .\dev.bat run-example    Run examples\04_plotting\main.eng
   .\dev.bat package        Build release, assemble dist\englang-preview, zip it, and write SHA256
   .\dev.bat package-smoke  Extract the portable zip under a Korean/space path and smoke it
@@ -328,6 +448,7 @@ switch ($Command) {
     "fmt" { Invoke-Fmt }
     "clippy" { Invoke-Clippy }
     "ci" { Invoke-Ci }
+    "docs-check" { Invoke-DocsCheck }
     "run-example" { Invoke-RunExample }
     "package" { Invoke-Package }
     "package-smoke" { Invoke-PackageSmoke }

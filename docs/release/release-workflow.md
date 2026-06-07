@@ -29,11 +29,18 @@ This command runs:
 
 ```text
 1. dev.bat ci
-2. dev.bat package-smoke
-3. zip existence check
-4. SHA256 checksum verification
-5. dist/release-manifest.txt generation
+2. dev.bat docs-check
+3. dev.bat package-smoke
+4. zip existence check
+5. SHA256 checksum verification
+6. dist/release-manifest.txt generation
 ```
+
+`docs-check` extracts supported `eng` fenced code blocks from README and the
+supported docs roots, checks current syntax snippets, and verifies snippets
+marked `eng error` fail with compiler diagnostics. Design-only or future
+fragments must be marked explicitly as `eng partial`, `eng future`, or
+`eng unchecked`.
 
 Expected release files:
 

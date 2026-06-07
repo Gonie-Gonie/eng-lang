@@ -102,12 +102,16 @@ For a normal development slice:
 .\dev.bat ci
 ```
 
+For documentation/spec snippets:
+
+```bat
+.\dev.bat docs-check
+```
+
 For packaging/release work:
 
 ```bat
-.\dev.bat ci
-.\dev.bat package
-.\dev.bat package-smoke
+.\dev.bat release-check
 ```
 
 If the change generates visual/report artifacts, inspect `build/result/report.html`

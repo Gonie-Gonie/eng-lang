@@ -56,6 +56,8 @@ P2  review/report schema validation snapshots
 
 ### G-001 Docs Code Block Gate
 
+Status: Implemented after v1.0.0 as a v1.0 hardening backfill.
+
 Plan expectation:
 
 ```text
@@ -66,9 +68,10 @@ Accepted principle: spec code blocks are checked in CI.
 Current state:
 
 ```text
-- release-check runs ci and package-smoke
-- there is no doc snippet extractor/checker
-- master-plan snippets include future syntax and cannot all be checked as v1.0
+- release-check runs ci, docs-check, and package-smoke
+- docs-check extracts supported Eng snippets from README and supported docs roots
+- docs-check validates current snippets and expected-failure snippets
+- master-plan snippets remain excluded because they include future roadmap syntax
 ```
 
 Risk:
@@ -80,8 +83,8 @@ P1. Documentation can drift from supported syntax without CI catching it.
 Hardening detail:
 
 ```text
-1. Add a docs-check command.
-2. Check only supported-doc roots first:
+1. [x] Add a docs-check command.
+2. [x] Check only supported-doc roots first:
    - README.md
    - docs/specs
    - docs/reference
@@ -89,10 +92,10 @@ Hardening detail:
    - docs/tutorials
    - docs/architecture
    - docs/runtime
-3. Exclude docs/master-plan from executable snippet CI.
-4. Allow fenced blocks to opt out with an explicit marker such as:
+3. [x] Exclude docs/master-plan from executable snippet CI.
+4. [x] Allow fenced blocks to opt out with an explicit marker such as:
    `eng future` or `eng partial`.
-5. Add docs-check to release-check once the current supported docs pass.
+5. [x] Add docs-check to release-check once the current supported docs pass.
 ```
 
 ### G-002 Official Examples Layout
@@ -385,7 +388,8 @@ Current state:
 - release workflow exists and publishes v1.0.0 assets
 - Windows release path is verified
 - Linux/macOS are intentionally outside the initial release gate
-- docs-check and schema validation are not yet in release-check
+- docs-check is in release-check
+- schema validation is not yet in release-check
 ```
 
 Risk:
@@ -398,7 +402,7 @@ Windows smoke tests plus Rust tests.
 Hardening detail:
 
 ```text
-1. Add docs-check after G-001.
+1. [x] Add docs-check after G-001.
 2. Add schema/golden artifact validation after G-009.
 3. Keep Windows-only release gate until cross-platform policy changes.
 4. Add a release post-check for downloaded zip checksum and doctor.
