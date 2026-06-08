@@ -10,9 +10,11 @@ Current preview scope:
 - fast `=`
 - no `:=`
 - dimensionless diagnostics
-- pure scalar `fn` definitions
-- relative file imports for function definitions
-- script main(args)
+- top-level file execution and compatibility `script main(args)`
+- root `args { ... }` plus compatibility `struct Args`
+- importable top-level `const`
+- pure scalar `fn` definitions with function-local bindings
+- relative file imports for importable declarations
 - system/equation syntax seeds
 ```
 
@@ -21,8 +23,8 @@ Deferred:
 ```text
 - broader expression language
 - package/module import system
-- importable non-function declarations
-- multi-statement function bodies
+- multi-return functions
+- full formatter policy
 - stable breaking-change policy
 - full language editioning
 ```
@@ -36,7 +38,7 @@ Current preview scope:
 - CSV import
 - DateTime index metadata
 - missing policy seed
-- typed Args primitives
+- typed Args primitives and path defaults
 ```
 
 Deferred:

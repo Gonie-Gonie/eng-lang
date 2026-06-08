@@ -3,6 +3,7 @@ use crate::source::SourceSpan;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TypeInfoSource {
     Explicit,
+    Const,
     Inferred,
     PublicBoundary,
     SystemBoundary,
@@ -12,6 +13,7 @@ impl TypeInfoSource {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Explicit => "explicit",
+            Self::Const => "const",
             Self::Inferred => "inferred",
             Self::PublicBoundary => "public_boundary",
             Self::SystemBoundary => "system_boundary",

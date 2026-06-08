@@ -58,8 +58,9 @@ Before publishing `v0.2-preview`:
 [ ] native IDE supports opening, switching, and closing multiple files
 [ ] native IDE keeps result output from pushing variable/metadata side panels off screen
 [ ] native IDE variable panel updates after successful run
-[ ] function/file-import preview path is documented and tested
+[ ] top-level execution, args, const, function/file-import preview path is documented and tested
 [ ] imported files do not register or execute entry points
+[ ] imported module args and top-level `=` bindings are not imported
 [ ] unit-aware print and explicit summary CSV export have a mini official example
 [ ] data/table/TimeSeries expression-kernel scope is documented with supported examples and diagnostics
 [x] first-class Summary object decision is explicitly recorded as deferred for v0.2 scope

@@ -7,8 +7,12 @@ generation.
 ## Function Syntax
 
 ```eng
+const UA_wall_default: Conductance [W/K] = 150 W/K
+
 fn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {
-    return UA * dT
+    UA_local = UA
+    dT_local = dT
+    return UA_local * dT_local
 }
 ```
 
@@ -17,8 +21,12 @@ Rules:
 - Parameters require explicit quantity annotations.
 - Parameter display units are optional but recommended at public boundaries.
 - Return quantity is explicit and unit-checked against the return expression.
-- The preview function body supports one `return` expression.
-- Function-local bindings are not promoted into the global variable table.
+- The preview function body supports ordered local `name = expr` bindings plus
+  one `return` expression.
+- Function-local bindings are part of the function body, not importable module
+  symbols.
+- Top-level `const` declarations are importable and can be used by functions
+  or root workflows.
 
 ## File Imports
 
@@ -29,8 +37,12 @@ use "thermal.eng"
 Rules:
 
 - File imports are resolved relative to the importing source file.
-- Imported files contribute function definitions only in this preview.
+- Imported files contribute top-level `const`, `fn`, `schema`, `system`,
+  `domain`, and `component` declarations in this preview.
+- Imported module `args` blocks and top-level `name = expr` executable locals
+  are not imported.
 - Imported scripts are not registered as entry points and are not executed.
+- Dynamic import paths are rejected; imports must be static strings.
 - Import cycles and unreadable paths are compile diagnostics.
 - Source files should be UTF-8 encoded.
 
@@ -39,15 +51,20 @@ Rules:
 ```text
 use "thermal.eng"
 
-script main(args: Args) -> Report {
-    UA_wall = 150 W/K
-    dT_wall = 8 K
-    Q_wall = heat_loss(UA_wall, dT_wall)
+args {
+    label: String = "wall"
+}
 
-    print "Q wall = {Q_wall: .2 kW}"
+UA_wall = UA_wall_default
+dT_wall = 8 K
+Q_wall = heat_loss(UA_wall, dT_wall)
 
-    export summary to csv "summary.csv" {
-        Q_wall as kW with ".2"
-    }
+print "Q {args.label} = {Q_wall: .2 kW}"
+
+export summary to csv "summary.csv" {
+    Q_wall as kW with ".2"
 }
 ```
+
+See [top_level_execution_policy.md](top_level_execution_policy.md) for the
+full top-level args/import/const execution policy.

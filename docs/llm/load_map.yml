@@ -6,6 +6,7 @@ default:
   - docs/current/feature_maturity_matrix.md
   - docs/current/tracks.md
   - docs/language/string_formatting.md
+  - docs/reference/top_level_execution_policy.md
   - docs/reference/standalone_package.md
   - docs/reference/functions_imports.md
   - docs/reference/summary_object_decision.md
@@ -16,10 +17,12 @@ task_types:
     - docs/language/fast_assignment.md
     - docs/language/dimensionless.md
     - docs/language/string_formatting.md
+    - docs/reference/top_level_execution_policy.md
     - docs/reference/functions_imports.md
     - crates/eng_compiler/
 
   functions_imports:
+    - docs/reference/top_level_execution_policy.md
     - docs/reference/functions_imports.md
     - examples/official/07_functions_imports/
     - crates/eng_compiler/src/parser.rs

@@ -23,14 +23,32 @@ impl EntryPoint {
         }
     }
 
+    pub fn top_level(line: usize) -> Self {
+        Self {
+            kind: "top_level".to_owned(),
+            name: "main".to_owned(),
+            arg_name: Some("args".to_owned()),
+            arg_type: Some("Args".to_owned()),
+            return_type: Some("Report".to_owned()),
+            line,
+        }
+    }
+
     pub fn signature(&self) -> String {
         let arg_name = self.arg_name.as_deref().unwrap_or("args");
         let arg_type = self.arg_type.as_deref().unwrap_or("Args");
         let return_type = self.return_type.as_deref().unwrap_or("Report");
-        format!(
-            "{} {}({arg_name}: {arg_type}) -> {return_type}",
-            self.kind, self.name
-        )
+        if self.kind == "top_level" {
+            format!(
+                "top-level {}({arg_name}: {arg_type}) -> {return_type}",
+                self.name
+            )
+        } else {
+            format!(
+                "{} {}({arg_name}: {arg_type}) -> {return_type}",
+                self.kind, self.name
+            )
+        }
     }
 }
 
@@ -58,7 +76,7 @@ pub fn select_entry(
             "E-ENTRY-NOT-FOUND-001",
             1,
             "No entry point found.",
-            Some("Add `script main(args: Args) -> Report { ... }` for file run/build."),
+            Some("Add top-level executable statements or `script main(args: Args) -> Report { ... }`."),
         ));
     }
 

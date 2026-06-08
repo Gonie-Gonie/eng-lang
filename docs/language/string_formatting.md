@@ -10,7 +10,7 @@ Status: preview on `main`.
 `print` writes to CLI/runtime stdout. It is intended for debugging and command
 line feedback, not for reproducible artifact contracts.
 
-```eng
+```eng partial
 print "Loaded {sensor.rows} rows from {args.input}"
 print "Q mean = {mean(Q_coil, axis=Time): .2 kW}"
 print "E total = {E_coil: .2 kWh}"
@@ -36,7 +36,7 @@ as summaries by default; use scalar expressions such as `sensor.rows`,
 fields in the block. It does not require a separate first-class `summary`
 variable.
 
-```eng
+```eng partial
 export summary to csv "summary.csv" {
     E_coil as kWh with ".2"
     peak_Q as kW with ".2"

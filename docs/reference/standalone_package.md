@@ -15,7 +15,7 @@ executable. Native `model.exe` generation is reserved for a later backend gate.
 | Runtime | Current `eng.exe` is copied into the bundle | Separate single-model runtime binary |
 | Source | Entry source is copied under `source/` | Arbitrary project tree packaging |
 | Dependencies | Relative CSV promotions are copied under `source/` | Registry packages or binary asset bundles |
-| Args | `struct Args` help, forwarded CLI flags, and primitive typed Args normalization | Quantity/unit-literal Args beyond primitive values |
+| Args | root `args { ... }` help, compatibility `struct Args`, forwarded CLI flags, path/scalar defaults, and primitive typed Args normalization | Quantity/unit-literal Args beyond primitive values |
 | Reproducibility | Manifest, lock, hashes, profile metadata | Cryptographic supply-chain attestation |
 
 ## Bundle Layout
@@ -86,8 +86,8 @@ validated by `docs/schemas/engpkg.schema.json`.
 | `source_hash` | `<hash>` | Stable fingerprint of packaged source text. |
 | `bytecode_hash` | `<hash>` | Stable fingerprint of bytecode text. |
 | `entry_name` | `main` | Selected entry name. |
-| `entry` | `script main(args: Args) -> Report` | Selected entry signature. |
-| `args_schema` | `Args` | Args struct name, or `-` when absent. |
+| `entry` | `top-level main(args: Args) -> Report` | Selected entry signature. Compatibility scripts use `script main(args: Args) -> Report`. |
+| `args_schema` | `Args` | Root args schema name, or `-` when absent. |
 | `args_field_count` | `1` | Number of Args fields found for help/binding. |
 | `args_help` | `ARGS_HELP.txt` | Args help artifact path. |
 | `dependency_count` | `1` | Number of bundled data dependencies. |

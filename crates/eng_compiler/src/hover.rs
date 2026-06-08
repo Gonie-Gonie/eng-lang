@@ -50,4 +50,23 @@ impl HoverHint {
             quick_fixes: Vec::new(),
         }
     }
+
+    pub fn importable_const(
+        name: String,
+        quantity_kind: String,
+        display_unit: String,
+        expression: String,
+        span: SourceSpan,
+    ) -> Self {
+        Self {
+            name,
+            line: span.line,
+            column: span.column,
+            detail: format!("importable const {quantity_kind} [{display_unit}]"),
+            quantity_kind,
+            display_unit,
+            expression: Some(expression),
+            quick_fixes: Vec::new(),
+        }
+    }
 }

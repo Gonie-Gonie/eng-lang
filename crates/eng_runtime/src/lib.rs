@@ -828,6 +828,23 @@ fn evaluate_runtime_expression(
     if let Some(value) = evaluate_function_call_expression(expression, report, runtime_data) {
         return Some(value);
     }
+    if let Some(const_info) = report
+        .semantic_program
+        .consts
+        .iter()
+        .find(|const_info| const_info.name == expression)
+    {
+        if let Some((value, unit)) = number_with_optional_unit(&const_info.expression) {
+            return Some(RuntimeFormatValue::Number {
+                value,
+                quantity_kind: const_info.quantity_kind.clone(),
+                unit: unit.unwrap_or_else(|| const_info.display_unit.clone()),
+            });
+        }
+        return Some(RuntimeFormatValue::Text(strip_runtime_string_value(
+            &const_info.expression,
+        )));
+    }
     if let Some(integration) = runtime_data
         .integrations
         .iter()
@@ -858,6 +875,13 @@ fn evaluate_runtime_expression(
             evaluate_function_call_expression(&declaration.expression, report, runtime_data)
         {
             return Some(value);
+        }
+        if declaration.expression.trim() != expression {
+            if let Some(value) =
+                evaluate_runtime_expression(&declaration.expression, report, runtime_data)
+            {
+                return Some(value);
+            }
         }
     }
     if let Some(table) = runtime_data
@@ -904,6 +928,14 @@ fn evaluate_function_call_expression(
         return None;
     }
     let mut values = HashMap::new();
+    for const_info in &report.semantic_program.consts {
+        if !const_info.importable {
+            continue;
+        }
+        if let Some((value, _unit)) = number_with_optional_unit(&const_info.expression) {
+            values.insert(const_info.name.clone(), value);
+        }
+    }
     for (arg, parameter) in call.args.iter().zip(&function.parameters) {
         let RuntimeFormatValue::Number { value, .. } =
             evaluate_runtime_expression(arg, report, runtime_data)?
@@ -911,6 +943,10 @@ fn evaluate_function_call_expression(
             return None;
         };
         values.insert(parameter.name.clone(), value);
+    }
+    for local in &function.locals {
+        let value = evaluate_numeric_function_expression(&local.expression, &values)?;
+        values.insert(local.name.clone(), value);
     }
     let body = function.return_expression.as_deref()?;
     let value = evaluate_numeric_function_expression(body, &values)?;
@@ -1247,6 +1283,27 @@ fn number_with_optional_unit(text: &str) -> Option<(f64, Option<String>)> {
     let value = words.next()?.parse::<f64>().ok()?;
     let unit = words.next().map(str::to_owned);
     Some((value, unit))
+}
+
+fn strip_runtime_string_value(text: &str) -> String {
+    let trimmed = text.trim();
+    for function_name in ["file", "dir"] {
+        let prefix = format!("{function_name}(");
+        if let Some(inner) = trimmed
+            .strip_prefix(&prefix)
+            .and_then(|value| value.strip_suffix(')'))
+        {
+            return strip_runtime_string_value(inner);
+        }
+    }
+    if let Some(inner) = trimmed
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+    {
+        inner.to_owned()
+    } else {
+        trimmed.to_owned()
+    }
 }
 
 fn strip_outer_parens(mut expression: &str) -> &str {

@@ -38,12 +38,13 @@ official/06_domain_port
   parameters such as Fluid[Medium M] and MechanicalNode[Frame F, Axis DOF].
 
 official/07_functions_imports
-  Preview function/import fixture for pure unit-aware functions, relative file
-  imports, function-call inference, CLI print, and summary CSV export.
+  Preview top-level execution, importable const, function-local binding,
+  relative file imports, function-call inference, CLI print, and summary CSV
+  export.
 
 official/08_print_export_summary
-  Mini scalar summary fixture for unit-aware print interpolation and explicit
-  one-row summary CSV export.
+  Mini scalar summary fixture for top-level args, reusable const, unit-aware
+  print interpolation, and explicit one-row summary CSV export.
 ```
 
 ## Compatibility Regression Examples

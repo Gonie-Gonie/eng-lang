@@ -64,16 +64,14 @@ sensor = promote csv "data/sensor.csv" as SensorData
 ```
 
 The path is resolved relative to the `.eng` source file. CSV paths can also
-come from `struct Args`:
+come from root `args { ... }`:
 
 ```eng partial
-struct Args {
-    input: String = "data/sensor.csv"
+args {
+    input: CsvFile = file("data/sensor.csv")
 }
 
-script main(args: Args) -> Report {
-    sensor = promote csv args.input as SensorData
-}
+sensor = promote csv args.input as SensorData
 ```
 
 Run-time flags override defaults:

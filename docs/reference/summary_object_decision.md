@@ -8,16 +8,14 @@ not through a first-class `Summary` value.
 Current supported surface:
 
 ```eng
-script main(args: Args) -> Report {
-    E_total = 42.75 kWh
-    Q_peak = 7.891 kW
+E_total = 42.75 kWh
+Q_peak = 7.891 kW
 
-    print "E total = {E_total: .2 kWh}"
+print "E total = {E_total: .2 kWh}"
 
-    export summary to csv "summary.csv" {
-        E_total as kWh with ".2"
-        Q_peak as kW with ".2"
-    }
+export summary to csv "summary.csv" {
+    E_total as kWh with ".2"
+    Q_peak as kW with ".2"
 }
 ```
 

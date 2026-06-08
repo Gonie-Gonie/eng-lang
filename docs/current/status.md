@@ -39,13 +39,16 @@ being part of the public release contract.
 Supported preview means the behavior is documented, tested, and usable through
 the current public preview workflow, but it is not yet a stable contract.
 
-- Fast `=` declarations in script/local expression contexts.
+- Fast `=` declarations in script/local expression contexts and top-level
+  executable workflows.
 - Unit and quantity checking for supported arithmetic and official examples.
 - Dimensionless plus physical quantity diagnostics.
 - Ambiguous quantity warnings for unit-only declarations such as `power = 10 kW`.
-- Pure scalar `fn` definitions with typed quantity parameters, checked return
-  dimensions, relative file imports for function definitions, and no imported
-  entry-point side effects.
+- Top-level execution for files without `script main`, root `args { ... }`
+  blocks, importable top-level `const`, pure scalar `fn` definitions with
+  typed parameters and function-local bindings, checked return dimensions,
+  relative file imports for importable declarations, and no imported
+  entry-point or executable-body side effects.
 - Typed CSV promote for the official typed schema import path.
 - DateTime-indexed table metadata and row-level CSV runtime pages.
 - TimeSeries statistics on the official HeatRate path, including mean,
@@ -59,9 +62,9 @@ the current public preview workflow, but it is not yet a stable contract.
   report spec hashing.
 - Minimal `system`/`eq` parsing and unit diagnostics, with one-state thermal
   system metadata and fixed-step preview execution for official examples.
-- Args string/path binding for `--input` style official examples, primitive
-  Bool/Int/Count/Float/Duration normalization, and packaged runner help
-  metadata.
+- Args string/path/CsvFile/DirectoryPath binding for `--input` style official
+  examples, primitive Bool/Int/Count/Float/Duration normalization, dynamic
+  pure defaults, and packaged runner help metadata.
 - Standalone package output with `.engpkg`, bytecode, lock, source/dependency
   copy, dependency hashes, Args help, and reviewable report artifacts.
 - Temperature spelling policy: `degC` remains the canonical ASCII spelling, and
@@ -114,8 +117,9 @@ See [development tracks](tracks.md) for the current scope and limitations.
   deferred.
 - Full Unicode unit spelling support beyond the supported `°C` alias is
   deferred.
-- Package/module imports, importable non-function declarations, multi-return
-  functions, and broad function-body statement execution are deferred.
+- Package/module imports, multi-return functions, broad function-body statement
+  execution, full formatter policy, and stricter reproducibility profiles for
+  runtime-dependent defaults are deferred.
 
 - First-class Summary objects are not part of the current scope; the v0.2
   decision is recorded in

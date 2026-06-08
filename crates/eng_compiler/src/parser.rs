@@ -240,8 +240,13 @@ pub fn parse_source(source: &str) -> ParsedProgram {
         }
 
         if starts_with_keyword(&tokens, Keyword::Fn) {
-            function_depth += brace_delta(&tokens);
-            if function_depth == 0 {
+            let delta = brace_delta(&tokens);
+            if delta != 0 {
+                function_depth += delta;
+            } else if !tokens
+                .iter()
+                .any(|token| matches!(token.kind, TokenKind::Symbol(Symbol::Equal)))
+            {
                 function_depth = 1;
             }
         } else if function_depth > 0 {
@@ -690,11 +695,7 @@ fn parse_script_decl(tokens: &[Token]) -> Option<ScriptDecl> {
     })
 }
 
-fn parse_const_decl(
-    tokens: &[Token],
-    line_text: &str,
-    context: ParseContext,
-) -> Option<ConstDecl> {
+fn parse_const_decl(tokens: &[Token], line_text: &str, context: ParseContext) -> Option<ConstDecl> {
     let [first, second, third, ..] = tokens else {
         return None;
     };
@@ -799,6 +800,7 @@ fn parse_function_return(line_text: &str) -> Option<(String, Option<String>)> {
     let return_part = after_arrow
         .split_once('{')
         .map(|(left, _)| left)
+        .or_else(|| after_arrow.split_once('=').map(|(left, _)| left))
         .unwrap_or(after_arrow)
         .trim();
     if return_part.is_empty() {
@@ -906,6 +908,7 @@ fn token_field_name(token: &Token) -> Option<String> {
     match &token.kind {
         TokenKind::Identifier(value) => Some(value.clone()),
         TokenKind::Keyword(Keyword::Input) => Some("input".to_owned()),
+        TokenKind::Keyword(Keyword::Output) => Some("output".to_owned()),
         _ => None,
     }
 }
@@ -1354,9 +1357,9 @@ fn starts_with_keyword(tokens: &[Token], keyword: Keyword) -> bool {
 }
 
 fn starts_with_identifier(tokens: &[Token], expected: &str) -> bool {
-    tokens.first().is_some_and(|token| {
-        matches!(&token.kind, TokenKind::Identifier(found) if found == expected)
-    })
+    tokens.first().is_some_and(
+        |token| matches!(&token.kind, TokenKind::Identifier(found) if found == expected),
+    )
 }
 
 fn brace_delta(tokens: &[Token]) -> i32 {

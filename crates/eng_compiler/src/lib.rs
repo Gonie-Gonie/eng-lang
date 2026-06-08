@@ -16,6 +16,7 @@ mod uncertainty;
 mod units;
 
 use std::collections::{HashMap, HashSet};
+use std::env;
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -39,13 +40,12 @@ pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSu
 pub use quantities::{all_quantity_completions, normalize_unit, QuantityCompletion};
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
 pub use semantic::{
-    ArgValueInfo, ArgsFieldInfo, ArgsStructInfo, ComponentInfo, ConnectionInfo, ConstInfo,
-    ConservationInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo, DomainTypeParameterInfo,
-    DomainVariableInfo, EquationDependencyInfo, EquationInfo, EquationIrInfo,
-    FormatExpressionInfo, FunctionInfo, FunctionLocalInfo, FunctionParamInfo, ImportInfo,
-    JacobianSeedInfo, OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo, SemanticProgram,
-    SemanticType, SolverPlanInfo, SystemInfo, SystemVariableInfo, TimeSeriesKernelInfo,
-    TypedBinding,
+    ArgValueInfo, ArgsFieldInfo, ArgsStructInfo, ComponentInfo, ConnectionInfo, ConservationInfo,
+    ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo, DomainTypeParameterInfo,
+    DomainVariableInfo, EquationDependencyInfo, EquationInfo, EquationIrInfo, FormatExpressionInfo,
+    FunctionInfo, FunctionLocalInfo, FunctionParamInfo, ImportInfo, JacobianSeedInfo,
+    OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo, SemanticProgram, SemanticType,
+    SolverPlanInfo, SystemInfo, SystemVariableInfo, TimeSeriesKernelInfo, TypedBinding,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -218,6 +218,15 @@ fn resolve_file_imports(
             ));
             continue;
         }
+        if import.target.contains('{') || import.target.contains("args.") {
+            diagnostics.push(Diagnostic::error(
+                "E-IMPORT-DYNAMIC-001",
+                import.line,
+                "import path cannot depend on args/runtime values.",
+                Some("Use a static file import such as `use \"./defaults.eng\"`."),
+            ));
+            continue;
+        }
         let Some(import_path) =
             resolve_import_path(base_dir, &import.target, import.line, diagnostics)
         else {
@@ -246,6 +255,18 @@ fn resolve_file_imports(
             }
         };
         let imported = parser::parse_source(&source);
+        if imported_has_args_block(&imported) {
+            diagnostics.push(Diagnostic::warning(
+                "W-MODULE-ARGS-NOT-IMPORTED-001",
+                import.line,
+                &format!(
+                    "Imported module `{}` has an args block, but args are not imported.",
+                    import.target
+                ),
+                Some("Args belong to the root execution context only."),
+            ));
+        }
+        diagnose_non_importable_symbol_uses(&imported, parsed, &import.target, diagnostics);
         if let Some(import_base_dir) = import_path.parent() {
             imported_items.extend(resolve_file_imports(
                 &imported,
@@ -293,7 +314,130 @@ fn resolve_import_path(
 }
 
 fn importable_definition_item(item: &AstItem) -> bool {
-    matches!(item, AstItem::Function(_) | AstItem::Return(_))
+    match item {
+        AstItem::Function(_) | AstItem::Return(_) => true,
+        AstItem::FastBinding(binding) => binding.context == ParseContext::Function,
+        AstItem::Const(declaration) => declaration.context == ParseContext::TopLevel,
+        AstItem::Schema(_)
+        | AstItem::Constraint(_)
+        | AstItem::MissingPolicy(_)
+        | AstItem::System(_)
+        | AstItem::SystemVariable(_)
+        | AstItem::Equation(_)
+        | AstItem::Domain(_)
+        | AstItem::DomainVariable(_)
+        | AstItem::Conservation(_)
+        | AstItem::Component(_)
+        | AstItem::Port(_) => true,
+        AstItem::ExplicitDecl(declaration) => declaration.context == ParseContext::Schema,
+        _ => false,
+    }
+}
+
+fn imported_has_args_block(program: &ParsedProgram) -> bool {
+    program.items.iter().any(|item| match item {
+        AstItem::Args(_) => true,
+        AstItem::Struct(struct_decl) => struct_decl.name == "Args",
+        _ => false,
+    })
+}
+
+fn diagnose_non_importable_symbol_uses(
+    imported: &ParsedProgram,
+    importer: &ParsedProgram,
+    target: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let local_definitions = importer
+        .items
+        .iter()
+        .filter_map(importer_defined_symbol)
+        .collect::<HashSet<_>>();
+    for item in &imported.items {
+        let Some(binding) = non_importable_top_level_binding(item) else {
+            continue;
+        };
+        if local_definitions.contains(&binding.name) {
+            continue;
+        }
+        if let Some(line) = first_symbol_use_line(importer, &binding.name) {
+            diagnostics.push(Diagnostic::error(
+                "E-IMPORT-SYMBOL-001",
+                line,
+                &format!("`{}` is not importable from {}.", binding.name, target),
+                Some(
+                    "Top-level `name = expr` bindings are executable locals. Use `const name: Type = expr` for reusable module values.",
+                ),
+            ));
+        }
+    }
+}
+
+fn importer_defined_symbol(item: &AstItem) -> Option<String> {
+    match item {
+        AstItem::Const(declaration) => Some(declaration.name.clone()),
+        AstItem::Function(function) => Some(function.name.clone()),
+        AstItem::FastBinding(binding) if binding.context == ParseContext::TopLevel => {
+            Some(binding.name.clone())
+        }
+        AstItem::ExplicitDecl(declaration) if declaration.context == ParseContext::TopLevel => {
+            Some(declaration.name.clone())
+        }
+        _ => None,
+    }
+}
+
+fn non_importable_top_level_binding(item: &AstItem) -> Option<&FastBinding> {
+    match item {
+        AstItem::FastBinding(binding) if binding.context == ParseContext::TopLevel => Some(binding),
+        _ => None,
+    }
+}
+
+fn first_symbol_use_line(program: &ParsedProgram, symbol: &str) -> Option<usize> {
+    program.items.iter().find_map(|item| match item {
+        AstItem::FastBinding(binding)
+            if binding.context == ParseContext::TopLevel
+                && expression_mentions_identifier(&binding.expression, symbol) =>
+        {
+            Some(binding.line)
+        }
+        AstItem::ExplicitDecl(declaration)
+            if declaration.context == ParseContext::TopLevel
+                && declaration.expression.as_deref().is_some_and(|expression| {
+                    expression_mentions_identifier(expression, symbol)
+                }) =>
+        {
+            Some(declaration.line)
+        }
+        AstItem::Const(declaration)
+            if expression_mentions_identifier(&declaration.expression, symbol) =>
+        {
+            Some(declaration.line)
+        }
+        AstItem::Print(print) if print.template.contains(symbol) => Some(print.line),
+        AstItem::CsvExportField(field)
+            if expression_mentions_identifier(&field.expression, symbol) =>
+        {
+            Some(field.line)
+        }
+        _ => None,
+    })
+}
+
+fn expression_mentions_identifier(expression: &str, identifier: &str) -> bool {
+    expression
+        .split(|character: char| !(character.is_ascii_alphanumeric() || character == '_'))
+        .any(|token| token == identifier)
+}
+
+fn is_identifier_text(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|character| character.is_ascii_alphanumeric() || character == '_')
 }
 
 fn resolve_arg_values(
@@ -314,7 +458,31 @@ fn resolve_arg_values(
             let (raw_value, source) = if let Some(value) = overrides.get(&field.name) {
                 (value.clone(), "cli")
             } else if let Some(default_value) = &field.default_value {
-                (strip_string_literal(default_value), "default")
+                if arg_default_has_side_effect(default_value) {
+                    diagnostics.push(Diagnostic::error(
+                        "E-ARGS-SIDE-EFFECT-001",
+                        field.line,
+                        "Args default expressions must not perform side-effecting operations.",
+                        Some("Move this operation into the executable body."),
+                    ));
+                    continue;
+                }
+                if arg_default_depends_on_runtime(default_value) {
+                    diagnostics.push(Diagnostic::warning(
+                        "W-ARGS-RUNTIME-DEFAULT-001",
+                        field.line,
+                        &format!(
+                            "Args default for `{}` depends on environment/time/current directory.",
+                            field.name
+                        ),
+                        Some("The resolved value is recorded in arg_values for provenance."),
+                    ));
+                }
+                (
+                    evaluate_arg_default(default_value, program)
+                        .unwrap_or_else(|| strip_string_literal(default_value)),
+                    "default",
+                )
             } else {
                 if options.require_args {
                     diagnostics.push(Diagnostic::error(
@@ -370,7 +538,7 @@ fn normalize_arg_value(type_name: &str, value: &str) -> Result<String, String> {
     let stripped = strip_string_literal(value);
     let normalized_type = type_name.trim().to_ascii_lowercase();
     match normalized_type.as_str() {
-        "string" | "path" | "filepath" => Ok(stripped),
+        "string" | "path" | "filepath" | "csvfile" | "directorypath" => Ok(stripped),
         "bool" | "boolean" => parse_bool_arg(&stripped).ok_or_else(|| {
             "Use true/false, yes/no, on/off, or 1/0 for boolean Args fields.".to_owned()
         }),
@@ -398,6 +566,132 @@ fn normalize_arg_value(type_name: &str, value: &str) -> Result<String, String> {
         "duration" => normalize_duration_arg(&stripped),
         _ => Ok(stripped),
     }
+}
+
+fn evaluate_arg_default(expression: &str, program: &SemanticProgram) -> Option<String> {
+    let expression = expression.trim();
+    if let Some(value) = strip_call_string_arg(expression, "file") {
+        return Some(value);
+    }
+    if let Some(value) = strip_call_string_arg(expression, "dir") {
+        return Some(value);
+    }
+    if let Some(value) = evaluate_env_default(expression) {
+        return Some(value);
+    }
+    if let Some(const_info) = program.consts.iter().find(|const_info| {
+        const_info.importable
+            && const_info.name == expression
+            && !arg_default_has_side_effect(&const_info.expression)
+    }) {
+        return evaluate_arg_default(&const_info.expression, program)
+            .or_else(|| Some(strip_string_literal(&const_info.expression)));
+    }
+    if let Some(call_name) = zero_arg_call_name(expression) {
+        if let Some(function) = program
+            .functions
+            .iter()
+            .find(|function| function.name == call_name && function.parameters.is_empty())
+        {
+            if let Some(return_expression) = &function.return_expression {
+                return evaluate_arg_default(return_expression, program)
+                    .or_else(|| Some(strip_string_literal(return_expression)));
+            }
+        }
+    }
+    if expression.starts_with('"') {
+        return Some(strip_string_literal(expression));
+    }
+    None
+}
+
+fn strip_call_string_arg(expression: &str, function_name: &str) -> Option<String> {
+    let trimmed = expression.trim();
+    let prefix = format!("{function_name}(");
+    let inner = trimmed.strip_prefix(&prefix)?.strip_suffix(')')?.trim();
+    Some(strip_string_literal(inner))
+}
+
+fn evaluate_env_default(expression: &str) -> Option<String> {
+    let inner = expression
+        .trim()
+        .strip_prefix("env(")?
+        .strip_suffix(')')?
+        .trim();
+    let parts = split_call_args(inner);
+    let name = parts.first().map(|value| strip_string_literal(value))?;
+    let fallback = parts.get(1).map(|value| strip_string_literal(value));
+    env::var(&name).ok().or(fallback)
+}
+
+fn zero_arg_call_name(expression: &str) -> Option<&str> {
+    let trimmed = expression.trim();
+    let name = trimmed.strip_suffix("()")?;
+    if is_identifier_text(name) {
+        Some(name)
+    } else {
+        None
+    }
+}
+
+fn split_call_args(args: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut start = 0usize;
+    let mut depth = 0i32;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, character) in args.char_indices() {
+        if in_string {
+            escaped = character == '\\' && !escaped;
+            if character == '"' && !escaped {
+                in_string = false;
+            }
+            if character != '\\' {
+                escaped = false;
+            }
+            continue;
+        }
+        match character {
+            '"' => in_string = true,
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            ',' if depth == 0 => {
+                let part = args[start..index].trim();
+                if !part.is_empty() {
+                    parts.push(part.to_owned());
+                }
+                start = index + 1;
+            }
+            _ => {}
+        }
+    }
+    let tail = args[start..].trim();
+    if !tail.is_empty() {
+        parts.push(tail.to_owned());
+    }
+    parts
+}
+
+fn arg_default_has_side_effect(expression: &str) -> bool {
+    let lowered = expression.to_ascii_lowercase();
+    [
+        "download(",
+        "read_csv(",
+        "write_file(",
+        "save(",
+        "create_temp_dir(",
+        "promote ",
+        "promote(",
+    ]
+    .iter()
+    .any(|needle| lowered.contains(needle))
+}
+
+fn arg_default_depends_on_runtime(expression: &str) -> bool {
+    let lowered = expression.to_ascii_lowercase();
+    ["env(", "today(", "now(", "current_dir(", "cwd("]
+        .iter()
+        .any(|needle| lowered.contains(needle))
 }
 
 fn parse_bool_arg(value: &str) -> Option<String> {
@@ -769,6 +1063,41 @@ pub fn review_json(report: &CheckReport) -> String {
     }
     json.push_str("\n  ],\n");
 
+    json.push_str("  \"const_summary\": [\n");
+    for (index, const_info) in report.semantic_program.consts.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&const_info.name)
+        ));
+        json.push_str(&format!(
+            "      \"type_name\": \"{}\",\n",
+            json_escape(&const_info.type_name)
+        ));
+        json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&const_info.display_unit)
+        ));
+        json.push_str(&format!(
+            "      \"dimension\": \"{}\",\n",
+            json_escape(&const_info.dimension)
+        ));
+        json.push_str(&format!(
+            "      \"expression\": \"{}\",\n",
+            json_escape(&const_info.expression)
+        ));
+        json.push_str(&format!(
+            "      \"importable\": {},\n",
+            const_info.importable
+        ));
+        json.push_str(&format!("      \"line\": {}\n", const_info.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
     json.push_str("  \"function_summary\": [\n");
     for (index, function) in report.semantic_program.functions.iter().enumerate() {
         if index > 0 {
@@ -801,6 +1130,24 @@ pub fn review_json(report: &CheckReport) -> String {
                 "          \"dimension\": \"{}\"\n",
                 json_escape(&parameter.dimension)
             ));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"locals\": [\n");
+        for (local_index, local) in function.locals.iter().enumerate() {
+            if local_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&local.name)
+            ));
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&local.expression)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", local.line));
             json.push_str("        }");
         }
         json.push_str("\n      ],\n");
@@ -2210,6 +2557,32 @@ mod tests {
     }
 
     #[test]
+    fn records_top_level_args_block_and_dynamic_defaults() {
+        let report = check_source(
+            "ok.eng",
+            "const default_input: CsvFile = file(\"sensor.csv\")\n\nfn default_output_dir() -> DirectoryPath = dir(\"build/result\")\n\nargs {\n    input: CsvFile = default_input\n    output: DirectoryPath = default_output_dir()\n}\n\nQ = 5 kW\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(report.syntax_summary.args_blocks, 1);
+        assert_eq!(report.syntax_summary.const_declarations, 1);
+        assert_eq!(report.semantic_program.args_structs[0].name, "Args");
+        let value = |name: &str| {
+            report
+                .semantic_program
+                .arg_values
+                .iter()
+                .find(|value| value.name == name)
+                .map(|value| value.value.as_str())
+        };
+        assert_eq!(value("input"), Some("sensor.csv"));
+        assert_eq!(value("output"), Some("build/result"));
+        assert_eq!(report.semantic_program.entry_points[0].kind, "top_level");
+        assert_eq!(report.semantic_program.consts[0].name, "default_input");
+    }
+
+    #[test]
     fn resolves_typed_args_values() {
         let report = check_source(
             "ok.eng",
@@ -2464,12 +2837,13 @@ mod tests {
     }
 
     #[test]
-    fn reports_missing_run_entry() {
-        let report = check_source("bad.eng", "L = 1 m\n", &CheckOptions::default());
+    fn selects_top_level_entry_when_no_script_is_declared() {
+        let report = check_source("ok.eng", "L = 1 m\n", &CheckOptions::default());
 
-        let diagnostic = select_entry(&report.semantic_program.entry_points, None).unwrap_err();
+        let entry = select_entry(&report.semantic_program.entry_points, None).unwrap();
 
-        assert_eq!(diagnostic.code, "E-ENTRY-NOT-FOUND-001");
+        assert_eq!(entry.kind, "top_level");
+        assert_eq!(entry.signature(), "top-level main(args: Args) -> Report");
     }
 
     #[test]
@@ -2989,13 +3363,13 @@ mod tests {
         fs::create_dir_all(&root).expect("temp dir");
         fs::write(
             root.join("thermal.eng"),
-            "fn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {\n    return UA * dT\n}\n\nscript imported_main(args: Args) -> Report {\n    Q_unused = 1 kW\n}\n",
+            "const UA_wall_default: Conductance [W/K] = 150 W/K\n\nfn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {\n    UA_local = UA\n    dT_local = dT\n    return UA_local * dT_local\n}\n\nscript imported_main(args: Args) -> Report {\n    Q_unused = 1 kW\n}\n",
         )
         .expect("thermal source");
         let main_path = root.join("main.eng");
         fs::write(
             &main_path,
-            "use \"thermal.eng\"\n\nscript main(args: Args) -> Report {\n    UA_wall = 150 W/K\n    dT_wall = 8 K\n    Q_wall = heat_loss(UA_wall, dT_wall)\n    print \"Q wall = {Q_wall: .2 kW}\"\n}\n",
+            "use \"thermal.eng\"\n\nscript main(args: Args) -> Report {\n    UA_wall = UA_wall_default\n    dT_wall = 8 K\n    Q_wall = heat_loss(UA_wall, dT_wall)\n    print \"Q wall = {Q_wall: .2 kW}\"\n}\n",
         )
         .expect("main source");
 
@@ -3003,8 +3377,10 @@ mod tests {
 
         assert!(!report.has_errors());
         assert_eq!(report.semantic_program.imports.len(), 1);
+        assert_eq!(report.semantic_program.consts.len(), 1);
         assert_eq!(report.semantic_program.functions.len(), 1);
         assert_eq!(report.semantic_program.entry_points.len(), 1);
+        assert_eq!(report.semantic_program.functions[0].locals.len(), 2);
         let q_wall = report
             .semantic_program
             .typed_bindings
@@ -3019,6 +3395,56 @@ mod tests {
         let review = review_json(&report);
         assert!(review.contains("\"function_summary\""));
         assert!(review.contains("\"heat_loss\""));
+    }
+
+    #[test]
+    fn imported_module_args_are_not_imported_and_top_level_bindings_are_not_importable() {
+        let root = std::env::temp_dir().join("englang-import-policy-test");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("temp dir");
+        fs::write(
+            root.join("defaults.eng"),
+            "args {\n    input: CsvFile = file(\"module.csv\")\n}\n\ncp_water = 4180 J/kg/K\n",
+        )
+        .expect("defaults source");
+        let main_path = root.join("main.eng");
+        fs::write(&main_path, "use \"defaults.eng\"\n\ncp = cp_water\n").expect("main source");
+
+        let report = check_file(&main_path, &CheckOptions::default()).expect("check file");
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "W-MODULE-ARGS-NOT-IMPORTED-001"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-IMPORT-SYMBOL-001"));
+        assert!(report.semantic_program.args_structs.is_empty());
+    }
+
+    #[test]
+    fn rejects_args_and_const_side_effect_policy_violations() {
+        let report = check_source(
+            "bad.eng",
+            "args {\n    input: CsvFile = download(\"https://example.com/data.csv\")\n}\n\nconst selected_input: CsvFile = args.input\nconst generated: CsvFile = download(\"https://example.com/data.csv\")\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-ARGS-SIDE-EFFECT-001"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-CONST-ARGS-001"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-CONST-SIDE-EFFECT-001"));
     }
 
     #[test]

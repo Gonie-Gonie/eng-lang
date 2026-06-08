@@ -67,6 +67,8 @@ instructions:
 ```
 
 The format is intentionally text for early review and snapshot testing. It can move to a compact binary encoding after the contract is stable.
+`entry` can be `script main` for compatibility scripts or `top_level main`
+for files that run directly without a script wrapper.
 
 ## Explicit CSV Exports
 
@@ -486,9 +488,10 @@ dependency_count = 1
 dependency_hashes = source/data/sensor.csv:<hash>
 ```
 
-`run.bat --help` prints `ARGS_HELP.txt`, which is generated from `struct Args`
-metadata when available. Extra `run.bat --<field> <value>` flags are forwarded
-to `eng.exe run`, where they are bound to `struct Args` fields.
+`run.bat --help` prints `ARGS_HELP.txt`, which is generated from root
+`args { ... }` metadata when available. Compatibility `struct Args` metadata is
+also accepted. Extra `run.bat --<field> <value>` flags are forwarded to
+`eng.exe run`, where they are bound to root args fields.
 
 `run.bat` executes the bundled `eng.exe` and writes normal run artifacts under
 `<model>-standalone/build/result`. This is a packaged runner, not an optimized

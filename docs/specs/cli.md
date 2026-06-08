@@ -279,12 +279,14 @@ include hover `kind`/`status` metadata and completion labels such as
 
 ## `eng entries <file.eng>`
 
-Lists script entry points discovered by the compiler.
+Lists entry points discovered by the compiler, including compatibility scripts
+and synthetic `top-level main` entries.
 
 Example:
 
 ```text
 examples\official\01_csv_plot\main.eng:25: script main(args: Args) -> Report
+examples\official\08_print_export_summary\main.eng:1: top-level main(args: Args) -> Report
 ```
 
 This command is useful before running files with multiple script entries.
@@ -300,8 +302,9 @@ Default entry selection:
 ```text
 1. If `--entry <name>` is passed, use that entry.
 2. Otherwise, use `script main` when present.
-3. Otherwise, use the only entry if the file has exactly one entry.
-4. Otherwise, return an entry diagnostic.
+3. Otherwise, run files without script entries as `top-level main`.
+4. Otherwise, use the only script entry if the file has exactly one entry.
+5. Otherwise, return an entry diagnostic.
 ```
 
 Saved artifacts:
@@ -323,14 +326,15 @@ build/
 `--open-report` implies `--save-artifacts` and attempts to open the generated
 `report.html` with the OS default browser.
 
-Args flags are matched against `struct Args` fields. Defaults are used when
-available, primitive typed values are normalized, and resolved values are
-recorded in `arg_values`.
+Args flags are matched against root `args { ... }` fields. Compatibility
+`struct Args` fields are also accepted. Defaults are used when available,
+primitive typed values are normalized, and resolved values are recorded in
+`arg_values`.
 
 Current typed Args conversion:
 
 ```text
-String/Path          recorded as text
+String/Path/CsvFile/DirectoryPath  recorded as text/path
 Bool/Boolean         true/false, yes/no, on/off, 1/0 -> true/false
 Int/Integer          whole-number signed integer
 Count/usize/u32/u64  non-negative whole-number count

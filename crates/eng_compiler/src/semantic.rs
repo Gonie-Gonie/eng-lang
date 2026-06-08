@@ -354,6 +354,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut diagnostics = Vec::new();
     let mut inferred_declarations = Vec::new();
     let mut imports = Vec::new();
+    let mut consts = Vec::new();
     let mut functions = Vec::new();
     let mut current_function_index = None;
     let mut typed_bindings = Vec::new();
@@ -503,6 +504,14 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 });
                 current_args_struct_index = Some(args_structs.len() - 1);
             }
+            AstItem::Args(args_decl) => {
+                args_structs.push(ArgsStructInfo {
+                    name: args_decl.name.clone(),
+                    fields: Vec::new(),
+                    line: args_decl.span.line,
+                });
+                current_args_struct_index = Some(args_structs.len() - 1);
+            }
             AstItem::StructField(field) => {
                 if let Some(args_struct_index) = current_args_struct_index {
                     analyze_struct_field(field, &mut args_structs[args_struct_index]);
@@ -550,7 +559,29 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     );
                 }
             }
+            AstItem::Const(const_decl) => {
+                analyze_const_decl(
+                    const_decl,
+                    &mut consts,
+                    &mut diagnostics,
+                    &mut expected_types,
+                    &mut hover_hints,
+                    &mut typed_bindings,
+                    &mut type_infos,
+                    &mut unit_derivations,
+                );
+            }
             AstItem::FastBinding(binding) => {
+                if binding.context == ParseContext::Function {
+                    if let Some(function_index) = current_function_index {
+                        functions[function_index].locals.push(FunctionLocalInfo {
+                            name: binding.name.clone(),
+                            expression: binding.expression.clone(),
+                            line: binding.line,
+                        });
+                    }
+                    continue;
+                }
                 let mut accum = SemanticAccum {
                     diagnostics: &mut diagnostics,
                     inferred_declarations: &mut inferred_declarations,
@@ -616,7 +647,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     }
 
     validate_domain_contracts(&domains, &mut diagnostics);
-    validate_function_returns(&mut functions, &mut diagnostics);
+    validate_function_returns(&mut functions, &consts, &mut diagnostics);
 
     let connections = analyze_connections(
         &domains,
@@ -624,12 +655,16 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         &raw_connections,
         &mut diagnostics,
     );
+    if entry_points.is_empty() {
+        entry_points.push(EntryPoint::top_level(top_level_entry_line(program)));
+    }
 
     SemanticOutput {
         diagnostics,
         inferred_declarations,
         semantic_program: SemanticProgram {
             imports,
+            consts,
             functions,
             axis_infos: crate::stats::axis_infos(&typed_bindings),
             typed_bindings,
@@ -670,6 +705,29 @@ fn analyze_import_decl(import: &ImportDecl) -> ImportInfo {
     }
 }
 
+fn top_level_entry_line(program: &ParsedProgram) -> usize {
+    program
+        .items
+        .iter()
+        .find_map(|item| match item {
+            AstItem::FastBinding(binding) if binding.context == ParseContext::TopLevel => {
+                Some(binding.line)
+            }
+            AstItem::ExplicitDecl(declaration) if declaration.context == ParseContext::TopLevel => {
+                Some(declaration.line)
+            }
+            AstItem::Const(declaration) if declaration.context == ParseContext::TopLevel => {
+                Some(declaration.line)
+            }
+            AstItem::Print(print) if print.context == ParseContext::TopLevel => Some(print.line),
+            AstItem::CsvExport(export) if export.context == ParseContext::TopLevel => {
+                Some(export.line)
+            }
+            _ => None,
+        })
+        .unwrap_or(1)
+}
+
 fn analyze_function_decl(
     function: &FunctionDecl,
     diagnostics: &mut Vec<Diagnostic>,
@@ -682,10 +740,10 @@ fn analyze_function_decl(
     let return_display_unit = function
         .return_unit
         .clone()
-        .unwrap_or_else(|| default_unit_for_quantity(&function.return_type));
-    let return_canonical_unit = default_unit_for_quantity(&function.return_type);
-    let return_dimension = dimension_for_quantity(&function.return_type);
-    if return_canonical_unit == "unknown" || return_dimension == "unknown" {
+        .unwrap_or_else(|| default_unit_for_type(&function.return_type));
+    let return_canonical_unit = default_unit_for_type(&function.return_type);
+    let return_dimension = dimension_for_type(&function.return_type);
+    if !known_decl_type(&function.return_type) {
         diagnostics.push(Diagnostic::error(
             "E-FN-TYPE-001",
             function.span.line,
@@ -693,12 +751,13 @@ fn analyze_function_decl(
                 "Function `{}` returns unknown quantity kind `{}`.",
                 function.name, function.return_type
             ),
-            Some("Use a known quantity kind such as HeatRate, Energy, Length, or Ratio."),
+            Some("Use a known quantity kind or preview scalar type such as String, CsvFile, or DirectoryPath."),
         ));
     }
     FunctionInfo {
         name: function.name.clone(),
         parameters,
+        locals: Vec::new(),
         return_quantity_kind: function.return_type.clone(),
         return_display_unit,
         return_canonical_unit,
@@ -717,10 +776,10 @@ fn analyze_function_parameter(
     let display_unit = parameter
         .unit
         .clone()
-        .unwrap_or_else(|| default_unit_for_quantity(&parameter.type_name));
-    let canonical_unit = default_unit_for_quantity(&parameter.type_name);
-    let dimension = dimension_for_quantity(&parameter.type_name);
-    if canonical_unit == "unknown" || dimension == "unknown" {
+        .unwrap_or_else(|| default_unit_for_type(&parameter.type_name));
+    let canonical_unit = default_unit_for_type(&parameter.type_name);
+    let dimension = dimension_for_type(&parameter.type_name);
+    if !known_decl_type(&parameter.type_name) {
         diagnostics.push(Diagnostic::error(
             "E-FN-TYPE-002",
             line,
@@ -728,7 +787,7 @@ fn analyze_function_parameter(
                 "Function parameter `{}` has unknown quantity kind `{}`.",
                 parameter.name, parameter.type_name
             ),
-            Some("Annotate function parameters with known quantity kinds."),
+            Some("Annotate function parameters with known quantity kinds or preview scalar types."),
         ));
     }
     FunctionParamInfo {
@@ -760,7 +819,11 @@ fn analyze_function_return(
     function.return_expression = Some(return_decl.expression.clone());
 }
 
-fn validate_function_returns(functions: &mut [FunctionInfo], diagnostics: &mut Vec<Diagnostic>) {
+fn validate_function_returns(
+    functions: &mut [FunctionInfo],
+    consts: &[ConstInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
     for index in 0..functions.len() {
         let Some(expression) = functions[index].return_expression.clone() else {
             diagnostics.push(Diagnostic::error(
@@ -775,14 +838,48 @@ fn validate_function_returns(functions: &mut [FunctionInfo], diagnostics: &mut V
             functions[index].status = "missing_return".to_owned();
             continue;
         };
-        let symbols = functions[index]
-            .parameters
+        if preview_scalar_type(&functions[index].return_quantity_kind) {
+            functions[index].status = "scalar_preview".to_owned();
+            continue;
+        }
+        let mut symbols = consts
             .iter()
-            .map(|parameter| DimensionSymbol {
-                name: parameter.name.clone(),
-                dimension: parameter.dimension.clone(),
+            .filter(|const_info| const_info.importable)
+            .map(|const_info| DimensionSymbol {
+                name: const_info.name.clone(),
+                dimension: const_info.dimension.clone(),
             })
             .collect::<Vec<_>>();
+        symbols.extend(
+            functions[index]
+                .parameters
+                .iter()
+                .map(|parameter| DimensionSymbol {
+                    name: parameter.name.clone(),
+                    dimension: parameter.dimension.clone(),
+                })
+                .collect::<Vec<_>>(),
+        );
+        for local in &functions[index].locals {
+            let Some(local_dimension) =
+                expression_dimension_with_symbols(&local.expression, &symbols)
+            else {
+                diagnostics.push(Diagnostic::error(
+                    "E-FN-LOCAL-001",
+                    local.line,
+                    &format!(
+                        "Function `{}` local `{}` could not be type-checked.",
+                        functions[index].name, local.name
+                    ),
+                    Some("Use parameters, previous locals, const values, and literals with units."),
+                ));
+                continue;
+            };
+            symbols.push(DimensionSymbol {
+                name: local.name.clone(),
+                dimension: local_dimension,
+            });
+        }
         let Some(actual_dimension) = expression_dimension_with_symbols(&expression, &symbols)
         else {
             diagnostics.push(Diagnostic::error(
@@ -1051,6 +1148,17 @@ fn statistic_expression_semantic_type(
     let (_axis, quantity_kind) =
         crate::stats::time_series_quantity(&source_binding.semantic_type.quantity_kind)?;
     semantic_type(&quantity_kind, &source_binding.semantic_type.display_unit)
+}
+
+fn binding_alias_semantic_type(
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+) -> Option<SemanticType> {
+    let expression = expression.trim();
+    typed_bindings
+        .iter()
+        .find(|binding| binding.name == expression)
+        .map(|binding| binding.semantic_type.clone())
 }
 
 fn function_call_semantic_type(
@@ -1676,6 +1784,108 @@ fn connection_endpoint_diagnostic(endpoint: &str, line: usize) -> Diagnostic {
     )
 }
 
+fn analyze_const_decl(
+    declaration: &ConstDecl,
+    consts: &mut Vec<ConstInfo>,
+    diagnostics: &mut Vec<Diagnostic>,
+    expected_types: &mut Vec<ExpectedType>,
+    hover_hints: &mut Vec<HoverHint>,
+    typed_bindings: &mut Vec<TypedBinding>,
+    type_infos: &mut Vec<TypeInfo>,
+    unit_derivations: &mut Vec<UnitDerivation>,
+) {
+    if expression_mentions_args(&declaration.expression) {
+        diagnostics.push(Diagnostic::error(
+            "E-CONST-ARGS-001",
+            declaration.line,
+            &format!("const `{}` depends on args.", declaration.name),
+            Some("Args belong to the root execution context and are not imported."),
+        ));
+    }
+    if expression_has_side_effect(&declaration.expression) {
+        diagnostics.push(Diagnostic::error(
+            "E-CONST-SIDE-EFFECT-001",
+            declaration.line,
+            "const expressions must not perform side-effecting operations.",
+            Some("Use top-level executable code or args default instead."),
+        ));
+    }
+    if expression_depends_on_runtime(&declaration.expression) {
+        diagnostics.push(Diagnostic::warning(
+            "W-CONST-RUNTIME-001",
+            declaration.line,
+            &format!(
+                "const `{}` depends on runtime environment/time/current directory.",
+                declaration.name
+            ),
+            Some("Prefer an args default for environment- or time-dependent values."),
+        ));
+    }
+
+    let display_unit = declaration
+        .unit
+        .clone()
+        .unwrap_or_else(|| default_unit_for_type(&declaration.type_name));
+    let canonical_unit = default_unit_for_type(&declaration.type_name);
+    let dimension = dimension_for_type(&declaration.type_name);
+    let importable = declaration.context == ParseContext::TopLevel
+        && !expression_mentions_args(&declaration.expression)
+        && !expression_has_side_effect(&declaration.expression);
+
+    expected_types.push(ExpectedType {
+        name: declaration.name.clone(),
+        quantity_kind: declaration.type_name.clone(),
+        display_unit: Some(display_unit.clone()),
+        source: ExpectedTypeSource::ExplicitAnnotation,
+        line: declaration.line,
+        span: declaration.span,
+    });
+    typed_bindings.push(TypedBinding {
+        name: declaration.name.clone(),
+        semantic_type: SemanticType {
+            quantity_kind: declaration.type_name.clone(),
+            display_unit: display_unit.clone(),
+        },
+        line: declaration.line,
+    });
+    hover_hints.push(HoverHint::importable_const(
+        declaration.name.clone(),
+        declaration.type_name.clone(),
+        display_unit.clone(),
+        declaration.expression.clone(),
+        declaration.span,
+    ));
+    type_infos.push(TypeInfo {
+        name: declaration.name.clone(),
+        quantity_kind: declaration.type_name.clone(),
+        display_unit: display_unit.clone(),
+        canonical_unit: canonical_unit.clone(),
+        dimension: dimension.clone(),
+        source: TypeInfoSource::Const,
+        line: declaration.line,
+        span: declaration.span,
+    });
+    unit_derivations.push(unit_derivation(
+        &declaration.name,
+        Some(&declaration.expression),
+        &declaration.type_name,
+        &display_unit,
+        &canonical_unit,
+        declaration.line,
+    ));
+    consts.push(ConstInfo {
+        name: declaration.name.clone(),
+        type_name: declaration.type_name.clone(),
+        quantity_kind: declaration.type_name.clone(),
+        display_unit,
+        canonical_unit,
+        dimension,
+        expression: declaration.expression.clone(),
+        importable,
+        line: declaration.line,
+    });
+}
+
 fn analyze_explicit_decl(
     declaration: &ExplicitDecl,
     diagnostics: &mut Vec<Diagnostic>,
@@ -1990,6 +2200,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         })
         .or_else(|| statistic_expression_semantic_type(&binding.expression, accum.typed_bindings))
         .or(function_call_type)
+        .or_else(|| binding_alias_semantic_type(&binding.expression, accum.typed_bindings))
         .or_else(|| infer_quantity(&binding.name, &binding.expression));
 
     if let Some(semantic_type) = inferred_semantic_type {
@@ -2268,6 +2479,14 @@ fn default_unit_for_quantity(quantity_kind: &str) -> String {
         .unwrap_or_else(|| "unknown".to_owned())
 }
 
+fn default_unit_for_type(type_name: &str) -> String {
+    if preview_scalar_type(type_name) {
+        String::new()
+    } else {
+        default_unit_for_quantity(type_name)
+    }
+}
+
 fn dimension_for_quantity(quantity_kind: &str) -> String {
     if let Some((_, inner_quantity)) = crate::uncertainty::uncertainty_inner_quantity(quantity_kind)
     {
@@ -2282,6 +2501,68 @@ fn dimension_for_quantity(quantity_kind: &str) -> String {
         .find(|completion| completion.quantity_kind == quantity_kind)
         .map(|completion| completion.dimension.to_owned())
         .unwrap_or_else(|| "unknown".to_owned())
+}
+
+fn dimension_for_type(type_name: &str) -> String {
+    if preview_scalar_type(type_name) {
+        "Dimensionless".to_owned()
+    } else {
+        dimension_for_quantity(type_name)
+    }
+}
+
+fn known_decl_type(type_name: &str) -> bool {
+    preview_scalar_type(type_name) || default_unit_for_quantity(type_name) != "unknown"
+}
+
+fn preview_scalar_type(type_name: &str) -> bool {
+    matches!(
+        type_name.trim().to_ascii_lowercase().as_str(),
+        "string"
+            | "path"
+            | "filepath"
+            | "csvfile"
+            | "directorypath"
+            | "bool"
+            | "boolean"
+            | "int"
+            | "integer"
+            | "count"
+            | "float"
+            | "number"
+            | "duration"
+    )
+}
+
+fn expression_mentions_args(expression: &str) -> bool {
+    expression
+        .split(|character: char| {
+            !(character.is_ascii_alphanumeric() || character == '_' || character == '.')
+        })
+        .any(|token| token == "args" || token.starts_with("args."))
+}
+
+fn expression_has_side_effect(expression: &str) -> bool {
+    let lowered = expression.to_ascii_lowercase();
+    [
+        "download(",
+        "read_csv(",
+        "write_file(",
+        "save(",
+        "export(",
+        "create_temp_dir(",
+        "promote ",
+        "promote(",
+    ]
+    .iter()
+    .any(|needle| lowered.contains(needle))
+}
+
+fn expression_depends_on_runtime(expression: &str) -> bool {
+    let lowered = expression.to_ascii_lowercase();
+    ["env(", "today(", "now(", "current_dir(", "cwd("]
+        .iter()
+        .any(|needle| lowered.contains(needle))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

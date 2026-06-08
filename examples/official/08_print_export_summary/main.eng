@@ -1,22 +1,26 @@
-script main(args: Args) -> Report {
-    Q_mean = 5.432 kW
-    Q_peak = 7.891 kW
-    E_total = 42.75 kWh
-    T_mean = 21.4 °C
-    eta = 0.864
-
-    print "Q mean = {Q_mean: .2 kW}"
-    print "Q peak = {Q_peak: .2 kW}"
-    print "E total = {E_total: .2 kWh}"
-    print "T mean = {T_mean: .1 °C}"
-    print "eta = {eta: .3}"
-
-    export summary to csv "summary.csv" {
-        Q_mean as kW with ".2"
-        Q_peak as kW with ".2"
-        E_total as kWh with ".2"
-        T_mean as °C with ".1"
-        eta as 1 with ".3"
-    }
+args {
+    case_name: String = "preview"
 }
 
+const eta_nominal: Ratio = 0.864
+
+Q_mean = 5.432 kW
+Q_peak = 7.891 kW
+E_total = 42.75 kWh
+T_mean = 21.4 °C
+eta = eta_nominal
+
+print "case = {args.case_name}"
+print "Q mean = {Q_mean: .2 kW}"
+print "Q peak = {Q_peak: .2 kW}"
+print "E total = {E_total: .2 kWh}"
+print "T mean = {T_mean: .1 °C}"
+print "eta = {eta: .3}"
+
+export summary to csv "summary.csv" {
+    Q_mean as kW with ".2"
+    Q_peak as kW with ".2"
+    E_total as kWh with ".2"
+    T_mean as °C with ".1"
+    eta as 1 with ".3"
+}

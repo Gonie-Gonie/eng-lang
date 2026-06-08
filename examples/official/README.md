@@ -36,13 +36,15 @@ paths before compatibility fixtures.
   diagnostics, and invalid connection diagnostics.
 
 07_functions_imports
-  Preview pure function and file import path with unit-checked parameters,
-  dimension-checked return expressions, function-call inference, CLI print,
-  and explicit summary CSV export.
+  Preview top-level execution, static file import, importable const values,
+  function-local bindings, unit-checked parameters, dimension-checked return
+  expressions, function-call inference, CLI print, and explicit summary CSV
+  export.
 
 08_print_export_summary
-  Mini scalar summary path for unit-aware print interpolation and explicit
-  one-row `export summary to csv` output with requested display units.
+  Mini scalar summary path for top-level `args`, reusable `const`,
+  unit-aware print interpolation, and explicit one-row `export summary to csv`
+  output with requested display units.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression

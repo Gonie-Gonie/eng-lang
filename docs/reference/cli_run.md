@@ -107,9 +107,9 @@ Default rule:
 ```text
 1. `--entry <name>` wins.
 2. `script main` is the default when present.
-3. A single non-main entry can run.
-4. Multiple non-main entries require `--entry`.
-5. No entry fails with E-ENTRY-NOT-FOUND-001.
+3. Otherwise, a file without script entries runs as `top-level main`.
+4. A single non-main script entry can run.
+5. Multiple non-main script entries require `--entry`.
 ```
 
 ## Open Report
@@ -122,8 +122,9 @@ This writes artifacts and attempts to open `build\result\report.html`.
 
 ## Args Flags
 
-`struct Args` fields can be passed as `--<field> <value>` after the source path.
-Defaults are used when the flag is omitted.
+`args { ... }` fields can be passed as `--<field> <value>` after the source
+path. Defaults are used when the flag is omitted. `struct Args` remains a
+compatibility spelling for older examples.
 
 ```bat
 target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main --input data/sensor.csv
@@ -132,13 +133,11 @@ target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main --i
 The official CSV example uses:
 
 ```eng partial
-struct Args {
-    input: String = "data/sensor.csv"
+args {
+    input: CsvFile = file("data/sensor.csv")
 }
 
-script main(args: Args) -> Report {
-    sensor = promote csv args.input as SensorData
-}
+sensor = promote csv args.input as SensorData
 ```
 
 The runtime result, report spec, and review objects record `arg_values` with
@@ -148,6 +147,7 @@ are written to `review.json`, `report_spec.json`, and `result.engres`.
 Primitive typed Args are normalized before they are recorded:
 
 ```text
+String/Path/CsvFile/DirectoryPath  string/path value
 Bool/Boolean         true/false, yes/no, on/off, 1/0
 Int/Integer          signed whole number
 Count/usize/u32/u64  non-negative whole number
@@ -158,7 +158,7 @@ Duration             s, min, h normalized to seconds
 Example:
 
 ```eng partial
-struct Args {
+args {
     enabled: Bool = false
     count: Count = 3
     gain: Float = 1.0
@@ -190,30 +190,23 @@ build\result\result.engres
 build\result\report.html
 ```
 
-## Missing Entry Example
+## Top-Level Entry Example
 
-`examples\05_error_messages\missing_entry.eng` is intentionally declaration-only:
+Files without `script` entries run as `top-level main`:
 
 ```eng
 L = 1 m
+print "L = {L: .2 m}"
 ```
 
-`check` can inspect it:
+`check` can inspect it and `run` executes it:
 
 ```bat
-target\debug\eng.exe check examples\05_error_messages\missing_entry.eng
+target\debug\eng.exe check examples\official\08_print_export_summary\main.eng
 ```
-
-`run` fails because file execution requires an entry point:
 
 ```bat
-target\debug\eng.exe run examples\05_error_messages\missing_entry.eng
-```
-
-Expected diagnostic:
-
-```text
-E-ENTRY-NOT-FOUND-001
+target\debug\eng.exe run examples\official\08_print_export_summary\main.eng
 ```
 
 ## Artifact Review

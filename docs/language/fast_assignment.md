@@ -47,6 +47,10 @@ unit derivation
 hover hint
 ```
 
+Top-level `name = expr` is still an executable local binding. It runs when the
+file is the root workflow, but it is not importable from another module. Use
+`const name: Type = expr` for reusable module values.
+
 ## Public Boundaries
 
 Public boundaries require explicit type annotations.
@@ -84,4 +88,3 @@ HoverHint
 ```
 
 This data is intentionally shaped for future IDE/LSP hover and quick-fix support.
-

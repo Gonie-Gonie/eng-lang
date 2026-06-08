@@ -30,12 +30,14 @@ File run/build uses this rule:
 ```text
 1. `--entry <name>` wins.
 2. `script main(args: Args) -> Report` is the default when present.
-3. A single non-main entry may run, but `check` emits W-ENTRY-MAIN-001.
-4. Multiple entries without a default main require `--entry`.
-5. No entries produces E-ENTRY-NOT-FOUND-001.
+3. Otherwise, files without script entries run as `top-level main`.
+4. A single non-main script entry may run, but `check` emits W-ENTRY-MAIN-001.
+5. Multiple script entries without a default main require `--entry`.
 ```
 
-`eng check` does not require an entry. This keeps declaration-only files and error-message examples checkable.
+`eng check` records the same entry metadata. Declaration-only files without
+script entries still receive a top-level entry, though they may have no runtime
+objects.
 
 ## Bytecode v1
 
@@ -54,10 +56,10 @@ ast_items = ...
 typed_bindings = ...
 schemas = ...
 csv_promotions = ...
-entry = script main
+entry = top_level main
 entry_args = args:Args
 entry_return = Report
-args_schema = Args metadata, when declared
+args_schema = root args metadata, when declared
 ```
 
 Object records:
@@ -72,7 +74,7 @@ array|<binding>|<element_type>|<len>|<line>
 Instruction records:
 
 ```text
-0000|enter_entry|script|main
+0000|enter_entry|top_level|main
 0001|load_table|sensor
 0002|load_scalar|cp
 0003|load_timeseries|Q_coil
@@ -101,7 +103,7 @@ timeseries
 array
 ```
 
-Schema columns and v0.8 system variables are public boundary metadata, not runtime scalar values. The bytecode builder skips those bindings and emits runtime objects only for executable script bindings and promoted tables.
+Schema columns and v0.8 system variables are public boundary metadata, not runtime scalar values. The bytecode builder skips those bindings and emits runtime objects only for executable top-level/script bindings and promoted tables.
 TimeSeries objects carry axis, quantity, and display-unit metadata.
 
 ## Result v1

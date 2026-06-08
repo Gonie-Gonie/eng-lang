@@ -1,4 +1,7 @@
-fn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {
-    return UA * dT
-}
+const UA_wall_default: Conductance [W/K] = 150 W/K
 
+fn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {
+    UA_local = UA
+    dT_local = dT
+    return UA_local * dT_local
+}
