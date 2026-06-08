@@ -62,7 +62,7 @@ Before publishing `v0.2-preview`:
 [ ] imported files do not register or execute entry points
 [ ] unit-aware print and explicit summary CSV export have a mini official example
 [ ] data/table/TimeSeries expression-kernel scope is documented with supported examples and diagnostics
-[ ] first-class Summary object decision is explicitly recorded as implemented or deferred
+[x] first-class Summary object decision is explicitly recorded as deferred for v0.2 scope
 [ ] official examples 01-08 pass check/run smoke paths
 [ ] docs-check passes
 [ ] artifacts-check passes

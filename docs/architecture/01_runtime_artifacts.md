@@ -78,7 +78,8 @@ artifact command.
 CSV summary exports are not first-class Summary objects. The export block
 assembles scalar fields such as named bindings, integration results, and scalar
 statistics. Headers include display units, and cells contain formatted scalar
-values.
+values. The v0.2 decision record is
+[`summary_object_decision.md`](../reference/summary_object_decision.md).
 
 ## `.engres`
 

@@ -8,6 +8,7 @@ default:
   - docs/language/string_formatting.md
   - docs/reference/standalone_package.md
   - docs/reference/functions_imports.md
+  - docs/reference/summary_object_decision.md
 
 task_types:
   parser:
@@ -67,6 +68,7 @@ task_types:
     - docs/guide/report_review.md
     - docs/guide/plotting.md
     - docs/language/string_formatting.md
+    - docs/reference/summary_object_decision.md
     - examples/official/08_print_export_summary/
     - docs/schemas/
     - crates/eng_report/

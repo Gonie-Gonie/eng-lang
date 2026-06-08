@@ -117,7 +117,9 @@ See [development tracks](tracks.md) for the current scope and limitations.
 - Package/module imports, importable non-function declarations, multi-return
   functions, and broad function-body statement execution are deferred.
 
-- First-class Summary objects are not part of the current scope.
+- First-class Summary objects are not part of the current scope; the v0.2
+  decision is recorded in
+  [summary_object_decision.md](../reference/summary_object_decision.md).
 
 ## Current Crate Architecture
 
