@@ -988,8 +988,13 @@ function Invoke-DevCurrent {
     Copy-Item -Force (Join-Path $RepoRoot "target\release\eng-lsp.exe") (Join-Path $CurrentRoot "eng-lsp.exe")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "examples") (Join-Path $CurrentRoot "examples")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "stdlib") (Join-Path $CurrentRoot "stdlib")
-    New-Item -ItemType Directory -Force -Path (Join-Path $CurrentRoot "docs") | Out-Null
-    Copy-Item -Recurse -Force (Join-Path $RepoRoot "docs\tutorials") (Join-Path $CurrentRoot "docs\tutorials")
+    $CurrentDocsRoot = Join-Path $CurrentRoot "docs"
+    New-Item -ItemType Directory -Force -Path $CurrentDocsRoot | Out-Null
+    Copy-Item -Recurse -Force (Join-Path $RepoRoot "docs\tutorials") (Join-Path $CurrentDocsRoot "tutorials")
+    $CurrentGrammarGuidePath = Join-Path $CurrentDocsRoot "EngLang_Language_Grammar_Guide.pdf"
+    if (-not (New-GrammarGuideWithOodocs -Path $CurrentGrammarGuidePath -Version (Get-PublicVersion))) {
+        throw "Could not generate EngLang language grammar guide for dev-current."
+    }
 
     $Version = Get-WorkspaceVersion
     $GitCommit = try {
@@ -1006,7 +1011,10 @@ EngLang dev-current
 
 This folder is the current commit's non-release test display build.
 Run eng-ide.exe from this folder to open the native IDE with bundled examples,
-stdlib files, and tutorials.
+stdlib files, tutorials, and the language grammar guide.
+
+Docs:
+  docs\EngLang_Language_Grammar_Guide.pdf
 
 Smoke commands:
   eng-ide.exe --smoke

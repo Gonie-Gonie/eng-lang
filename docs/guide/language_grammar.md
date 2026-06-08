@@ -1,15 +1,41 @@
 # EngLang Language Grammar Guide
 
-This guide documents the current user-facing grammar shape for the preview
-language. It is intentionally practical: it describes the forms the compiler
-accepts today, the policy behind parenthesis-light commands, and the places
-where syntax is recorded as metadata for review/runtime artifacts.
+This guide is the practical grammar reference for the current EngLang preview.
+It is written for someone who wants to open an `.eng` file, understand the
+shape of the language, and write a small engineering workflow without reading
+the compiler source.
+
+EngLang is still preview software. The behavior below is documented and tested
+for the current public line, but it is not yet a stable language contract.
+
+## What To Read First
+
+If you are new to EngLang, read these sections in order:
+
+1. Execution model
+2. Anatomy of a useful file
+3. Declarations and expressions
+4. Built-in command-style verbs
+5. `where` and `with`
+6. Print, export, report, and artifacts
+
+For a concrete runnable example, open:
+
+```text
+examples/official/09_command_where_with/main.eng
+```
+
+That example combines schema input, top-level execution, command-style
+statistics/integration, scoped `where` locals, `with` options, unit-aware
+printing, CSV export, and report plotting.
 
 ## Execution Model
 
-EngLang executes the top-level workflow of one source file. There is no public
-`entry` selector and no `script main` execution root. Put ordinary workflow
-statements at top level and declare CLI inputs with one root `args` block.
+EngLang executes one source file as a top-level workflow.
+
+There is no public `entry` selector. There is no `script main` execution root.
+The body of the file is the workflow. Command-line inputs are declared with one
+root `args { ... }` block.
 
 ```eng partial
 args {
@@ -17,53 +43,309 @@ args {
 }
 
 sensor = promote csv args.input as SensorData
-Q = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
-print "Q = {Q}"
+cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+E_coil = integrate Q_coil over Time
+
+print "E total = {E_coil: .2 kWh}"
 ```
 
-Top-level executable items are evaluated in source order for compiler metadata
-and runtime artifacts. Imported files may contribute functions and importable
-constants, but their executable top-level bodies are not imported into the
-caller workflow.
+The compiler reads the source in order and builds:
+
+| Layer | What It Means |
+|---|---|
+| Parsed program | Lines, tokens, AST items, source spans, block context |
+| Semantic model | Typed bindings, schemas, functions, diagnostics, review metadata |
+| Bytecode | Native runtime seed for the top-level workflow |
+| Runtime data | Tables, TimeSeries, integrations, statistics, outputs |
+| Report artifacts | `result.engres`, `review.json`, `report_spec.json`, PlotSpec, SVG, HTML |
+
+Use these commands from the repository or portable package:
+
+```text
+eng.exe check examples/official/09_command_where_with/main.eng --review
+eng.exe run examples/official/09_command_where_with/main.eng --save-artifacts
+eng.exe view build/result/result.engres
+```
+
+## Anatomy Of A Useful File
+
+A typical data-to-report file has this order:
+
+```eng partial
+schema SensorData {
+    time: DateTime index
+    T_supply: AbsoluteTemperature [degC]
+    T_return: AbsoluteTemperature [degC]
+    m_dot: MassFlowRate [kg/s]
+}
+
+args {
+    input: CsvFile = file("data/sensor.csv")
+}
+
+sensor = promote csv args.input as SensorData
+cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+E_coil = integrate Q_coil over Time
+mean_Q = mean Q_coil over Time
+
+print "Loaded {sensor.rows} rows from {args.input}"
+print "Q mean = {mean_Q: .2 kW}"
+print "E total = {E_coil: .2 kWh}"
+
+export summary to csv "summary.csv" {
+    mean_Q as kW with ".2"
+    E_coil as kWh with ".2"
+}
+
+report {
+    summarize Q_coil by [mean, max, p95]
+    plot Q_coil over Time
+    with {
+        unit y = kW
+        title = "Coil heat rate"
+    }
+}
+```
+
+The file reads as: declare the input shape, bind CLI arguments, promote a CSV
+into typed data, compute quantities, print quick CLI output, export a durable
+summary CSV, and ask the report system for reviewable artifacts.
+
+## Lexical Basics
+
+EngLang source files are UTF-8 text files.
+
+Comments use `//`:
+
+```eng partial
+Q = 10 kW // design heat rate
+```
+
+Strings use double quotes:
+
+```eng partial
+label = "case A"
+print "case = {label}"
+```
+
+Identifiers are ASCII-style names:
+
+```text
+Q_coil
+mean_Q
+sensor
+T_return
+args.input
+```
+
+Units may contain `/` and may be written after numeric literals:
+
+```eng partial
+L = 2 m
+Q = 10 kW
+cp = 4180 J/kg/K
+m_dot = 0.22 kg/s
+T = 21.4 degC
+```
+
+`degC` is the canonical ASCII spelling. `°C` is accepted as a user-facing alias
+for absolute temperature and display formatting.
 
 ## Top-Level Forms
 
-The supported top-level declaration families are:
+The current top-level declaration families are:
 
-```text
-use "relative/file.eng"
-import package.name
+| Form | Example | Notes |
+|---|---|---|
+| File import | `use "thermal.eng"` | Imports functions and importable constants |
+| Package import seed | `import package.name` | Declared metadata path, not full package manager |
+| Args block | `args { input: CsvFile = file("data.csv") }` | Root CLI argument schema |
+| Const declaration | `const cp: SpecificHeatCapacity = 4180 J/kg/K` | Importable when pure |
+| Explicit declaration | `E: Energy [J] = 3600 J` | Public type and display unit boundary |
+| Fast binding | `Q = 10 kW` | Inferred declaration |
+| Schema | `schema SensorData { ... }` | CSV/data boundary |
+| Function | `fn heat_loss(...) -> HeatRate [W] { ... }` | Typed scalar preview |
+| System | `system Room { ... }` | Minimal equation/system preview |
+| Domain/component | `domain Fluid { ... }` | Experimental metadata track |
+| Print | `print "Q = {Q: .2 kW}"` | Debug/CLI output |
+| CSV export | `export summary to csv "summary.csv" { ... }` | Durable scalar artifact |
+| Report | `report { plot Q over Time }` | Review/report artifact requests |
 
-args { ... }
-const name: Quantity = expression
-name: Quantity [unit] = expression
-name = expression
+Rejected compatibility forms:
 
-schema Name { ... }
-fn name(param: Quantity [unit], ...) -> Quantity [unit] { ... }
-system Name { ... }
-domain Name<...> package "..." version "..." { ... }
-component Name { ... }
-
-print "template {expression: .2 unit}"
-export summary to csv "summary.csv" { ... }
-report { ... }
+```eng error
+script main {
+    Q = 10 kW
+}
 ```
 
-`struct Args` and `script` blocks are rejected as compatibility syntax. The
-only execution argument form is root `args { ... }`.
+```eng error
+struct Args {
+    input: CsvFile
+}
+```
 
-## Expressions And Function Calls
+Use root `args { ... }` and top-level workflow statements instead.
 
-General function calls stay parenthesized:
+## Args
+
+`args { ... }` declares user-provided inputs. The block belongs at top level.
 
 ```eng partial
-Q_wall = heat_loss(UA_wall, dT_wall)
-Q_mean = mean(Q_coil, axis=Time)
-E_coil = integrate(Q_coil, over=Time)
+args {
+    input: CsvFile = file("data/sensor.csv")
+    case_name: String = "preview"
+    enabled: Bool = true
+    count: Count = 3
+    gain: Float = 1.0
+    window: Duration = 10 min
+}
 ```
 
-User-defined functions require typed parameters and an explicit return:
+Supported preview argument types include:
+
+| Type | Example Default | CLI Shape |
+|---|---|---|
+| `String` | `"preview"` | `--case_name demo` |
+| `Path` / `FilePath` / `CsvFile` | `file("data/sensor.csv")` | `--input data/other.csv` |
+| `DirectoryPath` | `dir("runs")` | `--output runs/case1` |
+| `Bool` | `true` | `--enabled true` |
+| `Int` / `Integer` / `Count` | `3` | `--count 12` |
+| `Float` / `Number` | `1.0` | `--gain 1.25` |
+| `Duration` | `10 min` | `--window 30 s` |
+
+Runtime records the final bound value and whether it came from the default or
+CLI override.
+
+## Schemas And CSV Promotion
+
+Schemas are the data boundary. They describe columns, quantity kinds, display
+units, and index roles.
+
+```eng partial
+schema SensorData {
+    time: DateTime index
+    T_supply: AbsoluteTemperature [degC]
+    T_return: AbsoluteTemperature [degC]
+    m_dot: MassFlowRate [kg/s]
+
+    constraints {
+        time is monotonic
+        T_supply between 0 degC and 60 degC
+        T_return between 0 degC and 80 degC
+        m_dot >= 0 kg/s
+    }
+
+    missing {
+        T_supply: interpolate max_gap=10 min
+        T_return: interpolate max_gap=10 min
+        m_dot: error
+    }
+}
+```
+
+Promote a CSV into a typed table:
+
+```eng partial
+sensor = promote csv args.input as SensorData
+```
+
+After promotion:
+
+| Expression | Meaning |
+|---|---|
+| `sensor.rows` | Row count for print/export formatting |
+| `sensor.T_supply` | Typed column expression |
+| `sensor.T_return` | Typed column expression |
+| `sensor.m_dot` | Typed numeric column expression |
+
+The official HeatRate path recognizes expressions like:
+
+```eng partial
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+```
+
+This produces `TimeSeries[Time] of HeatRate` metadata and runtime values when
+the source table has a DateTime index and the required numeric columns.
+
+## Declarations
+
+### Fast Bindings
+
+Fast bindings use `=` and rely on inference:
+
+```eng partial
+Q = 10 kW
+T = 21.4 degC
+E = 3.6 kWh
+eta = 0.82
+```
+
+The compiler can infer common physical quantities from the variable name and
+unit. Ambiguous units produce warnings. For example `power = 10 kW` may be
+HeatRate, ElectricPower, or MechanicalPower; use an explicit declaration when
+you need to lock it down.
+
+### Explicit Declarations
+
+Explicit declarations define the quantity kind and optional display unit:
+
+```eng partial
+E_total: Energy [kWh] = 3.6 kWh
+Q_design: HeatRate [kW] = 10 kW
+T_room: AbsoluteTemperature [degC] = 22 degC
+```
+
+Use explicit declarations at public boundaries, where unit/quantity ambiguity
+would otherwise make review harder.
+
+### Constants
+
+Constants are intended for reusable pure values:
+
+```eng partial
+const cp_water: SpecificHeatCapacity = 4180 J/kg/K
+const eta_nominal: Ratio = 0.864
+```
+
+Importable constants can be shared by `use "file.eng"`. Constants should not
+depend on runtime inputs, side effects, or `args`.
+
+## Expressions
+
+The current expression support is intentionally small and quantity-aware. The
+common supported shapes are:
+
+| Shape | Example |
+|---|---|
+| Literal with unit | `10 kW` |
+| Binding reference | `Q_coil` |
+| Args field | `args.input` |
+| Table row count | `sensor.rows` |
+| Arithmetic | `m_dot * cp * (T_return - T_supply)` |
+| Function call | `heat_loss(UA, dT)` |
+| Built-in call | `mean(Q_coil, axis=Time)` |
+| Command-style built-in | `mean Q_coil over Time` |
+
+Arithmetic is checked for obvious quantity errors. Adding physical quantities
+to dimensionless literals is rejected:
+
+```eng error
+L = 1 m + 2
+```
+
+Write units explicitly:
+
+```eng partial
+L = 1 m + 2 m
+```
+
+## Functions And Imports
+
+Use functions for reusable scalar calculations. Function calls remain
+parenthesized.
 
 ```eng partial
 fn heat_loss(UA: ThermalConductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {
@@ -72,28 +354,63 @@ fn heat_loss(UA: ThermalConductance [W/K], dT: TemperatureDelta [K]) -> HeatRate
 }
 ```
 
-Function locals are scoped to the function body. Imported functions are usable
-from the caller, but imported executable bindings are not.
+Function rules:
+
+| Rule | Meaning |
+|---|---|
+| Typed parameters | Each parameter has a quantity/scalar type and optional unit |
+| Explicit return type | The function declares its output quantity |
+| One return expression | Preview functions use one `return ...` |
+| Function locals | Local bindings are scoped to the function body |
+| Unit-checked return | Return expression dimension must match the annotation |
+
+Import a file:
+
+```eng partial
+use "thermal.eng"
+
+UA_wall = 150 W/K
+dT_wall = 8 K
+Q_wall = heat_loss(UA_wall, dT_wall)
+```
+
+Imported files may provide functions and importable constants. Their top-level
+workflow body is not imported into the caller. This avoids hidden executable
+side effects.
+
+## Built-In Function Calls
+
+Parenthesized built-in calls are always acceptable:
+
+```eng partial
+mean_Q = mean(Q_coil, axis=Time)
+peak_Q = max(Q_coil, axis=Time)
+E_coil = integrate(Q_coil, over=Time)
+```
+
+The command-style forms below lower to these canonical call strings. If you
+are unsure which form to use, use the parenthesized call; it is the least
+ambiguous.
 
 ## Parenthesis-Light Commands
 
 Parenthesis-light syntax is reserved for built-in workflow verbs. It is not a
 general replacement for function-call parentheses.
 
-Supported command-style verbs:
+Supported command-style verbs in the current preview:
 
-```text
-integrate
-mean
-max
-min
-duration
-plot
-show
-validate
-```
+| Verb | Typical Use | Canonical Shape |
+|---|---|---|
+| `integrate` | HeatRate over Time to Energy | `integrate(Q, over=Time)` |
+| `mean` | TimeSeries mean | `mean(Q, axis=Time)` |
+| `max` | TimeSeries maximum | `max(Q, axis=Time)` |
+| `min` | TimeSeries minimum | `min(Q, axis=Time)` |
+| `duration` | Duration style metadata seed | `duration(T, above=...)` |
+| `plot` | Report plot request | `plot(Q, over=Time)` metadata |
+| `show` | Report/display request seed | `show(value)` metadata |
+| `validate` | Validation request seed | `validate(target)` metadata |
 
-Initial command clauses:
+Command clauses recognized by the parser:
 
 ```text
 over
@@ -107,47 +424,71 @@ to
 with
 ```
 
-The compiler lowers command-style expressions to canonical call strings in the
-AST/review metadata:
+Examples:
 
 ```eng partial
-E = integrate Q_coil over Time
+E_coil = integrate Q_coil over Time
 mean_Q = mean Q_coil over Time
 peak_Q = max Q_coil over Time
-plot Q_coil over Time
+low_Q = min Q_coil over Time
 ```
 
-Canonical lowering:
+Lowering:
 
 ```text
 integrate Q_coil over Time -> integrate(Q_coil, over=Time)
 mean Q_coil over Time      -> mean(Q_coil, axis=Time)
 max Q_coil over Time       -> max(Q_coil, axis=Time)
-plot Q_coil over Time      -> plot(Q_coil, over=Time)
+min Q_coil over Time       -> min(Q_coil, axis=Time)
 ```
 
-Complex command targets must be parenthesized. This is rejected:
+### Command Target Rule
+
+Simple targets may omit parentheses:
+
+```eng partial
+E = integrate Q_coil over Time
+```
+
+Complex targets must be parenthesized:
+
+```eng partial
+E = integrate (Q_sensible + Q_latent) over Time
+```
+
+This is rejected:
 
 ```eng error
-Q1 = 1 kW
-Q2 = 2 kW
-E = integrate Q1 + Q2 over Time
+Q_sensible = 1 kW
+Q_latent = 2 kW
+E = integrate Q_sensible + Q_latent over Time
+```
+
+The diagnostic is `E-CMD-AMBIG-001`. The compiler asks for parentheses because
+otherwise the target and clauses become hard to read and easy to misparse.
+
+### Function Calls Do Not Become Commands
+
+Do not write user functions in command style:
+
+```eng partial
+// Wrong design direction; general function calls stay parenthesized.
+Q_wall = heat_loss UA_wall dT_wall
 ```
 
 Use:
 
 ```eng partial
-E = integrate (Q1 + Q2) over Time
+Q_wall = heat_loss(UA_wall, dT_wall)
 ```
 
-This rule keeps command syntax readable without making expression parsing
-surprising. General calls such as `heat_loss(UA, dT)` remain parenthesized.
+This keeps command syntax a small workflow convenience instead of turning the
+whole expression language into a whitespace parser.
 
 ## `where` Blocks
 
-`where` introduces a local calculation context for the immediately preceding
-owner expression or command. Names defined in the block are visible only to that
-owner and to later bindings in the same `where` block.
+`where` introduces local calculations for the immediately preceding owner
+expression or command.
 
 ```eng partial
 E_coil = integrate Q_for_energy over Time
@@ -156,23 +497,54 @@ where {
 }
 ```
 
-`where` locals are not exported into the top-level variable table. Reusing a
-where-local outside its owner is rejected with `E-NAME-LOCAL-001`.
+In this example:
 
-Forward references inside the same `where` block are rejected with
-`E-WHERE-FWD-001`:
+| Name | Scope |
+|---|---|
+| `E_coil` | Top-level binding |
+| `Q_for_energy` | Visible only to `E_coil` and later locals inside the same `where` block |
+
+`where` is useful when a calculation is important to understand the owner but
+should not become part of the top-level variable table.
+
+### Where Binding Order
+
+Where locals are source ordered:
+
+```eng partial
+E = integrate Q2 over Time
+where {
+    Q1 = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+    Q2 = Q1
+}
+```
+
+Forward references are rejected:
+
+```eng error
+E = integrate Q2 over Time
+where {
+    Q2 = Q1
+    Q1 = 1 kW
+}
+```
+
+The diagnostic is `E-WHERE-FWD-001`.
+
+### Where Locals Do Not Escape
+
+This is rejected:
 
 ```eng error
 E = integrate Q_local over Time
 where {
-    Q_local = Q_late
-    Q_late = 1 kW
+    Q_local = 1 kW
 }
+print "Q = {Q_local: .2 kW}"
 ```
 
-The compiler records `where_blocks` in review metadata. Runtime time-series
-materialization can consume typed where-local heat-rate series when the owner
-integration uses the local as its source.
+The diagnostic is `E-NAME-LOCAL-001`. If a value should be printed, exported,
+or reused in multiple expressions, make it a top-level binding instead.
 
 ## `with` Blocks
 
@@ -190,50 +562,105 @@ with {
 }
 ```
 
-Common accepted options:
+Common accepted option keys:
 
-```text
-method
-backend
-title
-type
-unit x
-unit y
-display_unit
-solver
-tolerance
-max_iter
-seed
-output
+| Key | Typical Meaning |
+|---|---|
+| `method` | Numerical/statistical method choice |
+| `backend` | Execution/backend metadata choice |
+| `title` | Display/report title |
+| `type` | Plot type or command subtype |
+| `unit x` | X-axis display unit |
+| `unit y` | Y-axis display unit |
+| `display_unit` | Scalar display unit |
+| `solver` | Solver metadata choice |
+| `tolerance` | Solver/numeric tolerance |
+| `max_iter` | Solver/numeric iteration limit |
+| `seed` | Deterministic seed metadata |
+| `output` | Artifact/output choice |
+
+Unknown options are rejected with `E-WITH-OPTION-001`.
+
+Display units are checked when the owner type is known:
+
+```eng error
+Q = 1 kW
+with {
+    unit y = m
+}
 ```
 
-Unknown options are rejected with `E-WITH-OPTION-001`. Display unit options are
-checked against the owner quantity when the owner type is known; incompatible
-units are rejected with `E-WITH-UNIT-001`.
+The diagnostic is `E-WITH-UNIT-001`, because HeatRate cannot be displayed as
+Length.
 
-Plot display options may be written with a following `with` block:
+### Plot Options With `with`
+
+Inside a `report` block:
 
 ```eng partial
 report {
     plot Q_coil over Time
     with {
         unit y = kW
-        title = "Command-style coil heat rate"
+        title = "Coil heat rate"
     }
 }
 ```
 
-## Unit-Aware Printing And CSV Export
+This keeps the plot request readable while keeping display details grouped
+below it.
 
-`print` is for debugging and CLI output. Quantity values print with units by
-default, and requested display units are type-checked:
+The older block-style plot option form is also still used in existing examples:
 
 ```eng partial
+report {
+    plot Q_coil over Time {
+        unit y = kW
+        title = "Coil heat rate"
+    }
+}
+```
+
+## Print
+
+`print` is for debugging and CLI output. It is not the durable artifact path.
+
+```eng partial
+print "Loaded {sensor.rows} rows from {args.input}"
 print "Q mean = {mean_Q: .2 kW}"
 print "E total = {E_coil: .2 kWh}"
 ```
 
-`export summary to csv` writes reproducible scalar summary artifacts:
+Format fields look like:
+
+```text
+{expression}
+{expression: .2 unit}
+{expression: .1 degC}
+```
+
+Formatting policy:
+
+| Rule | Meaning |
+|---|---|
+| Expressions are type-checked | Unknown names produce diagnostics |
+| Requested units are checked | `Q: .2 kW` is valid for HeatRate |
+| Quantities print with units | Runtime output includes display units |
+| Tables print summaries | Example: row and column summary |
+| TimeSeries print summaries | Use plot/report/export for durable detail |
+
+Examples:
+
+```eng partial
+print "Q = {Q: .2 kW}"
+print "T = {T_room: .1 degC}"
+print "E = {E_total: .2 kWh}"
+print "eta = {eta: .3}"
+```
+
+## Export Summary To CSV
+
+`export summary to csv` writes a one-row scalar summary under `build/result`.
 
 ```eng partial
 export summary to csv "summary.csv" {
@@ -243,12 +670,93 @@ export summary to csv "summary.csv" {
 }
 ```
 
-TimeSeries and Table values print as summaries by default. Use report/show/plot
-and export commands for durable artifacts.
+Field grammar:
 
-## Review Metadata
+```text
+expression as display_unit with "format"
+```
 
-`eng check --review` exposes these grammar-policy sections:
+The current preview supports scalar values, statistics, integration results,
+function-call scalar outputs, and typed constants. It does not yet implement a
+first-class Summary object model or broad table/TimeSeries CSV export.
+
+If you need a reusable scalar value in export, bind it first:
+
+```eng partial
+mean_Q = mean Q_coil over Time
+export summary to csv "summary.csv" {
+    mean_Q as kW with ".2"
+}
+```
+
+## Report, Summarize, Show, Plot
+
+`report { ... }` asks for reviewable artifacts. The current report path can
+record summaries, plots, system metadata, uncertainty/modeling preview metadata,
+and report/review JSON.
+
+```eng partial
+report {
+    summarize Q_coil by [mean, time_weighted_mean, max, p95]
+    show E_coil
+    plot Q_coil over Time
+    with {
+        unit y = kW
+        title = "Coil heat rate"
+    }
+}
+```
+
+`summarize` supports a list of statistic names. Common statistic names:
+
+```text
+mean
+time_weighted_mean
+max
+min
+median
+std
+p90
+p95
+duration_above(5 kW)
+```
+
+Plot output under `eng run --save-artifacts` includes:
+
+```text
+build/result/plots/plot_spec.json
+build/result/plots/plot_manifest.json
+build/result/plots/timeseries.svg
+build/result/report.html
+```
+
+## Systems, Domains, And Experimental Tracks
+
+The grammar also has preview/experimental surfaces for systems and
+domain/component metadata.
+
+Minimal system shape:
+
+```eng partial
+system Room {
+    state T: AbsoluteTemperature [degC] = 21 degC
+    parameter C: HeatCapacity [J/K] = 120000 J/K
+    parameter UA: ThermalConductance [W/K] = 150 W/K
+
+    equation {
+        C * der(T) eq 500 W - UA * (T - 5 degC)
+    }
+}
+```
+
+Domain/component shapes are documented separately in
+`docs/guide/domain_component.md`. They are useful for metadata, validation, and
+IDE inspection, but not yet a general numeric multi-domain solver.
+
+## Review JSON
+
+`eng check --review` writes compiler-owned review metadata. The command/where
+with implementation exposes:
 
 ```text
 syntax_summary.command_styles
@@ -259,17 +767,168 @@ where_blocks[]
 with_blocks[]
 ```
 
-These sections make surface syntax reviewable while preserving canonical
-function-call expressions for downstream compiler and runtime paths.
+`command_styles[]` records:
 
-## Official Example
+| Field | Meaning |
+|---|---|
+| `verb` | Command verb, such as `integrate` or `mean` |
+| `target` | Surface target |
+| `clauses` | Parsed command clauses |
+| `canonical` | Lowered call string |
+| `status` | `lowered`, `ambiguous_target`, or `missing_target` |
+| `owner` | Binding name when attached to a binding |
+| `line` | Source line |
 
-See:
+`where_blocks[]` records owner line, local bindings, inferred quantity kinds,
+display units, and local status.
 
-```text
-examples/official/09_command_where_with/main.eng
+`with_blocks[]` records owner line and accepted/unknown options.
+
+This makes syntax policy reviewable without requiring runtime artifact
+generation.
+
+## Diagnostics Cheat Sheet
+
+| Code | Meaning | Typical Fix |
+|---|---|---|
+| `E-CMD-AMBIG-001` | Command target is ambiguous | Parenthesize the target |
+| `E-NAME-LOCAL-001` | Where-local used outside owner scope | Move it top-level or use it only in owner |
+| `E-WHERE-FWD-001` | Where-local used before definition | Reorder the where bindings |
+| `E-WITH-OPTION-001` | Unknown `with` option | Use a supported option key |
+| `E-WITH-UNIT-001` | Incompatible display unit | Pick a unit compatible with the owner quantity |
+| `E-PRINT-FMT-003` | Print requested incompatible unit | Fix the print unit |
+| `E-PRINT-FMT-004` | Print expression cannot be resolved | Bind the value or fix the name |
+| `E-EXPORT-CSV-003` | CSV export expression cannot be resolved | Bind/export a supported scalar |
+| `E-EXPORT-CSV-004` | CSV export requested incompatible unit | Fix the export unit |
+| `W-QTY-AMBIG-001` | Unit maps to multiple quantity kinds | Add an explicit declaration |
+
+## Common Recipes
+
+### Heat Rate From CSV
+
+```eng partial
+sensor = promote csv args.input as SensorData
+cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
 ```
 
-That file combines top-level execution, command-style integration/statistics,
-scoped `where` locals, `with` options, unit-aware print/export, and plot/report
-output.
+### Energy From Heat Rate
+
+```eng partial
+E_coil = integrate Q_coil over Time
+```
+
+### Local Source For One Integration
+
+```eng partial
+E_coil = integrate Q_for_energy over Time
+where {
+    Q_for_energy = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+}
+with {
+    method = trapezoidal
+}
+```
+
+### Print And Export A Summary
+
+```eng partial
+mean_Q = mean Q_coil over Time
+peak_Q = max Q_coil over Time
+
+print "Q mean = {mean_Q: .2 kW}"
+print "Q peak = {peak_Q: .2 kW}"
+
+export summary to csv "summary.csv" {
+    mean_Q as kW with ".2"
+    peak_Q as kW with ".2"
+}
+```
+
+### Imported Function
+
+```eng partial
+use "thermal.eng"
+
+UA_wall = 150 W/K
+dT_wall = 8 K
+Q_wall = heat_loss(UA_wall, dT_wall)
+print "Q wall = {Q_wall: .2 kW}"
+```
+
+## What Is Deferred
+
+The current guide intentionally does not promise:
+
+| Deferred Area | Current Position |
+|---|---|
+| General command syntax for all functions | User/general calls stay parenthesized |
+| Project-wide display unit policy block | Deferred; `with` is local owner options |
+| First-class Summary object model | Deferred; explicit CSV summary export exists |
+| Arbitrary TimeSeries formulas | Limited beyond official heat-rate kernel path |
+| Broad table/TimeSeries CSV export | Deferred |
+| Full package/module system | File imports and metadata seeds only |
+| General nonlinear/multi-state solving | Deferred beyond preview system path |
+| Stable artifact schemas | Preview versioned artifacts only |
+
+## Authoring Checklist
+
+Before treating a file as a good EngLang example, check:
+
+1. Does it use top-level workflow statements instead of `script main`?
+2. Does it use root `args { ... }` for inputs?
+3. Are public quantities explicit where unit inference would be ambiguous?
+4. Are general function calls parenthesized?
+5. Are command-style forms limited to built-in workflow verbs?
+6. Are complex command targets parenthesized?
+7. Are `where` locals used only by their owner expression?
+8. Are `with` option keys supported and units compatible?
+9. Does `print` stay lightweight and debugging-oriented?
+10. Are durable outputs written with `export`, `plot`, and `report`?
+11. Does `eng.exe check --review` show useful metadata?
+12. Does `eng.exe run --save-artifacts` produce expected artifacts?
+
+## Official Example Walkthrough
+
+`examples/official/09_command_where_with/main.eng` is the recommended example
+for this grammar policy.
+
+It demonstrates:
+
+| Line Family | Purpose |
+|---|---|
+| `schema SensorData` | Typed CSV boundary |
+| `args { input: CsvFile = ... }` | User-provided CSV input |
+| `sensor = promote csv ...` | Runtime data promotion |
+| `Q_coil = ...` | HeatRate TimeSeries binding |
+| `E_coil = integrate Q_for_energy over Time` | Command-style integration |
+| `where { Q_for_energy = ... }` | Owner-local source calculation |
+| `with { method = trapezoidal }` | Owner option metadata |
+| `mean_Q = mean Q_coil over Time` | Command-style statistic |
+| `print ...` | CLI/debug output |
+| `export summary to csv` | Durable scalar CSV artifact |
+| `report { summarize ... plot ... with ... }` | Review/report/plot output |
+
+Run it:
+
+```text
+eng.exe run examples/official/09_command_where_with/main.eng --save-artifacts
+```
+
+Expected user-facing output includes lines similar to:
+
+```text
+Q mean = 5.07 kW
+Q peak = 5.42 kW
+E total = 1.26 kWh
+```
+
+Expected artifacts include:
+
+```text
+build/result/summary.csv
+build/result/review.json
+build/result/report.html
+build/result/plots/plot_spec.json
+build/result/plots/timeseries.svg
+```
