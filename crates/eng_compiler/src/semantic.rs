@@ -1,5 +1,5 @@
 use crate::ast::{
-    AstItem, ConnectDecl, CsvExportDecl, CsvExportFieldDecl, DomainTypeParameterDecl,
+    AstItem, ConnectDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl, DomainTypeParameterDecl,
     DomainVariableDecl, ExplicitDecl, FastBinding, FunctionDecl, FunctionParamDecl, ImportDecl,
     PortDecl, PrintDecl, ReturnDecl, StructFieldDecl, SystemVariableDecl,
 };
@@ -50,15 +50,36 @@ pub struct FunctionParamInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FunctionLocalInfo {
+    pub name: String,
+    pub expression: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FunctionInfo {
     pub name: String,
     pub parameters: Vec<FunctionParamInfo>,
+    pub locals: Vec<FunctionLocalInfo>,
     pub return_quantity_kind: String,
     pub return_display_unit: String,
     pub return_canonical_unit: String,
     pub return_dimension: String,
     pub return_expression: Option<String>,
     pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ConstInfo {
+    pub name: String,
+    pub type_name: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub dimension: String,
+    pub expression: String,
+    pub importable: bool,
     pub line: usize,
 }
 
@@ -296,6 +317,7 @@ pub struct TimeSeriesKernelInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SemanticProgram {
     pub imports: Vec<ImportInfo>,
+    pub consts: Vec<ConstInfo>,
     pub functions: Vec<FunctionInfo>,
     pub typed_bindings: Vec<TypedBinding>,
     pub expected_types: Vec<ExpectedType>,

@@ -41,6 +41,23 @@ pub struct FunctionParamDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ArgsDecl {
+    pub name: String,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ConstDecl {
+    pub name: String,
+    pub type_name: String,
+    pub unit: Option<String>,
+    pub expression: String,
+    pub line: usize,
+    pub span: SourceSpan,
+    pub context: ParseContext,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReturnDecl {
     pub expression: String,
     pub line: usize,
@@ -218,6 +235,8 @@ pub enum AstItem {
     Script(ScriptDecl),
     Import(ImportDecl),
     Function(FunctionDecl),
+    Args(ArgsDecl),
+    Const(ConstDecl),
     Return(ReturnDecl),
     Struct(StructDecl),
     StructField(StructFieldDecl),

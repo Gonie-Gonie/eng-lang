@@ -1,9 +1,9 @@
 use crate::ast::{
-    AstItem, ComponentDecl, ConnectDecl, ConservationDecl, ConstraintDecl, CsvExportDecl,
-    CsvExportFieldDecl, DomainDecl, DomainTypeParameterDecl, DomainVariableDecl, EquationDecl,
-    ExplicitDecl, FastBinding, FunctionDecl, FunctionParamDecl, ImportDecl, MissingPolicyDecl,
-    PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl, StructFieldDecl,
-    SummaryDecl, SystemDecl, SystemVariableDecl,
+    ArgsDecl, AstItem, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl, ConstraintDecl,
+    CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainTypeParameterDecl, DomainVariableDecl,
+    EquationDecl, ExplicitDecl, FastBinding, FunctionDecl, FunctionParamDecl, ImportDecl,
+    MissingPolicyDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl,
+    StructFieldDecl, SummaryDecl, SystemDecl, SystemVariableDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -16,6 +16,7 @@ pub enum ParseContext {
     SchemaMissing,
     Script,
     Function,
+    Args,
     Struct,
     System,
     Domain,
@@ -55,7 +56,9 @@ pub struct SyntaxSummary {
     pub ports: usize,
     pub connections: usize,
     pub structs: usize,
+    pub args_blocks: usize,
     pub struct_fields: usize,
+    pub const_declarations: usize,
     pub equations: usize,
     pub fast_bindings: usize,
     pub explicit_declarations: usize,
@@ -74,7 +77,9 @@ impl ParsedProgram {
         let mut ports = 0usize;
         let mut connections = 0usize;
         let mut structs = 0usize;
+        let mut args_blocks = 0usize;
         let mut struct_fields = 0usize;
+        let mut const_declarations = 0usize;
         let mut equations = 0usize;
         let mut fast_bindings = 0usize;
         let mut explicit_declarations = 0usize;
@@ -92,7 +97,9 @@ impl ParsedProgram {
                 AstItem::Port(_) => ports += 1,
                 AstItem::Connect(_) => connections += 1,
                 AstItem::Struct(_) => structs += 1,
+                AstItem::Args(_) => args_blocks += 1,
                 AstItem::StructField(_) => struct_fields += 1,
+                AstItem::Const(_) => const_declarations += 1,
                 AstItem::Equation(_) => equations += 1,
                 AstItem::FastBinding(_) => fast_bindings += 1,
                 AstItem::ExplicitDecl(_) => explicit_declarations += 1,
@@ -124,7 +131,9 @@ impl ParsedProgram {
             ports,
             connections,
             structs,
+            args_blocks,
             struct_fields,
+            const_declarations,
             equations,
             fast_bindings,
             explicit_declarations,
@@ -140,6 +149,7 @@ pub fn parse_source(source: &str) -> ParsedProgram {
     let mut missing_depth = 0i32;
     let mut script_depth = 0i32;
     let mut function_depth = 0i32;
+    let mut args_depth = 0i32;
     let mut struct_depth = 0i32;
     let mut system_depth = 0i32;
     let mut domain_depth = 0i32;
@@ -163,6 +173,8 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             ParseContext::Script
         } else if function_depth > 0 {
             ParseContext::Function
+        } else if args_depth > 0 {
+            ParseContext::Args
         } else if struct_depth > 0 {
             ParseContext::Struct
         } else if domain_depth > 0 {
@@ -236,6 +248,18 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             function_depth += brace_delta(&tokens);
             if function_depth <= 0 {
                 function_depth = 0;
+            }
+        }
+
+        if starts_with_identifier(&tokens, "args") {
+            args_depth += brace_delta(&tokens);
+            if args_depth == 0 {
+                args_depth = 1;
+            }
+        } else if args_depth > 0 {
+            args_depth += brace_delta(&tokens);
+            if args_depth <= 0 {
+                args_depth = 0;
             }
         }
 
@@ -342,6 +366,15 @@ fn parse_line_items(
     }
     if let Some(function) = parse_function_decl(tokens, line_text) {
         items.push(AstItem::Function(function));
+        if let Some(return_decl) = parse_inline_function_return_decl(tokens, line_text) {
+            items.push(AstItem::Return(return_decl));
+        }
+    }
+    if let Some(args) = parse_args_decl(tokens) {
+        items.push(AstItem::Args(args));
+    }
+    if let Some(const_decl) = parse_const_decl(tokens, line_text, context) {
+        items.push(AstItem::Const(const_decl));
     }
     if let Some(return_decl) = parse_return_decl(tokens, line_text, context) {
         items.push(AstItem::Return(return_decl));
@@ -384,7 +417,10 @@ fn parse_line_items(
     }
     if !matches!(
         context,
-        ParseContext::Struct | ParseContext::SchemaConstraints | ParseContext::SchemaMissing
+        ParseContext::Args
+            | ParseContext::Struct
+            | ParseContext::SchemaConstraints
+            | ParseContext::SchemaMissing
     ) {
         if let Some(declaration) = parse_explicit_decl(tokens, line_text, context) {
             items.push(AstItem::ExplicitDecl(declaration));
@@ -613,6 +649,26 @@ fn parse_struct_decl(tokens: &[Token]) -> Option<StructDecl> {
     })
 }
 
+fn parse_args_decl(tokens: &[Token]) -> Option<ArgsDecl> {
+    let first = tokens.first()?;
+    let TokenKind::Identifier(name) = &first.kind else {
+        return None;
+    };
+    if name != "args" {
+        return None;
+    }
+    if !tokens
+        .iter()
+        .any(|token| matches!(token.kind, TokenKind::Symbol(Symbol::LBrace)))
+    {
+        return None;
+    }
+    Some(ArgsDecl {
+        name: "Args".to_owned(),
+        span: first.span,
+    })
+}
+
 fn parse_script_decl(tokens: &[Token]) -> Option<ScriptDecl> {
     let [first, second, ..] = tokens else {
         return None;
@@ -634,6 +690,41 @@ fn parse_script_decl(tokens: &[Token]) -> Option<ScriptDecl> {
     })
 }
 
+fn parse_const_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<ConstDecl> {
+    let [first, second, third, ..] = tokens else {
+        return None;
+    };
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Const)) {
+        return None;
+    }
+    let TokenKind::Identifier(name) = &second.kind else {
+        return None;
+    };
+    if !matches!(third.kind, TokenKind::Symbol(Symbol::Colon)) {
+        return None;
+    }
+    let raw_after_colon = line_text.split_once(':')?.1.trim();
+    let (type_part, expression) = raw_after_colon.split_once('=')?;
+    let (type_name, unit) = split_type_and_unit(type_part.trim());
+    let expression = expression.trim();
+    if type_name.is_empty() || expression.is_empty() {
+        return None;
+    }
+    Some(ConstDecl {
+        name: name.clone(),
+        type_name,
+        unit,
+        expression: expression.to_owned(),
+        line: first.span.line,
+        span: first.span,
+        context,
+    })
+}
+
 fn parse_function_decl(tokens: &[Token], line_text: &str) -> Option<FunctionDecl> {
     let [first, second, ..] = tokens else {
         return None;
@@ -652,6 +743,23 @@ fn parse_function_decl(tokens: &[Token], line_text: &str) -> Option<FunctionDecl
         return_type,
         return_unit,
         span: first.span,
+    })
+}
+
+fn parse_inline_function_return_decl(tokens: &[Token], line_text: &str) -> Option<ReturnDecl> {
+    let first = tokens.first()?;
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Fn)) {
+        return None;
+    }
+    let expression = line_text.split_once('=').map(|(_, right)| right.trim())?;
+    if expression.is_empty() || expression.starts_with('{') {
+        return None;
+    }
+    Some(ReturnDecl {
+        expression: expression.to_owned(),
+        line: first.span.line,
+        span: first.span,
+        context: ParseContext::Function,
     })
 }
 
@@ -729,7 +837,7 @@ fn parse_struct_field_decl(
     line_text: &str,
     context: ParseContext,
 ) -> Option<StructFieldDecl> {
-    if context != ParseContext::Struct {
+    if !matches!(context, ParseContext::Struct | ParseContext::Args) {
         return None;
     }
     let [first, second, third, ..] = tokens else {
@@ -1243,6 +1351,12 @@ fn starts_with_keyword(tokens: &[Token], keyword: Keyword) -> bool {
     tokens
         .first()
         .is_some_and(|token| matches!(token.kind, TokenKind::Keyword(found) if found == keyword))
+}
+
+fn starts_with_identifier(tokens: &[Token], expected: &str) -> bool {
+    tokens.first().is_some_and(|token| {
+        matches!(&token.kind, TokenKind::Identifier(found) if found == expected)
+    })
 }
 
 fn brace_delta(tokens: &[Token]) -> i32 {

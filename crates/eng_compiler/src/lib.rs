@@ -21,10 +21,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub use ast::{
-    AstItem, ComponentDecl, ConnectDecl, ConservationDecl, CsvExportDecl, CsvExportFieldDecl,
-    DomainDecl, DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FunctionDecl,
-    FunctionParamDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl,
-    StructDecl, StructFieldDecl, SystemDecl, SystemVariableDecl,
+    ArgsDecl, AstItem, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl, CsvExportDecl,
+    CsvExportFieldDecl, DomainDecl, DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding,
+    FunctionDecl, FunctionParamDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl,
+    ScriptDecl, StructDecl, StructFieldDecl, SystemDecl, SystemVariableDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -39,12 +39,13 @@ pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSu
 pub use quantities::{all_quantity_completions, normalize_unit, QuantityCompletion};
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
 pub use semantic::{
-    ArgValueInfo, ArgsFieldInfo, ArgsStructInfo, ComponentInfo, ConnectionInfo, ConservationInfo,
-    CsvExportFieldInfo, CsvExportInfo, DomainInfo, DomainTypeParameterInfo, DomainVariableInfo,
-    EquationDependencyInfo, EquationInfo, EquationIrInfo, FormatExpressionInfo, FunctionInfo,
-    FunctionParamInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo, PrintInfo,
-    ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo, SystemVariableInfo,
-    TimeSeriesKernelInfo, TypedBinding,
+    ArgValueInfo, ArgsFieldInfo, ArgsStructInfo, ComponentInfo, ConnectionInfo, ConstInfo,
+    ConservationInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo, DomainTypeParameterInfo,
+    DomainVariableInfo, EquationDependencyInfo, EquationInfo, EquationIrInfo,
+    FormatExpressionInfo, FunctionInfo, FunctionLocalInfo, FunctionParamInfo, ImportInfo,
+    JacobianSeedInfo, OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo, SemanticProgram,
+    SemanticType, SolverPlanInfo, SystemInfo, SystemVariableInfo, TimeSeriesKernelInfo,
+    TypedBinding,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -556,8 +557,16 @@ pub fn review_json(report: &CheckReport) -> String {
         report.syntax_summary.structs
     ));
     json.push_str(&format!(
+        "    \"args_blocks\": {},\n",
+        report.syntax_summary.args_blocks
+    ));
+    json.push_str(&format!(
         "    \"struct_fields\": {},\n",
         report.syntax_summary.struct_fields
+    ));
+    json.push_str(&format!(
+        "    \"const_declarations\": {},\n",
+        report.syntax_summary.const_declarations
     ));
     json.push_str(&format!(
         "    \"equations\": {},\n",
