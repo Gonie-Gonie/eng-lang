@@ -365,6 +365,9 @@ fn command_run(args: Vec<String>) -> ExitCode {
         },
     ) {
         Ok(output) => {
+            if !output.stdout.is_empty() {
+                print!("{}", output.stdout);
+            }
             if output.artifacts_saved {
                 println!("artifacts: saved");
                 println!("bytecode: {}", output.bytecode_path.display());
@@ -386,6 +389,9 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 println!("manifest: {} bytes", output.plot_manifest_json.len());
                 println!("report:   {} bytes", output.report_html.len());
                 println!("use --save-artifacts to write build\\result files");
+            }
+            for path in &output.csv_export_paths {
+                println!("export:   {}", path.display());
             }
             ExitCode::SUCCESS
         }

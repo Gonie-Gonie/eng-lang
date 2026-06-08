@@ -2,7 +2,8 @@
 
 `eng run` executes one file entry point through bytecode and the native VM seed.
 By default it keeps result, review, report, PlotSpec, SVG, and bytecode payloads
-as runtime objects and does not write files.
+as runtime objects and does not write files. Explicit `export ... to csv`
+statements are user-requested artifacts and write under `build\result`.
 
 ## Basic Run
 
@@ -25,6 +26,17 @@ report:   7890 bytes
 use --save-artifacts to write build\result files
 ```
 
+Program `print` statements write before the runtime artifact summary:
+
+```eng partial
+print "Loaded {sensor.rows} rows from {args.input}"
+print "Q mean = {mean(Q_coil, axis=Time): .2 kW}"
+print "E total = {E_coil: .2 kWh}"
+```
+
+Quantity formatting is unit-aware. Requested display units must be compatible
+with the expression quantity.
+
 ## Save Artifacts
 
 ```bat
@@ -46,6 +58,31 @@ build/
       plot_manifest.json
       timeseries.svg
 ```
+
+## Explicit CSV Summary Export
+
+`export summary to csv` writes a one-row scalar summary record under
+`build\result`, even when ordinary runtime artifacts stay in memory.
+
+```eng partial
+mean_Q = mean(Q_coil, axis=Time)
+peak_Q = max(Q_coil, axis=Time)
+E_coil = integrate(Q_coil, over=Time)
+
+export summary to csv "summary.csv" {
+    E_coil as kWh with ".2"
+    peak_Q as kW with ".2"
+    mean_Q as kW with ".2"
+}
+```
+
+The CLI reports the export path:
+
+```text
+export:   build\result\summary.csv
+```
+
+CSV headers include display units and cells contain formatted scalar values.
 
 ## List Entries
 

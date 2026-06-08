@@ -5,6 +5,7 @@ default:
   - docs/current/version_plan.md
   - docs/current/feature_maturity_matrix.md
   - docs/current/tracks.md
+  - docs/language/string_formatting.md
   - docs/reference/standalone_package.md
 
 task_types:
@@ -12,12 +13,14 @@ task_types:
     - docs/specs/language-v8.md
     - docs/language/fast_assignment.md
     - docs/language/dimensionless.md
+    - docs/language/string_formatting.md
     - crates/eng_compiler/
 
   units:
     - docs/architecture/03_expected_types_and_quantities.md
     - docs/language/fast_assignment.md
     - docs/language/dimensionless.md
+    - docs/language/string_formatting.md
     - stdlib/units.eng
     - crates/eng_compiler/src/units.rs
     - crates/eng_compiler/src/quantities.rs
@@ -52,6 +55,7 @@ task_types:
     - docs/architecture/01_runtime_artifacts.md
     - docs/guide/report_review.md
     - docs/guide/plotting.md
+    - docs/language/string_formatting.md
     - docs/schemas/
     - crates/eng_report/
 

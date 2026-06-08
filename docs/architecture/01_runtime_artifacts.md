@@ -13,6 +13,7 @@ build/
     review.json
     report.html
     report_spec.json
+    summary.csv          # only when source uses explicit CSV export
     plots/
       plot_spec.json
       plot_manifest.json
@@ -66,6 +67,18 @@ instructions:
 ```
 
 The format is intentionally text for early review and snapshot testing. It can move to a compact binary encoding after the contract is stable.
+
+## Explicit CSV Exports
+
+`export summary to csv "summary.csv" { ... }` writes a user-requested one-row
+CSV summary record under `build/result`. This happens even when ordinary run
+artifacts remain in memory, because the export statement is an explicit
+artifact command.
+
+CSV summary exports are not first-class Summary objects. The export block
+assembles scalar fields such as named bindings, integration results, and scalar
+statistics. Headers include display units, and cells contain formatted scalar
+values.
 
 ## `.engres`
 
@@ -233,6 +246,8 @@ unit_conversion_table
 axis_info
 stats_info
 integrations
+prints
+csv_exports
 uncertainty_info
 ml_info
 system_summary

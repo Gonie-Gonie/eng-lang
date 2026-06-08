@@ -13,7 +13,9 @@ use eng_compiler::{
 mod runtime_data;
 mod vm;
 
-use runtime_data::{materialize_runtime_data, RuntimeData, RuntimeValues};
+use runtime_data::{
+    materialize_runtime_data, RuntimeData, RuntimeStatisticValue, RuntimeTimeSeries, RuntimeValues,
+};
 pub use vm::{execute_bytecode, VmExecution, VmObject, VmObjectKind};
 
 pub const RUNTIME_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -42,7 +44,9 @@ pub struct RunOutput {
     pub plot_path: PathBuf,
     pub plot_spec_path: PathBuf,
     pub plot_manifest_path: PathBuf,
+    pub csv_export_paths: Vec<PathBuf>,
     pub artifacts_saved: bool,
+    pub stdout: String,
     pub bytecode: String,
     pub result_json: String,
     pub review_json: String,
@@ -211,6 +215,8 @@ pub fn run_file(
     let mut execution = execute_bytecode(&bytecode_program)?;
     let runtime_data = materialize_runtime_data(&check_report, &source);
     apply_runtime_lengths(&mut execution, &runtime_data);
+    let stdout = render_stdout(&check_report, &runtime_data);
+    let csv_export_paths = write_csv_exports(&check_report, &runtime_data, &result_dir)?;
     let mut plot_spec = eng_report::plot_spec_from_report(&check_report);
     runtime_data.apply_plot_spec(&check_report, &mut plot_spec);
     let plot_spec_json = eng_report::plot_spec_json(&plot_spec);
@@ -275,7 +281,9 @@ pub fn run_file(
         plot_path,
         plot_spec_path,
         plot_manifest_path,
+        csv_export_paths,
         artifacts_saved,
+        stdout,
         bytecode,
         result_json,
         review_json,
@@ -630,6 +638,490 @@ fn apply_runtime_lengths(execution: &mut VmExecution, runtime_data: &RuntimeData
             object.len = Some(series.points.len());
         }
     }
+}
+
+fn render_stdout(report: &CheckReport, runtime_data: &RuntimeData) -> String {
+    let mut output = String::new();
+    for print in &report.semantic_program.prints {
+        output.push_str(&render_print_template(print, report, runtime_data));
+        output.push('\n');
+    }
+    output
+}
+
+fn render_print_template(
+    print: &eng_compiler::PrintInfo,
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+) -> String {
+    let mut rendered = String::new();
+    let mut cursor = 0usize;
+    let mut field_index = 0usize;
+    while let Some(open) = print.template[cursor..].find('{') {
+        let start = cursor + open;
+        rendered.push_str(&print.template[cursor..start]);
+        let Some(close_offset) = print.template[start + 1..].find('}') else {
+            rendered.push_str(&print.template[start..]);
+            return rendered;
+        };
+        let close = start + 1 + close_offset;
+        let field_text = print.template[start + 1..close].trim();
+        let fallback = format!("{{{field_text}}}");
+        let value = print
+            .fields
+            .get(field_index)
+            .and_then(|field| evaluate_runtime_expression(&field.expression, report, runtime_data))
+            .map(|value| {
+                let field = &print.fields[field_index];
+                format_runtime_value(
+                    value,
+                    field.requested_unit.as_deref(),
+                    field.precision,
+                    true,
+                )
+            })
+            .unwrap_or(fallback);
+        rendered.push_str(&value);
+        field_index += 1;
+        cursor = close + 1;
+    }
+    rendered.push_str(&print.template[cursor..]);
+    rendered
+}
+
+fn write_csv_exports(
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+    result_dir: &Path,
+) -> Result<Vec<PathBuf>, RuntimeError> {
+    let mut paths = Vec::new();
+    for export in &report.semantic_program.csv_exports {
+        if export.source != "summary" {
+            continue;
+        }
+        let path = export_output_path(result_dir, &export.path).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("invalid export path `{}`", export.path),
+            )
+        })?;
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let headers = export
+            .fields
+            .iter()
+            .map(csv_export_header)
+            .collect::<Vec<_>>();
+        let values = export
+            .fields
+            .iter()
+            .map(|field| {
+                evaluate_runtime_expression(&field.expression, report, runtime_data)
+                    .map(|value| {
+                        format_runtime_value(
+                            value,
+                            field.requested_unit.as_deref(),
+                            field.precision,
+                            false,
+                        )
+                    })
+                    .unwrap_or_default()
+            })
+            .collect::<Vec<_>>();
+        let mut csv = String::new();
+        csv.push_str(
+            &headers
+                .iter()
+                .map(|value| csv_escape(value))
+                .collect::<Vec<_>>()
+                .join(","),
+        );
+        csv.push('\n');
+        csv.push_str(
+            &values
+                .iter()
+                .map(|value| csv_escape(value))
+                .collect::<Vec<_>>()
+                .join(","),
+        );
+        csv.push('\n');
+        fs::write(&path, csv)?;
+        paths.push(path);
+    }
+    Ok(paths)
+}
+
+fn export_output_path(result_dir: &Path, raw_path: &str) -> Option<PathBuf> {
+    let path = Path::new(raw_path);
+    let mut destination = result_dir.to_path_buf();
+    for component in path.components() {
+        match component {
+            Component::Normal(value) => destination.push(value),
+            Component::CurDir => {}
+            Component::ParentDir | Component::Prefix(_) | Component::RootDir => return None,
+        }
+    }
+    Some(destination)
+}
+
+fn csv_export_header(field: &eng_compiler::CsvExportFieldInfo) -> String {
+    let unit = field
+        .requested_unit
+        .as_deref()
+        .or_else(|| (!field.display_unit.is_empty()).then_some(field.display_unit.as_str()))
+        .filter(|unit| *unit != "count");
+    match unit {
+        Some(unit) => format!("{} [{}]", field.name, unit),
+        None => field.name.clone(),
+    }
+}
+
+fn csv_escape(value: &str) -> String {
+    if value.contains(|character| matches!(character, ',' | '"' | '\n' | '\r')) {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value.to_owned()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum RuntimeFormatValue {
+    Number {
+        value: f64,
+        quantity_kind: String,
+        unit: String,
+    },
+    Text(String),
+    Summary(String),
+}
+
+fn evaluate_runtime_expression(
+    expression: &str,
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+) -> Option<RuntimeFormatValue> {
+    let expression = expression.trim();
+    if let Some(arg_name) = expression.strip_prefix("args.") {
+        return report
+            .semantic_program
+            .arg_values
+            .iter()
+            .find(|arg| arg.name == arg_name)
+            .map(|arg| RuntimeFormatValue::Text(arg.value.clone()));
+    }
+    if let Some(table_name) = expression.strip_suffix(".rows") {
+        return runtime_data
+            .tables
+            .iter()
+            .find(|table| table.binding == table_name.trim())
+            .map(|table| RuntimeFormatValue::Number {
+                value: table.row_count as f64,
+                quantity_kind: "Count".to_owned(),
+                unit: String::new(),
+            });
+    }
+    if let Some(value) = evaluate_statistic_expression(expression, runtime_data) {
+        return Some(value);
+    }
+    if let Some(integration) = runtime_data
+        .integrations
+        .iter()
+        .find(|integration| integration.binding == expression)
+    {
+        return Some(RuntimeFormatValue::Number {
+            value: integration.value,
+            quantity_kind: integration.result_quantity.clone(),
+            unit: integration.unit.clone(),
+        });
+    }
+    if let Some(declaration) = report
+        .inferred_declarations
+        .iter()
+        .find(|declaration| declaration.name == expression)
+    {
+        if let Some(value) = evaluate_statistic_expression(&declaration.expression, runtime_data) {
+            return Some(value);
+        }
+        if let Some((value, unit)) = number_with_optional_unit(&declaration.expression) {
+            return Some(RuntimeFormatValue::Number {
+                value,
+                quantity_kind: declaration.quantity_kind.clone(),
+                unit: unit.unwrap_or_else(|| declaration.display_unit.clone()),
+            });
+        }
+    }
+    if let Some(table) = runtime_data
+        .tables
+        .iter()
+        .find(|table| table.binding == expression)
+    {
+        return Some(RuntimeFormatValue::Summary(format!(
+            "Table {}: {} rows, {} columns",
+            table.binding,
+            table.row_count,
+            table.columns.len()
+        )));
+    }
+    if let Some(series) = runtime_data
+        .time_series
+        .iter()
+        .find(|series| series.name == expression)
+    {
+        return Some(RuntimeFormatValue::Summary(format!(
+            "TimeSeries {}: {} points over {}, {} [{}]",
+            series.name,
+            series.points.len(),
+            series.axis,
+            series.quantity_kind,
+            series.display_unit
+        )));
+    }
+    None
+}
+
+fn evaluate_statistic_expression(
+    expression: &str,
+    runtime_data: &RuntimeData,
+) -> Option<RuntimeFormatValue> {
+    let (statistic, source) = parse_statistic_expression(expression)?;
+    let series = runtime_data
+        .time_series
+        .iter()
+        .find(|series| series.name == source)?;
+    let value = runtime_statistic_value(&statistic, series)?;
+    Some(RuntimeFormatValue::Number {
+        value: value.value,
+        quantity_kind: series.quantity_kind.clone(),
+        unit: value.unit,
+    })
+}
+
+fn parse_statistic_expression(expression: &str) -> Option<(String, String)> {
+    let trimmed = expression.trim();
+    let open = trimmed.find('(')?;
+    let statistic = trimmed[..open].trim();
+    if !matches!(
+        statistic,
+        "mean" | "time_weighted_mean" | "max" | "min" | "median" | "std"
+    ) && !statistic.starts_with('p')
+    {
+        return None;
+    }
+    let rest = trimmed[open + 1..].trim();
+    let source = rest
+        .split([',', ')'])
+        .next()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())?;
+    Some((statistic.to_owned(), source.to_owned()))
+}
+
+fn runtime_statistic_value(
+    name: &str,
+    series: &RuntimeTimeSeries,
+) -> Option<RuntimeStatisticValue> {
+    let values = series
+        .points
+        .iter()
+        .map(|point| point.y)
+        .collect::<Vec<_>>();
+    if values.is_empty() {
+        return None;
+    }
+    let value = match name {
+        "mean" => values.iter().sum::<f64>() / values.len() as f64,
+        "time_weighted_mean" => time_weighted_mean(series)?,
+        "max" => values.iter().copied().reduce(f64::max)?,
+        "min" => values.iter().copied().reduce(f64::min)?,
+        "median" => median(&values)?,
+        "std" => population_std(&values)?,
+        percentile if percentile_fraction(percentile).is_some() => {
+            nearest_rank_percentile(&values, percentile_fraction(percentile)?)?
+        }
+        _ => return None,
+    };
+    Some(RuntimeStatisticValue {
+        name: name.to_owned(),
+        value,
+        unit: series.display_unit.clone(),
+    })
+}
+
+fn time_weighted_mean(series: &RuntimeTimeSeries) -> Option<f64> {
+    let total_duration = series.points.last()?.x - series.points.first()?.x;
+    if series.x_unit != "s" || total_duration <= 0.0 {
+        return None;
+    }
+    Some(trapezoidal_integral(series)? / total_duration)
+}
+
+fn trapezoidal_integral(series: &RuntimeTimeSeries) -> Option<f64> {
+    if series.x_unit != "s" || series.points.len() < 2 {
+        return None;
+    }
+    let mut integral = 0.0;
+    for window in series.points.windows(2) {
+        let dt = window[1].x - window[0].x;
+        if dt <= 0.0 {
+            return None;
+        }
+        integral += (window[0].y + window[1].y) * 0.5 * dt;
+    }
+    Some(integral)
+}
+
+fn median(values: &[f64]) -> Option<f64> {
+    let mut sorted = values.to_vec();
+    sorted.sort_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal));
+    let len = sorted.len();
+    if len == 0 {
+        return None;
+    }
+    if len % 2 == 1 {
+        sorted.get(len / 2).copied()
+    } else {
+        Some((sorted[len / 2 - 1] + sorted[len / 2]) * 0.5)
+    }
+}
+
+fn population_std(values: &[f64]) -> Option<f64> {
+    if values.is_empty() {
+        return None;
+    }
+    let mean = values.iter().sum::<f64>() / values.len() as f64;
+    let variance = values
+        .iter()
+        .map(|value| {
+            let delta = value - mean;
+            delta * delta
+        })
+        .sum::<f64>()
+        / values.len() as f64;
+    Some(variance.sqrt())
+}
+
+fn percentile_fraction(name: &str) -> Option<f64> {
+    let value = name.strip_prefix('p')?.parse::<f64>().ok()?;
+    (0.0..=100.0).contains(&value).then_some(value / 100.0)
+}
+
+fn nearest_rank_percentile(values: &[f64], fraction: f64) -> Option<f64> {
+    let mut sorted = values.to_vec();
+    sorted.sort_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal));
+    let len = sorted.len();
+    if len == 0 {
+        return None;
+    }
+    let rank = (fraction * len as f64).ceil().max(1.0) as usize;
+    sorted.get(rank.saturating_sub(1).min(len - 1)).copied()
+}
+
+fn format_runtime_value(
+    value: RuntimeFormatValue,
+    requested_unit: Option<&str>,
+    precision: Option<usize>,
+    include_unit: bool,
+) -> String {
+    match value {
+        RuntimeFormatValue::Text(value) | RuntimeFormatValue::Summary(value) => value,
+        RuntimeFormatValue::Number {
+            value,
+            quantity_kind,
+            unit,
+        } => {
+            let display_unit = requested_unit.unwrap_or(unit.as_str());
+            let converted = if display_unit.is_empty() {
+                value
+            } else {
+                convert_between_units(value, &unit, display_unit, &quantity_kind).unwrap_or(value)
+            };
+            let mut text = format_number_with_precision(converted, precision);
+            if include_unit && !display_unit.is_empty() && display_unit != "count" {
+                text.push(' ');
+                text.push_str(display_unit);
+            }
+            text
+        }
+    }
+}
+
+fn format_number_with_precision(value: f64, precision: Option<usize>) -> String {
+    if let Some(precision) = precision {
+        return format!("{value:.precision$}", precision = precision);
+    }
+    let mut text = format!("{value:.6}");
+    while text.contains('.') && text.ends_with('0') {
+        text.pop();
+    }
+    if text.ends_with('.') {
+        text.pop();
+    }
+    text
+}
+
+fn convert_between_units(
+    value: f64,
+    from_unit: &str,
+    to_unit: &str,
+    quantity_kind: &str,
+) -> Option<f64> {
+    let from_unit = if from_unit.is_empty() {
+        to_unit
+    } else {
+        from_unit
+    };
+    let normalized_from = eng_compiler::normalize_unit(from_unit);
+    let normalized_to = eng_compiler::normalize_unit(to_unit);
+    if normalized_from == normalized_to {
+        return Some(value);
+    }
+    let from_info = unit_info(from_unit)?;
+    let to_info = unit_info(to_unit)?;
+    if eng_compiler::normalize_unit(from_info.canonical_unit)
+        != eng_compiler::normalize_unit(to_info.canonical_unit)
+        || !runtime_unit_seed_matches_quantity(from_info.quantity_hint, quantity_kind)
+        || !runtime_unit_seed_matches_quantity(to_info.quantity_hint, quantity_kind)
+    {
+        return None;
+    }
+    let scale_from = from_info.scale_to_canonical.parse::<f64>().ok()?;
+    let offset_from = from_info
+        .affine_offset
+        .and_then(|offset| offset.parse::<f64>().ok())
+        .unwrap_or(0.0);
+    let canonical = value * scale_from + offset_from;
+    let scale_to = to_info.scale_to_canonical.parse::<f64>().ok()?;
+    let offset_to = to_info
+        .affine_offset
+        .and_then(|offset| offset.parse::<f64>().ok())
+        .unwrap_or(0.0);
+    Some((canonical - offset_to) / scale_to)
+}
+
+fn unit_info(unit: &str) -> Option<eng_compiler::UnitInfo> {
+    let normalized = eng_compiler::normalize_unit(unit);
+    eng_compiler::all_unit_infos()
+        .iter()
+        .find(|info| eng_compiler::normalize_unit(info.symbol) == normalized)
+        .copied()
+}
+
+fn runtime_unit_seed_matches_quantity(seed_quantity: &str, quantity_kind: &str) -> bool {
+    seed_quantity == quantity_kind
+        || seed_quantity == "Power"
+            && matches!(
+                quantity_kind,
+                "HeatRate" | "ElectricPower" | "MechanicalPower"
+            )
+        || seed_quantity == "TemperatureDelta" && quantity_kind == "AbsoluteTemperature"
+}
+
+fn number_with_optional_unit(text: &str) -> Option<(f64, Option<String>)> {
+    let mut words = text.split_whitespace();
+    let value = words.next()?.parse::<f64>().ok()?;
+    let unit = words.next().map(str::to_owned);
+    Some((value, unit))
 }
 
 fn result_json(
@@ -1845,5 +2337,43 @@ fn open_path(path: &Path) {
     #[cfg(all(unix, not(target_os = "macos")))]
     {
         let _ = Command::new("xdg-open").arg(path).status();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn run_file_prints_and_writes_explicit_summary_csv_export() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-print-export");
+        let build_root = repo_root.join("build").join("runtime-print-export-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema SensorData {\n    time: DateTime index\n    T_supply: AbsoluteTemperature [degC]\n    T_return: AbsoluteTemperature [degC]\n    m_dot: MassFlowRate [kg/s]\n}\n\nstruct Args {\n    input: String = \"../../examples/official/01_csv_plot/data/sensor.csv\"\n}\n\nscript main(args: Args) -> Report {\n    sensor = promote csv args.input as SensorData\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    E_coil = integrate(Q_coil, over=Time)\n    mean_Q = mean(Q_coil, axis=Time)\n\n    print \"Loaded {sensor.rows} rows from {args.input}\"\n    print \"Q mean = {mean(Q_coil, axis=Time): .2 kW}\"\n    print \"E total = {E_coil: .2 kWh}\"\n\n    export summary to csv \"summary.csv\" {\n        E_coil as kWh with \".2\"\n        mean_Q as kW with \".2\"\n    }\n}\n",
+        )
+        .expect("write source");
+
+        let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+
+        assert!(output.stdout.contains("Loaded 4 rows"));
+        assert!(output.stdout.contains("Q mean = "));
+        assert!(output.stdout.contains(" kW"));
+        assert!(output.stdout.contains("E total = "));
+        assert_eq!(output.csv_export_paths.len(), 1);
+        assert!(!output.artifacts_saved);
+        let csv =
+            fs::read_to_string(build_root.join("result").join("summary.csv")).expect("summary csv");
+        assert!(csv.contains("E_coil [kWh]"));
+        assert!(csv.contains("mean_Q [kW]"));
+        assert_eq!(csv.lines().count(), 2);
     }
 }

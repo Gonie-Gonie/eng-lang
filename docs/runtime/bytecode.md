@@ -186,6 +186,7 @@ plot manifest smoke
 entry not found run smoke
 official example run smoke
 simple system run smoke
+unit-aware print and explicit summary CSV export runtime test
 ```
 
 ## Deferred

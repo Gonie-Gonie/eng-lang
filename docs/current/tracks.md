@@ -49,6 +49,8 @@ Current preview scope:
 ```text
 - TimeSeries statistics
 - integrate(... over Time)
+- unit-aware print interpolation
+- explicit one-row summary CSV export
 - PlotSpec v1
 - SVG rendering
 - review.json and report.html artifacts
@@ -60,6 +62,7 @@ Deferred:
 - multi-series and interactive plot semantics
 - richer report layout
 - general quantity-aware kernels
+- first-class Summary objects
 ```
 
 ## T4 System / Equation

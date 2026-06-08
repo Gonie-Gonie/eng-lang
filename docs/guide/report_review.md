@@ -70,6 +70,8 @@ arg_values
 schema_summary
 schemas
 csv_promotions
+prints
+csv_exports
 diagnostics
 warning_list
 plot_manifest

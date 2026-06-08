@@ -1,8 +1,8 @@
 use crate::ast::{
-    AstItem, ComponentDecl, ConnectDecl, ConservationDecl, ConstraintDecl, DomainDecl,
-    DomainTypeParameterDecl, DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding,
-    MissingPolicyDecl, PortDecl, SchemaDecl, ScriptDecl, StructDecl, StructFieldDecl, SummaryDecl,
-    SystemDecl, SystemVariableDecl,
+    AstItem, ComponentDecl, ConnectDecl, ConservationDecl, ConstraintDecl, CsvExportDecl,
+    CsvExportFieldDecl, DomainDecl, DomainTypeParameterDecl, DomainVariableDecl, EquationDecl,
+    ExplicitDecl, FastBinding, MissingPolicyDecl, PortDecl, PrintDecl, SchemaDecl, ScriptDecl,
+    StructDecl, StructFieldDecl, SummaryDecl, SystemDecl, SystemVariableDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -19,6 +19,7 @@ pub enum ParseContext {
     Domain,
     Component,
     Equation,
+    Export,
     Other,
 }
 
@@ -92,6 +93,9 @@ impl ParsedProgram {
                 | AstItem::Constraint(_)
                 | AstItem::MissingPolicy(_)
                 | AstItem::Summary(_)
+                | AstItem::Print(_)
+                | AstItem::CsvExport(_)
+                | AstItem::CsvExportField(_)
                 | AstItem::ReservedKeywordUse { .. } => {}
             }
         }
@@ -129,11 +133,14 @@ pub fn parse_source(source: &str) -> ParsedProgram {
     let mut domain_depth = 0i32;
     let mut component_depth = 0i32;
     let mut equation_depth = 0i32;
+    let mut export_depth = 0i32;
 
     for source_line in source_lines(source) {
         let tokens = lex_line(source_line.line, source_line.start, &source_line.text);
         let context = if equation_depth > 0 {
             ParseContext::Equation
+        } else if export_depth > 0 {
+            ParseContext::Export
         } else if missing_depth > 0 {
             ParseContext::SchemaMissing
         } else if constraints_depth > 0 {
@@ -266,6 +273,18 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             }
         }
 
+        if starts_with_keyword(&tokens, Keyword::Export) {
+            export_depth += brace_delta(&tokens);
+            if export_depth == 0 {
+                export_depth = 1;
+            }
+        } else if export_depth > 0 {
+            export_depth += brace_delta(&tokens);
+            if export_depth <= 0 {
+                export_depth = 0;
+            }
+        }
+
         parsed_lines.push(ParsedLine {
             line: source_line.line,
             text: source_line.text,
@@ -344,6 +363,15 @@ fn parse_line_items(
     }
     if let Some(summary) = parse_summary_decl(tokens, line_text) {
         items.push(AstItem::Summary(summary));
+    }
+    if let Some(print) = parse_print_decl(tokens, context) {
+        items.push(AstItem::Print(print));
+    }
+    if let Some(export) = parse_csv_export_decl(tokens, context) {
+        items.push(AstItem::CsvExport(export));
+    }
+    if let Some(field) = parse_csv_export_field_decl(tokens, line_text, context) {
+        items.push(AstItem::CsvExportField(field));
     }
     if let Some(keyword) = parse_reserved_keyword_use(tokens) {
         items.push(keyword);
@@ -888,6 +916,89 @@ fn parse_summary_decl(tokens: &[Token], line_text: &str) -> Option<SummaryDecl> 
     })
 }
 
+fn parse_print_decl(tokens: &[Token], context: ParseContext) -> Option<PrintDecl> {
+    let first = tokens.first()?;
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Print)) {
+        return None;
+    }
+    let template = tokens.iter().skip(1).find_map(|token| match &token.kind {
+        TokenKind::StringLiteral(value) => Some(value.clone()),
+        _ => None,
+    })?;
+    Some(PrintDecl {
+        template,
+        line: first.span.line,
+        span: first.span,
+        context,
+    })
+}
+
+fn parse_csv_export_decl(tokens: &[Token], context: ParseContext) -> Option<CsvExportDecl> {
+    let [first, second, third, fourth, ..] = tokens else {
+        return None;
+    };
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Export)) {
+        return None;
+    }
+    let TokenKind::Identifier(source) = &second.kind else {
+        return None;
+    };
+    if !matches!(third.kind, TokenKind::Keyword(Keyword::To)) {
+        return None;
+    }
+    if !matches!(fourth.kind, TokenKind::Keyword(Keyword::Csv)) {
+        return None;
+    }
+    let path = tokens.iter().skip(4).find_map(|token| match &token.kind {
+        TokenKind::StringLiteral(value) => Some(value.clone()),
+        _ => None,
+    })?;
+
+    Some(CsvExportDecl {
+        source: source.clone(),
+        format: "csv".to_owned(),
+        path,
+        line: first.span.line,
+        span: first.span,
+        context,
+    })
+}
+
+fn parse_csv_export_field_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<CsvExportFieldDecl> {
+    if context != ParseContext::Export {
+        return None;
+    }
+    let first = tokens.first()?;
+    if matches!(
+        &first.kind,
+        TokenKind::Symbol(Symbol::LBrace | Symbol::RBrace)
+    ) {
+        return None;
+    }
+
+    let raw = line_text.trim().trim_end_matches(',');
+    let (expression, rest) = raw.split_once(" as ")?;
+    let (display_unit, format) = rest
+        .split_once(" with ")
+        .map(|(unit, format)| (unit.trim().to_owned(), extract_quoted(format)))
+        .unwrap_or_else(|| (rest.trim().to_owned(), None));
+    if expression.trim().is_empty() || display_unit.trim().is_empty() {
+        return None;
+    }
+
+    Some(CsvExportFieldDecl {
+        expression: expression.trim().to_owned(),
+        display_unit: Some(display_unit),
+        format,
+        line: first.span.line,
+        span: first.span,
+    })
+}
+
 fn parse_explicit_decl(
     tokens: &[Token],
     line_text: &str,
@@ -950,6 +1061,20 @@ fn expression_after(line_text: &str, marker: char) -> Option<String> {
     line_text
         .split_once(marker)
         .map(|(_, expression)| expression.trim().to_owned())
+}
+
+fn extract_quoted(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if let Some(inner) = trimmed
+        .strip_prefix('"')
+        .and_then(|rest| rest.strip_suffix('"'))
+    {
+        return Some(inner.to_owned());
+    }
+    let start = trimmed.find('"')?;
+    let tail = &trimmed[start + 1..];
+    let end = tail.find('"')?;
+    Some(tail[..end].to_owned())
 }
 
 fn starts_with_keyword(tokens: &[Token], keyword: Keyword) -> bool {

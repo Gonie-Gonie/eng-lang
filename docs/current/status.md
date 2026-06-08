@@ -78,6 +78,9 @@ the current public preview workflow, but it is not yet a stable contract.
   constraint violations, and unit conversion failures.
 - TimeSeries raw-value histogram PlotSpec path through `plot histogram(...)`,
   with bin metadata shared with future-track distribution plots.
+- Unit-aware `print` interpolation and explicit one-row
+  `export summary to csv` output under `build/result`; this is not a
+  first-class Summary object model.
 
 ## Future Tracks On Main
 
@@ -107,6 +110,8 @@ See [development tracks](tracks.md) for the current scope and limitations.
   deferred.
 - Full Unicode unit spelling support beyond the supported `°C` alias is
   deferred.
+
+- First-class Summary objects are not part of the current scope.
 
 ## Current Crate Architecture
 

@@ -15,6 +15,8 @@
     "plot_manifest",
     "args_summary",
     "arg_values",
+    "prints",
+    "csv_exports",
     "domain_summary",
     "component_summary",
     "connection_summary",
@@ -50,6 +52,14 @@
       "type": "array",
       "items": { "$ref": "#/$defs/argValue" }
     },
+    "prints": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/print" }
+    },
+    "csv_exports": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/csvExport" }
+    },
     "domain_summary": {
       "type": "array",
       "items": { "$ref": "#/$defs/domainSummary" }
@@ -81,6 +91,63 @@
         "required": { "type": "boolean" },
         "line": { "type": "integer", "minimum": 1 }
       }
+    },
+    "formatField": {
+      "type": "object",
+      "required": [
+        "expression",
+        "quantity_kind",
+        "display_unit",
+        "requested_unit",
+        "precision",
+        "line"
+      ],
+      "properties": {
+        "expression": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "requested_unit": { "type": ["string", "null"] },
+        "precision": { "type": ["integer", "null"], "minimum": 0 },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "print": {
+      "type": "object",
+      "required": ["template", "line", "fields"],
+      "properties": {
+        "template": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "fields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/formatField" }
+        }
+      }
+    },
+    "csvExport": {
+      "type": "object",
+      "required": ["source", "format", "path", "line", "fields"],
+      "properties": {
+        "source": { "const": "summary" },
+        "format": { "const": "csv" },
+        "path": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "fields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/csvExportField" }
+        }
+      }
+    },
+    "csvExportField": {
+      "allOf": [
+        { "$ref": "#/$defs/formatField" },
+        {
+          "type": "object",
+          "required": ["name"],
+          "properties": {
+            "name": { "type": "string" }
+          }
+        }
+      ]
     },
     "systemIr": {
       "type": "object",

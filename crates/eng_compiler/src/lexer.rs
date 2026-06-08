@@ -12,6 +12,7 @@ pub enum Keyword {
     Domain,
     Eq,
     Equation,
+    Export,
     Fn,
     Input,
     Missing,
@@ -21,6 +22,7 @@ pub enum Keyword {
     Parameter,
     Plot,
     Port,
+    Print,
     Promote,
     Report,
     Return,
@@ -32,8 +34,10 @@ pub enum Keyword {
     Summarize,
     System,
     Through,
+    To,
     Version,
     Where,
+    With,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -303,6 +307,7 @@ fn keyword(value: &str) -> Option<Keyword> {
         "domain" => Some(Keyword::Domain),
         "eq" => Some(Keyword::Eq),
         "equation" => Some(Keyword::Equation),
+        "export" => Some(Keyword::Export),
         "fn" => Some(Keyword::Fn),
         "input" => Some(Keyword::Input),
         "missing" => Some(Keyword::Missing),
@@ -312,6 +317,7 @@ fn keyword(value: &str) -> Option<Keyword> {
         "parameter" => Some(Keyword::Parameter),
         "plot" => Some(Keyword::Plot),
         "port" => Some(Keyword::Port),
+        "print" => Some(Keyword::Print),
         "promote" => Some(Keyword::Promote),
         "report" => Some(Keyword::Report),
         "return" => Some(Keyword::Return),
@@ -323,8 +329,10 @@ fn keyword(value: &str) -> Option<Keyword> {
         "summarize" => Some(Keyword::Summarize),
         "system" => Some(Keyword::System),
         "through" => Some(Keyword::Through),
+        "to" => Some(Keyword::To),
         "version" => Some(Keyword::Version),
         "where" => Some(Keyword::Where),
+        "with" => Some(Keyword::With),
         _ => None,
     }
 }

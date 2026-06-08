@@ -1,6 +1,7 @@
 use crate::ast::{
-    AstItem, ConnectDecl, DomainTypeParameterDecl, DomainVariableDecl, ExplicitDecl, FastBinding,
-    PortDecl, StructFieldDecl, SystemVariableDecl,
+    AstItem, ConnectDecl, CsvExportDecl, CsvExportFieldDecl, DomainTypeParameterDecl,
+    DomainVariableDecl, ExplicitDecl, FastBinding, PortDecl, PrintDecl, StructFieldDecl,
+    SystemVariableDecl,
 };
 use crate::entry::EntryPoint;
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
@@ -212,6 +213,43 @@ pub struct ArgsStructInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FormatExpressionInfo {
+    pub expression: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub requested_unit: Option<String>,
+    pub precision: Option<usize>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PrintInfo {
+    pub template: String,
+    pub fields: Vec<FormatExpressionInfo>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CsvExportFieldInfo {
+    pub name: String,
+    pub expression: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub requested_unit: Option<String>,
+    pub precision: Option<usize>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CsvExportInfo {
+    pub source: String,
+    pub format: String,
+    pub path: String,
+    pub fields: Vec<CsvExportFieldInfo>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SemanticProgram {
     pub typed_bindings: Vec<TypedBinding>,
     pub expected_types: Vec<ExpectedType>,
@@ -232,6 +270,8 @@ pub struct SemanticProgram {
     pub connections: Vec<ConnectionInfo>,
     pub args_structs: Vec<ArgsStructInfo>,
     pub arg_values: Vec<ArgValueInfo>,
+    pub prints: Vec<PrintInfo>,
+    pub csv_exports: Vec<CsvExportInfo>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -263,6 +303,9 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut raw_connections = Vec::new();
     let mut args_structs = Vec::new();
     let mut current_args_struct_index = None;
+    let mut prints = Vec::new();
+    let mut csv_exports = Vec::new();
+    let mut current_csv_export_index = None;
 
     for line in &program.lines {
         if line.tokens.iter().any(|token| {
@@ -435,6 +478,29 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     stats_infos.push(info);
                 }
             }
+            AstItem::Print(print) => {
+                analyze_print_decl(print, &typed_bindings, &mut prints, &mut diagnostics);
+            }
+            AstItem::CsvExport(export) => {
+                csv_exports.push(analyze_csv_export_decl(export, &mut diagnostics));
+                current_csv_export_index = Some(csv_exports.len() - 1);
+            }
+            AstItem::CsvExportField(field) => {
+                if let Some(export_index) = current_csv_export_index {
+                    if let Some(field_info) =
+                        analyze_csv_export_field_decl(field, &typed_bindings, &mut diagnostics)
+                    {
+                        csv_exports[export_index].fields.push(field_info);
+                    }
+                } else {
+                    diagnostics.push(Diagnostic::error(
+                        "E-EXPORT-CSV-001",
+                        field.line,
+                        "CSV export field is not inside an export block.",
+                        Some("Write fields inside `export summary to csv \"path.csv\" { ... }`."),
+                    ));
+                }
+            }
             AstItem::ReservedKeywordUse { keyword, span } => diagnostics.push(Diagnostic::error(
                 "E-RESERVED-KEYWORD-001",
                 span.line,
@@ -479,8 +545,332 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             connections,
             args_structs,
             arg_values: Vec::new(),
+            prints,
+            csv_exports,
         },
     }
+}
+
+fn analyze_print_decl(
+    print: &PrintDecl,
+    typed_bindings: &[TypedBinding],
+    prints: &mut Vec<PrintInfo>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let fields = analyze_format_fields(&print.template, print.line, typed_bindings, diagnostics);
+    prints.push(PrintInfo {
+        template: print.template.clone(),
+        fields,
+        line: print.line,
+    });
+}
+
+fn analyze_csv_export_decl(
+    export: &CsvExportDecl,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CsvExportInfo {
+    if export.source != "summary" {
+        diagnostics.push(Diagnostic::error(
+            "E-EXPORT-CSV-002",
+            export.line,
+            &format!(
+                "CSV export source `{}` is not supported in the preview.",
+                export.source
+            ),
+            Some("Use `export summary to csv \"summary.csv\" { ... }` for scalar summary exports."),
+        ));
+    }
+    CsvExportInfo {
+        source: export.source.clone(),
+        format: export.format.clone(),
+        path: export.path.clone(),
+        fields: Vec::new(),
+        line: export.line,
+    }
+}
+
+fn analyze_csv_export_field_decl(
+    field: &CsvExportFieldDecl,
+    typed_bindings: &[TypedBinding],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<CsvExportFieldInfo> {
+    let semantic_type =
+        resolve_format_expression_type(&field.expression, typed_bindings).or_else(|| {
+            diagnostics.push(unknown_format_expression_diagnostic(
+                &field.expression,
+                field.line,
+                "E-EXPORT-CSV-003",
+            ));
+            None
+        })?;
+    let precision = field
+        .format
+        .as_deref()
+        .and_then(|format| parse_format_spec(format).precision);
+    if let Some(unit) = &field.display_unit {
+        validate_requested_unit(
+            &field.expression,
+            &semantic_type.quantity_kind,
+            unit,
+            field.line,
+            "E-EXPORT-CSV-004",
+            diagnostics,
+        );
+    }
+    Some(CsvExportFieldInfo {
+        name: export_field_name(&field.expression),
+        expression: field.expression.clone(),
+        quantity_kind: semantic_type.quantity_kind.clone(),
+        display_unit: semantic_type.display_unit.clone(),
+        requested_unit: field.display_unit.clone(),
+        precision,
+        line: field.line,
+    })
+}
+
+fn analyze_format_fields(
+    template: &str,
+    line: usize,
+    typed_bindings: &[TypedBinding],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Vec<FormatExpressionInfo> {
+    let mut fields = Vec::new();
+    let mut cursor = 0usize;
+    while let Some(open) = template[cursor..].find('{') {
+        let start = cursor + open;
+        let Some(close_offset) = template[start + 1..].find('}') else {
+            diagnostics.push(Diagnostic::error(
+                "E-PRINT-FMT-001",
+                line,
+                "Print template has an unterminated `{...}` interpolation.",
+                Some("Close the interpolation with `}`."),
+            ));
+            break;
+        };
+        let close = start + 1 + close_offset;
+        let inside = template[start + 1..close].trim();
+        if inside.is_empty() {
+            diagnostics.push(Diagnostic::error(
+                "E-PRINT-FMT-002",
+                line,
+                "Print interpolation is empty.",
+                Some("Put an expression inside `{...}`."),
+            ));
+            cursor = close + 1;
+            continue;
+        }
+        let (expression, spec) = split_format_field(inside);
+        let format_spec = parse_format_spec(spec.unwrap_or_default());
+        if let Some(semantic_type) = resolve_format_expression_type(expression, typed_bindings) {
+            if let Some(unit) = &format_spec.unit {
+                validate_requested_unit(
+                    expression,
+                    &semantic_type.quantity_kind,
+                    unit,
+                    line,
+                    "E-PRINT-FMT-003",
+                    diagnostics,
+                );
+            }
+            fields.push(FormatExpressionInfo {
+                expression: expression.to_owned(),
+                quantity_kind: semantic_type.quantity_kind,
+                display_unit: semantic_type.display_unit,
+                requested_unit: format_spec.unit,
+                precision: format_spec.precision,
+                line,
+            });
+        } else {
+            diagnostics.push(unknown_format_expression_diagnostic(
+                expression,
+                line,
+                "E-PRINT-FMT-004",
+            ));
+        }
+        cursor = close + 1;
+    }
+    fields
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct ParsedFormatSpec {
+    precision: Option<usize>,
+    unit: Option<String>,
+}
+
+fn parse_format_spec(spec: &str) -> ParsedFormatSpec {
+    let trimmed = spec.trim();
+    if trimmed.is_empty() {
+        return ParsedFormatSpec::default();
+    }
+    let Some(after_dot) = trimmed.strip_prefix('.') else {
+        return ParsedFormatSpec {
+            precision: None,
+            unit: Some(trimmed.to_owned()),
+        };
+    };
+    let digit_count = after_dot
+        .chars()
+        .take_while(|character| character.is_ascii_digit())
+        .count();
+    let precision = if digit_count > 0 {
+        after_dot[..digit_count].parse::<usize>().ok()
+    } else {
+        None
+    };
+    let unit_text = after_dot[digit_count..].trim();
+    let unit = if unit_text.is_empty() {
+        None
+    } else {
+        Some(unit_text.to_owned())
+    };
+    ParsedFormatSpec { precision, unit }
+}
+
+fn split_format_field(field: &str) -> (&str, Option<&str>) {
+    field
+        .split_once(':')
+        .map(|(expression, spec)| (expression.trim(), Some(spec.trim())))
+        .unwrap_or((field.trim(), None))
+}
+
+fn resolve_format_expression_type(
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+) -> Option<SemanticType> {
+    let expression = expression.trim();
+    if expression.starts_with("args.") {
+        return semantic_type("String", "");
+    }
+    if let Some(table_name) = expression.strip_suffix(".rows") {
+        let table_name = table_name.trim();
+        if typed_bindings.iter().any(|binding| {
+            binding.name == table_name && binding.semantic_type.quantity_kind.starts_with("Table[")
+        }) {
+            return semantic_type("Count", "count");
+        }
+    }
+    if let Some(semantic_type) = statistic_expression_semantic_type(expression, typed_bindings) {
+        return Some(semantic_type);
+    }
+    typed_bindings
+        .iter()
+        .find(|binding| binding.name == expression)
+        .map(|binding| binding.semantic_type.clone())
+}
+
+fn statistic_expression_semantic_type(
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+) -> Option<SemanticType> {
+    let (_statistic, source) = parse_statistic_expression(expression)?;
+    let source_binding = typed_bindings
+        .iter()
+        .find(|binding| binding.name == source)?;
+    let (_axis, quantity_kind) =
+        crate::stats::time_series_quantity(&source_binding.semantic_type.quantity_kind)?;
+    semantic_type(&quantity_kind, &source_binding.semantic_type.display_unit)
+}
+
+fn parse_statistic_expression(expression: &str) -> Option<(String, String)> {
+    let trimmed = expression.trim();
+    let open = trimmed.find('(')?;
+    let statistic = trimmed[..open].trim();
+    if !matches!(
+        statistic,
+        "mean" | "time_weighted_mean" | "max" | "min" | "median" | "std"
+    ) && !statistic.starts_with('p')
+    {
+        return None;
+    }
+    let rest = trimmed[open + 1..].trim();
+    let source = rest
+        .split([',', ')'])
+        .next()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())?;
+    Some((statistic.to_owned(), source.to_owned()))
+}
+
+fn validate_requested_unit(
+    expression: &str,
+    quantity_kind: &str,
+    unit: &str,
+    line: usize,
+    code: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if !unit_is_supported(unit) {
+        diagnostics.push(Diagnostic::error(
+            code,
+            line,
+            &format!("Requested display unit `{unit}` is not supported."),
+            Some("Use a unit from the built-in unit registry, such as kW, kWh, degC, or kg/s."),
+        ));
+        return;
+    }
+    if !unit_compatible_with_quantity(quantity_kind, unit) {
+        diagnostics.push(Diagnostic::error(
+            code,
+            line,
+            &format!(
+                "`{expression}` has quantity `{quantity_kind}` and cannot be displayed as `{unit}`."
+            ),
+            Some("Choose a display unit compatible with the expression quantity."),
+        ));
+    }
+}
+
+fn unit_is_supported(unit: &str) -> bool {
+    !candidates_for_unit(unit).is_empty()
+}
+
+fn unit_compatible_with_quantity(quantity_kind: &str, unit: &str) -> bool {
+    let quantity_kind = scalar_quantity_kind(quantity_kind);
+    candidates_for_unit(unit).iter().any(|candidate| {
+        candidate.quantity_kind == quantity_kind.as_str()
+            || candidate.quantity_kind == "HeatRate"
+                && matches!(quantity_kind.as_str(), "ElectricPower" | "MechanicalPower")
+            || candidate.quantity_kind == "AbsoluteTemperature"
+                && quantity_kind == "TemperatureDelta"
+    })
+}
+
+fn scalar_quantity_kind(quantity_kind: &str) -> String {
+    crate::stats::time_series_quantity(quantity_kind)
+        .map(|(_, quantity)| quantity)
+        .unwrap_or_else(|| quantity_kind.to_owned())
+}
+
+fn unknown_format_expression_diagnostic(expression: &str, line: usize, code: &str) -> Diagnostic {
+    Diagnostic::error(
+        code,
+        line,
+        &format!("Cannot resolve formatted expression `{expression}`."),
+        Some("Bind the value first, or use a supported expression such as `args.input`, `table.rows`, or `mean(Q, axis=Time)`."),
+    )
+}
+
+fn export_field_name(expression: &str) -> String {
+    let trimmed = expression.trim();
+    if is_identifier(trimmed) {
+        return trimmed.to_owned();
+    }
+    if let Some((statistic, source)) = parse_statistic_expression(trimmed) {
+        return format!("{statistic}_{source}");
+    }
+    trimmed
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || character == '_' {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('_')
+        .to_owned()
 }
 
 fn analyze_struct_field(field: &StructFieldDecl, args_struct: &mut ArgsStructInfo) {
@@ -1128,6 +1518,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
                 &uncertainty.display_unit,
             )
         })
+        .or_else(|| statistic_expression_semantic_type(&binding.expression, accum.typed_bindings))
         .or_else(|| infer_quantity(&binding.name, &binding.expression));
 
     if let Some(semantic_type) = inferred_semantic_type {

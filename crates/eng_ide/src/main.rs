@@ -2875,6 +2875,13 @@ impl EngIdeApp {
                 artifact_object_row(ui, "Review", output.review_json.len());
                 artifact_object_row(ui, "Bytecode", output.bytecode.len());
             }
+            if !output.csv_export_paths.is_empty() {
+                ui.add_space(8.0);
+                ui.label(egui::RichText::new("Explicit CSV exports").color(ui_palette(ui).muted));
+                for path in &output.csv_export_paths {
+                    artifact_row(ui, "CSV", path);
+                }
+            }
         } else {
             ui.label(egui::RichText::new("No artifacts yet").color(ui_palette(ui).muted));
         }
@@ -3237,9 +3244,11 @@ struct RunOutputView {
     plot_path: PathBuf,
     plot_spec_path: PathBuf,
     plot_manifest_path: PathBuf,
+    csv_export_paths: Vec<PathBuf>,
     relative_report_path: String,
     relative_plot_path: String,
     artifacts_saved: bool,
+    stdout: String,
     bytecode: String,
     result_json: String,
     review_json: String,
@@ -3263,7 +3272,9 @@ impl RunOutputView {
             plot_path: output.plot_path,
             plot_spec_path: output.plot_spec_path,
             plot_manifest_path: output.plot_manifest_path,
+            csv_export_paths: output.csv_export_paths,
             artifacts_saved: output.artifacts_saved,
+            stdout: output.stdout,
             bytecode: output.bytecode,
             result_json: output.result_json,
             review_json: output.review_json,
@@ -3276,9 +3287,15 @@ impl RunOutputView {
     }
 
     fn summary(&self) -> String {
+        let run_output = if self.stdout.is_empty() {
+            String::new()
+        } else {
+            format!("{}\n\n", self.stdout.trim_end())
+        };
         if self.artifacts_saved {
             format!(
-                "Run OK\nartifacts: saved\nreport: {}\nplot:   {}\nresult: {}\nreview: {}\nreport spec: {}\nplotspec: {}\nmanifest: {}\nbytecode: {}",
+                "{}Run OK\nartifacts: saved\nreport: {}\nplot:   {}\nresult: {}\nreview: {}\nreport spec: {}\nplotspec: {}\nmanifest: {}\nbytecode: {}",
+                run_output,
                 self.relative_report_path,
                 self.relative_plot_path,
                 self.result_path.display(),
@@ -3290,7 +3307,8 @@ impl RunOutputView {
             )
         } else {
             format!(
-                "Run OK\nartifacts: in memory\nresult:   {} bytes\nreview:   {} bytes\nreport spec: {} bytes\nplot spec: {} bytes\nplot svg: {} bytes\nreport html: {} bytes\nbytecode: {} bytes",
+                "{}Run OK\nartifacts: in memory\nresult:   {} bytes\nreview:   {} bytes\nreport spec: {} bytes\nplot spec: {} bytes\nplot svg: {} bytes\nreport html: {} bytes\nbytecode: {} bytes",
+                run_output,
                 self.result_json.len(),
                 self.review_json.len(),
                 self.report_spec_json.len(),

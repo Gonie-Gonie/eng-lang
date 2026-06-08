@@ -21,9 +21,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub use ast::{
-    AstItem, ComponentDecl, ConnectDecl, ConservationDecl, DomainDecl, DomainVariableDecl,
-    EquationDecl, ExplicitDecl, FastBinding, PortDecl, SchemaDecl, ScriptDecl, StructDecl,
-    StructFieldDecl, SystemDecl, SystemVariableDecl,
+    AstItem, ComponentDecl, ConnectDecl, ConservationDecl, CsvExportDecl, CsvExportFieldDecl,
+    DomainDecl, DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, PortDecl, PrintDecl,
+    SchemaDecl, ScriptDecl, StructDecl, StructFieldDecl, SystemDecl, SystemVariableDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -39,9 +39,10 @@ pub use quantities::{all_quantity_completions, normalize_unit, QuantityCompletio
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
 pub use semantic::{
     ArgValueInfo, ArgsFieldInfo, ArgsStructInfo, ComponentInfo, ConnectionInfo, ConservationInfo,
-    DomainInfo, DomainTypeParameterInfo, DomainVariableInfo, EquationDependencyInfo, EquationInfo,
-    EquationIrInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo, ResidualInfo, SemanticProgram,
-    SemanticType, SolverPlanInfo, SystemInfo, SystemVariableInfo, TypedBinding,
+    CsvExportFieldInfo, CsvExportInfo, DomainInfo, DomainTypeParameterInfo, DomainVariableInfo,
+    EquationDependencyInfo, EquationInfo, EquationIrInfo, FormatExpressionInfo, JacobianSeedInfo,
+    OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo, SemanticProgram, SemanticType,
+    SolverPlanInfo, SystemInfo, SystemVariableInfo, TypedBinding,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -981,6 +982,112 @@ pub fn review_json(report: &CheckReport) -> String {
             json_escape(&integration.result_quantity)
         ));
         json.push_str(&format!("      \"line\": {}\n", integration.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"prints\": [\n");
+    for (index, print) in report.semantic_program.prints.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"template\": \"{}\",\n",
+            json_escape(&print.template)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", print.line));
+        json.push_str("      \"fields\": [\n");
+        for (field_index, field) in print.fields.iter().enumerate() {
+            if field_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&field.expression)
+            ));
+            json.push_str(&format!(
+                "          \"quantity_kind\": \"{}\",\n",
+                json_escape(&field.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&field.display_unit)
+            ));
+            push_optional_json_string(
+                &mut json,
+                "requested_unit",
+                field.requested_unit.as_deref(),
+                10,
+            );
+            if let Some(precision) = field.precision {
+                json.push_str(&format!("          \"precision\": {},\n", precision));
+            } else {
+                json.push_str("          \"precision\": null,\n");
+            }
+            json.push_str(&format!("          \"line\": {}\n", field.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"csv_exports\": [\n");
+    for (index, export) in report.semantic_program.csv_exports.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"source\": \"{}\",\n",
+            json_escape(&export.source)
+        ));
+        json.push_str(&format!(
+            "      \"format\": \"{}\",\n",
+            json_escape(&export.format)
+        ));
+        json.push_str(&format!(
+            "      \"path\": \"{}\",\n",
+            json_escape(&export.path)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", export.line));
+        json.push_str("      \"fields\": [\n");
+        for (field_index, field) in export.fields.iter().enumerate() {
+            if field_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&field.name)
+            ));
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&field.expression)
+            ));
+            json.push_str(&format!(
+                "          \"quantity_kind\": \"{}\",\n",
+                json_escape(&field.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&field.display_unit)
+            ));
+            push_optional_json_string(
+                &mut json,
+                "requested_unit",
+                field.requested_unit.as_deref(),
+                10,
+            );
+            if let Some(precision) = field.precision {
+                json.push_str(&format!("          \"precision\": {},\n", precision));
+            } else {
+                json.push_str("          \"precision\": null,\n");
+            }
+            json.push_str(&format!("          \"line\": {}\n", field.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -2147,6 +2254,56 @@ mod tests {
             report.semantic_program.integrations[0].input_quantity,
             "HeatRate"
         );
+    }
+
+    #[test]
+    fn records_unit_aware_print_and_csv_export_metadata() {
+        let report = check_source(
+            "ok.eng",
+            "script main(args: Args) -> Report {\n    cp = 4180 J/kg/K\n    Q_series = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    mean_Q = mean(Q_series, axis=Time)\n    Q = 10 kW\n    E: Energy [J] = 3600 J\n    print \"Q={Q: .2 kW} E={E: .3 kWh}\"\n    export summary to csv \"summary.csv\" {\n        Q as kW with \".2\"\n        E as kWh with \".3\"\n        mean_Q as kW with \".2\"\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(report.semantic_program.prints.len(), 1);
+        assert_eq!(report.semantic_program.prints[0].fields.len(), 2);
+        assert_eq!(
+            report.semantic_program.prints[0].fields[0]
+                .requested_unit
+                .as_deref(),
+            Some("kW")
+        );
+        assert_eq!(report.semantic_program.csv_exports.len(), 1);
+        assert_eq!(report.semantic_program.csv_exports[0].source, "summary");
+        assert_eq!(report.semantic_program.csv_exports[0].fields.len(), 3);
+        assert_eq!(
+            report.semantic_program.csv_exports[0].fields[1]
+                .requested_unit
+                .as_deref(),
+            Some("kWh")
+        );
+        let review = review_json(&report);
+        assert!(review.contains("\"prints\""));
+        assert!(review.contains("\"csv_exports\""));
+    }
+
+    #[test]
+    fn rejects_incompatible_print_and_csv_export_units() {
+        let report = check_source(
+            "bad.eng",
+            "L: Length [m] = 1 m\nprint \"bad {L: .2 kW}\"\nexport summary to csv \"bad.csv\" {\n    L as kW with \".2\"\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-PRINT-FMT-003"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-EXPORT-CSV-004"));
     }
 
     #[test]

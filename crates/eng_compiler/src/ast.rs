@@ -143,6 +143,33 @@ pub struct SummaryDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PrintDecl {
+    pub template: String,
+    pub line: usize,
+    pub span: SourceSpan,
+    pub context: ParseContext,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CsvExportDecl {
+    pub source: String,
+    pub format: String,
+    pub path: String,
+    pub line: usize,
+    pub span: SourceSpan,
+    pub context: ParseContext,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CsvExportFieldDecl {
+    pub expression: String,
+    pub display_unit: Option<String>,
+    pub format: Option<String>,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExplicitDecl {
     pub name: String,
     pub type_name: String,
@@ -173,5 +200,8 @@ pub enum AstItem {
     ExplicitDecl(ExplicitDecl),
     MissingPolicy(MissingPolicyDecl),
     Summary(SummaryDecl),
+    Print(PrintDecl),
+    CsvExport(CsvExportDecl),
+    CsvExportField(CsvExportFieldDecl),
     ReservedKeywordUse { keyword: String, span: SourceSpan },
 }
