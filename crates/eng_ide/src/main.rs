@@ -24,9 +24,9 @@ const MUTED: egui::Color32 = egui::Color32::from_rgb(99, 112, 130);
 const ERROR: egui::Color32 = egui::Color32::from_rgb(184, 44, 44);
 const WARNING: egui::Color32 = egui::Color32::from_rgb(173, 112, 20);
 const OK: egui::Color32 = egui::Color32::from_rgb(43, 131, 91);
-const RESULT_MIN_WIDTH: f32 = 320.0;
+const RESULT_MIN_WIDTH: f32 = 300.0;
 const RESULT_MAX_WIDTH: f32 = 520.0;
-const CODE_MIN_WIDTH: f32 = 420.0;
+const CODE_MIN_WIDTH: f32 = 500.0;
 const SPLITTER_WIDTH: f32 = 7.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -94,7 +94,7 @@ impl Default for UiSettings {
     fn default() -> Self {
         Self {
             theme: UiTheme::Light,
-            density: UiDensity::Comfortable,
+            density: UiDensity::Compact,
             body_font_size: 12.5,
             button_font_size: 12.0,
             heading_font_size: 15.0,
@@ -1537,7 +1537,7 @@ impl EngIdeApp {
     }
 
     fn show_explorer(&mut self, ui: &mut egui::Ui) {
-        ui.spacing_mut().item_spacing = egui::vec2(4.0, 3.0);
+        ui.spacing_mut().item_spacing = egui::vec2(4.0, 1.0);
         panel_header(ui, "Explorer");
         ui.horizontal_wrapped(|ui| {
             if compact_button(ui, "Open File").clicked() {
@@ -1556,6 +1556,8 @@ impl EngIdeApp {
                 .monospace()
                 .size(11.5),
         );
+        ui.add_space(6.0);
+        self.show_open_editors(ui);
         ui.add_space(6.0);
         ui.horizontal(|ui| {
             ui.add_sized(
@@ -1582,6 +1584,68 @@ impl EngIdeApp {
             });
     }
 
+    fn show_open_editors(&mut self, ui: &mut egui::Ui) {
+        if self.open_files.is_empty() {
+            return;
+        }
+        section_label(ui, "Open Editors");
+        let palette = ui_palette(ui);
+        let mut action: Option<TabAction> = None;
+        for (index, file) in self.open_files.iter().enumerate() {
+            let selected = index == self.current_tab_index;
+            let fill = if selected {
+                palette.selected
+            } else {
+                egui::Color32::TRANSPARENT
+            };
+            let response = egui::Frame::none()
+                .fill(fill)
+                .rounding(egui::Rounding::same(3.0))
+                .inner_margin(egui::Margin::symmetric(2.0, 0.0))
+                .show(ui, |ui| {
+                    ui.set_min_width(ui.available_width());
+                    ui.horizontal(|ui| {
+                        let label = tab_label(&file.path, file.dirty);
+                        if ui
+                            .selectable_label(
+                                selected,
+                                egui::RichText::new(label).size(11.5).color(palette.text),
+                            )
+                            .clicked()
+                        {
+                            action = Some(TabAction::Switch(index));
+                        }
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            if ui
+                                .add_sized(
+                                    [17.0, 17.0],
+                                    egui::Button::new(
+                                        egui::RichText::new("x").size(10.0).color(palette.muted),
+                                    ),
+                                )
+                                .on_hover_text("Close editor")
+                                .clicked()
+                            {
+                                action = Some(TabAction::Close(index));
+                            }
+                        });
+                    });
+                })
+                .response
+                .interact(egui::Sense::click());
+            if response.clicked() && action.is_none() {
+                action = Some(TabAction::Switch(index));
+            }
+        }
+        if let Some(action) = action {
+            match action {
+                TabAction::Switch(index) => self.switch_tab(index),
+                TabAction::Close(index) => self.close_tab(index),
+            }
+        }
+        ui.separator();
+    }
+
     fn show_directory(&mut self, ui: &mut egui::Ui, path: &Path, depth: usize) {
         let label = path
             .file_name()
@@ -1594,7 +1658,7 @@ impl EngIdeApp {
         egui::CollapsingHeader::new(
             egui::RichText::new(label)
                 .strong()
-                .size(12.0)
+                .size(11.5)
                 .color(ui_palette(ui).text),
         )
         .default_open(default_open)
@@ -1627,15 +1691,16 @@ impl EngIdeApp {
         };
         let response = egui::Frame::none()
             .fill(fill)
-            .rounding(egui::Rounding::same(4.0))
-            .inner_margin(egui::Margin::symmetric(3.0, 1.0))
+            .rounding(egui::Rounding::same(3.0))
+            .inner_margin(egui::Margin::symmetric(2.0, 0.0))
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
                 ui.horizontal(|ui| {
-                    ui.add_space(depth as f32 * 8.0);
+                    ui.spacing_mut().item_spacing = egui::vec2(3.0, 0.0);
+                    ui.add_space(depth as f32 * 7.0);
                     ui.label(
                         egui::RichText::new(display)
-                            .size(12.0)
+                            .size(11.5)
                             .color(ui_palette(ui).text),
                     );
                     if !extension.is_empty() {
@@ -1974,6 +2039,9 @@ impl EngIdeApp {
                     .map(|summary| summary.args.len())
                     .unwrap_or(0);
                 metric_chip(ui, "Args", &args.to_string(), ui_palette(ui).accent);
+                if let Some(summary) = &self.artifact_summary {
+                    metric_chip(ui, "Status", &summary.status, ui_palette(ui).accent);
+                }
             });
             ui.add_space(8.0);
 
@@ -2902,13 +2970,8 @@ impl EngIdeApp {
     }
 
     fn show_workspace(&mut self, ui: &mut egui::Ui) {
-        if !self.show_preview {
-            self.show_editor(ui);
-            return;
-        }
-
         let available = ui.available_size_before_wrap();
-        if available.x < 520.0 {
+        if !self.inline_result_available(available.x) {
             self.show_editor(ui);
             return;
         }
@@ -2956,6 +3019,18 @@ impl EngIdeApp {
                 |ui| self.show_result_panel(ui),
             );
         });
+    }
+
+    fn inline_result_available(&self, width: f32) -> bool {
+        if !self.show_preview {
+            return false;
+        }
+        let threshold = if self.show_inspector_panel {
+            980.0
+        } else {
+            760.0
+        };
+        width >= threshold
     }
 }
 
@@ -3393,9 +3468,20 @@ impl ArtifactSummary {
             .and_then(Value::as_array)
             .map(Vec::len)
             .unwrap_or(0);
+        let variables = value
+            .get("object_store")
+            .and_then(|object_store| object_store.get("objects"))
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .map(RuntimeVariableView::from_runtime_object)
+                    .collect()
+            })
+            .unwrap_or_default();
         Ok(Self {
             status,
-            variables: Vec::new(),
+            variables,
             args: Vec::new(),
             uncertainties,
             ml,
@@ -3406,7 +3492,7 @@ impl ArtifactSummary {
 
     fn apply_report_spec_json(&mut self, text: &str) -> Result<(), String> {
         let value: Value = serde_json::from_str(text).map_err(|error| error.to_string())?;
-        self.variables = value
+        let report_variables: Vec<RuntimeVariableView> = value
             .get("variable_table")
             .and_then(Value::as_array)
             .map(|items| {
@@ -3416,6 +3502,9 @@ impl ArtifactSummary {
                     .collect()
             })
             .unwrap_or_default();
+        for variable in report_variables {
+            merge_runtime_variable(&mut self.variables, variable);
+        }
 
         if let Some(systems) = value.get("system_summary").and_then(Value::as_array) {
             for system in systems {
@@ -3481,6 +3570,30 @@ impl RuntimeVariableView {
             line: json_field_usize(value, "line").unwrap_or(0),
         }
     }
+
+    fn from_runtime_object(value: &Value) -> Self {
+        let kind = json_field_string(value, "kind").unwrap_or_else(|| "object".to_owned());
+        let object_type = json_field_string(value, "type").unwrap_or_default();
+        let display_unit = json_field_string(value, "display_unit").unwrap_or_default();
+        let value_text = json_field_usize(value, "row_count")
+            .map(|count| format!("{count} rows"))
+            .or_else(|| json_field_usize(value, "len").map(|len| format!("{len} items")));
+        Self {
+            name: json_field_string(value, "name").unwrap_or_else(|| "unknown".to_owned()),
+            quantity_kind: if object_type.is_empty() {
+                kind
+            } else {
+                object_type
+            },
+            display_unit,
+            canonical_unit: String::new(),
+            dimension: String::new(),
+            source: "runtime_object".to_owned(),
+            role: None,
+            value: value_text,
+            line: json_field_usize(value, "line").unwrap_or(0),
+        }
+    }
 }
 
 struct RuntimeArgView {
@@ -3517,8 +3630,17 @@ fn merge_runtime_variable(variables: &mut Vec<RuntimeVariableView>, incoming: Ru
         if existing.role.is_none() {
             existing.role = incoming.role;
         }
-        if existing.source == "runtime" || existing.source == "system_boundary" {
+        if matches!(
+            existing.source.as_str(),
+            "runtime" | "runtime_object" | "system_boundary"
+        ) {
             existing.source = incoming.source;
+        }
+        if existing.canonical_unit.is_empty() {
+            existing.canonical_unit = incoming.canonical_unit;
+        }
+        if existing.dimension.is_empty() {
+            existing.dimension = incoming.dimension;
         }
         return;
     }
