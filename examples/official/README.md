@@ -34,6 +34,11 @@ paths before compatibility fixtures.
   across/through variables, conservation metadata, component ports,
   structured generic parameters, domain-compatible connections, contract
   diagnostics, and invalid connection diagnostics.
+
+07_functions_imports
+  Preview pure function and file import path with unit-checked parameters,
+  dimension-checked return expressions, function-call inference, CLI print,
+  and explicit summary CSV export.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression

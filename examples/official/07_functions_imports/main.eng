@@ -1,0 +1,14 @@
+use "thermal.eng"
+
+script main(args: Args) -> Report {
+    UA_wall = 150 W/K
+    dT_wall = 8 K
+    Q_wall = heat_loss(UA_wall, dT_wall)
+
+    print "Q wall = {Q_wall: .2 kW}"
+
+    export summary to csv "summary.csv" {
+        Q_wall as kW with ".2"
+    }
+}
+

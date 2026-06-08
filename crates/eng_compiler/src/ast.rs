@@ -17,6 +17,38 @@ pub struct ScriptDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ImportDecl {
+    pub target: String,
+    pub kind: String,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FunctionDecl {
+    pub name: String,
+    pub parameters: Vec<FunctionParamDecl>,
+    pub return_type: String,
+    pub return_unit: Option<String>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FunctionParamDecl {
+    pub name: String,
+    pub type_name: String,
+    pub unit: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReturnDecl {
+    pub expression: String,
+    pub line: usize,
+    pub span: SourceSpan,
+    pub context: ParseContext,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StructDecl {
     pub name: String,
     pub span: SourceSpan,
@@ -184,6 +216,9 @@ pub struct ExplicitDecl {
 pub enum AstItem {
     Schema(SchemaDecl),
     Script(ScriptDecl),
+    Import(ImportDecl),
+    Function(FunctionDecl),
+    Return(ReturnDecl),
     Struct(StructDecl),
     StructField(StructFieldDecl),
     System(SystemDecl),

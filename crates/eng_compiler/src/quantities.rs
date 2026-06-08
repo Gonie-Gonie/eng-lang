@@ -119,6 +119,21 @@ pub fn infer_quantity_from_name_and_unit(name: &str, unit: &str) -> Option<Quant
         return candidates.first().copied();
     }
 
+    if normalize_unit(unit) == "k"
+        && (lowered_name.starts_with("dt")
+            || lowered_name.starts_with("d_t")
+            || lowered_name.contains("delta")
+            || lowered_name.contains("difference"))
+    {
+        return find_completion("TemperatureDelta");
+    }
+
+    if normalize_unit(unit) == "k"
+        && (lowered_name.starts_with('t') || lowered_name.contains("temp"))
+    {
+        return find_completion("AbsoluteTemperature");
+    }
+
     if lowered_name.starts_with('q')
         || lowered_name.contains("heat")
         || lowered_name.contains("cool")

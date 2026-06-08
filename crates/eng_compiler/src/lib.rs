@@ -22,8 +22,9 @@ use std::path::{Path, PathBuf};
 
 pub use ast::{
     AstItem, ComponentDecl, ConnectDecl, ConservationDecl, CsvExportDecl, CsvExportFieldDecl,
-    DomainDecl, DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, PortDecl, PrintDecl,
-    SchemaDecl, ScriptDecl, StructDecl, StructFieldDecl, SystemDecl, SystemVariableDecl,
+    DomainDecl, DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FunctionDecl,
+    FunctionParamDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl,
+    StructDecl, StructFieldDecl, SystemDecl, SystemVariableDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -40,9 +41,10 @@ pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, Sc
 pub use semantic::{
     ArgValueInfo, ArgsFieldInfo, ArgsStructInfo, ComponentInfo, ConnectionInfo, ConservationInfo,
     CsvExportFieldInfo, CsvExportInfo, DomainInfo, DomainTypeParameterInfo, DomainVariableInfo,
-    EquationDependencyInfo, EquationInfo, EquationIrInfo, FormatExpressionInfo, JacobianSeedInfo,
-    OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo, SemanticProgram, SemanticType,
-    SolverPlanInfo, SystemInfo, SystemVariableInfo, TypedBinding,
+    EquationDependencyInfo, EquationInfo, EquationIrInfo, FormatExpressionInfo, FunctionInfo,
+    FunctionParamInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo, PrintInfo,
+    ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo, SystemVariableInfo,
+    TypedBinding,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -156,9 +158,19 @@ pub fn check_file(path: impl AsRef<Path>, options: &CheckOptions) -> std::io::Re
 }
 
 pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions) -> CheckReport {
-    let parsed = parser::parse_source(source);
     let source_path = path.as_ref();
+    let mut parsed = parser::parse_source(source);
+    let mut import_diagnostics = Vec::new();
+    if let Some(base_dir) = source_path.parent() {
+        let mut visited = HashSet::new();
+        let imported_items =
+            resolve_file_imports(&parsed, base_dir, &mut visited, &mut import_diagnostics);
+        if !imported_items.is_empty() {
+            parsed.items.splice(0..0, imported_items);
+        }
+    }
     let mut semantic_output = semantic::analyze(&parsed);
+    semantic_output.diagnostics.extend(import_diagnostics);
     let (arg_values, arg_diagnostics) =
         resolve_arg_values(&semantic_output.semantic_program, options);
     let schema_analysis = schema::analyze_schema(&parsed, source_path.parent(), &arg_values);
@@ -180,6 +192,107 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions
         quantity_completion_count: quantities::completion_count(),
         unit_info_count: units::unit_info_count(),
     }
+}
+
+fn resolve_file_imports(
+    parsed: &ParsedProgram,
+    base_dir: &Path,
+    visited: &mut HashSet<PathBuf>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Vec<AstItem> {
+    let mut imported_items = Vec::new();
+    for item in &parsed.items {
+        let AstItem::Import(import) = item else {
+            continue;
+        };
+        if import.kind != "file" {
+            diagnostics.push(Diagnostic::error(
+                "E-IMPORT-001",
+                import.line,
+                &format!(
+                    "`use {}` is not supported by the preview import resolver.",
+                    import.target
+                ),
+                Some("Use a file import such as `use \"thermal.eng\"`."),
+            ));
+            continue;
+        }
+        let Some(import_path) =
+            resolve_import_path(base_dir, &import.target, import.line, diagnostics)
+        else {
+            continue;
+        };
+        if !visited.insert(import_path.clone()) {
+            diagnostics.push(Diagnostic::error(
+                "E-IMPORT-002",
+                import.line,
+                &format!("Import cycle detected at `{}`.", import_path.display()),
+                Some("Remove the recursive import or split shared functions into a third file."),
+            ));
+            continue;
+        }
+        let source = match fs::read_to_string(&import_path) {
+            Ok(source) => source,
+            Err(error) => {
+                diagnostics.push(Diagnostic::error(
+                    "E-IMPORT-003",
+                    import.line,
+                    &format!("Could not read import `{}`: {error}.", import.target),
+                    Some("Check the relative path and file encoding. EngLang sources should be UTF-8."),
+                ));
+                visited.remove(&import_path);
+                continue;
+            }
+        };
+        let imported = parser::parse_source(&source);
+        if let Some(import_base_dir) = import_path.parent() {
+            imported_items.extend(resolve_file_imports(
+                &imported,
+                import_base_dir,
+                visited,
+                diagnostics,
+            ));
+        }
+        imported_items.extend(
+            imported
+                .items
+                .into_iter()
+                .filter(importable_definition_item),
+        );
+        visited.remove(&import_path);
+    }
+    imported_items
+}
+
+fn resolve_import_path(
+    base_dir: &Path,
+    target: &str,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<PathBuf> {
+    let raw = Path::new(target);
+    let path = if raw.is_absolute() {
+        raw.to_path_buf()
+    } else {
+        base_dir.join(raw)
+    };
+    match path.canonicalize() {
+        Ok(path) => Some(path),
+        Err(_) if path.exists() => Some(path),
+        Err(error) => {
+            diagnostics.push(Diagnostic::error(
+                "E-IMPORT-004",
+                line,
+                &format!("Could not resolve import `{target}`: {error}."),
+                Some("Imports are resolved relative to the importing source file."),
+            ));
+            None
+        }
+    }
+}
+
+fn importable_definition_item(item: &AstItem) -> bool {
+    matches!(item, AstItem::Function(_) | AstItem::Return(_))
 }
 
 fn resolve_arg_values(
@@ -403,6 +516,14 @@ pub fn review_json(report: &CheckReport) -> String {
         report.syntax_summary.scripts
     ));
     json.push_str(&format!(
+        "    \"imports\": {},\n",
+        report.syntax_summary.imports
+    ));
+    json.push_str(&format!(
+        "    \"functions\": {},\n",
+        report.syntax_summary.functions
+    ));
+    json.push_str(&format!(
         "    \"schemas\": {},\n",
         report.syntax_summary.schemas
     ));
@@ -612,6 +733,93 @@ pub fn review_json(report: &CheckReport) -> String {
             json.push_str("      \"return_type\": null,\n");
         }
         json.push_str(&format!("      \"line\": {}\n", entry.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"imports\": [\n");
+    for (index, import) in report.semantic_program.imports.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"target\": \"{}\",\n",
+            json_escape(&import.target)
+        ));
+        json.push_str(&format!(
+            "      \"kind\": \"{}\",\n",
+            json_escape(&import.kind)
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&import.status)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", import.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"function_summary\": [\n");
+    for (index, function) in report.semantic_program.functions.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&function.name)
+        ));
+        json.push_str("      \"parameters\": [\n");
+        for (param_index, parameter) in function.parameters.iter().enumerate() {
+            if param_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&parameter.name)
+            ));
+            json.push_str(&format!(
+                "          \"quantity_kind\": \"{}\",\n",
+                json_escape(&parameter.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&parameter.display_unit)
+            ));
+            json.push_str(&format!(
+                "          \"dimension\": \"{}\"\n",
+                json_escape(&parameter.dimension)
+            ));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str(&format!(
+            "      \"return_quantity_kind\": \"{}\",\n",
+            json_escape(&function.return_quantity_kind)
+        ));
+        json.push_str(&format!(
+            "      \"return_display_unit\": \"{}\",\n",
+            json_escape(&function.return_display_unit)
+        ));
+        json.push_str(&format!(
+            "      \"return_dimension\": \"{}\",\n",
+            json_escape(&function.return_dimension)
+        ));
+        if let Some(expression) = &function.return_expression {
+            json.push_str(&format!(
+                "      \"return_expression\": \"{}\",\n",
+                json_escape(expression)
+            ));
+        } else {
+            json.push_str("      \"return_expression\": null,\n");
+        }
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&function.status)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", function.line));
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -2694,6 +2902,60 @@ mod tests {
             report.semantic_program.expected_types[0].quantity_kind,
             "HeatRate"
         );
+    }
+
+    #[test]
+    fn imports_function_definitions_without_importing_entry_points() {
+        let root = std::env::temp_dir().join("englang-function-import-test");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("temp dir");
+        fs::write(
+            root.join("thermal.eng"),
+            "fn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {\n    return UA * dT\n}\n\nscript imported_main(args: Args) -> Report {\n    Q_unused = 1 kW\n}\n",
+        )
+        .expect("thermal source");
+        let main_path = root.join("main.eng");
+        fs::write(
+            &main_path,
+            "use \"thermal.eng\"\n\nscript main(args: Args) -> Report {\n    UA_wall = 150 W/K\n    dT_wall = 8 K\n    Q_wall = heat_loss(UA_wall, dT_wall)\n    print \"Q wall = {Q_wall: .2 kW}\"\n}\n",
+        )
+        .expect("main source");
+
+        let report = check_file(&main_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors());
+        assert_eq!(report.semantic_program.imports.len(), 1);
+        assert_eq!(report.semantic_program.functions.len(), 1);
+        assert_eq!(report.semantic_program.entry_points.len(), 1);
+        let q_wall = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "Q_wall")
+            .expect("Q_wall binding");
+        assert_eq!(q_wall.semantic_type.quantity_kind, "HeatRate");
+        assert_eq!(
+            report.semantic_program.functions[0].status,
+            "unit_consistent"
+        );
+        let review = review_json(&report);
+        assert!(review.contains("\"function_summary\""));
+        assert!(review.contains("\"heat_loss\""));
+    }
+
+    #[test]
+    fn rejects_function_call_dimension_mismatch() {
+        let report = check_source(
+            "bad.eng",
+            "fn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {\n    return UA * dT\n}\n\nscript main(args: Args) -> Report {\n    L_wall = 2 m\n    dT_wall = 8 K\n    Q_wall = heat_loss(L_wall, dT_wall)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-FN-CALL-004"));
     }
 
     #[test]

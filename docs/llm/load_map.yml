@@ -7,6 +7,7 @@ default:
   - docs/current/tracks.md
   - docs/language/string_formatting.md
   - docs/reference/standalone_package.md
+  - docs/reference/functions_imports.md
 
 task_types:
   parser:
@@ -14,7 +15,16 @@ task_types:
     - docs/language/fast_assignment.md
     - docs/language/dimensionless.md
     - docs/language/string_formatting.md
+    - docs/reference/functions_imports.md
     - crates/eng_compiler/
+
+  functions_imports:
+    - docs/reference/functions_imports.md
+    - examples/official/07_functions_imports/
+    - crates/eng_compiler/src/parser.rs
+    - crates/eng_compiler/src/semantic.rs
+    - crates/eng_compiler/src/lib.rs
+    - crates/eng_runtime/src/lib.rs
 
   units:
     - docs/architecture/03_expected_types_and_quantities.md

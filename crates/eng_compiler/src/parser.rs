@@ -1,8 +1,9 @@
 use crate::ast::{
     AstItem, ComponentDecl, ConnectDecl, ConservationDecl, ConstraintDecl, CsvExportDecl,
     CsvExportFieldDecl, DomainDecl, DomainTypeParameterDecl, DomainVariableDecl, EquationDecl,
-    ExplicitDecl, FastBinding, MissingPolicyDecl, PortDecl, PrintDecl, SchemaDecl, ScriptDecl,
-    StructDecl, StructFieldDecl, SummaryDecl, SystemDecl, SystemVariableDecl,
+    ExplicitDecl, FastBinding, FunctionDecl, FunctionParamDecl, ImportDecl, MissingPolicyDecl,
+    PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl, StructFieldDecl,
+    SummaryDecl, SystemDecl, SystemVariableDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -14,6 +15,7 @@ pub enum ParseContext {
     SchemaConstraints,
     SchemaMissing,
     Script,
+    Function,
     Struct,
     System,
     Domain,
@@ -43,6 +45,8 @@ pub struct SyntaxSummary {
     pub tokens: usize,
     pub ast_items: usize,
     pub scripts: usize,
+    pub imports: usize,
+    pub functions: usize,
     pub schemas: usize,
     pub systems: usize,
     pub domains: usize,
@@ -60,6 +64,8 @@ pub struct SyntaxSummary {
 impl ParsedProgram {
     pub fn summary(&self) -> SyntaxSummary {
         let mut scripts = 0usize;
+        let mut imports = 0usize;
+        let mut functions = 0usize;
         let mut schemas = 0usize;
         let mut systems = 0usize;
         let mut domains = 0usize;
@@ -76,6 +82,8 @@ impl ParsedProgram {
         for item in &self.items {
             match item {
                 AstItem::Script(_) => scripts += 1,
+                AstItem::Import(_) => imports += 1,
+                AstItem::Function(_) => functions += 1,
                 AstItem::Schema(_) => schemas += 1,
                 AstItem::System(_) => systems += 1,
                 AstItem::Domain(_) => domains += 1,
@@ -89,6 +97,7 @@ impl ParsedProgram {
                 AstItem::FastBinding(_) => fast_bindings += 1,
                 AstItem::ExplicitDecl(_) => explicit_declarations += 1,
                 AstItem::SystemVariable(_)
+                | AstItem::Return(_)
                 | AstItem::Conservation(_)
                 | AstItem::Constraint(_)
                 | AstItem::MissingPolicy(_)
@@ -105,6 +114,8 @@ impl ParsedProgram {
             tokens: self.lines.iter().map(|line| line.tokens.len()).sum(),
             ast_items: self.items.len(),
             scripts,
+            imports,
+            functions,
             schemas,
             systems,
             domains,
@@ -128,6 +139,7 @@ pub fn parse_source(source: &str) -> ParsedProgram {
     let mut constraints_depth = 0i32;
     let mut missing_depth = 0i32;
     let mut script_depth = 0i32;
+    let mut function_depth = 0i32;
     let mut struct_depth = 0i32;
     let mut system_depth = 0i32;
     let mut domain_depth = 0i32;
@@ -149,6 +161,8 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             ParseContext::Schema
         } else if script_depth > 0 {
             ParseContext::Script
+        } else if function_depth > 0 {
+            ParseContext::Function
         } else if struct_depth > 0 {
             ParseContext::Struct
         } else if domain_depth > 0 {
@@ -210,6 +224,18 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             script_depth += brace_delta(&tokens);
             if script_depth <= 0 {
                 script_depth = 0;
+            }
+        }
+
+        if starts_with_keyword(&tokens, Keyword::Fn) {
+            function_depth += brace_delta(&tokens);
+            if function_depth == 0 {
+                function_depth = 1;
+            }
+        } else if function_depth > 0 {
+            function_depth += brace_delta(&tokens);
+            if function_depth <= 0 {
+                function_depth = 0;
             }
         }
 
@@ -305,11 +331,20 @@ fn parse_line_items(
     line_text: &str,
     context: ParseContext,
 ) {
+    if let Some(import) = parse_import_decl(tokens) {
+        items.push(AstItem::Import(import));
+    }
     if let Some(schema) = parse_schema_decl(tokens) {
         items.push(AstItem::Schema(schema));
     }
     if let Some(script) = parse_script_decl(tokens) {
         items.push(AstItem::Script(script));
+    }
+    if let Some(function) = parse_function_decl(tokens, line_text) {
+        items.push(AstItem::Function(function));
+    }
+    if let Some(return_decl) = parse_return_decl(tokens, line_text, context) {
+        items.push(AstItem::Return(return_decl));
     }
     if let Some(struct_decl) = parse_struct_decl(tokens) {
         items.push(AstItem::Struct(struct_decl));
@@ -390,6 +425,43 @@ fn parse_schema_decl(tokens: &[Token]) -> Option<SchemaDecl> {
     };
     Some(SchemaDecl {
         name: name.clone(),
+        span: first.span,
+    })
+}
+
+fn parse_import_decl(tokens: &[Token]) -> Option<ImportDecl> {
+    let first = tokens.first()?;
+    let kind = match first.kind {
+        TokenKind::Keyword(Keyword::Use) => "use",
+        TokenKind::Keyword(Keyword::Import) => "import",
+        _ => return None,
+    };
+    if let Some(Token {
+        kind: TokenKind::StringLiteral(target),
+        ..
+    }) = tokens.get(1)
+    {
+        return Some(ImportDecl {
+            target: target.clone(),
+            kind: "file".to_owned(),
+            line: first.span.line,
+            span: first.span,
+        });
+    }
+
+    let mut target = String::new();
+    for token in tokens.iter().skip(1) {
+        match &token.kind {
+            TokenKind::Identifier(value) => target.push_str(value),
+            TokenKind::Keyword(_) => target.push_str(&token.lexeme),
+            TokenKind::Symbol(Symbol::Dot) => target.push('.'),
+            _ => break,
+        }
+    }
+    (!target.is_empty()).then(|| ImportDecl {
+        target,
+        kind: kind.to_owned(),
+        line: first.span.line,
         span: first.span,
     })
 }
@@ -559,6 +631,96 @@ fn parse_script_decl(tokens: &[Token]) -> Option<ScriptDecl> {
         arg_type,
         return_type,
         span: first.span,
+    })
+}
+
+fn parse_function_decl(tokens: &[Token], line_text: &str) -> Option<FunctionDecl> {
+    let [first, second, ..] = tokens else {
+        return None;
+    };
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Fn)) {
+        return None;
+    }
+    let TokenKind::Identifier(name) = &second.kind else {
+        return None;
+    };
+    let parameters = parse_function_parameters(line_text);
+    let (return_type, return_unit) = parse_function_return(line_text)?;
+    Some(FunctionDecl {
+        name: name.clone(),
+        parameters,
+        return_type,
+        return_unit,
+        span: first.span,
+    })
+}
+
+fn parse_function_parameters(line_text: &str) -> Vec<FunctionParamDecl> {
+    let Some(open) = line_text.find('(') else {
+        return Vec::new();
+    };
+    let Some(close_offset) = line_text[open + 1..].find(')') else {
+        return Vec::new();
+    };
+    let close = open + 1 + close_offset;
+    line_text[open + 1..close]
+        .split(',')
+        .filter_map(parse_function_parameter)
+        .collect()
+}
+
+fn parse_function_parameter(raw: &str) -> Option<FunctionParamDecl> {
+    let (name, type_part) = raw.split_once(':')?;
+    let name = name.trim();
+    if name.is_empty() {
+        return None;
+    }
+    let (type_name, unit) = split_type_and_unit(type_part.trim());
+    if type_name.is_empty() {
+        return None;
+    }
+    Some(FunctionParamDecl {
+        name: name.to_owned(),
+        type_name,
+        unit,
+    })
+}
+
+fn parse_function_return(line_text: &str) -> Option<(String, Option<String>)> {
+    let (_, after_arrow) = line_text.split_once("->")?;
+    let return_part = after_arrow
+        .split_once('{')
+        .map(|(left, _)| left)
+        .unwrap_or(after_arrow)
+        .trim();
+    if return_part.is_empty() {
+        return None;
+    }
+    Some(split_type_and_unit(return_part))
+}
+
+fn parse_return_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<ReturnDecl> {
+    if context != ParseContext::Function {
+        return None;
+    }
+    let first = tokens.first()?;
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Return)) {
+        return None;
+    }
+    Some(ReturnDecl {
+        expression: line_text
+            .trim()
+            .strip_prefix("return")
+            .unwrap_or(line_text.trim())
+            .trim()
+            .to_owned(),
+        line: first.span.line,
+        span: first.span,
+        context,
     })
 }
 

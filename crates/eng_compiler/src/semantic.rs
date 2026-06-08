@@ -1,7 +1,7 @@
 use crate::ast::{
     AstItem, ConnectDecl, CsvExportDecl, CsvExportFieldDecl, DomainTypeParameterDecl,
-    DomainVariableDecl, ExplicitDecl, FastBinding, PortDecl, PrintDecl, StructFieldDecl,
-    SystemVariableDecl,
+    DomainVariableDecl, ExplicitDecl, FastBinding, FunctionDecl, FunctionParamDecl, ImportDecl,
+    PortDecl, PrintDecl, ReturnDecl, StructFieldDecl, SystemVariableDecl,
 };
 use crate::entry::EntryPoint;
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
@@ -29,6 +29,36 @@ pub struct SemanticType {
 pub struct TypedBinding {
     pub name: String,
     pub semantic_type: SemanticType,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ImportInfo {
+    pub target: String,
+    pub kind: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FunctionParamInfo {
+    pub name: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub dimension: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FunctionInfo {
+    pub name: String,
+    pub parameters: Vec<FunctionParamInfo>,
+    pub return_quantity_kind: String,
+    pub return_display_unit: String,
+    pub return_canonical_unit: String,
+    pub return_dimension: String,
+    pub return_expression: Option<String>,
+    pub status: String,
     pub line: usize,
 }
 
@@ -251,6 +281,8 @@ pub struct CsvExportInfo {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SemanticProgram {
+    pub imports: Vec<ImportInfo>,
+    pub functions: Vec<FunctionInfo>,
     pub typed_bindings: Vec<TypedBinding>,
     pub expected_types: Vec<ExpectedType>,
     pub hover_hints: Vec<HoverHint>,
@@ -284,6 +316,9 @@ pub struct SemanticOutput {
 pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut diagnostics = Vec::new();
     let mut inferred_declarations = Vec::new();
+    let mut imports = Vec::new();
+    let mut functions = Vec::new();
+    let mut current_function_index = None;
     let mut typed_bindings = Vec::new();
     let mut expected_types = Vec::new();
     let mut hover_hints = Vec::new();
@@ -340,6 +375,20 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
 
     for item in &program.items {
         match item {
+            AstItem::Import(import) => imports.push(analyze_import_decl(import)),
+            AstItem::Function(function) => {
+                functions.push(analyze_function_decl(function, &mut diagnostics));
+                current_function_index = Some(functions.len() - 1);
+            }
+            AstItem::Return(return_decl) => {
+                if let Some(function_index) = current_function_index {
+                    analyze_function_return(
+                        return_decl,
+                        &mut functions[function_index],
+                        &mut diagnostics,
+                    );
+                }
+            }
             AstItem::System(system) => {
                 systems.push(SystemInfo {
                     name: system.name.clone(),
@@ -450,15 +499,19 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     ));
                 }
             }
-            AstItem::ExplicitDecl(declaration) => analyze_explicit_decl(
-                declaration,
-                &mut diagnostics,
-                &mut expected_types,
-                &mut hover_hints,
-                &mut typed_bindings,
-                &mut type_infos,
-                &mut unit_derivations,
-            ),
+            AstItem::ExplicitDecl(declaration) => {
+                if declaration.context != ParseContext::Function {
+                    analyze_explicit_decl(
+                        declaration,
+                        &mut diagnostics,
+                        &mut expected_types,
+                        &mut hover_hints,
+                        &mut typed_bindings,
+                        &mut type_infos,
+                        &mut unit_derivations,
+                    );
+                }
+            }
             AstItem::FastBinding(binding) => {
                 let mut accum = SemanticAccum {
                     diagnostics: &mut diagnostics,
@@ -470,6 +523,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     integrations: &mut integrations,
                     uncertainty_infos: &mut uncertainty_infos,
                     ml_infos: &mut ml_infos,
+                    functions: &functions,
                 };
                 analyze_fast_binding(binding, &mut accum);
             }
@@ -479,7 +533,13 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 }
             }
             AstItem::Print(print) => {
-                analyze_print_decl(print, &typed_bindings, &mut prints, &mut diagnostics);
+                analyze_print_decl(
+                    print,
+                    &typed_bindings,
+                    &functions,
+                    &mut prints,
+                    &mut diagnostics,
+                );
             }
             AstItem::CsvExport(export) => {
                 csv_exports.push(analyze_csv_export_decl(export, &mut diagnostics));
@@ -487,9 +547,12 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             }
             AstItem::CsvExportField(field) => {
                 if let Some(export_index) = current_csv_export_index {
-                    if let Some(field_info) =
-                        analyze_csv_export_field_decl(field, &typed_bindings, &mut diagnostics)
-                    {
+                    if let Some(field_info) = analyze_csv_export_field_decl(
+                        field,
+                        &typed_bindings,
+                        &functions,
+                        &mut diagnostics,
+                    ) {
                         csv_exports[export_index].fields.push(field_info);
                     }
                 } else {
@@ -514,6 +577,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     }
 
     validate_domain_contracts(&domains, &mut diagnostics);
+    validate_function_returns(&mut functions, &mut diagnostics);
 
     let connections = analyze_connections(
         &domains,
@@ -526,6 +590,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         diagnostics,
         inferred_declarations,
         semantic_program: SemanticProgram {
+            imports,
+            functions,
             axis_infos: crate::stats::axis_infos(&typed_bindings),
             typed_bindings,
             expected_types,
@@ -551,13 +617,177 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     }
 }
 
+fn analyze_import_decl(import: &ImportDecl) -> ImportInfo {
+    ImportInfo {
+        target: import.target.clone(),
+        kind: import.kind.clone(),
+        status: if import.kind == "file" {
+            "resolved_by_compiler".to_owned()
+        } else {
+            "declared".to_owned()
+        },
+        line: import.line,
+    }
+}
+
+fn analyze_function_decl(
+    function: &FunctionDecl,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> FunctionInfo {
+    let parameters = function
+        .parameters
+        .iter()
+        .map(|parameter| analyze_function_parameter(parameter, function.span.line, diagnostics))
+        .collect::<Vec<_>>();
+    let return_display_unit = function
+        .return_unit
+        .clone()
+        .unwrap_or_else(|| default_unit_for_quantity(&function.return_type));
+    let return_canonical_unit = default_unit_for_quantity(&function.return_type);
+    let return_dimension = dimension_for_quantity(&function.return_type);
+    if return_canonical_unit == "unknown" || return_dimension == "unknown" {
+        diagnostics.push(Diagnostic::error(
+            "E-FN-TYPE-001",
+            function.span.line,
+            &format!(
+                "Function `{}` returns unknown quantity kind `{}`.",
+                function.name, function.return_type
+            ),
+            Some("Use a known quantity kind such as HeatRate, Energy, Length, or Ratio."),
+        ));
+    }
+    FunctionInfo {
+        name: function.name.clone(),
+        parameters,
+        return_quantity_kind: function.return_type.clone(),
+        return_display_unit,
+        return_canonical_unit,
+        return_dimension,
+        return_expression: None,
+        status: "declared".to_owned(),
+        line: function.span.line,
+    }
+}
+
+fn analyze_function_parameter(
+    parameter: &FunctionParamDecl,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> FunctionParamInfo {
+    let display_unit = parameter
+        .unit
+        .clone()
+        .unwrap_or_else(|| default_unit_for_quantity(&parameter.type_name));
+    let canonical_unit = default_unit_for_quantity(&parameter.type_name);
+    let dimension = dimension_for_quantity(&parameter.type_name);
+    if canonical_unit == "unknown" || dimension == "unknown" {
+        diagnostics.push(Diagnostic::error(
+            "E-FN-TYPE-002",
+            line,
+            &format!(
+                "Function parameter `{}` has unknown quantity kind `{}`.",
+                parameter.name, parameter.type_name
+            ),
+            Some("Annotate function parameters with known quantity kinds."),
+        ));
+    }
+    FunctionParamInfo {
+        name: parameter.name.clone(),
+        quantity_kind: parameter.type_name.clone(),
+        display_unit,
+        canonical_unit,
+        dimension,
+    }
+}
+
+fn analyze_function_return(
+    return_decl: &ReturnDecl,
+    function: &mut FunctionInfo,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if function.return_expression.is_some() {
+        diagnostics.push(Diagnostic::error(
+            "E-FN-RETURN-001",
+            return_decl.line,
+            &format!(
+                "Function `{}` has more than one return expression.",
+                function.name
+            ),
+            Some("Keep one explicit `return ...` in the preview function body."),
+        ));
+        return;
+    }
+    function.return_expression = Some(return_decl.expression.clone());
+}
+
+fn validate_function_returns(functions: &mut [FunctionInfo], diagnostics: &mut Vec<Diagnostic>) {
+    for index in 0..functions.len() {
+        let Some(expression) = functions[index].return_expression.clone() else {
+            diagnostics.push(Diagnostic::error(
+                "E-FN-RETURN-002",
+                functions[index].line,
+                &format!(
+                    "Function `{}` does not return a value.",
+                    functions[index].name
+                ),
+                Some("Add `return <expression>` inside the function body."),
+            ));
+            functions[index].status = "missing_return".to_owned();
+            continue;
+        };
+        let symbols = functions[index]
+            .parameters
+            .iter()
+            .map(|parameter| DimensionSymbol {
+                name: parameter.name.clone(),
+                dimension: parameter.dimension.clone(),
+            })
+            .collect::<Vec<_>>();
+        let Some(actual_dimension) = expression_dimension_with_symbols(&expression, &symbols)
+        else {
+            diagnostics.push(Diagnostic::error(
+                "E-FN-RETURN-003",
+                functions[index].line,
+                &format!(
+                    "Function `{}` return expression could not be type-checked.",
+                    functions[index].name
+                ),
+                Some("Use parameters, literals with units, and supported arithmetic in the return expression."),
+            ));
+            functions[index].status = "unit_unresolved".to_owned();
+            continue;
+        };
+        if !dimensions_compatible(&functions[index].return_dimension, &actual_dimension) {
+            diagnostics.push(Diagnostic::error(
+                "E-FN-RETURN-004",
+                functions[index].line,
+                &format!(
+                    "Function `{}` returns {}, but its body has dimension {}.",
+                    functions[index].name, functions[index].return_dimension, actual_dimension
+                ),
+                Some("Make the return annotation match the expression quantity or fix the expression units."),
+            ));
+            functions[index].status = "unit_mismatch".to_owned();
+        } else {
+            functions[index].status = "unit_consistent".to_owned();
+        }
+    }
+}
+
 fn analyze_print_decl(
     print: &PrintDecl,
     typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
     prints: &mut Vec<PrintInfo>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let fields = analyze_format_fields(&print.template, print.line, typed_bindings, diagnostics);
+    let fields = analyze_format_fields(
+        &print.template,
+        print.line,
+        typed_bindings,
+        functions,
+        diagnostics,
+    );
     prints.push(PrintInfo {
         template: print.template.clone(),
         fields,
@@ -592,17 +822,20 @@ fn analyze_csv_export_decl(
 fn analyze_csv_export_field_decl(
     field: &CsvExportFieldDecl,
     typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<CsvExportFieldInfo> {
     let semantic_type =
-        resolve_format_expression_type(&field.expression, typed_bindings).or_else(|| {
-            diagnostics.push(unknown_format_expression_diagnostic(
-                &field.expression,
-                field.line,
-                "E-EXPORT-CSV-003",
-            ));
-            None
-        })?;
+        resolve_format_expression_type(&field.expression, typed_bindings, functions).or_else(
+            || {
+                diagnostics.push(unknown_format_expression_diagnostic(
+                    &field.expression,
+                    field.line,
+                    "E-EXPORT-CSV-003",
+                ));
+                None
+            },
+        )?;
     let precision = field
         .format
         .as_deref()
@@ -632,6 +865,7 @@ fn analyze_format_fields(
     template: &str,
     line: usize,
     typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<FormatExpressionInfo> {
     let mut fields = Vec::new();
@@ -661,7 +895,9 @@ fn analyze_format_fields(
         }
         let (expression, spec) = split_format_field(inside);
         let format_spec = parse_format_spec(spec.unwrap_or_default());
-        if let Some(semantic_type) = resolve_format_expression_type(expression, typed_bindings) {
+        if let Some(semantic_type) =
+            resolve_format_expression_type(expression, typed_bindings, functions)
+        {
             if let Some(unit) = &format_spec.unit {
                 validate_requested_unit(
                     expression,
@@ -737,6 +973,7 @@ fn split_format_field(field: &str) -> (&str, Option<&str>) {
 fn resolve_format_expression_type(
     expression: &str,
     typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
 ) -> Option<SemanticType> {
     let expression = expression.trim();
     if expression.starts_with("args.") {
@@ -751,6 +988,10 @@ fn resolve_format_expression_type(
         }
     }
     if let Some(semantic_type) = statistic_expression_semantic_type(expression, typed_bindings) {
+        return Some(semantic_type);
+    }
+    if let Some(semantic_type) = function_call_semantic_type(expression, typed_bindings, functions)
+    {
         return Some(semantic_type);
     }
     typed_bindings
@@ -770,6 +1011,179 @@ fn statistic_expression_semantic_type(
     let (_axis, quantity_kind) =
         crate::stats::time_series_quantity(&source_binding.semantic_type.quantity_kind)?;
     semantic_type(&quantity_kind, &source_binding.semantic_type.display_unit)
+}
+
+fn function_call_semantic_type(
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+) -> Option<SemanticType> {
+    let call = parse_function_call(expression)?;
+    let function = functions
+        .iter()
+        .find(|function| function.name == call.name)?;
+    let display_unit = function.return_display_unit.clone();
+    if call.args.len() == function.parameters.len()
+        && function_call_args_dimensionally_valid(&call, function, typed_bindings)
+    {
+        return semantic_type(&function.return_quantity_kind, &display_unit);
+    }
+    semantic_type(&function.return_quantity_kind, &display_unit)
+}
+
+fn validate_function_call_expression(
+    expression: &str,
+    line: usize,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<SemanticType> {
+    let call = parse_function_call(expression)?;
+    let Some(function) = functions.iter().find(|function| function.name == call.name) else {
+        diagnostics.push(Diagnostic::error(
+            "E-FN-CALL-001",
+            line,
+            &format!("Function `{}` is not defined.", call.name),
+            Some("Define the function before use or import a file that defines it."),
+        ));
+        return None;
+    };
+    if call.args.len() != function.parameters.len() {
+        diagnostics.push(Diagnostic::error(
+            "E-FN-CALL-002",
+            line,
+            &format!(
+                "Function `{}` expects {} argument(s), but got {}.",
+                function.name,
+                function.parameters.len(),
+                call.args.len()
+            ),
+            Some("Pass one expression for each function parameter."),
+        ));
+        return semantic_type(
+            &function.return_quantity_kind,
+            &function.return_display_unit,
+        );
+    }
+    for (arg, parameter) in call.args.iter().zip(&function.parameters) {
+        let Some(actual_dimension) = expression_dimension_for_bindings(arg, typed_bindings) else {
+            diagnostics.push(Diagnostic::error(
+                "E-FN-CALL-003",
+                line,
+                &format!(
+                    "Argument `{arg}` for `{}` could not be type-checked.",
+                    function.name
+                ),
+                Some("Use a typed binding, a literal with units, or a compatible expression."),
+            ));
+            continue;
+        };
+        if !dimensions_compatible(&parameter.dimension, &actual_dimension) {
+            diagnostics.push(Diagnostic::error(
+                "E-FN-CALL-004",
+                line,
+                &format!(
+                    "Argument `{arg}` for `{}` has dimension {}, but parameter `{}` expects {}.",
+                    function.name, actual_dimension, parameter.name, parameter.dimension
+                ),
+                Some("Pass a quantity with a compatible unit and dimension."),
+            ));
+        }
+    }
+    semantic_type(
+        &function.return_quantity_kind,
+        &function.return_display_unit,
+    )
+}
+
+fn function_call_args_dimensionally_valid(
+    call: &FunctionCall,
+    function: &FunctionInfo,
+    typed_bindings: &[TypedBinding],
+) -> bool {
+    call.args
+        .iter()
+        .zip(&function.parameters)
+        .all(|(arg, parameter)| {
+            expression_dimension_for_bindings(arg, typed_bindings)
+                .is_some_and(|dimension| dimensions_compatible(&parameter.dimension, &dimension))
+        })
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct FunctionCall {
+    name: String,
+    args: Vec<String>,
+}
+
+fn parse_function_call(expression: &str) -> Option<FunctionCall> {
+    let expression = strip_outer_parens(expression.trim());
+    let open = expression.find('(')?;
+    if !expression.ends_with(')') {
+        return None;
+    }
+    let name = expression[..open].trim();
+    if !is_identifier(name) {
+        return None;
+    }
+    let args_text = &expression[open + 1..expression.len() - 1];
+    let args = if args_text.trim().is_empty() {
+        Vec::new()
+    } else {
+        split_top_level(args_text, &[','])
+    };
+    Some(FunctionCall {
+        name: name.to_owned(),
+        args,
+    })
+}
+
+fn should_validate_function_call(expression: &str, functions: &[FunctionInfo]) -> bool {
+    let Some(call) = parse_function_call(expression) else {
+        return false;
+    };
+    functions.iter().any(|function| function.name == call.name) || !is_builtin_function(&call.name)
+}
+
+fn is_builtin_function(name: &str) -> bool {
+    matches!(
+        name,
+        "integrate"
+            | "mean"
+            | "time_weighted_mean"
+            | "max"
+            | "min"
+            | "median"
+            | "std"
+            | "sum"
+            | "normal"
+            | "uniform"
+            | "interval"
+            | "measured"
+            | "propagate"
+            | "ensemble"
+            | "distribution"
+            | "train_test_split"
+            | "regression"
+            | "mlp"
+            | "evaluate"
+            | "model_card"
+            | "leakage_lint"
+    ) || name.starts_with('p')
+}
+
+fn expression_dimension_for_bindings(
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+) -> Option<String> {
+    let symbols = typed_bindings
+        .iter()
+        .map(|binding| DimensionSymbol {
+            name: binding.name.clone(),
+            dimension: dimension_for_quantity(&binding.semantic_type.quantity_kind),
+        })
+        .collect::<Vec<_>>();
+    expression_dimension_with_symbols(expression, &symbols)
 }
 
 fn parse_statistic_expression(expression: &str) -> Option<(String, String)> {
@@ -1471,6 +1885,10 @@ fn expression_mentions_identifier(expression: &str, identifier: &str) -> bool {
 }
 
 fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
+    if binding.context == ParseContext::Function {
+        return;
+    }
+
     if binding.context == ParseContext::Schema {
         accum.diagnostics.push(Diagnostic::error(
             "E-PUBLIC-ANNOTATION-001",
@@ -1510,6 +1928,18 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         accum.ml_infos.push(ml_info);
     }
 
+    let function_call_type = if should_validate_function_call(&binding.expression, accum.functions)
+    {
+        validate_function_call_expression(
+            &binding.expression,
+            binding.line,
+            accum.typed_bindings,
+            accum.functions,
+            accum.diagnostics,
+        )
+    } else {
+        None
+    };
     let inferred_semantic_type = uncertainty
         .as_ref()
         .and_then(|uncertainty| {
@@ -1519,6 +1949,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
             )
         })
         .or_else(|| statistic_expression_semantic_type(&binding.expression, accum.typed_bindings))
+        .or(function_call_type)
         .or_else(|| infer_quantity(&binding.name, &binding.expression));
 
     if let Some(semantic_type) = inferred_semantic_type {
@@ -1574,6 +2005,7 @@ struct SemanticAccum<'a> {
     integrations: &'a mut Vec<IntegrationInfo>,
     uncertainty_infos: &'a mut Vec<UncertaintyInfo>,
     ml_infos: &'a mut Vec<MlInfo>,
+    functions: &'a [FunctionInfo],
 }
 
 fn check_ambiguous_quantity(binding: &FastBinding, diagnostics: &mut Vec<Diagnostic>) {
@@ -1808,7 +2240,27 @@ fn dimension_for_quantity(quantity_kind: &str) -> String {
         .unwrap_or_else(|| "unknown".to_owned())
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct DimensionSymbol {
+    name: String,
+    dimension: String,
+}
+
 fn expression_dimension(expression: &str, variables: &[SystemVariableInfo]) -> Option<String> {
+    let symbols = variables
+        .iter()
+        .map(|variable| DimensionSymbol {
+            name: variable.name.clone(),
+            dimension: variable.dimension.clone(),
+        })
+        .collect::<Vec<_>>();
+    expression_dimension_with_symbols(expression, &symbols)
+}
+
+fn expression_dimension_with_symbols(
+    expression: &str,
+    symbols: &[DimensionSymbol],
+) -> Option<String> {
     let expression = strip_outer_parens(expression.trim());
     if expression.is_empty() {
         return None;
@@ -1818,7 +2270,7 @@ fn expression_dimension(expression: &str, variables: &[SystemVariableInfo]) -> O
     if additive_terms.len() > 1 {
         let mut dimensions = Vec::new();
         for term in additive_terms {
-            dimensions.push(expression_dimension(&term, variables)?);
+            dimensions.push(expression_dimension_with_symbols(&term, symbols)?);
         }
         let first = dimensions.first()?.clone();
         if dimensions
@@ -1832,9 +2284,9 @@ fn expression_dimension(expression: &str, variables: &[SystemVariableInfo]) -> O
 
     let factors = split_top_level(expression, &['*']);
     if factors.len() > 1 {
-        let mut dimension = expression_dimension(&factors[0], variables)?;
+        let mut dimension = expression_dimension_with_symbols(&factors[0], symbols)?;
         for factor in factors.iter().skip(1) {
-            let factor_dimension = expression_dimension(factor, variables)?;
+            let factor_dimension = expression_dimension_with_symbols(factor, symbols)?;
             dimension = multiply_dimensions(&dimension, &factor_dimension);
         }
         return Some(dimension);
@@ -1844,15 +2296,15 @@ fn expression_dimension(expression: &str, variables: &[SystemVariableInfo]) -> O
         .strip_prefix("der(")
         .and_then(|value| value.strip_suffix(')'))
     {
-        let inner_dimension = expression_dimension(inner, variables)?;
+        let inner_dimension = expression_dimension_with_symbols(inner, symbols)?;
         return Some(derivative_dimension(&inner_dimension));
     }
 
     if is_identifier(expression) {
-        return variables
+        return symbols
             .iter()
-            .find(|variable| variable.name == expression)
-            .map(|variable| variable.dimension.clone());
+            .find(|symbol| symbol.name == expression)
+            .map(|symbol| symbol.dimension.clone());
     }
 
     if let Some(unit) = first_unit_in_expression(expression) {

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::fmt;
@@ -824,6 +825,9 @@ fn evaluate_runtime_expression(
     if let Some(value) = evaluate_statistic_expression(expression, runtime_data) {
         return Some(value);
     }
+    if let Some(value) = evaluate_function_call_expression(expression, report, runtime_data) {
+        return Some(value);
+    }
     if let Some(integration) = runtime_data
         .integrations
         .iter()
@@ -849,6 +853,11 @@ fn evaluate_runtime_expression(
                 quantity_kind: declaration.quantity_kind.clone(),
                 unit: unit.unwrap_or_else(|| declaration.display_unit.clone()),
             });
+        }
+        if let Some(value) =
+            evaluate_function_call_expression(&declaration.expression, report, runtime_data)
+        {
+            return Some(value);
         }
     }
     if let Some(table) = runtime_data
@@ -878,6 +887,122 @@ fn evaluate_runtime_expression(
         )));
     }
     None
+}
+
+fn evaluate_function_call_expression(
+    expression: &str,
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+) -> Option<RuntimeFormatValue> {
+    let call = parse_runtime_function_call(expression)?;
+    let function = report
+        .semantic_program
+        .functions
+        .iter()
+        .find(|function| function.name == call.name)?;
+    if call.args.len() != function.parameters.len() {
+        return None;
+    }
+    let mut values = HashMap::new();
+    for (arg, parameter) in call.args.iter().zip(&function.parameters) {
+        let RuntimeFormatValue::Number { value, .. } =
+            evaluate_runtime_expression(arg, report, runtime_data)?
+        else {
+            return None;
+        };
+        values.insert(parameter.name.clone(), value);
+    }
+    let body = function.return_expression.as_deref()?;
+    let value = evaluate_numeric_function_expression(body, &values)?;
+    Some(RuntimeFormatValue::Number {
+        value,
+        quantity_kind: function.return_quantity_kind.clone(),
+        unit: function.return_canonical_unit.clone(),
+    })
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct RuntimeFunctionCall {
+    name: String,
+    args: Vec<String>,
+}
+
+fn parse_runtime_function_call(expression: &str) -> Option<RuntimeFunctionCall> {
+    let expression = strip_outer_parens(expression.trim());
+    let open = expression.find('(')?;
+    if !expression.ends_with(')') {
+        return None;
+    }
+    let name = expression[..open].trim();
+    if !is_identifier(name) {
+        return None;
+    }
+    let args_text = &expression[open + 1..expression.len() - 1];
+    let args = if args_text.trim().is_empty() {
+        Vec::new()
+    } else {
+        split_top_level(args_text, &[','])
+    };
+    Some(RuntimeFunctionCall {
+        name: name.to_owned(),
+        args,
+    })
+}
+
+fn evaluate_numeric_function_expression(
+    expression: &str,
+    values: &HashMap<String, f64>,
+) -> Option<f64> {
+    let expression = strip_outer_parens(expression.trim());
+    if let Some(value) = values.get(expression) {
+        return Some(*value);
+    }
+    if let Some((value, _unit)) = number_with_optional_unit(expression) {
+        return Some(value);
+    }
+    let terms = split_top_level(expression, &['+', '-']);
+    if terms.len() > 1 {
+        return evaluate_additive_numeric_expression(expression, values);
+    }
+    let factors = split_top_level(expression, &['*']);
+    if factors.len() > 1 {
+        let mut product = 1.0;
+        for factor in factors {
+            product *= evaluate_numeric_function_expression(&factor, values)?;
+        }
+        return Some(product);
+    }
+    None
+}
+
+fn evaluate_additive_numeric_expression(
+    expression: &str,
+    values: &HashMap<String, f64>,
+) -> Option<f64> {
+    let mut sum = 0.0;
+    let mut start = 0usize;
+    let mut sign = 1.0;
+    let mut depth = 0i32;
+    for (index, character) in expression.char_indices() {
+        match character {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            '+' | '-' if depth == 0 && index > 0 => {
+                let term = expression[start..index].trim();
+                if !term.is_empty() {
+                    sum += sign * evaluate_numeric_function_expression(term, values)?;
+                }
+                sign = if character == '-' { -1.0 } else { 1.0 };
+                start = index + character.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    let term = expression[start..].trim();
+    if !term.is_empty() {
+        sum += sign * evaluate_numeric_function_expression(term, values)?;
+    }
+    Some(sum)
 }
 
 fn evaluate_statistic_expression(
@@ -1122,6 +1247,76 @@ fn number_with_optional_unit(text: &str) -> Option<(f64, Option<String>)> {
     let value = words.next()?.parse::<f64>().ok()?;
     let unit = words.next().map(str::to_owned);
     Some((value, unit))
+}
+
+fn strip_outer_parens(mut expression: &str) -> &str {
+    loop {
+        let trimmed = expression.trim();
+        if !(trimmed.starts_with('(') && trimmed.ends_with(')')) {
+            return trimmed;
+        }
+        let inner = &trimmed[1..trimmed.len() - 1];
+        if !is_balanced(inner) {
+            return trimmed;
+        }
+        expression = inner;
+    }
+}
+
+fn is_balanced(expression: &str) -> bool {
+    let mut depth = 0i32;
+    for character in expression.chars() {
+        match character {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth < 0 {
+                    return false;
+                }
+            }
+            _ => {}
+        }
+    }
+    depth == 0
+}
+
+fn split_top_level(expression: &str, operators: &[char]) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut depth = 0i32;
+    let mut start = 0usize;
+
+    for (index, character) in expression.char_indices() {
+        match character {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            other if depth == 0 && operators.contains(&other) => {
+                if index == 0 {
+                    continue;
+                }
+                let part = expression[start..index].trim();
+                if !part.is_empty() {
+                    parts.push(part.to_owned());
+                }
+                start = index + other.len_utf8();
+            }
+            _ => {}
+        }
+    }
+
+    let tail = expression[start..].trim();
+    if !tail.is_empty() {
+        parts.push(tail.to_owned());
+    }
+    parts
+}
+
+fn is_identifier(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|character| character.is_ascii_alphanumeric() || character == '_')
 }
 
 fn result_json(
@@ -2375,5 +2570,39 @@ mod tests {
         assert!(csv.contains("E_coil [kWh]"));
         assert!(csv.contains("mean_Q [kW]"));
         assert_eq!(csv.lines().count(), 2);
+    }
+
+    #[test]
+    fn run_file_evaluates_imported_function_for_print_and_csv_export() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-function-import");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-function-import-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        fs::write(
+            source_dir.join("thermal.eng"),
+            "fn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {\n    return UA * dT\n}\n",
+        )
+        .expect("write thermal");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "use \"thermal.eng\"\n\nscript main(args: Args) -> Report {\n    UA_wall = 150 W/K\n    dT_wall = 8 K\n    Q_wall = heat_loss(UA_wall, dT_wall)\n\n    print \"Q wall = {Q_wall: .2 kW}\"\n\n    export summary to csv \"summary.csv\" {\n        Q_wall as kW with \".2\"\n    }\n}\n",
+        )
+        .expect("write source");
+
+        let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+
+        assert!(output.stdout.contains("Q wall = 1.20 kW"));
+        let csv =
+            fs::read_to_string(build_root.join("result").join("summary.csv")).expect("summary csv");
+        assert!(csv.contains("Q_wall [kW]"));
+        assert!(csv.contains("1.20"));
     }
 }

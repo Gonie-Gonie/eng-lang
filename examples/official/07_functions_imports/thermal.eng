@@ -1,0 +1,4 @@
+fn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {
+    return UA * dT
+}
+

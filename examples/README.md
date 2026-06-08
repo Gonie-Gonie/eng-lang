@@ -36,6 +36,10 @@ official/06_domain_port
   across/through variables, conservation metadata, components, ports, and
   domain-compatible connection review. It includes structured generic
   parameters such as Fluid[Medium M] and MechanicalNode[Frame F, Axis DOF].
+
+official/07_functions_imports
+  Preview function/import fixture for pure unit-aware functions, relative file
+  imports, function-call inference, CLI print, and summary CSV export.
 ```
 
 ## Compatibility Regression Examples
