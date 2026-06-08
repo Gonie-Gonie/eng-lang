@@ -7,17 +7,18 @@ long-form planning documents.
 ## Start Here
 
 1. [Current project status](current/status.md)
-2. [Version plan](current/version_plan.md)
-3. [Feature maturity matrix](current/feature_maturity_matrix.md)
-4. [Development tracks](current/tracks.md)
-5. [Standalone package reference](reference/standalone_package.md)
-6. [LLM load map](llm/load_map.yml)
-7. [Getting started](development/00_getting_started.md)
-8. [Repository layout](development/01_repo_layout.md)
-9. [Daily workflow](development/02_daily_workflow.md)
-10. [Reproducible environment policy](development/03_environment_reproducibility.md)
-11. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
-12. [Curated user documentation source](user/README.md)
+2. [Integrated language philosophy](current/philosophy.md)
+3. [Version plan](current/version_plan.md)
+4. [Feature maturity matrix](current/feature_maturity_matrix.md)
+5. [Development tracks](current/tracks.md)
+6. [Standalone package reference](reference/standalone_package.md)
+7. [LLM load map](llm/load_map.yml)
+8. [Getting started](development/00_getting_started.md)
+9. [Repository layout](development/01_repo_layout.md)
+10. [Daily workflow](development/02_daily_workflow.md)
+11. [Reproducible environment policy](development/03_environment_reproducibility.md)
+12. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
+13. [Curated user documentation source](user/README.md)
 
 ## Architecture
 
@@ -28,6 +29,8 @@ long-form planning documents.
 - [Data boundary and CSV promote](architecture/04_data_boundary.md)
 - [Bytecode VM and result v1](runtime/bytecode.md)
 - [Language grammar guide](guide/language_grammar.md)
+- [Integrated language philosophy](current/philosophy.md)
+- [Side effect and general programming policy](reference/side_effect_policy.md)
 - [TimeSeries statistics guide](guide/timeseries_statistics.md)
 - [Plotting guide](guide/plotting.md)
 - [Uncertainty track guide](guide/uncertainty.md)
@@ -44,6 +47,7 @@ long-form planning documents.
 - [CLI specification](specs/cli.md)
 - [Run command reference](reference/cli_run.md)
 - [Standalone package reference](reference/standalone_package.md)
+- [Side effect and general programming policy](reference/side_effect_policy.md)
 - [LSP snapshot reference](reference/lsp_snapshot.md)
 - [Kernel plan reference](reference/kernel_plan.md)
 - [JIT benchmark harness reference](reference/jit_benchmark.md)
@@ -60,6 +64,7 @@ long-form planning documents.
 - [Release acceptance checklist](release/acceptance-checklist.md)
 - [Release workflow](release/release-workflow.md)
 - [v0.1-preview release notes](release/v0.1-preview.md)
+- [v0.2-preview release notes](release/v0.2-preview.md)
 - Long-form v9 plan is linked from the planning pointer only as historical
   technical intent; do not use its old milestone labels as release names.
 

@@ -7,14 +7,22 @@ agents. It separates public release versions from long-term development tracks.
 
 | Field | Value |
 |---|---|
-| Current public line | `v0.1-preview` |
-| Active target | `v0.2-preview` IDE/documentation hardening |
-| Workspace package version | `0.1.0-preview` |
+| Current public line | `v0.2-preview` |
+| Active target | `v0.3-preview` syntax/dataflow unification and path-policy seed |
+| Workspace package version | `0.2.0-preview` |
 | Release channel | `preview` |
 
 EngLang is preview software. The language, runtime behavior, and artifact
 formats are not stable. Earlier high-numbered release names are not part of the
 current public version line.
+
+The active language philosophy is recorded in
+[Integrated Language Philosophy](philosophy.md):
+
+```text
+EngLang is a unit-safe engineering programming language for typed data
+analysis, system simulation workflows, plotting, and reproducible review.
+```
 
 Future capabilities are tracked in [development tracks](tracks.md), not as
 public release versions. A track may have implementation seeds on `main` without
@@ -95,6 +103,10 @@ the current public preview workflow, but it is not yet a stable contract.
   first-class Summary object model.
 - OODocs grammar PDF generation through `dev.bat grammar-docs`, backed by the
   language grammar guide.
+- Current planning and release docs now align around the integrated
+  data-analysis plus system-simulation philosophy and the
+  [side-effect policy](../reference/side_effect_policy.md). The side-effect
+  policy is a design target, not a broad runtime I/O support claim.
 
 ## Future Tracks On Main
 
@@ -106,6 +118,8 @@ metadata on `main`, but they are not public release versions:
 - IDE/LSP track
 - Runtime optimization/JIT/AOT track
 - Domain/component track
+- Class/domain-object track
+- General programming and side-effect track
 
 See [development tracks](tracks.md) for the current scope and limitations.
 
@@ -129,6 +143,12 @@ See [development tracks](tracks.md) for the current scope and limitations.
   runtime-dependent defaults are deferred.
 - Parenthesis-light syntax for arbitrary user-defined/general function calls
   and project-wide display unit policy blocks are deferred.
+- Broad path/file/process/network side-effect runtime support is deferred to
+  the general programming track. `v0.2-preview` only documents the policy and
+  keeps current explicit export behavior.
+- Class/domain objects are planned for reviewable engineering objects, but
+  class declaration/object literal/runtime lowering is not part of the current
+  public preview.
 
 - First-class Summary objects are not part of the current scope; the v0.2
   decision is recorded in

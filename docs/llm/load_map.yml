@@ -2,6 +2,7 @@ default:
   - README.md
   - LLM_CONTEXT.md
   - docs/current/status.md
+  - docs/current/philosophy.md
   - docs/current/version_plan.md
   - docs/current/feature_maturity_matrix.md
   - docs/current/tracks.md
@@ -11,6 +12,7 @@ default:
   - docs/reference/standalone_package.md
   - docs/reference/functions_imports.md
   - docs/reference/summary_object_decision.md
+  - docs/reference/side_effect_policy.md
 
 task_types:
   parser:
@@ -104,10 +106,20 @@ task_types:
 
   release:
     - docs/current/version_plan.md
+    - docs/current/philosophy.md
     - docs/release/release-workflow.md
     - docs/release/acceptance-checklist.md
-    - docs/release/v0.1-preview.md
+    - docs/release/v0.2-preview.md
     - scripts/dev.ps1
+
+  side_effects:
+    - docs/current/philosophy.md
+    - docs/reference/side_effect_policy.md
+    - docs/current/tracks.md
+    - docs/current/feature_maturity_matrix.md
+    - docs/guide/language_grammar.md
+    - crates/eng_compiler/
+    - crates/eng_runtime/
 
   standalone:
     - docs/current/tracks.md

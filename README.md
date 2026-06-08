@@ -1,15 +1,16 @@
 # EngLang
 
-EngLang is a native programming language project for engineering simulation
-workflows. Its goal is to let the compiler and runtime understand units,
-physical quantity kinds, schemas, axes, statistics, plotting, reports, and
-provenance as first-class parts of engineering code.
+EngLang is a native programming language project for typed engineering data
+analysis, system simulation workflows, plotting, and reproducible review. Its
+goal is to let the compiler and runtime understand units, physical quantity
+kinds, schemas, axes, statistics, plotting, reports, and provenance as
+first-class parts of engineering code.
 
 ## Status
 
-Current public line: `v0.1-preview`
+Current public line: `v0.2-preview`
 
-Active target: `v0.2-preview` - IDE and documentation hardening
+Active target: `v0.3-preview` - syntax/dataflow unification and path-policy seed
 
 EngLang is preview software. The language, runtime behavior, and artifact
 formats are not yet stable.
@@ -17,6 +18,7 @@ formats are not yet stable.
 Start from these short status documents:
 
 - [Current project status](docs/current/status.md)
+- [Integrated language philosophy](docs/current/philosophy.md)
 - [Version plan](docs/current/version_plan.md)
 - [Feature maturity matrix](docs/current/feature_maturity_matrix.md)
 - [Development tracks](docs/current/tracks.md)
@@ -28,6 +30,7 @@ Start from these short status documents:
 - Typed CSV promote through official examples
 - Unit-aware TimeSeries calculations
 - TimeSeries statistics and integration metadata
+- Unit-aware print and explicit summary CSV export
 - PlotSpec/SVG output
 - Review/report artifacts
 - Basic packaged execution
@@ -44,6 +47,8 @@ Future work is managed by tracks, not by high-numbered public versions:
 - Data-driven modeling
 - Runtime optimization/JIT/AOT
 - Domain/component
+- Class/domain-object
+- General programming/side-effect policy
 
 ## Quick Start
 
@@ -87,7 +92,7 @@ target\debug\eng.exe entries examples\official\01_csv_plot\main.eng
 target\debug\eng.exe run examples\official\01_csv_plot\main.eng
 target\debug\eng.exe run examples\official\02_simple_system\main.eng --save-artifacts
 target\debug\eng.exe run examples\official\03_integrated_hvac\main.eng --save-artifacts
-target\debug\eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
+target\debug\eng.exe build examples\official\01_csv_plot\main.eng --standalone --profile repro
 dist\main-standalone\run.bat
 target\debug\eng.exe view build\result\result.engres
 ```
@@ -114,6 +119,7 @@ build/
 
 - [Documentation index](docs/README.md)
 - [Current project status](docs/current/status.md)
+- [Integrated language philosophy](docs/current/philosophy.md)
 - [Version plan](docs/current/version_plan.md)
 - [Feature maturity matrix](docs/current/feature_maturity_matrix.md)
 - [Development tracks](docs/current/tracks.md)
@@ -127,6 +133,7 @@ build/
 - [Report and review artifacts](docs/guide/report_review.md)
 - [Run command reference](docs/reference/cli_run.md)
 - [Standalone package reference](docs/reference/standalone_package.md)
+- [Side effect and general programming policy](docs/reference/side_effect_policy.md)
 - [CLI specification](docs/specs/cli.md)
 - [Roadmap](docs/roadmap.md)
 - [Release workflow](docs/release/release-workflow.md)
@@ -142,6 +149,8 @@ build/
 - Public feature claims must match the feature maturity matrix.
 - Release versions describe public packages; long-term capabilities are tracked
   as development tracks.
+- General programming features must make side effects typed, explicit, and
+  reviewable.
 
 ## Verification
 
@@ -160,15 +169,15 @@ eng.exe doctor
 eng-ide.exe --smoke
 eng-lsp.exe --smoke
 eng-ide.exe
-eng.exe run examples\official\01_csv_plot\main.eng --entry main --save-artifacts
-eng.exe run examples\official\02_simple_system\main.eng --entry main --save-artifacts
-eng.exe run examples\official\03_integrated_hvac\main.eng --entry main --save-artifacts
-eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
+eng.exe run examples\official\01_csv_plot\main.eng --save-artifacts
+eng.exe run examples\official\02_simple_system\main.eng --save-artifacts
+eng.exe run examples\official\03_integrated_hvac\main.eng --save-artifacts
+eng.exe build examples\official\01_csv_plot\main.eng --standalone --profile repro
 dist\main-standalone\run.bat
 popd
 ```
 
-`package` writes `dist\englang-preview-v0.1-preview-windows-x64.zip`, a
+`package` writes `dist\englang-preview-v0.2-preview-windows-x64.zip`, a
 matching `.sha256` file, and a curated PDF user guide. The portable package
 does not copy the full developer markdown documentation tree. `package-smoke`
 extracts that zip into a path with spaces and Korean characters, then runs the

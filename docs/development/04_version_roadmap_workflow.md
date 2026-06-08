@@ -8,14 +8,17 @@ track, not from a broad feature list.
 
 ```text
 1. Pick the current public preview scope or development track.
-2. Read `docs/current/version_plan.md`, `docs/current/status.md`, and `docs/current/tracks.md`.
-3. Open the v9 master plan only for long-term design sections.
-4. Create or select an issue with a preview or track target.
-5. Implement code, tests, examples, and docs together.
-6. Run dev.bat ci.
-7. Commit and push at a reviewable unit.
-8. Update roadmap/release notes when the public preview state changes.
-9. After a public preview, run a gap audit before promoting any feature to stable.
+2. Read `docs/current/status.md`, `docs/current/philosophy.md`,
+   `docs/current/version_plan.md`, and `docs/current/tracks.md`.
+3. Read focused reference policies such as
+   `docs/reference/side_effect_policy.md` when they match the task.
+4. Open the v9 master plan only for long-term historical design sections.
+5. Create or select an issue with a preview or track target.
+6. Implement code, tests, examples, and docs together.
+7. Run dev.bat ci.
+8. Commit and push at a reviewable unit.
+9. Update roadmap/release notes when the public preview state changes.
+10. After a public preview, run a gap audit before promoting any feature to stable.
 ```
 
 Before marking a feature done, check

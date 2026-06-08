@@ -14,8 +14,9 @@ Fix setup or environment problems before starting feature work.
 
 ## 2. Pick the Version Target
 
-Development follows the v9 roadmap. Start with the target version, then read the
-required outputs and release gate for that version.
+Development follows the current-status layer and integrated philosophy. Start
+with the active target version, then read the required outputs and release gate
+for that version.
 
 Useful questions:
 
@@ -89,6 +90,8 @@ repo structure                 docs/development/01_repo_layout.md
 daily workflow                 docs/development/02_daily_workflow.md
 environment reproducibility    docs/development/03_environment_reproducibility.md
 milestone scope                docs/roadmap.md
+language philosophy            docs/current/philosophy.md
+side-effect policy             docs/reference/side_effect_policy.md
 release gates                  docs/release/acceptance-checklist.md
 ```
 

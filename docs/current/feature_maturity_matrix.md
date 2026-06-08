@@ -25,6 +25,7 @@ language feature. Public preview support is narrower than implementation on
 | Report/review artifacts | Supported preview | Official artifacts, schemas, report spec, review JSON | Rich report layout remains limited | Maintain schemas and improve IDE panels |
 | Minimal `system`/`eq` | Preview | One-state thermal system and unit diagnostics | Multi-state/nonlinear/adaptive solving deferred | Clarify solver boundary |
 | Args binding | Supported preview | `args { ... }` only, String/path/CsvFile/DirectoryPath, Bool, Int/Count, Float/Number, Duration normalization, dynamic pure defaults, CLI overrides, and help metadata | Quantity/unit-literal Args and flag-only booleans deferred | Maintain typed conversion and side-effect diagnostics |
+| Side-effect/general programming policy | Planned | v0.2 documents typed path/file/process/network policy, explicit side effects, safe/normal/repro profile intent, and stdlib module order | Broad runtime file I/O, filesystem mutation, process execution, and network are not public-supported | Start with `eng.path` and provenance-visible `exists` |
 | Standalone package | Supported preview | Official package and package-smoke path with Args help, runtime bundling, dependency copy/byte-hash metadata, `.engpkg`, `.lock`, and package reference | Optimized native model.exe/AOT deferred | Maintain package contract |
 | Example taxonomy | Supported preview | `examples/official` user-test namespace, compatibility regression examples, diagnostic fixtures, and data-quality fixtures | Historical naming exists only in git history | Maintain IDE/CLI ordering and package docs |
 | Native tester IDE | Preview | Open/check/save/run, diagnostics, completions, variable/unit/schema/CSV/domain graph inspector, PlotSpec preview, runtime summary, UI settings | Not a full LSP/editor platform | Continue IDE/LSP track hardening |
@@ -35,6 +36,7 @@ language feature. Public preview support is narrower than implementation on
 | LSP track | Experimental | `eng-lsp.exe` smoke/snapshot, stdio round-trip tests, package-smoke inclusion, optional VS Code snapshot backend, diagnostics, completion, hover | Not editor-validated as a release path | Track work in `docs/current/tracks.md` |
 | Runtime optimization/JIT/AOT track | Experimental | `eng_jit`, `eng.exe jit-plan`, `eng.exe jit-bench`, backend selection metadata, IDE kernel-plan display, and metadata estimates | No native code generation or speedup claim | Track work in `docs/current/tracks.md` |
 | Domain/component track | Experimental | Domain/component/port/connect metadata, diagnostics, review/report sections, IDE inspector, LSP hover/completion metadata | No numeric multi-domain solver or package registry | Track work in `docs/current/tracks.md` |
+| Class/domain-object track | Planned | v0.2 documents class as a reviewable typed engineering object concept | No class declaration/object literal/runtime lowering public support | Keep as a track until minimal object semantics exist |
 
 ## Status Terms
 

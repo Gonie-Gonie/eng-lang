@@ -4,10 +4,10 @@ EngLang separates public release versions from long-term development tracks.
 
 ## Public Release Line
 
-The public line restarts from:
+The current public line is:
 
 ```text
-v0.1-preview
+v0.2-preview
 ```
 
 Existing high-numbered release names are not part of the current public line.
@@ -18,8 +18,9 @@ Recommended public sequence:
 
 ```text
 v0.1-preview  first public preview
-v0.2-preview  IDE and documentation hardening
-v0.3-preview  next focused preview scope
+v0.2-preview  IDE/documentation hardening and integrated philosophy
+v0.3-preview  syntax/dataflow unification and path-policy seed
+v0.4-preview  read-only I/O and multi-source data policy
 ...
 v1.0          stable core, only after the core behavior is ready
 ```
@@ -27,17 +28,53 @@ v1.0          stable core, only after the core behavior is ready
 ## Cargo Version
 
 Cargo requires SemVer-compatible package versions, so the workspace package
-version for `v0.1-preview` is:
+version for `v0.2-preview` is:
 
 ```text
-0.1.0-preview
+0.2.0-preview
 ```
 
 Release assets use the shorter public label:
 
 ```text
-englang-preview-v0.1-preview-windows-x64.zip
-englang-user-test-guide-v0.1-preview.pdf
+englang-preview-v0.2-preview-windows-x64.zip
+englang-user-test-guide-v0.2-preview.pdf
+```
+
+## Current Preview Goals
+
+The version line follows the integrated language philosophy:
+
+```text
+typed data boundary
+-> typed Table/TimeSeries
+-> system/component simulation inputs and outputs
+-> metrics, validation, calibration
+-> PlotSpec/report/review
+-> IDE inspection
+-> standalone package
+```
+
+Current planning targets:
+
+```text
+v0.2-preview
+  - native IDE and documentation hardening
+  - top-level/function/import/command/where/with policy documented
+  - unit-aware print and explicit summary CSV export documented
+  - integrated language philosophy documented
+  - side-effect/general programming policy documented
+
+v0.3-preview
+  - syntax/dataflow unification
+  - path type/helper seed
+  - first side-effect provenance seed for environment-dependent checks
+  - IDE visibility for command lowering, where locals, and outputs
+
+v0.4-preview
+  - read-only text/json/toml policy seed
+  - multi-source typed data path
+  - source hash provenance hardening
 ```
 
 ## v1.0 Reservation
@@ -91,4 +128,5 @@ Future tracks
 ```
 
 Detailed planning belongs in `docs/roadmap.md`, this file, and
-`docs/current/tracks.md`.
+`docs/current/philosophy.md`, `docs/current/tracks.md`, and focused reference
+docs such as `docs/reference/side_effect_policy.md`.

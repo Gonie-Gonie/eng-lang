@@ -200,3 +200,61 @@ Not yet public-supported:
 - domain package registry
 - open component ecosystem
 ```
+
+## T10 Class / Domain Object
+
+Planned scope:
+
+```text
+- class declaration for typed engineering objects
+- object literal and field access
+- default values and validation
+- immutable copy-with update
+- report/review serialization
+- IDE field completion and object summary
+- class object as system/component parameter
+```
+
+Non-goals:
+
+```text
+- deep inheritance
+- hidden mutable global state
+- class as replacement for system/component
+- port/connect inside class
+```
+
+## T11 General Programming / Side Effects
+
+Design policy in `v0.2-preview`:
+
+```text
+- file/path/process/network concepts are typed
+- side effects are explicit
+- environment/time dependencies are visible
+- report/review can record external effects
+- safe/normal/repro profiles define allowed side-effect envelopes
+```
+
+Planned implementation order:
+
+```text
+1. eng.path path types and helpers
+2. exists and environment dependency metadata
+3. read text/json/toml with source hashes
+4. write/export hardening and output manifest
+5. copy/move/delete with explicit confirmation
+6. log/warn/run-log artifacts
+7. run command and ProcessResult
+8. test/assert/golden support
+```
+
+Deferred:
+
+```text
+- broad filesystem mutation
+- network/download
+- process sandboxing
+- full filesystem permission model
+- package registry
+```

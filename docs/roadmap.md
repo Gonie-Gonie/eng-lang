@@ -17,8 +17,9 @@ authoritative state layer.
 
 ```text
 v0.1-preview  first public preview
-v0.2-preview  IDE and documentation hardening
-v0.3-preview  next focused preview scope
+v0.2-preview  IDE/documentation hardening and integrated philosophy
+v0.3-preview  syntax/dataflow unification and path-policy seed
+v0.4-preview  read-only I/O and multi-source data policy
 ...
 v1.0          stable core
 ```
@@ -29,18 +30,22 @@ give feedback on the current preview scope.
 
 ## Current Public Line
 
-`v0.1-preview` packages the current user-test workflow:
+`v0.2-preview` packages the current user-test workflow:
 
 ```text
 - eng.exe doctor/check/run/build/view
+- top-level execution, args, const, fn, and file-import policy
+- command-style built-in workflow verbs with where/with policy
 - typed CSV promote
 - unit-aware TimeSeries calculation
 - TimeSeries statistics and integration metadata
+- unit-aware print and explicit summary CSV export
 - PlotSpec/SVG output
 - review/report artifacts
 - basic packaged execution
 - native tester IDE
 - curated user PDF
+- language grammar PDF
 ```
 
 Known public-preview boundary:
@@ -53,18 +58,42 @@ Known public-preview boundary:
 - domain/component work is metadata-first, no numeric multi-domain solver
 ```
 
-## Active Target
+## Integrated Direction
 
-`v0.2-preview` focuses on hardening the user-test experience:
+The active philosophy is:
 
 ```text
-- native IDE usability
-- native IDE settings and layout quality
-- preview function/import path visibility
-- curated user documentation
-- clearer supported-preview vs future-track language
-- package smoke in clean folders
-- fewer stale version references in public docs
+System modeling produces typed TimeSeries.
+Data analysis validates, calibrates, summarizes, and explains those TimeSeries.
+```
+
+That gives the long-term workflow:
+
+```text
+schema/promote
+-> typed Table/TimeSeries
+-> system/component simulation input
+-> typed simulation output TimeSeries
+-> metrics/validation/calibration
+-> PlotSpec/report/review artifacts
+-> IDE visual inspection
+-> standalone package
+```
+
+Use [integrated language philosophy](current/philosophy.md) as the short-form
+policy source.
+
+## Active Target
+
+`v0.3-preview` focuses on syntax/dataflow unification and the first
+side-effect-policy implementation seed:
+
+```text
+- path type/helper preview planning into implementation
+- environment-dependent `exists` provenance seed
+- clearer command lowering and where-local IDE/report visibility
+- dataflow scope around typed Table/TimeSeries expressions
+- examples that connect measured data, computed metrics, and simulation outputs
 ```
 
 ## Development Tracks
@@ -81,6 +110,8 @@ T6 Uncertainty
 T7 Data-driven Modeling
 T8 Runtime Optimization / JIT / AOT
 T9 Domain / Component
+T10 Class / Domain Object
+T11 General Programming / Side Effects
 ```
 
 A future preview may include early work from any track, but the track name

@@ -49,28 +49,30 @@ Before publishing `v0.1-preview`:
 Before publishing `v0.2-preview`:
 
 ```text
-[ ] workspace package version is updated to the planned v0.2 Cargo version
-[ ] public package label is v0.2-preview
-[ ] release notes explain that language and artifact formats remain preview
-[ ] current status, maturity matrix, tracks, roadmap, and README agree on the v0.2 scope
-[ ] native IDE layout feels professional on clean desktop and smaller laptop sizes
-[ ] native IDE workspace explorer uses dense, scannable spacing
-[ ] native IDE supports opening, switching, and closing multiple files
-[ ] native IDE keeps result output from pushing variable/metadata side panels off screen
-[ ] native IDE variable panel updates after successful run
-[ ] top-level execution, args, const, function/file-import preview path is documented and tested
-[ ] imported files do not register or execute workflow roots
-[ ] imported module args and top-level `=` bindings are not imported
-[ ] unit-aware print and explicit summary CSV export have a mini official example
-[ ] data/table/TimeSeries expression-kernel scope is documented with supported examples and diagnostics
+[x] workspace package version is updated to 0.2.0-preview
+[x] public package label is v0.2-preview
+[x] release notes explain that language and artifact formats remain preview
+[x] current status, maturity matrix, tracks, roadmap, and README agree on the v0.2 scope
+[x] native IDE layout feels professional on clean desktop and smaller laptop sizes
+[x] native IDE workspace explorer uses dense, scannable spacing
+[x] native IDE supports opening, switching, and closing multiple files
+[x] native IDE keeps result output from pushing variable/metadata side panels off screen
+[x] native IDE variable panel updates after successful run
+[x] top-level execution, args, const, function/file-import preview path is documented and tested
+[x] imported files do not register or execute workflow roots
+[x] imported module args and top-level `=` bindings are not imported
+[x] unit-aware print and explicit summary CSV export have a mini official example
+[x] data/table/TimeSeries expression-kernel scope is documented with supported examples and diagnostics
 [x] first-class Summary object decision is explicitly recorded as deferred for v0.2 scope
-[ ] official examples 01-08 pass check/run smoke paths
-[ ] docs-check passes
-[ ] artifacts-check passes
-[ ] ide-check passes
-[ ] lsp-check passes
-[ ] package-smoke passes under a path with spaces and Korean characters
-[ ] release-check passes
+[x] integrated language philosophy is documented as the active short-form policy
+[x] side-effect/general programming policy is documented without claiming broad runtime support
+[x] official examples 01-09 pass check/run smoke paths through release-check/artifact paths
+[x] docs-check passes
+[x] artifacts-check passes
+[x] ide-check passes
+[x] lsp-check passes
+[x] package-smoke passes under a path with spaces and Korean characters
+[x] release-check passes
 ```
 
 ## Local Verification

@@ -5,9 +5,9 @@ It is intentionally short so agents do not need to load every planning file.
 
 ## Current Target
 
-- Current public line: `v0.1-preview`
-- Active target: `v0.2-preview` IDE and documentation hardening
-- Workspace package version: `0.1.0-preview`
+- Current public line: `v0.2-preview`
+- Active target: `v0.3-preview` syntax/dataflow unification and path-policy seed
+- Workspace package version: `0.2.0-preview`
 - EngLang is preview software. The language and artifact formats are not
   stable.
 - Public release versions describe packages. Long-term capabilities are tracked
@@ -29,16 +29,21 @@ It is intentionally short so agents do not need to load every planning file.
 The current public preview supports:
 
 - typed CSV promote
+- top-level execution, args, const, pure scalar fn, and relative file imports
+- command-style built-in workflow verbs with where/with policy
 - unit-aware TimeSeries calculation
 - statistics and integration metadata
+- unit-aware print and explicit summary CSV export
 - PlotSpec/SVG output
 - review/report artifacts
 - basic packaged execution
 - native tester IDE user workflow
+- curated user and language grammar PDFs
 
-Implementation seeds for uncertainty, data-driven modeling, LSP, JIT/AOT, and
-domain/component work may exist on `main`, but they are future tracks unless
-the current status documents explicitly promote a narrow preview scope.
+Implementation seeds for uncertainty, data-driven modeling, LSP, JIT/AOT,
+domain/component, class/domain-object, and general programming/side-effect work
+may exist on `main`, but they are future tracks unless the current status
+documents explicitly promote a narrow preview scope.
 
 ## Core Invariants
 
@@ -58,6 +63,8 @@ the current status documents explicitly promote a narrow preview scope.
   data-quality fixtures are intentionally separate.
 - Top-level side effects are disallowed for file run/build paths.
 - Public feature claims must match the feature maturity matrix.
+- General programming support must keep file/process/network effects typed,
+  explicit, and reviewable.
 
 ## Status Terms
 
