@@ -12,8 +12,6 @@ system RoomThermal {
     }
 }
 
-script main(args: Args) -> Report {
-    return report {
-        show T
-    }
+report {
+    show T
 }

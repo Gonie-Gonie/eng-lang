@@ -77,7 +77,7 @@ sensor = promote csv args.input as SensorData
 Run-time flags override defaults:
 
 ```bat
-target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main --save-artifacts --input data/sensor.csv
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng --save-artifacts --input data/sensor.csv
 ```
 
 Recorded promotion metadata:

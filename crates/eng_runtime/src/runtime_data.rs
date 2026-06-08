@@ -3377,13 +3377,11 @@ mod tests {
     fn parses_plot_options() {
         let options = parse_plot_options(
             r#"
-script main(args: Args) -> Report {
-    return report {
-        plot Q_coil over Time {
-            unit y = kW
-            type = histogram
-            title = "Coil heat rate"
-        }
+report {
+    plot Q_coil over Time {
+        unit y = kW
+        type = histogram
+        title = "Coil heat rate"
     }
 }
 "#,
@@ -3400,11 +3398,9 @@ script main(args: Args) -> Report {
     fn parses_distribution_plot_options() {
         let options = parse_plot_options(
             r#"
-script main(args: Args) -> Report {
-    return report {
-        plot distribution(Q_coil_dist) {
-            title = "Coil uncertainty"
-        }
+report {
+    plot distribution(Q_coil_dist) {
+        title = "Coil uncertainty"
     }
 }
 "#,
@@ -3419,12 +3415,10 @@ script main(args: Args) -> Report {
     fn parses_histogram_plot_options() {
         let options = parse_plot_options(
             r#"
-script main(args: Args) -> Report {
-    return report {
-        plot histogram(Q_coil) {
-            unit x = kW
-            title = "Coil heat-rate distribution"
-        }
+report {
+    plot histogram(Q_coil) {
+        unit x = kW
+        title = "Coil heat-rate distribution"
     }
 }
 "#,
@@ -3443,11 +3437,9 @@ script main(args: Args) -> Report {
     fn parses_model_plot_options() {
         let options = parse_plot_options(
             r#"
-script main(args: Args) -> Report {
-    return report {
-        plot parity(reg_eval) {
-            title = "Regression parity"
-        }
+report {
+    plot parity(reg_eval) {
+        title = "Regression parity"
     }
 }
 "#,
@@ -3461,11 +3453,9 @@ script main(args: Args) -> Report {
 
         let residual_options = parse_plot_options(
             r#"
-script main(args: Args) -> Report {
-    return report {
-        plot residuals(reg_eval) {
-            title = "Regression residuals"
-        }
+report {
+    plot residuals(reg_eval) {
+        title = "Regression residuals"
     }
 }
 "#,
@@ -3503,14 +3493,12 @@ script main(args: Args) -> Report {
     #[test]
     fn materializes_uncertainty_samples_and_histogram_plot() {
         let source = r#"
-script main(args: Args) -> Report {
-    Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)
-    Q_unc = propagate(Q_coil_dist, method=linear, scale=1.1, offset=0.2 kW)
+Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)
+Q_unc = propagate(Q_coil_dist, method=linear, scale=1.1, offset=0.2 kW)
 
-    return report {
-        plot distribution(Q_coil_dist) {
-            title = "Coil uncertainty"
-        }
+report {
+    plot distribution(Q_coil_dist) {
+        title = "Coil uncertainty"
     }
 }
 "#;
@@ -3564,9 +3552,7 @@ script main(args: Args) -> Report {
     #[test]
     fn marks_unresolved_uncertainty_source_when_materialized() {
         let source = r#"
-script main(args: Args) -> Report {
-    Q_unc = propagate(Q_missing, method=linear, samples=8)
-}
+Q_unc = propagate(Q_missing, method=linear, samples=8)
 "#;
         let report = eng_compiler::check_source("bad.eng", source, &CheckOptions::default());
         let runtime = materialize_runtime_data(&report, source);

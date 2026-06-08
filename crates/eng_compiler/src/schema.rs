@@ -170,7 +170,7 @@ pub fn analyze_schema(
                     &format!(
                         "CSV promotion path references `args.{arg_name}`, but no value is available."
                     ),
-                    Some("Provide the field with `--<name> <value>` or add a default to struct Args."),
+                    Some("Provide the field with `--<name> <value>` or add a default in `args { ... }`."),
                 ));
                 csv_promotions.push(CsvPromotion {
                     binding: binding.name.clone(),

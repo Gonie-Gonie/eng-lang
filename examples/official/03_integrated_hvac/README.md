@@ -21,13 +21,13 @@ It exercises the supported preview workflow in one file:
 Run from the repository root:
 
 ```bat
-target\debug\eng.exe run examples\official\03_integrated_hvac\main.eng --entry main
+target\debug\eng.exe run examples\official\03_integrated_hvac\main.eng
 ```
 
 From a portable package:
 
 ```bat
-eng.exe run examples\official\03_integrated_hvac\main.eng --entry main
+eng.exe run examples\official\03_integrated_hvac\main.eng
 eng-ide.exe
 ```
 

@@ -1,9 +1,9 @@
 use std::error::Error;
 use std::fmt;
 
-use crate::entry::EntryPoint;
 use crate::type_info::TypeInfoSource;
 use crate::CheckReport;
+use crate::Workflow;
 
 pub const BYTECODE_FORMAT: &str = "engbc-v1";
 pub const BYTECODE_VERSION: u32 = 1;
@@ -19,7 +19,7 @@ pub struct BytecodeProgram {
     pub typed_binding_count: usize,
     pub schema_count: usize,
     pub csv_promotion_count: usize,
-    pub entry: EntryPoint,
+    pub workflow: Workflow,
     pub objects: Vec<BytecodeObject>,
     pub instructions: Vec<BytecodeInstruction>,
 }
@@ -56,7 +56,7 @@ pub enum BytecodeObject {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BytecodeInstruction {
-    EnterEntry { kind: String, name: String },
+    EnterWorkflow { kind: String },
     LoadScalar { name: String },
     LoadTable { name: String },
     LoadTimeSeries { name: String },
@@ -77,11 +77,7 @@ impl fmt::Display for BytecodeParseError {
 
 impl Error for BytecodeParseError {}
 
-pub fn build_bytecode_program(
-    report: &CheckReport,
-    source: &str,
-    entry: &EntryPoint,
-) -> BytecodeProgram {
+pub fn build_bytecode_program(report: &CheckReport, source: &str) -> BytecodeProgram {
     let mut objects = Vec::new();
 
     for promotion in &report.semantic_program.csv_promotions {
@@ -140,9 +136,8 @@ pub fn build_bytecode_program(
     }
 
     let mut instructions = Vec::new();
-    instructions.push(BytecodeInstruction::EnterEntry {
-        kind: entry.kind.clone(),
-        name: entry.name.clone(),
+    instructions.push(BytecodeInstruction::EnterWorkflow {
+        kind: report.semantic_program.workflow.kind.clone(),
     });
     for object in &objects {
         match object {
@@ -174,7 +169,7 @@ pub fn build_bytecode_program(
         typed_binding_count: report.semantic_program.typed_bindings.len(),
         schema_count: report.semantic_program.schemas.len(),
         csv_promotion_count: report.semantic_program.csv_promotions.len(),
-        entry: entry.clone(),
+        workflow: report.semantic_program.workflow.clone(),
         objects,
         instructions,
     }
@@ -215,18 +210,17 @@ pub fn encode_bytecode(program: &BytecodeProgram) -> String {
         program.csv_promotion_count
     ));
     bytecode.push_str(&format!(
-        "entry = {} {}\n",
-        field_escape(&program.entry.kind),
-        field_escape(&program.entry.name)
+        "workflow = {}\n",
+        field_escape(&program.workflow.kind)
     ));
     bytecode.push_str(&format!(
-        "entry_args = {}:{}\n",
-        field_escape(program.entry.arg_name.as_deref().unwrap_or("args")),
-        field_escape(program.entry.arg_type.as_deref().unwrap_or("Args"))
+        "workflow_args = {}:{}\n",
+        field_escape(program.workflow.arg_name.as_deref().unwrap_or("args")),
+        field_escape(program.workflow.arg_type.as_deref().unwrap_or("Args"))
     ));
     bytecode.push_str(&format!(
-        "entry_return = {}\n",
-        field_escape(program.entry.return_type.as_deref().unwrap_or("Report"))
+        "workflow_return = {}\n",
+        field_escape(program.workflow.return_type.as_deref().unwrap_or("Report"))
     ));
 
     bytecode.push_str("objects:\n");
@@ -262,11 +256,10 @@ pub fn parse_bytecode(source: &str) -> Result<BytecodeProgram, BytecodeParseErro
     let mut typed_binding_count = 0usize;
     let mut schema_count = 0usize;
     let mut csv_promotion_count = 0usize;
-    let mut entry_kind = String::new();
-    let mut entry_name = String::new();
-    let mut entry_arg_name = None;
-    let mut entry_arg_type = None;
-    let mut entry_return = None;
+    let mut workflow_kind = String::new();
+    let mut workflow_arg_name = None;
+    let mut workflow_arg_type = None;
+    let mut workflow_return = None;
     let mut objects = Vec::new();
     let mut instructions = Vec::new();
     let mut section = Section::Header;
@@ -305,22 +298,15 @@ pub fn parse_bytecode(source: &str) -> Result<BytecodeProgram, BytecodeParseErro
                     "typed_bindings" => typed_binding_count = parse_usize(value, key)?,
                     "schemas" => schema_count = parse_usize(value, key)?,
                     "csv_promotions" => csv_promotion_count = parse_usize(value, key)?,
-                    "entry" => {
-                        let parts = value.split_whitespace().collect::<Vec<_>>();
-                        if parts.len() != 2 {
-                            return Err(parse_error("entry header must be `<kind> <name>`"));
-                        }
-                        entry_kind = field_unescape(parts[0]);
-                        entry_name = field_unescape(parts[1]);
-                    }
-                    "entry_args" => {
+                    "workflow" => workflow_kind = field_unescape(value),
+                    "workflow_args" => {
                         let (name, arg_type) = value
                             .split_once(':')
-                            .ok_or_else(|| parse_error("entry_args must be `<name>:<type>`"))?;
-                        entry_arg_name = Some(field_unescape(name));
-                        entry_arg_type = Some(field_unescape(arg_type));
+                            .ok_or_else(|| parse_error("workflow_args must be `<name>:<type>`"))?;
+                        workflow_arg_name = Some(field_unescape(name));
+                        workflow_arg_type = Some(field_unescape(arg_type));
                     }
-                    "entry_return" => entry_return = Some(field_unescape(value)),
+                    "workflow_return" => workflow_return = Some(field_unescape(value)),
                     _ => {}
                 }
             }
@@ -329,8 +315,8 @@ pub fn parse_bytecode(source: &str) -> Result<BytecodeProgram, BytecodeParseErro
         }
     }
 
-    if entry_kind.is_empty() || entry_name.is_empty() {
-        return Err(parse_error("bytecode is missing entry metadata"));
+    if workflow_kind.is_empty() {
+        return Err(parse_error("bytecode is missing workflow metadata"));
     }
 
     Ok(BytecodeProgram {
@@ -343,12 +329,11 @@ pub fn parse_bytecode(source: &str) -> Result<BytecodeProgram, BytecodeParseErro
         typed_binding_count,
         schema_count,
         csv_promotion_count,
-        entry: EntryPoint {
-            kind: entry_kind,
-            name: entry_name,
-            arg_name: entry_arg_name,
-            arg_type: entry_arg_type,
-            return_type: entry_return,
+        workflow: Workflow {
+            kind: workflow_kind,
+            arg_name: workflow_arg_name,
+            arg_type: workflow_arg_type,
+            return_type: workflow_return,
             line: 1,
         },
         objects,
@@ -454,11 +439,9 @@ fn parse_object(line: &str) -> Result<BytecodeObject, BytecodeParseError> {
 
 fn encode_instruction(index: usize, instruction: &BytecodeInstruction) -> String {
     match instruction {
-        BytecodeInstruction::EnterEntry { kind, name } => format!(
-            "{index:04}|enter_entry|{}|{}",
-            field_escape(kind),
-            field_escape(name)
-        ),
+        BytecodeInstruction::EnterWorkflow { kind } => {
+            format!("{index:04}|enter_workflow|{}", field_escape(kind))
+        }
         BytecodeInstruction::LoadScalar { name } => {
             format!("{index:04}|load_scalar|{}", field_escape(name))
         }
@@ -480,9 +463,8 @@ fn encode_instruction(index: usize, instruction: &BytecodeInstruction) -> String
 fn parse_instruction(line: &str) -> Result<BytecodeInstruction, BytecodeParseError> {
     let parts = line.split('|').collect::<Vec<_>>();
     match parts.as_slice() {
-        [_index, "enter_entry", kind, name] => Ok(BytecodeInstruction::EnterEntry {
+        [_index, "enter_workflow", kind] => Ok(BytecodeInstruction::EnterWorkflow {
             kind: field_unescape(kind),
-            name: field_unescape(name),
         }),
         [_index, "load_scalar", name] => Ok(BytecodeInstruction::LoadScalar {
             name: field_unescape(name),

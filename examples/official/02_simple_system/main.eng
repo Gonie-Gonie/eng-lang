@@ -12,12 +12,10 @@ system RoomThermal {
     }
 }
 
-struct Args {
+args {
     case_name: String = "room_baseline"
 }
 
-script main(args: Args) -> Report {
-    return report {
-        show T
-    }
+report {
+    show T
 }

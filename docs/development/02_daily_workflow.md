@@ -74,7 +74,6 @@ examples/05_error_messages/heat_rate_sum.eng
 examples/05_error_messages/missing_csv_column.eng
 examples/05_error_messages/eq_boolean.eng
 examples/05_error_messages/equation_unit_mismatch.eng
-examples/05_error_messages/missing_entry.eng
 ```
 
 Public behavior should have an example, a smoke test, or both.

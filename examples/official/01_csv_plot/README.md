@@ -20,12 +20,12 @@ This is the primary data/report preview example. It covers:
 Run from the repository root:
 
 ```bat
-target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main
-target\debug\eng.exe run examples\official\01_csv_plot\histogram.eng --entry main
-target\debug\eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng
+target\debug\eng.exe run examples\official\01_csv_plot\histogram.eng
+target\debug\eng.exe build examples\official\01_csv_plot\main.eng --standalone --profile repro
 dist\main-standalone\run.bat --help
 ```
 
-`struct Args` drives standalone help, and extra `run.bat --<field> <value>`
-flags are forwarded to `eng.exe run` so Args values are recorded in generated
+`args { ... }` drives standalone help, and extra `run.bat --<field> <value>`
+flags are forwarded to `eng.exe run` so args values are recorded in generated
 artifacts.

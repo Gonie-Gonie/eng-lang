@@ -72,7 +72,7 @@ pub struct StructDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct StructFieldDecl {
+pub struct ArgsFieldDecl {
     pub name: String,
     pub type_name: String,
     pub default_value: Option<String>,
@@ -239,7 +239,7 @@ pub enum AstItem {
     Const(ConstDecl),
     Return(ReturnDecl),
     Struct(StructDecl),
-    StructField(StructFieldDecl),
+    ArgsField(ArgsFieldDecl),
     System(SystemDecl),
     Domain(DomainDecl),
     DomainVariable(DomainVariableDecl),

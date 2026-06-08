@@ -7,9 +7,9 @@ solver boundary, and a fixed-step ODE preview for the official one-state
 thermal system:
 
 ```text
-.eng source
+  .eng source
   -> compiler check
-  -> entry selection
+  -> top-level workflow metadata
   -> .engbc bytecode v1
   -> native VM seed
   -> result.engres v1
@@ -23,21 +23,11 @@ builds bytecode, decodes it, executes the instruction stream, and returns the
 result from the VM execution record. `--save-artifacts` writes the bytecode and
 result objects to disk.
 
-## Entry Selection
+## Workflow Execution
 
-File run/build uses this rule:
-
-```text
-1. `--entry <name>` wins.
-2. `script main(args: Args) -> Report` is the default when present.
-3. Otherwise, files without script entries run as `top-level main`.
-4. A single non-main script entry may run, but `check` emits W-ENTRY-MAIN-001.
-5. Multiple script entries without a default main require `--entry`.
-```
-
-`eng check` records the same entry metadata. Declaration-only files without
-script entries still receive a top-level entry, though they may have no runtime
-objects.
+File run/build always uses the source file's top-level workflow. Root
+`args { ... }` metadata supplies CLI-bindable argument fields. `script` blocks
+are rejected by the compiler and are not part of the execution model.
 
 ## Bytecode v1
 
@@ -56,9 +46,9 @@ ast_items = ...
 typed_bindings = ...
 schemas = ...
 csv_promotions = ...
-entry = top_level main
-entry_args = args:Args
-entry_return = Report
+workflow = top_level
+workflow_args = args:Args
+workflow_return = Report
 args_schema = root args metadata, when declared
 ```
 
@@ -74,7 +64,7 @@ array|<binding>|<element_type>|<len>|<line>
 Instruction records:
 
 ```text
-0000|enter_entry|top_level|main
+0000|enter_workflow|top_level
 0001|load_table|sensor
 0002|load_scalar|cp
 0003|load_timeseries|Q_coil
@@ -84,7 +74,7 @@ Instruction records:
 Current opcodes:
 
 ```text
-enter_entry
+enter_workflow
 load_scalar
 load_table
 load_timeseries
@@ -114,7 +104,7 @@ TimeSeries objects carry axis, quantity, and display-unit metadata.
 format = engres-v1
 result_format_version = 1
 bytecode_version = 1
-entry metadata
+workflow metadata
 object_store summary
 typed_payload
 provenance
@@ -185,7 +175,7 @@ TimeSeries axis/statistics/integration compiler test
 HeatRate sum lint smoke
 PlotSpec JSON/SVG smoke
 plot manifest smoke
-entry not found run smoke
+top-level workflow run smoke
 official example run smoke
 simple system run smoke
 unit-aware print and explicit summary CSV export runtime test

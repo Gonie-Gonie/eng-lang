@@ -10,8 +10,8 @@ Current preview scope:
 - fast `=`
 - no `:=`
 - dimensionless diagnostics
-- top-level file execution and compatibility `script main(args)`
-- root `args { ... }` plus compatibility `struct Args`
+- top-level file execution as the default workflow
+- root `args { ... }` as the only args declaration syntax
 - importable top-level `const`
 - pure scalar `fn` definitions with function-local bindings
 - relative file imports for importable declarations
@@ -38,7 +38,7 @@ Current preview scope:
 - CSV import
 - DateTime index metadata
 - missing policy seed
-- typed Args primitives and path defaults
+- typed `args { ... }` primitives and path defaults
 ```
 
 Deferred:

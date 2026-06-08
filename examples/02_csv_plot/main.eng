@@ -18,16 +18,14 @@ schema SensorData {
     }
 }
 
-script main(args: Args) -> Report {
-    sensor = promote csv "data/sensor.csv" as SensorData
-    cp = 4180 J/kg/K
-    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
-    E_coil = integrate(Q_coil, over=Time)
+sensor = promote csv "data/sensor.csv" as SensorData
+cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+E_coil = integrate(Q_coil, over=Time)
 
-    return report {
-        summarize Q_coil by [mean, max, p95]
-        show E_coil
-        plot Q_coil over Time
-    }
+report {
+    summarize Q_coil by [mean, max, p95]
+    show E_coil
+    plot Q_coil over Time
 }
 

@@ -153,7 +153,7 @@ commands.
 Build a runnable model bundle:
 
 ```bat
-target\debug\eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
+target\debug\eng.exe build examples\official\01_csv_plot\main.eng --standalone --profile repro
 dist\main-standalone\run.bat
 ```
 

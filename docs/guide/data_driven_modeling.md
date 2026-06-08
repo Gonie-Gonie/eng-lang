@@ -9,17 +9,15 @@ production ML framework yet.
 Use fast bindings after a data-derived `TimeSeries` such as `Q_coil`:
 
 ```eng
-script main(args: Args) -> Report {
-    cp = 4180 J/kg/K
-    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
-    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)
-    reg_model = regression(split, algorithm=linear)
-    mlp_model = mlp(split, hidden=[4], epochs=80, seed=7)
-    reg_eval = evaluate(reg_model, split=split)
-    mlp_eval = evaluate(mlp_model, split=split)
-    reg_card = model_card(reg_model)
-    leakage = leakage_lint(split)
-}
+cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)
+reg_model = regression(split, algorithm=linear)
+mlp_model = mlp(split, hidden=[4], epochs=80, seed=7)
+reg_eval = evaluate(reg_model, split=split)
+mlp_eval = evaluate(mlp_model, split=split)
+reg_card = model_card(reg_model)
+leakage = leakage_lint(split)
 ```
 
 The compiler records these semantic types:
@@ -112,7 +110,7 @@ persistence.
 Request a parity plot:
 
 ```eng
-return report {
+report {
     plot parity(reg_eval) {
         title = "Regression parity"
     }
@@ -122,7 +120,7 @@ return report {
 Request a residual plot:
 
 ```eng
-return report {
+report {
     plot residuals(reg_eval) {
         title = "Regression residuals"
     }
@@ -167,7 +165,7 @@ typed_payload.ml
 Run:
 
 ```bat
-.\target\debug\eng.exe run examples\official\05_data_driven_modeling\main.eng --entry main --save-artifacts
+.\target\debug\eng.exe run examples\official\05_data_driven_modeling\main.eng --save-artifacts
 ```
 
 or open this file in the native IDE:
@@ -180,7 +178,7 @@ The main example renders the parity scatter plot. The residual bar plot path is
 available as:
 
 ```bat
-.\target\debug\eng.exe run examples\official\05_data_driven_modeling\residuals.eng --entry main --save-artifacts
+.\target\debug\eng.exe run examples\official\05_data_driven_modeling\residuals.eng --save-artifacts
 ```
 
 or in the native IDE:

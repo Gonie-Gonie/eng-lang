@@ -44,11 +44,11 @@ the current public preview workflow, but it is not yet a stable contract.
 - Unit and quantity checking for supported arithmetic and official examples.
 - Dimensionless plus physical quantity diagnostics.
 - Ambiguous quantity warnings for unit-only declarations such as `power = 10 kW`.
-- Top-level execution for files without `script main`, root `args { ... }`
+- Top-level execution as the default root workflow, root `args { ... }`
   blocks, importable top-level `const`, pure scalar `fn` definitions with
   typed parameters and function-local bindings, checked return dimensions,
   relative file imports for importable declarations, and no imported
-  entry-point or executable-body side effects.
+  executable-body side effects.
 - Typed CSV promote for the official typed schema import path.
 - DateTime-indexed table metadata and row-level CSV runtime pages.
 - TimeSeries statistics on the official HeatRate path, including mean,

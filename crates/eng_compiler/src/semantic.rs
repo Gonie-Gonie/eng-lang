@@ -1,9 +1,8 @@
 use crate::ast::{
-    AstItem, ConnectDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl, DomainTypeParameterDecl,
-    DomainVariableDecl, ExplicitDecl, FastBinding, FunctionDecl, FunctionParamDecl, ImportDecl,
-    PortDecl, PrintDecl, ReturnDecl, StructFieldDecl, SystemVariableDecl,
+    ArgsFieldDecl, AstItem, ConnectDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl,
+    DomainTypeParameterDecl, DomainVariableDecl, ExplicitDecl, FastBinding, FunctionDecl,
+    FunctionParamDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl, SystemVariableDecl,
 };
-use crate::entry::EntryPoint;
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
 use crate::ml::MlInfo;
@@ -17,6 +16,7 @@ use crate::stats::{AxisInfo, IntegrationInfo, StatsInfo};
 use crate::type_info::{TypeInfo, TypeInfoSource};
 use crate::uncertainty::UncertaintyInfo;
 use crate::units::{unit_derivation, UnitDerivation};
+use crate::workflow::Workflow;
 use crate::{Diagnostic, InferredDeclaration};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -257,7 +257,7 @@ pub struct ArgValueInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ArgsStructInfo {
+pub struct ArgsBlockInfo {
     pub name: String,
     pub fields: Vec<ArgsFieldInfo>,
     pub line: usize,
@@ -326,7 +326,7 @@ pub struct SemanticProgram {
     pub unit_derivations: Vec<UnitDerivation>,
     pub schemas: Vec<SchemaInfo>,
     pub csv_promotions: Vec<CsvPromotion>,
-    pub entry_points: Vec<EntryPoint>,
+    pub workflow: Workflow,
     pub axis_infos: Vec<AxisInfo>,
     pub stats_infos: Vec<StatsInfo>,
     pub integrations: Vec<IntegrationInfo>,
@@ -336,7 +336,7 @@ pub struct SemanticProgram {
     pub domains: Vec<DomainInfo>,
     pub components: Vec<ComponentInfo>,
     pub connections: Vec<ConnectionInfo>,
-    pub args_structs: Vec<ArgsStructInfo>,
+    pub args_blocks: Vec<ArgsBlockInfo>,
     pub arg_values: Vec<ArgValueInfo>,
     pub prints: Vec<PrintInfo>,
     pub csv_exports: Vec<CsvExportInfo>,
@@ -362,7 +362,6 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut hover_hints = Vec::new();
     let mut type_infos = Vec::new();
     let mut unit_derivations = Vec::new();
-    let mut entry_points = Vec::new();
     let mut stats_infos = Vec::new();
     let mut integrations = Vec::new();
     let mut uncertainty_infos = Vec::new();
@@ -374,8 +373,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut components = Vec::new();
     let mut current_component_index = None;
     let mut raw_connections = Vec::new();
-    let mut args_structs = Vec::new();
-    let mut current_args_struct_index = None;
+    let mut args_blocks = Vec::new();
+    let mut current_args_block_index = None;
     let mut prints = Vec::new();
     let mut csv_exports = Vec::new();
     let mut current_csv_export_index = None;
@@ -497,24 +496,25 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             }
             AstItem::Connect(connect) => raw_connections.push(connect.clone()),
             AstItem::Struct(struct_decl) => {
-                args_structs.push(ArgsStructInfo {
-                    name: struct_decl.name.clone(),
-                    fields: Vec::new(),
-                    line: struct_decl.span.line,
-                });
-                current_args_struct_index = Some(args_structs.len() - 1);
+                current_args_block_index = None;
+                diagnostics.push(Diagnostic::error(
+                    "E-STRUCT-ARGS-001",
+                    struct_decl.span.line,
+                    "`struct Args` is no longer supported for execution arguments.",
+                    Some("Use `args { ... }` as the only root argument declaration syntax."),
+                ));
             }
             AstItem::Args(args_decl) => {
-                args_structs.push(ArgsStructInfo {
+                args_blocks.push(ArgsBlockInfo {
                     name: args_decl.name.clone(),
                     fields: Vec::new(),
                     line: args_decl.span.line,
                 });
-                current_args_struct_index = Some(args_structs.len() - 1);
+                current_args_block_index = Some(args_blocks.len() - 1);
             }
-            AstItem::StructField(field) => {
-                if let Some(args_struct_index) = current_args_struct_index {
-                    analyze_struct_field(field, &mut args_structs[args_struct_index]);
+            AstItem::ArgsField(field) => {
+                if let Some(args_block_index) = current_args_block_index {
+                    analyze_args_field(field, &mut args_blocks[args_block_index]);
                 }
             }
             AstItem::SystemVariable(variable) => {
@@ -536,15 +536,12 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 }
             }
             AstItem::Script(script) => {
-                entry_points.push(EntryPoint::from_script(script));
-                if script.name != "main" {
-                    diagnostics.push(Diagnostic::warning(
-                        "W-ENTRY-MAIN-001",
-                        script.span.line,
-                        "Preview execution expects `script main(args: Args) -> Report`.",
-                        Some("Rename this entry to `main` or run with `--entry <name>`."),
-                    ));
-                }
+                diagnostics.push(Diagnostic::error(
+                    "E-SCRIPT-001",
+                    script.span.line,
+                    "`script` blocks are no longer supported as execution roots.",
+                    Some("Move the body to top-level statements and use `args { ... }` for CLI arguments."),
+                ));
             }
             AstItem::ExplicitDecl(declaration) => {
                 if declaration.context != ParseContext::Function {
@@ -655,10 +652,6 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         &raw_connections,
         &mut diagnostics,
     );
-    if entry_points.is_empty() {
-        entry_points.push(EntryPoint::top_level(top_level_entry_line(program)));
-    }
-
     SemanticOutput {
         diagnostics,
         inferred_declarations,
@@ -674,7 +667,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             unit_derivations,
             schemas: Vec::new(),
             csv_promotions: Vec::new(),
-            entry_points,
+            workflow: Workflow::top_level(top_level_workflow_line(program)),
             stats_infos,
             integrations,
             uncertainty_infos,
@@ -683,7 +676,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             domains,
             components,
             connections,
-            args_structs,
+            args_blocks,
             arg_values: Vec::new(),
             prints,
             csv_exports,
@@ -705,7 +698,7 @@ fn analyze_import_decl(import: &ImportDecl) -> ImportInfo {
     }
 }
 
-fn top_level_entry_line(program: &ParsedProgram) -> usize {
+fn top_level_workflow_line(program: &ParsedProgram) -> usize {
     program
         .items
         .iter()
@@ -1435,8 +1428,8 @@ fn export_field_name(expression: &str) -> String {
         .to_owned()
 }
 
-fn analyze_struct_field(field: &StructFieldDecl, args_struct: &mut ArgsStructInfo) {
-    args_struct.fields.push(ArgsFieldInfo {
+fn analyze_args_field(field: &ArgsFieldDecl, args_block: &mut ArgsBlockInfo) {
+    args_block.fields.push(ArgsFieldInfo {
         name: field.name.clone(),
         type_name: field.type_name.clone(),
         default_value: field.default_value.clone(),

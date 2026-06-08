@@ -1,11 +1,11 @@
 use std::error::Error;
 use std::fmt;
 
-use eng_compiler::{BytecodeInstruction, BytecodeObject, BytecodeProgram, EntryPoint};
+use eng_compiler::{BytecodeInstruction, BytecodeObject, BytecodeProgram, Workflow};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VmExecution {
-    pub entry: EntryPoint,
+    pub workflow: Workflow,
     pub result_format: String,
     pub objects: Vec<VmObject>,
     pub steps: Vec<String>,
@@ -81,8 +81,8 @@ pub fn execute_bytecode(program: &BytecodeProgram) -> Result<VmExecution, VmErro
 
     for instruction in &program.instructions {
         match instruction {
-            BytecodeInstruction::EnterEntry { kind, name } => {
-                steps.push(format!("enter {kind} {name}"));
+            BytecodeInstruction::EnterWorkflow { kind } => {
+                steps.push(format!("enter {kind} workflow"));
             }
             BytecodeInstruction::LoadScalar { name } => {
                 let object = find_object(program, name)?;
@@ -183,7 +183,7 @@ pub fn execute_bytecode(program: &BytecodeProgram) -> Result<VmExecution, VmErro
         result_format.ok_or_else(|| vm_error("bytecode did not contain a result write"))?;
 
     Ok(VmExecution {
-        entry: program.entry.clone(),
+        workflow: program.workflow.clone(),
         result_format,
         objects,
         steps,
@@ -223,30 +223,26 @@ fn vm_error(message: &str) -> VmError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eng_compiler::{
-        build_bytecode_program, check_source, select_entry, BytecodeInstruction, CheckOptions,
-    };
+    use eng_compiler::{build_bytecode_program, check_source, BytecodeInstruction, CheckOptions};
 
     #[test]
     fn executes_scalar_bytecode() {
-        let source = "script main(args: Args) -> Report {\n    L = 1 m\n}\n";
+        let source = "L = 1 m\n";
         let report = check_source("ok.eng", source, &CheckOptions::default());
-        let entry = select_entry(&report.semantic_program.entry_points, None).unwrap();
-        let program = build_bytecode_program(&report, source, &entry);
+        let program = build_bytecode_program(&report, source);
 
         let execution = execute_bytecode(&program).unwrap();
 
-        assert_eq!(execution.entry.name, "main");
+        assert_eq!(execution.workflow.kind, "top_level");
         assert_eq!(execution.result_format, "engres-v1");
         assert_eq!(execution.scalar_count(), 1);
     }
 
     #[test]
     fn executes_timeseries_bytecode() {
-        let source = "script main(args: Args) -> Report {\n    sensor = promote csv \"data/sensor.csv\" as SensorData\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n}\n";
+        let source = "sensor = promote csv \"data/sensor.csv\" as SensorData\ncp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n";
         let report = check_source("ok.eng", source, &CheckOptions::default());
-        let entry = select_entry(&report.semantic_program.entry_points, None).unwrap();
-        let program = build_bytecode_program(&report, source, &entry);
+        let program = build_bytecode_program(&report, source);
 
         let execution = execute_bytecode(&program).unwrap();
         let timeseries = execution
@@ -271,9 +267,8 @@ mod tests {
             typed_binding_count: 1,
             schema_count: 0,
             csv_promotion_count: 0,
-            entry: EntryPoint {
-                kind: "script".to_owned(),
-                name: "main".to_owned(),
+            workflow: Workflow {
+                kind: "top_level".to_owned(),
                 arg_name: Some("args".to_owned()),
                 arg_type: Some("Args".to_owned()),
                 return_type: Some("Report".to_owned()),
@@ -286,9 +281,8 @@ mod tests {
                 line: 2,
             }],
             instructions: vec![
-                BytecodeInstruction::EnterEntry {
-                    kind: "script".to_owned(),
-                    name: "main".to_owned(),
+                BytecodeInstruction::EnterWorkflow {
+                    kind: "top_level".to_owned(),
                 },
                 BytecodeInstruction::LoadArray {
                     name: "samples".to_owned(),

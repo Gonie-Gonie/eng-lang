@@ -102,7 +102,7 @@ Current responsibilities:
 ```text
 lexer/parser
 source spans
-script entry metadata
+top-level workflow metadata
 fast `=` declarations
 no `:=` diagnostic
 dimensionless diagnostics
@@ -113,7 +113,7 @@ system/equation/residual metadata
 HeatRate sum lint
 physical equation == diagnostic
 equation unit consistency diagnostic
-entry selection data
+workflow metadata
 bytecode v1 encode/decode
 review.json serialization
 review_schema_version and table sections
@@ -160,7 +160,7 @@ dist/<model>-standalone/<model>.lock
 Current runtime responsibilities:
 
 ```text
-entry-required file run/build policy
+top-level workflow file run/build policy
 bytecode decode
 VM instruction execution
 object store

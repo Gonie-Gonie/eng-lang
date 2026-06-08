@@ -41,7 +41,7 @@ Rules:
   `domain`, and `component` declarations in this preview.
 - Imported module `args` blocks and top-level `name = expr` executable locals
   are not imported.
-- Imported scripts are not registered as entry points and are not executed.
+- Imported `script` blocks are not executable roots and are not executed.
 - Dynamic import paths are rejected; imports must be static strings.
 - Import cycles and unreadable paths are compile diagnostics.
 - Source files should be UTF-8 encoded.

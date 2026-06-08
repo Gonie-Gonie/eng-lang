@@ -24,7 +24,6 @@ fn main() -> ExitCode {
         "ide-check" => command_ide_check(args),
         "jit-plan" => command_jit_plan(args),
         "jit-bench" => command_jit_bench(args),
-        "entries" => command_entries(args),
         "run" => command_run(args),
         "build" => command_build(args),
         "view" => command_view(args),
@@ -92,9 +91,7 @@ fn command_jit_plan(args: Vec<String>) -> ExitCode {
 
 fn command_jit_bench(args: Vec<String>) -> ExitCode {
     let Some(path) = first_non_flag(&args) else {
-        eprintln!(
-            "usage: eng jit-bench <file.eng> [--iterations N] [--entry <name>] [--backend <name>]"
-        );
+        eprintln!("usage: eng jit-bench <file.eng> [--iterations N] [--backend <name>]");
         return ExitCode::from(2);
     };
     let iterations = match option_value(&args, "--iterations") {
@@ -118,15 +115,13 @@ fn command_jit_bench(args: Vec<String>) -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let entry = option_value(&args, "--entry");
-    let runtime_args =
-        match parse_arg_overrides(&args, &["--iterations", "--entry", "--backend"], &[]) {
-            Ok(values) => values,
-            Err(message) => {
-                eprintln!("{message}");
-                return ExitCode::from(2);
-            }
-        };
+    let runtime_args = match parse_arg_overrides(&args, &["--iterations", "--backend"], &[]) {
+        Ok(values) => values,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
 
     let report = match check_file(
         &path,
@@ -161,7 +156,6 @@ fn command_jit_bench(args: Vec<String>) -> ExitCode {
             &RunOptions {
                 open_report: false,
                 save_artifacts: true,
-                entry: entry.clone(),
                 args: runtime_args.clone(),
             },
         ) {
@@ -308,51 +302,21 @@ fn command_check(args: Vec<String>) -> ExitCode {
     }
 }
 
-fn command_entries(args: Vec<String>) -> ExitCode {
-    let Some(path) = first_non_flag(&args) else {
-        eprintln!("usage: eng entries <file.eng>");
-        return ExitCode::from(2);
-    };
-    let report = match check_file(&path, &CheckOptions::default()) {
-        Ok(report) => report,
-        Err(error) => {
-            eprintln!("{error}");
-            return ExitCode::from(1);
-        }
-    };
-
-    if report.semantic_program.entry_points.is_empty() {
-        println!("No entry points found.");
-    } else {
-        for entry in &report.semantic_program.entry_points {
-            println!("{}:{}: {}", path, entry.line, entry.signature());
-        }
-    }
-
-    if report.has_errors() {
-        print_diagnostics(&report);
-        ExitCode::from(2)
-    } else {
-        ExitCode::SUCCESS
-    }
-}
-
 fn command_run(args: Vec<String>) -> ExitCode {
     let Some(path) = first_non_flag(&args) else {
-        eprintln!("usage: eng run <file.eng> [--entry <name>] [--open-report] [--save-artifacts]");
+        eprintln!("usage: eng run <file.eng> [--open-report] [--save-artifacts]");
         return ExitCode::from(2);
     };
     let open_report = args.iter().any(|arg| arg == "--open-report");
     let save_artifacts = open_report || args.iter().any(|arg| arg == "--save-artifacts");
-    let entry = option_value(&args, "--entry");
-    let runtime_args =
-        match parse_arg_overrides(&args, &["--entry"], &["--open-report", "--save-artifacts"]) {
-            Ok(values) => values,
-            Err(message) => {
-                eprintln!("{message}");
-                return ExitCode::from(2);
-            }
-        };
+    let runtime_args = match parse_arg_overrides(&args, &[], &["--open-report", "--save-artifacts"])
+    {
+        Ok(values) => values,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
 
     match run_file(
         Path::new(&path),
@@ -360,7 +324,6 @@ fn command_run(args: Vec<String>) -> ExitCode {
         &RunOptions {
             open_report,
             save_artifacts,
-            entry,
             args: runtime_args,
         },
     ) {
@@ -416,12 +379,10 @@ fn command_run(args: Vec<String>) -> ExitCode {
 
 fn command_build(args: Vec<String>) -> ExitCode {
     let Some(path) = first_non_flag(&args) else {
-        eprintln!("usage: eng build <file.eng> [--entry <name>] [--standalone] [--profile repro]");
+        eprintln!("usage: eng build <file.eng> [--standalone] [--profile repro]");
         return ExitCode::from(2);
     };
-    let entry = option_value(&args, "--entry");
-    let build_args = match parse_arg_overrides(&args, &["--entry", "--profile"], &["--standalone"])
-    {
+    let build_args = match parse_arg_overrides(&args, &["--profile"], &["--standalone"]) {
         Ok(values) => values,
         Err(message) => {
             eprintln!("{message}");
@@ -432,10 +393,7 @@ fn command_build(args: Vec<String>) -> ExitCode {
     match build_standalone(
         Path::new(&path),
         Path::new("dist"),
-        &BuildOptions {
-            entry,
-            args: build_args,
-        },
+        &BuildOptions { args: build_args },
     ) {
         Ok(output) => {
             println!("standalone package");
@@ -881,29 +839,6 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     println!("ok: examples/05_error_messages/invalid_ml_arguments.eng produced diagnostics");
 
     match run_file(
-        Path::new("examples/05_error_messages/missing_entry.eng"),
-        Path::new("build/test-missing-entry"),
-        &RunOptions::default(),
-    ) {
-        Err(RuntimeError::Compile(report))
-            if report
-                .diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.code == "E-ENTRY-NOT-FOUND-001") =>
-        {
-            println!("ok: examples/05_error_messages/missing_entry.eng requires an entry point");
-        }
-        Err(error) => {
-            eprintln!("expected missing_entry.eng to fail with E-ENTRY-NOT-FOUND-001: {error}");
-            return ExitCode::from(2);
-        }
-        Ok(_) => {
-            eprintln!("expected missing_entry.eng to fail");
-            return ExitCode::from(2);
-        }
-    }
-
-    match run_file(
         Path::new("examples/official/01_csv_plot/main.eng"),
         Path::new("build/test-plot"),
         &artifact_run_options(),
@@ -955,7 +890,6 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         &RunOptions {
             open_report: false,
             save_artifacts: true,
-            entry: Some("main".to_owned()),
             args: vec![ArgOverride {
                 name: "input".to_owned(),
                 value: "data/sensor.csv".to_owned(),
@@ -982,7 +916,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     }
     let typed_args_report = check_source(
         "typed_args.eng",
-        "struct Args {\n    enabled: Bool = false\n    count: Count = 3\n    gain: Float = 1.0\n    window: Duration = 5 min\n}\n\nscript main(args: Args) -> Report {\n    L = 1 m\n}\n",
+        "args {\n    enabled: Bool = false\n    count: Count = 3\n    gain: Float = 1.0\n    window: Duration = 5 min\n}\n\nL = 1 m\n",
         &CheckOptions {
             args: vec![
                 ArgOverride {
@@ -1024,7 +958,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
 
     let invalid_typed_args_report = check_source(
         "invalid_typed_args.eng",
-        "struct Args {\n    enabled: Bool = maybe\n}\n\nscript main(args: Args) -> Report {\n    L = 1 m\n}\n",
+        "args {\n    enabled: Bool = maybe\n}\n\nL = 1 m\n",
         &CheckOptions::default(),
     );
     if !invalid_typed_args_report
@@ -1067,7 +1001,6 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         &RunOptions {
             open_report: false,
             save_artifacts: true,
-            entry: Some("main".to_owned()),
             args: Vec::new(),
         },
     ) {
@@ -1098,7 +1031,6 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         &RunOptions {
             open_report: false,
             save_artifacts: true,
-            entry: Some("main".to_owned()),
             args: Vec::new(),
         },
     ) {
@@ -1138,7 +1070,6 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         &RunOptions {
             open_report: false,
             save_artifacts: true,
-            entry: Some("main".to_owned()),
             args: Vec::new(),
         },
     ) {
@@ -1178,7 +1109,6 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         &RunOptions {
             open_report: false,
             save_artifacts: true,
-            entry: Some("main".to_owned()),
             args: Vec::new(),
         },
     ) {
@@ -1247,12 +1177,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     }
     let path_smoke_source = path_smoke_root.join("main.eng");
     let path_smoke_build = path_smoke_root.join("build output");
-    let source = r#"script main(args: Args) -> Report {
-    L = 1 m + 20 cm
+    let source = r#"L = 1 m + 20 cm
 
-    return report {
-        show L
-    }
+report {
+    show L
 }
 "#;
     if let Err(error) = std::fs::write(&path_smoke_source, source) {
@@ -1283,10 +1211,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     match build_standalone(
         Path::new("examples/official/01_csv_plot/main.eng"),
         Path::new("build/test-standalone"),
-        &BuildOptions {
-            entry: Some("main".to_owned()),
-            args: Vec::new(),
-        },
+        &BuildOptions { args: Vec::new() },
     ) {
         Ok(output) => {
             let package_text = std::fs::read_to_string(&output.package_path).unwrap_or_default();
@@ -1554,7 +1479,7 @@ fn first_non_flag(args: &[String]) -> Option<String> {
             skip_next = false;
             continue;
         }
-        if matches!(arg.as_str(), "--entry" | "--profile") {
+        if arg == "--profile" {
             skip_next = true;
             continue;
         }
@@ -1678,10 +1603,9 @@ Usage:
   eng check <file.eng> [--review]
   eng ide-check <file.eng>
   eng jit-plan <file.eng>
-  eng jit-bench <file.eng> [--iterations N] [--entry <name>] [--<arg> <value>...]
-  eng entries <file.eng>
-  eng run <file.eng> [--entry <name>] [--open-report] [--save-artifacts] [--<arg> <value>...]
-  eng build <file.eng> [--entry <name>] [--standalone] [--profile repro]
+  eng jit-bench <file.eng> [--iterations N] [--<arg> <value>...]
+  eng run <file.eng> [--open-report] [--save-artifacts] [--<arg> <value>...]
+  eng build <file.eng> [--standalone] [--profile repro]
   eng view <result.engres>
   eng test <project_or_examples>
 

@@ -43,9 +43,9 @@ ast_items = ...
 typed_bindings = ...
 schemas = ...
 csv_promotions = ...
-entry = script main
-entry_args = args:Args
-entry_return = Report
+workflow = top_level
+workflow_args = args:Args
+workflow_return = Report
 ```
 
 Current v0.4 sections:
@@ -58,7 +58,7 @@ timeseries|Q_coil|Time|HeatRate|W|11
 scalar|E_coil|Energy|J|12
 
 instructions:
-0000|enter_entry|script|main
+0000|enter_workflow|top_level
 0001|load_table|sensor
 0002|load_scalar|cp
 0003|load_timeseries|Q_coil
@@ -67,8 +67,8 @@ instructions:
 ```
 
 The format is intentionally text for early review and snapshot testing. It can move to a compact binary encoding after the contract is stable.
-`entry` can be `script main` for compatibility scripts or `top_level main`
-for files that run directly without a script wrapper.
+`workflow = top_level` means the source file runs directly from top-level
+statements. `script` blocks are rejected and are not represented in bytecode.
 
 ## Explicit CSV Exports
 
@@ -104,9 +104,8 @@ Current result fields:
   "source_hash": "...",
   "bytecode_hash": "...",
   "numeric_profile": "preview-f64",
-  "entry": {
-    "kind": "script",
-    "name": "main",
+  "workflow": {
+    "kind": "top_level",
     "arg_name": "args",
     "arg_type": "Args",
     "return_type": "Report"
@@ -237,7 +236,7 @@ diagnostics
 variable_table
 warning_list
 plot_manifest
-entry_points
+workflow
 args_summary
 arg_values
 inferred_declarations
@@ -370,7 +369,7 @@ Current sections include:
 
 ```text
 summary metrics
-entry points
+workflow metadata
 Args metadata
 inferred declarations
 hover hints
@@ -459,8 +458,7 @@ source = source/<file.eng>
 bytecode = <model>.engbc
 source_hash = ...
 bytecode_hash = ...
-entry_name = main
-entry = script main(args: Args) -> Report
+workflow = top-level workflow(args: Args) -> Report
 args_schema = Args
 args_field_count = 1
 args_help = ARGS_HELP.txt
@@ -483,15 +481,14 @@ plot_spec_version = 1
 profile = repro
 source_hash = ...
 bytecode_hash = ...
-entry_name = main
+workflow = top-level workflow(args: Args) -> Report
 dependency_count = 1
 dependency_hashes = source/data/sensor.csv:<hash>
 ```
 
 `run.bat --help` prints `ARGS_HELP.txt`, which is generated from root
-`args { ... }` metadata when available. Compatibility `struct Args` metadata is
-also accepted. Extra `run.bat --<field> <value>` flags are forwarded to
-`eng.exe run`, where they are bound to root args fields.
+`args { ... }` metadata when available. Extra `run.bat --<field> <value>` flags
+are forwarded to `eng.exe run`, where they are bound to root args fields.
 
 `run.bat` executes the bundled `eng.exe` and writes normal run artifacts under
 `<model>-standalone/build/result`. This is a packaged runner, not an optimized

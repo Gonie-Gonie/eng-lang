@@ -1,7 +1,7 @@
 # Standalone Package Reference
 
 This page defines the current preview packaged-runner contract for
-`eng.exe build <file.eng> --entry <name> --standalone --profile repro`.
+`eng.exe build <file.eng> --standalone --profile repro`.
 
 The supported artifact is a reproducible Windows package directory that runs
 through the bundled EngLang runtime. It is not an optimized native AOT
@@ -13,9 +13,9 @@ executable. Native `model.exe` generation is reserved for a later backend gate.
 |---|---|---|
 | Runner | `run.bat` invokes bundled `eng.exe run --save-artifacts` | Optimized native execution |
 | Runtime | Current `eng.exe` is copied into the bundle | Separate single-model runtime binary |
-| Source | Entry source is copied under `source/` | Arbitrary project tree packaging |
+| Source | Top-level workflow source is copied under `source/` | Arbitrary project tree packaging |
 | Dependencies | Relative CSV promotions are copied under `source/` | Registry packages or binary asset bundles |
-| Args | root `args { ... }` help, compatibility `struct Args`, forwarded CLI flags, path/scalar defaults, and primitive typed Args normalization | Quantity/unit-literal Args beyond primitive values |
+| Args | root `args { ... }` help, forwarded CLI flags, path/scalar defaults, and primitive typed Args normalization | Quantity/unit-literal Args beyond primitive values |
 | Reproducibility | Manifest, lock, hashes, profile metadata | Cryptographic supply-chain attestation |
 
 ## Bundle Layout
@@ -42,10 +42,10 @@ dist/
 |---|---|
 | `eng.exe` | Bundled runtime CLI used by `run.bat`. |
 | `run.bat` | Execution wrapper for target PCs. It accepts `--help` and forwards Args flags. |
-| `ARGS_HELP.txt` | Args-derived help generated from the selected entry signature. |
+| `ARGS_HELP.txt` | Args-derived help generated from the top-level workflow signature. |
 | `<model>.engpkg` | Human-readable package manifest for the packaged runner. |
 | `<model>.lock` | Reproducibility lock with runtime/compiler/artifact format versions. |
-| `<model>.engbc` | Bytecode v1 generated for the selected entry. |
+| `<model>.engbc` | Bytecode v1 generated for the top-level workflow. |
 | `<model>.review.html` | Build-time review page for the packaged source. |
 | `source/` | Packaged source root and bundled data dependencies. |
 | `build/result/` | Created by `run.bat`; contains normal run outputs. |
@@ -59,7 +59,7 @@ dist\main-standalone\run.bat --input data/sensor.csv
 ```
 
 `run.bat --help` prints `ARGS_HELP.txt`. Any extra `--<field> <value>` flags
-are forwarded to `eng.exe run source\<file.eng> --entry <name> --save-artifacts` and are recorded
+are forwarded to `eng.exe run source\<file.eng> --save-artifacts` and are recorded
 in `build/result/result.engres` under `arg_values`.
 
 Relative Args paths are interpreted from the packaged `source/` directory for
@@ -81,12 +81,11 @@ validated by `docs/schemas/engpkg.schema.json`.
 | `engine` | `eng.exe` | Runtime executable bundled beside `run.bat`. |
 | `source_root` | `source` | Root containing packaged source and data dependencies. |
 | `artifact_root` | `build/result` | Runtime output directory created by the runner. |
-| `source` | `source/main.eng` | Packaged entry source path. |
+| `source` | `source/main.eng` | Packaged source path. |
 | `bytecode` | `main.engbc` | Packaged bytecode path. |
 | `source_hash` | `<hash>` | Stable fingerprint of packaged source text. |
 | `bytecode_hash` | `<hash>` | Stable fingerprint of bytecode text. |
-| `entry_name` | `main` | Selected entry name. |
-| `entry` | `top-level main(args: Args) -> Report` | Selected entry signature. Compatibility scripts use `script main(args: Args) -> Report`. |
+| `workflow` | `top-level workflow(args: Args) -> Report` | Top-level workflow signature. |
 | `args_schema` | `Args` | Root args schema name, or `-` when absent. |
 | `args_field_count` | `1` | Number of Args fields found for help/binding. |
 | `args_help` | `ARGS_HELP.txt` | Args help artifact path. |
@@ -112,7 +111,7 @@ packaged-runner behavior.
 | `profile` | `repro` | Reproducible package profile. |
 | `source_hash` | `<hash>` | Source fingerprint at package build time. |
 | `bytecode_hash` | `<hash>` | Bytecode fingerprint at package build time. |
-| `entry_name` | `main` | Selected entry name. |
+| `workflow` | `top-level workflow(args: Args) -> Report` | Top-level workflow signature. |
 | `dependency_count` | `1` | Number of bundled data dependencies. |
 | `dependency_hashes` | `source/data/sensor.csv:<hash>` | Dependency fingerprints at package build time. |
 
@@ -138,7 +137,7 @@ claiming it now:
 1. `run.bat` remains the supported preview launcher.
 2. `engine = eng.exe` means the packaged runner depends on the general EngLang
    CLI runtime.
-3. A future `model.exe` must either embed a selected entry and runtime ABI or
+3. A future `model.exe` must either embed the top-level workflow and runtime ABI or
    act as a thin executable wrapper with equivalent `.engpkg` and `.lock`
    metadata.
 4. A future optimized AOT backend must update this reference, the package
@@ -150,7 +149,7 @@ claiming it now:
 ```bat
 .\dev.bat artifacts-check
 .\dev.bat package-smoke
-target\debug\eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
+target\debug\eng.exe build examples\official\01_csv_plot\main.eng --standalone --profile repro
 dist\main-standalone\run.bat --help
 dist\main-standalone\run.bat --input data/sensor.csv
 ```

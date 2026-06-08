@@ -5,13 +5,11 @@ schema SensorData {
     m_dot: MassFlowRate [kg/s]
 }
 
-script main(args: Args) -> Report {
-    sensor = promote csv "../02_csv_plot/data/sensor.csv" as SensorData
-    cp = 4180 J/kg/K
-    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
-    E_bad = sum(Q_coil, axis=Time)
+sensor = promote csv "../02_csv_plot/data/sensor.csv" as SensorData
+cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+E_bad = sum(Q_coil, axis=Time)
 
-    return report {
-        show E_bad
-    }
+report {
+    show E_bad
 }

@@ -115,7 +115,7 @@ target\debug\eng.exe check examples\official\06_domain_port\main.eng --review
 `--save-artifacts` for user-facing report files:
 
 ```bat
-target\debug\eng.exe run examples\official\06_domain_port\main.eng --entry main --save-artifacts
+target\debug\eng.exe run examples\official\06_domain_port\main.eng --save-artifacts
 ```
 
 The current domain/component artifact sections are:

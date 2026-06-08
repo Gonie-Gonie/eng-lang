@@ -93,7 +93,7 @@ pub fn lex_line(line_number: usize, line_start: usize, text: &str) -> Vec<Token>
     while cursor < chars.len() {
         let (byte_index, character) = chars[cursor];
 
-        if character.is_whitespace() {
+        if character.is_whitespace() || character == '\u{feff}' {
             cursor += 1;
             continue;
         }

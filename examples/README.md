@@ -62,7 +62,7 @@ regression coverage. They are intentionally not the first user-facing namespace.
 ## Diagnostic Fixtures
 
 `05_error_messages` contains examples that are expected to produce specific
-diagnostics or warnings. Use them when changing parser, semantic, unit, entry,
+diagnostics or warnings. Use them when changing parser, semantic, unit, workflow,
 equation, domain, port, or connection diagnostics.
 
 ## Data-Quality Fixtures

@@ -14,7 +14,7 @@ Expected behavior:
 
 - `use "thermal.eng"` imports `const` and `fn` declarations without importing
   executable top-level bindings.
-- the root file runs as a top-level workflow without a `script main` wrapper.
+- the root file runs directly as a top-level workflow.
 - `heat_loss` type-checks its parameter and return dimensions.
 - `UA_local` and `dT_local` are function locals, not importable symbols.
 - `Q_wall` is inferred as `HeatRate`.

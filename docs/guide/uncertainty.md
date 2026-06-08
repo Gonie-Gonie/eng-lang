@@ -7,7 +7,7 @@ JSON, HTML reports, and the plot path when a distribution plot is requested.
 
 ## Supported Forms
 
-Use fast bindings inside a `script`:
+Use fast bindings in the top-level workflow:
 
 ```eng
 T_supply_meas = measured(12 degC, std=0.2 K)
@@ -72,7 +72,7 @@ and the generated sample vector.
 Request a histogram in the report block:
 
 ```eng
-return report {
+report {
     plot distribution(Q_coil_dist) {
         title = "Coil heat-rate uncertainty"
     }
@@ -122,7 +122,7 @@ user-facing artifact review, histogram testing, and IDE inspection.
 Run:
 
 ```bat
-.\target\debug\eng.exe run examples\official\04_uncertainty_core\main.eng --entry main --save-artifacts
+.\target\debug\eng.exe run examples\official\04_uncertainty_core\main.eng --save-artifacts
 .\target\debug\eng.exe check examples\05_error_messages\invalid_uncertainty_arguments.eng --review
 ```
 

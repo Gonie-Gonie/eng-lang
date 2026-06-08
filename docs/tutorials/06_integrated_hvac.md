@@ -50,7 +50,7 @@ For a command-line smoke of the same package:
 
 ```bat
 eng-ide.exe --smoke
-eng.exe run examples\official\03_integrated_hvac\main.eng --entry main
+eng.exe run examples\official\03_integrated_hvac\main.eng
 ```
 
 ## Source Shape
@@ -62,15 +62,15 @@ schema IntegratedHvacData
   Declares DateTime index, absolute temperature columns, mass-flow rate, bounds,
   monotonic time, and missing-value policy.
 
-struct Args
+args
   Provides the default CSV path.
 
 system RoomThermalPreview
   Declares the supported one-state first-order thermal ODE shape.
 
-script main(args: Args) -> Report
+top-level executable workflow
   Promotes the CSV, computes Q_coil, integrates E_coil, summarizes statistics,
-  and returns a PlotSpec-backed report.
+  and emits a PlotSpec-backed report.
 ```
 
 ## Expected Artifacts

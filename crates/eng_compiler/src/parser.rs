@@ -1,9 +1,9 @@
 use crate::ast::{
-    ArgsDecl, AstItem, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl, ConstraintDecl,
-    CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainTypeParameterDecl, DomainVariableDecl,
-    EquationDecl, ExplicitDecl, FastBinding, FunctionDecl, FunctionParamDecl, ImportDecl,
-    MissingPolicyDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl,
-    StructFieldDecl, SummaryDecl, SystemDecl, SystemVariableDecl,
+    ArgsDecl, ArgsFieldDecl, AstItem, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl,
+    ConstraintDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainTypeParameterDecl,
+    DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FunctionDecl, FunctionParamDecl,
+    ImportDecl, MissingPolicyDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl,
+    StructDecl, SummaryDecl, SystemDecl, SystemVariableDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -57,7 +57,7 @@ pub struct SyntaxSummary {
     pub connections: usize,
     pub structs: usize,
     pub args_blocks: usize,
-    pub struct_fields: usize,
+    pub args_fields: usize,
     pub const_declarations: usize,
     pub equations: usize,
     pub fast_bindings: usize,
@@ -78,7 +78,7 @@ impl ParsedProgram {
         let mut connections = 0usize;
         let mut structs = 0usize;
         let mut args_blocks = 0usize;
-        let mut struct_fields = 0usize;
+        let mut args_fields = 0usize;
         let mut const_declarations = 0usize;
         let mut equations = 0usize;
         let mut fast_bindings = 0usize;
@@ -98,7 +98,7 @@ impl ParsedProgram {
                 AstItem::Connect(_) => connections += 1,
                 AstItem::Struct(_) => structs += 1,
                 AstItem::Args(_) => args_blocks += 1,
-                AstItem::StructField(_) => struct_fields += 1,
+                AstItem::ArgsField(_) => args_fields += 1,
                 AstItem::Const(_) => const_declarations += 1,
                 AstItem::Equation(_) => equations += 1,
                 AstItem::FastBinding(_) => fast_bindings += 1,
@@ -132,7 +132,7 @@ impl ParsedProgram {
             connections,
             structs,
             args_blocks,
-            struct_fields,
+            args_fields,
             const_declarations,
             equations,
             fast_bindings,
@@ -387,8 +387,8 @@ fn parse_line_items(
     if let Some(struct_decl) = parse_struct_decl(tokens) {
         items.push(AstItem::Struct(struct_decl));
     }
-    if let Some(field) = parse_struct_field_decl(tokens, line_text, context) {
-        items.push(AstItem::StructField(field));
+    if let Some(field) = parse_args_field_decl(tokens, line_text, context) {
+        items.push(AstItem::ArgsField(field));
     }
     if let Some(system) = parse_system_decl(tokens) {
         items.push(AstItem::System(system));
@@ -834,12 +834,12 @@ fn parse_return_decl(
     })
 }
 
-fn parse_struct_field_decl(
+fn parse_args_field_decl(
     tokens: &[Token],
     line_text: &str,
     context: ParseContext,
-) -> Option<StructFieldDecl> {
-    if !matches!(context, ParseContext::Struct | ParseContext::Args) {
+) -> Option<ArgsFieldDecl> {
+    if context != ParseContext::Args {
         return None;
     }
     let [first, second, third, ..] = tokens else {
@@ -854,7 +854,7 @@ fn parse_struct_field_decl(
         .split_once('=')
         .map(|(_, right)| right.trim().to_owned());
 
-    Some(StructFieldDecl {
+    Some(ArgsFieldDecl {
         name,
         type_name,
         default_value,

@@ -1,13 +1,11 @@
-script main(args: Args) -> Report {
-    UA: Conductance = 150 W/K
-    dT: TemperatureDelta = 5 K
-    T_room = 24 °C
-    Q_loss = UA * dT
-    L = 1 m + 20 cm + 3 mm
+UA: Conductance = 150 W/K
+dT: TemperatureDelta = 5 K
+T_room = 24 °C
+Q_loss = UA * dT
+L = 1 m + 20 cm + 3 mm
 
-    return report {
-        show T_room
-        show Q_loss
-        show L
-    }
+report {
+    show T_room
+    show Q_loss
+    show L
 }

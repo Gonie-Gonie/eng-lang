@@ -78,8 +78,8 @@ Ready.
 Or run the current official examples directly:
 
 ```bat
-target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main
-target\debug\eng.exe run examples\official\02_simple_system\main.eng --entry main --save-artifacts
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng
+target\debug\eng.exe run examples\official\02_simple_system\main.eng --save-artifacts
 ```
 
 The first command keeps artifacts in memory. Add `--save-artifacts` when you

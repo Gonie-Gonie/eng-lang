@@ -1,6 +1,6 @@
 # `eng run` Reference
 
-`eng run` executes one file entry point through bytecode and the native VM seed.
+`eng run` executes one file's top-level workflow through bytecode and the native VM seed.
 By default it keeps result, review, report, PlotSpec, SVG, and bytecode payloads
 as runtime objects and does not write files. Explicit `export ... to csv`
 statements are user-requested artifacts and write under `build\result`.
@@ -40,7 +40,7 @@ with the expression quantity.
 ## Save Artifacts
 
 ```bat
-target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main --save-artifacts
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng --save-artifacts
 ```
 
 This writes the current artifact set:
@@ -84,34 +84,6 @@ export:   build\result\summary.csv
 
 CSV headers include display units and cells contain formatted scalar values.
 
-## List Entries
-
-```bat
-target\debug\eng.exe entries examples\official\01_csv_plot\main.eng
-```
-
-Output:
-
-```text
-examples\official\01_csv_plot\main.eng:25: script main(args: Args) -> Report
-```
-
-## Select an Entry
-
-```bat
-target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main
-```
-
-Default rule:
-
-```text
-1. `--entry <name>` wins.
-2. `script main` is the default when present.
-3. Otherwise, a file without script entries runs as `top-level main`.
-4. A single non-main script entry can run.
-5. Multiple non-main script entries require `--entry`.
-```
-
 ## Open Report
 
 ```bat
@@ -123,11 +95,10 @@ This writes artifacts and attempts to open `build\result\report.html`.
 ## Args Flags
 
 `args { ... }` fields can be passed as `--<field> <value>` after the source
-path. Defaults are used when the flag is omitted. `struct Args` remains a
-compatibility spelling for older examples.
+path. Defaults are used when the flag is omitted.
 
 ```bat
-target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main --input data/sensor.csv
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng --input data/sensor.csv
 ```
 
 The official CSV example uses:
@@ -176,7 +147,7 @@ The recorded values are `enabled=true`, `count=12`, `gain=1.25`, and
 ## Simple System Example
 
 ```bat
-target\debug\eng.exe run examples\official\02_simple_system\main.eng --entry main
+target\debug\eng.exe run examples\official\02_simple_system\main.eng
 ```
 
 This produces system/equation/residual metadata, system IR, solver_plan
@@ -190,9 +161,9 @@ build\result\result.engres
 build\result\report.html
 ```
 
-## Top-Level Entry Example
+## Top-Level Workflow Example
 
-Files without `script` entries run as `top-level main`:
+Files run directly from top-level statements:
 
 ```eng
 L = 1 m
@@ -227,13 +198,13 @@ Inspect:
 ```text
 .engbc
   ENGBYTECODE 1
-  entry
+  workflow
   objects
   instructions
 
 result.engres
   format = engres-v1
-  entry
+  workflow
   arg_values
   object_store
   typed_payload

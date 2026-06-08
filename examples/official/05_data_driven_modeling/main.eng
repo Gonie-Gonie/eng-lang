@@ -12,30 +12,28 @@ schema HvacTrainingData {
     }
 }
 
-struct Args {
-    input: String = "data/hvac_training.csv"
+args {
+    input: CsvFile = file("data/hvac_training.csv")
 }
 
-script main(args: Args) -> Report {
-    sensor = promote csv args.input as HvacTrainingData
-    cp = 4180 J/kg/K
-    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+sensor = promote csv args.input as HvacTrainingData
+cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
 
-    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)
-    reg_model = regression(split, algorithm=linear)
-    mlp_model = mlp(split, hidden=[4, 5], epochs=1, seed=7)
-    reg_eval = evaluate(reg_model, split=split)
-    mlp_eval = evaluate(mlp_model, split=split)
-    reg_card = model_card(reg_model)
-    leakage = leakage_lint(split)
+split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)
+reg_model = regression(split, algorithm=linear)
+mlp_model = mlp(split, hidden=[4, 5], epochs=1, seed=7)
+reg_eval = evaluate(reg_model, split=split)
+mlp_eval = evaluate(mlp_model, split=split)
+reg_card = model_card(reg_model)
+leakage = leakage_lint(split)
 
-    return report {
-        show reg_eval
-        show mlp_eval
-        show reg_card
-        show leakage
-        plot parity(reg_eval) {
-            title = "Regression parity"
-        }
+report {
+    show reg_eval
+    show mlp_eval
+    show reg_card
+    show leakage
+    plot parity(reg_eval) {
+        title = "Regression parity"
     }
 }

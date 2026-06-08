@@ -5139,7 +5139,7 @@ IDE-8 Release
 
 ---
 
-# 35. Entry Point and Typed Script Args Policy
+# 35. Top-Level Execution and Typed Args Policy
 
 이 장은 기존 실행 모델을 구체화하고, top-level 실행에 관한 모호성을 제거한다.
 
@@ -5148,14 +5148,13 @@ IDE-8 Release
 v4부터 다음 정책을 적용한다.
 
 ```text
-1. .eng source file은 기본적으로 declaration 중심이다.
-2. 실행 side effect는 명시적 entry point 내부에서만 발생한다.
-3. 기본 entry point는 `script main(args: Args) -> Report`이다.
-4. script args는 typed struct로 정의한다.
+1. .eng source file은 기본적으로 top-level workflow로 실행된다.
+2. 실행 side effect는 `print`, `report`, `export` 같은 명시적 출력 문장으로 발생한다.
+3. 기본 entry point는 synthetic `top-level main(args: Args) -> Report`이다.
+4. root args는 `args { ... }` block으로 정의한다.
 5. CLI help와 standalone executable interface는 Args type에서 자동 생성한다.
 6. import/use는 실행 side effect를 가져서는 안 된다.
-7. interactive session에서는 top-level 실행을 허용하되,
-   file run/build/release에서는 entry point를 요구한다.
+7. interactive session, file run/build/release 모두 같은 top-level 기본 정책을 따른다.
 ```
 
 ## 35.2 Entry Point 종류
@@ -5178,11 +5177,8 @@ example
 
 예:
 
-```eng
-script main(args: Args) -> Report {
-    ...
-}
-```
+Ordinary file execution uses top-level statements rather than a `script main`
+wrapper.
 
 ```eng
 study retrofit(args: RetrofitArgs) {
@@ -5196,12 +5192,12 @@ test "heat loss unit check" {
 }
 ```
 
-## 35.3 Args는 명시적 struct
+## 35.3 Args는 명시적 args block
 
 예:
 
 ```eng
-struct Args {
+args {
     input: CsvFile
     output: DirectoryPath = dir("build/")
     display_unit: Unit[HeatRate] = kW
@@ -5210,32 +5206,30 @@ struct Args {
 }
 ```
 
-Entry point:
+Top-level workflow:
 
 ```eng
-script main(args: Args) -> Report {
-    sensor = promote csv args.input as SensorData {
-        missing {
-            T_supply: interpolate max_gap=args.max_gap
-            T_return: interpolate max_gap=args.max_gap
-            m_dot: error
-        }
+sensor = promote csv args.input as SensorData {
+    missing {
+        T_supply: interpolate max_gap=args.max_gap
+        T_return: interpolate max_gap=args.max_gap
+        m_dot: error
     }
+}
 
-    cp: SpecificHeat = 4180 J/kg/K
+cp: SpecificHeat = 4180 J/kg/K
 
-    Q: TimeSeries[Time] of HeatRate =
-        sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+Q: TimeSeries[Time] of HeatRate =
+    sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
 
-    E: Energy = integrate(Q, over=Time)
+E: Energy = integrate(Q, over=Time)
 
-    return report {
-        output args.output
-        summarize Q by [mean, max, p95]
-        show E
-        plot Q over Time {
-            unit y = args.display_unit
-        }
+report {
+    output args.output
+    summarize Q by [mean, max, p95]
+    show E
+    plot Q over Time {
+        unit y = args.display_unit
     }
 }
 ```
@@ -5300,83 +5294,58 @@ Expected:
   W, kW, MW, BTU/h
 ```
 
-## 35.6 Multiple Entry Points
+## 35.6 Top-Level Workflow
 
-하나의 file/package에 여러 entry point를 허용한다.
+Current policy: a file has one executable root, the top-level workflow. There is
+no `--entry` selector and no `eng entries` command. Root `args { ... }`
+declares CLI arguments, and top-level executable statements run in source order.
 
 ```eng
-script check_data(args: CheckArgs) -> Report { ... }
+args {
+    input: CsvFile = file("data/sensor.csv")
+}
 
-script run_analysis(args: AnalysisArgs) -> Report { ... }
+sensor = promote csv args.input as SensorData
+print "Loaded {sensor.rows} rows"
 
-study uncertainty(args: UncertaintyArgs) { ... }
-
-test "unit rules" { ... }
+report {
+    show sensor
+}
 ```
-
-실행:
 
 ```powershell
-eng.exe run main.eng --entry check_data --input sensor.csv
-eng.exe run main.eng --entry run_analysis --input sensor.csv
-eng.exe run main.eng --entry uncertainty --samples 512
+eng.exe run main.eng --input data/sensor.csv
+eng.exe build main.eng --standalone --profile repro
 ```
 
-Entry 목록:
+`script` blocks are not compatibility execution roots. They are diagnosed with
+`E-SCRIPT-001`; move the body to top-level statements.
 
-```powershell
-eng.exe entries main.eng
-```
+## 35.7 Workflow Metadata
 
-출력:
+Compiler, bytecode, result, and package artifacts record workflow metadata:
 
 ```text
-Entries in main.eng:
-
-script check_data(args: CheckArgs) -> Report
-script run_analysis(args: AnalysisArgs) -> Report
-study uncertainty(args: UncertaintyArgs)
-test "unit rules"
+workflow = top_level
+workflow_args = args:Args
+workflow_return = Report
 ```
 
-## 35.7 Default Entry Point
-
-규칙:
+The signature string is:
 
 ```text
-1. 파일에 entry point가 하나뿐이면 자동 사용
-2. `script main`이 있으면 기본 entry point
-3. 여러 entry point가 있고 main이 없으면 오류
-4. build 시에는 entry를 명시하거나 main이 있어야 함
-```
-
-오류 예:
-
-```text
-Error: Multiple entry points found.
-
-Available:
-  check_data
-  run_analysis
-  uncertainty
-
-Use:
-  eng run main.eng --entry check_data
+top-level workflow(args: Args) -> Report
 ```
 
 ## 35.8 Top-Level Declaration Policy
 
-허용 top-level:
+Allowed top-level declaration and executable forms:
 
 ```text
 use
+import
 edition
 const
-type
-struct
-class
-trait
-impl
 fn
 schema
 model
@@ -5384,82 +5353,70 @@ component
 domain
 unit
 quantity
-script
-study
-test
-example
-```
-
-제한 top-level:
-
-```text
-plot
-simulate
-report
+args
 promote
-foreign execution
-file write
-optimization run
+print
+report
+plot
+export
+system
+study/test/example declarations, when they are non-executable metadata
 ```
 
-실행 side effect는 entry point 내부에서만 허용한다.
+Execution side effects are allowed in the root file top-level workflow. Imported
+files contribute importable declarations only; their executable bodies are not
+imported or executed.
 
-## 35.9 Import Side Effect 금지
+## 35.9 Import Side Effect Policy
 
 ```eng
-use eng.stats
-use my_models
+use "thermal.eng"
 ```
 
-`use/import`는 정의만 가져온다. import 시 script/study/test/example이 자동 실행되면 안 된다.
+`use/import` brings in importable declarations only. Imported executable body
+statements, including `print`, `report`, `plot`, `export`, and `promote`, are
+not executed.
 
-## 35.10 Standalone Build와 Entry
+## 35.10 Standalone Build Workflow
 
-Standalone build는 entry point가 필수다.
+Standalone build packages the top-level workflow.
 
 ```powershell
-eng.exe build main.eng --entry main --standalone
+eng.exe build main.eng --standalone --profile repro
 ```
 
-`script main`이 있으면 생략 가능하다.
-
-빌드 metadata:
+Build metadata:
 
 ```json
 {
-  "entry": "main",
-  "args_type": "Args",
-  "language_edition": "2026-preview",
-  "required_runtime": ">=0.4.0 <0.5.0"
+  "workflow": "top-level workflow(args: Args) -> Report",
+  "args_schema": "Args",
+  "language_edition": "2026-preview"
 }
 ```
 
-Standalone executable도 help를 가져야 한다.
+The root `args { ... }` schema becomes the packaged runner CLI interface.
 
 ```powershell
 model.exe --help
 model.exe --input data\sensor.csv --output result
 ```
 
-즉, EngLang script의 Args schema가 standalone exe의 CLI interface가 된다.
+## 35.11 IDE/LSP Workflow Support
 
-## 35.11 IDE/LSP Entry Support
-
-IDE는 다음 기능을 제공해야 한다.
+IDE/LSP should provide:
 
 ```text
-- entry point 목록 표시
-- main 누락 경고
-- Args 자동완성
+- Args completion
 - CLI help preview
-- Run current entry
-- Build selected entry
+- Run current top-level workflow
+- Build current top-level workflow
 ```
 
 Hover:
 
 ```text
-Entry point: script
+Workflow: top_level
 Args: Args
 Return: Report
 Runnable: yes
@@ -5469,11 +5426,10 @@ Buildable: yes
 VS Code command:
 
 ```text
-EngLang: Run Entry...
-EngLang: Build Entry...
-EngLang: Show CLI Help for Entry
+EngLang: Run Current File
+EngLang: Build Current File
+EngLang: Show Args Help
 ```
-
 ---
 
 # 36. Open Domain and Port System
@@ -6512,7 +6468,7 @@ explicit entry point with typed Args
 추가 문서:
 
 ```text
-docs/spec/17_entry_points_and_args.md
+docs/spec/17_top_level_workflow_and_args.md
 docs/spec/18_domain_and_port_system.md
 docs/spec/19_multi_domain_compatibility.md
 docs/guide/ide_type_unit_completion.md
@@ -6527,9 +6483,9 @@ docs/tutorials/10_multi_domain_energy_balance.md
 추가 예제:
 
 ```text
-examples/language/entry_points/
-  script_args/
-  multiple_entries/
+examples/language/top_level_workflow/
+  args/
+  workflow_variants/
   standalone_args_help/
 
 examples/domain/
@@ -6636,7 +6592,7 @@ pipeline
 ```eng
 edition 2026-preview
 
-struct Args {
+args {
     input: CsvFile
     output: DirectoryPath = dir("build/")
 }
@@ -6662,18 +6618,16 @@ schema SensorData {
     }
 }
 
-script main(args: Args) -> Report {
-    data = promote csv args.input as SensorData
+data = promote csv args.input as SensorData
 
-    E_cooling: Energy = integrate(data.cooling_load, over=Time)
+E_cooling: Energy = integrate(data.cooling_load, over=Time)
 
-    return report {
-        output args.output
-        summarize data.cooling_load by [mean, max, p95]
-        show E_cooling
-        plot data.cooling_load over Time
-        plot load_duration(data.cooling_load)
-    }
+report {
+    output args.output
+    summarize data.cooling_load by [mean, max, p95]
+    show E_cooling
+    plot data.cooling_load over Time
+    plot load_duration(data.cooling_load)
 }
 ```
 
@@ -8083,7 +8037,7 @@ interactive와 clean/repro build를 모두 설계하되, 구현은 clean/repro b
 결정:
 
 ```text
-`script main(args: Args)`를 공식 entry point로 확정한다.
+Top-level execution with `args { ... }` is the official default entry policy.
 ```
 
 사용자 선택:
@@ -8102,10 +8056,10 @@ interactive 실행도 제공하되, 사용자에게 혼란을 주지 않도록 �
 
 ```text
 File run/build:
-  entry point 필요
+  top-level workflow 실행
 
 Interactive session:
-  top-level 실행 허용
+  top-level 실행
 
 Tester IDE:
   Cell Run / Run Entry / Run All Clean을 명확히 분리
@@ -8175,10 +8129,10 @@ optimization run
 
 ```text
 초기 quick script:
-  script main() 허용
+  top-level workflow 허용
 
 공식 example/release/standalone:
-  struct Args 권장 또는 필수
+  args { ... } 권장 또는 필수
 
 standalone build:
   Args가 있으면 CLI help 자동 생성
@@ -8186,26 +8140,26 @@ standalone build:
 
 ---
 
-### D-019. Multiple entry point
+### D-019. Single top-level workflow
 
 결정:
 
 ```text
-하나의 파일에는 하나의 기본 entry만 권장한다.
+하나의 파일은 하나의 top-level workflow를 실행 루트로 사용한다.
 ```
 
 사용자 선택:
 
 ```text
-19-C
+19-E
 ```
 
 정책:
 
 ```text
-- single file: script main 하나를 기본으로 권장
-- package/project: multiple entry 허용
-- 여러 entry가 있으면 --entry 필수
+- single file: top-level workflow only
+- package/project: current preview still builds one root file at a time
+- no `--entry` selector and no entry list command
 ```
 
 ---
@@ -9797,7 +9751,7 @@ Features:
 ## 41.2 Official First Example
 
 ```eng
-struct Args {
+args {
     input: CsvFile = file("data/sensor.csv")
     output: DirectoryPath = dir("build/")
 }
@@ -9821,24 +9775,22 @@ schema SensorData {
     }
 }
 
-script main(args: Args) -> Report {
-    sensor = promote csv args.input as SensorData
+sensor = promote csv args.input as SensorData
 
-    cp: SpecificHeat = 4180 J/kg/K
+cp: SpecificHeat = 4180 J/kg/K
 
-    Q: TimeSeries[Time] of HeatRate =
-        sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+Q: TimeSeries[Time] of HeatRate =
+    sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
 
-    E: Energy = integrate(Q, over=Time)
+E: Energy = integrate(Q, over=Time)
 
-    return report {
-        output args.output
-        summarize Q by [mean, max, p95]
-        show E
-        plot Q over Time {
-            unit y = kW
-            title = "Coil heat rate"
-        }
+report {
+    output args.output
+    summarize Q by [mean, max, p95]
+    show E
+    plot Q over Time {
+        unit y = kW
+        title = "Coil heat rate"
     }
 }
 ```
@@ -10449,7 +10401,7 @@ interactive는 유연하다.
 eng.exe run main.eng
 ```
 
-`script main`이 있으면 실행한다.
+Top-level executable workflow가 있으면 실행한다.
 
 없으면:
 
@@ -10458,10 +10410,11 @@ Error:
   No entry point found.
 
 This file contains declarations only.
-Add:
+Add top-level executable statements, for example:
 
-  script main(args: Args) -> Report {
-      ...
+  value = 1 kW
+  report {
+      show value
   }
 
 or run interactively with:
@@ -11327,6 +11280,10 @@ external function signature
 허용:
 
 ```eng
+args {
+    input: CsvFile
+}
+
 schema SensorData {
     time: DateTime index
     T_supply: AbsoluteTemperature [°C]
@@ -12409,12 +12366,10 @@ schema SensorData {
     }
 }
 
-script main(args: Args) -> Report {
-    sensor = promote csv args.input as SensorData
-}
+sensor = promote csv args.input as SensorData
 ```
 
-이 시점에서 `script main`은 parse/check 가능해야 하며, full report는 나중이어도 된다.
+이 시점에서 top-level workflow는 parse/check 가능해야 하며, full report는 나중이어도 된다.
 
 ## 55.4 Compiler tasks
 
@@ -12509,18 +12464,16 @@ source -> typed IR -> bytecode -> VM -> result.engres
 ## 56.3 Language scope
 
 ```eng
-struct Args {
+args {
     input: CsvFile
 }
 
-script main(args: Args) -> Report {
-    sensor = promote csv args.input as SensorData
-    L = 1 m + 20 cm
-}
+sensor = promote csv args.input as SensorData
+L = 1 m + 20 cm
 ```
 
 초기 `Report`는 stub이어도 된다.  
-중요한 것은 entry 기반으로 실행된다는 점이다.
+중요한 것은 top-level workflow가 기본 실행 단위라는 점이다.
 
 ## 56.4 Runtime tasks
 
@@ -12537,7 +12490,7 @@ script main(args: Args) -> Report {
 ## 56.5 Entry point behavior
 
 ```text
-- script main이 있으면 실행
+- top-level executable statement가 있으면 실행
 - entry가 없으면 No entry point diagnostic
 - multiple entry는 아직 warning 또는 error
 ```

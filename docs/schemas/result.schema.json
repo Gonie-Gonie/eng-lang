@@ -13,7 +13,7 @@
     "source_hash",
     "bytecode_hash",
     "numeric_profile",
-    "entry",
+    "workflow",
     "args_schema",
     "arg_values",
     "object_store",
@@ -30,9 +30,9 @@
     "source_hash": { "type": "string" },
     "bytecode_hash": { "type": "string" },
     "numeric_profile": { "type": "string" },
-    "entry": {
+    "workflow": {
       "type": "object",
-      "required": ["kind", "name", "arg_name", "arg_type", "return_type"]
+      "required": ["kind", "arg_name", "arg_type", "return_type"]
     },
     "args_schema": { "type": "array" },
     "arg_values": {

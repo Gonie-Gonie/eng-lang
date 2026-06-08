@@ -7,8 +7,7 @@ use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 
 use eng_compiler::{
-    build_bytecode, check_file, parse_bytecode, review_json, select_entry, ArgOverride,
-    CheckOptions, CheckReport, EntryPoint,
+    build_bytecode, check_file, parse_bytecode, review_json, ArgOverride, CheckOptions, CheckReport,
 };
 
 mod runtime_data;
@@ -25,13 +24,11 @@ pub const RUNTIME_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub struct RunOptions {
     pub open_report: bool,
     pub save_artifacts: bool,
-    pub entry: Option<String>,
     pub args: Vec<ArgOverride>,
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct BuildOptions {
-    pub entry: Option<String>,
     pub args: Vec<ArgOverride>,
 }
 
@@ -182,19 +179,6 @@ pub fn run_file(
     if check_report.has_errors() {
         return Err(RuntimeError::Compile(Box::new(check_report)));
     }
-    let entry = match select_entry(
-        &check_report.semantic_program.entry_points,
-        options.entry.as_deref(),
-    ) {
-        Ok(entry) => entry,
-        Err(diagnostic) => {
-            return Err(RuntimeError::Compile(with_diagnostic(
-                check_report,
-                diagnostic,
-            )))
-        }
-    };
-
     let stem = path
         .file_stem()
         .and_then(|value| value.to_str())
@@ -210,7 +194,7 @@ pub fn run_file(
     let report_spec_path = result_dir.join("report_spec.json");
     let report_path = result_dir.join("report.html");
 
-    let bytecode = build_bytecode(&check_report, &source, &entry);
+    let bytecode = build_bytecode(&check_report, &source);
     let bytecode_hash = hash_text(&bytecode);
     let bytecode_program = parse_bytecode(&bytecode)?;
     let mut execution = execute_bytecode(&bytecode_program)?;
@@ -313,19 +297,7 @@ pub fn build_standalone(
     if check_report.has_errors() {
         return Err(RuntimeError::Compile(Box::new(check_report)));
     }
-    let entry = match select_entry(
-        &check_report.semantic_program.entry_points,
-        options.entry.as_deref(),
-    ) {
-        Ok(entry) => entry,
-        Err(diagnostic) => {
-            return Err(RuntimeError::Compile(with_diagnostic(
-                check_report,
-                diagnostic,
-            )))
-        }
-    };
-    let bytecode = build_bytecode(&check_report, &source, &entry);
+    let bytecode = build_bytecode(&check_report, &source);
     let bytecode_hash = hash_text(&bytecode);
 
     let stem = path
@@ -380,12 +352,9 @@ pub fn build_standalone(
     fs::copy(env::current_exe()?, &executable_path)?;
 
     let runner_path = bundle_path.join("run.bat");
-    fs::write(
-        &runner_path,
-        standalone_runner_script(source_file_name, &entry.name),
-    )?;
+    fs::write(&runner_path, standalone_runner_script(source_file_name))?;
     let args_help_path = bundle_path.join("ARGS_HELP.txt");
-    fs::write(args_help_path, args_help_text(&check_report, &entry))?;
+    fs::write(args_help_path, args_help_text(&check_report))?;
 
     let bytecode_path = bundle_path.join(format!("{stem}.engbc"));
     let package_path = bundle_path.join(format!("{stem}.engpkg"));
@@ -396,7 +365,7 @@ pub fn build_standalone(
     fs::write(
         &package_path,
         format!(
-            "format = engpkg-stable-1\npackage_format_version = 1\nruntime_abi = eng-runtime-cli-v1\nprofile = repro\nrunner = run.bat\nengine = eng.exe\nsource_root = source\nartifact_root = build/result\nsource = {}\nbytecode = {}\nsource_hash = {}\nbytecode_hash = {}\nentry_name = {}\nentry = {}\nargs_schema = {}\nargs_field_count = {}\nargs_help = ARGS_HELP.txt\ndependency_count = {}\ndependencies = {}\ndependency_hashes = {}\n",
+            "format = engpkg-stable-1\npackage_format_version = 1\nruntime_abi = eng-runtime-cli-v1\nprofile = repro\nrunner = run.bat\nengine = eng.exe\nsource_root = source\nartifact_root = build/result\nsource = {}\nbytecode = {}\nsource_hash = {}\nbytecode_hash = {}\nworkflow = {}\nargs_schema = {}\nargs_field_count = {}\nargs_help = ARGS_HELP.txt\ndependency_count = {}\ndependencies = {}\ndependency_hashes = {}\n",
             path_for_manifest(&Path::new("source").join(source_file_name)),
             path_for_manifest(
                 bytecode_path
@@ -407,10 +376,9 @@ pub fn build_standalone(
             ),
             check_report.source_hash,
             bytecode_hash,
-            entry.name,
-            entry.signature(),
-            entry.arg_type.as_deref().unwrap_or("Args"),
-            args_field_count(&check_report, &entry),
+            check_report.semantic_program.workflow.signature(),
+            check_report.semantic_program.workflow.arg_type.as_deref().unwrap_or("Args"),
+            args_field_count(&check_report),
             bundled_dependencies.len(),
             dependency_paths(&bundled_dependencies),
             dependency_hashes(&bundled_dependencies)
@@ -419,14 +387,14 @@ pub fn build_standalone(
     fs::write(
         &lock_path,
         format!(
-            "runtime_version = {RUNTIME_VERSION}\ncompiler_version = {}\npackage_format_version = 1\nruntime_abi = eng-runtime-cli-v1\nbytecode_version = {}\nresult_format_version = 1\nreport_schema_version = {}\nplot_spec_version = {}\nprofile = repro\nsource_hash = {}\nbytecode_hash = {}\nentry_name = {}\ndependency_count = {}\ndependency_hashes = {}\n",
+            "runtime_version = {RUNTIME_VERSION}\ncompiler_version = {}\npackage_format_version = 1\nruntime_abi = eng-runtime-cli-v1\nbytecode_version = {}\nresult_format_version = 1\nreport_schema_version = {}\nplot_spec_version = {}\nprofile = repro\nsource_hash = {}\nbytecode_hash = {}\nworkflow = {}\ndependency_count = {}\ndependency_hashes = {}\n",
             eng_compiler::COMPILER_VERSION,
             eng_compiler::BYTECODE_VERSION,
             eng_report::REPORT_SPEC_VERSION,
             eng_report::PLOT_SPEC_VERSION,
             check_report.source_hash,
             bytecode_hash,
-            entry.name,
+            check_report.semantic_program.workflow.signature(),
             bundled_dependencies.len(),
             dependency_hashes(&bundled_dependencies)
         ),
@@ -459,17 +427,15 @@ pub fn create_project(path: &Path) -> std::io::Result<()> {
     m_dot: MassFlowRate [kg/s]
 }
 
-script main(args: Args) -> Report {
-    sensor = promote csv "data/sensor.csv" as SensorData
-    cp = 4180 J/kg/K
-    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
-    E_coil = integrate(Q_coil, over=Time)
+sensor = promote csv "data/sensor.csv" as SensorData
+cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+E_coil = integrate(Q_coil, over=Time)
 
-    return report {
-        summarize Q_coil by [mean, max, p95]
-        show E_coil
-        plot Q_coil over Time
-    }
+report {
+    summarize Q_coil by [mean, max, p95]
+    show E_coil
+    plot Q_coil over Time
 }
 "#,
     )?;
@@ -478,14 +444,6 @@ script main(args: Args) -> Report {
         "time,T_supply,T_return,m_dot\n2026-01-01T00:00:00Z,7.0,12.0,0.21\n",
     )?;
     Ok(())
-}
-
-fn with_diagnostic(
-    mut report: CheckReport,
-    diagnostic: eng_compiler::Diagnostic,
-) -> Box<CheckReport> {
-    report.diagnostics.push(diagnostic);
-    Box::new(report)
 }
 
 fn file_check(name: &'static str, path: &Path) -> DoctorCheck {
@@ -536,44 +494,60 @@ fn bundled_dependency_path(
     }
 }
 
-fn standalone_runner_script(source_file_name: &str, entry_name: &str) -> String {
+fn standalone_runner_script(source_file_name: &str) -> String {
     format!(
-        "@echo off\r\nsetlocal\r\ncd /d \"%~dp0\"\r\nif \"%~1\"==\"--help\" goto help\r\nif \"%~1\"==\"-h\" goto help\r\nif \"%~1\"==\"/?\" goto help\r\n\"%~dp0eng.exe\" run \"%~dp0source\\{}\" --entry {} --save-artifacts %*\r\nexit /b %ERRORLEVEL%\r\n:help\r\ntype \"%~dp0ARGS_HELP.txt\"\r\nexit /b 0\r\n",
-        source_file_name, entry_name
+        "@echo off\r\nsetlocal\r\ncd /d \"%~dp0\"\r\nif \"%~1\"==\"--help\" goto help\r\nif \"%~1\"==\"-h\" goto help\r\nif \"%~1\"==\"/?\" goto help\r\n\"%~dp0eng.exe\" run \"%~dp0source\\{}\" --save-artifacts %*\r\nexit /b %ERRORLEVEL%\r\n:help\r\ntype \"%~dp0ARGS_HELP.txt\"\r\nexit /b 0\r\n",
+        source_file_name
     )
 }
 
-fn args_field_count(report: &CheckReport, entry: &EntryPoint) -> usize {
-    let arg_type = entry.arg_type.as_deref().unwrap_or("Args");
+fn args_field_count(report: &CheckReport) -> usize {
+    let arg_type = report
+        .semantic_program
+        .workflow
+        .arg_type
+        .as_deref()
+        .unwrap_or("Args");
     report
         .semantic_program
-        .args_structs
+        .args_blocks
         .iter()
-        .find(|args_struct| args_struct.name == arg_type)
-        .map(|args_struct| args_struct.fields.len())
+        .find(|args_block| args_block.name == arg_type)
+        .map(|args_block| args_block.fields.len())
         .unwrap_or(0)
 }
 
-fn args_help_text(report: &CheckReport, entry: &EntryPoint) -> String {
-    let arg_type = entry.arg_type.as_deref().unwrap_or("Args");
+fn args_help_text(report: &CheckReport) -> String {
+    let arg_type = report
+        .semantic_program
+        .workflow
+        .arg_type
+        .as_deref()
+        .unwrap_or("Args");
     let mut text = String::new();
     text.push_str("EngLang standalone package\n\n");
-    text.push_str("Entry:\n");
-    text.push_str(&format!("  {}\n\n", entry.signature()));
+    text.push_str("Workflow:\n");
+    text.push_str(&format!(
+        "  {}\n\n",
+        report.semantic_program.workflow.signature()
+    ));
     text.push_str("Args metadata:\n");
 
     match report
         .semantic_program
-        .args_structs
+        .args_blocks
         .iter()
-        .find(|args_struct| args_struct.name == arg_type)
+        .find(|args_block| args_block.name == arg_type)
     {
-        Some(args_struct) if args_struct.fields.is_empty() => {
-            text.push_str(&format!("  struct {} has no fields.\n", args_struct.name));
+        Some(args_block) if args_block.fields.is_empty() => {
+            text.push_str(&format!(
+                "  args block {} has no fields.\n",
+                args_block.name
+            ));
         }
-        Some(args_struct) => {
-            text.push_str(&format!("  struct {}\n", args_struct.name));
-            for field in &args_struct.fields {
+        Some(args_block) => {
+            text.push_str(&format!("  args block {}\n", args_block.name));
+            for field in &args_block.fields {
                 let required = if field.required {
                     "required"
                 } else {
@@ -591,7 +565,7 @@ fn args_help_text(report: &CheckReport, entry: &EntryPoint) -> String {
         }
         None => {
             text.push_str(&format!(
-                "  struct {arg_type} is not declared in this source.\n"
+                "  args {{ ... }} is not declared in this source for {arg_type}.\n"
             ));
         }
     }
@@ -1412,22 +1386,22 @@ fn result_json(
     }
 
     let mut args_schema = String::new();
-    for (args_index, args_struct) in report.semantic_program.args_structs.iter().enumerate() {
+    for (args_index, args_block) in report.semantic_program.args_blocks.iter().enumerate() {
         if args_index > 0 {
             args_schema.push_str(",\n");
         }
         args_schema.push_str("    {\n");
         args_schema.push_str(&format!(
             "      \"name\": \"{}\",\n",
-            json_escape(&args_struct.name)
+            json_escape(&args_block.name)
         ));
-        args_schema.push_str(&format!("      \"line\": {},\n", args_struct.line));
+        args_schema.push_str(&format!("      \"line\": {},\n", args_block.line));
         args_schema.push_str(&format!(
             "      \"field_count\": {},\n",
-            args_struct.fields.len()
+            args_block.fields.len()
         ));
         args_schema.push_str("      \"fields\": [\n");
-        for (field_index, field) in args_struct.fields.iter().enumerate() {
+        for (field_index, field) in args_block.fields.iter().enumerate() {
             if field_index > 0 {
                 args_schema.push_str(",\n");
             }
@@ -2003,17 +1977,16 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"entry\": {{\n    \"kind\": \"{}\",\n    \"name\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
         report.source_hash,
         bytecode_hash,
-        json_escape(&execution.entry.kind),
-        json_escape(&execution.entry.name),
-        json_escape(execution.entry.arg_name.as_deref().unwrap_or("args")),
-        json_escape(execution.entry.arg_type.as_deref().unwrap_or("Args")),
-        json_escape(execution.entry.return_type.as_deref().unwrap_or("Report")),
+        json_escape(&execution.workflow.kind),
+        json_escape(execution.workflow.arg_name.as_deref().unwrap_or("args")),
+        json_escape(execution.workflow.arg_type.as_deref().unwrap_or("Args")),
+        json_escape(execution.workflow.return_type.as_deref().unwrap_or("Report")),
         args_schema,
         arg_values,
         execution.scalar_count(),
@@ -2021,7 +1994,7 @@ fn result_json(
         execution.timeseries_count(),
         execution.array_count(),
         objects,
-        json_escape(execution.entry.return_type.as_deref().unwrap_or("Report")),
+        json_escape(execution.workflow.return_type.as_deref().unwrap_or("Report")),
         json_escape(&execution.result_format),
         steps,
         statistics,
@@ -2610,7 +2583,7 @@ mod tests {
         let source_path = source_dir.join("main.eng");
         fs::write(
             &source_path,
-            "schema SensorData {\n    time: DateTime index\n    T_supply: AbsoluteTemperature [degC]\n    T_return: AbsoluteTemperature [degC]\n    m_dot: MassFlowRate [kg/s]\n}\n\nstruct Args {\n    input: String = \"../../examples/official/01_csv_plot/data/sensor.csv\"\n}\n\nscript main(args: Args) -> Report {\n    sensor = promote csv args.input as SensorData\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    E_coil = integrate(Q_coil, over=Time)\n    mean_Q = mean(Q_coil, axis=Time)\n\n    print \"Loaded {sensor.rows} rows from {args.input}\"\n    print \"Q mean = {mean(Q_coil, axis=Time): .2 kW}\"\n    print \"E total = {E_coil: .2 kWh}\"\n\n    export summary to csv \"summary.csv\" {\n        E_coil as kWh with \".2\"\n        mean_Q as kW with \".2\"\n    }\n}\n",
+            "schema SensorData {\n    time: DateTime index\n    T_supply: AbsoluteTemperature [degC]\n    T_return: AbsoluteTemperature [degC]\n    m_dot: MassFlowRate [kg/s]\n}\n\nargs {\n    input: CsvFile = file(\"../../examples/official/01_csv_plot/data/sensor.csv\")\n}\n\nsensor = promote csv args.input as SensorData\ncp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nE_coil = integrate(Q_coil, over=Time)\nmean_Q = mean(Q_coil, axis=Time)\n\nprint \"Loaded {sensor.rows} rows from {args.input}\"\nprint \"Q mean = {mean(Q_coil, axis=Time): .2 kW}\"\nprint \"E total = {E_coil: .2 kWh}\"\n\nexport summary to csv \"summary.csv\" {\n    E_coil as kWh with \".2\"\n    mean_Q as kW with \".2\"\n}\n",
         )
         .expect("write source");
 
@@ -2650,7 +2623,7 @@ mod tests {
         let source_path = source_dir.join("main.eng");
         fs::write(
             &source_path,
-            "use \"thermal.eng\"\n\nscript main(args: Args) -> Report {\n    UA_wall = 150 W/K\n    dT_wall = 8 K\n    Q_wall = heat_loss(UA_wall, dT_wall)\n\n    print \"Q wall = {Q_wall: .2 kW}\"\n\n    export summary to csv \"summary.csv\" {\n        Q_wall as kW with \".2\"\n    }\n}\n",
+            "use \"thermal.eng\"\n\nUA_wall = 150 W/K\ndT_wall = 8 K\nQ_wall = heat_loss(UA_wall, dT_wall)\n\nprint \"Q wall = {Q_wall: .2 kW}\"\n\nexport summary to csv \"summary.csv\" {\n    Q_wall as kW with \".2\"\n}\n",
         )
         .expect("write source");
 

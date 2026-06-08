@@ -546,7 +546,7 @@ function Assert-CsvPlotGolden {
     )
 
     Remove-Item -LiteralPath (Join-Path $RepoRoot "build\result") -Recurse -Force -ErrorAction SilentlyContinue
-    Invoke-Native $Eng "run" $Golden.source "--entry" "main" "--save-artifacts"
+    Invoke-Native $Eng "run" $Golden.source "--save-artifacts"
 
     $review = Read-ArtifactJson (Join-Path $RepoRoot "build\result\review.json")
     Assert-ArtifactValue $review.format $Golden.review.format "review.format"
@@ -555,10 +555,10 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactNumber $review.syntax_summary.scripts $Golden.review.scripts "review.syntax_summary.scripts"
     Assert-ArtifactNumber $review.syntax_summary.schemas $Golden.review.schemas "review.syntax_summary.schemas"
     Assert-ArtifactNumber $review.syntax_summary.structs $Golden.review.structs "review.syntax_summary.structs"
-    Assert-ArtifactNumber $review.syntax_summary.struct_fields $Golden.review.struct_fields "review.syntax_summary.struct_fields"
+    Assert-ArtifactNumber $review.syntax_summary.args_fields $Golden.review.args_fields "review.syntax_summary.args_fields"
     Assert-ArtifactNumber $review.syntax_summary.systems $Golden.review.systems "review.syntax_summary.systems"
     Assert-ArtifactNumber $review.syntax_summary.equations $Golden.review.equations "review.syntax_summary.equations"
-    Assert-ArtifactNumber @($review.args_summary).Count $Golden.review.args_struct_count "review.args_summary count"
+    Assert-ArtifactNumber @($review.args_summary).Count $Golden.review.args_block_count "review.args_summary count"
     Assert-ArtifactNumber @(@($review.args_summary)[0].fields).Count $Golden.review.args_field_count "review args field count"
     Assert-ArtifactNumber @($review.arg_values).Count $Golden.review.arg_value_count "review.arg_values count"
     $reviewArgValue = @($review.arg_values)[0]
@@ -578,7 +578,7 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactNumber $reportSpec.report_schema_version $Golden.report_spec.report_schema_version "report_spec.report_schema_version"
     Assert-ArtifactNumber $reportSpec.provenance.schema_count $Golden.report_spec.schema_count "report_spec.provenance.schema_count"
     Assert-ArtifactNumber $reportSpec.provenance.csv_promotion_count $Golden.report_spec.csv_promotion_count "report_spec.provenance.csv_promotion_count"
-    Assert-ArtifactNumber @($reportSpec.args_summary).Count $Golden.report_spec.args_struct_count "report_spec.args_summary count"
+    Assert-ArtifactNumber @($reportSpec.args_summary).Count $Golden.report_spec.args_block_count "report_spec.args_summary count"
     Assert-ArtifactNumber @(@($reportSpec.args_summary)[0].fields).Count $Golden.report_spec.args_field_count "report_spec args field count"
     Assert-ArtifactNumber @($reportSpec.arg_values).Count $Golden.report_spec.arg_value_count "report_spec.arg_values count"
     $reportArgValue = @($reportSpec.arg_values)[0]
@@ -619,8 +619,8 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactValue $result.format $Golden.result.format "result.format"
     Assert-ArtifactNumber $result.result_format_version $Golden.result.result_format_version "result.result_format_version"
     Assert-ArtifactNumber $result.bytecode_version $Golden.result.bytecode_version "result.bytecode_version"
-    Assert-ArtifactValue $result.entry.name $Golden.result.entry_name "result.entry.name"
-    Assert-ArtifactNumber @($result.args_schema).Count $Golden.result.args_struct_count "result.args_schema count"
+    Assert-ArtifactValue $result.workflow.kind $Golden.result.workflow_kind "result.workflow.kind"
+    Assert-ArtifactNumber @($result.args_schema).Count $Golden.result.args_block_count "result.args_schema count"
     Assert-ArtifactNumber @(@($result.args_schema)[0].fields).Count $Golden.result.args_field_count "result args field count"
     Assert-ArtifactNumber @($result.arg_values).Count $Golden.result.arg_value_count "result.arg_values count"
     $resultArgValue = @($result.arg_values)[0]
@@ -705,7 +705,7 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactFloat @(@($firstSeries.points)[3])[1] $Golden.plot_spec.last_point_y "plot_spec.series[0].points[3].y"
 
     Remove-Item -LiteralPath (Join-Path $RepoRoot "dist\main-standalone") -Recurse -Force -ErrorAction SilentlyContinue
-    Invoke-Native $Eng "build" $Golden.source "--entry" "main" "--standalone" "--profile" "repro"
+    Invoke-Native $Eng "build" $Golden.source "--standalone" "--profile" "repro"
     $engpkg = Read-KeyValueArtifact (Join-Path $RepoRoot "dist\main-standalone\main.engpkg")
     Assert-ArtifactValue $engpkg["format"] $Golden.engpkg.format "engpkg.format"
     Assert-ArtifactValue $engpkg["package_format_version"] $Golden.engpkg.package_format_version "engpkg.package_format_version"
@@ -717,7 +717,7 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactValue $engpkg["artifact_root"] $Golden.engpkg.artifact_root "engpkg.artifact_root"
     Assert-ArtifactValue $engpkg["source"] $Golden.engpkg.source "engpkg.source"
     Assert-ArtifactValue $engpkg["bytecode"] $Golden.engpkg.bytecode "engpkg.bytecode"
-    Assert-ArtifactValue $engpkg["entry_name"] $Golden.engpkg.entry_name "engpkg.entry_name"
+    Assert-ArtifactValue $engpkg["workflow"] $Golden.engpkg.workflow "engpkg.workflow"
     Assert-ArtifactValue $engpkg["args_schema"] $Golden.engpkg.args_schema "engpkg.args_schema"
     Assert-ArtifactValue $engpkg["args_field_count"] $Golden.engpkg.args_field_count "engpkg.args_field_count"
     Assert-ArtifactValue $engpkg["args_help"] $Golden.engpkg.args_help "engpkg.args_help"
@@ -728,7 +728,7 @@ function Assert-CsvPlotGolden {
     Assert-Artifact (Test-Path -LiteralPath $argsHelpPath -PathType Leaf) "missing standalone ARGS_HELP.txt"
     $argsHelpText = Get-Content -LiteralPath $argsHelpPath -Raw -Encoding UTF8
     Assert-Artifact ($argsHelpText.Contains("Args metadata")) "standalone ARGS_HELP.txt does not mention Args metadata"
-    Assert-Artifact ($argsHelpText.Contains("--input <String>")) "standalone ARGS_HELP.txt does not mention --input"
+    Assert-Artifact ($argsHelpText.Contains("--input <CsvFile>")) "standalone ARGS_HELP.txt does not mention --input"
 
     $lock = Read-KeyValueArtifact (Join-Path $RepoRoot "dist\main-standalone\main.lock")
     Assert-ArtifactValue $lock["package_format_version"] "1" "lock.package_format_version"
@@ -738,7 +738,7 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactValue $lock["report_schema_version"] "1" "lock.report_schema_version"
     Assert-ArtifactValue $lock["plot_spec_version"] "1" "lock.plot_spec_version"
     Assert-ArtifactValue $lock["profile"] "repro" "lock.profile"
-    Assert-ArtifactValue $lock["entry_name"] $Golden.engpkg.entry_name "lock.entry_name"
+    Assert-ArtifactValue $lock["workflow"] $Golden.engpkg.workflow "lock.workflow"
     Assert-ArtifactValue $lock["dependency_count"] $Golden.engpkg.dependency_count "lock.dependency_count"
     Assert-Artifact ($lock["dependency_hashes"].Contains(($Golden.engpkg.dependencies + ":"))) "lock.dependency_hashes does not include dependency path"
 }
@@ -753,7 +753,7 @@ function Assert-SystemGolden {
     )
 
     Remove-Item -LiteralPath (Join-Path $RepoRoot "build\result") -Recurse -Force -ErrorAction SilentlyContinue
-    Invoke-Native $Eng "run" $Golden.source "--entry" "main" "--save-artifacts"
+    Invoke-Native $Eng "run" $Golden.source "--save-artifacts"
 
     $review = Read-ArtifactJson (Join-Path $RepoRoot "build\result\review.json")
     Assert-ArtifactValue $review.format $Golden.review.format "system review.format"
@@ -761,10 +761,10 @@ function Assert-SystemGolden {
     Assert-ArtifactNumber $review.syntax_summary.scripts $Golden.review.scripts "system review.syntax_summary.scripts"
     Assert-ArtifactNumber $review.syntax_summary.schemas $Golden.review.schemas "system review.syntax_summary.schemas"
     Assert-ArtifactNumber $review.syntax_summary.structs $Golden.review.structs "system review.syntax_summary.structs"
-    Assert-ArtifactNumber $review.syntax_summary.struct_fields $Golden.review.struct_fields "system review.syntax_summary.struct_fields"
+    Assert-ArtifactNumber $review.syntax_summary.args_fields $Golden.review.args_fields "system review.syntax_summary.args_fields"
     Assert-ArtifactNumber $review.syntax_summary.systems $Golden.review.systems "system review.syntax_summary.systems"
     Assert-ArtifactNumber $review.syntax_summary.equations $Golden.review.equations "system review.syntax_summary.equations"
-    Assert-ArtifactNumber @($review.args_summary).Count $Golden.review.args_struct_count "system review.args_summary count"
+    Assert-ArtifactNumber @($review.args_summary).Count $Golden.review.args_block_count "system review.args_summary count"
     Assert-ArtifactNumber @(@($review.args_summary)[0].fields).Count $Golden.review.args_field_count "system review args field count"
     Assert-ArtifactNumber @($review.arg_values).Count $Golden.review.arg_value_count "system review.arg_values count"
     $reviewArgValue = @($review.arg_values)[0]
@@ -788,7 +788,7 @@ function Assert-SystemGolden {
     Assert-ArtifactNumber $reportSpec.report_schema_version $Golden.report_spec.report_schema_version "system report_spec.report_schema_version"
     Assert-ArtifactNumber $reportSpec.provenance.schema_count $Golden.report_spec.schema_count "system report_spec.provenance.schema_count"
     Assert-ArtifactNumber $reportSpec.provenance.csv_promotion_count $Golden.report_spec.csv_promotion_count "system report_spec.provenance.csv_promotion_count"
-    Assert-ArtifactNumber @($reportSpec.args_summary).Count $Golden.report_spec.args_struct_count "system report_spec.args_summary count"
+    Assert-ArtifactNumber @($reportSpec.args_summary).Count $Golden.report_spec.args_block_count "system report_spec.args_summary count"
     Assert-ArtifactNumber @(@($reportSpec.args_summary)[0].fields).Count $Golden.report_spec.args_field_count "system report_spec args field count"
     Assert-ArtifactNumber @($reportSpec.arg_values).Count $Golden.report_spec.arg_value_count "system report_spec.arg_values count"
     $reportArgValue = @($reportSpec.arg_values)[0]
@@ -813,8 +813,8 @@ function Assert-SystemGolden {
     Assert-ArtifactValue $result.format $Golden.result.format "system result.format"
     Assert-ArtifactNumber $result.result_format_version $Golden.result.result_format_version "system result.result_format_version"
     Assert-ArtifactNumber $result.bytecode_version $Golden.result.bytecode_version "system result.bytecode_version"
-    Assert-ArtifactValue $result.entry.name $Golden.result.entry_name "system result.entry.name"
-    Assert-ArtifactNumber @($result.args_schema).Count $Golden.result.args_struct_count "system result.args_schema count"
+    Assert-ArtifactValue $result.workflow.kind $Golden.result.workflow_kind "system result.workflow.kind"
+    Assert-ArtifactNumber @($result.args_schema).Count $Golden.result.args_block_count "system result.args_schema count"
     Assert-ArtifactNumber @(@($result.args_schema)[0].fields).Count $Golden.result.args_field_count "system result args field count"
     Assert-ArtifactNumber @($result.arg_values).Count $Golden.result.arg_value_count "system result.arg_values count"
     $resultArgValue = @($result.arg_values)[0]
@@ -1121,7 +1121,7 @@ function New-UserGuidePdf {
         @{ Kind = "body"; Text = "The IDE uses the same compiler and runtime crates as eng.exe. Diagnostics, symbols, completions, run artifacts, and report generation therefore test the real core path rather than duplicated editor logic." },
         @{ Kind = "h1"; Text = "4. Integrated HVAC Example" },
         @{ Kind = "body"; Text = "The integrated HVAC example is the recommended user test because one file exercises typed CSV promotion, DateTime parsing, missing-value interpolation, schema constraints, HeatRate calculation, TimeSeries statistics, trapezoidal integration, PlotSpec/SVG/report output, and the simple thermal system fixed-step ODE preview." },
-        @{ Kind = "body"; Text = "From the command line, run: eng.exe run examples/official/03_integrated_hvac/main.eng --entry main --save-artifacts" },
+        @{ Kind = "body"; Text = "From the command line, run: eng.exe run examples/official/03_integrated_hvac/main.eng --save-artifacts" },
         @{ Kind = "h1"; Text = "5. Expected Output" },
         @{ Kind = "body"; Text = "After a successful run, inspect build/result/report.html first. The result folder also contains result.engres, review.json, report_spec.json, plots/plot_spec.json, plots/plot_manifest.json, and plots/timeseries.svg." },
         @{ Kind = "body"; Text = "The result should record policy_results with interpolation executed, statistics including median/std/p90/p95/duration_above, an integration result for E_coil, and systems[0].solver_result.status = computed." },
@@ -1284,10 +1284,10 @@ Recommended smoke commands:
   eng-ide.exe --smoke
   eng-lsp.exe --smoke
   eng-ide.exe
-  eng.exe run examples\official\01_csv_plot\main.eng --entry main --save-artifacts
-  eng.exe run examples\official\02_simple_system\main.eng --entry main --save-artifacts
-  eng.exe run examples\official\03_integrated_hvac\main.eng --entry main --save-artifacts
-  eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
+  eng.exe run examples\official\01_csv_plot\main.eng --save-artifacts
+  eng.exe run examples\official\02_simple_system\main.eng --save-artifacts
+  eng.exe run examples\official\03_integrated_hvac\main.eng --save-artifacts
+  eng.exe build examples\official\01_csv_plot\main.eng --standalone --profile repro
   dist\main-standalone\run.bat --help
   dist\main-standalone\run.bat
   eng.exe view build\result\result.engres
@@ -1327,19 +1327,19 @@ function Invoke-PackageSmoke {
         Invoke-Native $Eng "doctor"
         Invoke-Native (Join-Path $SmokeRoot "eng-ide.exe") "--smoke"
         Invoke-Native $Lsp "--smoke"
-        Invoke-Native $Eng "run" "examples\official\01_csv_plot\main.eng" "--entry" "main" "--save-artifacts"
+        Invoke-Native $Eng "run" "examples\official\01_csv_plot\main.eng" "--save-artifacts"
         Invoke-Native $Eng "view" "build\result\result.engres"
-        Invoke-Native $Eng "run" "examples\official\02_simple_system\main.eng" "--entry" "main" "--save-artifacts"
+        Invoke-Native $Eng "run" "examples\official\02_simple_system\main.eng" "--save-artifacts"
         if (-not (Test-Path (Join-Path $SmokeRoot "build\result\report_spec.json"))) {
             throw "portable smoke did not create build\result\report_spec.json"
         }
-        Invoke-Native $Eng "run" "examples\official\03_integrated_hvac\main.eng" "--entry" "main" "--save-artifacts"
+        Invoke-Native $Eng "run" "examples\official\03_integrated_hvac\main.eng" "--save-artifacts"
         $IntegratedResult = Get-Content -LiteralPath (Join-Path $SmokeRoot "build\result\result.engres") -Raw
         $IntegratedPlotSpec = Get-Content -LiteralPath (Join-Path $SmokeRoot "build\result\plots\plot_spec.json") -Raw
         if (-not $IntegratedResult.Contains('"policy_results"') -or -not $IntegratedResult.Contains('"solver_result"') -or -not $IntegratedPlotSpec.Contains("Integrated HVAC coil heat rate")) {
             throw "portable smoke integrated HVAC example did not produce expected policy, solver, and plot artifacts"
         }
-        Invoke-Native $Eng "build" "examples\official\01_csv_plot\main.eng" "--entry" "main" "--standalone" "--profile" "repro"
+        Invoke-Native $Eng "build" "examples\official\01_csv_plot\main.eng" "--standalone" "--profile" "repro"
         $StandaloneRunner = Join-Path $SmokeRoot "dist\main-standalone\run.bat"
         if (-not (Test-Path $StandaloneRunner)) {
             throw "portable smoke did not create dist\main-standalone\run.bat"

@@ -18,20 +18,18 @@ schema SensorData {
     }
 }
 
-struct Args {
-    input: String = "data/sensor.csv"
+args {
+    input: CsvFile = file("data/sensor.csv")
 }
 
-script main(args: Args) -> Report {
-    sensor = promote csv args.input as SensorData
-    cp = 4180 J/kg/K
-    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+sensor = promote csv args.input as SensorData
+cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
 
-    return report {
-        summarize Q_coil by [mean, median, std, p90, p95]
-        plot histogram(Q_coil) {
-            unit x = kW
-            title = "Coil heat-rate distribution"
-        }
+report {
+    summarize Q_coil by [mean, median, std, p90, p95]
+    plot histogram(Q_coil) {
+        unit x = kW
+        title = "Coil heat-rate distribution"
     }
 }

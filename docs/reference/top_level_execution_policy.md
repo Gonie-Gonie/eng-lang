@@ -1,8 +1,7 @@
 # Top-Level Execution, Args, Imports, And Const
 
-EngLang files can run naturally as top-level workflows. `script main` remains
-supported for compatibility, but it is no longer required for ordinary
-`eng run file.eng` usage.
+EngLang files run naturally as top-level workflows. `script main` and other
+`script` blocks are not supported as execution roots.
 
 ## Execution Model
 
@@ -12,6 +11,8 @@ When a file is run directly:
 2. The root file `args { ... }` block is evaluated and CLI overrides are bound.
 3. Declarations and executable statements are processed in source order.
 4. `print`, `report`, `plot`, and `export` statements create explicit output.
+5. Any `script` block is diagnosed with `E-SCRIPT-001`; move the body to
+   top-level statements and use `args { ... }` for CLI arguments.
 
 ```eng
 args {
@@ -43,8 +44,8 @@ mixed so interactive work can be saved into a file without a wrapper.
 
 ## Args
 
-`args { ... }` declares the root execution arguments. `struct Args` remains a
-compatibility spelling, but official examples should prefer `args { ... }`.
+`args { ... }` declares the root execution arguments. This is the only
+supported args declaration syntax.
 
 ```eng
 const default_input: CsvFile = file("sensor.csv")
@@ -119,7 +120,7 @@ Not imported or executed:
 - top-level `name = expr`;
 - `promote`, `print`, `report`, `plot`, `export`, and other executable body
   statements;
-- imported `script` entry points.
+- imported `script` blocks.
 
 Dynamic import paths are rejected with `E-IMPORT-DYNAMIC-001`.
 References to top-level imported-module `name = expr` locals are diagnosed as
@@ -130,4 +131,3 @@ References to top-level imported-module `name = expr` locals are diagnosed as
 Function-local bindings are visible only inside the function body. They are
 compiled as part of the function and are available when the function is called,
 but they are not importable symbols and do not appear as root runtime locals.
-

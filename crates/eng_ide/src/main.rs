@@ -532,7 +532,6 @@ struct EngIdeApp {
     jit_plan: Option<JitPlanView>,
     status: String,
     run_log: String,
-    entry: String,
     dirty: bool,
     last_edit: Option<Instant>,
     cursor_char_index: usize,
@@ -580,7 +579,6 @@ impl EngIdeApp {
             jit_plan: None,
             status: "Ready".to_owned(),
             run_log: String::new(),
-            entry: "main".to_owned(),
             dirty: false,
             last_edit: None,
             cursor_char_index: 0,
@@ -809,15 +807,13 @@ impl EngIdeApp {
                 return;
             }
         }
-        let template = r#"script main() -> Report {
-    value = 1 kW
+        let template = r#"value = 1 kW
 
-    return report {
-        show value
-        plot value over Time {
-            unit y = kW
-            title = "EngLang preview"
-        }
+report {
+    show value
+    plot value over Time {
+        unit y = kW
+        title = "EngLang preview"
     }
 }
 "#;
@@ -1073,7 +1069,6 @@ impl EngIdeApp {
             &RunOptions {
                 open_report: false,
                 save_artifacts: false,
-                entry: Some(self.entry.clone()),
                 args: Vec::new(),
             },
         ) {
@@ -1285,10 +1280,6 @@ impl EngIdeApp {
             if ui.button("Settings").clicked() {
                 self.show_settings = true;
             }
-            ui.separator();
-            ui.label("Entry");
-            ui.add_sized([110.0, 28.0], egui::TextEdit::singleline(&mut self.entry));
-            ui.separator();
             let (errors, warnings) = self.status_counts();
             status_badge(ui, "Errors", errors, if errors > 0 { ERROR } else { OK });
             status_badge(
@@ -3980,9 +3971,9 @@ fn completion_items(filter: &str, symbols: &[SymbolView], source: &str) -> Vec<C
 
     for (label, insert, detail) in [
         (
-            "snippet: script main",
-            "script main() -> Report {\n    value = 1 kW\n\n    return report {\n        show value\n    }\n}",
-            "main report script",
+            "snippet: top-level main",
+            "value = 1 kW\n\nreport {\n    show value\n}",
+            "top-level report workflow",
         ),
         (
             "snippet: csv schema",
@@ -4001,17 +3992,17 @@ fn completion_items(filter: &str, symbols: &[SymbolView], source: &str) -> Vec<C
         ),
         (
             "snippet: plot report",
-            "return report {\n    summarize value by [mean, max, median, std]\n    plot value over Time {\n        unit y = kW\n        title = \"Preview\"\n    }\n}",
+            "report {\n    summarize value by [mean, max, median, std]\n    plot value over Time {\n        unit y = kW\n        title = \"Preview\"\n    }\n}",
             "report with plot",
         ),
         (
             "snippet: ML model",
-            "split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)\nreg_model = regression(split, algorithm=linear)\nreg_eval = evaluate(reg_model, split=split)\n\nreturn report {\n    show reg_eval\n    plot parity(reg_eval) {\n        title = \"Regression parity\"\n    }\n}",
+            "split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)\nreg_model = regression(split, algorithm=linear)\nreg_eval = evaluate(reg_model, split=split)\n\nreport {\n    show reg_eval\n    plot parity(reg_eval) {\n        title = \"Regression parity\"\n    }\n}",
             "data-driven regression seed",
         ),
         (
             "snippet: uncertainty",
-            "Q_dist = normal(mean=5 kW, std=0.8 kW, samples=31)\nQ_total = propagate(Q_dist, method=linear, scale=1.08, offset=0.4 kW)\n\nreturn report {\n    show Q_total\n    plot distribution(Q_dist) {\n        title = \"Uncertainty histogram\"\n    }\n}",
+            "Q_dist = normal(mean=5 kW, std=0.8 kW, samples=31)\nQ_total = propagate(Q_dist, method=linear, scale=1.08, offset=0.4 kW)\n\nreport {\n    show Q_total\n    plot distribution(Q_dist) {\n        title = \"Uncertainty histogram\"\n    }\n}",
             "uncertainty distribution and histogram",
         ),
     ] {

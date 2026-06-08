@@ -1,7 +1,7 @@
 # CLI Specification
 
-The core user-facing entry point is `eng.exe`. Portable tester IDE releases also
-ship `eng-ide.exe` as a native GUI companion.
+The core user-facing CLI is `eng.exe`. Portable tester IDE releases also ship
+`eng-ide.exe` as a native GUI companion.
 
 ## Commands
 
@@ -11,10 +11,9 @@ eng.exe new <project_name>
 eng.exe check <file.eng> [--review]
 eng.exe ide-check <file.eng>
 eng.exe jit-plan <file.eng> [--backend <name>]
-eng.exe jit-bench <file.eng> [--iterations N] [--entry <name>] [--backend <name>] [--<arg> <value>...]
-eng.exe entries <file.eng>
-eng.exe run <file.eng> [--entry <name>] [--open-report] [--save-artifacts] [--<arg> <value>...]
-eng.exe build <file.eng> [--entry <name>] [--standalone] [--profile repro]
+eng.exe jit-bench <file.eng> [--iterations N] [--backend <name>] [--<arg> <value>...]
+eng.exe run <file.eng> [--open-report] [--save-artifacts] [--<arg> <value>...]
+eng.exe build <file.eng> [--standalone] [--profile repro]
 eng.exe view <result.engres>
 eng.exe test <project_or_examples>
 eng-ide.exe
@@ -44,7 +43,8 @@ Success prints `Ready.` and returns exit code 0.
 
 ## `eng check <file.eng> [--review]`
 
-Checks source and writes optional review metadata. It does not execute the entry point.
+Checks source and writes optional review metadata. It does not execute the
+top-level workflow.
 
 Current diagnostics:
 
@@ -57,17 +57,15 @@ E-DIM-ADD-003          AbsoluteTemperature + DimensionlessNumber is invalid
 E-DIM-ADD-004          other physical quantity + DimensionlessNumber is invalid
 E-RESERVED-KEYWORD-001 reserved keyword binding is invalid
 W-QTY-AMBIG-001        ambiguous quantity warning
-W-ENTRY-MAIN-001       non-main script entry warning
 E-SCHEMA-PROMOTE-001   unknown schema in promote csv
 E-SCHEMA-CSV-001       CSV source cannot be read
 E-SCHEMA-CSV-002       CSV source missing required columns
 E-SCHEMA-MISSING-001   missing policy references unknown column
-E-ARGS-UNKNOWN-001     CLI Args flag does not match struct Args
+E-ARGS-UNKNOWN-001     CLI Args flag does not match `args { ... }`
 E-ARGS-REQUIRED-001    required Args field was not provided for run
 E-ARGS-TYPE-001        Args value cannot be converted to the declared type
 E-ARGS-CSV-001         CSV promotion references an Args field without a value
-E-ENTRY-NOT-FOUND-001  run/build entry point was not found
-E-ENTRY-MULTIPLE-001   run/build entry point selection is ambiguous
+E-SCRIPT-001           `script` blocks are not supported as execution roots
 W-STATS-SUM-001        HeatRate summed over Time should use integrate
 E-EQ-BOOL-001          physical equation used == instead of eq
 E-EQ-UNIT-001          physical equation dimensions do not match
@@ -106,7 +104,7 @@ diagnostics
 variable_table
 warning_list
 plot_manifest
-entry_points
+workflow
 args_summary
 arg_values
 inferred_declarations
@@ -213,7 +211,6 @@ Current behavior:
 ```text
 - default iterations: 3
 - allowed iterations: 1..100
-- `--entry <name>` selects the script entry
 - `--backend <name>` records backend selection metadata
 - other `--<arg> <value>` flags are forwarded as Eng Args overrides
 - `jit.status` is `not_available`
@@ -277,34 +274,18 @@ with diagnostics, completion items, and hover items. Domain/component files
 include hover `kind`/`status` metadata and completion labels such as
 `Thermal`, `RoomBoundary`, and `RoomBoundary.heat`.
 
-## `eng entries <file.eng>`
+## `eng run <file.eng> [--open-report] [--save-artifacts] [--<arg> <value>...]`
 
-Lists entry points discovered by the compiler, including compatibility scripts
-and synthetic `top-level main` entries.
-
-Example:
-
-```text
-examples\official\01_csv_plot\main.eng:25: script main(args: Args) -> Report
-examples\official\08_print_export_summary\main.eng:1: top-level main(args: Args) -> Report
-```
-
-This command is useful before running files with multiple script entries.
-
-## `eng run <file.eng> [--entry <name>] [--open-report] [--save-artifacts] [--<arg> <value>...]`
-
-Runs the selected entry through bytecode v1 and the native VM seed.
+Runs the file's top-level workflow through bytecode v1 and the native VM seed.
 By default, result/review/report/plot payloads remain runtime objects in memory.
 `--save-artifacts` writes those objects to disk.
 
-Default entry selection:
+Execution model:
 
 ```text
-1. If `--entry <name>` is passed, use that entry.
-2. Otherwise, use `script main` when present.
-3. Otherwise, run files without script entries as `top-level main`.
-4. Otherwise, use the only script entry if the file has exactly one entry.
-5. Otherwise, return an entry diagnostic.
+1. Root `args { ... }` declares CLI-bindable arguments.
+2. Top-level statements form the executable workflow.
+3. `script` blocks are rejected with E-SCRIPT-001.
 ```
 
 Saved artifacts:
@@ -326,10 +307,9 @@ build/
 `--open-report` implies `--save-artifacts` and attempts to open the generated
 `report.html` with the OS default browser.
 
-Args flags are matched against root `args { ... }` fields. Compatibility
-`struct Args` fields are also accepted. Defaults are used when available,
-primitive typed values are normalized, and resolved values are recorded in
-`arg_values`.
+Args flags are matched against root `args { ... }` fields. Defaults are used
+when available, primitive typed values are normalized, and resolved values are
+recorded in `arg_values`.
 
 Current typed Args conversion:
 
@@ -343,10 +323,10 @@ Duration             s, min, h -> normalized seconds such as `600 s`
 ```
 
 ```bat
-eng.exe run examples\official\01_csv_plot\main.eng --entry main --save-artifacts --input data/sensor.csv
+eng.exe run examples\official\01_csv_plot\main.eng --save-artifacts --input data/sensor.csv
 ```
 
-## `eng build <file.eng> [--entry <name>] --standalone --profile repro`
+## `eng build <file.eng> --standalone --profile repro`
 
 Creates a runnable standalone package bundle:
 
@@ -366,16 +346,16 @@ dist/
 
 For CSV promotions that use relative paths, the referenced CSV files are copied
 into the bundle at the same relative path from `source/<file.eng>`. Running
-`run.bat` executes the bundled `eng.exe run source\<file.eng> --entry <name> --save-artifacts`
+`run.bat` executes the bundled `eng.exe run source\<file.eng> --save-artifacts`
 and forwards extra Args flags. It creates normal `build/result` artifacts inside
 the bundle.
 
 The `.engpkg` records package format, runtime ABI, repro profile, runner,
 engine, source and artifact roots, source, bytecode, source hash, bytecode hash,
-entry name, selected entry signature, Args schema, Args field count, Args help
+workflow signature, Args schema, Args field count, Args help
 path, dependency count, dependency paths, and dependency hashes. The lock file
 records runtime/compiler/package/bytecode/result/report/plot format versions,
-source and bytecode hashes, entry name, dependency count, dependency hashes, and
+source and bytecode hashes, workflow signature, dependency count, dependency hashes, and
 `profile = repro`.
 
 See [Standalone package reference](../reference/standalone_package.md) for the
@@ -414,7 +394,7 @@ Runs official smoke checks:
 - missing CSV column example produces errors
 - missing uncertainty source example produces E-UNC-SOURCE-001
 - invalid uncertainty argument example produces E-UNC-ARGS-001/002/003
-- missing entry example fails file run/build entry selection
+- `script` execution-root syntax produces E-SCRIPT-001
 - official plotting example produces report and PlotSpec artifacts
 - official histogram example produces binned PlotSpec artifacts
 - Args CLI binding produces CSV run artifacts

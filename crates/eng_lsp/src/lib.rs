@@ -554,7 +554,7 @@ mod tests {
 
     #[test]
     fn snapshot_exposes_lsp_diagnostics_hover_and_completion() {
-        let source = "script main(args: Args) -> Report {\n    Q = 2 kW - 1\n}\n";
+        let source = "Q = 2 kW - 1\n}\n";
         let snapshot = snapshot_for_source(Path::new("bad.eng"), source);
 
         assert!(snapshot
@@ -623,10 +623,8 @@ mod tests {
     m_dot: MassFlowRate [kg/s]
 }
 
-script main() -> Report {
-    sensor = promote csv "missing.csv" as SensorData
-    Q = sensor.T
-}
+sensor = promote csv "missing.csv" as SensorData
+Q = sensor.T
 "#;
         let line = source
             .lines()

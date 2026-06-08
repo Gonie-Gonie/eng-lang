@@ -64,7 +64,7 @@ The native IDE follows a familiar editor layout:
 
 ```text
 Top toolbar
-  Check, Save, Run, Report, Plot SVG, entry selection, diagnostic counts,
+  Check, Save, Run, Report, Plot SVG, diagnostic counts,
   Explorer/Sidebar/Result visibility toggles, dirty state, and current
   status. Settings opens appearance, font, window-size, and layout controls.
 
@@ -144,7 +144,7 @@ be checked without writing temporary source files. Running a program saves the
 current file first and then calls the same in-memory runtime path as:
 
 ```bat
-eng.exe run <file.eng> --entry main
+eng.exe run <file.eng>
 ```
 
 After a successful run, the Plot preview, Variables tab, and Artifacts tab are

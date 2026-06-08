@@ -1,6 +1,5 @@
 mod ast;
 mod bytecode;
-mod entry;
 mod expected;
 mod hover;
 mod lexer;
@@ -14,6 +13,7 @@ mod stats;
 mod type_info;
 mod uncertainty;
 mod units;
+mod workflow;
 
 use std::collections::{HashMap, HashSet};
 use std::env;
@@ -22,16 +22,15 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub use ast::{
-    ArgsDecl, AstItem, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl, CsvExportDecl,
-    CsvExportFieldDecl, DomainDecl, DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding,
-    FunctionDecl, FunctionParamDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl,
-    ScriptDecl, StructDecl, StructFieldDecl, SystemDecl, SystemVariableDecl,
+    ArgsDecl, ArgsFieldDecl, AstItem, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl,
+    CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainVariableDecl, EquationDecl, ExplicitDecl,
+    FastBinding, FunctionDecl, FunctionParamDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl,
+    SchemaDecl, ScriptDecl, StructDecl, SystemDecl, SystemVariableDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
     BytecodeParseError, BytecodeProgram, BYTECODE_FORMAT, BYTECODE_VERSION,
 };
-pub use entry::{select_entry, EntryPoint};
 pub use expected::{ExpectedType, ExpectedTypeSource};
 pub use hover::HoverHint;
 pub use lexer::{Keyword, Symbol, Token, TokenKind};
@@ -40,7 +39,7 @@ pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSu
 pub use quantities::{all_quantity_completions, normalize_unit, QuantityCompletion};
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
 pub use semantic::{
-    ArgValueInfo, ArgsFieldInfo, ArgsStructInfo, ComponentInfo, ConnectionInfo, ConservationInfo,
+    ArgValueInfo, ArgsBlockInfo, ArgsFieldInfo, ComponentInfo, ConnectionInfo, ConservationInfo,
     ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo, DomainTypeParameterInfo,
     DomainVariableInfo, EquationDependencyInfo, EquationInfo, EquationIrInfo, FormatExpressionInfo,
     FunctionInfo, FunctionLocalInfo, FunctionParamInfo, ImportInfo, JacobianSeedInfo,
@@ -52,6 +51,7 @@ pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
 pub use type_info::{TypeInfo, TypeInfoSource};
 pub use uncertainty::{UncertaintyInfo, UncertaintyPropagationTerm};
 pub use units::{all_unit_infos, UnitDerivation, UnitInfo};
+pub use workflow::Workflow;
 
 pub const COMPILER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -337,7 +337,6 @@ fn importable_definition_item(item: &AstItem) -> bool {
 fn imported_has_args_block(program: &ParsedProgram) -> bool {
     program.items.iter().any(|item| match item {
         AstItem::Args(_) => true,
-        AstItem::Struct(struct_decl) => struct_decl.name == "Args",
         _ => false,
     })
 }
@@ -452,8 +451,8 @@ fn resolve_arg_values(
 
     let mut declared = HashSet::new();
     let mut values = Vec::new();
-    for args_struct in &program.args_structs {
-        for field in &args_struct.fields {
+    for args_block in &program.args_blocks {
+        for field in &args_block.fields {
             declared.insert(field.name.clone());
             let (raw_value, source) = if let Some(value) = overrides.get(&field.name) {
                 (value.clone(), "cli")
@@ -526,7 +525,7 @@ fn resolve_arg_values(
                 "E-ARGS-UNKNOWN-001",
                 1,
                 &format!("Unknown Args field `{name}`."),
-                Some("Declare the field in struct Args or remove the flag."),
+                Some("Declare the field in `args { ... }` or remove the flag."),
             ));
         }
     }
@@ -772,8 +771,8 @@ fn strip_string_literal(value: &str) -> String {
     }
 }
 
-pub fn build_bytecode(report: &CheckReport, source: &str, entry: &EntryPoint) -> String {
-    encode_bytecode(&build_bytecode_program(report, source, entry))
+pub fn build_bytecode(report: &CheckReport, source: &str) -> String {
+    encode_bytecode(&build_bytecode_program(report, source))
 }
 
 pub fn review_json(report: &CheckReport) -> String {
@@ -855,8 +854,8 @@ pub fn review_json(report: &CheckReport) -> String {
         report.syntax_summary.args_blocks
     ));
     json.push_str(&format!(
-        "    \"struct_fields\": {},\n",
-        report.syntax_summary.struct_fields
+        "    \"args_fields\": {},\n",
+        report.syntax_summary.args_fields
     ));
     json.push_str(&format!(
         "    \"const_declarations\": {},\n",
@@ -997,48 +996,26 @@ pub fn review_json(report: &CheckReport) -> String {
     json.push_str("    \"available_in_check\": false\n");
     json.push_str("  },\n");
 
-    json.push_str("  \"entry_points\": [\n");
-    for (index, entry) in report.semantic_program.entry_points.iter().enumerate() {
-        if index > 0 {
-            json.push_str(",\n");
-        }
-        json.push_str("    {\n");
-        json.push_str(&format!(
-            "      \"kind\": \"{}\",\n",
-            json_escape(&entry.kind)
-        ));
-        json.push_str(&format!(
-            "      \"name\": \"{}\",\n",
-            json_escape(&entry.name)
-        ));
-        if let Some(arg_name) = &entry.arg_name {
-            json.push_str(&format!(
-                "      \"arg_name\": \"{}\",\n",
-                json_escape(arg_name)
-            ));
-        } else {
-            json.push_str("      \"arg_name\": null,\n");
-        }
-        if let Some(arg_type) = &entry.arg_type {
-            json.push_str(&format!(
-                "      \"arg_type\": \"{}\",\n",
-                json_escape(arg_type)
-            ));
-        } else {
-            json.push_str("      \"arg_type\": null,\n");
-        }
-        if let Some(return_type) = &entry.return_type {
-            json.push_str(&format!(
-                "      \"return_type\": \"{}\",\n",
-                json_escape(return_type)
-            ));
-        } else {
-            json.push_str("      \"return_type\": null,\n");
-        }
-        json.push_str(&format!("      \"line\": {}\n", entry.line));
-        json.push_str("    }");
-    }
-    json.push_str("\n  ],\n");
+    let workflow = &report.semantic_program.workflow;
+    json.push_str("  \"workflow\": {\n");
+    json.push_str(&format!(
+        "    \"kind\": \"{}\",\n",
+        json_escape(&workflow.kind)
+    ));
+    json.push_str(&format!(
+        "    \"arg_name\": \"{}\",\n",
+        json_escape(workflow.arg_name.as_deref().unwrap_or("args"))
+    ));
+    json.push_str(&format!(
+        "    \"arg_type\": \"{}\",\n",
+        json_escape(workflow.arg_type.as_deref().unwrap_or("Args"))
+    ));
+    json.push_str(&format!(
+        "    \"return_type\": \"{}\",\n",
+        json_escape(workflow.return_type.as_deref().unwrap_or("Report"))
+    ));
+    json.push_str(&format!("    \"line\": {}\n", workflow.line));
+    json.push_str("  },\n");
 
     json.push_str("  \"imports\": [\n");
     for (index, import) in report.semantic_program.imports.iter().enumerate() {
@@ -1181,22 +1158,22 @@ pub fn review_json(report: &CheckReport) -> String {
     json.push_str("\n  ],\n");
 
     json.push_str("  \"args_summary\": [\n");
-    for (index, args_struct) in report.semantic_program.args_structs.iter().enumerate() {
+    for (index, args_block) in report.semantic_program.args_blocks.iter().enumerate() {
         if index > 0 {
             json.push_str(",\n");
         }
         json.push_str("    {\n");
         json.push_str(&format!(
             "      \"name\": \"{}\",\n",
-            json_escape(&args_struct.name)
+            json_escape(&args_block.name)
         ));
-        json.push_str(&format!("      \"line\": {},\n", args_struct.line));
+        json.push_str(&format!("      \"line\": {},\n", args_block.line));
         json.push_str(&format!(
             "      \"field_count\": {},\n",
-            args_struct.fields.len()
+            args_block.fields.len()
         ));
         json.push_str("      \"fields\": [\n");
-        for (field_index, field) in args_struct.fields.iter().enumerate() {
+        for (field_index, field) in args_block.fields.iter().enumerate() {
             if field_index > 0 {
                 json.push_str(",\n");
             }
@@ -2506,23 +2483,17 @@ mod tests {
     }
 
     #[test]
-    fn parser_records_script_and_binding_items() {
-        let report = check_source(
-            "ok.eng",
-            "script main(args: Args) -> Report {\n    L = 1 m + 20 cm\n}\n",
-            &CheckOptions::default(),
-        );
+    fn parser_records_top_level_workflow_and_binding_items() {
+        let report = check_source("ok.eng", "L = 1 m + 20 cm\n", &CheckOptions::default());
 
-        assert_eq!(report.syntax_summary.scripts, 1);
-        assert_eq!(report.semantic_program.entry_points[0].name, "main");
+        assert_eq!(report.syntax_summary.scripts, 0);
+        assert_eq!(report.semantic_program.workflow.kind, "top_level");
         assert_eq!(
-            report.semantic_program.entry_points[0].arg_type.as_deref(),
+            report.semantic_program.workflow.arg_type.as_deref(),
             Some("Args")
         );
         assert_eq!(
-            report.semantic_program.entry_points[0]
-                .return_type
-                .as_deref(),
+            report.semantic_program.workflow.return_type.as_deref(),
             Some("Report")
         );
         assert_eq!(report.syntax_summary.fast_bindings, 1);
@@ -2530,22 +2501,23 @@ mod tests {
     }
 
     #[test]
-    fn records_args_struct_metadata() {
+    fn records_args_block_metadata() {
         let report = check_source(
             "ok.eng",
-            "struct Args {\n    case_name: String = \"baseline\"\n}\n\nscript main(args: Args) -> Report {\n    L = 1 m\n}\n",
+            "args {\n    case_name: String = \"baseline\"\n}\n\nL = 1 m\n",
             &CheckOptions::default(),
         );
 
-        assert_eq!(report.syntax_summary.structs, 1);
-        assert_eq!(report.syntax_summary.struct_fields, 1);
-        assert_eq!(report.semantic_program.args_structs[0].name, "Args");
+        assert!(!report.has_errors());
+        assert_eq!(report.syntax_summary.args_blocks, 1);
+        assert_eq!(report.syntax_summary.structs, 0);
+        assert_eq!(report.semantic_program.args_blocks[0].name, "Args");
         assert_eq!(
-            report.semantic_program.args_structs[0].fields[0].name,
+            report.semantic_program.args_blocks[0].fields[0].name,
             "case_name"
         );
         assert_eq!(
-            report.semantic_program.args_structs[0].fields[0]
+            report.semantic_program.args_blocks[0].fields[0]
                 .default_value
                 .as_deref(),
             Some("\"baseline\"")
@@ -2567,7 +2539,7 @@ mod tests {
         assert!(!report.has_errors());
         assert_eq!(report.syntax_summary.args_blocks, 1);
         assert_eq!(report.syntax_summary.const_declarations, 1);
-        assert_eq!(report.semantic_program.args_structs[0].name, "Args");
+        assert_eq!(report.semantic_program.args_blocks[0].name, "Args");
         let value = |name: &str| {
             report
                 .semantic_program
@@ -2578,7 +2550,7 @@ mod tests {
         };
         assert_eq!(value("input"), Some("sensor.csv"));
         assert_eq!(value("output"), Some("build/result"));
-        assert_eq!(report.semantic_program.entry_points[0].kind, "top_level");
+        assert_eq!(report.semantic_program.workflow.kind, "top_level");
         assert_eq!(report.semantic_program.consts[0].name, "default_input");
     }
 
@@ -2586,7 +2558,7 @@ mod tests {
     fn resolves_typed_args_values() {
         let report = check_source(
             "ok.eng",
-            "struct Args {\n    enabled: Bool = false\n    count: Count = 3\n    gain: Float = 1.0\n    window: Duration = 5 min\n}\n\nscript main(args: Args) -> Report {\n    L = 1 m\n}\n",
+            "args {\n    enabled: Bool = false\n    count: Count = 3\n    gain: Float = 1.0\n    window: Duration = 5 min\n}\n\nL = 1 m\n",
             &CheckOptions {
                 args: vec![
                     ArgOverride {
@@ -2629,7 +2601,7 @@ mod tests {
     fn rejects_invalid_typed_args_values() {
         let report = check_source(
             "bad.eng",
-            "struct Args {\n    enabled: Bool = maybe\n    count: Count = -1\n    window: Duration = 2 weeks\n}\n\nscript main(args: Args) -> Report {\n    L = 1 m\n}\n",
+            "args {\n    enabled: Bool = maybe\n    count: Count = -1\n    window: Duration = 2 weeks\n}\n\nL = 1 m\n",
             &CheckOptions::default(),
         );
 
@@ -2642,6 +2614,22 @@ mod tests {
                 .count(),
             3
         );
+    }
+
+    #[test]
+    fn rejects_struct_args_compatibility_syntax() {
+        let report = check_source(
+            "bad.eng",
+            "struct Args {\n    input: String = \"sensor.csv\"\n}\n\nL = 1 m\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-STRUCT-ARGS-001"));
+        assert!(report.semantic_program.args_blocks.is_empty());
     }
 
     #[test]
@@ -2824,41 +2812,43 @@ mod tests {
     }
 
     #[test]
-    fn selects_default_script_main_entry() {
+    fn rejects_script_workflow_syntax() {
         let report = check_source(
             "ok.eng",
             "script main(args: Args) -> Report {\n    L = 1 m\n}\n",
             &CheckOptions::default(),
         );
 
-        let entry = select_entry(&report.semantic_program.entry_points, None).unwrap();
-
-        assert_eq!(entry.signature(), "script main(args: Args) -> Report");
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SCRIPT-001"));
     }
 
     #[test]
-    fn selects_top_level_entry_when_no_script_is_declared() {
+    fn records_top_level_workflow() {
         let report = check_source("ok.eng", "L = 1 m\n", &CheckOptions::default());
 
-        let entry = select_entry(&report.semantic_program.entry_points, None).unwrap();
-
-        assert_eq!(entry.kind, "top_level");
-        assert_eq!(entry.signature(), "top-level main(args: Args) -> Report");
+        assert_eq!(report.semantic_program.workflow.kind, "top_level");
+        assert_eq!(
+            report.semantic_program.workflow.signature(),
+            "top-level workflow(args: Args) -> Report"
+        );
     }
 
     #[test]
-    fn bytecode_v1_round_trips_entry_and_instructions() {
-        let source = "script main(args: Args) -> Report {\n    L = 1 m\n}\n";
+    fn bytecode_v1_round_trips_workflow_and_instructions() {
+        let source = "L = 1 m\n";
         let report = check_source("ok.eng", source, &CheckOptions::default());
-        let entry = select_entry(&report.semantic_program.entry_points, None).unwrap();
 
-        let bytecode = build_bytecode(&report, source, &entry);
+        let bytecode = build_bytecode(&report, source);
         let decoded = parse_bytecode(&bytecode).unwrap();
 
         assert!(bytecode.starts_with("ENGBYTECODE 1\nformat = engbc-v1\n"));
-        assert!(bytecode.contains("entry = script main\n"));
-        assert!(bytecode.contains("0000|enter_entry|script|main\n"));
-        assert_eq!(decoded.entry.name, "main");
+        assert!(bytecode.contains("workflow = top_level\n"));
+        assert!(bytecode.contains("0000|enter_workflow|top_level\n"));
+        assert_eq!(decoded.workflow.kind, "top_level");
         assert_eq!(
             decoded.instructions.last(),
             Some(&BytecodeInstruction::WriteResult {
@@ -2871,7 +2861,7 @@ mod tests {
     fn records_timeseries_axis_summary_and_integrate_metadata() {
         let report = check_source(
             "ok.eng",
-            "script main(args: Args) -> Report {\n    sensor = promote csv \"data/sensor.csv\" as SensorData\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    E_coil = integrate(Q_coil, over=Time)\n\n    return report {\n        summarize Q_coil by [mean, max, p95]\n    }\n}\n",
+            "sensor = promote csv \"data/sensor.csv\" as SensorData\ncp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nE_coil = integrate(Q_coil, over=Time)\n\nreport {\n    summarize Q_coil by [mean, max, p95]\n}\n",
             &CheckOptions::default(),
         );
 
@@ -2920,7 +2910,7 @@ mod tests {
     fn records_unit_aware_print_and_csv_export_metadata() {
         let report = check_source(
             "ok.eng",
-            "script main(args: Args) -> Report {\n    cp = 4180 J/kg/K\n    Q_series = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    mean_Q = mean(Q_series, axis=Time)\n    Q = 10 kW\n    E: Energy [J] = 3600 J\n    print \"Q={Q: .2 kW} E={E: .3 kWh}\"\n    export summary to csv \"summary.csv\" {\n        Q as kW with \".2\"\n        E as kWh with \".3\"\n        mean_Q as kW with \".2\"\n    }\n}\n",
+            "cp = 4180 J/kg/K\nQ_series = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nmean_Q = mean(Q_series, axis=Time)\nQ = 10 kW\nE: Energy [J] = 3600 J\nprint \"Q={Q: .2 kW} E={E: .3 kWh}\"\nexport summary to csv \"summary.csv\" {\n    Q as kW with \".2\"\n    E as kWh with \".3\"\n    mean_Q as kW with \".2\"\n}\n",
             &CheckOptions::default(),
         );
 
@@ -2970,7 +2960,7 @@ mod tests {
     fn records_uncertainty_core_metadata() {
         let report = check_source(
             "ok.eng",
-            "script main(args: Args) -> Report {\n    T_supply_meas = measured(12 degC, std=0.2 K)\n    T_return_band = interval(20 degC, 24 degC)\n    Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)\n    Q_uniform = uniform(4 kW, 6 kW, samples=11)\n    Q_coil_ensemble = ensemble(Q_coil_dist, samples=31)\n    Q_total_unc = propagate(Q_coil_dist, method=linear, scale=1.08, offset=0.4 kW)\n}\n",
+            "T_supply_meas = measured(12 degC, std=0.2 K)\nT_return_band = interval(20 degC, 24 degC)\nQ_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)\nQ_uniform = uniform(4 kW, 6 kW, samples=11)\nQ_coil_ensemble = ensemble(Q_coil_dist, samples=31)\nQ_total_unc = propagate(Q_coil_dist, method=linear, scale=1.08, offset=0.4 kW)\n",
             &CheckOptions::default(),
         );
 
@@ -3050,7 +3040,7 @@ mod tests {
     fn rejects_unresolved_uncertainty_source() {
         let report = check_source(
             "bad.eng",
-            "script main(args: Args) -> Report {\n    Q_total_unc = propagate(Q_missing, method=linear)\n}\n",
+            "Q_total_unc = propagate(Q_missing, method=linear)\n",
             &CheckOptions::default(),
         );
 
@@ -3065,7 +3055,7 @@ mod tests {
     fn rejects_non_uncertainty_source() {
         let report = check_source(
             "bad.eng",
-            "script main(args: Args) -> Report {\n    Q_coil = 5 kW\n    Q_total_unc = ensemble(Q_coil, samples=16)\n}\n",
+            "Q_coil = 5 kW\nQ_total_unc = ensemble(Q_coil, samples=16)\n",
             &CheckOptions::default(),
         );
 
@@ -3080,7 +3070,7 @@ mod tests {
     fn rejects_invalid_uncertainty_arguments() {
         let report = check_source(
             "bad.eng",
-            "script main(args: Args) -> Report {\n    T_bad = measured(sensor_value, std=abc)\n    Q_bad_dist = normal(mean=5 kW, std=-0.8 kW, samples=0)\n    Q_bad_uniform = uniform(0.7 kW, 0.3 kW, samples=abc)\n    Q_source = normal(mean=4 kW, std=0.4 kW, samples=9)\n    Q_bad_prop = propagate(Q_source, method=quadratic, scale=abc)\n    Q_bad_distribution = distribution(kind=triangular, mean=5 kW, std=0.2 kW)\n}\n",
+            "T_bad = measured(sensor_value, std=abc)\nQ_bad_dist = normal(mean=5 kW, std=-0.8 kW, samples=0)\nQ_bad_uniform = uniform(0.7 kW, 0.3 kW, samples=abc)\nQ_source = normal(mean=4 kW, std=0.4 kW, samples=9)\nQ_bad_prop = propagate(Q_source, method=quadratic, scale=abc)\nQ_bad_distribution = distribution(kind=triangular, mean=5 kW, std=0.2 kW)\n",
             &CheckOptions::default(),
         );
 
@@ -3099,7 +3089,7 @@ mod tests {
     fn records_data_driven_modeling_metadata() {
         let report = check_source(
             "ok.eng",
-            "script main(args: Args) -> Report {\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)\n    reg_model = regression(split, algorithm=linear)\n    mlp_model = mlp(split, hidden=[4], epochs=20, seed=7)\n    reg_eval = evaluate(reg_model, split=split)\n    reg_card = model_card(reg_model)\n    leakage = leakage_lint(split)\n}\n",
+            "cp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nsplit = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)\nreg_model = regression(split, algorithm=linear)\nmlp_model = mlp(split, hidden=[4], epochs=20, seed=7)\nreg_eval = evaluate(reg_model, split=split)\nreg_card = model_card(reg_model)\nleakage = leakage_lint(split)\n",
             &CheckOptions::default(),
         );
 
@@ -3138,7 +3128,7 @@ mod tests {
     fn rejects_unresolved_ml_source() {
         let report = check_source(
             "bad.eng",
-            "script main(args: Args) -> Report {\n    split = train_test_split(Q_missing, target=Q_missing, features=[T_supply], test=0.25)\n}\n",
+            "split = train_test_split(Q_missing, target=Q_missing, features=[T_supply], test=0.25)\n",
             &CheckOptions::default(),
         );
 
@@ -3153,7 +3143,7 @@ mod tests {
     fn rejects_invalid_ml_source_kind() {
         let report = check_source(
             "bad.eng",
-            "script main(args: Args) -> Report {\n    Q_coil = 5 kW\n    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply], test=0.25)\n}\n",
+            "Q_coil = 5 kW\nsplit = train_test_split(Q_coil, target=Q_coil, features=[T_supply], test=0.25)\n",
             &CheckOptions::default(),
         );
 
@@ -3168,7 +3158,7 @@ mod tests {
     fn rejects_ml_model_without_split_source() {
         let report = check_source(
             "bad.eng",
-            "script main(args: Args) -> Report {\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    reg_model = regression(Q_coil, algorithm=linear)\n}\n",
+            "cp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nreg_model = regression(Q_coil, algorithm=linear)\n",
             &CheckOptions::default(),
         );
 
@@ -3183,7 +3173,7 @@ mod tests {
     fn rejects_evaluate_with_unresolved_split_reference() {
         let report = check_source(
             "bad.eng",
-            "script main(args: Args) -> Report {\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply], test=0.25)\n    reg_model = regression(split, algorithm=linear)\n    reg_eval = evaluate(reg_model, split=missing_split)\n}\n",
+            "cp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nsplit = train_test_split(Q_coil, target=Q_coil, features=[T_supply], test=0.25)\nreg_model = regression(split, algorithm=linear)\nreg_eval = evaluate(reg_model, split=missing_split)\n",
             &CheckOptions::default(),
         );
 
@@ -3198,7 +3188,7 @@ mod tests {
     fn rejects_missing_ml_split_arguments() {
         let report = check_source(
             "bad.eng",
-            "script main(args: Args) -> Report {\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    split = train_test_split(Q_coil, features=[], test=1.5)\n}\n",
+            "cp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nsplit = train_test_split(Q_coil, features=[], test=1.5)\n",
             &CheckOptions::default(),
         );
 
@@ -3217,7 +3207,7 @@ mod tests {
     fn rejects_unsupported_ml_algorithm() {
         let report = check_source(
             "bad.eng",
-            "script main(args: Args) -> Report {\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply], test=0.25)\n    reg_model = regression(split, algorithm=tree)\n}\n",
+            "cp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nsplit = train_test_split(Q_coil, target=Q_coil, features=[T_supply], test=0.25)\nreg_model = regression(split, algorithm=tree)\n",
             &CheckOptions::default(),
         );
 
@@ -3232,7 +3222,7 @@ mod tests {
     fn rejects_invalid_mlp_arguments() {
         let report = check_source(
             "bad.eng",
-            "script main(args: Args) -> Report {\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply], test=0.25)\n    mlp_model = mlp(split, hidden=[0], epochs=0, seed=abc)\n}\n",
+            "cp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nsplit = train_test_split(Q_coil, target=Q_coil, features=[T_supply], test=0.25)\nmlp_model = mlp(split, hidden=[0], epochs=0, seed=abc)\n",
             &CheckOptions::default(),
         );
 
@@ -3307,7 +3297,7 @@ mod tests {
     fn warns_when_summing_heat_rate_over_time() {
         let report = check_source(
             "warn.eng",
-            "script main(args: Args) -> Report {\n    sensor = promote csv \"data/sensor.csv\" as SensorData\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    E_bad = sum(Q_coil, axis=Time)\n}\n",
+            "sensor = promote csv \"data/sensor.csv\" as SensorData\n    cp = 4180 J/kg/K\n    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n    E_bad = sum(Q_coil, axis=Time)\n}\n",
             &CheckOptions::default(),
         );
 
@@ -3357,19 +3347,19 @@ mod tests {
     }
 
     #[test]
-    fn imports_function_definitions_without_importing_entry_points() {
+    fn imports_function_definitions_without_importing_executable_body() {
         let root = std::env::temp_dir().join("englang-function-import-test");
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).expect("temp dir");
         fs::write(
             root.join("thermal.eng"),
-            "const UA_wall_default: Conductance [W/K] = 150 W/K\n\nfn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {\n    UA_local = UA\n    dT_local = dT\n    return UA_local * dT_local\n}\n\nscript imported_main(args: Args) -> Report {\n    Q_unused = 1 kW\n}\n",
+            "const UA_wall_default: Conductance [W/K] = 150 W/K\n\nfn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {\n    UA_local = UA\n    dT_local = dT\n    return UA_local * dT_local\n}\n\nQ_unused = 1 kW\n",
         )
         .expect("thermal source");
         let main_path = root.join("main.eng");
         fs::write(
             &main_path,
-            "use \"thermal.eng\"\n\nscript main(args: Args) -> Report {\n    UA_wall = UA_wall_default\n    dT_wall = 8 K\n    Q_wall = heat_loss(UA_wall, dT_wall)\n    print \"Q wall = {Q_wall: .2 kW}\"\n}\n",
+            "use \"thermal.eng\"\n\nUA_wall = UA_wall_default\ndT_wall = 8 K\nQ_wall = heat_loss(UA_wall, dT_wall)\nprint \"Q wall = {Q_wall: .2 kW}\"\n",
         )
         .expect("main source");
 
@@ -3379,7 +3369,6 @@ mod tests {
         assert_eq!(report.semantic_program.imports.len(), 1);
         assert_eq!(report.semantic_program.consts.len(), 1);
         assert_eq!(report.semantic_program.functions.len(), 1);
-        assert_eq!(report.semantic_program.entry_points.len(), 1);
         assert_eq!(report.semantic_program.functions[0].locals.len(), 2);
         let q_wall = report
             .semantic_program
@@ -3421,7 +3410,7 @@ mod tests {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-IMPORT-SYMBOL-001"));
-        assert!(report.semantic_program.args_structs.is_empty());
+        assert!(report.semantic_program.args_blocks.is_empty());
     }
 
     #[test]
@@ -3451,7 +3440,7 @@ mod tests {
     fn rejects_function_call_dimension_mismatch() {
         let report = check_source(
             "bad.eng",
-            "fn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {\n    return UA * dT\n}\n\nscript main(args: Args) -> Report {\n    L_wall = 2 m\n    dT_wall = 8 K\n    Q_wall = heat_loss(L_wall, dT_wall)\n}\n",
+            "fn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {\n    return UA * dT\n}\n\nL_wall = 2 m\n    dT_wall = 8 K\n    Q_wall = heat_loss(L_wall, dT_wall)\n}\n",
             &CheckOptions::default(),
         );
 
@@ -3492,7 +3481,7 @@ mod tests {
     fn accepts_celsius_symbol_alias_for_absolute_temperature() {
         let report = check_source(
             "ok.eng",
-            "schema SensorData {\n    T_supply: AbsoluteTemperature [°C]\n}\n\nscript main() -> Report {\n    T_room = 24 °C\n}\n",
+            "schema SensorData {\n    T_supply: AbsoluteTemperature [°C]\n}\n\nT_room = 24 °C\n}\n",
             &CheckOptions::default(),
         );
 
@@ -3521,7 +3510,7 @@ mod tests {
     fn review_json_exposes_v07_review_contract_sections() {
         let report = check_source(
             "ok.eng",
-            "schema SensorData {\n    time: DateTime index\n    T_supply: AbsoluteTemperature [degC]\n}\n\nscript main(args: Args) -> Report {\n    power = 10 kW\n    L = 1 m + 20 cm\n}\n",
+            "schema SensorData {\n    time: DateTime index\n    T_supply: AbsoluteTemperature [degC]\n}\n\npower = 10 kW\n    L = 1 m + 20 cm\n}\n",
             &CheckOptions::default(),
         );
 
@@ -3619,7 +3608,7 @@ mod tests {
     fn reports_unknown_promote_schema() {
         let report = check_source(
             "bad.eng",
-            "script main(args: Args) -> Report {\n    sensor = promote csv \"data/sensor.csv\" as MissingSchema\n}\n",
+            "sensor = promote csv \"data/sensor.csv\" as MissingSchema\n}\n",
             &CheckOptions::default(),
         );
 

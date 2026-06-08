@@ -31,7 +31,7 @@ eng_cli
   User-facing `eng.exe` command surface.
 
 eng_compiler
-  Source check, diagnostics, AST, semantic metadata, entry selection data, and bytecode v1.
+  Source check, diagnostics, AST, semantic metadata, top-level workflow data, and bytecode v1.
 
 eng_jit
   Experimental hot-kernel detection and numeric lowering-plan metadata.
@@ -53,7 +53,7 @@ Current bytecode/runtime path:
 ```text
 source
   -> check_file
-  -> select entry
+  -> build top-level workflow metadata
   -> build_bytecode
   -> parse_bytecode
   -> execute_bytecode
@@ -184,7 +184,7 @@ bytecode hash
 report spec hash
 compiler version
 runtime version
-entry metadata
+workflow metadata
 schema/CSV provenance
 diagnostics
 typed binding summaries

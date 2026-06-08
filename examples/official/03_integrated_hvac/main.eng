@@ -19,8 +19,8 @@ schema IntegratedHvacData {
     }
 }
 
-struct Args {
-    input: String = "data/integrated_hvac.csv"
+args {
+    input: CsvFile = file("data/integrated_hvac.csv")
 }
 
 system RoomThermalPreview {
@@ -34,18 +34,16 @@ system RoomThermalPreview {
         C_room * der(T_room) eq UA * (T_out - T_room) + Q_internal
 }
 
-script main(args: Args) -> Report {
-    sensor = promote csv args.input as IntegratedHvacData
-    cp_air = 4180 J/kg/K
-    Q_coil = sensor.m_dot * cp_air * (sensor.T_return - sensor.T_supply)
-    E_coil = integrate(Q_coil, over=Time)
+sensor = promote csv args.input as IntegratedHvacData
+cp_air = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp_air * (sensor.T_return - sensor.T_supply)
+E_coil = integrate(Q_coil, over=Time)
 
-    return report {
-        summarize Q_coil by [mean, time_weighted_mean, max, median, std, p90, p95, duration_above(5 kW)]
-        show E_coil
-        plot Q_coil over Time {
-            unit y = kW
-            title = "Integrated HVAC coil heat rate"
-        }
+report {
+    summarize Q_coil by [mean, time_weighted_mean, max, median, std, p90, p95, duration_above(5 kW)]
+    show E_coil
+    plot Q_coil over Time {
+        unit y = kW
+        title = "Integrated HVAC coil heat rate"
     }
 }

@@ -16,8 +16,8 @@ This example is intentionally metadata-first:
 - `component` declarations expose named `port` entries.
 - `connect` records component-port connections and validates domain
   compatibility.
-- `script main` keeps the file runnable while the domain graph remains a
-  compile-time/review artifact.
+- A small top-level report keeps the file runnable while the domain graph
+  remains a compile-time/review artifact.
 
 Current support boundary:
 
@@ -34,5 +34,5 @@ Useful commands:
 
 ```bat
 target\debug\eng.exe check examples\official\06_domain_port\main.eng --review
-target\debug\eng.exe run examples\official\06_domain_port\main.eng --entry main
+target\debug\eng.exe run examples\official\06_domain_port\main.eng
 ```

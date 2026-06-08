@@ -14,5 +14,5 @@ This is the primary physical-system preview example. It covers:
 Run from the repository root:
 
 ```bat
-target\debug\eng.exe run examples\official\02_simple_system\main.eng --entry main
+target\debug\eng.exe run examples\official\02_simple_system\main.eng
 ```

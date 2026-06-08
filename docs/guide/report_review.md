@@ -11,7 +11,7 @@ metadata in `result.engres`.
 ## Generate Artifacts
 
 ```bat
-target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main --save-artifacts
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng --save-artifacts
 ```
 
 `eng run` keeps artifacts in memory by default. For file-based review, save them

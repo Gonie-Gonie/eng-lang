@@ -1,8 +1,6 @@
-script main(args: Args) -> Report {
-    power = 10 kW
+power = 10 kW
 
-    return report {
-        show power
-    }
+report {
+    show power
 }
 

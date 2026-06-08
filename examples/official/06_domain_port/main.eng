@@ -41,10 +41,8 @@ connect RoomBoundary.heat -> AmbientBoundary.heat
 connect SupplyPipe.inlet -> SupplyPipe.outlet
 connect ShaftA.shaft -> ShaftB.shaft
 
-script main(args: Args) -> Report {
-    Q_design = 5 kW
+Q_design = 5 kW
 
-    return report {
-        show Q_design
-    }
+report {
+    show Q_design
 }

@@ -15,17 +15,15 @@ schema SensorData {
     }
 }
 
-struct Args {
-    input: String = "data/interpolate_missing.csv"
+args {
+    input: CsvFile = file("data/interpolate_missing.csv")
 }
 
-script main(args: Args) -> Report {
-    sensor = promote csv args.input as SensorData
-    cp = 4180 J/kg/K
-    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+sensor = promote csv args.input as SensorData
+cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
 
-    return report {
-        summarize Q_coil by [mean, max]
-        plot Q_coil over Time
-    }
+report {
+    summarize Q_coil by [mean, max]
+    plot Q_coil over Time
 }

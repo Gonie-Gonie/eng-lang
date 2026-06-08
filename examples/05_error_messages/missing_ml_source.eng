@@ -1,3 +1,1 @@
-script main(args: Args) -> Report {
-    split = train_test_split(Q_missing, target=Q_missing, features=[T_supply], test=0.25)
-}
+split = train_test_split(Q_missing, target=Q_missing, features=[T_supply], test=0.25)

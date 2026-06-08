@@ -6,17 +6,15 @@ coil example while keeping broader TimeSeries expression execution deferred.
 ## Example
 
 ```eng partial
-script main(args: Args) -> Report {
-    sensor = promote csv "data/sensor.csv" as SensorData
-    cp = 4180 J/kg/K
-    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
-    E_coil = integrate(Q_coil, over=Time)
+sensor = promote csv "data/sensor.csv" as SensorData
+cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+E_coil = integrate(Q_coil, over=Time)
 
-    return report {
-        summarize Q_coil by [mean, time_weighted_mean, max, median, std, p90, p95, duration_above(5 kW)]
-        show E_coil
-        plot Q_coil over Time
-    }
+report {
+    summarize Q_coil by [mean, time_weighted_mean, max, median, std, p90, p95, duration_above(5 kW)]
+    show E_coil
+    plot Q_coil over Time
 }
 ```
 

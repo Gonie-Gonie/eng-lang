@@ -12,23 +12,21 @@ schema HvacTrainingData {
     }
 }
 
-struct Args {
-    input: String = "data/hvac_training.csv"
+args {
+    input: CsvFile = file("data/hvac_training.csv")
 }
 
-script main(args: Args) -> Report {
-    sensor = promote csv args.input as HvacTrainingData
-    cp = 4180 J/kg/K
-    Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+sensor = promote csv args.input as HvacTrainingData
+cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
 
-    split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)
-    reg_model = regression(split, algorithm=linear)
-    reg_eval = evaluate(reg_model, split=split)
+split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)
+reg_model = regression(split, algorithm=linear)
+reg_eval = evaluate(reg_model, split=split)
 
-    return report {
-        show reg_eval
-        plot residuals(reg_eval) {
-            title = "Regression residuals"
-        }
+report {
+    show reg_eval
+    plot residuals(reg_eval) {
+        title = "Regression residuals"
     }
 }

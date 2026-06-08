@@ -32,17 +32,15 @@ system RoomThermal {
     }
 }
 
-script main(args: Args) -> Report {
-    return report {
-        show T
-    }
+report {
+    show T
 }
 ```
 
 Run it:
 
 ```bat
-target\debug\eng.exe run examples\official\02_simple_system\main.eng --entry main
+target\debug\eng.exe run examples\official\02_simple_system\main.eng
 ```
 
 Generated files include:
