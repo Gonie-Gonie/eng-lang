@@ -10,6 +10,8 @@ Current preview scope:
 - fast `=`
 - no `:=`
 - dimensionless diagnostics
+- pure scalar `fn` definitions
+- relative file imports for function definitions
 - script main(args)
 - system/equation syntax seeds
 ```
@@ -18,6 +20,9 @@ Deferred:
 
 ```text
 - broader expression language
+- package/module import system
+- importable non-function declarations
+- multi-statement function bodies
 - stable breaking-change policy
 - full language editioning
 ```

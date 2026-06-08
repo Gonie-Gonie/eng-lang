@@ -43,6 +43,9 @@ the current public preview workflow, but it is not yet a stable contract.
 - Unit and quantity checking for supported arithmetic and official examples.
 - Dimensionless plus physical quantity diagnostics.
 - Ambiguous quantity warnings for unit-only declarations such as `power = 10 kW`.
+- Pure scalar `fn` definitions with typed quantity parameters, checked return
+  dimensions, relative file imports for function definitions, and no imported
+  entry-point side effects.
 - Typed CSV promote for the official typed schema import path.
 - DateTime-indexed table metadata and row-level CSV runtime pages.
 - TimeSeries statistics on the official HeatRate path, including mean,
@@ -110,6 +113,8 @@ See [development tracks](tracks.md) for the current scope and limitations.
   deferred.
 - Full Unicode unit spelling support beyond the supported `°C` alias is
   deferred.
+- Package/module imports, importable non-function declarations, multi-return
+  functions, and broad function-body statement execution are deferred.
 
 - First-class Summary objects are not part of the current scope.
 

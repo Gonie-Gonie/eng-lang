@@ -6,7 +6,7 @@ and explicit summary CSV export.
 Run:
 
 ```powershell
-.\dev.bat run examples/official/07_functions_imports/main.eng
+cargo run -p eng_cli -- run examples/official/07_functions_imports/main.eng
 ```
 
 Expected behavior:
@@ -16,4 +16,3 @@ Expected behavior:
 - `heat_loss` type-checks its parameter and return dimensions.
 - `Q_wall` is inferred as `HeatRate`.
 - `print` and `export summary to csv` format the result in kW.
-

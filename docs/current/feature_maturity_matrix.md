@@ -11,6 +11,7 @@ language feature. Public preview support is narrower than implementation on
 | Dimensionless policy | Supported preview | Addition/subtraction and expected-type diagnostics | Broader algebra coverage grows with expression support | Expand tests |
 | Quantity/unit registry | Supported preview | Built-in quantities/units and IDE completions | User-defined units deferred | Maintain |
 | `degC` / `°C` temperature spelling | Supported preview | `degC` canonical ASCII spelling; `°C` alias for AbsoluteTemperature | Broader Unicode unit aliases deferred | Maintain alias tests and docs |
+| Pure functions and file imports | Preview | `fn` with typed quantity parameters, dimension-checked single return expression, relative file imports for function definitions, function-call inference, and print/export runtime evaluation for scalar calls | Package/module imports, importable non-function definitions, function-local statement execution, and broad expression evaluation deferred | Harden IDE visibility and body expression support |
 | CSV promote | Supported preview | Official typed schema import path | Arbitrary table formula support deferred | Generalize table expressions later |
 | DateTime index | Supported preview | Official CSV TimeSeries path | More calendar/timezone semantics deferred | Maintain metadata |
 | Missing policies | Preview | Official/data-quality paths | General policy DSL is limited | Harden policy semantics |

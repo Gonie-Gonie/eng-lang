@@ -46,6 +46,32 @@ Before publishing `v0.1-preview`:
 [x] standalone packaged runner smoke passes
 ```
 
+Before publishing `v0.2-preview`:
+
+```text
+[ ] workspace package version is updated to the planned v0.2 Cargo version
+[ ] public package label is v0.2-preview
+[ ] release notes explain that language and artifact formats remain preview
+[ ] current status, maturity matrix, tracks, roadmap, and README agree on the v0.2 scope
+[ ] native IDE layout feels professional on clean desktop and smaller laptop sizes
+[ ] native IDE workspace explorer uses dense, scannable spacing
+[ ] native IDE supports opening, switching, and closing multiple files
+[ ] native IDE keeps result output from pushing variable/metadata side panels off screen
+[ ] native IDE variable panel updates after successful run
+[ ] function/file-import preview path is documented and tested
+[ ] imported files do not register or execute entry points
+[ ] unit-aware print and explicit summary CSV export have a mini official example
+[ ] data/table/TimeSeries expression-kernel scope is documented with supported examples and diagnostics
+[ ] first-class Summary object decision is explicitly recorded as implemented or deferred
+[ ] official examples 01-07 pass check/run smoke paths
+[ ] docs-check passes
+[ ] artifacts-check passes
+[ ] ide-check passes
+[ ] lsp-check passes
+[ ] package-smoke passes under a path with spaces and Korean characters
+[ ] release-check passes
+```
+
 ## Local Verification
 
 Run:

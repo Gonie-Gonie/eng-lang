@@ -60,6 +60,7 @@ Known public-preview boundary:
 ```text
 - native IDE usability
 - native IDE settings and layout quality
+- preview function/import path visibility
 - curated user documentation
 - clearer supported-preview vs future-track language
 - package smoke in clean folders
