@@ -970,6 +970,73 @@ function Invoke-Ide {
     Invoke-Native $cargo "run" "-p" "eng_ide" "--" @Rest
 }
 
+function Invoke-DevCurrent {
+    Set-DevEnvironment
+    $cargo = Get-Cargo
+    if ($null -eq $cargo) {
+        Write-Host "Cargo not found. Run .\dev.bat setup."
+        exit 1
+    }
+    Invoke-Native $cargo "build" "--release" "-p" "eng_cli" "-p" "eng_ide" "-p" "eng_lsp"
+
+    $CurrentRoot = Join-Path $RepoRoot "dist\dev-current"
+    Remove-Item -LiteralPath $CurrentRoot -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force -Path $CurrentRoot | Out-Null
+
+    Copy-Item -Force (Join-Path $RepoRoot "target\release\eng.exe") (Join-Path $CurrentRoot "eng.exe")
+    Copy-Item -Force (Join-Path $RepoRoot "target\release\eng-ide.exe") (Join-Path $CurrentRoot "eng-ide.exe")
+    Copy-Item -Force (Join-Path $RepoRoot "target\release\eng-lsp.exe") (Join-Path $CurrentRoot "eng-lsp.exe")
+    Copy-Item -Recurse -Force (Join-Path $RepoRoot "examples") (Join-Path $CurrentRoot "examples")
+    Copy-Item -Recurse -Force (Join-Path $RepoRoot "stdlib") (Join-Path $CurrentRoot "stdlib")
+    New-Item -ItemType Directory -Force -Path (Join-Path $CurrentRoot "docs") | Out-Null
+    Copy-Item -Recurse -Force (Join-Path $RepoRoot "docs\tutorials") (Join-Path $CurrentRoot "docs\tutorials")
+
+    $Version = Get-WorkspaceVersion
+    $GitCommit = try {
+        (& git rev-parse --short HEAD 2>$null)
+    } catch {
+        "unknown"
+    }
+    $EngHash = (Get-FileHash -Algorithm SHA256 (Join-Path $CurrentRoot "eng.exe")).Hash.ToLowerInvariant()
+    $IdeHash = (Get-FileHash -Algorithm SHA256 (Join-Path $CurrentRoot "eng-ide.exe")).Hash.ToLowerInvariant()
+    $LspHash = (Get-FileHash -Algorithm SHA256 (Join-Path $CurrentRoot "eng-lsp.exe")).Hash.ToLowerInvariant()
+
+    Set-Content -Path (Join-Path $CurrentRoot "README.txt") -Encoding ascii -Value @"
+EngLang dev-current
+
+This folder is the current commit's non-release test display build.
+Run eng-ide.exe from this folder to open the native IDE with bundled examples,
+stdlib files, and tutorials.
+
+Smoke commands:
+  eng-ide.exe --smoke
+  eng-lsp.exe --smoke
+  eng.exe doctor
+  eng.exe run examples\official\01_csv_plot\main.eng --save-artifacts
+
+Regenerate:
+  .\dev.bat dev-current
+
+Clean transient generated files while preserving this folder:
+  .\dev.bat clean-generated
+"@
+
+    Set-Content -Path (Join-Path $CurrentRoot "MANIFEST.txt") -Encoding ascii -Value @"
+EngLang dev-current manifest
+
+version = $Version
+commit = $GitCommit
+generated_at_local = $(Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz")
+eng_sha256 = $EngHash
+eng_ide_sha256 = $IdeHash
+eng_lsp_sha256 = $LspHash
+"@
+
+    Write-Host "Dev current build prepared."
+    Write-Host "IDE: $(Join-Path $CurrentRoot "eng-ide.exe")"
+    Write-Host "Manifest: $(Join-Path $CurrentRoot "MANIFEST.txt")"
+}
+
 function New-VsixManifest {
     param(
         [Parameter(Mandatory = $true)]
@@ -1447,6 +1514,16 @@ function Invoke-Clean {
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue (Join-Path $RepoRoot "dist")
 }
 
+function Invoke-CleanGenerated {
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue (Join-Path $RepoRoot "build")
+    $DistRoot = Join-Path $RepoRoot "dist"
+    if (Test-Path -LiteralPath $DistRoot -PathType Container) {
+        Get-ChildItem -LiteralPath $DistRoot -Force | Where-Object { $_.Name -ne "dev-current" } | ForEach-Object {
+            Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function Show-Help {
     Write-Host @"
 EngLang development wrapper
@@ -1464,11 +1541,13 @@ Usage:
   .\dev.bat lsp-check      Validate eng-lsp.exe stdio, smoke, and snapshot output
   .\dev.bat jit-check      Validate runtime optimization track kernel planning and bench output
   .\dev.bat ide            Run the native EngLang tester IDE
+  .\dev.bat dev-current    Build latest release test IDE into dist\dev-current
   .\dev.bat artifacts-check Validate artifact schemas and golden baselines
   .\dev.bat run-example    Run examples\official\01_csv_plot\main.eng
   .\dev.bat package        Build release, assemble dist\englang-preview, zip it, and write SHA256
   .\dev.bat package-smoke  Extract the portable zip under a Korean/space path and smoke it
   .\dev.bat release-check  Run full local release gate and verify checksum
+  .\dev.bat clean-generated Remove build and transient dist outputs, preserving dist\dev-current
   .\dev.bat clean          Remove build artifacts
 
 All PowerShell execution goes through dev.bat with ExecutionPolicy Bypass.
@@ -1490,11 +1569,13 @@ switch ($Command) {
     "lsp-check" { Invoke-LspCheck }
     "jit-check" { Invoke-JitCheck }
     "ide" { Invoke-Ide }
+    "dev-current" { Invoke-DevCurrent }
     "artifacts-check" { Invoke-ArtifactsCheck }
     "run-example" { Invoke-RunExample }
     "package" { Invoke-Package }
     "package-smoke" { Invoke-PackageSmoke }
     "release-check" { Invoke-ReleaseCheck }
+    "clean-generated" { Invoke-CleanGenerated }
     "clean" { Invoke-Clean }
     default { Show-Help }
 }
