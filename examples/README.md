@@ -45,6 +45,15 @@ official/07_functions_imports
 official/08_print_export_summary
   Mini scalar summary fixture for top-level args, reusable const, unit-aware
   print interpolation, and explicit one-row summary CSV export.
+
+official/09_command_where_with
+  Parenthesis-light command-style built-ins, scoped where locals, with option
+  blocks, command-style statistics/integration, print/export output, and plot
+  display options.
+
+official/10_path_policy
+  Typed path arguments, pure path helpers, runtime exists checks, and
+  provenance-visible environment dependency metadata.
 ```
 
 ## Compatibility Regression Examples

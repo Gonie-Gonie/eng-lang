@@ -67,6 +67,7 @@ unit_derivations
 unit_conversion_table
 args_summary
 arg_values
+environment_dependencies
 schema_summary
 schemas
 csv_promotions
@@ -109,6 +110,7 @@ inferred_declaration_table
 unit_conversion_table
 args_summary
 arg_values
+provenance.environment_dependencies
 schema_summary
 domain_summary
 component_summary
@@ -133,6 +135,7 @@ The matching `result.engres` provenance includes:
 ```text
 plot_spec_hash
 report_spec_hash
+environment_dependencies
 system_count
 equation_count
 residual_count

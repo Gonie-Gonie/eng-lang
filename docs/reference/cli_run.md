@@ -115,10 +115,22 @@ The runtime result, report spec, and review objects record `arg_values` with
 `source = default` or `source = cli`. With `--save-artifacts`, the same values
 are written to `review.json`, `report_spec.json`, and `result.engres`.
 
+Path helpers are available for CLI-bound path values:
+
+```eng partial
+input_exists = exists args.input
+summary_path = join(args.output, "summary.csv")
+input_name = stem(args.input)
+```
+
+`exists` is resolved relative to the source file when the path is relative. It
+is recorded in `review.json` as `environment_dependencies` and in
+`result.engres` / `report_spec.json` under `provenance.environment_dependencies`.
+
 Primitive typed Args are normalized before they are recorded:
 
 ```text
-String/Path/CsvFile/DirectoryPath  string/path value
+String/Path/FilePath/CsvFile/JsonFile/TomlFile/TextFile/ReportFile/PlotFile/DirectoryPath  string/path value
 Bool/Boolean         true/false, yes/no, on/off, 1/0
 Int/Integer          signed whole number
 Count/usize/u32/u64  non-negative whole number

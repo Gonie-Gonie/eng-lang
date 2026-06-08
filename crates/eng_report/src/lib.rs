@@ -434,6 +434,16 @@ pub struct ReportWarning {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct ReportEnvironmentDependency {
+    pub name: String,
+    pub kind: String,
+    pub expression: String,
+    pub resolved_value: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct ReportProvenance {
     pub syntax_items: usize,
     pub schema_count: usize,
@@ -444,6 +454,7 @@ pub struct ReportProvenance {
     pub system_count: usize,
     pub equation_count: usize,
     pub residual_count: usize,
+    pub environment_dependencies: Vec<ReportEnvironmentDependency>,
     pub plot_spec_version: u32,
 }
 
@@ -556,6 +567,19 @@ pub fn report_spec_from_report(
             source: arg.source.clone(),
             required: arg.required,
             line: arg.line,
+        })
+        .collect();
+    let environment_dependencies = report
+        .semantic_program
+        .environment_dependencies
+        .iter()
+        .map(|dependency| ReportEnvironmentDependency {
+            name: dependency.name.clone(),
+            kind: dependency.kind.clone(),
+            expression: dependency.expression.clone(),
+            resolved_value: dependency.resolved_value.clone(),
+            status: dependency.status.clone(),
+            line: dependency.line,
         })
         .collect();
 
@@ -878,6 +902,7 @@ pub fn report_spec_from_report(
             system_count: report.semantic_program.systems.len(),
             equation_count,
             residual_count,
+            environment_dependencies,
             plot_spec_version: PLOT_SPEC_VERSION,
         },
     }
@@ -943,6 +968,36 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         "    \"residual_count\": {},\n",
         spec.provenance.residual_count
     ));
+    json.push_str("    \"environment_dependencies\": [\n");
+    for (index, dependency) in spec.provenance.environment_dependencies.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&dependency.name)
+        ));
+        json.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&dependency.kind)
+        ));
+        json.push_str(&format!(
+            "        \"expression\": \"{}\",\n",
+            json_escape(&dependency.expression)
+        ));
+        json.push_str(&format!(
+            "        \"resolved_value\": \"{}\",\n",
+            json_escape(&dependency.resolved_value)
+        ));
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&dependency.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", dependency.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
     json.push_str(&format!(
         "    \"plot_spec_version\": {}\n",
         spec.provenance.plot_spec_version

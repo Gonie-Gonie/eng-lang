@@ -7,9 +7,9 @@ agents. It separates public release versions from long-term development tracks.
 
 | Field | Value |
 |---|---|
-| Current public line | `v0.2-preview` |
-| Active target | `v0.3-preview` syntax/dataflow unification and path-policy seed |
-| Workspace package version | `0.2.0-preview` |
+| Current public line | `v0.3-preview` |
+| Active target | `v0.4-preview` read-only I/O and multi-source data policy |
+| Workspace package version | `0.3.0-preview` |
 | Release channel | `preview` |
 
 EngLang is preview software. The language, runtime behavior, and artifact
@@ -78,6 +78,9 @@ the current public preview workflow, but it is not yet a stable contract.
 - Args string/path/CsvFile/DirectoryPath binding for `--input` style official
   examples, primitive Bool/Int/Count/Float/Duration normalization, dynamic
   pure defaults, and packaged runner help metadata.
+- Typed path helper seed: `file`, `dir`, `join`, `parent`, `stem`,
+  `extension`, and `exists` work for path-oriented workflow values. `exists`
+  records review/result/report-spec `environment_dependencies` provenance.
 - Standalone package output with `.engpkg`, bytecode, lock, source/dependency
   copy, dependency hashes, Args help, and reviewable report artifacts.
 - Temperature spelling policy: `degC` remains the canonical ASCII spelling, and
@@ -105,8 +108,9 @@ the current public preview workflow, but it is not yet a stable contract.
   language grammar guide.
 - Current planning and release docs now align around the integrated
   data-analysis plus system-simulation philosophy and the
-  [side-effect policy](../reference/side_effect_policy.md). The side-effect
-  policy is a design target, not a broad runtime I/O support claim.
+  [side-effect policy](../reference/side_effect_policy.md). The implemented
+  side-effect scope is GP-1 path helpers and provenance-visible `exists`;
+  broader runtime I/O is not claimed.
 
 ## Future Tracks On Main
 
@@ -143,9 +147,9 @@ See [development tracks](tracks.md) for the current scope and limitations.
   runtime-dependent defaults are deferred.
 - Parenthesis-light syntax for arbitrary user-defined/general function calls
   and project-wide display unit policy blocks are deferred.
-- Broad path/file/process/network side-effect runtime support is deferred to
-  the general programming track. `v0.2-preview` only documents the policy and
-  keeps current explicit export behavior.
+- Broad file/process/network side-effect runtime support is deferred to the
+  general programming track. `v0.3-preview` implements the path helper and
+  `exists` provenance seed only.
 - Class/domain objects are planned for reviewable engineering objects, but
   class declaration/object literal/runtime lowering is not part of the current
   public preview.

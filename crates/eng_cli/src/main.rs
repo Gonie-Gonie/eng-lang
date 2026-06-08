@@ -500,6 +500,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/07_functions_imports/main.eng",
                 "examples/official/08_print_export_summary/main.eng",
                 "examples/official/09_command_where_with/main.eng",
+                "examples/official/10_path_policy/main.eng",
             ],
         ),
         (

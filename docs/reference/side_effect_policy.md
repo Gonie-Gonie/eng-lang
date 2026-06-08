@@ -1,7 +1,8 @@
 # Side Effect And General Programming Policy
 
-Status: design policy for `v0.2-preview`; runtime implementation is planned by
-track, not claimed as supported preview behavior.
+Status: GP-1 path policy is implemented for `v0.3-preview`. Broader read/write,
+filesystem mutation, process, network, and test support remain planned tracks,
+not supported preview behavior.
 
 EngLang is not trying to become a fully general replacement for Python, MATLAB,
 or R. Real engineering workflows still need practical file, path, config,
@@ -55,9 +56,18 @@ name = stem(args.input)
 Environment-dependent helpers should be visible in review/provenance:
 
 ```eng partial
-if not exists args.input {
-    error "Input file not found: {args.input}"
-}
+input_exists = exists args.input
+print "input exists = {input_exists}"
+```
+
+Implemented `v0.3-preview` behavior:
+
+```text
+- file("...") and dir("...") are accepted in args defaults.
+- join(...), parent(...), stem(...), and extension(...) are typed pure path helpers.
+- exists path_expression is typed as Bool and resolved relative to the source file.
+- review.json includes top-level environment_dependencies.
+- result.engres and report_spec.json include provenance.environment_dependencies.
 ```
 
 ## Read Policy
@@ -88,7 +98,7 @@ Writes must name their target:
 write text file("build/log.txt"), "finished"
 write json file("build/summary.json"), summary
 
-export summary to csv join(args.output, "summary.csv")
+export summary to csv "summary.csv"
 with {
     overwrite = true
 }
@@ -101,6 +111,8 @@ Rules:
 - missing parent directory is an error unless mkdir/parents policy says otherwise
 - output files should appear in report/review artifact metadata
 - export is preferred over ad hoc write for reproducible artifacts
+- `export summary to csv` currently accepts a string literal path; path
+  expression targets are reserved for the output-manifest hardening phase
 ```
 
 ## Destructive Operation Policy

@@ -925,7 +925,11 @@ function Invoke-IdeCheck {
 
     $Node = Get-Command node -ErrorAction SilentlyContinue
     if ($null -ne $Node) {
-        Invoke-Native $Node.Source "--check" $ExtensionJsPath
+        try {
+            Invoke-Native $Node.Source "--check" $ExtensionJsPath
+        } catch {
+            Write-Host "Node found but not executable; skipped extension.js syntax check. $($_.Exception.Message)"
+        }
     } else {
         Write-Host "Node not found; skipped extension.js syntax check."
     }

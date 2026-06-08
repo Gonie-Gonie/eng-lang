@@ -42,10 +42,10 @@ pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, Sc
 pub use semantic::{
     ArgValueInfo, ArgsBlockInfo, ArgsFieldInfo, CommandClauseInfo, CommandStyleInfo, ComponentInfo,
     ConnectionInfo, ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo,
-    DomainTypeParameterInfo, DomainVariableInfo, EquationDependencyInfo, EquationInfo,
-    EquationIrInfo, FormatExpressionInfo, FunctionInfo, FunctionLocalInfo, FunctionParamInfo,
-    ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo,
-    SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo, SystemVariableInfo,
+    DomainTypeParameterInfo, DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo,
+    EquationInfo, EquationIrInfo, FormatExpressionInfo, FunctionInfo, FunctionLocalInfo,
+    FunctionParamInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo, PrintInfo,
+    ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo, SystemVariableInfo,
     TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo, WhereBlockInfo, WithBlockInfo,
     WithOptionInfo,
 };
@@ -185,6 +185,11 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions
     semantic_output.semantic_program.schemas = schema_analysis.schemas;
     semantic_output.semantic_program.csv_promotions = schema_analysis.csv_promotions;
     semantic_output.semantic_program.arg_values = arg_values;
+    semantic_output.semantic_program.environment_dependencies = collect_environment_dependencies(
+        &parsed,
+        source_path.parent(),
+        &semantic_output.semantic_program,
+    );
 
     CheckReport {
         source_path: source_path.to_path_buf(),
@@ -540,7 +545,8 @@ fn normalize_arg_value(type_name: &str, value: &str) -> Result<String, String> {
     let stripped = strip_string_literal(value);
     let normalized_type = type_name.trim().to_ascii_lowercase();
     match normalized_type.as_str() {
-        "string" | "path" | "filepath" | "csvfile" | "directorypath" => Ok(stripped),
+        "string" | "path" | "filepath" | "csvfile" | "jsonfile" | "tomlfile" | "textfile"
+        | "reportfile" | "plotfile" | "directorypath" => Ok(stripped),
         "bool" | "boolean" => parse_bool_arg(&stripped).ok_or_else(|| {
             "Use true/false, yes/no, on/off, or 1/0 for boolean Args fields.".to_owned()
         }),
@@ -572,10 +578,7 @@ fn normalize_arg_value(type_name: &str, value: &str) -> Result<String, String> {
 
 fn evaluate_arg_default(expression: &str, program: &SemanticProgram) -> Option<String> {
     let expression = expression.trim();
-    if let Some(value) = strip_call_string_arg(expression, "file") {
-        return Some(value);
-    }
-    if let Some(value) = strip_call_string_arg(expression, "dir") {
+    if let Some(value) = evaluate_path_expression(expression, &[]) {
         return Some(value);
     }
     if let Some(value) = evaluate_env_default(expression) {
@@ -605,6 +608,198 @@ fn evaluate_arg_default(expression: &str, program: &SemanticProgram) -> Option<S
         return Some(strip_string_literal(expression));
     }
     None
+}
+
+fn collect_environment_dependencies(
+    parsed: &ParsedProgram,
+    source_base: Option<&Path>,
+    program: &SemanticProgram,
+) -> Vec<EnvironmentDependencyInfo> {
+    let mut dependencies = Vec::new();
+    for args_block in &program.args_blocks {
+        for field in &args_block.fields {
+            let Some(default_value) = &field.default_value else {
+                continue;
+            };
+            if !arg_default_depends_on_runtime(default_value) {
+                continue;
+            }
+            let resolved_value = program
+                .arg_values
+                .iter()
+                .find(|arg| arg.name == field.name)
+                .map(|arg| arg.value.clone())
+                .unwrap_or_else(|| "<unresolved>".to_owned());
+            dependencies.push(EnvironmentDependencyInfo {
+                name: field.name.clone(),
+                kind: environment_dependency_kind(default_value).to_owned(),
+                expression: default_value.clone(),
+                resolved_value,
+                status: "recorded".to_owned(),
+                line: field.line,
+            });
+        }
+    }
+
+    for item in &parsed.items {
+        let AstItem::FastBinding(binding) = item else {
+            continue;
+        };
+        if binding.context != ParseContext::TopLevel {
+            continue;
+        }
+        if let Some(observation) =
+            evaluate_exists_expression(&binding.expression, source_base, &program.arg_values)
+        {
+            dependencies.push(EnvironmentDependencyInfo {
+                name: binding.name.clone(),
+                kind: "filesystem_exists".to_owned(),
+                expression: binding.expression.clone(),
+                resolved_value: observation.value,
+                status: observation.status,
+                line: binding.line,
+            });
+        }
+    }
+    dependencies
+}
+
+fn environment_dependency_kind(expression: &str) -> &'static str {
+    let lowered = expression.to_ascii_lowercase();
+    if lowered.contains("env(") {
+        "env"
+    } else if lowered.contains("today(") || lowered.contains("now(") {
+        "time"
+    } else if lowered.contains("current_dir(") || lowered.contains("cwd(") {
+        "current_directory"
+    } else {
+        "runtime"
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ExistsObservation {
+    value: String,
+    status: String,
+}
+
+fn evaluate_exists_expression(
+    expression: &str,
+    source_base: Option<&Path>,
+    arg_values: &[ArgValueInfo],
+) -> Option<ExistsObservation> {
+    let expression = expression.trim();
+    let inner = if let Some(inner) = expression.strip_prefix("exists ") {
+        inner.trim()
+    } else {
+        strip_call_inner(expression, "exists")?
+    };
+    let path_text = evaluate_path_expression(inner, arg_values)?;
+    let path = resolve_source_relative_path(&path_text, source_base);
+    let exists = path.exists();
+    Some(ExistsObservation {
+        value: exists.to_string(),
+        status: if exists { "exists" } else { "missing" }.to_owned(),
+    })
+}
+
+fn evaluate_path_expression(expression: &str, arg_values: &[ArgValueInfo]) -> Option<String> {
+    let expression = expression.trim();
+    if let Some(arg_name) = expression.strip_prefix("args.") {
+        return arg_values
+            .iter()
+            .find(|arg| arg.name == arg_name.trim())
+            .map(|arg| arg.value.clone());
+    }
+    if let Some(value) = strip_call_string_arg(expression, "file") {
+        return Some(value);
+    }
+    if let Some(value) = strip_call_string_arg(expression, "dir") {
+        return Some(value);
+    }
+    if expression.starts_with('"') {
+        return Some(strip_string_literal(expression));
+    }
+    if let Some(inner) = strip_call_inner(expression, "join") {
+        let parts = split_call_args(inner)
+            .into_iter()
+            .map(|part| evaluate_path_expression(&part, arg_values))
+            .collect::<Option<Vec<_>>>()?;
+        if parts.is_empty() {
+            return None;
+        }
+        return Some(join_path_text(&parts));
+    }
+    if let Some(inner) = strip_call_inner(expression, "parent") {
+        let path = evaluate_path_expression(inner, arg_values)?;
+        return Some(parent_path_text(&path));
+    }
+    if let Some(inner) = strip_call_inner(expression, "stem") {
+        let path = evaluate_path_expression(inner, arg_values)?;
+        return Some(
+            Path::new(&path)
+                .file_stem()
+                .and_then(|value| value.to_str())
+                .unwrap_or_default()
+                .to_owned(),
+        );
+    }
+    if let Some(inner) = strip_call_inner(expression, "extension") {
+        let path = evaluate_path_expression(inner, arg_values)?;
+        return Some(
+            Path::new(&path)
+                .extension()
+                .and_then(|value| value.to_str())
+                .unwrap_or_default()
+                .to_owned(),
+        );
+    }
+    None
+}
+
+fn strip_call_inner<'a>(expression: &'a str, function_name: &str) -> Option<&'a str> {
+    let trimmed = expression.trim();
+    let prefix = format!("{function_name}(");
+    trimmed
+        .strip_prefix(&prefix)?
+        .strip_suffix(')')
+        .map(str::trim)
+}
+
+fn join_path_text(parts: &[String]) -> String {
+    let mut joined = String::new();
+    for part in parts {
+        let normalized = path_text(part);
+        let trimmed = normalized.trim_matches('/');
+        if trimmed.is_empty() {
+            continue;
+        }
+        if !joined.is_empty() {
+            joined.push('/');
+        }
+        joined.push_str(trimmed);
+    }
+    joined
+}
+
+fn parent_path_text(path: &str) -> String {
+    Path::new(path)
+        .parent()
+        .and_then(|value| value.to_str())
+        .map(path_text)
+        .unwrap_or_default()
+}
+
+fn path_text(path: impl AsRef<str>) -> String {
+    path.as_ref().replace('\\', "/")
+}
+
+fn resolve_source_relative_path(path: &str, source_base: Option<&Path>) -> PathBuf {
+    let path = Path::new(path);
+    if path.is_absolute() {
+        return path.to_path_buf();
+    }
+    source_base.unwrap_or_else(|| Path::new(".")).join(path)
 }
 
 fn strip_call_string_arg(expression: &str, function_name: &str) -> Option<String> {
@@ -1242,6 +1437,42 @@ pub fn review_json(report: &CheckReport) -> String {
         ));
         json.push_str(&format!("      \"required\": {},\n", arg.required));
         json.push_str(&format!("      \"line\": {}\n", arg.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"environment_dependencies\": [\n");
+    for (index, dependency) in report
+        .semantic_program
+        .environment_dependencies
+        .iter()
+        .enumerate()
+    {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&dependency.name)
+        ));
+        json.push_str(&format!(
+            "      \"kind\": \"{}\",\n",
+            json_escape(&dependency.kind)
+        ));
+        json.push_str(&format!(
+            "      \"expression\": \"{}\",\n",
+            json_escape(&dependency.expression)
+        ));
+        json.push_str(&format!(
+            "      \"resolved_value\": \"{}\",\n",
+            json_escape(&dependency.resolved_value)
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&dependency.status)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", dependency.line));
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -2686,6 +2917,52 @@ mod tests {
         assert_eq!(value("output"), Some("build/result"));
         assert_eq!(report.semantic_program.workflow.kind, "top_level");
         assert_eq!(report.semantic_program.consts[0].name, "default_input");
+    }
+
+    #[test]
+    fn path_helpers_typecheck_and_record_exists_provenance() {
+        let root = std::env::temp_dir().join("englang-path-helper-test");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(root.join("data").join("sensor.csv"), "time,T\n0,20\n").expect("sensor csv");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "args {\n    input: CsvFile = file(\"data/sensor.csv\")\n    output: DirectoryPath = dir(\"build/out\")\n}\n\ninput_exists = exists args.input\nsummary_file = join(args.output, \"summary.csv\")\ninput_parent = parent(args.input)\ninput_stem = stem(args.input)\ninput_ext = extension(args.input)\n\nprint \"exists={input_exists} summary={summary_file} parent={input_parent} stem={input_stem} ext={input_ext}\"\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors());
+        let input_exists = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "input_exists")
+            .expect("input_exists binding");
+        assert_eq!(input_exists.semantic_type.quantity_kind, "Bool");
+        let summary_file = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "summary_file")
+            .expect("summary_file binding");
+        assert_eq!(summary_file.semantic_type.quantity_kind, "FilePath");
+        let dependency = report
+            .semantic_program
+            .environment_dependencies
+            .iter()
+            .find(|dependency| dependency.name == "input_exists")
+            .expect("exists dependency");
+        assert_eq!(dependency.kind, "filesystem_exists");
+        assert_eq!(dependency.resolved_value, "true");
+        assert_eq!(dependency.status, "exists");
+
+        let review = review_json(&report);
+        assert!(review.contains("\"environment_dependencies\""));
+        assert!(review.contains("\"filesystem_exists\""));
+        assert!(review.contains("\"resolved_value\": \"true\""));
     }
 
     #[test]

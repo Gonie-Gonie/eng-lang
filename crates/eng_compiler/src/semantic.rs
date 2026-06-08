@@ -259,6 +259,16 @@ pub struct ArgValueInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EnvironmentDependencyInfo {
+    pub name: String,
+    pub kind: String,
+    pub expression: String,
+    pub resolved_value: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ArgsBlockInfo {
     pub name: String,
     pub fields: Vec<ArgsFieldInfo>,
@@ -389,6 +399,7 @@ pub struct SemanticProgram {
     pub connections: Vec<ConnectionInfo>,
     pub args_blocks: Vec<ArgsBlockInfo>,
     pub arg_values: Vec<ArgValueInfo>,
+    pub environment_dependencies: Vec<EnvironmentDependencyInfo>,
     pub prints: Vec<PrintInfo>,
     pub csv_exports: Vec<CsvExportInfo>,
     pub command_styles: Vec<CommandStyleInfo>,
@@ -748,6 +759,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             connections,
             args_blocks,
             arg_values: Vec::new(),
+            environment_dependencies: Vec::new(),
             prints,
             csv_exports,
             command_styles,
@@ -962,7 +974,8 @@ fn infer_scoped_binding_semantic_type(
     typed_bindings: &[TypedBinding],
     functions: &[FunctionInfo],
 ) -> Option<SemanticType> {
-    statistic_expression_semantic_type(expression, typed_bindings)
+    path_helper_semantic_type(expression)
+        .or_else(|| statistic_expression_semantic_type(expression, typed_bindings))
         .or_else(|| function_call_semantic_type(expression, typed_bindings, functions))
         .or_else(|| binding_alias_semantic_type(expression, typed_bindings))
         .or_else(|| infer_quantity(name, expression))
@@ -1624,6 +1637,9 @@ fn resolve_format_expression_type(
     if expression.starts_with("args.") {
         return semantic_type("String", "");
     }
+    if let Some(semantic_type) = path_helper_semantic_type(expression) {
+        return Some(semantic_type);
+    }
     if let Some(table_name) = expression.strip_suffix(".rows") {
         let table_name = table_name.trim();
         if typed_bindings.iter().any(|binding| {
@@ -1825,6 +1841,13 @@ fn is_builtin_function(name: &str) -> bool {
             | "evaluate"
             | "model_card"
             | "leakage_lint"
+            | "file"
+            | "dir"
+            | "join"
+            | "parent"
+            | "stem"
+            | "extension"
+            | "exists"
     ) || name.starts_with('p')
 }
 
@@ -2707,6 +2730,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
                 &uncertainty.display_unit,
             )
         })
+        .or_else(|| path_helper_semantic_type(&binding.expression))
         .or_else(|| statistic_expression_semantic_type(&binding.expression, &available_bindings))
         .or(function_call_type)
         .or_else(|| binding_alias_semantic_type(&binding.expression, &available_bindings))
@@ -2940,6 +2964,10 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
     let lowered_name = name.to_ascii_lowercase();
     let lowered_expression = expression.to_ascii_lowercase();
 
+    if let Some(semantic_type) = path_helper_semantic_type(expression) {
+        return Some(semantic_type);
+    }
+
     if let Some((quantity_kind, display_unit)) =
         crate::uncertainty::uncertainty_semantic_type(name, expression)
     {
@@ -2978,6 +3006,30 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
         return semantic_type("Ratio", "1");
     }
 
+    None
+}
+
+fn path_helper_semantic_type(expression: &str) -> Option<SemanticType> {
+    let expression = expression.trim();
+    if expression
+        .strip_prefix("exists ")
+        .is_some_and(|inner| !inner.trim().is_empty())
+        || expression.starts_with("exists(")
+    {
+        return semantic_type("Bool", "");
+    }
+    if expression.starts_with("file(") {
+        return semantic_type("FilePath", "");
+    }
+    if expression.starts_with("dir(") || expression.starts_with("parent(") {
+        return semantic_type("DirectoryPath", "");
+    }
+    if expression.starts_with("join(") {
+        return semantic_type("FilePath", "");
+    }
+    if expression.starts_with("stem(") || expression.starts_with("extension(") {
+        return semantic_type("String", "");
+    }
     None
 }
 
@@ -3040,6 +3092,11 @@ fn preview_scalar_type(type_name: &str) -> bool {
             | "path"
             | "filepath"
             | "csvfile"
+            | "jsonfile"
+            | "tomlfile"
+            | "textfile"
+            | "reportfile"
+            | "plotfile"
             | "directorypath"
             | "bool"
             | "boolean"

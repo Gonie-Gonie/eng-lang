@@ -43,8 +43,15 @@
         "system_count",
         "equation_count",
         "residual_count",
+        "environment_dependencies",
         "plot_spec_version"
-      ]
+      ],
+      "properties": {
+        "environment_dependencies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/environmentDependency" }
+        }
+      }
     },
     "variable_table": { "type": "array" },
     "args_summary": { "type": "array" },
@@ -89,6 +96,18 @@
         "value": { "type": "string" },
         "source": { "enum": ["default", "cli"] },
         "required": { "type": "boolean" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "environmentDependency": {
+      "type": "object",
+      "required": ["name", "kind", "expression", "resolved_value", "status", "line"],
+      "properties": {
+        "name": { "type": "string" },
+        "kind": { "type": "string" },
+        "expression": { "type": "string" },
+        "resolved_value": { "type": "string" },
+        "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }
     },

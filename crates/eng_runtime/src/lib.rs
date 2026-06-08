@@ -777,6 +777,12 @@ fn evaluate_runtime_expression(
     runtime_data: &RuntimeData,
 ) -> Option<RuntimeFormatValue> {
     let expression = expression.trim();
+    if let Some(value) = evaluate_runtime_exists_expression(expression, report) {
+        return Some(RuntimeFormatValue::Text(value));
+    }
+    if let Some(value) = evaluate_runtime_path_expression(expression, report) {
+        return Some(RuntimeFormatValue::Text(value));
+    }
     if let Some(arg_name) = expression.strip_prefix("args.") {
         return report
             .semantic_program
@@ -885,6 +891,124 @@ fn evaluate_runtime_expression(
         )));
     }
     None
+}
+
+fn evaluate_runtime_exists_expression(expression: &str, report: &CheckReport) -> Option<String> {
+    let expression = expression.trim();
+    let inner = if let Some(inner) = expression.strip_prefix("exists ") {
+        inner.trim()
+    } else {
+        runtime_strip_call_inner(expression, "exists")?
+    };
+    let path_text = evaluate_runtime_path_expression(inner, report)?;
+    let path = runtime_resolve_source_relative_path(&path_text, report.source_path.parent());
+    Some(path.exists().to_string())
+}
+
+fn evaluate_runtime_path_expression(expression: &str, report: &CheckReport) -> Option<String> {
+    let expression = expression.trim();
+    if let Some(arg_name) = expression.strip_prefix("args.") {
+        return report
+            .semantic_program
+            .arg_values
+            .iter()
+            .find(|arg| arg.name == arg_name.trim())
+            .map(|arg| arg.value.clone());
+    }
+    if let Some(value) = runtime_strip_call_string_arg(expression, "file") {
+        return Some(value);
+    }
+    if let Some(value) = runtime_strip_call_string_arg(expression, "dir") {
+        return Some(value);
+    }
+    if expression.starts_with('"') {
+        return Some(strip_runtime_string_value(expression));
+    }
+    if let Some(inner) = runtime_strip_call_inner(expression, "join") {
+        let parts = split_top_level(inner, &[','])
+            .into_iter()
+            .map(|part| evaluate_runtime_path_expression(&part, report))
+            .collect::<Option<Vec<_>>>()?;
+        if parts.is_empty() {
+            return None;
+        }
+        return Some(runtime_join_path_text(&parts));
+    }
+    if let Some(inner) = runtime_strip_call_inner(expression, "parent") {
+        let path = evaluate_runtime_path_expression(inner, report)?;
+        return Some(runtime_parent_path_text(&path));
+    }
+    if let Some(inner) = runtime_strip_call_inner(expression, "stem") {
+        let path = evaluate_runtime_path_expression(inner, report)?;
+        return Some(
+            Path::new(&path)
+                .file_stem()
+                .and_then(|value| value.to_str())
+                .unwrap_or_default()
+                .to_owned(),
+        );
+    }
+    if let Some(inner) = runtime_strip_call_inner(expression, "extension") {
+        let path = evaluate_runtime_path_expression(inner, report)?;
+        return Some(
+            Path::new(&path)
+                .extension()
+                .and_then(|value| value.to_str())
+                .unwrap_or_default()
+                .to_owned(),
+        );
+    }
+    None
+}
+
+fn runtime_strip_call_inner<'a>(expression: &'a str, function_name: &str) -> Option<&'a str> {
+    let trimmed = expression.trim();
+    let prefix = format!("{function_name}(");
+    trimmed
+        .strip_prefix(&prefix)?
+        .strip_suffix(')')
+        .map(str::trim)
+}
+
+fn runtime_strip_call_string_arg(expression: &str, function_name: &str) -> Option<String> {
+    let inner = runtime_strip_call_inner(expression, function_name)?;
+    Some(strip_runtime_string_value(inner))
+}
+
+fn runtime_join_path_text(parts: &[String]) -> String {
+    let mut joined = String::new();
+    for part in parts {
+        let normalized = runtime_path_text(part);
+        let trimmed = normalized.trim_matches('/');
+        if trimmed.is_empty() {
+            continue;
+        }
+        if !joined.is_empty() {
+            joined.push('/');
+        }
+        joined.push_str(trimmed);
+    }
+    joined
+}
+
+fn runtime_parent_path_text(path: &str) -> String {
+    Path::new(path)
+        .parent()
+        .and_then(|value| value.to_str())
+        .map(runtime_path_text)
+        .unwrap_or_default()
+}
+
+fn runtime_path_text(path: impl AsRef<str>) -> String {
+    path.as_ref().replace('\\', "/")
+}
+
+fn runtime_resolve_source_relative_path(path: &str, source_base: Option<&Path>) -> PathBuf {
+    let path = Path::new(path);
+    if path.is_absolute() {
+        return path.to_path_buf();
+    }
+    source_base.unwrap_or_else(|| Path::new(".")).join(path)
 }
 
 fn evaluate_function_call_expression(
@@ -1456,6 +1580,41 @@ fn result_json(
         arg_values.push_str("    }");
     }
 
+    let mut environment_dependencies = String::new();
+    for (index, dependency) in report
+        .semantic_program
+        .environment_dependencies
+        .iter()
+        .enumerate()
+    {
+        if index > 0 {
+            environment_dependencies.push_str(",\n");
+        }
+        environment_dependencies.push_str("      {\n");
+        environment_dependencies.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&dependency.name)
+        ));
+        environment_dependencies.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&dependency.kind)
+        ));
+        environment_dependencies.push_str(&format!(
+            "        \"expression\": \"{}\",\n",
+            json_escape(&dependency.expression)
+        ));
+        environment_dependencies.push_str(&format!(
+            "        \"resolved_value\": \"{}\",\n",
+            json_escape(&dependency.resolved_value)
+        ));
+        environment_dependencies.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&dependency.status)
+        ));
+        environment_dependencies.push_str(&format!("        \"line\": {}\n", dependency.line));
+        environment_dependencies.push_str("      }");
+    }
+
     let mut objects = String::new();
     for (index, object) in execution.objects.iter().enumerate() {
         if index > 0 {
@@ -1977,7 +2136,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -2020,6 +2179,7 @@ fn result_json(
             .iter()
             .map(|system| system.residuals.len())
             .sum::<usize>(),
+        environment_dependencies,
         data_hashes,
         plot_spec_hash,
         report_spec_hash
@@ -2634,5 +2794,40 @@ mod tests {
             fs::read_to_string(build_root.join("result").join("summary.csv")).expect("summary csv");
         assert!(csv.contains("Q_wall [kW]"));
         assert!(csv.contains("1.20"));
+    }
+
+    #[test]
+    fn run_file_evaluates_path_helpers_and_records_environment_provenance() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-path-policy");
+        let build_root = repo_root.join("build").join("runtime-path-policy-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(source_dir.join("data").join("sensor.csv"), "time,T\n0,20\n")
+            .expect("sensor csv");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "args {\n    input: CsvFile = file(\"data/sensor.csv\")\n    output: DirectoryPath = dir(\"build/out\")\n}\n\ninput_exists = exists args.input\nsummary_file = join(args.output, \"summary.csv\")\ninput_parent = parent(args.input)\ninput_stem = stem(args.input)\ninput_ext = extension(args.input)\n\nprint \"exists={input_exists} summary={summary_file} parent={input_parent} stem={input_stem} ext={input_ext}\"\n",
+        )
+        .expect("write source");
+
+        let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+
+        assert!(output.stdout.contains("exists=true"));
+        assert!(output.stdout.contains("summary=build/out/summary.csv"));
+        assert!(output.stdout.contains("parent=data"));
+        assert!(output.stdout.contains("stem=sensor"));
+        assert!(output.stdout.contains("ext=csv"));
+        assert!(output.result_json.contains("\"environment_dependencies\""));
+        assert!(output.result_json.contains("\"filesystem_exists\""));
+        assert!(output.result_json.contains("\"resolved_value\": \"true\""));
+        assert!(output
+            .report_spec_json
+            .contains("\"environment_dependencies\""));
     }
 }

@@ -30,7 +30,7 @@ give feedback on the current preview scope.
 
 ## Current Public Line
 
-`v0.2-preview` packages the current user-test workflow:
+`v0.3-preview` packages the current user-test workflow:
 
 ```text
 - eng.exe doctor/check/run/build/view
@@ -40,6 +40,7 @@ give feedback on the current preview scope.
 - unit-aware TimeSeries calculation
 - TimeSeries statistics and integration metadata
 - unit-aware print and explicit summary CSV export
+- typed path helpers and provenance-visible `exists`
 - PlotSpec/SVG output
 - review/report artifacts
 - basic packaged execution
@@ -85,14 +86,13 @@ policy source.
 
 ## Active Target
 
-`v0.3-preview` focuses on syntax/dataflow unification and the first
-side-effect-policy implementation seed:
+`v0.4-preview` focuses on read-only I/O and multi-source data policy:
 
 ```text
-- path type/helper preview planning into implementation
-- environment-dependent `exists` provenance seed
-- clearer command lowering and where-local IDE/report visibility
-- dataflow scope around typed Table/TimeSeries expressions
+- read text/json/toml policy seed
+- multi-source typed data path
+- source hash provenance hardening
+- clearer dataflow scope around typed Table/TimeSeries expressions
 - examples that connect measured data, computed metrics, and simulation outputs
 ```
 

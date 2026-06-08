@@ -1657,7 +1657,7 @@ fn parse_print_decl(tokens: &[Token], context: ParseContext) -> Option<PrintDecl
 }
 
 fn parse_csv_export_decl(tokens: &[Token], context: ParseContext) -> Option<CsvExportDecl> {
-    let [first, second, third, fourth, ..] = tokens else {
+    let [first, second, third, fourth, fifth, ..] = tokens else {
         return None;
     };
     if !matches!(first.kind, TokenKind::Keyword(Keyword::Export)) {
@@ -1672,15 +1672,14 @@ fn parse_csv_export_decl(tokens: &[Token], context: ParseContext) -> Option<CsvE
     if !matches!(fourth.kind, TokenKind::Keyword(Keyword::Csv)) {
         return None;
     }
-    let path = tokens.iter().skip(4).find_map(|token| match &token.kind {
-        TokenKind::StringLiteral(value) => Some(value.clone()),
-        _ => None,
-    })?;
+    let TokenKind::StringLiteral(path) = &fifth.kind else {
+        return None;
+    };
 
     Some(CsvExportDecl {
         source: source.clone(),
         format: "csv".to_owned(),
-        path,
+        path: path.clone(),
         line: first.span.line,
         span: first.span,
         context,

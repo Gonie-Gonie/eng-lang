@@ -209,6 +209,7 @@ Current result fields:
     "system_count": 1,
     "equation_count": 1,
     "residual_count": 1,
+    "environment_dependencies": [],
     "data_hashes": [],
     "unit_conversion_history": [],
     "plot_spec_hash": "...",
@@ -239,6 +240,7 @@ plot_manifest
 workflow
 args_summary
 arg_values
+environment_dependencies
 inferred_declarations
 expected_types
 hover_hints
@@ -291,6 +293,7 @@ inferred_declaration_table
 unit_conversion_table
 args_summary
 arg_values
+provenance.environment_dependencies
 schema_summary
 computed_statistics
 computed_integrations

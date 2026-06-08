@@ -8,9 +8,9 @@ first-class parts of engineering code.
 
 ## Status
 
-Current public line: `v0.2-preview`
+Current public line: `v0.3-preview`
 
-Active target: `v0.3-preview` - syntax/dataflow unification and path-policy seed
+Active target: `v0.4-preview` - read-only I/O and multi-source data policy
 
 EngLang is preview software. The language, runtime behavior, and artifact
 formats are not yet stable.
@@ -31,6 +31,7 @@ Start from these short status documents:
 - Unit-aware TimeSeries calculations
 - TimeSeries statistics and integration metadata
 - Unit-aware print and explicit summary CSV export
+- Typed path helpers and provenance-visible `exists`
 - PlotSpec/SVG output
 - Review/report artifacts
 - Basic packaged execution
@@ -177,7 +178,7 @@ dist\main-standalone\run.bat
 popd
 ```
 
-`package` writes `dist\englang-preview-v0.2-preview-windows-x64.zip`, a
+`package` writes `dist\englang-preview-v0.3-preview-windows-x64.zip`, a
 matching `.sha256` file, and a curated PDF user guide. The portable package
 does not copy the full developer markdown documentation tree. `package-smoke`
 extracts that zip into a path with spaces and Korean characters, then runs the

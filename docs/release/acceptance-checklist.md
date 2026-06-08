@@ -75,6 +75,28 @@ Before publishing `v0.2-preview`:
 [x] release-check passes
 ```
 
+Before publishing `v0.3-preview`:
+
+```text
+[x] workspace package version is updated to 0.3.0-preview
+[x] public package label is v0.3-preview
+[x] current status, maturity matrix, tracks, roadmap, README, and release workflow agree on the v0.3 scope
+[x] path helpers are implemented for file/dir/join/parent/stem/extension
+[x] exists is type-checked as Bool and resolved relative to the source file
+[x] review.json records environment_dependencies
+[x] result.engres records provenance.environment_dependencies
+[x] report_spec.json records provenance.environment_dependencies
+[x] artifact schemas include environment dependency fields
+[x] official/10_path_policy mini example is present
+[x] docs explain path helper scope and broader side-effect deferrals
+[x] docs-check passes
+[x] artifacts-check passes
+[x] ide-check passes
+[x] lsp-check passes
+[x] package-smoke passes under a path with spaces and Korean characters
+[x] release-check passes
+```
+
 ## Local Verification
 
 Run:

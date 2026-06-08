@@ -1,0 +1,14 @@
+args {
+    input: CsvFile = file("../01_csv_plot/data/sensor.csv")
+    output: DirectoryPath = dir("build/path-policy")
+}
+
+input_exists = exists args.input
+summary_file = join(args.output, "summary.csv")
+input_parent = parent(args.input)
+input_stem = stem(args.input)
+input_ext = extension(args.input)
+
+print "input exists = {input_exists}"
+print "summary target = {summary_file}"
+print "input source = {input_parent}/{input_stem}.{input_ext}"

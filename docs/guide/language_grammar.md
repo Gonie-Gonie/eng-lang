@@ -219,6 +219,42 @@ Supported preview argument types include:
 Runtime records the final bound value and whether it came from the default or
 CLI override.
 
+## Path Helpers And Exists
+
+Path defaults are typed. Use `file("...")` for file-like arguments and
+`dir("...")` for directory-like arguments.
+
+```eng partial
+args {
+    input: CsvFile = file("data/sensor.csv")
+    output: DirectoryPath = dir("build/result")
+}
+```
+
+Pure path helpers are allowed in top-level bindings and print formatting:
+
+```eng partial
+summary_file = join(args.output, "summary.csv")
+input_parent = parent(args.input)
+input_name = stem(args.input)
+input_ext = extension(args.input)
+
+print "summary target = {summary_file}"
+print "input source = {input_parent}/{input_name}.{input_ext}"
+```
+
+`exists` is intentionally not pure. It queries the filesystem at check/run time,
+returns `Bool`, and is recorded as environment dependency provenance:
+
+```eng partial
+input_exists = exists args.input
+print "input exists = {input_exists}"
+```
+
+The current preview resolves relative paths against the source file directory.
+For `examples/official/10_path_policy/main.eng`, the review/result/report-spec
+artifacts contain an `environment_dependencies` entry for `exists args.input`.
+
 ## Schemas And CSV Promotion
 
 Schemas are the data boundary. They describe columns, quantity kinds, display

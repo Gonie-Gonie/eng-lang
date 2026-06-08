@@ -226,7 +226,16 @@ Non-goals:
 
 ## T11 General Programming / Side Effects
 
-Design policy in `v0.2-preview`:
+Implemented seed in `v0.3-preview`:
+
+```text
+- file/dir path defaults
+- join/parent/stem/extension path helpers
+- exists checks recorded as environment dependency provenance
+- review/result/report-spec environment_dependencies fields
+```
+
+Remaining design policy:
 
 ```text
 - file/path/process/network concepts are typed

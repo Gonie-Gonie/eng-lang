@@ -7,21 +7,21 @@ This document defines the repeatable EngLang preview release process.
 Current public release line:
 
 ```text
-v0.2-preview
+v0.3-preview
 ```
 
 Cargo uses the SemVer-compatible workspace package version:
 
 ```text
-0.2.0-preview
+0.3.0-preview
 ```
 
 Release assets use the public label:
 
 ```text
-dist\englang-preview-v0.2-preview-windows-x64.zip
-dist\englang-preview-v0.2-preview-windows-x64.zip.sha256
-dist\englang-user-test-guide-v0.2-preview.pdf
+dist\englang-preview-v0.3-preview-windows-x64.zip
+dist\englang-preview-v0.3-preview-windows-x64.zip.sha256
+dist\englang-user-test-guide-v0.3-preview.pdf
 dist\release-manifest.txt
 ```
 
@@ -62,7 +62,7 @@ stdlib/
 docs/EngLang_User_Test_Guide.pdf
 docs/EngLang_Language_Grammar_Guide.pdf
 tools/vscode-englang/
-tools/englang-vscode-preview-0.2.0-preview.vsix
+tools/englang-vscode-preview-0.3.0-preview.vsix
 README.txt
 ```
 
@@ -74,25 +74,25 @@ the full developer markdown tree.
 After `release-check` passes and the worktree is clean:
 
 ```bat
-git tag v0.2-preview
-git push origin v0.2-preview
+git tag v0.3-preview
+git push origin v0.3-preview
 ```
 
 Do not reuse old high-numbered release names for the current public line. If a
 preview needs a fix, create the next public preview label such as
-`v0.3-preview` or a clearly scoped patch label only after updating
+`v0.4-preview` or a clearly scoped patch label only after updating
 `docs/current/version_plan.md`.
 
 ## GitHub Release
 
-Use `docs\release\v0.2-preview.md` as the public release note.
+Use `docs\release\v0.3-preview.md` as the public release note.
 
 Attach:
 
 ```text
-dist\englang-preview-v0.2-preview-windows-x64.zip
-dist\englang-preview-v0.2-preview-windows-x64.zip.sha256
-dist\englang-user-test-guide-v0.2-preview.pdf
+dist\englang-preview-v0.3-preview-windows-x64.zip
+dist\englang-preview-v0.3-preview-windows-x64.zip.sha256
+dist\englang-user-test-guide-v0.3-preview.pdf
 dist\release-manifest.txt
 ```
 
@@ -110,5 +110,5 @@ Before publishing:
 [ ] eng-lsp.exe --smoke passes from the extracted package
 [ ] official CSV, simple system, and integrated HVAC examples run
 [ ] package docs folder contains the curated PDF only
-[ ] release assets match v0.2-preview public labels
+[ ] release assets match v0.3-preview public labels
 ```

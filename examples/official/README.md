@@ -50,6 +50,11 @@ paths before compatibility fixtures.
   Parenthesis-light command-style built-in workflow verbs, scoped `where`
   locals, `with` option blocks, command-style statistics/integration,
   print/export output, and plot display options.
+
+10_path_policy
+  Typed path arguments, pure path helpers (`join`, `parent`, `stem`,
+  `extension`), runtime `exists` checks, and review/result/report-spec
+  environment dependency provenance.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression
