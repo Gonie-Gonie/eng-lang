@@ -280,6 +280,20 @@ pub struct CsvExportInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TimeSeriesKernelInfo {
+    pub binding: String,
+    pub kind: String,
+    pub source_table: Option<String>,
+    pub axis: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub expression: String,
+    pub operations: Vec<String>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SemanticProgram {
     pub imports: Vec<ImportInfo>,
     pub functions: Vec<FunctionInfo>,
@@ -304,6 +318,7 @@ pub struct SemanticProgram {
     pub arg_values: Vec<ArgValueInfo>,
     pub prints: Vec<PrintInfo>,
     pub csv_exports: Vec<CsvExportInfo>,
+    pub timeseries_kernels: Vec<TimeSeriesKernelInfo>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -341,6 +356,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut prints = Vec::new();
     let mut csv_exports = Vec::new();
     let mut current_csv_export_index = None;
+    let mut timeseries_kernels = Vec::new();
 
     for line in &program.lines {
         if line.tokens.iter().any(|token| {
@@ -524,6 +540,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     uncertainty_infos: &mut uncertainty_infos,
                     ml_infos: &mut ml_infos,
                     functions: &functions,
+                    timeseries_kernels: &mut timeseries_kernels,
                 };
                 analyze_fast_binding(binding, &mut accum);
             }
@@ -613,6 +630,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             arg_values: Vec::new(),
             prints,
             csv_exports,
+            timeseries_kernels,
         },
     }
 }
@@ -1955,6 +1973,9 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
     if let Some(semantic_type) = inferred_semantic_type {
         let canonical_unit = default_unit_for_quantity(&semantic_type.quantity_kind);
         let dimension = dimension_for_quantity(&semantic_type.quantity_kind);
+        if let Some(kernel) = preview_timeseries_kernel_info(binding, &semantic_type) {
+            accum.timeseries_kernels.push(kernel);
+        }
         accum.inferred_declarations.push(InferredDeclaration {
             name: binding.name.clone(),
             quantity_kind: semantic_type.quantity_kind.clone(),
@@ -2006,6 +2027,7 @@ struct SemanticAccum<'a> {
     uncertainty_infos: &'a mut Vec<UncertaintyInfo>,
     ml_infos: &'a mut Vec<MlInfo>,
     functions: &'a [FunctionInfo],
+    timeseries_kernels: &'a mut Vec<TimeSeriesKernelInfo>,
 }
 
 fn check_ambiguous_quantity(binding: &FastBinding, diagnostics: &mut Vec<Diagnostic>) {
@@ -2416,12 +2438,69 @@ fn semantic_type(quantity_kind: &str, display_unit: &str) -> Option<SemanticType
     })
 }
 
+fn preview_timeseries_kernel_info(
+    binding: &FastBinding,
+    semantic_type: &SemanticType,
+) -> Option<TimeSeriesKernelInfo> {
+    let (axis, quantity_kind) = crate::stats::time_series_quantity(&semantic_type.quantity_kind)?;
+    if quantity_kind != "HeatRate" {
+        return None;
+    }
+    let kernel = preview_heat_rate_kernel_match(&binding.expression)?;
+    Some(TimeSeriesKernelInfo {
+        binding: binding.name.clone(),
+        kind: "table_heat_rate_from_mass_flow_cp_delta_t".to_owned(),
+        source_table: kernel.source_table,
+        axis,
+        quantity_kind,
+        display_unit: semantic_type.display_unit.clone(),
+        expression: binding.expression.clone(),
+        operations: vec![
+            "load_table_column:MassFlowRate".to_owned(),
+            "load_scalar:SpecificHeat".to_owned(),
+            "temperature_delta:return_minus_supply".to_owned(),
+            "multiply:m_dot_cp_delta_t".to_owned(),
+            "store_timeseries".to_owned(),
+        ],
+        status: "preview_supported".to_owned(),
+        line: binding.line,
+    })
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PreviewHeatRateKernelMatch {
+    source_table: Option<String>,
+}
+
 fn looks_like_heat_rate_timeseries(name: &str, expression: &str) -> bool {
     let name_suggests_heat_rate =
         name.starts_with('q') || name.contains("heat") || name.contains("coil");
-    let expression_uses_table_fields = expression.contains(".m_dot")
-        && (expression.contains(".t_return") || expression.contains(".t_supply"));
-    let expression_uses_specific_heat = expression.contains("cp") || expression.contains("j/kg/k");
+    name_suggests_heat_rate && preview_heat_rate_kernel_match(expression).is_some()
+}
 
-    name_suggests_heat_rate && expression_uses_table_fields && expression_uses_specific_heat
+fn preview_heat_rate_kernel_match(expression: &str) -> Option<PreviewHeatRateKernelMatch> {
+    let lowered = expression.to_ascii_lowercase();
+    let expression_uses_mass_flow = lowered.contains(".m_dot");
+    let expression_uses_supply =
+        lowered.contains(".t_supply") || lowered.contains(".supply") || lowered.contains("_supply");
+    let expression_uses_return =
+        lowered.contains(".t_return") || lowered.contains(".return") || lowered.contains("_return");
+    let expression_uses_specific_heat = lowered.contains("cp") || lowered.contains("j/kg/k");
+    (expression_uses_mass_flow
+        && expression_uses_supply
+        && expression_uses_return
+        && expression_uses_specific_heat)
+        .then(|| PreviewHeatRateKernelMatch {
+            source_table: first_table_reference(expression),
+        })
+}
+
+fn first_table_reference(expression: &str) -> Option<String> {
+    expression
+        .split(|character: char| {
+            !(character.is_ascii_alphanumeric() || character == '_' || character == '.')
+        })
+        .filter_map(|token| token.split_once('.').map(|(table, _)| table.trim()))
+        .find(|table| is_identifier(table))
+        .map(str::to_owned)
 }

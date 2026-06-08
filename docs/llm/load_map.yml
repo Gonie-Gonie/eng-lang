@@ -37,6 +37,7 @@ task_types:
 
   csv_promote:
     - docs/architecture/04_data_boundary.md
+    - docs/reference/timeseries_expression_kernel.md
     - docs/guide/timeseries_statistics.md
     - examples/official/01_csv_plot/
     - crates/eng_compiler/src/schema.rs
@@ -72,6 +73,7 @@ task_types:
 
   system:
     - docs/tutorials/05_simple_system.md
+    - docs/reference/timeseries_expression_kernel.md
     - examples/official/02_simple_system/
     - examples/official/03_integrated_hvac/
     - crates/eng_compiler/src/semantic.rs

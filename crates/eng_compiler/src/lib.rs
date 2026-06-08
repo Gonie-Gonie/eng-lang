@@ -44,7 +44,7 @@ pub use semantic::{
     EquationDependencyInfo, EquationInfo, EquationIrInfo, FormatExpressionInfo, FunctionInfo,
     FunctionParamInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo, PrintInfo,
     ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo, SystemVariableInfo,
-    TypedBinding,
+    TimeSeriesKernelInfo, TypedBinding,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -1299,6 +1299,53 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    json.push_str("  \"timeseries_kernels\": [\n");
+    for (index, kernel) in report
+        .semantic_program
+        .timeseries_kernels
+        .iter()
+        .enumerate()
+    {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&kernel.binding)
+        ));
+        json.push_str(&format!(
+            "      \"kind\": \"{}\",\n",
+            json_escape(&kernel.kind)
+        ));
+        push_optional_json_string(&mut json, "source_table", kernel.source_table.as_deref(), 6);
+        json.push_str(&format!(
+            "      \"axis\": \"{}\",\n",
+            json_escape(&kernel.axis)
+        ));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&kernel.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&kernel.display_unit)
+        ));
+        json.push_str(&format!(
+            "      \"expression\": \"{}\",\n",
+            json_escape(&kernel.expression)
+        ));
+        json.push_str("      \"operations\": [");
+        push_json_string_array(&mut json, &kernel.operations);
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&kernel.status)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", kernel.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
     json.push_str("  \"uncertainty_info\": [\n");
     for (index, uncertainty) in report.semantic_program.uncertainty_infos.iter().enumerate() {
         if index > 0 {
@@ -2065,6 +2112,15 @@ fn push_optional_json_string(json: &mut String, key: &str, value: Option<&str>, 
     }
 }
 
+fn push_json_string_array(json: &mut String, values: &[String]) {
+    for (index, value) in values.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str(&format!("\"{}\"", json_escape(value)));
+    }
+}
+
 fn json_escape(value: &str) -> String {
     let mut escaped = String::with_capacity(value.len());
     for character in value.chars() {
@@ -2462,6 +2518,19 @@ mod tests {
             report.semantic_program.integrations[0].input_quantity,
             "HeatRate"
         );
+        assert_eq!(report.semantic_program.timeseries_kernels.len(), 1);
+        let kernel = &report.semantic_program.timeseries_kernels[0];
+        assert_eq!(kernel.binding, "Q_coil");
+        assert_eq!(kernel.kind, "table_heat_rate_from_mass_flow_cp_delta_t");
+        assert_eq!(kernel.source_table.as_deref(), Some("sensor"));
+        assert_eq!(kernel.status, "preview_supported");
+        assert!(kernel
+            .operations
+            .iter()
+            .any(|operation| operation == "temperature_delta:return_minus_supply"));
+        let review = review_json(&report);
+        assert!(review.contains("\"timeseries_kernels\""));
+        assert!(review.contains("\"table_heat_rate_from_mass_flow_cp_delta_t\""));
     }
 
     #[test]

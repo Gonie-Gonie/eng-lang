@@ -50,7 +50,8 @@ the current public preview workflow, but it is not yet a stable contract.
 - DateTime-indexed table metadata and row-level CSV runtime pages.
 - TimeSeries statistics on the official HeatRate path, including mean,
   time-weighted mean, median, standard deviation, percentiles, and trapezoidal
-  integration metadata.
+  integration metadata, with `timeseries_kernels` metadata for the preview
+  table heat-rate expression.
 - PlotSpec v1 line plot data, unit-aware axis labels, SVG export, and plot
   manifest artifacts.
 - Report/review artifacts with variable tables, inferred declarations, unit

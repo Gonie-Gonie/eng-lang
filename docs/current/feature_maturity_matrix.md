@@ -16,7 +16,7 @@ language feature. Public preview support is narrower than implementation on
 | DateTime index | Supported preview | Official CSV TimeSeries path | More calendar/timezone semantics deferred | Maintain metadata |
 | Missing policies | Preview | Official/data-quality paths | General policy DSL is limited | Harden policy semantics |
 | Constraints | Preview | Data-quality examples and review metadata | General constraint runtime is limited | Expand supported checks |
-| TimeSeries statistics | Supported preview | Official HeatRate TimeSeries path | General quantity rules and arbitrary TimeSeries expressions limited | Expand quantity-aware kernels |
+| TimeSeries statistics | Supported preview | Official HeatRate TimeSeries path plus `timeseries_kernels` metadata for the preview table heat-rate kernel | General quantity rules and arbitrary TimeSeries expressions limited | Expand quantity-aware kernels |
 | `integrate(... over Time)` | Supported preview | HeatRate to Energy metadata and supported example | Wider signal types deferred | Generalize integration rules |
 | Unit-aware `print` and summary CSV export | Preview | Type-checked print interpolation, scalar statistics, integration values, and explicit one-row `export summary to csv` files under `build/result` | No first-class Summary object; table/TimeSeries CSV export deferred; display policy is out of scope | Harden examples and artifact metadata |
 | PlotSpec line plot | Supported preview | CSV-derived TimeSeries line plot and SVG | Multi-series and interactive consistency deferred | Expand PlotSpec semantics |
