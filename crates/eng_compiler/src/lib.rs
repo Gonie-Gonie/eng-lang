@@ -22,10 +22,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub use ast::{
-    ArgsDecl, ArgsFieldDecl, AstItem, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl,
-    CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainVariableDecl, EquationDecl, ExplicitDecl,
-    FastBinding, FunctionDecl, FunctionParamDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl,
-    SchemaDecl, ScriptDecl, StructDecl, SystemDecl, SystemVariableDecl,
+    ArgsDecl, ArgsFieldDecl, AstItem, CommandClauseDecl, CommandStyleDecl, ComponentDecl,
+    ConnectDecl, ConservationDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl,
+    DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FunctionDecl, FunctionParamDecl,
+    ImportDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl, SystemDecl,
+    SystemVariableDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -39,12 +40,14 @@ pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSu
 pub use quantities::{all_quantity_completions, normalize_unit, QuantityCompletion};
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
 pub use semantic::{
-    ArgValueInfo, ArgsBlockInfo, ArgsFieldInfo, ComponentInfo, ConnectionInfo, ConservationInfo,
-    ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo, DomainTypeParameterInfo,
-    DomainVariableInfo, EquationDependencyInfo, EquationInfo, EquationIrInfo, FormatExpressionInfo,
-    FunctionInfo, FunctionLocalInfo, FunctionParamInfo, ImportInfo, JacobianSeedInfo,
-    OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo, SemanticProgram, SemanticType,
-    SolverPlanInfo, SystemInfo, SystemVariableInfo, TimeSeriesKernelInfo, TypedBinding,
+    ArgValueInfo, ArgsBlockInfo, ArgsFieldInfo, CommandClauseInfo, CommandStyleInfo, ComponentInfo,
+    ConnectionInfo, ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo,
+    DomainTypeParameterInfo, DomainVariableInfo, EquationDependencyInfo, EquationInfo,
+    EquationIrInfo, FormatExpressionInfo, FunctionInfo, FunctionLocalInfo, FunctionParamInfo,
+    ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo,
+    SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo, SystemVariableInfo,
+    TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo, WhereBlockInfo, WithBlockInfo,
+    WithOptionInfo,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -335,10 +338,10 @@ fn importable_definition_item(item: &AstItem) -> bool {
 }
 
 fn imported_has_args_block(program: &ParsedProgram) -> bool {
-    program.items.iter().any(|item| match item {
-        AstItem::Args(_) => true,
-        _ => false,
-    })
+    program
+        .items
+        .iter()
+        .any(|item| matches!(item, AstItem::Args(_)))
 }
 
 fn diagnose_non_importable_symbol_uses(
@@ -870,8 +873,20 @@ pub fn review_json(report: &CheckReport) -> String {
         report.syntax_summary.fast_bindings
     ));
     json.push_str(&format!(
-        "    \"explicit_declarations\": {}\n",
+        "    \"explicit_declarations\": {},\n",
         report.syntax_summary.explicit_declarations
+    ));
+    json.push_str(&format!(
+        "    \"command_styles\": {},\n",
+        report.syntax_summary.command_styles
+    ));
+    json.push_str(&format!(
+        "    \"where_blocks\": {},\n",
+        report.syntax_summary.where_blocks
+    ));
+    json.push_str(&format!(
+        "    \"with_blocks\": {}\n",
+        report.syntax_summary.with_blocks
     ));
     json.push_str("  },\n");
     json.push_str(&format!(
@@ -1626,6 +1641,125 @@ pub fn review_json(report: &CheckReport) -> String {
                 json.push_str("          \"precision\": null,\n");
             }
             json.push_str(&format!("          \"line\": {}\n", field.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"command_styles\": [\n");
+    for (index, command) in report.semantic_program.command_styles.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"verb\": \"{}\",\n",
+            json_escape(&command.verb)
+        ));
+        json.push_str(&format!(
+            "      \"target\": \"{}\",\n",
+            json_escape(&command.target)
+        ));
+        json.push_str("      \"clauses\": [");
+        for (clause_index, clause) in command.clauses.iter().enumerate() {
+            if clause_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!(
+                "{{\"name\": \"{}\", \"value\": \"{}\"}}",
+                json_escape(&clause.name),
+                json_escape(&clause.value)
+            ));
+        }
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "      \"canonical\": \"{}\",\n",
+            json_escape(&command.canonical)
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&command.status)
+        ));
+        push_optional_json_string(&mut json, "owner", command.owner.as_deref(), 6);
+        json.push_str(&format!("      \"line\": {}\n", command.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"where_blocks\": [\n");
+    for (index, block) in report.semantic_program.where_blocks.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        match block.owner_line {
+            Some(owner_line) => json.push_str(&format!("      \"owner_line\": {},\n", owner_line)),
+            None => json.push_str("      \"owner_line\": null,\n"),
+        }
+        json.push_str(&format!("      \"line\": {},\n", block.line));
+        json.push_str("      \"bindings\": [\n");
+        for (binding_index, binding) in block.bindings.iter().enumerate() {
+            if binding_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&binding.name)
+            ));
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&binding.expression)
+            ));
+            json.push_str(&format!(
+                "          \"quantity_kind\": \"{}\",\n",
+                json_escape(&binding.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&binding.display_unit)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&binding.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", binding.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"with_blocks\": [\n");
+    for (index, block) in report.semantic_program.with_blocks.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        match block.owner_line {
+            Some(owner_line) => json.push_str(&format!("      \"owner_line\": {},\n", owner_line)),
+            None => json.push_str("      \"owner_line\": null,\n"),
+        }
+        json.push_str(&format!("      \"line\": {},\n", block.line));
+        json.push_str("      \"options\": [\n");
+        for (option_index, option) in block.options.iter().enumerate() {
+            if option_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"key\": \"{}\",\n",
+                json_escape(&option.key)
+            ));
+            json.push_str(&format!(
+                "          \"value\": \"{}\",\n",
+                json_escape(&option.value)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&option.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", option.line));
             json.push_str("        }");
         }
         json.push_str("\n      ]\n");
@@ -2935,6 +3069,102 @@ mod tests {
         let review = review_json(&report);
         assert!(review.contains("\"prints\""));
         assert!(review.contains("\"csv_exports\""));
+    }
+
+    #[test]
+    fn lowers_command_style_statistics_and_integration() {
+        let report = check_source(
+            "ok.eng",
+            "cp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nE_coil = integrate Q_coil over Time\nmean_Q = mean Q_coil over Time\npeak_Q = max Q_coil over Time\nprint \"mean={mean_Q: .2 kW} peak={peak_Q: .2 kW} E={E_coil: .2 kWh}\"\nexport summary to csv \"summary.csv\" {\n    mean_Q as kW with \".2\"\n    peak_Q as kW with \".2\"\n    E_coil as kWh with \".2\"\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(report.semantic_program.command_styles.len(), 3);
+        assert!(report
+            .semantic_program
+            .command_styles
+            .iter()
+            .any(|command| command.canonical == "integrate(Q_coil, over=Time)"));
+        assert_eq!(report.semantic_program.integrations[0].binding, "E_coil");
+        assert_eq!(
+            report
+                .inferred_declarations
+                .iter()
+                .find(|declaration| declaration.name == "mean_Q")
+                .unwrap()
+                .expression,
+            "mean(Q_coil, axis=Time)"
+        );
+        let review = review_json(&report);
+        assert!(review.contains("\"command_styles\""));
+        assert!(review.contains("\"canonical\": \"max(Q_coil, axis=Time)\""));
+    }
+
+    #[test]
+    fn records_where_and_with_context_for_command_owner() {
+        let report = check_source(
+            "ok.eng",
+            "cp = 4180 J/kg/K\nE_from_local = integrate Q_local over Time\nwhere {\n    Q_local = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n}\nwith {\n    method = trapezoidal\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(report.semantic_program.integrations[0].source, "Q_local");
+        assert_eq!(report.semantic_program.where_blocks.len(), 1);
+        assert_eq!(
+            report.semantic_program.where_blocks[0].bindings[0].quantity_kind,
+            "TimeSeries[Time] of HeatRate"
+        );
+        assert_eq!(report.semantic_program.with_blocks.len(), 1);
+        assert_eq!(
+            report.semantic_program.with_blocks[0].options[0].key,
+            "method"
+        );
+        let review = review_json(&report);
+        assert!(review.contains("\"where_blocks\""));
+        assert!(review.contains("\"with_blocks\""));
+    }
+
+    #[test]
+    fn reports_command_where_and_with_policy_diagnostics() {
+        let command_report = check_source(
+            "bad.eng",
+            "Q1 = 1 kW\nQ2 = 2 kW\nE = integrate Q1 + Q2 over Time\n",
+            &CheckOptions::default(),
+        );
+        assert!(command_report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-CMD-AMBIG-001"));
+
+        let where_report = check_source(
+            "bad.eng",
+            "E = integrate Q_local over Time\nwhere {\n    Q_local = Q_late\n    Q_late = 1 kW\n}\nprint \"local={Q_local: .2 kW}\"\n",
+            &CheckOptions::default(),
+        );
+        assert!(where_report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-WHERE-FWD-001"));
+        assert!(where_report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-NAME-LOCAL-001"));
+
+        let with_report = check_source(
+            "bad.eng",
+            "Q = 1 kW\nwith { unit y = m; banana = x }\n",
+            &CheckOptions::default(),
+        );
+        assert!(with_report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-WITH-UNIT-001"));
+        assert!(with_report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-WITH-OPTION-001"));
     }
 
     #[test]

@@ -27,6 +27,7 @@ long-form planning documents.
 - [Expected types and quantity completions](architecture/03_expected_types_and_quantities.md)
 - [Data boundary and CSV promote](architecture/04_data_boundary.md)
 - [Bytecode VM and result v1](runtime/bytecode.md)
+- [Language grammar guide](guide/language_grammar.md)
 - [TimeSeries statistics guide](guide/timeseries_statistics.md)
 - [Plotting guide](guide/plotting.md)
 - [Uncertainty track guide](guide/uncertainty.md)
@@ -49,6 +50,7 @@ long-form planning documents.
 - [v8/v9 language policy](specs/language-v8.md)
 - [Fast assignment guide](language/fast_assignment.md)
 - [Dimensionless policy guide](language/dimensionless.md)
+- [Language grammar guide](guide/language_grammar.md)
 - [Unit-aware print and CSV summary export](language/string_formatting.md)
 
 ## Planning And Release

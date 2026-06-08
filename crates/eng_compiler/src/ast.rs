@@ -219,6 +219,57 @@ pub struct CsvExportFieldDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CommandClauseDecl {
+    pub name: String,
+    pub value: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CommandStyleDecl {
+    pub verb: String,
+    pub target: String,
+    pub clauses: Vec<CommandClauseDecl>,
+    pub canonical: String,
+    pub status: String,
+    pub owner: Option<String>,
+    pub line: usize,
+    pub span: SourceSpan,
+    pub context: ParseContext,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WhereBlockDecl {
+    pub owner_line: Option<usize>,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WhereBindingDecl {
+    pub owner_line: Option<usize>,
+    pub name: String,
+    pub expression: String,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WithBlockDecl {
+    pub owner_line: Option<usize>,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WithOptionDecl {
+    pub owner_line: Option<usize>,
+    pub key: String,
+    pub value: String,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExplicitDecl {
     pub name: String,
     pub type_name: String,
@@ -257,5 +308,10 @@ pub enum AstItem {
     Print(PrintDecl),
     CsvExport(CsvExportDecl),
     CsvExportField(CsvExportFieldDecl),
+    CommandStyle(CommandStyleDecl),
+    WhereBlock(WhereBlockDecl),
+    WhereBinding(WhereBindingDecl),
+    WithBlock(WithBlockDecl),
+    WithOption(WithOptionDecl),
     ReservedKeywordUse { keyword: String, span: SourceSpan },
 }

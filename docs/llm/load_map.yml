@@ -6,6 +6,7 @@ default:
   - docs/current/feature_maturity_matrix.md
   - docs/current/tracks.md
   - docs/language/string_formatting.md
+  - docs/guide/language_grammar.md
   - docs/reference/top_level_execution_policy.md
   - docs/reference/standalone_package.md
   - docs/reference/functions_imports.md
@@ -13,6 +14,7 @@ default:
 
 task_types:
   parser:
+    - docs/guide/language_grammar.md
     - docs/specs/language-v8.md
     - docs/language/fast_assignment.md
     - docs/language/dimensionless.md

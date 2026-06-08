@@ -497,6 +497,9 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/02_simple_system/main.eng",
                 "examples/official/03_integrated_hvac/main.eng",
                 "examples/official/06_domain_port/main.eng",
+                "examples/official/07_functions_imports/main.eng",
+                "examples/official/08_print_export_summary/main.eng",
+                "examples/official/09_command_where_with/main.eng",
             ],
         ),
         (
@@ -881,6 +884,32 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("histogram plot example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
+        Path::new("examples/official/09_command_where_with/main.eng"),
+        Path::new("build/test-command-where-with"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
+            let plot_spec = std::fs::read_to_string(&output.plot_spec_path).unwrap_or_default();
+            if output.csv_export_paths.is_empty()
+                || !review.contains("\"command_styles\"")
+                || !review.contains("\"where_blocks\"")
+                || !review.contains("\"with_blocks\"")
+                || !plot_spec.contains("Command-style coil heat rate")
+            {
+                eprintln!("expected command/where/with example to produce review, CSV, and plot artifacts");
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/09_command_where_with/main.eng produced command/where/with artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("command/where/with example failed: {error}");
             return ExitCode::from(2);
         }
     }

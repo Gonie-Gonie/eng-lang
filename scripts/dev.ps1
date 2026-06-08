@@ -1161,6 +1161,38 @@ function New-UserGuideWithOodocs {
     }
 }
 
+function New-GrammarGuideWithOodocs {
+    param(
+        [Parameter(Mandatory = $true)][string] $Path,
+        [Parameter(Mandatory = $true)][string] $Version
+    )
+
+    $python = Get-PortablePython
+    $script = Join-Path $RepoRoot "docs\user\build_language_grammar_docs.py"
+    if ($null -eq $python -or -not (Test-Path $script)) {
+        return $false
+    }
+
+    try {
+        Invoke-Native $python $script "--pdf" $Path "--version" $Version
+        return (Test-Path $Path)
+    } catch {
+        Write-Host "OODocs grammar guide generation failed."
+        Write-Host $_
+        return $false
+    }
+}
+
+function Invoke-GrammarDocs {
+    Set-DevEnvironment
+    $Version = Get-PublicVersion
+    $Output = Join-Path $RepoRoot "build\docs\EngLang_Language_Grammar_Guide.pdf"
+    if (-not (New-GrammarGuideWithOodocs -Path $Output -Version $Version)) {
+        throw "grammar docs PDF was not created: $Output"
+    }
+    Write-Host "Grammar docs generated at $Output"
+}
+
 function New-UserGuidePdf {
     param(
         [Parameter(Mandatory = $true)][string] $Path,
@@ -1338,6 +1370,10 @@ function Invoke-Package {
     if (-not (New-UserGuideWithOodocs -Path $PackageGuidePath -Version $PublicVersion)) {
         New-UserGuidePdf -Path $PackageGuidePath -Version $PublicVersion
     }
+    $PackageGrammarGuidePath = Join-Path $PackageRoot "docs\EngLang_Language_Grammar_Guide.pdf"
+    if (-not (New-GrammarGuideWithOodocs -Path $PackageGrammarGuidePath -Version $PublicVersion)) {
+        throw "Could not generate EngLang language grammar guide with OODocs."
+    }
     Copy-Item -Force $PackageGuidePath $ReleaseGuidePath
     Invoke-IdePackage -PackageRoot $PackageRoot
     Set-Content -Path (Join-Path $PackageRoot "README.txt") -Encoding ascii -Value @"
@@ -1365,7 +1401,8 @@ VS Code IDE preview:
   run "EngLang: Check Current File"
 
 Generated artifacts are written under build\result in the current folder.
-The curated user guide is docs\EngLang_User_Test_Guide.pdf. Developer markdown
+The curated user guide is docs\EngLang_User_Test_Guide.pdf. The language
+grammar guide is docs\EngLang_Language_Grammar_Guide.pdf. Developer markdown
 docs are kept in the source repository and are not bundled into this package.
 "@
     Compress-Archive -Path (Join-Path $PackageRoot "*") -DestinationPath $ZipPath -Force
@@ -1436,6 +1473,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "docs\EngLang_User_Test_Guide.pdf"))) {
             throw "portable package did not include user guide PDF"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "docs\EngLang_Language_Grammar_Guide.pdf"))) {
+            throw "portable package did not include language grammar guide PDF"
         }
         $BundledMarkdownDocs = @(Get-ChildItem -LiteralPath (Join-Path $SmokeRoot "docs") -Recurse -Filter "*.md" -ErrorAction SilentlyContinue)
         if ($BundledMarkdownDocs.Count -gt 0) {
@@ -1537,6 +1577,7 @@ Usage:
   .\dev.bat clippy         Run clippy with warnings denied
   .\dev.bat ci             Run fmt, tests, clippy, and preview example
   .\dev.bat docs-check     Check supported documentation Eng snippets
+  .\dev.bat grammar-docs   Generate the oodocs language grammar PDF
   .\dev.bat ide-check      Validate the VS Code extension preview
   .\dev.bat lsp-check      Validate eng-lsp.exe stdio, smoke, and snapshot output
   .\dev.bat jit-check      Validate runtime optimization track kernel planning and bench output
@@ -1565,6 +1606,7 @@ switch ($Command) {
     "clippy" { Invoke-Clippy }
     "ci" { Invoke-Ci }
     "docs-check" { Invoke-DocsCheck }
+    "grammar-docs" { Invoke-GrammarDocs }
     "ide-check" { Invoke-IdeCheck }
     "lsp-check" { Invoke-LspCheck }
     "jit-check" { Invoke-JitCheck }

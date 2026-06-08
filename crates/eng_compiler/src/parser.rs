@@ -1,9 +1,10 @@
 use crate::ast::{
-    ArgsDecl, ArgsFieldDecl, AstItem, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl,
-    ConstraintDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainTypeParameterDecl,
-    DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FunctionDecl, FunctionParamDecl,
-    ImportDecl, MissingPolicyDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl,
-    StructDecl, SummaryDecl, SystemDecl, SystemVariableDecl,
+    ArgsDecl, ArgsFieldDecl, AstItem, CommandClauseDecl, CommandStyleDecl, ComponentDecl,
+    ConnectDecl, ConservationDecl, ConstDecl, ConstraintDecl, CsvExportDecl, CsvExportFieldDecl,
+    DomainDecl, DomainTypeParameterDecl, DomainVariableDecl, EquationDecl, ExplicitDecl,
+    FastBinding, FunctionDecl, FunctionParamDecl, ImportDecl, MissingPolicyDecl, PortDecl,
+    PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl, SummaryDecl, SystemDecl,
+    SystemVariableDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -23,6 +24,8 @@ pub enum ParseContext {
     Component,
     Equation,
     Export,
+    Where,
+    With,
     Other,
 }
 
@@ -62,6 +65,9 @@ pub struct SyntaxSummary {
     pub equations: usize,
     pub fast_bindings: usize,
     pub explicit_declarations: usize,
+    pub command_styles: usize,
+    pub where_blocks: usize,
+    pub with_blocks: usize,
 }
 
 impl ParsedProgram {
@@ -83,6 +89,9 @@ impl ParsedProgram {
         let mut equations = 0usize;
         let mut fast_bindings = 0usize;
         let mut explicit_declarations = 0usize;
+        let mut command_styles = 0usize;
+        let mut where_blocks = 0usize;
+        let mut with_blocks = 0usize;
 
         for item in &self.items {
             match item {
@@ -103,6 +112,9 @@ impl ParsedProgram {
                 AstItem::Equation(_) => equations += 1,
                 AstItem::FastBinding(_) => fast_bindings += 1,
                 AstItem::ExplicitDecl(_) => explicit_declarations += 1,
+                AstItem::CommandStyle(_) => command_styles += 1,
+                AstItem::WhereBlock(_) => where_blocks += 1,
+                AstItem::WithBlock(_) => with_blocks += 1,
                 AstItem::SystemVariable(_)
                 | AstItem::Return(_)
                 | AstItem::Conservation(_)
@@ -112,6 +124,8 @@ impl ParsedProgram {
                 | AstItem::Print(_)
                 | AstItem::CsvExport(_)
                 | AstItem::CsvExportField(_)
+                | AstItem::WhereBinding(_)
+                | AstItem::WithOption(_)
                 | AstItem::ReservedKeywordUse { .. } => {}
             }
         }
@@ -137,6 +151,9 @@ impl ParsedProgram {
             equations,
             fast_bindings,
             explicit_declarations,
+            command_styles,
+            where_blocks,
+            with_blocks,
         }
     }
 }
@@ -156,6 +173,11 @@ pub fn parse_source(source: &str) -> ParsedProgram {
     let mut component_depth = 0i32;
     let mut equation_depth = 0i32;
     let mut export_depth = 0i32;
+    let mut where_depth = 0i32;
+    let mut with_depth = 0i32;
+    let mut current_where_owner_line = None;
+    let mut current_with_owner_line = None;
+    let mut last_attachable_line = None;
 
     for source_line in source_lines(source) {
         let tokens = lex_line(source_line.line, source_line.start, &source_line.text);
@@ -163,6 +185,10 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             ParseContext::Equation
         } else if export_depth > 0 {
             ParseContext::Export
+        } else if where_depth > 0 {
+            ParseContext::Where
+        } else if with_depth > 0 {
+            ParseContext::With
         } else if missing_depth > 0 {
             ParseContext::SchemaMissing
         } else if constraints_depth > 0 {
@@ -188,7 +214,12 @@ pub fn parse_source(source: &str) -> ParsedProgram {
         };
 
         if !tokens.is_empty() {
-            parse_line_items(&mut items, &tokens, &source_line.text, context);
+            let owner_line = match context {
+                ParseContext::Where => current_where_owner_line,
+                ParseContext::With => current_with_owner_line,
+                _ => last_attachable_line,
+            };
+            parse_line_items(&mut items, &tokens, &source_line.text, context, owner_line);
         }
 
         if starts_with_keyword(&tokens, Keyword::Schema) {
@@ -340,6 +371,46 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             }
         }
 
+        if starts_with_keyword(&tokens, Keyword::Where) {
+            current_where_owner_line = last_attachable_line;
+            let delta = brace_delta(&tokens);
+            if delta != 0 {
+                where_depth += delta;
+            } else if !(contains_symbol(&tokens, Symbol::LBrace)
+                && contains_symbol(&tokens, Symbol::RBrace))
+            {
+                where_depth = 1;
+            }
+        } else if where_depth > 0 {
+            where_depth += brace_delta(&tokens);
+            if where_depth <= 0 {
+                where_depth = 0;
+                current_where_owner_line = None;
+            }
+        }
+
+        if starts_with_keyword(&tokens, Keyword::With) {
+            current_with_owner_line = last_attachable_line;
+            let delta = brace_delta(&tokens);
+            if delta != 0 {
+                with_depth += delta;
+            } else if !(contains_symbol(&tokens, Symbol::LBrace)
+                && contains_symbol(&tokens, Symbol::RBrace))
+            {
+                with_depth = 1;
+            }
+        } else if with_depth > 0 {
+            with_depth += brace_delta(&tokens);
+            if with_depth <= 0 {
+                with_depth = 0;
+                current_with_owner_line = None;
+            }
+        }
+
+        if line_is_attachable_owner(&tokens, context) {
+            last_attachable_line = Some(source_line.line);
+        }
+
         parsed_lines.push(ParsedLine {
             line: source_line.line,
             text: source_line.text,
@@ -359,6 +430,7 @@ fn parse_line_items(
     tokens: &[Token],
     line_text: &str,
     context: ParseContext,
+    owner_line: Option<usize>,
 ) {
     if let Some(import) = parse_import_decl(tokens) {
         items.push(AstItem::Import(import));
@@ -417,7 +489,25 @@ fn parse_line_items(
     if let Some(equation) = parse_equation_decl(tokens, line_text, context) {
         items.push(AstItem::Equation(equation));
     }
-    if let Some(binding) = parse_fast_binding(tokens, line_text, context) {
+    if let Some(block) = parse_where_block_decl(tokens, owner_line) {
+        items.push(AstItem::WhereBlock(block));
+    }
+    if let Some(block) = parse_with_block_decl(tokens, owner_line) {
+        items.push(AstItem::WithBlock(block));
+        for option in parse_inline_with_options(tokens, line_text, owner_line) {
+            items.push(AstItem::WithOption(option));
+        }
+    }
+    if let Some(binding) = parse_where_binding_decl(tokens, line_text, owner_line, context) {
+        items.push(AstItem::WhereBinding(binding));
+    }
+    if let Some(option) = parse_with_option_decl(tokens, line_text, owner_line, context) {
+        items.push(AstItem::WithOption(option));
+    }
+    if let Some((binding, command)) = parse_fast_binding(tokens, line_text, context) {
+        if let Some(command) = command {
+            items.push(AstItem::CommandStyle(command));
+        }
         items.push(AstItem::FastBinding(binding));
     }
     if !matches!(
@@ -448,6 +538,9 @@ fn parse_line_items(
     }
     if let Some(field) = parse_csv_export_field_decl(tokens, line_text, context) {
         items.push(AstItem::CsvExportField(field));
+    }
+    if let Some(command) = parse_standalone_command_style_decl(tokens, line_text, context) {
+        items.push(AstItem::CommandStyle(command));
     }
     if let Some(keyword) = parse_reserved_keyword_use(tokens) {
         items.push(keyword);
@@ -1090,7 +1183,10 @@ fn parse_fast_binding(
     tokens: &[Token],
     line_text: &str,
     context: ParseContext,
-) -> Option<FastBinding> {
+) -> Option<(FastBinding, Option<CommandStyleDecl>)> {
+    if matches!(context, ParseContext::Where | ParseContext::With) {
+        return None;
+    }
     let [first, second, ..] = tokens else {
         return None;
     };
@@ -1100,13 +1196,367 @@ fn parse_fast_binding(
     if !matches!(second.kind, TokenKind::Symbol(Symbol::Equal)) {
         return None;
     }
-    Some(FastBinding {
-        name: name.clone(),
-        expression: expression_after(line_text, '=')?,
+    let expression = expression_after(line_text, '=')?;
+    let command = parse_command_style_expression(&expression, first.span, context, Some(name));
+    let expression = command
+        .as_ref()
+        .map(|command| command.canonical.clone())
+        .unwrap_or(expression);
+    Some((
+        FastBinding {
+            name: name.clone(),
+            expression,
+            line: first.span.line,
+            span: first.span,
+            context,
+        },
+        command,
+    ))
+}
+
+fn parse_where_block_decl(tokens: &[Token], owner_line: Option<usize>) -> Option<WhereBlockDecl> {
+    let first = tokens.first()?;
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Where)) {
+        return None;
+    }
+    Some(WhereBlockDecl {
+        owner_line,
         line: first.span.line,
         span: first.span,
+    })
+}
+
+fn parse_where_binding_decl(
+    tokens: &[Token],
+    line_text: &str,
+    owner_line: Option<usize>,
+    context: ParseContext,
+) -> Option<WhereBindingDecl> {
+    if context != ParseContext::Where {
+        return None;
+    }
+    let [first, second, ..] = tokens else {
+        return None;
+    };
+    let TokenKind::Identifier(name) = &first.kind else {
+        return None;
+    };
+    if !matches!(second.kind, TokenKind::Symbol(Symbol::Equal)) {
+        return None;
+    }
+    let expression = expression_after(line_text, '=')?;
+    let expression = parse_command_style_expression(&expression, first.span, context, Some(name))
+        .map(|command| command.canonical)
+        .unwrap_or(expression);
+    Some(WhereBindingDecl {
+        owner_line,
+        name: name.clone(),
+        expression,
+        line: first.span.line,
+        span: first.span,
+    })
+}
+
+fn parse_with_block_decl(tokens: &[Token], owner_line: Option<usize>) -> Option<WithBlockDecl> {
+    let first = tokens.first()?;
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::With)) {
+        return None;
+    }
+    Some(WithBlockDecl {
+        owner_line,
+        line: first.span.line,
+        span: first.span,
+    })
+}
+
+fn parse_with_option_decl(
+    tokens: &[Token],
+    line_text: &str,
+    owner_line: Option<usize>,
+    context: ParseContext,
+) -> Option<WithOptionDecl> {
+    if context != ParseContext::With {
+        return None;
+    }
+    let first = tokens.first()?;
+    if matches!(
+        &first.kind,
+        TokenKind::Symbol(Symbol::LBrace | Symbol::RBrace)
+    ) {
+        return None;
+    }
+    parse_with_option_text(
+        line_text.trim().trim_end_matches(','),
+        first.span,
+        owner_line,
+    )
+}
+
+fn parse_inline_with_options(
+    tokens: &[Token],
+    line_text: &str,
+    owner_line: Option<usize>,
+) -> Vec<WithOptionDecl> {
+    let Some(first) = tokens.first() else {
+        return Vec::new();
+    };
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::With)) {
+        return Vec::new();
+    }
+    let Some((_, after_open)) = line_text.split_once('{') else {
+        return Vec::new();
+    };
+    let Some((inside, _)) = after_open.rsplit_once('}') else {
+        return Vec::new();
+    };
+    inside
+        .split([';', ','])
+        .filter_map(|part| parse_with_option_text(part.trim(), first.span, owner_line))
+        .collect()
+}
+
+fn parse_with_option_text(
+    text: &str,
+    span: SourceSpan,
+    owner_line: Option<usize>,
+) -> Option<WithOptionDecl> {
+    if text.is_empty() {
+        return None;
+    }
+    let (key, value) = if let Some(rest) = text.strip_prefix("unit ") {
+        let (axis, value) = rest.split_once('=')?;
+        (format!("unit {}", axis.trim()), value.trim().to_owned())
+    } else {
+        let (key, value) = text.split_once('=')?;
+        (key.trim().to_owned(), value.trim().to_owned())
+    };
+    if key.is_empty() || value.is_empty() {
+        return None;
+    }
+    Some(WithOptionDecl {
+        owner_line,
+        key,
+        value: strip_wrapping_quotes(&value),
+        line: span.line,
+        span,
+    })
+}
+
+fn parse_standalone_command_style_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<CommandStyleDecl> {
+    if matches!(
+        context,
+        ParseContext::Where | ParseContext::With | ParseContext::Export
+    ) {
+        return None;
+    }
+    let first = tokens.first()?;
+    parse_command_style_expression(line_text.trim(), first.span, context, None)
+}
+
+fn parse_command_style_expression(
+    expression: &str,
+    span: SourceSpan,
+    context: ParseContext,
+    owner: Option<&String>,
+) -> Option<CommandStyleDecl> {
+    let trimmed = expression.trim().trim_end_matches('{').trim();
+    let (verb, rest) = split_first_word(trimmed)?;
+    if !is_command_style_verb(verb) {
+        return None;
+    }
+    if trimmed.starts_with(&format!("{verb}(")) {
+        return None;
+    }
+
+    let (target, clauses) = split_command_target_and_clauses(rest);
+    let target = target.trim();
+    let status = if target.is_empty() {
+        "missing_target"
+    } else if command_target_is_ambiguous(target) {
+        "ambiguous_target"
+    } else {
+        "lowered"
+    };
+    let canonical_target = target.trim();
+    let canonical = canonical_command_call(verb, canonical_target, &clauses);
+    Some(CommandStyleDecl {
+        verb: verb.to_owned(),
+        target: canonical_target.to_owned(),
+        clauses: clauses
+            .iter()
+            .map(|(name, value)| CommandClauseDecl {
+                name: name.clone(),
+                value: value.clone(),
+            })
+            .collect(),
+        canonical,
+        status: status.to_owned(),
+        owner: owner.cloned(),
+        line: span.line,
+        span,
         context,
     })
+}
+
+fn split_first_word(value: &str) -> Option<(&str, &str)> {
+    let trimmed = value.trim_start();
+    let end = trimmed
+        .char_indices()
+        .find_map(|(index, character)| character.is_whitespace().then_some(index))
+        .unwrap_or(trimmed.len());
+    if end == 0 {
+        return None;
+    }
+    Some((&trimmed[..end], trimmed[end..].trim_start()))
+}
+
+fn is_command_style_verb(verb: &str) -> bool {
+    matches!(
+        verb,
+        "integrate" | "mean" | "max" | "min" | "duration" | "plot" | "show" | "validate"
+    )
+}
+
+fn split_command_target_and_clauses(rest: &str) -> (String, Vec<(String, String)>) {
+    let positions = top_level_clause_positions(
+        rest,
+        &[
+            "over", "by", "as", "above", "below", "between", "from", "to", "with",
+        ],
+    );
+    if positions.is_empty() {
+        return (rest.trim().to_owned(), Vec::new());
+    }
+
+    let target = rest[..positions[0].0].trim().to_owned();
+    let mut clauses = Vec::new();
+    for (index, (start, name)) in positions.iter().enumerate() {
+        let value_start = start + name.len();
+        let value_end = positions
+            .get(index + 1)
+            .map(|(next_start, _)| *next_start)
+            .unwrap_or(rest.len());
+        let value = rest[value_start..value_end].trim();
+        if !value.is_empty() {
+            clauses.push(((*name).to_owned(), value.to_owned()));
+        }
+    }
+    (target, clauses)
+}
+
+fn top_level_clause_positions<'a>(text: &str, keywords: &[&'a str]) -> Vec<(usize, &'a str)> {
+    let mut positions = Vec::new();
+    let mut depth = 0i32;
+    let mut bracket_depth = 0i32;
+    let mut in_string = false;
+    for (index, character) in text.char_indices() {
+        match character {
+            '"' => in_string = !in_string,
+            '(' if !in_string => depth += 1,
+            ')' if !in_string => depth -= 1,
+            '[' if !in_string => bracket_depth += 1,
+            ']' if !in_string => bracket_depth -= 1,
+            _ => {}
+        }
+        if in_string || depth != 0 || bracket_depth != 0 {
+            continue;
+        }
+        for keyword in keywords {
+            if starts_with_word_at(text, index, keyword) {
+                positions.push((index, *keyword));
+            }
+        }
+    }
+    positions.sort_by_key(|(index, _)| *index);
+    positions.dedup_by_key(|(index, _)| *index);
+    positions
+}
+
+fn starts_with_word_at(text: &str, index: usize, word: &str) -> bool {
+    if !text[index..].starts_with(word) {
+        return false;
+    }
+    let before_ok = index == 0
+        || text[..index]
+            .chars()
+            .next_back()
+            .is_some_and(|character| !is_word_character(character));
+    let after_index = index + word.len();
+    let after_ok = after_index >= text.len()
+        || text[after_index..]
+            .chars()
+            .next()
+            .is_some_and(|character| !is_word_character(character));
+    before_ok && after_ok
+}
+
+fn is_word_character(character: char) -> bool {
+    character.is_ascii_alphanumeric() || character == '_'
+}
+
+fn command_target_is_ambiguous(target: &str) -> bool {
+    let target = target.trim();
+    if target.starts_with('(') && target.ends_with(')') && balanced_delimiters(target) {
+        return false;
+    }
+    if target.split_whitespace().count() > 1 {
+        return true;
+    }
+    target
+        .chars()
+        .any(|character| matches!(character, '+' | '-' | '*' | '/'))
+}
+
+fn canonical_command_call(verb: &str, target: &str, clauses: &[(String, String)]) -> String {
+    let mut args = vec![target.to_owned()];
+    for (name, value) in clauses {
+        let canonical_name = match (verb, name.as_str()) {
+            ("mean" | "max" | "min", "over") => "axis",
+            _ => name,
+        };
+        args.push(format!("{canonical_name}={value}"));
+    }
+    format!("{verb}({})", args.join(", "))
+}
+
+fn balanced_delimiters(value: &str) -> bool {
+    let mut parens = 0i32;
+    let mut brackets = 0i32;
+    let mut in_string = false;
+    for character in value.chars() {
+        match character {
+            '"' => in_string = !in_string,
+            '(' if !in_string => parens += 1,
+            ')' if !in_string => {
+                parens -= 1;
+                if parens < 0 {
+                    return false;
+                }
+            }
+            '[' if !in_string => brackets += 1,
+            ']' if !in_string => {
+                brackets -= 1;
+                if brackets < 0 {
+                    return false;
+                }
+            }
+            _ => {}
+        }
+    }
+    parens == 0 && brackets == 0 && !in_string
+}
+
+fn strip_wrapping_quotes(value: &str) -> String {
+    let trimmed = value.trim();
+    trimmed
+        .strip_prefix('"')
+        .and_then(|rest| rest.strip_suffix('"'))
+        .unwrap_or(trimmed)
+        .to_owned()
 }
 
 fn parse_constraint_decl(
@@ -1259,12 +1709,16 @@ fn parse_csv_export_field_decl(
         .split_once(" with ")
         .map(|(unit, format)| (unit.trim().to_owned(), extract_quoted(format)))
         .unwrap_or_else(|| (rest.trim().to_owned(), None));
-    if expression.trim().is_empty() || display_unit.trim().is_empty() {
+    let expression = expression.trim();
+    if expression.is_empty() || display_unit.trim().is_empty() {
         return None;
     }
+    let expression = parse_command_style_expression(expression, first.span, context, None)
+        .map(|command| command.canonical)
+        .unwrap_or_else(|| expression.to_owned());
 
     Some(CsvExportFieldDecl {
-        expression: expression.trim().to_owned(),
+        expression,
         display_unit: Some(display_unit),
         format,
         line: first.span.line,
@@ -1362,6 +1816,33 @@ fn starts_with_identifier(tokens: &[Token], expected: &str) -> bool {
     )
 }
 
+fn line_is_attachable_owner(tokens: &[Token], context: ParseContext) -> bool {
+    if !matches!(context, ParseContext::TopLevel | ParseContext::Other) {
+        return false;
+    }
+    let Some(first) = tokens.first() else {
+        return false;
+    };
+    if matches!(
+        first.kind,
+        TokenKind::Keyword(Keyword::Where | Keyword::With)
+            | TokenKind::Symbol(Symbol::LBrace | Symbol::RBrace)
+    ) {
+        return false;
+    }
+    matches!(
+        first.kind,
+        TokenKind::Identifier(_)
+            | TokenKind::Keyword(
+                Keyword::Plot
+                    | Keyword::Show
+                    | Keyword::Summarize
+                    | Keyword::Export
+                    | Keyword::Print
+            )
+    )
+}
+
 fn brace_delta(tokens: &[Token]) -> i32 {
     let mut delta = 0i32;
     for token in tokens {
@@ -1372,6 +1853,12 @@ fn brace_delta(tokens: &[Token]) -> i32 {
         }
     }
     delta
+}
+
+fn contains_symbol(tokens: &[Token], symbol: Symbol) -> bool {
+    tokens
+        .iter()
+        .any(|token| matches!(token.kind, TokenKind::Symbol(found) if found == symbol))
 }
 
 #[allow(dead_code)]

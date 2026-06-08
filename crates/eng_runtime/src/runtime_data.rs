@@ -900,6 +900,27 @@ fn materialize_time_series(
             series.push(runtime_series);
         }
     }
+    for block in &report.semantic_program.where_blocks {
+        for binding in &block.bindings {
+            let Some((axis, quantity_kind)) = time_series_quantity(&binding.quantity_kind) else {
+                continue;
+            };
+            if quantity_kind != "HeatRate" {
+                continue;
+            }
+            if let Some(runtime_series) = heat_rate_series(
+                &binding.name,
+                &axis,
+                &quantity_kind,
+                &binding.display_unit,
+                &binding.expression,
+                report,
+                tables,
+            ) {
+                series.push(runtime_series);
+            }
+        }
+    }
     series
 }
 

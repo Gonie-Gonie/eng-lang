@@ -45,6 +45,11 @@ paths before compatibility fixtures.
   Mini scalar summary path for top-level `args`, reusable `const`,
   unit-aware print interpolation, and explicit one-row `export summary to csv`
   output with requested display units.
+
+09_command_where_with
+  Parenthesis-light command-style built-in workflow verbs, scoped `where`
+  locals, `with` option blocks, command-style statistics/integration,
+  print/export output, and plot display options.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression

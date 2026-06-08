@@ -1,7 +1,8 @@
 use crate::ast::{
-    ArgsFieldDecl, AstItem, ConnectDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl,
-    DomainTypeParameterDecl, DomainVariableDecl, ExplicitDecl, FastBinding, FunctionDecl,
-    FunctionParamDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl, SystemVariableDecl,
+    ArgsFieldDecl, AstItem, CommandStyleDecl, ConnectDecl, ConstDecl, CsvExportDecl,
+    CsvExportFieldDecl, DomainTypeParameterDecl, DomainVariableDecl, ExplicitDecl, FastBinding,
+    FunctionDecl, FunctionParamDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl,
+    SystemVariableDecl, WhereBindingDecl, WithOptionDecl,
 };
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
@@ -18,6 +19,7 @@ use crate::uncertainty::UncertaintyInfo;
 use crate::units::{unit_derivation, UnitDerivation};
 use crate::workflow::Workflow;
 use crate::{Diagnostic, InferredDeclaration};
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SemanticType {
@@ -301,6 +303,55 @@ pub struct CsvExportInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CommandClauseInfo {
+    pub name: String,
+    pub value: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CommandStyleInfo {
+    pub verb: String,
+    pub target: String,
+    pub clauses: Vec<CommandClauseInfo>,
+    pub canonical: String,
+    pub status: String,
+    pub owner: Option<String>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WhereBindingInfo {
+    pub name: String,
+    pub expression: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WhereBlockInfo {
+    pub owner_line: Option<usize>,
+    pub bindings: Vec<WhereBindingInfo>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WithOptionInfo {
+    pub key: String,
+    pub value: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WithBlockInfo {
+    pub owner_line: Option<usize>,
+    pub options: Vec<WithOptionInfo>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TimeSeriesKernelInfo {
     pub binding: String,
     pub kind: String,
@@ -340,6 +391,9 @@ pub struct SemanticProgram {
     pub arg_values: Vec<ArgValueInfo>,
     pub prints: Vec<PrintInfo>,
     pub csv_exports: Vec<CsvExportInfo>,
+    pub command_styles: Vec<CommandStyleInfo>,
+    pub where_blocks: Vec<WhereBlockInfo>,
+    pub with_blocks: Vec<WithBlockInfo>,
     pub timeseries_kernels: Vec<TimeSeriesKernelInfo>,
 }
 
@@ -378,6 +432,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut prints = Vec::new();
     let mut csv_exports = Vec::new();
     let mut current_csv_export_index = None;
+    let mut command_styles = Vec::new();
     let mut timeseries_kernels = Vec::new();
 
     for line in &program.lines {
@@ -579,10 +634,18 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     }
                     continue;
                 }
+                let scoped_bindings = scoped_where_bindings_for_owner(
+                    binding.line,
+                    program,
+                    &typed_bindings,
+                    &functions,
+                    &mut diagnostics,
+                );
                 let mut accum = SemanticAccum {
                     diagnostics: &mut diagnostics,
                     inferred_declarations: &mut inferred_declarations,
                     typed_bindings: &mut typed_bindings,
+                    scoped_bindings,
                     hover_hints: &mut hover_hints,
                     type_infos: &mut type_infos,
                     unit_derivations: &mut unit_derivations,
@@ -631,6 +694,9 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     ));
                 }
             }
+            AstItem::CommandStyle(command) => {
+                analyze_command_style_decl(command, &mut command_styles, &mut diagnostics);
+            }
             AstItem::ReservedKeywordUse { keyword, span } => diagnostics.push(Diagnostic::error(
                 "E-RESERVED-KEYWORD-001",
                 span.line,
@@ -643,6 +709,10 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         }
     }
 
+    let where_blocks = analyze_where_blocks(program, &typed_bindings, &functions, &mut diagnostics);
+    let with_blocks =
+        analyze_with_blocks(program, &typed_bindings, &command_styles, &mut diagnostics);
+    validate_where_local_uses(program, &where_blocks, &mut diagnostics);
     validate_domain_contracts(&domains, &mut diagnostics);
     validate_function_returns(&mut functions, &consts, &mut diagnostics);
 
@@ -680,6 +750,9 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             arg_values: Vec::new(),
             prints,
             csv_exports,
+            command_styles,
+            where_blocks,
+            with_blocks,
             timeseries_kernels,
         },
     }
@@ -696,6 +769,451 @@ fn analyze_import_decl(import: &ImportDecl) -> ImportInfo {
         },
         line: import.line,
     }
+}
+
+fn analyze_command_style_decl(
+    command: &CommandStyleDecl,
+    command_styles: &mut Vec<CommandStyleInfo>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if command.status == "ambiguous_target" {
+        diagnostics.push(Diagnostic::error(
+            "E-CMD-AMBIG-001",
+            command.line,
+            &format!(
+                "Command target `{}` is ambiguous without parentheses.",
+                command.target
+            ),
+            Some("Wrap complex command targets, for example `integrate (Q1 + Q2) over Time`."),
+        ));
+    } else if command.status == "missing_target" {
+        diagnostics.push(Diagnostic::error(
+            "E-CMD-AMBIG-001",
+            command.line,
+            &format!("Command `{}` needs a target expression.", command.verb),
+            Some("Write a binding, table, series, or parenthesized expression after the command verb."),
+        ));
+    }
+    command_styles.push(CommandStyleInfo {
+        verb: command.verb.clone(),
+        target: command.target.clone(),
+        clauses: command
+            .clauses
+            .iter()
+            .map(|clause| CommandClauseInfo {
+                name: clause.name.clone(),
+                value: clause.value.clone(),
+            })
+            .collect(),
+        canonical: command.canonical.clone(),
+        status: command.status.clone(),
+        owner: command.owner.clone(),
+        line: command.line,
+    });
+}
+
+fn scoped_where_bindings_for_owner(
+    owner_line: usize,
+    program: &ParsedProgram,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    _diagnostics: &mut Vec<Diagnostic>,
+) -> Vec<TypedBinding> {
+    let bindings = where_bindings_for_owner(program, Some(owner_line));
+    if bindings.is_empty() {
+        return Vec::new();
+    }
+    let mut ignored_diagnostics = Vec::new();
+    analyze_where_binding_scope(
+        &bindings,
+        typed_bindings,
+        functions,
+        &mut ignored_diagnostics,
+    )
+    .into_iter()
+    .map(|(binding, _info)| binding)
+    .collect()
+}
+
+fn analyze_where_blocks(
+    program: &ParsedProgram,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Vec<WhereBlockInfo> {
+    program
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            AstItem::WhereBlock(block) => Some(block),
+            _ => None,
+        })
+        .map(|block| {
+            let bindings = where_bindings_for_owner(program, block.owner_line);
+            let infos =
+                analyze_where_binding_scope(&bindings, typed_bindings, functions, diagnostics)
+                    .into_iter()
+                    .map(|(_binding, info)| info)
+                    .collect::<Vec<_>>();
+            WhereBlockInfo {
+                owner_line: block.owner_line,
+                bindings: infos,
+                line: block.line,
+            }
+        })
+        .collect()
+}
+
+fn analyze_where_binding_scope(
+    bindings: &[WhereBindingDecl],
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Vec<(TypedBinding, WhereBindingInfo)> {
+    let all_local_names = bindings
+        .iter()
+        .map(|binding| binding.name.clone())
+        .collect::<HashSet<_>>();
+    let mut defined_local_names = HashSet::new();
+    let mut available_bindings = typed_bindings.to_vec();
+    let mut resolved = Vec::new();
+
+    for binding in bindings {
+        for identifier in expression_identifiers(&binding.expression) {
+            if all_local_names.contains(&identifier) && !defined_local_names.contains(&identifier) {
+                diagnostics.push(Diagnostic::error(
+                    "E-WHERE-FWD-001",
+                    binding.line,
+                    &format!("Where-local `{identifier}` is used before it is defined."),
+                    Some("Define where locals before dependent locals in the same block."),
+                ));
+            }
+        }
+
+        let temporary = FastBinding {
+            name: binding.name.clone(),
+            expression: binding.expression.clone(),
+            line: binding.line,
+            span: binding.span,
+            context: ParseContext::Where,
+        };
+        check_ambiguous_quantity(&temporary, diagnostics);
+
+        let semantic_type = infer_scoped_binding_semantic_type(
+            &binding.name,
+            &binding.expression,
+            &available_bindings,
+            functions,
+        );
+        let info = if let Some(semantic_type) = semantic_type {
+            let typed = TypedBinding {
+                name: binding.name.clone(),
+                semantic_type: semantic_type.clone(),
+                line: binding.line,
+            };
+            available_bindings.push(typed.clone());
+            defined_local_names.insert(binding.name.clone());
+            WhereBindingInfo {
+                name: binding.name.clone(),
+                expression: binding.expression.clone(),
+                quantity_kind: semantic_type.quantity_kind.clone(),
+                display_unit: semantic_type.display_unit.clone(),
+                status: "typed".to_owned(),
+                line: binding.line,
+            }
+        } else {
+            defined_local_names.insert(binding.name.clone());
+            WhereBindingInfo {
+                name: binding.name.clone(),
+                expression: binding.expression.clone(),
+                quantity_kind: "unknown".to_owned(),
+                display_unit: "unknown".to_owned(),
+                status: "unresolved".to_owned(),
+                line: binding.line,
+            }
+        };
+        if let Some(typed) = available_bindings
+            .iter()
+            .rev()
+            .find(|candidate| candidate.name == binding.name && candidate.line == binding.line)
+            .cloned()
+        {
+            resolved.push((typed, info));
+        } else {
+            resolved.push((
+                TypedBinding {
+                    name: binding.name.clone(),
+                    semantic_type: SemanticType {
+                        quantity_kind: "unknown".to_owned(),
+                        display_unit: "unknown".to_owned(),
+                    },
+                    line: binding.line,
+                },
+                info,
+            ));
+        }
+    }
+    resolved
+}
+
+fn infer_scoped_binding_semantic_type(
+    name: &str,
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+) -> Option<SemanticType> {
+    statistic_expression_semantic_type(expression, typed_bindings)
+        .or_else(|| function_call_semantic_type(expression, typed_bindings, functions))
+        .or_else(|| binding_alias_semantic_type(expression, typed_bindings))
+        .or_else(|| infer_quantity(name, expression))
+}
+
+fn where_bindings_for_owner(
+    program: &ParsedProgram,
+    owner_line: Option<usize>,
+) -> Vec<WhereBindingDecl> {
+    program
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            AstItem::WhereBinding(binding) if binding.owner_line == owner_line => {
+                Some(binding.clone())
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn analyze_with_blocks(
+    program: &ParsedProgram,
+    typed_bindings: &[TypedBinding],
+    command_styles: &[CommandStyleInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Vec<WithBlockInfo> {
+    program
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            AstItem::WithBlock(block) => Some(block),
+            _ => None,
+        })
+        .map(|block| {
+            let owner_type =
+                with_owner_semantic_type(block.owner_line, typed_bindings, command_styles);
+            let options = with_options_for_owner(program, block.owner_line)
+                .into_iter()
+                .map(|option| analyze_with_option(&option, owner_type.as_ref(), diagnostics))
+                .collect::<Vec<_>>();
+            WithBlockInfo {
+                owner_line: block.owner_line,
+                options,
+                line: block.line,
+            }
+        })
+        .collect()
+}
+
+fn with_options_for_owner(
+    program: &ParsedProgram,
+    owner_line: Option<usize>,
+) -> Vec<WithOptionDecl> {
+    program
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            AstItem::WithOption(option) if option.owner_line == owner_line => Some(option.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+fn analyze_with_option(
+    option: &WithOptionDecl,
+    owner_type: Option<&SemanticType>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> WithOptionInfo {
+    if !known_with_option(&option.key) {
+        diagnostics.push(Diagnostic::error(
+            "E-WITH-OPTION-001",
+            option.line,
+            &format!("Unknown with option `{}`.", option.key),
+            Some("Use supported options such as `method`, `backend`, `title`, `type`, `unit x`, or `unit y`."),
+        ));
+        return WithOptionInfo {
+            key: option.key.clone(),
+            value: option.value.clone(),
+            status: "unknown_option".to_owned(),
+            line: option.line,
+        };
+    }
+    if option.key == "display_unit" || option.key.starts_with("unit ") {
+        if let Some(owner_type) = owner_type {
+            validate_requested_unit(
+                &option.key,
+                &owner_type.quantity_kind,
+                &option.value,
+                option.line,
+                "E-WITH-UNIT-001",
+                diagnostics,
+            );
+        }
+    }
+    WithOptionInfo {
+        key: option.key.clone(),
+        value: option.value.clone(),
+        status: "accepted".to_owned(),
+        line: option.line,
+    }
+}
+
+fn known_with_option(key: &str) -> bool {
+    matches!(
+        key,
+        "method"
+            | "backend"
+            | "title"
+            | "type"
+            | "unit x"
+            | "unit y"
+            | "display_unit"
+            | "solver"
+            | "tolerance"
+            | "max_iter"
+            | "seed"
+            | "output"
+    )
+}
+
+fn with_owner_semantic_type(
+    owner_line: Option<usize>,
+    typed_bindings: &[TypedBinding],
+    command_styles: &[CommandStyleInfo],
+) -> Option<SemanticType> {
+    let owner_line = owner_line?;
+    if let Some(binding) = typed_bindings
+        .iter()
+        .find(|binding| binding.line == owner_line)
+    {
+        return Some(binding.semantic_type.clone());
+    }
+    let command = command_styles
+        .iter()
+        .find(|command| command.line == owner_line)?;
+    typed_bindings
+        .iter()
+        .find(|binding| binding.name == command.target)
+        .map(|binding| binding.semantic_type.clone())
+}
+
+fn validate_where_local_uses(
+    program: &ParsedProgram,
+    where_blocks: &[WhereBlockInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let mut local_owners = HashMap::new();
+    let mut local_lines = HashSet::new();
+    for block in where_blocks {
+        for binding in &block.bindings {
+            local_owners.insert(binding.name.clone(), block.owner_line);
+            local_lines.insert(binding.line);
+        }
+    }
+    if local_owners.is_empty() {
+        return;
+    }
+    for item in &program.items {
+        match item {
+            AstItem::FastBinding(binding) => validate_where_expression_scope(
+                &binding.expression,
+                binding.line,
+                &local_owners,
+                &local_lines,
+                diagnostics,
+            ),
+            AstItem::ExplicitDecl(declaration) => {
+                if let Some(expression) = &declaration.expression {
+                    validate_where_expression_scope(
+                        expression,
+                        declaration.line,
+                        &local_owners,
+                        &local_lines,
+                        diagnostics,
+                    );
+                }
+            }
+            AstItem::Print(print) => validate_where_expression_scope(
+                &print.template,
+                print.line,
+                &local_owners,
+                &local_lines,
+                diagnostics,
+            ),
+            AstItem::CsvExportField(field) => validate_where_expression_scope(
+                &field.expression,
+                field.line,
+                &local_owners,
+                &local_lines,
+                diagnostics,
+            ),
+            AstItem::Summary(summary) => validate_where_expression_scope(
+                &summary.source,
+                summary.line,
+                &local_owners,
+                &local_lines,
+                diagnostics,
+            ),
+            AstItem::CommandStyle(command) => validate_where_expression_scope(
+                &command.target,
+                command.line,
+                &local_owners,
+                &local_lines,
+                diagnostics,
+            ),
+            _ => {}
+        }
+    }
+}
+
+fn validate_where_expression_scope(
+    expression: &str,
+    line: usize,
+    local_owners: &HashMap<String, Option<usize>>,
+    local_lines: &HashSet<usize>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if local_lines.contains(&line) {
+        return;
+    }
+    for (name, owner_line) in local_owners {
+        if owner_line.is_some_and(|owner| owner == line) {
+            continue;
+        }
+        if expression_mentions_identifier(expression, name) {
+            diagnostics.push(Diagnostic::error(
+                "E-NAME-LOCAL-001",
+                line,
+                &format!("Where-local `{name}` is not visible outside its owner expression."),
+                Some("Move the binding to top-level if it should be reused."),
+            ));
+        }
+    }
+}
+
+fn expression_identifiers(expression: &str) -> Vec<String> {
+    expression
+        .split(|character: char| {
+            !(character.is_ascii_alphanumeric() || character == '_' || character == '.')
+        })
+        .filter_map(|token| token.split('.').next())
+        .filter(|token| !token.is_empty())
+        .filter(|token| {
+            token
+                .chars()
+                .next()
+                .is_some_and(|character| character.is_ascii_alphabetic() || character == '_')
+        })
+        .map(str::to_owned)
+        .collect()
 }
 
 fn top_level_workflow_line(program: &ParsedProgram) -> usize {
@@ -817,22 +1335,19 @@ fn validate_function_returns(
     consts: &[ConstInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    for index in 0..functions.len() {
-        let Some(expression) = functions[index].return_expression.clone() else {
+    for function in functions.iter_mut() {
+        let Some(expression) = function.return_expression.clone() else {
             diagnostics.push(Diagnostic::error(
                 "E-FN-RETURN-002",
-                functions[index].line,
-                &format!(
-                    "Function `{}` does not return a value.",
-                    functions[index].name
-                ),
+                function.line,
+                &format!("Function `{}` does not return a value.", function.name),
                 Some("Add `return <expression>` inside the function body."),
             ));
-            functions[index].status = "missing_return".to_owned();
+            function.status = "missing_return".to_owned();
             continue;
         };
-        if preview_scalar_type(&functions[index].return_quantity_kind) {
-            functions[index].status = "scalar_preview".to_owned();
+        if preview_scalar_type(&function.return_quantity_kind) {
+            function.status = "scalar_preview".to_owned();
             continue;
         }
         let mut symbols = consts
@@ -844,7 +1359,7 @@ fn validate_function_returns(
             })
             .collect::<Vec<_>>();
         symbols.extend(
-            functions[index]
+            function
                 .parameters
                 .iter()
                 .map(|parameter| DimensionSymbol {
@@ -853,7 +1368,7 @@ fn validate_function_returns(
                 })
                 .collect::<Vec<_>>(),
         );
-        for local in &functions[index].locals {
+        for local in &function.locals {
             let Some(local_dimension) =
                 expression_dimension_with_symbols(&local.expression, &symbols)
             else {
@@ -862,7 +1377,7 @@ fn validate_function_returns(
                     local.line,
                     &format!(
                         "Function `{}` local `{}` could not be type-checked.",
-                        functions[index].name, local.name
+                        function.name, local.name
                     ),
                     Some("Use parameters, previous locals, const values, and literals with units."),
                 ));
@@ -877,29 +1392,29 @@ fn validate_function_returns(
         else {
             diagnostics.push(Diagnostic::error(
                 "E-FN-RETURN-003",
-                functions[index].line,
+                function.line,
                 &format!(
                     "Function `{}` return expression could not be type-checked.",
-                    functions[index].name
+                    function.name
                 ),
                 Some("Use parameters, literals with units, and supported arithmetic in the return expression."),
             ));
-            functions[index].status = "unit_unresolved".to_owned();
+            function.status = "unit_unresolved".to_owned();
             continue;
         };
-        if !dimensions_compatible(&functions[index].return_dimension, &actual_dimension) {
+        if !dimensions_compatible(&function.return_dimension, &actual_dimension) {
             diagnostics.push(Diagnostic::error(
                 "E-FN-RETURN-004",
-                functions[index].line,
+                function.line,
                 &format!(
                     "Function `{}` returns {}, but its body has dimension {}.",
-                    functions[index].name, functions[index].return_dimension, actual_dimension
+                    function.name, function.return_dimension, actual_dimension
                 ),
                 Some("Make the return annotation match the expression quantity or fix the expression units."),
             ));
-            functions[index].status = "unit_mismatch".to_owned();
+            function.status = "unit_mismatch".to_owned();
         } else {
-            functions[index].status = "unit_consistent".to_owned();
+            function.status = "unit_consistent".to_owned();
         }
     }
 }
@@ -1777,6 +2292,7 @@ fn connection_endpoint_diagnostic(endpoint: &str, line: usize) -> Diagnostic {
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn analyze_const_decl(
     declaration: &ConstDecl,
     consts: &mut Vec<ConstInfo>,
@@ -2144,26 +2660,26 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
 
     check_dimensionless_operation(&binding.expression, binding.line, accum.diagnostics);
     check_ambiguous_quantity(binding, accum.diagnostics);
-    if let Some(diagnostic) = crate::stats::heat_rate_sum_diagnostic(binding, accum.typed_bindings)
-    {
+    let available_bindings = accum.available_bindings();
+    if let Some(diagnostic) = crate::stats::heat_rate_sum_diagnostic(binding, &available_bindings) {
         accum.diagnostics.push(diagnostic);
     }
-    if let Some(integration) = crate::stats::integration_info(binding, accum.typed_bindings) {
+    if let Some(integration) = crate::stats::integration_info(binding, &available_bindings) {
         accum.integrations.push(integration);
     }
-    if let Some(diagnostic) = crate::uncertainty::source_diagnostic(binding, accum.typed_bindings) {
+    if let Some(diagnostic) = crate::uncertainty::source_diagnostic(binding, &available_bindings) {
         accum.diagnostics.push(diagnostic);
     }
     for diagnostic in crate::uncertainty::argument_diagnostics(binding) {
         accum.diagnostics.push(diagnostic);
     }
-    for diagnostic in crate::ml::source_diagnostics(binding, accum.typed_bindings) {
+    for diagnostic in crate::ml::source_diagnostics(binding, &available_bindings) {
         accum.diagnostics.push(diagnostic);
     }
     for diagnostic in crate::ml::argument_diagnostics(binding) {
         accum.diagnostics.push(diagnostic);
     }
-    let uncertainty = crate::uncertainty::uncertainty_info(binding, accum.typed_bindings);
+    let uncertainty = crate::uncertainty::uncertainty_info(binding, &available_bindings);
     if let Some(uncertainty) = &uncertainty {
         accum.uncertainty_infos.push(uncertainty.clone());
     }
@@ -2176,7 +2692,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         validate_function_call_expression(
             &binding.expression,
             binding.line,
-            accum.typed_bindings,
+            &available_bindings,
             accum.functions,
             accum.diagnostics,
         )
@@ -2191,9 +2707,9 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
                 &uncertainty.display_unit,
             )
         })
-        .or_else(|| statistic_expression_semantic_type(&binding.expression, accum.typed_bindings))
+        .or_else(|| statistic_expression_semantic_type(&binding.expression, &available_bindings))
         .or(function_call_type)
-        .or_else(|| binding_alias_semantic_type(&binding.expression, accum.typed_bindings))
+        .or_else(|| binding_alias_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| infer_quantity(&binding.name, &binding.expression));
 
     if let Some(semantic_type) = inferred_semantic_type {
@@ -2246,6 +2762,7 @@ struct SemanticAccum<'a> {
     diagnostics: &'a mut Vec<Diagnostic>,
     inferred_declarations: &'a mut Vec<InferredDeclaration>,
     typed_bindings: &'a mut Vec<TypedBinding>,
+    scoped_bindings: Vec<TypedBinding>,
     hover_hints: &'a mut Vec<HoverHint>,
     type_infos: &'a mut Vec<TypeInfo>,
     unit_derivations: &'a mut Vec<UnitDerivation>,
@@ -2254,6 +2771,14 @@ struct SemanticAccum<'a> {
     ml_infos: &'a mut Vec<MlInfo>,
     functions: &'a [FunctionInfo],
     timeseries_kernels: &'a mut Vec<TimeSeriesKernelInfo>,
+}
+
+impl SemanticAccum<'_> {
+    fn available_bindings(&self) -> Vec<TypedBinding> {
+        let mut bindings = self.typed_bindings.clone();
+        bindings.extend(self.scoped_bindings.clone());
+        bindings
+    }
 }
 
 fn check_ambiguous_quantity(binding: &FastBinding, diagnostics: &mut Vec<Diagnostic>) {

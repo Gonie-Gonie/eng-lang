@@ -753,7 +753,7 @@ fn csv_export_header(field: &eng_compiler::CsvExportFieldInfo) -> String {
 }
 
 fn csv_escape(value: &str) -> String {
-    if value.contains(|character| matches!(character, ',' | '"' | '\n' | '\r')) {
+    if value.contains([',', '"', '\n', '\r']) {
         format!("\"{}\"", value.replace('"', "\"\""))
     } else {
         value.to_owned()

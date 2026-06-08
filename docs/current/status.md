@@ -49,6 +49,11 @@ the current public preview workflow, but it is not yet a stable contract.
   typed parameters and function-local bindings, checked return dimensions,
   relative file imports for importable declarations, and no imported
   executable-body side effects.
+- Parenthesis-light command syntax for built-in workflow verbs only, with
+  canonical lowering metadata, `where` owner-local calculation blocks,
+  `with` option/display blocks, and policy diagnostics for ambiguous command
+  targets, where-local scope, forward references, unknown options, and
+  incompatible display units.
 - Typed CSV promote for the official typed schema import path.
 - DateTime-indexed table metadata and row-level CSV runtime pages.
 - TimeSeries statistics on the official HeatRate path, including mean,
@@ -88,6 +93,8 @@ the current public preview workflow, but it is not yet a stable contract.
 - Unit-aware `print` interpolation and explicit one-row
   `export summary to csv` output under `build/result`; this is not a
   first-class Summary object model.
+- OODocs grammar PDF generation through `dev.bat grammar-docs`, backed by the
+  language grammar guide.
 
 ## Future Tracks On Main
 
@@ -120,6 +127,8 @@ See [development tracks](tracks.md) for the current scope and limitations.
 - Package/module imports, multi-return functions, broad function-body statement
   execution, full formatter policy, and stricter reproducibility profiles for
   runtime-dependent defaults are deferred.
+- Parenthesis-light syntax for arbitrary user-defined/general function calls
+  and project-wide display unit policy blocks are deferred.
 
 - First-class Summary objects are not part of the current scope; the v0.2
   decision is recorded in
