@@ -21,6 +21,7 @@ pub const RUNTIME_VERSION: &str = env!("CARGO_PKG_VERSION");
 #[derive(Clone, Debug, Default)]
 pub struct RunOptions {
     pub open_report: bool,
+    pub save_artifacts: bool,
     pub entry: Option<String>,
     pub args: Vec<ArgOverride>,
 }
@@ -41,6 +42,15 @@ pub struct RunOutput {
     pub plot_path: PathBuf,
     pub plot_spec_path: PathBuf,
     pub plot_manifest_path: PathBuf,
+    pub artifacts_saved: bool,
+    pub bytecode: String,
+    pub result_json: String,
+    pub review_json: String,
+    pub report_html: String,
+    pub report_spec_json: String,
+    pub plot_svg: String,
+    pub plot_spec_json: String,
+    pub plot_manifest_json: String,
 }
 
 #[derive(Clone, Debug)]
@@ -186,8 +196,6 @@ pub fn run_file(
         .unwrap_or("main");
     let result_dir = build_root.join("result");
     let plots_dir = result_dir.join("plots");
-    fs::create_dir_all(&plots_dir)?;
-
     let bytecode_path = build_root.join(format!("{stem}.engbc"));
     let result_path = result_dir.join("result.engres");
     let review_path = result_dir.join("review.json");
@@ -199,7 +207,6 @@ pub fn run_file(
 
     let bytecode = build_bytecode(&check_report, &source, &entry);
     let bytecode_hash = hash_text(&bytecode);
-    fs::write(&bytecode_path, &bytecode)?;
     let bytecode_program = parse_bytecode(&bytecode)?;
     let mut execution = execute_bytecode(&bytecode_program)?;
     let runtime_data = materialize_runtime_data(&check_report, &source);
@@ -230,27 +237,30 @@ pub fn run_file(
     runtime_data.apply_system_solutions(&mut report_spec);
     let report_spec_json = eng_report::report_spec_json(&report_spec);
     let report_spec_hash = hash_text(&report_spec_json);
-    fs::write(&review_path, review_json(&check_report))?;
-    fs::write(&plot_spec_path, plot_spec_json)?;
-    fs::write(&plot_path, plot_svg)?;
-    fs::write(&plot_manifest_path, plot_manifest_json)?;
-    fs::write(&report_spec_path, report_spec_json)?;
-    fs::write(
-        &report_path,
-        eng_report::render_html(&check_report, "plots/timeseries.svg"),
-    )?;
-    fs::write(
-        &result_path,
-        result_json(
-            path,
-            &check_report,
-            &execution,
-            &runtime_data,
-            &bytecode_hash,
-            &plot_spec_hash,
-            &report_spec_hash,
-        ),
-    )?;
+    let review_json = review_json(&check_report);
+    let report_html = eng_report::render_html(&check_report, "plots/timeseries.svg");
+    let result_json = result_json(
+        path,
+        &check_report,
+        &execution,
+        &runtime_data,
+        &bytecode_hash,
+        &plot_spec_hash,
+        &report_spec_hash,
+    );
+
+    let artifacts_saved = options.save_artifacts || options.open_report;
+    if artifacts_saved {
+        fs::create_dir_all(&plots_dir)?;
+        fs::write(&bytecode_path, &bytecode)?;
+        fs::write(&review_path, &review_json)?;
+        fs::write(&plot_spec_path, &plot_spec_json)?;
+        fs::write(&plot_path, &plot_svg)?;
+        fs::write(&plot_manifest_path, &plot_manifest_json)?;
+        fs::write(&report_spec_path, &report_spec_json)?;
+        fs::write(&report_path, &report_html)?;
+        fs::write(&result_path, &result_json)?;
+    }
 
     if options.open_report {
         open_path(&report_path);
@@ -265,6 +275,15 @@ pub fn run_file(
         plot_path,
         plot_spec_path,
         plot_manifest_path,
+        artifacts_saved,
+        bytecode,
+        result_json,
+        review_json,
+        report_html,
+        report_spec_json,
+        plot_svg,
+        plot_spec_json,
+        plot_manifest_json,
     })
 }
 
@@ -510,7 +529,7 @@ fn bundled_dependency_path(
 
 fn standalone_runner_script(source_file_name: &str, entry_name: &str) -> String {
     format!(
-        "@echo off\r\nsetlocal\r\ncd /d \"%~dp0\"\r\nif \"%~1\"==\"--help\" goto help\r\nif \"%~1\"==\"-h\" goto help\r\nif \"%~1\"==\"/?\" goto help\r\n\"%~dp0eng.exe\" run \"%~dp0source\\{}\" --entry {} %*\r\nexit /b %ERRORLEVEL%\r\n:help\r\ntype \"%~dp0ARGS_HELP.txt\"\r\nexit /b 0\r\n",
+        "@echo off\r\nsetlocal\r\ncd /d \"%~dp0\"\r\nif \"%~1\"==\"--help\" goto help\r\nif \"%~1\"==\"-h\" goto help\r\nif \"%~1\"==\"/?\" goto help\r\n\"%~dp0eng.exe\" run \"%~dp0source\\{}\" --entry {} --save-artifacts %*\r\nexit /b %ERRORLEVEL%\r\n:help\r\ntype \"%~dp0ARGS_HELP.txt\"\r\nexit /b 0\r\n",
         source_file_name, entry_name
     )
 }

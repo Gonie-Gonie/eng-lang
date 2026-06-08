@@ -167,7 +167,7 @@ typed_payload.ml
 Run:
 
 ```bat
-.\target\debug\eng.exe run examples\official\05_data_driven_modeling\main.eng --entry main
+.\target\debug\eng.exe run examples\official\05_data_driven_modeling\main.eng --entry main --save-artifacts
 ```
 
 or open this file in the native IDE:
@@ -180,7 +180,7 @@ The main example renders the parity scatter plot. The residual bar plot path is
 available as:
 
 ```bat
-.\target\debug\eng.exe run examples\official\05_data_driven_modeling\residuals.eng --entry main
+.\target\debug\eng.exe run examples\official\05_data_driven_modeling\residuals.eng --entry main --save-artifacts
 ```
 
 or in the native IDE:

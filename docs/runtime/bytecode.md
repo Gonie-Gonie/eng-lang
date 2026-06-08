@@ -18,7 +18,10 @@ thermal system:
   -> review/report/system artifacts
 ```
 
-The VM is intentionally small, but it is a real execution boundary: `eng run` writes bytecode, decodes it, executes the instruction stream, and writes the result from the VM execution record.
+The VM is intentionally small, but it is a real execution boundary: `eng run`
+builds bytecode, decodes it, executes the instruction stream, and returns the
+result from the VM execution record. `--save-artifacts` writes the bytecode and
+result objects to disk.
 
 ## Entry Selection
 

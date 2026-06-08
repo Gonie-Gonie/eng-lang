@@ -79,7 +79,7 @@ script main(args: Args) -> Report {
 Run-time flags override defaults:
 
 ```bat
-target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main --input data/sensor.csv
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main --save-artifacts --input data/sensor.csv
 ```
 
 Recorded promotion metadata:

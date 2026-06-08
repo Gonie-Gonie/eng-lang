@@ -141,19 +141,14 @@ the tester's preferred theme, font scale, and layout.
 
 Diagnostics are produced by `eng_compiler::check_source`, so unsaved edits can
 be checked without writing temporary source files. Running a program saves the
-current file first and then calls the same runtime path as:
+current file first and then calls the same in-memory runtime path as:
 
 ```bat
 eng.exe run <file.eng> --entry main
 ```
 
-Generated runtime artifacts are written under:
-
-```text
-build/ide-run/
-```
-
-After a successful run, the Artifacts tab shows:
+After a successful run, the Plot preview, Variables tab, and Artifacts tab are
+populated from runtime objects. The Artifacts tab shows the object set:
 
 ```text
 report.html

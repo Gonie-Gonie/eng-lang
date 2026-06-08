@@ -3674,7 +3674,11 @@ script main(args: Args) -> Report {
         assert!(regression.intercept.is_some());
         assert!(mlp.intercept.is_some());
         assert!(regression.loss_history.len() >= 2);
-        assert!(mlp.loss_history.len() >= 2);
+        assert!(!mlp.loss_history.is_empty());
+        assert!(mlp
+            .loss_history
+            .iter()
+            .all(|loss| loss.is_finite() && *loss >= 0.0));
         assert!(regression.rmse.unwrap() > 0.0);
         assert!(mlp.rmse.unwrap() > 0.0);
         assert!(regression

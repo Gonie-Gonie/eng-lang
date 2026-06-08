@@ -15,6 +15,13 @@ $CacheHome = Join-Path $DevHome "cache"
 $RustupInit = Join-Path $CacheHome "rustup-init.exe"
 $RustupUrl = "https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe"
 $PinnedToolchain = "1.96.0-x86_64-pc-windows-gnu"
+$MsysVersion = "20241116"
+$MsysHome = Join-Path $DevHome "msys64"
+$MingwBin = Join-Path $MsysHome "mingw64\bin"
+$MsysBash = Join-Path $MsysHome "usr\bin\bash.exe"
+$MsysArchive = Join-Path $CacheHome "msys2-base-x86_64-$MsysVersion.tar.xz"
+$MsysUrl = "https://repo.msys2.org/distrib/x86_64/msys2-base-x86_64-$MsysVersion.tar.xz"
+$MingwPackage = "mingw-w64-x86_64-gcc"
 $PythonVersion = "3.13.5"
 $PythonHome = Join-Path $DevHome "python"
 $PythonZip = Join-Path $CacheHome "python-$PythonVersion-embed-amd64.zip"
@@ -42,7 +49,7 @@ function Set-DevEnvironment {
     New-Item -ItemType Directory -Force -Path $CargoHome, $RustupHome, $CacheHome | Out-Null
     $env:CARGO_HOME = $CargoHome
     $env:RUSTUP_HOME = $RustupHome
-    $env:PATH = "$CargoHome\bin;$PythonHome;$PythonHome\Scripts;$env:PATH"
+    $env:PATH = "$MingwBin;$CargoHome\bin;$PythonHome;$PythonHome\Scripts;$env:PATH"
     $env:ENG_REPO_ROOT = $RepoRoot
     $env:PYTHONUTF8 = "1"
 }
@@ -142,6 +149,40 @@ function Invoke-PortablePythonSetup {
     }
 }
 
+function Test-MingwReady {
+    $dlltool = Join-Path $MingwBin "dlltool.exe"
+    $gcc = Join-Path $MingwBin "x86_64-w64-mingw32-gcc.exe"
+    $shlwapi = Join-Path $MsysHome "mingw64\lib\libshlwapi.a"
+    return (Test-Path $dlltool) -and (Test-Path $gcc) -and (Test-Path $shlwapi)
+}
+
+function Invoke-MingwSetup {
+    Set-DevEnvironment
+    if (Test-MingwReady) {
+        return
+    }
+
+    if (-not (Test-Path $MsysBash)) {
+        if (-not (Test-Path $MsysArchive)) {
+            Write-Host "Downloading MSYS2 base into .dev cache..."
+            Invoke-WebRequest -Uri $MsysUrl -OutFile $MsysArchive
+        }
+        Write-Host "Installing MSYS2 base into .dev..."
+        New-Item -ItemType Directory -Force -Path $DevHome | Out-Null
+        Invoke-Native "tar.exe" "-xf" $MsysArchive "-C" $DevHome
+        if (-not (Test-Path $MsysBash)) {
+            throw "MSYS2 bash was not found after extracting $MsysArchive"
+        }
+        Invoke-Native $MsysBash "-lc" "true"
+    }
+
+    Write-Host "Installing MinGW GNU build support into .dev..."
+    Invoke-Native $MsysBash "-lc" "pacman -Sy --noconfirm --needed $MingwPackage"
+    if (-not (Test-MingwReady)) {
+        throw "MinGW GNU build support was not found after installing $MingwPackage"
+    }
+}
+
 function Get-WorkspaceVersion {
     $inWorkspacePackage = $false
     foreach ($line in Get-Content (Join-Path $RepoRoot "Cargo.toml")) {
@@ -188,6 +229,7 @@ function Invoke-Setup {
         Write-Host "Generating Cargo.lock..."
         Invoke-Native $cargo "generate-lockfile"
     }
+    Invoke-MingwSetup
     Invoke-PortablePythonSetup
     Write-Host "Fetching locked dependencies..."
     Invoke-Native $cargo "fetch" "--locked"
@@ -504,7 +546,7 @@ function Assert-CsvPlotGolden {
     )
 
     Remove-Item -LiteralPath (Join-Path $RepoRoot "build\result") -Recurse -Force -ErrorAction SilentlyContinue
-    Invoke-Native $Eng "run" $Golden.source "--entry" "main"
+    Invoke-Native $Eng "run" $Golden.source "--entry" "main" "--save-artifacts"
 
     $review = Read-ArtifactJson (Join-Path $RepoRoot "build\result\review.json")
     Assert-ArtifactValue $review.format $Golden.review.format "review.format"
@@ -711,7 +753,7 @@ function Assert-SystemGolden {
     )
 
     Remove-Item -LiteralPath (Join-Path $RepoRoot "build\result") -Recurse -Force -ErrorAction SilentlyContinue
-    Invoke-Native $Eng "run" $Golden.source "--entry" "main"
+    Invoke-Native $Eng "run" $Golden.source "--entry" "main" "--save-artifacts"
 
     $review = Read-ArtifactJson (Join-Path $RepoRoot "build\result\review.json")
     Assert-ArtifactValue $review.format $Golden.review.format "system review.format"
@@ -833,7 +875,7 @@ function Invoke-RunExample {
         exit 1
     }
     $example = if ($Rest.Count -gt 0) { $Rest[0] } else { "examples\official\01_csv_plot\main.eng" }
-    Invoke-Native $cargo "run" "-p" "eng_cli" "--" "run" $example
+    Invoke-Native $cargo "run" "-p" "eng_cli" "--" "run" $example "--save-artifacts"
 }
 
 function Invoke-IdeCheck {
@@ -1079,7 +1121,7 @@ function New-UserGuidePdf {
         @{ Kind = "body"; Text = "The IDE uses the same compiler and runtime crates as eng.exe. Diagnostics, symbols, completions, run artifacts, and report generation therefore test the real core path rather than duplicated editor logic." },
         @{ Kind = "h1"; Text = "4. Integrated HVAC Example" },
         @{ Kind = "body"; Text = "The integrated HVAC example is the recommended user test because one file exercises typed CSV promotion, DateTime parsing, missing-value interpolation, schema constraints, HeatRate calculation, TimeSeries statistics, trapezoidal integration, PlotSpec/SVG/report output, and the simple thermal system fixed-step ODE preview." },
-        @{ Kind = "body"; Text = "From the command line, run: eng.exe run examples/official/03_integrated_hvac/main.eng --entry main" },
+        @{ Kind = "body"; Text = "From the command line, run: eng.exe run examples/official/03_integrated_hvac/main.eng --entry main --save-artifacts" },
         @{ Kind = "h1"; Text = "5. Expected Output" },
         @{ Kind = "body"; Text = "After a successful run, inspect build/result/report.html first. The result folder also contains result.engres, review.json, report_spec.json, plots/plot_spec.json, plots/plot_manifest.json, and plots/timeseries.svg." },
         @{ Kind = "body"; Text = "The result should record policy_results with interpolation executed, statistics including median/std/p90/p95/duration_above, an integration result for E_coil, and systems[0].solver_result.status = computed." },
@@ -1242,9 +1284,9 @@ Recommended smoke commands:
   eng-ide.exe --smoke
   eng-lsp.exe --smoke
   eng-ide.exe
-  eng.exe run examples\official\01_csv_plot\main.eng --entry main
-  eng.exe run examples\official\02_simple_system\main.eng --entry main
-  eng.exe run examples\official\03_integrated_hvac\main.eng --entry main
+  eng.exe run examples\official\01_csv_plot\main.eng --entry main --save-artifacts
+  eng.exe run examples\official\02_simple_system\main.eng --entry main --save-artifacts
+  eng.exe run examples\official\03_integrated_hvac\main.eng --entry main --save-artifacts
   eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
   dist\main-standalone\run.bat --help
   dist\main-standalone\run.bat
@@ -1285,13 +1327,13 @@ function Invoke-PackageSmoke {
         Invoke-Native $Eng "doctor"
         Invoke-Native (Join-Path $SmokeRoot "eng-ide.exe") "--smoke"
         Invoke-Native $Lsp "--smoke"
-        Invoke-Native $Eng "run" "examples\official\01_csv_plot\main.eng" "--entry" "main"
+        Invoke-Native $Eng "run" "examples\official\01_csv_plot\main.eng" "--entry" "main" "--save-artifacts"
         Invoke-Native $Eng "view" "build\result\result.engres"
-        Invoke-Native $Eng "run" "examples\official\02_simple_system\main.eng" "--entry" "main"
+        Invoke-Native $Eng "run" "examples\official\02_simple_system\main.eng" "--entry" "main" "--save-artifacts"
         if (-not (Test-Path (Join-Path $SmokeRoot "build\result\report_spec.json"))) {
             throw "portable smoke did not create build\result\report_spec.json"
         }
-        Invoke-Native $Eng "run" "examples\official\03_integrated_hvac\main.eng" "--entry" "main"
+        Invoke-Native $Eng "run" "examples\official\03_integrated_hvac\main.eng" "--entry" "main" "--save-artifacts"
         $IntegratedResult = Get-Content -LiteralPath (Join-Path $SmokeRoot "build\result\result.engres") -Raw
         $IntegratedPlotSpec = Get-Content -LiteralPath (Join-Path $SmokeRoot "build\result\plots\plot_spec.json") -Raw
         if (-not $IntegratedResult.Contains('"policy_results"') -or -not $IntegratedResult.Contains('"solver_result"') -or -not $IntegratedPlotSpec.Contains("Integrated HVAC coil heat rate")) {

@@ -61,9 +61,10 @@ the repository.
 .\dev.bat run-example
 ```
 
-`setup` installs the pinned Rust toolchain and a portable Python documentation
-toolchain into `.dev`, fetches dependencies, and builds the workspace. A global
-Rust or Python installation is not required.
+`setup` installs the pinned Rust toolchain, repo-local MinGW GNU build support,
+and a portable Python documentation toolchain into `.dev`, fetches
+dependencies, and builds the workspace. A global Rust, Python, MinGW, or Visual
+Studio Build Tools installation is not required.
 
 Python is optional documentation tooling. EngLang checking, running, plotting,
 report generation, and packaged execution do not depend on Python.
@@ -84,14 +85,16 @@ target\debug\eng.exe check examples\05_error_messages\unit_mismatch.eng --review
 target\debug\eng.exe check examples\05_error_messages\ambiguous_power.eng --review
 target\debug\eng.exe entries examples\official\01_csv_plot\main.eng
 target\debug\eng.exe run examples\official\01_csv_plot\main.eng
-target\debug\eng.exe run examples\official\02_simple_system\main.eng
-target\debug\eng.exe run examples\official\03_integrated_hvac\main.eng
+target\debug\eng.exe run examples\official\02_simple_system\main.eng --save-artifacts
+target\debug\eng.exe run examples\official\03_integrated_hvac\main.eng --save-artifacts
 target\debug\eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
 dist\main-standalone\run.bat
 target\debug\eng.exe view build\result\result.engres
 ```
 
-`eng run` lowers through bytecode v1 and the native VM seed:
+`eng run` lowers through bytecode v1 and the native VM seed. By default, result,
+review, report, PlotSpec, SVG, and bytecode payloads are runtime objects in
+memory. Add `--save-artifacts` when you want the file set:
 
 ```text
 build/
@@ -131,7 +134,7 @@ build/
 ## Core Invariants
 
 - The core execution path must not depend on Python.
-- The official lowering direction is `.eng -> typed IR -> .engbc -> eng runtime -> .engres -> PlotSpec -> SVG/HTML review artifacts`.
+- The official lowering direction is `.eng -> typed IR -> bytecode/runtime result objects -> optional .engbc/.engres/PlotSpec/SVG/HTML artifacts`.
 - `degC` is the canonical ASCII temperature spelling; `°C` is supported as an
   AbsoluteTemperature alias.
 - User-facing execution starts from one `eng.exe`.
@@ -157,9 +160,9 @@ eng.exe doctor
 eng-ide.exe --smoke
 eng-lsp.exe --smoke
 eng-ide.exe
-eng.exe run examples\official\01_csv_plot\main.eng --entry main
-eng.exe run examples\official\02_simple_system\main.eng --entry main
-eng.exe run examples\official\03_integrated_hvac\main.eng --entry main
+eng.exe run examples\official\01_csv_plot\main.eng --entry main --save-artifacts
+eng.exe run examples\official\02_simple_system\main.eng --entry main --save-artifacts
+eng.exe run examples\official\03_integrated_hvac\main.eng --entry main --save-artifacts
 eng.exe build examples\official\01_csv_plot\main.eng --entry main --standalone --profile repro
 dist\main-standalone\run.bat
 popd

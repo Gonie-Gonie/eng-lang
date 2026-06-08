@@ -11,7 +11,7 @@ environment available on every supported PC.
 1. The repository root dev.bat is the only development entry point.
 2. PowerShell implementation lives in scripts/dev.ps1.
 3. dev.bat always calls PowerShell with ExecutionPolicy Bypass.
-4. setup installs the toolchain under repo-local .dev.
+4. setup installs the toolchain and MinGW build support under repo-local .dev.
 5. rust-toolchain.toml and scripts/dev.ps1 must agree on the pinned toolchain.
 6. Portable Python is allowed for development-time documentation generation.
 7. The core run/report/plot path must not require Python.
@@ -26,12 +26,25 @@ environment available on every supported PC.
 ```text
 CARGO_HOME  = <repo>\.dev\cargo
 RUSTUP_HOME = <repo>\.dev\rustup
-PATH        = <repo>\.dev\cargo\bin;<repo>\.dev\python;<repo>\.dev\python\Scripts;%PATH%
+PATH        = <repo>\.dev\msys64\mingw64\bin;<repo>\.dev\cargo\bin;<repo>\.dev\python;<repo>\.dev\python\Scripts;%PATH%
 ENG_REPO_ROOT = <repo>
 ```
 
 If a global Rust installation exists, the wrapper can use it as a fallback, but
 the preferred and documented path is the repository-local toolchain.
+
+## Repo-Local MinGW
+
+Setup installs MSYS2 base plus the `mingw-w64-x86_64-gcc` package under:
+
+```text
+.dev/msys64
+```
+
+This provides GNU build tools such as `dlltool.exe`, `as.exe`, import
+libraries, and GCC support needed by Windows GUI dependencies in the IDE
+workspace. Do not rely on a global MSYS2 or MinGW installation for local
+validation.
 
 ## Pinned Rust
 

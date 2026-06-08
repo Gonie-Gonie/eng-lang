@@ -11,7 +11,7 @@ executable. Native `model.exe` generation is reserved for a later backend gate.
 
 | Area | Supported in current preview | Not Claimed |
 |---|---|---|
-| Runner | `run.bat` invokes bundled `eng.exe run` | Optimized native execution |
+| Runner | `run.bat` invokes bundled `eng.exe run --save-artifacts` | Optimized native execution |
 | Runtime | Current `eng.exe` is copied into the bundle | Separate single-model runtime binary |
 | Source | Entry source is copied under `source/` | Arbitrary project tree packaging |
 | Dependencies | Relative CSV promotions are copied under `source/` | Registry packages or binary asset bundles |
@@ -59,7 +59,7 @@ dist\main-standalone\run.bat --input data/sensor.csv
 ```
 
 `run.bat --help` prints `ARGS_HELP.txt`. Any extra `--<field> <value>` flags
-are forwarded to `eng.exe run source\<file.eng> --entry <name>` and are recorded
+are forwarded to `eng.exe run source\<file.eng> --entry <name> --save-artifacts` and are recorded
 in `build/result/result.engres` under `arg_values`.
 
 Relative Args paths are interpreted from the packaged `source/` directory for

@@ -104,7 +104,7 @@ def build_document(version: str) -> Document:
             ),
             paragraph(
                 "From a command prompt, the equivalent smoke command is ",
-                code("eng.exe run examples\\official\\03_integrated_hvac\\main.eng --entry main"),
+                code("eng.exe run examples\\official\\03_integrated_hvac\\main.eng --entry main --save-artifacts"),
                 ".",
             ),
             paragraph(

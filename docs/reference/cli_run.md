@@ -1,6 +1,8 @@
 # `eng run` Reference
 
 `eng run` executes one file entry point through bytecode and the native VM seed.
+By default it keeps result, review, report, PlotSpec, SVG, and bytecode payloads
+as runtime objects and does not write files.
 
 ## Basic Run
 
@@ -11,14 +13,38 @@ target\debug\eng.exe run examples\official\01_csv_plot\main.eng
 Output:
 
 ```text
-bytecode: build\main.engbc
-result:   build\result\result.engres
-review:   build\result\review.json
-reportspec: build\result\report_spec.json
-plot:     build\result\plots\timeseries.svg
-plotspec: build\result\plots\plot_spec.json
-manifest: build\result\plots\plot_manifest.json
-report:   build\result\report.html
+run: ok
+artifacts: in memory
+result:   1234 bytes
+review:   5678 bytes
+reportspec: 2345 bytes
+plot:     3456 bytes
+plotspec: 4567 bytes
+manifest: 678 bytes
+report:   7890 bytes
+use --save-artifacts to write build\result files
+```
+
+## Save Artifacts
+
+```bat
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main --save-artifacts
+```
+
+This writes the current artifact set:
+
+```text
+build/
+  main.engbc
+  result/
+    result.engres
+    review.json
+    report.html
+    report_spec.json
+    plots/
+      plot_spec.json
+      plot_manifest.json
+      timeseries.svg
 ```
 
 ## List Entries
@@ -55,7 +81,7 @@ Default rule:
 target\debug\eng.exe run examples\official\01_csv_plot\main.eng --open-report
 ```
 
-This attempts to open `build\result\report.html`.
+This writes artifacts and attempts to open `build\result\report.html`.
 
 ## Args Flags
 
@@ -78,8 +104,9 @@ script main(args: Args) -> Report {
 }
 ```
 
-`review.json`, `report_spec.json`, and `result.engres` record `arg_values`
-with `source = default` or `source = cli`.
+The runtime result, report spec, and review objects record `arg_values` with
+`source = default` or `source = cli`. With `--save-artifacts`, the same values
+are written to `review.json`, `report_spec.json`, and `result.engres`.
 
 Primitive typed Args are normalized before they are recorded:
 
@@ -115,9 +142,9 @@ The recorded values are `enabled=true`, `count=12`, `gain=1.25`, and
 target\debug\eng.exe run examples\official\02_simple_system\main.eng --entry main
 ```
 
-This writes system/equation/residual metadata, system IR, solver_plan metadata,
-and the runtime fixed-step ODE preview for the official simple thermal system
-into:
+This produces system/equation/residual metadata, system IR, solver_plan
+metadata, and the runtime fixed-step ODE preview for the official simple
+thermal system. Add `--save-artifacts` to write them into:
 
 ```text
 build\result\review.json
@@ -154,7 +181,7 @@ E-ENTRY-NOT-FOUND-001
 
 ## Artifact Review
 
-After a successful run:
+After a successful saved run:
 
 ```bat
 type build\main.engbc

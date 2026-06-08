@@ -25,8 +25,9 @@ being part of the public release contract.
 - Core checking, running, plotting, report generation, and packaged execution
   do not depend on Python.
 - Python may be used for optional documentation tooling only.
-- The official artifact path is `.eng -> typed semantic model -> .engbc ->
-  native runtime/VM -> .engres -> PlotSpec -> SVG/HTML/report/review artifacts`.
+- The official execution path is `.eng -> typed semantic model -> bytecode ->
+  native runtime/VM -> result/report/PlotSpec objects`; `--save-artifacts`
+  writes `.engbc`, `.engres`, SVG/HTML/report/review artifacts.
 - Fast declaration uses `=`. `:=` is rejected.
 - Physical equations use `eq`. `==` is comparison syntax and is rejected in
   equation blocks.

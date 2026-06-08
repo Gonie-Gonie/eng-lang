@@ -160,6 +160,7 @@ fn command_jit_bench(args: Vec<String>) -> ExitCode {
             &build_root,
             &RunOptions {
                 open_report: false,
+                save_artifacts: true,
                 entry: entry.clone(),
                 args: runtime_args.clone(),
             },
@@ -338,37 +339,54 @@ fn command_entries(args: Vec<String>) -> ExitCode {
 
 fn command_run(args: Vec<String>) -> ExitCode {
     let Some(path) = first_non_flag(&args) else {
-        eprintln!("usage: eng run <file.eng> [--entry <name>] [--open-report]");
+        eprintln!("usage: eng run <file.eng> [--entry <name>] [--open-report] [--save-artifacts]");
         return ExitCode::from(2);
     };
     let open_report = args.iter().any(|arg| arg == "--open-report");
+    let save_artifacts = open_report || args.iter().any(|arg| arg == "--save-artifacts");
     let entry = option_value(&args, "--entry");
-    let runtime_args = match parse_arg_overrides(&args, &["--entry"], &["--open-report"]) {
-        Ok(values) => values,
-        Err(message) => {
-            eprintln!("{message}");
-            return ExitCode::from(2);
-        }
-    };
+    let runtime_args =
+        match parse_arg_overrides(&args, &["--entry"], &["--open-report", "--save-artifacts"]) {
+            Ok(values) => values,
+            Err(message) => {
+                eprintln!("{message}");
+                return ExitCode::from(2);
+            }
+        };
 
     match run_file(
         Path::new(&path),
         Path::new("build"),
         &RunOptions {
             open_report,
+            save_artifacts,
             entry,
             args: runtime_args,
         },
     ) {
         Ok(output) => {
-            println!("bytecode: {}", output.bytecode_path.display());
-            println!("result:   {}", output.result_path.display());
-            println!("review:   {}", output.review_path.display());
-            println!("reportspec: {}", output.report_spec_path.display());
-            println!("plot:     {}", output.plot_path.display());
-            println!("plotspec: {}", output.plot_spec_path.display());
-            println!("manifest: {}", output.plot_manifest_path.display());
-            println!("report:   {}", output.report_path.display());
+            if output.artifacts_saved {
+                println!("artifacts: saved");
+                println!("bytecode: {}", output.bytecode_path.display());
+                println!("result:   {}", output.result_path.display());
+                println!("review:   {}", output.review_path.display());
+                println!("reportspec: {}", output.report_spec_path.display());
+                println!("plot:     {}", output.plot_path.display());
+                println!("plotspec: {}", output.plot_spec_path.display());
+                println!("manifest: {}", output.plot_manifest_path.display());
+                println!("report:   {}", output.report_path.display());
+            } else {
+                println!("run: ok");
+                println!("artifacts: in memory");
+                println!("result:   {} bytes", output.result_json.len());
+                println!("review:   {} bytes", output.review_json.len());
+                println!("reportspec: {} bytes", output.report_spec_json.len());
+                println!("plot:     {} bytes", output.plot_svg.len());
+                println!("plotspec: {} bytes", output.plot_spec_json.len());
+                println!("manifest: {} bytes", output.plot_manifest_json.len());
+                println!("report:   {} bytes", output.report_html.len());
+                println!("use --save-artifacts to write build\\result files");
+            }
             ExitCode::SUCCESS
         }
         Err(RuntimeError::Compile(report)) => {
@@ -882,7 +900,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     match run_file(
         Path::new("examples/official/01_csv_plot/main.eng"),
         Path::new("build/test-plot"),
-        &RunOptions::default(),
+        &artifact_run_options(),
     ) {
         Ok(output)
             if output.plot_spec_path.exists()
@@ -905,7 +923,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     match run_file(
         Path::new("examples/official/01_csv_plot/histogram.eng"),
         Path::new("build/test-plot-histogram"),
-        &RunOptions::default(),
+        &artifact_run_options(),
     ) {
         Ok(output) => {
             let plot_spec = std::fs::read_to_string(&output.plot_spec_path).unwrap_or_default();
@@ -930,6 +948,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         Path::new("build/test-plot-args"),
         &RunOptions {
             open_report: false,
+            save_artifacts: true,
             entry: Some("main".to_owned()),
             args: vec![ArgOverride {
                 name: "input".to_owned(),
@@ -1015,7 +1034,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     match run_file(
         Path::new("examples/official/02_simple_system/main.eng"),
         Path::new("build/test-system"),
-        &RunOptions::default(),
+        &artifact_run_options(),
     ) {
         Ok(output) => {
             let report_html = std::fs::read_to_string(&output.report_path).unwrap_or_default();
@@ -1041,6 +1060,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         Path::new("build/test-integrated-hvac"),
         &RunOptions {
             open_report: false,
+            save_artifacts: true,
             entry: Some("main".to_owned()),
             args: Vec::new(),
         },
@@ -1071,6 +1091,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         Path::new("build/test-uncertainty-core"),
         &RunOptions {
             open_report: false,
+            save_artifacts: true,
             entry: Some("main".to_owned()),
             args: Vec::new(),
         },
@@ -1110,6 +1131,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         Path::new("build/test-data-driven-modeling"),
         &RunOptions {
             open_report: false,
+            save_artifacts: true,
             entry: Some("main".to_owned()),
             args: Vec::new(),
         },
@@ -1149,6 +1171,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         Path::new("build/test-data-driven-modeling-residuals"),
         &RunOptions {
             open_report: false,
+            save_artifacts: true,
             entry: Some("main".to_owned()),
             args: Vec::new(),
         },
@@ -1236,7 +1259,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     match run_file(
         &path_smoke_source,
         &path_smoke_build,
-        &RunOptions::default(),
+        &artifact_run_options(),
     ) {
         Ok(output) if output.result_path.exists() && output.report_spec_path.exists() => {
             println!("ok: Korean and space-containing path run smoke produced artifacts");
@@ -1422,7 +1445,7 @@ fn data_quality_fixture_records_parse_failure(
         &RunOptions::default(),
     ) {
         Ok(output) => {
-            let result = std::fs::read_to_string(output.result_path).unwrap_or_default();
+            let result = output.result_json;
             if !result.contains("\"parse_failures\"") || !result.contains(expected_message) {
                 eprintln!("expected {source} to record parse_failures with `{expected_message}`");
                 return false;
@@ -1444,7 +1467,7 @@ fn data_quality_fixture_records_interpolation(source: &str, build_root: &str) ->
         &RunOptions::default(),
     ) {
         Ok(output) => {
-            let result = std::fs::read_to_string(output.result_path).unwrap_or_default();
+            let result = output.result_json;
             if !result.contains("\"policy\": \"interpolate max_gap=10 min\"")
                 || !result.contains("\"status\": \"executed\"")
                 || !result.contains("[300,")
@@ -1472,7 +1495,7 @@ fn data_quality_fixture_records_constraint_violation(source: &str, build_root: &
         &RunOptions::default(),
     ) {
         Ok(output) => {
-            let result = std::fs::read_to_string(output.result_path).unwrap_or_default();
+            let result = output.result_json;
             if !result.contains("\"policy\": \"m_dot <= 0.25 kg/s\"")
                 || !result.contains("\"violation_count\": 1")
                 || !result.contains("value is above upper bound 0.25")
@@ -1499,7 +1522,7 @@ fn data_quality_fixture_records_conversion_failure(source: &str, build_root: &st
         &RunOptions::default(),
     ) {
         Ok(output) => {
-            let result = std::fs::read_to_string(output.result_path).unwrap_or_default();
+            let result = output.result_json;
             if !result.contains("\"conversion_failures\"")
                 || !result.contains("\"source_unit\": \"lb/s\"")
                 || !result.contains("\"target_unit\": \"kg/s\"")
@@ -1609,6 +1632,13 @@ fn parse_arg_overrides(
     Ok(values)
 }
 
+fn artifact_run_options() -> RunOptions {
+    RunOptions {
+        save_artifacts: true,
+        ..RunOptions::default()
+    }
+}
+
 fn print_diagnostics(report: &eng_compiler::CheckReport) {
     for diagnostic in &report.diagnostics {
         println!(
@@ -1644,7 +1674,7 @@ Usage:
   eng jit-plan <file.eng>
   eng jit-bench <file.eng> [--iterations N] [--entry <name>] [--<arg> <value>...]
   eng entries <file.eng>
-  eng run <file.eng> [--entry <name>] [--open-report] [--<arg> <value>...]
+  eng run <file.eng> [--entry <name>] [--open-report] [--save-artifacts] [--<arg> <value>...]
   eng build <file.eng> [--entry <name>] [--standalone] [--profile repro]
   eng view <result.engres>
   eng test <project_or_examples>

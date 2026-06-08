@@ -13,7 +13,7 @@ eng.exe ide-check <file.eng>
 eng.exe jit-plan <file.eng> [--backend <name>]
 eng.exe jit-bench <file.eng> [--iterations N] [--entry <name>] [--backend <name>] [--<arg> <value>...]
 eng.exe entries <file.eng>
-eng.exe run <file.eng> [--entry <name>] [--open-report] [--<arg> <value>...]
+eng.exe run <file.eng> [--entry <name>] [--open-report] [--save-artifacts] [--<arg> <value>...]
 eng.exe build <file.eng> [--entry <name>] [--standalone] [--profile repro]
 eng.exe view <result.engres>
 eng.exe test <project_or_examples>
@@ -250,7 +250,7 @@ Current tester IDE features:
 - save/check/run commands
 - generated report and plot opening
 - in-IDE PlotSpec preview
-- Artifacts tab for result, review, report, PlotSpec, manifest, SVG, and bytecode paths
+- Artifacts tab for result, review, report, PlotSpec, manifest, SVG, and bytecode runtime objects, with saved paths when files are written
 - Settings window for light/dark theme, UI density, font sizes, window presets,
   soft wrapping, and panel default sizes
 ```
@@ -289,9 +289,11 @@ examples\official\01_csv_plot\main.eng:25: script main(args: Args) -> Report
 
 This command is useful before running files with multiple script entries.
 
-## `eng run <file.eng> [--entry <name>] [--open-report] [--<arg> <value>...]`
+## `eng run <file.eng> [--entry <name>] [--open-report] [--save-artifacts] [--<arg> <value>...]`
 
 Runs the selected entry through bytecode v1 and the native VM seed.
+By default, result/review/report/plot payloads remain runtime objects in memory.
+`--save-artifacts` writes those objects to disk.
 
 Default entry selection:
 
@@ -302,7 +304,7 @@ Default entry selection:
 4. Otherwise, return an entry diagnostic.
 ```
 
-Generated artifacts:
+Saved artifacts:
 
 ```text
 build/
@@ -318,7 +320,8 @@ build/
       timeseries.svg
 ```
 
-`--open-report` attempts to open the generated `report.html` with the OS default browser.
+`--open-report` implies `--save-artifacts` and attempts to open the generated
+`report.html` with the OS default browser.
 
 Args flags are matched against `struct Args` fields. Defaults are used when
 available, primitive typed values are normalized, and resolved values are
@@ -336,7 +339,7 @@ Duration             s, min, h -> normalized seconds such as `600 s`
 ```
 
 ```bat
-eng.exe run examples\official\01_csv_plot\main.eng --entry main --input data/sensor.csv
+eng.exe run examples\official\01_csv_plot\main.eng --entry main --save-artifacts --input data/sensor.csv
 ```
 
 ## `eng build <file.eng> [--entry <name>] --standalone --profile repro`
@@ -359,7 +362,7 @@ dist/
 
 For CSV promotions that use relative paths, the referenced CSV files are copied
 into the bundle at the same relative path from `source/<file.eng>`. Running
-`run.bat` executes the bundled `eng.exe run source\<file.eng> --entry <name>`
+`run.bat` executes the bundled `eng.exe run source\<file.eng> --entry <name> --save-artifacts`
 and forwards extra Args flags. It creates normal `build/result` artifacts inside
 the bundle.
 

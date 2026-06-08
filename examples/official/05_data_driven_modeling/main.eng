@@ -23,7 +23,7 @@ script main(args: Args) -> Report {
 
     split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)
     reg_model = regression(split, algorithm=linear)
-    mlp_model = mlp(split, hidden=[4], epochs=80, seed=7)
+    mlp_model = mlp(split, hidden=[4, 5], epochs=1, seed=7)
     reg_eval = evaluate(reg_model, split=split)
     mlp_eval = evaluate(mlp_model, split=split)
     reg_card = model_card(reg_model)

@@ -25,6 +25,7 @@ const ERROR: egui::Color32 = egui::Color32::from_rgb(184, 44, 44);
 const WARNING: egui::Color32 = egui::Color32::from_rgb(173, 112, 20);
 const OK: egui::Color32 = egui::Color32::from_rgb(43, 131, 91);
 const RESULT_MIN_WIDTH: f32 = 320.0;
+const RESULT_MAX_WIDTH: f32 = 520.0;
 const CODE_MIN_WIDTH: f32 = 420.0;
 const SPLITTER_WIDTH: f32 = 7.0;
 
@@ -103,7 +104,7 @@ impl Default for UiSettings {
             explorer_width: 250.0,
             inspector_width: 340.0,
             bottom_height: 200.0,
-            result_width: 520.0,
+            result_width: 420.0,
             soft_wrap_code: true,
         }
     }
@@ -153,7 +154,7 @@ impl UiSettings {
             .clamp(140.0, 420.0);
         settings.result_width = json_f32(&value, "result_width")
             .unwrap_or(settings.result_width)
-            .clamp(RESULT_MIN_WIDTH, 900.0);
+            .clamp(RESULT_MIN_WIDTH, RESULT_MAX_WIDTH);
         if let Some(soft_wrap) = value.get("soft_wrap_code").and_then(Value::as_bool) {
             settings.soft_wrap_code = soft_wrap;
         }
@@ -485,9 +486,10 @@ fn smoke() -> eframe::Result<()> {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum RightTab {
+    Variables,
     Inspector,
-    Completions,
     Runtime,
+    Completions,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -497,6 +499,19 @@ enum BottomTab {
     Artifacts,
 }
 
+#[derive(Clone)]
+struct OpenFile {
+    path: PathBuf,
+    source: String,
+    dirty: bool,
+    cursor_char_index: usize,
+}
+
+enum TabAction {
+    Switch(usize),
+    Close(usize),
+}
+
 struct EngIdeApp {
     root: PathBuf,
     examples: Vec<PathBuf>,
@@ -504,6 +519,8 @@ struct EngIdeApp {
     path_input: String,
     new_file_input: String,
     source: String,
+    open_files: Vec<OpenFile>,
+    current_tab_index: usize,
     diagnostics: Vec<DiagnosticView>,
     symbols: Vec<SymbolView>,
     unit_derivations: Vec<UnitDerivationView>,
@@ -550,6 +567,8 @@ impl EngIdeApp {
             path_input: String::new(),
             new_file_input: "examples/scratch/main.eng".to_owned(),
             source: String::new(),
+            open_files: Vec::new(),
+            current_tab_index: 0,
             diagnostics: Vec::new(),
             symbols: Vec::new(),
             unit_derivations: Vec::new(),
@@ -580,6 +599,7 @@ impl EngIdeApp {
         };
         app.path_input = app.relative_path(&app.current_path);
         app.load_current();
+        app.push_current_tab();
         app.check_current();
         app
     }
@@ -591,6 +611,7 @@ impl EngIdeApp {
                 self.path_input = self.relative_path(&self.current_path);
                 self.dirty = false;
                 self.last_edit = None;
+                self.cursor_char_index = 0;
                 self.run_log.clear();
                 self.last_output = None;
                 self.plot_preview = None;
@@ -608,18 +629,110 @@ impl EngIdeApp {
                 self.components.clear();
                 self.connections.clear();
                 self.jit_plan = None;
+                self.cursor_char_index = 0;
                 self.status = format!("Could not load {}: {error}", self.current_path.display());
             }
         }
     }
 
     fn open_file(&mut self, path: PathBuf) {
-        if self.dirty {
-            self.save_current();
+        self.sync_current_tab();
+        if let Some(index) = self.open_files.iter().position(|file| file.path == path) {
+            self.switch_tab(index);
+            return;
         }
         self.current_path = path;
         self.load_current();
+        self.push_current_tab();
         self.check_current();
+    }
+
+    fn push_current_tab(&mut self) {
+        if let Some(index) = self
+            .open_files
+            .iter()
+            .position(|file| file.path == self.current_path)
+        {
+            self.current_tab_index = index;
+            self.sync_current_tab();
+            return;
+        }
+        self.open_files.push(OpenFile {
+            path: self.current_path.clone(),
+            source: self.source.clone(),
+            dirty: self.dirty,
+            cursor_char_index: self.cursor_char_index,
+        });
+        self.current_tab_index = self.open_files.len().saturating_sub(1);
+    }
+
+    fn sync_current_tab(&mut self) {
+        if let Some(file) = self.open_files.get_mut(self.current_tab_index) {
+            file.path = self.current_path.clone();
+            file.source = self.source.clone();
+            file.dirty = self.dirty;
+            file.cursor_char_index = self.cursor_char_index;
+        }
+    }
+
+    fn switch_tab(&mut self, index: usize) {
+        if index >= self.open_files.len() || index == self.current_tab_index {
+            return;
+        }
+        self.sync_current_tab();
+        self.current_tab_index = index;
+        if let Some(file) = self.open_files.get(index).cloned() {
+            self.current_path = file.path;
+            self.source = file.source;
+            self.dirty = file.dirty;
+            self.cursor_char_index = file.cursor_char_index;
+            self.path_input = self.relative_path(&self.current_path);
+            self.last_edit = None;
+            self.run_log.clear();
+            self.last_output = None;
+            self.plot_preview = None;
+            self.artifact_summary = None;
+            self.check_current();
+        }
+    }
+
+    fn close_tab(&mut self, index: usize) {
+        if index >= self.open_files.len() {
+            return;
+        }
+        self.sync_current_tab();
+        if self.open_files.len() == 1 {
+            if self.dirty {
+                self.save_current();
+            }
+            return;
+        }
+
+        if let Some(file) = self.open_files.get(index) {
+            if file.dirty {
+                let _ = save_file_contents(&file.path, &file.source);
+            }
+        }
+        self.open_files.remove(index);
+
+        if index == self.current_tab_index {
+            let next_index = index.saturating_sub(1).min(self.open_files.len() - 1);
+            self.current_tab_index = next_index;
+            if let Some(file) = self.open_files.get(next_index).cloned() {
+                self.current_path = file.path;
+                self.source = file.source;
+                self.dirty = file.dirty;
+                self.cursor_char_index = file.cursor_char_index;
+                self.path_input = self.relative_path(&self.current_path);
+                self.last_edit = None;
+                self.last_output = None;
+                self.plot_preview = None;
+                self.artifact_summary = None;
+                self.check_current();
+            }
+        } else if index < self.current_tab_index {
+            self.current_tab_index -= 1;
+        }
     }
 
     fn open_path_input(&mut self) {
@@ -653,8 +766,13 @@ impl EngIdeApp {
             }
             self.root = path;
             self.examples = collect_examples(&self.root);
+            self.open_files.clear();
+            self.current_tab_index = 0;
             if let Some(first) = self.examples.first().cloned() {
-                self.open_file(first);
+                self.current_path = first;
+                self.load_current();
+                self.push_current_tab();
+                self.check_current();
             } else {
                 self.current_path = self.root.join("main.eng");
                 self.path_input = self.relative_path(&self.current_path);
@@ -669,6 +787,7 @@ impl EngIdeApp {
                 self.connections.clear();
                 self.jit_plan = None;
                 self.dirty = false;
+                self.push_current_tab();
             }
             self.status = format!("Workspace: {}", self.root.display());
         }
@@ -723,6 +842,7 @@ impl EngIdeApp {
         match fs::write(&self.current_path, &self.source) {
             Ok(()) => {
                 self.dirty = false;
+                self.sync_current_tab();
                 self.status = format!("Saved {}", self.relative_path(&self.current_path));
             }
             Err(error) => {
@@ -952,19 +1072,20 @@ impl EngIdeApp {
             &build_root,
             &RunOptions {
                 open_report: false,
+                save_artifacts: false,
                 entry: Some(self.entry.clone()),
                 args: Vec::new(),
             },
         ) {
             Ok(output) => {
                 let output = RunOutputView::from_output(output, &self.root);
-                self.plot_preview = PlotPreview::from_plot_spec(&output.plot_spec_path).ok();
-                self.artifact_summary = ArtifactSummary::from_result(&output.result_path).ok();
+                self.plot_preview = PlotPreview::from_plot_spec_json(&output.plot_spec_json).ok();
+                self.artifact_summary = ArtifactSummary::from_output(&output).ok();
                 self.run_log = output.summary();
                 self.last_output = Some(output);
                 self.status = "Run complete".to_owned();
                 self.bottom_tab = BottomTab::Artifacts;
-                self.right_tab = RightTab::Runtime;
+                self.right_tab = RightTab::Variables;
             }
             Err(RuntimeError::Compile(report)) => {
                 self.apply_check_report(&report);
@@ -1002,6 +1123,7 @@ impl EngIdeApp {
         self.cursor_char_index = start_char + insertion.chars().count();
         self.dirty = true;
         self.last_edit = Some(Instant::now());
+        self.sync_current_tab();
     }
 
     fn completion_items_for_filter(&self, filter: &str) -> Vec<CompletionItem> {
@@ -1300,7 +1422,7 @@ impl EngIdeApp {
                             .add(
                                 egui::Slider::new(
                                     &mut self.settings.result_width,
-                                    RESULT_MIN_WIDTH..=900.0,
+                                    RESULT_MIN_WIDTH..=RESULT_MAX_WIDTH,
                                 )
                                 .text("Result width"),
                             )
@@ -1415,6 +1537,7 @@ impl EngIdeApp {
     }
 
     fn show_explorer(&mut self, ui: &mut egui::Ui) {
+        ui.spacing_mut().item_spacing = egui::vec2(4.0, 3.0);
         panel_header(ui, "Explorer");
         ui.horizontal_wrapped(|ui| {
             if compact_button(ui, "Open File").clicked() {
@@ -1450,6 +1573,7 @@ impl EngIdeApp {
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
+                ui.spacing_mut().item_spacing.y = 1.0;
                 for path in explorer_roots(&self.root) {
                     if path.exists() {
                         self.show_directory(ui, &path, 0);
@@ -1470,7 +1594,7 @@ impl EngIdeApp {
         egui::CollapsingHeader::new(
             egui::RichText::new(label)
                 .strong()
-                .size(12.5)
+                .size(12.0)
                 .color(ui_palette(ui).text),
         )
         .default_open(default_open)
@@ -1504,14 +1628,14 @@ impl EngIdeApp {
         let response = egui::Frame::none()
             .fill(fill)
             .rounding(egui::Rounding::same(4.0))
-            .inner_margin(egui::Margin::symmetric(4.0, 2.0))
+            .inner_margin(egui::Margin::symmetric(3.0, 1.0))
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
                 ui.horizontal(|ui| {
-                    ui.add_space(depth as f32 * 10.0);
+                    ui.add_space(depth as f32 * 8.0);
                     ui.label(
                         egui::RichText::new(display)
-                            .size(12.5)
+                            .size(12.0)
                             .color(ui_palette(ui).text),
                     );
                     if !extension.is_empty() {
@@ -1543,13 +1667,83 @@ impl EngIdeApp {
             self.relative_path(entry)
         };
         response.on_hover_text(hover);
-        ui.add_space(1.0);
+    }
+
+    fn show_file_tabs(&mut self, ui: &mut egui::Ui) {
+        let palette = ui_palette(ui);
+        let mut action: Option<TabAction> = None;
+        egui::ScrollArea::horizontal()
+            .id_source("open_file_tabs")
+            .auto_shrink([false, true])
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing = egui::vec2(0.0, 0.0);
+                    for (index, file) in self.open_files.iter().enumerate() {
+                        let selected = index == self.current_tab_index;
+                        let fill = if selected {
+                            palette.editor_bg
+                        } else {
+                            palette.panel_alt
+                        };
+                        let stroke = if selected {
+                            egui::Stroke::new(1.0, palette.accent)
+                        } else {
+                            egui::Stroke::new(1.0, palette.border)
+                        };
+                        let response = egui::Frame::none()
+                            .fill(fill)
+                            .stroke(stroke)
+                            .inner_margin(egui::Margin::symmetric(8.0, 4.0))
+                            .show(ui, |ui| {
+                                ui.horizontal(|ui| {
+                                    let label = tab_label(&file.path, file.dirty);
+                                    if ui
+                                        .selectable_label(
+                                            selected,
+                                            egui::RichText::new(label).size(12.0),
+                                        )
+                                        .clicked()
+                                    {
+                                        action = Some(TabAction::Switch(index));
+                                    }
+                                    if ui
+                                        .add_sized(
+                                            [18.0, 18.0],
+                                            egui::Button::new(
+                                                egui::RichText::new("x")
+                                                    .size(10.5)
+                                                    .color(palette.muted),
+                                            ),
+                                        )
+                                        .on_hover_text("Close")
+                                        .clicked()
+                                    {
+                                        action = Some(TabAction::Close(index));
+                                    }
+                                });
+                            })
+                            .response
+                            .interact(egui::Sense::click());
+                        if response.clicked() && action.is_none() {
+                            action = Some(TabAction::Switch(index));
+                        }
+                    }
+                });
+            });
+        if let Some(action) = action {
+            match action {
+                TabAction::Switch(index) => self.switch_tab(index),
+                TabAction::Close(index) => self.close_tab(index),
+            }
+        }
     }
 
     fn show_editor(&mut self, ui: &mut egui::Ui) {
         let palette = ui_palette(ui);
         let code_font_size = self.settings.code_font_size;
         let soft_wrap_code = self.settings.soft_wrap_code;
+        self.show_file_tabs(ui);
+        ui.add_space(4.0);
         egui::Frame::none()
             .fill(palette.editor_bg)
             .stroke(egui::Stroke::new(1.0, palette.border))
@@ -1614,10 +1808,12 @@ impl EngIdeApp {
                         if text_output.response.changed() {
                             self.dirty = true;
                             self.last_edit = Some(Instant::now());
+                            self.sync_current_tab();
                         }
                         if text_output.response.has_focus() {
                             if let Some(cursor_range) = text_output.cursor_range {
                                 self.cursor_char_index = cursor_range.primary.ccursor.index;
+                                self.sync_current_tab();
                             }
                             let mut accepted_completion = false;
                             if tab_requested {
@@ -1634,6 +1830,7 @@ impl EngIdeApp {
                             }
                             if text_output.response.changed() && !accepted_completion {
                                 self.maybe_auto_close_pair(&source_before);
+                                self.sync_current_tab();
                             }
                             if ui.input(|input| {
                                 input.key_pressed(egui::Key::Space) && input.modifiers.ctrl
@@ -1666,7 +1863,8 @@ impl EngIdeApp {
                     ui.heading(egui::RichText::new("Run Preview").size(14.0));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if let Some(output) = &self.last_output {
-                            if compact_button(ui, "Open Folder").clicked() {
+                            if output.artifacts_saved && compact_button(ui, "Open Folder").clicked()
+                            {
                                 if let Some(parent) = output.result_path.parent() {
                                     open_path(parent);
                                 }
@@ -1732,22 +1930,140 @@ impl EngIdeApp {
 
     fn show_right_panel(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
+            tab_button(ui, "Variables", self.right_tab == RightTab::Variables)
+                .clicked()
+                .then(|| self.right_tab = RightTab::Variables);
             tab_button(ui, "Inspector", self.right_tab == RightTab::Inspector)
                 .clicked()
                 .then(|| self.right_tab = RightTab::Inspector);
-            tab_button(ui, "Completions", self.right_tab == RightTab::Completions)
-                .clicked()
-                .then(|| self.right_tab = RightTab::Completions);
             tab_button(ui, "Runtime", self.right_tab == RightTab::Runtime)
                 .clicked()
                 .then(|| self.right_tab = RightTab::Runtime);
+            tab_button(ui, "Completions", self.right_tab == RightTab::Completions)
+                .clicked()
+                .then(|| self.right_tab = RightTab::Completions);
         });
         ui.separator();
         match self.right_tab {
+            RightTab::Variables => self.show_variables_panel(ui),
             RightTab::Inspector => self.show_inspector(ui),
-            RightTab::Completions => self.show_completions(ui),
             RightTab::Runtime => self.show_runtime_inspector(ui),
+            RightTab::Completions => self.show_completions(ui),
         }
+    }
+
+    fn show_variables_panel(&self, ui: &mut egui::Ui) {
+        panel_header(ui, "Variables");
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                metric_chip(
+                    ui,
+                    "Source",
+                    &self.symbols.len().to_string(),
+                    ui_palette(ui).accent,
+                );
+                let run_variables = self
+                    .artifact_summary
+                    .as_ref()
+                    .map(|summary| summary.variables.len())
+                    .unwrap_or(0);
+                metric_chip(ui, "Run", &run_variables.to_string(), ui_palette(ui).accent);
+                let args = self
+                    .artifact_summary
+                    .as_ref()
+                    .map(|summary| summary.args.len())
+                    .unwrap_or(0);
+                metric_chip(ui, "Args", &args.to_string(), ui_palette(ui).accent);
+            });
+            ui.add_space(8.0);
+
+            if let Some(summary) = &self.artifact_summary {
+                section_label(ui, "Run Variables");
+                if summary.variables.is_empty() {
+                    ui.label(
+                        egui::RichText::new("No variable table was emitted for this run.")
+                            .color(ui_palette(ui).muted),
+                    );
+                }
+                for variable in &summary.variables {
+                    runtime_card(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::new(&variable.name).strong());
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    status_pill(
+                                        ui,
+                                        &format!("L{}", variable.line),
+                                        ui_palette(ui).muted,
+                                    );
+                                },
+                            );
+                        });
+                        ui.horizontal_wrapped(|ui| {
+                            status_pill(ui, &variable.quantity_kind, ui_palette(ui).accent);
+                            if let Some(role) = &variable.role {
+                                status_pill(ui, role, ui_palette(ui).muted);
+                            }
+                            status_pill(ui, &variable.source, ui_palette(ui).muted);
+                        });
+                        if let Some(value) = &variable.value {
+                            key_value_row(ui, "value", value);
+                        }
+                        key_value_row(ui, "display", &variable.display_unit);
+                        key_value_row(ui, "canonical", &variable.canonical_unit);
+                        key_value_row(ui, "dimension", &variable.dimension);
+                    });
+                    ui.add_space(5.0);
+                }
+
+                if !summary.args.is_empty() {
+                    ui.add_space(8.0);
+                    section_label(ui, "Args");
+                    for arg in &summary.args {
+                        runtime_card(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label(egui::RichText::new(&arg.name).strong());
+                                ui.with_layout(
+                                    egui::Layout::right_to_left(egui::Align::Center),
+                                    |ui| {
+                                        status_pill(ui, &arg.source, ui_palette(ui).accent);
+                                    },
+                                );
+                            });
+                            key_value_row(ui, "type", &arg.type_name);
+                            key_value_row(ui, "value", &arg.value);
+                            key_value_row(ui, "required", &arg.required.to_string());
+                        });
+                        ui.add_space(5.0);
+                    }
+                }
+                ui.add_space(10.0);
+            }
+
+            section_label(ui, "Source Symbols");
+            if self.symbols.is_empty() {
+                ui.label(egui::RichText::new("No source symbols").color(ui_palette(ui).muted));
+            }
+            for symbol in &self.symbols {
+                runtime_card(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new(&symbol.name).strong());
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            status_pill(ui, &format!("L{}", symbol.line), ui_palette(ui).muted);
+                        });
+                    });
+                    key_value_row(ui, "quantity", &symbol.quantity_kind);
+                    key_value_row(ui, "display", &symbol.display_unit);
+                    key_value_row(ui, "canonical", &symbol.canonical_unit);
+                    key_value_row(ui, "dimension", &symbol.dimension);
+                    if let Some(expression) = &symbol.expression {
+                        key_value_row(ui, "expression", expression);
+                    }
+                });
+                ui.add_space(5.0);
+            }
+        });
     }
 
     fn show_inspector(&mut self, ui: &mut egui::Ui) {
@@ -2493,14 +2809,15 @@ impl EngIdeApp {
         });
     }
 
-    fn show_artifacts(&self, ui: &mut egui::Ui) {
+    fn show_artifacts(&mut self, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical().show(ui, |ui| {
             self.show_artifacts_content(ui);
         });
     }
 
-    fn show_artifacts_content(&self, ui: &mut egui::Ui) {
-        if let Some(output) = &self.last_output {
+    fn show_artifacts_content(&mut self, ui: &mut egui::Ui) {
+        let mut save_result = None;
+        if let Some(output) = &mut self.last_output {
             if let Some(summary) = &self.artifact_summary {
                 ui.horizontal_wrapped(|ui| {
                     metric_chip(ui, "Run", &summary.status, OK);
@@ -2525,16 +2842,55 @@ impl EngIdeApp {
                 });
                 ui.add_space(8.0);
             }
-            artifact_row(ui, "Report HTML", &output.report_path);
-            artifact_row(ui, "ReportSpec JSON", &output.report_spec_path);
-            artifact_row(ui, "Plot SVG", &output.plot_path);
-            artifact_row(ui, "PlotSpec JSON", &output.plot_spec_path);
-            artifact_row(ui, "Plot Manifest", &output.plot_manifest_path);
-            artifact_row(ui, "Result", &output.result_path);
-            artifact_row(ui, "Review", &output.review_path);
-            artifact_row(ui, "Bytecode", &output.bytecode_path);
+            if output.artifacts_saved {
+                ui.label(egui::RichText::new("Artifacts saved to disk").color(OK));
+                ui.add_space(4.0);
+                artifact_row(ui, "Report HTML", &output.report_path);
+                artifact_row(ui, "ReportSpec JSON", &output.report_spec_path);
+                artifact_row(ui, "Plot SVG", &output.plot_path);
+                artifact_row(ui, "PlotSpec JSON", &output.plot_spec_path);
+                artifact_row(ui, "Plot Manifest", &output.plot_manifest_path);
+                artifact_row(ui, "Result", &output.result_path);
+                artifact_row(ui, "Review", &output.review_path);
+                artifact_row(ui, "Bytecode", &output.bytecode_path);
+            } else {
+                ui.horizontal(|ui| {
+                    ui.label(
+                        egui::RichText::new("Runtime objects are in memory for this run.")
+                            .color(ui_palette(ui).muted),
+                    );
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if compact_button(ui, "Save Files").clicked() {
+                            save_result = Some(output.save_artifacts());
+                        }
+                    });
+                });
+                ui.add_space(4.0);
+                artifact_object_row(ui, "Report HTML", output.report_html.len());
+                artifact_object_row(ui, "ReportSpec JSON", output.report_spec_json.len());
+                artifact_object_row(ui, "Plot SVG", output.plot_svg.len());
+                artifact_object_row(ui, "PlotSpec JSON", output.plot_spec_json.len());
+                artifact_object_row(ui, "Plot Manifest", output.plot_manifest_json.len());
+                artifact_object_row(ui, "Result", output.result_json.len());
+                artifact_object_row(ui, "Review", output.review_json.len());
+                artifact_object_row(ui, "Bytecode", output.bytecode.len());
+            }
         } else {
             ui.label(egui::RichText::new("No artifacts yet").color(ui_palette(ui).muted));
+        }
+
+        if let Some(result) = save_result {
+            match result {
+                Ok(()) => {
+                    if let Some(output) = &self.last_output {
+                        self.run_log = output.summary();
+                    }
+                    self.status = "Artifacts saved".to_owned();
+                }
+                Err(error) => {
+                    self.status = format!("Could not save artifacts: {error}");
+                }
+            }
         }
     }
 
@@ -2554,7 +2910,9 @@ impl EngIdeApp {
         let usable_width = (available.x - SPLITTER_WIDTH - gap).max(1.0);
         let min_result = RESULT_MIN_WIDTH.min((usable_width * 0.45).max(220.0));
         let min_code = CODE_MIN_WIDTH.min((usable_width - min_result).max(260.0));
-        let max_result = (usable_width - min_code).max(min_result);
+        let max_result = (usable_width - min_code)
+            .max(min_result)
+            .min(RESULT_MAX_WIDTH);
         self.result_width = self.result_width.clamp(min_result, max_result);
         let code_width = (usable_width - self.result_width).max(120.0);
 
@@ -2881,6 +3239,15 @@ struct RunOutputView {
     plot_manifest_path: PathBuf,
     relative_report_path: String,
     relative_plot_path: String,
+    artifacts_saved: bool,
+    bytecode: String,
+    result_json: String,
+    review_json: String,
+    report_html: String,
+    report_spec_json: String,
+    plot_svg: String,
+    plot_spec_json: String,
+    plot_manifest_json: String,
 }
 
 impl RunOutputView {
@@ -2896,26 +3263,74 @@ impl RunOutputView {
             plot_path: output.plot_path,
             plot_spec_path: output.plot_spec_path,
             plot_manifest_path: output.plot_manifest_path,
+            artifacts_saved: output.artifacts_saved,
+            bytecode: output.bytecode,
+            result_json: output.result_json,
+            review_json: output.review_json,
+            report_html: output.report_html,
+            report_spec_json: output.report_spec_json,
+            plot_svg: output.plot_svg,
+            plot_spec_json: output.plot_spec_json,
+            plot_manifest_json: output.plot_manifest_json,
         }
     }
 
     fn summary(&self) -> String {
-        format!(
-            "Run OK\nreport: {}\nplot:   {}\nresult: {}\nreview: {}\nreport spec: {}\nplotspec: {}\nmanifest: {}\nbytecode: {}",
-            self.relative_report_path,
-            self.relative_plot_path,
-            self.result_path.display(),
-            self.review_path.display(),
-            self.report_spec_path.display(),
-            self.plot_spec_path.display(),
-            self.plot_manifest_path.display(),
-            self.bytecode_path.display()
-        )
+        if self.artifacts_saved {
+            format!(
+                "Run OK\nartifacts: saved\nreport: {}\nplot:   {}\nresult: {}\nreview: {}\nreport spec: {}\nplotspec: {}\nmanifest: {}\nbytecode: {}",
+                self.relative_report_path,
+                self.relative_plot_path,
+                self.result_path.display(),
+                self.review_path.display(),
+                self.report_spec_path.display(),
+                self.plot_spec_path.display(),
+                self.plot_manifest_path.display(),
+                self.bytecode_path.display()
+            )
+        } else {
+            format!(
+                "Run OK\nartifacts: in memory\nresult:   {} bytes\nreview:   {} bytes\nreport spec: {} bytes\nplot spec: {} bytes\nplot svg: {} bytes\nreport html: {} bytes\nbytecode: {} bytes",
+                self.result_json.len(),
+                self.review_json.len(),
+                self.report_spec_json.len(),
+                self.plot_spec_json.len(),
+                self.plot_svg.len(),
+                self.report_html.len(),
+                self.bytecode.len()
+            )
+        }
+    }
+
+    fn save_artifacts(&mut self) -> Result<(), String> {
+        if let Some(parent) = self.bytecode_path.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        if let Some(parent) = self.result_path.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        if let Some(parent) = self.plot_path.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        fs::write(&self.bytecode_path, &self.bytecode).map_err(|error| error.to_string())?;
+        fs::write(&self.result_path, &self.result_json).map_err(|error| error.to_string())?;
+        fs::write(&self.review_path, &self.review_json).map_err(|error| error.to_string())?;
+        fs::write(&self.report_path, &self.report_html).map_err(|error| error.to_string())?;
+        fs::write(&self.report_spec_path, &self.report_spec_json)
+            .map_err(|error| error.to_string())?;
+        fs::write(&self.plot_path, &self.plot_svg).map_err(|error| error.to_string())?;
+        fs::write(&self.plot_spec_path, &self.plot_spec_json).map_err(|error| error.to_string())?;
+        fs::write(&self.plot_manifest_path, &self.plot_manifest_json)
+            .map_err(|error| error.to_string())?;
+        self.artifacts_saved = true;
+        Ok(())
     }
 }
 
 struct ArtifactSummary {
     status: String,
+    variables: Vec<RuntimeVariableView>,
+    args: Vec<RuntimeArgView>,
     uncertainties: Vec<UncertaintyArtifactView>,
     ml: Vec<MlArtifactView>,
     policy_count: usize,
@@ -2923,9 +3338,14 @@ struct ArtifactSummary {
 }
 
 impl ArtifactSummary {
-    fn from_result(path: &Path) -> Result<Self, String> {
-        let text = fs::read_to_string(path).map_err(|error| error.to_string())?;
-        let value: Value = serde_json::from_str(&text).map_err(|error| error.to_string())?;
+    fn from_output(output: &RunOutputView) -> Result<Self, String> {
+        let mut summary = Self::from_result_json(&output.result_json)?;
+        summary.apply_report_spec_json(&output.report_spec_json)?;
+        Ok(summary)
+    }
+
+    fn from_result_json(text: &str) -> Result<Self, String> {
+        let value: Value = serde_json::from_str(text).map_err(|error| error.to_string())?;
         let payload = value
             .get("typed_payload")
             .ok_or_else(|| "missing typed_payload".to_owned())?;
@@ -2957,12 +3377,134 @@ impl ArtifactSummary {
             .unwrap_or(0);
         Ok(Self {
             status,
+            variables: Vec::new(),
+            args: Vec::new(),
             uncertainties,
             ml,
             policy_count,
             system_count,
         })
     }
+
+    fn apply_report_spec_json(&mut self, text: &str) -> Result<(), String> {
+        let value: Value = serde_json::from_str(text).map_err(|error| error.to_string())?;
+        self.variables = value
+            .get("variable_table")
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .map(RuntimeVariableView::from_report_variable)
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        if let Some(systems) = value.get("system_summary").and_then(Value::as_array) {
+            for system in systems {
+                let system_name =
+                    json_field_string(system, "name").unwrap_or_else(|| "system".to_owned());
+                if let Some(variables) = system.get("variables").and_then(Value::as_array) {
+                    for variable in variables {
+                        let run_variable =
+                            RuntimeVariableView::from_system_variable(variable, &system_name);
+                        merge_runtime_variable(&mut self.variables, run_variable);
+                    }
+                }
+            }
+        }
+
+        self.args = value
+            .get("arg_values")
+            .and_then(Value::as_array)
+            .map(|items| items.iter().map(RuntimeArgView::from_json).collect())
+            .unwrap_or_default();
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
+struct RuntimeVariableView {
+    name: String,
+    quantity_kind: String,
+    display_unit: String,
+    canonical_unit: String,
+    dimension: String,
+    source: String,
+    role: Option<String>,
+    value: Option<String>,
+    line: usize,
+}
+
+impl RuntimeVariableView {
+    fn from_report_variable(value: &Value) -> Self {
+        Self {
+            name: json_field_string(value, "name").unwrap_or_else(|| "unknown".to_owned()),
+            quantity_kind: json_field_string(value, "quantity_kind").unwrap_or_default(),
+            display_unit: json_field_string(value, "display_unit").unwrap_or_default(),
+            canonical_unit: json_field_string(value, "canonical_unit").unwrap_or_default(),
+            dimension: json_field_string(value, "dimension").unwrap_or_default(),
+            source: json_field_string(value, "source").unwrap_or_else(|| "run".to_owned()),
+            role: None,
+            value: None,
+            line: json_field_usize(value, "line").unwrap_or(0),
+        }
+    }
+
+    fn from_system_variable(value: &Value, system_name: &str) -> Self {
+        Self {
+            name: json_field_string(value, "name").unwrap_or_else(|| "unknown".to_owned()),
+            quantity_kind: json_field_string(value, "quantity_kind").unwrap_or_default(),
+            display_unit: json_field_string(value, "display_unit").unwrap_or_default(),
+            canonical_unit: String::new(),
+            dimension: json_field_string(value, "dimension").unwrap_or_default(),
+            source: system_name.to_owned(),
+            role: json_field_string(value, "role"),
+            value: json_field_string(value, "initial_value"),
+            line: json_field_usize(value, "line").unwrap_or(0),
+        }
+    }
+}
+
+struct RuntimeArgView {
+    name: String,
+    type_name: String,
+    value: String,
+    source: String,
+    required: bool,
+}
+
+impl RuntimeArgView {
+    fn from_json(value: &Value) -> Self {
+        Self {
+            name: json_field_string(value, "name").unwrap_or_else(|| "unknown".to_owned()),
+            type_name: json_field_string(value, "type").unwrap_or_default(),
+            value: json_field_string(value, "value").unwrap_or_default(),
+            source: json_field_string(value, "source").unwrap_or_else(|| "default".to_owned()),
+            required: value
+                .get("required")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+        }
+    }
+}
+
+fn merge_runtime_variable(variables: &mut Vec<RuntimeVariableView>, incoming: RuntimeVariableView) {
+    if let Some(existing) = variables
+        .iter_mut()
+        .find(|variable| variable.name == incoming.name && variable.line == incoming.line)
+    {
+        if existing.value.is_none() {
+            existing.value = incoming.value;
+        }
+        if existing.role.is_none() {
+            existing.role = incoming.role;
+        }
+        if existing.source == "runtime" || existing.source == "system_boundary" {
+            existing.source = incoming.source;
+        }
+        return;
+    }
+    variables.push(incoming);
 }
 
 struct UncertaintyArtifactView {
@@ -3105,9 +3647,8 @@ struct PlotBinPreview {
 }
 
 impl PlotPreview {
-    fn from_plot_spec(path: &Path) -> Result<Self, String> {
-        let text = fs::read_to_string(path).map_err(|error| error.to_string())?;
-        let value: Value = serde_json::from_str(&text).map_err(|error| error.to_string())?;
+    fn from_plot_spec_json(text: &str) -> Result<Self, String> {
+        let value: Value = serde_json::from_str(text).map_err(|error| error.to_string())?;
         let title = json_string(&value, &["title"]).unwrap_or_else(|| "Plot".to_owned());
         let plot_type = json_string(&value, &["plot_type"]).unwrap_or_else(|| "line".to_owned());
         let x_label = axis_label(&value, "x_axis");
@@ -3872,6 +4413,25 @@ fn relative_to(root: &Path, path: &Path) -> String {
         .replace('\\', "/")
 }
 
+fn tab_label(path: &Path, dirty: bool) -> String {
+    let mut label = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("untitled")
+        .to_owned();
+    if dirty {
+        label.push_str(" *");
+    }
+    label
+}
+
+fn save_file_contents(path: &Path, source: &str) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    fs::write(path, source).map_err(|error| error.to_string())
+}
+
 fn panel_frame(ctx: &egui::Context) -> egui::Frame {
     let palette = if ctx.style().visuals.dark_mode {
         ThemePalette::for_theme(UiTheme::Dark)
@@ -4058,6 +4618,17 @@ fn artifact_row(ui: &mut egui::Ui, label: &str, path: &Path) {
             if ui.button("Open").clicked() {
                 open_path(path);
             }
+        });
+    });
+    ui.add_space(5.0);
+}
+
+fn artifact_object_row(ui: &mut egui::Ui, label: &str, bytes: usize) {
+    ui.horizontal(|ui| {
+        ui.label(egui::RichText::new(label).strong());
+        ui.monospace(format!("{bytes} bytes"));
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            status_pill(ui, "memory", ui_palette(ui).accent);
         });
     });
     ui.add_space(5.0);

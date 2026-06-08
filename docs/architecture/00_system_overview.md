@@ -14,9 +14,10 @@ EngLang's official execution path is:
   -> HTML report + report_spec.json + review.json
 ```
 
-The current public preview implements this path incrementally: `eng run` writes
-bytecode, decodes it, executes a native VM seed, and writes `result.engres`
-from the VM execution record. The supported preview surface includes
+The current public preview implements this path incrementally: `eng run` builds
+bytecode, decodes it, executes a native VM seed, and returns a typed result
+object from the VM execution record. `--save-artifacts` writes the corresponding
+`.engbc`, `.engres`, PlotSpec, SVG, report, and review files. The supported preview surface includes
 TimeSeries/statistics metadata, PlotSpec v1, SVG rendering, plot manifests,
 review/report artifacts, minimal physical `system` and `eq` metadata, runtime
 table columns, TimeSeries points, computed summary statistics, trapezoidal

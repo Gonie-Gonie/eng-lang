@@ -13,9 +13,10 @@ the same compiler/runtime/tooling environment.
 - PowerShell available through Windows
 ```
 
-Visual Studio Build Tools, global Rust, and global Python installations are not
-required. Setup installs the pinned Rust toolchain and a portable Python
-documentation toolchain inside the repository-local `.dev` folder.
+Visual Studio Build Tools, global MinGW, global Rust, and global Python
+installations are not required. Setup installs the pinned Rust toolchain,
+repo-local MinGW GNU build support, and a portable Python documentation
+toolchain inside the repository-local `.dev` folder.
 
 ## First Setup
 
@@ -31,9 +32,10 @@ Setup performs:
 1. create .dev/cargo, .dev/rustup, .dev/python, and .dev/cache
 2. download rustup-init.exe into .dev/cache when needed
 3. install 1.96.0-x86_64-pc-windows-gnu into .dev
-4. install portable Python 3.13.5 and Python documentation requirements
-5. fetch locked Cargo dependencies
-6. build the Rust workspace
+4. install MSYS2/MinGW GNU build support into .dev
+5. install portable Python 3.13.5 and Python documentation requirements
+6. fetch locked Cargo dependencies
+7. build the Rust workspace
 ```
 
 All PowerShell execution goes through the common wrapper:
@@ -77,10 +79,11 @@ Or run the current official examples directly:
 
 ```bat
 target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main
-target\debug\eng.exe run examples\official\02_simple_system\main.eng --entry main
+target\debug\eng.exe run examples\official\02_simple_system\main.eng --entry main --save-artifacts
 ```
 
-Generated artifacts:
+The first command keeps artifacts in memory. Add `--save-artifacts` when you
+want files. Saved artifacts:
 
 ```text
 build/

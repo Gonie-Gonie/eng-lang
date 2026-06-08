@@ -11,8 +11,11 @@ metadata in `result.engres`.
 ## Generate Artifacts
 
 ```bat
-target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng --entry main --save-artifacts
 ```
+
+`eng run` keeps artifacts in memory by default. For file-based review, save them
+explicitly with `--save-artifacts`.
 
 Generated files:
 
@@ -42,7 +45,7 @@ target\debug\eng.exe view build\result\result.engres
 
 ```bat
 target\debug\eng.exe check examples\official\01_csv_plot\main.eng --review
-target\debug\eng.exe run examples\official\01_csv_plot\main.eng
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng --save-artifacts
 ```
 
 The current preview contract includes:
@@ -85,7 +88,8 @@ entry is an object with `kind`, `name`, and `display` fields. For example,
 
 ## `report_spec.json`
 
-`report_spec.json` is the runtime report contract. It is written by `eng run` beside `report.html` and `result.engres`.
+`report_spec.json` is the runtime report contract. It is written by
+`eng run --save-artifacts` beside `report.html` and `result.engres`.
 
 The current preview contract includes:
 

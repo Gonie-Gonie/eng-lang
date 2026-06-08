@@ -1,8 +1,9 @@
 # Runtime Artifacts
 
-`eng run <file.eng>` creates a reviewable artifact set without Python.
+`eng run <file.eng>` creates reviewable runtime objects without Python.
+`eng run --save-artifacts <file.eng>` writes those objects as files.
 
-## Directory Layout
+## Saved Directory Layout
 
 ```text
 build/
@@ -244,7 +245,10 @@ schemas
 csv_promotions
 ```
 
-`review.json` is produced by both `eng check --review` and `eng run`. The `plot_manifest` section declares the runtime plot manifest location, while the runtime-specific manifest hash is recorded in `report_spec.json`.
+`review.json` is produced by `eng check --review` and by saved `eng run`
+artifacts. The `plot_manifest` section declares the runtime plot manifest
+location, while the runtime-specific manifest hash is recorded in
+`report_spec.json`.
 
 ## `report_spec.json`
 

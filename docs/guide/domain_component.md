@@ -111,10 +111,11 @@ topology because numeric graph solving is still deferred.
 target\debug\eng.exe check examples\official\06_domain_port\main.eng --review
 ```
 
-`eng run` also carries the same metadata into the user-facing report artifacts:
+`eng run` also carries the same metadata into runtime report objects. Add
+`--save-artifacts` for user-facing report files:
 
 ```bat
-target\debug\eng.exe run examples\official\06_domain_port\main.eng --entry main
+target\debug\eng.exe run examples\official\06_domain_port\main.eng --entry main --save-artifacts
 ```
 
 The current domain/component artifact sections are:
