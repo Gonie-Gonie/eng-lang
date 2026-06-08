@@ -40,6 +40,10 @@ official/06_domain_port
 official/07_functions_imports
   Preview function/import fixture for pure unit-aware functions, relative file
   imports, function-call inference, CLI print, and summary CSV export.
+
+official/08_print_export_summary
+  Mini scalar summary fixture for unit-aware print interpolation and explicit
+  one-row summary CSV export.
 ```
 
 ## Compatibility Regression Examples

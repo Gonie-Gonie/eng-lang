@@ -63,7 +63,7 @@ Before publishing `v0.2-preview`:
 [ ] unit-aware print and explicit summary CSV export have a mini official example
 [ ] data/table/TimeSeries expression-kernel scope is documented with supported examples and diagnostics
 [ ] first-class Summary object decision is explicitly recorded as implemented or deferred
-[ ] official examples 01-07 pass check/run smoke paths
+[ ] official examples 01-08 pass check/run smoke paths
 [ ] docs-check passes
 [ ] artifacts-check passes
 [ ] ide-check passes
