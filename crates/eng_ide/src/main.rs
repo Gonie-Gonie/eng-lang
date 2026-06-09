@@ -549,6 +549,8 @@ struct EngIdeApp {
     cursor_char_index: usize,
     completion_filter: String,
     terminal_input: String,
+    terminal_session_source: String,
+    terminal_show_plot: bool,
     expanded_variable: Option<String>,
     right_tab: RightTab,
     bottom_tab: BottomTab,
@@ -596,6 +598,8 @@ impl EngIdeApp {
             cursor_char_index: 0,
             completion_filter: String::new(),
             terminal_input: String::new(),
+            terminal_session_source: String::new(),
+            terminal_show_plot: false,
             expanded_variable: None,
             right_tab: RightTab::Variables,
             bottom_tab: BottomTab::Problems,
@@ -1092,6 +1096,7 @@ report {
                 self.run_log = output.terminal_summary(artifact_summary.as_ref());
                 self.artifact_summary = artifact_summary;
                 self.last_output = Some(output);
+                self.terminal_show_plot = false;
                 self.status = "Run complete".to_owned();
                 self.bottom_tab = BottomTab::Terminal;
                 self.right_tab = RightTab::Variables;
@@ -2921,58 +2926,113 @@ report {
 
     fn show_terminal(&mut self, ui: &mut egui::Ui) {
         let available_height = ui.available_height();
-        ui.horizontal(|ui| {
-            if compact_button(ui, "Run").clicked() {
-                self.run_current();
-            }
-            if compact_button(ui, "Check").clicked() {
-                self.check_current();
-                self.append_terminal("Checked current file. See Problems for diagnostics.");
-            }
-            if compact_button(ui, "Clear").clicked() {
-                self.run_log.clear();
-            }
-            if compact_button(ui, "Save Files").clicked() {
-                self.save_terminal_artifacts();
-            }
-        });
-        ui.add_space(4.0);
+        let terminal_bg = egui::Color32::from_rgb(30, 32, 36);
+        let terminal_border = egui::Color32::from_rgb(65, 70, 78);
+        let terminal_text = egui::Color32::from_rgb(221, 225, 232);
+        let terminal_muted = egui::Color32::from_rgb(143, 151, 163);
 
-        let transcript_height = (available_height - 58.0).max(90.0);
-        egui::ScrollArea::vertical()
-            .stick_to_bottom(true)
-            .auto_shrink([false, false])
-            .max_height(transcript_height)
+        egui::Frame::none()
+            .fill(terminal_bg)
+            .stroke(egui::Stroke::new(1.0, terminal_border))
+            .rounding(egui::Rounding::same(4.0))
+            .inner_margin(egui::Margin::symmetric(8.0, 6.0))
             .show(ui, |ui| {
-                if self.run_log.is_empty() {
+                ui.horizontal(|ui| {
                     ui.label(
-                        egui::RichText::new("Terminal ready. Commands: run, check, clear, help.")
-                            .color(ui_palette(ui).muted),
+                        egui::RichText::new("EngLang Terminal")
+                            .strong()
+                            .color(terminal_text),
                     );
-                } else {
-                    ui.monospace(&self.run_log);
-                }
-                if let Some(plot) = &self.plot_preview {
-                    ui.add_space(8.0);
-                    draw_plot(ui, plot);
-                }
-            });
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if compact_button(ui, "Reset").on_hover_text("Clear interactive session").clicked() {
+                            self.terminal_session_source.clear();
+                            self.run_log.clear();
+                            self.status = "Terminal session reset".to_owned();
+                        }
+                        if compact_button(ui, "Clear").clicked() {
+                            self.run_log.clear();
+                        }
+                        if compact_button(ui, "Plot").clicked() {
+                            self.terminal_show_plot = !self.terminal_show_plot;
+                        }
+                        if compact_button(ui, "Save").clicked() {
+                            self.save_terminal_artifacts();
+                        }
+                        if compact_button(ui, "Check").clicked() {
+                            self.check_current();
+                            self.append_terminal("Checked current file. See Problems for diagnostics.");
+                        }
+                        if compact_button(ui, "Run").clicked() {
+                            self.run_current();
+                        }
+                    });
+                });
+                ui.add_space(4.0);
 
-        ui.separator();
-        ui.horizontal(|ui| {
-            ui.label(egui::RichText::new(">").monospace().strong());
-            let response = ui.add_sized(
-                [(ui.available_width() - 80.0).max(120.0), 24.0],
-                egui::TextEdit::singleline(&mut self.terminal_input)
-                    .hint_text("run | check | clear | save artifacts | help"),
-            );
-            let submit =
-                response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter));
-            if primary_button(ui, "Send").clicked() || submit {
-                let command = std::mem::take(&mut self.terminal_input);
-                self.execute_terminal_command(&command);
-            }
-        });
+                let transcript_height = (available_height - 78.0).clamp(78.0, 330.0);
+                egui::ScrollArea::vertical()
+                    .stick_to_bottom(true)
+                    .auto_shrink([false, false])
+                    .max_height(transcript_height)
+                    .show(ui, |ui| {
+                        if self.run_log.is_empty() {
+                            ui.label(
+                                egui::RichText::new(
+                                    "Ready. Type EngLang statements or commands: run, check, plot, clear, reset, help.",
+                                )
+                                .monospace()
+                                .color(terminal_muted),
+                            );
+                        } else {
+                            for line in self.run_log.lines() {
+                                ui.label(
+                                    egui::RichText::new(line)
+                                        .monospace()
+                                        .color(terminal_text)
+                                        .size(12.5),
+                                );
+                            }
+                        }
+                        if self.terminal_show_plot {
+                            if let Some(plot) = &self.plot_preview {
+                                ui.add_space(8.0);
+                                draw_plot_sized(ui, plot, 220.0);
+                            } else {
+                                ui.label(
+                                    egui::RichText::new("No plot is available for this session.")
+                                        .monospace()
+                                        .color(terminal_muted),
+                                );
+                            }
+                        }
+                    });
+
+                ui.separator();
+                ui.horizontal(|ui| {
+                    let prompt = self.terminal_prompt();
+                    let prompt_width = (ui.available_width() * 0.34).clamp(180.0, 520.0);
+                    ui.add_sized(
+                        [prompt_width, 24.0],
+                        egui::Label::new(
+                            egui::RichText::new(prompt)
+                                .monospace()
+                                .strong()
+                                .color(egui::Color32::from_rgb(118, 179, 255)),
+                        ),
+                    );
+                    let response = ui.add_sized(
+                        [(ui.available_width() - 64.0).max(120.0), 24.0],
+                        egui::TextEdit::singleline(&mut self.terminal_input)
+                            .hint_text("x: AbsoluteTemperature = 3 degC"),
+                    );
+                    let submit = response.lost_focus()
+                        && ui.input(|input| input.key_pressed(egui::Key::Enter));
+                    if primary_button(ui, "Send").clicked() || submit {
+                        let command = std::mem::take(&mut self.terminal_input);
+                        self.execute_terminal_command(&command);
+                    }
+                });
+            });
     }
 
     fn execute_terminal_command(&mut self, command: &str) {
@@ -2983,6 +3043,12 @@ report {
         match trimmed.to_ascii_lowercase().as_str() {
             "clear" | "cls" => {
                 self.run_log.clear();
+            }
+            "reset" | "session clear" | "clear session" => {
+                self.run_log.clear();
+                self.terminal_session_source.clear();
+                self.terminal_show_plot = false;
+                self.status = "Terminal session reset".to_owned();
             }
             "run" => {
                 self.run_current();
@@ -2998,8 +3064,19 @@ report {
             }
             "help" => {
                 self.append_terminal(
-                    "> help\nCommands: run, check, clear, save artifacts, open report, open plot.",
+                    "> help\nCommands: run, check, plot, clear, reset, save artifacts, open report, open plot.\nEngLang one-liners are executed in the terminal session.",
                 );
+            }
+            "plot" | "show plot" => {
+                self.terminal_show_plot = !self.terminal_show_plot;
+                self.append_terminal(format!(
+                    "> {trimmed}\nplot preview {}",
+                    if self.terminal_show_plot {
+                        "shown"
+                    } else {
+                        "hidden"
+                    }
+                ));
             }
             "open report" => {
                 self.append_terminal(format!("> {trimmed}"));
@@ -3010,9 +3087,94 @@ report {
                 self.open_last_run_file(RunFileKind::Plot);
             }
             _ => {
+                self.execute_interactive_line(trimmed);
+            }
+        }
+    }
+
+    fn execute_interactive_line(&mut self, line: &str) {
+        let mut session_source = self.terminal_session_source.trim_end().to_owned();
+        if !session_source.is_empty() {
+            session_source.push('\n');
+        }
+        session_source.push_str(line);
+        session_source.push('\n');
+
+        let session_path = self
+            .root
+            .join("build")
+            .join("ide-interactive")
+            .join("session.eng");
+        let report = check_source(&session_path, &session_source, &CheckOptions::default());
+        if report.has_errors() {
+            self.apply_check_report(&report);
+            self.append_terminal(format!(
+                "{}{}\n{}",
+                self.terminal_prompt(),
+                line,
+                diagnostic_summary_text(&report)
+            ));
+            self.status = "Interactive line has diagnostics".to_owned();
+            self.bottom_tab = BottomTab::Problems;
+            return;
+        }
+
+        if let Some(parent) = session_path.parent() {
+            if let Err(error) = fs::create_dir_all(parent) {
+                self.append_terminal(format!("Could not create terminal session: {error}"));
+                return;
+            }
+        }
+        if let Err(error) = fs::write(&session_path, &session_source) {
+            self.append_terminal(format!("Could not write terminal session: {error}"));
+            return;
+        }
+
+        let build_root = self.root.join("build").join("ide-interactive-run");
+        match run_file(
+            &session_path,
+            &build_root,
+            &RunOptions {
+                open_report: false,
+                save_artifacts: false,
+                args: Vec::new(),
+                ..RunOptions::default()
+            },
+        ) {
+            Ok(output) => {
+                self.terminal_session_source = session_source;
+                let output = RunOutputView::from_output(output, &self.root);
+                let artifact_summary = ArtifactSummary::from_output(&output).ok();
+                self.plot_preview = PlotPreview::from_plot_spec_json(&output.plot_spec_json).ok();
+                self.artifact_summary = artifact_summary;
+                self.last_output = Some(output);
+                self.apply_check_report(&report);
                 self.append_terminal(format!(
-                    "> {trimmed}\nUnknown terminal command. Type help for supported commands."
+                    "{}{}\n{}",
+                    self.terminal_prompt(),
+                    line,
+                    interactive_success_text(self.artifact_summary.as_ref())
                 ));
+                self.status = "Interactive line executed".to_owned();
+            }
+            Err(RuntimeError::Compile(report)) => {
+                self.apply_check_report(&report);
+                self.append_terminal(format!(
+                    "{}{}\n{}",
+                    self.terminal_prompt(),
+                    line,
+                    diagnostic_summary_text(&report)
+                ));
+                self.status = "Interactive compile failed".to_owned();
+                self.bottom_tab = BottomTab::Problems;
+            }
+            Err(error) => {
+                self.append_terminal(format!(
+                    "{}{}\nRun failed: {error}",
+                    self.terminal_prompt(),
+                    line
+                ));
+                self.status = "Interactive run failed".to_owned();
             }
         }
     }
@@ -3026,6 +3188,11 @@ report {
             self.run_log.push('\n');
         }
         self.bottom_tab = BottomTab::Terminal;
+    }
+
+    fn terminal_prompt(&self) -> String {
+        let cwd = self.current_path.parent().unwrap_or(&self.root);
+        format!("EngLang {} >> ", cwd.display())
     }
 
     fn save_terminal_artifacts(&mut self) {
@@ -3091,6 +3258,7 @@ impl eframe::App for EngIdeApp {
         egui::TopBottomPanel::bottom("bottom_panel")
             .resizable(true)
             .default_height(self.settings.bottom_height)
+            .height_range(120.0..=520.0)
             .frame(panel_frame(ctx))
             .show(ctx, |ui| self.show_bottom_panel(ui));
 
@@ -4923,6 +5091,59 @@ fn report_title(text: &str) -> String {
         .unwrap_or_default()
 }
 
+fn diagnostic_summary_text(report: &CheckReport) -> String {
+    let errors = report.diagnostic_count(Severity::Error);
+    let warnings = report.diagnostic_count(Severity::Warning);
+    let mut lines = vec![format!(
+        "diagnostics: {errors} error(s), {warnings} warning(s)"
+    )];
+    for diagnostic in report.diagnostics.iter().take(5) {
+        lines.push(format!(
+            "L{} {}: {}",
+            diagnostic.line, diagnostic.code, diagnostic.message
+        ));
+        if let Some(help) = &diagnostic.help {
+            lines.push(format!("  help: {help}"));
+        }
+    }
+    if report.diagnostics.len() > 5 {
+        lines.push(format!(
+            "... {} more diagnostic(s)",
+            report.diagnostics.len() - 5
+        ));
+    }
+    lines.join("\n")
+}
+
+fn interactive_success_text(summary: Option<&ArtifactSummary>) -> String {
+    if let Some(summary) = summary {
+        let newest = summary
+            .variables
+            .last()
+            .map(|variable| {
+                format!(
+                    "{}: {} {}",
+                    variable.name,
+                    variable.quantity_kind,
+                    variable
+                        .value
+                        .as_deref()
+                        .map(|value| format!("= {value}"))
+                        .unwrap_or_default()
+                )
+            })
+            .unwrap_or_else(|| "no runtime variables".to_owned());
+        format!(
+            "ok: {} variable(s), {} arg(s)\n{}",
+            summary.variables.len(),
+            summary.args.len(),
+            newest
+        )
+    } else {
+        "ok".to_owned()
+    }
+}
+
 fn path_list_label(paths: &[PathBuf]) -> String {
     paths
         .iter()
@@ -4932,6 +5153,10 @@ fn path_list_label(paths: &[PathBuf]) -> String {
 }
 
 fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
+    draw_plot_sized(ui, plot, 260.0);
+}
+
+fn draw_plot_sized(ui: &mut egui::Ui, plot: &PlotPreview, height: f32) {
     let palette = ui_palette(ui);
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new(&plot.title).strong());
@@ -4940,7 +5165,7 @@ fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
                 .color(palette.muted),
         );
     });
-    let desired = egui::vec2(ui.available_width(), 260.0);
+    let desired = egui::vec2(ui.available_width(), height.clamp(160.0, 320.0));
     let (rect, _) = ui.allocate_exact_size(desired, egui::Sense::hover());
     let painter = ui.painter_at(rect);
     painter.rect_filled(rect, egui::Rounding::same(6.0), palette.plot_bg);
@@ -5087,20 +5312,6 @@ fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
                 painter.circle_stroke(*point, 2.8, egui::Stroke::new(1.2, palette.accent));
             }
         }
-        painter.text(
-            plot_rect.left_top() + egui::vec2(0.0, -18.0),
-            egui::Align2::LEFT_CENTER,
-            format!("y min {:.3}, max {:.3}", min_y, max_y),
-            egui::FontId::proportional(12.0),
-            palette.muted,
-        );
-        painter.text(
-            plot_rect.right_bottom() + egui::vec2(0.0, 18.0),
-            egui::Align2::RIGHT_CENTER,
-            format!("x {:.3}..{:.3}", min_x, max_x),
-            egui::FontId::proportional(12.0),
-            palette.muted,
-        );
     }
     painter.text(
         rect.center_bottom() - egui::vec2(0.0, 14.0),
@@ -5109,13 +5320,37 @@ fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
         egui::FontId::proportional(13.0),
         palette.text,
     );
-    painter.text(
+    draw_vertical_axis_label(
+        &painter,
         rect.left_center() + egui::vec2(18.0, 0.0),
-        egui::Align2::CENTER_CENTER,
         &plot.y_label,
-        egui::FontId::proportional(13.0),
         palette.text,
     );
+}
+
+fn draw_vertical_axis_label(
+    painter: &egui::Painter,
+    center: egui::Pos2,
+    label: &str,
+    color: egui::Color32,
+) {
+    let label = short_label(label, 28);
+    let chars: Vec<char> = label.chars().collect();
+    let step = 9.0_f32;
+    let total = step * chars.len().saturating_sub(1) as f32;
+    let start_y = center.y - total * 0.5;
+    for (index, ch) in chars.iter().enumerate() {
+        if ch.is_whitespace() {
+            continue;
+        }
+        painter.text(
+            egui::pos2(center.x, start_y + step * index as f32),
+            egui::Align2::CENTER_CENTER,
+            ch,
+            egui::FontId::proportional(10.5),
+            color,
+        );
+    }
 }
 
 fn point_bounds(points: &[(f64, f64)]) -> (f64, f64, f64, f64) {

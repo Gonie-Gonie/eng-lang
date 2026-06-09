@@ -132,6 +132,26 @@ T11 General Programming / Side Effects
 A future preview may include early work from any track, but the track name
 should remain separate from the release version.
 
+## IDE Direction
+
+The native `egui` tester IDE remains the packaged smoke UI for the current
+stable line, but the preferred development direction for a richer IDE is a
+Tauri/WebView shell:
+
+```text
+- Rust stays authoritative for compiler/runtime/report services.
+- The UI moves to HTML/CSS/JS for editor layout, docked panels, terminal,
+  variable tables, and responsive plot/report inspection.
+- The frontend should be static-build friendly first, so the packaged IDE does
+  not require Node on the target PC.
+- Parser/check/run requests should be debounced and incremental enough for
+  editor responsiveness.
+- The migration starts by extracting shared IDE service functions before
+  replacing the current native tester shell.
+```
+
+This is a T5 IDE/LSP development-track item, not a v1.0.0 stable-core contract.
+
 ## v1.0.0 Stable Core Gate
 
 `v1.0.0` is valid when the following are true:
