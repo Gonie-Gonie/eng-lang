@@ -777,6 +777,9 @@ fn evaluate_runtime_expression(
     runtime_data: &RuntimeData,
 ) -> Option<RuntimeFormatValue> {
     let expression = expression.trim();
+    if let Some(value) = evaluate_runtime_read_expression(expression, report) {
+        return Some(RuntimeFormatValue::Text(value));
+    }
     if let Some(value) = evaluate_runtime_exists_expression(expression, report) {
         return Some(RuntimeFormatValue::Text(value));
     }
@@ -891,6 +894,13 @@ fn evaluate_runtime_expression(
         )));
     }
     None
+}
+
+fn evaluate_runtime_read_expression(expression: &str, report: &CheckReport) -> Option<String> {
+    let (_kind, path_expression) = eng_compiler::read_only_io_expression(expression)?;
+    let path_text = evaluate_runtime_path_expression(path_expression, report)?;
+    let path = runtime_resolve_source_relative_path(&path_text, report.source_path.parent());
+    fs::read_to_string(path).ok()
 }
 
 fn evaluate_runtime_exists_expression(expression: &str, report: &CheckReport) -> Option<String> {
@@ -1607,6 +1617,13 @@ fn result_json(
             "        \"resolved_value\": \"{}\",\n",
             json_escape(&dependency.resolved_value)
         ));
+        match &dependency.source_hash {
+            Some(source_hash) => environment_dependencies.push_str(&format!(
+                "        \"source_hash\": \"{}\",\n",
+                json_escape(source_hash)
+            )),
+            None => environment_dependencies.push_str("        \"source_hash\": null,\n"),
+        }
         environment_dependencies.push_str(&format!(
             "        \"status\": \"{}\",\n",
             json_escape(&dependency.status)
@@ -2829,5 +2846,46 @@ mod tests {
         assert!(output
             .report_spec_json
             .contains("\"environment_dependencies\""));
+    }
+
+    #[test]
+    fn run_file_reads_text_json_and_toml_with_source_hash_provenance() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-read-only-io");
+        let build_root = repo_root.join("build").join("runtime-read-only-io-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(source_dir.join("data").join("notes.txt"), "calibrated run").expect("notes");
+        fs::write(
+            source_dir.join("data").join("case.json"),
+            "{ \"case\": \"baseline\" }",
+        )
+        .expect("json");
+        fs::write(
+            source_dir.join("data").join("case.toml"),
+            "case = \"baseline\"",
+        )
+        .expect("toml");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "args {\n    notes: TextFile = file(\"data/notes.txt\")\n    config_json: JsonFile = file(\"data/case.json\")\n    config_toml: TomlFile = file(\"data/case.toml\")\n}\n\nnotes_text = read text args.notes\njson_text = read json args.config_json\ntoml_text = read toml args.config_toml\n\nprint \"notes={notes_text}\"\nprint \"json={json_text}\"\nprint \"toml={toml_text}\"\n",
+        )
+        .expect("write source");
+
+        let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+
+        assert!(output.stdout.contains("notes=calibrated run"));
+        assert!(output.stdout.contains("json={ \"case\": \"baseline\" }"));
+        assert!(output.stdout.contains("toml=case = \"baseline\""));
+        assert!(output.result_json.contains("\"filesystem_read_text\""));
+        assert!(output.result_json.contains("\"filesystem_read_json\""));
+        assert!(output.result_json.contains("\"filesystem_read_toml\""));
+        assert!(output.result_json.contains("\"source_hash\": \""));
+        assert!(output.report_spec_json.contains("\"filesystem_read_text\""));
     }
 }

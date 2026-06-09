@@ -439,6 +439,7 @@ pub struct ReportEnvironmentDependency {
     pub kind: String,
     pub expression: String,
     pub resolved_value: String,
+    pub source_hash: Option<String>,
     pub status: String,
     pub line: usize,
 }
@@ -578,6 +579,7 @@ pub fn report_spec_from_report(
             kind: dependency.kind.clone(),
             expression: dependency.expression.clone(),
             resolved_value: dependency.resolved_value.clone(),
+            source_hash: dependency.source_hash.clone(),
             status: dependency.status.clone(),
             line: dependency.line,
         })
@@ -990,6 +992,13 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             "        \"resolved_value\": \"{}\",\n",
             json_escape(&dependency.resolved_value)
         ));
+        match &dependency.source_hash {
+            Some(source_hash) => json.push_str(&format!(
+                "        \"source_hash\": \"{}\",\n",
+                json_escape(source_hash)
+            )),
+            None => json.push_str("        \"source_hash\": null,\n"),
+        }
         json.push_str(&format!(
             "        \"status\": \"{}\",\n",
             json_escape(&dependency.status)

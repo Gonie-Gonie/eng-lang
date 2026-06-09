@@ -7,9 +7,9 @@ agents. It separates public release versions from long-term development tracks.
 
 | Field | Value |
 |---|---|
-| Current public line | `v0.3-preview` |
-| Active target | `v0.4-preview` read-only I/O and multi-source data policy |
-| Workspace package version | `0.3.0-preview` |
+| Current public line | `v0.4-preview` |
+| Active target | `v0.5-preview` write/export hardening and output manifest |
+| Workspace package version | `0.4.0-preview` |
 | Release channel | `preview` |
 
 EngLang is preview software. The language, runtime behavior, and artifact
@@ -81,6 +81,10 @@ the current public preview workflow, but it is not yet a stable contract.
 - Typed path helper seed: `file`, `dir`, `join`, `parent`, `stem`,
   `extension`, and `exists` work for path-oriented workflow values. `exists`
   records review/result/report-spec `environment_dependencies` provenance.
+- Read-only UTF-8 `read text`, `read json`, and `read toml` expression forms
+  resolve source-relative paths at runtime, return raw text strings, and record
+  source path plus source hash provenance in review/result/report-spec
+  `environment_dependencies`.
 - Standalone package output with `.engpkg`, bytecode, lock, source/dependency
   copy, dependency hashes, Args help, and reviewable report artifacts.
 - Temperature spelling policy: `degC` remains the canonical ASCII spelling, and
@@ -109,8 +113,9 @@ the current public preview workflow, but it is not yet a stable contract.
 - Current planning and release docs now align around the integrated
   data-analysis plus system-simulation philosophy and the
   [side-effect policy](../reference/side_effect_policy.md). The implemented
-  side-effect scope is GP-1 path helpers and provenance-visible `exists`;
-  broader runtime I/O is not claimed.
+  side-effect scope is GP-1 path helpers plus GP-2 read-only UTF-8
+  text/json/toml reads with source hashes. Write/export hardening is the active
+  next target.
 
 ## Future Tracks On Main
 
@@ -148,8 +153,8 @@ See [development tracks](tracks.md) for the current scope and limitations.
 - Parenthesis-light syntax for arbitrary user-defined/general function calls
   and project-wide display unit policy blocks are deferred.
 - Broad file/process/network side-effect runtime support is deferred to the
-  general programming track. `v0.3-preview` implements the path helper and
-  `exists` provenance seed only.
+  general programming track. `v0.4-preview` implements path helpers, `exists`
+  provenance, and read-only UTF-8 text/json/toml source hash provenance only.
 - Class/domain objects are planned for reviewable engineering objects, but
   class declaration/object literal/runtime lowering is not part of the current
   public preview.

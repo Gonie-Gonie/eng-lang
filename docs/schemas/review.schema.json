@@ -99,12 +99,13 @@
     },
     "environmentDependency": {
       "type": "object",
-      "required": ["name", "kind", "expression", "resolved_value", "status", "line"],
+      "required": ["name", "kind", "expression", "resolved_value", "source_hash", "status", "line"],
       "properties": {
         "name": { "type": "string" },
         "kind": { "type": "string" },
         "expression": { "type": "string" },
         "resolved_value": { "type": "string" },
+        "source_hash": { "type": ["string", "null"] },
         "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }

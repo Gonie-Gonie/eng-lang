@@ -97,6 +97,28 @@ Before publishing `v0.3-preview`:
 [x] release-check passes
 ```
 
+Before publishing `v0.4-preview`:
+
+```text
+[x] workspace package version is updated to 0.4.0-preview
+[x] public package label is v0.4-preview
+[x] current status, maturity matrix, tracks, roadmap, README, and release workflow agree on the v0.4 scope
+[x] read text/json/toml expressions are type-checked as String
+[x] read text/json/toml resolve source-relative typed path values at runtime
+[x] review.json records read-only I/O environment_dependencies
+[x] result.engres records read-only I/O provenance.environment_dependencies
+[x] report_spec.json records read-only I/O provenance.environment_dependencies
+[x] artifact schemas include nullable source_hash fields
+[x] official/11_read_only_io mini example is present
+[x] docs explain raw UTF-8 read scope and structured JSON/TOML deferral
+[x] docs-check passes
+[x] artifacts-check passes
+[x] ide-check passes
+[x] lsp-check passes
+[x] package-smoke passes under a path with spaces and Korean characters
+[x] release-check passes
+```
+
 ## Local Verification
 
 Run:

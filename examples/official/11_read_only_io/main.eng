@@ -1,0 +1,33 @@
+args {
+    input: CsvFile = file("../01_csv_plot/data/sensor.csv")
+    notes: TextFile = file("data/notes.txt")
+    config_json: JsonFile = file("data/case.json")
+    config_toml: TomlFile = file("data/case.toml")
+}
+
+schema SensorData {
+    time: DateTime index
+    T_supply: AbsoluteTemperature [degC]
+    T_return: AbsoluteTemperature [degC]
+    m_dot: MassFlowRate [kg/s]
+}
+
+sensor = promote csv args.input as SensorData
+
+notes_text = read text args.notes
+json_text = read json args.config_json
+toml_text = read toml args.config_toml
+
+cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+mean_Q = mean Q_coil over Time
+
+print "Loaded {sensor.rows} rows from {args.input}"
+print "Notes: {notes_text}"
+print "JSON config: {json_text}"
+print "TOML config: {toml_text}"
+print "Q mean = {mean_Q: .2 kW}"
+
+export summary to csv "read_only_summary.csv" {
+    mean_Q as kW with ".2"
+}

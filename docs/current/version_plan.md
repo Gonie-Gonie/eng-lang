@@ -7,7 +7,7 @@ EngLang separates public release versions from long-term development tracks.
 The current public line is:
 
 ```text
-v0.3-preview
+v0.4-preview
 ```
 
 Existing high-numbered release names are not part of the current public line.
@@ -21,6 +21,7 @@ v0.1-preview  first public preview
 v0.2-preview  IDE/documentation hardening and integrated philosophy
 v0.3-preview  syntax/dataflow unification and path-policy seed
 v0.4-preview  read-only I/O and multi-source data policy
+v0.5-preview  write/export hardening and output manifest
 ...
 v1.0          stable core, only after the core behavior is ready
 ```
@@ -28,17 +29,17 @@ v1.0          stable core, only after the core behavior is ready
 ## Cargo Version
 
 Cargo requires SemVer-compatible package versions, so the workspace package
-version for `v0.3-preview` is:
+version for `v0.4-preview` is:
 
 ```text
-0.3.0-preview
+0.4.0-preview
 ```
 
 Release assets use the shorter public label:
 
 ```text
-englang-preview-v0.3-preview-windows-x64.zip
-englang-user-test-guide-v0.3-preview.pdf
+englang-preview-v0.4-preview-windows-x64.zip
+englang-user-test-guide-v0.4-preview.pdf
 ```
 
 ## Current Preview Goals
@@ -73,9 +74,14 @@ v0.3-preview
   - official path-policy mini example
 
 v0.4-preview
-  - read-only text/json/toml policy seed
-  - multi-source typed data path
+  - read-only UTF-8 text/json/toml policy seed
+  - multi-source data path using typed path args plus raw config/text reads
   - source hash provenance hardening
+
+v0.5-preview
+  - write text/json seed with explicit target policy
+  - summary CSV overwrite hardening
+  - output manifest for generated artifacts
 ```
 
 ## v1.0 Reservation

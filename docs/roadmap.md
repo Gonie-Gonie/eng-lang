@@ -20,6 +20,7 @@ v0.1-preview  first public preview
 v0.2-preview  IDE/documentation hardening and integrated philosophy
 v0.3-preview  syntax/dataflow unification and path-policy seed
 v0.4-preview  read-only I/O and multi-source data policy
+v0.5-preview  write/export hardening and output manifest
 ...
 v1.0          stable core
 ```
@@ -30,7 +31,7 @@ give feedback on the current preview scope.
 
 ## Current Public Line
 
-`v0.3-preview` packages the current user-test workflow:
+`v0.4-preview` packages the current user-test workflow:
 
 ```text
 - eng.exe doctor/check/run/build/view
@@ -41,6 +42,7 @@ give feedback on the current preview scope.
 - TimeSeries statistics and integration metadata
 - unit-aware print and explicit summary CSV export
 - typed path helpers and provenance-visible `exists`
+- read-only UTF-8 `read text/json/toml` with source hash provenance
 - PlotSpec/SVG output
 - review/report artifacts
 - basic packaged execution
@@ -86,14 +88,15 @@ policy source.
 
 ## Active Target
 
-`v0.4-preview` focuses on read-only I/O and multi-source data policy:
+`v0.5-preview` focuses on write/export hardening and output manifest:
 
 ```text
-- read text/json/toml policy seed
-- multi-source typed data path
-- source hash provenance hardening
+- write text/json seed with explicit output targets
+- summary CSV overwrite policy
+- output manifest for generated runtime artifacts
+- report/review metadata for generated outputs
 - clearer dataflow scope around typed Table/TimeSeries expressions
-- examples that connect measured data, computed metrics, and simulation outputs
+- examples that keep generated files reproducible and inspectable
 ```
 
 ## Development Tracks

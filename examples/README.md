@@ -54,6 +54,10 @@ official/09_command_where_with
 official/10_path_policy
   Typed path arguments, pure path helpers, runtime exists checks, and
   provenance-visible environment dependency metadata.
+
+official/11_read_only_io
+  Read-only text/json/toml inputs with source-hash provenance, combined with
+  typed CSV data in one workflow.
 ```
 
 ## Compatibility Regression Examples

@@ -226,12 +226,14 @@ Non-goals:
 
 ## T11 General Programming / Side Effects
 
-Implemented seed in `v0.3-preview`:
+Implemented seeds through `v0.4-preview`:
 
 ```text
 - file/dir path defaults
 - join/parent/stem/extension path helpers
 - exists checks recorded as environment dependency provenance
+- read text/json/toml UTF-8 raw string reads
+- source hash provenance for read-only inputs
 - review/result/report-spec environment_dependencies fields
 ```
 
@@ -248,10 +250,10 @@ Remaining design policy:
 Planned implementation order:
 
 ```text
-1. eng.path path types and helpers
-2. exists and environment dependency metadata
-3. read text/json/toml with source hashes
-4. write/export hardening and output manifest
+1. eng.path path types and helpers [implemented]
+2. exists and environment dependency metadata [implemented]
+3. read text/json/toml with source hashes [implemented]
+4. write/export hardening and output manifest [next]
 5. copy/move/delete with explicit confirmation
 6. log/warn/run-log artifacts
 7. run command and ProcessResult

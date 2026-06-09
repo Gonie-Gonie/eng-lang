@@ -255,6 +255,52 @@ The current preview resolves relative paths against the source file directory.
 For `examples/official/10_path_policy/main.eng`, the review/result/report-spec
 artifacts contain an `environment_dependencies` entry for `exists args.input`.
 
+## Read-Only I/O
+
+Use read-only I/O when a workflow needs small UTF-8 text/config companion files
+in addition to typed engineering data. The current preview returns raw strings;
+JSON and TOML are not yet parsed into structured EngLang objects.
+
+```eng partial
+args {
+    notes: TextFile = file("data/notes.txt")
+    config_json: JsonFile = file("data/case.json")
+    config_toml: TomlFile = file("data/case.toml")
+}
+
+notes_text = read text args.notes
+json_text = read json args.config_json
+toml_text = read toml args.config_toml
+
+print "notes = {notes_text}"
+print "json config = {json_text}"
+print "toml config = {toml_text}"
+```
+
+Parenthesized call forms are equivalent:
+
+```eng partial
+notes_text = read_text(args.notes)
+json_text = read_json(args.config_json)
+toml_text = read_toml(args.config_toml)
+```
+
+Read-only I/O rules:
+
+| Rule | Meaning |
+|---|---|
+| Paths resolve source-relative | `file("data/notes.txt")` is resolved beside the `.eng` file |
+| Files are read as UTF-8 | Binary reads are deferred |
+| Values are strings | `read json/toml` records source text, not structured values |
+| Source hashes are recorded | `review.json`, `result.engres`, and `report_spec.json` include provenance |
+| Hidden imported reads are rejected | Importable const/function files must not hide runtime I/O |
+
+The runnable example is:
+
+```text
+examples/official/11_read_only_io/main.eng
+```
+
 ## Schemas And CSV Promotion
 
 Schemas are the data boundary. They describe columns, quantity kinds, display
@@ -360,6 +406,7 @@ common supported shapes are:
 | Binding reference | `Q_coil` |
 | Args field | `args.input` |
 | Table row count | `sensor.rows` |
+| Read-only I/O | `read text args.notes` |
 | Arithmetic | `m_dot * cp * (T_return - T_supply)` |
 | Function call | `heat_loss(UA, dT)` |
 | Built-in call | `mean(Q_coil, axis=Time)` |

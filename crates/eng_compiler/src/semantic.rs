@@ -264,6 +264,7 @@ pub struct EnvironmentDependencyInfo {
     pub kind: String,
     pub expression: String,
     pub resolved_value: String,
+    pub source_hash: Option<String>,
     pub status: String,
     pub line: usize,
 }
@@ -3011,6 +3012,9 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
 
 fn path_helper_semantic_type(expression: &str) -> Option<SemanticType> {
     let expression = expression.trim();
+    if read_only_io_expression(expression).is_some() {
+        return semantic_type("String", "");
+    }
     if expression
         .strip_prefix("exists ")
         .is_some_and(|inner| !inner.trim().is_empty())
@@ -3031,6 +3035,38 @@ fn path_helper_semantic_type(expression: &str) -> Option<SemanticType> {
         return semantic_type("String", "");
     }
     None
+}
+
+pub fn read_only_io_expression(expression: &str) -> Option<(&'static str, &str)> {
+    let expression = expression.trim();
+    if let Some(path) = expression.strip_prefix("read text ") {
+        return Some(("text", path.trim()));
+    }
+    if let Some(path) = expression.strip_prefix("read json ") {
+        return Some(("json", path.trim()));
+    }
+    if let Some(path) = expression.strip_prefix("read toml ") {
+        return Some(("toml", path.trim()));
+    }
+    if let Some(path) = read_call_inner(expression, "read_text") {
+        return Some(("text", path.trim()));
+    }
+    if let Some(path) = read_call_inner(expression, "read_json") {
+        return Some(("json", path.trim()));
+    }
+    if let Some(path) = read_call_inner(expression, "read_toml") {
+        return Some(("toml", path.trim()));
+    }
+    None
+}
+
+fn read_call_inner<'a>(expression: &'a str, function_name: &str) -> Option<&'a str> {
+    let trimmed = expression.trim();
+    let prefix = format!("{function_name}(");
+    trimmed
+        .strip_prefix(&prefix)?
+        .strip_suffix(')')
+        .map(str::trim)
 }
 
 fn default_unit_for_quantity(quantity_kind: &str) -> String {
@@ -3121,6 +3157,12 @@ fn expression_has_side_effect(expression: &str) -> bool {
     let lowered = expression.to_ascii_lowercase();
     [
         "download(",
+        "read text ",
+        "read json ",
+        "read toml ",
+        "read_text(",
+        "read_json(",
+        "read_toml(",
         "read_csv(",
         "write_file(",
         "save(",

@@ -1,8 +1,8 @@
 # Side Effect And General Programming Policy
 
-Status: GP-1 path policy is implemented for `v0.3-preview`. Broader read/write,
-filesystem mutation, process, network, and test support remain planned tracks,
-not supported preview behavior.
+Status: GP-1 path policy and GP-2 read-only I/O are implemented for
+`v0.4-preview`. Broader write I/O, filesystem mutation, process, network, and
+test support remain planned tracks, not supported preview behavior.
 
 EngLang is not trying to become a fully general replacement for Python, MATLAB,
 or R. Real engineering workflows still need practical file, path, config,
@@ -22,7 +22,7 @@ what was read, and what external state influenced the result.
 |---|---|---|
 | Pure path manipulation | `join`, `parent`, `stem`, `extension` | Pure, allowed in args defaults and const when inputs are pure |
 | Environment-dependent read | `exists`, `env`, `today`, `now` | Allowed in normal profile, recorded in provenance |
-| Read-only I/O | `read text`, `read json`, `read toml` | Planned after path helpers; source hash should be recorded |
+| Read-only I/O | `read text`, `read json`, `read toml` | UTF-8 raw string reads; source hash is recorded |
 | Typed data boundary | `promote csv/json/toml as Schema` | Preferred for engineering data |
 | Write/export | `write text`, `write json`, `export summary to csv` | Explicit target required; overwrite defaults to false |
 | File operations | `copy`, `move`, `delete`, `mkdir`, `list` | Destructive operations require explicit confirmation/options |
@@ -60,14 +60,18 @@ input_exists = exists args.input
 print "input exists = {input_exists}"
 ```
 
-Implemented `v0.3-preview` behavior:
+Implemented behavior through `v0.4-preview`:
 
 ```text
 - file("...") and dir("...") are accepted in args defaults.
 - join(...), parent(...), stem(...), and extension(...) are typed pure path helpers.
 - exists path_expression is typed as Bool and resolved relative to the source file.
+- read text/json/toml path_expression is typed as String and resolved relative
+  to the source file.
 - review.json includes top-level environment_dependencies.
 - result.engres and report_spec.json include provenance.environment_dependencies.
+- read-only I/O dependencies record the resolved source path and source hash
+  when the source file is present.
 ```
 
 ## Read Policy
@@ -85,7 +89,9 @@ data = promote csv args.input as SensorData
 Rules:
 
 ```text
-- import-time read is forbidden for executable workflow effects
+- read text/json/toml returns UTF-8 raw text in the current preview
+- structured JSON/TOML values are deferred to typed promote/object support
+- imported const/function files may not hide read effects
 - source hashes are recorded when data affects runtime artifacts
 - typed promote remains the recommended data boundary for official examples
 ```
@@ -202,8 +208,8 @@ eng.net      download/cache/hash, later
 
 | Phase | Scope | Public Claim |
 |---|---|---|
-| GP-1 | path types/helpers, `exists`, side-effect docs | v0.3 target |
-| GP-2 | read text/json/toml, source hashes | v0.4 target |
+| GP-1 | path types/helpers, `exists`, side-effect docs | implemented in v0.3 |
+| GP-2 | read text/json/toml, source hashes | implemented in v0.4 |
 | GP-3 | write text/json, export hardening, output manifest | v0.5 target |
 | GP-4 | copy/move/delete and side-effect manifest | v0.6 target |
 | GP-5 | print/log/warn formatting and run log artifact | v0.7 target |
@@ -212,5 +218,6 @@ eng.net      download/cache/hash, later
 | GP-8 | test block/assert/golden support | v0.9 target |
 | GP-9 | IDE side-effect panels and output file navigation | grows across phases |
 
-The first implementation slice should be path helpers and review-visible
-environment dependency metadata, not broad filesystem mutation.
+The current implementation deliberately stops at path helpers, `exists`, and
+read-only source-hashed inputs. Broad filesystem mutation remains outside the
+public preview until the write/export manifest policy lands.

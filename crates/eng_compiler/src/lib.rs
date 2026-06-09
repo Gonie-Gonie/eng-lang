@@ -39,6 +39,7 @@ pub use ml::MlInfo;
 pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSummary};
 pub use quantities::{all_quantity_completions, normalize_unit, QuantityCompletion};
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
+pub use semantic::read_only_io_expression;
 pub use semantic::{
     ArgValueInfo, ArgsBlockInfo, ArgsFieldInfo, CommandClauseInfo, CommandStyleInfo, ComponentInfo,
     ConnectionInfo, ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo,
@@ -635,6 +636,7 @@ fn collect_environment_dependencies(
                 kind: environment_dependency_kind(default_value).to_owned(),
                 expression: default_value.clone(),
                 resolved_value,
+                source_hash: None,
                 status: "recorded".to_owned(),
                 line: field.line,
             });
@@ -656,6 +658,21 @@ fn collect_environment_dependencies(
                 kind: "filesystem_exists".to_owned(),
                 expression: binding.expression.clone(),
                 resolved_value: observation.value,
+                source_hash: None,
+                status: observation.status,
+                line: binding.line,
+            });
+            continue;
+        }
+        if let Some(observation) =
+            evaluate_read_expression(&binding.expression, source_base, &program.arg_values)
+        {
+            dependencies.push(EnvironmentDependencyInfo {
+                name: binding.name.clone(),
+                kind: format!("filesystem_read_{}", observation.kind),
+                expression: binding.expression.clone(),
+                resolved_value: observation.resolved_path,
+                source_hash: observation.source_hash,
                 status: observation.status,
                 line: binding.line,
             });
@@ -683,6 +700,14 @@ struct ExistsObservation {
     status: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ReadObservation {
+    kind: String,
+    resolved_path: String,
+    source_hash: Option<String>,
+    status: String,
+}
+
 fn evaluate_exists_expression(
     expression: &str,
     source_base: Option<&Path>,
@@ -701,6 +726,30 @@ fn evaluate_exists_expression(
         value: exists.to_string(),
         status: if exists { "exists" } else { "missing" }.to_owned(),
     })
+}
+
+fn evaluate_read_expression(
+    expression: &str,
+    source_base: Option<&Path>,
+    arg_values: &[ArgValueInfo],
+) -> Option<ReadObservation> {
+    let (kind, path_expression) = semantic::read_only_io_expression(expression)?;
+    let path_text = evaluate_path_expression(path_expression, arg_values)?;
+    let path = resolve_source_relative_path(&path_text, source_base);
+    match fs::read_to_string(&path) {
+        Ok(source) => Some(ReadObservation {
+            kind: kind.to_owned(),
+            resolved_path: path.display().to_string(),
+            source_hash: Some(hash_text(&source)),
+            status: "read".to_owned(),
+        }),
+        Err(_) => Some(ReadObservation {
+            kind: kind.to_owned(),
+            resolved_path: path.display().to_string(),
+            source_hash: None,
+            status: "missing".to_owned(),
+        }),
+    }
 }
 
 fn evaluate_path_expression(expression: &str, arg_values: &[ArgValueInfo]) -> Option<String> {
@@ -873,6 +922,12 @@ fn arg_default_has_side_effect(expression: &str) -> bool {
     let lowered = expression.to_ascii_lowercase();
     [
         "download(",
+        "read text ",
+        "read json ",
+        "read toml ",
+        "read_text(",
+        "read_json(",
+        "read_toml(",
         "read_csv(",
         "write_file(",
         "save(",
@@ -1468,6 +1523,13 @@ pub fn review_json(report: &CheckReport) -> String {
             "      \"resolved_value\": \"{}\",\n",
             json_escape(&dependency.resolved_value)
         ));
+        match &dependency.source_hash {
+            Some(source_hash) => json.push_str(&format!(
+                "      \"source_hash\": \"{}\",\n",
+                json_escape(source_hash)
+            )),
+            None => json.push_str("      \"source_hash\": null,\n"),
+        }
         json.push_str(&format!(
             "      \"status\": \"{}\",\n",
             json_escape(&dependency.status)
@@ -2963,6 +3025,54 @@ mod tests {
         assert!(review.contains("\"environment_dependencies\""));
         assert!(review.contains("\"filesystem_exists\""));
         assert!(review.contains("\"resolved_value\": \"true\""));
+    }
+
+    #[test]
+    fn read_only_io_typechecks_and_records_source_hash() {
+        let root = std::env::temp_dir().join("englang-read-only-io-test");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(root.join("data").join("notes.txt"), "calibrated run\n").expect("notes");
+        fs::write(
+            root.join("data").join("case.json"),
+            "{ \"case\": \"baseline\" }\n",
+        )
+        .expect("json");
+        fs::write(root.join("data").join("case.toml"), "case = \"baseline\"\n").expect("toml");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "args {\n    notes: TextFile = file(\"data/notes.txt\")\n    config_json: JsonFile = file(\"data/case.json\")\n    config_toml: TomlFile = file(\"data/case.toml\")\n}\n\nnotes_text = read text args.notes\njson_text = read json args.config_json\ntoml_text = read toml args.config_toml\n\nprint \"notes={notes_text} json={json_text} toml={toml_text}\"\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors());
+        let notes = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "notes_text")
+            .expect("notes binding");
+        assert_eq!(notes.semantic_type.quantity_kind, "String");
+        let reads = report
+            .semantic_program
+            .environment_dependencies
+            .iter()
+            .filter(|dependency| dependency.kind.starts_with("filesystem_read_"))
+            .collect::<Vec<_>>();
+        assert_eq!(reads.len(), 3);
+        assert!(reads.iter().all(|dependency| dependency.status == "read"));
+        assert!(reads
+            .iter()
+            .all(|dependency| dependency.source_hash.is_some()));
+
+        let review = review_json(&report);
+        assert!(review.contains("\"filesystem_read_text\""));
+        assert!(review.contains("\"filesystem_read_json\""));
+        assert!(review.contains("\"filesystem_read_toml\""));
+        assert!(review.contains("\"source_hash\""));
     }
 
     #[test]

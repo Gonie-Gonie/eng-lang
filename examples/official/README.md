@@ -55,6 +55,10 @@ paths before compatibility fixtures.
   Typed path arguments, pure path helpers (`join`, `parent`, `stem`,
   `extension`), runtime `exists` checks, and review/result/report-spec
   environment dependency provenance.
+
+11_read_only_io
+  Read-only text/json/toml inputs, source-hash provenance, and a multi-source
+  workflow that combines typed CSV data with auxiliary configuration files.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression
