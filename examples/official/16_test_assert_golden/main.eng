@@ -1,0 +1,16 @@
+Q = 10 kW
+E = 3.6 kWh
+
+export summary to csv "summary.csv" {
+    Q as kW with ".1"
+    E as kWh with ".1"
+}
+with {
+    overwrite = true
+}
+
+test "summary values" {
+    assert Q == 10 kW within 0.001 kW
+    assert E > 3 kWh
+    golden "summary.csv" matches file("golden/summary.csv")
+}

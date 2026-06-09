@@ -8,9 +8,9 @@ first-class parts of engineering code.
 
 ## Status
 
-Current public line: `v0.8-preview`
+Current public line: `v0.9-preview`
 
-Active target: `v0.9-preview` - test/assert/golden support
+Active target: `v1.0` - stable core hardening
 
 EngLang is preview software. The language, runtime behavior, and artifact
 formats are not yet stable.
@@ -38,6 +38,8 @@ Start from these short status documents:
 - `print` plus `log debug/info/warn/error` runtime messages with `run_log.json`
 - Explicit `run command` process execution with `ProcessResult` and
   `process_results.json`
+- Named `test` blocks with checked assertions, golden artifact comparisons, and
+  `test_results.json`
 - PlotSpec/SVG output
 - Review/report artifacts
 - Basic packaged execution
@@ -105,8 +107,8 @@ target\debug\eng.exe view build\result\result.engres
 ```
 
 `eng run` lowers through bytecode v1 and the native VM seed. By default,
-result, review, report, run-log, process-results, PlotSpec, SVG, output
-manifest, and bytecode payloads are runtime objects in memory. Add
+result, review, report, run-log, process-results, test-results, PlotSpec, SVG,
+output manifest, and bytecode payloads are runtime objects in memory. Add
 `--save-artifacts` when you want the file set:
 
 ```text
@@ -119,6 +121,7 @@ build/
     report_spec.json
     run_log.json
     process_results.json
+    test_results.json
     output_manifest.json
     plots/
       plot_spec.json
@@ -188,7 +191,7 @@ dist\main-standalone\run.bat
 popd
 ```
 
-`package` writes `dist\englang-preview-v0.8-preview-windows-x64.zip`, a
+`package` writes `dist\englang-preview-v0.9-preview-windows-x64.zip`, a
 matching `.sha256` file, and a curated PDF user guide. The portable package
 does not copy the full developer markdown documentation tree. `package-smoke`
 extracts that zip into a path with spaces and Korean characters, then runs the

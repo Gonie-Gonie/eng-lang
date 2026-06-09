@@ -5,9 +5,9 @@ It is intentionally short so agents do not need to load every planning file.
 
 ## Current Target
 
-- Current public line: `v0.8-preview`
-- Active target: `v0.9-preview` test/assert/golden support
-- Workspace package version: `0.8.0-preview`
+- Current public line: `v0.9-preview`
+- Active target: `v1.0` stable core hardening
+- Workspace package version: `0.9.0-preview`
 - EngLang is preview software. The language and artifact formats are not
   stable.
 - Public release versions describe packages. Long-term capabilities are tracked
@@ -41,6 +41,8 @@ The current public preview supports:
 - `print` plus `log debug/info/warn/error` runtime messages with `run_log.json`
 - explicit `run command` process execution with `ProcessResult` and
   `process_results.json`
+- named `test` blocks with checked assertions, golden artifact comparisons, and
+  `test_results.json`
 - PlotSpec/SVG output
 - review/report artifacts
 - basic packaged execution
@@ -57,7 +59,7 @@ documents explicitly promote a narrow preview scope.
 - No Python in the core checking, running, plotting, report, or packaged
   execution path. Python is allowed only for optional documentation tooling.
 - Official artifact flow:
-  `.eng -> typed semantic model -> .engbc -> native runtime/VM -> .engres -> PlotSpec -> SVG/HTML/report/review artifacts`.
+  `.eng -> typed semantic model -> .engbc -> native runtime/VM -> .engres -> PlotSpec -> SVG/HTML/report/review/test artifacts`.
 - Fast declaration uses `=`. `:=` is not EngLang syntax.
 - Physical systems use `system`; prediction/data-driven work should use
   model/estimator language and remain clearly separated from physical systems.

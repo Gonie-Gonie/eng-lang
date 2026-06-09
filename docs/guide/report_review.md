@@ -29,6 +29,7 @@ build/
     report_spec.json
     run_log.json
     process_results.json
+    test_results.json
     output_manifest.json
     plots/
       plot_spec.json
@@ -79,6 +80,7 @@ csv_exports
 writes
 file_operations
 process_runs
+tests
 diagnostics
 warning_list
 plot_manifest
@@ -103,6 +105,10 @@ or `error`.
 `run command`, including the binding name, command string, and source line.
 The compiler-owned review artifact records intent; runtime execution details
 live in `process_results.json`.
+
+`tests[]` records named test blocks, assertions, and golden checks. The
+compiler-owned review artifact records what should be checked; runtime pass/fail
+details live in `test_results.json`.
 
 ## `report_spec.json`
 
@@ -177,7 +183,7 @@ artifacts:
 
 Common `kind` values include `csv_export`, `write_text`, `write_json`,
 `copy_file`, `move_file`, `delete_file`, `plot_svg`, `report_html`, `result`,
-`run_log`, and `process_results`.
+`run_log`, `process_results`, and `test_results`.
 
 Use it when a tool needs to show exactly which files a run produced without
 guessing from the directory layout.
@@ -231,6 +237,39 @@ processes:
 This artifact is the reviewable boundary for external process effects. It is
 separate from `run_log.json`: logs are messages produced by the EngLang
 workflow, while process results record effects from external tools.
+
+## `test_results.json`
+
+`test_results.json` is the runtime artifact written by saved runs for named
+`test` blocks:
+
+```text
+format = eng-test-results-v1
+runtime_version
+source_path
+test_count
+failed_count
+tests:
+  name
+  status
+  line
+  assertions:
+    expression
+    status
+    message
+    line
+  goldens:
+    artifact
+    expected
+    status
+    message
+    line
+```
+
+Assertions compare runtime values using checked units. Golden checks compare a
+generated file under `build/result` against a source-relative expected file.
+This artifact is separate from `review.json`: review metadata says what should
+be checked, while test results say what happened in this run.
 
 ## System Summary and IR
 

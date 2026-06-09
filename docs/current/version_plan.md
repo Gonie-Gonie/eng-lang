@@ -7,7 +7,7 @@ EngLang separates public release versions from long-term development tracks.
 The current public line is:
 
 ```text
-v0.8-preview
+v0.9-preview
 ```
 
 Existing high-numbered release names are not part of the current public line.
@@ -33,17 +33,17 @@ v1.0          stable core, only after the core behavior is ready
 ## Cargo Version
 
 Cargo requires SemVer-compatible package versions, so the workspace package
-version for `v0.8-preview` is:
+version for `v0.9-preview` is:
 
 ```text
-0.8.0-preview
+0.9.0-preview
 ```
 
 Release assets use the shorter public label:
 
 ```text
-englang-preview-v0.8-preview-windows-x64.zip
-englang-user-test-guide-v0.8-preview.pdf
+englang-preview-v0.9-preview-windows-x64.zip
+englang-user-test-guide-v0.9-preview.pdf
 ```
 
 ## Current Preview Goals
@@ -106,6 +106,11 @@ v0.9-preview
   - test/assert/golden policy seed
   - preview project test runner metadata
   - golden artifact comparison workflow
+
+v1.0
+  - stable core hardening
+  - supported preview features either promoted, documented as preview, or deferred
+  - release docs, artifact schemas, examples, package smoke, and IDE smoke agree
 ```
 
 ## v1.0 Reservation

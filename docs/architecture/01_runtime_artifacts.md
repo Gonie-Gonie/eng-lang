@@ -15,6 +15,7 @@ build/
     report_spec.json
     run_log.json
     process_results.json
+    test_results.json
     output_manifest.json
     summary.csv          # only when source uses explicit CSV export
     plots/
@@ -31,7 +32,7 @@ Purpose:
 checked source -> bytecode v1 -> native VM seed
 ```
 
-Current v0.8 header:
+Current v0.9 header:
 
 ```text
 ENGBYTECODE 1
@@ -51,7 +52,7 @@ workflow_args = args:Args
 workflow_return = Report
 ```
 
-Current v0.8 sections:
+Current v0.9 sections:
 
 ```text
 objects:
@@ -161,6 +162,34 @@ declaration in `review.json`; the runtime writes exit status and captured
 stdout/stderr here. Non-zero exits fail by default unless the owner has
 `with { allow_failure = true }`.
 
+## `test_results.json`
+
+Purpose:
+
+```text
+runtime assertion and golden-comparison records for IDEs, CI, and review tooling
+```
+
+Current format:
+
+```text
+eng-test-results-v1
+runtime_version
+source_path
+test_count
+failed_count
+tests[].name
+tests[].status
+tests[].line
+tests[].assertions
+tests[].goldens
+```
+
+`test` blocks group `assert` statements and `golden` artifact comparisons.
+The compiler records the check intent in `review.json`; the runtime writes
+pass/fail status, rendered messages, and source lines here. Test failures make
+`eng run` fail after saved artifacts are available.
+
 ## `run_log.json`
 
 Purpose:
@@ -209,7 +238,8 @@ artifacts[].hash
 When `--save-artifacts` is used, this manifest lists result/report/PlotSpec/SVG
 files alongside explicit CSV exports, write outputs, file operation records,
 run-log records, and process-result records. The saved process artifact is
-listed as `process_results`.
+listed as `process_results`; the saved test artifact is listed as
+`test_results`.
 
 ## `.engres`
 
@@ -408,7 +438,7 @@ Purpose:
 machine-readable report/review contract for UI, LSP, packaging, and review tooling
 ```
 
-Current v0.8 format:
+Current v0.9 format:
 
 ```text
 eng-report-spec-v1
@@ -458,7 +488,7 @@ format = eng-plot-manifest-v1
 plot_count = 1
 ```
 
-The v0.8 system summary records report-facing equation metadata:
+The v0.9 system summary records report-facing equation metadata:
 
 ```text
 system name

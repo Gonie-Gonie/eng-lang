@@ -58,7 +58,7 @@ The compiler reads the source in order and builds:
 | Semantic model | Typed bindings, schemas, functions, diagnostics, review metadata |
 | Bytecode | Native runtime seed for the top-level workflow |
 | Runtime data | Tables, TimeSeries, integrations, statistics, outputs |
-| Report artifacts | `result.engres`, `review.json`, `report_spec.json`, `run_log.json`, `process_results.json`, PlotSpec, SVG, HTML |
+| Report artifacts | `result.engres`, `review.json`, `report_spec.json`, `run_log.json`, `process_results.json`, `test_results.json`, PlotSpec, SVG, HTML |
 
 Use these commands from the repository or portable package:
 
@@ -177,6 +177,7 @@ The current top-level declaration families are:
 | Write output | `write text "note.txt", note` | Explicit generated output |
 | File operation | `copy file("note.txt") to "outputs/note.txt"` | Explicit output-area file mutation |
 | Process run | `result = run command "cmd"` | Explicit external process capture as `ProcessResult` |
+| Test block | `test "summary" { assert Q > 0 kW }` | Runtime assertion and golden checks |
 | Report | `report { plot Q over Time }` | Review/report artifact requests |
 
 Rejected compatibility forms:
@@ -983,6 +984,63 @@ The runnable example is:
 examples/official/15_process_result/main.eng
 ```
 
+## Test Blocks, Assertions, And Golden Checks
+
+`test` blocks keep lightweight workflow verification next to the engineering
+calculation. They run after exports, writes, process results, and other runtime
+artifacts have been produced. Saved runs write `build/result/test_results.json`;
+failed tests make `eng run` fail after the result artifact is available for
+inspection.
+
+```eng partial
+test "summary values" {
+    assert mean_Q == 5.07 kW within 0.01 kW
+    assert E_coil > 1 kWh
+    golden "summary.csv" matches file("golden/summary.csv")
+}
+```
+
+Current assertion operators:
+
+```text
+==
+!=
+>
+>=
+<
+<=
+```
+
+`within` is allowed only for equality-style checks. The tolerance must be
+compatible with the asserted quantity:
+
+```eng partial
+assert Q_peak == 5.4 kW within 0.1 kW
+```
+
+Golden checks compare a generated artifact under `build/result` against a
+source-relative expected file:
+
+```eng partial
+golden "summary.csv" matches file("golden/summary.csv")
+```
+
+Rules:
+
+| Rule | Meaning |
+|---|---|
+| Top-level block | `test` belongs at top level |
+| Assertion scope | `assert` is valid only inside `test { ... }` |
+| Typed operands | Quantity comparisons require compatible dimensions |
+| Golden source | Expected files use `file("...")` and resolve source-relative |
+| Runtime records | Saved runs write `build/result/test_results.json` |
+
+The runnable example is:
+
+```text
+examples/official/16_test_assert_golden/main.eng
+```
+
 ## Report, Summarize, Show, Plot
 
 `report { ... }` asks for reviewable artifacts. The current report path can
@@ -1024,6 +1082,7 @@ build/result/plots/timeseries.svg
 build/result/report.html
 build/result/run_log.json
 build/result/process_results.json
+build/result/test_results.json
 build/result/output_manifest.json
 ```
 
@@ -1059,10 +1118,12 @@ with implementation exposes:
 syntax_summary.command_styles
 syntax_summary.where_blocks
 syntax_summary.with_blocks
+syntax_summary.tests
 command_styles[]
 where_blocks[]
 with_blocks[]
 process_runs[]
+tests[]
 ```
 
 `command_styles[]` records:
@@ -1086,6 +1147,9 @@ display units, and local status.
 command, and source line. Runtime execution details are written to
 `process_results.json` during `eng run`.
 
+`tests[]` records test block names, source lines, assertions, and golden checks.
+Runtime pass/fail details are written to `test_results.json` during `eng run`.
+
 This makes syntax policy reviewable without requiring runtime artifact
 generation.
 
@@ -1108,6 +1172,11 @@ generation.
 | `E-FS-DELETE-001` | Directory delete missing recursive option | Add `recursive = true` and `confirm = true` |
 | `E-PROCESS-BINDING-001` | `run command` has no binding | Write `result = run command "tool"` |
 | `E-PROCESS-CMD-001` | `run command` has no command string | Provide the command string and use `args` for arguments |
+| `E-TEST-001` | Invalid test block syntax | Use `test "name" { ... }` |
+| `E-ASSERT-001` | `assert` is outside a test block | Move it inside `test { ... }` |
+| `E-ASSERT-UNIT-001` | Assert operands use incompatible units | Compare compatible quantities |
+| `E-ASSERT-TOL-001` | Tolerance used with an unsupported operator | Use `within` with `==` or `!=` |
+| `E-GOLDEN-001` | Invalid golden check syntax | Use `golden "artifact" matches file("expected")` |
 | `W-QTY-AMBIG-001` | Unit maps to multiple quantity kinds | Add an explicit declaration |
 
 ## Common Recipes
@@ -1197,6 +1266,16 @@ with {
 log info "process result captured"
 ```
 
+### Check A Summary Artifact
+
+```eng partial
+test "summary artifact" {
+    assert mean_Q > 0 kW
+    assert E_coil == 1.26 kWh within 0.02 kWh
+    golden "summary.csv" matches file("golden/summary.csv")
+}
+```
+
 ### Imported Function
 
 ```eng partial
@@ -1221,6 +1300,7 @@ The current guide intentionally does not promise:
 | Broad table/TimeSeries CSV export | Deferred |
 | Broad filesystem mutation outside generated outputs | Deferred |
 | Stable process sandboxing | Explicit process records exist; sandbox policy is deferred |
+| Project-wide test discovery/runner | Local source-file test blocks exist; workspace discovery is deferred |
 | Full package/module system | File imports and metadata seeds only |
 | General nonlinear/multi-state solving | Deferred beyond preview system path |
 | Stable artifact schemas | Preview versioned artifacts only |
@@ -1242,8 +1322,9 @@ Before treating a file as a good EngLang example, check:
 11. Are durable outputs written with `export`, `plot`, and `report`?
 12. Are file operations explicit, confirmed where destructive, and kept inside the output boundary?
 13. Are external commands explicit `run command` statements with a bound `ProcessResult`?
-14. Does `eng.exe check --review` show useful metadata?
-15. Does `eng.exe run --save-artifacts` produce expected artifacts?
+14. Are assertions and golden checks grouped under named `test` blocks?
+15. Does `eng.exe check --review` show useful metadata?
+16. Does `eng.exe run --save-artifacts` produce expected artifacts?
 
 ## Official Example Walkthrough
 
@@ -1265,6 +1346,7 @@ It demonstrates:
 | `print ...` | Direct CLI/debug output |
 | `log ...` | Structured runtime message |
 | `export summary to csv` | Durable scalar CSV artifact |
+| `test ...` | Runtime assertions and golden artifact comparison |
 | `report { summarize ... plot ... with ... }` | Review/report/plot output |
 
 Run it:
@@ -1288,6 +1370,7 @@ build/result/summary.csv
 build/result/output_manifest.json
 build/result/run_log.json
 build/result/process_results.json
+build/result/test_results.json
 build/result/review.json
 build/result/report.html
 build/result/plots/plot_spec.json

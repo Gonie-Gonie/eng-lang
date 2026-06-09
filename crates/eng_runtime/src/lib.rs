@@ -46,6 +46,7 @@ pub struct RunOutput {
     pub output_manifest_path: PathBuf,
     pub run_log_path: PathBuf,
     pub process_results_path: PathBuf,
+    pub test_results_path: PathBuf,
     pub csv_export_paths: Vec<PathBuf>,
     pub write_output_paths: Vec<PathBuf>,
     pub file_operation_paths: Vec<PathBuf>,
@@ -62,6 +63,7 @@ pub struct RunOutput {
     pub output_manifest_json: String,
     pub run_log_json: String,
     pub process_results_json: String,
+    pub test_results_json: String,
 }
 
 #[derive(Clone, Debug)]
@@ -100,6 +102,7 @@ pub enum RuntimeError {
     Compile(Box<CheckReport>),
     Bytecode(eng_compiler::BytecodeParseError),
     Vm(vm::VmError),
+    TestsFailed(String),
 }
 
 impl fmt::Display for RuntimeError {
@@ -113,6 +116,7 @@ impl fmt::Display for RuntimeError {
             ),
             Self::Bytecode(error) => write!(formatter, "bytecode decode failed: {error}"),
             Self::Vm(error) => write!(formatter, "VM execution failed: {error}"),
+            Self::TestsFailed(message) => write!(formatter, "{message}"),
         }
     }
 }
@@ -203,6 +207,7 @@ pub fn run_file(
     let output_manifest_path = result_dir.join("output_manifest.json");
     let run_log_path = result_dir.join("run_log.json");
     let process_results_path = result_dir.join("process_results.json");
+    let test_results_path = result_dir.join("test_results.json");
     let report_spec_path = result_dir.join("report_spec.json");
     let report_path = result_dir.join("report.html");
 
@@ -219,6 +224,8 @@ pub fn run_file(
     let csv_export_artifacts = write_csv_exports(&check_report, &runtime_data, &result_dir)?;
     let write_artifacts = write_outputs(&check_report, &runtime_data, &result_dir)?;
     let file_operation_artifacts = apply_file_operations(&check_report, &result_dir)?;
+    let test_results = execute_tests(&check_report, &runtime_data, &result_dir)?;
+    let test_results_json = test_results_json(&check_report, &test_results);
     let csv_export_paths = csv_export_artifacts
         .iter()
         .map(|artifact| artifact.absolute_path.clone())
@@ -304,6 +311,13 @@ pub fn run_file(
             &process_results_json,
             process_results_path.clone(),
         ));
+        fs::write(&test_results_path, &test_results_json)?;
+        output_artifacts.push(output_artifact(
+            "test_results",
+            "test_results.json".to_owned(),
+            &test_results_json,
+            test_results_path.clone(),
+        ));
         fs::write(&plot_spec_path, &plot_spec_json)?;
         output_artifacts.push(output_artifact(
             "plot_spec",
@@ -357,6 +371,19 @@ pub fn run_file(
         open_path(&report_path);
     }
 
+    if test_results
+        .iter()
+        .any(|test| test.status.as_str() == "failed")
+    {
+        let failed_count = test_results
+            .iter()
+            .filter(|test| test.status.as_str() == "failed")
+            .count();
+        return Err(RuntimeError::TestsFailed(format!(
+            "{failed_count} test block(s) failed; inspect test_results.json"
+        )));
+    }
+
     Ok(RunOutput {
         bytecode_path,
         result_path,
@@ -369,6 +396,7 @@ pub fn run_file(
         output_manifest_path,
         run_log_path,
         process_results_path,
+        test_results_path,
         csv_export_paths,
         write_output_paths,
         file_operation_paths,
@@ -385,6 +413,7 @@ pub fn run_file(
         output_manifest_json,
         run_log_json,
         process_results_json,
+        test_results_json,
     })
 }
 
@@ -923,6 +952,406 @@ fn process_results_json(report: &CheckReport, records: &[ProcessExecutionRecord]
     json
 }
 
+#[derive(Clone, Debug)]
+struct TestExecutionRecord {
+    name: String,
+    status: String,
+    assertion_records: Vec<AssertionExecutionRecord>,
+    golden_records: Vec<GoldenExecutionRecord>,
+    line: usize,
+}
+
+#[derive(Clone, Debug)]
+struct AssertionExecutionRecord {
+    left: String,
+    operator: String,
+    right: String,
+    tolerance: Option<String>,
+    left_value: String,
+    right_value: String,
+    tolerance_value: Option<String>,
+    success: bool,
+    status: String,
+    message: String,
+    line: usize,
+}
+
+#[derive(Clone, Debug)]
+struct GoldenExecutionRecord {
+    artifact: String,
+    expected: String,
+    artifact_hash: Option<String>,
+    expected_hash: Option<String>,
+    success: bool,
+    status: String,
+    message: String,
+    line: usize,
+}
+
+fn execute_tests(
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+    result_dir: &Path,
+) -> Result<Vec<TestExecutionRecord>, RuntimeError> {
+    let mut records = Vec::new();
+    for test in &report.semantic_program.tests {
+        let assertion_records = test
+            .assertions
+            .iter()
+            .map(|assertion| execute_assertion(assertion, report, runtime_data))
+            .collect::<Vec<_>>();
+        let golden_records = test
+            .goldens
+            .iter()
+            .map(|golden| execute_golden(golden, report, result_dir))
+            .collect::<Result<Vec<_>, _>>()?;
+        let status = if assertion_records.iter().all(|assertion| assertion.success)
+            && golden_records.iter().all(|golden| golden.success)
+        {
+            "passed"
+        } else {
+            "failed"
+        };
+        records.push(TestExecutionRecord {
+            name: test.name.clone(),
+            status: status.to_owned(),
+            assertion_records,
+            golden_records,
+            line: test.line,
+        });
+    }
+    Ok(records)
+}
+
+fn execute_assertion(
+    assertion: &eng_compiler::AssertInfo,
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+) -> AssertionExecutionRecord {
+    let left = evaluate_runtime_expression(&assertion.left, report, runtime_data);
+    let right = evaluate_runtime_expression(&assertion.right, report, runtime_data);
+    let tolerance = assertion
+        .tolerance
+        .as_deref()
+        .and_then(|expression| evaluate_runtime_expression(expression, report, runtime_data));
+    let (success, status, message) = match (&left, &right) {
+        (Some(RuntimeFormatValue::Number { .. }), Some(RuntimeFormatValue::Number { .. })) => {
+            compare_numeric_assertion(
+                assertion.operator.as_str(),
+                left.as_ref().unwrap(),
+                right.as_ref().unwrap(),
+                tolerance.as_ref(),
+            )
+        }
+        (Some(left), Some(right)) => compare_text_assertion(
+            assertion.operator.as_str(),
+            &format_runtime_value(left.clone(), None, None, false),
+            &format_runtime_value(right.clone(), None, None, false),
+        ),
+        (None, _) => (
+            false,
+            "unresolved".to_owned(),
+            format!(
+                "left expression `{}` could not be evaluated",
+                assertion.left
+            ),
+        ),
+        (_, None) => (
+            false,
+            "unresolved".to_owned(),
+            format!(
+                "right expression `{}` could not be evaluated",
+                assertion.right
+            ),
+        ),
+    };
+    AssertionExecutionRecord {
+        left: assertion.left.clone(),
+        operator: assertion.operator.clone(),
+        right: assertion.right.clone(),
+        tolerance: assertion.tolerance.clone(),
+        left_value: left
+            .map(|value| format_runtime_value(value, None, None, true))
+            .unwrap_or_default(),
+        right_value: right
+            .map(|value| format_runtime_value(value, None, None, true))
+            .unwrap_or_default(),
+        tolerance_value: tolerance.map(|value| format_runtime_value(value, None, None, true)),
+        success,
+        status,
+        message,
+        line: assertion.line,
+    }
+}
+
+fn compare_numeric_assertion(
+    operator: &str,
+    left: &RuntimeFormatValue,
+    right: &RuntimeFormatValue,
+    tolerance: Option<&RuntimeFormatValue>,
+) -> (bool, String, String) {
+    let RuntimeFormatValue::Number {
+        value: left_value,
+        quantity_kind,
+        unit: left_unit,
+    } = left
+    else {
+        unreachable!();
+    };
+    let RuntimeFormatValue::Number {
+        value: right_value,
+        unit: right_unit,
+        ..
+    } = right
+    else {
+        unreachable!();
+    };
+    let right_value = convert_between_units(*right_value, right_unit, left_unit, quantity_kind)
+        .unwrap_or(*right_value);
+    let tolerance_value = match tolerance {
+        Some(RuntimeFormatValue::Number {
+            value,
+            unit: tolerance_unit,
+            ..
+        }) => convert_between_units(*value, tolerance_unit, left_unit, quantity_kind)
+            .unwrap_or(*value),
+        _ => 1e-9,
+    };
+    let difference = (*left_value - right_value).abs();
+    let success = match operator {
+        "==" => difference <= tolerance_value,
+        "!=" => difference > tolerance_value,
+        ">" => *left_value > right_value,
+        ">=" => *left_value >= right_value,
+        "<" => *left_value < right_value,
+        "<=" => *left_value <= right_value,
+        _ => false,
+    };
+    let status = if success { "passed" } else { "failed" }.to_owned();
+    let message = if success {
+        "assertion passed".to_owned()
+    } else {
+        format!(
+            "numeric assertion failed: left={}, right={}, tolerance={}",
+            left_value, right_value, tolerance_value
+        )
+    };
+    (success, status, message)
+}
+
+fn compare_text_assertion(operator: &str, left: &str, right: &str) -> (bool, String, String) {
+    let success = match operator {
+        "==" => left == right,
+        "!=" => left != right,
+        _ => false,
+    };
+    let status = if success { "passed" } else { "failed" }.to_owned();
+    let message = if success {
+        "assertion passed".to_owned()
+    } else if matches!(operator, "==" | "!=") {
+        format!("text assertion failed: left=`{left}`, right=`{right}`")
+    } else {
+        "text assertions support only == and !=".to_owned()
+    };
+    (success, status, message)
+}
+
+fn execute_golden(
+    golden: &eng_compiler::GoldenInfo,
+    report: &CheckReport,
+    result_dir: &Path,
+) -> Result<GoldenExecutionRecord, RuntimeError> {
+    let artifact_path = export_output_path(result_dir, &golden.artifact)
+        .ok_or_else(|| invalid_input(&format!("invalid golden artifact `{}`", golden.artifact)))?;
+    let expected_text = evaluate_runtime_path_expression(&golden.expected, report)
+        .ok_or_else(|| invalid_input(&format!("invalid golden expected `{}`", golden.expected)))?;
+    let expected_path =
+        runtime_resolve_source_relative_path(&expected_text, report.source_path.parent());
+    let artifact = fs::read_to_string(&artifact_path);
+    let expected = fs::read_to_string(&expected_path);
+    let (success, status, message, artifact_hash, expected_hash) = match (artifact, expected) {
+        (Ok(artifact), Ok(expected)) => {
+            let artifact_hash = hash_text(&artifact);
+            let expected_hash = hash_text(&expected);
+            if normalize_golden_text(&artifact) == normalize_golden_text(&expected) {
+                (
+                    true,
+                    "passed".to_owned(),
+                    "golden matched".to_owned(),
+                    Some(artifact_hash),
+                    Some(expected_hash),
+                )
+            } else {
+                (
+                    false,
+                    "failed".to_owned(),
+                    "golden contents differ".to_owned(),
+                    Some(artifact_hash),
+                    Some(expected_hash),
+                )
+            }
+        }
+        (Err(error), _) => (
+            false,
+            "missing_artifact".to_owned(),
+            format!("artifact could not be read: {error}"),
+            None,
+            None,
+        ),
+        (_, Err(error)) => (
+            false,
+            "missing_expected".to_owned(),
+            format!("expected file could not be read: {error}"),
+            None,
+            None,
+        ),
+    };
+    Ok(GoldenExecutionRecord {
+        artifact: relative_output_path(result_dir, &artifact_path),
+        expected: path_for_manifest(&expected_path),
+        artifact_hash,
+        expected_hash,
+        success,
+        status,
+        message,
+        line: golden.line,
+    })
+}
+
+fn normalize_golden_text(value: &str) -> String {
+    value.replace("\r\n", "\n")
+}
+
+fn test_results_json(report: &CheckReport, records: &[TestExecutionRecord]) -> String {
+    let mut json = String::new();
+    json.push_str("{\n");
+    json.push_str("  \"format\": \"eng-test-results-v1\",\n");
+    json.push_str(&format!(
+        "  \"runtime_version\": \"{}\",\n",
+        json_escape(RUNTIME_VERSION)
+    ));
+    json.push_str(&format!(
+        "  \"source_path\": \"{}\",\n",
+        json_escape(&report.source_path.display().to_string())
+    ));
+    json.push_str(&format!("  \"test_count\": {},\n", records.len()));
+    let failed_count = records
+        .iter()
+        .filter(|record| record.status == "failed")
+        .count();
+    json.push_str(&format!("  \"failed_count\": {},\n", failed_count));
+    json.push_str("  \"tests\": [\n");
+    for (index, record) in records.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&record.name)
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&record.status)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", record.line));
+        json.push_str("      \"assertions\": [\n");
+        for (assertion_index, assertion) in record.assertion_records.iter().enumerate() {
+            if assertion_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"left\": \"{}\",\n",
+                json_escape(&assertion.left)
+            ));
+            json.push_str(&format!(
+                "          \"operator\": \"{}\",\n",
+                json_escape(&assertion.operator)
+            ));
+            json.push_str(&format!(
+                "          \"right\": \"{}\",\n",
+                json_escape(&assertion.right)
+            ));
+            push_optional_json_string_runtime(
+                &mut json,
+                "tolerance",
+                assertion.tolerance.as_deref(),
+                10,
+            );
+            json.push_str(&format!(
+                "          \"left_value\": \"{}\",\n",
+                json_escape(&assertion.left_value)
+            ));
+            json.push_str(&format!(
+                "          \"right_value\": \"{}\",\n",
+                json_escape(&assertion.right_value)
+            ));
+            push_optional_json_string_runtime(
+                &mut json,
+                "tolerance_value",
+                assertion.tolerance_value.as_deref(),
+                10,
+            );
+            json.push_str(&format!("          \"success\": {},\n", assertion.success));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&assertion.status)
+            ));
+            json.push_str(&format!(
+                "          \"message\": \"{}\",\n",
+                json_escape(&assertion.message)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", assertion.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"goldens\": [\n");
+        for (golden_index, golden) in record.golden_records.iter().enumerate() {
+            if golden_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"artifact\": \"{}\",\n",
+                json_escape(&golden.artifact)
+            ));
+            json.push_str(&format!(
+                "          \"expected\": \"{}\",\n",
+                json_escape(&golden.expected)
+            ));
+            push_optional_json_string_runtime(
+                &mut json,
+                "artifact_hash",
+                golden.artifact_hash.as_deref(),
+                10,
+            );
+            push_optional_json_string_runtime(
+                &mut json,
+                "expected_hash",
+                golden.expected_hash.as_deref(),
+                10,
+            );
+            json.push_str(&format!("          \"success\": {},\n", golden.success));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&golden.status)
+            ));
+            json.push_str(&format!(
+                "          \"message\": \"{}\",\n",
+                json_escape(&golden.message)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", golden.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ]\n");
+    json.push_str("}\n");
+    json
+}
+
 fn process_args_for_owner(
     report: &CheckReport,
     owner_line: usize,
@@ -1011,6 +1440,19 @@ fn push_json_string_array_runtime(json: &mut String, values: &[String]) {
         json.push_str(&format!("\"{}\"", json_escape(value)));
     }
     json.push(']');
+}
+
+fn push_optional_json_string_runtime(
+    json: &mut String,
+    key: &str,
+    value: Option<&str>,
+    indent: usize,
+) {
+    let spaces = " ".repeat(indent);
+    match value {
+        Some(value) => json.push_str(&format!("{spaces}\"{key}\": \"{}\",\n", json_escape(value))),
+        None => json.push_str(&format!("{spaces}\"{key}\": null,\n")),
+    }
 }
 
 fn render_print_template(
@@ -1495,6 +1937,26 @@ fn evaluate_runtime_expression(
         return Some(RuntimeFormatValue::Text(strip_runtime_string_value(
             expression,
         )));
+    }
+    if matches!(expression, "true" | "false") {
+        return Some(RuntimeFormatValue::Text(expression.to_owned()));
+    }
+    if let Some((value, unit)) = number_with_optional_unit(expression) {
+        let unit = unit.unwrap_or_default();
+        let quantity_kind = unit_info(&unit)
+            .map(|info| {
+                if info.quantity_hint == "Power" {
+                    "HeatRate".to_owned()
+                } else {
+                    info.quantity_hint.to_owned()
+                }
+            })
+            .unwrap_or_else(|| "DimensionlessNumber".to_owned());
+        return Some(RuntimeFormatValue::Number {
+            value,
+            quantity_kind,
+            unit,
+        });
     }
     if let Some(arg_name) = expression.strip_prefix("args.") {
         return report
@@ -3512,6 +3974,54 @@ mod tests {
             .contains("\"kind\": \"write_text\""));
         assert!(output.output_manifest_path.exists());
         assert_eq!(second_output.csv_export_paths.len(), 1);
+    }
+
+    #[test]
+    fn run_file_executes_test_assert_and_golden_checks() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-test-assert-golden");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-test-assert-golden-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("golden")).expect("golden dir");
+        fs::write(
+            source_dir.join("golden").join("summary.csv"),
+            "Q [kW]\n10.0\n",
+        )
+        .expect("write golden");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "Q = 10 kW\n\nexport summary to csv \"summary.csv\" {\n    Q as kW with \".1\"\n}\nwith {\n    overwrite = true\n}\n\ntest \"summary values\" {\n    assert Q == 10 kW within 0.001 kW\n    assert Q > 5 kW\n    golden \"summary.csv\" matches file(\"golden/summary.csv\")\n}\n",
+        )
+        .expect("write source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                open_report: false,
+                save_artifacts: true,
+                args: Vec::new(),
+            },
+        )
+        .expect("run file");
+
+        assert!(output.review_json.contains("\"tests\""));
+        assert!(output
+            .test_results_json
+            .contains("\"format\": \"eng-test-results-v1\""));
+        assert!(output.test_results_json.contains("\"status\": \"passed\""));
+        assert!(output.test_results_json.contains("\"goldens\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"test_results\""));
+        assert!(output.test_results_path.exists());
     }
 
     #[test]

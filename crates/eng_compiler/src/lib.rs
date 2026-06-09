@@ -22,12 +22,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub use ast::{
-    ArgsDecl, ArgsFieldDecl, AstItem, CommandClauseDecl, CommandStyleDecl, ComponentDecl,
-    ConnectDecl, ConservationDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl,
-    DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl,
-    FunctionParamDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl,
-    StructDecl, SystemDecl, SystemVariableDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl,
-    WithOptionDecl, WriteDecl,
+    ArgsDecl, ArgsFieldDecl, AssertDecl, AstItem, CommandClauseDecl, CommandStyleDecl,
+    ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl,
+    DomainDecl, DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FileOperationDecl,
+    FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl,
+    SchemaDecl, ScriptDecl, StructDecl, SystemDecl, SystemVariableDecl, TestDecl, WhereBindingDecl,
+    WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -42,14 +42,14 @@ pub use quantities::{all_quantity_completions, normalize_unit, QuantityCompletio
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
 pub use semantic::read_only_io_expression;
 pub use semantic::{
-    ArgValueInfo, ArgsBlockInfo, ArgsFieldInfo, CommandClauseInfo, CommandStyleInfo, ComponentInfo,
-    ConnectionInfo, ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo,
-    DomainTypeParameterInfo, DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo,
-    EquationInfo, EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo,
-    FunctionLocalInfo, FunctionParamInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo,
-    PrintInfo, ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo,
-    SystemVariableInfo, TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo, WhereBlockInfo,
-    WithBlockInfo, WithOptionInfo, WriteInfo,
+    ArgValueInfo, ArgsBlockInfo, ArgsFieldInfo, AssertInfo, CommandClauseInfo, CommandStyleInfo,
+    ComponentInfo, ConnectionInfo, ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo,
+    DomainInfo, DomainTypeParameterInfo, DomainVariableInfo, EnvironmentDependencyInfo,
+    EquationDependencyInfo, EquationInfo, EquationIrInfo, FileOperationInfo, FormatExpressionInfo,
+    FunctionInfo, FunctionLocalInfo, FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo,
+    OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo, SemanticProgram, SemanticType,
+    SolverPlanInfo, SystemInfo, SystemVariableInfo, TestInfo, TimeSeriesKernelInfo, TypedBinding,
+    WhereBindingInfo, WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -1136,9 +1136,10 @@ pub fn review_json(report: &CheckReport) -> String {
         report.syntax_summary.where_blocks
     ));
     json.push_str(&format!(
-        "    \"with_blocks\": {}\n",
+        "    \"with_blocks\": {},\n",
         report.syntax_summary.with_blocks
     ));
+    json.push_str(&format!("    \"tests\": {}\n", report.syntax_summary.tests));
     json.push_str("  },\n");
     json.push_str(&format!(
         "  \"quantity_completion_count\": {},\n",
@@ -2014,6 +2015,61 @@ pub fn review_json(report: &CheckReport) -> String {
             json_escape(&process.command)
         ));
         json.push_str(&format!("      \"line\": {}\n", process.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"tests\": [\n");
+    for (index, test) in report.semantic_program.tests.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&test.name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", test.line));
+        json.push_str("      \"assertions\": [\n");
+        for (assert_index, assertion) in test.assertions.iter().enumerate() {
+            if assert_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"left\": \"{}\",\n",
+                json_escape(&assertion.left)
+            ));
+            json.push_str(&format!(
+                "          \"operator\": \"{}\",\n",
+                json_escape(&assertion.operator)
+            ));
+            json.push_str(&format!(
+                "          \"right\": \"{}\",\n",
+                json_escape(&assertion.right)
+            ));
+            push_optional_json_string(&mut json, "tolerance", assertion.tolerance.as_deref(), 10);
+            json.push_str(&format!("          \"line\": {}\n", assertion.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"goldens\": [\n");
+        for (golden_index, golden) in test.goldens.iter().enumerate() {
+            if golden_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"artifact\": \"{}\",\n",
+                json_escape(&golden.artifact)
+            ));
+            json.push_str(&format!(
+                "          \"expected\": \"{}\",\n",
+                json_escape(&golden.expected)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", golden.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -3605,6 +3661,51 @@ mod tests {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-PROCESS-CMD-001" && diagnostic.line == 3));
+    }
+
+    #[test]
+    fn records_test_assert_and_golden_metadata() {
+        let report = check_source(
+            "test.eng",
+            "Q = 10 kW\nexport summary to csv \"summary.csv\" {\n    Q as kW with \".1\"\n}\n\ntest \"summary values\" {\n    assert Q == 10 kW within 0.01 kW\n    golden \"summary.csv\" matches file(\"golden/summary.csv\")\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(report.syntax_summary.tests, 1);
+        assert_eq!(report.semantic_program.tests.len(), 1);
+        assert_eq!(report.semantic_program.tests[0].name, "summary values");
+        assert_eq!(report.semantic_program.tests[0].assertions.len(), 1);
+        assert_eq!(report.semantic_program.tests[0].goldens.len(), 1);
+        let review = review_json(&report);
+        assert!(review.contains("\"tests\""));
+        assert!(review.contains("\"goldens\""));
+    }
+
+    #[test]
+    fn rejects_invalid_test_assertions() {
+        let report = check_source(
+            "bad_test.eng",
+            "assert Q == 1 kW\n\ntest \"bad\" {\n    assert Q\n    assert 1 m == 1 kW\n    golden \"summary.csv\"\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| { diagnostic.code == "E-ASSERT-001" && diagnostic.line == 1 }));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-ASSERT-002" && diagnostic.line == 4));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-ASSERT-UNIT-001" && diagnostic.line == 5));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-GOLDEN-002" && diagnostic.line == 6));
     }
 
     #[test]

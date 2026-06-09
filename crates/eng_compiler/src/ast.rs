@@ -249,6 +249,34 @@ pub struct ProcessRunDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TestDecl {
+    pub name: String,
+    pub line: usize,
+    pub span: SourceSpan,
+    pub context: ParseContext,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AssertDecl {
+    pub left: String,
+    pub operator: String,
+    pub right: String,
+    pub tolerance: Option<String>,
+    pub line: usize,
+    pub span: SourceSpan,
+    pub context: ParseContext,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GoldenDecl {
+    pub artifact: String,
+    pub expected: String,
+    pub line: usize,
+    pub span: SourceSpan,
+    pub context: ParseContext,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandClauseDecl {
     pub name: String,
     pub value: String,
@@ -341,6 +369,9 @@ pub enum AstItem {
     Write(WriteDecl),
     FileOperation(FileOperationDecl),
     ProcessRun(ProcessRunDecl),
+    Test(TestDecl),
+    Assert(AssertDecl),
+    Golden(GoldenDecl),
     CommandStyle(CommandStyleDecl),
     WhereBlock(WhereBlockDecl),
     WhereBinding(WhereBindingDecl),

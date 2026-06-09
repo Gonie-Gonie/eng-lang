@@ -1,13 +1,15 @@
 # `eng run` Reference
 
 `eng run` executes one file's top-level workflow through bytecode and the native VM seed.
-By default it keeps result, review, report, run-log, process-results, PlotSpec,
-SVG, output manifest, and bytecode payloads as runtime objects and does not
-write ordinary artifacts.
+By default it keeps result, review, report, run-log, process-results,
+test-results, PlotSpec, SVG, output manifest, and bytecode payloads as runtime
+objects and does not write ordinary artifacts.
 Explicit `export ... to csv`, `write text/json`, and constrained
 `copy/move/delete` statements are user-requested artifacts and write or mutate
 under `build\result`. Explicit `run command` statements always execute during
-the run and are captured in the process-results payload.
+the run and are captured in the process-results payload. Named `test` blocks run
+after generated artifacts are available and are captured in the test-results
+payload.
 
 ## Basic Run
 
@@ -25,6 +27,7 @@ review:   5678 bytes
 reportspec: 2345 bytes
 runlog:   456 bytes
 process:  321 bytes
+tests:    234 bytes
 plot:     3456 bytes
 plotspec: 4567 bytes
 plotmanifest: 678 bytes
@@ -72,6 +75,7 @@ build/
     report_spec.json
     run_log.json
     process_results.json
+    test_results.json
     output_manifest.json
     plots/
       plot_spec.json
@@ -215,6 +219,50 @@ processes[]
 Non-zero exits fail the run by default. Add `with { allow_failure = true }`
 only when a failed process is expected data that should be reviewed rather than
 treated as a runtime error.
+
+## Test Results
+
+`test` blocks run assertions and golden artifact comparisons during `eng run`.
+
+```eng partial
+test "summary values" {
+    assert mean_Q > 0 kW
+    assert E_coil == 1.26 kWh within 0.02 kWh
+    golden "summary.csv" matches file("golden/summary.csv")
+}
+```
+
+The CLI reports the saved test artifact:
+
+```text
+tests:    build\result\test_results.json
+```
+
+Saved runs write:
+
+```text
+build\result\test_results.json
+```
+
+The artifact records:
+
+```text
+format = eng-test-results-v1
+runtime_version
+source_path
+test_count
+failed_count
+tests[]
+  name
+  status
+  line
+  assertions[]
+  goldens[]
+```
+
+If any test block fails, `eng run` returns a runtime error after the artifact
+has been written, so CI and IDEs can inspect the failing assertion or golden
+comparison.
 
 ## Structured Run Log
 
@@ -361,6 +409,7 @@ type build\result\review.json
 type build\result\report_spec.json
 type build\result\run_log.json
 type build\result\process_results.json
+type build\result\test_results.json
 type build\result\output_manifest.json
 type build\result\plots\plot_manifest.json
 target\debug\eng.exe view build\result\result.engres
@@ -396,6 +445,7 @@ review.json
   schema_summary
   file_operations
   process_runs
+  tests
   warning_list
 
 report_spec.json

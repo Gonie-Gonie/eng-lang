@@ -1,11 +1,11 @@
 use crate::ast::{
-    ArgsDecl, ArgsFieldDecl, AstItem, CommandClauseDecl, CommandStyleDecl, ComponentDecl,
-    ConnectDecl, ConservationDecl, ConstDecl, ConstraintDecl, CsvExportDecl, CsvExportFieldDecl,
-    DomainDecl, DomainTypeParameterDecl, DomainVariableDecl, EquationDecl, ExplicitDecl,
-    FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, ImportDecl, MissingPolicyDecl,
-    PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl,
-    SummaryDecl, SystemDecl, SystemVariableDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl,
-    WithOptionDecl, WriteDecl,
+    ArgsDecl, ArgsFieldDecl, AssertDecl, AstItem, CommandClauseDecl, CommandStyleDecl,
+    ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl, ConstraintDecl, CsvExportDecl,
+    CsvExportFieldDecl, DomainDecl, DomainTypeParameterDecl, DomainVariableDecl, EquationDecl,
+    ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl,
+    ImportDecl, MissingPolicyDecl, PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl, SchemaDecl,
+    ScriptDecl, StructDecl, SummaryDecl, SystemDecl, SystemVariableDecl, TestDecl,
+    WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -25,6 +25,7 @@ pub enum ParseContext {
     Component,
     Equation,
     Export,
+    Test,
     Where,
     With,
     Other,
@@ -69,6 +70,7 @@ pub struct SyntaxSummary {
     pub command_styles: usize,
     pub where_blocks: usize,
     pub with_blocks: usize,
+    pub tests: usize,
 }
 
 impl ParsedProgram {
@@ -93,6 +95,7 @@ impl ParsedProgram {
         let mut command_styles = 0usize;
         let mut where_blocks = 0usize;
         let mut with_blocks = 0usize;
+        let mut tests = 0usize;
 
         for item in &self.items {
             match item {
@@ -116,6 +119,7 @@ impl ParsedProgram {
                 AstItem::CommandStyle(_) => command_styles += 1,
                 AstItem::WhereBlock(_) => where_blocks += 1,
                 AstItem::WithBlock(_) => with_blocks += 1,
+                AstItem::Test(_) => tests += 1,
                 AstItem::SystemVariable(_)
                 | AstItem::Return(_)
                 | AstItem::Conservation(_)
@@ -128,6 +132,8 @@ impl ParsedProgram {
                 | AstItem::Write(_)
                 | AstItem::FileOperation(_)
                 | AstItem::ProcessRun(_)
+                | AstItem::Assert(_)
+                | AstItem::Golden(_)
                 | AstItem::WhereBinding(_)
                 | AstItem::WithOption(_)
                 | AstItem::ReservedKeywordUse { .. } => {}
@@ -158,6 +164,7 @@ impl ParsedProgram {
             command_styles,
             where_blocks,
             with_blocks,
+            tests,
         }
     }
 }
@@ -177,6 +184,7 @@ pub fn parse_source(source: &str) -> ParsedProgram {
     let mut component_depth = 0i32;
     let mut equation_depth = 0i32;
     let mut export_depth = 0i32;
+    let mut test_depth = 0i32;
     let mut where_depth = 0i32;
     let mut with_depth = 0i32;
     let mut current_where_owner_line = None;
@@ -189,6 +197,8 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             ParseContext::Equation
         } else if export_depth > 0 {
             ParseContext::Export
+        } else if test_depth > 0 {
+            ParseContext::Test
         } else if where_depth > 0 {
             ParseContext::Where
         } else if with_depth > 0 {
@@ -375,6 +385,18 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             }
         }
 
+        if starts_with_keyword(&tokens, Keyword::Test) {
+            test_depth += brace_delta(&tokens);
+            if test_depth == 0 {
+                test_depth = 1;
+            }
+        } else if test_depth > 0 {
+            test_depth += brace_delta(&tokens);
+            if test_depth <= 0 {
+                test_depth = 0;
+            }
+        }
+
         if starts_with_keyword(&tokens, Keyword::Where) {
             current_where_owner_line = last_attachable_line;
             let delta = brace_delta(&tokens);
@@ -510,6 +532,15 @@ fn parse_line_items(
     }
     if let Some(process) = parse_process_run_decl(tokens, line_text, context) {
         items.push(AstItem::ProcessRun(process));
+    }
+    if let Some(test) = parse_test_decl(tokens, context) {
+        items.push(AstItem::Test(test));
+    }
+    if let Some(assertion) = parse_assert_decl(tokens, line_text, context) {
+        items.push(AstItem::Assert(assertion));
+    }
+    if let Some(golden) = parse_golden_decl(tokens, line_text, context) {
+        items.push(AstItem::Golden(golden));
     }
     if let Some((binding, command)) = parse_fast_binding(tokens, line_text, context) {
         if let Some(command) = command {
@@ -1903,6 +1934,105 @@ fn parse_process_run_decl(
 fn is_process_run_rhs(rhs: &str) -> bool {
     let mut parts = rhs.split_whitespace();
     matches!(parts.next(), Some("run")) && matches!(parts.next(), Some("command"))
+}
+
+fn parse_test_decl(tokens: &[Token], context: ParseContext) -> Option<TestDecl> {
+    let first = tokens.first()?;
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Test)) {
+        return None;
+    }
+    let name = tokens
+        .iter()
+        .skip(1)
+        .find_map(|token| match &token.kind {
+            TokenKind::StringLiteral(value) => Some(value.clone()),
+            TokenKind::Identifier(value) => Some(value.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    Some(TestDecl {
+        name,
+        line: first.span.line,
+        span: first.span,
+        context,
+    })
+}
+
+fn parse_assert_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<AssertDecl> {
+    let first = tokens.first()?;
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Assert)) {
+        return None;
+    }
+    let expression = line_text
+        .trim()
+        .strip_prefix("assert")
+        .map(str::trim)
+        .unwrap_or_default();
+    let (without_tolerance, tolerance) = split_assert_tolerance(expression);
+    let (left, operator, right) = split_assert_operator(&without_tolerance)
+        .unwrap_or_else(|| (String::new(), String::new(), String::new()));
+    Some(AssertDecl {
+        left,
+        operator,
+        right,
+        tolerance,
+        line: first.span.line,
+        span: first.span,
+        context,
+    })
+}
+
+fn split_assert_tolerance(expression: &str) -> (String, Option<String>) {
+    expression
+        .split_once(" within ")
+        .map(|(left, tolerance)| (left.trim().to_owned(), Some(tolerance.trim().to_owned())))
+        .unwrap_or_else(|| (expression.trim().to_owned(), None))
+}
+
+fn split_assert_operator(expression: &str) -> Option<(String, String, String)> {
+    for operator in ["==", "!=", ">=", "<=", ">", "<"] {
+        if let Some((left, right)) = expression.split_once(operator) {
+            return Some((
+                left.trim().to_owned(),
+                operator.to_owned(),
+                right.trim().to_owned(),
+            ));
+        }
+    }
+    None
+}
+
+fn parse_golden_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<GoldenDecl> {
+    let first = tokens.first()?;
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Golden)) {
+        return None;
+    }
+    let artifact = tokens
+        .iter()
+        .find_map(|token| match &token.kind {
+            TokenKind::StringLiteral(value) => Some(value.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    let expected = line_text
+        .split_once(" matches ")
+        .map(|(_, expected)| expected.trim().to_owned())
+        .unwrap_or_default();
+    Some(GoldenDecl {
+        artifact,
+        expected,
+        line: first.span.line,
+        span: first.span,
+        context,
+    })
 }
 
 fn parse_explicit_decl(

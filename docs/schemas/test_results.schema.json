@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eng-lang.local/schemas/test_results.schema.json",
+  "title": "EngLang Test Results Artifact",
+  "type": "object",
+  "required": [
+    "format",
+    "runtime_version",
+    "source_path",
+    "test_count",
+    "failed_count",
+    "tests"
+  ],
+  "properties": {
+    "format": { "const": "eng-test-results-v1" },
+    "runtime_version": { "type": "string" },
+    "source_path": { "type": "string" },
+    "test_count": { "type": "integer", "minimum": 0 },
+    "failed_count": { "type": "integer", "minimum": 0 },
+    "tests": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/testResult" }
+    }
+  },
+  "$defs": {
+    "testResult": {
+      "type": "object",
+      "required": ["name", "status", "line", "assertions", "goldens"],
+      "properties": {
+        "name": { "type": "string" },
+        "status": { "enum": ["passed", "failed"] },
+        "line": { "type": "integer", "minimum": 1 },
+        "assertions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/assertionResult" }
+        },
+        "goldens": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/goldenResult" }
+        }
+      }
+    },
+    "assertionResult": {
+      "type": "object",
+      "required": [
+        "left",
+        "operator",
+        "right",
+        "tolerance",
+        "left_value",
+        "right_value",
+        "tolerance_value",
+        "success",
+        "status",
+        "message",
+        "line"
+      ],
+      "properties": {
+        "left": { "type": "string" },
+        "operator": { "enum": ["==", "!=", ">", ">=", "<", "<="] },
+        "right": { "type": "string" },
+        "tolerance": { "type": ["string", "null"] },
+        "left_value": { "type": "string" },
+        "right_value": { "type": "string" },
+        "tolerance_value": { "type": ["string", "null"] },
+        "success": { "type": "boolean" },
+        "status": { "enum": ["passed", "failed", "unresolved"] },
+        "message": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "goldenResult": {
+      "type": "object",
+      "required": [
+        "artifact",
+        "expected",
+        "artifact_hash",
+        "expected_hash",
+        "success",
+        "status",
+        "message",
+        "line"
+      ],
+      "properties": {
+        "artifact": { "type": "string" },
+        "expected": { "type": "string" },
+        "artifact_hash": { "type": ["string", "null"] },
+        "expected_hash": { "type": ["string", "null"] },
+        "success": { "type": "boolean" },
+        "status": {
+          "enum": ["passed", "failed", "missing_artifact", "missing_expected"]
+        },
+        "message": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

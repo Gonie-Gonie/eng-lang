@@ -226,7 +226,7 @@ Non-goals:
 
 ## T11 General Programming / Side Effects
 
-Implemented seeds through `v0.8-preview`:
+Implemented seeds through `v0.9-preview`:
 
 ```text
 - file/dir path defaults
@@ -244,6 +244,8 @@ Implemented seeds through `v0.8-preview`:
 - run_log.json artifact records for saved runs
 - run command external process seed
 - ProcessResult typed binding and process_results.json records
+- test/assert/golden workflow verification seed
+- test_results.json records for saved runs
 - review/result/report-spec environment_dependencies fields
 ```
 
@@ -267,7 +269,7 @@ Planned implementation order:
 5. copy/move/delete with explicit confirmation [implemented]
 6. log level/run-log artifacts [implemented]
 7. run command and ProcessResult [implemented]
-8. test/assert/golden support [next]
+8. test/assert/golden support [implemented]
 ```
 
 Deferred:

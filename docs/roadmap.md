@@ -35,7 +35,7 @@ give feedback on the current preview scope.
 
 ## Current Public Line
 
-`v0.8-preview` packages the current user-test workflow:
+`v0.9-preview` packages the current user-test workflow:
 
 ```text
 - eng.exe doctor/check/run/build/view
@@ -52,6 +52,8 @@ give feedback on the current preview scope.
 - `print` plus `log debug/info/warn/error` runtime messages with `run_log.json`
 - explicit `run command` process execution with `ProcessResult` and
   `process_results.json`
+- named `test` blocks with checked assertions, golden artifact comparisons, and
+  `test_results.json`
 - PlotSpec/SVG output
 - review/report artifacts
 - basic packaged execution
@@ -97,13 +99,13 @@ policy source.
 
 ## Active Target
 
-`v0.9-preview` focuses on test and golden support:
+`v1.0` focuses on stable core hardening:
 
 ```text
-- test/assert/golden syntax policy seed
-- project test runner metadata
-- golden artifact comparison workflow
-- clearer boundary between examples, tests, and release acceptance
+- promote or defer supported preview features explicitly
+- keep artifact schemas, docs, examples, package smoke, and IDE smoke aligned
+- document stable-scope limitations and breaking-change policy
+- avoid a stable label until the core behavior is genuinely ready
 ```
 
 ## Development Tracks

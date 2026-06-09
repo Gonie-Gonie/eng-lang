@@ -527,6 +527,7 @@ function Assert-SchemaFilesPresent {
         "docs\schemas\output_manifest.schema.json",
         "docs\schemas\run_log.schema.json",
         "docs\schemas\process_results.schema.json",
+        "docs\schemas\test_results.schema.json",
         "docs\schemas\engpkg.schema.json"
     )
 

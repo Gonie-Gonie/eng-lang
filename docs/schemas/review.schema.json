@@ -21,6 +21,7 @@
     "writes",
     "file_operations",
     "process_runs",
+    "tests",
     "domain_summary",
     "component_summary",
     "connection_summary",
@@ -45,7 +46,8 @@
         "ports",
         "connections",
         "equations",
-        "fast_bindings"
+        "fast_bindings",
+        "tests"
       ]
     },
     "variable_table": { "type": "array" },
@@ -79,6 +81,10 @@
     "process_runs": {
       "type": "array",
       "items": { "$ref": "#/$defs/processRun" }
+    },
+    "tests": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/testBlock" }
     },
     "domain_summary": {
       "type": "array",
@@ -211,6 +217,42 @@
       "properties": {
         "binding": { "type": "string" },
         "command": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "testBlock": {
+      "type": "object",
+      "required": ["name", "line", "assertions", "goldens"],
+      "properties": {
+        "name": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "assertions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/assertion" }
+        },
+        "goldens": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/goldenCheck" }
+        }
+      }
+    },
+    "assertion": {
+      "type": "object",
+      "required": ["left", "operator", "right", "tolerance", "line"],
+      "properties": {
+        "left": { "type": "string" },
+        "operator": { "enum": ["==", "!=", ">", ">=", "<", "<="] },
+        "right": { "type": "string" },
+        "tolerance": { "type": ["string", "null"] },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "goldenCheck": {
+      "type": "object",
+      "required": ["artifact", "expected", "line"],
+      "properties": {
+        "artifact": { "type": "string" },
+        "expected": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }
     },

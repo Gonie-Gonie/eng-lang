@@ -7,9 +7,9 @@ agents. It separates public release versions from long-term development tracks.
 
 | Field | Value |
 |---|---|
-| Current public line | `v0.8-preview` |
-| Active target | `v0.9-preview` test/assert/golden support |
-| Workspace package version | `0.8.0-preview` |
+| Current public line | `v0.9-preview` |
+| Active target | `v1.0` stable core hardening |
+| Workspace package version | `0.9.0-preview` |
 | Release channel | `preview` |
 
 EngLang is preview software. The language, runtime behavior, and artifact
@@ -36,7 +36,8 @@ being part of the public release contract.
 - The official execution path is `.eng -> typed semantic model -> bytecode ->
   native runtime/VM -> result/report/PlotSpec objects`; `--save-artifacts`
   writes `.engbc`, `.engres`, SVG/HTML/report/review artifacts and
-  `run_log.json`, `process_results.json`, and `output_manifest.json`.
+  `run_log.json`, `process_results.json`, `test_results.json`, and
+  `output_manifest.json`.
 - Fast declaration uses `=`. `:=` is rejected.
 - Physical equations use `eq`. `==` is comparison syntax and is rejected in
   equation blocks.
@@ -106,6 +107,9 @@ the current public preview workflow, but it is not yet a stable contract.
 - `run command "..."` statements bind a `ProcessResult`, execute explicitly
   declared external processes, support `with { args = [...], cwd = ..., allow_failure = true }`,
   and write saved `process_results.json` artifacts.
+- Named `test` blocks group checked `assert` statements and `golden` artifact
+  comparisons. Saved runs write `test_results.json`, and failed tests fail the
+  run after artifacts are available for inspection.
 - Standalone package output with `.engpkg`, bytecode, lock, source/dependency
   copy, dependency hashes, Args help, and reviewable report artifacts.
 - Temperature spelling policy: `degC` remains the canonical ASCII spelling, and
@@ -133,6 +137,8 @@ the current public preview workflow, but it is not yet a stable contract.
   `log warn`, and `log error`, with `run_log.json` for IDE/tool inspection.
 - External process execution through `result = run command "tool"`, with
   review metadata and `process_results.json` for exit/stdout/stderr records.
+- Test/assert/golden workflow checks through named `test` blocks, with
+  `test_results.json` for IDE/CI inspection.
 - OODocs grammar PDF generation through `dev.bat grammar-docs`, backed by the
   language grammar guide.
 - Current planning and release docs now align around the integrated
@@ -141,8 +147,9 @@ the current public preview workflow, but it is not yet a stable contract.
   side-effect scope is GP-1 path helpers, GP-2 read-only UTF-8 text/json/toml
   reads with source hashes, GP-3 write/export hardening with output manifest,
   GP-4 constrained copy/move/delete file operation metadata, GP-5 structured
-  log-level runtime messages with run-log artifacts, and GP-6 explicit
-  external process execution with `ProcessResult` artifacts.
+  log-level runtime messages with run-log artifacts, GP-6 explicit external
+  process execution with `ProcessResult` artifacts, and GP-7 test/assert/golden
+  verification artifacts.
 
 ## Future Tracks On Main
 
@@ -180,11 +187,11 @@ See [development tracks](tracks.md) for the current scope and limitations.
 - Parenthesis-light syntax for arbitrary user-defined/general function calls
   and project-wide display unit policy blocks are deferred.
 - Broad filesystem/network side-effect runtime support is deferred to the
-  general programming track. `v0.8-preview` implements path helpers, `exists`
+  general programming track. `v0.9-preview` implements path helpers, `exists`
   provenance, read-only UTF-8 text/json/toml source hash provenance, explicit
   write/export output manifest support, constrained output-area
-  copy/move/delete, structured runtime log artifacts, and explicit external
-  process execution only.
+  copy/move/delete, structured runtime log artifacts, explicit external process
+  execution, and local test/assert/golden checks only.
 - Class/domain objects are planned for reviewable engineering objects, but
   class declaration/object literal/runtime lowering is not part of the current
   public preview.

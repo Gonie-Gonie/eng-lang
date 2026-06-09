@@ -1,8 +1,9 @@
 use crate::ast::{
-    ArgsFieldDecl, AstItem, CommandStyleDecl, ConnectDecl, ConstDecl, CsvExportDecl,
+    ArgsFieldDecl, AssertDecl, AstItem, CommandStyleDecl, ConnectDecl, ConstDecl, CsvExportDecl,
     CsvExportFieldDecl, DomainTypeParameterDecl, DomainVariableDecl, ExplicitDecl, FastBinding,
-    FileOperationDecl, FunctionDecl, FunctionParamDecl, ImportDecl, PortDecl, PrintDecl,
-    ProcessRunDecl, ReturnDecl, SystemVariableDecl, WhereBindingDecl, WithOptionDecl, WriteDecl,
+    FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl, PortDecl,
+    PrintDecl, ProcessRunDecl, ReturnDecl, SystemVariableDecl, TestDecl, WhereBindingDecl,
+    WithOptionDecl, WriteDecl,
 };
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
@@ -340,6 +341,30 @@ pub struct ProcessRunInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AssertInfo {
+    pub left: String,
+    pub operator: String,
+    pub right: String,
+    pub tolerance: Option<String>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GoldenInfo {
+    pub artifact: String,
+    pub expected: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TestInfo {
+    pub name: String,
+    pub assertions: Vec<AssertInfo>,
+    pub goldens: Vec<GoldenInfo>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandClauseInfo {
     pub name: String,
     pub value: String,
@@ -432,6 +457,7 @@ pub struct SemanticProgram {
     pub writes: Vec<WriteInfo>,
     pub file_operations: Vec<FileOperationInfo>,
     pub process_runs: Vec<ProcessRunInfo>,
+    pub tests: Vec<TestInfo>,
     pub command_styles: Vec<CommandStyleInfo>,
     pub where_blocks: Vec<WhereBlockInfo>,
     pub with_blocks: Vec<WithBlockInfo>,
@@ -476,6 +502,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut writes = Vec::new();
     let mut file_operations = Vec::new();
     let mut process_runs = Vec::new();
+    let mut tests = Vec::new();
+    let mut current_test_index = None;
     let mut command_styles = Vec::new();
     let mut timeseries_kernels = Vec::new();
 
@@ -763,6 +791,25 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     process_runs.push(process_info);
                 }
             }
+            AstItem::Test(test) => {
+                if let Some(test_info) = analyze_test_decl(test, &mut diagnostics) {
+                    tests.push(test_info);
+                    current_test_index = Some(tests.len() - 1);
+                }
+            }
+            AstItem::Assert(assertion) => {
+                analyze_assert_decl(
+                    assertion,
+                    current_test_index,
+                    &typed_bindings,
+                    &functions,
+                    &mut tests,
+                    &mut diagnostics,
+                );
+            }
+            AstItem::Golden(golden) => {
+                analyze_golden_decl(golden, current_test_index, &mut tests, &mut diagnostics);
+            }
             AstItem::CommandStyle(command) => {
                 analyze_command_style_decl(command, &mut command_styles, &mut diagnostics);
             }
@@ -824,6 +871,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             writes,
             file_operations,
             process_runs,
+            tests,
             command_styles,
             where_blocks,
             with_blocks,
@@ -1769,6 +1817,187 @@ fn analyze_process_run_decl(
     })
 }
 
+fn analyze_test_decl(test: &TestDecl, diagnostics: &mut Vec<Diagnostic>) -> Option<TestInfo> {
+    if test.context != ParseContext::TopLevel {
+        diagnostics.push(Diagnostic::error(
+            "E-TEST-001",
+            test.line,
+            "`test` blocks are supported only at top level.",
+            Some("Move the test block to the root workflow so it can inspect public results."),
+        ));
+        return None;
+    }
+    if test.name.trim().is_empty() {
+        diagnostics.push(Diagnostic::error(
+            "E-TEST-NAME-001",
+            test.line,
+            "`test` requires a name.",
+            Some("Write `test \"name\" { ... }`."),
+        ));
+        return None;
+    }
+    Some(TestInfo {
+        name: test.name.clone(),
+        assertions: Vec::new(),
+        goldens: Vec::new(),
+        line: test.line,
+    })
+}
+
+fn analyze_assert_decl(
+    assertion: &AssertDecl,
+    current_test_index: Option<usize>,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    tests: &mut [TestInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if assertion.context != ParseContext::Test {
+        diagnostics.push(Diagnostic::error(
+            "E-ASSERT-001",
+            assertion.line,
+            "`assert` is supported only inside a `test` block.",
+            Some("Wrap assertions in `test \"name\" { ... }`."),
+        ));
+        return;
+    }
+    let Some(test_index) = current_test_index else {
+        diagnostics.push(Diagnostic::error(
+            "E-ASSERT-001",
+            assertion.line,
+            "`assert` is not attached to a test block.",
+            Some("Place the assertion inside `test \"name\" { ... }`."),
+        ));
+        return;
+    };
+    if assertion.left.is_empty() || assertion.operator.is_empty() || assertion.right.is_empty() {
+        diagnostics.push(Diagnostic::error(
+            "E-ASSERT-002",
+            assertion.line,
+            "`assert` requires `left operator right`.",
+            Some("Write forms such as `assert E_coil > 0 kWh` or `assert E_coil == 1.2 kWh within 0.1 kWh`."),
+        ));
+        return;
+    }
+    let left_type = assert_expression_semantic_type(&assertion.left, typed_bindings, functions);
+    let right_type = assert_expression_semantic_type(&assertion.right, typed_bindings, functions);
+    if left_type.is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-ASSERT-EXPR-001",
+            assertion.line,
+            &format!("Cannot resolve assert expression `{}`.", assertion.left),
+            Some("Assert a typed binding, statistic, function call, literal, path, Bool, or String value."),
+        ));
+    }
+    if right_type.is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-ASSERT-EXPR-001",
+            assertion.line,
+            &format!("Cannot resolve assert expression `{}`.", assertion.right),
+            Some("Assert a typed binding, statistic, function call, literal, path, Bool, or String value."),
+        ));
+    }
+    if let (Some(left), Some(right)) = (&left_type, &right_type) {
+        let left_dimension = dimension_for_quantity(&left.quantity_kind);
+        let right_dimension = dimension_for_quantity(&right.quantity_kind);
+        if !dimensions_compatible(&left_dimension, &right_dimension) {
+            diagnostics.push(Diagnostic::error(
+                "E-ASSERT-UNIT-001",
+                assertion.line,
+                &format!(
+                    "Assert compares `{}` ({}) with `{}` ({}).",
+                    assertion.left, left_dimension, assertion.right, right_dimension
+                ),
+                Some("Compare values with compatible dimensions or convert units first."),
+            ));
+        }
+    }
+    if let Some(tolerance) = &assertion.tolerance {
+        if !matches!(assertion.operator.as_str(), "==" | "!=") {
+            diagnostics.push(Diagnostic::error(
+                "E-ASSERT-TOL-001",
+                assertion.line,
+                "`within` is supported only with equality assertions.",
+                Some("Use `assert value == expected within tolerance`."),
+            ));
+        }
+        let tolerance_type = assert_expression_semantic_type(tolerance, typed_bindings, functions);
+        if tolerance_type.is_none() {
+            diagnostics.push(Diagnostic::error(
+                "E-ASSERT-EXPR-001",
+                assertion.line,
+                &format!("Cannot resolve assert tolerance `{tolerance}`."),
+                Some("Use a numeric tolerance literal such as `0.01 kWh`."),
+            ));
+        }
+        if let (Some(left), Some(tolerance_type)) = (&left_type, &tolerance_type) {
+            let left_dimension = dimension_for_quantity(&left.quantity_kind);
+            let tolerance_dimension = dimension_for_quantity(&tolerance_type.quantity_kind);
+            if !dimensions_compatible(&left_dimension, &tolerance_dimension) {
+                diagnostics.push(Diagnostic::error(
+                    "E-ASSERT-TOL-002",
+                    assertion.line,
+                    &format!(
+                        "Assert tolerance `{tolerance}` has dimension {tolerance_dimension}, expected {left_dimension}."
+                    ),
+                    Some("Use a tolerance with the same dimension as the asserted value."),
+                ));
+            }
+        }
+    }
+    if let Some(test) = tests.get_mut(test_index) {
+        test.assertions.push(AssertInfo {
+            left: assertion.left.clone(),
+            operator: assertion.operator.clone(),
+            right: assertion.right.clone(),
+            tolerance: assertion.tolerance.clone(),
+            line: assertion.line,
+        });
+    }
+}
+
+fn analyze_golden_decl(
+    golden: &GoldenDecl,
+    current_test_index: Option<usize>,
+    tests: &mut [TestInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if golden.context != ParseContext::Test {
+        diagnostics.push(Diagnostic::error(
+            "E-GOLDEN-001",
+            golden.line,
+            "`golden` is supported only inside a `test` block.",
+            Some("Wrap golden checks in `test \"name\" { ... }`."),
+        ));
+        return;
+    }
+    let Some(test_index) = current_test_index else {
+        diagnostics.push(Diagnostic::error(
+            "E-GOLDEN-001",
+            golden.line,
+            "`golden` is not attached to a test block.",
+            Some("Place the golden check inside `test \"name\" { ... }`."),
+        ));
+        return;
+    };
+    if golden.artifact.trim().is_empty() || golden.expected.trim().is_empty() {
+        diagnostics.push(Diagnostic::error(
+            "E-GOLDEN-002",
+            golden.line,
+            "`golden` requires an artifact path and expected path.",
+            Some("Write `golden \"summary.csv\" matches file(\"golden/summary.csv\")`."),
+        ));
+        return;
+    }
+    if let Some(test) = tests.get_mut(test_index) {
+        test.goldens.push(GoldenInfo {
+            artifact: golden.artifact.clone(),
+            expected: golden.expected.clone(),
+            line: golden.line,
+        });
+    }
+}
+
 fn validate_file_operation_options(
     operations: &[FileOperationInfo],
     with_blocks: &[WithBlockInfo],
@@ -1825,6 +2054,42 @@ fn resolve_write_expression_type(
         return semantic_type("String", "");
     }
     resolve_format_expression_type(expression, typed_bindings, functions)
+}
+
+fn assert_expression_semantic_type(
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+) -> Option<SemanticType> {
+    let expression = expression.trim();
+    if matches!(expression, "true" | "false") {
+        return semantic_type("Bool", "");
+    }
+    if expression.starts_with('"') {
+        return semantic_type("String", "");
+    }
+    if let Some((_value, unit)) = numeric_literal_with_optional_unit(expression) {
+        if let Some(unit) = unit {
+            let quantity = candidates_for_unit(&unit).first().copied()?;
+            return semantic_type(quantity.quantity_kind, quantity.canonical_unit);
+        }
+        return semantic_type("DimensionlessNumber", "");
+    }
+    resolve_format_expression_type(expression, typed_bindings, functions)
+}
+
+fn numeric_literal_with_optional_unit(expression: &str) -> Option<(f64, Option<String>)> {
+    let mut parts = expression.split_whitespace();
+    let value_text = parts.next()?;
+    if !is_number_literal(value_text) {
+        return None;
+    }
+    let value = value_text.parse::<f64>().ok()?;
+    let unit = parts.next().map(str::to_owned);
+    if parts.next().is_some() {
+        return None;
+    }
+    Some((value, unit))
 }
 
 fn analyze_format_fields(

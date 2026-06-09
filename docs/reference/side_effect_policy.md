@@ -2,10 +2,10 @@
 
 Status: GP-1 path policy, GP-2 read-only I/O, GP-3 write/export hardening,
 GP-4 constrained copy/move/delete file operations, GP-5 structured runtime
-log messages, and GP-6 explicit external process execution are implemented for
-`v0.8-preview`. Broader filesystem mutation outside generated-output
-boundaries, network, and test support remain planned tracks, not supported
-preview behavior.
+log messages, GP-6 explicit external process execution, and GP-7 test/assert/
+golden support are implemented for `v0.9-preview`. Broader filesystem mutation
+outside generated-output boundaries, network, workspace-wide test discovery, and
+stable process sandboxing remain planned tracks, not supported preview behavior.
 
 EngLang is not trying to become a fully general replacement for Python, MATLAB,
 or R. Real engineering workflows still need practical file, path, config,
@@ -31,6 +31,7 @@ what was read, and what external state influenced the result.
 | File operations | `copy`, `move`, `delete`, `mkdir`, `list` | Copy/move/delete seed implemented under explicit output boundaries; broader operations planned |
 | Runtime messages | `print`, `log info`, `log warn`, `log debug`, `log error` | CLI/debug output plus structured `run_log.json` metadata |
 | External process | `result = run command ... with { ... }` | Explicit `ProcessResult`; command/cwd/args/exit/stdout/stderr recorded |
+| Test checks | `test { assert ...; golden ... }` | Runtime verification plus structured `test_results.json` metadata |
 | Network | `download url(...) to file(...)` | Long-term only; repro profile requires hash/cache |
 
 ## Types
@@ -64,7 +65,7 @@ input_exists = exists args.input
 print "input exists = {input_exists}"
 ```
 
-Implemented behavior through `v0.8-preview`:
+Implemented behavior through `v0.9-preview`:
 
 ```text
 - file("...") and dir("...") are accepted in args defaults.
@@ -99,6 +100,11 @@ Implemented behavior through `v0.8-preview`:
 - saved runs write `process_results.json` with command, args, cwd, exit code,
   stdout, stderr, duration, status, and line metadata.
 - output_manifest.json records the saved process-results artifact.
+- test blocks group runtime assertions and golden artifact comparisons.
+- assert operands are checked for compatible quantity dimensions.
+- golden checks compare generated artifacts with source-relative expected files.
+- saved runs write `test_results.json` with pass/fail metadata.
+- output_manifest.json records the saved test-results artifact.
 ```
 
 ## Read Policy
@@ -244,6 +250,31 @@ Implemented preview rules:
 - process results are written to build/result/process_results.json on saved runs
 ```
 
+## Test Policy
+
+Tests should be close enough to examples and workflows that users can trust a
+run without reading every artifact manually:
+
+```eng partial
+test "summary values" {
+    assert mean_Q > 0 kW
+    assert E_coil == 1.26 kWh within 0.02 kWh
+    golden "summary.csv" matches file("golden/summary.csv")
+}
+```
+
+Rules:
+
+```text
+- `test` blocks are top-level workflow declarations
+- `assert` is valid only inside a test block
+- quantity comparisons require compatible dimensions
+- golden expected files use source-relative file("...") paths
+- generated artifacts are compared from build/result
+- saved runs write build/result/test_results.json
+- failed tests fail the run after artifacts are written
+```
+
 ## Profiles
 
 Runtime profiles should control the side-effect envelope:
@@ -269,7 +300,7 @@ eng.fs       copy, move, delete, mkdir, list
 eng.config   promote toml/json as schema
 eng.log      print/log <level> and unit-aware formatting helpers
 eng.process  run command, ProcessResult
-eng.test     test/assert/golden support, later
+eng.test     test/assert/golden support
 eng.net      download/cache/hash, later
 ```
 
@@ -283,13 +314,14 @@ eng.net      download/cache/hash, later
 | GP-4 | copy/move/delete and side-effect manifest | implemented in v0.6 |
 | GP-5 | print/log level formatting and run log artifact | implemented in v0.7 |
 | GP-6 | external process and `ProcessResult` | implemented in v0.8 |
-| GP-7 | network/download/cache/hash | optional, after process policy |
-| GP-8 | test block/assert/golden support | v0.9 target |
+| GP-7 | test block/assert/golden support | implemented in v0.9 |
+| GP-8 | network/download/cache/hash | optional, after test policy |
 | GP-9 | IDE side-effect panels and output file navigation | grows across phases |
 
 The current implementation deliberately stops at path helpers, `exists`,
 read-only source-hashed inputs, generated output writes, constrained
 copy/move/delete operations under `build/result`, structured runtime message
-artifacts, and explicit external process records. Broader filesystem access,
-network effects, and stable process sandboxing remain outside the public
-preview until their policy slices land.
+artifacts, explicit external process records, and local test/assert/golden
+records. Broader filesystem access, network effects, workspace-wide test
+discovery, and stable process sandboxing remain outside the public preview until
+their policy slices land.

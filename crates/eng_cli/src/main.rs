@@ -338,6 +338,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 println!("review:   {}", output.review_path.display());
                 println!("runlog:   {}", output.run_log_path.display());
                 println!("process:  {}", output.process_results_path.display());
+                println!("tests:    {}", output.test_results_path.display());
                 println!("reportspec: {}", output.report_spec_path.display());
                 println!("plot:     {}", output.plot_path.display());
                 println!("plotspec: {}", output.plot_spec_path.display());
@@ -351,6 +352,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 println!("review:   {} bytes", output.review_json.len());
                 println!("runlog:   {} bytes", output.run_log_json.len());
                 println!("process:  {} bytes", output.process_results_json.len());
+                println!("tests:    {} bytes", output.test_results_json.len());
                 println!("reportspec: {} bytes", output.report_spec_json.len());
                 println!("plot:     {} bytes", output.plot_svg.len());
                 println!("plotspec: {} bytes", output.plot_spec_json.len());
@@ -373,6 +375,10 @@ fn command_run(args: Vec<String>) -> ExitCode {
         Err(RuntimeError::Compile(report)) => {
             print_diagnostics(&report);
             ExitCode::from(2)
+        }
+        Err(RuntimeError::TestsFailed(message)) => {
+            eprintln!("{message}");
+            ExitCode::from(1)
         }
         Err(RuntimeError::Io(error)) => {
             eprintln!("{error}");
@@ -422,6 +428,10 @@ fn command_build(args: Vec<String>) -> ExitCode {
         Err(RuntimeError::Compile(report)) => {
             print_diagnostics(&report);
             ExitCode::from(2)
+        }
+        Err(RuntimeError::TestsFailed(message)) => {
+            eprintln!("{message}");
+            ExitCode::from(1)
         }
         Err(RuntimeError::Io(error)) => {
             eprintln!("{error}");
@@ -518,6 +528,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/13_file_operations/main.eng",
                 "examples/official/14_run_log/main.eng",
                 "examples/official/15_process_result/main.eng",
+                "examples/official/16_test_assert_golden/main.eng",
             ],
         ),
         (
@@ -1039,6 +1050,36 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("process result example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
+        Path::new("examples/official/16_test_assert_golden/main.eng"),
+        Path::new("build/test-assert-golden"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
+            let test_results =
+                std::fs::read_to_string(&output.test_results_path).unwrap_or_default();
+            let manifest =
+                std::fs::read_to_string(&output.output_manifest_path).unwrap_or_default();
+            if !review.contains("\"tests\"")
+                || !test_results.contains("\"format\": \"eng-test-results-v1\"")
+                || !test_results.contains("\"failed_count\": 0")
+                || !manifest.contains("\"kind\": \"test_results\"")
+            {
+                eprintln!(
+                    "expected test/assert/golden example to produce review, test_results, and manifest records"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/16_test_assert_golden/main.eng produced test result artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("test/assert/golden example failed: {error}");
             return ExitCode::from(2);
         }
     }

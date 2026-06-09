@@ -100,8 +100,8 @@ packaged-runner behavior.
 
 | Field | Example | Meaning |
 |---|---|---|
-| `runtime_version` | `0.8.0-preview` | Runtime version embedded in the bundled CLI. |
-| `compiler_version` | `0.8.0-preview` | Compiler/build version used to create the package. |
+| `runtime_version` | `0.9.0-preview` | Runtime version embedded in the bundled CLI. |
+| `compiler_version` | `0.9.0-preview` | Compiler/build version used to create the package. |
 | `package_format_version` | `1` | Package format used by `.engpkg`. |
 | `runtime_abi` | `eng-runtime-cli-v1` | CLI ABI expected by the runner. |
 | `bytecode_version` | `1` | Bytecode format version. |

@@ -90,6 +90,14 @@ E-PROCESS-001          run command is supported only at top level
 E-PROCESS-BINDING-001  run command must bind a ProcessResult
 E-PROCESS-CMD-001      run command requires a command string
 E-PROCESS-BINDING-002  ProcessResult binding conflicts with an existing binding
+E-TEST-001             test block syntax is invalid
+E-TEST-NAME-001        test block name is missing or invalid
+E-ASSERT-001           assert is outside a test block
+E-ASSERT-002           assert expression syntax is invalid
+E-ASSERT-UNIT-001      assert operands use incompatible units
+E-ASSERT-TOL-001       tolerance is only valid with equality-style checks
+E-GOLDEN-001           golden check syntax is invalid
+E-GOLDEN-002           golden check expected path must use file("...")
 ```
 
 `--review` writes:
@@ -282,13 +290,15 @@ include hover `kind`/`status` metadata and completion labels such as
 ## `eng run <file.eng> [--open-report] [--save-artifacts] [--<arg> <value>...]`
 
 Runs the file's top-level workflow through bytecode v1 and the native VM seed.
-By default, result/review/report/run-log/process-results/plot/output-manifest
-payloads remain runtime objects in memory. `--save-artifacts` writes those
-objects to disk.
+By default, result/review/report/run-log/process-results/test-results/plot/
+output-manifest payloads remain runtime objects in memory. `--save-artifacts`
+writes those objects to disk.
 Explicit `export`, `write`, and constrained `copy/move/delete` statements
 write or mutate files under `build/result` and are recorded in
 `output_manifest.json`. Explicit `run command` statements execute during the
-run and are captured in `process_results.json` when artifacts are saved.
+run and are captured in `process_results.json` when artifacts are saved. Named
+`test` blocks run after generated artifacts are available and are captured in
+`test_results.json`.
 
 Execution model:
 
@@ -310,6 +320,7 @@ build/
     report_spec.json
     run_log.json
     process_results.json
+    test_results.json
     output_manifest.json
     plots/
       plot_spec.json
@@ -419,4 +430,5 @@ Runs official smoke checks:
 - official simple system example produces system report artifacts
 - official run-log example produces `run_log.json` and level metadata
 - official process-result example produces `process_results.json` and ProcessResult metadata
+- official test/assert/golden example produces `test_results.json` and passing check metadata
 ```

@@ -75,6 +75,11 @@ official/14_run_log
 official/15_process_result
   External process seed with `run command`, `ProcessResult`, and generated
   `process_results.json` artifacts.
+
+official/16_test_assert_golden
+  Local workflow verification seed with named `test` blocks, unit-aware
+  `assert` statements, golden artifact comparison, and generated
+  `test_results.json` artifacts.
 ```
 
 ## Compatibility Regression Examples

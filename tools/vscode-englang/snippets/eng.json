@@ -42,6 +42,17 @@
     ],
     "description": "Run an external command and capture a ProcessResult."
   },
+  "Test block": {
+    "prefix": "test block",
+    "body": [
+      "test \"${1:summary values}\" {",
+      "    assert ${2:mean_Q} > ${3:0 kW}",
+      "    assert ${4:E_coil} == ${5:1.26 kWh} within ${6:0.02 kWh}",
+      "    golden \"${7:summary.csv}\" matches file(\"${8:golden/summary.csv}\")",
+      "}"
+    ],
+    "description": "Create unit-aware assertions and a golden artifact comparison."
+  },
   "CSV schema": {
     "prefix": "schema csv",
     "body": [

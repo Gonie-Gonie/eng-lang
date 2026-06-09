@@ -11,6 +11,7 @@ plotspec.schema.json     build/result/plots/plot_spec.json
 output_manifest.schema.json build/result/output_manifest.json
 run_log.schema.json      build/result/run_log.json
 process_results.schema.json build/result/process_results.json
+test_results.schema.json build/result/test_results.json
 engpkg.schema.json       normalized key/value view of dist/*/*.engpkg
 ```
 

@@ -213,6 +213,30 @@ Before publishing `v0.8-preview`:
 [x] release-check passes
 ```
 
+Before publishing `v0.9-preview`:
+
+```text
+[x] workspace package version is updated to 0.9.0-preview
+[x] public package label is v0.9-preview
+[x] current status, maturity matrix, tracks, roadmap, README, and release workflow agree on the v0.9 scope
+[x] `test` blocks are parsed and checked
+[x] `assert` is valid only inside a test block
+[x] quantity assertions reject incompatible dimensions
+[x] `golden "artifact" matches file("expected")` is parsed and checked
+[x] review.json records tests metadata
+[x] saved runs write build/result/test_results.json
+[x] output_manifest.json records the test_results artifact
+[x] native IDE artifact panel shows test-results paths/objects
+[x] official/16_test_assert_golden mini example is present
+[x] docs explain test/assert/golden as local workflow verification
+[x] docs-check passes
+[x] artifacts-check passes
+[x] ide-check passes
+[x] lsp-check passes
+[x] package-smoke passes under a path with spaces and Korean characters
+[x] release-check passes
+```
+
 ## Local Verification
 
 Run:
