@@ -13,6 +13,7 @@ build/
     review.json
     report.html
     report_spec.json
+    run_log.json
     output_manifest.json
     summary.csv          # only when source uses explicit CSV export
     plots/
@@ -29,7 +30,7 @@ Purpose:
 checked source -> bytecode v1 -> native VM seed
 ```
 
-Current v0.6 header:
+Current v0.7 header:
 
 ```text
 ENGBYTECODE 1
@@ -49,7 +50,7 @@ workflow_args = args:Args
 workflow_return = Report
 ```
 
-Current v0.6 sections:
+Current v0.7 sections:
 
 ```text
 objects:
@@ -126,6 +127,31 @@ with {
 The runtime records file operation effects as output manifest entries such as
 `copy_file`, `move_file`, and `delete_file`.
 
+## `run_log.json`
+
+Purpose:
+
+```text
+structured runtime message stream for IDEs, CI, and review tooling
+```
+
+Current format:
+
+```text
+eng-run-log-v1
+runtime_version
+source_path
+message_count
+messages[].index
+messages[].level
+messages[].message
+messages[].line
+```
+
+`print` records use level `print`. `log debug`, `log info`, `log warn`, and
+`log error` records use their declared level. The CLI still writes a human
+stdout stream; `run_log.json` is the machine-readable companion.
+
 ## `output_manifest.json`
 
 Purpose:
@@ -148,7 +174,7 @@ artifacts[].hash
 
 When `--save-artifacts` is used, this manifest lists result/report/PlotSpec/SVG
 files alongside explicit CSV exports, write outputs, and file operation
-records.
+records. The saved run-log artifact is also listed as `run_log`.
 
 ## `.engres`
 

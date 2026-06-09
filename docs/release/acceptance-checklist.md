@@ -164,6 +164,30 @@ Before publishing `v0.6-preview`:
 [x] release-check passes
 ```
 
+Before publishing `v0.7-preview`:
+
+```text
+[x] workspace package version is updated to 0.7.0-preview
+[x] public package label is v0.7-preview
+[x] current status, maturity matrix, tracks, roadmap, README, and release workflow agree on the v0.7 scope
+[x] `log debug/info/warn/error` statements are parsed and checked
+[x] invalid or missing log levels produce E-LOG-LEVEL-001
+[x] log interpolation uses the same type/unit checks as print
+[x] review.json records print/log entries with level metadata
+[x] eng run stdout prefixes structured log messages with [level]
+[x] saved runs write build/result/run_log.json
+[x] output_manifest.json records the run_log artifact
+[x] native IDE artifact panel shows run-log paths/objects
+[x] official/14_run_log mini example is present
+[x] docs explain print vs log vs durable report/export surfaces
+[x] docs-check passes
+[x] artifacts-check passes
+[x] ide-check passes
+[x] lsp-check passes
+[x] package-smoke passes under a path with spaces and Korean characters
+[x] release-check passes
+```
+
 ## Local Verification
 
 Run:

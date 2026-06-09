@@ -1,8 +1,9 @@
 # `eng run` Reference
 
 `eng run` executes one file's top-level workflow through bytecode and the native VM seed.
-By default it keeps result, review, report, PlotSpec, SVG, output manifest, and
-bytecode payloads as runtime objects and does not write ordinary artifacts.
+By default it keeps result, review, report, run-log, PlotSpec, SVG, output
+manifest, and bytecode payloads as runtime objects and does not write ordinary
+artifacts.
 Explicit `export ... to csv`, `write text/json`, and constrained
 `copy/move/delete` statements are user-requested artifacts and write or mutate
 under `build\result`.
@@ -21,6 +22,7 @@ artifacts: in memory
 result:   1234 bytes
 review:   5678 bytes
 reportspec: 2345 bytes
+runlog:   456 bytes
 plot:     3456 bytes
 plotspec: 4567 bytes
 plotmanifest: 678 bytes
@@ -33,12 +35,22 @@ Program `print` statements write before the runtime artifact summary:
 
 ```eng partial
 print "Loaded {sensor.rows} rows from {args.input}"
-print "Q mean = {mean(Q_coil, axis=Time): .2 kW}"
+log info "Q mean = {mean(Q_coil, axis=Time): .2 kW}"
 print "E total = {E_coil: .2 kWh}"
 ```
 
 Quantity formatting is unit-aware. Requested display units must be compatible
 with the expression quantity.
+
+Structured `log <level>` statements print with a level prefix and are also
+recorded in `run_log.json` when artifacts are saved:
+
+```eng partial
+log debug "raw E = {E_coil: .3 kWh}"
+log info "run complete"
+log warn "review peak load"
+log error "operator acknowledgement required"
+```
 
 ## Save Artifacts
 
@@ -56,6 +68,7 @@ build/
     review.json
     report.html
     report_spec.json
+    run_log.json
     output_manifest.json
     plots/
       plot_spec.json
@@ -150,6 +163,32 @@ fs:       build\result\ops\scratch.txt
 
 `review.json` records `file_operations[]`. `output_manifest.json` records
 entries such as `copy_file`, `move_file`, and `delete_file`.
+
+## Structured Run Log
+
+`log debug/info/warn/error` creates structured runtime message records. The CLI
+prints the rendered messages with a `[level]` prefix, while saved runs write:
+
+```text
+build\result\run_log.json
+```
+
+The run-log artifact records:
+
+```text
+format = eng-run-log-v1
+runtime_version
+source_path
+message_count
+messages[]
+  index
+  level
+  message
+  line
+```
+
+Use `print` for quick direct output and `log <level>` when IDEs, CI scripts, or
+review tools should read the message stream.
 
 ## Open Report
 
@@ -268,6 +307,7 @@ type build\main.engbc
 type build\result\result.engres
 type build\result\review.json
 type build\result\report_spec.json
+type build\result\run_log.json
 type build\result\output_manifest.json
 type build\result\plots\plot_manifest.json
 target\debug\eng.exe view build\result\result.engres
@@ -292,6 +332,8 @@ result.engres
 
 review.json
   review_schema_version
+  prints
+  prints[].level
   variable_table
   unit_conversion_table
   arg_values

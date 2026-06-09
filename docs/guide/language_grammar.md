@@ -17,7 +17,7 @@ If you are new to EngLang, read these sections in order:
 3. Declarations and expressions
 4. Built-in command-style verbs
 5. `where` and `with`
-6. Print, export, report, and artifacts
+6. Print, log, export, report, and artifacts
 
 For a concrete runnable example, open:
 
@@ -58,7 +58,7 @@ The compiler reads the source in order and builds:
 | Semantic model | Typed bindings, schemas, functions, diagnostics, review metadata |
 | Bytecode | Native runtime seed for the top-level workflow |
 | Runtime data | Tables, TimeSeries, integrations, statistics, outputs |
-| Report artifacts | `result.engres`, `review.json`, `report_spec.json`, PlotSpec, SVG, HTML |
+| Report artifacts | `result.engres`, `review.json`, `report_spec.json`, `run_log.json`, PlotSpec, SVG, HTML |
 
 Use these commands from the repository or portable package:
 
@@ -92,7 +92,8 @@ mean_Q = mean Q_coil over Time
 
 print "Loaded {sensor.rows} rows from {args.input}"
 print "Q mean = {mean_Q: .2 kW}"
-print "E total = {E_coil: .2 kWh}"
+log info "E total = {E_coil: .2 kWh}"
+log warn "review load profile before publishing report"
 
 export summary to csv "summary.csv" {
     mean_Q as kW with ".2"
@@ -110,8 +111,9 @@ report {
 ```
 
 The file reads as: declare the input shape, bind CLI arguments, promote a CSV
-into typed data, compute quantities, print quick CLI output, export a durable
-summary CSV, and ask the report system for reviewable artifacts.
+into typed data, compute quantities, print quick CLI output, record structured
+runtime messages, export a durable summary CSV, and ask the report system for
+reviewable artifacts.
 
 ## Lexical Basics
 
@@ -170,6 +172,7 @@ The current top-level declaration families are:
 | System | `system Room { ... }` | Minimal equation/system preview |
 | Domain/component | `domain Fluid { ... }` | Experimental metadata track |
 | Print | `print "Q = {Q: .2 kW}"` | Debug/CLI output |
+| Log | `log warn "Q is high"` | Structured runtime message |
 | CSV export | `export summary to csv "summary.csv" { ... }` | Durable scalar artifact |
 | Write output | `write text "note.txt", note` | Explicit generated output |
 | File operation | `copy file("note.txt") to "outputs/note.txt"` | Explicit output-area file mutation |
@@ -711,7 +714,8 @@ report {
 
 ## Print
 
-`print` is for debugging and CLI output. It is not the durable artifact path.
+`print` is for direct debugging and CLI output. It is not the durable artifact
+path.
 
 ```eng partial
 print "Loaded {sensor.rows} rows from {args.input}"
@@ -745,6 +749,47 @@ print "T = {T_room: .1 degC}"
 print "E = {E_total: .2 kWh}"
 print "eta = {eta: .3}"
 ```
+
+## Log
+
+`log <level>` is for structured runtime messages. It uses the same interpolation
+and unit-checking policy as `print`, but saved runs also write the messages to
+`build/result/run_log.json` for IDEs, CI tools, and reviewers.
+
+```eng partial
+log info "Q mean = {mean_Q: .2 kW}"
+log warn "review high load case"
+log debug "daily energy raw = {E_day: .2 kWh}"
+log error "operator acknowledgement required"
+```
+
+Supported levels:
+
+```text
+debug
+info
+warn
+error
+```
+
+`warn "..."` is intentionally not a separate command. Use
+`log warn "..."` so all structured runtime messages share one form.
+
+Runtime stdout prefixes structured messages:
+
+```text
+[info] Q mean = 5.07 kW
+[warn] review high load case
+```
+
+Saved artifacts include:
+
+```text
+build/result/run_log.json
+```
+
+Each message record includes level, rendered message, source line, and
+source-order index.
 
 ## Export Summary To CSV
 
@@ -928,6 +973,7 @@ build/result/plots/plot_spec.json
 build/result/plots/plot_manifest.json
 build/result/plots/timeseries.svg
 build/result/report.html
+build/result/run_log.json
 build/result/output_manifest.json
 ```
 
@@ -997,6 +1043,7 @@ generation.
 | `E-WHERE-FWD-001` | Where-local used before definition | Reorder the where bindings |
 | `E-WITH-OPTION-001` | Unknown `with` option | Use a supported option key |
 | `E-WITH-UNIT-001` | Incompatible display unit | Pick a unit compatible with the owner quantity |
+| `E-LOG-LEVEL-001` | Unknown or missing log level | Use `log debug/info/warn/error "..."` |
 | `E-PRINT-FMT-003` | Print requested incompatible unit | Fix the print unit |
 | `E-PRINT-FMT-004` | Print expression cannot be resolved | Bind the value or fix the name |
 | `E-EXPORT-CSV-003` | CSV export expression cannot be resolved | Bind/export a supported scalar |
@@ -1042,6 +1089,8 @@ peak_Q = max Q_coil over Time
 
 print "Q mean = {mean_Q: .2 kW}"
 print "Q peak = {peak_Q: .2 kW}"
+log info "summary values computed"
+log warn "review peak load if this is a design case"
 
 export summary to csv "summary.csv" {
     mean_Q as kW with ".2"
@@ -1059,6 +1108,14 @@ write text "outputs/run_note.txt", "finished"
 with {
     overwrite = true
 }
+```
+
+### Log A Runtime Message
+
+```eng partial
+log info "case started"
+log debug "mean Q = {mean_Q: .2 kW}"
+log warn "manual review recommended"
 ```
 
 ### Copy And Delete Generated Outputs
@@ -1112,10 +1169,11 @@ Before treating a file as a good EngLang example, check:
 7. Are `where` locals used only by their owner expression?
 8. Are `with` option keys supported and units compatible?
 9. Does `print` stay lightweight and debugging-oriented?
-10. Are durable outputs written with `export`, `plot`, and `report`?
-11. Are file operations explicit, confirmed where destructive, and kept inside the output boundary?
-12. Does `eng.exe check --review` show useful metadata?
-13. Does `eng.exe run --save-artifacts` produce expected artifacts?
+10. Do structured runtime messages use `log debug/info/warn/error`?
+11. Are durable outputs written with `export`, `plot`, and `report`?
+12. Are file operations explicit, confirmed where destructive, and kept inside the output boundary?
+13. Does `eng.exe check --review` show useful metadata?
+14. Does `eng.exe run --save-artifacts` produce expected artifacts?
 
 ## Official Example Walkthrough
 
@@ -1134,7 +1192,8 @@ It demonstrates:
 | `where { Q_for_energy = ... }` | Owner-local source calculation |
 | `with { method = trapezoidal }` | Owner option metadata |
 | `mean_Q = mean Q_coil over Time` | Command-style statistic |
-| `print ...` | CLI/debug output |
+| `print ...` | Direct CLI/debug output |
+| `log ...` | Structured runtime message |
 | `export summary to csv` | Durable scalar CSV artifact |
 | `report { summarize ... plot ... with ... }` | Review/report/plot output |
 
@@ -1157,6 +1216,7 @@ Expected artifacts include:
 ```text
 build/result/summary.csv
 build/result/output_manifest.json
+build/result/run_log.json
 build/result/review.json
 build/result/report.html
 build/result/plots/plot_spec.json

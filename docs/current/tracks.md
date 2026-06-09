@@ -226,7 +226,7 @@ Non-goals:
 
 ## T11 General Programming / Side Effects
 
-Implemented seeds through `v0.6-preview`:
+Implemented seeds through `v0.7-preview`:
 
 ```text
 - file/dir path defaults
@@ -240,6 +240,8 @@ Implemented seeds through `v0.6-preview`:
 - constrained copy/move/delete file operation seed
 - confirm/recursive metadata requirements for destructive operations
 - output manifest records for generated-output file operations
+- print plus log debug/info/warn/error runtime message metadata
+- run_log.json artifact records for saved runs
 - review/result/report-spec environment_dependencies fields
 ```
 
@@ -261,8 +263,8 @@ Planned implementation order:
 3. read text/json/toml with source hashes [implemented]
 4. write/export hardening and output manifest [implemented]
 5. copy/move/delete with explicit confirmation [implemented]
-6. log/warn/run-log artifacts [next]
-7. run command and ProcessResult
+6. log level/run-log artifacts [implemented]
+7. run command and ProcessResult [next]
 8. test/assert/golden support
 ```
 

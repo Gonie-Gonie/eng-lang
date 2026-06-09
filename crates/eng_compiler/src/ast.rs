@@ -193,6 +193,7 @@ pub struct SummaryDecl {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PrintDecl {
+    pub level: String,
     pub template: String,
     pub line: usize,
     pub span: SourceSpan,

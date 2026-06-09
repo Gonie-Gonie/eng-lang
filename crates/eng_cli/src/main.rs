@@ -336,6 +336,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 println!("bytecode: {}", output.bytecode_path.display());
                 println!("result:   {}", output.result_path.display());
                 println!("review:   {}", output.review_path.display());
+                println!("runlog:   {}", output.run_log_path.display());
                 println!("reportspec: {}", output.report_spec_path.display());
                 println!("plot:     {}", output.plot_path.display());
                 println!("plotspec: {}", output.plot_spec_path.display());
@@ -347,6 +348,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 println!("artifacts: in memory");
                 println!("result:   {} bytes", output.result_json.len());
                 println!("review:   {} bytes", output.review_json.len());
+                println!("runlog:   {} bytes", output.run_log_json.len());
                 println!("reportspec: {} bytes", output.report_spec_json.len());
                 println!("plot:     {} bytes", output.plot_svg.len());
                 println!("plotspec: {} bytes", output.plot_spec_json.len());
@@ -512,6 +514,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/11_read_only_io/main.eng",
                 "examples/official/12_write_output_manifest/main.eng",
                 "examples/official/13_file_operations/main.eng",
+                "examples/official/14_run_log/main.eng",
             ],
         ),
         (
@@ -975,6 +978,33 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("file operations example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
+        Path::new("examples/official/14_run_log/main.eng"),
+        Path::new("build/test-run-log"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
+            let run_log = std::fs::read_to_string(&output.run_log_path).unwrap_or_default();
+            let manifest =
+                std::fs::read_to_string(&output.output_manifest_path).unwrap_or_default();
+            if !review.contains("\"level\": \"warn\"")
+                || !run_log.contains("\"format\": \"eng-run-log-v1\"")
+                || !run_log.contains("\"level\": \"error\"")
+                || !manifest.contains("\"kind\": \"run_log\"")
+            {
+                eprintln!(
+                    "expected run log example to produce review, run_log, and manifest records"
+                );
+                return ExitCode::from(2);
+            }
+            println!("ok: examples/official/14_run_log/main.eng produced run log artifacts");
+        }
+        Err(error) => {
+            eprintln!("run log example failed: {error}");
             return ExitCode::from(2);
         }
     }

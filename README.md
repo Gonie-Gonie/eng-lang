@@ -8,9 +8,9 @@ first-class parts of engineering code.
 
 ## Status
 
-Current public line: `v0.6-preview`
+Current public line: `v0.7-preview`
 
-Active target: `v0.7-preview` - log/warn and run log artifacts
+Active target: `v0.8-preview` - external process and `ProcessResult` policy seed
 
 EngLang is preview software. The language, runtime behavior, and artifact
 formats are not yet stable.
@@ -35,6 +35,7 @@ Start from these short status documents:
 - Read-only UTF-8 `read text/json/toml` with source hash provenance
 - Explicit `write text/json`, CSV overwrite hardening, and output manifest
 - Explicit `copy/move/delete` file operation seed with confirmation metadata
+- `print` plus `log debug/info/warn/error` runtime messages with `run_log.json`
 - PlotSpec/SVG output
 - Review/report artifacts
 - Basic packaged execution
@@ -113,6 +114,7 @@ build/
     review.json
     report.html
     report_spec.json
+    run_log.json
     output_manifest.json
     plots/
       plot_spec.json
@@ -182,7 +184,7 @@ dist\main-standalone\run.bat
 popd
 ```
 
-`package` writes `dist\englang-preview-v0.6-preview-windows-x64.zip`, a
+`package` writes `dist\englang-preview-v0.7-preview-windows-x64.zip`, a
 matching `.sha256` file, and a curated PDF user guide. The portable package
 does not copy the full developer markdown documentation tree. `package-smoke`
 extracts that zip into a path with spaces and Korean characters, then runs the

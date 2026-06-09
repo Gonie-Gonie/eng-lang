@@ -22,7 +22,8 @@ v0.3-preview  syntax/dataflow unification and path-policy seed
 v0.4-preview  read-only I/O and multi-source data policy
 v0.5-preview  write/export hardening and output manifest
 v0.6-preview  explicit copy/move/delete side-effect policy
-v0.7-preview  log/warn and run log artifacts
+v0.7-preview  structured log levels and run log artifacts
+v0.8-preview  external process and ProcessResult policy seed
 ...
 v1.0          stable core
 ```
@@ -33,7 +34,7 @@ give feedback on the current preview scope.
 
 ## Current Public Line
 
-`v0.6-preview` packages the current user-test workflow:
+`v0.7-preview` packages the current user-test workflow:
 
 ```text
 - eng.exe doctor/check/run/build/view
@@ -47,6 +48,7 @@ give feedback on the current preview scope.
 - read-only UTF-8 `read text/json/toml` with source hash provenance
 - explicit `write text/json`, CSV overwrite hardening, and output manifest
 - explicit `copy/move/delete` file operation seed with confirmation metadata
+- `print` plus `log debug/info/warn/error` runtime messages with `run_log.json`
 - PlotSpec/SVG output
 - review/report artifacts
 - basic packaged execution
@@ -92,14 +94,13 @@ policy source.
 
 ## Active Target
 
-`v0.7-preview` focuses on structured runtime messages:
+`v0.8-preview` focuses on controlled external process execution:
 
 ```text
-- log/warn syntax seed
-- run_log artifact for structured print/log/warn messages
-- CLI/IDE display for runtime message levels
-- clearer distinction between debugging output and reproducible artifacts
-- side-effect/profile docs updated around message artifacts
+- `run command ...` syntax under the side-effect policy
+- `ProcessResult` metadata object with exit/stdout/stderr/cwd/args
+- review/output metadata for external process effects
+- profile-aware process execution boundaries
 ```
 
 ## Development Tracks

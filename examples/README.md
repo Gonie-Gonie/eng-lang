@@ -67,6 +67,10 @@ official/13_file_operations
   Explicit copy/move/delete filesystem mutation seed, confirmation metadata,
   generated-output mutation boundaries, and output manifest records for file
   operations.
+
+official/14_run_log
+  Structured runtime message seed with print plus `log info/debug/warn/error`
+  and generated `run_log.json` artifacts.
 ```
 
 ## Compatibility Regression Examples

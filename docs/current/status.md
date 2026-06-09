@@ -7,9 +7,9 @@ agents. It separates public release versions from long-term development tracks.
 
 | Field | Value |
 |---|---|
-| Current public line | `v0.6-preview` |
-| Active target | `v0.7-preview` log/warn and run log artifacts |
-| Workspace package version | `0.6.0-preview` |
+| Current public line | `v0.7-preview` |
+| Active target | `v0.8-preview` external process and `ProcessResult` policy seed |
+| Workspace package version | `0.7.0-preview` |
 | Release channel | `preview` |
 
 EngLang is preview software. The language, runtime behavior, and artifact
@@ -100,6 +100,9 @@ the current public preview workflow, but it is not yet a stable contract.
   move/delete require `with { confirm = true }`; directory delete also requires
   `recursive = true`; all operation records appear in review/output manifest
   metadata.
+- `print` remains lightweight CLI/debug output. `log debug/info/warn/error`
+  creates structured runtime message metadata. Saved runs write
+  `run_log.json`, and `output_manifest.json` records the run-log artifact.
 - Standalone package output with `.engpkg`, bytecode, lock, source/dependency
   copy, dependency hashes, Args help, and reviewable report artifacts.
 - Temperature spelling policy: `degC` remains the canonical ASCII spelling, and
@@ -123,6 +126,8 @@ the current public preview workflow, but it is not yet a stable contract.
 - Unit-aware `print` interpolation and explicit one-row
   `export summary to csv` output under `build/result`; this is not a
   first-class Summary object model.
+- Structured runtime message levels through `log debug`, `log info`,
+  `log warn`, and `log error`, with `run_log.json` for IDE/tool inspection.
 - OODocs grammar PDF generation through `dev.bat grammar-docs`, backed by the
   language grammar guide.
 - Current planning and release docs now align around the integrated
@@ -130,7 +135,8 @@ the current public preview workflow, but it is not yet a stable contract.
   [side-effect policy](../reference/side_effect_policy.md). The implemented
   side-effect scope is GP-1 path helpers, GP-2 read-only UTF-8 text/json/toml
   reads with source hashes, GP-3 write/export hardening with output manifest,
-  and GP-4 constrained copy/move/delete file operation metadata.
+  GP-4 constrained copy/move/delete file operation metadata, and GP-5
+  structured log-level runtime messages with run-log artifacts.
 
 ## Future Tracks On Main
 
@@ -168,10 +174,10 @@ See [development tracks](tracks.md) for the current scope and limitations.
 - Parenthesis-light syntax for arbitrary user-defined/general function calls
   and project-wide display unit policy blocks are deferred.
 - Broad file/process/network side-effect runtime support is deferred to the
-  general programming track. `v0.6-preview` implements path helpers, `exists`
+  general programming track. `v0.7-preview` implements path helpers, `exists`
   provenance, read-only UTF-8 text/json/toml source hash provenance, explicit
-  write/export output manifest support, and constrained output-area
-  copy/move/delete only.
+  write/export output manifest support, constrained output-area
+  copy/move/delete, and structured runtime log artifacts only.
 - Class/domain objects are planned for reviewable engineering objects, but
   class declaration/object literal/runtime lowering is not part of the current
   public preview.

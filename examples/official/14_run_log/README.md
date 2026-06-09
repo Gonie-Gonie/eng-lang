@@ -1,0 +1,13 @@
+# Official 14 - Run Log
+
+This example exercises the `v0.7-preview` structured runtime message seed.
+
+It demonstrates:
+
+- `print "..."` for direct CLI/debug output
+- `log info "..."`, `log warn "..."`, `log debug "..."`, and `log error "..."`
+- unit-aware interpolation inside log messages
+- `run_log.json` generation for tooling and IDE inspection
+
+`print` remains lightweight human output. `log <level>` is structured runtime
+message metadata.

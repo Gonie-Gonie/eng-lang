@@ -5,9 +5,9 @@ It is intentionally short so agents do not need to load every planning file.
 
 ## Current Target
 
-- Current public line: `v0.6-preview`
-- Active target: `v0.7-preview` log/warn and run log artifacts
-- Workspace package version: `0.6.0-preview`
+- Current public line: `v0.7-preview`
+- Active target: `v0.8-preview` external process and `ProcessResult` policy seed
+- Workspace package version: `0.7.0-preview`
 - EngLang is preview software. The language and artifact formats are not
   stable.
 - Public release versions describe packages. Long-term capabilities are tracked
@@ -38,6 +38,7 @@ The current public preview supports:
 - read-only UTF-8 `read text/json/toml` with source hash provenance
 - explicit `write text/json`, CSV overwrite hardening, and output manifest
 - explicit `copy/move/delete` file operation seed with confirmation metadata
+- `print` plus `log debug/info/warn/error` runtime messages with `run_log.json`
 - PlotSpec/SVG output
 - review/report artifacts
 - basic packaged execution

@@ -288,6 +288,7 @@ pub struct FormatExpressionInfo {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PrintInfo {
+    pub level: String,
     pub template: String,
     pub fields: Vec<FormatExpressionInfo>,
     pub line: usize,
@@ -1482,6 +1483,20 @@ fn analyze_print_decl(
     prints: &mut Vec<PrintInfo>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
+    if print.level != "print"
+        && !matches!(print.level.as_str(), "debug" | "info" | "warn" | "error")
+    {
+        diagnostics.push(Diagnostic::error(
+            "E-LOG-LEVEL-001",
+            print.line,
+            if print.level.is_empty() {
+                "`log` requires a level."
+            } else {
+                "Unsupported `log` level."
+            },
+            Some("Use `log debug \"...\"`, `log info \"...\"`, `log warn \"...\"`, or `log error \"...\"`."),
+        ));
+    }
     let fields = analyze_format_fields(
         &print.template,
         print.line,
@@ -1490,6 +1505,7 @@ fn analyze_print_decl(
         diagnostics,
     );
     prints.push(PrintInfo {
+        level: print.level.clone(),
         template: print.template.clone(),
         fields,
         line: print.line,

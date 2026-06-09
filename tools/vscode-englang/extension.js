@@ -49,8 +49,9 @@ const UNITS = [
 
 const KEYWORDS = [
   "schema",
-  "script",
-  "struct",
+  "args",
+  "const",
+  "use",
   "system",
   "domain",
   "across",
@@ -70,7 +71,15 @@ const KEYWORDS = [
   "policy",
   "missing",
   "where",
+  "with",
   "return",
+  "print",
+  "log",
+  "export",
+  "write",
+  "copy",
+  "move",
+  "delete",
   "plot",
   "line",
   "bar",
@@ -228,12 +237,11 @@ async function runActiveFile(context) {
 
   const runtime = findRuntime(context, document);
   const cwd = workspaceRoot(document);
-  const entry = vscode.workspace.getConfiguration("englang", document.uri).get("runEntry", "main");
   output.show(true);
-  output.appendLine(`run ${document.uri.fsPath} --entry ${entry}`);
+  output.appendLine(`run ${document.uri.fsPath}`);
   cp.execFile(
     runtime,
-    ["run", document.uri.fsPath, "--entry", entry],
+    ["run", document.uri.fsPath],
     { cwd, maxBuffer: 10 * 1024 * 1024 },
     (error, stdout, stderr) => {
       if (stdout) {
@@ -340,7 +348,8 @@ class EngCompletionProvider {
     }
 
     addCompletion(items, seen, snippet("schema csv", "schema ${1:Sensor} {\n    ${2:time}: DateTime [iso8601]\n    ${3:heat}: HeatRate [kW]\n}", "Typed CSV schema"));
-    addCompletion(items, seen, snippet("script main", "script main() -> Report {\n    ${1:value} = ${2:1 kW}\n    return plot line ${1:value}\n}", "Main report script"));
+    addCompletion(items, seen, snippet("args block", "args {\n    ${1:input}: CsvFile = file(\"${2:data/sensor.csv}\")\n}", "Root CLI argument block"));
+    addCompletion(items, seen, snippet("print log", "print \"${1:case ready}\"\nlog info \"${2:Q = {Q: .2 kW}}\"", "Direct output plus structured log message"));
     addCompletion(items, seen, snippet("system thermal", "system ${1:Room} {\n    state ${2:T}: AbsoluteTemperature = ${3:20 degC}\n    parameter ${4:C}: HeatCapacity = ${5:1200 kJ/K}\n    parameter ${6:UA}: Conductance = ${7:250 W/K}\n    input ${8:T_out}: AbsoluteTemperature = ${9:10 degC}\n    input ${10:Q_internal}: HeatRate = ${11:500 W}\n    equation energy_balance:\n        ${4:C} * der(${2:T}) eq ${6:UA} * (${8:T_out} - ${2:T}) + ${10:Q_internal}\n}", "First-order thermal system"));
     addCompletion(items, seen, snippet("domain ports", "domain ${1:Thermal} package \"${2:eng.std.domains.thermal}\" version \"${3:0.1.0}\" {\n    across ${4:T}: AbsoluteTemperature [degC]\n    through ${5:Q}: HeatRate [kW]\n    conservation sum(${5:Q}) = 0\n}\n\ndomain ${6:Fluid}[${7:Medium M}] package \"${8:eng.std.domains.fluid}\" version \"${9:0.1.0}\" {\n    across ${10:height}: Length [m]\n    through ${11:m_dot}: MassFlowRate [kg/s]\n    conservation sum(${11:m_dot}) = 0\n}\n\ndomain ${12:MechanicalNode}[${13:Frame F}, ${14:Axis DOF}] package \"${15:eng.std.domains.mechanical}\" version \"${16:0.1.0}\" {\n    across ${17:x}: Length [m]\n    through ${18:P}: MechanicalPower [W]\n    conservation sum(${18:P}) = 0\n}\n\ncomponent ${19:RoomBoundary} {\n    port ${20:heat}: ${1:Thermal}\n}\n\ncomponent ${21:SupplyPipe} {\n    port ${22:inlet}: ${6:Fluid}[${23:Water}]\n    port ${24:outlet}: ${6:Fluid}[${23:Water}]\n}\n\ncomponent ${25:ShaftA} {\n    port ${26:shaft}: ${12:MechanicalNode}[${27:World}, ${28:X}]\n}\n\ncomponent ${29:ShaftB} {\n    port ${30:shaft}: ${12:MechanicalNode}[${27:World}, ${28:X}]\n}\n\nconnect ${21:SupplyPipe}.${22:inlet} -> ${21:SupplyPipe}.${24:outlet}\nconnect ${25:ShaftA}.${26:shaft} -> ${29:ShaftB}.${30:shaft}", "Domain package/version, generic ports, and connection"));
 

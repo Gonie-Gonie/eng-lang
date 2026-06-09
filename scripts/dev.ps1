@@ -525,6 +525,7 @@ function Assert-SchemaFilesPresent {
         "docs\schemas\result.schema.json",
         "docs\schemas\plotspec.schema.json",
         "docs\schemas\output_manifest.schema.json",
+        "docs\schemas\run_log.schema.json",
         "docs\schemas\engpkg.schema.json"
     )
 
@@ -912,10 +913,17 @@ function Invoke-IdeCheck {
         }
     }
     $Properties = $Package.contributes.configuration.properties
-    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsBackend", "englang.lintOnSave", "englang.runEntry")) {
+    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsBackend", "englang.lintOnSave")) {
         if ($null -eq $Properties.$RequiredProperty) {
             throw "VS Code extension missing configuration property $RequiredProperty"
         }
+    }
+    if ($null -ne $Properties."englang.runEntry") {
+        throw "VS Code extension must not expose deprecated englang.runEntry configuration"
+    }
+    $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
+    if ($ExtensionSource.Contains("--entry") -or $ExtensionSource.Contains("runEntry")) {
+        throw "VS Code extension run command must use top-level execution without entry flags"
     }
     $BackendEnum = @($Properties."englang.diagnosticsBackend".enum)
     foreach ($RequiredBackend in @("eng-cli", "lsp-snapshot")) {

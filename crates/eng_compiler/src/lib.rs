@@ -1842,6 +1842,10 @@ pub fn review_json(report: &CheckReport) -> String {
         }
         json.push_str("    {\n");
         json.push_str(&format!(
+            "      \"level\": \"{}\",\n",
+            json_escape(&print.level)
+        ));
+        json.push_str(&format!(
             "      \"template\": \"{}\",\n",
             json_escape(&print.template)
         ));
@@ -3486,12 +3490,17 @@ mod tests {
     fn records_unit_aware_print_and_csv_export_metadata() {
         let report = check_source(
             "ok.eng",
-            "cp = 4180 J/kg/K\nQ_series = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nmean_Q = mean(Q_series, axis=Time)\nQ = 10 kW\nE: Energy [J] = 3600 J\nprint \"Q={Q: .2 kW} E={E: .3 kWh}\"\nexport summary to csv \"summary.csv\" {\n    Q as kW with \".2\"\n    E as kWh with \".3\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text \"summary.txt\", Q\nwrite json \"summary.json\", E\ncopy file(\"source.txt\") to \"copied.txt\"\nmove \"copied.txt\" to \"moved.txt\"\nwith {\n    confirm = true\n    overwrite = true\n}\ndelete \"moved.txt\"\nwith {\n    confirm = true\n}\n",
+            "cp = 4180 J/kg/K\nQ_series = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nmean_Q = mean(Q_series, axis=Time)\nQ = 10 kW\nE: Energy [J] = 3600 J\nprint \"Q={Q: .2 kW} E={E: .3 kWh}\"\nlog info \"run started for {Q: .1 kW}\"\nlog warn \"check energy {E: .3 kWh}\"\nlog debug \"debug detail\"\nlog error \"review required\"\nexport summary to csv \"summary.csv\" {\n    Q as kW with \".2\"\n    E as kWh with \".3\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text \"summary.txt\", Q\nwrite json \"summary.json\", E\ncopy file(\"source.txt\") to \"copied.txt\"\nmove \"copied.txt\" to \"moved.txt\"\nwith {\n    confirm = true\n    overwrite = true\n}\ndelete \"moved.txt\"\nwith {\n    confirm = true\n}\n",
             &CheckOptions::default(),
         );
 
         assert!(!report.has_errors());
-        assert_eq!(report.semantic_program.prints.len(), 1);
+        assert_eq!(report.semantic_program.prints.len(), 5);
+        assert_eq!(report.semantic_program.prints[0].level, "print");
+        assert_eq!(report.semantic_program.prints[1].level, "info");
+        assert_eq!(report.semantic_program.prints[2].level, "warn");
+        assert_eq!(report.semantic_program.prints[3].level, "debug");
+        assert_eq!(report.semantic_program.prints[4].level, "error");
         assert_eq!(report.semantic_program.prints[0].fields.len(), 2);
         assert_eq!(
             report.semantic_program.prints[0].fields[0]
@@ -3521,11 +3530,30 @@ mod tests {
         assert_eq!(report.semantic_program.with_blocks.len(), 3);
         let review = review_json(&report);
         assert!(review.contains("\"prints\""));
+        assert!(review.contains("\"level\": \"warn\""));
         assert!(review.contains("\"csv_exports\""));
         assert!(review.contains("\"writes\""));
         assert!(review.contains("\"file_operations\""));
         assert!(review.contains("\"overwrite\""));
         assert!(review.contains("\"confirm\""));
+    }
+
+    #[test]
+    fn rejects_invalid_log_levels() {
+        let report = check_source(
+            "bad.eng",
+            "log trace \"too noisy\"\nlog \"missing level\"\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-LOG-LEVEL-001" && diagnostic.line == 1));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-LOG-LEVEL-001" && diagnostic.line == 2));
     }
 
     #[test]

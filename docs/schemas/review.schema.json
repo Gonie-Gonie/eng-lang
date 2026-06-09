@@ -141,8 +141,9 @@
     },
     "print": {
       "type": "object",
-      "required": ["template", "line", "fields"],
+      "required": ["level", "template", "line", "fields"],
       "properties": {
+        "level": { "enum": ["print", "debug", "info", "warn", "error"] },
         "template": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 },
         "fields": {

@@ -43,6 +43,7 @@ pub struct RunOutput {
     pub plot_spec_path: PathBuf,
     pub plot_manifest_path: PathBuf,
     pub output_manifest_path: PathBuf,
+    pub run_log_path: PathBuf,
     pub csv_export_paths: Vec<PathBuf>,
     pub write_output_paths: Vec<PathBuf>,
     pub file_operation_paths: Vec<PathBuf>,
@@ -57,6 +58,7 @@ pub struct RunOutput {
     pub plot_spec_json: String,
     pub plot_manifest_json: String,
     pub output_manifest_json: String,
+    pub run_log_json: String,
 }
 
 #[derive(Clone, Debug)]
@@ -196,6 +198,7 @@ pub fn run_file(
     let plot_spec_path = plots_dir.join("plot_spec.json");
     let plot_manifest_path = plots_dir.join("plot_manifest.json");
     let output_manifest_path = result_dir.join("output_manifest.json");
+    let run_log_path = result_dir.join("run_log.json");
     let report_spec_path = result_dir.join("report_spec.json");
     let report_path = result_dir.join("report.html");
 
@@ -206,6 +209,7 @@ pub fn run_file(
     let runtime_data = materialize_runtime_data(&check_report, &source);
     apply_runtime_lengths(&mut execution, &runtime_data);
     let stdout = render_stdout(&check_report, &runtime_data);
+    let run_log_json = run_log_json(&check_report, &runtime_data);
     let csv_export_artifacts = write_csv_exports(&check_report, &runtime_data, &result_dir)?;
     let write_artifacts = write_outputs(&check_report, &runtime_data, &result_dir)?;
     let file_operation_artifacts = apply_file_operations(&check_report, &result_dir)?;
@@ -280,6 +284,13 @@ pub fn run_file(
             &review_json,
             review_path.clone(),
         ));
+        fs::write(&run_log_path, &run_log_json)?;
+        output_artifacts.push(output_artifact(
+            "run_log",
+            "run_log.json".to_owned(),
+            &run_log_json,
+            run_log_path.clone(),
+        ));
         fs::write(&plot_spec_path, &plot_spec_json)?;
         output_artifacts.push(output_artifact(
             "plot_spec",
@@ -343,6 +354,7 @@ pub fn run_file(
         plot_spec_path,
         plot_manifest_path,
         output_manifest_path,
+        run_log_path,
         csv_export_paths,
         write_output_paths,
         file_operation_paths,
@@ -357,6 +369,7 @@ pub fn run_file(
         plot_spec_json,
         plot_manifest_json,
         output_manifest_json,
+        run_log_json,
     })
 }
 
@@ -697,11 +710,75 @@ fn apply_runtime_lengths(execution: &mut VmExecution, runtime_data: &RuntimeData
 
 fn render_stdout(report: &CheckReport, runtime_data: &RuntimeData) -> String {
     let mut output = String::new();
-    for print in &report.semantic_program.prints {
-        output.push_str(&render_print_template(print, report, runtime_data));
+    for entry in runtime_log_entries(report, runtime_data) {
+        if entry.level == "print" {
+            output.push_str(&entry.message);
+        } else {
+            output.push_str(&format!("[{}] {}", entry.level, entry.message));
+        }
         output.push('\n');
     }
     output
+}
+
+#[derive(Clone, Debug)]
+struct RuntimeLogEntry {
+    index: usize,
+    level: String,
+    message: String,
+    line: usize,
+}
+
+fn runtime_log_entries(report: &CheckReport, runtime_data: &RuntimeData) -> Vec<RuntimeLogEntry> {
+    report
+        .semantic_program
+        .prints
+        .iter()
+        .enumerate()
+        .map(|(index, print)| RuntimeLogEntry {
+            index,
+            level: print.level.clone(),
+            message: render_print_template(print, report, runtime_data),
+            line: print.line,
+        })
+        .collect()
+}
+
+fn run_log_json(report: &CheckReport, runtime_data: &RuntimeData) -> String {
+    let entries = runtime_log_entries(report, runtime_data);
+    let mut json = String::new();
+    json.push_str("{\n");
+    json.push_str("  \"format\": \"eng-run-log-v1\",\n");
+    json.push_str(&format!(
+        "  \"runtime_version\": \"{}\",\n",
+        json_escape(RUNTIME_VERSION)
+    ));
+    json.push_str(&format!(
+        "  \"source_path\": \"{}\",\n",
+        json_escape(&report.source_path.display().to_string())
+    ));
+    json.push_str(&format!("  \"message_count\": {},\n", entries.len()));
+    json.push_str("  \"messages\": [\n");
+    for (entry_index, entry) in entries.iter().enumerate() {
+        if entry_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!("      \"index\": {},\n", entry.index));
+        json.push_str(&format!(
+            "      \"level\": \"{}\",\n",
+            json_escape(&entry.level)
+        ));
+        json.push_str(&format!(
+            "      \"message\": \"{}\",\n",
+            json_escape(&entry.message)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", entry.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ]\n");
+    json.push_str("}\n");
+    json
 }
 
 fn render_print_template(
@@ -3161,7 +3238,7 @@ mod tests {
         let source_path = source_dir.join("main.eng");
         fs::write(
             &source_path,
-            "schema SensorData {\n    time: DateTime index\n    T_supply: AbsoluteTemperature [degC]\n    T_return: AbsoluteTemperature [degC]\n    m_dot: MassFlowRate [kg/s]\n}\n\nargs {\n    input: CsvFile = file(\"../../examples/official/01_csv_plot/data/sensor.csv\")\n}\n\nsensor = promote csv args.input as SensorData\ncp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nE_coil = integrate(Q_coil, over=Time)\nmean_Q = mean(Q_coil, axis=Time)\n\nprint \"Loaded {sensor.rows} rows from {args.input}\"\nprint \"Q mean = {mean(Q_coil, axis=Time): .2 kW}\"\nprint \"E total = {E_coil: .2 kWh}\"\n\nexport summary to csv \"summary.csv\" {\n    E_coil as kWh with \".2\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text \"summary.txt\", mean_Q\nwrite json \"energy.json\", E_coil\n",
+            "schema SensorData {\n    time: DateTime index\n    T_supply: AbsoluteTemperature [degC]\n    T_return: AbsoluteTemperature [degC]\n    m_dot: MassFlowRate [kg/s]\n}\n\nargs {\n    input: CsvFile = file(\"../../examples/official/01_csv_plot/data/sensor.csv\")\n}\n\nsensor = promote csv args.input as SensorData\ncp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nE_coil = integrate(Q_coil, over=Time)\nmean_Q = mean(Q_coil, axis=Time)\n\nprint \"Loaded {sensor.rows} rows from {args.input}\"\nlog info \"Q mean = {mean(Q_coil, axis=Time): .2 kW}\"\nlog warn \"E total = {E_coil: .2 kWh}\"\n\nexport summary to csv \"summary.csv\" {\n    E_coil as kWh with \".2\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text \"summary.txt\", mean_Q\nwrite json \"energy.json\", E_coil\n",
         )
         .expect("write source");
 
@@ -3170,9 +3247,14 @@ mod tests {
             run_file(&source_path, &build_root, &RunOptions::default()).expect("run file again");
 
         assert!(output.stdout.contains("Loaded 4 rows"));
-        assert!(output.stdout.contains("Q mean = "));
+        assert!(output.stdout.contains("[info] Q mean = "));
         assert!(output.stdout.contains(" kW"));
-        assert!(output.stdout.contains("E total = "));
+        assert!(output.stdout.contains("[warn] E total = "));
+        assert!(output
+            .run_log_json
+            .contains("\"format\": \"eng-run-log-v1\""));
+        assert!(output.run_log_json.contains("\"level\": \"info\""));
+        assert!(output.run_log_json.contains("\"level\": \"warn\""));
         assert_eq!(output.csv_export_paths.len(), 1);
         assert_eq!(output.write_output_paths.len(), 2);
         assert!(!output.artifacts_saved);

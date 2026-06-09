@@ -1,22 +1,36 @@
 {
-  "Script main": {
-    "prefix": "script main",
+  "Top-level workflow": {
+    "prefix": "top workflow",
     "body": [
-      "script main() -> Report {",
-      "    ${1:value} = ${2:1 kW}",
-      "    return plot line ${1:value}",
+      "args {",
+      "    ${1:input}: CsvFile = file(\"${2:data/sensor.csv}\")",
+      "}",
+      "",
+      "${3:Q}: HeatRate [kW] = ${4:1 kW}",
+      "print \"${5:case ready}\"",
+      "log info \"${6:Q = {Q: .2 kW}}\"",
+      "",
+      "report {",
+      "    show ${3:Q}",
       "}"
     ],
-    "description": "Create a main script that returns a report."
+    "description": "Create a top-level EngLang workflow."
   },
-  "Args struct": {
-    "prefix": "struct Args",
+  "Args block": {
+    "prefix": "args block",
     "body": [
-      "struct Args {",
-      "    ${1:input}: String = \"${2:data/sensor.csv}\"",
+      "args {",
+      "    ${1:input}: CsvFile = file(\"${2:data/sensor.csv}\")",
       "}"
     ],
-    "description": "Create an Args struct with a default CSV path."
+    "description": "Create the root CLI argument block."
+  },
+  "Log message": {
+    "prefix": "log info",
+    "body": [
+      "log ${1|info,warn,debug,error|} \"${2:message}\""
+    ],
+    "description": "Create a structured runtime log message."
   },
   "CSV schema": {
     "prefix": "schema csv",
@@ -89,7 +103,11 @@
   },
   "Plot line": {
     "prefix": "plot line",
-    "body": "return plot line ${1:series}",
-    "description": "Return a line plot report."
+    "body": [
+      "report {",
+      "    plot ${1:series} over Time",
+      "}"
+    ],
+    "description": "Create a report line plot request."
   }
 }

@@ -68,6 +68,10 @@ paths before compatibility fixtures.
   Explicit copy/move/delete filesystem mutation seed, confirmation metadata,
   generated-output mutation boundaries, and output manifest records for file
   operations.
+
+14_run_log
+  Structured runtime message seed with print plus `log info/debug/warn/error`
+  and generated `run_log.json` artifacts.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression

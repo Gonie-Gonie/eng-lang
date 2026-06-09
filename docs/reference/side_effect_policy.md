@@ -1,10 +1,10 @@
 # Side Effect And General Programming Policy
 
-Status: GP-1 path policy, GP-2 read-only I/O, GP-3 write/export hardening, and
-GP-4 constrained copy/move/delete file operations are implemented for
-`v0.6-preview`. Broader filesystem mutation outside generated-output
-boundaries, process, network, and test support remain planned tracks, not
-supported preview behavior.
+Status: GP-1 path policy, GP-2 read-only I/O, GP-3 write/export hardening,
+GP-4 constrained copy/move/delete file operations, and GP-5 structured runtime
+log messages are implemented for `v0.7-preview`. Broader filesystem mutation
+outside generated-output boundaries, process, network, and test support remain
+planned tracks, not supported preview behavior.
 
 EngLang is not trying to become a fully general replacement for Python, MATLAB,
 or R. Real engineering workflows still need practical file, path, config,
@@ -28,6 +28,7 @@ what was read, and what external state influenced the result.
 | Typed data boundary | `promote csv/json/toml as Schema` | Preferred for engineering data |
 | Write/export | `write text`, `write json`, `export summary to csv` | Explicit target required; changed overwrite requires `overwrite = true`; generated outputs are manifest-recorded |
 | File operations | `copy`, `move`, `delete`, `mkdir`, `list` | Copy/move/delete seed implemented under explicit output boundaries; broader operations planned |
+| Runtime messages | `print`, `log info`, `log warn`, `log debug`, `log error` | CLI/debug output plus structured `run_log.json` metadata |
 | External process | `run command ... with { ... }` | Experimental; command/cwd/args/exit/stdout/stderr recorded |
 | Network | `download url(...) to file(...)` | Long-term only; repro profile requires hash/cache |
 
@@ -62,7 +63,7 @@ input_exists = exists args.input
 print "input exists = {input_exists}"
 ```
 
-Implemented behavior through `v0.6-preview`:
+Implemented behavior through `v0.7-preview`:
 
 ```text
 - file("...") and dir("...") are accepted in args defaults.
@@ -86,6 +87,12 @@ Implemented behavior through `v0.6-preview`:
 - move and delete require `with { confirm = true }`.
 - delete dir(...) also requires `with { recursive = true }`.
 - file operations are recorded in review.json and output_manifest.json.
+- print output remains a lightweight CLI/debug stream.
+- log debug/info/warn/error statements are type-checked with the same
+  interpolation policy as print.
+- saved runs write `run_log.json` with level, message, source line, and index
+  metadata for IDEs and tools.
+- output_manifest.json records the saved run-log artifact.
 ```
 
 ## Read Policy
@@ -166,6 +173,30 @@ Rules:
 - repro/safe profiles may warn or reject move/delete
 ```
 
+## Runtime Message Policy
+
+Use `print` for direct CLI/debug feedback and `log <level>` when a message
+should be structured for tools:
+
+```eng partial
+print "Loaded {sensor.rows} rows from {args.input}"
+log info "Q mean = {mean_Q: .2 kW}"
+log warn "review high load case"
+log debug "daily energy raw = {E_day: .2 kWh}"
+log error "operator acknowledgement required"
+```
+
+Rules:
+
+```text
+- supported log levels are debug, info, warn, and error
+- `warn "..."` is not a separate command; use `log warn "..."`
+- log interpolation is type- and unit-checked like print
+- CLI output prefixes structured log messages as [level] message
+- saved runs write build/result/run_log.json
+- run_log.json is a runtime artifact, not a replacement for report/export
+```
+
 ## Process Policy
 
 External tools are needed for adapters such as EnergyPlus, FMU/FMI, and legacy
@@ -216,7 +247,7 @@ eng.path     FilePath, DirectoryPath, join, parent, stem, extension, exists
 eng.io       read/write text/json/toml, source hash helpers
 eng.fs       copy, move, delete, mkdir, list
 eng.config   promote toml/json as schema
-eng.log      print/log/warn and unit-aware formatting helpers
+eng.log      print/log <level> and unit-aware formatting helpers
 eng.process  run command, ProcessResult
 eng.test     test/assert/golden support, later
 eng.net      download/cache/hash, later
@@ -230,14 +261,14 @@ eng.net      download/cache/hash, later
 | GP-2 | read text/json/toml, source hashes | implemented in v0.4 |
 | GP-3 | write text/json, export hardening, output manifest | implemented in v0.5 |
 | GP-4 | copy/move/delete and side-effect manifest | implemented in v0.6 |
-| GP-5 | print/log/warn formatting and run log artifact | v0.7 target |
-| GP-6 | external process and `ProcessResult` | v0.8 experimental |
+| GP-5 | print/log level formatting and run log artifact | implemented in v0.7 |
+| GP-6 | external process and `ProcessResult` | v0.8 target |
 | GP-7 | network/download/cache/hash | optional, after process policy |
 | GP-8 | test block/assert/golden support | v0.9 target |
 | GP-9 | IDE side-effect panels and output file navigation | grows across phases |
 
 The current implementation deliberately stops at path helpers, `exists`,
-read-only source-hashed inputs, generated output writes, and constrained
-copy/move/delete operations under `build/result`. Broader filesystem access,
-process, and network effects remain outside the public preview until their
-policy slices land.
+read-only source-hashed inputs, generated output writes, constrained
+copy/move/delete operations under `build/result`, and structured runtime
+message artifacts. Broader filesystem access, process, and network effects
+remain outside the public preview until their policy slices land.

@@ -2,7 +2,7 @@
   "name": "englang",
   "displayName": "EngLang",
   "description": "EngLang IDE preview with diagnostics, hover, completion, and run commands.",
-  "version": "0.6.0-preview",
+  "version": "0.7.0-preview",
   "publisher": "englang",
   "license": "MIT",
   "engines": {
@@ -68,11 +68,6 @@
           "type": "boolean",
           "default": true,
           "description": "Run EngLang diagnostics when .eng files are opened or saved."
-        },
-        "englang.runEntry": {
-          "type": "string",
-          "default": "main",
-          "description": "Default entry passed to eng run from the editor command."
         }
       }
     },

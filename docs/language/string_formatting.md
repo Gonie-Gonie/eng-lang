@@ -1,7 +1,8 @@
 # Unit-Aware Print And CSV Summary Export
 
-EngLang supports Python-like string interpolation for CLI/debug output and a
-small explicit CSV export surface for scalar summary records.
+EngLang supports Python-like string interpolation for CLI/debug output,
+structured runtime messages, and a small explicit CSV export surface for scalar
+summary records.
 
 Status: preview on `main`.
 
@@ -29,6 +30,26 @@ compatible with the expression quantity:
 Quantity values print with units by default. Tables and TimeSeries values print
 as summaries by default; use scalar expressions such as `sensor.rows`,
 `mean(Q_coil, axis=Time)`, or named scalar bindings for numeric formatting.
+
+## Log
+
+`log <level>` uses the same interpolation and unit compatibility rules as
+`print`, but the message is structured for tools:
+
+```eng partial
+log debug "raw E = {E_coil: .3 kWh}"
+log info "Q mean = {mean_Q: .2 kW}"
+log warn "review high load case"
+log error "operator acknowledgement required"
+```
+
+Supported levels are `debug`, `info`, `warn`, and `error`. `warn "..."` is not
+a separate command; use `log warn "..."`.
+
+During CLI runs, structured messages are printed with a level prefix such as
+`[warn] review high load case`. Saved runs also write
+`build/result/run_log.json` with level, rendered message, source line, and
+source-order index.
 
 ## CSV Summary Export
 
@@ -74,6 +95,7 @@ and scalar statistics such as `mean(Q_coil, axis=Time)`.
 
 ## Boundary
 
-`print` is for debug/CLI output. `export summary to csv`, `write text/json`,
-`report`, and `show` are artifact surfaces. Project-wide display-unit policy is
+`print` is for direct debug/CLI output. `log <level>` is for structured runtime
+messages. `export summary to csv`, `write text/json`, `report`, and `show` are
+engineering artifact surfaces. Project-wide display-unit policy is
 intentionally not specified here.

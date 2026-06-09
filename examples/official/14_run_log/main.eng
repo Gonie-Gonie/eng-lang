@@ -1,0 +1,8 @@
+Q_design: HeatRate [kW] = 12.5 kW
+E_day: Energy [kWh] = 42 kWh
+
+print "case ready"
+log info "Q design = {Q_design: .1 kW}"
+log debug "daily energy raw = {E_day: .2 kWh}"
+log warn "review high load case"
+log error "operator acknowledgement required"

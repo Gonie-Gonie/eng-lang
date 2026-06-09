@@ -1649,14 +1649,34 @@ fn parse_summary_decl(tokens: &[Token], line_text: &str) -> Option<SummaryDecl> 
 
 fn parse_print_decl(tokens: &[Token], context: ParseContext) -> Option<PrintDecl> {
     let first = tokens.first()?;
-    if !matches!(first.kind, TokenKind::Keyword(Keyword::Print)) {
-        return None;
-    }
-    let template = tokens.iter().skip(1).find_map(|token| match &token.kind {
-        TokenKind::StringLiteral(value) => Some(value.clone()),
-        _ => None,
-    })?;
+    let (level, template_start) = match first.kind {
+        TokenKind::Keyword(Keyword::Print) => ("print".to_owned(), 1),
+        TokenKind::Keyword(Keyword::Log) => {
+            let level_token = tokens.get(1)?;
+            let level = match &level_token.kind {
+                TokenKind::Identifier(value) => value.clone(),
+                TokenKind::Keyword(_) => level_token.lexeme.clone(),
+                TokenKind::StringLiteral(_) => String::new(),
+                _ => level_token.lexeme.clone(),
+            };
+            let template_start = if matches!(level_token.kind, TokenKind::StringLiteral(_)) {
+                1
+            } else {
+                2
+            };
+            (level, template_start)
+        }
+        _ => return None,
+    };
+    let template = tokens
+        .iter()
+        .skip(template_start)
+        .find_map(|token| match &token.kind {
+            TokenKind::StringLiteral(value) => Some(value.clone()),
+            _ => None,
+        })?;
     Some(PrintDecl {
+        level: level.to_owned(),
         template,
         line: first.span.line,
         span: first.span,
@@ -1954,6 +1974,7 @@ fn line_is_attachable_owner(tokens: &[Token], context: ParseContext) -> bool {
                     | Keyword::Summarize
                     | Keyword::Export
                     | Keyword::Print
+                    | Keyword::Log
                     | Keyword::Write
                     | Keyword::Copy
                     | Keyword::Move

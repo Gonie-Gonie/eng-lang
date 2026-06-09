@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eng-lang.local/schemas/run_log.schema.json",
+  "title": "EngLang Run Log Artifact",
+  "type": "object",
+  "required": [
+    "format",
+    "runtime_version",
+    "source_path",
+    "message_count",
+    "messages"
+  ],
+  "properties": {
+    "format": { "const": "eng-run-log-v1" },
+    "runtime_version": { "type": "string" },
+    "source_path": { "type": "string" },
+    "message_count": { "type": "integer", "minimum": 0 },
+    "messages": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/runLogMessage" }
+    }
+  },
+  "$defs": {
+    "runLogMessage": {
+      "type": "object",
+      "required": ["index", "level", "message", "line"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "level": { "enum": ["print", "debug", "info", "warn", "error"] },
+        "message": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

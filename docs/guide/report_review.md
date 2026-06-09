@@ -27,6 +27,7 @@ build/
     review.json
     report.html
     report_spec.json
+    run_log.json
     output_manifest.json
     plots/
       plot_spec.json
@@ -91,6 +92,10 @@ entry is an object with `kind`, `name`, and `display` fields. For example,
 `Fluid[Medium M]` records `{ kind: "Medium", name: "M", display: "Medium M" }`.
 
 `plot_manifest` in `review.json` declares the runtime path that `eng run` will use. It does not carry the runtime manifest hash because `eng check --review` does not render plots.
+
+`prints[]` records both direct `print` statements and structured `log`
+statements. Each record includes a `level`: `print`, `debug`, `info`, `warn`,
+or `error`.
 
 ## `report_spec.json`
 
@@ -165,10 +170,32 @@ artifacts:
 
 Common `kind` values include `csv_export`, `write_text`, `write_json`,
 `copy_file`, `move_file`, `delete_file`, `plot_svg`, `report_html`, and
-`result`.
+`result`, and `run_log`.
 
 Use it when a tool needs to show exactly which files a run produced without
 guessing from the directory layout.
+
+## `run_log.json`
+
+`run_log.json` is the runtime message artifact written by saved runs. It keeps
+direct `print` output and structured `log debug/info/warn/error` messages in
+source order:
+
+```text
+format = eng-run-log-v1
+runtime_version
+source_path
+message_count
+messages:
+  index
+  level
+  message
+  line
+```
+
+This artifact is useful for native IDE panels, CI summaries, and reproducible
+review tooling. It is not a substitute for durable engineering outputs such as
+`export summary to csv`, `write json`, plots, or reports.
 
 ## System Summary and IR
 
