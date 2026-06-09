@@ -771,7 +771,39 @@ fn diagnostic_summary_text(check: &CheckView) -> String {
 }
 
 fn workspace_root() -> PathBuf {
-    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+    let current_dir = env::current_dir().ok();
+    let exe_dir = env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(Path::to_path_buf));
+
+    for candidate in current_dir.iter().chain(exe_dir.iter()) {
+        if let Some(root) = find_workspace_root(candidate) {
+            return root;
+        }
+    }
+
+    current_dir.unwrap_or_else(|| PathBuf::from("."))
+}
+
+fn find_workspace_root(start: &Path) -> Option<PathBuf> {
+    let mut candidate = if start.is_file() {
+        start.parent()?.to_path_buf()
+    } else {
+        start.to_path_buf()
+    };
+
+    loop {
+        if is_workspace_root(&candidate) {
+            return Some(candidate);
+        }
+        if !candidate.pop() {
+            return None;
+        }
+    }
+}
+
+fn is_workspace_root(path: &Path) -> bool {
+    path.join("examples").is_dir() && path.join("stdlib").is_dir()
 }
 
 fn default_file(root: &Path) -> PathBuf {
@@ -1007,4 +1039,36 @@ fn smoke() -> Result<(), String> {
         domain_report.semantic_program.connections.len()
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn finds_workspace_root_from_target_release_child() {
+        let root = unique_temp_root();
+        let release_dir = root.join("target").join("release");
+        fs::create_dir_all(root.join("examples")).unwrap();
+        fs::create_dir_all(root.join("stdlib")).unwrap();
+        fs::create_dir_all(&release_dir).unwrap();
+
+        let found = find_workspace_root(&release_dir).unwrap();
+        assert_eq!(found, root);
+
+        fs::remove_dir_all(found).unwrap();
+    }
+
+    fn unique_temp_root() -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        env::temp_dir().join(format!(
+            "eng_ide_workspace_root_test_{}_{}",
+            std::process::id(),
+            nanos
+        ))
+    }
 }
