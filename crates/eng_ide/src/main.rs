@@ -24,10 +24,7 @@ const MUTED: egui::Color32 = egui::Color32::from_rgb(99, 112, 130);
 const ERROR: egui::Color32 = egui::Color32::from_rgb(184, 44, 44);
 const WARNING: egui::Color32 = egui::Color32::from_rgb(173, 112, 20);
 const OK: egui::Color32 = egui::Color32::from_rgb(43, 131, 91);
-const RESULT_MIN_WIDTH: f32 = 300.0;
-const RESULT_MAX_WIDTH: f32 = 520.0;
 const CODE_MIN_WIDTH: f32 = 500.0;
-const SPLITTER_WIDTH: f32 = 7.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum UiTheme {
@@ -154,7 +151,7 @@ impl UiSettings {
             .clamp(140.0, 420.0);
         settings.result_width = json_f32(&value, "result_width")
             .unwrap_or(settings.result_width)
-            .clamp(RESULT_MIN_WIDTH, RESULT_MAX_WIDTH);
+            .clamp(300.0, 520.0);
         if let Some(soft_wrap) = value.get("soft_wrap_code").and_then(Value::as_bool) {
             settings.soft_wrap_code = soft_wrap;
         }
@@ -484,6 +481,7 @@ fn smoke() -> eframe::Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum RightTab {
     Variables,
@@ -495,8 +493,22 @@ enum RightTab {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum BottomTab {
     Problems,
-    Output,
-    Artifacts,
+    Terminal,
+}
+
+#[derive(Clone, Copy)]
+enum RunFileKind {
+    Report,
+    Plot,
+}
+
+impl RunFileKind {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Report => "report",
+            Self::Plot => "plot",
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -536,14 +548,14 @@ struct EngIdeApp {
     last_edit: Option<Instant>,
     cursor_char_index: usize,
     completion_filter: String,
+    terminal_input: String,
+    expanded_variable: Option<String>,
     right_tab: RightTab,
     bottom_tab: BottomTab,
     show_explorer: bool,
     show_inspector_panel: bool,
-    show_preview: bool,
     show_settings: bool,
     settings: UiSettings,
-    result_width: f32,
     last_output: Option<RunOutputView>,
     plot_preview: Option<PlotPreview>,
     artifact_summary: Option<ArtifactSummary>,
@@ -583,13 +595,13 @@ impl EngIdeApp {
             last_edit: None,
             cursor_char_index: 0,
             completion_filter: String::new(),
-            right_tab: RightTab::Inspector,
+            terminal_input: String::new(),
+            expanded_variable: None,
+            right_tab: RightTab::Variables,
             bottom_tab: BottomTab::Problems,
             show_explorer: true,
             show_inspector_panel: true,
-            show_preview: true,
             show_settings: false,
-            result_width: settings.result_width,
             settings,
             last_output: None,
             plot_preview: None,
@@ -1076,11 +1088,12 @@ report {
             Ok(output) => {
                 let output = RunOutputView::from_output(output, &self.root);
                 self.plot_preview = PlotPreview::from_plot_spec_json(&output.plot_spec_json).ok();
-                self.artifact_summary = ArtifactSummary::from_output(&output).ok();
-                self.run_log = output.summary();
+                let artifact_summary = ArtifactSummary::from_output(&output).ok();
+                self.run_log = output.terminal_summary(artifact_summary.as_ref());
+                self.artifact_summary = artifact_summary;
                 self.last_output = Some(output);
                 self.status = "Run complete".to_owned();
-                self.bottom_tab = BottomTab::Artifacts;
+                self.bottom_tab = BottomTab::Terminal;
                 self.right_tab = RightTab::Variables;
             }
             Err(RuntimeError::Compile(report)) => {
@@ -1092,7 +1105,7 @@ report {
             Err(error) => {
                 self.run_log = format!("Run failed: {error}");
                 self.status = "Run failed".to_owned();
-                self.bottom_tab = BottomTab::Output;
+                self.bottom_tab = BottomTab::Terminal;
             }
         }
     }
@@ -1140,7 +1153,6 @@ report {
         };
         self.insert_completion(&item.insert);
         self.completion_filter = current_prefix(&self.source, self.cursor_char_index);
-        self.right_tab = RightTab::Completions;
         true
     }
 
@@ -1151,7 +1163,6 @@ report {
             return;
         }
         self.completion_filter = prefix;
-        self.right_tab = RightTab::Completions;
     }
 
     fn maybe_auto_close_pair(&mut self, before: &str) {
@@ -1261,23 +1272,14 @@ report {
                 self.run_current();
             }
             if ui.button("Report").clicked() {
-                if let Some(output) = &self.last_output {
-                    open_path(&output.report_path);
-                } else {
-                    self.status = "No report yet".to_owned();
-                }
+                self.open_last_run_file(RunFileKind::Report);
             }
             if ui.button("Plot SVG").clicked() {
-                if let Some(output) = &self.last_output {
-                    open_path(&output.plot_path);
-                } else {
-                    self.status = "No plot yet".to_owned();
-                }
+                self.open_last_run_file(RunFileKind::Plot);
             }
             ui.separator();
             ui.toggle_value(&mut self.show_explorer, "Explorer");
             ui.toggle_value(&mut self.show_inspector_panel, "Sidebar");
-            ui.toggle_value(&mut self.show_preview, "Result");
             if ui.button("Settings").clicked() {
                 self.show_settings = true;
             }
@@ -1412,22 +1414,10 @@ report {
                             .changed();
                         changed |= ui
                             .add(
-                                egui::Slider::new(
-                                    &mut self.settings.result_width,
-                                    RESULT_MIN_WIDTH..=RESULT_MAX_WIDTH,
-                                )
-                                .text("Result width"),
-                            )
-                            .changed();
-                        changed |= ui
-                            .add(
                                 egui::Slider::new(&mut self.settings.bottom_height, 140.0..=420.0)
                                     .text("Bottom panel height"),
                             )
                             .changed();
-                        if changed {
-                            self.result_width = self.settings.result_width;
-                        }
 
                         ui.add_space(10.0);
                         panel_header(ui, "Window Size");
@@ -1480,7 +1470,6 @@ report {
                             }
                             if ui.button("Reset UI").clicked() {
                                 self.settings = UiSettings::default();
-                                self.result_width = self.settings.result_width;
                                 ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
                                     egui::vec2(
                                         self.settings.window_width,
@@ -1879,7 +1868,6 @@ report {
                                     self.insert_completion(&item.insert);
                                     self.completion_filter =
                                         current_prefix(&self.source, self.cursor_char_index);
-                                    self.right_tab = RightTab::Completions;
                                     accepted_completion = true;
                                 } else if self.accept_first_completion() {
                                     accepted_completion = true;
@@ -1894,94 +1882,64 @@ report {
                             }) {
                                 self.completion_filter =
                                     current_prefix(&self.source, self.cursor_char_index);
-                                self.right_tab = RightTab::Completions;
                             }
                             self.update_completion_filter_from_cursor();
                         }
                     });
                 let prefix = current_prefix(&self.source, self.cursor_char_index);
-                if let Some(item) = self.first_completion_for_prefix() {
-                    if !prefix.is_empty() && item.insert != prefix {
+                if !prefix.is_empty() {
+                    let items = self.completion_items_for_filter(&prefix);
+                    if let Some(item) = items.first() {
                         ui.add_space(4.0);
-                        completion_hint(ui, &prefix, &item);
+                        completion_hint(ui, &prefix, item);
+                    }
+                    self.show_inline_completions(ui, &items);
+                }
+            });
+    }
+
+    fn show_inline_completions(&mut self, ui: &mut egui::Ui, items: &[CompletionItem]) {
+        if items.is_empty() {
+            return;
+        }
+        let palette = ui_palette(ui);
+        egui::Frame::none()
+            .fill(palette.panel)
+            .stroke(egui::Stroke::new(1.0, palette.border))
+            .rounding(egui::Rounding::same(4.0))
+            .inner_margin(egui::Margin::symmetric(6.0, 4.0))
+            .show(ui, |ui| {
+                ui.set_max_width(520.0);
+                for (index, item) in items.iter().take(6).enumerate() {
+                    let response = egui::Frame::none()
+                        .fill(if index == 0 {
+                            palette.selected
+                        } else {
+                            egui::Color32::TRANSPARENT
+                        })
+                        .rounding(egui::Rounding::same(3.0))
+                        .inner_margin(egui::Margin::symmetric(5.0, 2.0))
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.add_sized(
+                                    [150.0, 18.0],
+                                    egui::Label::new(
+                                        egui::RichText::new(&item.label).monospace().strong(),
+                                    ),
+                                );
+                                ui.label(
+                                    egui::RichText::new(&item.detail)
+                                        .color(palette.muted)
+                                        .size(11.5),
+                                );
+                            });
+                        })
+                        .response
+                        .interact(egui::Sense::click());
+                    if response.clicked() {
+                        self.insert_completion(&item.insert);
                     }
                 }
-            });
-    }
-
-    fn show_plot_preview(&mut self, ui: &mut egui::Ui) {
-        egui::Frame::none()
-            .fill(ui_palette(ui).panel)
-            .stroke(egui::Stroke::new(1.0, ui_palette(ui).border))
-            .rounding(egui::Rounding::same(4.0))
-            .inner_margin(egui::Margin::same(8.0))
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.heading(egui::RichText::new("Run Preview").size(14.0));
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if let Some(output) = &self.last_output {
-                            if output.artifacts_saved && compact_button(ui, "Open Folder").clicked()
-                            {
-                                if let Some(parent) = output.result_path.parent() {
-                                    open_path(parent);
-                                }
-                            }
-                        }
-                    });
-                });
-                ui.separator();
-                if let Some(plot) = &self.plot_preview {
-                    draw_plot(ui, plot);
-                } else if self.last_output.is_some() {
-                    ui.label(
-                        egui::RichText::new("Run succeeded, but no PlotSpec preview was found.")
-                            .color(ui_palette(ui).muted),
-                    );
-                } else {
-                    ui.label(
-                        egui::RichText::new(
-                            "Run the current file to see generated plots and artifacts here.",
-                        )
-                        .color(ui_palette(ui).muted),
-                    );
-                }
-            });
-    }
-
-    fn show_result_panel(&mut self, ui: &mut egui::Ui) {
-        panel_header(ui, "Result");
-        egui::ScrollArea::vertical()
-            .auto_shrink([false, false])
-            .show(ui, |ui| {
-                self.show_plot_preview(ui);
-                ui.add_space(10.0);
-                egui::Frame::none()
-                    .fill(ui_palette(ui).panel)
-                    .stroke(egui::Stroke::new(1.0, ui_palette(ui).border))
-                    .rounding(egui::Rounding::same(4.0))
-                    .inner_margin(egui::Margin::same(8.0))
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.heading(egui::RichText::new("Runtime").size(14.0));
-                            ui.label(
-                                egui::RichText::new("result.engres summary")
-                                    .color(ui_palette(ui).muted),
-                            );
-                        });
-                        ui.separator();
-                        self.show_runtime_summary_content(ui);
-                    });
-                ui.add_space(10.0);
-                egui::Frame::none()
-                    .fill(ui_palette(ui).panel)
-                    .stroke(egui::Stroke::new(1.0, ui_palette(ui).border))
-                    .rounding(egui::Rounding::same(4.0))
-                    .inner_margin(egui::Margin::same(8.0))
-                    .show(ui, |ui| {
-                        ui.heading(egui::RichText::new("Artifacts").size(14.0));
-                        ui.separator();
-                        self.show_artifacts_content(ui);
-                    });
             });
     }
 
@@ -1990,17 +1948,9 @@ report {
             tab_button(ui, "Variables", self.right_tab == RightTab::Variables)
                 .clicked()
                 .then(|| self.right_tab = RightTab::Variables);
-            tab_button(ui, "Inspector", self.right_tab == RightTab::Inspector)
-                .clicked()
-                .then(|| self.right_tab = RightTab::Inspector);
-            tab_button(ui, "Runtime", self.right_tab == RightTab::Runtime)
-                .clicked()
-                .then(|| self.right_tab = RightTab::Runtime);
-            tab_button(ui, "Completions", self.right_tab == RightTab::Completions)
-                .clicked()
-                .then(|| self.right_tab = RightTab::Completions);
         });
         ui.separator();
+        self.right_tab = RightTab::Variables;
         match self.right_tab {
             RightTab::Variables => self.show_variables_panel(ui),
             RightTab::Inspector => self.show_inspector(ui),
@@ -2009,8 +1959,22 @@ report {
         }
     }
 
-    fn show_variables_panel(&self, ui: &mut egui::Ui) {
+    fn show_variables_panel(&mut self, ui: &mut egui::Ui) {
         panel_header(ui, "Variables");
+        let status = self
+            .artifact_summary
+            .as_ref()
+            .map(|summary| summary.status.clone());
+        let variables = self
+            .artifact_summary
+            .as_ref()
+            .map(|summary| summary.variables.clone())
+            .unwrap_or_default();
+        let args = self
+            .artifact_summary
+            .as_ref()
+            .map(|summary| summary.args.clone())
+            .unwrap_or_default();
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 metric_chip(
@@ -2019,84 +1983,59 @@ report {
                     &self.symbols.len().to_string(),
                     ui_palette(ui).accent,
                 );
-                let run_variables = self
-                    .artifact_summary
-                    .as_ref()
-                    .map(|summary| summary.variables.len())
-                    .unwrap_or(0);
-                metric_chip(ui, "Run", &run_variables.to_string(), ui_palette(ui).accent);
-                let args = self
-                    .artifact_summary
-                    .as_ref()
-                    .map(|summary| summary.args.len())
-                    .unwrap_or(0);
-                metric_chip(ui, "Args", &args.to_string(), ui_palette(ui).accent);
-                if let Some(summary) = &self.artifact_summary {
-                    metric_chip(ui, "Status", &summary.status, ui_palette(ui).accent);
+                metric_chip(
+                    ui,
+                    "Run",
+                    &variables.len().to_string(),
+                    ui_palette(ui).accent,
+                );
+                metric_chip(ui, "Args", &args.len().to_string(), ui_palette(ui).accent);
+                if let Some(status) = &status {
+                    metric_chip(ui, "Status", status, ui_palette(ui).accent);
                 }
             });
             ui.add_space(8.0);
 
-            if let Some(summary) = &self.artifact_summary {
+            if self.artifact_summary.is_some() {
                 section_label(ui, "Run Variables");
-                if summary.variables.is_empty() {
+                if variables.is_empty() {
                     ui.label(
                         egui::RichText::new("No variable table was emitted for this run.")
                             .color(ui_palette(ui).muted),
                     );
                 }
-                for variable in &summary.variables {
-                    runtime_card(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new(&variable.name).strong());
-                            ui.with_layout(
-                                egui::Layout::right_to_left(egui::Align::Center),
-                                |ui| {
-                                    status_pill(
-                                        ui,
-                                        &format!("L{}", variable.line),
-                                        ui_palette(ui).muted,
-                                    );
-                                },
-                            );
-                        });
-                        ui.horizontal_wrapped(|ui| {
-                            status_pill(ui, &variable.quantity_kind, ui_palette(ui).accent);
-                            if let Some(role) = &variable.role {
-                                status_pill(ui, role, ui_palette(ui).muted);
-                            }
-                            status_pill(ui, &variable.source, ui_palette(ui).muted);
-                        });
-                        if let Some(value) = &variable.value {
-                            key_value_row(ui, "value", value);
-                        }
-                        key_value_row(ui, "display", &variable.display_unit);
-                        key_value_row(ui, "canonical", &variable.canonical_unit);
-                        key_value_row(ui, "dimension", &variable.dimension);
-                    });
-                    ui.add_space(5.0);
+                if !variables.is_empty() {
+                    self.show_runtime_variable_table(ui, &variables);
                 }
 
-                if !summary.args.is_empty() {
+                if !args.is_empty() {
                     ui.add_space(8.0);
                     section_label(ui, "Args");
-                    for arg in &summary.args {
-                        runtime_card(ui, |ui| {
-                            ui.horizontal(|ui| {
-                                ui.label(egui::RichText::new(&arg.name).strong());
-                                ui.with_layout(
-                                    egui::Layout::right_to_left(egui::Align::Center),
-                                    |ui| {
-                                        status_pill(ui, &arg.source, ui_palette(ui).accent);
-                                    },
-                                );
-                            });
-                            key_value_row(ui, "type", &arg.type_name);
-                            key_value_row(ui, "value", &arg.value);
-                            key_value_row(ui, "required", &arg.required.to_string());
+                    egui::Frame::none()
+                        .fill(ui_palette(ui).panel_alt)
+                        .stroke(egui::Stroke::new(1.0, ui_palette(ui).border))
+                        .rounding(egui::Rounding::same(4.0))
+                        .inner_margin(egui::Margin::symmetric(6.0, 5.0))
+                        .show(ui, |ui| {
+                            table_header_row(ui, &["Name", "Type", "Value", "Source", "Required"]);
+                            for arg in &args {
+                                ui.horizontal(|ui| {
+                                    ui.add_sized([86.0, 18.0], egui::Label::new(&arg.name));
+                                    ui.add_sized([58.0, 18.0], egui::Label::new(&arg.type_name));
+                                    ui.add_sized(
+                                        [92.0, 18.0],
+                                        egui::Label::new(
+                                            egui::RichText::new(&arg.value).monospace(),
+                                        ),
+                                    );
+                                    ui.add_sized([58.0, 18.0], egui::Label::new(&arg.source));
+                                    ui.add_sized(
+                                        [58.0, 18.0],
+                                        egui::Label::new(arg.required.to_string()),
+                                    );
+                                });
+                            }
                         });
-                        ui.add_space(5.0);
-                    }
                 }
                 ui.add_space(10.0);
             }
@@ -2105,25 +2044,150 @@ report {
             if self.symbols.is_empty() {
                 ui.label(egui::RichText::new("No source symbols").color(ui_palette(ui).muted));
             }
-            for symbol in &self.symbols {
-                runtime_card(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new(&symbol.name).strong());
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            status_pill(ui, &format!("L{}", symbol.line), ui_palette(ui).muted);
-                        });
+            if !self.symbols.is_empty() {
+                egui::Frame::none()
+                    .fill(ui_palette(ui).panel_alt)
+                    .stroke(egui::Stroke::new(1.0, ui_palette(ui).border))
+                    .rounding(egui::Rounding::same(4.0))
+                    .inner_margin(egui::Margin::symmetric(6.0, 5.0))
+                    .show(ui, |ui| {
+                        table_header_row(ui, &["Name", "Quantity", "Unit", "Line"]);
+                        for symbol in &self.symbols {
+                            ui.horizontal(|ui| {
+                                ui.add_sized(
+                                    [86.0, 18.0],
+                                    egui::Label::new(egui::RichText::new(&symbol.name).strong()),
+                                );
+                                ui.add_sized([86.0, 18.0], egui::Label::new(&symbol.quantity_kind));
+                                ui.add_sized([46.0, 18.0], egui::Label::new(&symbol.display_unit));
+                                ui.add_sized(
+                                    [40.0, 18.0],
+                                    egui::Label::new(
+                                        egui::RichText::new(format!("L{}", symbol.line))
+                                            .color(ui_palette(ui).muted),
+                                    ),
+                                );
+                            });
+                        }
                     });
-                    key_value_row(ui, "quantity", &symbol.quantity_kind);
-                    key_value_row(ui, "display", &symbol.display_unit);
-                    key_value_row(ui, "canonical", &symbol.canonical_unit);
-                    key_value_row(ui, "dimension", &symbol.dimension);
-                    if let Some(expression) = &symbol.expression {
-                        key_value_row(ui, "expression", expression);
-                    }
-                });
-                ui.add_space(5.0);
             }
         });
+    }
+
+    fn show_runtime_variable_table(
+        &mut self,
+        ui: &mut egui::Ui,
+        variables: &[RuntimeVariableView],
+    ) {
+        egui::ScrollArea::horizontal()
+            .id_source("runtime_variable_table_scroll")
+            .auto_shrink([false, true])
+            .show(ui, |ui| {
+                egui::Frame::none()
+                    .fill(ui_palette(ui).panel_alt)
+                    .stroke(egui::Stroke::new(1.0, ui_palette(ui).border))
+                    .rounding(egui::Rounding::same(4.0))
+                    .inner_margin(egui::Margin::symmetric(6.0, 5.0))
+                    .show(ui, |ui| {
+                        ui.set_min_width(390.0);
+                        table_header_row(ui, &["Name", "Kind", "Unit", "Value", "Source", "Line"]);
+                        for variable in variables {
+                            let selected =
+                                self.expanded_variable.as_deref() == Some(variable.name.as_str());
+                            let mut clicked = false;
+                            let fill = if selected {
+                                ui_palette(ui).selected
+                            } else {
+                                egui::Color32::TRANSPARENT
+                            };
+                            let response = egui::Frame::none()
+                                .fill(fill)
+                                .rounding(egui::Rounding::same(3.0))
+                                .inner_margin(egui::Margin::symmetric(3.0, 1.0))
+                                .show(ui, |ui| {
+                                    ui.horizontal(|ui| {
+                                        clicked |= ui
+                                            .add_sized(
+                                                [86.0, 19.0],
+                                                egui::SelectableLabel::new(
+                                                    selected,
+                                                    egui::RichText::new(&variable.name)
+                                                        .strong()
+                                                        .size(12.0),
+                                                ),
+                                            )
+                                            .clicked();
+                                        ui.add_sized(
+                                            [82.0, 19.0],
+                                            egui::Label::new(variable_kind_label(variable)),
+                                        );
+                                        ui.add_sized(
+                                            [46.0, 19.0],
+                                            egui::Label::new(unit_label(&variable.display_unit)),
+                                        );
+                                        ui.add_sized(
+                                            [82.0, 19.0],
+                                            egui::Label::new(
+                                                egui::RichText::new(variable_value_label(variable))
+                                                    .monospace()
+                                                    .size(11.5),
+                                            ),
+                                        );
+                                        ui.add_sized(
+                                            [58.0, 19.0],
+                                            egui::Label::new(short_label(&variable.source, 12)),
+                                        );
+                                        ui.add_sized(
+                                            [34.0, 19.0],
+                                            egui::Label::new(if variable.line == 0 {
+                                                "-".to_owned()
+                                            } else {
+                                                format!("L{}", variable.line)
+                                            }),
+                                        );
+                                    });
+                                })
+                                .response
+                                .interact(egui::Sense::click());
+                            if response.clicked() || clicked {
+                                if selected {
+                                    self.expanded_variable = None;
+                                } else {
+                                    self.expanded_variable = Some(variable.name.clone());
+                                }
+                            }
+                            if selected {
+                                self.show_runtime_variable_detail(ui, variable);
+                            }
+                        }
+                    });
+            });
+    }
+
+    fn show_runtime_variable_detail(&self, ui: &mut egui::Ui, variable: &RuntimeVariableView) {
+        runtime_card(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                status_pill(ui, &variable.quantity_kind, ui_palette(ui).accent);
+                if let Some(role) = &variable.role {
+                    status_pill(ui, role, ui_palette(ui).muted);
+                }
+                status_pill(ui, &variable.source, ui_palette(ui).muted);
+            });
+            if let Some(value) = &variable.value {
+                key_value_row(ui, "value", value);
+            }
+            key_value_row(ui, "display", &variable.display_unit);
+            key_value_row(ui, "canonical", &variable.canonical_unit);
+            key_value_row(ui, "dimension", &variable.dimension);
+            if should_preview_plot_for(variable) {
+                if let Some(plot) = &self.plot_preview {
+                    ui.add_space(6.0);
+                    section_label(ui, "Preview");
+                    draw_plot(ui, plot);
+                }
+            }
+        });
+        ui.add_space(5.0);
     }
 
     fn show_inspector(&mut self, ui: &mut egui::Ui) {
@@ -2810,18 +2874,14 @@ report {
             tab_button(ui, "Problems", self.bottom_tab == BottomTab::Problems)
                 .clicked()
                 .then(|| self.bottom_tab = BottomTab::Problems);
-            tab_button(ui, "Output", self.bottom_tab == BottomTab::Output)
+            tab_button(ui, "Terminal", self.bottom_tab == BottomTab::Terminal)
                 .clicked()
-                .then(|| self.bottom_tab = BottomTab::Output);
-            tab_button(ui, "Artifacts", self.bottom_tab == BottomTab::Artifacts)
-                .clicked()
-                .then(|| self.bottom_tab = BottomTab::Artifacts);
+                .then(|| self.bottom_tab = BottomTab::Terminal);
         });
         ui.separator();
         match self.bottom_tab {
             BottomTab::Problems => self.show_problems(ui),
-            BottomTab::Output => self.show_output(ui),
-            BottomTab::Artifacts => self.show_artifacts(ui),
+            BottomTab::Terminal => self.show_terminal(ui),
         }
     }
 
@@ -2859,192 +2919,163 @@ report {
         });
     }
 
-    fn show_output(&self, ui: &mut egui::Ui) {
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            if self.run_log.is_empty() {
-                ui.label(egui::RichText::new("No run output").color(ui_palette(ui).muted));
-            } else {
-                ui.monospace(&self.run_log);
+    fn show_terminal(&mut self, ui: &mut egui::Ui) {
+        let available_height = ui.available_height();
+        ui.horizontal(|ui| {
+            if compact_button(ui, "Run").clicked() {
+                self.run_current();
+            }
+            if compact_button(ui, "Check").clicked() {
+                self.check_current();
+                self.append_terminal("Checked current file. See Problems for diagnostics.");
+            }
+            if compact_button(ui, "Clear").clicked() {
+                self.run_log.clear();
+            }
+            if compact_button(ui, "Save Files").clicked() {
+                self.save_terminal_artifacts();
             }
         });
-    }
+        ui.add_space(4.0);
 
-    fn show_artifacts(&mut self, ui: &mut egui::Ui) {
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            self.show_artifacts_content(ui);
-        });
-    }
-
-    fn show_artifacts_content(&mut self, ui: &mut egui::Ui) {
-        let mut save_result = None;
-        if let Some(output) = &mut self.last_output {
-            if let Some(summary) = &self.artifact_summary {
-                ui.horizontal_wrapped(|ui| {
-                    metric_chip(ui, "Run", &summary.status, OK);
-                    metric_chip(
-                        ui,
-                        "Uncertainty",
-                        &summary.uncertainties.len().to_string(),
-                        ui_palette(ui).accent,
-                    );
-                    metric_chip(
-                        ui,
-                        "ML",
-                        &summary.ml.len().to_string(),
-                        ui_palette(ui).accent,
-                    );
-                    metric_chip(
-                        ui,
-                        "Systems",
-                        &summary.system_count.to_string(),
-                        ui_palette(ui).accent,
-                    );
-                });
-                ui.add_space(8.0);
-            }
-            if output.artifacts_saved {
-                ui.label(egui::RichText::new("Artifacts saved to disk").color(OK));
-                ui.add_space(4.0);
-                artifact_row(ui, "Report HTML", &output.report_path);
-                artifact_row(ui, "ReportSpec JSON", &output.report_spec_path);
-                artifact_row(ui, "Plot SVG", &output.plot_path);
-                artifact_row(ui, "PlotSpec JSON", &output.plot_spec_path);
-                artifact_row(ui, "Plot Manifest", &output.plot_manifest_path);
-                artifact_row(ui, "Output Manifest", &output.output_manifest_path);
-                artifact_row(ui, "Result", &output.result_path);
-                artifact_row(ui, "Review", &output.review_path);
-                artifact_row(ui, "Run Log", &output.run_log_path);
-                artifact_row(ui, "Process Results", &output.process_results_path);
-                artifact_row(ui, "Test Results", &output.test_results_path);
-                artifact_row(ui, "Bytecode", &output.bytecode_path);
-            } else {
-                ui.horizontal(|ui| {
+        let transcript_height = (available_height - 58.0).max(90.0);
+        egui::ScrollArea::vertical()
+            .stick_to_bottom(true)
+            .auto_shrink([false, false])
+            .max_height(transcript_height)
+            .show(ui, |ui| {
+                if self.run_log.is_empty() {
                     ui.label(
-                        egui::RichText::new("Runtime objects are in memory for this run.")
+                        egui::RichText::new("Terminal ready. Commands: run, check, clear, help.")
                             .color(ui_palette(ui).muted),
                     );
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if compact_button(ui, "Save Files").clicked() {
-                            save_result = Some(output.save_artifacts());
-                        }
-                    });
-                });
-                ui.add_space(4.0);
-                artifact_object_row(ui, "Report HTML", output.report_html.len());
-                artifact_object_row(ui, "ReportSpec JSON", output.report_spec_json.len());
-                artifact_object_row(ui, "Plot SVG", output.plot_svg.len());
-                artifact_object_row(ui, "PlotSpec JSON", output.plot_spec_json.len());
-                artifact_object_row(ui, "Plot Manifest", output.plot_manifest_json.len());
-                artifact_object_row(ui, "Output Manifest", output.output_manifest_json.len());
-                artifact_object_row(ui, "Result", output.result_json.len());
-                artifact_object_row(ui, "Review", output.review_json.len());
-                artifact_object_row(ui, "Run Log", output.run_log_json.len());
-                artifact_object_row(ui, "Process Results", output.process_results_json.len());
-                artifact_object_row(ui, "Test Results", output.test_results_json.len());
-                artifact_object_row(ui, "Bytecode", output.bytecode.len());
-            }
-            if !output.csv_export_paths.is_empty() {
-                ui.add_space(8.0);
-                ui.label(egui::RichText::new("Explicit CSV exports").color(ui_palette(ui).muted));
-                for path in &output.csv_export_paths {
-                    artifact_row(ui, "CSV", path);
+                } else {
+                    ui.monospace(&self.run_log);
                 }
-            }
-            if !output.write_output_paths.is_empty() {
-                ui.add_space(8.0);
-                ui.label(egui::RichText::new("Explicit write outputs").color(ui_palette(ui).muted));
-                for path in &output.write_output_paths {
-                    artifact_row(ui, "Write", path);
+                if let Some(plot) = &self.plot_preview {
+                    ui.add_space(8.0);
+                    draw_plot(ui, plot);
                 }
-            }
-            if !output.file_operation_paths.is_empty() {
-                ui.add_space(8.0);
-                ui.label(egui::RichText::new("File operations").color(ui_palette(ui).muted));
-                for path in &output.file_operation_paths {
-                    artifact_row(ui, "FS", path);
-                }
-            }
-        } else {
-            ui.label(egui::RichText::new("No artifacts yet").color(ui_palette(ui).muted));
-        }
+            });
 
-        if let Some(result) = save_result {
-            match result {
-                Ok(()) => {
-                    if let Some(output) = &self.last_output {
-                        self.run_log = output.summary();
-                    }
-                    self.status = "Artifacts saved".to_owned();
-                }
-                Err(error) => {
-                    self.status = format!("Could not save artifacts: {error}");
-                }
+        ui.separator();
+        ui.horizontal(|ui| {
+            ui.label(egui::RichText::new(">").monospace().strong());
+            let response = ui.add_sized(
+                [(ui.available_width() - 80.0).max(120.0), 24.0],
+                egui::TextEdit::singleline(&mut self.terminal_input)
+                    .hint_text("run | check | clear | save artifacts | help"),
+            );
+            let submit =
+                response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter));
+            if primary_button(ui, "Send").clicked() || submit {
+                let command = std::mem::take(&mut self.terminal_input);
+                self.execute_terminal_command(&command);
+            }
+        });
+    }
+
+    fn execute_terminal_command(&mut self, command: &str) {
+        let trimmed = command.trim();
+        if trimmed.is_empty() {
+            return;
+        }
+        match trimmed.to_ascii_lowercase().as_str() {
+            "clear" | "cls" => {
+                self.run_log.clear();
+            }
+            "run" => {
+                self.run_current();
+                self.run_log = format!("> {trimmed}\n{}", self.run_log);
+            }
+            "check" => {
+                self.check_current();
+                self.append_terminal(format!("> {trimmed}\nChecked current file."));
+            }
+            "save" | "save artifacts" | "save files" => {
+                self.append_terminal(format!("> {trimmed}"));
+                self.save_terminal_artifacts();
+            }
+            "help" => {
+                self.append_terminal(
+                    "> help\nCommands: run, check, clear, save artifacts, open report, open plot.",
+                );
+            }
+            "open report" => {
+                self.append_terminal(format!("> {trimmed}"));
+                self.open_last_run_file(RunFileKind::Report);
+            }
+            "open plot" => {
+                self.append_terminal(format!("> {trimmed}"));
+                self.open_last_run_file(RunFileKind::Plot);
+            }
+            _ => {
+                self.append_terminal(format!(
+                    "> {trimmed}\nUnknown terminal command. Type help for supported commands."
+                ));
             }
         }
+    }
+
+    fn append_terminal(&mut self, text: impl AsRef<str>) {
+        if !self.run_log.is_empty() && !self.run_log.ends_with('\n') {
+            self.run_log.push('\n');
+        }
+        self.run_log.push_str(text.as_ref());
+        if !self.run_log.ends_with('\n') {
+            self.run_log.push('\n');
+        }
+        self.bottom_tab = BottomTab::Terminal;
+    }
+
+    fn save_terminal_artifacts(&mut self) {
+        let Some(output) = &mut self.last_output else {
+            self.append_terminal("No run output is available to save.");
+            return;
+        };
+        match output.save_artifacts() {
+            Ok(()) => {
+                let report = output.relative_report_path.clone();
+                let plot = output.relative_plot_path.clone();
+                self.status = "Run files saved".to_owned();
+                self.append_terminal(format!(
+                    "Saved report and plot.\nreport: {report}\nplot:   {plot}"
+                ));
+            }
+            Err(error) => {
+                self.status = format!("Could not save run files: {error}");
+                self.append_terminal(format!("Could not save run files: {error}"));
+            }
+        }
+    }
+
+    fn open_last_run_file(&mut self, kind: RunFileKind) {
+        let Some(output) = &mut self.last_output else {
+            self.status = format!("No {} yet", kind.label());
+            self.append_terminal(format!("No {} is available yet.", kind.label()));
+            return;
+        };
+        if !output.artifacts_saved {
+            if let Err(error) = output.save_artifacts() {
+                self.status = format!("Could not save run files: {error}");
+                self.append_terminal(format!("Could not save run files: {error}"));
+                return;
+            }
+        }
+        let (path, relative_path) = match kind {
+            RunFileKind::Report => (
+                output.report_path.clone(),
+                output.relative_report_path.clone(),
+            ),
+            RunFileKind::Plot => (output.plot_path.clone(), output.relative_plot_path.clone()),
+        };
+        open_path(&path);
+        self.status = format!("Opened {}", kind.label());
+        self.append_terminal(format!("Opened {relative_path}"));
     }
 
     fn show_workspace(&mut self, ui: &mut egui::Ui) {
-        let available = ui.available_size_before_wrap();
-        if !self.inline_result_available(available.x) {
-            self.show_editor(ui);
-            return;
-        }
-
-        let gap = 8.0;
-        let usable_width = (available.x - SPLITTER_WIDTH - gap).max(1.0);
-        let min_result = RESULT_MIN_WIDTH.min((usable_width * 0.45).max(220.0));
-        let min_code = CODE_MIN_WIDTH.min((usable_width - min_result).max(260.0));
-        let max_result = (usable_width - min_code)
-            .max(min_result)
-            .min(RESULT_MAX_WIDTH);
-        self.result_width = self.result_width.clamp(min_result, max_result);
-        let code_width = (usable_width - self.result_width).max(120.0);
-
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing = egui::vec2(0.0, 0.0);
-            ui.allocate_ui_with_layout(
-                egui::vec2(code_width, available.y),
-                egui::Layout::top_down(egui::Align::Min),
-                |ui| self.show_editor(ui),
-            );
-            ui.add_space(gap * 0.5);
-            let (splitter_rect, splitter_response) = ui.allocate_exact_size(
-                egui::vec2(SPLITTER_WIDTH, available.y),
-                egui::Sense::click_and_drag(),
-            );
-            if splitter_response.dragged() {
-                let delta_x = ui.input(|input| input.pointer.delta().x);
-                self.result_width = (self.result_width - delta_x).clamp(min_result, max_result);
-            }
-            let splitter_color = if splitter_response.hovered() || splitter_response.dragged() {
-                ui_palette(ui).accent
-            } else {
-                ui_palette(ui).border
-            };
-            ui.painter().rect_filled(
-                splitter_rect.shrink2(egui::vec2(2.5, 0.0)),
-                egui::Rounding::same(3.0),
-                splitter_color,
-            );
-            ui.add_space(gap * 0.5);
-            ui.allocate_ui_with_layout(
-                egui::vec2(self.result_width, available.y),
-                egui::Layout::top_down(egui::Align::Min),
-                |ui| self.show_result_panel(ui),
-            );
-        });
-    }
-
-    fn inline_result_available(&self, width: f32) -> bool {
-        if !self.show_preview {
-            return false;
-        }
-        let threshold = if self.show_inspector_panel {
-            980.0
-        } else {
-            760.0
-        };
-        width >= threshold
+        self.show_editor(ui);
     }
 }
 
@@ -3395,47 +3426,53 @@ impl RunOutputView {
         }
     }
 
-    fn summary(&self) -> String {
+    fn terminal_summary(&self, summary: Option<&ArtifactSummary>) -> String {
         let run_output = if self.stdout.is_empty() {
             String::new()
         } else {
             format!("{}\n\n", self.stdout.trim_end())
         };
-        if self.artifacts_saved {
-            format!(
-                "{}Run OK\nartifacts: saved\nreport: {}\nplot:   {}\nresult: {}\nreview: {}\nrun log: {}\nprocess: {}\ntests: {}\nreport spec: {}\nplotspec: {}\nplot manifest: {}\noutput manifest: {}\nbytecode: {}",
-                run_output,
-                self.relative_report_path,
-                self.relative_plot_path,
-                self.result_path.display(),
-                self.review_path.display(),
-                self.run_log_path.display(),
-                self.process_results_path.display(),
-                self.test_results_path.display(),
-                self.report_spec_path.display(),
-                self.plot_spec_path.display(),
-                self.plot_manifest_path.display(),
-                self.output_manifest_path.display(),
-                self.bytecode_path.display()
-            )
-        } else {
-            format!(
-                "{}Run OK\nartifacts: in memory\nresult:   {} bytes\nreview:   {} bytes\nrun log:  {} bytes\nprocess:  {} bytes\ntests:    {} bytes\nreport spec: {} bytes\nplot spec: {} bytes\nplot manifest: {} bytes\noutput manifest: {} bytes\nplot svg: {} bytes\nreport html: {} bytes\nbytecode: {} bytes",
-                run_output,
-                self.result_json.len(),
-                self.review_json.len(),
-                self.run_log_json.len(),
-                self.process_results_json.len(),
-                self.test_results_json.len(),
-                self.report_spec_json.len(),
-                self.plot_spec_json.len(),
-                self.plot_manifest_json.len(),
-                self.output_manifest_json.len(),
-                self.plot_svg.len(),
-                self.report_html.len(),
-                self.bytecode.len()
-            )
+        let mut lines = vec![format!("{run_output}Run OK")];
+        if let Some(summary) = summary {
+            lines.push(format!(
+                "status: {}, variables: {}, args: {}, uncertainty: {}, ml: {}, systems: {}",
+                summary.status,
+                summary.variables.len(),
+                summary.args.len(),
+                summary.uncertainties.len(),
+                summary.ml.len(),
+                summary.system_count
+            ));
         }
+        let title = report_title(&self.report_spec_json);
+        if !title.is_empty() {
+            lines.push(format!("report: {title}"));
+        }
+        if self.plot_spec_json.trim().is_empty() {
+            lines.push("plot: none".to_owned());
+        } else {
+            lines.push("plot: rendered below".to_owned());
+        }
+        if !self.csv_export_paths.is_empty() {
+            lines.push(format!(
+                "csv exports: {}",
+                path_list_label(&self.csv_export_paths)
+            ));
+        }
+        if !self.write_output_paths.is_empty() {
+            lines.push(format!(
+                "write outputs: {}",
+                path_list_label(&self.write_output_paths)
+            ));
+        }
+        if !self.file_operation_paths.is_empty() {
+            lines.push(format!(
+                "file operations: {}",
+                path_list_label(&self.file_operation_paths)
+            ));
+        }
+        lines.push("save artifacts: write report/plot/result files when needed".to_owned());
+        lines.join("\n")
     }
 
     fn save_artifacts(&mut self) -> Result<(), String> {
@@ -3646,6 +3683,7 @@ impl RuntimeVariableView {
     }
 }
 
+#[derive(Clone)]
 struct RuntimeArgView {
     name: String,
     type_name: String,
@@ -4800,28 +4838,97 @@ fn key_value_row(ui: &mut egui::Ui, key: &str, value: &str) {
     });
 }
 
-fn artifact_row(ui: &mut egui::Ui, label: &str, path: &Path) {
+fn table_header_row(ui: &mut egui::Ui, headers: &[&str]) {
+    let palette = ui_palette(ui);
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(label).strong());
-        ui.monospace(path.display().to_string());
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui.button("Open").clicked() {
-                open_path(path);
-            }
-        });
+        for header in headers {
+            ui.add_sized(
+                [table_header_width(header), 18.0],
+                egui::Label::new(
+                    egui::RichText::new(*header)
+                        .strong()
+                        .size(11.5)
+                        .color(palette.muted),
+                ),
+            );
+        }
     });
-    ui.add_space(5.0);
+    ui.separator();
 }
 
-fn artifact_object_row(ui: &mut egui::Ui, label: &str, bytes: usize) {
-    ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(label).strong());
-        ui.monospace(format!("{bytes} bytes"));
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            status_pill(ui, "memory", ui_palette(ui).accent);
-        });
-    });
-    ui.add_space(5.0);
+fn table_header_width(header: &str) -> f32 {
+    match header {
+        "Name" => 86.0,
+        "Kind" | "Quantity" => 86.0,
+        "Unit" => 46.0,
+        "Value" => 92.0,
+        "Source" => 58.0,
+        "Required" => 58.0,
+        "Line" => 40.0,
+        "Type" => 58.0,
+        _ => 74.0,
+    }
+}
+
+fn variable_kind_label(variable: &RuntimeVariableView) -> String {
+    short_label(&variable.quantity_kind, 18)
+}
+
+fn variable_value_label(variable: &RuntimeVariableView) -> String {
+    variable
+        .value
+        .as_deref()
+        .map(|value| short_label(value, 18))
+        .unwrap_or_else(|| "-".to_owned())
+}
+
+fn unit_label(unit: &str) -> String {
+    if unit.trim().is_empty() {
+        "-".to_owned()
+    } else {
+        short_label(unit, 10)
+    }
+}
+
+fn short_label(value: &str, max_chars: usize) -> String {
+    let mut chars = value.chars();
+    let shortened: String = chars.by_ref().take(max_chars).collect();
+    if chars.next().is_some() {
+        format!("{shortened}...")
+    } else {
+        shortened
+    }
+}
+
+fn should_preview_plot_for(variable: &RuntimeVariableView) -> bool {
+    let marker = format!(
+        "{} {} {}",
+        variable.name,
+        variable.quantity_kind,
+        variable.value.as_deref().unwrap_or("")
+    )
+    .to_ascii_lowercase();
+    marker.contains("timeseries")
+        || marker.contains("time series")
+        || marker.contains(" rows")
+        || marker.contains("runtime_object")
+}
+
+fn report_title(text: &str) -> String {
+    let Ok(value) = serde_json::from_str::<Value>(text) else {
+        return String::new();
+    };
+    json_string(&value, &["title"])
+        .or_else(|| json_string(&value, &["metadata", "title"]))
+        .unwrap_or_default()
+}
+
+fn path_list_label(paths: &[PathBuf]) -> String {
+    paths
+        .iter()
+        .map(|path| path.display().to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
