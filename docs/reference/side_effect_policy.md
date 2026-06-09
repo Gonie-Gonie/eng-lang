@@ -2,10 +2,11 @@
 
 Status: GP-1 path policy, GP-2 read-only I/O, GP-3 write/export hardening,
 GP-4 constrained copy/move/delete file operations, GP-5 structured runtime
-log messages, GP-6 explicit external process execution, and GP-7 test/assert/
-golden support are implemented for `v1.0.0`. Broader filesystem mutation
-outside generated-output boundaries, network, workspace-wide test discovery, and
-stable process sandboxing remain planned tracks, not supported preview behavior.
+log messages, GP-6 explicit external process execution, GP-7 test/assert/
+golden support, and safe/normal/repro profile basics are implemented for
+`v1.0.0`. Broader filesystem mutation outside generated-output boundaries,
+network, workspace-wide test discovery, and full process sandboxing remain
+planned tracks, not supported preview behavior.
 
 EngLang is not trying to become a fully general replacement for Python, MATLAB,
 or R. Real engineering workflows still need practical file, path, config,
@@ -182,7 +183,8 @@ Rules:
 - move records both source and destination and is constrained under `build/result`
 - delete file requires confirm
 - delete directory requires recursive=true and confirm=true
-- repro/safe profiles may warn or reject move/delete
+- `safe` rejects copy/move/delete before execution
+- `repro` records move/delete profile diagnostics in runtime artifacts
 ```
 
 ## Runtime Message Policy
@@ -281,13 +283,21 @@ Runtime profiles should control the side-effect envelope:
 
 | Profile | Policy |
 |---|---|
-| `safe` | file write/delete/network/process forbidden |
-| `normal` | allowed with provenance |
-| `repro` | external effects restricted; env/time/network/process require strong metadata |
+| `safe` | Explicit workflow export/write/file-operation/process effects are rejected before execution |
+| `normal` | Default profile; supported effects are allowed with provenance and artifact records |
+| `repro` | Supported effects are allowed, with profile diagnostics for environment dependencies, process runs, and move/delete mutations |
 
-The CLI already has a `--profile` shape for packaged execution. Do not add a
-language feature that silently changes the active profile inside source code
-until profile semantics are stable.
+Run profiles are selected through the CLI:
+
+```powershell
+eng run main.eng --profile safe
+eng run main.eng --profile normal
+eng run main.eng --profile repro
+```
+
+Profile records are written to `result.engres`, `run_log.json`, and
+`output_manifest.json`. Do not add a language feature that silently changes the
+active profile inside source code.
 
 ## Stdlib Module Plan
 
@@ -315,13 +325,14 @@ eng.net      download/cache/hash, later
 | GP-5 | print/log level formatting and run log artifact | implemented in v0.7 |
 | GP-6 | external process and `ProcessResult` | implemented in v0.8 |
 | GP-7 | test block/assert/golden support | implemented in v0.9 |
-| GP-8 | network/download/cache/hash | optional, after test policy |
-| GP-9 | IDE side-effect panels and output file navigation | grows across phases |
+| GP-8 | safe/normal/repro profile basics | implemented in v1.0 |
+| GP-9 | network/download/cache/hash | optional, after test policy |
+| GP-10 | IDE side-effect panels and output file navigation | grows across phases |
 
 The current implementation deliberately stops at path helpers, `exists`,
 read-only source-hashed inputs, generated output writes, constrained
 copy/move/delete operations under `build/result`, structured runtime message
-artifacts, explicit external process records, and local test/assert/golden
-records. Broader filesystem access, network effects, workspace-wide test
-discovery, and stable process sandboxing remain outside the public preview until
-their policy slices land.
+artifacts, explicit external process records, local test/assert/golden records,
+and CLI-selected safe/normal/repro profile basics. Broader filesystem access,
+network effects, workspace-wide test discovery, and full process sandboxing
+remain outside the public preview until their policy slices land.

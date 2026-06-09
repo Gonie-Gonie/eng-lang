@@ -29,6 +29,16 @@ That example combines schema input, top-level execution, command-style
 statistics/integration, scoped `where` locals, `with` options, unit-aware
 printing, CSV export, and report plotting.
 
+For the integrated data plus simulation workflow, open:
+
+```text
+examples/official/17_measured_vs_simulated/main.eng
+```
+
+That example promotes measured and weather CSV files, runs a minimal thermal
+simulation, computes RMSE, validates a threshold, and plots measured plus
+simulated TimeSeries together.
+
 ## Execution Model
 
 EngLang executes one source file as a top-level workflow.
@@ -65,6 +75,7 @@ Use these commands from the repository or portable package:
 ```text
 eng.exe check examples/official/09_command_where_with/main.eng --review
 eng.exe run examples/official/09_command_where_with/main.eng --save-artifacts
+eng.exe run examples/official/17_measured_vs_simulated/main.eng --profile repro --save-artifacts
 eng.exe view build/result/result.engres
 ```
 
@@ -499,6 +510,7 @@ Supported command-style verbs in the current preview:
 | `plot` | Report plot request | `plot(Q, over=Time)` metadata |
 | `show` | Report/display request seed | `show(value)` metadata |
 | `validate` | Validation request seed | `validate(target)` metadata |
+| `rmse` | Measured-vs-simulated metric | `rmse(left, right)` metadata |
 
 Command clauses recognized by the parser:
 
@@ -699,6 +711,18 @@ report {
     with {
         unit y = kW
         title = "Coil heat rate"
+    }
+}
+```
+
+Multi-series line plots are supported when the series share a Time axis:
+
+```eng partial
+report {
+    plot measured_data.T_zone and sim.T_zone over Time
+    with {
+        unit y = degC
+        title = "Measured vs simulated zone temperature"
     }
 }
 ```
@@ -984,6 +1008,36 @@ The runnable example is:
 examples/official/15_process_result/main.eng
 ```
 
+## Execution Profiles
+
+Runtime profiles are selected by the CLI, not by source code:
+
+```text
+eng.exe run main.eng --profile safe
+eng.exe run main.eng --profile normal
+eng.exe run main.eng --profile repro
+```
+
+Current profile behavior:
+
+| Profile | Behavior |
+|---|---|
+| `safe` | Rejects explicit workflow `export`, `write`, file operations, and `run command` before they execute |
+| `normal` | Default profile; allows supported effects and records their artifacts/provenance |
+| `repro` | Allows supported effects but records profile diagnostics for environment dependencies, process runs, and file mutations |
+
+Profile metadata is written to:
+
+```text
+build/result/result.engres
+build/result/run_log.json
+build/result/output_manifest.json
+```
+
+Safe profile still allows internal in-memory checking and report construction.
+When `--save-artifacts` is used, EngLang may write its own requested runtime
+artifacts, but source-level output effects remain blocked.
+
 ## Test Blocks, Assertions, And Golden Checks
 
 `test` blocks keep lightweight workflow verification next to the engineering
@@ -1104,6 +1158,25 @@ system Room {
     }
 }
 ```
+
+The supported measured-vs-simulated simulation seed binds a system simulation
+to a value and attaches options with `with`:
+
+```eng partial
+sim = simulate RoomThermal
+with {
+    T_out = weather_data.T_out
+    timestep = 10 min
+    solver = fixed_step
+}
+
+rmse_T = rmse measured_data.T_zone vs sim.T_zone
+validate rmse_T < 5 K
+```
+
+Runtime materializes `sim.T_zone` as a typed TimeSeries. The RMSE result appears
+in `computed_metrics`, the validation appears in `validations`, and pairwise
+TimeSeries overlap/match status appears in `time_alignments`.
 
 Domain/component shapes are documented separately in
 `docs/guide/domain_component.md`. They are useful for metadata, validation, and
@@ -1299,11 +1372,11 @@ The current guide intentionally does not promise:
 | Arbitrary TimeSeries formulas | Limited beyond official heat-rate kernel path |
 | Broad table/TimeSeries CSV export | Deferred |
 | Broad filesystem mutation outside generated outputs | Deferred |
-| Stable process sandboxing | Explicit process records exist; sandbox policy is deferred |
+| Full process sandboxing | Explicit process records and profile basics exist; sandbox isolation is deferred |
 | Project-wide test discovery/runner | Local source-file test blocks exist; workspace discovery is deferred |
 | Full package/module system | File imports and metadata seeds only |
 | General nonlinear/multi-state solving | Deferred beyond preview system path |
-| Stable artifact schemas | Preview versioned artifacts only |
+| Full artifact schema evolution policy | Stable-core schemas exist; broader future-track schemas may grow |
 
 ## Authoring Checklist
 

@@ -7,17 +7,24 @@
     "format",
     "runtime_version",
     "source_path",
+    "execution_profile",
     "artifact_count",
-    "artifacts"
+    "artifacts",
+    "profile_diagnostics"
   ],
   "properties": {
     "format": { "const": "eng-output-manifest-v1" },
     "runtime_version": { "type": "string" },
     "source_path": { "type": "string" },
+    "execution_profile": { "enum": ["safe", "normal", "repro"] },
     "artifact_count": { "type": "integer", "minimum": 0 },
     "artifacts": {
       "type": "array",
       "items": { "$ref": "#/$defs/outputArtifact" }
+    },
+    "profile_diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/profileDiagnostic" }
     }
   },
   "$defs": {
@@ -28,6 +35,16 @@
         "kind": { "type": "string" },
         "path": { "type": "string" },
         "hash": { "type": "string" }
+      }
+    },
+    "profileDiagnostic": {
+      "type": "object",
+      "required": ["severity", "code", "message", "line"],
+      "properties": {
+        "severity": { "enum": ["warning", "error"] },
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
       }
     }
   }

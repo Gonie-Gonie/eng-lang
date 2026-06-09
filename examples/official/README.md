@@ -81,6 +81,12 @@ paths before compatibility fixtures.
   Local workflow verification seed with named `test` blocks, unit-aware
   `assert` statements, golden artifact comparison, and generated
   `test_results.json` artifacts.
+
+17_measured_vs_simulated
+  Integrated typed data plus simulation workflow with weather/measured CSV
+  promotion, fixed-step one-state thermal simulation output as `sim.T_zone`,
+  RMSE calculation, threshold validation, time-alignment metadata, and a
+  measured/simulated multi-series PlotSpec.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression

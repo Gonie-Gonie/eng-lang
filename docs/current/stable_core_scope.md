@@ -17,11 +17,18 @@ workflow are expected to remain compatible across `1.x` releases.
 - DateTime-indexed table metadata and the supported HeatRate TimeSeries path.
 - Supported TimeSeries statistics and trapezoidal integration for the official
   data path.
+- Measured-vs-simulated workflow seed: CSV-derived measured TimeSeries, minimal
+  fixed-step one-state thermal simulation output as `sim.T_zone`, RMSE metric,
+  validation result, and time-alignment artifact metadata.
 - Unit-aware `print`, structured `log <level>`, one-row summary CSV export,
   explicit write outputs, process results, and local test/assert/golden checks
   within their documented boundaries.
-- PlotSpec v1 line plot, SVG output, report HTML, review JSON, report spec,
-  run log, process results, test results, and output manifest artifacts.
+- PlotSpec v1 line and multi-series line plot, SVG output, report HTML, review
+  JSON, report spec, run log, process results, test results, and output
+  manifest artifacts.
+- `eng run --profile safe|normal|repro` basics: safe rejects explicit workflow
+  write/export/file-operation/process effects, normal is the default, and repro
+  records profile diagnostics in result/run-log/output-manifest artifacts.
 - Standalone packaged runner with `.engpkg`, `.lock`, Args help, dependency
   copying, package smoke, and curated PDF docs.
 - Native tester IDE smoke path and artifact navigation for the stable workflow.
@@ -37,7 +44,7 @@ The package still includes preview or experimental tracks. They may change in
 - LSP/VS Code as a persistent editor-service contract.
 - Native JIT/AOT execution or speedup claims.
 - Domain/component package ecosystem and numeric multi-domain solving.
-- Broad filesystem/network side effects and process sandbox profiles.
+- Full filesystem/network support and full process sandboxing.
 - Workspace-wide test discovery, filtering, and fixtures.
 
 ## Stable Gate

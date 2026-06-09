@@ -21,11 +21,39 @@ pub use vm::{execute_bytecode, VmExecution, VmObject, VmObjectKind};
 
 pub const RUNTIME_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub enum ExecutionProfile {
+    Safe,
+    #[default]
+    Normal,
+    Repro,
+}
+
+impl ExecutionProfile {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "safe" => Some(Self::Safe),
+            "normal" => Some(Self::Normal),
+            "repro" => Some(Self::Repro),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Safe => "safe",
+            Self::Normal => "normal",
+            Self::Repro => "repro",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct RunOptions {
     pub open_report: bool,
     pub save_artifacts: bool,
     pub args: Vec<ArgOverride>,
+    pub profile: ExecutionProfile,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -141,6 +169,132 @@ impl From<vm::VmError> for RuntimeError {
     }
 }
 
+#[derive(Clone, Debug)]
+struct ProfileDiagnostic {
+    severity: &'static str,
+    code: &'static str,
+    message: String,
+    line: usize,
+}
+
+struct ProfileContext<'a> {
+    profile: &'a ExecutionProfile,
+    diagnostics: &'a [ProfileDiagnostic],
+}
+
+struct ResultArtifactHashes<'a> {
+    bytecode: &'a str,
+    plot_spec: &'a str,
+    report_spec: &'a str,
+}
+
+fn profile_diagnostics(profile: &ExecutionProfile, report: &CheckReport) -> Vec<ProfileDiagnostic> {
+    let mut diagnostics = Vec::new();
+    match profile {
+        ExecutionProfile::Safe => {
+            for export in &report.semantic_program.csv_exports {
+                diagnostics.push(ProfileDiagnostic {
+                    severity: "error",
+                    code: "E-PROFILE-SAFE-EXPORT",
+                    message: "safe profile rejects explicit CSV export side effects".to_owned(),
+                    line: export.line,
+                });
+            }
+            for write in &report.semantic_program.writes {
+                diagnostics.push(ProfileDiagnostic {
+                    severity: "error",
+                    code: "E-PROFILE-SAFE-WRITE",
+                    message: format!(
+                        "safe profile rejects explicit write {} output side effects",
+                        write.format
+                    ),
+                    line: write.line,
+                });
+            }
+            for operation in &report.semantic_program.file_operations {
+                diagnostics.push(ProfileDiagnostic {
+                    severity: "error",
+                    code: "E-PROFILE-SAFE-FS",
+                    message: format!(
+                        "safe profile rejects explicit `{}` file operation side effects",
+                        operation.operation
+                    ),
+                    line: operation.line,
+                });
+            }
+            for process in &report.semantic_program.process_runs {
+                diagnostics.push(ProfileDiagnostic {
+                    severity: "error",
+                    code: "E-PROFILE-SAFE-PROCESS",
+                    message: format!(
+                        "safe profile rejects external process `{}`",
+                        process.command
+                    ),
+                    line: process.line,
+                });
+            }
+        }
+        ExecutionProfile::Repro => {
+            for dependency in &report.semantic_program.environment_dependencies {
+                diagnostics.push(ProfileDiagnostic {
+                    severity: "warning",
+                    code: "W-PROFILE-REPRO-ENV",
+                    message: format!(
+                        "repro profile records environment-dependent `{}` for review",
+                        dependency.expression
+                    ),
+                    line: dependency.line,
+                });
+            }
+            for process in &report.semantic_program.process_runs {
+                diagnostics.push(ProfileDiagnostic {
+                    severity: "warning",
+                    code: "W-PROFILE-REPRO-PROCESS",
+                    message: format!(
+                        "repro profile records external process `{}` with command, cwd, args, exit code, stdout, and stderr",
+                        process.command
+                    ),
+                    line: process.line,
+                });
+            }
+            for operation in &report.semantic_program.file_operations {
+                if matches!(operation.operation.as_str(), "move" | "delete") {
+                    diagnostics.push(ProfileDiagnostic {
+                        severity: "warning",
+                        code: "W-PROFILE-REPRO-FS",
+                        message: format!(
+                            "repro profile records `{}` mutation in the side-effect manifest",
+                            operation.operation
+                        ),
+                        line: operation.line,
+                    });
+                }
+            }
+        }
+        ExecutionProfile::Normal => {}
+    }
+    diagnostics
+}
+
+fn ensure_profile_allowed(
+    profile: &ExecutionProfile,
+    diagnostics: &[ProfileDiagnostic],
+) -> Result<(), RuntimeError> {
+    if let Some(diagnostic) = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.severity == "error")
+    {
+        return Err(invalid_input(&format!(
+            "profile `{}` rejected line {} ({}): {}",
+            profile.as_str(),
+            diagnostic.line,
+            diagnostic.code,
+            diagnostic.message
+        )));
+    }
+    Ok(())
+}
+
 pub fn doctor(repo_root: &Path) -> DoctorReport {
     let mut checks = Vec::new();
     checks.push(DoctorCheck {
@@ -192,6 +346,8 @@ pub fn run_file(
     if check_report.has_errors() {
         return Err(RuntimeError::Compile(Box::new(check_report)));
     }
+    let profile_diagnostics = profile_diagnostics(&options.profile, &check_report);
+    ensure_profile_allowed(&options.profile, &profile_diagnostics)?;
     let stem = path
         .file_stem()
         .and_then(|value| value.to_str())
@@ -218,9 +374,15 @@ pub fn run_file(
     let runtime_data = materialize_runtime_data(&check_report, &source);
     apply_runtime_lengths(&mut execution, &runtime_data);
     let stdout = render_stdout(&check_report, &runtime_data);
-    let run_log_json = run_log_json(&check_report, &runtime_data);
+    let run_log_json = run_log_json(
+        &check_report,
+        &runtime_data,
+        &options.profile,
+        &profile_diagnostics,
+    );
     let process_results = execute_process_runs(&check_report)?;
-    let process_results_json = process_results_json(&check_report, &process_results);
+    let process_results_json =
+        process_results_json(&check_report, &process_results, &options.profile);
     let csv_export_artifacts = write_csv_exports(&check_report, &runtime_data, &result_dir)?;
     let write_artifacts = write_outputs(&check_report, &runtime_data, &result_dir)?;
     let file_operation_artifacts = apply_file_operations(&check_report, &result_dir)?;
@@ -258,6 +420,9 @@ pub fn run_file(
     );
     report_spec.computed_statistics = runtime_data.report_computed_statistics();
     report_spec.computed_integrations = runtime_data.report_computed_integrations();
+    report_spec.computed_metrics = runtime_data.report_computed_metrics();
+    report_spec.validations = runtime_data.report_validations();
+    report_spec.time_alignments = runtime_data.report_time_alignments();
     report_spec.uncertainty = runtime_data.report_uncertainty();
     report_spec.ml = runtime_data.report_ml();
     report_spec.policy_results = runtime_data.report_policy_results();
@@ -265,15 +430,22 @@ pub fn run_file(
     let report_spec_json = eng_report::report_spec_json(&report_spec);
     let report_spec_hash = hash_text(&report_spec_json);
     let review_json = review_json(&check_report);
-    let report_html = eng_report::render_html(&check_report, "plots/timeseries.svg");
+    let report_html =
+        eng_report::render_html_with_spec(&check_report, "plots/timeseries.svg", &report_spec);
     let result_json = result_json(
         path,
         &check_report,
         &execution,
         &runtime_data,
-        &bytecode_hash,
-        &plot_spec_hash,
-        &report_spec_hash,
+        &ResultArtifactHashes {
+            bytecode: &bytecode_hash,
+            plot_spec: &plot_spec_hash,
+            report_spec: &report_spec_hash,
+        },
+        &ProfileContext {
+            profile: &options.profile,
+            diagnostics: &profile_diagnostics,
+        },
     );
 
     let artifacts_saved = options.save_artifacts || options.open_report;
@@ -361,7 +533,12 @@ pub fn run_file(
             result_path.clone(),
         ));
     }
-    let output_manifest_json = output_manifest_json(path, &output_artifacts);
+    let output_manifest_json = output_manifest_json(
+        path,
+        &output_artifacts,
+        &options.profile,
+        &profile_diagnostics,
+    );
     if artifacts_saved || !output_artifacts.is_empty() {
         fs::create_dir_all(&result_dir)?;
         fs::write(&output_manifest_path, &output_manifest_json)?;
@@ -788,7 +965,12 @@ fn runtime_log_entries(report: &CheckReport, runtime_data: &RuntimeData) -> Vec<
         .collect()
 }
 
-fn run_log_json(report: &CheckReport, runtime_data: &RuntimeData) -> String {
+fn run_log_json(
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+    profile: &ExecutionProfile,
+    profile_diagnostics: &[ProfileDiagnostic],
+) -> String {
     let entries = runtime_log_entries(report, runtime_data);
     let mut json = String::new();
     json.push_str("{\n");
@@ -800,6 +982,10 @@ fn run_log_json(report: &CheckReport, runtime_data: &RuntimeData) -> String {
     json.push_str(&format!(
         "  \"source_path\": \"{}\",\n",
         json_escape(&report.source_path.display().to_string())
+    ));
+    json.push_str(&format!(
+        "  \"execution_profile\": \"{}\",\n",
+        profile.as_str()
     ));
     json.push_str(&format!("  \"message_count\": {},\n", entries.len()));
     json.push_str("  \"messages\": [\n");
@@ -820,6 +1006,9 @@ fn run_log_json(report: &CheckReport, runtime_data: &RuntimeData) -> String {
         json.push_str(&format!("      \"line\": {}\n", entry.line));
         json.push_str("    }");
     }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"profile_diagnostics\": [\n");
+    push_profile_diagnostics_json(&mut json, profile_diagnostics, "    ");
     json.push_str("\n  ]\n");
     json.push_str("}\n");
     json
@@ -892,7 +1081,11 @@ fn execute_process_runs(report: &CheckReport) -> Result<Vec<ProcessExecutionReco
     Ok(records)
 }
 
-fn process_results_json(report: &CheckReport, records: &[ProcessExecutionRecord]) -> String {
+fn process_results_json(
+    report: &CheckReport,
+    records: &[ProcessExecutionRecord],
+    profile: &ExecutionProfile,
+) -> String {
     let mut json = String::new();
     json.push_str("{\n");
     json.push_str("  \"format\": \"eng-process-results-v1\",\n");
@@ -903,6 +1096,10 @@ fn process_results_json(report: &CheckReport, records: &[ProcessExecutionRecord]
     json.push_str(&format!(
         "  \"source_path\": \"{}\",\n",
         json_escape(&report.source_path.display().to_string())
+    ));
+    json.push_str(&format!(
+        "  \"execution_profile\": \"{}\",\n",
+        profile.as_str()
     ));
     json.push_str(&format!("  \"process_count\": {},\n", records.len()));
     json.push_str("  \"processes\": [\n");
@@ -1849,7 +2046,12 @@ fn export_output_path(result_dir: &Path, raw_path: &str) -> Option<PathBuf> {
     Some(destination)
 }
 
-fn output_manifest_json(source_path: &Path, artifacts: &[OutputArtifact]) -> String {
+fn output_manifest_json(
+    source_path: &Path,
+    artifacts: &[OutputArtifact],
+    profile: &ExecutionProfile,
+    profile_diagnostics: &[ProfileDiagnostic],
+) -> String {
     let mut json = String::new();
     json.push_str("{\n");
     json.push_str("  \"format\": \"eng-output-manifest-v1\",\n");
@@ -1860,6 +2062,10 @@ fn output_manifest_json(source_path: &Path, artifacts: &[OutputArtifact]) -> Str
     json.push_str(&format!(
         "  \"source_path\": \"{}\",\n",
         json_escape(&source_path.display().to_string())
+    ));
+    json.push_str(&format!(
+        "  \"execution_profile\": \"{}\",\n",
+        profile.as_str()
     ));
     json.push_str(&format!("  \"artifact_count\": {},\n", artifacts.len()));
     json.push_str("  \"artifacts\": [\n");
@@ -1882,6 +2088,9 @@ fn output_manifest_json(source_path: &Path, artifacts: &[OutputArtifact]) -> Str
         ));
         json.push_str("    }");
     }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"profile_diagnostics\": [\n");
+    push_profile_diagnostics_json(&mut json, profile_diagnostics, "    ");
     json.push_str("\n  ]\n");
     json.push_str("}\n");
     json
@@ -1999,6 +2208,17 @@ fn evaluate_runtime_expression(
         return Some(RuntimeFormatValue::Text(strip_runtime_string_value(
             &const_info.expression,
         )));
+    }
+    if let Some(metric) = runtime_data
+        .metrics
+        .iter()
+        .find(|metric| metric.binding == expression)
+    {
+        return Some(RuntimeFormatValue::Number {
+            value: metric.value,
+            quantity_kind: metric.quantity_kind.clone(),
+            unit: metric.unit.clone(),
+        });
     }
     if let Some(integration) = runtime_data
         .integrations
@@ -2661,9 +2881,8 @@ fn result_json(
     report: &CheckReport,
     execution: &VmExecution,
     runtime_data: &RuntimeData,
-    bytecode_hash: &str,
-    plot_spec_hash: &str,
-    report_spec_hash: &str,
+    hashes: &ResultArtifactHashes<'_>,
+    profile_context: &ProfileContext<'_>,
 ) -> String {
     let mut data_hashes = String::new();
     for (index, promotion) in report.semantic_program.csv_promotions.iter().enumerate() {
@@ -2803,6 +3022,13 @@ fn result_json(
         environment_dependencies.push_str(&format!("        \"line\": {}\n", dependency.line));
         environment_dependencies.push_str("      }");
     }
+
+    let mut profile_diagnostics_json = String::new();
+    push_profile_diagnostics_json(
+        &mut profile_diagnostics_json,
+        profile_context.diagnostics,
+        "      ",
+    );
 
     let mut objects = String::new();
     for (index, object) in execution.objects.iter().enumerate() {
@@ -3238,6 +3464,134 @@ fn result_json(
         policy_results.push_str("      }");
     }
 
+    let mut metrics = String::new();
+    for (index, metric) in runtime_data.metrics.iter().enumerate() {
+        if index > 0 {
+            metrics.push_str(",\n");
+        }
+        metrics.push_str("      {\n");
+        metrics.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&metric.binding)
+        ));
+        metrics.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&metric.kind)
+        ));
+        metrics.push_str(&format!(
+            "        \"left\": \"{}\",\n",
+            json_escape(&metric.left)
+        ));
+        metrics.push_str(&format!(
+            "        \"right\": \"{}\",\n",
+            json_escape(&metric.right)
+        ));
+        metrics.push_str(&format!(
+            "        \"quantity_kind\": \"{}\",\n",
+            json_escape(&metric.quantity_kind)
+        ));
+        metrics.push_str(&format!(
+            "        \"unit\": \"{}\",\n",
+            json_escape(&metric.unit)
+        ));
+        metrics.push_str(&format!("        \"value\": {},\n", metric.value));
+        metrics.push_str(&format!(
+            "        \"sample_count\": {},\n",
+            metric.sample_count
+        ));
+        metrics.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&metric.status)
+        ));
+        metrics.push_str(&format!("        \"line\": {}\n", metric.line));
+        metrics.push_str("      }");
+    }
+
+    let mut validations = String::new();
+    for (index, validation) in runtime_data.validations.iter().enumerate() {
+        if index > 0 {
+            validations.push_str(",\n");
+        }
+        validations.push_str("      {\n");
+        validations.push_str(&format!(
+            "        \"expression\": \"{}\",\n",
+            json_escape(&validation.expression)
+        ));
+        validations.push_str(&format!(
+            "        \"left\": \"{}\",\n",
+            json_escape(&validation.left)
+        ));
+        validations.push_str(&format!(
+            "        \"operator\": \"{}\",\n",
+            json_escape(&validation.operator)
+        ));
+        validations.push_str(&format!(
+            "        \"right\": \"{}\",\n",
+            json_escape(&validation.right)
+        ));
+        push_optional_json_number(&mut validations, "left_value", validation.left_value, 8);
+        push_optional_json_number(&mut validations, "right_value", validation.right_value, 8);
+        validations.push_str(&format!(
+            "        \"unit\": \"{}\",\n",
+            json_escape(&validation.unit)
+        ));
+        validations.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&validation.status)
+        ));
+        validations.push_str(&format!("        \"line\": {}\n", validation.line));
+        validations.push_str("      }");
+    }
+
+    let mut time_alignments = String::new();
+    for (index, alignment) in runtime_data.time_alignments.iter().enumerate() {
+        if index > 0 {
+            time_alignments.push_str(",\n");
+        }
+        time_alignments.push_str("      {\n");
+        time_alignments.push_str(&format!(
+            "        \"left\": \"{}\",\n",
+            json_escape(&alignment.left)
+        ));
+        time_alignments.push_str(&format!(
+            "        \"right\": \"{}\",\n",
+            json_escape(&alignment.right)
+        ));
+        time_alignments.push_str(&format!(
+            "        \"axis\": \"{}\",\n",
+            json_escape(&alignment.axis)
+        ));
+        time_alignments.push_str(&format!(
+            "        \"left_count\": {},\n",
+            alignment.left_count
+        ));
+        time_alignments.push_str(&format!(
+            "        \"right_count\": {},\n",
+            alignment.right_count
+        ));
+        time_alignments.push_str(&format!(
+            "        \"matched_count\": {},\n",
+            alignment.matched_count
+        ));
+        push_optional_json_number(
+            &mut time_alignments,
+            "overlap_start",
+            alignment.overlap_start,
+            8,
+        );
+        push_optional_json_number(
+            &mut time_alignments,
+            "overlap_end",
+            alignment.overlap_end,
+            8,
+        );
+        time_alignments.push_str(&format!(
+            "        \"status\": \"{}\"\n",
+            json_escape(&alignment.status)
+        ));
+        time_alignments.push_str("      }");
+    }
+
     let mut systems = String::new();
     for (system_index, system) in report.semantic_program.systems.iter().enumerate() {
         if system_index > 0 {
@@ -3325,12 +3679,13 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
         report.source_hash,
-        bytecode_hash,
+        hashes.bytecode,
+        profile_context.profile.as_str(),
         json_escape(&execution.workflow.kind),
         json_escape(execution.workflow.arg_name.as_deref().unwrap_or("args")),
         json_escape(execution.workflow.arg_type.as_deref().unwrap_or("Args")),
@@ -3347,6 +3702,9 @@ fn result_json(
         steps,
         statistics,
         integrations,
+        metrics,
+        validations,
+        time_alignments,
         uncertainties,
         ml,
         policy_results,
@@ -3369,9 +3727,10 @@ fn result_json(
             .map(|system| system.residuals.len())
             .sum::<usize>(),
         environment_dependencies,
+        profile_diagnostics_json,
         data_hashes,
-        plot_spec_hash,
-        report_spec_hash
+        hashes.plot_spec,
+        hashes.report_spec
     )
 }
 
@@ -3394,6 +3753,13 @@ fn push_system_solution_json(
         "{indent}  \"status\": \"{}\",\n",
         json_escape(&solution.status)
     ));
+    match &solution.binding {
+        Some(binding) => json.push_str(&format!(
+            "{indent}  \"binding\": \"{}\",\n",
+            json_escape(binding)
+        )),
+        None => json.push_str(&format!("{indent}  \"binding\": null,\n")),
+    }
     json.push_str(&format!(
         "{indent}  \"method\": \"{}\",\n",
         json_escape(&solution.method)
@@ -3845,6 +4211,33 @@ fn json_escape(value: &str) -> String {
     escaped
 }
 
+fn push_profile_diagnostics_json(
+    json: &mut String,
+    diagnostics: &[ProfileDiagnostic],
+    indent: &str,
+) {
+    for (index, diagnostic) in diagnostics.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}{{\n"));
+        json.push_str(&format!(
+            "{indent}  \"severity\": \"{}\",\n",
+            json_escape(diagnostic.severity)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"code\": \"{}\",\n",
+            json_escape(diagnostic.code)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"message\": \"{}\",\n",
+            json_escape(&diagnostic.message)
+        ));
+        json.push_str(&format!("{indent}  \"line\": {}\n", diagnostic.line));
+        json.push_str(&format!("{indent}}}"));
+    }
+}
+
 fn push_optional_json_number(json: &mut String, key: &str, value: Option<f64>, indent: usize) {
     let spaces = " ".repeat(indent);
     match value {
@@ -4008,6 +4401,7 @@ mod tests {
                 open_report: false,
                 save_artifacts: true,
                 args: Vec::new(),
+                ..RunOptions::default()
             },
         )
         .expect("run file");
@@ -4144,6 +4538,69 @@ mod tests {
         assert!(output
             .output_manifest_json
             .contains("\"kind\": \"process_results\""));
+    }
+
+    #[test]
+    fn run_file_safe_profile_rejects_explicit_side_effects() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-safe-profile");
+        let build_root = repo_root.join("build").join("runtime-safe-profile-output");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_path = source_dir.join("main.eng");
+        fs::write(&source_path, "write text \"out.txt\", \"not in safe\"\n").expect("write source");
+
+        let error = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                profile: ExecutionProfile::Safe,
+                ..RunOptions::default()
+            },
+        )
+        .expect_err("safe profile should reject write");
+
+        assert!(error.to_string().contains("profile `safe` rejected"));
+        assert!(error.to_string().contains("E-PROFILE-SAFE-WRITE"));
+    }
+
+    #[test]
+    fn run_file_repro_profile_records_profile_diagnostics() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-repro-profile");
+        let build_root = repo_root.join("build").join("runtime-repro-profile-output");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "input_exists = exists file(\"missing.txt\")\nprint \"exists = {input_exists}\"\n",
+        )
+        .expect("write source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                profile: ExecutionProfile::Repro,
+                ..RunOptions::default()
+            },
+        )
+        .expect("repro profile run");
+
+        assert!(output
+            .result_json
+            .contains("\"execution_profile\": \"repro\""));
+        assert!(output.result_json.contains("W-PROFILE-REPRO-ENV"));
+        assert!(output.run_log_json.contains("\"profile_diagnostics\""));
     }
 
     #[test]

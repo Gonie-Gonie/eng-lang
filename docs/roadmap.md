@@ -43,6 +43,8 @@ experimental.
 - typed CSV promote
 - unit-aware TimeSeries calculation
 - TimeSeries statistics and integration metadata
+- measured-vs-simulated one-state thermal workflow with RMSE, validation,
+  time-alignment metadata, and multi-series PlotSpec
 - unit-aware print and explicit summary CSV export
 - typed path helpers and provenance-visible `exists`
 - read-only UTF-8 `read text/json/toml` with source hash provenance
@@ -53,6 +55,7 @@ experimental.
   `process_results.json`
 - named `test` blocks with checked assertions, golden artifact comparisons, and
   `test_results.json`
+- `eng run --profile safe|normal|repro` basics
 - PlotSpec/SVG output
 - review/report artifacts
 - basic packaged execution
@@ -68,8 +71,8 @@ Known stable-core boundary:
 - LSP/VS Code is a secondary preview path
 - JIT/AOT has planning metadata only, no speedup claim
 - domain/component work is metadata-first, no numeric multi-domain solver
-- broad filesystem/network side effects and workspace-wide test discovery are
-  outside the stable scope
+- broad filesystem/network side effects, full process sandboxing, and
+  workspace-wide test discovery are outside the stable scope
 ```
 
 ## Integrated Direction

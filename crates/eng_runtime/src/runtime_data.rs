@@ -6,9 +6,10 @@ use eng_compiler::{
 };
 use eng_report::{
     PlotAxis, PlotBin, PlotPoint, PlotSeries, PlotSpec, ReportComputedIntegration,
-    ReportComputedStatisticValue, ReportComputedStatistics, ReportMlCoefficient, ReportMlInfo,
-    ReportPolicyResult, ReportPolicyViolation, ReportSpec, ReportUncertaintyInfo,
-    ReportUncertaintyPropagationTerm,
+    ReportComputedMetric, ReportComputedStatisticValue, ReportComputedStatistics,
+    ReportMlCoefficient, ReportMlInfo, ReportPolicyResult, ReportPolicyViolation, ReportSpec,
+    ReportTimeAlignment, ReportUncertaintyInfo, ReportUncertaintyPropagationTerm,
+    ReportValidationResult,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -21,6 +22,9 @@ pub struct RuntimeData {
     pub ml_artifacts: Vec<RuntimeMlArtifact>,
     pub policy_results: Vec<RuntimePolicyResult>,
     pub system_solutions: Vec<RuntimeSystemSolution>,
+    pub metrics: Vec<RuntimeMetric>,
+    pub validations: Vec<RuntimeValidation>,
+    pub time_alignments: Vec<RuntimeTimeAlignment>,
     pub plot_options: PlotOptions,
 }
 
@@ -68,25 +72,36 @@ impl RuntimeData {
             return;
         }
 
+        let selected_series = if self.plot_options.series_list.len() > 1 {
+            self.plot_options
+                .series_list
+                .iter()
+                .filter_map(|name| self.time_series.iter().find(|series| series.name == *name))
+                .collect::<Vec<_>>()
+        } else {
+            vec![series]
+        };
+        if selected_series.is_empty() {
+            return;
+        }
+
         let display_unit = self
             .plot_options
             .y_unit
             .clone()
             .unwrap_or_else(|| series.display_unit.clone());
-        let points = series
-            .points
-            .iter()
-            .map(|point| PlotPoint {
-                x: point.x,
-                y: convert_display_value(point.y, &series.display_unit, &display_unit),
-            })
-            .collect();
 
-        let title = self
-            .plot_options
-            .title
-            .clone()
-            .unwrap_or_else(|| format!("{} over {}", series.name, series.axis));
+        let title = self.plot_options.title.clone().unwrap_or_else(|| {
+            format!(
+                "{} over {}",
+                selected_series
+                    .iter()
+                    .map(|series| series.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" and "),
+                series.axis
+            )
+        });
 
         spec.title = title;
         if let Some(plot_type) = &self.plot_options.plot_type {
@@ -102,13 +117,31 @@ impl RuntimeData {
             label: series.quantity_kind.clone(),
             unit: display_unit.clone(),
         };
-        spec.series = vec![PlotSeries {
-            name: series.name.clone(),
-            quantity_kind: series.quantity_kind.clone(),
-            display_unit,
-            bins: Vec::new(),
-            points,
-        }];
+        spec.series = selected_series
+            .into_iter()
+            .map(|series| {
+                let unit = self
+                    .plot_options
+                    .y_unit
+                    .clone()
+                    .unwrap_or_else(|| series.display_unit.clone());
+                let points = series
+                    .points
+                    .iter()
+                    .map(|point| PlotPoint {
+                        x: point.x,
+                        y: convert_display_value(point.y, &series.display_unit, &unit),
+                    })
+                    .collect();
+                PlotSeries {
+                    name: series.name.clone(),
+                    quantity_kind: series.quantity_kind.clone(),
+                    display_unit: unit,
+                    bins: Vec::new(),
+                    points,
+                }
+            })
+            .collect();
 
         if spec.series.is_empty() && !report.semantic_program.typed_bindings.is_empty() {
             *spec = eng_report::plot_spec_from_report(report);
@@ -291,6 +324,58 @@ impl RuntimeData {
                 unit: integration.unit.clone(),
                 method: integration.method.clone(),
                 status: integration.status.clone(),
+            })
+            .collect()
+    }
+
+    pub fn report_computed_metrics(&self) -> Vec<ReportComputedMetric> {
+        self.metrics
+            .iter()
+            .map(|metric| ReportComputedMetric {
+                binding: metric.binding.clone(),
+                kind: metric.kind.clone(),
+                left: metric.left.clone(),
+                right: metric.right.clone(),
+                quantity_kind: metric.quantity_kind.clone(),
+                unit: metric.unit.clone(),
+                value: metric.value,
+                sample_count: metric.sample_count,
+                status: metric.status.clone(),
+                line: metric.line,
+            })
+            .collect()
+    }
+
+    pub fn report_validations(&self) -> Vec<ReportValidationResult> {
+        self.validations
+            .iter()
+            .map(|validation| ReportValidationResult {
+                expression: validation.expression.clone(),
+                left: validation.left.clone(),
+                operator: validation.operator.clone(),
+                right: validation.right.clone(),
+                left_value: validation.left_value,
+                right_value: validation.right_value,
+                unit: validation.unit.clone(),
+                status: validation.status.clone(),
+                line: validation.line,
+            })
+            .collect()
+    }
+
+    pub fn report_time_alignments(&self) -> Vec<ReportTimeAlignment> {
+        self.time_alignments
+            .iter()
+            .map(|alignment| ReportTimeAlignment {
+                left: alignment.left.clone(),
+                right: alignment.right.clone(),
+                axis: alignment.axis.clone(),
+                left_count: alignment.left_count,
+                right_count: alignment.right_count,
+                matched_count: alignment.matched_count,
+                overlap_start: alignment.overlap_start,
+                overlap_end: alignment.overlap_end,
+                status: alignment.status.clone(),
             })
             .collect()
     }
@@ -478,7 +563,7 @@ pub struct RuntimeTimeSeries {
     pub points: Vec<RuntimePoint>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RuntimePoint {
     pub x: f64,
     pub y: f64,
@@ -513,6 +598,46 @@ pub struct RuntimeIntegration {
     pub method: String,
     pub status: String,
     pub interval_count: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeMetric {
+    pub binding: String,
+    pub kind: String,
+    pub left: String,
+    pub right: String,
+    pub quantity_kind: String,
+    pub unit: String,
+    pub value: f64,
+    pub sample_count: usize,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeValidation {
+    pub expression: String,
+    pub left: String,
+    pub operator: String,
+    pub right: String,
+    pub left_value: Option<f64>,
+    pub right_value: Option<f64>,
+    pub unit: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTimeAlignment {
+    pub left: String,
+    pub right: String,
+    pub axis: String,
+    pub left_count: usize,
+    pub right_count: usize,
+    pub matched_count: usize,
+    pub overlap_start: Option<f64>,
+    pub overlap_end: Option<f64>,
+    pub status: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -615,6 +740,7 @@ struct Standardization {
 #[derive(Clone, Debug, PartialEq)]
 pub struct RuntimeSystemSolution {
     pub system: String,
+    pub binding: Option<String>,
     pub status: String,
     pub method: String,
     pub reason: String,
@@ -657,6 +783,7 @@ pub struct RuntimePolicyViolation {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PlotOptions {
     pub series: Option<String>,
+    pub series_list: Vec<String>,
     pub axis: Option<String>,
     pub histogram: Option<String>,
     pub distribution: Option<String>,
@@ -695,11 +822,16 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
 
     data.policy_results = materialize_policy_results(report, &mut data.tables);
     data.time_series = materialize_time_series(report, &data.tables);
+    data.system_solutions = materialize_system_solutions(report, &data.time_series);
+    data.time_series
+        .extend(materialize_system_solution_series(&data.system_solutions));
+    data.time_alignments = materialize_time_alignments(&data.time_series);
     data.statistics = materialize_statistics(report, &data.time_series);
     data.integrations = materialize_integrations(report, &data.time_series);
     data.uncertainties = materialize_uncertainties(report);
     data.ml_artifacts = materialize_ml_artifacts(report, &data.time_series, &data.tables);
-    data.system_solutions = materialize_system_solutions(report);
+    data.metrics = materialize_metrics(report, &data.time_series);
+    data.validations = materialize_validations(report, &data.metrics, &data.integrations);
     data
 }
 
@@ -921,7 +1053,49 @@ fn materialize_time_series(
             }
         }
     }
+    for table in tables {
+        series.extend(materialize_table_column_series(table));
+    }
     series
+}
+
+fn materialize_table_column_series(table: &RuntimeTable) -> Vec<RuntimeTimeSeries> {
+    let (x_values, x_unit) = table.axis_values();
+    table
+        .columns
+        .iter()
+        .filter(|column| !column.is_index)
+        .filter_map(|column| {
+            let RuntimeValues::Number(values) = &column.values else {
+                return None;
+            };
+            let display_unit = column
+                .unit
+                .clone()
+                .or_else(|| column.canonical_unit.clone())
+                .unwrap_or_else(|| "1".to_owned());
+            let mut points = Vec::new();
+            for (index, value) in values.iter().enumerate() {
+                let Some(value) = value else {
+                    continue;
+                };
+                points.push(RuntimePoint {
+                    x: x_values.get(index).copied().unwrap_or(index as f64),
+                    y: *value,
+                });
+            }
+            Some(RuntimeTimeSeries {
+                name: format!("{}.{}", table.binding, column.name),
+                axis: "Time".to_owned(),
+                x_unit: x_unit.clone(),
+                quantity_kind: column.type_name.clone(),
+                display_unit,
+                source_table: table.binding.clone(),
+                source_expression: format!("{}.{}", table.binding, column.name),
+                points,
+            })
+        })
+        .collect()
 }
 
 fn heat_rate_series(
@@ -1041,6 +1215,233 @@ fn materialize_integrations(
             }
         })
         .collect()
+}
+
+fn materialize_metrics(report: &CheckReport, series: &[RuntimeTimeSeries]) -> Vec<RuntimeMetric> {
+    report
+        .inferred_declarations
+        .iter()
+        .filter_map(|declaration| {
+            let (left, right) = parse_rmse_expression(&declaration.expression)?;
+            let left_series = series.iter().find(|series| series.name == left)?;
+            let right_series = series.iter().find(|series| series.name == right)?;
+            let mut actual = Vec::new();
+            let mut predicted = Vec::new();
+            for point in &left_series.points {
+                let Some(right_value) = interpolate_series_value(right_series, point.x) else {
+                    continue;
+                };
+                let left_value = convert_display_value(
+                    point.y,
+                    &left_series.display_unit,
+                    &right_series.display_unit,
+                );
+                actual.push(left_value);
+                predicted.push(right_value);
+            }
+            if actual.is_empty() {
+                return Some(RuntimeMetric {
+                    binding: declaration.name.clone(),
+                    kind: "rmse".to_owned(),
+                    left,
+                    right,
+                    quantity_kind: "unknown".to_owned(),
+                    unit: right_series.display_unit.clone(),
+                    value: 0.0,
+                    sample_count: 0,
+                    status: "unavailable".to_owned(),
+                    line: declaration.line,
+                });
+            }
+            let value = regression_metrics(&actual, &predicted).0;
+            let quantity_kind = if left_series.quantity_kind == "AbsoluteTemperature"
+                && right_series.quantity_kind == "AbsoluteTemperature"
+            {
+                "TemperatureDelta".to_owned()
+            } else {
+                left_series.quantity_kind.clone()
+            };
+            let unit = if quantity_kind == "TemperatureDelta" {
+                "K".to_owned()
+            } else {
+                right_series.display_unit.clone()
+            };
+            Some(RuntimeMetric {
+                binding: declaration.name.clone(),
+                kind: "rmse".to_owned(),
+                left,
+                right,
+                quantity_kind,
+                unit,
+                value,
+                sample_count: actual.len(),
+                status: "computed".to_owned(),
+                line: declaration.line,
+            })
+        })
+        .collect()
+}
+
+fn parse_rmse_expression(expression: &str) -> Option<(String, String)> {
+    let rest = expression.trim().strip_prefix("rmse ")?;
+    let (left, right) = rest.split_once(" vs ")?;
+    Some((left.trim().to_owned(), right.trim().to_owned()))
+}
+
+fn materialize_validations(
+    report: &CheckReport,
+    metrics: &[RuntimeMetric],
+    integrations: &[RuntimeIntegration],
+) -> Vec<RuntimeValidation> {
+    report
+        .semantic_program
+        .command_styles
+        .iter()
+        .filter(|command| command.verb == "validate")
+        .map(|command| {
+            let expression = command.target.clone();
+            let Some((left, operator, right)) = parse_validation_expression(&expression) else {
+                return RuntimeValidation {
+                    expression,
+                    left: String::new(),
+                    operator: String::new(),
+                    right: String::new(),
+                    left_value: None,
+                    right_value: None,
+                    unit: String::new(),
+                    status: "unavailable".to_owned(),
+                    line: command.line,
+                };
+            };
+            let left_metric = metrics.iter().find(|metric| metric.binding == left);
+            let left_integration = integrations
+                .iter()
+                .find(|integration| integration.binding == left);
+            let left_value = left_metric
+                .map(|metric| metric.value)
+                .or_else(|| left_integration.map(|integration| integration.value));
+            let unit = left_metric
+                .map(|metric| metric.unit.clone())
+                .or_else(|| left_integration.map(|integration| integration.unit.clone()))
+                .unwrap_or_default();
+            let right_value = number_with_optional_unit(&right).map(|(value, right_unit)| {
+                right_unit
+                    .as_deref()
+                    .map(|right_unit| convert_display_value(value, right_unit, &unit))
+                    .unwrap_or(value)
+            });
+            let status = match (left_value, right_value) {
+                (Some(left_value), Some(right_value)) => {
+                    if compare_values(left_value, right_value, &operator) {
+                        "passed"
+                    } else {
+                        "failed"
+                    }
+                }
+                _ => "unavailable",
+            }
+            .to_owned();
+            RuntimeValidation {
+                expression,
+                left,
+                operator,
+                right,
+                left_value,
+                right_value,
+                unit,
+                status,
+                line: command.line,
+            }
+        })
+        .collect()
+}
+
+fn parse_validation_expression(expression: &str) -> Option<(String, String, String)> {
+    for operator in ["<=", ">=", "==", "!=", "<", ">"] {
+        if let Some((left, right)) = expression.split_once(operator) {
+            return Some((
+                left.trim().to_owned(),
+                operator.to_owned(),
+                right.trim().to_owned(),
+            ));
+        }
+    }
+    None
+}
+
+fn compare_values(left: f64, right: f64, operator: &str) -> bool {
+    match operator {
+        "<" => left < right,
+        "<=" => left <= right,
+        ">" => left > right,
+        ">=" => left >= right,
+        "==" => (left - right).abs() <= f64::EPSILON,
+        "!=" => (left - right).abs() > f64::EPSILON,
+        _ => false,
+    }
+}
+
+fn materialize_time_alignments(series: &[RuntimeTimeSeries]) -> Vec<RuntimeTimeAlignment> {
+    let mut alignments = Vec::new();
+    let table_series = series
+        .iter()
+        .filter(|series| !series.source_table.is_empty())
+        .collect::<Vec<_>>();
+    for left_index in 0..table_series.len() {
+        for right_index in (left_index + 1)..table_series.len() {
+            let left = table_series[left_index];
+            let right = table_series[right_index];
+            if left.source_table == right.source_table || left.axis != right.axis {
+                continue;
+            }
+            let left_start = left.points.first().map(|point| point.x);
+            let left_end = left.points.last().map(|point| point.x);
+            let right_start = right.points.first().map(|point| point.x);
+            let right_end = right.points.last().map(|point| point.x);
+            let overlap_start = match (left_start, right_start) {
+                (Some(left), Some(right)) => Some(left.max(right)),
+                _ => None,
+            };
+            let overlap_end = match (left_end, right_end) {
+                (Some(left), Some(right)) => Some(left.min(right)),
+                _ => None,
+            };
+            let matched_count = left
+                .points
+                .iter()
+                .filter(|left_point| {
+                    right
+                        .points
+                        .iter()
+                        .any(|right_point| (left_point.x - right_point.x).abs() <= 1e-6)
+                })
+                .count();
+            let status = if matched_count == left.points.len().min(right.points.len())
+                && left.points.len() == right.points.len()
+            {
+                "matched"
+            } else if overlap_start
+                .zip(overlap_end)
+                .is_some_and(|(start, end)| end >= start)
+            {
+                "overlap"
+            } else {
+                "mismatch"
+            };
+            alignments.push(RuntimeTimeAlignment {
+                left: left.name.clone(),
+                right: right.name.clone(),
+                axis: left.axis.clone(),
+                left_count: left.points.len(),
+                right_count: right.points.len(),
+                matched_count,
+                overlap_start,
+                overlap_end,
+                status: status.to_owned(),
+            });
+        }
+    }
+    alignments
 }
 
 fn materialize_uncertainties(report: &CheckReport) -> Vec<RuntimeUncertainty> {
@@ -1447,17 +1848,71 @@ fn base_ml_artifact(info: &eng_compiler::MlInfo, status: &str) -> RuntimeMlArtif
     }
 }
 
-fn materialize_system_solutions(report: &CheckReport) -> Vec<RuntimeSystemSolution> {
+fn materialize_system_solutions(
+    report: &CheckReport,
+    series: &[RuntimeTimeSeries],
+) -> Vec<RuntimeSystemSolution> {
+    let mut solutions = Vec::new();
+    for system in &report.semantic_program.systems {
+        let requests = simulate_requests(report, &system.name);
+        if requests.is_empty() {
+            if let Some(solution) =
+                materialize_first_order_thermal_solution(system, None, &[], series)
+            {
+                solutions.push(solution);
+            }
+        } else {
+            for request in requests {
+                if let Some(solution) = materialize_first_order_thermal_solution(
+                    system,
+                    Some(request.binding.as_str()),
+                    &request.options,
+                    series,
+                ) {
+                    solutions.push(solution);
+                }
+            }
+        }
+    }
+    solutions
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct SimulateRequest {
+    binding: String,
+    options: Vec<eng_compiler::WithOptionInfo>,
+}
+
+fn simulate_requests(report: &CheckReport, system_name: &str) -> Vec<SimulateRequest> {
     report
-        .semantic_program
-        .systems
+        .inferred_declarations
         .iter()
-        .filter_map(materialize_first_order_thermal_solution)
+        .filter_map(|declaration| {
+            let expression = declaration.expression.trim();
+            let requested_system = expression.strip_prefix("simulate ")?.trim();
+            if requested_system != system_name {
+                return None;
+            }
+            let options = report
+                .semantic_program
+                .with_blocks
+                .iter()
+                .find(|block| block.owner_line == Some(declaration.line))
+                .map(|block| block.options.clone())
+                .unwrap_or_default();
+            Some(SimulateRequest {
+                binding: declaration.name.clone(),
+                options,
+            })
+        })
         .collect()
 }
 
 fn materialize_first_order_thermal_solution(
     system: &eng_compiler::SystemInfo,
+    binding: Option<&str>,
+    options: &[eng_compiler::WithOptionInfo],
+    series: &[RuntimeTimeSeries],
 ) -> Option<RuntimeSystemSolution> {
     let equation = system.equations.first()?;
     let state = system.variables.iter().find(|variable| {
@@ -1490,6 +1945,8 @@ fn materialize_first_order_thermal_solution(
 
     let heat_capacity_j_per_k = canonical_variable_value(heat_capacity)?;
     let conductance_w_per_k = canonical_variable_value(conductance)?;
+    let outdoor_series = option_value(options, &outdoor_temperature.name)
+        .and_then(|name| series.iter().find(|series| series.name == name));
     let outdoor_temperature_k = canonical_variable_value(outdoor_temperature)?;
     let internal_heat_w = canonical_variable_value(internal_heat)?;
     let initial_temperature_k = canonical_variable_value(state)?;
@@ -1498,9 +1955,14 @@ fn materialize_first_order_thermal_solution(
         return None;
     }
 
-    let duration_s = 3600.0;
-    let time_step_s = 300.0;
-    let step_count = (duration_s / time_step_s) as usize;
+    let time_step_s = option_value(options, "timestep")
+        .and_then(parse_duration_seconds)
+        .unwrap_or(300.0);
+    let duration_s = outdoor_series
+        .and_then(|series| series.points.last().map(|point| point.x))
+        .filter(|duration| *duration > 0.0)
+        .unwrap_or(3600.0);
+    let step_count = (duration_s / time_step_s).ceil() as usize;
     let mut temperature_k = initial_temperature_k;
     let mut points = vec![RuntimePoint {
         x: 0.0,
@@ -1508,18 +1970,32 @@ fn materialize_first_order_thermal_solution(
     }];
 
     for step in 1..=step_count {
-        let derivative_k_per_s = (conductance_w_per_k * (outdoor_temperature_k - temperature_k)
+        let time_s = (step as f64 * time_step_s).min(duration_s);
+        let outdoor_k = outdoor_series
+            .and_then(|series| interpolate_series_value(series, time_s))
+            .map(|value| {
+                convert_to_canonical_unit(
+                    value,
+                    Some(&outdoor_temperature.display_unit),
+                    &outdoor_temperature.canonical_unit,
+                    &outdoor_temperature.quantity_kind,
+                )
+                .unwrap_or(outdoor_temperature_k)
+            })
+            .unwrap_or(outdoor_temperature_k);
+        let derivative_k_per_s = (conductance_w_per_k * (outdoor_k - temperature_k)
             + internal_heat_w)
             / heat_capacity_j_per_k;
         temperature_k += derivative_k_per_s * time_step_s;
         points.push(RuntimePoint {
-            x: step as f64 * time_step_s,
+            x: time_s,
             y: display_variable_value(temperature_k, state),
         });
     }
 
     Some(RuntimeSystemSolution {
         system: system.name.clone(),
+        binding: binding.map(str::to_owned),
         status: "computed".to_owned(),
         method: "explicit_euler_fixed_step".to_owned(),
         reason: "recognized first-order thermal ODE and executed fixed-step preview".to_owned(),
@@ -1537,6 +2013,69 @@ fn materialize_first_order_thermal_solution(
         canonical_final_value: temperature_k,
         points,
     })
+}
+
+fn materialize_system_solution_series(
+    solutions: &[RuntimeSystemSolution],
+) -> Vec<RuntimeTimeSeries> {
+    solutions
+        .iter()
+        .map(|solution| RuntimeTimeSeries {
+            name: match &solution.binding {
+                Some(binding) => format!("{binding}.{}", solution.state),
+                None => format!("{}.{}", solution.system, solution.state),
+            },
+            axis: "Time".to_owned(),
+            x_unit: solution.time_unit.clone(),
+            quantity_kind: solution.quantity_kind.clone(),
+            display_unit: solution.display_unit.clone(),
+            source_table: solution.system.clone(),
+            source_expression: format!("simulate {}", solution.system),
+            points: solution.points.clone(),
+        })
+        .collect()
+}
+
+fn option_value<'a>(options: &'a [eng_compiler::WithOptionInfo], key: &str) -> Option<&'a str> {
+    options
+        .iter()
+        .find(|option| option.key == key)
+        .map(|option| option.value.as_str())
+}
+
+fn parse_duration_seconds(value: &str) -> Option<f64> {
+    let (amount, unit) = number_with_optional_unit(value)?;
+    let unit = unit.as_deref().map(normalize_unit);
+    Some(match unit.as_deref() {
+        Some("min") => amount * 60.0,
+        Some("h") => amount * 3600.0,
+        Some("s") | None => amount,
+        _ => return None,
+    })
+}
+
+fn interpolate_series_value(series: &RuntimeTimeSeries, x: f64) -> Option<f64> {
+    let first = series.points.first()?;
+    if x <= first.x {
+        return Some(first.y);
+    }
+    let last = series.points.last()?;
+    if x >= last.x {
+        return Some(last.y);
+    }
+    for window in series.points.windows(2) {
+        let a = window[0];
+        let b = window[1];
+        if x >= a.x && x <= b.x {
+            let span = b.x - a.x;
+            if span.abs() <= f64::EPSILON {
+                return Some(a.y);
+            }
+            let t = (x - a.x) / span;
+            return Some(a.y + (b.y - a.y) * t);
+        }
+    }
+    None
 }
 
 fn canonical_variable_value(variable: &eng_compiler::SystemVariableInfo) -> Option<f64> {
@@ -2132,7 +2671,13 @@ fn parse_plot_options(source: &str) -> PlotOptions {
         });
         options.model_plot = Some(model_plot);
     } else if let Some((series, axis)) = header.split_once(" over ") {
-        options.series = series.split_whitespace().next().map(str::to_owned);
+        options.series_list = series
+            .split(" and ")
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned)
+            .collect();
+        options.series = options.series_list.first().cloned();
         options.axis = axis.split_whitespace().next().map(str::to_owned);
     }
 

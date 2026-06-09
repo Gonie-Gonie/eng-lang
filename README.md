@@ -33,6 +33,8 @@ Start from these short status documents:
 - Typed CSV promote through official examples
 - Unit-aware TimeSeries calculations
 - TimeSeries statistics and integration metadata
+- Measured-vs-simulated workflow with RMSE, validation, time alignment, and
+  multi-series PlotSpec
 - Unit-aware print and explicit summary CSV export
 - Typed path helpers and provenance-visible `exists`
 - Read-only UTF-8 `read text/json/toml` with source hash provenance
@@ -43,6 +45,7 @@ Start from these short status documents:
   `process_results.json`
 - Named `test` blocks with checked assertions, golden artifact comparisons, and
   `test_results.json`
+- `eng run --profile safe|normal|repro` runtime policy basics
 - PlotSpec/SVG output
 - Review/report artifacts
 - Basic packaged execution
@@ -105,6 +108,7 @@ target\debug\eng.exe entries examples\official\01_csv_plot\main.eng
 target\debug\eng.exe run examples\official\01_csv_plot\main.eng
 target\debug\eng.exe run examples\official\02_simple_system\main.eng --save-artifacts
 target\debug\eng.exe run examples\official\03_integrated_hvac\main.eng --save-artifacts
+target\debug\eng.exe run examples\official\17_measured_vs_simulated\main.eng --profile repro --save-artifacts
 target\debug\eng.exe build examples\official\01_csv_plot\main.eng --standalone --profile repro
 dist\main-standalone\run.bat
 target\debug\eng.exe view build\result\result.engres

@@ -1423,7 +1423,7 @@ fn parse_command_style_expression(
     let target = target.trim();
     let status = if target.is_empty() {
         "missing_target"
-    } else if command_target_is_ambiguous(target) {
+    } else if command_target_is_ambiguous(verb, target) {
         "ambiguous_target"
     } else {
         "lowered"
@@ -1545,9 +1545,15 @@ fn is_word_character(character: char) -> bool {
     character.is_ascii_alphanumeric() || character == '_'
 }
 
-fn command_target_is_ambiguous(target: &str) -> bool {
+fn command_target_is_ambiguous(verb: &str, target: &str) -> bool {
     let target = target.trim();
     if target.starts_with('(') && target.ends_with(')') && balanced_delimiters(target) {
+        return false;
+    }
+    if verb == "validate" {
+        return false;
+    }
+    if verb == "plot" && target.split(" and ").all(is_simple_dotted_identifier) {
         return false;
     }
     if target.split_whitespace().count() > 1 {
@@ -1556,6 +1562,14 @@ fn command_target_is_ambiguous(target: &str) -> bool {
     target
         .chars()
         .any(|character| matches!(character, '+' | '-' | '*' | '/'))
+}
+
+fn is_simple_dotted_identifier(value: &str) -> bool {
+    let trimmed = value.trim();
+    !trimmed.is_empty()
+        && trimmed
+            .split('.')
+            .all(|part| !part.is_empty() && part.chars().all(is_word_character))
 }
 
 fn canonical_command_call(verb: &str, target: &str, clauses: &[(String, String)]) -> String {

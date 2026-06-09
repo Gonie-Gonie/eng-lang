@@ -246,6 +246,9 @@ Before publishing `v1.0.0`:
 [x] breaking-change policy is documented
 [x] current status, maturity matrix, tracks, roadmap, README, and release workflow agree on the v1.0.0 scope
 [x] preview/experimental tracks remain explicitly outside the stable contract
+[x] official/17_measured_vs_simulated integrated workflow is present
+[x] RMSE metrics, validations, time alignments, and multi-series PlotSpec are schema/documented
+[x] `eng run --profile safe|normal|repro` basics are implemented and documented
 [x] package assets use stable names without preview labels
 [x] official examples and compatibility fixtures pass
 [x] docs-check passes

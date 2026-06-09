@@ -1070,6 +1070,7 @@ report {
                 open_report: false,
                 save_artifacts: false,
                 args: Vec::new(),
+                ..RunOptions::default()
             },
         ) {
             Ok(output) => {

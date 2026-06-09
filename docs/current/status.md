@@ -72,12 +72,16 @@ workflow, and covered by the breaking-change policy.
   integration metadata, with `timeseries_kernels` metadata for the preview
   table heat-rate expression.
 - PlotSpec v1 line plot data, unit-aware axis labels, SVG export, and plot
-  manifest artifacts.
+  manifest artifacts. Multi-series line plots are supported for the official
+  measured-vs-simulated workflow.
 - Report/review artifacts with variable tables, inferred declarations, unit
   conversion records, schema summaries, warnings, plot manifest data, and
   report spec hashing.
-- Minimal `system`/`eq` parsing and unit diagnostics remain available for
-  official examples, but general solver behavior stays outside the stable core.
+- Minimal `system`/`eq` parsing, unit diagnostics, and fixed-step one-state
+  thermal preview output remain available for official examples. Simulation
+  outputs are materialized as typed TimeSeries for the supported
+  measured-vs-simulated path, but general solver behavior stays outside the
+  stable core.
 - Args string/path/CsvFile/DirectoryPath binding for `--input` style official
   examples, primitive Bool/Int/Count/Float/Duration normalization, dynamic
   pure defaults, and packaged runner help metadata.
@@ -111,6 +115,14 @@ workflow, and covered by the breaking-change policy.
 - Named `test` blocks group checked `assert` statements and `golden` artifact
   comparisons. Saved runs write `test_results.json`, and failed tests fail the
   run after artifacts are available for inspection.
+- `eng run --profile safe|normal|repro` is implemented as a runtime policy
+  layer. `safe` rejects explicit workflow export/write/file-operation/process
+  effects; `normal` is the default; `repro` records profile diagnostics in
+  result, run-log, and output-manifest artifacts.
+- The official measured-vs-simulated example promotes weather and measured CSV
+  data, simulates a one-state thermal system into `sim.T_zone`, computes
+  `rmse measured_data.T_zone vs sim.T_zone`, validates a threshold, records
+  time alignment metadata, and plots measured plus simulated TimeSeries.
 - Standalone package output with `.engpkg`, bytecode, lock, source/dependency
   copy, dependency hashes, Args help, and reviewable report artifacts.
 - Temperature spelling policy: `degC` remains the canonical ASCII spelling, and
@@ -140,6 +152,10 @@ workflow, and covered by the breaking-change policy.
   review metadata and `process_results.json` for exit/stdout/stderr records.
 - Test/assert/golden workflow checks through named `test` blocks, with
   `test_results.json` for IDE/CI inspection.
+- Measured-vs-simulated workflow artifacts through
+  `examples/official/17_measured_vs_simulated/main.eng`, including
+  `computed_metrics`, `validations`, `time_alignments`, and a multi-series
+  PlotSpec.
 - OODocs grammar PDF generation through `dev.bat grammar-docs`, backed by the
   language grammar guide.
 - Current planning and release docs now align around the integrated
@@ -176,8 +192,8 @@ See [development tracks](tracks.md) for the current scope and limitations.
 - Arbitrary TimeSeries expressions are limited beyond the official typed CSV
   path.
 - General quantity rules for all statistics are not complete.
-- Plot semantics beyond current PlotSpec paths need multi-series, custom
-  histogram bin counts, and grouped/stacked bar hardening.
+- Plot semantics beyond current PlotSpec paths need custom histogram bin
+  counts, grouped/stacked bar hardening, and broader multi-axis semantics.
 - Multi-state, nonlinear, adaptive, or general equation-system solving is
   deferred.
 - Numeric component graph solving and domain package registries are deferred.
@@ -195,7 +211,8 @@ See [development tracks](tracks.md) for the current scope and limitations.
   provenance, read-only UTF-8 text/json/toml source hash provenance, explicit
   write/export output manifest support, constrained output-area
   copy/move/delete, structured runtime log artifacts, explicit external process
-  execution, and local test/assert/golden checks only.
+  execution, safe/normal/repro profile basics, and local test/assert/golden
+  checks only.
 - Class/domain objects are planned for reviewable engineering objects, but
   class declaration/object literal/runtime lowering is not part of the current
   public preview.

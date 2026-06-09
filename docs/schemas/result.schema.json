@@ -13,6 +13,7 @@
     "source_hash",
     "bytecode_hash",
     "numeric_profile",
+    "execution_profile",
     "workflow",
     "args_schema",
     "arg_values",
@@ -30,6 +31,7 @@
     "source_hash": { "type": "string" },
     "bytecode_hash": { "type": "string" },
     "numeric_profile": { "type": "string" },
+    "execution_profile": { "enum": ["safe", "normal", "repro"] },
     "workflow": {
       "type": "object",
       "required": ["kind", "arg_name", "arg_type", "return_type"]
@@ -45,8 +47,20 @@
     },
     "typed_payload": {
       "type": "object",
-      "required": ["kind", "status", "result_format", "vm_steps", "statistics", "integrations", "policy_results", "systems", "solver_boundaries", "system_ir"],
+      "required": ["kind", "status", "result_format", "vm_steps", "statistics", "integrations", "metrics", "validations", "time_alignments", "policy_results", "systems", "solver_boundaries", "system_ir"],
       "properties": {
+        "metrics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/resultMetric" }
+        },
+        "validations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/resultValidation" }
+        },
+        "time_alignments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/timeAlignment" }
+        },
         "solver_boundaries": {
           "type": "array",
           "items": { "$ref": "#/$defs/resultSolverBoundary" }
@@ -70,6 +84,7 @@
         "equation_count",
         "residual_count",
         "environment_dependencies",
+        "profile_diagnostics",
         "data_hashes",
         "plot_spec_hash",
         "report_spec_hash",
@@ -79,6 +94,10 @@
         "environment_dependencies": {
           "type": "array",
           "items": { "$ref": "#/$defs/environmentDependency" }
+        },
+        "profile_diagnostics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/profileDiagnostic" }
         }
       }
     }
@@ -107,6 +126,62 @@
         "source_hash": { "type": ["string", "null"] },
         "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "profileDiagnostic": {
+      "type": "object",
+      "required": ["severity", "code", "message", "line"],
+      "properties": {
+        "severity": { "enum": ["warning", "error"] },
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "resultMetric": {
+      "type": "object",
+      "required": ["binding", "kind", "left", "right", "quantity_kind", "unit", "value", "sample_count", "status", "line"],
+      "properties": {
+        "binding": { "type": "string" },
+        "kind": { "type": "string" },
+        "left": { "type": "string" },
+        "right": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "unit": { "type": "string" },
+        "value": { "type": "number" },
+        "sample_count": { "type": "integer", "minimum": 0 },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "resultValidation": {
+      "type": "object",
+      "required": ["expression", "left", "operator", "right", "left_value", "right_value", "unit", "status", "line"],
+      "properties": {
+        "expression": { "type": "string" },
+        "left": { "type": "string" },
+        "operator": { "type": "string" },
+        "right": { "type": "string" },
+        "left_value": { "type": ["number", "null"] },
+        "right_value": { "type": ["number", "null"] },
+        "unit": { "type": "string" },
+        "status": { "enum": ["passed", "failed", "unavailable"] },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "timeAlignment": {
+      "type": "object",
+      "required": ["left", "right", "axis", "left_count", "right_count", "matched_count", "overlap_start", "overlap_end", "status"],
+      "properties": {
+        "left": { "type": "string" },
+        "right": { "type": "string" },
+        "axis": { "type": "string" },
+        "left_count": { "type": "integer", "minimum": 0 },
+        "right_count": { "type": "integer", "minimum": 0 },
+        "matched_count": { "type": "integer", "minimum": 0 },
+        "overlap_start": { "type": ["number", "null"] },
+        "overlap_end": { "type": ["number", "null"] },
+        "status": { "enum": ["matched", "overlap", "mismatch"] }
       }
     },
     "resultSolverBoundary": {

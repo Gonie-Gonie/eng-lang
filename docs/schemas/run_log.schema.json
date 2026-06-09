@@ -7,17 +7,24 @@
     "format",
     "runtime_version",
     "source_path",
+    "execution_profile",
     "message_count",
-    "messages"
+    "messages",
+    "profile_diagnostics"
   ],
   "properties": {
     "format": { "const": "eng-run-log-v1" },
     "runtime_version": { "type": "string" },
     "source_path": { "type": "string" },
+    "execution_profile": { "enum": ["safe", "normal", "repro"] },
     "message_count": { "type": "integer", "minimum": 0 },
     "messages": {
       "type": "array",
       "items": { "$ref": "#/$defs/runLogMessage" }
+    },
+    "profile_diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/profileDiagnostic" }
     }
   },
   "$defs": {
@@ -27,6 +34,16 @@
       "properties": {
         "index": { "type": "integer", "minimum": 0 },
         "level": { "enum": ["print", "debug", "info", "warn", "error"] },
+        "message": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "profileDiagnostic": {
+      "type": "object",
+      "required": ["severity", "code", "message", "line"],
+      "properties": {
+        "severity": { "enum": ["warning", "error"] },
+        "code": { "type": "string" },
         "message": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }

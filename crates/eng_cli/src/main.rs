@@ -6,7 +6,8 @@ use std::time::Instant;
 
 use eng_compiler::{check_file, check_source, review_json, ArgOverride, CheckOptions, Severity};
 use eng_runtime::{
-    build_standalone, create_project, doctor, run_file, BuildOptions, RunOptions, RuntimeError,
+    build_standalone, create_project, doctor, run_file, BuildOptions, ExecutionProfile, RunOptions,
+    RuntimeError,
 };
 use serde_json::json;
 
@@ -157,6 +158,7 @@ fn command_jit_bench(args: Vec<String>) -> ExitCode {
                 open_report: false,
                 save_artifacts: true,
                 args: runtime_args.clone(),
+                ..RunOptions::default()
             },
         ) {
             Ok(output) => {
@@ -304,13 +306,25 @@ fn command_check(args: Vec<String>) -> ExitCode {
 
 fn command_run(args: Vec<String>) -> ExitCode {
     let Some(path) = first_non_flag(&args) else {
-        eprintln!("usage: eng run <file.eng> [--open-report] [--save-artifacts]");
+        eprintln!(
+            "usage: eng run <file.eng> [--profile safe|normal|repro] [--open-report] [--save-artifacts]"
+        );
         return ExitCode::from(2);
     };
     let open_report = args.iter().any(|arg| arg == "--open-report");
     let save_artifacts = open_report || args.iter().any(|arg| arg == "--save-artifacts");
-    let runtime_args = match parse_arg_overrides(&args, &[], &["--open-report", "--save-artifacts"])
-    {
+    let profile = match parse_execution_profile(&args) {
+        Ok(profile) => profile,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
+    let runtime_args = match parse_arg_overrides(
+        &args,
+        &["--profile"],
+        &["--open-report", "--save-artifacts"],
+    ) {
         Ok(values) => values,
         Err(message) => {
             eprintln!("{message}");
@@ -325,6 +339,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
             open_report,
             save_artifacts,
             args: runtime_args,
+            profile,
         },
     ) {
         Ok(output) => {
@@ -400,6 +415,12 @@ fn command_build(args: Vec<String>) -> ExitCode {
         eprintln!("usage: eng build <file.eng> [--standalone] [--profile repro]");
         return ExitCode::from(2);
     };
+    if let Some(profile) = option_value(&args, "--profile") {
+        if profile != "repro" {
+            eprintln!("eng build currently supports only `--profile repro`");
+            return ExitCode::from(2);
+        }
+    }
     let build_args = match parse_arg_overrides(&args, &["--profile"], &["--standalone"]) {
         Ok(values) => values,
         Err(message) => {
@@ -529,6 +550,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/14_run_log/main.eng",
                 "examples/official/15_process_result/main.eng",
                 "examples/official/16_test_assert_golden/main.eng",
+                "examples/official/17_measured_vs_simulated/main.eng",
             ],
         ),
         (
@@ -1084,6 +1106,38 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("examples/official/17_measured_vs_simulated/main.eng"),
+        Path::new("build/test-measured-vs-simulated"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let result = std::fs::read_to_string(output.result_path).unwrap_or_default();
+            let report_spec = std::fs::read_to_string(output.report_spec_path).unwrap_or_default();
+            let report_html = std::fs::read_to_string(output.report_path).unwrap_or_default();
+            let plot_spec = std::fs::read_to_string(output.plot_spec_path).unwrap_or_default();
+            if !result.contains("\"metrics\"")
+                || !result.contains("\"validations\"")
+                || !result.contains("\"time_alignments\"")
+                || !result.contains("\"binding\": \"rmse_T\"")
+                || !report_spec.contains("\"computed_metrics\"")
+                || !report_spec.contains("\"status\": \"passed\"")
+                || !report_html.contains("Validations")
+                || !plot_spec.contains("\"name\": \"measured_data.T_zone\"")
+                || !plot_spec.contains("\"name\": \"sim.T_zone\"")
+            {
+                eprintln!("expected measured-vs-simulated example to produce RMSE, validation, alignment, and multi-series plot artifacts");
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/17_measured_vs_simulated/main.eng produced measured-vs-simulated artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("measured-vs-simulated example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
         Path::new("examples/official/01_csv_plot/main.eng"),
         Path::new("build/test-plot-args"),
         &RunOptions {
@@ -1093,6 +1147,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 name: "input".to_owned(),
                 value: "data/sensor.csv".to_owned(),
             }],
+            ..RunOptions::default()
         },
     ) {
         Ok(output) => {
@@ -1201,6 +1256,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             open_report: false,
             save_artifacts: true,
             args: Vec::new(),
+            ..RunOptions::default()
         },
     ) {
         Ok(output) => {
@@ -1231,6 +1287,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             open_report: false,
             save_artifacts: true,
             args: Vec::new(),
+            ..RunOptions::default()
         },
     ) {
         Ok(output) => {
@@ -1270,6 +1327,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             open_report: false,
             save_artifacts: true,
             args: Vec::new(),
+            ..RunOptions::default()
         },
     ) {
         Ok(output) => {
@@ -1309,6 +1367,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             open_report: false,
             save_artifacts: true,
             args: Vec::new(),
+            ..RunOptions::default()
         },
     ) {
         Ok(output) => {
@@ -1715,6 +1774,15 @@ fn parse_jit_backend(args: &[String]) -> Result<String, String> {
     }
 }
 
+fn parse_execution_profile(args: &[String]) -> Result<ExecutionProfile, String> {
+    let Some(profile) = option_value(args, "--profile") else {
+        return Ok(ExecutionProfile::Normal);
+    };
+    ExecutionProfile::parse(&profile).ok_or_else(|| {
+        format!("unknown execution profile `{profile}`; expected safe, normal, or repro")
+    })
+}
+
 fn parse_arg_overrides(
     args: &[String],
     known_value_flags: &[&str],
@@ -1803,7 +1871,7 @@ Usage:
   eng ide-check <file.eng>
   eng jit-plan <file.eng>
   eng jit-bench <file.eng> [--iterations N] [--<arg> <value>...]
-  eng run <file.eng> [--open-report] [--save-artifacts] [--<arg> <value>...]
+  eng run <file.eng> [--profile safe|normal|repro] [--open-report] [--save-artifacts] [--<arg> <value>...]
   eng build <file.eng> [--standalone] [--profile repro]
   eng view <result.engres>
   eng test <project_or_examples>

@@ -1200,6 +1200,10 @@ fn known_with_option(key: &str) -> bool {
             | "unit y"
             | "display_unit"
             | "solver"
+            | "timestep"
+            | "T_out"
+            | "Q_internal"
+            | "solar"
             | "tolerance"
             | "max_iter"
             | "seed"
@@ -3553,6 +3557,14 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
 
     if lowered_expression.contains("promote csv") {
         return semantic_type("Table[Time]", "schema-defined");
+    }
+
+    if lowered_expression.starts_with("simulate ") {
+        return semantic_type("SimulationResult", "object");
+    }
+
+    if lowered_expression.starts_with("rmse ") && lowered_expression.contains(" vs ") {
+        return semantic_type("TemperatureDelta", "K");
     }
 
     if looks_like_heat_rate_timeseries(&lowered_name, &lowered_expression) {

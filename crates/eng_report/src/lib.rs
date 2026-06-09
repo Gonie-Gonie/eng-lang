@@ -57,6 +57,9 @@ pub struct ReportSpec {
     pub arg_values: Vec<ReportArgValue>,
     pub computed_statistics: Vec<ReportComputedStatistics>,
     pub computed_integrations: Vec<ReportComputedIntegration>,
+    pub computed_metrics: Vec<ReportComputedMetric>,
+    pub validations: Vec<ReportValidationResult>,
+    pub time_alignments: Vec<ReportTimeAlignment>,
     pub uncertainty: Vec<ReportUncertaintyInfo>,
     pub ml: Vec<ReportMlInfo>,
     pub policy_results: Vec<ReportPolicyResult>,
@@ -163,6 +166,46 @@ pub struct ReportComputedIntegration {
     pub value: f64,
     pub unit: String,
     pub method: String,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComputedMetric {
+    pub binding: String,
+    pub kind: String,
+    pub left: String,
+    pub right: String,
+    pub quantity_kind: String,
+    pub unit: String,
+    pub value: f64,
+    pub sample_count: usize,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportValidationResult {
+    pub expression: String,
+    pub left: String,
+    pub operator: String,
+    pub right: String,
+    pub left_value: Option<f64>,
+    pub right_value: Option<f64>,
+    pub unit: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportTimeAlignment {
+    pub left: String,
+    pub right: String,
+    pub axis: String,
+    pub left_count: usize,
+    pub right_count: usize,
+    pub matched_count: usize,
+    pub overlap_start: Option<f64>,
+    pub overlap_end: Option<f64>,
     pub status: String,
 }
 
@@ -879,6 +922,9 @@ pub fn report_spec_from_report(
         arg_values,
         computed_statistics: Vec::new(),
         computed_integrations: Vec::new(),
+        computed_metrics: Vec::new(),
+        validations: Vec::new(),
+        time_alignments: Vec::new(),
         uncertainty,
         ml,
         policy_results: Vec::new(),
@@ -1299,6 +1345,127 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         json.push_str(&format!(
             "      \"status\": \"{}\"\n",
             json_escape(&integration.status)
+        ));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"computed_metrics\": [\n");
+    for (index, metric) in spec.computed_metrics.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&metric.binding)
+        ));
+        json.push_str(&format!(
+            "      \"kind\": \"{}\",\n",
+            json_escape(&metric.kind)
+        ));
+        json.push_str(&format!(
+            "      \"left\": \"{}\",\n",
+            json_escape(&metric.left)
+        ));
+        json.push_str(&format!(
+            "      \"right\": \"{}\",\n",
+            json_escape(&metric.right)
+        ));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&metric.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "      \"unit\": \"{}\",\n",
+            json_escape(&metric.unit)
+        ));
+        json.push_str(&format!("      \"value\": {},\n", metric.value));
+        json.push_str(&format!(
+            "      \"sample_count\": {},\n",
+            metric.sample_count
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&metric.status)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", metric.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"validations\": [\n");
+    for (index, validation) in spec.validations.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"expression\": \"{}\",\n",
+            json_escape(&validation.expression)
+        ));
+        json.push_str(&format!(
+            "      \"left\": \"{}\",\n",
+            json_escape(&validation.left)
+        ));
+        json.push_str(&format!(
+            "      \"operator\": \"{}\",\n",
+            json_escape(&validation.operator)
+        ));
+        json.push_str(&format!(
+            "      \"right\": \"{}\",\n",
+            json_escape(&validation.right)
+        ));
+        push_optional_json_f64(&mut json, "left_value", validation.left_value, 6);
+        push_optional_json_f64(&mut json, "right_value", validation.right_value, 6);
+        json.push_str(&format!(
+            "      \"unit\": \"{}\",\n",
+            json_escape(&validation.unit)
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&validation.status)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", validation.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"time_alignments\": [\n");
+    for (index, alignment) in spec.time_alignments.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"left\": \"{}\",\n",
+            json_escape(&alignment.left)
+        ));
+        json.push_str(&format!(
+            "      \"right\": \"{}\",\n",
+            json_escape(&alignment.right)
+        ));
+        json.push_str(&format!(
+            "      \"axis\": \"{}\",\n",
+            json_escape(&alignment.axis)
+        ));
+        json.push_str(&format!(
+            "      \"left_count\": {},\n",
+            alignment.left_count
+        ));
+        json.push_str(&format!(
+            "      \"right_count\": {},\n",
+            alignment.right_count
+        ));
+        json.push_str(&format!(
+            "      \"matched_count\": {},\n",
+            alignment.matched_count
+        ));
+        push_optional_json_f64(&mut json, "overlap_start", alignment.overlap_start, 6);
+        push_optional_json_f64(&mut json, "overlap_end", alignment.overlap_end, 6);
+        json.push_str(&format!(
+            "      \"status\": \"{}\"\n",
+            json_escape(&alignment.status)
         ));
         json.push_str("    }");
     }
@@ -2011,10 +2178,7 @@ pub fn render_svg_from_spec(spec: &PlotSpec) -> String {
         "bar" => svg_rect_plot(series_points, "#0b6bcb", 0.68),
         "histogram" => svg_histogram_plot(series),
         "scatter" => svg_scatter_plot(series_points, "#0b6bcb"),
-        _ => format!(
-            r##"<polyline points="{}" fill="none" stroke="#0b6bcb" stroke-width="4"/>"##,
-            svg_points(series_points)
-        ),
+        _ => svg_line_series(&spec.series),
     };
     format!(
         r##"<svg xmlns="http://www.w3.org/2000/svg" width="720" height="320" viewBox="0 0 720 320" role="img" aria-label="{title}">
@@ -2031,19 +2195,36 @@ pub fn render_svg_from_spec(spec: &PlotSpec) -> String {
 }
 
 pub fn plot_spec_json(spec: &PlotSpec) -> String {
-    let series = spec.series.first();
-    let points = plot_points_json(
-        series
-            .map(|series| series.points.as_slice())
-            .unwrap_or_default(),
-    );
-    let bins = plot_bins_json(
-        series
-            .map(|series| series.bins.as_slice())
-            .unwrap_or_default(),
-    );
+    let mut series_json = String::new();
+    for (index, series) in spec.series.iter().enumerate() {
+        if index > 0 {
+            series_json.push_str(",\n");
+        }
+        series_json.push_str("    {\n");
+        series_json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&series.name)
+        ));
+        series_json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&series.quantity_kind)
+        ));
+        series_json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&series.display_unit)
+        ));
+        series_json.push_str(&format!(
+            "      \"points\": [{}],\n",
+            plot_points_json(&series.points)
+        ));
+        series_json.push_str(&format!(
+            "      \"bins\": [{}]\n",
+            plot_bins_json(&series.bins)
+        ));
+        series_json.push_str("    }");
+    }
     format!(
-        "{{\n  \"format\": \"eng-plotspec-v1\",\n  \"plot_spec_version\": {PLOT_SPEC_VERSION},\n  \"plot_type\": \"{}\",\n  \"title\": \"{}\",\n  \"x_axis\": {{ \"name\": \"{}\", \"label\": \"{}\", \"unit\": \"{}\" }},\n  \"y_axis\": {{ \"name\": \"{}\", \"label\": \"{}\", \"unit\": \"{}\" }},\n  \"series\": [\n    {{\n      \"name\": \"{}\",\n      \"quantity_kind\": \"{}\",\n      \"display_unit\": \"{}\",\n      \"points\": [{}],\n      \"bins\": [{}]\n    }}\n  ]\n}}\n",
+        "{{\n  \"format\": \"eng-plotspec-v1\",\n  \"plot_spec_version\": {PLOT_SPEC_VERSION},\n  \"plot_type\": \"{}\",\n  \"title\": \"{}\",\n  \"x_axis\": {{ \"name\": \"{}\", \"label\": \"{}\", \"unit\": \"{}\" }},\n  \"y_axis\": {{ \"name\": \"{}\", \"label\": \"{}\", \"unit\": \"{}\" }},\n  \"series\": [\n{}\n  ]\n}}\n",
         json_escape(&spec.plot_type),
         json_escape(&spec.title),
         json_escape(&spec.x_axis.name),
@@ -2052,19 +2233,7 @@ pub fn plot_spec_json(spec: &PlotSpec) -> String {
         json_escape(&spec.y_axis.name),
         json_escape(&spec.y_axis.label),
         json_escape(&spec.y_axis.unit),
-        json_escape(series.map(|series| series.name.as_str()).unwrap_or("preview")),
-        json_escape(
-            series
-                .map(|series| series.quantity_kind.as_str())
-                .unwrap_or("Value")
-        ),
-        json_escape(
-            series
-                .map(|series| series.display_unit.as_str())
-                .unwrap_or("unit")
-        ),
-        points,
-        bins
+        series_json
     )
 }
 
@@ -2176,6 +2345,22 @@ fn push_report_solver_plan_json(json: &mut String, plan: &ReportSolverPlan, inde
 }
 
 pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
+    render_html_inner(report, plot_relative_path, None)
+}
+
+pub fn render_html_with_spec(
+    report: &CheckReport,
+    plot_relative_path: &str,
+    spec: &ReportSpec,
+) -> String {
+    render_html_inner(report, plot_relative_path, Some(spec))
+}
+
+fn render_html_inner(
+    report: &CheckReport,
+    plot_relative_path: &str,
+    spec: Option<&ReportSpec>,
+) -> String {
     let title = html_escape(&format!(
         "EngLang Review - {}",
         report
@@ -2571,6 +2756,11 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
     let csv_promotion_count = report.semantic_program.csv_promotions.len();
     let workflow = html_escape(&report.semantic_program.workflow.signature());
     let plot_relative_path = html_escape(plot_relative_path);
+    let computed_metrics_section = spec
+        .map(render_computed_metrics_section)
+        .unwrap_or_default();
+    let validations_section = spec.map(render_validations_section).unwrap_or_default();
+    let time_alignments_section = spec.map(render_time_alignments_section).unwrap_or_default();
 
     format!(
         r#"<!doctype html>
@@ -2721,6 +2911,9 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
       <thead><tr><th>Line</th><th>Binding</th><th>Source</th><th>Input</th><th>Axis</th><th>Result</th></tr></thead>
       <tbody>{integrations}</tbody>
     </table>
+    {computed_metrics_section}
+    {validations_section}
+    {time_alignments_section}
     <h2>Uncertainty</h2>
     <table>
       <thead><tr><th>Line</th><th>Binding</th><th>Kind</th><th>Distribution</th><th>Method</th><th>Transform</th><th>Propagation</th><th>Quantity</th><th>Unit</th><th>Samples</th><th>Expression</th></tr></thead>
@@ -2775,6 +2968,99 @@ pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
         source_hash = html_escape(&report.source_hash),
         compiler_version = html_escape(eng_compiler::COMPILER_VERSION),
         report_version = html_escape(REPORT_VERSION)
+    )
+}
+
+fn render_computed_metrics_section(spec: &ReportSpec) -> String {
+    if spec.computed_metrics.is_empty() {
+        return String::new();
+    }
+    let rows = spec
+        .computed_metrics
+        .iter()
+        .map(|metric| {
+            format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{:.6}</td><td>{}</td><td>{}</td></tr>",
+                metric.line,
+                html_escape(&metric.binding),
+                html_escape(&metric.kind),
+                html_escape(&format!("{} vs {}", metric.left, metric.right)),
+                metric.value,
+                html_escape(&metric.unit),
+                html_escape(&metric.status)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    format!(
+        r#"<h2>Computed Metrics</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Binding</th><th>Kind</th><th>Comparison</th><th>Value</th><th>Unit</th><th>Status</th></tr></thead>
+      <tbody>{rows}</tbody>
+    </table>"#
+    )
+}
+
+fn render_validations_section(spec: &ReportSpec) -> String {
+    if spec.validations.is_empty() {
+        return String::new();
+    }
+    let rows = spec
+        .validations
+        .iter()
+        .map(|validation| {
+            format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                validation.line,
+                html_escape(&validation.expression),
+                validation
+                    .left_value
+                    .map(|value| format!("{value:.6}"))
+                    .unwrap_or_else(|| "-".to_owned()),
+                validation
+                    .right_value
+                    .map(|value| format!("{value:.6}"))
+                    .unwrap_or_else(|| "-".to_owned()),
+                html_escape(&validation.status)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    format!(
+        r#"<h2>Validations</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Expression</th><th>Left</th><th>Right</th><th>Status</th></tr></thead>
+      <tbody>{rows}</tbody>
+    </table>"#
+    )
+}
+
+fn render_time_alignments_section(spec: &ReportSpec) -> String {
+    if spec.time_alignments.is_empty() {
+        return String::new();
+    }
+    let rows = spec
+        .time_alignments
+        .iter()
+        .map(|alignment| {
+            format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td></tr>",
+                html_escape(&alignment.left),
+                html_escape(&alignment.right),
+                html_escape(&alignment.axis),
+                alignment.matched_count,
+                alignment.left_count.min(alignment.right_count),
+                html_escape(&alignment.status)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    format!(
+        r#"<h2>Time Alignments</h2>
+    <table>
+      <thead><tr><th>Left</th><th>Right</th><th>Axis</th><th>Matched</th><th>Status</th></tr></thead>
+      <tbody>{rows}</tbody>
+    </table>"#
     )
 }
 
@@ -2937,39 +3223,58 @@ fn axis_label(axis: &PlotAxis) -> String {
     }
 }
 
-fn svg_points(points: &[PlotPoint]) -> String {
-    if points.is_empty() {
+fn svg_line_series(series: &[PlotSeries]) -> String {
+    let all_points = series
+        .iter()
+        .flat_map(|series| series.points.iter())
+        .copied()
+        .collect::<Vec<_>>();
+    if all_points.is_empty() {
         return String::new();
     }
-
-    let min_x = points
+    let min_x = all_points
         .iter()
         .map(|point| point.x)
         .fold(f64::INFINITY, f64::min);
-    let max_x = points
+    let max_x = all_points
         .iter()
         .map(|point| point.x)
         .fold(f64::NEG_INFINITY, f64::max);
-    let min_y = points
+    let min_y = all_points
         .iter()
         .map(|point| point.y)
         .fold(f64::INFINITY, f64::min);
-    let max_y = points
+    let max_y = all_points
         .iter()
         .map(|point| point.y)
         .fold(f64::NEG_INFINITY, f64::max);
     let x_span = (max_x - min_x).max(1.0);
     let y_span = (max_y - min_y).max(1.0);
-
-    points
-        .iter()
-        .map(|point| {
-            let x = 72.0 + ((point.x - min_x) / x_span) * 588.0;
-            let y = 250.0 - ((point.y - min_y) / y_span) * 210.0;
-            format!("{x:.0},{y:.0}")
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
+    let colors = ["#0b6bcb", "#c2410c", "#15803d", "#7c3aed", "#b45309"];
+    let mut svg = String::new();
+    for (index, series) in series.iter().enumerate() {
+        let color = colors[index % colors.len()];
+        let points = series
+            .points
+            .iter()
+            .map(|point| {
+                let x = 72.0 + ((point.x - min_x) / x_span) * 588.0;
+                let y = 250.0 - ((point.y - min_y) / y_span) * 210.0;
+                format!("{x:.1},{y:.1}")
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        let label_y = 52 + index as i32 * 18;
+        svg.push_str(&format!(
+            r##"<polyline points="{points}" fill="none" stroke="{color}" stroke-width="4"/>
+  <circle cx="548" cy="{label_y}" r="5" fill="{color}"/>
+  <text x="560" y="{}" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#111">{}</text>
+  "##,
+            label_y + 4,
+            xml_escape(&series.name)
+        ));
+    }
+    svg
 }
 
 fn svg_rect_plot(points: &[PlotPoint], fill: &str, width_fraction: f64) -> String {

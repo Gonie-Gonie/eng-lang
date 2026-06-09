@@ -135,6 +135,13 @@ def build_document(version: str) -> Document:
                 ".",
             ),
             paragraph(
+                "For the integrated measured-vs-simulated workflow, run ",
+                code("eng.exe run examples\\official\\17_measured_vs_simulated\\main.eng --profile repro --save-artifacts"),
+                ". It promotes weather and measured CSV inputs, simulates a one-state thermal model into ",
+                code("sim.T_zone"),
+                ", computes RMSE, records validation and time-alignment metadata, and emits a multi-series PlotSpec.",
+            ),
+            paragraph(
                 "For future-track smoke testing, open ",
                 code("examples/official/04_uncertainty_core/main.eng"),
                 " and verify the in-IDE Runtime uncertainty summary plus the histogram preview. For data-driven modeling smoke testing, open ",
