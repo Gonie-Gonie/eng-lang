@@ -20,6 +20,7 @@
     "csv_exports",
     "writes",
     "file_operations",
+    "process_runs",
     "domain_summary",
     "component_summary",
     "connection_summary",
@@ -74,6 +75,10 @@
     "file_operations": {
       "type": "array",
       "items": { "$ref": "#/$defs/fileOperation" }
+    },
+    "process_runs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/processRun" }
     },
     "domain_summary": {
       "type": "array",
@@ -197,6 +202,15 @@
         "operation": { "enum": ["copy", "move", "delete"] },
         "source": { "type": "string" },
         "destination": { "type": ["string", "null"] },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "processRun": {
+      "type": "object",
+      "required": ["binding", "command", "line"],
+      "properties": {
+        "binding": { "type": "string" },
+        "command": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }
     },

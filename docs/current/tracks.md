@@ -226,7 +226,7 @@ Non-goals:
 
 ## T11 General Programming / Side Effects
 
-Implemented seeds through `v0.7-preview`:
+Implemented seeds through `v0.8-preview`:
 
 ```text
 - file/dir path defaults
@@ -242,6 +242,8 @@ Implemented seeds through `v0.7-preview`:
 - output manifest records for generated-output file operations
 - print plus log debug/info/warn/error runtime message metadata
 - run_log.json artifact records for saved runs
+- run command external process seed
+- ProcessResult typed binding and process_results.json records
 - review/result/report-spec environment_dependencies fields
 ```
 
@@ -264,8 +266,8 @@ Planned implementation order:
 4. write/export hardening and output manifest [implemented]
 5. copy/move/delete with explicit confirmation [implemented]
 6. log level/run-log artifacts [implemented]
-7. run command and ProcessResult [next]
-8. test/assert/golden support
+7. run command and ProcessResult [implemented]
+8. test/assert/golden support [next]
 ```
 
 Deferred:

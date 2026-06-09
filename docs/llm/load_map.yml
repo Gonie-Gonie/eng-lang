@@ -109,7 +109,7 @@ task_types:
     - docs/current/philosophy.md
     - docs/release/release-workflow.md
     - docs/release/acceptance-checklist.md
-    - docs/release/v0.7-preview.md
+    - docs/release/v0.8-preview.md
     - scripts/dev.ps1
 
   side_effects:

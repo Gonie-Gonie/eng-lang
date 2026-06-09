@@ -1999,6 +1999,24 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    json.push_str("  \"process_runs\": [\n");
+    for (index, process) in report.semantic_program.process_runs.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&process.binding)
+        ));
+        json.push_str(&format!(
+            "      \"command\": \"{}\",\n",
+            json_escape(&process.command)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", process.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
     json.push_str("  \"command_styles\": [\n");
     for (index, command) in report.semantic_program.command_styles.iter().enumerate() {
         if index > 0 {
@@ -3490,7 +3508,7 @@ mod tests {
     fn records_unit_aware_print_and_csv_export_metadata() {
         let report = check_source(
             "ok.eng",
-            "cp = 4180 J/kg/K\nQ_series = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nmean_Q = mean(Q_series, axis=Time)\nQ = 10 kW\nE: Energy [J] = 3600 J\nprint \"Q={Q: .2 kW} E={E: .3 kWh}\"\nlog info \"run started for {Q: .1 kW}\"\nlog warn \"check energy {E: .3 kWh}\"\nlog debug \"debug detail\"\nlog error \"review required\"\nexport summary to csv \"summary.csv\" {\n    Q as kW with \".2\"\n    E as kWh with \".3\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text \"summary.txt\", Q\nwrite json \"summary.json\", E\ncopy file(\"source.txt\") to \"copied.txt\"\nmove \"copied.txt\" to \"moved.txt\"\nwith {\n    confirm = true\n    overwrite = true\n}\ndelete \"moved.txt\"\nwith {\n    confirm = true\n}\n",
+            "cp = 4180 J/kg/K\nQ_series = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nmean_Q = mean(Q_series, axis=Time)\nQ = 10 kW\nE: Energy [J] = 3600 J\nprint \"Q={Q: .2 kW} E={E: .3 kWh}\"\nlog info \"run started for {Q: .1 kW}\"\nlog warn \"check energy {E: .3 kWh}\"\nlog debug \"debug detail\"\nlog error \"review required\"\nprocess_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"ok\"]\n}\nexport summary to csv \"summary.csv\" {\n    Q as kW with \".2\"\n    E as kWh with \".3\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text \"summary.txt\", Q\nwrite json \"summary.json\", E\ncopy file(\"source.txt\") to \"copied.txt\"\nmove \"copied.txt\" to \"moved.txt\"\nwith {\n    confirm = true\n    overwrite = true\n}\ndelete \"moved.txt\"\nwith {\n    confirm = true\n}\n",
             &CheckOptions::default(),
         );
 
@@ -3527,13 +3545,25 @@ mod tests {
             report.semantic_program.file_operations[2].operation,
             "delete"
         );
-        assert_eq!(report.semantic_program.with_blocks.len(), 3);
+        assert_eq!(report.semantic_program.process_runs.len(), 1);
+        assert_eq!(
+            report.semantic_program.process_runs[0].binding,
+            "process_result"
+        );
+        assert!(report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .any(|binding| binding.name == "process_result"
+                && binding.semantic_type.quantity_kind == "ProcessResult"));
+        assert_eq!(report.semantic_program.with_blocks.len(), 4);
         let review = review_json(&report);
         assert!(review.contains("\"prints\""));
         assert!(review.contains("\"level\": \"warn\""));
         assert!(review.contains("\"csv_exports\""));
         assert!(review.contains("\"writes\""));
         assert!(review.contains("\"file_operations\""));
+        assert!(review.contains("\"process_runs\""));
         assert!(review.contains("\"overwrite\""));
         assert!(review.contains("\"confirm\""));
     }
@@ -3554,6 +3584,27 @@ mod tests {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-LOG-LEVEL-001" && diagnostic.line == 2));
+    }
+
+    #[test]
+    fn rejects_invalid_process_runs() {
+        let report = check_source(
+            "bad.eng",
+            "run command \"cmd\"\nprocess_result = run command \"\"\nother_result = run command\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-PROCESS-BINDING-001" && diagnostic.line == 1
+        }));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-PROCESS-CMD-001" && diagnostic.line == 2));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-PROCESS-CMD-001" && diagnostic.line == 3));
     }
 
     #[test]

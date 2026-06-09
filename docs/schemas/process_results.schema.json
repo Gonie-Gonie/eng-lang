@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eng-lang.local/schemas/process_results.schema.json",
+  "title": "EngLang Process Results Artifact",
+  "type": "object",
+  "required": [
+    "format",
+    "runtime_version",
+    "source_path",
+    "process_count",
+    "processes"
+  ],
+  "properties": {
+    "format": { "const": "eng-process-results-v1" },
+    "runtime_version": { "type": "string" },
+    "source_path": { "type": "string" },
+    "process_count": { "type": "integer", "minimum": 0 },
+    "processes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/processResult" }
+    }
+  },
+  "$defs": {
+    "processResult": {
+      "type": "object",
+      "required": [
+        "binding",
+        "command",
+        "args",
+        "cwd",
+        "exit_code",
+        "success",
+        "stdout",
+        "stderr",
+        "duration_ms",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "command": { "type": "string" },
+        "args": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "cwd": { "type": "string" },
+        "exit_code": { "type": ["integer", "null"] },
+        "success": { "type": "boolean" },
+        "stdout": { "type": "string" },
+        "stderr": { "type": "string" },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "status": { "enum": ["completed", "failed_allowed"] },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

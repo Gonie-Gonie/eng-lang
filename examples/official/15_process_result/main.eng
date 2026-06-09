@@ -1,0 +1,7 @@
+echo_result = run command "cmd"
+with {
+    args = ["/C", "echo", "eng-process-ok"]
+}
+
+print "process finished"
+log info "process result captured"

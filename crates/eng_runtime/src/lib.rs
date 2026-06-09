@@ -5,6 +5,7 @@ use std::fmt;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
+use std::time::Instant;
 
 use eng_compiler::{
     build_bytecode, check_file, parse_bytecode, review_json, ArgOverride, CheckOptions, CheckReport,
@@ -44,6 +45,7 @@ pub struct RunOutput {
     pub plot_manifest_path: PathBuf,
     pub output_manifest_path: PathBuf,
     pub run_log_path: PathBuf,
+    pub process_results_path: PathBuf,
     pub csv_export_paths: Vec<PathBuf>,
     pub write_output_paths: Vec<PathBuf>,
     pub file_operation_paths: Vec<PathBuf>,
@@ -59,6 +61,7 @@ pub struct RunOutput {
     pub plot_manifest_json: String,
     pub output_manifest_json: String,
     pub run_log_json: String,
+    pub process_results_json: String,
 }
 
 #[derive(Clone, Debug)]
@@ -199,6 +202,7 @@ pub fn run_file(
     let plot_manifest_path = plots_dir.join("plot_manifest.json");
     let output_manifest_path = result_dir.join("output_manifest.json");
     let run_log_path = result_dir.join("run_log.json");
+    let process_results_path = result_dir.join("process_results.json");
     let report_spec_path = result_dir.join("report_spec.json");
     let report_path = result_dir.join("report.html");
 
@@ -210,6 +214,8 @@ pub fn run_file(
     apply_runtime_lengths(&mut execution, &runtime_data);
     let stdout = render_stdout(&check_report, &runtime_data);
     let run_log_json = run_log_json(&check_report, &runtime_data);
+    let process_results = execute_process_runs(&check_report)?;
+    let process_results_json = process_results_json(&check_report, &process_results);
     let csv_export_artifacts = write_csv_exports(&check_report, &runtime_data, &result_dir)?;
     let write_artifacts = write_outputs(&check_report, &runtime_data, &result_dir)?;
     let file_operation_artifacts = apply_file_operations(&check_report, &result_dir)?;
@@ -291,6 +297,13 @@ pub fn run_file(
             &run_log_json,
             run_log_path.clone(),
         ));
+        fs::write(&process_results_path, &process_results_json)?;
+        output_artifacts.push(output_artifact(
+            "process_results",
+            "process_results.json".to_owned(),
+            &process_results_json,
+            process_results_path.clone(),
+        ));
         fs::write(&plot_spec_path, &plot_spec_json)?;
         output_artifacts.push(output_artifact(
             "plot_spec",
@@ -355,6 +368,7 @@ pub fn run_file(
         plot_manifest_path,
         output_manifest_path,
         run_log_path,
+        process_results_path,
         csv_export_paths,
         write_output_paths,
         file_operation_paths,
@@ -370,6 +384,7 @@ pub fn run_file(
         plot_manifest_json,
         output_manifest_json,
         run_log_json,
+        process_results_json,
     })
 }
 
@@ -779,6 +794,223 @@ fn run_log_json(report: &CheckReport, runtime_data: &RuntimeData) -> String {
     json.push_str("\n  ]\n");
     json.push_str("}\n");
     json
+}
+
+#[derive(Clone, Debug)]
+struct ProcessExecutionRecord {
+    binding: String,
+    command: String,
+    args: Vec<String>,
+    cwd: String,
+    exit_code: Option<i32>,
+    success: bool,
+    stdout: String,
+    stderr: String,
+    duration_ms: u128,
+    status: String,
+    line: usize,
+}
+
+fn execute_process_runs(report: &CheckReport) -> Result<Vec<ProcessExecutionRecord>, RuntimeError> {
+    let mut records = Vec::new();
+    for process in &report.semantic_program.process_runs {
+        let args = process_args_for_owner(report, process.line)?;
+        let cwd = process_cwd_for_owner(report, process.line)?;
+        let allow_failure = process_bool_option(report, process.line, "allow_failure");
+        let started = Instant::now();
+        let output = Command::new(&process.command)
+            .args(&args)
+            .current_dir(&cwd)
+            .output()
+            .map_err(|error| {
+                invalid_input(&format!(
+                    "process `{}` failed to start: {error}",
+                    process.command
+                ))
+            })?;
+        let duration_ms = started.elapsed().as_millis();
+        let exit_code = output.status.code();
+        let success = output.status.success();
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        if !success && !allow_failure {
+            return Err(invalid_input(&format!(
+                "process `{}` exited with code {}; add `with {{ allow_failure = true }}` to record the failure as a ProcessResult",
+                process.command,
+                exit_code
+                    .map(|code| code.to_string())
+                    .unwrap_or_else(|| "unknown".to_owned())
+            )));
+        }
+        records.push(ProcessExecutionRecord {
+            binding: process.binding.clone(),
+            command: process.command.clone(),
+            args,
+            cwd: cwd.display().to_string(),
+            exit_code,
+            success,
+            stdout,
+            stderr,
+            duration_ms,
+            status: if success {
+                "completed".to_owned()
+            } else {
+                "failed_allowed".to_owned()
+            },
+            line: process.line,
+        });
+    }
+    Ok(records)
+}
+
+fn process_results_json(report: &CheckReport, records: &[ProcessExecutionRecord]) -> String {
+    let mut json = String::new();
+    json.push_str("{\n");
+    json.push_str("  \"format\": \"eng-process-results-v1\",\n");
+    json.push_str(&format!(
+        "  \"runtime_version\": \"{}\",\n",
+        json_escape(RUNTIME_VERSION)
+    ));
+    json.push_str(&format!(
+        "  \"source_path\": \"{}\",\n",
+        json_escape(&report.source_path.display().to_string())
+    ));
+    json.push_str(&format!("  \"process_count\": {},\n", records.len()));
+    json.push_str("  \"processes\": [\n");
+    for (index, record) in records.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&record.binding)
+        ));
+        json.push_str(&format!(
+            "      \"command\": \"{}\",\n",
+            json_escape(&record.command)
+        ));
+        json.push_str("      \"args\": ");
+        push_json_string_array_runtime(&mut json, &record.args);
+        json.push_str(",\n");
+        json.push_str(&format!(
+            "      \"cwd\": \"{}\",\n",
+            json_escape(&record.cwd)
+        ));
+        match record.exit_code {
+            Some(code) => json.push_str(&format!("      \"exit_code\": {code},\n")),
+            None => json.push_str("      \"exit_code\": null,\n"),
+        }
+        json.push_str(&format!("      \"success\": {},\n", record.success));
+        json.push_str(&format!(
+            "      \"stdout\": \"{}\",\n",
+            json_escape(&record.stdout)
+        ));
+        json.push_str(&format!(
+            "      \"stderr\": \"{}\",\n",
+            json_escape(&record.stderr)
+        ));
+        json.push_str(&format!("      \"duration_ms\": {},\n", record.duration_ms));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&record.status)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", record.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ]\n");
+    json.push_str("}\n");
+    json
+}
+
+fn process_args_for_owner(
+    report: &CheckReport,
+    owner_line: usize,
+) -> Result<Vec<String>, RuntimeError> {
+    let Some(raw) = process_option(report, owner_line, "args") else {
+        return Ok(Vec::new());
+    };
+    parse_process_args(&raw)
+}
+
+fn process_cwd_for_owner(report: &CheckReport, owner_line: usize) -> Result<PathBuf, RuntimeError> {
+    let raw = process_option(report, owner_line, "cwd");
+    let cwd = if let Some(raw) = raw {
+        let path_text = evaluate_runtime_path_expression(&raw, report)
+            .ok_or_else(|| invalid_input(&format!("invalid process cwd `{raw}`")))?;
+        runtime_resolve_source_relative_path(&path_text, report.source_path.parent())
+    } else {
+        report
+            .source_path
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| PathBuf::from("."))
+    };
+    Ok(cwd)
+}
+
+fn process_bool_option(report: &CheckReport, owner_line: usize, key: &str) -> bool {
+    process_option(report, owner_line, key)
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "true" | "yes" | "on" | "1"
+            )
+        })
+        .unwrap_or(false)
+}
+
+fn process_option(report: &CheckReport, owner_line: usize, key: &str) -> Option<String> {
+    report
+        .semantic_program
+        .with_blocks
+        .iter()
+        .filter(|block| block.owner_line == Some(owner_line))
+        .flat_map(|block| block.options.iter())
+        .find(|option| option.key == key && option.status == "accepted")
+        .map(|option| option.value.clone())
+}
+
+fn parse_process_args(raw: &str) -> Result<Vec<String>, RuntimeError> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+    if let Some(inner) = trimmed
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        if inner.trim().is_empty() {
+            return Ok(Vec::new());
+        }
+        return split_top_level(inner, &[','])
+            .into_iter()
+            .map(|part| parse_process_arg(&part))
+            .collect();
+    }
+    Ok(vec![parse_process_arg(trimmed)?])
+}
+
+fn parse_process_arg(raw: &str) -> Result<String, RuntimeError> {
+    let trimmed = raw.trim();
+    if trimmed.starts_with('"') {
+        Ok(strip_runtime_string_value(trimmed))
+    } else {
+        Err(invalid_input(&format!(
+            "process args must be string literals, got `{trimmed}`"
+        )))
+    }
+}
+
+fn push_json_string_array_runtime(json: &mut String, values: &[String]) {
+    json.push('[');
+    for (index, value) in values.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str(&format!("\"{}\"", json_escape(value)));
+    }
+    json.push(']');
 }
 
 fn render_print_template(
@@ -3358,6 +3590,50 @@ mod tests {
             .output_manifest_json
             .contains("\"kind\": \"delete_file\""));
         assert!(output.review_json.contains("\"file_operations\""));
+    }
+
+    #[test]
+    fn run_file_executes_process_and_records_result() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-process-result");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-process-result-output");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_path = source_dir.join("main.eng");
+        let source = if cfg!(windows) {
+            "process_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"process-ok\"]\n}\n"
+        } else {
+            "process_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"echo process-ok\"]\n}\n"
+        };
+        fs::write(&source_path, source).expect("write source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("process run");
+
+        assert!(output.review_json.contains("\"process_runs\""));
+        assert!(output
+            .review_json
+            .contains("\"binding\": \"process_result\""));
+        assert!(output
+            .process_results_json
+            .contains("\"format\": \"eng-process-results-v1\""));
+        assert!(output.process_results_json.contains("process-ok"));
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"process_results\""));
     }
 
     #[test]

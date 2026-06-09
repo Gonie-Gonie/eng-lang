@@ -5,9 +5,9 @@ It is intentionally short so agents do not need to load every planning file.
 
 ## Current Target
 
-- Current public line: `v0.7-preview`
-- Active target: `v0.8-preview` external process and `ProcessResult` policy seed
-- Workspace package version: `0.7.0-preview`
+- Current public line: `v0.8-preview`
+- Active target: `v0.9-preview` test/assert/golden support
+- Workspace package version: `0.8.0-preview`
 - EngLang is preview software. The language and artifact formats are not
   stable.
 - Public release versions describe packages. Long-term capabilities are tracked
@@ -39,6 +39,8 @@ The current public preview supports:
 - explicit `write text/json`, CSV overwrite hardening, and output manifest
 - explicit `copy/move/delete` file operation seed with confirmation metadata
 - `print` plus `log debug/info/warn/error` runtime messages with `run_log.json`
+- explicit `run command` process execution with `ProcessResult` and
+  `process_results.json`
 - PlotSpec/SVG output
 - review/report artifacts
 - basic packaged execution
@@ -66,7 +68,8 @@ documents explicitly promote a narrow preview scope.
 - Examples taxonomy: `examples/official` is the user-test/release namespace.
   Top-level numbered examples are compatibility regressions; diagnostic and
   data-quality fixtures are intentionally separate.
-- Top-level side effects are disallowed for file run/build paths.
+- Hidden imported side effects are disallowed for file run/build paths; explicit
+  top-level workflow effects must be typed, recorded, and reviewable.
 - Public feature claims must match the feature maturity matrix.
 - General programming support must keep file/process/network effects typed,
   explicit, and reviewable.

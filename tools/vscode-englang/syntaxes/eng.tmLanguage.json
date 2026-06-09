@@ -19,11 +19,11 @@
     },
     {
       "name": "keyword.control.englang",
-      "match": "\\b(schema|args|const|use|system|domain|across|through|conservation|component|port|connect|package|version|equation|input|parameter|state|promote|from|policy|missing|where|with|print|log|export|write|copy|move|delete|plot|line|bar|histogram|return|der|integrate|mean|max|median|std|duration_above)\\b"
+      "match": "\\b(schema|args|const|use|system|domain|across|through|conservation|component|port|connect|package|version|equation|input|parameter|state|promote|from|policy|missing|where|with|run|command|print|log|export|write|copy|move|delete|plot|line|bar|histogram|return|der|integrate|mean|max|median|std|duration_above)\\b"
     },
     {
       "name": "support.type.englang",
-      "match": "\\b(Report|Table|TimeSeries|DateTime|String|Number|Duration|AbsoluteTemperature|TemperatureDelta|Length|Conductance|HeatCapacity|SpecificHeat|HeatRate|ElectricPower|MechanicalPower|Energy|MassFlowRate|Ratio|ReynoldsNumber)\\b"
+      "match": "\\b(Report|ProcessResult|Table|TimeSeries|DateTime|String|Number|Duration|AbsoluteTemperature|TemperatureDelta|Length|Conductance|HeatCapacity|SpecificHeat|HeatRate|ElectricPower|MechanicalPower|Energy|MassFlowRate|Ratio|ReynoldsNumber)\\b"
     },
     {
       "name": "constant.numeric.englang",

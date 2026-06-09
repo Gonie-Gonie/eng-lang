@@ -3,8 +3,9 @@ use crate::ast::{
     ConnectDecl, ConservationDecl, ConstDecl, ConstraintDecl, CsvExportDecl, CsvExportFieldDecl,
     DomainDecl, DomainTypeParameterDecl, DomainVariableDecl, EquationDecl, ExplicitDecl,
     FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, ImportDecl, MissingPolicyDecl,
-    PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl, SummaryDecl, SystemDecl,
-    SystemVariableDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
+    PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl,
+    SummaryDecl, SystemDecl, SystemVariableDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl,
+    WithOptionDecl, WriteDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -126,6 +127,7 @@ impl ParsedProgram {
                 | AstItem::CsvExportField(_)
                 | AstItem::Write(_)
                 | AstItem::FileOperation(_)
+                | AstItem::ProcessRun(_)
                 | AstItem::WhereBinding(_)
                 | AstItem::WithOption(_)
                 | AstItem::ReservedKeywordUse { .. } => {}
@@ -505,6 +507,9 @@ fn parse_line_items(
     }
     if let Some(option) = parse_with_option_decl(tokens, line_text, owner_line, context) {
         items.push(AstItem::WithOption(option));
+    }
+    if let Some(process) = parse_process_run_decl(tokens, line_text, context) {
+        items.push(AstItem::ProcessRun(process));
     }
     if let Some((binding, command)) = parse_fast_binding(tokens, line_text, context) {
         if let Some(command) = command {
@@ -1205,6 +1210,9 @@ fn parse_fast_binding(
         return None;
     }
     let expression = expression_after(line_text, '=')?;
+    if is_process_run_rhs(&expression) {
+        return None;
+    }
     let command = parse_command_style_expression(&expression, first.span, context, Some(name));
     let expression = command
         .as_ref()
@@ -1861,6 +1869,42 @@ fn split_file_operation_to(rest: &str) -> Option<(&str, &str)> {
     None
 }
 
+fn parse_process_run_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<ProcessRunDecl> {
+    let first = tokens.first()?;
+    let trimmed = line_text.trim();
+    let (binding, rhs) = if let Some((left, right)) = trimmed.split_once('=') {
+        (Some(left.trim().to_owned()), right.trim())
+    } else {
+        (None, trimmed)
+    };
+    if !is_process_run_rhs(rhs) {
+        return None;
+    }
+    let command = tokens
+        .iter()
+        .find_map(|token| match &token.kind {
+            TokenKind::StringLiteral(value) => Some(value.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    Some(ProcessRunDecl {
+        binding: binding.filter(|value| !value.is_empty()),
+        command,
+        line: first.span.line,
+        span: first.span,
+        context,
+    })
+}
+
+fn is_process_run_rhs(rhs: &str) -> bool {
+    let mut parts = rhs.split_whitespace();
+    matches!(parts.next(), Some("run")) && matches!(parts.next(), Some("command"))
+}
+
 fn parse_explicit_decl(
     tokens: &[Token],
     line_text: &str,
@@ -1979,6 +2023,7 @@ fn line_is_attachable_owner(tokens: &[Token], context: ParseContext) -> bool {
                     | Keyword::Copy
                     | Keyword::Move
                     | Keyword::Delete
+                    | Keyword::Run
             )
     )
 }

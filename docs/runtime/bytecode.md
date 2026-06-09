@@ -3,8 +3,8 @@
 The current public preview has an executable EngLang runtime path with
 TimeSeries/statistics metadata, PlotSpec/SVG/manifest output, explicit
 write/export outputs, constrained file operation records, output manifest
-metadata, structured run-log messages, system metadata, residuals, system IR
-dependencies, metadata-only solver_plan seeds, an explicit solver boundary,
+metadata, structured run-log messages, explicit process-result records, system
+metadata, residuals, system IR dependencies, metadata-only solver_plan seeds, an explicit solver boundary,
 and a fixed-step ODE preview for the official one-state thermal system:
 
 ```text
@@ -15,7 +15,7 @@ and a fixed-step ODE preview for the official one-state thermal system:
   -> native VM seed
   -> result.engres v1
   -> PlotSpec v1
-  -> SVG + plot manifest + run log + output manifest
+  -> SVG + plot manifest + run log + process results + output manifest
   -> review/report/system artifacts
 ```
 
@@ -38,7 +38,7 @@ Header:
 ENGBYTECODE 1
 format = engbc-v1
 bytecode_version = 1
-compiler_version = 0.7.0-preview
+compiler_version = 0.8.0-preview
 source_hash = ...
 source_bytes = ...
 source_lines = ...
@@ -165,7 +165,7 @@ data-driven modeling metrics/plot points:
 
 ## Tests
 
-v0.7 includes:
+v0.8 includes:
 
 ```text
 bytecode encode/decode unit test
@@ -179,6 +179,7 @@ plot manifest smoke
 output manifest smoke
 file operation manifest smoke
 run log artifact smoke
+process result artifact smoke
 top-level workflow run smoke
 official example run smoke
 simple system run smoke
@@ -186,6 +187,7 @@ unit-aware print and explicit summary CSV export runtime test
 write text/json overwrite hardening runtime test
 copy/move/delete file operation runtime test
 log level and run_log runtime test
+run command and process_results runtime test
 ```
 
 ## Deferred

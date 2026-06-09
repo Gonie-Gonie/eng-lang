@@ -188,6 +188,31 @@ Before publishing `v0.7-preview`:
 [x] release-check passes
 ```
 
+Before publishing `v0.8-preview`:
+
+```text
+[x] workspace package version is updated to 0.8.0-preview
+[x] public package label is v0.8-preview
+[x] current status, maturity matrix, tracks, roadmap, README, and release workflow agree on the v0.8 scope
+[x] `run command` statements are parsed and checked
+[x] `run command` requires a bound `ProcessResult`
+[x] invalid process declarations produce E-PROCESS-* diagnostics
+[x] process options support args, cwd, and allow_failure
+[x] non-zero exits fail unless allow_failure is true
+[x] review.json records process_runs metadata
+[x] saved runs write build/result/process_results.json
+[x] output_manifest.json records the process_results artifact
+[x] native IDE artifact panel shows process-results paths/objects
+[x] official/15_process_result mini example is present
+[x] docs explain external process execution as explicit, reviewable side effect
+[x] docs-check passes
+[x] artifacts-check passes
+[x] ide-check passes
+[x] lsp-check passes
+[x] package-smoke passes under a path with spaces and Korean characters
+[x] release-check passes
+```
+
 ## Local Verification
 
 Run:

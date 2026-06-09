@@ -86,6 +86,10 @@ E-CONNECT-DOMAIN-001   connected ports have incompatible domains
 E-CONNECT-MEDIUM-001   connected generic ports have incompatible Medium arguments
 E-CONNECT-FRAME-001    connected generic ports have incompatible Frame arguments
 E-CONNECT-AXIS-001     connected generic ports have incompatible Axis arguments
+E-PROCESS-001          run command is supported only at top level
+E-PROCESS-BINDING-001  run command must bind a ProcessResult
+E-PROCESS-CMD-001      run command requires a command string
+E-PROCESS-BINDING-002  ProcessResult binding conflicts with an existing binding
 ```
 
 `--review` writes:
@@ -248,6 +252,7 @@ Current tester IDE features:
 - generated report and plot opening
 - in-IDE PlotSpec preview
 - Artifacts tab for result, review, report, PlotSpec, manifest, SVG, and bytecode runtime objects, with saved paths when files are written
+- Artifacts tab also exposes run-log and process-result runtime objects
 - Settings window for light/dark theme, UI density, font sizes, window presets,
   soft wrapping, and panel default sizes
 ```
@@ -277,11 +282,13 @@ include hover `kind`/`status` metadata and completion labels such as
 ## `eng run <file.eng> [--open-report] [--save-artifacts] [--<arg> <value>...]`
 
 Runs the file's top-level workflow through bytecode v1 and the native VM seed.
-By default, result/review/report/run-log/plot/output-manifest payloads remain
-runtime objects in memory. `--save-artifacts` writes those objects to disk.
+By default, result/review/report/run-log/process-results/plot/output-manifest
+payloads remain runtime objects in memory. `--save-artifacts` writes those
+objects to disk.
 Explicit `export`, `write`, and constrained `copy/move/delete` statements
 write or mutate files under `build/result` and are recorded in
-`output_manifest.json`.
+`output_manifest.json`. Explicit `run command` statements execute during the
+run and are captured in `process_results.json` when artifacts are saved.
 
 Execution model:
 
@@ -302,6 +309,7 @@ build/
     report.html
     report_spec.json
     run_log.json
+    process_results.json
     output_manifest.json
     plots/
       plot_spec.json
@@ -410,4 +418,5 @@ Runs official smoke checks:
 - constraint violation fixture records upper-bound policy violation
 - official simple system example produces system report artifacts
 - official run-log example produces `run_log.json` and level metadata
+- official process-result example produces `process_results.json` and ProcessResult metadata
 ```

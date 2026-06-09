@@ -32,6 +32,16 @@
     ],
     "description": "Create a structured runtime log message."
   },
+  "Run command": {
+    "prefix": "run command",
+    "body": [
+      "${1:process_result} = run command \"${2:cmd}\"",
+      "with {",
+      "    args = [\"${3:/C}\", \"${4:echo}\", \"${5:ok}\"]",
+      "}"
+    ],
+    "description": "Run an external command and capture a ProcessResult."
+  },
   "CSV schema": {
     "prefix": "schema csv",
     "body": [

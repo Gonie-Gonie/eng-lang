@@ -28,6 +28,7 @@ build/
     report.html
     report_spec.json
     run_log.json
+    process_results.json
     output_manifest.json
     plots/
       plot_spec.json
@@ -77,6 +78,7 @@ prints
 csv_exports
 writes
 file_operations
+process_runs
 diagnostics
 warning_list
 plot_manifest
@@ -96,6 +98,11 @@ entry is an object with `kind`, `name`, and `display` fields. For example,
 `prints[]` records both direct `print` statements and structured `log`
 statements. Each record includes a `level`: `print`, `debug`, `info`, `warn`,
 or `error`.
+
+`process_runs[]` records explicit external process declarations from
+`run command`, including the binding name, command string, and source line.
+The compiler-owned review artifact records intent; runtime execution details
+live in `process_results.json`.
 
 ## `report_spec.json`
 
@@ -169,8 +176,8 @@ artifacts:
 ```
 
 Common `kind` values include `csv_export`, `write_text`, `write_json`,
-`copy_file`, `move_file`, `delete_file`, `plot_svg`, `report_html`, and
-`result`, and `run_log`.
+`copy_file`, `move_file`, `delete_file`, `plot_svg`, `report_html`, `result`,
+`run_log`, and `process_results`.
 
 Use it when a tool needs to show exactly which files a run produced without
 guessing from the directory layout.
@@ -196,6 +203,34 @@ messages:
 This artifact is useful for native IDE panels, CI summaries, and reproducible
 review tooling. It is not a substitute for durable engineering outputs such as
 `export summary to csv`, `write json`, plots, or reports.
+
+## `process_results.json`
+
+`process_results.json` is the runtime artifact written by saved runs for
+explicit `run command` statements:
+
+```text
+format = eng-process-results-v1
+runtime_version
+source_path
+process_count
+processes:
+  binding
+  command
+  args
+  cwd
+  exit_code
+  success
+  stdout
+  stderr
+  duration_ms
+  status
+  line
+```
+
+This artifact is the reviewable boundary for external process effects. It is
+separate from `run_log.json`: logs are messages produced by the EngLang
+workflow, while process results record effects from external tools.
 
 ## System Summary and IR
 

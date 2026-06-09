@@ -58,7 +58,7 @@ The compiler reads the source in order and builds:
 | Semantic model | Typed bindings, schemas, functions, diagnostics, review metadata |
 | Bytecode | Native runtime seed for the top-level workflow |
 | Runtime data | Tables, TimeSeries, integrations, statistics, outputs |
-| Report artifacts | `result.engres`, `review.json`, `report_spec.json`, `run_log.json`, PlotSpec, SVG, HTML |
+| Report artifacts | `result.engres`, `review.json`, `report_spec.json`, `run_log.json`, `process_results.json`, PlotSpec, SVG, HTML |
 
 Use these commands from the repository or portable package:
 
@@ -176,6 +176,7 @@ The current top-level declaration families are:
 | CSV export | `export summary to csv "summary.csv" { ... }` | Durable scalar artifact |
 | Write output | `write text "note.txt", note` | Explicit generated output |
 | File operation | `copy file("note.txt") to "outputs/note.txt"` | Explicit output-area file mutation |
+| Process run | `result = run command "cmd"` | Explicit external process capture as `ProcessResult` |
 | Report | `report { plot Q over Time }` | Review/report artifact requests |
 
 Rejected compatibility forms:
@@ -669,6 +670,9 @@ Common accepted option keys:
 | `overwrite` | Allow replacing changed generated output content |
 | `confirm` | Required confirmation for destructive file operations |
 | `recursive` | Required for directory delete operations |
+| `args` | External process argument array |
+| `cwd` | External process working directory |
+| `allow_failure` | Record a non-zero process exit instead of failing the run |
 
 Unknown options are rejected with `E-WITH-OPTION-001`.
 
@@ -934,6 +938,51 @@ The runnable example is:
 examples/official/13_file_operations/main.eng
 ```
 
+## Process Results
+
+Use `run command` when an EngLang workflow must call a visible external tool
+such as a validator, converter, simulator, or legacy executable. The command
+must bind a `ProcessResult`; this keeps exit status and text output available
+for review instead of hiding side effects in a script.
+
+```eng partial
+echo_result = run command "cmd"
+with {
+    args = ["/C", "echo", "eng-process-ok"]
+}
+
+log info "external command finished"
+```
+
+Current process options:
+
+| Option | Meaning |
+|---|---|
+| `args` | String array passed as process arguments |
+| `cwd` | Working directory, resolved source-relative when relative |
+| `allow_failure` | If `true`, non-zero exit code is recorded instead of failing the run |
+
+Rules:
+
+| Rule | Meaning |
+|---|---|
+| Top-level only | Imported files cannot hide external process execution |
+| Binding required | Write `result = run command "tool"` |
+| Command is explicit | The command name is a string; arguments live in `with { args = [...] }` |
+| Non-zero exits fail by default | Add `allow_failure = true` only when the failure is expected data |
+| Reviewable records | `review.json` includes `process_runs[]` |
+| Runtime records | Saved runs write `build/result/process_results.json` |
+
+The process result artifact records command, args, cwd, exit code, success,
+stdout, stderr, duration, status, and source line. The binding itself is typed
+as `ProcessResult` so IDEs and review tools can show it in variable metadata.
+
+The runnable example is:
+
+```text
+examples/official/15_process_result/main.eng
+```
+
 ## Report, Summarize, Show, Plot
 
 `report { ... }` asks for reviewable artifacts. The current report path can
@@ -974,6 +1023,7 @@ build/result/plots/plot_manifest.json
 build/result/plots/timeseries.svg
 build/result/report.html
 build/result/run_log.json
+build/result/process_results.json
 build/result/output_manifest.json
 ```
 
@@ -1012,6 +1062,7 @@ syntax_summary.with_blocks
 command_styles[]
 where_blocks[]
 with_blocks[]
+process_runs[]
 ```
 
 `command_styles[]` records:
@@ -1030,6 +1081,10 @@ with_blocks[]
 display units, and local status.
 
 `with_blocks[]` records owner line and accepted/unknown options.
+
+`process_runs[]` records explicit external process declarations with binding,
+command, and source line. Runtime execution details are written to
+`process_results.json` during `eng run`.
 
 This makes syntax policy reviewable without requiring runtime artifact
 generation.
@@ -1051,6 +1106,8 @@ generation.
 | `E-WRITE-003` | Write expression cannot be resolved | Bind/write a supported expression |
 | `E-FS-CONFIRM-001` | Move/delete missing confirmation | Add `with { confirm = true }` |
 | `E-FS-DELETE-001` | Directory delete missing recursive option | Add `recursive = true` and `confirm = true` |
+| `E-PROCESS-BINDING-001` | `run command` has no binding | Write `result = run command "tool"` |
+| `E-PROCESS-CMD-001` | `run command` has no command string | Provide the command string and use `args` for arguments |
 | `W-QTY-AMBIG-001` | Unit maps to multiple quantity kinds | Add an explicit declaration |
 
 ## Common Recipes
@@ -1129,6 +1186,17 @@ with {
 }
 ```
 
+### Run An External Process
+
+```eng partial
+process_result = run command "cmd"
+with {
+    args = ["/C", "echo", "ok"]
+}
+
+log info "process result captured"
+```
+
 ### Imported Function
 
 ```eng partial
@@ -1152,6 +1220,7 @@ The current guide intentionally does not promise:
 | Arbitrary TimeSeries formulas | Limited beyond official heat-rate kernel path |
 | Broad table/TimeSeries CSV export | Deferred |
 | Broad filesystem mutation outside generated outputs | Deferred |
+| Stable process sandboxing | Explicit process records exist; sandbox policy is deferred |
 | Full package/module system | File imports and metadata seeds only |
 | General nonlinear/multi-state solving | Deferred beyond preview system path |
 | Stable artifact schemas | Preview versioned artifacts only |
@@ -1172,8 +1241,9 @@ Before treating a file as a good EngLang example, check:
 10. Do structured runtime messages use `log debug/info/warn/error`?
 11. Are durable outputs written with `export`, `plot`, and `report`?
 12. Are file operations explicit, confirmed where destructive, and kept inside the output boundary?
-13. Does `eng.exe check --review` show useful metadata?
-14. Does `eng.exe run --save-artifacts` produce expected artifacts?
+13. Are external commands explicit `run command` statements with a bound `ProcessResult`?
+14. Does `eng.exe check --review` show useful metadata?
+15. Does `eng.exe run --save-artifacts` produce expected artifacts?
 
 ## Official Example Walkthrough
 
@@ -1217,6 +1287,7 @@ Expected artifacts include:
 build/result/summary.csv
 build/result/output_manifest.json
 build/result/run_log.json
+build/result/process_results.json
 build/result/review.json
 build/result/report.html
 build/result/plots/plot_spec.json

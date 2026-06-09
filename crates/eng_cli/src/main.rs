@@ -337,6 +337,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 println!("result:   {}", output.result_path.display());
                 println!("review:   {}", output.review_path.display());
                 println!("runlog:   {}", output.run_log_path.display());
+                println!("process:  {}", output.process_results_path.display());
                 println!("reportspec: {}", output.report_spec_path.display());
                 println!("plot:     {}", output.plot_path.display());
                 println!("plotspec: {}", output.plot_spec_path.display());
@@ -349,6 +350,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 println!("result:   {} bytes", output.result_json.len());
                 println!("review:   {} bytes", output.review_json.len());
                 println!("runlog:   {} bytes", output.run_log_json.len());
+                println!("process:  {} bytes", output.process_results_json.len());
                 println!("reportspec: {} bytes", output.report_spec_json.len());
                 println!("plot:     {} bytes", output.plot_svg.len());
                 println!("plotspec: {} bytes", output.plot_spec_json.len());
@@ -515,6 +517,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/12_write_output_manifest/main.eng",
                 "examples/official/13_file_operations/main.eng",
                 "examples/official/14_run_log/main.eng",
+                "examples/official/15_process_result/main.eng",
             ],
         ),
         (
@@ -1005,6 +1008,37 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("run log example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
+        Path::new("examples/official/15_process_result/main.eng"),
+        Path::new("build/test-process-result"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
+            let process_results =
+                std::fs::read_to_string(&output.process_results_path).unwrap_or_default();
+            let manifest =
+                std::fs::read_to_string(&output.output_manifest_path).unwrap_or_default();
+            if !review.contains("\"process_runs\"")
+                || !review.contains("\"binding\": \"echo_result\"")
+                || !process_results.contains("\"format\": \"eng-process-results-v1\"")
+                || !process_results.contains("eng-process-ok")
+                || !manifest.contains("\"kind\": \"process_results\"")
+            {
+                eprintln!(
+                    "expected process result example to produce review, process_results, and manifest records"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/15_process_result/main.eng produced process result artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("process result example failed: {error}");
             return ExitCode::from(2);
         }
     }

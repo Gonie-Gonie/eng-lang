@@ -56,7 +56,7 @@ and expose them through `dev.bat`.
 Expected shape:
 
 ```text
-EngLang 0.7.0-preview
+EngLang 0.8.0-preview
 
 Runtime              OK
 Standard library     OK
@@ -94,6 +94,7 @@ build/
     report.html
     report_spec.json
     run_log.json
+    process_results.json
     output_manifest.json
     plots/
       plot_spec.json

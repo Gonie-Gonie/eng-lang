@@ -71,6 +71,10 @@ official/13_file_operations
 official/14_run_log
   Structured runtime message seed with print plus `log info/debug/warn/error`
   and generated `run_log.json` artifacts.
+
+official/15_process_result
+  External process seed with `run command`, `ProcessResult`, and generated
+  `process_results.json` artifacts.
 ```
 
 ## Compatibility Regression Examples

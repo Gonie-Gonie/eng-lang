@@ -72,6 +72,10 @@ paths before compatibility fixtures.
 14_run_log
   Structured runtime message seed with print plus `log info/debug/warn/error`
   and generated `run_log.json` artifacts.
+
+15_process_result
+  External process seed with `run command`, `ProcessResult`, and generated
+  `process_results.json` artifacts.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression

@@ -7,7 +7,7 @@ EngLang separates public release versions from long-term development tracks.
 The current public line is:
 
 ```text
-v0.7-preview
+v0.8-preview
 ```
 
 Existing high-numbered release names are not part of the current public line.
@@ -25,6 +25,7 @@ v0.5-preview  write/export hardening and output manifest
 v0.6-preview  explicit copy/move/delete side-effect policy
 v0.7-preview  structured log levels and run log artifacts
 v0.8-preview  external process and ProcessResult policy seed
+v0.9-preview  test/assert/golden support
 ...
 v1.0          stable core, only after the core behavior is ready
 ```
@@ -32,17 +33,17 @@ v1.0          stable core, only after the core behavior is ready
 ## Cargo Version
 
 Cargo requires SemVer-compatible package versions, so the workspace package
-version for `v0.7-preview` is:
+version for `v0.8-preview` is:
 
 ```text
-0.7.0-preview
+0.8.0-preview
 ```
 
 Release assets use the shorter public label:
 
 ```text
-englang-preview-v0.7-preview-windows-x64.zip
-englang-user-test-guide-v0.7-preview.pdf
+englang-preview-v0.8-preview-windows-x64.zip
+englang-user-test-guide-v0.8-preview.pdf
 ```
 
 ## Current Preview Goals
@@ -100,6 +101,11 @@ v0.8-preview
   - external process policy seed
   - `ProcessResult` metadata object
   - command/cwd/args/exit/stdout/stderr review records
+
+v0.9-preview
+  - test/assert/golden policy seed
+  - preview project test runner metadata
+  - golden artifact comparison workflow
 ```
 
 ## v1.0 Reservation

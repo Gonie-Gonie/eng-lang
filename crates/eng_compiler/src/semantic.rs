@@ -2,7 +2,7 @@ use crate::ast::{
     ArgsFieldDecl, AstItem, CommandStyleDecl, ConnectDecl, ConstDecl, CsvExportDecl,
     CsvExportFieldDecl, DomainTypeParameterDecl, DomainVariableDecl, ExplicitDecl, FastBinding,
     FileOperationDecl, FunctionDecl, FunctionParamDecl, ImportDecl, PortDecl, PrintDecl,
-    ReturnDecl, SystemVariableDecl, WhereBindingDecl, WithOptionDecl, WriteDecl,
+    ProcessRunDecl, ReturnDecl, SystemVariableDecl, WhereBindingDecl, WithOptionDecl, WriteDecl,
 };
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
@@ -333,6 +333,13 @@ pub struct FileOperationInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProcessRunInfo {
+    pub binding: String,
+    pub command: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandClauseInfo {
     pub name: String,
     pub value: String,
@@ -424,6 +431,7 @@ pub struct SemanticProgram {
     pub csv_exports: Vec<CsvExportInfo>,
     pub writes: Vec<WriteInfo>,
     pub file_operations: Vec<FileOperationInfo>,
+    pub process_runs: Vec<ProcessRunInfo>,
     pub command_styles: Vec<CommandStyleInfo>,
     pub where_blocks: Vec<WhereBlockInfo>,
     pub with_blocks: Vec<WithBlockInfo>,
@@ -467,6 +475,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut current_csv_export_index = None;
     let mut writes = Vec::new();
     let mut file_operations = Vec::new();
+    let mut process_runs = Vec::new();
     let mut command_styles = Vec::new();
     let mut timeseries_kernels = Vec::new();
 
@@ -743,6 +752,17 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     file_operations.push(operation_info);
                 }
             }
+            AstItem::ProcessRun(process) => {
+                if let Some(process_info) = analyze_process_run_decl(
+                    process,
+                    &mut diagnostics,
+                    &mut typed_bindings,
+                    &mut hover_hints,
+                    &mut type_infos,
+                ) {
+                    process_runs.push(process_info);
+                }
+            }
             AstItem::CommandStyle(command) => {
                 analyze_command_style_decl(command, &mut command_styles, &mut diagnostics);
             }
@@ -803,6 +823,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             csv_exports,
             writes,
             file_operations,
+            process_runs,
             command_styles,
             where_blocks,
             with_blocks,
@@ -1138,6 +1159,9 @@ fn known_with_option(key: &str) -> bool {
             | "overwrite"
             | "confirm"
             | "recursive"
+            | "args"
+            | "cwd"
+            | "allow_failure"
     )
 }
 
@@ -1660,6 +1684,88 @@ fn analyze_file_operation_decl(
         source: operation.source.clone(),
         destination: operation.destination.clone(),
         line: operation.line,
+    })
+}
+
+fn analyze_process_run_decl(
+    process: &ProcessRunDecl,
+    diagnostics: &mut Vec<Diagnostic>,
+    typed_bindings: &mut Vec<TypedBinding>,
+    hover_hints: &mut Vec<HoverHint>,
+    type_infos: &mut Vec<TypeInfo>,
+) -> Option<ProcessRunInfo> {
+    if process.context != ParseContext::TopLevel {
+        diagnostics.push(Diagnostic::error(
+            "E-PROCESS-001",
+            process.line,
+            "`run command` is supported only in the top-level workflow.",
+            Some("Move the process statement to the root workflow so it is reviewable."),
+        ));
+        return None;
+    }
+    let Some(binding) = process.binding.as_ref().filter(|value| !value.is_empty()) else {
+        diagnostics.push(Diagnostic::error(
+            "E-PROCESS-BINDING-001",
+            process.line,
+            "`run command` must bind a ProcessResult.",
+            Some(
+                "Write `result = run command \"tool\"` so the exit code and output are reviewable.",
+            ),
+        ));
+        return None;
+    };
+    if process.command.trim().is_empty() {
+        diagnostics.push(Diagnostic::error(
+            "E-PROCESS-CMD-001",
+            process.line,
+            "`run command` requires a command string.",
+            Some("Write `result = run command \"tool\"` and pass arguments with `with { args = [...] }`."),
+        ));
+        return None;
+    }
+    if typed_bindings
+        .iter()
+        .any(|existing| existing.name == *binding && existing.line != process.line)
+    {
+        diagnostics.push(Diagnostic::error(
+            "E-PROCESS-BINDING-002",
+            process.line,
+            &format!("ProcessResult binding `{binding}` conflicts with an existing binding."),
+            Some("Use a unique result binding name for the process run."),
+        ));
+        return None;
+    }
+
+    let semantic_type = SemanticType {
+        quantity_kind: "ProcessResult".to_owned(),
+        display_unit: String::new(),
+    };
+    typed_bindings.push(TypedBinding {
+        name: binding.clone(),
+        semantic_type: semantic_type.clone(),
+        line: process.line,
+    });
+    hover_hints.push(HoverHint::inferred(
+        binding.clone(),
+        semantic_type.quantity_kind.clone(),
+        semantic_type.display_unit.clone(),
+        format!("run command \"{}\"", process.command),
+        process.span,
+    ));
+    type_infos.push(TypeInfo {
+        name: binding.clone(),
+        quantity_kind: semantic_type.quantity_kind,
+        display_unit: semantic_type.display_unit,
+        canonical_unit: String::new(),
+        dimension: "ExternalProcess".to_owned(),
+        source: TypeInfoSource::Inferred,
+        line: process.line,
+        span: process.span,
+    });
+    Some(ProcessRunInfo {
+        binding: binding.clone(),
+        command: process.command.clone(),
+        line: process.line,
     })
 }
 
@@ -3343,6 +3449,7 @@ fn preview_scalar_type(type_name: &str) -> bool {
             | "float"
             | "number"
             | "duration"
+            | "processresult"
     )
 }
 

@@ -1,10 +1,11 @@
 # Side Effect And General Programming Policy
 
 Status: GP-1 path policy, GP-2 read-only I/O, GP-3 write/export hardening,
-GP-4 constrained copy/move/delete file operations, and GP-5 structured runtime
-log messages are implemented for `v0.7-preview`. Broader filesystem mutation
-outside generated-output boundaries, process, network, and test support remain
-planned tracks, not supported preview behavior.
+GP-4 constrained copy/move/delete file operations, GP-5 structured runtime
+log messages, and GP-6 explicit external process execution are implemented for
+`v0.8-preview`. Broader filesystem mutation outside generated-output
+boundaries, network, and test support remain planned tracks, not supported
+preview behavior.
 
 EngLang is not trying to become a fully general replacement for Python, MATLAB,
 or R. Real engineering workflows still need practical file, path, config,
@@ -29,7 +30,7 @@ what was read, and what external state influenced the result.
 | Write/export | `write text`, `write json`, `export summary to csv` | Explicit target required; changed overwrite requires `overwrite = true`; generated outputs are manifest-recorded |
 | File operations | `copy`, `move`, `delete`, `mkdir`, `list` | Copy/move/delete seed implemented under explicit output boundaries; broader operations planned |
 | Runtime messages | `print`, `log info`, `log warn`, `log debug`, `log error` | CLI/debug output plus structured `run_log.json` metadata |
-| External process | `run command ... with { ... }` | Experimental; command/cwd/args/exit/stdout/stderr recorded |
+| External process | `result = run command ... with { ... }` | Explicit `ProcessResult`; command/cwd/args/exit/stdout/stderr recorded |
 | Network | `download url(...) to file(...)` | Long-term only; repro profile requires hash/cache |
 
 ## Types
@@ -63,7 +64,7 @@ input_exists = exists args.input
 print "input exists = {input_exists}"
 ```
 
-Implemented behavior through `v0.7-preview`:
+Implemented behavior through `v0.8-preview`:
 
 ```text
 - file("...") and dir("...") are accepted in args defaults.
@@ -93,6 +94,11 @@ Implemented behavior through `v0.7-preview`:
 - saved runs write `run_log.json` with level, message, source line, and index
   metadata for IDEs and tools.
 - output_manifest.json records the saved run-log artifact.
+- run command statements bind `ProcessResult` values.
+- process options support `args`, `cwd`, and `allow_failure`.
+- saved runs write `process_results.json` with command, args, cwd, exit code,
+  stdout, stderr, duration, status, and line metadata.
+- output_manifest.json records the saved process-results artifact.
 ```
 
 ## Read Policy
@@ -209,19 +215,33 @@ with {
     cwd = dir("runs/case01")
 }
 
-validate result.exit_code == 0
+log info "EnergyPlus process was executed"
 ```
 
 `ProcessResult` should include:
 
 ```text
 exit_code
+success
 stdout
 stderr
 command
 args
 cwd
 duration
+status
+line
+```
+
+Implemented preview rules:
+
+```text
+- `run command` must bind a result, for example `result = run command "cmd"`
+- args are string arrays such as `args = ["/C", "echo", "ok"]`
+- cwd is a typed path expression resolved source-relative when relative
+- non-zero exit codes fail the run by default
+- `with { allow_failure = true }` records a failed process as a ProcessResult
+- process results are written to build/result/process_results.json on saved runs
 ```
 
 ## Profiles
@@ -262,13 +282,14 @@ eng.net      download/cache/hash, later
 | GP-3 | write text/json, export hardening, output manifest | implemented in v0.5 |
 | GP-4 | copy/move/delete and side-effect manifest | implemented in v0.6 |
 | GP-5 | print/log level formatting and run log artifact | implemented in v0.7 |
-| GP-6 | external process and `ProcessResult` | v0.8 target |
+| GP-6 | external process and `ProcessResult` | implemented in v0.8 |
 | GP-7 | network/download/cache/hash | optional, after process policy |
 | GP-8 | test block/assert/golden support | v0.9 target |
 | GP-9 | IDE side-effect panels and output file navigation | grows across phases |
 
 The current implementation deliberately stops at path helpers, `exists`,
 read-only source-hashed inputs, generated output writes, constrained
-copy/move/delete operations under `build/result`, and structured runtime
-message artifacts. Broader filesystem access, process, and network effects
-remain outside the public preview until their policy slices land.
+copy/move/delete operations under `build/result`, structured runtime message
+artifacts, and explicit external process records. Broader filesystem access,
+network effects, and stable process sandboxing remain outside the public
+preview until their policy slices land.

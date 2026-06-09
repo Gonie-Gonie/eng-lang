@@ -1,12 +1,13 @@
 # `eng run` Reference
 
 `eng run` executes one file's top-level workflow through bytecode and the native VM seed.
-By default it keeps result, review, report, run-log, PlotSpec, SVG, output
-manifest, and bytecode payloads as runtime objects and does not write ordinary
-artifacts.
+By default it keeps result, review, report, run-log, process-results, PlotSpec,
+SVG, output manifest, and bytecode payloads as runtime objects and does not
+write ordinary artifacts.
 Explicit `export ... to csv`, `write text/json`, and constrained
 `copy/move/delete` statements are user-requested artifacts and write or mutate
-under `build\result`.
+under `build\result`. Explicit `run command` statements always execute during
+the run and are captured in the process-results payload.
 
 ## Basic Run
 
@@ -23,6 +24,7 @@ result:   1234 bytes
 review:   5678 bytes
 reportspec: 2345 bytes
 runlog:   456 bytes
+process:  321 bytes
 plot:     3456 bytes
 plotspec: 4567 bytes
 plotmanifest: 678 bytes
@@ -69,6 +71,7 @@ build/
     report.html
     report_spec.json
     run_log.json
+    process_results.json
     output_manifest.json
     plots/
       plot_spec.json
@@ -163,6 +166,55 @@ fs:       build\result\ops\scratch.txt
 
 `review.json` records `file_operations[]`. `output_manifest.json` records
 entries such as `copy_file`, `move_file`, and `delete_file`.
+
+## Explicit Process Results
+
+`run command` executes a visible external process and captures a typed
+`ProcessResult`.
+
+```eng partial
+process_result = run command "cmd"
+with {
+    args = ["/C", "echo", "eng-process-ok"]
+}
+```
+
+The CLI reports the saved process artifact:
+
+```text
+process:  build\result\process_results.json
+```
+
+Saved runs write:
+
+```text
+build\result\process_results.json
+```
+
+The artifact records:
+
+```text
+format = eng-process-results-v1
+runtime_version
+source_path
+process_count
+processes[]
+  binding
+  command
+  args
+  cwd
+  exit_code
+  success
+  stdout
+  stderr
+  duration_ms
+  status
+  line
+```
+
+Non-zero exits fail the run by default. Add `with { allow_failure = true }`
+only when a failed process is expected data that should be reviewed rather than
+treated as a runtime error.
 
 ## Structured Run Log
 
@@ -308,6 +360,7 @@ type build\result\result.engres
 type build\result\review.json
 type build\result\report_spec.json
 type build\result\run_log.json
+type build\result\process_results.json
 type build\result\output_manifest.json
 type build\result\plots\plot_manifest.json
 target\debug\eng.exe view build\result\result.engres
@@ -342,6 +395,7 @@ review.json
   system_ir.solver_plan
   schema_summary
   file_operations
+  process_runs
   warning_list
 
 report_spec.json

@@ -2913,6 +2913,7 @@ report {
                 artifact_row(ui, "Result", &output.result_path);
                 artifact_row(ui, "Review", &output.review_path);
                 artifact_row(ui, "Run Log", &output.run_log_path);
+                artifact_row(ui, "Process Results", &output.process_results_path);
                 artifact_row(ui, "Bytecode", &output.bytecode_path);
             } else {
                 ui.horizontal(|ui| {
@@ -2936,6 +2937,7 @@ report {
                 artifact_object_row(ui, "Result", output.result_json.len());
                 artifact_object_row(ui, "Review", output.review_json.len());
                 artifact_object_row(ui, "Run Log", output.run_log_json.len());
+                artifact_object_row(ui, "Process Results", output.process_results_json.len());
                 artifact_object_row(ui, "Bytecode", output.bytecode.len());
             }
             if !output.csv_export_paths.is_empty() {
@@ -3324,6 +3326,7 @@ struct RunOutputView {
     result_path: PathBuf,
     review_path: PathBuf,
     run_log_path: PathBuf,
+    process_results_path: PathBuf,
     report_path: PathBuf,
     report_spec_path: PathBuf,
     plot_path: PathBuf,
@@ -3341,6 +3344,7 @@ struct RunOutputView {
     result_json: String,
     review_json: String,
     run_log_json: String,
+    process_results_json: String,
     report_html: String,
     report_spec_json: String,
     plot_svg: String,
@@ -3358,6 +3362,7 @@ impl RunOutputView {
             result_path: output.result_path,
             review_path: output.review_path,
             run_log_path: output.run_log_path,
+            process_results_path: output.process_results_path,
             report_path: output.report_path,
             report_spec_path: output.report_spec_path,
             plot_path: output.plot_path,
@@ -3373,6 +3378,7 @@ impl RunOutputView {
             result_json: output.result_json,
             review_json: output.review_json,
             run_log_json: output.run_log_json,
+            process_results_json: output.process_results_json,
             report_html: output.report_html,
             report_spec_json: output.report_spec_json,
             plot_svg: output.plot_svg,
@@ -3390,13 +3396,14 @@ impl RunOutputView {
         };
         if self.artifacts_saved {
             format!(
-                "{}Run OK\nartifacts: saved\nreport: {}\nplot:   {}\nresult: {}\nreview: {}\nrun log: {}\nreport spec: {}\nplotspec: {}\nplot manifest: {}\noutput manifest: {}\nbytecode: {}",
+                "{}Run OK\nartifacts: saved\nreport: {}\nplot:   {}\nresult: {}\nreview: {}\nrun log: {}\nprocess: {}\nreport spec: {}\nplotspec: {}\nplot manifest: {}\noutput manifest: {}\nbytecode: {}",
                 run_output,
                 self.relative_report_path,
                 self.relative_plot_path,
                 self.result_path.display(),
                 self.review_path.display(),
                 self.run_log_path.display(),
+                self.process_results_path.display(),
                 self.report_spec_path.display(),
                 self.plot_spec_path.display(),
                 self.plot_manifest_path.display(),
@@ -3405,11 +3412,12 @@ impl RunOutputView {
             )
         } else {
             format!(
-                "{}Run OK\nartifacts: in memory\nresult:   {} bytes\nreview:   {} bytes\nrun log:  {} bytes\nreport spec: {} bytes\nplot spec: {} bytes\nplot manifest: {} bytes\noutput manifest: {} bytes\nplot svg: {} bytes\nreport html: {} bytes\nbytecode: {} bytes",
+                "{}Run OK\nartifacts: in memory\nresult:   {} bytes\nreview:   {} bytes\nrun log:  {} bytes\nprocess:  {} bytes\nreport spec: {} bytes\nplot spec: {} bytes\nplot manifest: {} bytes\noutput manifest: {} bytes\nplot svg: {} bytes\nreport html: {} bytes\nbytecode: {} bytes",
                 run_output,
                 self.result_json.len(),
                 self.review_json.len(),
                 self.run_log_json.len(),
+                self.process_results_json.len(),
                 self.report_spec_json.len(),
                 self.plot_spec_json.len(),
                 self.plot_manifest_json.len(),
@@ -3435,6 +3443,8 @@ impl RunOutputView {
         fs::write(&self.result_path, &self.result_json).map_err(|error| error.to_string())?;
         fs::write(&self.review_path, &self.review_json).map_err(|error| error.to_string())?;
         fs::write(&self.run_log_path, &self.run_log_json).map_err(|error| error.to_string())?;
+        fs::write(&self.process_results_path, &self.process_results_json)
+            .map_err(|error| error.to_string())?;
         fs::write(&self.report_path, &self.report_html).map_err(|error| error.to_string())?;
         fs::write(&self.report_spec_path, &self.report_spec_json)
             .map_err(|error| error.to_string())?;

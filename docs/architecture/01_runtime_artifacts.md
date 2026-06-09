@@ -14,6 +14,7 @@ build/
     report.html
     report_spec.json
     run_log.json
+    process_results.json
     output_manifest.json
     summary.csv          # only when source uses explicit CSV export
     plots/
@@ -30,7 +31,7 @@ Purpose:
 checked source -> bytecode v1 -> native VM seed
 ```
 
-Current v0.7 header:
+Current v0.8 header:
 
 ```text
 ENGBYTECODE 1
@@ -50,7 +51,7 @@ workflow_args = args:Args
 workflow_return = Report
 ```
 
-Current v0.7 sections:
+Current v0.8 sections:
 
 ```text
 objects:
@@ -127,6 +128,39 @@ with {
 The runtime records file operation effects as output manifest entries such as
 `copy_file`, `move_file`, and `delete_file`.
 
+## `process_results.json`
+
+Purpose:
+
+```text
+reviewable external process execution records for IDEs, CI, and audit tooling
+```
+
+Current format:
+
+```text
+eng-process-results-v1
+runtime_version
+source_path
+process_count
+processes[].binding
+processes[].command
+processes[].args
+processes[].cwd
+processes[].exit_code
+processes[].success
+processes[].stdout
+processes[].stderr
+processes[].duration_ms
+processes[].status
+processes[].line
+```
+
+`run command` statements must bind a `ProcessResult`. The compiler records the
+declaration in `review.json`; the runtime writes exit status and captured
+stdout/stderr here. Non-zero exits fail by default unless the owner has
+`with { allow_failure = true }`.
+
 ## `run_log.json`
 
 Purpose:
@@ -173,8 +207,9 @@ artifacts[].hash
 ```
 
 When `--save-artifacts` is used, this manifest lists result/report/PlotSpec/SVG
-files alongside explicit CSV exports, write outputs, and file operation
-records. The saved run-log artifact is also listed as `run_log`.
+files alongside explicit CSV exports, write outputs, file operation records,
+run-log records, and process-result records. The saved process artifact is
+listed as `process_results`.
 
 ## `.engres`
 
@@ -346,6 +381,8 @@ integrations
 prints
 csv_exports
 writes
+file_operations
+process_runs
 uncertainty_info
 ml_info
 system_summary

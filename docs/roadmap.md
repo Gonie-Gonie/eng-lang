@@ -24,6 +24,7 @@ v0.5-preview  write/export hardening and output manifest
 v0.6-preview  explicit copy/move/delete side-effect policy
 v0.7-preview  structured log levels and run log artifacts
 v0.8-preview  external process and ProcessResult policy seed
+v0.9-preview  test/assert/golden support
 ...
 v1.0          stable core
 ```
@@ -34,7 +35,7 @@ give feedback on the current preview scope.
 
 ## Current Public Line
 
-`v0.7-preview` packages the current user-test workflow:
+`v0.8-preview` packages the current user-test workflow:
 
 ```text
 - eng.exe doctor/check/run/build/view
@@ -49,6 +50,8 @@ give feedback on the current preview scope.
 - explicit `write text/json`, CSV overwrite hardening, and output manifest
 - explicit `copy/move/delete` file operation seed with confirmation metadata
 - `print` plus `log debug/info/warn/error` runtime messages with `run_log.json`
+- explicit `run command` process execution with `ProcessResult` and
+  `process_results.json`
 - PlotSpec/SVG output
 - review/report artifacts
 - basic packaged execution
@@ -94,13 +97,13 @@ policy source.
 
 ## Active Target
 
-`v0.8-preview` focuses on controlled external process execution:
+`v0.9-preview` focuses on test and golden support:
 
 ```text
-- `run command ...` syntax under the side-effect policy
-- `ProcessResult` metadata object with exit/stdout/stderr/cwd/args
-- review/output metadata for external process effects
-- profile-aware process execution boundaries
+- test/assert/golden syntax policy seed
+- project test runner metadata
+- golden artifact comparison workflow
+- clearer boundary between examples, tests, and release acceptance
 ```
 
 ## Development Tracks

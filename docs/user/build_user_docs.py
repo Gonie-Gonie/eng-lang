@@ -22,7 +22,7 @@ def build_document(version: str) -> Document:
             ),
             paragraph(
                 "The current public line is a preview: typed CSV import, unit-aware calculations, "
-                "TimeSeries statistics, structured runtime logs, PlotSpec/SVG/report generation, native IDE user testing, and basic packaged execution.",
+                "TimeSeries statistics, structured runtime logs, explicit process-result records, PlotSpec/SVG/report generation, native IDE user testing, and basic packaged execution.",
             ),
         ),
         Chapter(
@@ -67,7 +67,7 @@ def build_document(version: str) -> Document:
                     code("Check"),
                     " for compiler diagnostics and ",
                     code("Run"),
-                    " to generate result artifacts. Successful runs show the report, result, review, run log, PlotSpec, plot manifest, and SVG paths.",
+                    " to generate result artifacts. Successful runs show the report, result, review, run log, process results, PlotSpec, plot manifest, and SVG paths.",
                 ),
             ),
             Section(
@@ -134,6 +134,8 @@ def build_document(version: str) -> Document:
                 code("plots/timeseries.svg"),
                 ", ",
                 code("run_log.json"),
+                ", ",
+                code("process_results.json"),
                 ", and ",
                 code("output_manifest.json"),
                 ".",
