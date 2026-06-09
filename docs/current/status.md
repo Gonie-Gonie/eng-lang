@@ -133,9 +133,9 @@ workflow, and covered by the breaking-change policy.
 
 ## Tooling And Preview Tracks
 
-- Native tester IDE (`eng-ide.exe`) for open/check/save/run, diagnostics,
-  completions, source editing, variable/unit/schema/CSV inspection, PlotSpec
-  preview, runtime summaries, UI settings, and artifact links.
+- Tauri tester IDE (`eng-ide.exe`) for open/check/save/run, diagnostics,
+  caret completions, multi-file source editing, terminal output, variable
+  summaries, PlotSpec preview, and on-demand report/plot opening.
 - VS Code extension preview packaged as a secondary editor path.
 - Integrated HVAC user-test example combining CSV promote, statistics, plotting,
   reporting, and system metadata.
@@ -232,7 +232,7 @@ The supported current workspace structure is intentionally compact:
 | `eng_jit` | Experimental hot-kernel detection and numeric lowering-plan metadata |
 | `eng_runtime` | Runtime execution, VM seed, CSV/data policies, `.engres` output |
 | `eng_report` | PlotSpec/SVG/report/review rendering and artifact schemas |
-| `eng_ide` | Native tester IDE and package smoke UI checks |
+| `eng_ide` | Tauri/WebView tester IDE and package smoke UI checks |
 | `eng_lsp` | Experimental editor-service smoke and snapshot paths |
 
 Future crate splitting should be documented as planned work, not assumed as the

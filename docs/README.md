@@ -37,7 +37,7 @@ long-form planning documents.
 - [Uncertainty track guide](guide/uncertainty.md)
 - [Data-driven modeling track guide](guide/data_driven_modeling.md)
 - [Domain and component track guide](guide/domain_component.md)
-- [Native tester IDE](guide/native_ide.md)
+- [Tauri tester IDE](guide/native_ide.md)
 - [Report and review artifacts](guide/report_review.md)
 - [Simple system tutorial](tutorials/05_simple_system.md)
 - [Integrated HVAC user test](tutorials/06_integrated_hvac.md)

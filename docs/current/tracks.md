@@ -97,10 +97,10 @@ Deferred:
 Current preview scope:
 
 ```text
-- native tester IDE
-- UI settings, light/dark theme, font/layout controls
-- syntax highlighting, diagnostics, completions
-- PlotSpec preview and runtime summaries
+- Tauri/WebView tester IDE
+- docked explorer/editor/variables/problems/terminal layout
+- diagnostics and caret completions
+- PlotSpec preview and runtime summaries in the terminal workflow
 - experimental eng-lsp.exe smoke/snapshot path
 - packaged VS Code extension preview
 ```

@@ -7,7 +7,7 @@ tester IDE in one workflow.
 ## What This Covers
 
 ```text
-- native tester IDE launch
+- Tauri tester IDE launch
 - example browsing
 - live diagnostics
 - completion insertion

@@ -1,3302 +1,61 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
-use std::collections::HashSet;
+use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::{Duration, Instant};
+use std::sync::Mutex;
 
-use eframe::egui;
-use egui::text::{LayoutJob, TextFormat};
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, check_source, CheckOptions, CheckReport, Severity,
 };
 use eng_runtime::{run_file, RunOptions, RuntimeError};
-use serde_json::{json, Value};
+use serde::Serialize;
+use serde_json::Value;
+use tauri::State;
 
-const ACCENT: egui::Color32 = egui::Color32::from_rgb(28, 111, 202);
-const BG: egui::Color32 = egui::Color32::from_rgb(246, 248, 251);
-const PANEL: egui::Color32 = egui::Color32::from_rgb(255, 255, 255);
-const PANEL_ALT: egui::Color32 = egui::Color32::from_rgb(241, 244, 248);
-const BORDER: egui::Color32 = egui::Color32::from_rgb(210, 216, 224);
-const TEXT: egui::Color32 = egui::Color32::from_rgb(25, 32, 44);
-const MUTED: egui::Color32 = egui::Color32::from_rgb(99, 112, 130);
-const ERROR: egui::Color32 = egui::Color32::from_rgb(184, 44, 44);
-const WARNING: egui::Color32 = egui::Color32::from_rgb(173, 112, 20);
-const OK: egui::Color32 = egui::Color32::from_rgb(43, 131, 91);
-const CODE_MIN_WIDTH: f32 = 500.0;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum UiTheme {
-    Light,
-    Dark,
+#[derive(Default)]
+struct IdeState {
+    last_output: Mutex<Option<CachedRunOutput>>,
+    terminal_session_source: Mutex<String>,
 }
 
-impl UiTheme {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Light => "light",
-            Self::Dark => "dark",
-        }
-    }
-
-    fn from_str(value: &str) -> Self {
-        match value {
-            "dark" => Self::Dark,
-            _ => Self::Light,
-        }
-    }
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceView {
+    root: String,
+    file_tree: Vec<FileNodeView>,
+    current: FileView,
+    check: CheckView,
+    completions: Vec<CompletionView>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum UiDensity {
-    Comfortable,
-    Compact,
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FileNodeView {
+    name: String,
+    path: String,
+    kind: String,
+    children: Vec<FileNodeView>,
 }
 
-impl UiDensity {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Comfortable => "comfortable",
-            Self::Compact => "compact",
-        }
-    }
-
-    fn from_str(value: &str) -> Self {
-        match value {
-            "compact" => Self::Compact,
-            _ => Self::Comfortable,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-struct UiSettings {
-    theme: UiTheme,
-    density: UiDensity,
-    body_font_size: f32,
-    button_font_size: f32,
-    heading_font_size: f32,
-    code_font_size: f32,
-    window_width: f32,
-    window_height: f32,
-    explorer_width: f32,
-    inspector_width: f32,
-    bottom_height: f32,
-    result_width: f32,
-    soft_wrap_code: bool,
-}
-
-impl Default for UiSettings {
-    fn default() -> Self {
-        Self {
-            theme: UiTheme::Light,
-            density: UiDensity::Compact,
-            body_font_size: 12.5,
-            button_font_size: 12.0,
-            heading_font_size: 15.0,
-            code_font_size: 13.0,
-            window_width: 1600.0,
-            window_height: 920.0,
-            explorer_width: 250.0,
-            inspector_width: 340.0,
-            bottom_height: 200.0,
-            result_width: 420.0,
-            soft_wrap_code: true,
-        }
-    }
-}
-
-impl UiSettings {
-    fn load(root: &Path) -> Self {
-        let mut settings = Self::default();
-        let Ok(text) = fs::read_to_string(settings_path(root)) else {
-            return settings;
-        };
-        let Ok(value) = serde_json::from_str::<Value>(&text) else {
-            return settings;
-        };
-        if let Some(theme) = value.get("theme").and_then(Value::as_str) {
-            settings.theme = UiTheme::from_str(theme);
-        }
-        if let Some(density) = value.get("density").and_then(Value::as_str) {
-            settings.density = UiDensity::from_str(density);
-        }
-        settings.body_font_size = json_f32(&value, "body_font_size")
-            .unwrap_or(settings.body_font_size)
-            .clamp(10.5, 18.0);
-        settings.button_font_size = json_f32(&value, "button_font_size")
-            .unwrap_or(settings.button_font_size)
-            .clamp(10.5, 18.0);
-        settings.heading_font_size = json_f32(&value, "heading_font_size")
-            .unwrap_or(settings.heading_font_size)
-            .clamp(12.0, 24.0);
-        settings.code_font_size = json_f32(&value, "code_font_size")
-            .unwrap_or(settings.code_font_size)
-            .clamp(11.0, 20.0);
-        settings.window_width = json_f32(&value, "window_width")
-            .unwrap_or(settings.window_width)
-            .clamp(1120.0, 3840.0);
-        settings.window_height = json_f32(&value, "window_height")
-            .unwrap_or(settings.window_height)
-            .clamp(680.0, 2160.0);
-        settings.explorer_width = json_f32(&value, "explorer_width")
-            .unwrap_or(settings.explorer_width)
-            .clamp(180.0, 520.0);
-        settings.inspector_width = json_f32(&value, "inspector_width")
-            .unwrap_or(settings.inspector_width)
-            .clamp(260.0, 640.0);
-        settings.bottom_height = json_f32(&value, "bottom_height")
-            .unwrap_or(settings.bottom_height)
-            .clamp(140.0, 420.0);
-        settings.result_width = json_f32(&value, "result_width")
-            .unwrap_or(settings.result_width)
-            .clamp(300.0, 520.0);
-        if let Some(soft_wrap) = value.get("soft_wrap_code").and_then(Value::as_bool) {
-            settings.soft_wrap_code = soft_wrap;
-        }
-        settings
-    }
-
-    fn save(&self, root: &Path) -> Result<(), String> {
-        let path = settings_path(root);
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-        }
-        let value = json!({
-            "theme": self.theme.as_str(),
-            "density": self.density.as_str(),
-            "body_font_size": self.body_font_size,
-            "button_font_size": self.button_font_size,
-            "heading_font_size": self.heading_font_size,
-            "code_font_size": self.code_font_size,
-            "window_width": self.window_width,
-            "window_height": self.window_height,
-            "explorer_width": self.explorer_width,
-            "inspector_width": self.inspector_width,
-            "bottom_height": self.bottom_height,
-            "result_width": self.result_width,
-            "soft_wrap_code": self.soft_wrap_code,
-        });
-        let text = serde_json::to_string_pretty(&value).map_err(|error| error.to_string())?;
-        fs::write(path, text).map_err(|error| error.to_string())
-    }
-}
-
-#[derive(Clone, Copy)]
-struct ThemePalette {
-    accent: egui::Color32,
-    bg: egui::Color32,
-    panel: egui::Color32,
-    panel_alt: egui::Color32,
-    border: egui::Color32,
-    text: egui::Color32,
-    muted: egui::Color32,
-    editor_bg: egui::Color32,
-    selected: egui::Color32,
-    hint_bg: egui::Color32,
-    plot_bg: egui::Color32,
-    grid: egui::Color32,
-    axis: egui::Color32,
-    string: egui::Color32,
-    number: egui::Color32,
-    quantity: egui::Color32,
-    diag_error_bg: egui::Color32,
-    diag_warning_bg: egui::Color32,
-}
-
-impl ThemePalette {
-    fn for_theme(theme: UiTheme) -> Self {
-        match theme {
-            UiTheme::Light => Self {
-                accent: ACCENT,
-                bg: BG,
-                panel: PANEL,
-                panel_alt: PANEL_ALT,
-                border: BORDER,
-                text: TEXT,
-                muted: MUTED,
-                editor_bg: egui::Color32::from_rgb(255, 255, 255),
-                selected: egui::Color32::from_rgb(218, 235, 252),
-                hint_bg: egui::Color32::from_rgb(245, 249, 255),
-                plot_bg: egui::Color32::from_rgb(250, 252, 255),
-                grid: egui::Color32::from_rgb(226, 232, 240),
-                axis: egui::Color32::from_rgb(65, 76, 90),
-                string: egui::Color32::from_rgb(138, 78, 23),
-                number: egui::Color32::from_rgb(126, 76, 175),
-                quantity: egui::Color32::from_rgb(120, 72, 156),
-                diag_error_bg: egui::Color32::from_rgb(255, 239, 239),
-                diag_warning_bg: egui::Color32::from_rgb(255, 248, 226),
-            },
-            UiTheme::Dark => Self {
-                accent: egui::Color32::from_rgb(96, 165, 250),
-                bg: egui::Color32::from_rgb(24, 28, 36),
-                panel: egui::Color32::from_rgb(31, 36, 46),
-                panel_alt: egui::Color32::from_rgb(38, 44, 56),
-                border: egui::Color32::from_rgb(62, 72, 88),
-                text: egui::Color32::from_rgb(229, 234, 242),
-                muted: egui::Color32::from_rgb(162, 174, 191),
-                editor_bg: egui::Color32::from_rgb(22, 26, 34),
-                selected: egui::Color32::from_rgb(35, 68, 105),
-                hint_bg: egui::Color32::from_rgb(32, 47, 67),
-                plot_bg: egui::Color32::from_rgb(24, 30, 40),
-                grid: egui::Color32::from_rgb(49, 59, 73),
-                axis: egui::Color32::from_rgb(176, 188, 204),
-                string: egui::Color32::from_rgb(245, 158, 91),
-                number: egui::Color32::from_rgb(196, 181, 253),
-                quantity: egui::Color32::from_rgb(216, 180, 254),
-                diag_error_bg: egui::Color32::from_rgb(72, 34, 38),
-                diag_warning_bg: egui::Color32::from_rgb(70, 54, 28),
-            },
-        }
-    }
-}
-
-fn main() -> eframe::Result<()> {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    if args.iter().any(|arg| arg == "--smoke") {
-        smoke()?;
-        return Ok(());
-    }
-    if args
-        .iter()
-        .any(|arg| arg == "--version" || arg == "version")
-    {
-        println!("EngLang IDE {}", env!("CARGO_PKG_VERSION"));
-        return Ok(());
-    }
-
-    let root = workspace_root();
-    let settings = UiSettings::load(&root);
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([settings.window_width, settings.window_height])
-            .with_min_inner_size([1120.0, 680.0]),
-        ..Default::default()
-    };
-    eframe::run_native(
-        "EngLang IDE",
-        options,
-        Box::new(|cc| {
-            configure_ui(&cc.egui_ctx, &settings);
-            Box::new(EngIdeApp::new(settings))
-        }),
-    )
-}
-
-fn configure_ui(ctx: &egui::Context, settings: &UiSettings) {
-    configure_fonts(ctx);
-    configure_ui_style(ctx, settings);
-}
-
-fn configure_ui_style(ctx: &egui::Context, settings: &UiSettings) {
-    let palette = ThemePalette::for_theme(settings.theme);
-    let mut visuals = match settings.theme {
-        UiTheme::Light => egui::Visuals::light(),
-        UiTheme::Dark => egui::Visuals::dark(),
-    };
-    visuals.window_fill = palette.bg;
-    visuals.panel_fill = palette.bg;
-    visuals.extreme_bg_color = palette.panel_alt;
-    visuals.widgets.noninteractive.fg_stroke.color = palette.text;
-    visuals.widgets.inactive.bg_fill = palette.panel_alt;
-    visuals.widgets.inactive.fg_stroke.color = palette.text;
-    visuals.widgets.hovered.bg_fill = palette.selected;
-    visuals.widgets.hovered.fg_stroke.color = palette.text;
-    visuals.widgets.active.bg_fill = palette.selected;
-    visuals.widgets.active.fg_stroke.color = palette.text;
-    visuals.selection.bg_fill = palette.selected;
-    visuals.selection.stroke.color = palette.accent;
-    ctx.set_visuals(visuals);
-
-    let mut style = (*ctx.style()).clone();
-    let compact = settings.density == UiDensity::Compact;
-    style.spacing.item_spacing = if compact {
-        egui::vec2(5.0, 3.0)
-    } else {
-        egui::vec2(6.0, 4.0)
-    };
-    style.spacing.button_padding = if compact {
-        egui::vec2(7.0, 4.0)
-    } else {
-        egui::vec2(9.0, 5.0)
-    };
-    style.spacing.window_margin = egui::Margin::same(if compact { 6.0 } else { 8.0 });
-    style.text_styles.insert(
-        egui::TextStyle::Body,
-        egui::FontId::new(settings.body_font_size, egui::FontFamily::Proportional),
-    );
-    style.text_styles.insert(
-        egui::TextStyle::Button,
-        egui::FontId::new(settings.button_font_size, egui::FontFamily::Proportional),
-    );
-    style.text_styles.insert(
-        egui::TextStyle::Heading,
-        egui::FontId::new(settings.heading_font_size, egui::FontFamily::Proportional),
-    );
-    style.text_styles.insert(
-        egui::TextStyle::Monospace,
-        egui::FontId::new(settings.code_font_size, egui::FontFamily::Monospace),
-    );
-    style.visuals = ctx.style().visuals.clone();
-    ctx.set_style(style);
-}
-
-fn settings_path(root: &Path) -> PathBuf {
-    root.join("build").join("ide").join("settings.json")
-}
-
-fn json_f32(value: &Value, key: &str) -> Option<f32> {
-    value
-        .get(key)
-        .and_then(Value::as_f64)
-        .map(|number| number as f32)
-}
-
-fn ui_palette(ui: &egui::Ui) -> ThemePalette {
-    let theme = if ui.visuals().dark_mode {
-        UiTheme::Dark
-    } else {
-        UiTheme::Light
-    };
-    ThemePalette::for_theme(theme)
-}
-
-fn configure_fonts(ctx: &egui::Context) {
-    let mut fonts = egui::FontDefinitions::default();
-    install_font_if_present(
-        &mut fonts,
-        egui::FontFamily::Proportional,
-        "segoe_ui",
-        &[
-            "C:\\Windows\\Fonts\\segoeui.ttf",
-            "C:\\Windows\\Fonts\\segoeuisl.ttf",
-        ],
-    );
-    install_font_if_present(
-        &mut fonts,
-        egui::FontFamily::Monospace,
-        "eng_mono",
-        &[
-            "C:\\Windows\\Fonts\\CascadiaMono.ttf",
-            "C:\\Windows\\Fonts\\consola.ttf",
-            "C:\\Windows\\Fonts\\cour.ttf",
-        ],
-    );
-    ctx.set_fonts(fonts);
-}
-
-fn install_font_if_present(
-    fonts: &mut egui::FontDefinitions,
-    family: egui::FontFamily,
-    name: &str,
-    candidates: &[&str],
-) {
-    for candidate in candidates {
-        if let Ok(bytes) = fs::read(candidate) {
-            fonts
-                .font_data
-                .insert(name.to_owned(), egui::FontData::from_owned(bytes));
-            fonts
-                .families
-                .entry(family)
-                .or_default()
-                .insert(0, name.to_owned());
-            return;
-        }
-    }
-}
-
-fn smoke() -> eframe::Result<()> {
-    let root = workspace_root();
-    let examples = collect_examples(&root);
-    if examples.is_empty() {
-        eprintln!("EngLang IDE smoke failed: no examples found");
-        std::process::exit(1);
-    }
-    let first = examples
-        .iter()
-        .find(|path| path.ends_with("examples/official/01_csv_plot/main.eng"))
-        .or_else(|| examples.first())
-        .expect("examples is not empty");
-    let source = match fs::read_to_string(first) {
-        Ok(source) => source,
-        Err(error) => {
-            eprintln!(
-                "EngLang IDE smoke failed: could not read {}: {error}",
-                first.display()
-            );
-            std::process::exit(1);
-        }
-    };
-    let report = check_source(first, &source, &CheckOptions::default());
-    if report.has_errors() {
-        eprintln!("EngLang IDE smoke failed: {} has errors", first.display());
-        std::process::exit(2);
-    }
-    let jit_plan = eng_jit::plan_for_report(&report);
-    if jit_plan.candidates.is_empty() {
-        eprintln!(
-            "EngLang IDE smoke failed: {} produced no kernel plan candidates",
-            first.display()
-        );
-        std::process::exit(3);
-    }
-    let domain_example = examples
-        .iter()
-        .find(|path| path.ends_with("examples/official/06_domain_port/main.eng"))
-        .expect("official domain example is present");
-    let domain_source = match fs::read_to_string(domain_example) {
-        Ok(source) => source,
-        Err(error) => {
-            eprintln!(
-                "EngLang IDE smoke failed: could not read {}: {error}",
-                domain_example.display()
-            );
-            std::process::exit(4);
-        }
-    };
-    let domain_report = check_source(domain_example, &domain_source, &CheckOptions::default());
-    if domain_report.has_errors()
-        || domain_report.semantic_program.domains.is_empty()
-        || domain_report.semantic_program.components.is_empty()
-        || domain_report.semantic_program.connections.is_empty()
-    {
-        eprintln!(
-            "EngLang IDE smoke failed: {} did not produce domain/component metadata",
-            domain_example.display()
-        );
-        std::process::exit(5);
-    }
-    println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} kernel candidate(s), {} domain(s), {} component(s), {} connection(s)",
-        examples.len(),
-        all_quantity_completions().len(),
-        all_unit_infos().len(),
-        jit_plan.candidates.len(),
-        domain_report.semantic_program.domains.len(),
-        domain_report.semantic_program.components.len(),
-        domain_report.semantic_program.connections.len()
-    );
-    Ok(())
-}
-
-#[allow(dead_code)]
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum RightTab {
-    Variables,
-    Inspector,
-    Runtime,
-    Completions,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum BottomTab {
-    Problems,
-    Terminal,
-}
-
-#[derive(Clone, Copy)]
-enum RunFileKind {
-    Report,
-    Plot,
-}
-
-impl RunFileKind {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Report => "report",
-            Self::Plot => "plot",
-        }
-    }
-}
-
-#[derive(Clone)]
-struct OpenFile {
-    path: PathBuf,
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FileView {
+    path: String,
     source: String,
-    dirty: bool,
-    cursor_char_index: usize,
 }
 
-enum TabAction {
-    Switch(usize),
-    Close(usize),
-}
-
-struct EngIdeApp {
-    root: PathBuf,
-    examples: Vec<PathBuf>,
-    current_path: PathBuf,
-    path_input: String,
-    new_file_input: String,
-    source: String,
-    open_files: Vec<OpenFile>,
-    current_tab_index: usize,
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CheckView {
     diagnostics: Vec<DiagnosticView>,
     symbols: Vec<SymbolView>,
-    unit_derivations: Vec<UnitDerivationView>,
-    schemas: Vec<SchemaView>,
-    csv_promotions: Vec<CsvPromotionView>,
-    domains: Vec<DomainView>,
-    components: Vec<ComponentView>,
-    connections: Vec<ConnectionView>,
-    jit_plan: Option<JitPlanView>,
     status: String,
-    run_log: String,
-    dirty: bool,
-    last_edit: Option<Instant>,
-    cursor_char_index: usize,
-    completion_filter: String,
-    terminal_input: String,
-    terminal_session_source: String,
-    terminal_show_plot: bool,
-    expanded_variable: Option<String>,
-    right_tab: RightTab,
-    bottom_tab: BottomTab,
-    show_explorer: bool,
-    show_inspector_panel: bool,
-    show_settings: bool,
-    settings: UiSettings,
-    last_output: Option<RunOutputView>,
-    plot_preview: Option<PlotPreview>,
-    artifact_summary: Option<ArtifactSummary>,
 }
 
-impl EngIdeApp {
-    fn new(settings: UiSettings) -> Self {
-        let root = workspace_root();
-        let examples = collect_examples(&root);
-        let current_path = examples
-            .iter()
-            .find(|path| path.ends_with("examples/official/03_integrated_hvac/main.eng"))
-            .or_else(|| examples.first())
-            .cloned()
-            .unwrap_or_else(|| root.join("main.eng"));
-        let mut app = Self {
-            root,
-            examples,
-            current_path,
-            path_input: String::new(),
-            new_file_input: "examples/scratch/main.eng".to_owned(),
-            source: String::new(),
-            open_files: Vec::new(),
-            current_tab_index: 0,
-            diagnostics: Vec::new(),
-            symbols: Vec::new(),
-            unit_derivations: Vec::new(),
-            schemas: Vec::new(),
-            csv_promotions: Vec::new(),
-            domains: Vec::new(),
-            components: Vec::new(),
-            connections: Vec::new(),
-            jit_plan: None,
-            status: "Ready".to_owned(),
-            run_log: String::new(),
-            dirty: false,
-            last_edit: None,
-            cursor_char_index: 0,
-            completion_filter: String::new(),
-            terminal_input: String::new(),
-            terminal_session_source: String::new(),
-            terminal_show_plot: false,
-            expanded_variable: None,
-            right_tab: RightTab::Variables,
-            bottom_tab: BottomTab::Problems,
-            show_explorer: true,
-            show_inspector_panel: true,
-            show_settings: false,
-            settings,
-            last_output: None,
-            plot_preview: None,
-            artifact_summary: None,
-        };
-        app.path_input = app.relative_path(&app.current_path);
-        app.load_current();
-        app.push_current_tab();
-        app.check_current();
-        app
-    }
-
-    fn load_current(&mut self) {
-        match fs::read_to_string(&self.current_path) {
-            Ok(source) => {
-                self.source = source;
-                self.path_input = self.relative_path(&self.current_path);
-                self.dirty = false;
-                self.last_edit = None;
-                self.cursor_char_index = 0;
-                self.run_log.clear();
-                self.last_output = None;
-                self.plot_preview = None;
-                self.artifact_summary = None;
-                self.status = format!("Loaded {}", self.path_input);
-            }
-            Err(error) => {
-                self.source.clear();
-                self.diagnostics.clear();
-                self.symbols.clear();
-                self.unit_derivations.clear();
-                self.schemas.clear();
-                self.csv_promotions.clear();
-                self.domains.clear();
-                self.components.clear();
-                self.connections.clear();
-                self.jit_plan = None;
-                self.cursor_char_index = 0;
-                self.status = format!("Could not load {}: {error}", self.current_path.display());
-            }
-        }
-    }
-
-    fn open_file(&mut self, path: PathBuf) {
-        self.sync_current_tab();
-        if let Some(index) = self.open_files.iter().position(|file| file.path == path) {
-            self.switch_tab(index);
-            return;
-        }
-        self.current_path = path;
-        self.load_current();
-        self.push_current_tab();
-        self.check_current();
-    }
-
-    fn push_current_tab(&mut self) {
-        if let Some(index) = self
-            .open_files
-            .iter()
-            .position(|file| file.path == self.current_path)
-        {
-            self.current_tab_index = index;
-            self.sync_current_tab();
-            return;
-        }
-        self.open_files.push(OpenFile {
-            path: self.current_path.clone(),
-            source: self.source.clone(),
-            dirty: self.dirty,
-            cursor_char_index: self.cursor_char_index,
-        });
-        self.current_tab_index = self.open_files.len().saturating_sub(1);
-    }
-
-    fn sync_current_tab(&mut self) {
-        if let Some(file) = self.open_files.get_mut(self.current_tab_index) {
-            file.path = self.current_path.clone();
-            file.source = self.source.clone();
-            file.dirty = self.dirty;
-            file.cursor_char_index = self.cursor_char_index;
-        }
-    }
-
-    fn switch_tab(&mut self, index: usize) {
-        if index >= self.open_files.len() || index == self.current_tab_index {
-            return;
-        }
-        self.sync_current_tab();
-        self.current_tab_index = index;
-        if let Some(file) = self.open_files.get(index).cloned() {
-            self.current_path = file.path;
-            self.source = file.source;
-            self.dirty = file.dirty;
-            self.cursor_char_index = file.cursor_char_index;
-            self.path_input = self.relative_path(&self.current_path);
-            self.last_edit = None;
-            self.run_log.clear();
-            self.last_output = None;
-            self.plot_preview = None;
-            self.artifact_summary = None;
-            self.check_current();
-        }
-    }
-
-    fn close_tab(&mut self, index: usize) {
-        if index >= self.open_files.len() {
-            return;
-        }
-        self.sync_current_tab();
-        if self.open_files.len() == 1 {
-            if self.dirty {
-                self.save_current();
-            }
-            return;
-        }
-
-        if let Some(file) = self.open_files.get(index) {
-            if file.dirty {
-                let _ = save_file_contents(&file.path, &file.source);
-            }
-        }
-        self.open_files.remove(index);
-
-        if index == self.current_tab_index {
-            let next_index = index.saturating_sub(1).min(self.open_files.len() - 1);
-            self.current_tab_index = next_index;
-            if let Some(file) = self.open_files.get(next_index).cloned() {
-                self.current_path = file.path;
-                self.source = file.source;
-                self.dirty = file.dirty;
-                self.cursor_char_index = file.cursor_char_index;
-                self.path_input = self.relative_path(&self.current_path);
-                self.last_edit = None;
-                self.last_output = None;
-                self.plot_preview = None;
-                self.artifact_summary = None;
-                self.check_current();
-            }
-        } else if index < self.current_tab_index {
-            self.current_tab_index -= 1;
-        }
-    }
-
-    fn open_path_input(&mut self) {
-        let path = self.resolve_path_input();
-        self.open_file(path);
-    }
-
-    fn browse_file(&mut self) {
-        let start_dir = self
-            .current_path
-            .parent()
-            .unwrap_or(self.root.as_path())
-            .to_path_buf();
-        if let Some(path) = rfd::FileDialog::new()
-            .set_directory(start_dir)
-            .add_filter("EngLang", &["eng"])
-            .add_filter("Markdown", &["md"])
-            .pick_file()
-        {
-            self.open_file(path);
-        }
-    }
-
-    fn browse_folder(&mut self) {
-        if let Some(path) = rfd::FileDialog::new()
-            .set_directory(&self.root)
-            .pick_folder()
-        {
-            if self.dirty {
-                self.save_current();
-            }
-            self.root = path;
-            self.examples = collect_examples(&self.root);
-            self.open_files.clear();
-            self.current_tab_index = 0;
-            if let Some(first) = self.examples.first().cloned() {
-                self.current_path = first;
-                self.load_current();
-                self.push_current_tab();
-                self.check_current();
-            } else {
-                self.current_path = self.root.join("main.eng");
-                self.path_input = self.relative_path(&self.current_path);
-                self.source.clear();
-                self.diagnostics.clear();
-                self.symbols.clear();
-                self.unit_derivations.clear();
-                self.schemas.clear();
-                self.csv_promotions.clear();
-                self.domains.clear();
-                self.components.clear();
-                self.connections.clear();
-                self.jit_plan = None;
-                self.dirty = false;
-                self.push_current_tab();
-            }
-            self.status = format!("Workspace: {}", self.root.display());
-        }
-    }
-
-    fn create_new_file(&mut self) {
-        let mut path = self.resolve_relative_or_absolute(self.new_file_input.trim());
-        if path.extension().and_then(|value| value.to_str()).is_none() {
-            path.set_extension("eng");
-        }
-        if path.exists() {
-            self.status = format!("File already exists: {}", self.relative_path(&path));
-            self.open_file(path);
-            return;
-        }
-        if let Some(parent) = path.parent() {
-            if let Err(error) = fs::create_dir_all(parent) {
-                self.status = format!("Could not create {}: {error}", parent.display());
-                return;
-            }
-        }
-        let template = r#"value = 1 kW
-
-report {
-    show value
-    plot value over Time {
-        unit y = kW
-        title = "EngLang preview"
-    }
-}
-"#;
-        match fs::write(&path, template) {
-            Ok(()) => {
-                self.examples = collect_examples(&self.root);
-                self.open_file(path);
-            }
-            Err(error) => {
-                self.status = format!("New file failed: {error}");
-            }
-        }
-    }
-
-    fn save_current(&mut self) {
-        if let Some(parent) = self.current_path.parent() {
-            if let Err(error) = fs::create_dir_all(parent) {
-                self.status = format!("Could not create {}: {error}", parent.display());
-                return;
-            }
-        }
-        match fs::write(&self.current_path, &self.source) {
-            Ok(()) => {
-                self.dirty = false;
-                self.sync_current_tab();
-                self.status = format!("Saved {}", self.relative_path(&self.current_path));
-            }
-            Err(error) => {
-                self.status = format!("Save failed: {error}");
-            }
-        }
-    }
-
-    fn check_current(&mut self) {
-        let report = check_source(&self.current_path, &self.source, &CheckOptions::default());
-        self.apply_check_report(&report);
-        let errors = report.diagnostic_count(Severity::Error);
-        let warnings = report.diagnostic_count(Severity::Warning);
-        self.status = format!("Checked: {errors} errors, {warnings} warnings");
-    }
-
-    fn apply_check_report(&mut self, report: &CheckReport) {
-        self.diagnostics = report
-            .diagnostics
-            .iter()
-            .map(|diagnostic| DiagnosticView {
-                severity: diagnostic.severity.as_str().to_owned(),
-                code: diagnostic.code.clone(),
-                line: diagnostic.line,
-                message: diagnostic.message.clone(),
-                help: diagnostic.help.clone(),
-            })
-            .collect();
-
-        self.unit_derivations = report
-            .semantic_program
-            .unit_derivations
-            .iter()
-            .map(|derivation| UnitDerivationView {
-                name: derivation.name.clone(),
-                line: derivation.line,
-                quantity_kind: derivation.quantity_kind.clone(),
-                source_unit: derivation.source_unit.clone(),
-                display_unit: derivation.display_unit.clone(),
-                canonical_unit: derivation.canonical_unit.clone(),
-                expression: derivation.expression.clone(),
-                steps: derivation.steps.clone(),
-            })
-            .collect();
-
-        self.symbols = report
-            .semantic_program
-            .hover_hints
-            .iter()
-            .map(|hover| {
-                let type_info = report
-                    .semantic_program
-                    .type_infos
-                    .iter()
-                    .find(|info| info.name == hover.name && info.line == hover.line);
-                let derivation = self
-                    .unit_derivations
-                    .iter()
-                    .find(|item| item.name == hover.name && item.line == hover.line);
-                SymbolView {
-                    name: hover.name.clone(),
-                    line: hover.line,
-                    quantity_kind: hover.quantity_kind.clone(),
-                    display_unit: hover.display_unit.clone(),
-                    canonical_unit: type_info
-                        .map(|info| info.canonical_unit.clone())
-                        .or_else(|| derivation.map(|item| item.canonical_unit.clone()))
-                        .unwrap_or_else(|| hover.display_unit.clone()),
-                    dimension: type_info
-                        .map(|info| info.dimension.clone())
-                        .unwrap_or_else(|| "-".to_owned()),
-                    source: type_info
-                        .map(|info| info.source.as_str().to_owned())
-                        .unwrap_or_else(|| "symbol".to_owned()),
-                    source_unit: derivation.and_then(|item| item.source_unit.clone()),
-                    expression: derivation.and_then(|item| item.expression.clone()),
-                    steps: derivation
-                        .map(|item| item.steps.clone())
-                        .unwrap_or_default(),
-                    detail: hover.detail.clone(),
-                }
-            })
-            .collect();
-
-        self.schemas = report
-            .semantic_program
-            .schemas
-            .iter()
-            .map(|schema| SchemaView {
-                name: schema.name.clone(),
-                line: schema.line,
-                columns: schema
-                    .columns
-                    .iter()
-                    .map(|column| SchemaColumnView {
-                        name: column.name.clone(),
-                        type_name: column.type_name.clone(),
-                        unit: column.unit.clone(),
-                        is_index: column.is_index,
-                        line: column.line,
-                    })
-                    .collect(),
-                constraints: schema
-                    .constraints
-                    .iter()
-                    .map(|constraint| TextLineView {
-                        text: constraint.text.clone(),
-                        line: constraint.line,
-                    })
-                    .collect(),
-                missing_policies: schema
-                    .missing_policies
-                    .iter()
-                    .map(|policy| MissingPolicyView {
-                        column: policy.column.clone(),
-                        policy: policy.policy.clone(),
-                        line: policy.line,
-                    })
-                    .collect(),
-            })
-            .collect();
-
-        self.csv_promotions = report
-            .semantic_program
-            .csv_promotions
-            .iter()
-            .map(|promotion| CsvPromotionView {
-                binding: promotion.binding.clone(),
-                schema_name: promotion.schema_name.clone(),
-                source_value: promotion.source_value.clone(),
-                resolved_path: promotion.resolved_path.clone(),
-                row_count: promotion.row_count,
-                headers: promotion.headers.clone(),
-                missing_columns: promotion.missing_columns.clone(),
-                line: promotion.line,
-            })
-            .collect();
-
-        self.domains = report
-            .semantic_program
-            .domains
-            .iter()
-            .map(|domain| DomainView {
-                name: domain.name.clone(),
-                type_parameters: domain
-                    .type_parameters
-                    .iter()
-                    .map(|parameter| DomainParameterView {
-                        kind: parameter.kind.clone(),
-                        name: parameter.name.clone(),
-                        display: parameter.display.clone(),
-                    })
-                    .collect(),
-                package: domain.package.clone(),
-                version: domain.version.clone(),
-                line: domain.line,
-                variables: domain
-                    .variables
-                    .iter()
-                    .map(|variable| DomainVariableView {
-                        role: variable.role.clone(),
-                        name: variable.name.clone(),
-                        quantity_kind: variable.quantity_kind.clone(),
-                        display_unit: variable.display_unit.clone(),
-                        canonical_unit: variable.canonical_unit.clone(),
-                        dimension: variable.dimension.clone(),
-                        line: variable.line,
-                    })
-                    .collect(),
-                conservations: domain
-                    .conservations
-                    .iter()
-                    .map(|conservation| DomainConservationView {
-                        text: conservation.text.clone(),
-                        status: conservation.status.clone(),
-                        line: conservation.line,
-                    })
-                    .collect(),
-            })
-            .collect();
-
-        self.components = report
-            .semantic_program
-            .components
-            .iter()
-            .map(|component| ComponentView {
-                name: component.name.clone(),
-                line: component.line,
-                ports: component
-                    .ports
-                    .iter()
-                    .map(|port| PortView {
-                        name: port.name.clone(),
-                        domain: port.domain.clone(),
-                        domain_name: port.domain_name.clone(),
-                        type_arguments: port.type_arguments.clone(),
-                        status: port.status.clone(),
-                        line: port.line,
-                    })
-                    .collect(),
-            })
-            .collect();
-
-        self.connections = report
-            .semantic_program
-            .connections
-            .iter()
-            .map(|connection| ConnectionView {
-                left: connection.left.clone(),
-                right: connection.right.clone(),
-                domain: connection.domain.clone(),
-                status: connection.status.clone(),
-                line: connection.line,
-            })
-            .collect();
-
-        self.jit_plan = Some(JitPlanView::from_plan(&eng_jit::plan_for_report(report)));
-    }
-
-    fn run_current(&mut self) {
-        if self.dirty {
-            self.save_current();
-        }
-        let build_root = self.root.join("build").join("ide-run");
-        match run_file(
-            &self.current_path,
-            &build_root,
-            &RunOptions {
-                open_report: false,
-                save_artifacts: false,
-                args: Vec::new(),
-                ..RunOptions::default()
-            },
-        ) {
-            Ok(output) => {
-                let output = RunOutputView::from_output(output, &self.root);
-                self.plot_preview = PlotPreview::from_plot_spec_json(&output.plot_spec_json).ok();
-                let artifact_summary = ArtifactSummary::from_output(&output).ok();
-                self.run_log = output.terminal_summary(artifact_summary.as_ref());
-                self.artifact_summary = artifact_summary;
-                self.last_output = Some(output);
-                self.terminal_show_plot = false;
-                self.status = "Run complete".to_owned();
-                self.bottom_tab = BottomTab::Terminal;
-                self.right_tab = RightTab::Variables;
-            }
-            Err(RuntimeError::Compile(report)) => {
-                self.apply_check_report(&report);
-                self.run_log = "Run failed during compile. See Problems.".to_owned();
-                self.status = "Run failed".to_owned();
-                self.bottom_tab = BottomTab::Problems;
-            }
-            Err(error) => {
-                self.run_log = format!("Run failed: {error}");
-                self.status = "Run failed".to_owned();
-                self.bottom_tab = BottomTab::Terminal;
-            }
-        }
-    }
-
-    fn maybe_auto_check(&mut self, ctx: &egui::Context) {
-        if let Some(last_edit) = self.last_edit {
-            if last_edit.elapsed() >= Duration::from_millis(650) {
-                self.check_current();
-                self.last_edit = None;
-            } else {
-                ctx.request_repaint_after(Duration::from_millis(150));
-            }
-        }
-    }
-
-    fn insert_completion(&mut self, insertion: &str) {
-        let prefix = current_prefix(&self.source, self.cursor_char_index);
-        let cursor_byte = char_to_byte_index(&self.source, self.cursor_char_index);
-        let prefix_chars = prefix.chars().count();
-        let start_char = self.cursor_char_index.saturating_sub(prefix_chars);
-        let start_byte = char_to_byte_index(&self.source, start_char);
-        self.source
-            .replace_range(start_byte..cursor_byte, insertion);
-        self.cursor_char_index = start_char + insertion.chars().count();
-        self.dirty = true;
-        self.last_edit = Some(Instant::now());
-        self.sync_current_tab();
-    }
-
-    fn completion_items_for_filter(&self, filter: &str) -> Vec<CompletionItem> {
-        completion_items(filter, &self.symbols, &self.source)
-    }
-
-    fn first_completion_for_prefix(&self) -> Option<CompletionItem> {
-        let prefix = current_prefix(&self.source, self.cursor_char_index);
-        if prefix.is_empty() {
-            return None;
-        }
-        self.completion_items_for_filter(&prefix).into_iter().next()
-    }
-
-    fn accept_first_completion(&mut self) -> bool {
-        let Some(item) = self.first_completion_for_prefix() else {
-            return false;
-        };
-        self.insert_completion(&item.insert);
-        self.completion_filter = current_prefix(&self.source, self.cursor_char_index);
-        true
-    }
-
-    fn update_completion_filter_from_cursor(&mut self) {
-        let prefix = current_prefix(&self.source, self.cursor_char_index);
-        if prefix.is_empty() {
-            self.completion_filter.clear();
-            return;
-        }
-        self.completion_filter = prefix;
-    }
-
-    fn maybe_auto_close_pair(&mut self, before: &str) {
-        if before == self.source {
-            return;
-        }
-        let before_chars: Vec<char> = before.chars().collect();
-        let after_chars: Vec<char> = self.source.chars().collect();
-        if after_chars.len() != before_chars.len() + 1 {
-            return;
-        }
-        let prefix_len = before_chars
-            .iter()
-            .zip(after_chars.iter())
-            .take_while(|(before, after)| before == after)
-            .count();
-        if before_chars[prefix_len..] != after_chars[prefix_len + 1..] {
-            return;
-        }
-        if self.cursor_char_index != prefix_len + 1 {
-            return;
-        }
-        let inserted = after_chars[prefix_len];
-        let Some(closer) = matching_closer(inserted) else {
-            return;
-        };
-        if self
-            .source
-            .chars()
-            .nth(self.cursor_char_index)
-            .is_some_and(|next| next == closer)
-        {
-            return;
-        }
-        let cursor_byte = char_to_byte_index(&self.source, self.cursor_char_index);
-        self.source.insert(cursor_byte, closer);
-    }
-
-    fn remove_single_inserted_char(&mut self, before: &str, expected: char) -> bool {
-        let before_chars: Vec<char> = before.chars().collect();
-        let after_chars: Vec<char> = self.source.chars().collect();
-        if after_chars.len() != before_chars.len() + 1 {
-            return false;
-        }
-        let prefix_len = before_chars
-            .iter()
-            .zip(after_chars.iter())
-            .take_while(|(before, after)| before == after)
-            .count();
-        if after_chars.get(prefix_len).copied() != Some(expected) {
-            return false;
-        }
-        if before_chars[prefix_len..] != after_chars[prefix_len + 1..] {
-            return false;
-        }
-        self.source = before.to_owned();
-        self.cursor_char_index = prefix_len;
-        true
-    }
-
-    fn resolve_path_input(&self) -> PathBuf {
-        self.resolve_relative_or_absolute(self.path_input.trim())
-    }
-
-    fn resolve_relative_or_absolute(&self, input: &str) -> PathBuf {
-        let path = PathBuf::from(input);
-        if path.is_absolute() {
-            path
-        } else {
-            self.root.join(path)
-        }
-    }
-
-    fn relative_path(&self, path: &Path) -> String {
-        path.strip_prefix(&self.root)
-            .unwrap_or(path)
-            .to_string_lossy()
-            .replace('\\', "/")
-    }
-
-    fn status_counts(&self) -> (usize, usize) {
-        let errors = self
-            .diagnostics
-            .iter()
-            .filter(|diagnostic| diagnostic.severity == "error")
-            .count();
-        let warnings = self
-            .diagnostics
-            .iter()
-            .filter(|diagnostic| diagnostic.severity == "warning")
-            .count();
-        (errors, warnings)
-    }
-
-    fn show_toolbar(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing = egui::vec2(6.0, 0.0);
-            if primary_button(ui, "Check").clicked() {
-                self.check_current();
-                self.bottom_tab = BottomTab::Problems;
-            }
-            if ui.button("Save").clicked() {
-                self.save_current();
-                self.check_current();
-            }
-            if primary_button(ui, "Run").clicked() {
-                self.run_current();
-            }
-            if ui.button("Report").clicked() {
-                self.open_last_run_file(RunFileKind::Report);
-            }
-            if ui.button("Plot SVG").clicked() {
-                self.open_last_run_file(RunFileKind::Plot);
-            }
-            ui.separator();
-            ui.toggle_value(&mut self.show_explorer, "Explorer");
-            ui.toggle_value(&mut self.show_inspector_panel, "Sidebar");
-            if ui.button("Settings").clicked() {
-                self.show_settings = true;
-            }
-            let (errors, warnings) = self.status_counts();
-            status_badge(ui, "Errors", errors, if errors > 0 { ERROR } else { OK });
-            status_badge(
-                ui,
-                "Warnings",
-                warnings,
-                if warnings > 0 { WARNING } else { OK },
-            );
-            if self.dirty {
-                status_pill(ui, "Unsaved", WARNING);
-            }
-            ui.label(egui::RichText::new(&self.status).color(ui_palette(ui).muted));
-        });
-        ui.add_space(3.0);
-        ui.horizontal(|ui| {
-            ui.label("File");
-            let path_width = (ui.available_width() - 210.0).max(180.0);
-            let response = ui.add_sized(
-                [path_width, 26.0],
-                egui::TextEdit::singleline(&mut self.path_input),
-            );
-            if response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
-                self.open_path_input();
-            }
-            if ui.button("Open").clicked() {
-                self.open_path_input();
-            }
-            if ui.button("Browse...").clicked() {
-                self.browse_file();
-            }
-            if ui.button("Folder...").clicked() {
-                self.browse_folder();
-            }
-        });
-    }
-
-    fn show_settings_window(&mut self, ctx: &egui::Context) {
-        let mut open = self.show_settings;
-        egui::Window::new("Settings")
-            .open(&mut open)
-            .default_width(430.0)
-            .default_height(560.0)
-            .resizable(true)
-            .show(ctx, |ui| {
-                egui::ScrollArea::vertical()
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        let mut changed = false;
-                        let mut save_requested = false;
-
-                        panel_header(ui, "Appearance");
-                        ui.horizontal(|ui| {
-                            ui.label("Theme");
-                            changed |= ui
-                                .radio_value(&mut self.settings.theme, UiTheme::Light, "Light")
-                                .changed();
-                            changed |= ui
-                                .radio_value(&mut self.settings.theme, UiTheme::Dark, "Dark")
-                                .changed();
-                        });
-                        ui.horizontal(|ui| {
-                            ui.label("Density");
-                            changed |= ui
-                                .radio_value(
-                                    &mut self.settings.density,
-                                    UiDensity::Comfortable,
-                                    "Comfortable",
-                                )
-                                .changed();
-                            changed |= ui
-                                .radio_value(
-                                    &mut self.settings.density,
-                                    UiDensity::Compact,
-                                    "Compact",
-                                )
-                                .changed();
-                        });
-                        ui.add_space(4.0);
-                        changed |= ui
-                            .add(
-                                egui::Slider::new(&mut self.settings.body_font_size, 10.5..=18.0)
-                                    .text("UI font"),
-                            )
-                            .changed();
-                        changed |= ui
-                            .add(
-                                egui::Slider::new(&mut self.settings.button_font_size, 10.5..=18.0)
-                                    .text("Button font"),
-                            )
-                            .changed();
-                        changed |= ui
-                            .add(
-                                egui::Slider::new(
-                                    &mut self.settings.heading_font_size,
-                                    12.0..=24.0,
-                                )
-                                .text("Heading font"),
-                            )
-                            .changed();
-                        changed |= ui
-                            .add(
-                                egui::Slider::new(&mut self.settings.code_font_size, 11.0..=20.0)
-                                    .text("Code font"),
-                            )
-                            .changed();
-                        changed |= ui
-                            .checkbox(
-                                &mut self.settings.soft_wrap_code,
-                                "Soft-wrap long code lines",
-                            )
-                            .changed();
-
-                        ui.add_space(10.0);
-                        panel_header(ui, "Layout");
-                        changed |= ui
-                            .add(
-                                egui::Slider::new(&mut self.settings.explorer_width, 180.0..=520.0)
-                                    .text("Explorer width"),
-                            )
-                            .changed();
-                        changed |= ui
-                            .add(
-                                egui::Slider::new(
-                                    &mut self.settings.inspector_width,
-                                    260.0..=640.0,
-                                )
-                                .text("Sidebar width"),
-                            )
-                            .changed();
-                        changed |= ui
-                            .add(
-                                egui::Slider::new(&mut self.settings.bottom_height, 140.0..=420.0)
-                                    .text("Bottom panel height"),
-                            )
-                            .changed();
-
-                        ui.add_space(10.0);
-                        panel_header(ui, "Window Size");
-                        ui.horizontal_wrapped(|ui| {
-                            if compact_button(ui, "1366x768").clicked() {
-                                self.apply_window_preset(ctx, 1366.0, 768.0);
-                                changed = true;
-                            }
-                            if compact_button(ui, "1600x920").clicked() {
-                                self.apply_window_preset(ctx, 1600.0, 920.0);
-                                changed = true;
-                            }
-                            if compact_button(ui, "1920x1080").clicked() {
-                                self.apply_window_preset(ctx, 1920.0, 1080.0);
-                                changed = true;
-                            }
-                        });
-                        ui.horizontal(|ui| {
-                            changed |= ui
-                                .add(
-                                    egui::Slider::new(
-                                        &mut self.settings.window_width,
-                                        1120.0..=3840.0,
-                                    )
-                                    .text("Width"),
-                                )
-                                .changed();
-                            changed |= ui
-                                .add(
-                                    egui::Slider::new(
-                                        &mut self.settings.window_height,
-                                        680.0..=2160.0,
-                                    )
-                                    .text("Height"),
-                                )
-                                .changed();
-                        });
-                        if ui.button("Apply window size").clicked() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
-                                self.settings.window_width,
-                                self.settings.window_height,
-                            )));
-                            changed = true;
-                        }
-
-                        ui.add_space(10.0);
-                        ui.horizontal(|ui| {
-                            if primary_button(ui, "Save Settings").clicked() {
-                                save_requested = true;
-                            }
-                            if ui.button("Reset UI").clicked() {
-                                self.settings = UiSettings::default();
-                                ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
-                                    egui::vec2(
-                                        self.settings.window_width,
-                                        self.settings.window_height,
-                                    ),
-                                ));
-                                changed = true;
-                                save_requested = true;
-                            }
-                        });
-                        ui.label(
-                            egui::RichText::new(
-                                "Saved to build/ide/settings.json for this portable copy.",
-                            )
-                            .color(ui_palette(ui).muted)
-                            .size(12.0),
-                        );
-
-                        if changed {
-                            configure_ui_style(ctx, &self.settings);
-                            save_requested = true;
-                        }
-                        if save_requested {
-                            self.save_ui_settings();
-                        }
-                    });
-            });
-        self.show_settings = open;
-    }
-
-    fn apply_window_preset(&mut self, ctx: &egui::Context, width: f32, height: f32) {
-        self.settings.window_width = width;
-        self.settings.window_height = height;
-        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(width, height)));
-    }
-
-    fn save_ui_settings(&mut self) {
-        match self.settings.save(&self.root) {
-            Ok(()) => {
-                self.status = "Settings saved".to_owned();
-            }
-            Err(error) => {
-                self.status = format!("Settings save failed: {error}");
-            }
-        }
-    }
-
-    fn show_explorer(&mut self, ui: &mut egui::Ui) {
-        ui.spacing_mut().item_spacing = egui::vec2(4.0, 1.0);
-        panel_header(ui, "Explorer");
-        ui.horizontal_wrapped(|ui| {
-            if compact_button(ui, "Open File").clicked() {
-                self.browse_file();
-            }
-            if compact_button(ui, "Open Folder").clicked() {
-                self.browse_folder();
-            }
-            if compact_button(ui, "Reveal").clicked() {
-                open_path(&self.root);
-            }
-        });
-        ui.label(
-            egui::RichText::new(self.root.display().to_string())
-                .color(ui_palette(ui).muted)
-                .monospace()
-                .size(11.5),
-        );
-        ui.add_space(6.0);
-        self.show_open_editors(ui);
-        ui.add_space(6.0);
-        ui.horizontal(|ui| {
-            ui.add_sized(
-                [(ui.available_width() - 84.0).max(90.0), 23.0],
-                egui::TextEdit::singleline(&mut self.new_file_input),
-            );
-            if compact_button(ui, "New").clicked() {
-                self.create_new_file();
-            }
-        });
-        ui.add_space(6.0);
-        ui.separator();
-        section_label(ui, "Workspace");
-
-        egui::ScrollArea::vertical()
-            .auto_shrink([false, false])
-            .show(ui, |ui| {
-                ui.spacing_mut().item_spacing.y = 1.0;
-                for path in explorer_roots(&self.root) {
-                    if path.exists() {
-                        self.show_directory(ui, &path, 0);
-                    }
-                }
-            });
-    }
-
-    fn show_open_editors(&mut self, ui: &mut egui::Ui) {
-        if self.open_files.is_empty() {
-            return;
-        }
-        section_label(ui, "Open Editors");
-        let palette = ui_palette(ui);
-        let mut action: Option<TabAction> = None;
-        for (index, file) in self.open_files.iter().enumerate() {
-            let selected = index == self.current_tab_index;
-            let fill = if selected {
-                palette.selected
-            } else {
-                egui::Color32::TRANSPARENT
-            };
-            let response = egui::Frame::none()
-                .fill(fill)
-                .rounding(egui::Rounding::same(3.0))
-                .inner_margin(egui::Margin::symmetric(2.0, 0.0))
-                .show(ui, |ui| {
-                    ui.set_min_width(ui.available_width());
-                    ui.horizontal(|ui| {
-                        let label = tab_label(&file.path, file.dirty);
-                        if ui
-                            .selectable_label(
-                                selected,
-                                egui::RichText::new(label).size(11.5).color(palette.text),
-                            )
-                            .clicked()
-                        {
-                            action = Some(TabAction::Switch(index));
-                        }
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui
-                                .add_sized(
-                                    [17.0, 17.0],
-                                    egui::Button::new(
-                                        egui::RichText::new("x").size(10.0).color(palette.muted),
-                                    ),
-                                )
-                                .on_hover_text("Close editor")
-                                .clicked()
-                            {
-                                action = Some(TabAction::Close(index));
-                            }
-                        });
-                    });
-                })
-                .response
-                .interact(egui::Sense::click());
-            if response.clicked() && action.is_none() {
-                action = Some(TabAction::Switch(index));
-            }
-        }
-        if let Some(action) = action {
-            match action {
-                TabAction::Switch(index) => self.switch_tab(index),
-                TabAction::Close(index) => self.close_tab(index),
-            }
-        }
-        ui.separator();
-    }
-
-    fn show_directory(&mut self, ui: &mut egui::Ui, path: &Path, depth: usize) {
-        let label = path
-            .file_name()
-            .and_then(|value| value.to_str())
-            .map(ToOwned::to_owned)
-            .unwrap_or_else(|| path.to_string_lossy().to_string());
-        let entries = sorted_visible_entries(path);
-        let label = explorer_directory_label(&self.root, path).unwrap_or(label);
-        let default_open = depth < 1 || is_official_examples_dir(&self.root, path);
-        egui::CollapsingHeader::new(
-            egui::RichText::new(label)
-                .strong()
-                .size(11.5)
-                .color(ui_palette(ui).text),
-        )
-        .default_open(default_open)
-        .show(ui, |ui| {
-            for entry in entries {
-                if entry.is_dir() {
-                    self.show_directory(ui, &entry, depth + 1);
-                } else {
-                    self.show_file_row(ui, &entry, depth + 1);
-                }
-            }
-        });
-    }
-
-    fn show_file_row(&mut self, ui: &mut egui::Ui, entry: &Path, depth: usize) {
-        let display = entry
-            .file_name()
-            .and_then(|value| value.to_str())
-            .unwrap_or("file");
-        let extension = entry
-            .extension()
-            .and_then(|value| value.to_str())
-            .unwrap_or("");
-        let selected = entry == self.current_path;
-        let category = example_category_label(entry);
-        let fill = if selected {
-            ui_palette(ui).selected
-        } else {
-            egui::Color32::TRANSPARENT
-        };
-        let response = egui::Frame::none()
-            .fill(fill)
-            .rounding(egui::Rounding::same(3.0))
-            .inner_margin(egui::Margin::symmetric(2.0, 0.0))
-            .show(ui, |ui| {
-                ui.set_min_width(ui.available_width());
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing = egui::vec2(3.0, 0.0);
-                    ui.add_space(depth as f32 * 7.0);
-                    ui.label(
-                        egui::RichText::new(display)
-                            .size(11.5)
-                            .color(ui_palette(ui).text),
-                    );
-                    if !extension.is_empty() {
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            ui.label(
-                                egui::RichText::new(extension.to_ascii_uppercase())
-                                    .size(10.5)
-                                    .color(ui_palette(ui).muted),
-                            );
-                            if let Some(category) = category {
-                                ui.label(
-                                    egui::RichText::new(category)
-                                        .size(10.5)
-                                        .color(ui_palette(ui).accent),
-                                );
-                            }
-                        });
-                    }
-                });
-            })
-            .response
-            .interact(egui::Sense::click());
-        if response.clicked() {
-            self.open_file(entry.to_path_buf());
-        }
-        let hover = if let Some(category) = category {
-            format!("{category}: {}", self.relative_path(entry))
-        } else {
-            self.relative_path(entry)
-        };
-        response.on_hover_text(hover);
-    }
-
-    fn show_file_tabs(&mut self, ui: &mut egui::Ui) {
-        let palette = ui_palette(ui);
-        let mut action: Option<TabAction> = None;
-        egui::ScrollArea::horizontal()
-            .id_source("open_file_tabs")
-            .auto_shrink([false, true])
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing = egui::vec2(0.0, 0.0);
-                    for (index, file) in self.open_files.iter().enumerate() {
-                        let selected = index == self.current_tab_index;
-                        let fill = if selected {
-                            palette.editor_bg
-                        } else {
-                            palette.panel_alt
-                        };
-                        let stroke = if selected {
-                            egui::Stroke::new(1.0, palette.accent)
-                        } else {
-                            egui::Stroke::new(1.0, palette.border)
-                        };
-                        let response = egui::Frame::none()
-                            .fill(fill)
-                            .stroke(stroke)
-                            .inner_margin(egui::Margin::symmetric(8.0, 4.0))
-                            .show(ui, |ui| {
-                                ui.horizontal(|ui| {
-                                    let label = tab_label(&file.path, file.dirty);
-                                    if ui
-                                        .selectable_label(
-                                            selected,
-                                            egui::RichText::new(label).size(12.0),
-                                        )
-                                        .clicked()
-                                    {
-                                        action = Some(TabAction::Switch(index));
-                                    }
-                                    if ui
-                                        .add_sized(
-                                            [18.0, 18.0],
-                                            egui::Button::new(
-                                                egui::RichText::new("x")
-                                                    .size(10.5)
-                                                    .color(palette.muted),
-                                            ),
-                                        )
-                                        .on_hover_text("Close")
-                                        .clicked()
-                                    {
-                                        action = Some(TabAction::Close(index));
-                                    }
-                                });
-                            })
-                            .response
-                            .interact(egui::Sense::click());
-                        if response.clicked() && action.is_none() {
-                            action = Some(TabAction::Switch(index));
-                        }
-                    }
-                });
-            });
-        if let Some(action) = action {
-            match action {
-                TabAction::Switch(index) => self.switch_tab(index),
-                TabAction::Close(index) => self.close_tab(index),
-            }
-        }
-    }
-
-    fn show_editor(&mut self, ui: &mut egui::Ui) {
-        let palette = ui_palette(ui);
-        let code_font_size = self.settings.code_font_size;
-        let soft_wrap_code = self.settings.soft_wrap_code;
-        self.show_file_tabs(ui);
-        ui.add_space(4.0);
-        egui::Frame::none()
-            .fill(palette.editor_bg)
-            .stroke(egui::Stroke::new(1.0, palette.border))
-            .rounding(egui::Rounding::same(4.0))
-            .inner_margin(egui::Margin::same(8.0))
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.heading(
-                        egui::RichText::new(self.relative_path(&self.current_path)).size(14.0),
-                    );
-                    if self.dirty {
-                        ui.label(egui::RichText::new("modified").color(WARNING));
-                    }
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(
-                            egui::RichText::new(format!("{} lines", self.source.lines().count()))
-                                .color(ui_palette(ui).muted),
-                        );
-                    });
-                });
-                ui.separator();
-                let diagnostics = self.diagnostics.clone();
-                let mut layouter = move |ui: &egui::Ui, text: &str, wrap_width: f32| {
-                    let mut job = highlight_eng(text, &diagnostics, ui_palette(ui), code_font_size);
-                    job.wrap.max_width = if soft_wrap_code {
-                        wrap_width
-                    } else {
-                        f32::INFINITY
-                    };
-                    ui.fonts(|fonts| fonts.layout_job(job))
-                };
-                let editor_height = ui.available_height().max(260.0);
-                let editor_width = ui.available_width().max(CODE_MIN_WIDTH);
-                egui::ScrollArea::both()
-                    .auto_shrink([false, false])
-                    .max_height(editor_height)
-                    .max_width(editor_width)
-                    .show(ui, |ui| {
-                        let content_width = if soft_wrap_code {
-                            editor_width
-                        } else {
-                            editor_width.max(estimated_code_width(&self.source, code_font_size))
-                        };
-                        ui.set_min_size(egui::vec2(content_width, editor_height));
-                        let line_count = self.source.lines().count().max(32);
-                        let source_before = self.source.clone();
-                        let completion_before_tab = self.first_completion_for_prefix();
-                        let tab_requested = ui.input(|input| {
-                            input.key_pressed(egui::Key::Tab)
-                                && !input.modifiers.shift
-                                && !input.modifiers.ctrl
-                                && !input.modifiers.alt
-                        });
-                        let text_output = egui::TextEdit::multiline(&mut self.source)
-                            .code_editor()
-                            .desired_width(content_width)
-                            .desired_rows(line_count + 2)
-                            .font(egui::TextStyle::Monospace)
-                            .lock_focus(true)
-                            .layouter(&mut layouter)
-                            .show(ui);
-                        if text_output.response.changed() {
-                            self.dirty = true;
-                            self.last_edit = Some(Instant::now());
-                            self.sync_current_tab();
-                        }
-                        if text_output.response.has_focus() {
-                            if let Some(cursor_range) = text_output.cursor_range {
-                                self.cursor_char_index = cursor_range.primary.ccursor.index;
-                                self.sync_current_tab();
-                            }
-                            let mut accepted_completion = false;
-                            if tab_requested {
-                                if let Some(item) = completion_before_tab {
-                                    self.remove_single_inserted_char(&source_before, '\t');
-                                    self.insert_completion(&item.insert);
-                                    self.completion_filter =
-                                        current_prefix(&self.source, self.cursor_char_index);
-                                    accepted_completion = true;
-                                } else if self.accept_first_completion() {
-                                    accepted_completion = true;
-                                }
-                            }
-                            if text_output.response.changed() && !accepted_completion {
-                                self.maybe_auto_close_pair(&source_before);
-                                self.sync_current_tab();
-                            }
-                            if ui.input(|input| {
-                                input.key_pressed(egui::Key::Space) && input.modifiers.ctrl
-                            }) {
-                                self.completion_filter =
-                                    current_prefix(&self.source, self.cursor_char_index);
-                            }
-                            self.update_completion_filter_from_cursor();
-                        }
-                    });
-                let prefix = current_prefix(&self.source, self.cursor_char_index);
-                if !prefix.is_empty() {
-                    let items = self.completion_items_for_filter(&prefix);
-                    if let Some(item) = items.first() {
-                        ui.add_space(4.0);
-                        completion_hint(ui, &prefix, item);
-                    }
-                    self.show_inline_completions(ui, &items);
-                }
-            });
-    }
-
-    fn show_inline_completions(&mut self, ui: &mut egui::Ui, items: &[CompletionItem]) {
-        if items.is_empty() {
-            return;
-        }
-        let palette = ui_palette(ui);
-        egui::Frame::none()
-            .fill(palette.panel)
-            .stroke(egui::Stroke::new(1.0, palette.border))
-            .rounding(egui::Rounding::same(4.0))
-            .inner_margin(egui::Margin::symmetric(6.0, 4.0))
-            .show(ui, |ui| {
-                ui.set_max_width(520.0);
-                for (index, item) in items.iter().take(6).enumerate() {
-                    let response = egui::Frame::none()
-                        .fill(if index == 0 {
-                            palette.selected
-                        } else {
-                            egui::Color32::TRANSPARENT
-                        })
-                        .rounding(egui::Rounding::same(3.0))
-                        .inner_margin(egui::Margin::symmetric(5.0, 2.0))
-                        .show(ui, |ui| {
-                            ui.horizontal(|ui| {
-                                ui.add_sized(
-                                    [150.0, 18.0],
-                                    egui::Label::new(
-                                        egui::RichText::new(&item.label).monospace().strong(),
-                                    ),
-                                );
-                                ui.label(
-                                    egui::RichText::new(&item.detail)
-                                        .color(palette.muted)
-                                        .size(11.5),
-                                );
-                            });
-                        })
-                        .response
-                        .interact(egui::Sense::click());
-                    if response.clicked() {
-                        self.insert_completion(&item.insert);
-                    }
-                }
-            });
-    }
-
-    fn show_right_panel(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            tab_button(ui, "Variables", self.right_tab == RightTab::Variables)
-                .clicked()
-                .then(|| self.right_tab = RightTab::Variables);
-        });
-        ui.separator();
-        self.right_tab = RightTab::Variables;
-        match self.right_tab {
-            RightTab::Variables => self.show_variables_panel(ui),
-            RightTab::Inspector => self.show_inspector(ui),
-            RightTab::Runtime => self.show_runtime_inspector(ui),
-            RightTab::Completions => self.show_completions(ui),
-        }
-    }
-
-    fn show_variables_panel(&mut self, ui: &mut egui::Ui) {
-        panel_header(ui, "Variables");
-        let status = self
-            .artifact_summary
-            .as_ref()
-            .map(|summary| summary.status.clone());
-        let variables = self
-            .artifact_summary
-            .as_ref()
-            .map(|summary| summary.variables.clone())
-            .unwrap_or_default();
-        let args = self
-            .artifact_summary
-            .as_ref()
-            .map(|summary| summary.args.clone())
-            .unwrap_or_default();
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                metric_chip(
-                    ui,
-                    "Source",
-                    &self.symbols.len().to_string(),
-                    ui_palette(ui).accent,
-                );
-                metric_chip(
-                    ui,
-                    "Run",
-                    &variables.len().to_string(),
-                    ui_palette(ui).accent,
-                );
-                metric_chip(ui, "Args", &args.len().to_string(), ui_palette(ui).accent);
-                if let Some(status) = &status {
-                    metric_chip(ui, "Status", status, ui_palette(ui).accent);
-                }
-            });
-            ui.add_space(8.0);
-
-            if self.artifact_summary.is_some() {
-                section_label(ui, "Run Variables");
-                if variables.is_empty() {
-                    ui.label(
-                        egui::RichText::new("No variable table was emitted for this run.")
-                            .color(ui_palette(ui).muted),
-                    );
-                }
-                if !variables.is_empty() {
-                    self.show_runtime_variable_table(ui, &variables);
-                }
-
-                if !args.is_empty() {
-                    ui.add_space(8.0);
-                    section_label(ui, "Args");
-                    egui::Frame::none()
-                        .fill(ui_palette(ui).panel_alt)
-                        .stroke(egui::Stroke::new(1.0, ui_palette(ui).border))
-                        .rounding(egui::Rounding::same(4.0))
-                        .inner_margin(egui::Margin::symmetric(6.0, 5.0))
-                        .show(ui, |ui| {
-                            table_header_row(ui, &["Name", "Type", "Value", "Source", "Required"]);
-                            for arg in &args {
-                                ui.horizontal(|ui| {
-                                    ui.add_sized([86.0, 18.0], egui::Label::new(&arg.name));
-                                    ui.add_sized([58.0, 18.0], egui::Label::new(&arg.type_name));
-                                    ui.add_sized(
-                                        [92.0, 18.0],
-                                        egui::Label::new(
-                                            egui::RichText::new(&arg.value).monospace(),
-                                        ),
-                                    );
-                                    ui.add_sized([58.0, 18.0], egui::Label::new(&arg.source));
-                                    ui.add_sized(
-                                        [58.0, 18.0],
-                                        egui::Label::new(arg.required.to_string()),
-                                    );
-                                });
-                            }
-                        });
-                }
-                ui.add_space(10.0);
-            }
-
-            section_label(ui, "Source Symbols");
-            if self.symbols.is_empty() {
-                ui.label(egui::RichText::new("No source symbols").color(ui_palette(ui).muted));
-            }
-            if !self.symbols.is_empty() {
-                egui::Frame::none()
-                    .fill(ui_palette(ui).panel_alt)
-                    .stroke(egui::Stroke::new(1.0, ui_palette(ui).border))
-                    .rounding(egui::Rounding::same(4.0))
-                    .inner_margin(egui::Margin::symmetric(6.0, 5.0))
-                    .show(ui, |ui| {
-                        table_header_row(ui, &["Name", "Quantity", "Unit", "Line"]);
-                        for symbol in &self.symbols {
-                            ui.horizontal(|ui| {
-                                ui.add_sized(
-                                    [86.0, 18.0],
-                                    egui::Label::new(egui::RichText::new(&symbol.name).strong()),
-                                );
-                                ui.add_sized([86.0, 18.0], egui::Label::new(&symbol.quantity_kind));
-                                ui.add_sized([46.0, 18.0], egui::Label::new(&symbol.display_unit));
-                                ui.add_sized(
-                                    [40.0, 18.0],
-                                    egui::Label::new(
-                                        egui::RichText::new(format!("L{}", symbol.line))
-                                            .color(ui_palette(ui).muted),
-                                    ),
-                                );
-                            });
-                        }
-                    });
-            }
-        });
-    }
-
-    fn show_runtime_variable_table(
-        &mut self,
-        ui: &mut egui::Ui,
-        variables: &[RuntimeVariableView],
-    ) {
-        egui::ScrollArea::horizontal()
-            .id_source("runtime_variable_table_scroll")
-            .auto_shrink([false, true])
-            .show(ui, |ui| {
-                egui::Frame::none()
-                    .fill(ui_palette(ui).panel_alt)
-                    .stroke(egui::Stroke::new(1.0, ui_palette(ui).border))
-                    .rounding(egui::Rounding::same(4.0))
-                    .inner_margin(egui::Margin::symmetric(6.0, 5.0))
-                    .show(ui, |ui| {
-                        ui.set_min_width(390.0);
-                        table_header_row(ui, &["Name", "Kind", "Unit", "Value", "Source", "Line"]);
-                        for variable in variables {
-                            let selected =
-                                self.expanded_variable.as_deref() == Some(variable.name.as_str());
-                            let mut clicked = false;
-                            let fill = if selected {
-                                ui_palette(ui).selected
-                            } else {
-                                egui::Color32::TRANSPARENT
-                            };
-                            let response = egui::Frame::none()
-                                .fill(fill)
-                                .rounding(egui::Rounding::same(3.0))
-                                .inner_margin(egui::Margin::symmetric(3.0, 1.0))
-                                .show(ui, |ui| {
-                                    ui.horizontal(|ui| {
-                                        clicked |= ui
-                                            .add_sized(
-                                                [86.0, 19.0],
-                                                egui::SelectableLabel::new(
-                                                    selected,
-                                                    egui::RichText::new(&variable.name)
-                                                        .strong()
-                                                        .size(12.0),
-                                                ),
-                                            )
-                                            .clicked();
-                                        ui.add_sized(
-                                            [82.0, 19.0],
-                                            egui::Label::new(variable_kind_label(variable)),
-                                        );
-                                        ui.add_sized(
-                                            [46.0, 19.0],
-                                            egui::Label::new(unit_label(&variable.display_unit)),
-                                        );
-                                        ui.add_sized(
-                                            [82.0, 19.0],
-                                            egui::Label::new(
-                                                egui::RichText::new(variable_value_label(variable))
-                                                    .monospace()
-                                                    .size(11.5),
-                                            ),
-                                        );
-                                        ui.add_sized(
-                                            [58.0, 19.0],
-                                            egui::Label::new(short_label(&variable.source, 12)),
-                                        );
-                                        ui.add_sized(
-                                            [34.0, 19.0],
-                                            egui::Label::new(if variable.line == 0 {
-                                                "-".to_owned()
-                                            } else {
-                                                format!("L{}", variable.line)
-                                            }),
-                                        );
-                                    });
-                                })
-                                .response
-                                .interact(egui::Sense::click());
-                            if response.clicked() || clicked {
-                                if selected {
-                                    self.expanded_variable = None;
-                                } else {
-                                    self.expanded_variable = Some(variable.name.clone());
-                                }
-                            }
-                            if selected {
-                                self.show_runtime_variable_detail(ui, variable);
-                            }
-                        }
-                    });
-            });
-    }
-
-    fn show_runtime_variable_detail(&self, ui: &mut egui::Ui, variable: &RuntimeVariableView) {
-        runtime_card(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                status_pill(ui, &variable.quantity_kind, ui_palette(ui).accent);
-                if let Some(role) = &variable.role {
-                    status_pill(ui, role, ui_palette(ui).muted);
-                }
-                status_pill(ui, &variable.source, ui_palette(ui).muted);
-            });
-            if let Some(value) = &variable.value {
-                key_value_row(ui, "value", value);
-            }
-            key_value_row(ui, "display", &variable.display_unit);
-            key_value_row(ui, "canonical", &variable.canonical_unit);
-            key_value_row(ui, "dimension", &variable.dimension);
-            if should_preview_plot_for(variable) {
-                if let Some(plot) = &self.plot_preview {
-                    ui.add_space(6.0);
-                    section_label(ui, "Preview");
-                    draw_plot(ui, plot);
-                }
-            }
-        });
-        ui.add_space(5.0);
-    }
-
-    fn show_inspector(&mut self, ui: &mut egui::Ui) {
-        panel_header(ui, "Inspector");
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                metric_chip(
-                    ui,
-                    "Variables",
-                    &self.symbols.len().to_string(),
-                    ui_palette(ui).accent,
-                );
-                metric_chip(
-                    ui,
-                    "Schemas",
-                    &self.schemas.len().to_string(),
-                    ui_palette(ui).accent,
-                );
-                metric_chip(
-                    ui,
-                    "CSV",
-                    &self.csv_promotions.len().to_string(),
-                    ui_palette(ui).accent,
-                );
-                metric_chip(
-                    ui,
-                    "Domains",
-                    &self.domains.len().to_string(),
-                    ui_palette(ui).accent,
-                );
-                metric_chip(
-                    ui,
-                    "Components",
-                    &self.components.len().to_string(),
-                    ui_palette(ui).accent,
-                );
-                metric_chip(
-                    ui,
-                    "Connections",
-                    &self.connections.len().to_string(),
-                    ui_palette(ui).accent,
-                );
-            });
-            ui.add_space(8.0);
-
-            self.show_domain_component_inspector(ui);
-
-            section_label(ui, "Variables");
-            if self.symbols.is_empty() {
-                ui.label(egui::RichText::new("No symbols").color(ui_palette(ui).muted));
-            }
-            for symbol in &self.symbols {
-                runtime_card(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new(&symbol.name).strong());
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            status_pill(ui, &format!("L{}", symbol.line), ui_palette(ui).muted);
-                        });
-                    });
-                    key_value_row(ui, "quantity", &symbol.quantity_kind);
-                    key_value_row(ui, "display", &symbol.display_unit);
-                    key_value_row(ui, "canonical", &symbol.canonical_unit);
-                    key_value_row(ui, "dimension", &symbol.dimension);
-                    key_value_row(ui, "source", &symbol.source);
-                    if let Some(source_unit) = &symbol.source_unit {
-                        key_value_row(ui, "source unit", source_unit);
-                    }
-                    if let Some(expression) = &symbol.expression {
-                        key_value_row(ui, "expression", expression);
-                    }
-                    if !symbol.steps.is_empty() {
-                        key_value_row(ui, "unit path", &symbol.steps.join(" -> "));
-                    }
-                })
-                .response
-                .on_hover_text(&symbol.detail);
-                ui.add_space(5.0);
-            }
-
-            self.show_unit_derivations(ui);
-            self.show_schema_inspector(ui);
-            self.show_csv_promotions(ui);
-        });
-    }
-
-    fn show_domain_component_inspector(&self, ui: &mut egui::Ui) {
-        section_label(ui, "Domain Graph");
-        if self.domains.is_empty() && self.components.is_empty() && self.connections.is_empty() {
-            ui.label(
-                egui::RichText::new("No domain/component declarations").color(ui_palette(ui).muted),
-            );
-            ui.add_space(8.0);
-            return;
-        }
-
-        if !self.domains.is_empty() {
-            ui.label(
-                egui::RichText::new("Domains")
-                    .color(ui_palette(ui).muted)
-                    .size(12.0),
-            );
-            for domain in &self.domains {
-                runtime_card(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new(&domain.name).strong());
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            status_pill(ui, &format!("L{}", domain.line), ui_palette(ui).muted);
-                        });
-                    });
-                    key_value_row(ui, "variables", &domain.variables.len().to_string());
-                    key_value_row(
-                        ui,
-                        "parameters",
-                        &domain_parameter_list(&domain.type_parameters),
-                    );
-                    if let Some(package) = &domain.package {
-                        key_value_row(ui, "package", package);
-                    }
-                    if let Some(version) = &domain.version {
-                        key_value_row(ui, "version", version);
-                    }
-                    for variable in &domain.variables {
-                        let detail = format!(
-                            "{} {}: {} [{}] -> {}",
-                            variable.role,
-                            variable.name,
-                            variable.quantity_kind,
-                            variable.display_unit,
-                            variable.canonical_unit
-                        );
-                        key_value_row(ui, &format!("L{}", variable.line), &detail);
-                        key_value_row(ui, "dimension", &variable.dimension);
-                    }
-                    if !domain.conservations.is_empty() {
-                        key_value_row(ui, "conservation", &domain.conservations.len().to_string());
-                        for conservation in &domain.conservations {
-                            ui.horizontal_wrapped(|ui| {
-                                ui.add_sized(
-                                    [92.0, 18.0],
-                                    egui::Label::new(
-                                        egui::RichText::new(format!("L{}", conservation.line))
-                                            .color(ui_palette(ui).muted)
-                                            .size(12.0),
-                                    ),
-                                );
-                                ui.label(
-                                    egui::RichText::new(&conservation.text)
-                                        .monospace()
-                                        .size(12.0),
-                                );
-                                status_pill(
-                                    ui,
-                                    &conservation.status,
-                                    status_color(&conservation.status, ui_palette(ui)),
-                                );
-                            });
-                        }
-                    }
-                });
-                ui.add_space(5.0);
-            }
-        }
-
-        if !self.components.is_empty() {
-            ui.add_space(6.0);
-            ui.label(
-                egui::RichText::new("Components")
-                    .color(ui_palette(ui).muted)
-                    .size(12.0),
-            );
-            for component in &self.components {
-                runtime_card(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new(&component.name).strong());
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            status_pill(ui, &format!("L{}", component.line), ui_palette(ui).muted);
-                        });
-                    });
-                    key_value_row(ui, "ports", &component.ports.len().to_string());
-                    for port in &component.ports {
-                        ui.horizontal_wrapped(|ui| {
-                            ui.add_sized(
-                                [92.0, 18.0],
-                                egui::Label::new(
-                                    egui::RichText::new(format!("L{}", port.line))
-                                        .color(ui_palette(ui).muted)
-                                        .size(12.0),
-                                ),
-                            );
-                            ui.label(
-                                egui::RichText::new(format!("{}: {}", port.name, port.domain))
-                                    .monospace()
-                                    .size(12.0),
-                            );
-                            status_pill(
-                                ui,
-                                &port.status,
-                                status_color(&port.status, ui_palette(ui)),
-                            );
-                        });
-                        if !port.type_arguments.is_empty() {
-                            key_value_row(ui, "arguments", &compact_list(&port.type_arguments, 4));
-                        }
-                        key_value_row(ui, "domain base", &port.domain_name);
-                    }
-                });
-                ui.add_space(5.0);
-            }
-        }
-
-        if !self.connections.is_empty() {
-            ui.add_space(6.0);
-            ui.label(
-                egui::RichText::new("Connections")
-                    .color(ui_palette(ui).muted)
-                    .size(12.0),
-            );
-            for connection in &self.connections {
-                runtime_card(ui, |ui| {
-                    ui.horizontal_wrapped(|ui| {
-                        ui.label(
-                            egui::RichText::new(format!("L{}", connection.line))
-                                .color(ui_palette(ui).muted),
-                        );
-                        ui.label(
-                            egui::RichText::new(format!(
-                                "{} -> {}",
-                                connection.left, connection.right
-                            ))
-                            .monospace()
-                            .strong(),
-                        );
-                    });
-                    key_value_row(ui, "domain", &connection.domain);
-                    ui.horizontal_wrapped(|ui| {
-                        ui.add_sized(
-                            [92.0, 18.0],
-                            egui::Label::new(
-                                egui::RichText::new("status")
-                                    .color(ui_palette(ui).muted)
-                                    .size(12.0),
-                            ),
-                        );
-                        status_pill(
-                            ui,
-                            &connection.status,
-                            status_color(&connection.status, ui_palette(ui)),
-                        );
-                    });
-                });
-                ui.add_space(5.0);
-            }
-        }
-
-        ui.add_space(8.0);
-        ui.separator();
-        ui.add_space(8.0);
-    }
-
-    fn show_unit_derivations(&self, ui: &mut egui::Ui) {
-        ui.add_space(8.0);
-        section_label(ui, "Unit Paths");
-        if self.unit_derivations.is_empty() {
-            ui.label(egui::RichText::new("No unit derivations").color(ui_palette(ui).muted));
-            return;
-        }
-        for derivation in &self.unit_derivations {
-            runtime_card(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(&derivation.name).strong());
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        status_pill(ui, &format!("L{}", derivation.line), ui_palette(ui).muted);
-                    });
-                });
-                key_value_row(ui, "quantity", &derivation.quantity_kind);
-                key_value_row(ui, "display", &derivation.display_unit);
-                key_value_row(ui, "canonical", &derivation.canonical_unit);
-                if let Some(source_unit) = &derivation.source_unit {
-                    key_value_row(ui, "source unit", source_unit);
-                }
-                if let Some(expression) = &derivation.expression {
-                    key_value_row(ui, "expression", expression);
-                }
-                if !derivation.steps.is_empty() {
-                    key_value_row(ui, "steps", &derivation.steps.join(" -> "));
-                }
-            });
-            ui.add_space(5.0);
-        }
-    }
-
-    fn show_schema_inspector(&self, ui: &mut egui::Ui) {
-        ui.add_space(8.0);
-        section_label(ui, "Schemas");
-        if self.schemas.is_empty() {
-            ui.label(egui::RichText::new("No schema declarations").color(ui_palette(ui).muted));
-            return;
-        }
-        for schema in &self.schemas {
-            runtime_card(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(&schema.name).strong());
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        status_pill(ui, &format!("L{}", schema.line), ui_palette(ui).muted);
-                    });
-                });
-                key_value_row(ui, "columns", &schema.columns.len().to_string());
-                for column in &schema.columns {
-                    let mut detail = format!("{} {}", column.name, column.type_name);
-                    if let Some(unit) = &column.unit {
-                        detail.push_str(&format!(" [{unit}]"));
-                    }
-                    if column.is_index {
-                        detail.push_str(" index");
-                    }
-                    key_value_row(ui, &format!("L{}", column.line), &detail);
-                }
-                if !schema.constraints.is_empty() {
-                    ui.add_space(4.0);
-                    key_value_row(ui, "constraints", &schema.constraints.len().to_string());
-                    for constraint in &schema.constraints {
-                        key_value_row(ui, &format!("L{}", constraint.line), &constraint.text);
-                    }
-                }
-                if !schema.missing_policies.is_empty() {
-                    ui.add_space(4.0);
-                    key_value_row(ui, "missing", &schema.missing_policies.len().to_string());
-                    for policy in &schema.missing_policies {
-                        key_value_row(
-                            ui,
-                            &format!("L{}", policy.line),
-                            &format!("{}: {}", policy.column, policy.policy),
-                        );
-                    }
-                }
-            });
-            ui.add_space(5.0);
-        }
-    }
-
-    fn show_csv_promotions(&self, ui: &mut egui::Ui) {
-        ui.add_space(8.0);
-        section_label(ui, "CSV Promotions");
-        if self.csv_promotions.is_empty() {
-            ui.label(egui::RichText::new("No CSV promotions").color(ui_palette(ui).muted));
-            return;
-        }
-        for promotion in &self.csv_promotions {
-            runtime_card(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(&promotion.binding).strong());
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        status_pill(ui, &format!("L{}", promotion.line), ui_palette(ui).muted);
-                    });
-                });
-                key_value_row(ui, "schema", &promotion.schema_name);
-                key_value_row(ui, "rows", &promotion.row_count.to_string());
-                key_value_row(ui, "source", &promotion.source_value);
-                if !promotion.resolved_path.is_empty() {
-                    key_value_row(ui, "resolved", &promotion.resolved_path);
-                }
-                key_value_row(ui, "headers", &compact_list(&promotion.headers, 8));
-                if promotion.missing_columns.is_empty() {
-                    key_value_row(ui, "missing", "none");
-                } else {
-                    key_value_row(ui, "missing", &promotion.missing_columns.join(", "));
-                }
-            });
-            ui.add_space(5.0);
-        }
-    }
-
-    fn show_completions(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            ui.label("Filter");
-            ui.add_sized(
-                [ui.available_width(), 25.0],
-                egui::TextEdit::singleline(&mut self.completion_filter),
-            );
-        });
-        ui.add_space(6.0);
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            let items = self.completion_items_for_filter(&self.completion_filter);
-            for (index, item) in items.iter().enumerate() {
-                let fill = if index == 0 {
-                    ui_palette(ui).selected
-                } else {
-                    ui_palette(ui).panel_alt
-                };
-                let response = egui::Frame::none()
-                    .fill(fill)
-                    .rounding(egui::Rounding::same(5.0))
-                    .inner_margin(egui::Margin::symmetric(8.0, 6.0))
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new(&item.label).strong());
-                            if index == 0 {
-                                ui.with_layout(
-                                    egui::Layout::right_to_left(egui::Align::Center),
-                                    |ui| {
-                                        status_pill(ui, "Tab", ui_palette(ui).accent);
-                                    },
-                                );
-                            }
-                        });
-                        ui.label(
-                            egui::RichText::new(&item.detail)
-                                .color(ui_palette(ui).muted)
-                                .size(12.0),
-                        );
-                    })
-                    .response;
-                if response.interact(egui::Sense::click()).clicked() {
-                    self.insert_completion(&item.insert);
-                }
-                ui.add_space(5.0);
-            }
-        });
-    }
-
-    fn show_runtime_inspector(&self, ui: &mut egui::Ui) {
-        panel_header(ui, "Runtime Summary");
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            self.show_runtime_summary_content(ui);
-        });
-    }
-
-    fn show_runtime_summary_content(&self, ui: &mut egui::Ui) {
-        let Some(summary) = &self.artifact_summary else {
-            ui.label(
-                egui::RichText::new("Run the current file to inspect result artifacts.")
-                    .color(ui_palette(ui).muted),
-            );
-            ui.add_space(8.0);
-            self.show_jit_plan(ui);
-            return;
-        };
-        ui.horizontal_wrapped(|ui| {
-            metric_chip(ui, "Status", &summary.status, OK);
-            metric_chip(
-                ui,
-                "Uncertainty",
-                &summary.uncertainties.len().to_string(),
-                ui_palette(ui).accent,
-            );
-            metric_chip(
-                ui,
-                "ML",
-                &summary.ml.len().to_string(),
-                ui_palette(ui).accent,
-            );
-            metric_chip(
-                ui,
-                "Policies",
-                &summary.policy_count.to_string(),
-                ui_palette(ui).accent,
-            );
-            metric_chip(
-                ui,
-                "Systems",
-                &summary.system_count.to_string(),
-                ui_palette(ui).accent,
-            );
-            if let Some(plan) = &self.jit_plan {
-                metric_chip(
-                    ui,
-                    "Kernel Plan",
-                    &plan.candidates.len().to_string(),
-                    ui_palette(ui).accent,
-                );
-            }
-        });
-        ui.add_space(8.0);
-
-        section_label(ui, "Uncertainty");
-        if summary.uncertainties.is_empty() {
-            ui.label(
-                egui::RichText::new("No uncertainty artifacts in this run.")
-                    .color(ui_palette(ui).muted),
-            );
-        }
-        for item in &summary.uncertainties {
-            runtime_card(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(&item.binding).strong());
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        status_pill(ui, &item.status, OK);
-                    });
-                });
-                ui.label(
-                    egui::RichText::new(format!(
-                        "{} / {} [{}]",
-                        item.kind, item.quantity_kind, item.display_unit
-                    ))
-                    .color(ui_palette(ui).muted),
-                );
-                key_value_row(
-                    ui,
-                    "distribution",
-                    item.distribution.as_deref().unwrap_or(""),
-                );
-                key_value_row(ui, "method", item.method.as_deref().unwrap_or(""));
-                let transform =
-                    runtime_transform_label(item.scale.as_deref(), item.offset.as_deref());
-                if !transform.is_empty() {
-                    key_value_row(ui, "transform", &transform);
-                }
-                if !item.propagation.is_empty() {
-                    key_value_row(ui, "propagation", &item.propagation.join(", "));
-                }
-                key_value_row(
-                    ui,
-                    "mean",
-                    &item.mean.clone().unwrap_or_else(|| "-".to_owned()),
-                );
-                key_value_row(
-                    ui,
-                    "stddev",
-                    &item.stddev.clone().unwrap_or_else(|| "-".to_owned()),
-                );
-                key_value_row(
-                    ui,
-                    "p05/p50/p95",
-                    &format!(
-                        "{} / {} / {}",
-                        item.p05.as_deref().unwrap_or("-"),
-                        item.p50.as_deref().unwrap_or("-"),
-                        item.p95.as_deref().unwrap_or("-")
-                    ),
-                );
-                key_value_row(ui, "samples", &item.sample_count.to_string());
-            });
-            ui.add_space(6.0);
-        }
-
-        ui.add_space(8.0);
-        section_label(ui, "ML Models");
-        if summary.ml.is_empty() {
-            ui.label(
-                egui::RichText::new("No ML artifacts in this run.").color(ui_palette(ui).muted),
-            );
-        }
-        for item in &summary.ml {
-            runtime_card(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(&item.binding).strong());
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        status_pill(ui, &item.status, OK);
-                    });
-                });
-                ui.label(egui::RichText::new(&item.kind).color(ui_palette(ui).muted));
-                if let Some(target) = &item.target {
-                    key_value_row(ui, "target", target);
-                }
-                if !item.features.is_empty() {
-                    key_value_row(ui, "features", &item.features.join(", "));
-                }
-                key_value_row(
-                    ui,
-                    "train/test",
-                    &format!(
-                        "{} / {}",
-                        item.train_count
-                            .map(|value| value.to_string())
-                            .unwrap_or_else(|| "-".to_owned()),
-                        item.test_count
-                            .map(|value| value.to_string())
-                            .unwrap_or_else(|| "-".to_owned())
-                    ),
-                );
-                key_value_row(
-                    ui,
-                    "rmse/mae/r2",
-                    &format!(
-                        "{} / {} / {}",
-                        item.rmse.as_deref().unwrap_or("-"),
-                        item.mae.as_deref().unwrap_or("-"),
-                        item.r2.as_deref().unwrap_or("-")
-                    ),
-                );
-                if let Some(leakage) = &item.leakage_status {
-                    key_value_row(ui, "leakage", leakage);
-                }
-                if !item.coefficients.is_empty() {
-                    key_value_row(ui, "coefficients", &item.coefficients.join(", "));
-                }
-                if let Some(loss) = &item.loss_summary {
-                    key_value_row(ui, "loss", loss);
-                }
-            });
-            ui.add_space(6.0);
-        }
-
-        ui.add_space(8.0);
-        self.show_jit_plan(ui);
-    }
-
-    fn show_jit_plan(&self, ui: &mut egui::Ui) {
-        section_label(ui, "Kernel Plan");
-        let Some(plan) = &self.jit_plan else {
-            ui.label(
-                egui::RichText::new("Check the current file to inspect kernel candidates.")
-                    .color(ui_palette(ui).muted),
-            );
-            return;
-        };
-
-        ui.horizontal_wrapped(|ui| {
-            metric_chip(ui, "Format", &plan.format, ui_palette(ui).muted);
-            metric_chip(ui, "Backend", &plan.backend, WARNING);
-            metric_chip(ui, "Backend Status", &plan.backend_status, WARNING);
-            metric_chip(
-                ui,
-                "Candidates",
-                &plan.candidates.len().to_string(),
-                ui_palette(ui).accent,
-            );
-        });
-        key_value_row(ui, "requested", &plan.backend_requested);
-        key_value_row(ui, "selection", &plan.backend_reason);
-        ui.add_space(6.0);
-        ui.label(
-            egui::RichText::new("Planning metadata only; execution still uses the normal runtime.")
-                .color(ui_palette(ui).muted)
-                .size(12.0),
-        );
-        ui.add_space(6.0);
-
-        if plan.candidates.is_empty() {
-            ui.label(
-                egui::RichText::new("No kernel candidates in this file.")
-                    .color(ui_palette(ui).muted),
-            );
-            return;
-        }
-
-        for candidate in &plan.candidates {
-            runtime_card(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(&candidate.name).strong());
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        status_pill(ui, &format!("L{}", candidate.line), ui_palette(ui).muted);
-                    });
-                });
-                ui.horizontal_wrapped(|ui| {
-                    status_pill(ui, &candidate.kind, ui_palette(ui).accent);
-                    let status_color = if candidate.lowering_status == "interface_only" {
-                        WARNING
-                    } else {
-                        OK
-                    };
-                    status_pill(ui, &candidate.lowering_status, status_color);
-                });
-                key_value_row(ui, "source", &candidate.source);
-                key_value_row(ui, "reason", &candidate.reason);
-                key_value_row(
-                    ui,
-                    "estimate",
-                    &format!(
-                        "rows={}, inputs={}, outputs={}, ops={}, scans={}",
-                        candidate
-                            .estimate
-                            .estimated_rows
-                            .map(|value| value.to_string())
-                            .unwrap_or_else(|| "-".to_owned()),
-                        candidate.estimate.input_count,
-                        candidate.estimate.output_count,
-                        candidate.estimate.operation_count,
-                        candidate.estimate.scan_count
-                    ),
-                );
-                key_value_row(ui, "complexity", &candidate.estimate.complexity);
-                key_value_row(ui, "ops", &candidate.operations.join(" -> "));
-                if !candidate.estimate.notes.is_empty() {
-                    key_value_row(ui, "notes", &candidate.estimate.notes.join("; "));
-                }
-            });
-            ui.add_space(6.0);
-        }
-    }
-
-    fn show_bottom_panel(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            tab_button(ui, "Problems", self.bottom_tab == BottomTab::Problems)
-                .clicked()
-                .then(|| self.bottom_tab = BottomTab::Problems);
-            tab_button(ui, "Terminal", self.bottom_tab == BottomTab::Terminal)
-                .clicked()
-                .then(|| self.bottom_tab = BottomTab::Terminal);
-        });
-        ui.separator();
-        match self.bottom_tab {
-            BottomTab::Problems => self.show_problems(ui),
-            BottomTab::Terminal => self.show_terminal(ui),
-        }
-    }
-
-    fn show_problems(&self, ui: &mut egui::Ui) {
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            if self.diagnostics.is_empty() {
-                ui.label(egui::RichText::new("No diagnostics").color(OK));
-            }
-            for diagnostic in &self.diagnostics {
-                let color = if diagnostic.severity == "error" {
-                    ERROR
-                } else {
-                    WARNING
-                };
-                ui.horizontal_wrapped(|ui| {
-                    ui.label(
-                        egui::RichText::new(&diagnostic.severity)
-                            .color(color)
-                            .strong(),
-                    );
-                    ui.label(
-                        egui::RichText::new(format!("L{}", diagnostic.line))
-                            .color(ui_palette(ui).muted),
-                    );
-                    ui.label(egui::RichText::new(&diagnostic.code).monospace());
-                    ui.label(&diagnostic.message);
-                });
-                if let Some(help) = &diagnostic.help {
-                    ui.label(
-                        egui::RichText::new(format!("help: {help}")).color(ui_palette(ui).muted),
-                    );
-                }
-                ui.add_space(6.0);
-            }
-        });
-    }
-
-    fn show_terminal(&mut self, ui: &mut egui::Ui) {
-        let available_height = ui.available_height();
-        let terminal_bg = egui::Color32::from_rgb(30, 32, 36);
-        let terminal_border = egui::Color32::from_rgb(65, 70, 78);
-        let terminal_text = egui::Color32::from_rgb(221, 225, 232);
-        let terminal_muted = egui::Color32::from_rgb(143, 151, 163);
-
-        egui::Frame::none()
-            .fill(terminal_bg)
-            .stroke(egui::Stroke::new(1.0, terminal_border))
-            .rounding(egui::Rounding::same(4.0))
-            .inner_margin(egui::Margin::symmetric(8.0, 6.0))
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(
-                        egui::RichText::new("EngLang Terminal")
-                            .strong()
-                            .color(terminal_text),
-                    );
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if compact_button(ui, "Reset").on_hover_text("Clear interactive session").clicked() {
-                            self.terminal_session_source.clear();
-                            self.run_log.clear();
-                            self.status = "Terminal session reset".to_owned();
-                        }
-                        if compact_button(ui, "Clear").clicked() {
-                            self.run_log.clear();
-                        }
-                        if compact_button(ui, "Plot").clicked() {
-                            self.terminal_show_plot = !self.terminal_show_plot;
-                        }
-                        if compact_button(ui, "Save").clicked() {
-                            self.save_terminal_artifacts();
-                        }
-                        if compact_button(ui, "Check").clicked() {
-                            self.check_current();
-                            self.append_terminal("Checked current file. See Problems for diagnostics.");
-                        }
-                        if compact_button(ui, "Run").clicked() {
-                            self.run_current();
-                        }
-                    });
-                });
-                ui.add_space(4.0);
-
-                let transcript_height = (available_height - 78.0).clamp(78.0, 330.0);
-                egui::ScrollArea::vertical()
-                    .stick_to_bottom(true)
-                    .auto_shrink([false, false])
-                    .max_height(transcript_height)
-                    .show(ui, |ui| {
-                        if self.run_log.is_empty() {
-                            ui.label(
-                                egui::RichText::new(
-                                    "Ready. Type EngLang statements or commands: run, check, plot, clear, reset, help.",
-                                )
-                                .monospace()
-                                .color(terminal_muted),
-                            );
-                        } else {
-                            for line in self.run_log.lines() {
-                                ui.label(
-                                    egui::RichText::new(line)
-                                        .monospace()
-                                        .color(terminal_text)
-                                        .size(12.5),
-                                );
-                            }
-                        }
-                        if self.terminal_show_plot {
-                            if let Some(plot) = &self.plot_preview {
-                                ui.add_space(8.0);
-                                draw_plot_sized(ui, plot, 220.0);
-                            } else {
-                                ui.label(
-                                    egui::RichText::new("No plot is available for this session.")
-                                        .monospace()
-                                        .color(terminal_muted),
-                                );
-                            }
-                        }
-                    });
-
-                ui.separator();
-                ui.horizontal(|ui| {
-                    let prompt = self.terminal_prompt();
-                    let prompt_width = (ui.available_width() * 0.34).clamp(180.0, 520.0);
-                    ui.add_sized(
-                        [prompt_width, 24.0],
-                        egui::Label::new(
-                            egui::RichText::new(prompt)
-                                .monospace()
-                                .strong()
-                                .color(egui::Color32::from_rgb(118, 179, 255)),
-                        ),
-                    );
-                    let response = ui.add_sized(
-                        [(ui.available_width() - 64.0).max(120.0), 24.0],
-                        egui::TextEdit::singleline(&mut self.terminal_input)
-                            .hint_text("x: AbsoluteTemperature = 3 degC"),
-                    );
-                    let submit = response.lost_focus()
-                        && ui.input(|input| input.key_pressed(egui::Key::Enter));
-                    if primary_button(ui, "Send").clicked() || submit {
-                        let command = std::mem::take(&mut self.terminal_input);
-                        self.execute_terminal_command(&command);
-                    }
-                });
-            });
-    }
-
-    fn execute_terminal_command(&mut self, command: &str) {
-        let trimmed = command.trim();
-        if trimmed.is_empty() {
-            return;
-        }
-        match trimmed.to_ascii_lowercase().as_str() {
-            "clear" | "cls" => {
-                self.run_log.clear();
-            }
-            "reset" | "session clear" | "clear session" => {
-                self.run_log.clear();
-                self.terminal_session_source.clear();
-                self.terminal_show_plot = false;
-                self.status = "Terminal session reset".to_owned();
-            }
-            "run" => {
-                self.run_current();
-                self.run_log = format!("> {trimmed}\n{}", self.run_log);
-            }
-            "check" => {
-                self.check_current();
-                self.append_terminal(format!("> {trimmed}\nChecked current file."));
-            }
-            "save" | "save artifacts" | "save files" => {
-                self.append_terminal(format!("> {trimmed}"));
-                self.save_terminal_artifacts();
-            }
-            "help" => {
-                self.append_terminal(
-                    "> help\nCommands: run, check, plot, clear, reset, save artifacts, open report, open plot.\nEngLang one-liners are executed in the terminal session.",
-                );
-            }
-            "plot" | "show plot" => {
-                self.terminal_show_plot = !self.terminal_show_plot;
-                self.append_terminal(format!(
-                    "> {trimmed}\nplot preview {}",
-                    if self.terminal_show_plot {
-                        "shown"
-                    } else {
-                        "hidden"
-                    }
-                ));
-            }
-            "open report" => {
-                self.append_terminal(format!("> {trimmed}"));
-                self.open_last_run_file(RunFileKind::Report);
-            }
-            "open plot" => {
-                self.append_terminal(format!("> {trimmed}"));
-                self.open_last_run_file(RunFileKind::Plot);
-            }
-            _ => {
-                self.execute_interactive_line(trimmed);
-            }
-        }
-    }
-
-    fn execute_interactive_line(&mut self, line: &str) {
-        let mut session_source = self.terminal_session_source.trim_end().to_owned();
-        if !session_source.is_empty() {
-            session_source.push('\n');
-        }
-        session_source.push_str(line);
-        session_source.push('\n');
-
-        let session_path = self
-            .root
-            .join("build")
-            .join("ide-interactive")
-            .join("session.eng");
-        let report = check_source(&session_path, &session_source, &CheckOptions::default());
-        if report.has_errors() {
-            self.apply_check_report(&report);
-            self.append_terminal(format!(
-                "{}{}\n{}",
-                self.terminal_prompt(),
-                line,
-                diagnostic_summary_text(&report)
-            ));
-            self.status = "Interactive line has diagnostics".to_owned();
-            self.bottom_tab = BottomTab::Problems;
-            return;
-        }
-
-        if let Some(parent) = session_path.parent() {
-            if let Err(error) = fs::create_dir_all(parent) {
-                self.append_terminal(format!("Could not create terminal session: {error}"));
-                return;
-            }
-        }
-        if let Err(error) = fs::write(&session_path, &session_source) {
-            self.append_terminal(format!("Could not write terminal session: {error}"));
-            return;
-        }
-
-        let build_root = self.root.join("build").join("ide-interactive-run");
-        match run_file(
-            &session_path,
-            &build_root,
-            &RunOptions {
-                open_report: false,
-                save_artifacts: false,
-                args: Vec::new(),
-                ..RunOptions::default()
-            },
-        ) {
-            Ok(output) => {
-                self.terminal_session_source = session_source;
-                let output = RunOutputView::from_output(output, &self.root);
-                let artifact_summary = ArtifactSummary::from_output(&output).ok();
-                self.plot_preview = PlotPreview::from_plot_spec_json(&output.plot_spec_json).ok();
-                self.artifact_summary = artifact_summary;
-                self.last_output = Some(output);
-                self.apply_check_report(&report);
-                self.append_terminal(format!(
-                    "{}{}\n{}",
-                    self.terminal_prompt(),
-                    line,
-                    interactive_success_text(self.artifact_summary.as_ref())
-                ));
-                self.status = "Interactive line executed".to_owned();
-            }
-            Err(RuntimeError::Compile(report)) => {
-                self.apply_check_report(&report);
-                self.append_terminal(format!(
-                    "{}{}\n{}",
-                    self.terminal_prompt(),
-                    line,
-                    diagnostic_summary_text(&report)
-                ));
-                self.status = "Interactive compile failed".to_owned();
-                self.bottom_tab = BottomTab::Problems;
-            }
-            Err(error) => {
-                self.append_terminal(format!(
-                    "{}{}\nRun failed: {error}",
-                    self.terminal_prompt(),
-                    line
-                ));
-                self.status = "Interactive run failed".to_owned();
-            }
-        }
-    }
-
-    fn append_terminal(&mut self, text: impl AsRef<str>) {
-        if !self.run_log.is_empty() && !self.run_log.ends_with('\n') {
-            self.run_log.push('\n');
-        }
-        self.run_log.push_str(text.as_ref());
-        if !self.run_log.ends_with('\n') {
-            self.run_log.push('\n');
-        }
-        self.bottom_tab = BottomTab::Terminal;
-    }
-
-    fn terminal_prompt(&self) -> String {
-        let cwd = self.current_path.parent().unwrap_or(&self.root);
-        format!("EngLang {} >> ", cwd.display())
-    }
-
-    fn save_terminal_artifacts(&mut self) {
-        let Some(output) = &mut self.last_output else {
-            self.append_terminal("No run output is available to save.");
-            return;
-        };
-        match output.save_artifacts() {
-            Ok(()) => {
-                let report = output.relative_report_path.clone();
-                let plot = output.relative_plot_path.clone();
-                self.status = "Run files saved".to_owned();
-                self.append_terminal(format!(
-                    "Saved report and plot.\nreport: {report}\nplot:   {plot}"
-                ));
-            }
-            Err(error) => {
-                self.status = format!("Could not save run files: {error}");
-                self.append_terminal(format!("Could not save run files: {error}"));
-            }
-        }
-    }
-
-    fn open_last_run_file(&mut self, kind: RunFileKind) {
-        let Some(output) = &mut self.last_output else {
-            self.status = format!("No {} yet", kind.label());
-            self.append_terminal(format!("No {} is available yet.", kind.label()));
-            return;
-        };
-        if !output.artifacts_saved {
-            if let Err(error) = output.save_artifacts() {
-                self.status = format!("Could not save run files: {error}");
-                self.append_terminal(format!("Could not save run files: {error}"));
-                return;
-            }
-        }
-        let (path, relative_path) = match kind {
-            RunFileKind::Report => (
-                output.report_path.clone(),
-                output.relative_report_path.clone(),
-            ),
-            RunFileKind::Plot => (output.plot_path.clone(), output.relative_plot_path.clone()),
-        };
-        open_path(&path);
-        self.status = format!("Opened {}", kind.label());
-        self.append_terminal(format!("Opened {relative_path}"));
-    }
-
-    fn show_workspace(&mut self, ui: &mut egui::Ui) {
-        self.show_editor(ui);
-    }
-}
-
-impl eframe::App for EngIdeApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        configure_ui_style(ctx, &self.settings);
-        self.maybe_auto_check(ctx);
-
-        egui::TopBottomPanel::top("toolbar")
-            .frame(panel_frame(ctx))
-            .show(ctx, |ui| self.show_toolbar(ui));
-
-        egui::TopBottomPanel::bottom("bottom_panel")
-            .resizable(true)
-            .default_height(self.settings.bottom_height)
-            .height_range(120.0..=520.0)
-            .frame(panel_frame(ctx))
-            .show(ctx, |ui| self.show_bottom_panel(ui));
-
-        if self.show_explorer {
-            egui::SidePanel::left("explorer")
-                .resizable(true)
-                .default_width(self.settings.explorer_width)
-                .width_range(180.0..=520.0)
-                .frame(panel_frame(ctx))
-                .show(ctx, |ui| self.show_explorer(ui));
-        }
-
-        if self.show_inspector_panel {
-            egui::SidePanel::right("inspector")
-                .resizable(true)
-                .default_width(self.settings.inspector_width)
-                .width_range(260.0..=640.0)
-                .frame(panel_frame(ctx))
-                .show(ctx, |ui| self.show_right_panel(ui));
-        }
-
-        egui::CentralPanel::default()
-            .frame(
-                egui::Frame::none()
-                    .fill(ThemePalette::for_theme(self.settings.theme).bg)
-                    .inner_margin(egui::Margin::same(8.0)),
-            )
-            .show(ctx, |ui| {
-                self.show_workspace(ui);
-            });
-
-        if self.show_settings {
-            self.show_settings_window(ctx);
-        }
-    }
-}
-
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct DiagnosticView {
     severity: String,
     code: String,
@@ -3305,7 +64,8 @@ struct DiagnosticView {
     help: Option<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct SymbolView {
     name: String,
     line: usize,
@@ -3314,216 +74,55 @@ struct SymbolView {
     canonical_unit: String,
     dimension: String,
     source: String,
-    source_unit: Option<String>,
-    expression: Option<String>,
-    steps: Vec<String>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CompletionView {
+    label: String,
+    insert: String,
     detail: String,
-}
-
-#[derive(Clone)]
-struct UnitDerivationView {
-    name: String,
-    line: usize,
-    quantity_kind: String,
-    source_unit: Option<String>,
-    display_unit: String,
-    canonical_unit: String,
-    expression: Option<String>,
-    steps: Vec<String>,
-}
-
-#[derive(Clone)]
-struct SchemaView {
-    name: String,
-    line: usize,
-    columns: Vec<SchemaColumnView>,
-    constraints: Vec<TextLineView>,
-    missing_policies: Vec<MissingPolicyView>,
-}
-
-#[derive(Clone)]
-struct SchemaColumnView {
-    name: String,
-    type_name: String,
-    unit: Option<String>,
-    is_index: bool,
-    line: usize,
-}
-
-#[derive(Clone)]
-struct TextLineView {
-    text: String,
-    line: usize,
-}
-
-#[derive(Clone)]
-struct MissingPolicyView {
-    column: String,
-    policy: String,
-    line: usize,
-}
-
-#[derive(Clone)]
-struct CsvPromotionView {
-    binding: String,
-    schema_name: String,
-    source_value: String,
-    resolved_path: String,
-    row_count: usize,
-    headers: Vec<String>,
-    missing_columns: Vec<String>,
-    line: usize,
-}
-
-#[derive(Clone)]
-struct DomainView {
-    name: String,
-    type_parameters: Vec<DomainParameterView>,
-    package: Option<String>,
-    version: Option<String>,
-    line: usize,
-    variables: Vec<DomainVariableView>,
-    conservations: Vec<DomainConservationView>,
-}
-
-#[derive(Clone)]
-struct DomainParameterView {
     kind: String,
-    name: String,
-    display: String,
 }
 
-#[derive(Clone)]
-struct DomainVariableView {
-    role: String,
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RunView {
+    ok: bool,
+    terminal: String,
+    check: CheckView,
+    variables: Vec<RuntimeVariableView>,
+    args: Vec<RuntimeArgView>,
+    plot_spec: Value,
+    report_title: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RuntimeVariableView {
     name: String,
     quantity_kind: String,
     display_unit: String,
     canonical_unit: String,
     dimension: String,
-    line: usize,
-}
-
-#[derive(Clone)]
-struct DomainConservationView {
-    text: String,
-    status: String,
-    line: usize,
-}
-
-#[derive(Clone)]
-struct ComponentView {
-    name: String,
-    line: usize,
-    ports: Vec<PortView>,
-}
-
-#[derive(Clone)]
-struct PortView {
-    name: String,
-    domain: String,
-    domain_name: String,
-    type_arguments: Vec<String>,
-    status: String,
-    line: usize,
-}
-
-#[derive(Clone)]
-struct ConnectionView {
-    left: String,
-    right: String,
-    domain: String,
-    status: String,
-    line: usize,
-}
-
-#[derive(Clone)]
-struct JitPlanView {
-    format: String,
-    backend: String,
-    backend_requested: String,
-    backend_status: String,
-    backend_reason: String,
-    candidates: Vec<JitCandidateView>,
-}
-
-impl JitPlanView {
-    fn from_plan(plan: &eng_jit::NumericKernelPlan) -> Self {
-        Self {
-            format: plan.format.clone(),
-            backend: plan.backend.clone(),
-            backend_requested: plan.backend_selection.requested.clone(),
-            backend_status: plan.backend_selection.status.clone(),
-            backend_reason: plan.backend_selection.reason.clone(),
-            candidates: plan
-                .candidates
-                .iter()
-                .map(JitCandidateView::from_candidate)
-                .collect(),
-        }
-    }
-}
-
-#[derive(Clone)]
-struct JitCandidateView {
-    name: String,
-    kind: String,
-    line: usize,
     source: String,
-    reason: String,
-    lowering_status: String,
-    operations: Vec<String>,
-    estimate: JitEstimateView,
+    role: Option<String>,
+    value: Option<String>,
+    line: usize,
 }
 
-impl JitCandidateView {
-    fn from_candidate(candidate: &eng_jit::KernelCandidate) -> Self {
-        Self {
-            name: candidate.name.clone(),
-            kind: candidate.kind.clone(),
-            line: candidate.line,
-            source: candidate.source.clone(),
-            reason: candidate.reason.clone(),
-            lowering_status: candidate.lowering_status.clone(),
-            operations: candidate.operations.clone(),
-            estimate: JitEstimateView::from_estimate(&candidate.estimate),
-        }
-    }
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RuntimeArgView {
+    name: String,
+    type_name: String,
+    value: String,
+    source: String,
+    required: bool,
 }
 
 #[derive(Clone)]
-struct JitEstimateView {
-    estimated_rows: Option<usize>,
-    input_count: usize,
-    output_count: usize,
-    operation_count: usize,
-    scan_count: usize,
-    complexity: String,
-    notes: Vec<String>,
-}
-
-impl JitEstimateView {
-    fn from_estimate(estimate: &eng_jit::KernelEstimate) -> Self {
-        Self {
-            estimated_rows: estimate.estimated_rows,
-            input_count: estimate.input_count,
-            output_count: estimate.output_count,
-            operation_count: estimate.operation_count,
-            scan_count: estimate.scan_count,
-            complexity: estimate.complexity.clone(),
-            notes: estimate.notes.clone(),
-        }
-    }
-}
-
-#[derive(Clone)]
-struct CompletionItem {
-    label: String,
-    insert: String,
-    detail: String,
-}
-
-struct RunOutputView {
+struct CachedRunOutput {
     bytecode_path: PathBuf,
     result_path: PathBuf,
     review_path: PathBuf,
@@ -3536,13 +135,9 @@ struct RunOutputView {
     plot_spec_path: PathBuf,
     plot_manifest_path: PathBuf,
     output_manifest_path: PathBuf,
-    csv_export_paths: Vec<PathBuf>,
-    write_output_paths: Vec<PathBuf>,
-    file_operation_paths: Vec<PathBuf>,
     relative_report_path: String,
     relative_plot_path: String,
     artifacts_saved: bool,
-    stdout: String,
     bytecode: String,
     result_json: String,
     review_json: String,
@@ -3557,7 +152,7 @@ struct RunOutputView {
     output_manifest_json: String,
 }
 
-impl RunOutputView {
+impl CachedRunOutput {
     fn from_output(output: eng_runtime::RunOutput, root: &Path) -> Self {
         Self {
             relative_report_path: relative_to(root, &output.report_path),
@@ -3574,11 +169,7 @@ impl RunOutputView {
             plot_spec_path: output.plot_spec_path,
             plot_manifest_path: output.plot_manifest_path,
             output_manifest_path: output.output_manifest_path,
-            csv_export_paths: output.csv_export_paths,
-            write_output_paths: output.write_output_paths,
-            file_operation_paths: output.file_operation_paths,
             artifacts_saved: output.artifacts_saved,
-            stdout: output.stdout,
             bytecode: output.bytecode,
             result_json: output.result_json,
             review_json: output.review_json,
@@ -3594,65 +185,10 @@ impl RunOutputView {
         }
     }
 
-    fn terminal_summary(&self, summary: Option<&ArtifactSummary>) -> String {
-        let run_output = if self.stdout.is_empty() {
-            String::new()
-        } else {
-            format!("{}\n\n", self.stdout.trim_end())
-        };
-        let mut lines = vec![format!("{run_output}Run OK")];
-        if let Some(summary) = summary {
-            lines.push(format!(
-                "status: {}, variables: {}, args: {}, uncertainty: {}, ml: {}, systems: {}",
-                summary.status,
-                summary.variables.len(),
-                summary.args.len(),
-                summary.uncertainties.len(),
-                summary.ml.len(),
-                summary.system_count
-            ));
-        }
-        let title = report_title(&self.report_spec_json);
-        if !title.is_empty() {
-            lines.push(format!("report: {title}"));
-        }
-        if self.plot_spec_json.trim().is_empty() {
-            lines.push("plot: none".to_owned());
-        } else {
-            lines.push("plot: rendered below".to_owned());
-        }
-        if !self.csv_export_paths.is_empty() {
-            lines.push(format!(
-                "csv exports: {}",
-                path_list_label(&self.csv_export_paths)
-            ));
-        }
-        if !self.write_output_paths.is_empty() {
-            lines.push(format!(
-                "write outputs: {}",
-                path_list_label(&self.write_output_paths)
-            ));
-        }
-        if !self.file_operation_paths.is_empty() {
-            lines.push(format!(
-                "file operations: {}",
-                path_list_label(&self.file_operation_paths)
-            ));
-        }
-        lines.push("save artifacts: write report/plot/result files when needed".to_owned());
-        lines.join("\n")
-    }
-
     fn save_artifacts(&mut self) -> Result<(), String> {
-        if let Some(parent) = self.bytecode_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-        }
-        if let Some(parent) = self.result_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-        }
-        if let Some(parent) = self.plot_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-        }
+        create_parent(&self.bytecode_path)?;
+        create_parent(&self.result_path)?;
+        create_parent(&self.plot_path)?;
         fs::write(&self.bytecode_path, &self.bytecode).map_err(|error| error.to_string())?;
         fs::write(&self.result_path, &self.result_json).map_err(|error| error.to_string())?;
         fs::write(&self.review_path, &self.review_json).map_err(|error| error.to_string())?;
@@ -3675,207 +211,495 @@ impl RunOutputView {
     }
 }
 
-struct ArtifactSummary {
-    status: String,
-    variables: Vec<RuntimeVariableView>,
-    args: Vec<RuntimeArgView>,
-    uncertainties: Vec<UncertaintyArtifactView>,
-    ml: Vec<MlArtifactView>,
-    policy_count: usize,
-    system_count: usize,
+#[tauri::command]
+fn ide_bootstrap() -> Result<WorkspaceView, String> {
+    let root = workspace_root();
+    let current_path = default_file(&root);
+    let source = read_utf8(&current_path)?;
+    let check = check_view(&current_path, &source);
+    Ok(WorkspaceView {
+        root: root.display().to_string(),
+        file_tree: workspace_tree(&root),
+        current: FileView {
+            path: relative_to(&root, &current_path),
+            source,
+        },
+        check,
+        completions: base_completion_items(),
+    })
 }
 
-impl ArtifactSummary {
-    fn from_output(output: &RunOutputView) -> Result<Self, String> {
-        let mut summary = Self::from_result_json(&output.result_json)?;
-        summary.apply_report_spec_json(&output.report_spec_json)?;
-        Ok(summary)
-    }
+#[tauri::command]
+fn ide_open_file(path: String) -> Result<FileView, String> {
+    let root = workspace_root();
+    let path = resolve_path(&root, &path);
+    Ok(FileView {
+        path: relative_to(&root, &path),
+        source: read_utf8(&path)?,
+    })
+}
 
-    fn from_result_json(text: &str) -> Result<Self, String> {
-        let value: Value = serde_json::from_str(text).map_err(|error| error.to_string())?;
-        let payload = value
-            .get("typed_payload")
-            .ok_or_else(|| "missing typed_payload".to_owned())?;
-        let status = json_string(payload, &["status"]).unwrap_or_else(|| "unknown".to_owned());
-        let uncertainties = payload
-            .get("uncertainties")
-            .and_then(Value::as_array)
-            .map(|items| {
-                items
-                    .iter()
-                    .map(UncertaintyArtifactView::from_json)
-                    .collect()
-            })
-            .unwrap_or_default();
-        let ml = payload
-            .get("ml")
-            .and_then(Value::as_array)
-            .map(|items| items.iter().map(MlArtifactView::from_json).collect())
-            .unwrap_or_default();
-        let policy_count = payload
-            .get("policy_results")
-            .and_then(Value::as_array)
-            .map(Vec::len)
-            .unwrap_or(0);
-        let system_count = payload
-            .get("systems")
-            .and_then(Value::as_array)
-            .map(Vec::len)
-            .unwrap_or(0);
-        let variables = value
-            .get("object_store")
-            .and_then(|object_store| object_store.get("objects"))
-            .and_then(Value::as_array)
-            .map(|items| {
-                items
-                    .iter()
-                    .map(RuntimeVariableView::from_runtime_object)
-                    .collect()
-            })
-            .unwrap_or_default();
-        Ok(Self {
-            status,
-            variables,
+#[tauri::command]
+fn ide_save_file(path: String, source: String) -> Result<FileView, String> {
+    let root = workspace_root();
+    let path = resolve_path(&root, &path);
+    create_parent(&path)?;
+    fs::write(&path, source.as_bytes()).map_err(|error| error.to_string())?;
+    Ok(FileView {
+        path: relative_to(&root, &path),
+        source,
+    })
+}
+
+#[tauri::command]
+fn ide_check(path: String, source: String) -> CheckView {
+    let root = workspace_root();
+    let path = resolve_path(&root, &path);
+    check_view(&path, &source)
+}
+
+#[tauri::command]
+fn ide_run(path: String, source: String, state: State<'_, IdeState>) -> Result<RunView, String> {
+    let root = workspace_root();
+    let path = resolve_path(&root, &path);
+    create_parent(&path)?;
+    fs::write(&path, source.as_bytes()).map_err(|error| error.to_string())?;
+    let check = check_view(&path, &source);
+    if check
+        .diagnostics
+        .iter()
+        .any(|item| item.severity == "error")
+    {
+        return Ok(RunView {
+            ok: false,
+            terminal: "Run blocked by diagnostics. See Problems.".to_owned(),
+            check,
+            variables: Vec::new(),
             args: Vec::new(),
-            uncertainties,
-            ml,
-            policy_count,
-            system_count,
-        })
+            plot_spec: Value::Null,
+            report_title: String::new(),
+        });
+    }
+    run_source_file(&root, &path, check, state)
+}
+
+#[tauri::command]
+fn ide_terminal(
+    path: String,
+    source: String,
+    command: String,
+    state: State<'_, IdeState>,
+) -> Result<RunView, String> {
+    let trimmed = command.trim();
+    let root = workspace_root();
+    let current_path = resolve_path(&root, &path);
+    if trimmed.eq_ignore_ascii_case("clear") || trimmed.eq_ignore_ascii_case("cls") {
+        return Ok(RunView::message("Terminal cleared."));
+    }
+    if trimmed.eq_ignore_ascii_case("reset") {
+        *state
+            .terminal_session_source
+            .lock()
+            .map_err(|error| error.to_string())? = String::new();
+        return Ok(RunView::message("Terminal session reset."));
+    }
+    if trimmed.eq_ignore_ascii_case("check") {
+        let check = check_view(&current_path, &source);
+        return Ok(RunView {
+            ok: true,
+            terminal: diagnostic_summary_text(&check),
+            check,
+            variables: Vec::new(),
+            args: Vec::new(),
+            plot_spec: Value::Null,
+            report_title: String::new(),
+        });
+    }
+    if trimmed.eq_ignore_ascii_case("run") {
+        return ide_run(path, source, state);
     }
 
-    fn apply_report_spec_json(&mut self, text: &str) -> Result<(), String> {
-        let value: Value = serde_json::from_str(text).map_err(|error| error.to_string())?;
-        let report_variables: Vec<RuntimeVariableView> = value
-            .get("variable_table")
-            .and_then(Value::as_array)
-            .map(|items| {
-                items
-                    .iter()
-                    .map(RuntimeVariableView::from_report_variable)
-                    .collect()
-            })
-            .unwrap_or_default();
-        for variable in report_variables {
-            merge_runtime_variable(&mut self.variables, variable);
+    let session_source = {
+        let mut session = state
+            .terminal_session_source
+            .lock()
+            .map_err(|error| error.to_string())?;
+        if !session.trim().is_empty() {
+            session.push('\n');
         }
+        session.push_str(trimmed);
+        session.push('\n');
+        session.clone()
+    };
+    let session_path = root
+        .join("build")
+        .join("ide-tauri-session")
+        .join("session.eng");
+    let check = check_view(&session_path, &session_source);
+    if check
+        .diagnostics
+        .iter()
+        .any(|item| item.severity == "error")
+    {
+        return Ok(RunView {
+            ok: false,
+            terminal: diagnostic_summary_text(&check),
+            check,
+            variables: Vec::new(),
+            args: Vec::new(),
+            plot_spec: Value::Null,
+            report_title: String::new(),
+        });
+    }
+    create_parent(&session_path)?;
+    fs::write(&session_path, session_source.as_bytes()).map_err(|error| error.to_string())?;
+    run_source_file(&root, &session_path, check, state)
+}
 
+#[tauri::command]
+fn ide_open_artifact(kind: String, state: State<'_, IdeState>) -> Result<String, String> {
+    let mut guard = state
+        .last_output
+        .lock()
+        .map_err(|error| error.to_string())?;
+    let Some(output) = guard.as_mut() else {
+        return Err("No run output is available.".to_owned());
+    };
+    if !output.artifacts_saved {
+        output.save_artifacts()?;
+    }
+    let (path, relative) = match kind.as_str() {
+        "plot" => (&output.plot_path, &output.relative_plot_path),
+        _ => (&output.report_path, &output.relative_report_path),
+    };
+    open_path(path);
+    Ok(relative.clone())
+}
+
+impl RunView {
+    fn message(text: impl Into<String>) -> Self {
+        Self {
+            ok: true,
+            terminal: text.into(),
+            check: CheckView {
+                diagnostics: Vec::new(),
+                symbols: Vec::new(),
+                status: "ok".to_owned(),
+            },
+            variables: Vec::new(),
+            args: Vec::new(),
+            plot_spec: Value::Null,
+            report_title: String::new(),
+        }
+    }
+}
+
+fn main() {
+    if env::args().any(|arg| arg == "--smoke" || arg == "smoke") {
+        if let Err(error) = smoke() {
+            eprintln!("EngLang IDE smoke failed: {error}");
+            std::process::exit(1);
+        }
+        return;
+    }
+
+    tauri::Builder::default()
+        .manage(IdeState::default())
+        .invoke_handler(tauri::generate_handler![
+            ide_bootstrap,
+            ide_open_file,
+            ide_save_file,
+            ide_check,
+            ide_run,
+            ide_terminal,
+            ide_open_artifact
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running EngLang IDE");
+}
+
+fn run_source_file(
+    root: &Path,
+    path: &Path,
+    check: CheckView,
+    state: State<'_, IdeState>,
+) -> Result<RunView, String> {
+    let build_root = root.join("build").join("ide-tauri-run");
+    match run_file(
+        path,
+        &build_root,
+        &RunOptions {
+            open_report: false,
+            save_artifacts: false,
+            args: Vec::new(),
+            ..RunOptions::default()
+        },
+    ) {
+        Ok(output) => {
+            let stdout = output.stdout.clone();
+            let cached = CachedRunOutput::from_output(output, root);
+            let variables = runtime_variables(&cached);
+            let args = runtime_args(&cached.report_spec_json);
+            let report_title = report_title(&cached.report_spec_json);
+            let plot_spec = serde_json::from_str(&cached.plot_spec_json).unwrap_or(Value::Null);
+            let terminal = terminal_summary(&stdout, &variables, &args, &report_title, &plot_spec);
+            *state
+                .last_output
+                .lock()
+                .map_err(|error| error.to_string())? = Some(cached);
+            Ok(RunView {
+                ok: true,
+                terminal,
+                check,
+                variables,
+                args,
+                plot_spec,
+                report_title,
+            })
+        }
+        Err(RuntimeError::Compile(report)) => {
+            let check = check_view_from_report(&report);
+            Ok(RunView {
+                ok: false,
+                terminal: diagnostic_summary_text(&check),
+                check,
+                variables: Vec::new(),
+                args: Vec::new(),
+                plot_spec: Value::Null,
+                report_title: String::new(),
+            })
+        }
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+fn check_view(path: &Path, source: &str) -> CheckView {
+    let report = check_source(path, source, &CheckOptions::default());
+    check_view_from_report(&report)
+}
+
+fn check_view_from_report(report: &CheckReport) -> CheckView {
+    let diagnostics: Vec<DiagnosticView> = report
+        .diagnostics
+        .iter()
+        .map(|diagnostic| DiagnosticView {
+            severity: diagnostic.severity.as_str().to_owned(),
+            code: diagnostic.code.clone(),
+            line: diagnostic.line,
+            message: diagnostic.message.clone(),
+            help: diagnostic.help.clone(),
+        })
+        .collect();
+    let symbols = report
+        .semantic_program
+        .hover_hints
+        .iter()
+        .map(|hover| {
+            let type_info = report
+                .semantic_program
+                .type_infos
+                .iter()
+                .find(|info| info.name == hover.name && info.line == hover.line);
+            SymbolView {
+                name: hover.name.clone(),
+                line: hover.line,
+                quantity_kind: hover.quantity_kind.clone(),
+                display_unit: hover.display_unit.clone(),
+                canonical_unit: type_info
+                    .map(|info| info.canonical_unit.clone())
+                    .unwrap_or_else(|| hover.display_unit.clone()),
+                dimension: type_info
+                    .map(|info| info.dimension.clone())
+                    .unwrap_or_else(|| "-".to_owned()),
+                source: type_info
+                    .map(|info| info.source.as_str().to_owned())
+                    .unwrap_or_else(|| "symbol".to_owned()),
+            }
+        })
+        .collect();
+    let errors = report.diagnostic_count(Severity::Error);
+    let warnings = report.diagnostic_count(Severity::Warning);
+    CheckView {
+        diagnostics,
+        symbols,
+        status: format!("{errors} error(s), {warnings} warning(s)"),
+    }
+}
+
+fn base_completion_items() -> Vec<CompletionView> {
+    let mut items = Vec::new();
+    for keyword in [
+        "args", "const", "export", "fn", "if", "import", "log", "plot", "print", "promote", "read",
+        "report", "return", "schema", "system", "test", "where", "with", "write",
+    ] {
+        items.push(CompletionView {
+            label: keyword.to_owned(),
+            insert: keyword.to_owned(),
+            detail: "keyword".to_owned(),
+            kind: "keyword".to_owned(),
+        });
+    }
+    for snippet in [
+        (
+            "promote csv",
+            "promote csv \"data/sensor.csv\" as SensorData",
+            "CSV promotion command",
+        ),
+        (
+            "export summary csv",
+            "export summary to csv \"summary.csv\" {\n    E as kWh with \".2\"\n}",
+            "unit-aware CSV export block",
+        ),
+        (
+            "plot line",
+            "plot Q over Time with {\n    type = line\n    title = \"Heat rate\"\n}",
+            "PlotSpec line plot block",
+        ),
+        (
+            "log info",
+            "log info \"message\"",
+            "structured run log message",
+        ),
+    ] {
+        items.push(CompletionView {
+            label: snippet.0.to_owned(),
+            insert: snippet.1.to_owned(),
+            detail: snippet.2.to_owned(),
+            kind: "snippet".to_owned(),
+        });
+    }
+    for quantity in all_quantity_completions() {
+        items.push(CompletionView {
+            label: quantity.quantity_kind.to_owned(),
+            insert: quantity.quantity_kind.to_owned(),
+            detail: format!("{} [{}]", quantity.description, quantity.canonical_unit),
+            kind: "quantity".to_owned(),
+        });
+    }
+    for unit in all_unit_infos() {
+        items.push(CompletionView {
+            label: unit.symbol.to_owned(),
+            insert: unit.symbol.to_owned(),
+            detail: format!("{} -> {}", unit.quantity_hint, unit.canonical_unit),
+            kind: "unit".to_owned(),
+        });
+    }
+    items
+}
+
+fn runtime_variables(output: &CachedRunOutput) -> Vec<RuntimeVariableView> {
+    let mut variables = Vec::new();
+    if let Ok(value) = serde_json::from_str::<Value>(&output.result_json) {
+        if let Some(items) = value
+            .get("object_store")
+            .and_then(|store| store.get("objects"))
+            .and_then(Value::as_array)
+        {
+            for item in items {
+                merge_variable(&mut variables, runtime_object_variable(item));
+            }
+        }
+    }
+    if let Ok(value) = serde_json::from_str::<Value>(&output.report_spec_json) {
+        if let Some(items) = value.get("variable_table").and_then(Value::as_array) {
+            for item in items {
+                merge_variable(&mut variables, report_variable(item));
+            }
+        }
         if let Some(systems) = value.get("system_summary").and_then(Value::as_array) {
             for system in systems {
-                let system_name =
+                let source =
                     json_field_string(system, "name").unwrap_or_else(|| "system".to_owned());
-                if let Some(variables) = system.get("variables").and_then(Value::as_array) {
-                    for variable in variables {
-                        let run_variable =
-                            RuntimeVariableView::from_system_variable(variable, &system_name);
-                        merge_runtime_variable(&mut self.variables, run_variable);
+                if let Some(items) = system.get("variables").and_then(Value::as_array) {
+                    for item in items {
+                        merge_variable(&mut variables, system_variable(item, &source));
                     }
                 }
             }
         }
+    }
+    variables
+}
 
-        self.args = value
-            .get("arg_values")
-            .and_then(Value::as_array)
-            .map(|items| items.iter().map(RuntimeArgView::from_json).collect())
-            .unwrap_or_default();
-        Ok(())
+fn runtime_args(text: &str) -> Vec<RuntimeArgView> {
+    let Ok(value) = serde_json::from_str::<Value>(text) else {
+        return Vec::new();
+    };
+    value
+        .get("arg_values")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .map(|item| RuntimeArgView {
+                    name: json_field_string(item, "name").unwrap_or_else(|| "unknown".to_owned()),
+                    type_name: json_field_string(item, "type").unwrap_or_default(),
+                    value: json_field_string(item, "value").unwrap_or_default(),
+                    source: json_field_string(item, "source")
+                        .unwrap_or_else(|| "default".to_owned()),
+                    required: item
+                        .get("required")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn runtime_object_variable(value: &Value) -> RuntimeVariableView {
+    let kind = json_field_string(value, "kind").unwrap_or_else(|| "object".to_owned());
+    let object_type = json_field_string(value, "type").unwrap_or_default();
+    let display_unit = json_field_string(value, "display_unit").unwrap_or_default();
+    let value_text = json_field_usize(value, "row_count")
+        .map(|count| format!("{count} rows"))
+        .or_else(|| json_field_usize(value, "len").map(|len| format!("{len} items")));
+    RuntimeVariableView {
+        name: json_field_string(value, "name").unwrap_or_else(|| "unknown".to_owned()),
+        quantity_kind: if object_type.is_empty() {
+            kind
+        } else {
+            object_type
+        },
+        display_unit,
+        canonical_unit: String::new(),
+        dimension: String::new(),
+        source: "runtime".to_owned(),
+        role: None,
+        value: value_text,
+        line: json_field_usize(value, "line").unwrap_or(0),
     }
 }
 
-#[derive(Clone)]
-struct RuntimeVariableView {
-    name: String,
-    quantity_kind: String,
-    display_unit: String,
-    canonical_unit: String,
-    dimension: String,
-    source: String,
-    role: Option<String>,
-    value: Option<String>,
-    line: usize,
-}
-
-impl RuntimeVariableView {
-    fn from_report_variable(value: &Value) -> Self {
-        Self {
-            name: json_field_string(value, "name").unwrap_or_else(|| "unknown".to_owned()),
-            quantity_kind: json_field_string(value, "quantity_kind").unwrap_or_default(),
-            display_unit: json_field_string(value, "display_unit").unwrap_or_default(),
-            canonical_unit: json_field_string(value, "canonical_unit").unwrap_or_default(),
-            dimension: json_field_string(value, "dimension").unwrap_or_default(),
-            source: json_field_string(value, "source").unwrap_or_else(|| "run".to_owned()),
-            role: None,
-            value: None,
-            line: json_field_usize(value, "line").unwrap_or(0),
-        }
-    }
-
-    fn from_system_variable(value: &Value, system_name: &str) -> Self {
-        Self {
-            name: json_field_string(value, "name").unwrap_or_else(|| "unknown".to_owned()),
-            quantity_kind: json_field_string(value, "quantity_kind").unwrap_or_default(),
-            display_unit: json_field_string(value, "display_unit").unwrap_or_default(),
-            canonical_unit: String::new(),
-            dimension: json_field_string(value, "dimension").unwrap_or_default(),
-            source: system_name.to_owned(),
-            role: json_field_string(value, "role"),
-            value: json_field_string(value, "initial_value"),
-            line: json_field_usize(value, "line").unwrap_or(0),
-        }
-    }
-
-    fn from_runtime_object(value: &Value) -> Self {
-        let kind = json_field_string(value, "kind").unwrap_or_else(|| "object".to_owned());
-        let object_type = json_field_string(value, "type").unwrap_or_default();
-        let display_unit = json_field_string(value, "display_unit").unwrap_or_default();
-        let value_text = json_field_usize(value, "row_count")
-            .map(|count| format!("{count} rows"))
-            .or_else(|| json_field_usize(value, "len").map(|len| format!("{len} items")));
-        Self {
-            name: json_field_string(value, "name").unwrap_or_else(|| "unknown".to_owned()),
-            quantity_kind: if object_type.is_empty() {
-                kind
-            } else {
-                object_type
-            },
-            display_unit,
-            canonical_unit: String::new(),
-            dimension: String::new(),
-            source: "runtime_object".to_owned(),
-            role: None,
-            value: value_text,
-            line: json_field_usize(value, "line").unwrap_or(0),
-        }
+fn report_variable(value: &Value) -> RuntimeVariableView {
+    RuntimeVariableView {
+        name: json_field_string(value, "name").unwrap_or_else(|| "unknown".to_owned()),
+        quantity_kind: json_field_string(value, "quantity_kind").unwrap_or_default(),
+        display_unit: json_field_string(value, "display_unit").unwrap_or_default(),
+        canonical_unit: json_field_string(value, "canonical_unit").unwrap_or_default(),
+        dimension: json_field_string(value, "dimension").unwrap_or_default(),
+        source: json_field_string(value, "source").unwrap_or_else(|| "run".to_owned()),
+        role: None,
+        value: None,
+        line: json_field_usize(value, "line").unwrap_or(0),
     }
 }
 
-#[derive(Clone)]
-struct RuntimeArgView {
-    name: String,
-    type_name: String,
-    value: String,
-    source: String,
-    required: bool,
-}
-
-impl RuntimeArgView {
-    fn from_json(value: &Value) -> Self {
-        Self {
-            name: json_field_string(value, "name").unwrap_or_else(|| "unknown".to_owned()),
-            type_name: json_field_string(value, "type").unwrap_or_default(),
-            value: json_field_string(value, "value").unwrap_or_default(),
-            source: json_field_string(value, "source").unwrap_or_else(|| "default".to_owned()),
-            required: value
-                .get("required")
-                .and_then(Value::as_bool)
-                .unwrap_or(false),
-        }
+fn system_variable(value: &Value, source: &str) -> RuntimeVariableView {
+    RuntimeVariableView {
+        name: json_field_string(value, "name").unwrap_or_else(|| "unknown".to_owned()),
+        quantity_kind: json_field_string(value, "quantity_kind").unwrap_or_default(),
+        display_unit: json_field_string(value, "display_unit").unwrap_or_default(),
+        canonical_unit: String::new(),
+        dimension: json_field_string(value, "dimension").unwrap_or_default(),
+        source: source.to_owned(),
+        role: json_field_string(value, "role"),
+        value: json_field_string(value, "initial_value"),
+        line: json_field_usize(value, "line").unwrap_or(0),
     }
 }
 
-fn merge_runtime_variable(variables: &mut Vec<RuntimeVariableView>, incoming: RuntimeVariableView) {
+fn merge_variable(variables: &mut Vec<RuntimeVariableView>, incoming: RuntimeVariableView) {
     if let Some(existing) = variables
         .iter_mut()
         .find(|variable| variable.name == incoming.name && variable.line == incoming.line)
@@ -3886,11 +710,8 @@ fn merge_runtime_variable(variables: &mut Vec<RuntimeVariableView>, incoming: Ru
         if existing.role.is_none() {
             existing.role = incoming.role;
         }
-        if matches!(
-            existing.source.as_str(),
-            "runtime" | "runtime_object" | "system_boundary"
-        ) {
-            existing.source = incoming.source;
+        if existing.display_unit.is_empty() {
+            existing.display_unit = incoming.display_unit;
         }
         if existing.canonical_unit.is_empty() {
             existing.canonical_unit = incoming.canonical_unit;
@@ -3903,745 +724,120 @@ fn merge_runtime_variable(variables: &mut Vec<RuntimeVariableView>, incoming: Ru
     variables.push(incoming);
 }
 
-struct UncertaintyArtifactView {
-    binding: String,
-    kind: String,
-    quantity_kind: String,
-    display_unit: String,
-    distribution: Option<String>,
-    method: Option<String>,
-    scale: Option<String>,
-    offset: Option<String>,
-    mean: Option<String>,
-    stddev: Option<String>,
-    p05: Option<String>,
-    p50: Option<String>,
-    p95: Option<String>,
-    sample_count: usize,
-    propagation: Vec<String>,
-    status: String,
+fn terminal_summary(
+    stdout: &str,
+    variables: &[RuntimeVariableView],
+    args: &[RuntimeArgView],
+    report_title: &str,
+    plot_spec: &Value,
+) -> String {
+    let mut lines = Vec::new();
+    if !stdout.trim().is_empty() {
+        lines.push(stdout.trim_end().to_owned());
+    }
+    lines.push("Run OK".to_owned());
+    lines.push(format!(
+        "variables: {}, args: {}",
+        variables.len(),
+        args.len()
+    ));
+    if !report_title.is_empty() {
+        lines.push(format!("report: {report_title}"));
+    }
+    if !plot_spec.is_null() {
+        lines.push("plot: available".to_owned());
+    }
+    lines.join("\n")
 }
 
-impl UncertaintyArtifactView {
-    fn from_json(value: &Value) -> Self {
-        let propagation = value
-            .get("propagation")
-            .and_then(Value::as_array)
-            .map(|terms| {
-                terms
-                    .iter()
-                    .filter_map(|term| {
-                        let source = term.get("source")?.as_str()?;
-                        let role = term.get("role")?.as_str()?;
-                        let quantity_kind = term.get("quantity_kind")?.as_str()?;
-                        Some(format!("{source}:{role}[{quantity_kind}]"))
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-        Self {
-            binding: json_field_string(value, "binding").unwrap_or_else(|| "unknown".to_owned()),
-            kind: json_field_string(value, "kind").unwrap_or_else(|| "Uncertainty".to_owned()),
-            quantity_kind: json_field_string(value, "quantity_kind").unwrap_or_default(),
-            display_unit: json_field_string(value, "display_unit").unwrap_or_default(),
-            distribution: json_field_string(value, "distribution"),
-            method: json_field_string(value, "method"),
-            scale: json_field_string(value, "scale"),
-            offset: json_field_string(value, "offset"),
-            mean: json_field_string(value, "mean"),
-            stddev: json_field_string(value, "stddev"),
-            p05: json_field_string(value, "p05"),
-            p50: json_field_string(value, "p50"),
-            p95: json_field_string(value, "p95"),
-            sample_count: json_field_usize(value, "sample_count").unwrap_or(0),
-            propagation,
-            status: json_field_string(value, "status").unwrap_or_else(|| "unknown".to_owned()),
+fn diagnostic_summary_text(check: &CheckView) -> String {
+    let mut lines = vec![format!("diagnostics: {}", check.status)];
+    for diagnostic in check.diagnostics.iter().take(6) {
+        lines.push(format!(
+            "L{} {}: {}",
+            diagnostic.line, diagnostic.code, diagnostic.message
+        ));
+        if let Some(help) = &diagnostic.help {
+            lines.push(format!("  help: {help}"));
         }
     }
-}
-
-struct MlArtifactView {
-    binding: String,
-    kind: String,
-    target: Option<String>,
-    features: Vec<String>,
-    train_count: Option<usize>,
-    test_count: Option<usize>,
-    rmse: Option<String>,
-    mae: Option<String>,
-    r2: Option<String>,
-    leakage_status: Option<String>,
-    coefficients: Vec<String>,
-    loss_summary: Option<String>,
-    status: String,
-}
-
-impl MlArtifactView {
-    fn from_json(value: &Value) -> Self {
-        let loss_values = value
-            .get("loss_history")
-            .and_then(Value::as_array)
-            .map(|items| items.iter().filter_map(Value::as_f64).collect::<Vec<f64>>())
-            .unwrap_or_default();
-        let loss_summary = match (loss_values.first(), loss_values.last()) {
-            (Some(first), Some(last)) => Some(format!(
-                "{} -> {}",
-                format_json_number(*first),
-                format_json_number(*last)
-            )),
-            _ => None,
-        };
-        let coefficients = value
-            .get("coefficients")
-            .and_then(Value::as_array)
-            .map(|items| {
-                items
-                    .iter()
-                    .filter_map(|item| {
-                        let feature = json_field_string(item, "feature")?;
-                        let value = item.get("value")?.as_f64()?;
-                        Some(format!("{feature}={}", format_json_number(value)))
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-
-        Self {
-            binding: json_field_string(value, "binding").unwrap_or_else(|| "unknown".to_owned()),
-            kind: json_field_string(value, "kind").unwrap_or_else(|| "ML".to_owned()),
-            target: json_field_string(value, "target"),
-            features: json_field_string_array(value, "features"),
-            train_count: json_field_usize(value, "train_count"),
-            test_count: json_field_usize(value, "test_count"),
-            rmse: json_field_string(value, "rmse"),
-            mae: json_field_string(value, "mae"),
-            r2: json_field_string(value, "r2"),
-            leakage_status: json_field_string(value, "leakage_status"),
-            coefficients,
-            loss_summary,
-            status: json_field_string(value, "status").unwrap_or_else(|| "unknown".to_owned()),
-        }
+    if check.diagnostics.len() > 6 {
+        lines.push(format!(
+            "... {} more diagnostic(s)",
+            check.diagnostics.len() - 6
+        ));
     }
-}
-
-struct PlotPreview {
-    title: String,
-    plot_type: String,
-    x_label: String,
-    y_label: String,
-    series_name: String,
-    bins: Vec<PlotBinPreview>,
-    points: Vec<(f64, f64)>,
-}
-
-#[derive(Clone, Copy)]
-struct PlotBinPreview {
-    lower: f64,
-    upper: f64,
-    center: f64,
-    count: f64,
-}
-
-impl PlotPreview {
-    fn from_plot_spec_json(text: &str) -> Result<Self, String> {
-        let value: Value = serde_json::from_str(text).map_err(|error| error.to_string())?;
-        let title = json_string(&value, &["title"]).unwrap_or_else(|| "Plot".to_owned());
-        let plot_type = json_string(&value, &["plot_type"]).unwrap_or_else(|| "line".to_owned());
-        let x_label = axis_label(&value, "x_axis");
-        let y_label = axis_label(&value, "y_axis");
-        let series = value
-            .get("series")
-            .and_then(Value::as_array)
-            .and_then(|items| items.first());
-        let series_name = series
-            .and_then(|item| item.get("name"))
-            .and_then(Value::as_str)
-            .unwrap_or("series")
-            .to_owned();
-        let points = series
-            .and_then(|item| item.get("points"))
-            .and_then(Value::as_array)
-            .map(|points| {
-                points
-                    .iter()
-                    .filter_map(|point| {
-                        let values = point.as_array()?;
-                        let x = values.first()?.as_f64()?;
-                        let y = values.get(1)?.as_f64()?;
-                        Some((x, y))
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-        let bins = series
-            .and_then(|item| item.get("bins"))
-            .and_then(Value::as_array)
-            .map(|bins| {
-                bins.iter()
-                    .filter_map(|bin| {
-                        Some(PlotBinPreview {
-                            lower: bin.get("lower")?.as_f64()?,
-                            upper: bin.get("upper")?.as_f64()?,
-                            center: bin.get("center")?.as_f64()?,
-                            count: bin.get("count")?.as_f64()?,
-                        })
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-
-        Ok(Self {
-            title,
-            plot_type,
-            x_label,
-            y_label,
-            series_name,
-            bins,
-            points,
-        })
-    }
-}
-
-fn completion_items(filter: &str, symbols: &[SymbolView], source: &str) -> Vec<CompletionItem> {
-    let normalized = filter.trim().to_ascii_lowercase();
-    let mut items = Vec::new();
-    let mut seen = HashSet::new();
-
-    for symbol in symbols {
-        push_completion(
-            &mut items,
-            &mut seen,
-            symbol.name.clone(),
-            symbol.name.clone(),
-            format!(
-                "variable, line {}, {} [{}]",
-                symbol.line, symbol.quantity_kind, symbol.display_unit
-            ),
-        );
-    }
-
-    let units = all_unit_infos();
-    let unit_symbols: HashSet<String> = units
-        .iter()
-        .map(|unit| unit.symbol.to_ascii_lowercase())
-        .collect();
-    for identifier in source_identifiers(source) {
-        if unit_symbols.contains(&identifier.to_ascii_lowercase()) {
-            continue;
-        }
-        push_completion(
-            &mut items,
-            &mut seen,
-            identifier.clone(),
-            identifier,
-            "source identifier".to_owned(),
-        );
-    }
-
-    for keyword in [
-        "schema",
-        "script",
-        "struct",
-        "system",
-        "domain",
-        "across",
-        "through",
-        "conservation",
-        "component",
-        "port",
-        "connect",
-        "package",
-        "version",
-        "state",
-        "parameter",
-        "input",
-        "equation",
-        "promote",
-        "from",
-        "policy",
-        "missing",
-        "where",
-        "return",
-        "report",
-        "summarize",
-        "show",
-        "plot",
-        "line",
-        "bar",
-        "histogram",
-        "scatter",
-        "parity",
-        "residuals",
-        "der",
-        "eq",
-        "integrate",
-        "train_test_split",
-        "regression",
-        "mlp",
-        "ann",
-        "evaluate",
-        "metrics",
-        "model_card",
-        "leakage_lint",
-        "mean",
-        "max",
-        "median",
-        "std",
-        "duration_above",
-        "measured",
-        "interval",
-        "normal",
-        "uniform",
-        "ensemble",
-        "propagate",
-        "samples",
-        "sigma",
-        "scale",
-        "offset",
-    ] {
-        push_completion(
-            &mut items,
-            &mut seen,
-            keyword.to_owned(),
-            keyword.to_owned(),
-            "language keyword".to_owned(),
-        );
-    }
-
-    for quantity in all_quantity_completions() {
-        push_completion(
-            &mut items,
-            &mut seen,
-            quantity.quantity_kind.to_owned(),
-            quantity.quantity_kind.to_owned(),
-            format!(
-                "quantity, canonical unit {}, {}",
-                quantity.canonical_unit, quantity.description
-            ),
-        );
-    }
-
-    for unit in units {
-        push_completion(
-            &mut items,
-            &mut seen,
-            unit.symbol.to_owned(),
-            unit.symbol.to_owned(),
-            format!(
-                "unit for {}, canonical {}",
-                unit.quantity_hint, unit.canonical_unit
-            ),
-        );
-    }
-
-    for (label, insert, detail) in [
-        (
-            "snippet: top-level main",
-            "value = 1 kW\n\nreport {\n    show value\n}",
-            "top-level report workflow",
-        ),
-        (
-            "snippet: csv schema",
-            "schema Sensor {\n    time: DateTime index\n    heat: HeatRate [kW]\n}",
-            "typed CSV schema",
-        ),
-        (
-            "snippet: thermal system",
-            "system Room {\n    state T: AbsoluteTemperature = 20 degC\n    parameter C: HeatCapacity = 1200 kJ/K\n    parameter UA: Conductance = 250 W/K\n    input T_out: AbsoluteTemperature = 10 degC\n    input Q_internal: HeatRate = 500 W\n    equation energy_balance:\n        C * der(T) eq UA * (T_out - T) + Q_internal\n}",
-            "first-order thermal system",
-        ),
-        (
-            "snippet: domain ports",
-            "domain Thermal package \"eng.std.domains.thermal\" version \"0.1.0\" {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ndomain Fluid[Medium M] package \"eng.std.domains.fluid\" version \"0.1.0\" {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ndomain MechanicalNode[Frame F, Axis DOF] package \"eng.std.domains.mechanical\" version \"0.1.0\" {\n    across x: Length [m]\n    through P: MechanicalPower [W]\n    conservation sum(P) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n}\n\ncomponent SupplyPipe {\n    port inlet: Fluid[Water]\n    port outlet: Fluid[Water]\n}\n\ncomponent ShaftA {\n    port shaft: MechanicalNode[World, X]\n}\n\ncomponent ShaftB {\n    port shaft: MechanicalNode[World, X]\n}\n\nconnect SupplyPipe.inlet -> SupplyPipe.outlet\nconnect ShaftA.shaft -> ShaftB.shaft",
-            "domain package/version, generic ports, and connection",
-        ),
-        (
-            "snippet: plot report",
-            "report {\n    summarize value by [mean, max, median, std]\n    plot value over Time {\n        unit y = kW\n        title = \"Preview\"\n    }\n}",
-            "report with plot",
-        ),
-        (
-            "snippet: ML model",
-            "split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)\nreg_model = regression(split, algorithm=linear)\nreg_eval = evaluate(reg_model, split=split)\n\nreport {\n    show reg_eval\n    plot parity(reg_eval) {\n        title = \"Regression parity\"\n    }\n}",
-            "data-driven regression seed",
-        ),
-        (
-            "snippet: uncertainty",
-            "Q_dist = normal(mean=5 kW, std=0.8 kW, samples=31)\nQ_total = propagate(Q_dist, method=linear, scale=1.08, offset=0.4 kW)\n\nreport {\n    show Q_total\n    plot distribution(Q_dist) {\n        title = \"Uncertainty histogram\"\n    }\n}",
-            "uncertainty distribution and histogram",
-        ),
-    ] {
-        push_completion(
-            &mut items,
-            &mut seen,
-            label.to_owned(),
-            insert.to_owned(),
-            detail.to_owned(),
-        );
-    }
-
-    if normalized.is_empty() {
-        return items.into_iter().take(120).collect();
-    }
-
-    let mut starts = Vec::new();
-    let mut contains = Vec::new();
-    for item in items {
-        let label = item.label.to_ascii_lowercase();
-        let insert = item.insert.to_ascii_lowercase();
-        if label.starts_with(&normalized) || insert.starts_with(&normalized) {
-            starts.push(item);
-        } else if label.contains(&normalized) || insert.contains(&normalized) {
-            contains.push(item);
-        }
-    }
-    starts.extend(contains);
-    starts.into_iter().take(120).collect()
-}
-
-fn push_completion(
-    items: &mut Vec<CompletionItem>,
-    seen: &mut HashSet<String>,
-    label: String,
-    insert: String,
-    detail: String,
-) {
-    let key = insert.to_ascii_lowercase();
-    if seen.insert(key) {
-        items.push(CompletionItem {
-            label,
-            insert,
-            detail,
-        });
-    }
-}
-
-fn source_identifiers(source: &str) -> Vec<String> {
-    let mut identifiers = Vec::new();
-    let mut seen = HashSet::new();
-    let chars: Vec<char> = source.chars().collect();
-    let mut index = 0usize;
-    while index < chars.len() {
-        if chars[index].is_ascii_alphabetic() || chars[index] == '_' {
-            let start = index;
-            index += 1;
-            while index < chars.len()
-                && (chars[index].is_ascii_alphanumeric() || chars[index] == '_')
-            {
-                index += 1;
-            }
-            let token: String = chars[start..index].iter().collect();
-            if !is_keyword(&token) && token.len() > 1 && seen.insert(token.to_ascii_lowercase()) {
-                identifiers.push(token);
-            }
-        } else {
-            index += 1;
-        }
-    }
-    identifiers
-}
-
-fn highlight_eng(
-    source: &str,
-    diagnostics: &[DiagnosticView],
-    palette: ThemePalette,
-    code_font_size: f32,
-) -> LayoutJob {
-    let mut job = LayoutJob::default();
-    for (line_index, line) in source.lines().enumerate() {
-        let line_number = line_index + 1;
-        let background = if diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.line == line_number && diagnostic.severity == "error")
-        {
-            palette.diag_error_bg
-        } else if diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.line == line_number && diagnostic.severity == "warning")
-        {
-            palette.diag_warning_bg
-        } else {
-            egui::Color32::TRANSPARENT
-        };
-        append_highlighted_line(&mut job, line, background, palette, code_font_size);
-        job.append(
-            "\n",
-            0.0,
-            code_format(palette.text, background, code_font_size),
-        );
-    }
-    if source.is_empty() {
-        job.append(
-            "",
-            0.0,
-            code_format(palette.text, egui::Color32::TRANSPARENT, code_font_size),
-        );
-    }
-    job
-}
-
-fn append_highlighted_line(
-    job: &mut LayoutJob,
-    line: &str,
-    background: egui::Color32,
-    palette: ThemePalette,
-    code_font_size: f32,
-) {
-    let chars: Vec<char> = line.chars().collect();
-    let mut index = 0usize;
-    while index < chars.len() {
-        let character = chars[index];
-        if character == '"' {
-            let start = index;
-            index += 1;
-            while index < chars.len() {
-                let next = chars[index];
-                index += 1;
-                if next == '"' {
-                    break;
-                }
-            }
-            append_chars(
-                job,
-                &chars[start..index],
-                palette.string,
-                background,
-                code_font_size,
-            );
-        } else if character == '#' {
-            append_chars(
-                job,
-                &chars[index..],
-                palette.muted,
-                background,
-                code_font_size,
-            );
-            break;
-        } else if character.is_ascii_digit() {
-            let start = index;
-            index += 1;
-            while index < chars.len()
-                && (chars[index].is_ascii_digit() || chars[index] == '.' || chars[index] == '_')
-            {
-                index += 1;
-            }
-            append_chars(
-                job,
-                &chars[start..index],
-                palette.number,
-                background,
-                code_font_size,
-            );
-        } else if character.is_ascii_alphabetic() || character == '_' {
-            let start = index;
-            index += 1;
-            while index < chars.len()
-                && (chars[index].is_ascii_alphanumeric() || chars[index] == '_')
-            {
-                index += 1;
-            }
-            let token: String = chars[start..index].iter().collect();
-            let color = if is_keyword(&token) {
-                palette.accent
-            } else if is_quantity_like(&token) {
-                palette.quantity
-            } else {
-                palette.text
-            };
-            append_chars(job, &chars[start..index], color, background, code_font_size);
-        } else {
-            append_chars(
-                job,
-                &chars[index..index + 1],
-                palette.text,
-                background,
-                code_font_size,
-            );
-            index += 1;
-        }
-    }
-}
-
-fn append_chars(
-    job: &mut LayoutJob,
-    chars: &[char],
-    color: egui::Color32,
-    background: egui::Color32,
-    code_font_size: f32,
-) {
-    let text: String = chars.iter().collect();
-    job.append(&text, 0.0, code_format(color, background, code_font_size));
-}
-
-fn code_format(color: egui::Color32, background: egui::Color32, code_font_size: f32) -> TextFormat {
-    TextFormat {
-        font_id: egui::FontId::monospace(code_font_size),
-        color,
-        background,
-        ..Default::default()
-    }
-}
-
-fn is_keyword(token: &str) -> bool {
-    matches!(
-        token,
-        "schema"
-            | "script"
-            | "struct"
-            | "system"
-            | "domain"
-            | "across"
-            | "through"
-            | "conservation"
-            | "component"
-            | "port"
-            | "connect"
-            | "package"
-            | "version"
-            | "state"
-            | "parameter"
-            | "input"
-            | "equation"
-            | "constraints"
-            | "missing"
-            | "policy"
-            | "promote"
-            | "csv"
-            | "as"
-            | "return"
-            | "report"
-            | "summarize"
-            | "by"
-            | "show"
-            | "plot"
-            | "over"
-            | "unit"
-            | "title"
-            | "where"
-            | "between"
-            | "and"
-            | "is"
-            | "interpolate"
-            | "error"
-            | "index"
-            | "from"
-            | "eq"
-            | "der"
-            | "integrate"
-            | "train_test_split"
-            | "regression"
-            | "mlp"
-            | "ann"
-            | "evaluate"
-            | "metrics"
-            | "model_card"
-            | "leakage_lint"
-            | "parity"
-            | "residuals"
-            | "measured"
-            | "interval"
-            | "normal"
-            | "uniform"
-            | "ensemble"
-            | "propagate"
-    )
-}
-
-fn is_quantity_like(token: &str) -> bool {
-    token
-        .chars()
-        .next()
-        .map(|character| character.is_ascii_uppercase())
-        .unwrap_or(false)
-}
-
-fn current_prefix(source: &str, cursor_char_index: usize) -> String {
-    let before_cursor: String = source.chars().take(cursor_char_index).collect();
-    before_cursor
-        .chars()
-        .rev()
-        .take_while(|character| character.is_ascii_alphanumeric() || *character == '_')
-        .collect::<String>()
-        .chars()
-        .rev()
-        .collect()
-}
-
-fn estimated_code_width(source: &str, code_font_size: f32) -> f32 {
-    let longest_line = source
-        .lines()
-        .map(|line| line.chars().count())
-        .max()
-        .unwrap_or(0);
-    if longest_line <= 92 {
-        0.0
-    } else {
-        (longest_line as f32 * (code_font_size * 0.57) + 36.0).min(2400.0)
-    }
-}
-
-fn char_to_byte_index(source: &str, char_index: usize) -> usize {
-    source
-        .char_indices()
-        .nth(char_index)
-        .map(|(index, _)| index)
-        .unwrap_or_else(|| source.len())
-}
-
-fn matching_closer(opener: char) -> Option<char> {
-    match opener {
-        '(' => Some(')'),
-        '[' => Some(']'),
-        '{' => Some('}'),
-        '"' => Some('"'),
-        '\'' => Some('\''),
-        _ => None,
-    }
+    lines.join("\n")
 }
 
 fn workspace_root() -> PathBuf {
-    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+}
+
+fn default_file(root: &Path) -> PathBuf {
+    let preferred = root.join("examples/official/03_integrated_hvac/main.eng");
+    if preferred.exists() {
+        return preferred;
+    }
+    collect_examples(root)
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| root.join("main.eng"))
 }
 
 fn collect_examples(root: &Path) -> Vec<PathBuf> {
-    let mut examples = Vec::new();
-    let examples_root = root.join("examples");
-    if examples_root.exists() {
-        collect_eng_files(&examples_root, &mut examples);
-    } else {
-        collect_eng_files(root, &mut examples);
-    }
-    sort_example_paths(&mut examples);
-    examples
+    let mut paths = Vec::new();
+    collect_files(&root.join("examples"), &mut paths);
+    paths.retain(|path| path.extension().and_then(|value| value.to_str()) == Some("eng"));
+    paths.sort();
+    paths
 }
 
-fn explorer_roots(root: &Path) -> Vec<PathBuf> {
-    let preferred = [
-        root.join("examples"),
-        root.join("stdlib"),
-        root.join("docs").join("tutorials"),
-    ];
-    let roots = preferred
-        .into_iter()
-        .filter(|path| path.exists())
-        .collect::<Vec<_>>();
-    if roots.is_empty() {
-        vec![root.to_path_buf()]
-    } else {
-        roots
-    }
+fn workspace_tree(root: &Path) -> Vec<FileNodeView> {
+    ["examples", "stdlib", "docs"]
+        .iter()
+        .filter_map(|name| {
+            let path = root.join(name);
+            path.exists().then(|| file_node(root, &path))
+        })
+        .collect()
 }
 
-fn collect_eng_files(path: &Path, output: &mut Vec<PathBuf>) {
-    let Ok(entries) = fs::read_dir(path) else {
-        return;
+fn file_node(root: &Path, path: &Path) -> FileNodeView {
+    let name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("workspace")
+        .to_owned();
+    let kind = if path.is_dir() { "dir" } else { "file" }.to_owned();
+    let mut children = if path.is_dir() {
+        sorted_visible_entries(path)
+            .into_iter()
+            .filter(|child| child.is_dir() || visible_file(child))
+            .map(|child| file_node(root, &child))
+            .collect()
+    } else {
+        Vec::new()
     };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            collect_eng_files(&path, output);
-        } else if path.extension().and_then(|value| value.to_str()) == Some("eng") {
-            output.push(path);
+    if path.is_dir() {
+        children.sort_by(|a: &FileNodeView, b: &FileNodeView| {
+            (a.kind.as_str() != "dir", &a.name).cmp(&(b.kind.as_str() != "dir", &b.name))
+        });
+    }
+    FileNodeView {
+        name,
+        path: relative_to(root, path),
+        kind,
+        children,
+    }
+}
+
+fn collect_files(path: &Path, output: &mut Vec<PathBuf>) {
+    for entry in sorted_visible_entries(path) {
+        if entry.is_dir() {
+            collect_files(&entry, output);
+        } else {
+            output.push(entry);
         }
     }
 }
@@ -4651,155 +847,51 @@ fn sorted_visible_entries(path: &Path) -> Vec<PathBuf> {
         return Vec::new();
     };
     let mut entries: Vec<PathBuf> = entries
-        .flatten()
+        .filter_map(Result::ok)
         .map(|entry| entry.path())
-        .filter(|path| {
-            if path.is_dir() {
-                true
-            } else {
-                matches!(
-                    path.extension().and_then(|value| value.to_str()),
-                    Some("eng") | Some("md")
-                )
-            }
+        .filter(|entry| {
+            entry
+                .file_name()
+                .and_then(|value| value.to_str())
+                .is_some_and(|name| !name.starts_with('.') && name != "target" && name != "build")
         })
         .collect();
-    entries.sort_by_key(|path| explorer_entry_sort_key(path));
+    entries.sort();
     entries
 }
 
-fn sort_example_paths(paths: &mut [PathBuf]) {
-    paths.sort_by_key(|path| example_file_sort_key(path));
-}
-
-fn example_file_sort_key(path: &Path) -> (u8, String) {
-    (example_category_rank(path), normalized_path(path))
-}
-
-fn explorer_entry_sort_key(path: &Path) -> (u8, u8, String) {
-    let kind_rank = if path.is_dir() { 0 } else { 1 };
-    (
-        kind_rank,
-        example_category_rank(path),
-        path.file_name()
-            .and_then(|value| value.to_str())
-            .unwrap_or_default()
-            .to_ascii_lowercase(),
+fn visible_file(path: &Path) -> bool {
+    let Some(extension) = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|extension| extension.to_ascii_lowercase())
+    else {
+        return false;
+    };
+    matches!(
+        extension.as_str(),
+        "eng" | "csv" | "md" | "txt" | "json" | "yml" | "yaml" | "toml"
     )
 }
 
-fn example_category_rank(path: &Path) -> u8 {
-    let normalized = normalized_path(path);
-    if path_matches_segment(&normalized, "examples/official") {
-        0
-    } else if path_matches_segment(&normalized, "examples/05_error_messages") {
-        2
-    } else if path_matches_segment(&normalized, "examples/07_data_quality") {
-        3
-    } else if path_matches_segment(&normalized, "examples/scratch") {
-        4
-    } else if path_matches_segment(&normalized, "examples") {
-        1
+fn resolve_path(root: &Path, input: &str) -> PathBuf {
+    let path = PathBuf::from(input);
+    if path.is_absolute() {
+        path
     } else {
-        5
+        root.join(path)
     }
 }
 
-fn example_category_label(path: &Path) -> Option<&'static str> {
-    let normalized = normalized_path(path);
-    if path_matches_segment(&normalized, "examples/official") {
-        Some("Official")
-    } else if path_matches_segment(&normalized, "examples/05_error_messages") {
-        Some("Diagnostic")
-    } else if path_matches_segment(&normalized, "examples/07_data_quality") {
-        Some("Data")
-    } else if path_matches_segment(&normalized, "examples/scratch") {
-        Some("Scratch")
-    } else if path_matches_segment(&normalized, "examples") {
-        Some("Regression")
-    } else {
-        None
+fn read_utf8(path: &Path) -> Result<String, String> {
+    fs::read_to_string(path).map_err(|error| format!("Could not read {}: {error}", path.display()))
+}
+
+fn create_parent(path: &Path) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
-}
-
-fn explorer_directory_label(root: &Path, path: &Path) -> Option<String> {
-    let normalized = relative_to(root, path);
-    match normalized.as_str() {
-        "examples" => Some("Examples".to_owned()),
-        "examples/official" => Some("Official Examples".to_owned()),
-        "examples/05_error_messages" => Some("Diagnostic Fixtures".to_owned()),
-        "examples/07_data_quality" => Some("Data Quality Fixtures".to_owned()),
-        "examples/scratch" => Some("Scratch Files".to_owned()),
-        value if value.starts_with("examples/") && path.is_dir() => path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .map(|name| format!("Regression {name}")),
-        _ => None,
-    }
-}
-
-fn is_official_examples_dir(root: &Path, path: &Path) -> bool {
-    relative_to(root, path) == "examples/official"
-}
-
-fn normalized_path(path: &Path) -> String {
-    path.to_string_lossy()
-        .replace('\\', "/")
-        .to_ascii_lowercase()
-}
-
-fn path_matches_segment(normalized_path: &str, segment: &str) -> bool {
-    normalized_path == segment
-        || normalized_path.starts_with(&format!("{segment}/"))
-        || normalized_path.ends_with(&format!("/{segment}"))
-        || normalized_path.contains(&format!("/{segment}/"))
-}
-
-fn compact_list(values: &[String], limit: usize) -> String {
-    if values.is_empty() {
-        return "-".to_owned();
-    }
-    if values.len() <= limit {
-        return values.join(", ");
-    }
-    let mut head = values
-        .iter()
-        .take(limit)
-        .cloned()
-        .collect::<Vec<_>>()
-        .join(", ");
-    head.push_str(&format!(" ... +{}", values.len() - limit));
-    head
-}
-
-fn domain_parameter_list(parameters: &[DomainParameterView]) -> String {
-    if parameters.is_empty() {
-        "-".to_owned()
-    } else {
-        parameters
-            .iter()
-            .map(|parameter| {
-                if parameter.kind == parameter.name {
-                    parameter.display.clone()
-                } else {
-                    format!(
-                        "{} ({} {})",
-                        parameter.display, parameter.kind, parameter.name
-                    )
-                }
-            })
-            .collect::<Vec<_>>()
-            .join(", ")
-    }
-}
-
-fn runtime_transform_label(scale: Option<&str>, offset: Option<&str>) -> String {
-    match (scale, offset) {
-        (Some(scale), Some(offset)) => format!("scale={scale}, offset={offset}"),
-        (Some(scale), None) => format!("scale={scale}"),
-        (None, Some(offset)) => format!("offset={offset}"),
-        (None, None) => String::new(),
-    }
+    Ok(())
 }
 
 fn relative_to(root: &Path, path: &Path) -> String {
@@ -4809,279 +901,6 @@ fn relative_to(root: &Path, path: &Path) -> String {
         .replace('\\', "/")
 }
 
-fn tab_label(path: &Path, dirty: bool) -> String {
-    let mut label = path
-        .file_name()
-        .and_then(|value| value.to_str())
-        .unwrap_or("untitled")
-        .to_owned();
-    if dirty {
-        label.push_str(" *");
-    }
-    label
-}
-
-fn save_file_contents(path: &Path, source: &str) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    }
-    fs::write(path, source).map_err(|error| error.to_string())
-}
-
-fn panel_frame(ctx: &egui::Context) -> egui::Frame {
-    let palette = if ctx.style().visuals.dark_mode {
-        ThemePalette::for_theme(UiTheme::Dark)
-    } else {
-        ThemePalette::for_theme(UiTheme::Light)
-    };
-    egui::Frame::none()
-        .fill(palette.panel)
-        .stroke(egui::Stroke::new(1.0, palette.border))
-        .inner_margin(egui::Margin::same(8.0))
-}
-
-fn panel_header(ui: &mut egui::Ui, text: &str) {
-    let palette = ui_palette(ui);
-    ui.label(
-        egui::RichText::new(text)
-            .size(14.0)
-            .strong()
-            .color(palette.text),
-    );
-    ui.add_space(2.0);
-}
-
-fn primary_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
-    let palette = ui_palette(ui);
-    ui.add(
-        egui::Button::new(
-            egui::RichText::new(text)
-                .color(egui::Color32::WHITE)
-                .strong(),
-        )
-        .fill(palette.accent),
-    )
-}
-
-fn compact_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
-    ui.add_sized(
-        [76.0, 23.0],
-        egui::Button::new(egui::RichText::new(text).size(12.0)),
-    )
-}
-
-fn completion_hint(ui: &mut egui::Ui, prefix: &str, item: &CompletionItem) {
-    let palette = ui_palette(ui);
-    let display_insert = if item.insert.chars().count() > 48 {
-        item.label.as_str()
-    } else {
-        item.insert.as_str()
-    };
-    egui::Frame::none()
-        .fill(palette.hint_bg)
-        .stroke(egui::Stroke::new(1.0, palette.border))
-        .rounding(egui::Rounding::same(4.0))
-        .inner_margin(egui::Margin::symmetric(8.0, 5.0))
-        .show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                status_pill(ui, "Tab", palette.accent);
-                ui.label(
-                    egui::RichText::new("complete")
-                        .color(palette.muted)
-                        .size(12.0),
-                );
-                ui.label(egui::RichText::new(prefix).monospace().size(12.0));
-                ui.label(egui::RichText::new("to").color(palette.muted).size(12.0));
-                ui.label(
-                    egui::RichText::new(display_insert)
-                        .monospace()
-                        .strong()
-                        .size(12.0),
-                );
-                ui.label(
-                    egui::RichText::new(&item.detail)
-                        .color(palette.muted)
-                        .size(12.0),
-                );
-            });
-        });
-}
-
-fn tab_button(ui: &mut egui::Ui, text: &str, selected: bool) -> egui::Response {
-    let palette = ui_palette(ui);
-    let fill = if selected {
-        palette.accent
-    } else {
-        palette.panel_alt
-    };
-    let color = if selected {
-        egui::Color32::WHITE
-    } else {
-        palette.text
-    };
-    ui.add(
-        egui::Button::new(egui::RichText::new(text).color(color).size(12.0))
-            .fill(fill)
-            .min_size(egui::vec2(0.0, 23.0)),
-    )
-}
-
-fn status_badge(ui: &mut egui::Ui, label: &str, count: usize, color: egui::Color32) {
-    status_pill(ui, &format!("{label} {count}"), color);
-}
-
-fn status_pill(ui: &mut egui::Ui, text: &str, color: egui::Color32) {
-    egui::Frame::none()
-        .fill(color.linear_multiply(0.10))
-        .stroke(egui::Stroke::new(1.0, color.linear_multiply(0.55)))
-        .rounding(egui::Rounding::same(4.0))
-        .inner_margin(egui::Margin::symmetric(7.0, 3.0))
-        .show(ui, |ui| {
-            ui.label(egui::RichText::new(text).color(color).size(11.5));
-        });
-}
-
-fn status_color(status: &str, palette: ThemePalette) -> egui::Color32 {
-    match status {
-        "recorded" | "domain_resolved" | "domain_compatible" | "unit_consistent" => OK,
-        "unknown_domain"
-        | "generic_arity_mismatch"
-        | "domain_mismatch"
-        | "medium_mismatch"
-        | "frame_mismatch"
-        | "axis_mismatch"
-        | "domain_parameter_mismatch"
-        | "unresolved_endpoint" => ERROR,
-        "unvalidated" | "metadata_only" | "deferred" | "unsolved" => WARNING,
-        _ => palette.muted,
-    }
-}
-
-fn section_label(ui: &mut egui::Ui, text: &str) {
-    ui.label(
-        egui::RichText::new(text)
-            .size(12.5)
-            .strong()
-            .color(ui_palette(ui).text),
-    );
-    ui.add_space(3.0);
-}
-
-fn metric_chip(ui: &mut egui::Ui, label: &str, value: &str, color: egui::Color32) {
-    let palette = ui_palette(ui);
-    egui::Frame::none()
-        .fill(color.linear_multiply(0.08))
-        .stroke(egui::Stroke::new(1.0, color.linear_multiply(0.35)))
-        .rounding(egui::Rounding::same(5.0))
-        .inner_margin(egui::Margin::symmetric(8.0, 5.0))
-        .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(label).color(palette.muted).size(12.0));
-                ui.label(egui::RichText::new(value).color(color).strong().size(12.0));
-            });
-        });
-}
-
-fn runtime_card(
-    ui: &mut egui::Ui,
-    add_contents: impl FnOnce(&mut egui::Ui),
-) -> egui::InnerResponse<()> {
-    let palette = ui_palette(ui);
-    egui::Frame::none()
-        .fill(palette.panel_alt)
-        .stroke(egui::Stroke::new(1.0, palette.border))
-        .rounding(egui::Rounding::same(6.0))
-        .inner_margin(egui::Margin::symmetric(9.0, 7.0))
-        .show(ui, add_contents)
-}
-
-fn key_value_row(ui: &mut egui::Ui, key: &str, value: &str) {
-    let palette = ui_palette(ui);
-    ui.horizontal_wrapped(|ui| {
-        ui.add_sized(
-            [92.0, 18.0],
-            egui::Label::new(egui::RichText::new(key).color(palette.muted).size(12.0)),
-        );
-        ui.label(egui::RichText::new(value).monospace().size(12.0));
-    });
-}
-
-fn table_header_row(ui: &mut egui::Ui, headers: &[&str]) {
-    let palette = ui_palette(ui);
-    ui.horizontal(|ui| {
-        for header in headers {
-            ui.add_sized(
-                [table_header_width(header), 18.0],
-                egui::Label::new(
-                    egui::RichText::new(*header)
-                        .strong()
-                        .size(11.5)
-                        .color(palette.muted),
-                ),
-            );
-        }
-    });
-    ui.separator();
-}
-
-fn table_header_width(header: &str) -> f32 {
-    match header {
-        "Name" => 86.0,
-        "Kind" | "Quantity" => 86.0,
-        "Unit" => 46.0,
-        "Value" => 92.0,
-        "Source" => 58.0,
-        "Required" => 58.0,
-        "Line" => 40.0,
-        "Type" => 58.0,
-        _ => 74.0,
-    }
-}
-
-fn variable_kind_label(variable: &RuntimeVariableView) -> String {
-    short_label(&variable.quantity_kind, 18)
-}
-
-fn variable_value_label(variable: &RuntimeVariableView) -> String {
-    variable
-        .value
-        .as_deref()
-        .map(|value| short_label(value, 18))
-        .unwrap_or_else(|| "-".to_owned())
-}
-
-fn unit_label(unit: &str) -> String {
-    if unit.trim().is_empty() {
-        "-".to_owned()
-    } else {
-        short_label(unit, 10)
-    }
-}
-
-fn short_label(value: &str, max_chars: usize) -> String {
-    let mut chars = value.chars();
-    let shortened: String = chars.by_ref().take(max_chars).collect();
-    if chars.next().is_some() {
-        format!("{shortened}...")
-    } else {
-        shortened
-    }
-}
-
-fn should_preview_plot_for(variable: &RuntimeVariableView) -> bool {
-    let marker = format!(
-        "{} {} {}",
-        variable.name,
-        variable.quantity_kind,
-        variable.value.as_deref().unwrap_or("")
-    )
-    .to_ascii_lowercase();
-    marker.contains("timeseries")
-        || marker.contains("time series")
-        || marker.contains(" rows")
-        || marker.contains("runtime_object")
-}
-
 fn report_title(text: &str) -> String {
     let Ok(value) = serde_json::from_str::<Value>(text) else {
         return String::new();
@@ -5089,329 +908,6 @@ fn report_title(text: &str) -> String {
     json_string(&value, &["title"])
         .or_else(|| json_string(&value, &["metadata", "title"]))
         .unwrap_or_default()
-}
-
-fn diagnostic_summary_text(report: &CheckReport) -> String {
-    let errors = report.diagnostic_count(Severity::Error);
-    let warnings = report.diagnostic_count(Severity::Warning);
-    let mut lines = vec![format!(
-        "diagnostics: {errors} error(s), {warnings} warning(s)"
-    )];
-    for diagnostic in report.diagnostics.iter().take(5) {
-        lines.push(format!(
-            "L{} {}: {}",
-            diagnostic.line, diagnostic.code, diagnostic.message
-        ));
-        if let Some(help) = &diagnostic.help {
-            lines.push(format!("  help: {help}"));
-        }
-    }
-    if report.diagnostics.len() > 5 {
-        lines.push(format!(
-            "... {} more diagnostic(s)",
-            report.diagnostics.len() - 5
-        ));
-    }
-    lines.join("\n")
-}
-
-fn interactive_success_text(summary: Option<&ArtifactSummary>) -> String {
-    if let Some(summary) = summary {
-        let newest = summary
-            .variables
-            .last()
-            .map(|variable| {
-                format!(
-                    "{}: {} {}",
-                    variable.name,
-                    variable.quantity_kind,
-                    variable
-                        .value
-                        .as_deref()
-                        .map(|value| format!("= {value}"))
-                        .unwrap_or_default()
-                )
-            })
-            .unwrap_or_else(|| "no runtime variables".to_owned());
-        format!(
-            "ok: {} variable(s), {} arg(s)\n{}",
-            summary.variables.len(),
-            summary.args.len(),
-            newest
-        )
-    } else {
-        "ok".to_owned()
-    }
-}
-
-fn path_list_label(paths: &[PathBuf]) -> String {
-    paths
-        .iter()
-        .map(|path| path.display().to_string())
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-fn draw_plot(ui: &mut egui::Ui, plot: &PlotPreview) {
-    draw_plot_sized(ui, plot, 260.0);
-}
-
-fn draw_plot_sized(ui: &mut egui::Ui, plot: &PlotPreview, height: f32) {
-    let palette = ui_palette(ui);
-    ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(&plot.title).strong());
-        ui.label(
-            egui::RichText::new(format!("{} / {}", plot.plot_type, plot.series_name))
-                .color(palette.muted),
-        );
-    });
-    let desired = egui::vec2(ui.available_width(), height.clamp(160.0, 320.0));
-    let (rect, _) = ui.allocate_exact_size(desired, egui::Sense::hover());
-    let painter = ui.painter_at(rect);
-    painter.rect_filled(rect, egui::Rounding::same(6.0), palette.plot_bg);
-    painter.rect_stroke(
-        rect,
-        egui::Rounding::same(6.0),
-        egui::Stroke::new(1.0, palette.border),
-    );
-
-    let plot_rect = egui::Rect::from_min_max(
-        rect.min + egui::vec2(66.0, 30.0),
-        rect.max - egui::vec2(28.0, 48.0),
-    );
-
-    if plot.points.is_empty() {
-        painter.line_segment(
-            [plot_rect.left_bottom(), plot_rect.right_bottom()],
-            egui::Stroke::new(1.4, palette.axis),
-        );
-        painter.line_segment(
-            [plot_rect.left_bottom(), plot_rect.left_top()],
-            egui::Stroke::new(1.4, palette.axis),
-        );
-        painter.text(
-            plot_rect.center(),
-            egui::Align2::CENTER_CENTER,
-            "No points",
-            egui::FontId::proportional(14.0),
-            palette.muted,
-        );
-    } else {
-        let (min_x, max_x, min_y, max_y) = plot_bounds(plot);
-        let x_ticks = tick_values(min_x, max_x, 5);
-        let y_ticks = tick_values(min_y, max_y, 5);
-        let to_screen = |point: (f64, f64)| -> egui::Pos2 {
-            let x_t = normalized(point.0, min_x, max_x);
-            let y_t = normalized(point.1, min_y, max_y);
-            egui::pos2(
-                plot_rect.left() + (x_t as f32) * plot_rect.width(),
-                plot_rect.bottom() - (y_t as f32) * plot_rect.height(),
-            )
-        };
-
-        for tick in &x_ticks {
-            let x = to_screen((*tick, min_y)).x;
-            painter.line_segment(
-                [
-                    egui::pos2(x, plot_rect.top()),
-                    egui::pos2(x, plot_rect.bottom()),
-                ],
-                egui::Stroke::new(1.0, palette.grid),
-            );
-            painter.text(
-                egui::pos2(x, plot_rect.bottom() + 7.0),
-                egui::Align2::CENTER_TOP,
-                format_tick(*tick),
-                egui::FontId::proportional(10.5),
-                palette.muted,
-            );
-        }
-        for tick in &y_ticks {
-            let y = to_screen((min_x, *tick)).y;
-            painter.line_segment(
-                [
-                    egui::pos2(plot_rect.left(), y),
-                    egui::pos2(plot_rect.right(), y),
-                ],
-                egui::Stroke::new(1.0, palette.grid),
-            );
-            painter.text(
-                egui::pos2(plot_rect.left() - 8.0, y),
-                egui::Align2::RIGHT_CENTER,
-                format_tick(*tick),
-                egui::FontId::proportional(10.5),
-                palette.muted,
-            );
-        }
-
-        painter.line_segment(
-            [plot_rect.left_bottom(), plot_rect.right_bottom()],
-            egui::Stroke::new(1.5, palette.axis),
-        );
-        painter.line_segment(
-            [plot_rect.left_bottom(), plot_rect.left_top()],
-            egui::Stroke::new(1.5, palette.axis),
-        );
-        if min_y < 0.0 && max_y > 0.0 {
-            let zero_y = to_screen((min_x, 0.0)).y;
-            painter.line_segment(
-                [
-                    egui::pos2(plot_rect.left(), zero_y),
-                    egui::pos2(plot_rect.right(), zero_y),
-                ],
-                egui::Stroke::new(1.5, palette.grid),
-            );
-        }
-
-        if plot.plot_type == "histogram" && !plot.bins.is_empty() {
-            let baseline_y = to_screen((min_x, 0.0)).y;
-            for bin in &plot.bins {
-                let left = to_screen((bin.lower, 0.0)).x;
-                let right = to_screen((bin.upper, 0.0)).x;
-                let value_y = to_screen((bin.center, bin.count)).y;
-                let bar_rect = egui::Rect::from_min_max(
-                    egui::pos2(left.min(right), value_y.min(baseline_y)),
-                    egui::pos2(
-                        left.max(right).max(left.min(right) + 2.0),
-                        value_y.max(baseline_y),
-                    ),
-                );
-                painter.rect_filled(bar_rect, egui::Rounding::same(1.5), palette.accent);
-            }
-        } else if plot.plot_type == "bar" || plot.plot_type == "histogram" {
-            let bar_width = (plot_rect.width() / plot.points.len().max(1) as f32) * 0.68;
-            let baseline_value = if min_y <= 0.0 && max_y >= 0.0 {
-                0.0
-            } else if min_y > 0.0 {
-                min_y
-            } else {
-                max_y
-            };
-            let baseline_y = to_screen((min_x, baseline_value)).y;
-            for point in &plot.points {
-                let screen = to_screen(*point);
-                let bar_rect = egui::Rect::from_center_size(
-                    egui::pos2(screen.x, (screen.y + baseline_y) * 0.5),
-                    egui::vec2(bar_width.max(2.0), (baseline_y - screen.y).abs().max(1.0)),
-                );
-                painter.rect_filled(bar_rect, egui::Rounding::same(2.0), palette.accent);
-            }
-        } else if plot.plot_type == "scatter" {
-            for point in plot.points.iter().copied().map(to_screen) {
-                painter.circle_filled(point, 3.2, palette.plot_bg);
-                painter.circle_stroke(point, 3.2, egui::Stroke::new(1.5, palette.accent));
-            }
-        } else {
-            let points: Vec<egui::Pos2> = plot.points.iter().copied().map(to_screen).collect();
-            painter.add(egui::Shape::line(
-                points.clone(),
-                egui::Stroke::new(2.5, palette.accent),
-            ));
-            for point in points.iter().step_by((points.len() / 24).max(1)) {
-                painter.circle_filled(*point, 2.8, palette.plot_bg);
-                painter.circle_stroke(*point, 2.8, egui::Stroke::new(1.2, palette.accent));
-            }
-        }
-    }
-    painter.text(
-        rect.center_bottom() - egui::vec2(0.0, 14.0),
-        egui::Align2::CENTER_CENTER,
-        &plot.x_label,
-        egui::FontId::proportional(13.0),
-        palette.text,
-    );
-    draw_vertical_axis_label(
-        &painter,
-        rect.left_center() + egui::vec2(18.0, 0.0),
-        &plot.y_label,
-        palette.text,
-    );
-}
-
-fn draw_vertical_axis_label(
-    painter: &egui::Painter,
-    center: egui::Pos2,
-    label: &str,
-    color: egui::Color32,
-) {
-    let label = short_label(label, 28);
-    let chars: Vec<char> = label.chars().collect();
-    let step = 9.0_f32;
-    let total = step * chars.len().saturating_sub(1) as f32;
-    let start_y = center.y - total * 0.5;
-    for (index, ch) in chars.iter().enumerate() {
-        if ch.is_whitespace() {
-            continue;
-        }
-        painter.text(
-            egui::pos2(center.x, start_y + step * index as f32),
-            egui::Align2::CENTER_CENTER,
-            ch,
-            egui::FontId::proportional(10.5),
-            color,
-        );
-    }
-}
-
-fn point_bounds(points: &[(f64, f64)]) -> (f64, f64, f64, f64) {
-    let mut min_x = f64::INFINITY;
-    let mut max_x = f64::NEG_INFINITY;
-    let mut min_y = f64::INFINITY;
-    let mut max_y = f64::NEG_INFINITY;
-    for (x, y) in points {
-        min_x = min_x.min(*x);
-        max_x = max_x.max(*x);
-        min_y = min_y.min(*y);
-        max_y = max_y.max(*y);
-    }
-    (min_x, max_x, min_y, max_y)
-}
-
-fn plot_bounds(plot: &PlotPreview) -> (f64, f64, f64, f64) {
-    if plot.plot_type == "histogram" && !plot.bins.is_empty() {
-        let min_x = plot
-            .bins
-            .iter()
-            .map(|bin| bin.lower.min(bin.upper))
-            .fold(f64::INFINITY, f64::min);
-        let max_x = plot
-            .bins
-            .iter()
-            .map(|bin| bin.lower.max(bin.upper))
-            .fold(f64::NEG_INFINITY, f64::max);
-        let max_y = plot.bins.iter().map(|bin| bin.count).fold(0.0, f64::max);
-        return (min_x, max_x, 0.0, max_y.max(1.0));
-    }
-    point_bounds(&plot.points)
-}
-
-fn normalized(value: f64, min: f64, max: f64) -> f64 {
-    if (max - min).abs() < f64::EPSILON {
-        0.5
-    } else {
-        ((value - min) / (max - min)).clamp(0.0, 1.0)
-    }
-}
-
-fn tick_values(min: f64, max: f64, count: usize) -> Vec<f64> {
-    let count = count.max(2);
-    if (max - min).abs() < f64::EPSILON {
-        return vec![min];
-    }
-    let step = (max - min) / (count - 1) as f64;
-    (0..count).map(|index| min + step * index as f64).collect()
-}
-
-fn format_tick(value: f64) -> String {
-    if value.abs() >= 1000.0 {
-        format!("{value:.0}")
-    } else if value.abs() >= 10.0 {
-        format!("{value:.1}")
-    } else if value.abs() >= 1.0 {
-        format!("{value:.2}")
-    } else {
-        format!("{value:.3}")
-    }
 }
 
 fn json_string(value: &Value, path: &[&str]) -> Option<String> {
@@ -5443,19 +939,6 @@ fn json_field_usize(value: &Value, key: &str) -> Option<usize> {
         .and_then(|value| usize::try_from(value).ok())
 }
 
-fn json_field_string_array(value: &Value, key: &str) -> Vec<String> {
-    value
-        .get(key)
-        .and_then(Value::as_array)
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(|item| item.as_str().map(ToOwned::to_owned))
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
 fn format_json_number(value: f64) -> String {
     if value.abs() >= 1000.0 {
         format!("{value:.3}")
@@ -5466,18 +949,6 @@ fn format_json_number(value: f64) -> String {
             .trim_end_matches('0')
             .trim_end_matches('.')
             .to_owned()
-    }
-}
-
-fn axis_label(value: &Value, axis: &str) -> String {
-    let label = json_string(value, &[axis, "label"])
-        .or_else(|| json_string(value, &[axis, "name"]))
-        .unwrap_or_else(|| axis.to_owned());
-    let unit = json_string(value, &[axis, "unit"]).unwrap_or_default();
-    if unit.is_empty() {
-        label
-    } else {
-        format!("{label} [{unit}]")
     }
 }
 
@@ -5496,4 +967,44 @@ fn open_path(path: &Path) {
     {
         let _ = Command::new("xdg-open").arg(path).status();
     }
+}
+
+fn smoke() -> Result<(), String> {
+    let root = workspace_root();
+    let examples = collect_examples(&root);
+    let Some(first) = examples.first() else {
+        return Err("no .eng examples found".to_owned());
+    };
+    let source = read_utf8(first)?;
+    let report = check_source(first, &source, &CheckOptions::default());
+    if report.has_errors() {
+        return Err(format!("{} has diagnostics", first.display()));
+    }
+    let domain_example = root.join("examples/official/06_domain_port/main.eng");
+    let domain_source = read_utf8(&domain_example)?;
+    let domain_report = check_source(&domain_example, &domain_source, &CheckOptions::default());
+    if domain_report.has_errors()
+        || domain_report.semantic_program.domains.is_empty()
+        || domain_report.semantic_program.components.is_empty()
+        || domain_report.semantic_program.connections.is_empty()
+    {
+        return Err(format!(
+            "{} did not produce domain/component metadata",
+            domain_example.display()
+        ));
+    }
+    let ui_index = root.join("crates/eng_ide/ui/index.html");
+    if root.join("crates/eng_ide").exists() && !ui_index.exists() {
+        return Err(format!("missing Tauri UI asset {}", ui_index.display()));
+    }
+    println!(
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s)",
+        examples.len(),
+        all_quantity_completions().len(),
+        all_unit_infos().len(),
+        domain_report.semantic_program.domains.len(),
+        domain_report.semantic_program.components.len(),
+        domain_report.semantic_program.connections.len()
+    );
+    Ok(())
 }

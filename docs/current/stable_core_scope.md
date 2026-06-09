@@ -31,7 +31,8 @@ workflow are expected to remain compatible across `1.x` releases.
   records profile diagnostics in result/run-log/output-manifest artifacts.
 - Standalone packaged runner with `.engpkg`, `.lock`, Args help, dependency
   copying, package smoke, and curated PDF docs.
-- Native tester IDE smoke path and artifact navigation for the stable workflow.
+- Tauri/WebView tester IDE smoke path, terminal/variables/plot preview, and
+  on-demand report/plot opening for the stable workflow.
 
 ## Shipped But Not Stable
 

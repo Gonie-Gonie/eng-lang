@@ -245,24 +245,22 @@ Exit code:
 
 ## `eng-ide.exe`
 
-Launches the native portable tester IDE.
+Launches the Tauri/WebView portable tester IDE.
 
 Current tester IDE features:
 
 ```text
-- Explorer for examples, stdlib, tutorials, and scratch .eng files
-- native source editor with EngLang syntax highlighting
+- Explorer for examples, stdlib, and docs
+- source editor with multi-file tabs
 - live check_source diagnostics for unsaved edits
 - toolbar diagnostic counts and Problems panel
-- completion insertion for keywords, quantity kinds, units, and starter snippets
+- caret completion insertion for symbols, keywords, quantity kinds, units, and starter snippets
 - compiler-derived symbol metadata
 - save/check/run commands
 - generated report and plot opening
-- in-IDE PlotSpec preview
-- Artifacts tab for result, review, report, PlotSpec, manifest, SVG, and bytecode runtime objects, with saved paths when files are written
-- Artifacts tab also exposes run-log and process-result runtime objects
-- Settings window for light/dark theme, UI density, font sizes, window presets,
-  soft wrapping, and panel default sizes
+- Terminal tab with `clear`, `reset`, `check`, `run`, and one-line top-level commands
+- Variables table populated after successful runs
+- in-IDE PlotSpec preview in the terminal surface
 ```
 
 `eng-ide.exe --smoke` checks the non-GUI path for release packages. It verifies

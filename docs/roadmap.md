@@ -59,7 +59,7 @@ experimental.
 - PlotSpec/SVG output
 - review/report artifacts
 - basic packaged execution
-- native tester IDE smoke path
+- Tauri tester IDE smoke path
 - curated user PDF
 - language grammar PDF
 ```
@@ -134,23 +134,23 @@ should remain separate from the release version.
 
 ## IDE Direction
 
-The native `egui` tester IDE remains the packaged smoke UI for the current
-stable line, but the preferred development direction for a richer IDE is a
-Tauri/WebView shell:
+The tester IDE is now a Tauri/WebView shell with a Rust backend and static
+HTML/CSS/JS frontend:
 
 ```text
 - Rust stays authoritative for compiler/runtime/report services.
-- The UI moves to HTML/CSS/JS for editor layout, docked panels, terminal,
+- The UI uses HTML/CSS/JS for editor layout, docked panels, terminal,
   variable tables, and responsive plot/report inspection.
-- The frontend should be static-build friendly first, so the packaged IDE does
+- The frontend is static-build friendly first, so the packaged IDE does
   not require Node on the target PC.
 - Parser/check/run requests should be debounced and incremental enough for
   editor responsiveness.
-- The migration starts by extracting shared IDE service functions before
-  replacing the current native tester shell.
+- The packaged workflow should keep `eng-ide.exe --smoke`, `dev.bat ide-check`,
+  and `dev.bat dev-current` as the user-visible validation path.
 ```
 
-This is a T5 IDE/LSP development-track item, not a v1.0.0 stable-core contract.
+This is a T5 IDE/LSP development-track item. It supports the stable-core user
+test workflow but is still not a full editor platform or LSP replacement.
 
 ## v1.0.0 Stable Core Gate
 

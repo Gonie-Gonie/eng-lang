@@ -274,6 +274,7 @@ function Invoke-Setup {
     }
     Invoke-MingwSetup
     Invoke-PortablePythonSetup
+    Write-Host "Tauri IDE uses static HTML/CSS/JS assets; Node/npm is not required."
     Write-Host "Fetching locked dependencies..."
     Invoke-Native $cargo "fetch" "--locked"
     Write-Host "Building workspace..."
@@ -926,6 +927,24 @@ function Invoke-RunExample {
 }
 
 function Invoke-IdeCheck {
+    Set-DevEnvironment
+    $cargo = Get-Cargo
+    if ($null -eq $cargo) {
+        Write-Host "Cargo not found. Run .\dev.bat setup."
+        exit 1
+    }
+
+    $TauriConfigPath = Join-Path $RepoRoot "crates\eng_ide\tauri.conf.json"
+    $TauriUiIndexPath = Join-Path $RepoRoot "crates\eng_ide\ui\index.html"
+    if (-not (Test-Path $TauriConfigPath)) {
+        throw "missing Tauri IDE config at $TauriConfigPath"
+    }
+    if (-not (Test-Path $TauriUiIndexPath)) {
+        throw "missing Tauri IDE static frontend at $TauriUiIndexPath"
+    }
+    Invoke-Native $cargo "check" "-p" "eng_ide"
+    Invoke-Native $cargo "run" "-p" "eng_ide" "--" "--smoke"
+
     $ExtensionRoot = Join-Path $RepoRoot "tools\vscode-englang"
     $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
     $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
@@ -988,7 +1007,7 @@ function Invoke-IdeCheck {
         Write-Host "Node not found; skipped extension.js syntax check."
     }
 
-    Write-Host "IDE extension check passed."
+    Write-Host "IDE check passed."
 }
 
 function Invoke-LspCheck {
@@ -1068,7 +1087,7 @@ function Invoke-DevCurrent {
 EngLang dev-current
 
 This folder is the current commit's non-release test display build.
-Run eng-ide.exe from this folder to open the native IDE with bundled examples,
+Run eng-ide.exe from this folder to open the Tauri/WebView IDE with bundled examples,
 stdlib files, tutorials, and the language grammar guide.
 
 Docs:
@@ -1270,19 +1289,19 @@ function New-UserGuidePdf {
         @{ Kind = "subtitle"; Text = "Portable Windows package v$Version" },
         @{ Kind = "body"; Text = "EngLang is a native engineering language for workflows where units, physical quantities, schemas, axes, statistics, plots, reports, and provenance are checked as part of the program. This PDF is the curated user-facing guide for the portable package; developer notes and master plans stay in the repository." },
         @{ Kind = "h1"; Text = "1. Package Contents" },
-        @{ Kind = "body"; Text = "The portable folder contains eng.exe for command-line execution, eng-ide.exe for native GUI testing, eng-lsp.exe for experimental editor-service smoke checks, official examples, stdlib language seeds, tools for the optional VS Code extension, and this PDF. It intentionally does not ship the full developer documentation tree." },
+        @{ Kind = "body"; Text = "The portable folder contains eng.exe for command-line execution, eng-ide.exe for Tauri/WebView GUI testing, eng-lsp.exe for experimental editor-service smoke checks, official examples, stdlib language seeds, tools for the optional VS Code extension, and this PDF. It intentionally does not ship the full developer documentation tree." },
         @{ Kind = "h1"; Text = "2. First Smoke Test" },
         @{ Kind = "step"; Text = "Open a command prompt in the extracted folder." },
         @{ Kind = "step"; Text = "Run: eng.exe doctor" },
         @{ Kind = "step"; Text = "Run: eng-ide.exe --smoke" },
         @{ Kind = "step"; Text = "Run: eng-lsp.exe --smoke" },
         @{ Kind = "body"; Text = "All three commands should exit successfully. The doctor command verifies runtime, standard library, unit registry, plot renderer, report generator, write permission, and example files. The IDE smoke command verifies that examples and compiler completion metadata are discoverable. The LSP smoke command verifies the experimental editor-service diagnostics, completion, and hover metadata path." },
-        @{ Kind = "h1"; Text = "3. Native IDE Workflow" },
+        @{ Kind = "h1"; Text = "3. Tauri IDE Workflow" },
         @{ Kind = "step"; Text = "Run: eng-ide.exe" },
         @{ Kind = "step"; Text = "Use Explorer to open examples/official/03_integrated_hvac/main.eng or create a scratch .eng file." },
         @{ Kind = "step"; Text = "Use Check for lint diagnostics. Error and warning counts are visible in the toolbar and details are listed in Problems." },
-        @{ Kind = "step"; Text = "Use Ctrl+Space in the editor to update completion filtering, then insert keywords, quantity kinds, units, or snippets from Completions." },
-        @{ Kind = "step"; Text = "Use Run to generate result artifacts. The IDE previews PlotSpec data and exposes report, plot, result, review, and manifest paths." },
+        @{ Kind = "step"; Text = "Use Ctrl+Space in the editor to open caret completions, then insert symbols, keywords, quantity kinds, units, or snippets." },
+        @{ Kind = "step"; Text = "Use Run to execute the current top-level file. The IDE updates the terminal, Problems tab, Variables table, and PlotSpec preview." },
         @{ Kind = "body"; Text = "The IDE uses the same compiler and runtime crates as eng.exe. Diagnostics, symbols, completions, run artifacts, and report generation therefore test the real core path rather than duplicated editor logic." },
         @{ Kind = "h1"; Text = "4. Integrated HVAC Example" },
         @{ Kind = "body"; Text = "The integrated HVAC example is the recommended user test because one file exercises typed CSV promotion, DateTime parsing, missing-value interpolation, schema constraints, HeatRate calculation, TimeSeries statistics, trapezoidal integration, PlotSpec/SVG/report output, and the simple thermal system fixed-step ODE preview." },
@@ -1296,10 +1315,10 @@ function New-UserGuidePdf {
         @{ Kind = "step"; Text = "Temporarily change m_dot <= 0.30 kg/s to m_dot <= 0.20 kg/s and inspect policy results." },
         @{ Kind = "step"; Text = "Type Heat and use completion to insert HeatRate or HeatCapacity." },
         @{ Kind = "h1"; Text = "7. Troubleshooting" },
-        @{ Kind = "body"; Text = "If a run fails, check Problems first, then run eng.exe check <file.eng> from the same folder. If the plot preview is empty, open the Artifacts tab and check plots/plot_spec.json and plots/timeseries.svg." },
+        @{ Kind = "body"; Text = "If a run fails, check Problems first, then run eng.exe check <file.eng> from the same folder. If the plot preview is empty, use the terminal Plot toggle or open Plot SVG from the toolbar after a successful run." },
         @{ Kind = "body"; Text = "If a CSV path fails, keep relative paths anchored next to the source file, as in the official examples. If a report does not open, open build/result/report.html manually." },
         @{ Kind = "h1"; Text = "8. Current Boundaries" },
-        @{ Kind = "body"; Text = "This release supports the documented core workflows: CSV promote, unit-aware TimeSeries calculations, PlotSpec/SVG output, review/report artifacts, basic packaged execution, and the native tester IDE. Uncertainty, ML, LSP, JIT/AOT, and domain/component work remain future or experimental tracks unless explicitly marked stable-supported." }
+        @{ Kind = "body"; Text = "This release supports the documented core workflows: CSV promote, unit-aware TimeSeries calculations, PlotSpec/SVG output, review/report artifacts, basic packaged execution, and the Tauri/WebView tester IDE. Uncertainty, ML, LSP, JIT/AOT, and domain/component work remain future or experimental tracks unless explicitly marked stable-supported." }
     )
 
     $pages = New-Object System.Collections.Generic.List[string]
@@ -1646,10 +1665,10 @@ Usage:
   .\dev.bat ci             Run fmt, tests, clippy, and preview example
   .\dev.bat docs-check     Check supported documentation Eng snippets
   .\dev.bat grammar-docs   Generate the oodocs language grammar PDF
-  .\dev.bat ide-check      Validate the VS Code extension preview
+  .\dev.bat ide-check      Validate the Tauri IDE and VS Code extension preview
   .\dev.bat lsp-check      Validate eng-lsp.exe stdio, smoke, and snapshot output
   .\dev.bat jit-check      Validate runtime optimization track kernel planning and bench output
-  .\dev.bat ide            Run the native EngLang tester IDE
+  .\dev.bat ide            Run the Tauri/WebView EngLang tester IDE
   .\dev.bat dev-current    Build latest release test IDE into dist\dev-current
   .\dev.bat artifacts-check Validate artifact schemas and golden baselines
   .\dev.bat run-example    Run examples\official\01_csv_plot\main.eng

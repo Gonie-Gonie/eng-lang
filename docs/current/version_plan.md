@@ -58,14 +58,14 @@ typed data boundary
 ```
 
 `1.0.0` stabilizes the documented data-to-report workflow, artifact family,
-packaged runner, and native tester path. It does not stabilize every track on
+packaged runner, and Tauri tester path. It does not stabilize every track on
 `main`; see [stable_core_scope.md](stable_core_scope.md).
 
 ## Completed Preview Steps
 
 ```text
 v0.2-preview
-  - native IDE and documentation hardening
+  - tester IDE and documentation hardening
   - top-level/function/import/command/where/with policy documented
   - unit-aware print and explicit summary CSV export documented
   - integrated language philosophy documented

@@ -82,7 +82,7 @@ report {
 The runtime writes a histogram `PlotSpec` and SVG under the normal build result
 folder. The histogram series keeps center/count `points` for renderer
 compatibility and `bins` entries with `lower`, `upper`, `center`, and `count`
-for reviewable bin edges. In the native IDE, run the file and use the
+for reviewable bin edges. In the Tauri IDE, run the file and use the
 plot/report artifact buttons.
 
 ## Runtime Contract
@@ -126,7 +126,7 @@ Run:
 .\target\debug\eng.exe check examples\05_error_messages\invalid_uncertainty_arguments.eng --review
 ```
 
-or open this file in the native IDE:
+or open this file in the Tauri IDE:
 
 ```text
 examples/official/04_uncertainty_core/main.eng
