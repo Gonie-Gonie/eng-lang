@@ -67,6 +67,7 @@ long-form planning documents.
 - [v0.2-preview release notes](release/v0.2-preview.md)
 - [v0.3-preview release notes](release/v0.3-preview.md)
 - [v0.4-preview release notes](release/v0.4-preview.md)
+- [v0.5-preview release notes](release/v0.5-preview.md)
 - Long-form v9 plan is linked from the planning pointer only as historical
   technical intent; do not use its old milestone labels as release names.
 

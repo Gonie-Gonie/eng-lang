@@ -277,8 +277,8 @@ include hover `kind`/`status` metadata and completion labels such as
 ## `eng run <file.eng> [--open-report] [--save-artifacts] [--<arg> <value>...]`
 
 Runs the file's top-level workflow through bytecode v1 and the native VM seed.
-By default, result/review/report/plot payloads remain runtime objects in memory.
-`--save-artifacts` writes those objects to disk.
+By default, result/review/report/plot/output-manifest payloads remain runtime
+objects in memory. `--save-artifacts` writes those objects to disk.
 
 Execution model:
 
@@ -298,6 +298,7 @@ build/
     review.json
     report.html
     report_spec.json
+    output_manifest.json
     plots/
       plot_spec.json
       plot_manifest.json

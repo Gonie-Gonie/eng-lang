@@ -42,7 +42,9 @@ pub struct RunOutput {
     pub plot_path: PathBuf,
     pub plot_spec_path: PathBuf,
     pub plot_manifest_path: PathBuf,
+    pub output_manifest_path: PathBuf,
     pub csv_export_paths: Vec<PathBuf>,
+    pub write_output_paths: Vec<PathBuf>,
     pub artifacts_saved: bool,
     pub stdout: String,
     pub bytecode: String,
@@ -53,6 +55,7 @@ pub struct RunOutput {
     pub plot_svg: String,
     pub plot_spec_json: String,
     pub plot_manifest_json: String,
+    pub output_manifest_json: String,
 }
 
 #[derive(Clone, Debug)]
@@ -191,6 +194,7 @@ pub fn run_file(
     let plot_path = plots_dir.join("timeseries.svg");
     let plot_spec_path = plots_dir.join("plot_spec.json");
     let plot_manifest_path = plots_dir.join("plot_manifest.json");
+    let output_manifest_path = result_dir.join("output_manifest.json");
     let report_spec_path = result_dir.join("report_spec.json");
     let report_path = result_dir.join("report.html");
 
@@ -201,7 +205,16 @@ pub fn run_file(
     let runtime_data = materialize_runtime_data(&check_report, &source);
     apply_runtime_lengths(&mut execution, &runtime_data);
     let stdout = render_stdout(&check_report, &runtime_data);
-    let csv_export_paths = write_csv_exports(&check_report, &runtime_data, &result_dir)?;
+    let csv_export_artifacts = write_csv_exports(&check_report, &runtime_data, &result_dir)?;
+    let write_artifacts = write_outputs(&check_report, &runtime_data, &result_dir)?;
+    let csv_export_paths = csv_export_artifacts
+        .iter()
+        .map(|artifact| artifact.absolute_path.clone())
+        .collect::<Vec<_>>();
+    let write_output_paths = write_artifacts
+        .iter()
+        .map(|artifact| artifact.absolute_path.clone())
+        .collect::<Vec<_>>();
     let mut plot_spec = eng_report::plot_spec_from_report(&check_report);
     runtime_data.apply_plot_spec(&check_report, &mut plot_spec);
     let plot_spec_json = eng_report::plot_spec_json(&plot_spec);
@@ -241,16 +254,72 @@ pub fn run_file(
     );
 
     let artifacts_saved = options.save_artifacts || options.open_report;
+    let mut output_artifacts = Vec::new();
+    output_artifacts.extend(csv_export_artifacts);
+    output_artifacts.extend(write_artifacts);
     if artifacts_saved {
         fs::create_dir_all(&plots_dir)?;
         fs::write(&bytecode_path, &bytecode)?;
+        output_artifacts.push(output_artifact(
+            "bytecode",
+            path_for_manifest(&bytecode_path),
+            &bytecode,
+            bytecode_path.clone(),
+        ));
         fs::write(&review_path, &review_json)?;
+        output_artifacts.push(output_artifact(
+            "review",
+            "review.json".to_owned(),
+            &review_json,
+            review_path.clone(),
+        ));
         fs::write(&plot_spec_path, &plot_spec_json)?;
+        output_artifacts.push(output_artifact(
+            "plot_spec",
+            "plots/plot_spec.json".to_owned(),
+            &plot_spec_json,
+            plot_spec_path.clone(),
+        ));
         fs::write(&plot_path, &plot_svg)?;
+        output_artifacts.push(output_artifact(
+            "plot_svg",
+            "plots/timeseries.svg".to_owned(),
+            &plot_svg,
+            plot_path.clone(),
+        ));
         fs::write(&plot_manifest_path, &plot_manifest_json)?;
+        output_artifacts.push(output_artifact(
+            "plot_manifest",
+            "plots/plot_manifest.json".to_owned(),
+            &plot_manifest_json,
+            plot_manifest_path.clone(),
+        ));
         fs::write(&report_spec_path, &report_spec_json)?;
+        output_artifacts.push(output_artifact(
+            "report_spec",
+            "report_spec.json".to_owned(),
+            &report_spec_json,
+            report_spec_path.clone(),
+        ));
         fs::write(&report_path, &report_html)?;
+        output_artifacts.push(output_artifact(
+            "report_html",
+            "report.html".to_owned(),
+            &report_html,
+            report_path.clone(),
+        ));
         fs::write(&result_path, &result_json)?;
+        output_artifacts.push(output_artifact(
+            "result",
+            "result.engres".to_owned(),
+            &result_json,
+            result_path.clone(),
+        ));
+    }
+    let output_manifest_json = output_manifest_json(path, &output_artifacts);
+    if artifacts_saved || !output_artifacts.is_empty() {
+        fs::create_dir_all(&result_dir)?;
+        fs::write(&output_manifest_path, &output_manifest_json)?;
     }
 
     if options.open_report {
@@ -266,7 +335,9 @@ pub fn run_file(
         plot_path,
         plot_spec_path,
         plot_manifest_path,
+        output_manifest_path,
         csv_export_paths,
+        write_output_paths,
         artifacts_saved,
         stdout,
         bytecode,
@@ -277,6 +348,7 @@ pub fn run_file(
         plot_svg,
         plot_spec_json,
         plot_manifest_json,
+        output_manifest_json,
     })
 }
 
@@ -664,12 +736,34 @@ fn render_print_template(
     rendered
 }
 
+#[derive(Clone, Debug)]
+struct OutputArtifact {
+    kind: String,
+    path: String,
+    hash: String,
+    absolute_path: PathBuf,
+}
+
+fn output_artifact(
+    kind: &str,
+    path: String,
+    contents: &str,
+    absolute_path: PathBuf,
+) -> OutputArtifact {
+    OutputArtifact {
+        kind: kind.to_owned(),
+        path,
+        hash: hash_text(contents),
+        absolute_path,
+    }
+}
+
 fn write_csv_exports(
     report: &CheckReport,
     runtime_data: &RuntimeData,
     result_dir: &Path,
-) -> Result<Vec<PathBuf>, RuntimeError> {
-    let mut paths = Vec::new();
+) -> Result<Vec<OutputArtifact>, RuntimeError> {
+    let mut artifacts = Vec::new();
     for export in &report.semantic_program.csv_exports {
         if export.source != "summary" {
             continue;
@@ -721,10 +815,129 @@ fn write_csv_exports(
                 .join(","),
         );
         csv.push('\n');
-        fs::write(&path, csv)?;
-        paths.push(path);
+        write_output_file(&path, &csv, overwrite_allowed(report, export.line))?;
+        artifacts.push(output_artifact(
+            "csv_export",
+            relative_output_path(result_dir, &path),
+            &csv,
+            path,
+        ));
     }
-    Ok(paths)
+    Ok(artifacts)
+}
+
+fn write_outputs(
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+    result_dir: &Path,
+) -> Result<Vec<OutputArtifact>, RuntimeError> {
+    let mut artifacts = Vec::new();
+    for write in &report.semantic_program.writes {
+        let path_text = evaluate_runtime_path_expression(&write.path, report).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("invalid write path `{}`", write.path),
+            )
+        })?;
+        let path = export_output_path(result_dir, &path_text).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("invalid write path `{}`", write.path),
+            )
+        })?;
+        let contents = render_write_contents(write, report, runtime_data).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("cannot resolve write expression `{}`", write.expression),
+            )
+        })?;
+        write_output_file(&path, &contents, overwrite_allowed(report, write.line))?;
+        artifacts.push(output_artifact(
+            &format!("write_{}", write.format),
+            relative_output_path(result_dir, &path),
+            &contents,
+            path,
+        ));
+    }
+    Ok(artifacts)
+}
+
+fn write_output_file(path: &Path, contents: &str, overwrite: bool) -> Result<(), RuntimeError> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    if path.exists() {
+        let existing = fs::read_to_string(path)?;
+        if existing == contents {
+            return Ok(());
+        }
+        if !overwrite {
+            return Err(RuntimeError::Io(std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                format!(
+                    "output `{}` already exists with different contents; add `with {{ overwrite = true }}`",
+                    path.display()
+                ),
+            )));
+        }
+    }
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn overwrite_allowed(report: &CheckReport, owner_line: usize) -> bool {
+    report.semantic_program.with_blocks.iter().any(|block| {
+        block.owner_line == Some(owner_line)
+            && block.options.iter().any(|option| {
+                option.key == "overwrite"
+                    && option.status == "accepted"
+                    && option.value.trim().eq_ignore_ascii_case("true")
+            })
+    })
+}
+
+fn render_write_contents(
+    write: &eng_compiler::WriteInfo,
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+) -> Option<String> {
+    let value = evaluate_runtime_expression(&write.expression, report, runtime_data)?;
+    match write.format.as_str() {
+        "text" => Some(format_runtime_value(value, None, None, true)),
+        "json" => Some(format_runtime_json_value(value)),
+        _ => None,
+    }
+}
+
+fn format_runtime_json_value(value: RuntimeFormatValue) -> String {
+    match value {
+        RuntimeFormatValue::Number {
+            value,
+            quantity_kind,
+            unit,
+        } => format!(
+            "{{\n  \"value\": {},\n  \"quantity_kind\": \"{}\",\n  \"unit\": \"{}\"\n}}\n",
+            value,
+            json_escape(&quantity_kind),
+            json_escape(&unit)
+        ),
+        RuntimeFormatValue::Text(text) | RuntimeFormatValue::Summary(text) => {
+            let trimmed = text.trim();
+            if (trimmed.starts_with('{') && trimmed.ends_with('}'))
+                || (trimmed.starts_with('[') && trimmed.ends_with(']'))
+            {
+                format!("{trimmed}\n")
+            } else {
+                format!("\"{}\"\n", json_escape(&text))
+            }
+        }
+    }
+}
+
+fn relative_output_path(result_dir: &Path, path: &Path) -> String {
+    path.strip_prefix(result_dir)
+        .map(path_for_manifest)
+        .unwrap_or_else(|_| path_for_manifest(path))
 }
 
 fn export_output_path(result_dir: &Path, raw_path: &str) -> Option<PathBuf> {
@@ -738,6 +951,44 @@ fn export_output_path(result_dir: &Path, raw_path: &str) -> Option<PathBuf> {
         }
     }
     Some(destination)
+}
+
+fn output_manifest_json(source_path: &Path, artifacts: &[OutputArtifact]) -> String {
+    let mut json = String::new();
+    json.push_str("{\n");
+    json.push_str("  \"format\": \"eng-output-manifest-v1\",\n");
+    json.push_str(&format!(
+        "  \"runtime_version\": \"{}\",\n",
+        json_escape(RUNTIME_VERSION)
+    ));
+    json.push_str(&format!(
+        "  \"source_path\": \"{}\",\n",
+        json_escape(&source_path.display().to_string())
+    ));
+    json.push_str(&format!("  \"artifact_count\": {},\n", artifacts.len()));
+    json.push_str("  \"artifacts\": [\n");
+    for (index, artifact) in artifacts.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"kind\": \"{}\",\n",
+            json_escape(&artifact.kind)
+        ));
+        json.push_str(&format!(
+            "      \"path\": \"{}\",\n",
+            json_escape(&artifact.path)
+        ));
+        json.push_str(&format!(
+            "      \"hash\": \"{}\"\n",
+            json_escape(&artifact.hash)
+        ));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ]\n");
+    json.push_str("}\n");
+    json
 }
 
 fn csv_export_header(field: &eng_compiler::CsvExportFieldInfo) -> String {
@@ -785,6 +1036,11 @@ fn evaluate_runtime_expression(
     }
     if let Some(value) = evaluate_runtime_path_expression(expression, report) {
         return Some(RuntimeFormatValue::Text(value));
+    }
+    if expression.starts_with('"') {
+        return Some(RuntimeFormatValue::Text(strip_runtime_string_value(
+            expression,
+        )));
     }
     if let Some(arg_name) = expression.strip_prefix("args.") {
         return report
@@ -2760,23 +3016,43 @@ mod tests {
         let source_path = source_dir.join("main.eng");
         fs::write(
             &source_path,
-            "schema SensorData {\n    time: DateTime index\n    T_supply: AbsoluteTemperature [degC]\n    T_return: AbsoluteTemperature [degC]\n    m_dot: MassFlowRate [kg/s]\n}\n\nargs {\n    input: CsvFile = file(\"../../examples/official/01_csv_plot/data/sensor.csv\")\n}\n\nsensor = promote csv args.input as SensorData\ncp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nE_coil = integrate(Q_coil, over=Time)\nmean_Q = mean(Q_coil, axis=Time)\n\nprint \"Loaded {sensor.rows} rows from {args.input}\"\nprint \"Q mean = {mean(Q_coil, axis=Time): .2 kW}\"\nprint \"E total = {E_coil: .2 kWh}\"\n\nexport summary to csv \"summary.csv\" {\n    E_coil as kWh with \".2\"\n    mean_Q as kW with \".2\"\n}\n",
+            "schema SensorData {\n    time: DateTime index\n    T_supply: AbsoluteTemperature [degC]\n    T_return: AbsoluteTemperature [degC]\n    m_dot: MassFlowRate [kg/s]\n}\n\nargs {\n    input: CsvFile = file(\"../../examples/official/01_csv_plot/data/sensor.csv\")\n}\n\nsensor = promote csv args.input as SensorData\ncp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nE_coil = integrate(Q_coil, over=Time)\nmean_Q = mean(Q_coil, axis=Time)\n\nprint \"Loaded {sensor.rows} rows from {args.input}\"\nprint \"Q mean = {mean(Q_coil, axis=Time): .2 kW}\"\nprint \"E total = {E_coil: .2 kWh}\"\n\nexport summary to csv \"summary.csv\" {\n    E_coil as kWh with \".2\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text \"summary.txt\", mean_Q\nwrite json \"energy.json\", E_coil\n",
         )
         .expect("write source");
 
         let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+        let second_output =
+            run_file(&source_path, &build_root, &RunOptions::default()).expect("run file again");
 
         assert!(output.stdout.contains("Loaded 4 rows"));
         assert!(output.stdout.contains("Q mean = "));
         assert!(output.stdout.contains(" kW"));
         assert!(output.stdout.contains("E total = "));
         assert_eq!(output.csv_export_paths.len(), 1);
+        assert_eq!(output.write_output_paths.len(), 2);
         assert!(!output.artifacts_saved);
         let csv =
             fs::read_to_string(build_root.join("result").join("summary.csv")).expect("summary csv");
         assert!(csv.contains("E_coil [kWh]"));
         assert!(csv.contains("mean_Q [kW]"));
         assert_eq!(csv.lines().count(), 2);
+        let text =
+            fs::read_to_string(build_root.join("result").join("summary.txt")).expect("summary txt");
+        assert!(text.contains('W'));
+        let json =
+            fs::read_to_string(build_root.join("result").join("energy.json")).expect("energy json");
+        assert!(json.contains("\"quantity_kind\": \"Energy\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"format\": \"eng-output-manifest-v1\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"csv_export\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"write_text\""));
+        assert!(output.output_manifest_path.exists());
+        assert_eq!(second_output.csv_export_paths.len(), 1);
     }
 
     #[test]
@@ -2811,6 +3087,40 @@ mod tests {
             fs::read_to_string(build_root.join("result").join("summary.csv")).expect("summary csv");
         assert!(csv.contains("Q_wall [kW]"));
         assert!(csv.contains("1.20"));
+    }
+
+    #[test]
+    fn run_file_requires_overwrite_for_changed_write_outputs() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-write-overwrite");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-write-overwrite-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        fs::create_dir_all(build_root.join("result")).expect("result dir");
+        fs::write(build_root.join("result").join("note.txt"), "old").expect("old note");
+        let source_path = source_dir.join("main.eng");
+        fs::write(&source_path, "write text \"note.txt\", \"fresh\"\n").expect("write source");
+
+        let error = run_file(&source_path, &build_root, &RunOptions::default())
+            .expect_err("changed output should require overwrite");
+        assert!(error.to_string().contains("overwrite = true"));
+
+        fs::write(
+            &source_path,
+            "write text \"note.txt\", \"fresh\"\nwith {\n    overwrite = true\n}\n",
+        )
+        .expect("write overwrite source");
+        let output =
+            run_file(&source_path, &build_root, &RunOptions::default()).expect("overwrite run");
+        assert_eq!(output.write_output_paths.len(), 1);
+        let text = fs::read_to_string(build_root.join("result").join("note.txt")).expect("note");
+        assert_eq!(text, "fresh");
     }
 
     #[test]

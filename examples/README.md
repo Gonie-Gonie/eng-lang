@@ -58,6 +58,10 @@ official/10_path_policy
 official/11_read_only_io
   Read-only text/json/toml inputs with source-hash provenance, combined with
   typed CSV data in one workflow.
+
+official/12_write_output_manifest
+  Explicit summary CSV export, write text/json outputs, overwrite policy, and
+  output manifest generation for produced files.
 ```
 
 ## Compatibility Regression Examples

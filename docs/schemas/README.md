@@ -8,6 +8,7 @@ review.schema.json       build/result/review.json
 report_spec.schema.json  build/result/report_spec.json
 result.schema.json       build/result/result.engres
 plotspec.schema.json     build/result/plots/plot_spec.json
+output_manifest.schema.json build/result/output_manifest.json
 engpkg.schema.json       normalized key/value view of dist/*/*.engpkg
 ```
 

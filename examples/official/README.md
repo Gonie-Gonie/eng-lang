@@ -59,6 +59,10 @@ paths before compatibility fixtures.
 11_read_only_io
   Read-only text/json/toml inputs, source-hash provenance, and a multi-source
   workflow that combines typed CSV data with auxiliary configuration files.
+
+12_write_output_manifest
+  Explicit summary CSV export, write text/json outputs, overwrite policy, and
+  output manifest generation for produced files.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression

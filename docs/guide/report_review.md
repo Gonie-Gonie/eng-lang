@@ -27,6 +27,7 @@ build/
     review.json
     report.html
     report_spec.json
+    output_manifest.json
     plots/
       plot_spec.json
       plot_manifest.json
@@ -73,6 +74,7 @@ schemas
 csv_promotions
 prints
 csv_exports
+writes
 diagnostics
 warning_list
 plot_manifest
@@ -140,6 +142,27 @@ system_count
 equation_count
 residual_count
 ```
+
+## `output_manifest.json`
+
+`output_manifest.json` is the runtime-generated file list for saved artifacts,
+explicit CSV exports, and `write text/json` outputs.
+
+Current preview contract:
+
+```text
+format = eng-output-manifest-v1
+runtime_version
+source_path
+artifact_count
+artifacts:
+  kind
+  path
+  hash
+```
+
+Use it when a tool needs to show exactly which files a run produced without
+guessing from the directory layout.
 
 ## System Summary and IR
 

@@ -13,6 +13,7 @@ build/
     review.json
     report.html
     report_spec.json
+    output_manifest.json
     summary.csv          # only when source uses explicit CSV export
     plots/
       plot_spec.json
@@ -28,7 +29,7 @@ Purpose:
 checked source -> bytecode v1 -> native VM seed
 ```
 
-Current v0.4 header:
+Current v0.5 header:
 
 ```text
 ENGBYTECODE 1
@@ -48,7 +49,7 @@ workflow_args = args:Args
 workflow_return = Report
 ```
 
-Current v0.4 sections:
+Current v0.5 sections:
 
 ```text
 objects:
@@ -82,6 +83,47 @@ assembles scalar fields such as named bindings, integration results, and scalar
 statistics. Headers include display units, and cells contain formatted scalar
 values. The v0.2 decision record is
 [`summary_object_decision.md`](../reference/summary_object_decision.md).
+
+Export and write outputs use idempotent overwrite hardening. Re-running with
+identical generated contents succeeds. Replacing different existing contents
+requires an attached `with { overwrite = true }` block.
+
+## Explicit Write Outputs
+
+`write text` and `write json` produce small generated output files under
+`build/result`:
+
+```eng partial
+write text "outputs/run_note.txt", notes_text
+write json "outputs/energy.json", E_coil
+```
+
+`write json` serializes scalar quantities as objects with `value`,
+`quantity_kind`, and `unit`. Raw JSON text is passed through when the expression
+already evaluates to JSON-looking text.
+
+## `output_manifest.json`
+
+Purpose:
+
+```text
+listing of generated output files and content hashes
+```
+
+Current format:
+
+```text
+eng-output-manifest-v1
+runtime_version
+source_path
+artifact_count
+artifacts[].kind
+artifacts[].path
+artifacts[].hash
+```
+
+When `--save-artifacts` is used, this manifest lists result/report/PlotSpec/SVG
+files alongside explicit CSV exports and write outputs.
 
 ## `.engres`
 
@@ -252,6 +294,7 @@ stats_info
 integrations
 prints
 csv_exports
+writes
 uncertainty_info
 ml_info
 system_summary

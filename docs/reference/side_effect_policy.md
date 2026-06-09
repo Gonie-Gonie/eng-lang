@@ -1,8 +1,9 @@
 # Side Effect And General Programming Policy
 
-Status: GP-1 path policy and GP-2 read-only I/O are implemented for
-`v0.4-preview`. Broader write I/O, filesystem mutation, process, network, and
-test support remain planned tracks, not supported preview behavior.
+Status: GP-1 path policy, GP-2 read-only I/O, and GP-3 write/export hardening
+are implemented for `v0.5-preview`. Broader filesystem mutation, process,
+network, and test support remain planned tracks, not supported preview
+behavior.
 
 EngLang is not trying to become a fully general replacement for Python, MATLAB,
 or R. Real engineering workflows still need practical file, path, config,
@@ -24,7 +25,7 @@ what was read, and what external state influenced the result.
 | Environment-dependent read | `exists`, `env`, `today`, `now` | Allowed in normal profile, recorded in provenance |
 | Read-only I/O | `read text`, `read json`, `read toml` | UTF-8 raw string reads; source hash is recorded |
 | Typed data boundary | `promote csv/json/toml as Schema` | Preferred for engineering data |
-| Write/export | `write text`, `write json`, `export summary to csv` | Explicit target required; overwrite defaults to false |
+| Write/export | `write text`, `write json`, `export summary to csv` | Explicit target required; changed overwrite requires `overwrite = true`; generated outputs are manifest-recorded |
 | File operations | `copy`, `move`, `delete`, `mkdir`, `list` | Destructive operations require explicit confirmation/options |
 | External process | `run command ... with { ... }` | Experimental; command/cwd/args/exit/stdout/stderr recorded |
 | Network | `download url(...) to file(...)` | Long-term only; repro profile requires hash/cache |
@@ -60,7 +61,7 @@ input_exists = exists args.input
 print "input exists = {input_exists}"
 ```
 
-Implemented behavior through `v0.4-preview`:
+Implemented behavior through `v0.5-preview`:
 
 ```text
 - file("...") and dir("...") are accepted in args defaults.
@@ -72,6 +73,11 @@ Implemented behavior through `v0.4-preview`:
 - result.engres and report_spec.json include provenance.environment_dependencies.
 - read-only I/O dependencies record the resolved source path and source hash
   when the source file is present.
+- write text/json output statements are top-level workflow statements.
+- export/write outputs are written under `build/result`.
+- an identical existing output is accepted as an idempotent rerun.
+- replacing different existing contents requires `with { overwrite = true }`.
+- output_manifest.json records generated file paths and content hashes.
 ```
 
 ## Read Policy
@@ -101,10 +107,12 @@ Rules:
 Writes must name their target:
 
 ```eng partial
-write text file("build/log.txt"), "finished"
-write json file("build/summary.json"), summary
+write text "outputs/log.txt", "finished"
+write json "outputs/summary.json", E_coil
 
-export summary to csv "summary.csv"
+export summary to csv "summary.csv" {
+    E_coil as kWh with ".2"
+}
 with {
     overwrite = true
 }
@@ -113,12 +121,13 @@ with {
 Rules:
 
 ```text
-- overwrite default is false
-- missing parent directory is an error unless mkdir/parents policy says otherwise
-- output files should appear in report/review artifact metadata
+- overwrite default is false for changed existing output contents
+- an identical existing file is accepted so official examples can be rerun
+- output targets are constrained under build/result in the current preview
+- output files appear in review metadata and output_manifest.json
 - export is preferred over ad hoc write for reproducible artifacts
-- `export summary to csv` currently accepts a string literal path; path
-  expression targets are reserved for the output-manifest hardening phase
+- `write json` writes scalar quantities as JSON objects with value/unit metadata
+- `output_manifest.json` records generated artifact kind, path, and hash
 ```
 
 ## Destructive Operation Policy
@@ -210,7 +219,7 @@ eng.net      download/cache/hash, later
 |---|---|---|
 | GP-1 | path types/helpers, `exists`, side-effect docs | implemented in v0.3 |
 | GP-2 | read text/json/toml, source hashes | implemented in v0.4 |
-| GP-3 | write text/json, export hardening, output manifest | v0.5 target |
+| GP-3 | write text/json, export hardening, output manifest | implemented in v0.5 |
 | GP-4 | copy/move/delete and side-effect manifest | v0.6 target |
 | GP-5 | print/log/warn formatting and run log artifact | v0.7 target |
 | GP-6 | external process and `ProcessResult` | v0.8 experimental |
@@ -218,6 +227,7 @@ eng.net      download/cache/hash, later
 | GP-8 | test block/assert/golden support | v0.9 target |
 | GP-9 | IDE side-effect panels and output file navigation | grows across phases |
 
-The current implementation deliberately stops at path helpers, `exists`, and
-read-only source-hashed inputs. Broad filesystem mutation remains outside the
-public preview until the write/export manifest policy lands.
+The current implementation deliberately stops at path helpers, `exists`,
+read-only source-hashed inputs, and generated output writes. Copy, move,
+delete, process, and network effects remain outside the public preview until
+their policy slices land.

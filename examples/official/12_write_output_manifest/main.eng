@@ -1,0 +1,42 @@
+args {
+    input: CsvFile = file("../01_csv_plot/data/sensor.csv")
+    notes: TextFile = file("data/notes.txt")
+}
+
+schema SensorData {
+    time: DateTime index
+    T_supply: AbsoluteTemperature [degC]
+    T_return: AbsoluteTemperature [degC]
+    m_dot: MassFlowRate [kg/s]
+}
+
+sensor = promote csv args.input as SensorData
+notes_text = read text args.notes
+
+cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+mean_Q = mean Q_coil over Time
+E_coil = integrate Q_coil over Time
+
+print "Loaded {sensor.rows} rows from {args.input}"
+print "Manifest note: {notes_text}"
+print "Q mean = {mean_Q: .2 kW}"
+print "E total = {E_coil: .2 kWh}"
+
+export summary to csv "outputs/summary.csv" {
+    mean_Q as kW with ".2"
+    E_coil as kWh with ".2"
+}
+with {
+    overwrite = true
+}
+
+write text "outputs/run_note.txt", notes_text
+with {
+    overwrite = true
+}
+
+write json "outputs/energy.json", E_coil
+with {
+    overwrite = true
+}

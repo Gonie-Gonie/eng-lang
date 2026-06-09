@@ -4,7 +4,7 @@ use crate::ast::{
     DomainDecl, DomainTypeParameterDecl, DomainVariableDecl, EquationDecl, ExplicitDecl,
     FastBinding, FunctionDecl, FunctionParamDecl, ImportDecl, MissingPolicyDecl, PortDecl,
     PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl, SummaryDecl, SystemDecl,
-    SystemVariableDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl,
+    SystemVariableDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -124,6 +124,7 @@ impl ParsedProgram {
                 | AstItem::Print(_)
                 | AstItem::CsvExport(_)
                 | AstItem::CsvExportField(_)
+                | AstItem::Write(_)
                 | AstItem::WhereBinding(_)
                 | AstItem::WithOption(_)
                 | AstItem::ReservedKeywordUse { .. } => {}
@@ -538,6 +539,9 @@ fn parse_line_items(
     }
     if let Some(field) = parse_csv_export_field_decl(tokens, line_text, context) {
         items.push(AstItem::CsvExportField(field));
+    }
+    if let Some(write) = parse_write_decl(tokens, line_text, context) {
+        items.push(AstItem::Write(write));
     }
     if let Some(command) = parse_standalone_command_style_decl(tokens, line_text, context) {
         items.push(AstItem::CommandStyle(command));
@@ -1725,6 +1729,34 @@ fn parse_csv_export_field_decl(
     })
 }
 
+fn parse_write_decl(tokens: &[Token], line_text: &str, context: ParseContext) -> Option<WriteDecl> {
+    let first = tokens.first()?;
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Write)) {
+        return None;
+    }
+    let raw = line_text.trim();
+    let rest = raw.strip_prefix("write ")?.trim();
+    let (format, rest) = rest.split_once(char::is_whitespace)?;
+    let format = format.trim();
+    if !matches!(format, "text" | "json") {
+        return None;
+    }
+    let (path, expression) = rest.trim().split_once(',')?;
+    let path = path.trim();
+    let expression = expression.trim();
+    if path.is_empty() || expression.is_empty() {
+        return None;
+    }
+    Some(WriteDecl {
+        format: format.to_owned(),
+        path: path.to_owned(),
+        expression: expression.to_owned(),
+        line: first.span.line,
+        span: first.span,
+        context,
+    })
+}
+
 fn parse_explicit_decl(
     tokens: &[Token],
     line_text: &str,
@@ -1838,6 +1870,7 @@ fn line_is_attachable_owner(tokens: &[Token], context: ParseContext) -> bool {
                     | Keyword::Summarize
                     | Keyword::Export
                     | Keyword::Print
+                    | Keyword::Write
             )
     )
 }

@@ -2909,6 +2909,7 @@ report {
                 artifact_row(ui, "Plot SVG", &output.plot_path);
                 artifact_row(ui, "PlotSpec JSON", &output.plot_spec_path);
                 artifact_row(ui, "Plot Manifest", &output.plot_manifest_path);
+                artifact_row(ui, "Output Manifest", &output.output_manifest_path);
                 artifact_row(ui, "Result", &output.result_path);
                 artifact_row(ui, "Review", &output.review_path);
                 artifact_row(ui, "Bytecode", &output.bytecode_path);
@@ -2930,6 +2931,7 @@ report {
                 artifact_object_row(ui, "Plot SVG", output.plot_svg.len());
                 artifact_object_row(ui, "PlotSpec JSON", output.plot_spec_json.len());
                 artifact_object_row(ui, "Plot Manifest", output.plot_manifest_json.len());
+                artifact_object_row(ui, "Output Manifest", output.output_manifest_json.len());
                 artifact_object_row(ui, "Result", output.result_json.len());
                 artifact_object_row(ui, "Review", output.review_json.len());
                 artifact_object_row(ui, "Bytecode", output.bytecode.len());
@@ -2939,6 +2941,13 @@ report {
                 ui.label(egui::RichText::new("Explicit CSV exports").color(ui_palette(ui).muted));
                 for path in &output.csv_export_paths {
                     artifact_row(ui, "CSV", path);
+                }
+            }
+            if !output.write_output_paths.is_empty() {
+                ui.add_space(8.0);
+                ui.label(egui::RichText::new("Explicit write outputs").color(ui_palette(ui).muted));
+                for path in &output.write_output_paths {
+                    artifact_row(ui, "Write", path);
                 }
             }
         } else {
@@ -3310,7 +3319,9 @@ struct RunOutputView {
     plot_path: PathBuf,
     plot_spec_path: PathBuf,
     plot_manifest_path: PathBuf,
+    output_manifest_path: PathBuf,
     csv_export_paths: Vec<PathBuf>,
+    write_output_paths: Vec<PathBuf>,
     relative_report_path: String,
     relative_plot_path: String,
     artifacts_saved: bool,
@@ -3323,6 +3334,7 @@ struct RunOutputView {
     plot_svg: String,
     plot_spec_json: String,
     plot_manifest_json: String,
+    output_manifest_json: String,
 }
 
 impl RunOutputView {
@@ -3338,7 +3350,9 @@ impl RunOutputView {
             plot_path: output.plot_path,
             plot_spec_path: output.plot_spec_path,
             plot_manifest_path: output.plot_manifest_path,
+            output_manifest_path: output.output_manifest_path,
             csv_export_paths: output.csv_export_paths,
+            write_output_paths: output.write_output_paths,
             artifacts_saved: output.artifacts_saved,
             stdout: output.stdout,
             bytecode: output.bytecode,
@@ -3349,6 +3363,7 @@ impl RunOutputView {
             plot_svg: output.plot_svg,
             plot_spec_json: output.plot_spec_json,
             plot_manifest_json: output.plot_manifest_json,
+            output_manifest_json: output.output_manifest_json,
         }
     }
 
@@ -3360,7 +3375,7 @@ impl RunOutputView {
         };
         if self.artifacts_saved {
             format!(
-                "{}Run OK\nartifacts: saved\nreport: {}\nplot:   {}\nresult: {}\nreview: {}\nreport spec: {}\nplotspec: {}\nmanifest: {}\nbytecode: {}",
+                "{}Run OK\nartifacts: saved\nreport: {}\nplot:   {}\nresult: {}\nreview: {}\nreport spec: {}\nplotspec: {}\nplot manifest: {}\noutput manifest: {}\nbytecode: {}",
                 run_output,
                 self.relative_report_path,
                 self.relative_plot_path,
@@ -3369,16 +3384,19 @@ impl RunOutputView {
                 self.report_spec_path.display(),
                 self.plot_spec_path.display(),
                 self.plot_manifest_path.display(),
+                self.output_manifest_path.display(),
                 self.bytecode_path.display()
             )
         } else {
             format!(
-                "{}Run OK\nartifacts: in memory\nresult:   {} bytes\nreview:   {} bytes\nreport spec: {} bytes\nplot spec: {} bytes\nplot svg: {} bytes\nreport html: {} bytes\nbytecode: {} bytes",
+                "{}Run OK\nartifacts: in memory\nresult:   {} bytes\nreview:   {} bytes\nreport spec: {} bytes\nplot spec: {} bytes\nplot manifest: {} bytes\noutput manifest: {} bytes\nplot svg: {} bytes\nreport html: {} bytes\nbytecode: {} bytes",
                 run_output,
                 self.result_json.len(),
                 self.review_json.len(),
                 self.report_spec_json.len(),
                 self.plot_spec_json.len(),
+                self.plot_manifest_json.len(),
+                self.output_manifest_json.len(),
                 self.plot_svg.len(),
                 self.report_html.len(),
                 self.bytecode.len()
@@ -3405,6 +3423,8 @@ impl RunOutputView {
         fs::write(&self.plot_path, &self.plot_svg).map_err(|error| error.to_string())?;
         fs::write(&self.plot_spec_path, &self.plot_spec_json).map_err(|error| error.to_string())?;
         fs::write(&self.plot_manifest_path, &self.plot_manifest_json)
+            .map_err(|error| error.to_string())?;
+        fs::write(&self.output_manifest_path, &self.output_manifest_json)
             .map_err(|error| error.to_string())?;
         self.artifacts_saved = true;
         Ok(())

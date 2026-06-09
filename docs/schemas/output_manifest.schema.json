@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eng-lang.local/schemas/output_manifest.schema.json",
+  "title": "EngLang Output Manifest Artifact",
+  "type": "object",
+  "required": [
+    "format",
+    "runtime_version",
+    "source_path",
+    "artifact_count",
+    "artifacts"
+  ],
+  "properties": {
+    "format": { "const": "eng-output-manifest-v1" },
+    "runtime_version": { "type": "string" },
+    "source_path": { "type": "string" },
+    "artifact_count": { "type": "integer", "minimum": 0 },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/outputArtifact" }
+    }
+  },
+  "$defs": {
+    "outputArtifact": {
+      "type": "object",
+      "required": ["kind", "path", "hash"],
+      "properties": {
+        "kind": { "type": "string" },
+        "path": { "type": "string" },
+        "hash": { "type": "string" }
+      }
+    }
+  }
+}

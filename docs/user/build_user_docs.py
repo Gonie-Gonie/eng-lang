@@ -130,8 +130,10 @@ def build_document(version: str) -> Document:
                 code("plots/plot_spec.json"),
                 ", ",
                 code("plots/plot_manifest.json"),
-                ", and ",
+                ", ",
                 code("plots/timeseries.svg"),
+                ", and ",
+                code("output_manifest.json"),
                 ".",
             ),
             paragraph(

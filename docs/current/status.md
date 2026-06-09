@@ -7,9 +7,9 @@ agents. It separates public release versions from long-term development tracks.
 
 | Field | Value |
 |---|---|
-| Current public line | `v0.4-preview` |
-| Active target | `v0.5-preview` write/export hardening and output manifest |
-| Workspace package version | `0.4.0-preview` |
+| Current public line | `v0.5-preview` |
+| Active target | `v0.6-preview` explicit copy/move/delete side-effect policy |
+| Workspace package version | `0.5.0-preview` |
 | Release channel | `preview` |
 
 EngLang is preview software. The language, runtime behavior, and artifact
@@ -35,7 +35,8 @@ being part of the public release contract.
 - Python may be used for optional documentation tooling only.
 - The official execution path is `.eng -> typed semantic model -> bytecode ->
   native runtime/VM -> result/report/PlotSpec objects`; `--save-artifacts`
-  writes `.engbc`, `.engres`, SVG/HTML/report/review artifacts.
+  writes `.engbc`, `.engres`, SVG/HTML/report/review artifacts and
+  `output_manifest.json`.
 - Fast declaration uses `=`. `:=` is rejected.
 - Physical equations use `eq`. `==` is comparison syntax and is rejected in
   equation blocks.
@@ -85,6 +86,14 @@ the current public preview workflow, but it is not yet a stable contract.
   resolve source-relative paths at runtime, return raw text strings, and record
   source path plus source hash provenance in review/result/report-spec
   `environment_dependencies`.
+- Explicit `write text` and `write json` top-level workflow statements write
+  under `build/result`, require `with { overwrite = true }` when replacing a
+  file with different contents, and are recorded in `review.json`.
+- `export summary to csv` uses the same idempotent overwrite hardening: an
+  identical existing file is accepted, while different contents require an
+  attached `with { overwrite = true }` block.
+- `output_manifest.json` records generated file artifacts and content hashes
+  for saved runtime artifacts, CSV exports, and write outputs.
 - Standalone package output with `.engpkg`, bytecode, lock, source/dependency
   copy, dependency hashes, Args help, and reviewable report artifacts.
 - Temperature spelling policy: `degC` remains the canonical ASCII spelling, and
@@ -113,9 +122,9 @@ the current public preview workflow, but it is not yet a stable contract.
 - Current planning and release docs now align around the integrated
   data-analysis plus system-simulation philosophy and the
   [side-effect policy](../reference/side_effect_policy.md). The implemented
-  side-effect scope is GP-1 path helpers plus GP-2 read-only UTF-8
-  text/json/toml reads with source hashes. Write/export hardening is the active
-  next target.
+  side-effect scope is GP-1 path helpers, GP-2 read-only UTF-8 text/json/toml
+  reads with source hashes, and GP-3 write/export hardening with output
+  manifest. Copy/move/delete remains the active next target.
 
 ## Future Tracks On Main
 
@@ -153,8 +162,9 @@ See [development tracks](tracks.md) for the current scope and limitations.
 - Parenthesis-light syntax for arbitrary user-defined/general function calls
   and project-wide display unit policy blocks are deferred.
 - Broad file/process/network side-effect runtime support is deferred to the
-  general programming track. `v0.4-preview` implements path helpers, `exists`
-  provenance, and read-only UTF-8 text/json/toml source hash provenance only.
+  general programming track. `v0.5-preview` implements path helpers, `exists`
+  provenance, read-only UTF-8 text/json/toml source hash provenance, and
+  explicit write/export output manifest support only.
 - Class/domain objects are planned for reviewable engineering objects, but
   class declaration/object literal/runtime lowering is not part of the current
   public preview.

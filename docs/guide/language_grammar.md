@@ -171,6 +171,7 @@ The current top-level declaration families are:
 | Domain/component | `domain Fluid { ... }` | Experimental metadata track |
 | Print | `print "Q = {Q: .2 kW}"` | Debug/CLI output |
 | CSV export | `export summary to csv "summary.csv" { ... }` | Durable scalar artifact |
+| Write output | `write text "note.txt", note` | Explicit generated output |
 | Report | `report { plot Q over Time }` | Review/report artifact requests |
 
 Rejected compatibility forms:
@@ -763,6 +764,22 @@ The current preview supports scalar values, statistics, integration results,
 function-call scalar outputs, and typed constants. It does not yet implement a
 first-class Summary object model or broad table/TimeSeries CSV export.
 
+Attach overwrite policy when a run is allowed to replace an existing file with
+different contents:
+
+```eng partial
+export summary to csv "summary.csv" {
+    mean_Q as kW with ".2"
+}
+with {
+    overwrite = true
+}
+```
+
+If the existing file has identical contents, EngLang treats the run as
+idempotent and accepts it without requiring overwrite. If the contents differ,
+the run fails unless `overwrite = true` is attached to the export owner.
+
 If you need a reusable scalar value in export, bind it first:
 
 ```eng partial
@@ -770,6 +787,52 @@ mean_Q = mean Q_coil over Time
 export summary to csv "summary.csv" {
     mean_Q as kW with ".2"
 }
+```
+
+## Write Outputs
+
+Use `write` for small explicit generated files that are not better represented
+as a report, plot, or scalar CSV summary.
+
+```eng partial
+write text "outputs/run_note.txt", notes_text
+with {
+    overwrite = true
+}
+
+write json "outputs/energy.json", E_coil
+with {
+    overwrite = true
+}
+```
+
+Current write forms:
+
+| Form | Output |
+|---|---|
+| `write text "path.txt", expression` | Text formatting of a checked expression |
+| `write json "path.json", expression` | JSON string, raw JSON text, or scalar quantity object |
+
+Rules:
+
+| Rule | Meaning |
+|---|---|
+| Top-level only | Hidden imported writes are not part of the preview |
+| Target is under `build/result` | Absolute paths and `..` output traversal are rejected |
+| Expression is checked | Unknown write expressions produce diagnostics/errors |
+| Changed overwrite is explicit | Different existing content requires `with { overwrite = true }` |
+| Identical reruns are accepted | Same contents can be regenerated without churn |
+
+Generated output files are listed in:
+
+```text
+build/result/output_manifest.json
+```
+
+The runnable example is:
+
+```text
+examples/official/12_write_output_manifest/main.eng
 ```
 
 ## Report, Summarize, Show, Plot
@@ -811,6 +874,7 @@ build/result/plots/plot_spec.json
 build/result/plots/plot_manifest.json
 build/result/plots/timeseries.svg
 build/result/report.html
+build/result/output_manifest.json
 ```
 
 ## Systems, Domains, And Experimental Tracks
@@ -883,6 +947,7 @@ generation.
 | `E-PRINT-FMT-004` | Print expression cannot be resolved | Bind the value or fix the name |
 | `E-EXPORT-CSV-003` | CSV export expression cannot be resolved | Bind/export a supported scalar |
 | `E-EXPORT-CSV-004` | CSV export requested incompatible unit | Fix the export unit |
+| `E-WRITE-003` | Write expression cannot be resolved | Bind/write a supported expression |
 | `W-QTY-AMBIG-001` | Unit maps to multiple quantity kinds | Add an explicit declaration |
 
 ## Common Recipes
@@ -925,6 +990,18 @@ print "Q peak = {peak_Q: .2 kW}"
 export summary to csv "summary.csv" {
     mean_Q as kW with ".2"
     peak_Q as kW with ".2"
+}
+with {
+    overwrite = true
+}
+```
+
+### Write A Small Output
+
+```eng partial
+write text "outputs/run_note.txt", "finished"
+with {
+    overwrite = true
 }
 ```
 
@@ -1010,6 +1087,7 @@ Expected artifacts include:
 
 ```text
 build/result/summary.csv
+build/result/output_manifest.json
 build/result/review.json
 build/result/report.html
 build/result/plots/plot_spec.json

@@ -339,7 +339,8 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 println!("reportspec: {}", output.report_spec_path.display());
                 println!("plot:     {}", output.plot_path.display());
                 println!("plotspec: {}", output.plot_spec_path.display());
-                println!("manifest: {}", output.plot_manifest_path.display());
+                println!("plotmanifest: {}", output.plot_manifest_path.display());
+                println!("outputs:  {}", output.output_manifest_path.display());
                 println!("report:   {}", output.report_path.display());
             } else {
                 println!("run: ok");
@@ -349,12 +350,16 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 println!("reportspec: {} bytes", output.report_spec_json.len());
                 println!("plot:     {} bytes", output.plot_svg.len());
                 println!("plotspec: {} bytes", output.plot_spec_json.len());
-                println!("manifest: {} bytes", output.plot_manifest_json.len());
+                println!("plotmanifest: {} bytes", output.plot_manifest_json.len());
+                println!("outputs:  {} bytes", output.output_manifest_json.len());
                 println!("report:   {} bytes", output.report_html.len());
                 println!("use --save-artifacts to write build\\result files");
             }
             for path in &output.csv_export_paths {
                 println!("export:   {}", path.display());
+            }
+            for path in &output.write_output_paths {
+                println!("write:    {}", path.display());
             }
             ExitCode::SUCCESS
         }
@@ -501,6 +506,8 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/08_print_export_summary/main.eng",
                 "examples/official/09_command_where_with/main.eng",
                 "examples/official/10_path_policy/main.eng",
+                "examples/official/11_read_only_io/main.eng",
+                "examples/official/12_write_output_manifest/main.eng",
             ],
         ),
         (
@@ -911,6 +918,32 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("command/where/with example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
+        Path::new("examples/official/12_write_output_manifest/main.eng"),
+        Path::new("build/test-write-output-manifest"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let manifest =
+                std::fs::read_to_string(&output.output_manifest_path).unwrap_or_default();
+            if output.csv_export_paths.is_empty()
+                || output.write_output_paths.len() != 2
+                || !manifest.contains("\"kind\": \"csv_export\"")
+                || !manifest.contains("\"kind\": \"write_text\"")
+                || !manifest.contains("\"kind\": \"write_json\"")
+            {
+                eprintln!("expected write/output manifest example to produce export, write, and output manifest artifacts");
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/12_write_output_manifest/main.eng produced write/export manifest artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("write/output manifest example failed: {error}");
             return ExitCode::from(2);
         }
     }

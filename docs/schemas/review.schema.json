@@ -18,6 +18,7 @@
     "environment_dependencies",
     "prints",
     "csv_exports",
+    "writes",
     "domain_summary",
     "component_summary",
     "connection_summary",
@@ -64,6 +65,10 @@
     "csv_exports": {
       "type": "array",
       "items": { "$ref": "#/$defs/csvExport" }
+    },
+    "writes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/writeOutput" }
     },
     "domain_summary": {
       "type": "array",
@@ -166,6 +171,18 @@
           }
         }
       ]
+    },
+    "writeOutput": {
+      "type": "object",
+      "required": ["format", "path", "expression", "quantity_kind", "display_unit", "line"],
+      "properties": {
+        "format": { "enum": ["text", "json"] },
+        "path": { "type": "string" },
+        "expression": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
     },
     "systemIr": {
       "type": "object",

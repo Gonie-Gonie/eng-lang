@@ -119,6 +119,29 @@ Before publishing `v0.4-preview`:
 [x] release-check passes
 ```
 
+Before publishing `v0.5-preview`:
+
+```text
+[x] workspace package version is updated to 0.5.0-preview
+[x] public package label is v0.5-preview
+[x] current status, maturity matrix, tracks, roadmap, README, and release workflow agree on the v0.5 scope
+[x] write text/json top-level statements are parsed and type-checked
+[x] write text/json outputs are constrained under build/result
+[x] review.json records writes metadata
+[x] export summary to csv uses idempotent overwrite hardening
+[x] changed write/export contents require with { overwrite = true }
+[x] output_manifest.json records generated file kinds, paths, and hashes
+[x] output manifest schema is documented
+[x] official/12_write_output_manifest mini example is present
+[x] docs explain write/export/output manifest scope and copy/move/delete deferral
+[x] docs-check passes
+[x] artifacts-check passes
+[x] ide-check passes
+[x] lsp-check passes
+[x] package-smoke passes under a path with spaces and Korean characters
+[x] release-check passes
+```
+
 ## Local Verification
 
 Run:

@@ -741,7 +741,7 @@ checksum = "66b7e2430c6dff6a955451e2cfc438f09cea1965a9d6f87f7e3b90decc014099"
 
 [[package]]
 name = "eng_cli"
-version = "0.4.0-preview"
+version = "0.5.0-preview"
 dependencies = [
  "eng_compiler",
  "eng_jit",
@@ -751,11 +751,11 @@ dependencies = [
 
 [[package]]
 name = "eng_compiler"
-version = "0.4.0-preview"
+version = "0.5.0-preview"
 
 [[package]]
 name = "eng_ide"
-version = "0.4.0-preview"
+version = "0.5.0-preview"
 dependencies = [
  "eframe",
  "eng_compiler",
@@ -767,7 +767,7 @@ dependencies = [
 
 [[package]]
 name = "eng_jit"
-version = "0.4.0-preview"
+version = "0.5.0-preview"
 dependencies = [
  "eng_compiler",
  "serde_json",
@@ -775,7 +775,7 @@ dependencies = [
 
 [[package]]
 name = "eng_lsp"
-version = "0.4.0-preview"
+version = "0.5.0-preview"
 dependencies = [
  "eng_compiler",
  "serde_json",
@@ -783,14 +783,14 @@ dependencies = [
 
 [[package]]
 name = "eng_report"
-version = "0.4.0-preview"
+version = "0.5.0-preview"
 dependencies = [
  "eng_compiler",
 ]
 
 [[package]]
 name = "eng_runtime"
-version = "0.4.0-preview"
+version = "0.5.0-preview"
 dependencies = [
  "eng_compiler",
  "eng_report",

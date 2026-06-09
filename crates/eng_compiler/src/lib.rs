@@ -26,7 +26,7 @@ pub use ast::{
     ConnectDecl, ConservationDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl,
     DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FunctionDecl, FunctionParamDecl,
     ImportDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl, SystemDecl,
-    SystemVariableDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl,
+    SystemVariableDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -48,7 +48,7 @@ pub use semantic::{
     FunctionParamInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo, PrintInfo,
     ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo, SystemVariableInfo,
     TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo, WhereBlockInfo, WithBlockInfo,
-    WithOptionInfo,
+    WithOptionInfo, WriteInfo,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -1940,6 +1940,36 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    json.push_str("  \"writes\": [\n");
+    for (index, write) in report.semantic_program.writes.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"format\": \"{}\",\n",
+            json_escape(&write.format)
+        ));
+        json.push_str(&format!(
+            "      \"path\": \"{}\",\n",
+            json_escape(&write.path)
+        ));
+        json.push_str(&format!(
+            "      \"expression\": \"{}\",\n",
+            json_escape(&write.expression)
+        ));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&write.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&write.display_unit)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", write.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
     json.push_str("  \"command_styles\": [\n");
     for (index, command) in report.semantic_program.command_styles.iter().enumerate() {
         if index > 0 {
@@ -3431,7 +3461,7 @@ mod tests {
     fn records_unit_aware_print_and_csv_export_metadata() {
         let report = check_source(
             "ok.eng",
-            "cp = 4180 J/kg/K\nQ_series = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nmean_Q = mean(Q_series, axis=Time)\nQ = 10 kW\nE: Energy [J] = 3600 J\nprint \"Q={Q: .2 kW} E={E: .3 kWh}\"\nexport summary to csv \"summary.csv\" {\n    Q as kW with \".2\"\n    E as kWh with \".3\"\n    mean_Q as kW with \".2\"\n}\n",
+            "cp = 4180 J/kg/K\nQ_series = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nmean_Q = mean(Q_series, axis=Time)\nQ = 10 kW\nE: Energy [J] = 3600 J\nprint \"Q={Q: .2 kW} E={E: .3 kWh}\"\nexport summary to csv \"summary.csv\" {\n    Q as kW with \".2\"\n    E as kWh with \".3\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text \"summary.txt\", Q\nwrite json \"summary.json\", E\n",
             &CheckOptions::default(),
         );
 
@@ -3453,9 +3483,15 @@ mod tests {
                 .as_deref(),
             Some("kWh")
         );
+        assert_eq!(report.semantic_program.writes.len(), 2);
+        assert_eq!(report.semantic_program.writes[0].format, "text");
+        assert_eq!(report.semantic_program.writes[1].format, "json");
+        assert_eq!(report.semantic_program.with_blocks.len(), 1);
         let review = review_json(&report);
         assert!(review.contains("\"prints\""));
         assert!(review.contains("\"csv_exports\""));
+        assert!(review.contains("\"writes\""));
+        assert!(review.contains("\"overwrite\""));
     }
 
     #[test]

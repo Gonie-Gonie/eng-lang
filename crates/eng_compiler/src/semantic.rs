@@ -2,7 +2,7 @@ use crate::ast::{
     ArgsFieldDecl, AstItem, CommandStyleDecl, ConnectDecl, ConstDecl, CsvExportDecl,
     CsvExportFieldDecl, DomainTypeParameterDecl, DomainVariableDecl, ExplicitDecl, FastBinding,
     FunctionDecl, FunctionParamDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl,
-    SystemVariableDecl, WhereBindingDecl, WithOptionDecl,
+    SystemVariableDecl, WhereBindingDecl, WithOptionDecl, WriteDecl,
 };
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
@@ -314,6 +314,16 @@ pub struct CsvExportInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WriteInfo {
+    pub format: String,
+    pub path: String,
+    pub expression: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandClauseInfo {
     pub name: String,
     pub value: String,
@@ -403,6 +413,7 @@ pub struct SemanticProgram {
     pub environment_dependencies: Vec<EnvironmentDependencyInfo>,
     pub prints: Vec<PrintInfo>,
     pub csv_exports: Vec<CsvExportInfo>,
+    pub writes: Vec<WriteInfo>,
     pub command_styles: Vec<CommandStyleInfo>,
     pub where_blocks: Vec<WhereBlockInfo>,
     pub with_blocks: Vec<WithBlockInfo>,
@@ -444,6 +455,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut prints = Vec::new();
     let mut csv_exports = Vec::new();
     let mut current_csv_export_index = None;
+    let mut writes = Vec::new();
     let mut command_styles = Vec::new();
     let mut timeseries_kernels = Vec::new();
 
@@ -706,6 +718,13 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     ));
                 }
             }
+            AstItem::Write(write) => {
+                if let Some(write_info) =
+                    analyze_write_decl(write, &typed_bindings, &functions, &mut diagnostics)
+                {
+                    writes.push(write_info);
+                }
+            }
             AstItem::CommandStyle(command) => {
                 analyze_command_style_decl(command, &mut command_styles, &mut diagnostics);
             }
@@ -763,6 +782,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             environment_dependencies: Vec::new(),
             prints,
             csv_exports,
+            writes,
             command_styles,
             where_blocks,
             with_blocks,
@@ -1095,6 +1115,7 @@ fn known_with_option(key: &str) -> bool {
             | "max_iter"
             | "seed"
             | "output"
+            | "overwrite"
     )
 }
 
@@ -1518,6 +1539,61 @@ fn analyze_csv_export_field_decl(
         precision,
         line: field.line,
     })
+}
+
+fn analyze_write_decl(
+    write: &WriteDecl,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<WriteInfo> {
+    if write.context != ParseContext::TopLevel {
+        diagnostics.push(Diagnostic::error(
+            "E-WRITE-001",
+            write.line,
+            "`write` is supported only in the top-level workflow.",
+            Some("Move the write statement to the root workflow so the output is reviewable."),
+        ));
+        return None;
+    }
+    if !matches!(write.format.as_str(), "text" | "json") {
+        diagnostics.push(Diagnostic::error(
+            "E-WRITE-002",
+            write.line,
+            &format!("Write format `{}` is not supported.", write.format),
+            Some("Use `write text` or `write json`."),
+        ));
+        return None;
+    }
+    let semantic_type = resolve_write_expression_type(&write.expression, typed_bindings, functions)
+        .or_else(|| {
+            diagnostics.push(unknown_format_expression_diagnostic(
+                &write.expression,
+                write.line,
+                "E-WRITE-003",
+            ));
+            None
+        })?;
+    Some(WriteInfo {
+        format: write.format.clone(),
+        path: write.path.clone(),
+        expression: write.expression.clone(),
+        quantity_kind: semantic_type.quantity_kind,
+        display_unit: semantic_type.display_unit,
+        line: write.line,
+    })
+}
+
+fn resolve_write_expression_type(
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+) -> Option<SemanticType> {
+    let expression = expression.trim();
+    if expression.starts_with('"') {
+        return semantic_type("String", "");
+    }
+    resolve_format_expression_type(expression, typed_bindings, functions)
 }
 
 fn analyze_format_fields(
@@ -3164,6 +3240,8 @@ fn expression_has_side_effect(expression: &str) -> bool {
         "read_json(",
         "read_toml(",
         "read_csv(",
+        "write text ",
+        "write json ",
         "write_file(",
         "save(",
         "export(",

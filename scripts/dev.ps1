@@ -524,6 +524,7 @@ function Assert-SchemaFilesPresent {
         "docs\schemas\report_spec.schema.json",
         "docs\schemas\result.schema.json",
         "docs\schemas\plotspec.schema.json",
+        "docs\schemas\output_manifest.schema.json",
         "docs\schemas\engpkg.schema.json"
     )
 

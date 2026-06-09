@@ -48,6 +48,19 @@ The path is written under `build/result` during `eng run`, even when ordinary
 runtime artifacts remain in memory. For example, `"summary.csv"` writes
 `build/result/summary.csv`.
 
+Existing identical output is accepted as an idempotent rerun. Replacing
+different existing contents requires `with { overwrite = true }` attached to
+the export block:
+
+```eng partial
+export summary to csv "summary.csv" {
+    mean_Q as kW with ".2"
+}
+with {
+    overwrite = true
+}
+```
+
 CSV headers preserve display units, while cells contain formatted values:
 
 ```csv
@@ -61,6 +74,6 @@ and scalar statistics such as `mean(Q_coil, axis=Time)`.
 
 ## Boundary
 
-`print` is for debug/CLI output. `export summary to csv`, `report`, and `show`
-are artifact surfaces. Project-wide display-unit policy is intentionally not
-specified here.
+`print` is for debug/CLI output. `export summary to csv`, `write text/json`,
+`report`, and `show` are artifact surfaces. Project-wide display-unit policy is
+intentionally not specified here.

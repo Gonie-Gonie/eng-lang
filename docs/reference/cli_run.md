@@ -1,9 +1,10 @@
 # `eng run` Reference
 
 `eng run` executes one file's top-level workflow through bytecode and the native VM seed.
-By default it keeps result, review, report, PlotSpec, SVG, and bytecode payloads
-as runtime objects and does not write files. Explicit `export ... to csv`
-statements are user-requested artifacts and write under `build\result`.
+By default it keeps result, review, report, PlotSpec, SVG, output manifest, and
+bytecode payloads as runtime objects and does not write ordinary artifacts.
+Explicit `export ... to csv` and `write text/json` statements are
+user-requested artifacts and write under `build\result`.
 
 ## Basic Run
 
@@ -21,7 +22,8 @@ review:   5678 bytes
 reportspec: 2345 bytes
 plot:     3456 bytes
 plotspec: 4567 bytes
-manifest: 678 bytes
+plotmanifest: 678 bytes
+outputs:  234 bytes
 report:   7890 bytes
 use --save-artifacts to write build\result files
 ```
@@ -53,6 +55,7 @@ build/
     review.json
     report.html
     report_spec.json
+    output_manifest.json
     plots/
       plot_spec.json
       plot_manifest.json
@@ -83,6 +86,37 @@ export:   build\result\summary.csv
 ```
 
 CSV headers include display units and cells contain formatted scalar values.
+An existing identical export is accepted as an idempotent rerun. Replacing
+different existing contents requires `with { overwrite = true }` on the export.
+
+## Explicit Write Outputs
+
+`write text` and `write json` write small generated files under `build\result`.
+
+```eng partial
+write text "outputs/run_note.txt", "finished"
+with {
+    overwrite = true
+}
+
+write json "outputs/energy.json", E_coil
+with {
+    overwrite = true
+}
+```
+
+The CLI reports write paths:
+
+```text
+write:    build\result\outputs\run_note.txt
+write:    build\result\outputs\energy.json
+```
+
+Generated output files are listed in:
+
+```text
+build\result\output_manifest.json
+```
 
 ## Open Report
 
@@ -201,6 +235,7 @@ type build\main.engbc
 type build\result\result.engres
 type build\result\review.json
 type build\result\report_spec.json
+type build\result\output_manifest.json
 type build\result\plots\plot_manifest.json
 target\debug\eng.exe view build\result\result.engres
 ```

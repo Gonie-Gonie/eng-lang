@@ -41,6 +41,7 @@ pub enum Keyword {
     Version,
     Where,
     With,
+    Write,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -339,6 +340,7 @@ fn keyword(value: &str) -> Option<Keyword> {
         "version" => Some(Keyword::Version),
         "where" => Some(Keyword::Where),
         "with" => Some(Keyword::With),
+        "write" => Some(Keyword::Write),
         _ => None,
     }
 }
