@@ -226,7 +226,7 @@ Non-goals:
 
 ## T11 General Programming / Side Effects
 
-Implemented seeds through `v0.5-preview`:
+Implemented seeds through `v0.6-preview`:
 
 ```text
 - file/dir path defaults
@@ -237,6 +237,9 @@ Implemented seeds through `v0.5-preview`:
 - write text/json output seed
 - idempotent overwrite hardening for write/export outputs
 - output_manifest.json for generated artifacts
+- constrained copy/move/delete file operation seed
+- confirm/recursive metadata requirements for destructive operations
+- output manifest records for generated-output file operations
 - review/result/report-spec environment_dependencies fields
 ```
 
@@ -257,8 +260,8 @@ Planned implementation order:
 2. exists and environment dependency metadata [implemented]
 3. read text/json/toml with source hashes [implemented]
 4. write/export hardening and output manifest [implemented]
-5. copy/move/delete with explicit confirmation [next]
-6. log/warn/run-log artifacts
+5. copy/move/delete with explicit confirmation [implemented]
+6. log/warn/run-log artifacts [next]
 7. run command and ProcessResult
 8. test/assert/golden support
 ```

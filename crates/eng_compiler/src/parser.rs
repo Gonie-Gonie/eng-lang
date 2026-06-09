@@ -2,8 +2,8 @@ use crate::ast::{
     ArgsDecl, ArgsFieldDecl, AstItem, CommandClauseDecl, CommandStyleDecl, ComponentDecl,
     ConnectDecl, ConservationDecl, ConstDecl, ConstraintDecl, CsvExportDecl, CsvExportFieldDecl,
     DomainDecl, DomainTypeParameterDecl, DomainVariableDecl, EquationDecl, ExplicitDecl,
-    FastBinding, FunctionDecl, FunctionParamDecl, ImportDecl, MissingPolicyDecl, PortDecl,
-    PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl, SummaryDecl, SystemDecl,
+    FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, ImportDecl, MissingPolicyDecl,
+    PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl, SummaryDecl, SystemDecl,
     SystemVariableDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
@@ -125,6 +125,7 @@ impl ParsedProgram {
                 | AstItem::CsvExport(_)
                 | AstItem::CsvExportField(_)
                 | AstItem::Write(_)
+                | AstItem::FileOperation(_)
                 | AstItem::WhereBinding(_)
                 | AstItem::WithOption(_)
                 | AstItem::ReservedKeywordUse { .. } => {}
@@ -542,6 +543,9 @@ fn parse_line_items(
     }
     if let Some(write) = parse_write_decl(tokens, line_text, context) {
         items.push(AstItem::Write(write));
+    }
+    if let Some(operation) = parse_file_operation_decl(tokens, line_text, context) {
+        items.push(AstItem::FileOperation(operation));
     }
     if let Some(command) = parse_standalone_command_style_decl(tokens, line_text, context) {
         items.push(AstItem::CommandStyle(command));
@@ -1757,6 +1761,86 @@ fn parse_write_decl(tokens: &[Token], line_text: &str, context: ParseContext) ->
     })
 }
 
+fn parse_file_operation_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<FileOperationDecl> {
+    let first = tokens.first()?;
+    let operation = match first.kind {
+        TokenKind::Keyword(Keyword::Copy) => "copy",
+        TokenKind::Keyword(Keyword::Move) => "move",
+        TokenKind::Keyword(Keyword::Delete) => "delete",
+        _ => return None,
+    };
+    let rest = line_text.trim().strip_prefix(operation)?.trim();
+    if rest.is_empty() {
+        return None;
+    }
+    let (source, destination) = if matches!(operation, "copy" | "move") {
+        let (source, destination) = split_file_operation_to(rest)?;
+        (
+            source.trim().to_owned(),
+            Some(destination.trim().to_owned()),
+        )
+    } else {
+        (rest.to_owned(), None)
+    };
+    if source.is_empty() || destination.as_deref().is_some_and(str::is_empty) {
+        return None;
+    }
+    Some(FileOperationDecl {
+        operation: operation.to_owned(),
+        source,
+        destination,
+        line: first.span.line,
+        span: first.span,
+        context,
+    })
+}
+
+fn split_file_operation_to(rest: &str) -> Option<(&str, &str)> {
+    let mut depth = 0i32;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, character) in rest.char_indices() {
+        if in_string {
+            escaped = character == '\\' && !escaped;
+            if character == '"' && !escaped {
+                in_string = false;
+            }
+            if character != '\\' {
+                escaped = false;
+            }
+            continue;
+        }
+        match character {
+            '"' => in_string = true,
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth -= 1,
+            't' if depth == 0 && rest[index..].starts_with("to") => {
+                let before_raw = &rest[..index];
+                let before = before_raw.trim_end();
+                let after_index = index + 2;
+                let after = rest[after_index..].trim_start();
+                let valid_before = before_raw
+                    .chars()
+                    .last()
+                    .is_some_and(|value| value.is_whitespace());
+                let valid_after = rest[after_index..]
+                    .chars()
+                    .next()
+                    .is_some_and(|value| value.is_whitespace());
+                if valid_before && valid_after && !before.is_empty() && !after.is_empty() {
+                    return Some((before, after));
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 fn parse_explicit_decl(
     tokens: &[Token],
     line_text: &str,
@@ -1871,6 +1955,9 @@ fn line_is_attachable_owner(tokens: &[Token], context: ParseContext) -> bool {
                     | Keyword::Export
                     | Keyword::Print
                     | Keyword::Write
+                    | Keyword::Copy
+                    | Keyword::Move
+                    | Keyword::Delete
             )
     )
 }

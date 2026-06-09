@@ -22,6 +22,7 @@ v0.3-preview  syntax/dataflow unification and path-policy seed
 v0.4-preview  read-only I/O and multi-source data policy
 v0.5-preview  write/export hardening and output manifest
 v0.6-preview  explicit copy/move/delete side-effect policy
+v0.7-preview  log/warn and run log artifacts
 ...
 v1.0          stable core
 ```
@@ -32,7 +33,7 @@ give feedback on the current preview scope.
 
 ## Current Public Line
 
-`v0.5-preview` packages the current user-test workflow:
+`v0.6-preview` packages the current user-test workflow:
 
 ```text
 - eng.exe doctor/check/run/build/view
@@ -45,6 +46,7 @@ give feedback on the current preview scope.
 - typed path helpers and provenance-visible `exists`
 - read-only UTF-8 `read text/json/toml` with source hash provenance
 - explicit `write text/json`, CSV overwrite hardening, and output manifest
+- explicit `copy/move/delete` file operation seed with confirmation metadata
 - PlotSpec/SVG output
 - review/report artifacts
 - basic packaged execution
@@ -90,15 +92,14 @@ policy source.
 
 ## Active Target
 
-`v0.6-preview` focuses on explicit file operations:
+`v0.7-preview` focuses on structured runtime messages:
 
 ```text
-- copy/move/delete syntax seed
-- confirmation metadata for destructive operations
-- safe/normal/repro profile diagnostics for filesystem mutation
-- side-effect manifest entries for filesystem changes beyond generated outputs
-- clearer dataflow scope around typed Table/TimeSeries expressions
-- examples that distinguish generated artifacts from source data mutation
+- log/warn syntax seed
+- run_log artifact for structured print/log/warn messages
+- CLI/IDE display for runtime message levels
+- clearer distinction between debugging output and reproducible artifacts
+- side-effect/profile docs updated around message artifacts
 ```
 
 ## Development Tracks

@@ -7,7 +7,7 @@ EngLang separates public release versions from long-term development tracks.
 The current public line is:
 
 ```text
-v0.5-preview
+v0.6-preview
 ```
 
 Existing high-numbered release names are not part of the current public line.
@@ -23,6 +23,7 @@ v0.3-preview  syntax/dataflow unification and path-policy seed
 v0.4-preview  read-only I/O and multi-source data policy
 v0.5-preview  write/export hardening and output manifest
 v0.6-preview  explicit copy/move/delete side-effect policy
+v0.7-preview  log/warn and run log artifacts
 ...
 v1.0          stable core, only after the core behavior is ready
 ```
@@ -30,17 +31,17 @@ v1.0          stable core, only after the core behavior is ready
 ## Cargo Version
 
 Cargo requires SemVer-compatible package versions, so the workspace package
-version for `v0.5-preview` is:
+version for `v0.6-preview` is:
 
 ```text
-0.5.0-preview
+0.6.0-preview
 ```
 
 Release assets use the shorter public label:
 
 ```text
-englang-preview-v0.5-preview-windows-x64.zip
-englang-user-test-guide-v0.5-preview.pdf
+englang-preview-v0.6-preview-windows-x64.zip
+englang-user-test-guide-v0.6-preview.pdf
 ```
 
 ## Current Preview Goals
@@ -88,6 +89,11 @@ v0.6-preview
   - copy/move/delete policy seed
   - destructive operations require explicit confirmation metadata
   - side-effect manifest grows beyond generated outputs
+
+v0.7-preview
+  - log/warn syntax seed
+  - run log artifact for structured CLI/debug messages
+  - print/log/warn formatting policy hardening
 ```
 
 ## v1.0 Reservation

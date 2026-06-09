@@ -29,7 +29,7 @@ Purpose:
 checked source -> bytecode v1 -> native VM seed
 ```
 
-Current v0.5 header:
+Current v0.6 header:
 
 ```text
 ENGBYTECODE 1
@@ -49,7 +49,7 @@ workflow_args = args:Args
 workflow_return = Report
 ```
 
-Current v0.5 sections:
+Current v0.6 sections:
 
 ```text
 objects:
@@ -102,6 +102,30 @@ write json "outputs/energy.json", E_coil
 `quantity_kind`, and `unit`. Raw JSON text is passed through when the expression
 already evaluates to JSON-looking text.
 
+## Explicit File Operations
+
+`copy`, `move`, and `delete` provide a constrained filesystem mutation seed.
+Generated-output mutation targets remain under `build/result`; `move` and
+`delete` require explicit confirmation metadata.
+
+```eng partial
+copy file("data/template.txt") to "ops/copied_note.txt"
+
+move "ops/copied_note.txt" to "ops/archive/copied_note.txt"
+with {
+    confirm = true
+    overwrite = true
+}
+
+delete "ops/scratch.txt"
+with {
+    confirm = true
+}
+```
+
+The runtime records file operation effects as output manifest entries such as
+`copy_file`, `move_file`, and `delete_file`.
+
 ## `output_manifest.json`
 
 Purpose:
@@ -123,7 +147,8 @@ artifacts[].hash
 ```
 
 When `--save-artifacts` is used, this manifest lists result/report/PlotSpec/SVG
-files alongside explicit CSV exports and write outputs.
+files alongside explicit CSV exports, write outputs, and file operation
+records.
 
 ## `.engres`
 

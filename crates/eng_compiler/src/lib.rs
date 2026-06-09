@@ -24,9 +24,10 @@ use std::path::{Path, PathBuf};
 pub use ast::{
     ArgsDecl, ArgsFieldDecl, AstItem, CommandClauseDecl, CommandStyleDecl, ComponentDecl,
     ConnectDecl, ConservationDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl,
-    DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FunctionDecl, FunctionParamDecl,
-    ImportDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl, SystemDecl,
-    SystemVariableDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
+    DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl,
+    FunctionParamDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl,
+    StructDecl, SystemDecl, SystemVariableDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl,
+    WithOptionDecl, WriteDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -44,11 +45,11 @@ pub use semantic::{
     ArgValueInfo, ArgsBlockInfo, ArgsFieldInfo, CommandClauseInfo, CommandStyleInfo, ComponentInfo,
     ConnectionInfo, ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo,
     DomainTypeParameterInfo, DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo,
-    EquationInfo, EquationIrInfo, FormatExpressionInfo, FunctionInfo, FunctionLocalInfo,
-    FunctionParamInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo, PrintInfo,
-    ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo, SystemVariableInfo,
-    TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo, WhereBlockInfo, WithBlockInfo,
-    WithOptionInfo, WriteInfo,
+    EquationInfo, EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo,
+    FunctionLocalInfo, FunctionParamInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo,
+    PrintInfo, ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo,
+    SystemVariableInfo, TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo, WhereBlockInfo,
+    WithBlockInfo, WithOptionInfo, WriteInfo,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -1970,6 +1971,30 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    json.push_str("  \"file_operations\": [\n");
+    for (index, operation) in report.semantic_program.file_operations.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"operation\": \"{}\",\n",
+            json_escape(&operation.operation)
+        ));
+        json.push_str(&format!(
+            "      \"source\": \"{}\",\n",
+            json_escape(&operation.source)
+        ));
+        push_optional_json_string(
+            &mut json,
+            "destination",
+            operation.destination.as_deref(),
+            6,
+        );
+        json.push_str(&format!("      \"line\": {}\n", operation.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
     json.push_str("  \"command_styles\": [\n");
     for (index, command) in report.semantic_program.command_styles.iter().enumerate() {
         if index > 0 {
@@ -3461,7 +3486,7 @@ mod tests {
     fn records_unit_aware_print_and_csv_export_metadata() {
         let report = check_source(
             "ok.eng",
-            "cp = 4180 J/kg/K\nQ_series = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nmean_Q = mean(Q_series, axis=Time)\nQ = 10 kW\nE: Energy [J] = 3600 J\nprint \"Q={Q: .2 kW} E={E: .3 kWh}\"\nexport summary to csv \"summary.csv\" {\n    Q as kW with \".2\"\n    E as kWh with \".3\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text \"summary.txt\", Q\nwrite json \"summary.json\", E\n",
+            "cp = 4180 J/kg/K\nQ_series = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nmean_Q = mean(Q_series, axis=Time)\nQ = 10 kW\nE: Energy [J] = 3600 J\nprint \"Q={Q: .2 kW} E={E: .3 kWh}\"\nexport summary to csv \"summary.csv\" {\n    Q as kW with \".2\"\n    E as kWh with \".3\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text \"summary.txt\", Q\nwrite json \"summary.json\", E\ncopy file(\"source.txt\") to \"copied.txt\"\nmove \"copied.txt\" to \"moved.txt\"\nwith {\n    confirm = true\n    overwrite = true\n}\ndelete \"moved.txt\"\nwith {\n    confirm = true\n}\n",
             &CheckOptions::default(),
         );
 
@@ -3486,12 +3511,39 @@ mod tests {
         assert_eq!(report.semantic_program.writes.len(), 2);
         assert_eq!(report.semantic_program.writes[0].format, "text");
         assert_eq!(report.semantic_program.writes[1].format, "json");
-        assert_eq!(report.semantic_program.with_blocks.len(), 1);
+        assert_eq!(report.semantic_program.file_operations.len(), 3);
+        assert_eq!(report.semantic_program.file_operations[0].operation, "copy");
+        assert_eq!(report.semantic_program.file_operations[1].operation, "move");
+        assert_eq!(
+            report.semantic_program.file_operations[2].operation,
+            "delete"
+        );
+        assert_eq!(report.semantic_program.with_blocks.len(), 3);
         let review = review_json(&report);
         assert!(review.contains("\"prints\""));
         assert!(review.contains("\"csv_exports\""));
         assert!(review.contains("\"writes\""));
+        assert!(review.contains("\"file_operations\""));
         assert!(review.contains("\"overwrite\""));
+        assert!(review.contains("\"confirm\""));
+    }
+
+    #[test]
+    fn rejects_unconfirmed_file_mutations() {
+        let report = check_source(
+            "bad.eng",
+            "move \"a.txt\" to \"b.txt\"\ndelete dir(\"old\")\nwith {\n    confirm = true\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-FS-CONFIRM-001" && diagnostic.line == 1));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-FS-DELETE-001" && diagnostic.line == 2));
     }
 
     #[test]

@@ -1,9 +1,10 @@
 # Side Effect And General Programming Policy
 
-Status: GP-1 path policy, GP-2 read-only I/O, and GP-3 write/export hardening
-are implemented for `v0.5-preview`. Broader filesystem mutation, process,
-network, and test support remain planned tracks, not supported preview
-behavior.
+Status: GP-1 path policy, GP-2 read-only I/O, GP-3 write/export hardening, and
+GP-4 constrained copy/move/delete file operations are implemented for
+`v0.6-preview`. Broader filesystem mutation outside generated-output
+boundaries, process, network, and test support remain planned tracks, not
+supported preview behavior.
 
 EngLang is not trying to become a fully general replacement for Python, MATLAB,
 or R. Real engineering workflows still need practical file, path, config,
@@ -26,7 +27,7 @@ what was read, and what external state influenced the result.
 | Read-only I/O | `read text`, `read json`, `read toml` | UTF-8 raw string reads; source hash is recorded |
 | Typed data boundary | `promote csv/json/toml as Schema` | Preferred for engineering data |
 | Write/export | `write text`, `write json`, `export summary to csv` | Explicit target required; changed overwrite requires `overwrite = true`; generated outputs are manifest-recorded |
-| File operations | `copy`, `move`, `delete`, `mkdir`, `list` | Destructive operations require explicit confirmation/options |
+| File operations | `copy`, `move`, `delete`, `mkdir`, `list` | Copy/move/delete seed implemented under explicit output boundaries; broader operations planned |
 | External process | `run command ... with { ... }` | Experimental; command/cwd/args/exit/stdout/stderr recorded |
 | Network | `download url(...) to file(...)` | Long-term only; repro profile requires hash/cache |
 
@@ -61,7 +62,7 @@ input_exists = exists args.input
 print "input exists = {input_exists}"
 ```
 
-Implemented behavior through `v0.5-preview`:
+Implemented behavior through `v0.6-preview`:
 
 ```text
 - file("...") and dir("...") are accepted in args defaults.
@@ -78,6 +79,13 @@ Implemented behavior through `v0.5-preview`:
 - an identical existing output is accepted as an idempotent rerun.
 - replacing different existing contents requires `with { overwrite = true }`.
 - output_manifest.json records generated file paths and content hashes.
+- copy can copy a source-relative UTF-8 text file or generated output file into
+  `build/result`.
+- move operates on generated output paths under `build/result`.
+- delete operates on generated output paths under `build/result`.
+- move and delete require `with { confirm = true }`.
+- delete dir(...) also requires `with { recursive = true }`.
+- file operations are recorded in review.json and output_manifest.json.
 ```
 
 ## Read Policy
@@ -135,12 +143,12 @@ Rules:
 Destructive operations must be visibly intentional:
 
 ```eng partial
-delete file("build/temp.csv")
+delete "outputs/temp.csv"
 with {
     confirm = true
 }
 
-delete dir("build/tmp")
+delete dir("outputs/tmp")
 with {
     recursive = true
     confirm = true
@@ -151,7 +159,8 @@ Rules:
 
 ```text
 - copy is lower risk but still recorded when it changes outputs
-- move records both source and destination
+- copy targets are constrained under `build/result`
+- move records both source and destination and is constrained under `build/result`
 - delete file requires confirm
 - delete directory requires recursive=true and confirm=true
 - repro/safe profiles may warn or reject move/delete
@@ -220,7 +229,7 @@ eng.net      download/cache/hash, later
 | GP-1 | path types/helpers, `exists`, side-effect docs | implemented in v0.3 |
 | GP-2 | read text/json/toml, source hashes | implemented in v0.4 |
 | GP-3 | write text/json, export hardening, output manifest | implemented in v0.5 |
-| GP-4 | copy/move/delete and side-effect manifest | v0.6 target |
+| GP-4 | copy/move/delete and side-effect manifest | implemented in v0.6 |
 | GP-5 | print/log/warn formatting and run log artifact | v0.7 target |
 | GP-6 | external process and `ProcessResult` | v0.8 experimental |
 | GP-7 | network/download/cache/hash | optional, after process policy |
@@ -228,6 +237,7 @@ eng.net      download/cache/hash, later
 | GP-9 | IDE side-effect panels and output file navigation | grows across phases |
 
 The current implementation deliberately stops at path helpers, `exists`,
-read-only source-hashed inputs, and generated output writes. Copy, move,
-delete, process, and network effects remain outside the public preview until
-their policy slices land.
+read-only source-hashed inputs, generated output writes, and constrained
+copy/move/delete operations under `build/result`. Broader filesystem access,
+process, and network effects remain outside the public preview until their
+policy slices land.

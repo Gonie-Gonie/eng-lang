@@ -1,0 +1,16 @@
+print "File operation preview"
+
+copy file("data/template.txt") to "ops/copied_note.txt"
+
+move "ops/copied_note.txt" to "ops/archive/copied_note.txt"
+with {
+    confirm = true
+    overwrite = true
+}
+
+write text "ops/scratch.txt", "temporary generated note"
+
+delete "ops/scratch.txt"
+with {
+    confirm = true
+}

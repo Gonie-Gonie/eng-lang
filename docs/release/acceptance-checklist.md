@@ -142,6 +142,28 @@ Before publishing `v0.5-preview`:
 [x] release-check passes
 ```
 
+Before publishing `v0.6-preview`:
+
+```text
+[x] workspace package version is updated to 0.6.0-preview
+[x] public package label is v0.6-preview
+[x] current status, maturity matrix, tracks, roadmap, README, and release workflow agree on the v0.6 scope
+[x] copy/move/delete top-level statements are parsed and checked
+[x] move/delete require with { confirm = true }
+[x] delete dir(...) requires with { recursive = true }
+[x] copy/move/delete operations are constrained to generated-output boundaries
+[x] review.json records file_operations metadata
+[x] output_manifest.json records copy_file/move_file/delete_file entries
+[x] official/13_file_operations mini example is present
+[x] docs explain copy/move/delete scope and process/network deferral
+[x] docs-check passes
+[x] artifacts-check passes
+[x] ide-check passes
+[x] lsp-check passes
+[x] package-smoke passes under a path with spaces and Korean characters
+[x] release-check passes
+```
+
 ## Local Verification
 
 Run:

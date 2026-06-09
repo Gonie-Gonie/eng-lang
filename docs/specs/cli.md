@@ -279,6 +279,9 @@ include hover `kind`/`status` metadata and completion labels such as
 Runs the file's top-level workflow through bytecode v1 and the native VM seed.
 By default, result/review/report/plot/output-manifest payloads remain runtime
 objects in memory. `--save-artifacts` writes those objects to disk.
+Explicit `export`, `write`, and constrained `copy/move/delete` statements
+write or mutate files under `build/result` and are recorded in
+`output_manifest.json`.
 
 Execution model:
 

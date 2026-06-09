@@ -7,9 +7,9 @@ agents. It separates public release versions from long-term development tracks.
 
 | Field | Value |
 |---|---|
-| Current public line | `v0.5-preview` |
-| Active target | `v0.6-preview` explicit copy/move/delete side-effect policy |
-| Workspace package version | `0.5.0-preview` |
+| Current public line | `v0.6-preview` |
+| Active target | `v0.7-preview` log/warn and run log artifacts |
+| Workspace package version | `0.6.0-preview` |
 | Release channel | `preview` |
 
 EngLang is preview software. The language, runtime behavior, and artifact
@@ -94,6 +94,12 @@ the current public preview workflow, but it is not yet a stable contract.
   attached `with { overwrite = true }` block.
 - `output_manifest.json` records generated file artifacts and content hashes
   for saved runtime artifacts, CSV exports, and write outputs.
+- Explicit `copy`, `move`, and `delete` top-level workflow statements provide
+  a constrained filesystem mutation seed. Copy can bring a source-relative
+  text file into `build/result`; move/delete operate on generated output paths;
+  move/delete require `with { confirm = true }`; directory delete also requires
+  `recursive = true`; all operation records appear in review/output manifest
+  metadata.
 - Standalone package output with `.engpkg`, bytecode, lock, source/dependency
   copy, dependency hashes, Args help, and reviewable report artifacts.
 - Temperature spelling policy: `degC` remains the canonical ASCII spelling, and
@@ -123,8 +129,8 @@ the current public preview workflow, but it is not yet a stable contract.
   data-analysis plus system-simulation philosophy and the
   [side-effect policy](../reference/side_effect_policy.md). The implemented
   side-effect scope is GP-1 path helpers, GP-2 read-only UTF-8 text/json/toml
-  reads with source hashes, and GP-3 write/export hardening with output
-  manifest. Copy/move/delete remains the active next target.
+  reads with source hashes, GP-3 write/export hardening with output manifest,
+  and GP-4 constrained copy/move/delete file operation metadata.
 
 ## Future Tracks On Main
 
@@ -162,9 +168,10 @@ See [development tracks](tracks.md) for the current scope and limitations.
 - Parenthesis-light syntax for arbitrary user-defined/general function calls
   and project-wide display unit policy blocks are deferred.
 - Broad file/process/network side-effect runtime support is deferred to the
-  general programming track. `v0.5-preview` implements path helpers, `exists`
-  provenance, read-only UTF-8 text/json/toml source hash provenance, and
-  explicit write/export output manifest support only.
+  general programming track. `v0.6-preview` implements path helpers, `exists`
+  provenance, read-only UTF-8 text/json/toml source hash provenance, explicit
+  write/export output manifest support, and constrained output-area
+  copy/move/delete only.
 - Class/domain objects are planned for reviewable engineering objects, but
   class declaration/object literal/runtime lowering is not part of the current
   public preview.

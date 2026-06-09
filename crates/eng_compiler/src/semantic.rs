@@ -1,8 +1,8 @@
 use crate::ast::{
     ArgsFieldDecl, AstItem, CommandStyleDecl, ConnectDecl, ConstDecl, CsvExportDecl,
     CsvExportFieldDecl, DomainTypeParameterDecl, DomainVariableDecl, ExplicitDecl, FastBinding,
-    FunctionDecl, FunctionParamDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl,
-    SystemVariableDecl, WhereBindingDecl, WithOptionDecl, WriteDecl,
+    FileOperationDecl, FunctionDecl, FunctionParamDecl, ImportDecl, PortDecl, PrintDecl,
+    ReturnDecl, SystemVariableDecl, WhereBindingDecl, WithOptionDecl, WriteDecl,
 };
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
@@ -324,6 +324,14 @@ pub struct WriteInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FileOperationInfo {
+    pub operation: String,
+    pub source: String,
+    pub destination: Option<String>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandClauseInfo {
     pub name: String,
     pub value: String,
@@ -414,6 +422,7 @@ pub struct SemanticProgram {
     pub prints: Vec<PrintInfo>,
     pub csv_exports: Vec<CsvExportInfo>,
     pub writes: Vec<WriteInfo>,
+    pub file_operations: Vec<FileOperationInfo>,
     pub command_styles: Vec<CommandStyleInfo>,
     pub where_blocks: Vec<WhereBlockInfo>,
     pub with_blocks: Vec<WithBlockInfo>,
@@ -456,6 +465,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut csv_exports = Vec::new();
     let mut current_csv_export_index = None;
     let mut writes = Vec::new();
+    let mut file_operations = Vec::new();
     let mut command_styles = Vec::new();
     let mut timeseries_kernels = Vec::new();
 
@@ -725,6 +735,13 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     writes.push(write_info);
                 }
             }
+            AstItem::FileOperation(operation) => {
+                if let Some(operation_info) =
+                    analyze_file_operation_decl(operation, &mut diagnostics)
+                {
+                    file_operations.push(operation_info);
+                }
+            }
             AstItem::CommandStyle(command) => {
                 analyze_command_style_decl(command, &mut command_styles, &mut diagnostics);
             }
@@ -743,6 +760,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let where_blocks = analyze_where_blocks(program, &typed_bindings, &functions, &mut diagnostics);
     let with_blocks =
         analyze_with_blocks(program, &typed_bindings, &command_styles, &mut diagnostics);
+    validate_file_operation_options(&file_operations, &with_blocks, &mut diagnostics);
     validate_where_local_uses(program, &where_blocks, &mut diagnostics);
     validate_domain_contracts(&domains, &mut diagnostics);
     validate_function_returns(&mut functions, &consts, &mut diagnostics);
@@ -783,6 +801,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             prints,
             csv_exports,
             writes,
+            file_operations,
             command_styles,
             where_blocks,
             with_blocks,
@@ -1116,6 +1135,8 @@ fn known_with_option(key: &str) -> bool {
             | "seed"
             | "output"
             | "overwrite"
+            | "confirm"
+            | "recursive"
     )
 }
 
@@ -1581,6 +1602,94 @@ fn analyze_write_decl(
         quantity_kind: semantic_type.quantity_kind,
         display_unit: semantic_type.display_unit,
         line: write.line,
+    })
+}
+
+fn analyze_file_operation_decl(
+    operation: &FileOperationDecl,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<FileOperationInfo> {
+    if operation.context != ParseContext::TopLevel {
+        diagnostics.push(Diagnostic::error(
+            "E-FS-001",
+            operation.line,
+            "File operations are supported only in the top-level workflow.",
+            Some("Move the operation to the root workflow so the filesystem change is reviewable."),
+        ));
+        return None;
+    }
+    if !matches!(operation.operation.as_str(), "copy" | "move" | "delete") {
+        diagnostics.push(Diagnostic::error(
+            "E-FS-002",
+            operation.line,
+            &format!("File operation `{}` is not supported.", operation.operation),
+            Some("Use `copy`, `move`, or `delete`."),
+        ));
+        return None;
+    }
+    if matches!(operation.operation.as_str(), "copy" | "move") && operation.destination.is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-FS-003",
+            operation.line,
+            &format!("`{}` requires a destination path.", operation.operation),
+            Some(&format!(
+                "Write `{} <source> to <destination>`.",
+                operation.operation
+            )),
+        ));
+        return None;
+    }
+    Some(FileOperationInfo {
+        operation: operation.operation.clone(),
+        source: operation.source.clone(),
+        destination: operation.destination.clone(),
+        line: operation.line,
+    })
+}
+
+fn validate_file_operation_options(
+    operations: &[FileOperationInfo],
+    with_blocks: &[WithBlockInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for operation in operations {
+        if matches!(operation.operation.as_str(), "move" | "delete")
+            && !with_option_bool(with_blocks, operation.line, "confirm")
+        {
+            diagnostics.push(Diagnostic::error(
+                "E-FS-CONFIRM-001",
+                operation.line,
+                &format!(
+                    "`{}` requires `with {{ confirm = true }}`.",
+                    operation.operation
+                ),
+                Some(
+                    "Attach an explicit confirmation block so the filesystem mutation is visible.",
+                ),
+            ));
+        }
+        if operation.operation == "delete"
+            && operation.source.trim_start().starts_with("dir(")
+            && !with_option_bool(with_blocks, operation.line, "recursive")
+        {
+            diagnostics.push(Diagnostic::error(
+                "E-FS-DELETE-001",
+                operation.line,
+                "`delete dir(...)` requires `with { recursive = true }`.",
+                Some("Delete directory trees only with both `recursive = true` and `confirm = true`."),
+            ));
+        }
+    }
+}
+
+fn with_option_bool(with_blocks: &[WithBlockInfo], owner_line: usize, key: &str) -> bool {
+    with_blocks.iter().any(|block| {
+        block.owner_line == Some(owner_line)
+            && block.options.iter().any(|option| {
+                option.key == key
+                    && option.status == "accepted"
+                    && option.value.trim().eq_ignore_ascii_case("true")
+            })
     })
 }
 

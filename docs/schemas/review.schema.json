@@ -19,6 +19,7 @@
     "prints",
     "csv_exports",
     "writes",
+    "file_operations",
     "domain_summary",
     "component_summary",
     "connection_summary",
@@ -69,6 +70,10 @@
     "writes": {
       "type": "array",
       "items": { "$ref": "#/$defs/writeOutput" }
+    },
+    "file_operations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/fileOperation" }
     },
     "domain_summary": {
       "type": "array",
@@ -181,6 +186,16 @@
         "expression": { "type": "string" },
         "quantity_kind": { "type": "string" },
         "display_unit": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "fileOperation": {
+      "type": "object",
+      "required": ["operation", "source", "destination", "line"],
+      "properties": {
+        "operation": { "enum": ["copy", "move", "delete"] },
+        "source": { "type": "string" },
+        "destination": { "type": ["string", "null"] },
         "line": { "type": "integer", "minimum": 1 }
       }
     },

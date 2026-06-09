@@ -45,6 +45,7 @@ pub struct RunOutput {
     pub output_manifest_path: PathBuf,
     pub csv_export_paths: Vec<PathBuf>,
     pub write_output_paths: Vec<PathBuf>,
+    pub file_operation_paths: Vec<PathBuf>,
     pub artifacts_saved: bool,
     pub stdout: String,
     pub bytecode: String,
@@ -207,11 +208,16 @@ pub fn run_file(
     let stdout = render_stdout(&check_report, &runtime_data);
     let csv_export_artifacts = write_csv_exports(&check_report, &runtime_data, &result_dir)?;
     let write_artifacts = write_outputs(&check_report, &runtime_data, &result_dir)?;
+    let file_operation_artifacts = apply_file_operations(&check_report, &result_dir)?;
     let csv_export_paths = csv_export_artifacts
         .iter()
         .map(|artifact| artifact.absolute_path.clone())
         .collect::<Vec<_>>();
     let write_output_paths = write_artifacts
+        .iter()
+        .map(|artifact| artifact.absolute_path.clone())
+        .collect::<Vec<_>>();
+    let file_operation_paths = file_operation_artifacts
         .iter()
         .map(|artifact| artifact.absolute_path.clone())
         .collect::<Vec<_>>();
@@ -257,6 +263,7 @@ pub fn run_file(
     let mut output_artifacts = Vec::new();
     output_artifacts.extend(csv_export_artifacts);
     output_artifacts.extend(write_artifacts);
+    output_artifacts.extend(file_operation_artifacts);
     if artifacts_saved {
         fs::create_dir_all(&plots_dir)?;
         fs::write(&bytecode_path, &bytecode)?;
@@ -338,6 +345,7 @@ pub fn run_file(
         output_manifest_path,
         csv_export_paths,
         write_output_paths,
+        file_operation_paths,
         artifacts_saved,
         stdout,
         bytecode,
@@ -860,6 +868,143 @@ fn write_outputs(
         ));
     }
     Ok(artifacts)
+}
+
+fn apply_file_operations(
+    report: &CheckReport,
+    result_dir: &Path,
+) -> Result<Vec<OutputArtifact>, RuntimeError> {
+    let mut artifacts = Vec::new();
+    for operation in &report.semantic_program.file_operations {
+        match operation.operation.as_str() {
+            "copy" => {
+                let source = resolve_copy_source_path(report, result_dir, &operation.source)?;
+                let destination = operation
+                    .destination
+                    .as_deref()
+                    .ok_or_else(|| invalid_input("copy operation is missing destination"))?;
+                let destination_text = evaluate_runtime_path_expression(destination, report)
+                    .ok_or_else(|| {
+                        invalid_input(&format!("invalid copy destination `{destination}`"))
+                    })?;
+                let destination_path = export_output_path(result_dir, &destination_text)
+                    .ok_or_else(|| {
+                        invalid_input(&format!("invalid copy destination `{destination}`"))
+                    })?;
+                let contents = fs::read_to_string(&source)?;
+                write_output_file(
+                    &destination_path,
+                    &contents,
+                    overwrite_allowed(report, operation.line),
+                )?;
+                artifacts.push(output_artifact(
+                    "copy_file",
+                    relative_output_path(result_dir, &destination_path),
+                    &contents,
+                    destination_path,
+                ));
+            }
+            "move" => {
+                let source_path =
+                    resolve_output_operation_path(report, result_dir, &operation.source)
+                        .ok_or_else(|| {
+                            invalid_input(&format!("invalid move source `{}`", operation.source))
+                        })?;
+                let destination = operation
+                    .destination
+                    .as_deref()
+                    .ok_or_else(|| invalid_input("move operation is missing destination"))?;
+                let destination_path =
+                    resolve_output_operation_path(report, result_dir, destination).ok_or_else(
+                        || invalid_input(&format!("invalid move destination `{destination}`")),
+                    )?;
+                let contents = fs::read_to_string(&source_path)?;
+                write_output_file(
+                    &destination_path,
+                    &contents,
+                    overwrite_allowed(report, operation.line),
+                )?;
+                if source_path != destination_path {
+                    fs::remove_file(&source_path)?;
+                }
+                artifacts.push(output_artifact(
+                    "move_file",
+                    relative_output_path(result_dir, &destination_path),
+                    &contents,
+                    destination_path,
+                ));
+            }
+            "delete" => {
+                let target_path =
+                    resolve_output_operation_path(report, result_dir, &operation.source)
+                        .ok_or_else(|| {
+                            invalid_input(&format!("invalid delete target `{}`", operation.source))
+                        })?;
+                let relative_path = relative_output_path(result_dir, &target_path);
+                if target_path.is_dir() {
+                    fs::remove_dir_all(&target_path)?;
+                    artifacts.push(OutputArtifact {
+                        kind: "delete_dir".to_owned(),
+                        path: relative_path,
+                        hash: hash_text("deleted_dir"),
+                        absolute_path: target_path,
+                    });
+                } else if target_path.exists() {
+                    let contents = fs::read_to_string(&target_path).unwrap_or_default();
+                    fs::remove_file(&target_path)?;
+                    artifacts.push(output_artifact(
+                        "delete_file",
+                        relative_path,
+                        &contents,
+                        target_path,
+                    ));
+                } else {
+                    artifacts.push(OutputArtifact {
+                        kind: "delete_missing".to_owned(),
+                        path: relative_path,
+                        hash: hash_text("missing"),
+                        absolute_path: target_path,
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(artifacts)
+}
+
+fn resolve_copy_source_path(
+    report: &CheckReport,
+    result_dir: &Path,
+    expression: &str,
+) -> Result<PathBuf, RuntimeError> {
+    let path_text = evaluate_runtime_path_expression(expression, report)
+        .ok_or_else(|| invalid_input(&format!("invalid copy source `{expression}`")))?;
+    if let Some(output_path) = export_output_path(result_dir, &path_text) {
+        if output_path.exists() {
+            return Ok(output_path);
+        }
+    }
+    Ok(runtime_resolve_source_relative_path(
+        &path_text,
+        report.source_path.parent(),
+    ))
+}
+
+fn resolve_output_operation_path(
+    report: &CheckReport,
+    result_dir: &Path,
+    expression: &str,
+) -> Option<PathBuf> {
+    let path_text = evaluate_runtime_path_expression(expression, report)?;
+    export_output_path(result_dir, &path_text)
+}
+
+fn invalid_input(message: &str) -> RuntimeError {
+    RuntimeError::Io(std::io::Error::new(
+        std::io::ErrorKind::InvalidInput,
+        message.to_owned(),
+    ))
 }
 
 fn write_output_file(path: &Path, contents: &str, overwrite: bool) -> Result<(), RuntimeError> {
@@ -3087,6 +3232,50 @@ mod tests {
             fs::read_to_string(build_root.join("result").join("summary.csv")).expect("summary csv");
         assert!(csv.contains("Q_wall [kW]"));
         assert!(csv.contains("1.20"));
+    }
+
+    #[test]
+    fn run_file_applies_file_operations_and_records_manifest() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-file-ops");
+        let build_root = repo_root.join("build").join("runtime-file-ops-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        fs::write(source_dir.join("template.txt"), "template note").expect("template");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "copy file(\"template.txt\") to \"ops/copied.txt\"\nmove \"ops/copied.txt\" to \"ops/moved.txt\"\nwith {\n    confirm = true\n    overwrite = true\n}\nwrite text \"ops/scratch.txt\", \"remove me\"\ndelete \"ops/scratch.txt\"\nwith {\n    confirm = true\n}\n",
+        )
+        .expect("write source");
+
+        let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+
+        assert_eq!(output.file_operation_paths.len(), 3);
+        assert!(build_root
+            .join("result")
+            .join("ops")
+            .join("moved.txt")
+            .exists());
+        assert!(!build_root
+            .join("result")
+            .join("ops")
+            .join("scratch.txt")
+            .exists());
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"copy_file\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"move_file\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"delete_file\""));
+        assert!(output.review_json.contains("\"file_operations\""));
     }
 
     #[test]

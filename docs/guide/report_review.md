@@ -75,6 +75,7 @@ csv_promotions
 prints
 csv_exports
 writes
+file_operations
 diagnostics
 warning_list
 plot_manifest
@@ -146,7 +147,8 @@ residual_count
 ## `output_manifest.json`
 
 `output_manifest.json` is the runtime-generated file list for saved artifacts,
-explicit CSV exports, and `write text/json` outputs.
+explicit CSV exports, `write text/json` outputs, and constrained file
+operation records.
 
 Current preview contract:
 
@@ -160,6 +162,10 @@ artifacts:
   path
   hash
 ```
+
+Common `kind` values include `csv_export`, `write_text`, `write_json`,
+`copy_file`, `move_file`, `delete_file`, `plot_svg`, `report_html`, and
+`result`.
 
 Use it when a tool needs to show exactly which files a run produced without
 guessing from the directory layout.

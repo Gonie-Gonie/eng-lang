@@ -3,8 +3,9 @@
 `eng run` executes one file's top-level workflow through bytecode and the native VM seed.
 By default it keeps result, review, report, PlotSpec, SVG, output manifest, and
 bytecode payloads as runtime objects and does not write ordinary artifacts.
-Explicit `export ... to csv` and `write text/json` statements are
-user-requested artifacts and write under `build\result`.
+Explicit `export ... to csv`, `write text/json`, and constrained
+`copy/move/delete` statements are user-requested artifacts and write or mutate
+under `build\result`.
 
 ## Basic Run
 
@@ -117,6 +118,38 @@ Generated output files are listed in:
 ```text
 build\result\output_manifest.json
 ```
+
+## Explicit File Operations
+
+`copy`, `move`, and `delete` provide a small filesystem mutation seed. The
+current preview keeps generated-output mutations under `build\result`.
+
+```eng partial
+copy file("data/template.txt") to "ops/copied_note.txt"
+
+move "ops/copied_note.txt" to "ops/archive/copied_note.txt"
+with {
+    confirm = true
+    overwrite = true
+}
+
+write text "ops/scratch.txt", "temporary generated note"
+
+delete "ops/scratch.txt"
+with {
+    confirm = true
+}
+```
+
+The CLI reports touched file operation paths:
+
+```text
+fs:       build\result\ops\archive\copied_note.txt
+fs:       build\result\ops\scratch.txt
+```
+
+`review.json` records `file_operations[]`. `output_manifest.json` records
+entries such as `copy_file`, `move_file`, and `delete_file`.
 
 ## Open Report
 
@@ -266,6 +299,7 @@ review.json
   system_ir
   system_ir.solver_plan
   schema_summary
+  file_operations
   warning_list
 
 report_spec.json

@@ -229,6 +229,16 @@ pub struct WriteDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FileOperationDecl {
+    pub operation: String,
+    pub source: String,
+    pub destination: Option<String>,
+    pub line: usize,
+    pub span: SourceSpan,
+    pub context: ParseContext,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandClauseDecl {
     pub name: String,
     pub value: String,
@@ -319,6 +329,7 @@ pub enum AstItem {
     CsvExport(CsvExportDecl),
     CsvExportField(CsvExportFieldDecl),
     Write(WriteDecl),
+    FileOperation(FileOperationDecl),
     CommandStyle(CommandStyleDecl),
     WhereBlock(WhereBlockDecl),
     WhereBinding(WhereBindingDecl),

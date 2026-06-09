@@ -2950,6 +2950,13 @@ report {
                     artifact_row(ui, "Write", path);
                 }
             }
+            if !output.file_operation_paths.is_empty() {
+                ui.add_space(8.0);
+                ui.label(egui::RichText::new("File operations").color(ui_palette(ui).muted));
+                for path in &output.file_operation_paths {
+                    artifact_row(ui, "FS", path);
+                }
+            }
         } else {
             ui.label(egui::RichText::new("No artifacts yet").color(ui_palette(ui).muted));
         }
@@ -3322,6 +3329,7 @@ struct RunOutputView {
     output_manifest_path: PathBuf,
     csv_export_paths: Vec<PathBuf>,
     write_output_paths: Vec<PathBuf>,
+    file_operation_paths: Vec<PathBuf>,
     relative_report_path: String,
     relative_plot_path: String,
     artifacts_saved: bool,
@@ -3353,6 +3361,7 @@ impl RunOutputView {
             output_manifest_path: output.output_manifest_path,
             csv_export_paths: output.csv_export_paths,
             write_output_paths: output.write_output_paths,
+            file_operation_paths: output.file_operation_paths,
             artifacts_saved: output.artifacts_saved,
             stdout: output.stdout,
             bytecode: output.bytecode,

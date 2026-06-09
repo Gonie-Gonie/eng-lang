@@ -62,6 +62,11 @@ official/11_read_only_io
 official/12_write_output_manifest
   Explicit summary CSV export, write text/json outputs, overwrite policy, and
   output manifest generation for produced files.
+
+official/13_file_operations
+  Explicit copy/move/delete filesystem mutation seed, confirmation metadata,
+  generated-output mutation boundaries, and output manifest records for file
+  operations.
 ```
 
 ## Compatibility Regression Examples

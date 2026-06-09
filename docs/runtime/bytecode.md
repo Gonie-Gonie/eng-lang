@@ -2,10 +2,10 @@
 
 The current public preview has an executable EngLang runtime path with
 TimeSeries/statistics metadata, PlotSpec/SVG/manifest output, explicit
-write/export outputs, output manifest metadata, system metadata, residuals,
-system IR dependencies, metadata-only solver_plan seeds, an explicit solver
-boundary, and a fixed-step ODE preview for the official one-state thermal
-system:
+write/export outputs, constrained file operation records, output manifest
+metadata, system metadata, residuals, system IR dependencies, metadata-only
+solver_plan seeds, an explicit solver boundary, and a fixed-step ODE preview
+for the official one-state thermal system:
 
 ```text
   .eng source
@@ -165,7 +165,7 @@ data-driven modeling metrics/plot points:
 
 ## Tests
 
-v0.5 includes:
+v0.6 includes:
 
 ```text
 bytecode encode/decode unit test
@@ -177,11 +177,13 @@ HeatRate sum lint smoke
 PlotSpec JSON/SVG smoke
 plot manifest smoke
 output manifest smoke
+file operation manifest smoke
 top-level workflow run smoke
 official example run smoke
 simple system run smoke
 unit-aware print and explicit summary CSV export runtime test
 write text/json overwrite hardening runtime test
+copy/move/delete file operation runtime test
 ```
 
 ## Deferred

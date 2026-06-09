@@ -361,6 +361,9 @@ fn command_run(args: Vec<String>) -> ExitCode {
             for path in &output.write_output_paths {
                 println!("write:    {}", path.display());
             }
+            for path in &output.file_operation_paths {
+                println!("fs:       {}", path.display());
+            }
             ExitCode::SUCCESS
         }
         Err(RuntimeError::Compile(report)) => {
@@ -508,6 +511,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/10_path_policy/main.eng",
                 "examples/official/11_read_only_io/main.eng",
                 "examples/official/12_write_output_manifest/main.eng",
+                "examples/official/13_file_operations/main.eng",
             ],
         ),
         (
@@ -944,6 +948,33 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("write/output manifest example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
+        Path::new("examples/official/13_file_operations/main.eng"),
+        Path::new("build/test-file-operations"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
+            let manifest =
+                std::fs::read_to_string(&output.output_manifest_path).unwrap_or_default();
+            if output.file_operation_paths.len() != 3
+                || !review.contains("\"file_operations\"")
+                || !manifest.contains("\"kind\": \"copy_file\"")
+                || !manifest.contains("\"kind\": \"move_file\"")
+                || !manifest.contains("\"kind\": \"delete_file\"")
+            {
+                eprintln!("expected file operations example to produce review and output manifest records");
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/13_file_operations/main.eng produced file operation artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("file operations example failed: {error}");
             return ExitCode::from(2);
         }
     }

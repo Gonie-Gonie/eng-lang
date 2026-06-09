@@ -172,6 +172,7 @@ The current top-level declaration families are:
 | Print | `print "Q = {Q: .2 kW}"` | Debug/CLI output |
 | CSV export | `export summary to csv "summary.csv" { ... }` | Durable scalar artifact |
 | Write output | `write text "note.txt", note` | Explicit generated output |
+| File operation | `copy file("note.txt") to "outputs/note.txt"` | Explicit output-area file mutation |
 | Report | `report { plot Q over Time }` | Review/report artifact requests |
 
 Rejected compatibility forms:
@@ -662,6 +663,9 @@ Common accepted option keys:
 | `max_iter` | Solver/numeric iteration limit |
 | `seed` | Deterministic seed metadata |
 | `output` | Artifact/output choice |
+| `overwrite` | Allow replacing changed generated output content |
+| `confirm` | Required confirmation for destructive file operations |
+| `recursive` | Required for directory delete operations |
 
 Unknown options are rejected with `E-WITH-OPTION-001`.
 
@@ -835,6 +839,56 @@ The runnable example is:
 examples/official/12_write_output_manifest/main.eng
 ```
 
+## File Operations
+
+Use file operations when a workflow needs a small, explicit filesystem mutation
+that is still reviewable. The current preview keeps the mutation boundary
+constrained: targets live under `build/result`, and destructive operations must
+be confirmed.
+
+```eng partial
+copy file("data/template.txt") to "ops/copied_note.txt"
+
+move "ops/copied_note.txt" to "ops/archive/copied_note.txt"
+with {
+    confirm = true
+    overwrite = true
+}
+
+write text "ops/scratch.txt", "temporary generated note"
+
+delete "ops/scratch.txt"
+with {
+    confirm = true
+}
+```
+
+Current file operation forms:
+
+| Form | Meaning |
+|---|---|
+| `copy source to destination` | Copy a source-relative UTF-8 text file or generated output into `build/result` |
+| `move source to destination` | Move a generated output path under `build/result` |
+| `delete target` | Delete a generated output path under `build/result` |
+
+Rules:
+
+| Rule | Meaning |
+|---|---|
+| Top-level only | Imported files cannot hide filesystem mutations |
+| Output boundary | Move/delete operate only under `build/result` |
+| Confirmation | `move` and `delete` require `with { confirm = true }` |
+| Directory deletion | `delete dir(...)` also requires `recursive = true` |
+| Overwrite | Changed destination contents require `overwrite = true` |
+| Reviewable records | `review.json` includes `file_operations[]` |
+| Manifest records | `output_manifest.json` records `copy_file`, `move_file`, and `delete_file` entries |
+
+The runnable example is:
+
+```text
+examples/official/13_file_operations/main.eng
+```
+
 ## Report, Summarize, Show, Plot
 
 `report { ... }` asks for reviewable artifacts. The current report path can
@@ -948,6 +1002,8 @@ generation.
 | `E-EXPORT-CSV-003` | CSV export expression cannot be resolved | Bind/export a supported scalar |
 | `E-EXPORT-CSV-004` | CSV export requested incompatible unit | Fix the export unit |
 | `E-WRITE-003` | Write expression cannot be resolved | Bind/write a supported expression |
+| `E-FS-CONFIRM-001` | Move/delete missing confirmation | Add `with { confirm = true }` |
+| `E-FS-DELETE-001` | Directory delete missing recursive option | Add `recursive = true` and `confirm = true` |
 | `W-QTY-AMBIG-001` | Unit maps to multiple quantity kinds | Add an explicit declaration |
 
 ## Common Recipes
@@ -1005,6 +1061,17 @@ with {
 }
 ```
 
+### Copy And Delete Generated Outputs
+
+```eng partial
+copy file("data/template.txt") to "outputs/template.txt"
+
+delete "outputs/template.txt"
+with {
+    confirm = true
+}
+```
+
 ### Imported Function
 
 ```eng partial
@@ -1027,6 +1094,7 @@ The current guide intentionally does not promise:
 | First-class Summary object model | Deferred; explicit CSV summary export exists |
 | Arbitrary TimeSeries formulas | Limited beyond official heat-rate kernel path |
 | Broad table/TimeSeries CSV export | Deferred |
+| Broad filesystem mutation outside generated outputs | Deferred |
 | Full package/module system | File imports and metadata seeds only |
 | General nonlinear/multi-state solving | Deferred beyond preview system path |
 | Stable artifact schemas | Preview versioned artifacts only |
@@ -1045,8 +1113,9 @@ Before treating a file as a good EngLang example, check:
 8. Are `with` option keys supported and units compatible?
 9. Does `print` stay lightweight and debugging-oriented?
 10. Are durable outputs written with `export`, `plot`, and `report`?
-11. Does `eng.exe check --review` show useful metadata?
-12. Does `eng.exe run --save-artifacts` produce expected artifacts?
+11. Are file operations explicit, confirmed where destructive, and kept inside the output boundary?
+12. Does `eng.exe check --review` show useful metadata?
+13. Does `eng.exe run --save-artifacts` produce expected artifacts?
 
 ## Official Example Walkthrough
 
