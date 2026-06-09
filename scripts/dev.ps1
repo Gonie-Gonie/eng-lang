@@ -1331,7 +1331,7 @@ function New-UserGuidePdf {
         @{ Kind = "step"; Text = "Temporarily change m_dot <= 0.30 kg/s to m_dot <= 0.20 kg/s and inspect policy results." },
         @{ Kind = "step"; Text = "Type Heat and use completion to insert HeatRate or HeatCapacity." },
         @{ Kind = "h1"; Text = "7. Troubleshooting" },
-        @{ Kind = "body"; Text = "If a run fails, check Problems first, then run eng.exe check <file.eng> from the same folder. If the plot preview is empty, use the terminal Plot toggle or open Plot SVG from the toolbar after a successful run." },
+        @{ Kind = "body"; Text = "If a run fails, check Problems first, then run eng.exe check <file.eng> from the same folder. Plot previews live in the right Plot inspector tab beside Variables; report and SVG artifacts can be opened on demand after a successful run." },
         @{ Kind = "body"; Text = "If a CSV path fails, keep relative paths anchored next to the source file, as in the official examples. If a report does not open, open build/result/report.html manually." },
         @{ Kind = "h1"; Text = "8. Current Boundaries" },
         @{ Kind = "body"; Text = "This release supports the documented core workflows: CSV promote, unit-aware TimeSeries calculations, PlotSpec/SVG output, review/report artifacts, basic packaged execution, and the Tauri/WebView tester IDE. Uncertainty, ML, LSP, JIT/AOT, and domain/component work remain future or experimental tracks unless explicitly marked stable-supported." }

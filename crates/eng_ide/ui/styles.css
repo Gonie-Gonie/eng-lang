@@ -17,6 +17,7 @@
   --left: 276px;
   --right: 392px;
   --bottom: 228px;
+  --status: 24px;
   color-scheme: light;
   font-family: "Segoe UI", system-ui, sans-serif;
 }
@@ -69,7 +70,7 @@ button:hover {
   display: grid;
   height: 100%;
   grid-template-columns: var(--left) 5px minmax(360px, 1fr) 5px var(--right);
-  grid-template-rows: 36px 34px minmax(210px, 1fr) 5px var(--bottom);
+  grid-template-rows: 36px 34px minmax(210px, 1fr) 5px var(--bottom) var(--status);
   background: var(--bg);
 }
 
@@ -95,8 +96,24 @@ button:hover {
 .tool {
   height: 26px;
   border-radius: 3px;
-  padding: 0 9px;
+  padding: 0 8px;
   background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tool .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.icon path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .toolbar-separator {
@@ -118,13 +135,18 @@ button:hover {
 }
 
 .pathbar input {
-  width: 100%;
+  min-width: 120px;
+  flex: 1 1 auto;
   height: 24px;
   padding: 3px 8px;
   border: 1px solid #d8e0eb;
   border-radius: 3px;
   background: #fbfcfe;
   color: var(--text);
+}
+
+.pathbar .run-dir-input {
+  flex: 0 1 280px;
 }
 
 .path-label {
@@ -188,6 +210,27 @@ button:hover {
   flex-direction: column;
 }
 
+.statusbar {
+  grid-column: 1 / -1;
+  grid-row: 6;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 10px;
+  background: #1f6fc8;
+  color: #fff;
+  font-size: 12px;
+  overflow: hidden;
+}
+
+.statusbar span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .splitter {
   background: transparent;
   position: relative;
@@ -238,6 +281,19 @@ button:hover {
   height: 32px;
 }
 
+.explorer-title {
+  justify-content: space-between;
+}
+
+.explorer-title small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font: 11px Consolas, "Cascadia Mono", monospace;
+}
+
 .scroll {
   overflow: auto;
   min-height: 0;
@@ -265,8 +321,64 @@ button:hover {
   color: var(--accent);
 }
 
+.node.run-dir {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
 .node.dir {
   font-weight: 600;
+}
+
+.open-editors {
+  border-bottom: 1px solid var(--border);
+  padding: 5px 6px 7px;
+}
+
+.mini-title,
+.tree-head {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.tree-head {
+  padding: 4px 6px 0;
+}
+
+.tree-head button {
+  height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  background: transparent;
+}
+
+.open-editor {
+  width: 100%;
+  height: 24px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  padding: 0 6px;
+  text-align: left;
+  display: flex;
+  align-items: center;
+}
+
+.open-editor:hover,
+.open-editor.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.open-editor span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .inspector {
@@ -482,6 +594,7 @@ button:hover {
 }
 
 .var-table,
+.artifact-table,
 .problems-table {
   width: 100%;
   border-collapse: collapse;
@@ -490,6 +603,8 @@ button:hover {
 
 .var-table th,
 .var-table td,
+.artifact-table th,
+.artifact-table td,
 .problems-table th,
 .problems-table td {
   border-bottom: 1px solid var(--border);
@@ -499,6 +614,7 @@ button:hover {
 }
 
 .var-table th,
+.artifact-table th,
 .problems-table th {
   color: var(--muted);
   background: #f7f9fc;
@@ -578,6 +694,10 @@ button:hover {
 }
 
 .run-info code {
+  overflow-wrap: anywhere;
+}
+
+.artifact-table code {
   overflow-wrap: anywhere;
 }
 

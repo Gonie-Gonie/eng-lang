@@ -8,7 +8,8 @@ use std::process::Command;
 use std::time::Instant;
 
 use eng_compiler::{
-    build_bytecode, check_file, parse_bytecode, review_json, ArgOverride, CheckOptions, CheckReport,
+    build_bytecode, check_file, check_source, parse_bytecode, review_json, ArgOverride,
+    CheckOptions, CheckReport,
 };
 
 mod runtime_data;
@@ -335,14 +336,24 @@ pub fn run_file(
     options: &RunOptions,
 ) -> Result<RunOutput, RuntimeError> {
     let source = fs::read_to_string(path)?;
-    let check_report = check_file(
+    run_source(path, &source, build_root, options)
+}
+
+pub fn run_source(
+    path: &Path,
+    source: &str,
+    build_root: &Path,
+    options: &RunOptions,
+) -> Result<RunOutput, RuntimeError> {
+    let check_report = check_source(
         path,
+        source,
         &CheckOptions {
             review: true,
             args: options.args.clone(),
             require_args: true,
         },
-    )?;
+    );
     if check_report.has_errors() {
         return Err(RuntimeError::Compile(Box::new(check_report)));
     }
@@ -4367,6 +4378,35 @@ mod tests {
             .contains("\"kind\": \"write_text\""));
         assert!(output.output_manifest_path.exists());
         assert_eq!(second_output.csv_export_paths.len(), 1);
+    }
+
+    #[test]
+    fn run_source_resolves_imports_relative_to_virtual_path() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-virtual-source");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-virtual-source-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        fs::write(
+            source_dir.join("thermal.eng"),
+            "const UA_default: Conductance [W/K] = 150 W/K\n\nfn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {\n    return UA * dT\n}\n",
+        )
+        .expect("write import");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+        let source =
+            "use \"thermal.eng\"\n\nQ = heat_loss(UA_default, 8 K)\nprint \"Q = {Q: .2 kW}\"\n";
+
+        let output =
+            run_source(&virtual_path, source, &build_root, &RunOptions::default()).expect("run");
+
+        assert!(output.stdout.contains("Q = 1.20 kW"));
+        assert!(!virtual_path.exists());
     }
 
     #[test]

@@ -9,7 +9,7 @@ use std::sync::Mutex;
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, check_source, CheckOptions, CheckReport, Severity,
 };
-use eng_runtime::{run_file, RunOptions, RuntimeError};
+use eng_runtime::{run_file, run_source, RunOptions, RuntimeError};
 use serde::Serialize;
 use serde_json::Value;
 use tauri::State;
@@ -26,6 +26,7 @@ struct WorkspaceView {
     root: String,
     file_tree: Vec<FileNodeView>,
     current: FileView,
+    current_dir: String,
     check: CheckView,
     completions: Vec<CompletionView>,
 }
@@ -93,8 +94,17 @@ struct RunView {
     check: CheckView,
     variables: Vec<RuntimeVariableView>,
     args: Vec<RuntimeArgView>,
+    artifacts: Vec<ArtifactView>,
     plot_spec: Value,
     report_title: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ArtifactView {
+    kind: String,
+    path: String,
+    status: String,
 }
 
 #[derive(Clone, Serialize)]
@@ -224,6 +234,7 @@ fn ide_bootstrap() -> Result<WorkspaceView, String> {
             path: relative_to(&root, &current_path),
             source,
         },
+        current_dir: relative_to(&root, source_dir(&current_path)),
         check,
         completions: base_completion_items(),
     })
@@ -276,6 +287,7 @@ fn ide_run(path: String, source: String, state: State<'_, IdeState>) -> Result<R
             check,
             variables: Vec::new(),
             args: Vec::new(),
+            artifacts: Vec::new(),
             plot_spec: Value::Null,
             report_title: String::new(),
         });
@@ -288,11 +300,22 @@ fn ide_terminal(
     path: String,
     source: String,
     command: String,
+    run_dir: Option<String>,
     state: State<'_, IdeState>,
 ) -> Result<RunView, String> {
     let trimmed = command.trim();
     let root = workspace_root();
     let current_path = resolve_path(&root, &path);
+    let run_dir_path =
+        if let Some(value) = run_dir.as_deref().filter(|value| !value.trim().is_empty()) {
+            let path = resolve_path(&root, value);
+            if !path.is_dir() {
+                return Err(format!("Run directory does not exist: {}", path.display()));
+            }
+            path
+        } else {
+            source_dir(&current_path).to_path_buf()
+        };
     if trimmed.eq_ignore_ascii_case("clear") || trimmed.eq_ignore_ascii_case("cls") {
         return Ok(RunView::message("Terminal cleared."));
     }
@@ -311,6 +334,7 @@ fn ide_terminal(
             check,
             variables: Vec::new(),
             args: Vec::new(),
+            artifacts: Vec::new(),
             plot_spec: Value::Null,
             report_title: String::new(),
         });
@@ -319,7 +343,7 @@ fn ide_terminal(
         return ide_run(path, source, state);
     }
 
-    let session_source = {
+    let (session_source, session_path) = {
         let mut session = state
             .terminal_session_source
             .lock()
@@ -329,12 +353,9 @@ fn ide_terminal(
         }
         session.push_str(trimmed);
         session.push('\n');
-        session.clone()
+        let session_path = run_dir_path.join("__ide_terminal__.eng");
+        (session.clone(), session_path)
     };
-    let session_path = root
-        .join("build")
-        .join("ide-tauri-session")
-        .join("session.eng");
     let check = check_view(&session_path, &session_source);
     if check
         .diagnostics
@@ -347,13 +368,12 @@ fn ide_terminal(
             check,
             variables: Vec::new(),
             args: Vec::new(),
+            artifacts: Vec::new(),
             plot_spec: Value::Null,
             report_title: String::new(),
         });
     }
-    create_parent(&session_path)?;
-    fs::write(&session_path, session_source.as_bytes()).map_err(|error| error.to_string())?;
-    run_source_file(&root, &session_path, check, state)
+    run_virtual_source_file(&root, &session_path, &session_source, check, state)
 }
 
 #[tauri::command]
@@ -388,6 +408,7 @@ impl RunView {
             },
             variables: Vec::new(),
             args: Vec::new(),
+            artifacts: Vec::new(),
             plot_spec: Value::Null,
             report_title: String::new(),
         }
@@ -443,6 +464,7 @@ fn run_source_file(
             let report_title = report_title(&cached.report_spec_json);
             let plot_spec = serde_json::from_str(&cached.plot_spec_json).unwrap_or(Value::Null);
             let terminal = terminal_summary(&stdout, &variables, &args, &report_title, &plot_spec);
+            let artifacts = runtime_artifacts(root, &cached);
             *state
                 .last_output
                 .lock()
@@ -453,6 +475,7 @@ fn run_source_file(
                 check,
                 variables,
                 args,
+                artifacts,
                 plot_spec,
                 report_title,
             })
@@ -465,6 +488,67 @@ fn run_source_file(
                 check,
                 variables: Vec::new(),
                 args: Vec::new(),
+                artifacts: Vec::new(),
+                plot_spec: Value::Null,
+                report_title: String::new(),
+            })
+        }
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+fn run_virtual_source_file(
+    root: &Path,
+    path: &Path,
+    source: &str,
+    check: CheckView,
+    state: State<'_, IdeState>,
+) -> Result<RunView, String> {
+    let build_root = root.join("build").join("ide-tauri-terminal");
+    match run_source(
+        path,
+        source,
+        &build_root,
+        &RunOptions {
+            open_report: false,
+            save_artifacts: false,
+            args: Vec::new(),
+            ..RunOptions::default()
+        },
+    ) {
+        Ok(output) => {
+            let stdout = output.stdout.clone();
+            let cached = CachedRunOutput::from_output(output, root);
+            let variables = runtime_variables(&cached);
+            let args = runtime_args(&cached.report_spec_json);
+            let report_title = report_title(&cached.report_spec_json);
+            let plot_spec = serde_json::from_str(&cached.plot_spec_json).unwrap_or(Value::Null);
+            let terminal = terminal_summary(&stdout, &variables, &args, &report_title, &plot_spec);
+            let artifacts = runtime_artifacts(root, &cached);
+            *state
+                .last_output
+                .lock()
+                .map_err(|error| error.to_string())? = Some(cached);
+            Ok(RunView {
+                ok: true,
+                terminal,
+                check,
+                variables,
+                args,
+                artifacts,
+                plot_spec,
+                report_title,
+            })
+        }
+        Err(RuntimeError::Compile(report)) => {
+            let check = check_view_from_report(&report);
+            Ok(RunView {
+                ok: false,
+                terminal: diagnostic_summary_text(&check),
+                check,
+                variables: Vec::new(),
+                args: Vec::new(),
+                artifacts: Vec::new(),
                 plot_spec: Value::Null,
                 report_title: String::new(),
             })
@@ -645,6 +729,34 @@ fn runtime_args(text: &str) -> Vec<RuntimeArgView> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+fn runtime_artifacts(root: &Path, output: &CachedRunOutput) -> Vec<ArtifactView> {
+    let status = if output.artifacts_saved {
+        "saved"
+    } else {
+        "memory"
+    };
+    [
+        ("result", &output.result_path),
+        ("review", &output.review_path),
+        ("run_log", &output.run_log_path),
+        ("process_results", &output.process_results_path),
+        ("test_results", &output.test_results_path),
+        ("output_manifest", &output.output_manifest_path),
+        ("report", &output.report_path),
+        ("report_spec", &output.report_spec_path),
+        ("plot_svg", &output.plot_path),
+        ("plot_spec", &output.plot_spec_path),
+        ("plot_manifest", &output.plot_manifest_path),
+    ]
+    .into_iter()
+    .map(|(kind, path)| ArtifactView {
+        kind: kind.to_owned(),
+        path: relative_to(root, path),
+        status: status.to_owned(),
+    })
+    .collect()
 }
 
 fn runtime_object_variable(value: &Value) -> RuntimeVariableView {
@@ -912,6 +1024,10 @@ fn resolve_path(root: &Path, input: &str) -> PathBuf {
     } else {
         root.join(path)
     }
+}
+
+fn source_dir(path: &Path) -> &Path {
+    path.parent().unwrap_or_else(|| Path::new("."))
 }
 
 fn read_utf8(path: &Path) -> Result<String, String> {

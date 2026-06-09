@@ -98,9 +98,9 @@ Current preview scope:
 
 ```text
 - Tauri/WebView tester IDE
-- docked explorer/editor/variables/problems/terminal layout
+- docked explorer/editor/problems/terminal layout with Variables/Plot/Run inspector tabs
 - diagnostics and caret completions
-- PlotSpec preview and runtime summaries in the terminal workflow
+- PlotSpec preview beside runtime variable summaries
 - experimental eng-lsp.exe smoke/snapshot path
 - packaged VS Code extension preview
 ```

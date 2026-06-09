@@ -177,7 +177,7 @@ Before publishing `v0.7-preview`:
 [x] eng run stdout prefixes structured log messages with [level]
 [x] saved runs write build/result/run_log.json
 [x] output_manifest.json records the run_log artifact
-[x] native IDE artifact panel shows run-log paths/objects
+[x] native IDE Run inspector shows run-log paths/objects
 [x] official/14_run_log mini example is present
 [x] docs explain print vs log vs durable report/export surfaces
 [x] docs-check passes
@@ -202,7 +202,7 @@ Before publishing `v0.8-preview`:
 [x] review.json records process_runs metadata
 [x] saved runs write build/result/process_results.json
 [x] output_manifest.json records the process_results artifact
-[x] native IDE artifact panel shows process-results paths/objects
+[x] native IDE Run inspector shows process-results paths/objects
 [x] official/15_process_result mini example is present
 [x] docs explain external process execution as explicit, reviewable side effect
 [x] docs-check passes
@@ -226,7 +226,7 @@ Before publishing `v0.9-preview`:
 [x] review.json records tests metadata
 [x] saved runs write build/result/test_results.json
 [x] output_manifest.json records the test_results artifact
-[x] native IDE artifact panel shows test-results paths/objects
+[x] native IDE Run inspector shows test-results paths/objects
 [x] official/16_test_assert_golden mini example is present
 [x] docs explain test/assert/golden as local workflow verification
 [x] docs-check passes

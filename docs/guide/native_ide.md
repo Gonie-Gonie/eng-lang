@@ -42,17 +42,18 @@ frontend is static, so setup does not install Node/npm.
 ## Interface
 
 Top toolbar
-  Compact Run, Check, Save, Report, and Plot actions, diagnostic counts, and
-  current status.
+  Compact icon-backed Run, Check, Save, Report, and Plot actions, diagnostic
+  counts, and current status.
 
 Workspace bar
-  Shows the resolved workspace root and current file path. Files inside the
-  workspace open from the Explorer; outside `.eng` files can also be dropped
-  onto the window for editing and running.
+  Shows the resolved workspace root, current file path, and Run Dir. Files
+  inside the workspace open from the Explorer; outside `.eng` files can also be
+  dropped onto the window for editing and running.
 
 Left Explorer
-  Dense workspace browser for `examples/`, `stdlib/`, and `docs/`. Files open
-  into editor tabs.
+  Dense collapsible workspace browser for `examples/`, `stdlib/`, and `docs/`,
+  plus Open Editors. Files open into editor tabs, and the active Run Dir is
+  highlighted.
 
 Editor
   Multi-file tabs support switching and closing files. The editor keeps dirty
@@ -70,7 +71,8 @@ Bottom Panel
   Problems and Terminal tabs. The Terminal uses an EngLang prompt, supports
   `clear`, `reset`, `check`, `run`, and one-line top-level commands. Terminal
   history is append-only during normal use, so diagnostics and prior output do
-  not disappear when the next command runs.
+  not disappear when the next command runs. `cd <dir>` changes the terminal Run
+  Dir without changing the open file.
 
 Reports and artifacts remain runtime objects by default. The Report toolbar
 button and Plot tab artifact button save/open those artifacts on demand after a

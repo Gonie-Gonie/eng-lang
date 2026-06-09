@@ -1,4 +1,5 @@
 const invoke = window.__TAURI__?.core?.invoke;
+const listen = window.__TAURI__?.event?.listen;
 
 const state = {
   root: "",
@@ -7,15 +8,20 @@ const state = {
   completions: [],
   completionItems: [],
   completionIndex: 0,
+  openDirs: new Set(["examples", "examples/official", "stdlib"]),
   currentPath: "",
+  runDir: "",
   source: "",
   dirty: false,
   check: { diagnostics: [], symbols: [], status: "" },
   variables: [],
   args: [],
+  artifacts: [],
   plotSpec: null,
   reportTitle: "",
   terminalEntries: [{ kind: "info", text: "Ready." }],
+  terminalCommands: [],
+  terminalHistoryIndex: null,
   bottomTab: "terminal",
   sideTab: "variables",
   selectedVariable: null,
@@ -40,6 +46,7 @@ async function boot() {
     state.fileTree = data.fileTree;
     state.completions = data.completions ?? [];
     state.currentPath = data.current.path;
+    state.runDir = data.currentDir || directoryOf(data.current.path);
     state.source = data.current.source;
     state.tabs = [{ path: state.currentPath, source: state.source, dirty: false }];
     state.check = data.check;
@@ -58,29 +65,9 @@ function render() {
   const app = byId("app");
   app.className = "shell";
   app.innerHTML = `
-    <div class="toolbar">
-      <div class="title-mark">EngLang</div>
-      <button class="tool primary" id="runBtn" title="Run current file">Run</button>
-      <button class="tool" id="checkBtn" title="Check diagnostics">Check</button>
-      <button class="tool" id="saveBtn" title="Save current file">Save</button>
-      <span class="toolbar-separator"></span>
-      <button class="tool" id="reportBtn" title="Open last report">Report</button>
-      <button class="tool" id="plotBtn" title="Show plot panel">Plot</button>
-      <span class="badge ${errorCount() ? "bad" : ""}">Errors ${errorCount()}</span>
-      <span class="badge ${warningCount() ? "warn" : ""}">Warnings ${warningCount()}</span>
-      <span class="status">${escapeHtml(state.status)}</span>
-    </div>
-    <div class="pathbar">
-      <span class="path-label">Workspace</span>
-      <span class="workspace-root" title="${escapeAttr(state.root)}">${escapeHtml(compactPath(state.root))}</span>
-      <span class="path-label">File</span>
-      <input id="pathInput" value="${escapeAttr(state.currentPath)}" />
-      <button id="openPathBtn">Open</button>
-    </div>
-    <aside class="sidebar">
-      <div class="panel-title">Explorer</div>
-      <div class="scroll tree">${renderTree(state.fileTree, 0)}</div>
-    </aside>
+    ${renderToolbar()}
+    ${renderWorkspaceBar()}
+    ${renderExplorer()}
     <div class="splitter splitter-left" data-splitter="left"></div>
     <main class="editor-wrap">
       <div class="editor-tabs">${renderTabs()}</div>
@@ -103,10 +90,95 @@ function render() {
       </div>
       <div class="bottom-body">${state.bottomTab === "problems" ? renderProblems() : renderTerminal()}</div>
     </section>
+    <footer class="statusbar">
+      <span>${escapeHtml(state.check.status || "ready")}</span>
+      <span>${escapeHtml(state.currentPath || "-")}</span>
+      <span>Run Dir: ${escapeHtml(state.runDir || ".")}</span>
+    </footer>
   `;
   bind();
   bindGlobalEvents();
   if (state.sideTab === "plot" && state.plotSpec) drawPlot("sidePlotCanvas");
+}
+
+function renderToolbar() {
+  return `
+    <div class="toolbar">
+      <div class="title-mark">EngLang</div>
+      ${toolButton("runBtn", "Run", "Run current file", "play", true)}
+      ${toolButton("checkBtn", "Check", "Check diagnostics", "check")}
+      ${toolButton("saveBtn", "Save", "Save current file", "save")}
+      <span class="toolbar-separator"></span>
+      ${toolButton("reportBtn", "Report", "Open last report", "file")}
+      ${toolButton("plotBtn", "Plot", "Show plot panel", "chart")}
+      <span class="badge ${errorCount() ? "bad" : ""}">Errors ${errorCount()}</span>
+      <span class="badge ${warningCount() ? "warn" : ""}">Warnings ${warningCount()}</span>
+      <span class="status">${escapeHtml(state.status)}</span>
+    </div>
+  `;
+}
+
+function renderWorkspaceBar() {
+  return `
+    <div class="pathbar">
+      <span class="path-label">Workspace</span>
+      <span class="workspace-root" title="${escapeAttr(state.root)}">${escapeHtml(compactPath(state.root))}</span>
+      <span class="path-label">File</span>
+      <input id="pathInput" value="${escapeAttr(state.currentPath)}" />
+      <button id="openPathBtn">Open</button>
+      <span class="path-label">Run Dir</span>
+      <input id="runDirInput" class="run-dir-input" value="${escapeAttr(state.runDir || ".")}" />
+      <button id="applyRunDirBtn">Use</button>
+    </div>
+  `;
+}
+
+function renderExplorer() {
+  return `
+    <aside class="sidebar">
+      <div class="panel-title explorer-title">
+        <span>Explorer</span>
+        <small>${escapeHtml(state.runDir || ".")}</small>
+      </div>
+      <div class="open-editors">
+        <div class="mini-title">Open Editors</div>
+        ${renderOpenEditors()}
+      </div>
+      <div class="tree-head">
+        <span>Workspace</span>
+        <button id="collapseExplorerBtn" title="Collapse folders">Collapse</button>
+      </div>
+      <div class="scroll tree">${renderTree(state.fileTree, 0)}</div>
+    </aside>
+  `;
+}
+
+function renderOpenEditors() {
+  return state.tabs.map((tab) => `
+    <button class="open-editor ${tab.path === state.currentPath ? "active" : ""}" data-tab-path="${escapeAttr(tab.path)}" title="${escapeAttr(tab.path)}">
+      <span>${escapeHtml(fileName(tab.path))}${tab.dirty ? " *" : ""}</span>
+    </button>
+  `).join("");
+}
+
+function toolButton(id, label, title, iconName, primary = false) {
+  return `
+    <button class="tool ${primary ? "primary" : ""}" id="${id}" title="${escapeAttr(title)}">
+      ${icon(iconName)}
+      <span>${escapeHtml(label)}</span>
+    </button>
+  `;
+}
+
+function icon(name) {
+  const paths = {
+    play: '<path d="M7 5v14l11-7z"/>',
+    check: '<path d="M5 12.5l4 4L19 6"/>',
+    save: '<path d="M5 5h12l2 2v12H5z"/><path d="M8 5v5h8V5"/><path d="M8 19v-5h8v5"/>',
+    file: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v6h5"/>',
+    chart: '<path d="M4 19h16"/><path d="M7 16v-5"/><path d="M12 16V7"/><path d="M17 16v-8"/>'
+  };
+  return `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || ""}</svg>`;
 }
 
 function bind() {
@@ -137,9 +209,21 @@ function bind() {
   byId("pathInput").addEventListener("keydown", (event) => {
     if (event.key === "Enter") openFile(event.currentTarget.value);
   });
+  byId("applyRunDirBtn").onclick = () => setRunDir(byId("runDirInput").value);
+  byId("runDirInput").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") setRunDir(event.currentTarget.value);
+  });
+  const collapseExplorerBtn = byId("collapseExplorerBtn");
+  if (collapseExplorerBtn) {
+    collapseExplorerBtn.onclick = () => {
+      state.openDirs = new Set(parentDirs(state.currentPath));
+      render();
+    };
+  }
   document.querySelectorAll("[data-path]").forEach((node) => {
     node.onclick = () => {
       if (node.dataset.kind === "file") openFile(node.dataset.path);
+      if (node.dataset.kind === "dir") toggleDir(node.dataset.path);
     };
   });
   document.querySelectorAll("[data-tab-path]").forEach((tab) => {
@@ -176,6 +260,14 @@ function bind() {
     terminalInput.focus();
     terminalInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") sendTerminal();
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        recallTerminalCommand(-1);
+      }
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        recallTerminalCommand(1);
+      }
     });
     byId("terminalSend").onclick = sendTerminal;
     byId("terminalPlot").onclick = () => {
@@ -196,6 +288,8 @@ async function openFile(path) {
     rememberCurrentTab();
     const file = await call("ide_open_file", { path });
     state.currentPath = file.path;
+    state.runDir = directoryOf(file.path);
+    openParentDirs(file.path);
     state.source = file.source;
     state.dirty = false;
     const existing = tabFor(file.path);
@@ -207,6 +301,7 @@ async function openFile(path) {
     }
     state.variables = [];
     state.args = [];
+    state.artifacts = [];
     state.completionItems = [];
     state.plotSpec = null;
     state.reportTitle = "";
@@ -281,6 +376,7 @@ async function sendTerminal() {
   const command = input.value.trim();
   if (!command) return;
   input.value = "";
+  rememberTerminalCommand(command);
   await sendTerminalCommand(command);
 }
 
@@ -291,12 +387,21 @@ async function sendTerminalCommand(command) {
     render();
     return;
   }
+  if (command.toLowerCase().startsWith("cd ")) {
+    appendTerminal("command", `${prompt}${command}`);
+    setRunDir(command.slice(3).trim(), false);
+    appendTerminal("info", `Run directory: ${state.runDir || "."}`);
+    state.bottomTab = "terminal";
+    render();
+    return;
+  }
   appendTerminal("command", `${prompt}${command}`);
   try {
     const result = await call("ide_terminal", {
       path: state.currentPath,
       source: state.source,
-      command
+      command,
+      runDir: state.runDir
     });
     applyRun(result);
     appendRunResult(result);
@@ -326,6 +431,7 @@ function applyRun(result) {
   state.check = result.check ?? state.check;
   state.variables = result.variables ?? state.variables;
   state.args = result.args ?? state.args;
+  state.artifacts = result.artifacts ?? state.artifacts;
   state.plotSpec = result.plotSpec && Object.keys(result.plotSpec).length ? result.plotSpec : state.plotSpec;
   state.reportTitle = result.reportTitle ?? state.reportTitle;
   if (result.plotSpec && Object.keys(result.plotSpec).length) state.sideTab = "plot";
@@ -349,6 +455,32 @@ function clearTerminal() {
   state.terminalEntries = [{ kind: "info", text: "Terminal cleared." }];
 }
 
+function rememberTerminalCommand(command) {
+  if (!command) return;
+  if (state.terminalCommands[state.terminalCommands.length - 1] !== command) {
+    state.terminalCommands.push(command);
+  }
+  if (state.terminalCommands.length > 80) {
+    state.terminalCommands.splice(0, state.terminalCommands.length - 80);
+  }
+  state.terminalHistoryIndex = null;
+}
+
+function recallTerminalCommand(direction) {
+  const input = byId("terminalInput");
+  if (!input || !state.terminalCommands.length) return;
+  if (state.terminalHistoryIndex === null) {
+    state.terminalHistoryIndex = state.terminalCommands.length;
+  }
+  state.terminalHistoryIndex = Math.max(
+    0,
+    Math.min(state.terminalCommands.length, state.terminalHistoryIndex + direction)
+  );
+  input.value = state.terminalCommands[state.terminalHistoryIndex] || "";
+  input.selectionStart = input.value.length;
+  input.selectionEnd = input.value.length;
+}
+
 function rememberCurrentTab() {
   if (!state.currentPath) return;
   const tab = tabFor(state.currentPath);
@@ -366,10 +498,13 @@ async function switchTab(path) {
   const tab = tabFor(path);
   if (!tab) return;
   state.currentPath = tab.path;
+  state.runDir = directoryOf(tab.path);
+  openParentDirs(tab.path);
   state.source = tab.source;
   state.dirty = tab.dirty;
   state.variables = [];
   state.args = [];
+  state.artifacts = [];
   state.completionItems = [];
   state.plotSpec = null;
   state.reportTitle = "";
@@ -395,10 +530,13 @@ function closeTab(path) {
   }
   const next = state.tabs[Math.max(0, index - 1)];
   state.currentPath = next.path;
+  state.runDir = directoryOf(next.path);
+  openParentDirs(next.path);
   state.source = next.source;
   state.dirty = next.dirty;
   state.variables = [];
   state.args = [];
+  state.artifacts = [];
   state.completionItems = [];
   state.plotSpec = null;
   state.reportTitle = "";
@@ -470,11 +608,34 @@ function renderRunPanel() {
     <div class="panel-title compact">Run Context</div>
     <div class="run-info">
       <div><span>Workspace</span><code title="${escapeAttr(state.root)}">${escapeHtml(compactPath(state.root))}</code></div>
-      <div><span>Directory</span><code>${escapeHtml(currentDirectory())}</code></div>
+      <div><span>Run Dir</span><code>${escapeHtml(state.runDir || ".")}</code></div>
+      <div><span>File Dir</span><code>${escapeHtml(currentDirectory())}</code></div>
       <div><span>File</span><code>${escapeHtml(state.currentPath || "-")}</code></div>
       <div><span>Status</span><code>${escapeHtml(state.check.status || "-")}</code></div>
       <div><span>Report</span><code>${escapeHtml(state.reportTitle || "-")}</code></div>
     </div>
+    <div class="panel-title compact">Runtime Objects</div>
+    <div class="scroll">${renderArtifacts()}</div>
+  `;
+}
+
+function renderArtifacts() {
+  if (!state.artifacts.length) {
+    return `<div class="empty-state">Run a file to inspect runtime objects.</div>`;
+  }
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Kind</th><th>Status</th><th>Path</th></tr></thead>
+      <tbody>
+        ${state.artifacts.map((artifact) => `
+          <tr>
+            <td>${escapeHtml(artifact.kind)}</td>
+            <td>${escapeHtml(artifact.status)}</td>
+            <td><code>${escapeHtml(artifact.path)}</code></td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
   `;
 }
 
@@ -640,11 +801,14 @@ function caretOverlayPosition(editor) {
 function renderTree(nodes, depth) {
   return nodes.map((node) => {
     const indent = depth * 13;
-    const icon = node.kind === "dir" ? ">" : "";
+    const isDir = node.kind === "dir";
+    const isOpen = isDir && state.openDirs.has(node.path);
+    const icon = isDir ? (isOpen ? "v" : ">") : "";
     const active = node.path === state.currentPath ? " active" : "";
-    const children = node.children?.length ? renderTree(node.children, depth + 1) : "";
+    const run = isDir && normalizePath(node.path) === normalizePath(state.runDir) ? " run-dir" : "";
+    const children = isOpen && node.children?.length ? renderTree(node.children, depth + 1) : "";
     return `
-      <div class="node ${node.kind}${active}" style="padding-left:${6 + indent}px" data-kind="${node.kind}" data-path="${escapeAttr(node.path)}">
+      <div class="node ${node.kind}${active}${run}" style="padding-left:${6 + indent}px" data-kind="${node.kind}" data-path="${escapeAttr(node.path)}">
         <span>${icon}</span><span>${escapeHtml(node.name)}</span>
       </div>
       ${children}
@@ -713,7 +877,7 @@ function renderTerminal() {
   return `
     <div class="terminal">
       <div class="terminal-bar">
-        <span>${escapeHtml(currentDirectory())}</span>
+        <span>${escapeHtml(state.runDir || ".")}</span>
         <div>
           <button id="terminalPlot">Plot</button>
           <button id="terminalReset">Reset</button>
@@ -947,6 +1111,13 @@ function bindSplitters() {
 function bindGlobalEvents() {
   if (dragDropBound) return;
   dragDropBound = true;
+  if (listen) {
+    listen("tauri://drag-drop", (event) => {
+      const payload = event?.payload;
+      const path = payload?.paths?.[0] || payload?.[0];
+      if (path) openFile(path);
+    }).catch(() => {});
+  }
   window.addEventListener("dragover", (event) => {
     event.preventDefault();
     document.body.classList.add("dragging-file");
@@ -964,12 +1135,70 @@ function bindGlobalEvents() {
 }
 
 function terminalPrompt() {
-  return `EngLang ${currentDirectory()} >> `;
+  return `EngLang ${state.runDir || currentDirectory()} >> `;
 }
 
 function currentDirectory() {
-  const normalized = state.currentPath.replaceAll("\\", "/");
+  return directoryOf(state.currentPath);
+}
+
+function directoryOf(path) {
+  const normalized = normalizePath(path);
   return normalized.split("/").slice(0, -1).join("/") || ".";
+}
+
+function normalizePath(path) {
+  return String(path || "").replaceAll("\\", "/").replace(/\/+/g, "/").replace(/\/$/, "");
+}
+
+function setRunDir(path, rerender = true) {
+  const normalized = resolveRunDirInput(path || ".");
+  state.runDir = normalized || ".";
+  openParentDirs(`${state.runDir}/__dir__.eng`);
+  state.status = `Run directory ${state.runDir}`;
+  if (rerender) render();
+}
+
+function resolveRunDirInput(path) {
+  const text = normalizePath(path);
+  if (!text || text === ".") return state.runDir || currentDirectory();
+  if (text === "..") return parentPath(state.runDir || currentDirectory());
+  if (isAbsolutePath(text)) return text;
+  const base = state.runDir || currentDirectory();
+  return normalizePath(`${base}/${text}`);
+}
+
+function parentPath(path) {
+  const normalized = normalizePath(path);
+  const parts = normalized.split("/");
+  if (parts.length <= 1) return ".";
+  return parts.slice(0, -1).join("/") || ".";
+}
+
+function isAbsolutePath(path) {
+  return /^[A-Za-z]:\//.test(path) || path.startsWith("/");
+}
+
+function toggleDir(path) {
+  if (state.openDirs.has(path)) state.openDirs.delete(path);
+  else state.openDirs.add(path);
+  render();
+}
+
+function openParentDirs(path) {
+  for (const dir of parentDirs(path)) {
+    state.openDirs.add(dir);
+  }
+}
+
+function parentDirs(path) {
+  const normalized = normalizePath(path);
+  const parts = normalized.split("/");
+  const dirs = [];
+  for (let index = 1; index < parts.length; index += 1) {
+    dirs.push(parts.slice(0, index).join("/"));
+  }
+  return dirs;
 }
 
 function compactPath(path) {

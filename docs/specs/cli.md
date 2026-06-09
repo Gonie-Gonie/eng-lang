@@ -260,7 +260,7 @@ Current tester IDE features:
 - generated report and plot opening
 - Terminal tab with `clear`, `reset`, `check`, `run`, and one-line top-level commands
 - Variables table populated after successful runs
-- in-IDE PlotSpec preview in the terminal surface
+- Variables/Plot/Run inspector tabs with in-IDE PlotSpec preview beside the variable table
 ```
 
 `eng-ide.exe --smoke` checks the non-GUI path for release packages. It verifies
