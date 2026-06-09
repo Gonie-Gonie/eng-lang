@@ -5,14 +5,15 @@ It is intentionally short so agents do not need to load every planning file.
 
 ## Current Target
 
-- Current public line: `v0.9-preview`
-- Active target: `v1.0` stable core hardening
-- Workspace package version: `0.9.0-preview`
-- EngLang is preview software. The language and artifact formats are not
-  stable.
+- Current public line: `v1.0.0`
+- Active target: `v1.0.x` stable core maintenance and scoped additions
+- Workspace package version: `1.0.0`
+- EngLang 1.0.0 is a stable-core release. The documented data-to-report
+  workflow, artifact family, packaged runner, and native tester path are stable;
+  preview/experimental tracks remain outside that contract.
 - Public release versions describe packages. Long-term capabilities are tracked
   as development tracks, not as high-numbered versions.
-- `v1.0` is reserved for a genuinely stable core.
+- Stable-core scope is documented in `docs/current/stable_core_scope.md`.
 
 ## Read First
 
@@ -21,12 +22,14 @@ It is intentionally short so agents do not need to load every planning file.
 3. `docs/current/status.md`
 4. `docs/current/version_plan.md`
 5. `docs/current/feature_maturity_matrix.md`
-6. `docs/current/tracks.md`
-7. `docs/llm/load_map.yml`
+6. `docs/current/stable_core_scope.md`
+7. `docs/reference/breaking_change_policy.md`
+8. `docs/current/tracks.md`
+9. `docs/llm/load_map.yml`
 
-## Current Public Preview
+## Current Stable Core
 
-The current public preview supports:
+The current stable core supports:
 
 - typed CSV promote
 - top-level execution, args, const, pure scalar fn, and relative file imports

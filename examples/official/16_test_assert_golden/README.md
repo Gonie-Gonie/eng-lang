@@ -1,6 +1,6 @@
 # Official 16: Test Assert Golden
 
-This example exercises the `v0.9-preview` test/assert/golden seed.
+This example exercises the local test/assert/golden workflow.
 
 It demonstrates:
 

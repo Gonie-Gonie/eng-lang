@@ -1,12 +1,12 @@
 # EngLang Language Grammar Guide
 
-This guide is the practical grammar reference for the current EngLang preview.
+This guide is the practical grammar reference for the current EngLang stable core.
 It is written for someone who wants to open an `.eng` file, understand the
 shape of the language, and write a small engineering workflow without reading
 the compiler source.
 
-EngLang is still preview software. The behavior below is documented and tested
-for the current public line, but it is not yet a stable language contract.
+EngLang 1.0.0 stabilizes the documented data-to-report workflow. Sections that
+describe preview or experimental tracks say so explicitly.
 
 ## What To Read First
 

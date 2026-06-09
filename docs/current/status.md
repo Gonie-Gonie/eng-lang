@@ -7,14 +7,15 @@ agents. It separates public release versions from long-term development tracks.
 
 | Field | Value |
 |---|---|
-| Current public line | `v0.9-preview` |
-| Active target | `v1.0` stable core hardening |
-| Workspace package version | `0.9.0-preview` |
-| Release channel | `preview` |
+| Current public line | `v1.0.0` |
+| Active target | `v1.0.x` stable core maintenance and scoped additions |
+| Workspace package version | `1.0.0` |
+| Release channel | `stable-core` |
 
-EngLang is preview software. The language, runtime behavior, and artifact
-formats are not stable. Earlier high-numbered release names are not part of the
-current public version line.
+EngLang `1.0.0` is a stable-core release. The documented data-to-report
+workflow, artifact family, packaged runner, and native tester path are stable;
+preview and experimental tracks remain outside that contract. Earlier
+high-numbered release names are not part of the current public version line.
 
 The active language philosophy is recorded in
 [Integrated Language Philosophy](philosophy.md):
@@ -44,10 +45,10 @@ being part of the public release contract.
 - Public features need examples, tests, diagnostics or metadata where relevant,
   and reviewable artifacts.
 
-## Supported Preview Features
+## Stable Core Features
 
-Supported preview means the behavior is documented, tested, and usable through
-the current public preview workflow, but it is not yet a stable contract.
+Stable core means the behavior is documented, tested, usable through the package
+workflow, and covered by the breaking-change policy.
 
 - Fast `=` declarations in script/local expression contexts and top-level
   executable workflows.
@@ -75,8 +76,8 @@ the current public preview workflow, but it is not yet a stable contract.
 - Report/review artifacts with variable tables, inferred declarations, unit
   conversion records, schema summaries, warnings, plot manifest data, and
   report spec hashing.
-- Minimal `system`/`eq` parsing and unit diagnostics, with one-state thermal
-  system metadata and fixed-step preview execution for official examples.
+- Minimal `system`/`eq` parsing and unit diagnostics remain available for
+  official examples, but general solver behavior stays outside the stable core.
 - Args string/path/CsvFile/DirectoryPath binding for `--input` style official
   examples, primitive Bool/Int/Count/Float/Duration normalization, dynamic
   pure defaults, and packaged runner help metadata.
@@ -118,7 +119,7 @@ the current public preview workflow, but it is not yet a stable contract.
   numbered examples are compatibility regression paths; diagnostic and
   data-quality fixtures are separated by folder.
 
-## Preview Tooling
+## Tooling And Preview Tracks
 
 - Native tester IDE (`eng-ide.exe`) for open/check/save/run, diagnostics,
   completions, source editing, variable/unit/schema/CSV inspection, PlotSpec
@@ -150,6 +151,9 @@ the current public preview workflow, but it is not yet a stable contract.
   log-level runtime messages with run-log artifacts, GP-6 explicit external
   process execution with `ProcessResult` artifacts, and GP-7 test/assert/golden
   verification artifacts.
+- Stable scope and compatibility policy are documented in
+  [stable_core_scope.md](stable_core_scope.md) and
+  [breaking_change_policy.md](../reference/breaking_change_policy.md).
 
 ## Future Tracks On Main
 
@@ -187,7 +191,7 @@ See [development tracks](tracks.md) for the current scope and limitations.
 - Parenthesis-light syntax for arbitrary user-defined/general function calls
   and project-wide display unit policy blocks are deferred.
 - Broad filesystem/network side-effect runtime support is deferred to the
-  general programming track. `v0.9-preview` implements path helpers, `exists`
+  general programming track. `1.0.0` implements path helpers, `exists`
   provenance, read-only UTF-8 text/json/toml source hash provenance, explicit
   write/export output manifest support, constrained output-area
   copy/move/delete, structured runtime log artifacts, explicit external process

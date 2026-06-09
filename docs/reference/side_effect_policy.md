@@ -3,7 +3,7 @@
 Status: GP-1 path policy, GP-2 read-only I/O, GP-3 write/export hardening,
 GP-4 constrained copy/move/delete file operations, GP-5 structured runtime
 log messages, GP-6 explicit external process execution, and GP-7 test/assert/
-golden support are implemented for `v0.9-preview`. Broader filesystem mutation
+golden support are implemented for `v1.0.0`. Broader filesystem mutation
 outside generated-output boundaries, network, workspace-wide test discovery, and
 stable process sandboxing remain planned tracks, not supported preview behavior.
 
@@ -65,7 +65,7 @@ input_exists = exists args.input
 print "input exists = {input_exists}"
 ```
 
-Implemented behavior through `v0.9-preview`:
+Implemented behavior through `v1.0.0`:
 
 ```text
 - file("...") and dir("...") are accepted in args defaults.

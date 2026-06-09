@@ -5,7 +5,7 @@ This roadmap follows the simplified version policy:
 ```text
 Public release versions describe packages.
 Long-term capabilities are managed as tracks.
-v1.0 is reserved for a genuinely stable core.
+v1.0.0 is the stable-core line.
 ```
 
 Use [current status](current/status.md),
@@ -25,17 +25,16 @@ v0.6-preview  explicit copy/move/delete side-effect policy
 v0.7-preview  structured log levels and run log artifacts
 v0.8-preview  external process and ProcessResult policy seed
 v0.9-preview  test/assert/golden support
-...
-v1.0          stable core
+v1.0.0        stable core
 ```
 
-`v0.x-preview` does not mean every implemented feature is stable. It means
-users can download a package, run official examples, inspect artifacts, and
-give feedback on the current preview scope.
+`v0.x-preview` did not mean every implemented feature was stable. `v1.0.0`
+stabilizes a narrow documented core while keeping broader tracks preview or
+experimental.
 
 ## Current Public Line
 
-`v0.9-preview` packages the current user-test workflow:
+`v1.0.0` packages the stable-core workflow:
 
 ```text
 - eng.exe doctor/check/run/build/view
@@ -57,19 +56,20 @@ give feedback on the current preview scope.
 - PlotSpec/SVG output
 - review/report artifacts
 - basic packaged execution
-- native tester IDE
+- native tester IDE smoke path
 - curated user PDF
 - language grammar PDF
 ```
 
-Known public-preview boundary:
+Known stable-core boundary:
 
 ```text
-- language and artifact formats are not stable
 - uncertainty and ML examples are future-track smoke paths
 - LSP/VS Code is a secondary preview path
 - JIT/AOT has planning metadata only, no speedup claim
 - domain/component work is metadata-first, no numeric multi-domain solver
+- broad filesystem/network side effects and workspace-wide test discovery are
+  outside the stable scope
 ```
 
 ## Integrated Direction
@@ -99,13 +99,13 @@ policy source.
 
 ## Active Target
 
-`v1.0` focuses on stable core hardening:
+`v1.0.x` focuses on stable-core maintenance:
 
 ```text
-- promote or defer supported preview features explicitly
-- keep artifact schemas, docs, examples, package smoke, and IDE smoke aligned
-- document stable-scope limitations and breaking-change policy
-- avoid a stable label until the core behavior is genuinely ready
+- patch fixes without changing the stable contract
+- compatible docs, diagnostics, and artifact additions
+- explicit deprecation warnings before stable removals
+- continued preview/experimental track separation
 ```
 
 ## Development Tracks
@@ -129,19 +129,19 @@ T11 General Programming / Side Effects
 A future preview may include early work from any track, but the track name
 should remain separate from the release version.
 
-## v1.0 Stable Core Gate
+## v1.0.0 Stable Core Gate
 
-Do not use `v1.0` until the following are true:
+`v1.0.0` is valid when the following are true:
 
 ```text
-[ ] syntax and core semantics have a documented breaking-change policy
-[ ] supported preview features are promoted or explicitly deferred
-[ ] official examples pass on clean Windows package smoke
-[ ] current status and maturity docs match implementation
-[ ] portable zip works cleanly without Rust/Python on the target PC
-[ ] tester IDE or CLI+report workflow is stable enough for users
-[ ] bytecode/result/report/PlotSpec/package format headers are documented
-[ ] release notes state exact stable scope and limitations
+[x] syntax and core semantics have a documented breaking-change policy
+[x] supported preview features are promoted or explicitly deferred
+[x] official examples pass on clean Windows package smoke
+[x] current status and maturity docs match implementation
+[x] portable zip works cleanly without Rust/Python on the target PC
+[x] tester IDE or CLI+report workflow is stable enough for users
+[x] bytecode/result/report/PlotSpec/package format headers are documented
+[x] release notes state exact stable scope and limitations
 ```
 
 ## Working Rule
@@ -149,7 +149,7 @@ Do not use `v1.0` until the following are true:
 Before claiming public support:
 
 ```text
-1. Pick the public preview scope or development track.
+1. Pick the stable-core scope or development track.
 2. Add examples and diagnostics.
 3. Add runtime/report/IDE metadata where relevant.
 4. Update status, maturity, and user docs.

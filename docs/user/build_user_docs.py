@@ -11,8 +11,36 @@ def paragraph(*parts: object) -> Paragraph:
 
 
 def build_document(version: str) -> Document:
+    is_preview = "preview" in version
+    title = "EngLang User Test Guide" if is_preview else "EngLang User Guide"
+    current_line = (
+        "The current public line is a preview: typed CSV import, unit-aware calculations, "
+        "TimeSeries statistics, structured runtime logs, explicit process-result records, local test-result records, PlotSpec/SVG/report generation, native IDE user testing, and basic packaged execution."
+        if is_preview
+        else "EngLang 1.0.0 is a stable-core package: typed CSV import, unit-aware calculations, TimeSeries statistics, structured runtime logs, explicit process-result records, local test-result records, PlotSpec/SVG/report generation, native IDE user testing, and basic packaged execution are supported within the documented scope."
+    )
+    boundary = (
+        "The packaged "
+        if is_preview
+        else "In the stable-core package, "
+    )
+    boundary_detail = (
+        " path and the "
+        if is_preview
+        else ", "
+    )
+    kernel_tail = (
+        " JIT planning surface are experimental and intended for smoke checks and inspection. The "
+        if is_preview
+        else " JIT planning surface, and "
+    )
+    final_boundary = (
+        " harness records interpreter baseline timings only and marks JIT execution as unavailable. Backend selection metadata can record a native-preview request, but native execution remains unavailable. This release is not a stable language contract, not a full editor platform, not a general nonlinear solver, not a native JIT runtime, and not a complete domain package ecosystem. Those are future tracks. The public claim for this release is a preview data-to-report workflow with a native test IDE."
+        if is_preview
+        else " harness remain experimental and intended for smoke checks and inspection. Backend selection metadata can record a native-preview request, but native execution remains unavailable. The stable contract is intentionally narrow: documented syntax, artifact formats, official examples, package smoke, and the native tester workflow. It is not a full editor platform, not a general nonlinear solver, not a native JIT runtime, and not a complete domain package ecosystem."
+    )
     return Document(
-        "EngLang User Test Guide",
+        title,
         Chapter(
             "1. What EngLang Is",
             paragraph(
@@ -21,8 +49,7 @@ def build_document(version: str) -> Document:
                 " should be checked as part of the program rather than as after-the-fact spreadsheet convention.",
             ),
             paragraph(
-                "The current public line is a preview: typed CSV import, unit-aware calculations, "
-                "TimeSeries statistics, structured runtime logs, explicit process-result records, local test-result records, PlotSpec/SVG/report generation, native IDE user testing, and basic packaged execution.",
+                current_line,
             ),
         ),
         Chapter(
@@ -150,13 +177,13 @@ def build_document(version: str) -> Document:
         Chapter(
             "6. Current Boundaries",
             paragraph(
-                "The packaged ",
+                boundary,
                 code("eng-lsp.exe"),
-                " path and the ",
+                boundary_detail,
                 code("eng-kernel-plan-v1"),
-                " JIT planning surface are experimental and intended for smoke checks and inspection. The ",
+                kernel_tail,
                 code("eng-jit-bench-v1"),
-                " harness records interpreter baseline timings only and marks JIT execution as unavailable. Backend selection metadata can record a native-preview request, but native execution remains unavailable. This release is not a stable language contract, not a full editor platform, not a general nonlinear solver, not a native JIT runtime, and not a complete domain package ecosystem. Those are future tracks. The public claim for this release is a preview data-to-report workflow with a native test IDE.",
+                final_boundary,
             ),
         ),
         settings=DocumentSettings(

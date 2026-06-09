@@ -1,8 +1,8 @@
 {
   "name": "englang",
   "displayName": "EngLang",
-  "description": "EngLang IDE preview with diagnostics, hover, completion, and run commands.",
-  "version": "0.9.0-preview",
+  "description": "EngLang editor tooling with diagnostics, hover, completion, and run commands.",
+  "version": "1.0.0",
   "publisher": "englang",
   "license": "MIT",
   "engines": {

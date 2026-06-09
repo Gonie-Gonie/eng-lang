@@ -127,9 +127,9 @@ Build a portable package:
 This creates:
 
 ```text
-dist\englang-preview\
-dist\englang-preview-v<version>-windows-x64.zip
-dist\englang-preview-v<version>-windows-x64.zip.sha256
+dist\englang\
+dist\englang-v<version>-windows-x64.zip
+dist\englang-v<version>-windows-x64.zip.sha256
 ```
 
 The unpacked package contains:
@@ -185,7 +185,7 @@ This command:
 
 ```text
 1. builds the release binary
-2. assembles dist\englang-preview
+2. assembles dist\englang
 3. writes the portable zip and SHA256 checksum
 4. extracts the zip under dist\portable smoke <Korean word>
 5. runs packaged eng.exe doctor from the extracted folder

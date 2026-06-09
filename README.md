@@ -8,12 +8,13 @@ first-class parts of engineering code.
 
 ## Status
 
-Current public line: `v0.9-preview`
+Current public line: `v1.0.0`
 
-Active target: `v1.0` - stable core hardening
+Active target: `v1.0.x` - stable core maintenance and scoped additions
 
-EngLang is preview software. The language, runtime behavior, and artifact
-formats are not yet stable.
+EngLang `1.0.0` is a stable-core release. The documented data-to-report
+workflow, artifact family, packaged runner, and native tester path are the
+stable contract; experimental tracks remain outside that contract.
 
 Start from these short status documents:
 
@@ -21,11 +22,13 @@ Start from these short status documents:
 - [Integrated language philosophy](docs/current/philosophy.md)
 - [Version plan](docs/current/version_plan.md)
 - [Feature maturity matrix](docs/current/feature_maturity_matrix.md)
+- [Stable core scope](docs/current/stable_core_scope.md)
 - [Development tracks](docs/current/tracks.md)
+- [Breaking change policy](docs/reference/breaking_change_policy.md)
 - [LLM context](LLM_CONTEXT.md)
 - [LLM load map](docs/llm/load_map.yml)
 
-## Supported Preview Workflows
+## Stable Core Workflows
 
 - Typed CSV promote through official examples
 - Unit-aware TimeSeries calculations
@@ -45,7 +48,8 @@ Start from these short status documents:
 - Basic packaged execution
 - Native tester IDE for user testing
 
-Future work is managed by tracks, not by high-numbered public versions:
+Future and experimental work is managed by tracks, not by high-numbered public
+versions:
 
 - Core language
 - Data boundary
@@ -136,6 +140,7 @@ build/
 - [Integrated language philosophy](docs/current/philosophy.md)
 - [Version plan](docs/current/version_plan.md)
 - [Feature maturity matrix](docs/current/feature_maturity_matrix.md)
+- [Stable core scope](docs/current/stable_core_scope.md)
 - [Development tracks](docs/current/tracks.md)
 - [Getting started](docs/development/00_getting_started.md)
 - [Repository layout](docs/development/01_repo_layout.md)
@@ -148,6 +153,7 @@ build/
 - [Run command reference](docs/reference/cli_run.md)
 - [Standalone package reference](docs/reference/standalone_package.md)
 - [Side effect and general programming policy](docs/reference/side_effect_policy.md)
+- [Breaking change policy](docs/reference/breaking_change_policy.md)
 - [CLI specification](docs/specs/cli.md)
 - [Roadmap](docs/roadmap.md)
 - [Release workflow](docs/release/release-workflow.md)
@@ -178,7 +184,7 @@ Before a release package check:
 
 ```bat
 .\dev.bat release-check
-pushd dist\englang-preview
+pushd dist\englang
 eng.exe doctor
 eng-ide.exe --smoke
 eng-lsp.exe --smoke
@@ -191,7 +197,7 @@ dist\main-standalone\run.bat
 popd
 ```
 
-`package` writes `dist\englang-preview-v0.9-preview-windows-x64.zip`, a
+`package` writes `dist\englang-v1.0.0-windows-x64.zip`, a
 matching `.sha256` file, and a curated PDF user guide. The portable package
 does not copy the full developer markdown documentation tree. `package-smoke`
 extracts that zip into a path with spaces and Korean characters, then runs the

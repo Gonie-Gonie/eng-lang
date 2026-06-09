@@ -7,14 +7,14 @@ EngLang separates public release versions from long-term development tracks.
 The current public line is:
 
 ```text
-v0.9-preview
+v1.0.0
 ```
 
 Existing high-numbered release names are not part of the current public line.
 They may remain in git history, but current docs and release assets should not
 ask users to understand them.
 
-Recommended public sequence:
+Public sequence:
 
 ```text
 v0.1-preview  first public preview
@@ -26,41 +26,42 @@ v0.6-preview  explicit copy/move/delete side-effect policy
 v0.7-preview  structured log levels and run log artifacts
 v0.8-preview  external process and ProcessResult policy seed
 v0.9-preview  test/assert/golden support
-...
-v1.0          stable core, only after the core behavior is ready
+v1.0.0        stable core
 ```
 
 ## Cargo Version
 
-Cargo requires SemVer-compatible package versions, so the workspace package
-version for `v0.9-preview` is:
+Cargo uses the SemVer-compatible workspace package version:
 
 ```text
-0.9.0-preview
+1.0.0
 ```
 
-Release assets use the shorter public label:
+Release assets use the public label:
 
 ```text
-englang-preview-v0.9-preview-windows-x64.zip
-englang-user-test-guide-v0.9-preview.pdf
+englang-v1.0.0-windows-x64.zip
+englang-user-guide-v1.0.0.pdf
 ```
 
-## Current Preview Goals
+## Stable Core Goal
 
-The version line follows the integrated language philosophy:
+The stable line follows the integrated language philosophy:
 
 ```text
 typed data boundary
 -> typed Table/TimeSeries
--> system/component simulation inputs and outputs
--> metrics, validation, calibration
+-> metrics, validation, and summaries
 -> PlotSpec/report/review
 -> IDE inspection
 -> standalone package
 ```
 
-Current planning targets:
+`1.0.0` stabilizes the documented data-to-report workflow, artifact family,
+packaged runner, and native tester path. It does not stabilize every track on
+`main`; see [stable_core_scope.md](stable_core_scope.md).
+
+## Completed Preview Steps
 
 ```text
 v0.2-preview
@@ -104,29 +105,23 @@ v0.8-preview
 
 v0.9-preview
   - test/assert/golden policy seed
-  - preview project test runner metadata
+  - local workflow test metadata
   - golden artifact comparison workflow
-
-v1.0
-  - stable core hardening
-  - supported preview features either promoted, documented as preview, or deferred
-  - release docs, artifact schemas, examples, package smoke, and IDE smoke agree
 ```
 
-## v1.0 Reservation
+## Stable Core Gate
 
-`v1.0` is reserved for a genuinely stable core. It should not be used until:
+`v1.0.0` requires:
 
 ```text
-- syntax and core semantics are unlikely to churn
-- fast `=`, dimensionless policy, schema/promote, TimeSeries, PlotSpec, and
-  report artifacts are documented and tested
+- syntax and core semantics have a documented breaking-change policy
+- stable scope is explicitly documented
+- preview/experimental tracks are marked as outside stable-core support
 - official examples pass
 - current status and maturity docs match implementation
 - portable zip works cleanly
 - tester IDE or CLI+report workflow is stable enough for users
 - artifact version headers are documented
-- breaking-change policy is documented
 ```
 
 ## Track Naming
@@ -149,20 +144,18 @@ Runtime optimization/JIT/AOT track
 Domain/component track
 ```
 
-A preview release may include early work from a track without making the whole
-track stable or release-supported.
+A future minor release may include early work from a track without making the
+whole track stable or release-supported.
 
 ## README Rule
 
-The README should show only:
+The repository root README should expose:
 
 ```text
 Current public line
 Active target
-Supported preview workflows
+Stable core workflows
 Future tracks
+Quick start
+Verification
 ```
-
-Detailed planning belongs in `docs/roadmap.md`, this file, and
-`docs/current/philosophy.md`, `docs/current/tracks.md`, and focused reference
-docs such as `docs/reference/side_effect_policy.md`.

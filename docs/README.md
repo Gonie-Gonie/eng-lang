@@ -10,15 +10,16 @@ long-form planning documents.
 2. [Integrated language philosophy](current/philosophy.md)
 3. [Version plan](current/version_plan.md)
 4. [Feature maturity matrix](current/feature_maturity_matrix.md)
-5. [Development tracks](current/tracks.md)
-6. [Standalone package reference](reference/standalone_package.md)
-7. [LLM load map](llm/load_map.yml)
-8. [Getting started](development/00_getting_started.md)
-9. [Repository layout](development/01_repo_layout.md)
-10. [Daily workflow](development/02_daily_workflow.md)
-11. [Reproducible environment policy](development/03_environment_reproducibility.md)
-12. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
-13. [Curated user documentation source](user/README.md)
+5. [Stable core scope](current/stable_core_scope.md)
+6. [Development tracks](current/tracks.md)
+7. [Standalone package reference](reference/standalone_package.md)
+8. [LLM load map](llm/load_map.yml)
+9. [Getting started](development/00_getting_started.md)
+10. [Repository layout](development/01_repo_layout.md)
+11. [Daily workflow](development/02_daily_workflow.md)
+12. [Reproducible environment policy](development/03_environment_reproducibility.md)
+13. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
+14. [Curated user documentation source](user/README.md)
 
 ## Architecture
 
@@ -48,6 +49,7 @@ long-form planning documents.
 - [Run command reference](reference/cli_run.md)
 - [Standalone package reference](reference/standalone_package.md)
 - [Side effect and general programming policy](reference/side_effect_policy.md)
+- [Breaking change policy](reference/breaking_change_policy.md)
 - [LSP snapshot reference](reference/lsp_snapshot.md)
 - [Kernel plan reference](reference/kernel_plan.md)
 - [JIT benchmark harness reference](reference/jit_benchmark.md)
@@ -72,6 +74,7 @@ long-form planning documents.
 - [v0.7-preview release notes](release/v0.7-preview.md)
 - [v0.8-preview release notes](release/v0.8-preview.md)
 - [v0.9-preview release notes](release/v0.9-preview.md)
+- [v1.0.0 release notes](release/v1.0.0.md)
 - Long-form v9 plan is linked from the planning pointer only as historical
   technical intent; do not use its old milestone labels as release names.
 

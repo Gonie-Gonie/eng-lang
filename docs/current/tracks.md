@@ -226,7 +226,7 @@ Non-goals:
 
 ## T11 General Programming / Side Effects
 
-Implemented seeds through `v0.9-preview`:
+Implemented seeds through `v1.0.0`:
 
 ```text
 - file/dir path defaults

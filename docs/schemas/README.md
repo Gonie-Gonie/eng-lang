@@ -1,7 +1,8 @@
 # Artifact Schemas
 
-These schema files document the current preview artifact contracts used by the
-release gate.
+These schema files document the current stable-core artifact contracts used by
+the release gate. Preview and experimental tracks may add optional fields, but
+stable required fields are covered by the breaking-change policy.
 
 ```text
 review.schema.json       build/result/review.json

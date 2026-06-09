@@ -209,6 +209,49 @@ function Get-PublicVersion {
     return $Version
 }
 
+function Test-IsPreviewVersion {
+    param([string] $Version = (Get-WorkspaceVersion))
+    return $Version.EndsWith("-preview")
+}
+
+function Get-PackageRootName {
+    if (Test-IsPreviewVersion) {
+        return "englang-preview"
+    }
+    return "englang"
+}
+
+function Get-ZipFileName {
+    $PublicVersion = Get-PublicVersion
+    if (Test-IsPreviewVersion) {
+        return "englang-preview-v$PublicVersion-windows-x64.zip"
+    }
+    return "englang-v$PublicVersion-windows-x64.zip"
+}
+
+function Get-UserGuideFileName {
+    $PublicVersion = Get-PublicVersion
+    if (Test-IsPreviewVersion) {
+        return "englang-user-test-guide-v$PublicVersion.pdf"
+    }
+    return "englang-user-guide-v$PublicVersion.pdf"
+}
+
+function Get-PackageUserGuideFileName {
+    if (Test-IsPreviewVersion) {
+        return "EngLang_User_Test_Guide.pdf"
+    }
+    return "EngLang_User_Guide.pdf"
+}
+
+function Get-VsixFileName {
+    $Version = Get-WorkspaceVersion
+    if (Test-IsPreviewVersion -Version $Version) {
+        return "englang-vscode-preview-$Version.vsix"
+    }
+    return "englang-vscode-$Version.vsix"
+}
+
 function Invoke-Setup {
     Set-DevEnvironment
     if (-not (Test-Path (Join-Path $CargoHome "bin\cargo.exe"))) {
@@ -1075,7 +1118,7 @@ function New-VsixManifest {
   <Metadata>
     <Identity Language="en-US" Id="englang" Version="$Version" Publisher="englang" />
     <DisplayName>EngLang</DisplayName>
-    <Description xml:space="preserve">EngLang IDE preview with diagnostics, hover, completion, and run commands.</Description>
+    <Description xml:space="preserve">EngLang editor tooling with diagnostics, hover, completion, and run commands.</Description>
     <Tags>EngLang, language, engineering</Tags>
     <Categories>Programming Languages</Categories>
     <GalleryFlags>Public</GalleryFlags>
@@ -1108,7 +1151,7 @@ function Invoke-IdePackage {
     $ExtensionOut = Join-Path $ToolsRoot "vscode-englang"
     $VsixStage = Join-Path $RepoRoot "build\vscode-vsix"
     $VsixExtensionRoot = Join-Path $VsixStage "extension"
-    $VsixPath = Join-Path $ToolsRoot "englang-vscode-preview-$Version.vsix"
+    $VsixPath = Join-Path $ToolsRoot (Get-VsixFileName)
     $ReleaseEng = Join-Path $RepoRoot "target\release\eng.exe"
     $ReleaseLsp = Join-Path $RepoRoot "target\release\eng-lsp.exe"
 
@@ -1223,11 +1266,11 @@ function New-UserGuidePdf {
     )
 
     $sections = @(
-        @{ Kind = "title"; Text = "EngLang User Test Guide" },
+        @{ Kind = "title"; Text = "EngLang User Guide" },
         @{ Kind = "subtitle"; Text = "Portable Windows package v$Version" },
         @{ Kind = "body"; Text = "EngLang is a native engineering language for workflows where units, physical quantities, schemas, axes, statistics, plots, reports, and provenance are checked as part of the program. This PDF is the curated user-facing guide for the portable package; developer notes and master plans stay in the repository." },
         @{ Kind = "h1"; Text = "1. Package Contents" },
-        @{ Kind = "body"; Text = "The portable folder contains eng.exe for command-line execution, eng-ide.exe for native GUI testing, eng-lsp.exe for experimental editor-service smoke checks, official examples, stdlib language seeds, tools for the optional VS Code extension preview, and this PDF. It intentionally does not ship the full developer documentation tree." },
+        @{ Kind = "body"; Text = "The portable folder contains eng.exe for command-line execution, eng-ide.exe for native GUI testing, eng-lsp.exe for experimental editor-service smoke checks, official examples, stdlib language seeds, tools for the optional VS Code extension, and this PDF. It intentionally does not ship the full developer documentation tree." },
         @{ Kind = "h1"; Text = "2. First Smoke Test" },
         @{ Kind = "step"; Text = "Open a command prompt in the extracted folder." },
         @{ Kind = "step"; Text = "Run: eng.exe doctor" },
@@ -1256,7 +1299,7 @@ function New-UserGuidePdf {
         @{ Kind = "body"; Text = "If a run fails, check Problems first, then run eng.exe check <file.eng> from the same folder. If the plot preview is empty, open the Artifacts tab and check plots/plot_spec.json and plots/timeseries.svg." },
         @{ Kind = "body"; Text = "If a CSV path fails, keep relative paths anchored next to the source file, as in the official examples. If a report does not open, open build/result/report.html manually." },
         @{ Kind = "h1"; Text = "8. Current Boundaries" },
-        @{ Kind = "body"; Text = "This is a public preview release. The supported user-test workflows cover CSV promote, unit-aware TimeSeries calculations, PlotSpec/SVG output, review/report artifacts, basic packaged execution, and the native tester IDE. Language and artifact formats are not yet stable. Uncertainty, ML, LSP, JIT/AOT, and domain/component work are future tracks unless explicitly marked preview-supported." }
+        @{ Kind = "body"; Text = "This release supports the documented core workflows: CSV promote, unit-aware TimeSeries calculations, PlotSpec/SVG output, review/report artifacts, basic packaged execution, and the native tester IDE. Uncertainty, ML, LSP, JIT/AOT, and domain/component work remain future or experimental tracks unless explicitly marked stable-supported." }
     )
 
     $pages = New-Object System.Collections.Generic.List[string]
@@ -1374,10 +1417,10 @@ function Invoke-Package {
     Invoke-Native $cargo "build" "--workspace" "--release"
     $Version = Get-WorkspaceVersion
     $PublicVersion = Get-PublicVersion
-    $PackageRoot = Join-Path $RepoRoot "dist\englang-preview"
-    $ZipPath = Join-Path $RepoRoot "dist\englang-preview-v$PublicVersion-windows-x64.zip"
+    $PackageRoot = Join-Path $RepoRoot ("dist\" + (Get-PackageRootName))
+    $ZipPath = Join-Path $RepoRoot ("dist\" + (Get-ZipFileName))
     $ChecksumPath = "$ZipPath.sha256"
-    $ReleaseGuidePath = Join-Path $RepoRoot "dist\englang-user-test-guide-v$PublicVersion.pdf"
+    $ReleaseGuidePath = Join-Path $RepoRoot ("dist\" + (Get-UserGuideFileName))
     Remove-Item -LiteralPath $PackageRoot -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $ChecksumPath -Force -ErrorAction SilentlyContinue
@@ -1389,7 +1432,7 @@ function Invoke-Package {
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "examples") (Join-Path $PackageRoot "examples")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "stdlib") (Join-Path $PackageRoot "stdlib")
     New-Item -ItemType Directory -Force -Path (Join-Path $PackageRoot "docs") | Out-Null
-    $PackageGuidePath = Join-Path $PackageRoot "docs\EngLang_User_Test_Guide.pdf"
+    $PackageGuidePath = Join-Path $PackageRoot ("docs\" + (Get-PackageUserGuideFileName))
     if (-not (New-UserGuideWithOodocs -Path $PackageGuidePath -Version $PublicVersion)) {
         New-UserGuidePdf -Path $PackageGuidePath -Version $PublicVersion
     }
@@ -1402,7 +1445,7 @@ function Invoke-Package {
     Set-Content -Path (Join-Path $PackageRoot "README.txt") -Encoding ascii -Value @"
 EngLang portable package
 
-This folder is self-contained for preview execution. Rust and Python are not
+This folder is self-contained for EngLang execution. Rust and Python are not
 required on the target PC.
 
 Recommended smoke commands:
@@ -1419,12 +1462,12 @@ Recommended smoke commands:
   eng.exe view build\result\result.engres
 
 VS Code IDE preview:
-  code --install-extension tools\englang-vscode-preview-$Version.vsix
+  code --install-extension tools\$(Get-VsixFileName)
   open a .eng file
   run "EngLang: Check Current File"
 
 Generated artifacts are written under build\result in the current folder.
-The curated user guide is docs\EngLang_User_Test_Guide.pdf. The language
+The curated user guide is docs\$(Get-PackageUserGuideFileName). The language
 grammar guide is docs\EngLang_Language_Grammar_Guide.pdf. Developer markdown
 docs are kept in the source repository and are not bundled into this package.
 "@
@@ -1440,7 +1483,7 @@ function Invoke-PackageSmoke {
     Invoke-Package
     $Version = Get-WorkspaceVersion
     $PublicVersion = Get-PublicVersion
-    $ZipPath = Join-Path $RepoRoot "dist\englang-preview-v$PublicVersion-windows-x64.zip"
+    $ZipPath = Join-Path $RepoRoot ("dist\" + (Get-ZipFileName))
     $KoreanWord = -join @([char]0xD55C, [char]0xAE00)
     $SmokeRoot = Join-Path $RepoRoot "dist\portable smoke $KoreanWord"
     Remove-Item -LiteralPath $SmokeRoot -Recurse -Force -ErrorAction SilentlyContinue
@@ -1491,10 +1534,12 @@ function Invoke-PackageSmoke {
         if (-not (Test-Path $Lsp)) {
             throw "portable package did not include eng-lsp.exe"
         }
-        if (-not (Test-Path (Join-Path $SmokeRoot "tools\englang-vscode-preview-$Version.vsix"))) {
+        $ExpectedVsix = Join-Path $SmokeRoot ("tools\" + (Get-VsixFileName))
+        if (-not (Test-Path $ExpectedVsix)) {
             throw "portable package did not include VS Code VSIX"
         }
-        if (-not (Test-Path (Join-Path $SmokeRoot "docs\EngLang_User_Test_Guide.pdf"))) {
+        $ExpectedUserGuide = Join-Path $SmokeRoot ("docs\" + (Get-PackageUserGuideFileName))
+        if (-not (Test-Path $ExpectedUserGuide)) {
             throw "portable package did not include user guide PDF"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "docs\EngLang_Language_Grammar_Guide.pdf"))) {
@@ -1519,7 +1564,7 @@ function Invoke-ReleaseCheck {
     Invoke-PackageSmoke
     $Version = Get-WorkspaceVersion
     $PublicVersion = Get-PublicVersion
-    $ZipPath = Join-Path $RepoRoot "dist\englang-preview-v$PublicVersion-windows-x64.zip"
+    $ZipPath = Join-Path $RepoRoot ("dist\" + (Get-ZipFileName))
     $ChecksumPath = "$ZipPath.sha256"
     if (-not (Test-Path $ZipPath)) {
         throw "release check did not create $ZipPath"
@@ -1527,7 +1572,7 @@ function Invoke-ReleaseCheck {
     if (-not (Test-Path $ChecksumPath)) {
         throw "release check did not create $ChecksumPath"
     }
-    $GuidePath = Join-Path $RepoRoot "dist\englang-user-test-guide-v$PublicVersion.pdf"
+    $GuidePath = Join-Path $RepoRoot ("dist\" + (Get-UserGuideFileName))
     if (-not (Test-Path $GuidePath)) {
         throw "release check did not create $GuidePath"
     }
@@ -1608,7 +1653,7 @@ Usage:
   .\dev.bat dev-current    Build latest release test IDE into dist\dev-current
   .\dev.bat artifacts-check Validate artifact schemas and golden baselines
   .\dev.bat run-example    Run examples\official\01_csv_plot\main.eng
-  .\dev.bat package        Build release, assemble dist\englang-preview, zip it, and write SHA256
+  .\dev.bat package        Build release, assemble dist package folder, zip it, and write SHA256
   .\dev.bat package-smoke  Extract the portable zip under a Korean/space path and smoke it
   .\dev.bat release-check  Run full local release gate and verify checksum
   .\dev.bat clean-generated Remove build and transient dist outputs, preserving dist\dev-current

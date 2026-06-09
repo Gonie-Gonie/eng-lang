@@ -106,10 +106,12 @@ task_types:
 
   release:
     - docs/current/version_plan.md
+    - docs/current/stable_core_scope.md
     - docs/current/philosophy.md
+    - docs/reference/breaking_change_policy.md
     - docs/release/release-workflow.md
     - docs/release/acceptance-checklist.md
-    - docs/release/v0.9-preview.md
+    - docs/release/v1.0.0.md
     - scripts/dev.ps1
 
   side_effects:
