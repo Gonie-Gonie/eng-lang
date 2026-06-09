@@ -1047,6 +1047,19 @@ function Invoke-Ide {
     Invoke-Native $cargo "run" "-p" "eng_ide" "--" @Rest
 }
 
+function Copy-IdeRuntimeDependencies {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $DestinationRoot
+    )
+
+    $WebView2Loader = Join-Path $RepoRoot "target\release\WebView2Loader.dll"
+    if (-not (Test-Path $WebView2Loader)) {
+        throw "missing WebView2Loader.dll at $WebView2Loader; build eng_ide in release mode first"
+    }
+    Copy-Item -Force $WebView2Loader (Join-Path $DestinationRoot "WebView2Loader.dll")
+}
+
 function Invoke-DevCurrent {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -1063,6 +1076,7 @@ function Invoke-DevCurrent {
     Copy-Item -Force (Join-Path $RepoRoot "target\release\eng.exe") (Join-Path $CurrentRoot "eng.exe")
     Copy-Item -Force (Join-Path $RepoRoot "target\release\eng-ide.exe") (Join-Path $CurrentRoot "eng-ide.exe")
     Copy-Item -Force (Join-Path $RepoRoot "target\release\eng-lsp.exe") (Join-Path $CurrentRoot "eng-lsp.exe")
+    Copy-IdeRuntimeDependencies -DestinationRoot $CurrentRoot
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "examples") (Join-Path $CurrentRoot "examples")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "stdlib") (Join-Path $CurrentRoot "stdlib")
     $CurrentDocsRoot = Join-Path $CurrentRoot "docs"
@@ -1081,6 +1095,7 @@ function Invoke-DevCurrent {
     }
     $EngHash = (Get-FileHash -Algorithm SHA256 (Join-Path $CurrentRoot "eng.exe")).Hash.ToLowerInvariant()
     $IdeHash = (Get-FileHash -Algorithm SHA256 (Join-Path $CurrentRoot "eng-ide.exe")).Hash.ToLowerInvariant()
+    $WebView2LoaderHash = (Get-FileHash -Algorithm SHA256 (Join-Path $CurrentRoot "WebView2Loader.dll")).Hash.ToLowerInvariant()
     $LspHash = (Get-FileHash -Algorithm SHA256 (Join-Path $CurrentRoot "eng-lsp.exe")).Hash.ToLowerInvariant()
 
     Set-Content -Path (Join-Path $CurrentRoot "README.txt") -Encoding ascii -Value @"
@@ -1114,6 +1129,7 @@ commit = $GitCommit
 generated_at_local = $(Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz")
 eng_sha256 = $EngHash
 eng_ide_sha256 = $IdeHash
+webview2_loader_sha256 = $WebView2LoaderHash
 eng_lsp_sha256 = $LspHash
 "@
 
@@ -1448,6 +1464,7 @@ function Invoke-Package {
     Copy-Item -Force (Join-Path $RepoRoot "target\release\eng.exe") (Join-Path $PackageRoot "eng.exe")
     Copy-Item -Force (Join-Path $RepoRoot "target\release\eng-ide.exe") (Join-Path $PackageRoot "eng-ide.exe")
     Copy-Item -Force (Join-Path $RepoRoot "target\release\eng-lsp.exe") (Join-Path $PackageRoot "eng-lsp.exe")
+    Copy-IdeRuntimeDependencies -DestinationRoot $PackageRoot
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "examples") (Join-Path $PackageRoot "examples")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "stdlib") (Join-Path $PackageRoot "stdlib")
     New-Item -ItemType Directory -Force -Path (Join-Path $PackageRoot "docs") | Out-Null
@@ -1465,7 +1482,8 @@ function Invoke-Package {
 EngLang portable package
 
 This folder is self-contained for EngLang execution. Rust and Python are not
-required on the target PC.
+required on the target PC. WebView2Loader.dll is bundled next to eng-ide.exe
+for the Tauri/WebView IDE.
 
 Recommended smoke commands:
   eng.exe doctor
@@ -1510,6 +1528,10 @@ function Invoke-PackageSmoke {
     Expand-Archive -Path $ZipPath -DestinationPath $SmokeRoot -Force
     $Eng = Join-Path $SmokeRoot "eng.exe"
     $Lsp = Join-Path $SmokeRoot "eng-lsp.exe"
+    $WebView2Loader = Join-Path $SmokeRoot "WebView2Loader.dll"
+    if (-not (Test-Path $WebView2Loader)) {
+        throw "portable smoke missing WebView2Loader.dll next to eng-ide.exe"
+    }
 
     Push-Location $SmokeRoot
     try {
