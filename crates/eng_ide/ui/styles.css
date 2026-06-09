@@ -1,7 +1,7 @@
 :root {
-  --bg: #f4f6f9;
+  --bg: #eef2f7;
   --panel: #ffffff;
-  --panel-alt: #f0f3f7;
+  --panel-alt: #f4f6fa;
   --border: #ccd4df;
   --text: #1f2937;
   --muted: #66758a;
@@ -14,8 +14,8 @@
   --terminal-line: #323741;
   --terminal-text: #dde2ea;
   --terminal-muted: #929cab;
-  --left: 268px;
-  --right: 360px;
+  --left: 276px;
+  --right: 392px;
   --bottom: 228px;
   color-scheme: light;
   font-family: "Segoe UI", system-ui, sans-serif;
@@ -69,7 +69,7 @@ button:hover {
   display: grid;
   height: 100%;
   grid-template-columns: var(--left) 5px minmax(360px, 1fr) 5px var(--right);
-  grid-template-rows: 42px 38px minmax(210px, 1fr) 5px var(--bottom);
+  grid-template-rows: 36px 34px minmax(210px, 1fr) 5px var(--bottom);
   background: var(--bg);
 }
 
@@ -77,10 +77,33 @@ button:hover {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 10px;
-  background: var(--panel);
+  gap: 6px;
+  padding: 4px 8px;
+  background: #f7f9fc;
   border-bottom: 1px solid var(--border);
+}
+
+.title-mark {
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px 0 4px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.tool {
+  height: 26px;
+  border-radius: 3px;
+  padding: 0 9px;
+  background: transparent;
+}
+
+.toolbar-separator {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 3px;
 }
 
 .pathbar {
@@ -88,18 +111,34 @@ button:hover {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 10px;
-  background: #f9fafc;
+  padding: 4px 10px;
+  background: #ffffff;
   border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
 }
 
 .pathbar input {
   width: 100%;
-  height: 25px;
+  height: 24px;
   padding: 3px 8px;
-  border: 1px solid transparent;
-  background: transparent;
+  border: 1px solid #d8e0eb;
+  border-radius: 3px;
+  background: #fbfcfe;
   color: var(--text);
+}
+
+.path-label {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.workspace-root {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #344054;
+  font-family: Consolas, "Cascadia Mono", monospace;
 }
 
 .sidebar,
@@ -186,7 +225,7 @@ button:hover {
 }
 
 .panel-title {
-  height: 36px;
+  height: 34px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -195,18 +234,22 @@ button:hover {
   font-weight: 600;
 }
 
+.panel-title.compact {
+  height: 32px;
+}
+
 .scroll {
   overflow: auto;
   min-height: 0;
 }
 
 .tree {
-  padding: 6px 4px 10px;
-  font-size: 12.5px;
+  padding: 4px 4px 10px;
+  font-size: 12px;
 }
 
 .node {
-  height: 24px;
+  height: 21px;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -224,6 +267,47 @@ button:hover {
 
 .node.dir {
   font-weight: 600;
+}
+
+.inspector {
+  background: #fbfcfe;
+}
+
+.side-tabs {
+  height: 34px;
+  display: flex;
+  align-items: end;
+  gap: 1px;
+  padding: 4px 6px 0;
+  background: var(--panel-alt);
+  border-bottom: 1px solid var(--border);
+}
+
+.side-tab {
+  height: 30px;
+  border-radius: 3px 3px 0 0;
+  border-bottom: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.side-tab.active {
+  background: var(--panel);
+  color: var(--accent);
+  border-color: var(--border);
+  font-weight: 600;
+}
+
+.side-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.side-body .scroll {
+  flex: 1;
 }
 
 .editor-tabs {
@@ -370,19 +454,31 @@ button:hover {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 8px 10px;
+  padding: 7px 10px;
 }
 
 .badge {
   display: inline-flex;
   align-items: center;
-  height: 28px;
-  border-radius: 5px;
+  height: 24px;
+  border-radius: 4px;
   border: 1px solid #8ed8ff;
   background: #effaff;
   color: var(--muted);
   padding: 0 9px;
   font-size: 12px;
+}
+
+.badge.bad {
+  border-color: #f1aaaa;
+  background: #fff1f1;
+  color: var(--error);
+}
+
+.badge.warn {
+  border-color: #f1cb85;
+  background: #fff8e8;
+  color: var(--warning);
 }
 
 .var-table,
@@ -424,6 +520,67 @@ button:hover {
   font: 12px Consolas, monospace;
 }
 
+.empty-state {
+  padding: 14px 12px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.side-plot {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 10px;
+  min-height: 0;
+}
+
+.side-plot canvas {
+  width: 100%;
+  height: min(280px, 34vh);
+  min-height: 210px;
+  display: block;
+  border: 1px solid #d7dfe9;
+  border-radius: 4px;
+  background: #f8fafc;
+}
+
+.plot-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.plot-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-info {
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.run-info div {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.run-info span {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.run-info code {
+  overflow-wrap: anywhere;
+}
+
 .bottom-tabs {
   height: 34px;
   display: flex;
@@ -458,13 +615,59 @@ button:hover {
   flex-direction: column;
 }
 
+.terminal-bar {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--terminal-line);
+  color: var(--terminal-muted);
+  font: 12px Consolas, "Cascadia Mono", monospace;
+}
+
+.terminal-bar div {
+  display: flex;
+  gap: 6px;
+}
+
+.terminal-bar button,
+.terminal-input button {
+  height: 24px;
+  border-color: #4a5360;
+  background: #2a2f38;
+  color: var(--terminal-text);
+}
+
 .terminal-log {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 9px 12px;
+  padding: 8px 12px;
   font: 12.5px Consolas, "Cascadia Mono", monospace;
   white-space: pre-wrap;
+}
+
+.terminal-entry {
+  margin: 0 0 6px;
+  line-height: 1.45;
+}
+
+.terminal-entry.command {
+  color: #7db5ff;
+}
+
+.terminal-entry.error {
+  color: #ffb4b4;
+}
+
+.terminal-entry.info {
+  color: var(--terminal-muted);
+}
+
+.terminal-entry.stdout {
+  color: var(--terminal-text);
 }
 
 .terminal-input {
@@ -493,25 +696,6 @@ button:hover {
   background: transparent;
   color: var(--terminal-text);
   font: 12.5px Consolas, "Cascadia Mono", monospace;
-}
-
-.terminal-input button {
-  height: 24px;
-}
-
-.plot-card {
-  margin: 10px 12px 12px;
-  background: #f8fafc;
-  border: 1px solid #d7dfe9;
-  border-radius: 5px;
-  color: var(--text);
-  padding: 8px;
-}
-
-.plot-card canvas {
-  width: 100%;
-  height: 220px;
-  display: block;
 }
 
 .status {
@@ -553,4 +737,19 @@ button:hover {
 
 .muted {
   color: var(--muted);
+}
+
+body.dragging-file::after {
+  content: "Drop .eng file to open";
+  position: fixed;
+  inset: 12px;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+  background: rgba(239, 250, 255, 0.88);
+  color: var(--accent);
+  font-weight: 700;
+  z-index: 100;
+  pointer-events: none;
 }

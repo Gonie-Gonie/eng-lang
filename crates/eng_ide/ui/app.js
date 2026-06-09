@@ -15,12 +15,14 @@ const state = {
   args: [],
   plotSpec: null,
   reportTitle: "",
-  terminal: "Ready.",
+  terminalEntries: [{ kind: "info", text: "Ready." }],
   bottomTab: "terminal",
+  sideTab: "variables",
   selectedVariable: null,
-  status: "Starting",
-  showPlot: false
+  status: "Starting"
 };
+
+let dragDropBound = false;
 
 function byId(id) {
   return document.getElementById(id);
@@ -41,6 +43,10 @@ async function boot() {
     state.source = data.current.source;
     state.tabs = [{ path: state.currentPath, source: state.source, dirty: false }];
     state.check = data.check;
+    state.terminalEntries = [
+      { kind: "info", text: `Workspace ${data.root}` },
+      { kind: "info", text: `Loaded ${state.currentPath}` }
+    ];
     state.status = `Loaded ${state.currentPath}`;
     render();
   } catch (error) {
@@ -53,17 +59,21 @@ function render() {
   app.className = "shell";
   app.innerHTML = `
     <div class="toolbar">
-      <button class="primary" id="checkBtn">Check</button>
-      <button id="saveBtn">Save</button>
-      <button class="primary" id="runBtn">Run</button>
-      <button id="reportBtn">Report</button>
-      <button id="plotBtn">Plot SVG</button>
-      <span class="badge">Errors ${errorCount()}</span>
-      <span class="badge">Warnings ${warningCount()}</span>
+      <div class="title-mark">EngLang</div>
+      <button class="tool primary" id="runBtn" title="Run current file">Run</button>
+      <button class="tool" id="checkBtn" title="Check diagnostics">Check</button>
+      <button class="tool" id="saveBtn" title="Save current file">Save</button>
+      <span class="toolbar-separator"></span>
+      <button class="tool" id="reportBtn" title="Open last report">Report</button>
+      <button class="tool" id="plotBtn" title="Show plot panel">Plot</button>
+      <span class="badge ${errorCount() ? "bad" : ""}">Errors ${errorCount()}</span>
+      <span class="badge ${warningCount() ? "warn" : ""}">Warnings ${warningCount()}</span>
       <span class="status">${escapeHtml(state.status)}</span>
     </div>
     <div class="pathbar">
-      <span>File</span>
+      <span class="path-label">Workspace</span>
+      <span class="workspace-root" title="${escapeAttr(state.root)}">${escapeHtml(compactPath(state.root))}</span>
+      <span class="path-label">File</span>
       <input id="pathInput" value="${escapeAttr(state.currentPath)}" />
       <button id="openPathBtn">Open</button>
     </div>
@@ -84,15 +94,7 @@ function render() {
       </div>
     </main>
     <div class="splitter splitter-right" data-splitter="right"></div>
-    <aside class="variables">
-      <div class="panel-title">Variables</div>
-      <div class="badges">
-        <span class="badge">Source ${state.check.symbols.length}</span>
-        <span class="badge">Run ${state.variables.length}</span>
-        <span class="badge">Args ${state.args.length}</span>
-      </div>
-      <div class="scroll">${renderVariables()}</div>
-    </aside>
+    ${renderSidePanel()}
     <div class="splitter splitter-bottom" data-splitter="bottom"></div>
     <section class="bottom">
       <div class="bottom-tabs">
@@ -103,7 +105,8 @@ function render() {
     </section>
   `;
   bind();
-  if (state.bottomTab === "terminal" && state.showPlot && state.plotSpec) drawPlot();
+  bindGlobalEvents();
+  if (state.sideTab === "plot" && state.plotSpec) drawPlot("sidePlotCanvas");
 }
 
 function bind() {
@@ -126,7 +129,10 @@ function bind() {
   byId("saveBtn").onclick = saveCurrent;
   byId("runBtn").onclick = runCurrent;
   byId("reportBtn").onclick = () => openArtifact("report");
-  byId("plotBtn").onclick = () => openArtifact("plot");
+  byId("plotBtn").onclick = () => {
+    state.sideTab = "plot";
+    render();
+  };
   byId("openPathBtn").onclick = () => openFile(byId("pathInput").value);
   byId("pathInput").addEventListener("keydown", (event) => {
     if (event.key === "Enter") openFile(event.currentTarget.value);
@@ -151,12 +157,20 @@ function bind() {
       render();
     };
   });
+  document.querySelectorAll("[data-side-tab]").forEach((tab) => {
+    tab.onclick = () => {
+      state.sideTab = tab.dataset.sideTab;
+      render();
+    };
+  });
   document.querySelectorAll("[data-variable]").forEach((row) => {
     row.onclick = () => {
       state.selectedVariable = state.selectedVariable === row.dataset.variable ? null : row.dataset.variable;
       render();
     };
   });
+  const openPlotArtifact = byId("openPlotArtifact");
+  if (openPlotArtifact) openPlotArtifact.onclick = () => openArtifact("plot");
   const terminalInput = byId("terminalInput");
   if (terminalInput) {
     terminalInput.focus();
@@ -165,11 +179,12 @@ function bind() {
     });
     byId("terminalSend").onclick = sendTerminal;
     byId("terminalPlot").onclick = () => {
-      state.showPlot = !state.showPlot;
+      state.sideTab = "plot";
       render();
     };
+    byId("terminalReset").onclick = () => sendTerminalCommand("reset");
     byId("terminalClear").onclick = () => {
-      state.terminal = "";
+      clearTerminal();
       render();
     };
   }
@@ -201,6 +216,7 @@ async function openFile(path) {
     render();
   } catch (error) {
     state.status = String(error);
+    appendTerminal("error", String(error));
     render();
   }
 }
@@ -220,6 +236,7 @@ async function saveCurrent() {
     render();
   } catch (error) {
     state.status = String(error);
+    appendTerminal("error", String(error));
     render();
   }
 }
@@ -233,6 +250,7 @@ async function checkCurrent() {
     render();
   } catch (error) {
     state.status = String(error);
+    appendTerminal("error", String(error));
     render();
   }
 }
@@ -240,9 +258,10 @@ async function checkCurrent() {
 async function runCurrent() {
   try {
     rememberCurrentTab();
+    appendTerminal("command", `${terminalPrompt()}run ${fileName(state.currentPath)}`);
     const result = await call("ide_run", { path: state.currentPath, source: state.source });
-    state.terminal = result.terminal || "";
     applyRun(result);
+    appendRunResult(result);
     state.status = result.ok ? "Run complete" : "Run blocked";
     state.bottomTab = "terminal";
     state.dirty = false;
@@ -250,7 +269,7 @@ async function runCurrent() {
     if (tab) tab.dirty = false;
     render();
   } catch (error) {
-    state.terminal += `\nRun failed: ${String(error)}`;
+    appendTerminal("error", `Run failed: ${String(error)}`);
     state.status = "Run failed";
     state.bottomTab = "terminal";
     render();
@@ -262,13 +281,17 @@ async function sendTerminal() {
   const command = input.value.trim();
   if (!command) return;
   input.value = "";
+  await sendTerminalCommand(command);
+}
+
+async function sendTerminalCommand(command) {
   const prompt = terminalPrompt();
   if (command.toLowerCase() === "clear") {
-    state.terminal = "";
+    clearTerminal();
     render();
     return;
   }
-  state.terminal += `${state.terminal ? "\n" : ""}${prompt}${command}`;
+  appendTerminal("command", `${prompt}${command}`);
   try {
     const result = await call("ide_terminal", {
       path: state.currentPath,
@@ -276,10 +299,10 @@ async function sendTerminal() {
       command
     });
     applyRun(result);
-    state.terminal += `\n${result.terminal}`;
+    appendRunResult(result);
     state.status = result.ok ? "Terminal command complete" : "Terminal diagnostics";
   } catch (error) {
-    state.terminal += `\n${String(error)}`;
+    appendTerminal("error", String(error));
     state.status = "Terminal command failed";
   }
   state.bottomTab = "terminal";
@@ -289,11 +312,12 @@ async function sendTerminal() {
 async function openArtifact(kind) {
   try {
     const opened = await call("ide_open_artifact", { kind });
-    state.terminal += `${state.terminal ? "\n" : ""}Opened ${opened}`;
+    appendTerminal("info", `Opened ${opened}`);
     state.status = `Opened ${kind}`;
     render();
   } catch (error) {
     state.status = String(error);
+    appendTerminal("error", String(error));
     render();
   }
 }
@@ -304,6 +328,25 @@ function applyRun(result) {
   state.args = result.args ?? state.args;
   state.plotSpec = result.plotSpec && Object.keys(result.plotSpec).length ? result.plotSpec : state.plotSpec;
   state.reportTitle = result.reportTitle ?? state.reportTitle;
+  if (result.plotSpec && Object.keys(result.plotSpec).length) state.sideTab = "plot";
+}
+
+function appendRunResult(result) {
+  const text = (result.terminal || "").trim();
+  if (text) appendTerminal(result.ok ? "stdout" : "error", text);
+  if (!text && result.ok) appendTerminal("info", "Run complete.");
+  if (!result.ok) state.bottomTab = "problems";
+}
+
+function appendTerminal(kind, text) {
+  state.terminalEntries.push({ kind, text: String(text ?? "") });
+  if (state.terminalEntries.length > 300) {
+    state.terminalEntries.splice(0, state.terminalEntries.length - 300);
+  }
+}
+
+function clearTerminal() {
+  state.terminalEntries = [{ kind: "info", text: "Terminal cleared." }];
 }
 
 function rememberCurrentTab() {
@@ -373,6 +416,66 @@ function closeTab(path) {
 
 function tabFor(path) {
   return state.tabs.find((tab) => tab.path === path);
+}
+
+function renderSidePanel() {
+  return `
+    <aside class="variables inspector">
+      <div class="side-tabs">
+        <button class="side-tab ${state.sideTab === "variables" ? "active" : ""}" data-side-tab="variables">Variables</button>
+        <button class="side-tab ${state.sideTab === "plot" ? "active" : ""}" data-side-tab="plot">Plot</button>
+        <button class="side-tab ${state.sideTab === "run" ? "active" : ""}" data-side-tab="run">Run</button>
+      </div>
+      <div class="side-body">${renderSideBody()}</div>
+    </aside>
+  `;
+}
+
+function renderSideBody() {
+  if (state.sideTab === "plot") return renderPlotPanel();
+  if (state.sideTab === "run") return renderRunPanel();
+  return `
+    <div class="panel-title compact">Variables</div>
+    <div class="badges">
+      <span class="badge">Source ${state.check.symbols.length}</span>
+      <span class="badge">Run ${state.variables.length}</span>
+      <span class="badge">Args ${state.args.length}</span>
+    </div>
+    <div class="scroll">${renderVariables()}</div>
+  `;
+}
+
+function renderPlotPanel() {
+  if (!state.plotSpec) {
+    return `
+      <div class="panel-title compact">Plot</div>
+      <div class="empty-state">Run a file that produces a plot.</div>
+    `;
+  }
+  return `
+    <div class="panel-title compact">${escapeHtml(state.plotSpec.title || "Plot")}</div>
+    <div class="side-plot">
+      <canvas id="sidePlotCanvas"></canvas>
+      <div class="plot-meta">
+        <span>${escapeHtml(axisLabel(state.plotSpec.x_axis) || "x")}</span>
+        <span>${escapeHtml(axisLabel(state.plotSpec.y_axis) || "y")}</span>
+      </div>
+      <button id="openPlotArtifact">Open SVG artifact</button>
+    </div>
+  `;
+}
+
+function renderRunPanel() {
+  return `
+    <div class="panel-title compact">Run Context</div>
+    <div class="run-info">
+      <div><span>Workspace</span><code title="${escapeAttr(state.root)}">${escapeHtml(compactPath(state.root))}</code></div>
+      <div><span>Directory</span><code>${escapeHtml(currentDirectory())}</code></div>
+      <div><span>File</span><code>${escapeHtml(state.currentPath || "-")}</code></div>
+      <div><span>Status</span><code>${escapeHtml(state.check.status || "-")}</code></div>
+      <div><span>Report</span><code>${escapeHtml(state.reportTitle || "-")}</code></div>
+    </div>
+  `;
 }
 
 function renderTabs() {
@@ -607,28 +710,34 @@ function renderProblems() {
 }
 
 function renderTerminal() {
-  const plot = state.showPlot && state.plotSpec ? `
-    <div class="plot-card">
-      <strong>${escapeHtml(state.plotSpec.title || "Plot")}</strong>
-      <canvas id="plotCanvas"></canvas>
-    </div>
-  ` : "";
   return `
     <div class="terminal">
-      <div class="terminal-log">${escapeHtml(state.terminal || "Ready.")}${plot}</div>
+      <div class="terminal-bar">
+        <span>${escapeHtml(currentDirectory())}</span>
+        <div>
+          <button id="terminalPlot">Plot</button>
+          <button id="terminalReset">Reset</button>
+          <button id="terminalClear">Clear</button>
+        </div>
+      </div>
+      <div class="terminal-log">${renderTerminalEntries()}</div>
       <div class="terminal-input">
-        <button id="terminalPlot">Plot</button>
-        <button id="terminalClear">Clear</button>
         <span class="prompt">${escapeHtml(terminalPrompt())}</span>
-        <input id="terminalInput" placeholder="x: AbsoluteTemperature = 3 degC" />
-        <button class="primary" id="terminalSend">Send</button>
+        <input id="terminalInput" placeholder="type EngLang command, run, check, reset, clear" />
+        <button class="primary" id="terminalSend">Enter</button>
       </div>
     </div>
   `;
 }
 
-function drawPlot() {
-  const canvas = byId("plotCanvas");
+function renderTerminalEntries() {
+  return state.terminalEntries.map((entry) => `
+    <div class="terminal-entry ${escapeAttr(entry.kind)}">${escapeHtml(entry.text)}</div>
+  `).join("");
+}
+
+function drawPlot(canvasId) {
+  const canvas = byId(canvasId);
   if (!canvas || !state.plotSpec) return;
   const ctx = canvas.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
@@ -640,15 +749,16 @@ function drawPlot() {
   ctx.fillStyle = "#f8fafc";
   ctx.fillRect(0, 0, rect.width, rect.height);
 
-  const series = state.plotSpec.series?.[0] ?? {};
+  const seriesList = state.plotSpec.series ?? [];
+  const series = seriesList[0] ?? {};
   const points = series.points ?? [];
   const bins = series.bins ?? [];
   const isHistogram = state.plotSpec.plot_type === "histogram" && bins.length;
-  const left = 66;
+  const left = 68;
   const right = rect.width - 28;
   const top = 26;
-  const bottom = rect.height - 46;
-  const bounds = isHistogram ? boundsFromBins(bins) : boundsFromPoints(points);
+  const bottom = rect.height - 50;
+  const bounds = isHistogram ? boundsFromBins(bins) : boundsFromSeries(seriesList);
   const xTicks = ticks(bounds.minX, bounds.maxX, 5);
   const yTicks = ticks(bounds.minY, bounds.maxY, 5);
 
@@ -674,8 +784,9 @@ function drawPlot() {
   line(ctx, left, bottom, right, bottom);
   line(ctx, left, top, left, bottom);
 
-  ctx.fillStyle = "#1f6fc8";
-  ctx.strokeStyle = "#1f6fc8";
+  const colors = ["#1f6fc8", "#26805a", "#a86d14", "#7c3aed", "#b82c2c"];
+  ctx.fillStyle = colors[0];
+  ctx.strokeStyle = colors[0];
   ctx.lineWidth = 2;
   if (isHistogram) {
     const baseline = sy(0, bounds, top, bottom);
@@ -694,14 +805,19 @@ function drawPlot() {
       ctx.fillRect(x - width / 2, Math.min(y, baseline), width, Math.abs(baseline - y));
     }
   } else {
-    ctx.beginPath();
-    points.forEach((point, index) => {
-      const x = sx(point[0], bounds, left, right);
-      const y = sy(point[1], bounds, top, bottom);
-      if (index === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+    seriesList.forEach((item, seriesIndex) => {
+      const itemPoints = item.points ?? [];
+      ctx.strokeStyle = colors[seriesIndex % colors.length];
+      ctx.beginPath();
+      itemPoints.forEach((point, index) => {
+        const x = sx(point[0], bounds, left, right);
+        const y = sy(point[1], bounds, top, bottom);
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
     });
-    ctx.stroke();
+    drawLegend(ctx, seriesList, colors, left, top);
   }
 
   ctx.fillStyle = "#1f2937";
@@ -732,6 +848,11 @@ function boundsFromPoints(points) {
   return padBounds({ minX, maxX, minY, maxY });
 }
 
+function boundsFromSeries(seriesList) {
+  const points = seriesList.flatMap((series) => series.points ?? []);
+  return boundsFromPoints(points);
+}
+
 function boundsFromBins(bins) {
   let minX = Infinity, maxX = -Infinity, maxY = 1;
   for (const bin of bins) {
@@ -740,6 +861,20 @@ function boundsFromBins(bins) {
     maxY = Math.max(maxY, bin.count);
   }
   return padBounds({ minX, maxX, minY: 0, maxY });
+}
+
+function drawLegend(ctx, seriesList, colors, left, top) {
+  const labelled = seriesList.filter((series) => series.label || series.name).slice(0, 5);
+  if (labelled.length < 2) return;
+  ctx.font = "11px Segoe UI";
+  ctx.textAlign = "left";
+  labelled.forEach((series, index) => {
+    const y = top + 12 + index * 16;
+    ctx.strokeStyle = colors[index % colors.length];
+    line(ctx, left + 6, y - 4, left + 24, y - 4);
+    ctx.fillStyle = "#344054";
+    ctx.fillText(series.label || series.name, left + 30, y);
+  });
 }
 
 function padBounds(bounds) {
@@ -809,9 +944,41 @@ function bindSplitters() {
   });
 }
 
+function bindGlobalEvents() {
+  if (dragDropBound) return;
+  dragDropBound = true;
+  window.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    document.body.classList.add("dragging-file");
+  });
+  window.addEventListener("dragleave", () => {
+    document.body.classList.remove("dragging-file");
+  });
+  window.addEventListener("drop", (event) => {
+    event.preventDefault();
+    document.body.classList.remove("dragging-file");
+    const file = Array.from(event.dataTransfer?.files || [])[0];
+    const path = file?.path || file?.name;
+    if (path) openFile(path);
+  });
+}
+
 function terminalPrompt() {
-  const parent = state.currentPath.split("/").slice(0, -1).join("/") || ".";
-  return `EngLang ${parent} >>`;
+  return `EngLang ${currentDirectory()} >> `;
+}
+
+function currentDirectory() {
+  const normalized = state.currentPath.replaceAll("\\", "/");
+  return normalized.split("/").slice(0, -1).join("/") || ".";
+}
+
+function compactPath(path) {
+  const text = String(path || "");
+  if (text.length <= 56) return text;
+  const normalized = text.replaceAll("\\", "/");
+  const parts = normalized.split("/");
+  if (parts.length <= 3) return `...${text.slice(-52)}`;
+  return `${parts[0]}/.../${parts.slice(-2).join("/")}`;
 }
 
 function errorCount() {

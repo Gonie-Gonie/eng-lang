@@ -735,9 +735,8 @@ fn terminal_summary(
     if !stdout.trim().is_empty() {
         lines.push(stdout.trim_end().to_owned());
     }
-    lines.push("Run OK".to_owned());
     lines.push(format!(
-        "variables: {}, args: {}",
+        "run complete: variables {}, args {}",
         variables.len(),
         args.len()
     ));

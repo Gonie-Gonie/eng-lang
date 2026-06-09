@@ -42,7 +42,13 @@ frontend is static, so setup does not install Node/npm.
 ## Interface
 
 Top toolbar
-  Check, Save, Run, Report, Plot SVG, diagnostic counts, and current status.
+  Compact Run, Check, Save, Report, and Plot actions, diagnostic counts, and
+  current status.
+
+Workspace bar
+  Shows the resolved workspace root and current file path. Files inside the
+  workspace open from the Explorer; outside `.eng` files can also be dropped
+  onto the window for editing and running.
 
 Left Explorer
   Dense workspace browser for `examples/`, `stdlib/`, and `docs/`. Files open
@@ -55,20 +61,22 @@ Editor
   force suggestions, `Tab` or `Enter` to insert, and `Esc` to dismiss.
 
 Right Sidebar
-  Variables table. After a successful run, source symbols, runtime variables,
-  and Args values are summarized. Clicking a variable row expands canonical
-  unit, dimension, role, and line metadata.
+  Variables, Plot, and Run tabs. After a successful run, source symbols,
+  runtime variables, and Args values are summarized in a table. Clicking a
+  variable row expands canonical unit, dimension, role, and line metadata. Plot
+  previews live beside Variables so the bottom terminal keeps a stable height.
 
 Bottom Panel
   Problems and Terminal tabs. The Terminal uses an EngLang prompt, supports
-  `clear`, `reset`, `check`, `run`, and one-line top-level commands, and renders
-  PlotSpec previews inline. Plots use vertical y-axis labels and avoid x-limit
-  suffix text.
+  `clear`, `reset`, `check`, `run`, and one-line top-level commands. Terminal
+  history is append-only during normal use, so diagnostics and prior output do
+  not disappear when the next command runs.
 
-Reports and artifacts remain runtime objects by default. The Report and Plot
-SVG toolbar buttons save/open those artifacts on demand after a successful run.
-This keeps the IDE focused on the code, terminal output, variables, diagnostics,
-and plot preview instead of exposing an artifact browser by default.
+Reports and artifacts remain runtime objects by default. The Report toolbar
+button and Plot tab artifact button save/open those artifacts on demand after a
+successful run. This keeps the IDE focused on code, terminal output, variables,
+diagnostics, and plot preview instead of exposing an artifact browser by
+default.
 
 ## Recommended Smoke Files
 
