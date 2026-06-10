@@ -4410,6 +4410,33 @@ mod tests {
     }
 
     #[test]
+    fn run_source_prints_expression_command() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-expression-print");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-expression-print-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output = run_source(
+            &virtual_path,
+            "Q = 10 kW\nprint Q: .1 kW\n",
+            &build_root,
+            &RunOptions::default(),
+        )
+        .expect("run");
+
+        assert_eq!(output.stdout.trim(), "10.0 kW");
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
     fn run_source_accepts_terminal_scalar_assignment() {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")

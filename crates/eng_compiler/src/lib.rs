@@ -3625,6 +3625,38 @@ mod tests {
     }
 
     #[test]
+    fn supports_expression_print_without_string_template_quotes() {
+        let report = check_source(
+            "ok.eng",
+            "Q = 10 kW\nprint Q: .1 kW\nprint Q = {Q: .2 kW}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(report.semantic_program.prints.len(), 2);
+        assert_eq!(report.semantic_program.prints[0].template, "{Q: .1 kW}");
+        assert_eq!(report.semantic_program.prints[0].fields.len(), 1);
+        assert_eq!(
+            report.semantic_program.prints[0].fields[0]
+                .requested_unit
+                .as_deref(),
+            Some("kW")
+        );
+        assert_eq!(report.semantic_program.prints[1].template, "Q = {Q: .2 kW}");
+    }
+
+    #[test]
+    fn rejects_unknown_expression_print_variable() {
+        let report = check_source("bad.eng", "print missing_value", &CheckOptions::default());
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-PRINT-FMT-004"));
+    }
+
+    #[test]
     fn rejects_invalid_log_levels() {
         let report = check_source(
             "bad.eng",

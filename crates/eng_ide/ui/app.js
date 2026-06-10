@@ -355,7 +355,7 @@ async function runCurrent() {
     rememberCurrentTab();
     appendTerminal("command", `${terminalPrompt()}run ${fileName(state.currentPath)}`);
     const result = await call("ide_run", { path: state.currentPath, source: state.source });
-    applyRun(result);
+    applyRun(result, { mergeRuntime: false });
     appendRunResult(result);
     state.status = result.ok ? "Run complete" : "Run blocked";
     state.bottomTab = "terminal";
@@ -403,7 +403,7 @@ async function sendTerminalCommand(command) {
       command,
       runDir: state.runDir
     });
-    applyRun(result);
+    applyRun(result, { mergeRuntime: command.toLowerCase() !== "run" });
     appendRunResult(result);
     state.status = result.ok ? "Terminal command complete" : "Terminal diagnostics";
   } catch (error) {
@@ -427,12 +427,16 @@ async function openArtifact(kind) {
   }
 }
 
-function applyRun(result) {
+function applyRun(result, options = {}) {
   state.check = result.check ?? state.check;
   if (result.runtimeUpdated) {
-    state.variables = result.variables ?? [];
-    state.args = result.args ?? [];
-    state.artifacts = result.artifacts ?? [];
+    state.variables = options.mergeRuntime
+      ? mergeRuntimeRows(state.variables, result.variables ?? [])
+      : result.variables ?? [];
+    state.args = options.mergeRuntime
+      ? mergeRuntimeRows(state.args, result.args ?? [])
+      : result.args ?? [];
+    state.artifacts = result.artifacts ?? state.artifacts;
     state.plotSpec = hasPlotData(result.plotSpec) ? result.plotSpec : null;
     state.reportTitle = result.reportTitle ?? "";
     if (state.plotSpec) state.sideTab = "plot";
@@ -442,7 +446,6 @@ function applyRun(result) {
 function appendRunResult(result) {
   const text = (result.terminal || "").trim();
   if (text) appendTerminal(result.ok ? "stdout" : "error", text);
-  if (!text && result.ok) appendTerminal("info", "Run complete.");
   if (!result.ok) state.bottomTab = "problems";
 }
 
@@ -465,6 +468,21 @@ function hasPlotData(spec) {
     (Array.isArray(series.points) && series.points.length) ||
     (Array.isArray(series.bins) && series.bins.length)
   ));
+}
+
+function mergeRuntimeRows(existingRows, incomingRows) {
+  if (!incomingRows?.length) return existingRows ?? [];
+  const rows = [...(existingRows ?? [])];
+  for (const incoming of incomingRows) {
+    const index = rows.findIndex((row) => runtimeRowKey(row) === runtimeRowKey(incoming));
+    if (index >= 0) rows[index] = { ...rows[index], ...incoming };
+    else rows.push(incoming);
+  }
+  return rows;
+}
+
+function runtimeRowKey(row) {
+  return `${row?.name ?? ""}:${row?.line ?? ""}`;
 }
 
 function rememberTerminalCommand(command) {

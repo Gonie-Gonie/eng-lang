@@ -360,7 +360,9 @@ fn ide_terminal(
         return ide_run(path, source, state);
     }
 
-    if let Some(check) = terminal_command_error(trimmed) {
+    if let Some(check) = terminal_command_error(trimmed)
+        .or_else(|| terminal_unrecognized_command_error(trimmed, &run_dir_path))
+    {
         return Ok(RunView {
             ok: false,
             runtime_updated: false,
@@ -406,13 +408,18 @@ fn ide_terminal(
             report_title: String::new(),
         });
     }
-    let view =
+    let mut view =
         run_virtual_source_file(&root, &session_path, &session_source, check, state.clone())?;
     if view.ok {
         *state
             .terminal_session_source
             .lock()
             .map_err(|error| error.to_string())? = session_source;
+        if view.variables.is_empty() && view.args.is_empty() && !has_plot_data(&view.plot_spec) {
+            view.runtime_updated = false;
+            view.artifacts.clear();
+            view.report_title.clear();
+        }
     }
     Ok(view)
 }
@@ -889,7 +896,7 @@ fn terminal_command_error(command: &str) -> Option<CheckView> {
     let (message, help) = if name.eq_ignore_ascii_case("print") {
         (
             "print is a string-template statement, not a function call.".to_owned(),
-            Some("Use: print \"Q = {Q_coil: .2 kW}\"".to_owned()),
+            Some("Use: print Q_coil or print Q_coil: .2 kW".to_owned()),
         )
     } else {
         (
@@ -904,6 +911,28 @@ fn terminal_command_error(command: &str) -> Option<CheckView> {
             line: 1,
             message,
             help,
+        }],
+        symbols: Vec::new(),
+        status: "1 error(s), 0 warning(s)".to_owned(),
+    })
+}
+
+fn terminal_unrecognized_command_error(command: &str, run_dir: &Path) -> Option<CheckView> {
+    let report = check_source(
+        run_dir.join("__ide_terminal_command__.eng"),
+        command,
+        &CheckOptions::default(),
+    );
+    if report.syntax_summary.ast_items > 0 || report.has_errors() {
+        return None;
+    }
+    Some(CheckView {
+        diagnostics: vec![DiagnosticView {
+            severity: "error".to_owned(),
+            code: "E-IDE-TERMINAL-SYNTAX".to_owned(),
+            line: 1,
+            message: "terminal command was not recognized.".to_owned(),
+            help: Some("Use a binding like `x = 3`, an expression print like `print x`, `run`, `check`, `reset`, or `clear`.".to_owned()),
         }],
         symbols: Vec::new(),
         status: "1 error(s), 0 warning(s)".to_owned(),
@@ -959,39 +988,27 @@ fn array_has_items(value: &Value, key: &str) -> bool {
 
 fn terminal_summary(
     stdout: &str,
-    variables: &[RuntimeVariableView],
-    args: &[RuntimeArgView],
-    report_title: &str,
-    plot_spec: &Value,
+    _variables: &[RuntimeVariableView],
+    _args: &[RuntimeArgView],
+    _report_title: &str,
+    _plot_spec: &Value,
 ) -> String {
-    let mut lines = Vec::new();
-    if !stdout.trim().is_empty() {
-        lines.push(stdout.trim_end().to_owned());
-    }
-    lines.push(format!(
-        "run complete: variables {}, args {}",
-        variables.len(),
-        args.len()
-    ));
-    if !report_title.is_empty() {
-        lines.push(format!("report: {report_title}"));
-    }
-    if has_plot_data(plot_spec) {
-        lines.push("plot: available".to_owned());
-    }
-    lines.join("\n")
+    stdout.trim_end().to_owned()
 }
 
 fn diagnostic_summary_text(check: &CheckView) -> String {
-    let mut lines = vec![format!("diagnostics: {}", check.status)];
+    let mut lines = Vec::new();
     for diagnostic in check.diagnostics.iter().take(6) {
         lines.push(format!(
-            "L{} {}: {}",
-            diagnostic.line, diagnostic.code, diagnostic.message
+            "{} L{} {}: {}",
+            diagnostic.severity, diagnostic.line, diagnostic.code, diagnostic.message
         ));
         if let Some(help) = &diagnostic.help {
             lines.push(format!("  help: {help}"));
         }
+    }
+    if lines.is_empty() {
+        lines.push(check.status.clone());
     }
     if check.diagnostics.len() > 6 {
         lines.push(format!(
@@ -1308,6 +1325,29 @@ mod tests {
     fn terminal_allows_assignments_with_function_calls() {
         assert!(terminal_command_error("x = mean(Q, axis=Time)").is_none());
         assert!(terminal_command_error("x =3").is_none());
+    }
+
+    #[test]
+    fn terminal_rejects_unrecognized_commands() {
+        let check =
+            terminal_unrecognized_command_error("unknown_command", Path::new(".")).expect("error");
+        assert_eq!(check.diagnostics[0].code, "E-IDE-TERMINAL-SYNTAX");
+        assert!(check.diagnostics[0].message.contains("not recognized"));
+    }
+
+    #[test]
+    fn terminal_summary_only_returns_stdout() {
+        assert_eq!(
+            terminal_summary(
+                "hello\n",
+                &[],
+                &[],
+                "report",
+                &serde_json::json!({ "series": [{ "points": [{ "x": 1, "y": 2 }] }] })
+            ),
+            "hello"
+        );
+        assert!(terminal_summary("", &[], &[], "", &Value::Null).is_empty());
     }
 
     #[test]

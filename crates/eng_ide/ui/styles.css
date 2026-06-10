@@ -764,14 +764,14 @@ button:hover {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 8px 12px;
+  padding: 6px 10px;
   font: 12.5px Consolas, "Cascadia Mono", monospace;
   white-space: pre-wrap;
 }
 
 .terminal-entry {
-  margin: 0 0 6px;
-  line-height: 1.45;
+  margin: 0 0 2px;
+  line-height: 1.28;
 }
 
 .terminal-entry.command {

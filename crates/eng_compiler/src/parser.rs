@@ -568,7 +568,7 @@ fn parse_line_items(
     if let Some(summary) = parse_summary_decl(tokens, line_text) {
         items.push(AstItem::Summary(summary));
     }
-    if let Some(print) = parse_print_decl(tokens, context) {
+    if let Some(print) = parse_print_decl(tokens, line_text, context) {
         items.push(AstItem::Print(print));
     }
     if let Some(export) = parse_csv_export_decl(tokens, context) {
@@ -1700,10 +1700,20 @@ fn parse_summary_decl(tokens: &[Token], line_text: &str) -> Option<SummaryDecl> 
     })
 }
 
-fn parse_print_decl(tokens: &[Token], context: ParseContext) -> Option<PrintDecl> {
+fn parse_print_decl(tokens: &[Token], line_text: &str, context: ParseContext) -> Option<PrintDecl> {
     let first = tokens.first()?;
-    let (level, template_start) = match first.kind {
-        TokenKind::Keyword(Keyword::Print) => ("print".to_owned(), 1),
+    let (level, template) = match first.kind {
+        TokenKind::Keyword(Keyword::Print) => {
+            let template = tokens
+                .iter()
+                .skip(1)
+                .find_map(|token| match &token.kind {
+                    TokenKind::StringLiteral(value) => Some(value.clone()),
+                    _ => None,
+                })
+                .or_else(|| print_expression_template(line_after_first_token(line_text, first)?))?;
+            ("print".to_owned(), template)
+        }
         TokenKind::Keyword(Keyword::Log) => {
             let level_token = tokens.get(1)?;
             let level = match &level_token.kind {
@@ -1717,17 +1727,18 @@ fn parse_print_decl(tokens: &[Token], context: ParseContext) -> Option<PrintDecl
             } else {
                 2
             };
-            (level, template_start)
+            let template =
+                tokens
+                    .iter()
+                    .skip(template_start)
+                    .find_map(|token| match &token.kind {
+                        TokenKind::StringLiteral(value) => Some(value.clone()),
+                        _ => None,
+                    })?;
+            (level, template)
         }
         _ => return None,
     };
-    let template = tokens
-        .iter()
-        .skip(template_start)
-        .find_map(|token| match &token.kind {
-            TokenKind::StringLiteral(value) => Some(value.clone()),
-            _ => None,
-        })?;
     Some(PrintDecl {
         level: level.to_owned(),
         template,
@@ -1735,6 +1746,24 @@ fn parse_print_decl(tokens: &[Token], context: ParseContext) -> Option<PrintDecl
         span: first.span,
         context,
     })
+}
+
+fn line_after_first_token<'a>(line_text: &'a str, first: &Token) -> Option<&'a str> {
+    let trimmed = line_text.trim_start();
+    let rest = trimmed.get(first.lexeme.len()..)?.trim();
+    (!rest.is_empty()).then_some(rest)
+}
+
+fn print_expression_template(expression: &str) -> Option<String> {
+    let expression = expression.trim();
+    if expression.is_empty() {
+        return None;
+    }
+    if expression.contains('{') || expression.contains('}') {
+        Some(expression.to_owned())
+    } else {
+        Some(format!("{{{expression}}}"))
+    }
 }
 
 fn parse_csv_export_decl(tokens: &[Token], context: ParseContext) -> Option<CsvExportDecl> {
