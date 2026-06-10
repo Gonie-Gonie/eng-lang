@@ -3575,6 +3575,10 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
         return semantic_type("Energy", "J");
     }
 
+    if numeric_literal_with_optional_unit(expression).is_some_and(|(_value, unit)| unit.is_none()) {
+        return semantic_type("DimensionlessNumber", "1");
+    }
+
     if let Some(unit) = first_unit_in_expression(expression) {
         if let Some(completion) = infer_quantity_from_name_and_unit(name, &unit) {
             return semantic_type(completion.quantity_kind, completion.canonical_unit);

@@ -4217,6 +4217,21 @@ mod tests {
     }
 
     #[test]
+    fn infers_dimensionless_number_for_plain_numeric_binding() {
+        let report = check_source("ok.eng", "x =3", &CheckOptions::default());
+
+        assert!(!report.has_errors());
+        let binding = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "x")
+            .expect("x binding");
+        assert_eq!(binding.semantic_type.quantity_kind, "DimensionlessNumber");
+        assert_eq!(binding.semantic_type.display_unit, "1");
+    }
+
+    #[test]
     fn records_expected_type_for_explicit_declaration() {
         let report = check_source(
             "ok.eng",

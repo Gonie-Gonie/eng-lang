@@ -429,12 +429,14 @@ async function openArtifact(kind) {
 
 function applyRun(result) {
   state.check = result.check ?? state.check;
-  state.variables = result.variables ?? state.variables;
-  state.args = result.args ?? state.args;
-  state.artifacts = result.artifacts ?? state.artifacts;
-  state.plotSpec = result.plotSpec && Object.keys(result.plotSpec).length ? result.plotSpec : state.plotSpec;
-  state.reportTitle = result.reportTitle ?? state.reportTitle;
-  if (result.plotSpec && Object.keys(result.plotSpec).length) state.sideTab = "plot";
+  if (result.runtimeUpdated) {
+    state.variables = result.variables ?? [];
+    state.args = result.args ?? [];
+    state.artifacts = result.artifacts ?? [];
+    state.plotSpec = hasPlotData(result.plotSpec) ? result.plotSpec : null;
+    state.reportTitle = result.reportTitle ?? "";
+    if (state.plotSpec) state.sideTab = "plot";
+  }
 }
 
 function appendRunResult(result) {
@@ -453,6 +455,16 @@ function appendTerminal(kind, text) {
 
 function clearTerminal() {
   state.terminalEntries = [{ kind: "info", text: "Terminal cleared." }];
+}
+
+function hasPlotData(spec) {
+  if (!spec || typeof spec !== "object") return false;
+  if (Array.isArray(spec.points) && spec.points.length) return true;
+  if (Array.isArray(spec.bins) && spec.bins.length) return true;
+  return Array.isArray(spec.series) && spec.series.some((series) => (
+    (Array.isArray(series.points) && series.points.length) ||
+    (Array.isArray(series.bins) && series.bins.length)
+  ));
 }
 
 function rememberTerminalCommand(command) {

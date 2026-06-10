@@ -80,6 +80,12 @@ pub const QUANTITY_COMPLETIONS: &[QuantityCompletion] = &[
         description: "Dimensionless ratio.",
     },
     QuantityCompletion {
+        quantity_kind: "DimensionlessNumber",
+        canonical_unit: "1",
+        dimension: "Dimensionless",
+        description: "Plain dimensionless numeric value.",
+    },
+    QuantityCompletion {
         quantity_kind: "ReynoldsNumber",
         canonical_unit: "1",
         dimension: "Dimensionless",

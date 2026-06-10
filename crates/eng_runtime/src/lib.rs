@@ -4410,6 +4410,60 @@ mod tests {
     }
 
     #[test]
+    fn run_source_accepts_terminal_scalar_assignment() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-terminal-scalar");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-terminal-scalar-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output =
+            run_source(&virtual_path, "x =3\n", &build_root, &RunOptions::default()).expect("run");
+
+        assert!(output.result_json.contains("\"scalar_count\": 1"));
+        assert!(output.result_json.contains("\"name\": \"x\""));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_source_accepts_terminal_explicit_declaration() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-terminal-explicit");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-terminal-explicit-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output = run_source(
+            &virtual_path,
+            "x: AbsoluteTemperature = 3 degC\n",
+            &build_root,
+            &RunOptions::default(),
+        )
+        .expect("run");
+
+        assert!(output.result_json.contains("\"scalar_count\": 1"));
+        assert!(output.result_json.contains("\"name\": \"x\""));
+        assert!(output
+            .result_json
+            .contains("\"type\": \"AbsoluteTemperature\""));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
     fn run_file_executes_test_assert_and_golden_checks() {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")

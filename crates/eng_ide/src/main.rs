@@ -90,6 +90,7 @@ struct CompletionView {
 #[serde(rename_all = "camelCase")]
 struct RunView {
     ok: bool,
+    runtime_updated: bool,
     terminal: String,
     check: CheckView,
     variables: Vec<RuntimeVariableView>,
@@ -283,6 +284,7 @@ fn ide_run(path: String, source: String, state: State<'_, IdeState>) -> Result<R
     {
         return Ok(RunView {
             ok: false,
+            runtime_updated: false,
             terminal: "Run blocked by diagnostics. See Problems.".to_owned(),
             check,
             variables: Vec::new(),
@@ -324,12 +326,27 @@ fn ide_terminal(
             .terminal_session_source
             .lock()
             .map_err(|error| error.to_string())? = String::new();
-        return Ok(RunView::message("Terminal session reset."));
+        return Ok(RunView {
+            ok: true,
+            runtime_updated: true,
+            terminal: "Terminal session reset.".to_owned(),
+            check: CheckView {
+                diagnostics: Vec::new(),
+                symbols: Vec::new(),
+                status: "ok".to_owned(),
+            },
+            variables: Vec::new(),
+            args: Vec::new(),
+            artifacts: Vec::new(),
+            plot_spec: Value::Null,
+            report_title: String::new(),
+        });
     }
     if trimmed.eq_ignore_ascii_case("check") {
         let check = check_view(&current_path, &source);
         return Ok(RunView {
             ok: true,
+            runtime_updated: false,
             terminal: diagnostic_summary_text(&check),
             check,
             variables: Vec::new(),
@@ -343,27 +360,10 @@ fn ide_terminal(
         return ide_run(path, source, state);
     }
 
-    let (session_source, session_path) = {
-        let mut session = state
-            .terminal_session_source
-            .lock()
-            .map_err(|error| error.to_string())?;
-        if !session.trim().is_empty() {
-            session.push('\n');
-        }
-        session.push_str(trimmed);
-        session.push('\n');
-        let session_path = run_dir_path.join("__ide_terminal__.eng");
-        (session.clone(), session_path)
-    };
-    let check = check_view(&session_path, &session_source);
-    if check
-        .diagnostics
-        .iter()
-        .any(|item| item.severity == "error")
-    {
+    if let Some(check) = terminal_command_error(trimmed) {
         return Ok(RunView {
             ok: false,
+            runtime_updated: false,
             terminal: diagnostic_summary_text(&check),
             check,
             variables: Vec::new(),
@@ -373,7 +373,48 @@ fn ide_terminal(
             report_title: String::new(),
         });
     }
-    run_virtual_source_file(&root, &session_path, &session_source, check, state)
+
+    let (session_source, session_path) = {
+        let session = state
+            .terminal_session_source
+            .lock()
+            .map_err(|error| error.to_string())?;
+        let mut candidate = session.clone();
+        if !candidate.trim().is_empty() {
+            candidate.push('\n');
+        }
+        candidate.push_str(trimmed);
+        candidate.push('\n');
+        let session_path = run_dir_path.join("__ide_terminal__.eng");
+        (candidate, session_path)
+    };
+    let check = check_view(&session_path, &session_source);
+    if check
+        .diagnostics
+        .iter()
+        .any(|item| item.severity == "error")
+    {
+        return Ok(RunView {
+            ok: false,
+            runtime_updated: false,
+            terminal: diagnostic_summary_text(&check),
+            check,
+            variables: Vec::new(),
+            args: Vec::new(),
+            artifacts: Vec::new(),
+            plot_spec: Value::Null,
+            report_title: String::new(),
+        });
+    }
+    let view =
+        run_virtual_source_file(&root, &session_path, &session_source, check, state.clone())?;
+    if view.ok {
+        *state
+            .terminal_session_source
+            .lock()
+            .map_err(|error| error.to_string())? = session_source;
+    }
+    Ok(view)
 }
 
 #[tauri::command]
@@ -400,6 +441,7 @@ impl RunView {
     fn message(text: impl Into<String>) -> Self {
         Self {
             ok: true,
+            runtime_updated: false,
             terminal: text.into(),
             check: CheckView {
                 diagnostics: Vec::new(),
@@ -463,6 +505,7 @@ fn run_source_file(
             let args = runtime_args(&cached.report_spec_json);
             let report_title = report_title(&cached.report_spec_json);
             let plot_spec = serde_json::from_str(&cached.plot_spec_json).unwrap_or(Value::Null);
+            let plot_spec = plot_spec_or_null(plot_spec);
             let terminal = terminal_summary(&stdout, &variables, &args, &report_title, &plot_spec);
             let artifacts = runtime_artifacts(root, &cached);
             *state
@@ -471,6 +514,7 @@ fn run_source_file(
                 .map_err(|error| error.to_string())? = Some(cached);
             Ok(RunView {
                 ok: true,
+                runtime_updated: true,
                 terminal,
                 check,
                 variables,
@@ -484,6 +528,7 @@ fn run_source_file(
             let check = check_view_from_report(&report);
             Ok(RunView {
                 ok: false,
+                runtime_updated: false,
                 terminal: diagnostic_summary_text(&check),
                 check,
                 variables: Vec::new(),
@@ -523,6 +568,7 @@ fn run_virtual_source_file(
             let args = runtime_args(&cached.report_spec_json);
             let report_title = report_title(&cached.report_spec_json);
             let plot_spec = serde_json::from_str(&cached.plot_spec_json).unwrap_or(Value::Null);
+            let plot_spec = plot_spec_or_null(plot_spec);
             let terminal = terminal_summary(&stdout, &variables, &args, &report_title, &plot_spec);
             let artifacts = runtime_artifacts(root, &cached);
             *state
@@ -531,6 +577,7 @@ fn run_virtual_source_file(
                 .map_err(|error| error.to_string())? = Some(cached);
             Ok(RunView {
                 ok: true,
+                runtime_updated: true,
                 terminal,
                 check,
                 variables,
@@ -544,6 +591,7 @@ fn run_virtual_source_file(
             let check = check_view_from_report(&report);
             Ok(RunView {
                 ok: false,
+                runtime_updated: false,
                 terminal: diagnostic_summary_text(&check),
                 check,
                 variables: Vec::new(),
@@ -836,6 +884,79 @@ fn merge_variable(variables: &mut Vec<RuntimeVariableView>, incoming: RuntimeVar
     variables.push(incoming);
 }
 
+fn terminal_command_error(command: &str) -> Option<CheckView> {
+    let name = bare_call_name(command)?;
+    let (message, help) = if name.eq_ignore_ascii_case("print") {
+        (
+            "print is a string-template statement, not a function call.".to_owned(),
+            Some("Use: print \"Q = {Q_coil: .2 kW}\"".to_owned()),
+        )
+    } else {
+        (
+            "bare function calls are not executable terminal statements.".to_owned(),
+            Some("Bind the value first, for example: x = mean(Q, axis=Time)".to_owned()),
+        )
+    };
+    Some(CheckView {
+        diagnostics: vec![DiagnosticView {
+            severity: "error".to_owned(),
+            code: "E-IDE-TERMINAL-SYNTAX".to_owned(),
+            line: 1,
+            message,
+            help,
+        }],
+        symbols: Vec::new(),
+        status: "1 error(s), 0 warning(s)".to_owned(),
+    })
+}
+
+fn bare_call_name(command: &str) -> Option<&str> {
+    if command.contains('=') || command.contains('"') {
+        return None;
+    }
+    let open = command.find('(')?;
+    let prefix = command[..open].trim();
+    let mut chars = prefix.chars();
+    let first = chars.next()?;
+    if !(first.is_ascii_alphabetic() || first == '_') {
+        return None;
+    }
+    if chars.all(|character| character.is_ascii_alphanumeric() || character == '_') {
+        Some(prefix)
+    } else {
+        None
+    }
+}
+
+fn plot_spec_or_null(value: Value) -> Value {
+    if has_plot_data(&value) {
+        value
+    } else {
+        Value::Null
+    }
+}
+
+fn has_plot_data(value: &Value) -> bool {
+    if array_has_items(value, "points") || array_has_items(value, "bins") {
+        return true;
+    }
+    value
+        .get("series")
+        .and_then(Value::as_array)
+        .is_some_and(|items| {
+            items
+                .iter()
+                .any(|item| array_has_items(item, "points") || array_has_items(item, "bins"))
+        })
+}
+
+fn array_has_items(value: &Value, key: &str) -> bool {
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty())
+}
+
 fn terminal_summary(
     stdout: &str,
     variables: &[RuntimeVariableView],
@@ -855,7 +976,7 @@ fn terminal_summary(
     if !report_title.is_empty() {
         lines.push(format!("report: {report_title}"));
     }
-    if !plot_spec.is_null() {
+    if has_plot_data(plot_spec) {
         lines.push("plot: available".to_owned());
     }
     lines.join("\n")
@@ -1173,6 +1294,32 @@ mod tests {
         assert_eq!(found, root);
 
         fs::remove_dir_all(found).unwrap();
+    }
+
+    #[test]
+    fn terminal_rejects_function_call_print_syntax() {
+        let check = terminal_command_error("print(Q_coil)").expect("terminal error");
+        assert_eq!(check.status, "1 error(s), 0 warning(s)");
+        assert_eq!(check.diagnostics[0].code, "E-IDE-TERMINAL-SYNTAX");
+        assert!(check.diagnostics[0].message.contains("string-template"));
+    }
+
+    #[test]
+    fn terminal_allows_assignments_with_function_calls() {
+        assert!(terminal_command_error("x = mean(Q, axis=Time)").is_none());
+        assert!(terminal_command_error("x =3").is_none());
+    }
+
+    #[test]
+    fn empty_plot_specs_are_not_available() {
+        assert!(!has_plot_data(&serde_json::json!({
+            "plot_type": "line",
+            "series": []
+        })));
+        assert!(has_plot_data(&serde_json::json!({
+            "plot_type": "line",
+            "series": [{ "points": [{ "x": 1, "y": 2 }] }]
+        })));
     }
 
     fn unique_temp_root() -> PathBuf {
