@@ -2144,6 +2144,12 @@ fn materialize_system_solutions(
                     series,
                 ) {
                     solutions.push(solution);
+                } else {
+                    solutions.push(skipped_system_solution(
+                        system,
+                        Some(request.binding.as_str()),
+                        &request.options,
+                    ));
                 }
             }
         }
@@ -2421,6 +2427,7 @@ fn materialize_system_solution_series(
 ) -> Vec<RuntimeTimeSeries> {
     solutions
         .iter()
+        .filter(|solution| solution.status == "computed")
         .map(|solution| RuntimeTimeSeries {
             name: match &solution.binding {
                 Some(binding) => format!("{binding}.{}", solution.state),
@@ -2435,6 +2442,49 @@ fn materialize_system_solution_series(
             points: solution.points.clone(),
         })
         .collect()
+}
+
+fn skipped_system_solution(
+    system: &eng_compiler::SystemInfo,
+    binding: Option<&str>,
+    options: &[eng_compiler::WithOptionInfo],
+) -> RuntimeSystemSolution {
+    let state = system
+        .variables
+        .iter()
+        .find(|variable| variable.role == "state");
+    let canonical_initial_value = state.and_then(canonical_variable_value).unwrap_or(0.0);
+    let initial_value = state
+        .map(|state| display_variable_value(canonical_initial_value, state))
+        .unwrap_or(0.0);
+    RuntimeSystemSolution {
+        system: system.name.clone(),
+        binding: binding.map(str::to_owned),
+        status: "skipped_unsupported_shape".to_owned(),
+        method: "explicit_euler_fixed_step".to_owned(),
+        reason: "system shape is outside the supported first-order thermal ODE runner".to_owned(),
+        state: state.map(|state| state.name.clone()).unwrap_or_default(),
+        quantity_kind: state
+            .map(|state| state.quantity_kind.clone())
+            .unwrap_or_default(),
+        display_unit: state
+            .map(|state| state.display_unit.clone())
+            .unwrap_or_default(),
+        canonical_unit: state
+            .map(|state| state.canonical_unit.clone())
+            .unwrap_or_default(),
+        time_unit: "s".to_owned(),
+        duration_s: 0.0,
+        time_step_s: option_value(options, "timestep")
+            .and_then(parse_duration_seconds)
+            .unwrap_or(0.0),
+        step_count: 0,
+        initial_value,
+        final_value: initial_value,
+        canonical_initial_value,
+        canonical_final_value: canonical_initial_value,
+        points: Vec::new(),
+    }
 }
 
 fn option_value<'a>(options: &'a [eng_compiler::WithOptionInfo], key: &str) -> Option<&'a str> {
@@ -4864,6 +4914,42 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         );
         assert!(metric.alignment_status.is_some());
         assert_eq!(metric.alignment_step_status.as_deref(), Some("matched"));
+    }
+
+    #[test]
+    fn records_skipped_system_solution_for_unsupported_simulate_shape() {
+        let source = r#"
+system UnsupportedThermal {
+    parameter C: HeatCapacity = 500 kJ/K
+    state T: AbsoluteTemperature = 24 degC
+    equation {
+        C * der(T) eq 0 W
+    }
+}
+
+sim = simulate UnsupportedThermal
+with {
+    timestep = 10 min
+    solver = fixed_step
+}
+"#;
+        let report = eng_compiler::check_source("ok.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors());
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.system_solutions.len(), 1);
+        let solution = &runtime.system_solutions[0];
+        assert_eq!(solution.status, "skipped_unsupported_shape");
+        assert_eq!(solution.binding.as_deref(), Some("sim"));
+        assert_eq!(solution.method, "explicit_euler_fixed_step");
+        assert_eq!(solution.time_step_s, 600.0);
+        assert_eq!(solution.step_count, 0);
+        assert!(solution.points.is_empty());
+        assert!(runtime
+            .time_series
+            .iter()
+            .all(|series| series.name != "sim.T"));
     }
 
     fn time_axis_table(binding: &str, timestamps: &[&str]) -> RuntimeTable {

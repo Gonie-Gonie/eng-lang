@@ -529,6 +529,9 @@ During `eng run`, `report_spec.json` and `result.engres` can upgrade the same
 system to `computed` for the official one-state thermal ODE. The result payload
 then records `solver_result` with method `explicit_euler_fixed_step`, state
 trajectory points, step count, time step, and final state value.
+When `simulate` is requested for a system shape outside that runner, the same
+solver result records `skipped_unsupported_shape` and no `sim.<state>`
+TimeSeries is created.
 
 ## `report.html`
 

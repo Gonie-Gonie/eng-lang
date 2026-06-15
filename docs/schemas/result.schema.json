@@ -383,7 +383,7 @@
         "points"
       ],
       "properties": {
-        "status": { "enum": ["computed"] },
+        "status": { "enum": ["computed", "skipped_unsupported_shape"] },
         "binding": { "type": ["string", "null"] },
         "method": { "type": "string" },
         "reason": { "type": "string" },
@@ -428,7 +428,7 @@
       ],
       "properties": {
         "system": { "type": "string" },
-        "status": { "enum": ["unsolved", "computed"] },
+        "status": { "enum": ["unsolved", "computed", "skipped_unsupported_shape"] },
         "reason": { "type": "string" },
         "parameter_count": { "type": "integer", "minimum": 0 },
         "state_count": { "type": "integer", "minimum": 0 },
@@ -497,7 +497,7 @@
       "type": "object",
       "required": ["status", "method", "solve_order", "ode_runner", "jacobian_seed"],
       "properties": {
-        "status": { "enum": ["metadata_only", "computed"] },
+        "status": { "enum": ["metadata_only", "computed", "skipped_unsupported_shape"] },
         "method": { "type": "string" },
         "solve_order": {
           "type": "array",
@@ -514,7 +514,7 @@
       "type": "object",
       "required": ["status", "reason"],
       "properties": {
-        "status": { "enum": ["deferred", "computed"] },
+        "status": { "enum": ["deferred", "computed", "skipped_unsupported_shape"] },
         "reason": { "type": "string" }
       }
     },

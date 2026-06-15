@@ -147,6 +147,10 @@ solver_result.time_step = 300 s
 solver_result.final_value = 16.773071865745123 degC
 ```
 
+If a `simulate` command targets a different system shape, runtime artifacts
+record `solver_result.status = skipped_unsupported_shape` with the skip reason
+and do not create a simulated state TimeSeries.
+
 ## Error: Use `eq`, Not `==`
 
 This is intentionally invalid:

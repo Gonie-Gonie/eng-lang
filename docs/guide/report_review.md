@@ -331,6 +331,10 @@ boundary to `computed` when the official one-state thermal ODE pattern is
 recognized. `result.engres` then includes `typed_payload.systems[].solver_result`
 with the fixed-step trajectory and final state value.
 
+If a `simulate` command targets a system outside that supported runner shape,
+runtime artifacts keep `solver_result.status = skipped_unsupported_shape` with
+a reason instead of materializing a `sim.<state>` TimeSeries.
+
 `result.engres` mirrors this data under:
 
 ```text
