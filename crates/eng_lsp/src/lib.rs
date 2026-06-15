@@ -3,7 +3,7 @@ use std::path::Path;
 
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, check_file, check_source, CheckOptions, CheckReport,
-    DomainTypeParameterInfo, Severity,
+    ClassFieldInfo, DomainTypeParameterInfo, Severity,
 };
 use serde_json::{json, Value};
 
@@ -318,11 +318,11 @@ pub fn hover_items(report: &CheckReport) -> Vec<LspHover> {
                 kind: "class_field".to_owned(),
                 line: field.line,
                 detail: format!(
-                    "field {}: {} [{}], required {}",
+                    "field {}: {} [{}], {}",
                     field.name,
                     field.type_name,
-                    field.display_unit,
-                    if field.required { "yes" } else { "no" }
+                    display_unit_label(&field.display_unit),
+                    class_field_requirement(field)
                 ),
                 quantity_kind: field.quantity_kind.clone(),
                 display_unit: field.display_unit.clone(),
@@ -551,7 +551,7 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
                 &mut seen,
                 &format!("{}.{}", class_info.name, field.name),
                 "property",
-                &format!("field {} [{}]", field.type_name, field.display_unit),
+                &class_field_completion_detail(field, &class_info.name),
             );
         }
         for method in &class_info.methods {
@@ -562,7 +562,8 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
                 "method",
                 &format!(
                     "method returns {} [{}]",
-                    method.return_type, method.return_display_unit
+                    method.return_type,
+                    display_unit_label(&method.return_display_unit)
                 ),
             );
         }
@@ -609,6 +610,35 @@ pub fn completion_items_at(
     line: usize,
     character: usize,
 ) -> Vec<LspCompletion> {
+    if let Some(context) = object_field_completion_context(report, source, line, character) {
+        if let Some(class_info) = report
+            .semantic_program
+            .classes
+            .iter()
+            .find(|class_info| class_info.name == context.class_name)
+        {
+            let mut seen = BTreeSet::new();
+            let mut items = Vec::new();
+            for field in &class_info.fields {
+                if context.assigned_fields.contains(&field.name) {
+                    continue;
+                }
+                if context.prefix.is_empty() || field.name.starts_with(&context.prefix) {
+                    push_completion(
+                        &mut items,
+                        &mut seen,
+                        &field.name,
+                        "property",
+                        &class_field_completion_detail(field, &class_info.name),
+                    );
+                }
+            }
+            if !items.is_empty() {
+                return items;
+            }
+        }
+    }
+
     if let Some((receiver, prefix)) = member_completion_context(source, line, character) {
         if let Some(schema_name) = report
             .semantic_program
@@ -666,10 +696,7 @@ pub fn completion_items_at(
                             &mut seen,
                             &field.name,
                             "property",
-                            &format!(
-                                "{} [{}] from {}",
-                                field.type_name, field.display_unit, object.class_name
-                            ),
+                            &class_field_completion_detail(field, &object.class_name),
                         );
                     }
                 }
@@ -682,7 +709,9 @@ pub fn completion_items_at(
                             "method",
                             &format!(
                                 "{} [{}] from {}",
-                                method.return_type, method.return_display_unit, object.class_name
+                                method.return_type,
+                                display_unit_label(&method.return_display_unit),
+                                object.class_name
                             ),
                         );
                     }
@@ -758,8 +787,172 @@ fn completion_kind(kind: &str) -> u8 {
         "variable" => 6,
         "property" => 10,
         "class" => 7,
+        "method" => 2,
         "unit" => 3,
         _ => 1,
+    }
+}
+
+#[derive(Debug)]
+struct ObjectFieldCompletionContext {
+    class_name: String,
+    prefix: String,
+    assigned_fields: BTreeSet<String>,
+}
+
+fn object_field_completion_context(
+    report: &CheckReport,
+    source: &str,
+    line: usize,
+    character: usize,
+) -> Option<ObjectFieldCompletionContext> {
+    let lines = source.lines().collect::<Vec<_>>();
+    let current_line = lines.get(line)?;
+    let before_cursor = current_line.chars().take(character).collect::<String>();
+    let prefix = object_field_prefix(&before_cursor)?;
+    let mut stack = Vec::<ObjectContext>::new();
+
+    for (index, full_line) in lines.iter().enumerate().take(line + 1) {
+        let line_text = if index == line {
+            before_cursor.as_str()
+        } else {
+            full_line
+        };
+        let trimmed = line_text.trim();
+        if trimmed.starts_with('}') {
+            stack.pop();
+            continue;
+        }
+        if let Some(class_name) = object_context_class_name(report, trimmed) {
+            stack.push(ObjectContext {
+                class_name,
+                start_line: index,
+            });
+            continue;
+        }
+        if trimmed.contains('}') {
+            stack.pop();
+        }
+    }
+
+    let context = stack.last()?;
+    Some(ObjectFieldCompletionContext {
+        class_name: context.class_name.clone(),
+        prefix,
+        assigned_fields: assigned_object_fields(&lines, context.start_line, line),
+    })
+}
+
+#[derive(Debug)]
+struct ObjectContext {
+    class_name: String,
+    start_line: usize,
+}
+
+fn object_context_class_name(report: &CheckReport, trimmed_line: &str) -> Option<String> {
+    if !trimmed_line.ends_with('{') {
+        return None;
+    }
+    let (left, right) = trimmed_line.split_once('=')?;
+    if !is_identifier(left.trim()) {
+        return None;
+    }
+    let body = right.trim_end_matches('{').trim();
+    let parts = body.split_whitespace().collect::<Vec<_>>();
+    match parts.as_slice() {
+        [class_name] if class_exists(report, class_name) => Some((*class_name).to_owned()),
+        [source_object, "with"] => report
+            .semantic_program
+            .class_objects
+            .iter()
+            .find(|object| object.name == *source_object)
+            .map(|object| object.class_name.clone()),
+        _ => None,
+    }
+}
+
+fn object_field_prefix(before_cursor: &str) -> Option<String> {
+    let content = before_cursor.trim_end().trim_start();
+    if content.contains('=')
+        || content.contains('.')
+        || content.contains('{')
+        || content.contains('}')
+        || content.split_whitespace().count() > 1
+    {
+        return None;
+    }
+    if !content.is_empty() && !is_identifier(content) {
+        return None;
+    }
+    Some(content.to_owned())
+}
+
+fn assigned_object_fields(
+    lines: &[&str],
+    start_line: usize,
+    current_line: usize,
+) -> BTreeSet<String> {
+    let mut assigned = BTreeSet::new();
+    for line in lines
+        .iter()
+        .enumerate()
+        .skip(start_line + 1)
+        .take(current_line.saturating_sub(start_line))
+        .map(|(_, line)| *line)
+    {
+        let Some((name, _)) = line.trim().split_once('=') else {
+            continue;
+        };
+        let name = name.trim();
+        if is_identifier(name) {
+            assigned.insert(name.to_owned());
+        }
+    }
+    assigned
+}
+
+fn class_exists(report: &CheckReport, class_name: &str) -> bool {
+    report
+        .semantic_program
+        .classes
+        .iter()
+        .any(|class_info| class_info.name == class_name)
+}
+
+fn is_identifier(value: &str) -> bool {
+    let mut bytes = value.as_bytes().iter();
+    let Some(first) = bytes.next() else {
+        return false;
+    };
+    if !(*first == b'_' || first.is_ascii_alphabetic()) {
+        return false;
+    }
+    bytes.all(|byte| is_ident_byte(*byte))
+}
+
+fn class_field_requirement(field: &ClassFieldInfo) -> String {
+    match (&field.default_value, field.required) {
+        (_, true) => "required".to_owned(),
+        (Some(default_value), false) => format!("default = {default_value}"),
+        (None, false) => "optional".to_owned(),
+    }
+}
+
+fn class_field_completion_detail(field: &ClassFieldInfo, class_name: &str) -> String {
+    format!(
+        "{} {} [{}] from {}",
+        class_field_requirement(field),
+        field.type_name,
+        display_unit_label(&field.display_unit),
+        class_name
+    )
+}
+
+fn display_unit_label(unit: &str) -> &str {
+    if unit.is_empty() {
+        "-"
+    } else {
+        unit
     }
 }
 
@@ -906,5 +1099,93 @@ Q = sensor.T
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "m_dot"));
+    }
+
+    #[test]
+    fn object_literal_completion_marks_required_and_default_fields() {
+        let source = r#"class Construction {
+    name: String
+    u_value: Conductance [W/K]
+    thickness: Length [m] = 0.2 m
+}
+
+wall = Construction {
+
+}
+"#;
+        let object_start_line = source
+            .lines()
+            .position(|line| line.contains("wall = Construction {"))
+            .unwrap();
+        let line = object_start_line + 1;
+        let character = 0;
+        let report = check_source(
+            Path::new("class_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        let name = completions
+            .iter()
+            .find(|completion| completion.label == "name")
+            .expect("object literal completion should include required name field");
+        assert!(name
+            .detail
+            .contains("required String [-] from Construction"));
+        let thickness = completions
+            .iter()
+            .find(|completion| completion.label == "thickness")
+            .expect("object literal completion should include defaulted thickness field");
+        assert!(thickness
+            .detail
+            .contains("default = 0.2 m Length [m] from Construction"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "schema"));
+    }
+
+    #[test]
+    fn member_completion_marks_class_field_requirements() {
+        let source = r#"class Construction {
+    name: String
+    thickness: Length [m] = 0.2 m
+    method summary() -> String = self.name
+}
+
+wall = Construction {
+    name = "south_wall"
+}
+
+wall_value = wall.
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.contains("wall_value"))
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("class_member_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        assert!(completions.iter().any(|completion| {
+            completion.label == "name"
+                && completion
+                    .detail
+                    .contains("required String [-] from Construction")
+        }));
+        assert!(completions.iter().any(|completion| {
+            completion.label == "thickness"
+                && completion
+                    .detail
+                    .contains("default = 0.2 m Length [m] from Construction")
+        }));
+        assert!(completions.iter().any(|completion| {
+            completion.label == "summary()"
+                && completion.detail.contains("String [-] from Construction")
+        }));
     }
 }

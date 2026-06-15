@@ -123,7 +123,9 @@ by the stable breaking-change policy.
 - Class/domain object authoring for typed fields/defaults, object literals,
   nested object references, field access metadata, simple validation blocks,
   zero-argument metadata methods, immutable copy-with metadata, diagnostics,
-  report/review serialization, IDE object summary inspector, and LSP metadata.
+  report/review serialization, IDE object summary inspector, and LSP
+  hover/member/object-literal field completion metadata with required/default
+  details.
   Runtime object dispatch/lowering, method arguments, mutation, inheritance,
   and simulation lowering remain planned.
 

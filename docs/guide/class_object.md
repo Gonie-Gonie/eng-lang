@@ -179,7 +179,9 @@ object_summary
 results with left/right values, unit, and status.
 
 The native IDE object summary inspector, artifact outline, and LSP snapshot path
-expose the same sections, plus class/object hover and completion metadata.
+expose the same sections, plus class/object hover and completion metadata. LSP
+field completion marks required fields and class defaults, both for `object.`
+member completion and for fields inside an object literal or copy-with block.
 
 ## Support Boundary
 
@@ -198,7 +200,8 @@ Current:
 - review/report artifact sections;
 - official example and CLI smoke coverage;
 - IDE keyword/snippet completion and artifact-outline visibility;
-- LSP class/object hover and completion metadata.
+- LSP class/object hover and field completion metadata with required/default
+  marks.
 
 Deferred:
 

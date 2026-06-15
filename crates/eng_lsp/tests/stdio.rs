@@ -142,16 +142,84 @@ fn stdio_server_round_trips_core_lsp_requests() {
     assert!(hover_text.contains("Q_coil"));
     assert!(hover_text.contains("HeatRate"));
 
+    let class_source_path = repo_root()
+        .join("examples/official/19_class_object/main.eng")
+        .canonicalize()
+        .expect("class object example should exist");
+    let class_source = std::fs::read_to_string(&class_source_path)
+        .expect("class object example should be readable");
+    let class_uri = file_uri(&class_source_path);
+    let building_line = class_source
+        .lines()
+        .position(|line| line.contains("building_name = building.name"))
+        .expect("class object example should access building.name");
+    let building_member_char = class_source
+        .lines()
+        .nth(building_line)
+        .unwrap()
+        .find("building.")
+        .unwrap()
+        + "building.".len();
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {
+                    "uri": class_uri,
+                    "languageId": "englang",
+                    "version": 1,
+                    "text": class_source
+                }
+            }
+        }),
+    );
+    let class_published = read_message(&mut stdout);
+    assert_eq!(class_published["method"], "textDocument/publishDiagnostics");
+    assert_eq!(class_published["params"]["uri"], class_uri);
+
     write_message(
         &mut stdin,
         json!({
             "jsonrpc": "2.0",
             "id": 5,
+            "method": "textDocument/completion",
+            "params": {
+                "textDocument": { "uri": class_uri },
+                "position": { "line": building_line, "character": building_member_char }
+            }
+        }),
+    );
+    let class_member_completion = read_message(&mut stdout);
+    assert_eq!(class_member_completion["id"], 5);
+    let class_member_items = class_member_completion["result"]
+        .as_array()
+        .expect("class member completion result should be an array");
+    assert!(class_member_items.iter().any(|item| {
+        item["label"] == "name"
+            && item["detail"]
+                .as_str()
+                .is_some_and(|detail| detail.contains("required String [-] from Building"))
+    }));
+    assert!(class_member_items.iter().any(|item| {
+        item["label"] == "summary()"
+            && item["detail"]
+                .as_str()
+                .is_some_and(|detail| detail.contains("String [-] from Building"))
+    }));
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 6,
             "method": "shutdown"
         }),
     );
     let shutdown = read_message(&mut stdout);
-    assert_eq!(shutdown["id"], 5);
+    assert_eq!(shutdown["id"], 6);
     assert!(shutdown["result"].is_null());
 
     write_message(

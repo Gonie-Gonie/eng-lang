@@ -92,12 +92,16 @@ Current snapshot completions are global for the file and include:
 - schema columns
 - domain names, domain variables, component names, and `Component.port` labels.
   Generic ports include canonical labels such as `Fluid[Water]` in `detail`.
+- class names, `Class.field` labels, methods, and object member labels. Class
+  field completion details mark required fields and default values.
 - quantity kinds
 - units
 
 Live `textDocument/completion` requests may additionally use cursor context.
 For example, `sensor.` returns the schema columns for the CSV promotion bound to
-`sensor`.
+`sensor`. `building.` returns fields and zero-argument metadata methods from
+the object's class. Inside an object literal or copy-with block, completion
+returns the remaining class fields with `required` or `default = ...` detail.
 
 ## Hovers
 
@@ -136,6 +140,13 @@ domain_conservation
 component
 component_port
 connection
+class
+class_field
+class_validation
+class_method
+class_object
+object_field
+object_validation
 ```
 
 For domain/component track files, hovers expose domain declarations,
@@ -154,6 +165,12 @@ instantiated arguments such as `Fluid[Water]`. Example connection hover:
   "status": "domain_compatible"
 }
 ```
+
+Class/object hovers expose class declarations, field units/defaults/required
+status, object literal fields, copy-with fields, validation results, and
+zero-argument metadata methods. Field hover details use the same required/default
+wording as completion details so editor clients can render compact field lists
+without reading `class_summary` directly.
 
 ## Intended Consumers
 
