@@ -68,6 +68,12 @@ pub const QUANTITY_COMPLETIONS: &[QuantityCompletion] = &[
         description: "Energy, heat, or work quantity.",
     },
     QuantityCompletion {
+        quantity_kind: "Irradiance",
+        canonical_unit: "W/m2",
+        dimension: "Power/Area",
+        description: "Radiant power incident per unit area.",
+    },
+    QuantityCompletion {
         quantity_kind: "MassFlowRate",
         canonical_unit: "kg/s",
         dimension: "Mass/Time",
@@ -111,6 +117,7 @@ pub fn candidates_for_unit(unit: &str) -> Vec<QuantityCompletion> {
         "j/kg/k" => completions_for(&["SpecificHeat"]),
         "w" | "kw" => completions_for(&["HeatRate", "ElectricPower", "MechanicalPower"]),
         "j" | "wh" | "kwh" | "mj" => completions_for(&["Energy"]),
+        "w/m2" | "w/m^2" => completions_for(&["Irradiance"]),
         "kg/s" => completions_for(&["MassFlowRate"]),
         "1" => completions_for(&["Ratio", "ReynoldsNumber"]),
         _ => Vec::new(),
@@ -191,6 +198,12 @@ pub fn first_unit_in_expression(expression: &str) -> Option<String> {
     }
     if expression.contains("W/K") {
         return Some("W/K".to_owned());
+    }
+    if expression.contains("W/m^2") {
+        return Some("W/m^2".to_owned());
+    }
+    if expression.contains("W/m2") {
+        return Some("W/m2".to_owned());
     }
     if expression.contains("kg/s") {
         return Some("kg/s".to_owned());

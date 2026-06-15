@@ -1174,6 +1174,20 @@ rmse_T = rmse measured_data.T_zone vs sim.T_zone
 validate rmse_T < 5 K
 ```
 
+Dynamic inputs are checked as Time-indexed TimeSeries values. The preview
+accepts scalar system input declarations such as `input T_out: AbsoluteTemperature`
+when the `simulate` binding provides a TimeSeries option, and it also parses
+explicit contracts such as:
+
+```eng partial
+input T_out: TimeSeries[Time] of AbsoluteTemperature [degC]
+input solar: TimeSeries[Time] of Irradiance [W/m2]
+```
+
+The compiler reports diagnostics for missing dynamic inputs, wrong TimeSeries
+quantity, wrong axis, missing `timestep`/`solver`, unsupported solver values,
+and `timestep` values without duration units.
+
 Runtime materializes `sim.T_zone` as a typed TimeSeries. The RMSE result appears
 in `computed_metrics`, the validation appears in `validations`, and pairwise
 TimeSeries overlap/match status appears in `time_alignments`.

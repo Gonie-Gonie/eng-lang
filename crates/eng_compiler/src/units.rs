@@ -159,6 +159,22 @@ pub const UNIT_INFOS: &[UnitInfo] = &[
         scale_to_canonical: "1",
         affine_offset: None,
     },
+    UnitInfo {
+        symbol: "W/m2",
+        canonical_unit: "W/m2",
+        quantity_hint: "Irradiance",
+        dimension: "Power/Area",
+        scale_to_canonical: "1",
+        affine_offset: None,
+    },
+    UnitInfo {
+        symbol: "W/m^2",
+        canonical_unit: "W/m2",
+        quantity_hint: "Irradiance",
+        dimension: "Power/Area",
+        scale_to_canonical: "1",
+        affine_offset: None,
+    },
 ];
 
 pub fn all_unit_infos() -> &'static [UnitInfo] {

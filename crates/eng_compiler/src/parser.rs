@@ -2127,13 +2127,38 @@ fn parse_reserved_keyword_use(tokens: &[Token]) -> Option<AstItem> {
 }
 
 fn split_type_and_unit(type_part: &str) -> (String, Option<String>) {
-    let Some((before_unit, after_unit)) = type_part.split_once('[') else {
-        return (type_part.trim().to_owned(), None);
+    let trimmed = type_part.trim();
+    if let Some(rest) = trimmed.strip_prefix("TimeSeries[") {
+        if let Some((axis, after_axis)) = rest.split_once(']') {
+            let after_axis = after_axis.trim();
+            if let Some(quantity_part) = after_axis.strip_prefix("of ") {
+                let (quantity, unit) = split_trailing_unit(quantity_part);
+                return (
+                    format!("TimeSeries[{}] of {}", axis.trim(), quantity.trim()),
+                    unit,
+                );
+            }
+        }
+    }
+    split_trailing_unit(trimmed)
+}
+
+fn split_trailing_unit(type_part: &str) -> (String, Option<String>) {
+    let trimmed = type_part.trim();
+    if !trimmed.ends_with(']') {
+        return (trimmed.to_owned(), None);
+    }
+    let Some(unit_start) = trimmed.rfind('[') else {
+        return (trimmed.to_owned(), None);
     };
-    let unit = after_unit
-        .split_once(']')
-        .map(|(unit, _)| unit.trim().to_owned());
-    (before_unit.trim().to_owned(), unit)
+    let unit = trimmed[unit_start + 1..trimmed.len() - 1].trim();
+    if unit.is_empty() {
+        return (trimmed.to_owned(), None);
+    }
+    (
+        trimmed[..unit_start].trim().to_owned(),
+        Some(unit.to_owned()),
+    )
 }
 
 fn expression_after(line_text: &str, marker: char) -> Option<String> {

@@ -192,6 +192,12 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions
         source_path.parent(),
         &semantic_output.semantic_program,
     );
+    semantic_output
+        .diagnostics
+        .extend(semantic::validate_simulation_contracts(
+            &semantic_output.semantic_program,
+            &semantic_output.inferred_declarations,
+        ));
 
     CheckReport {
         source_path: source_path.to_path_buf(),
@@ -4181,6 +4187,78 @@ mod tests {
             system.equation_ir[0].derivative_states,
             vec!["T".to_owned()]
         );
+    }
+
+    #[test]
+    fn parses_timeseries_system_input_type() {
+        let report = check_source(
+            "ok.eng",
+            "system SolarRoom {\n    input solar: TimeSeries[Time] of Irradiance [W/m2]\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        let solar = &report.semantic_program.systems[0].variables[0];
+        assert_eq!(solar.quantity_kind, "TimeSeries[Time] of Irradiance");
+        assert_eq!(solar.display_unit, "W/m2");
+        assert_eq!(solar.canonical_unit, "W/m2");
+    }
+
+    #[test]
+    fn rejects_simulate_missing_required_options() {
+        let report = check_source(
+            "bad.eng",
+            "system RoomThermal {\n    parameter C: HeatCapacity = 500 kJ/K\n    parameter UA: Conductance = 150 W/K\n    state T: AbsoluteTemperature = 24 degC\n    input T_out: AbsoluteTemperature\n    input Q_internal: HeatRate\n    equation {\n        C * der(T) eq UA * (T_out - T) + Q_internal\n    }\n}\n\nsim = simulate RoomThermal\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SIM-OPTION-MISSING-001"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SIM-OPTION-MISSING-002"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SIM-INPUT-MISSING-001"));
+    }
+
+    #[test]
+    fn rejects_simulate_wrong_input_quantity() {
+        let report = check_source(
+            "bad.eng",
+            "Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n\nsystem RoomThermal {\n    parameter C: HeatCapacity = 500 kJ/K\n    parameter UA: Conductance = 150 W/K\n    state T: AbsoluteTemperature = 24 degC\n    input T_out: AbsoluteTemperature\n    input Q_internal: HeatRate\n    equation {\n        C * der(T) eq UA * (T_out - T) + Q_internal\n    }\n}\n\nsim = simulate RoomThermal\nwith {\n    T_out = Q_coil\n    timestep = 10 min\n    solver = fixed_step\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SIM-INPUT-QTY-001"));
+    }
+
+    #[test]
+    fn rejects_simulate_wrong_axis_and_timestep_unit() {
+        let report = check_source(
+            "bad.eng",
+            "bad_weather: TimeSeries[Sample] of AbsoluteTemperature [degC] = 8 degC\n\nsystem RoomThermal {\n    parameter C: HeatCapacity = 500 kJ/K\n    parameter UA: Conductance = 150 W/K\n    state T: AbsoluteTemperature = 24 degC\n    input T_out: AbsoluteTemperature\n    input Q_internal: HeatRate\n    equation {\n        C * der(T) eq UA * (T_out - T) + Q_internal\n    }\n}\n\nsim = simulate RoomThermal\nwith {\n    T_out = bad_weather\n    timestep = 10 samples\n    solver = fixed_step\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SIM-INPUT-AXIS-001"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SIM-OPTION-TYPE-001"));
     }
 
     #[test]

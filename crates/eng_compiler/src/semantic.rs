@@ -2037,6 +2037,303 @@ fn validate_file_operation_options(
     }
 }
 
+pub fn validate_simulation_contracts(
+    program: &SemanticProgram,
+    inferred_declarations: &[InferredDeclaration],
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for declaration in inferred_declarations {
+        let Some(system_name) = declaration
+            .expression
+            .trim()
+            .strip_prefix("simulate ")
+            .map(str::trim)
+        else {
+            continue;
+        };
+        let Some(system) = program
+            .systems
+            .iter()
+            .find(|system| system.name == system_name)
+        else {
+            diagnostics.push(Diagnostic::error(
+                "E-SIM-SYSTEM-001",
+                declaration.line,
+                &format!("Simulation references unknown system `{system_name}`."),
+                Some("Define the system before the `simulate` binding."),
+            ));
+            continue;
+        };
+        let options = program
+            .with_blocks
+            .iter()
+            .find(|block| block.owner_line == Some(declaration.line))
+            .map(|block| block.options.as_slice())
+            .unwrap_or(&[]);
+
+        validate_simulation_timestep(declaration.line, options, &mut diagnostics);
+        validate_simulation_solver(declaration.line, options, &mut diagnostics);
+
+        for variable in &system.variables {
+            let Some(expected) = expected_dynamic_input(variable) else {
+                continue;
+            };
+            let Some(option) = accepted_option(options, &variable.name) else {
+                diagnostics.push(Diagnostic::error(
+                    "E-SIM-INPUT-MISSING-001",
+                    declaration.line,
+                    &format!(
+                        "Simulation of `{system_name}` requires TimeSeries input `{}`.",
+                        variable.name
+                    ),
+                    Some(&format!(
+                        "Add `{} = <TimeSeries[{}] of {}>` in the attached `with` block.",
+                        variable.name, expected.axis, expected.quantity_kind
+                    )),
+                ));
+                continue;
+            };
+            let Some(actual) = resolve_simulation_option_type(program, &option.value) else {
+                diagnostics.push(Diagnostic::error(
+                    "E-SIM-INPUT-TYPE-001",
+                    option.line,
+                    &format!(
+                        "Simulation input `{}` cannot resolve `{}` as a typed value.",
+                        variable.name, option.value
+                    ),
+                    Some("Bind the option to a prior TimeSeries value or a promoted CSV column."),
+                ));
+                continue;
+            };
+            let Some(actual_axis) = actual.axis.as_deref() else {
+                diagnostics.push(Diagnostic::error(
+                    "E-SIM-INPUT-TYPE-001",
+                    option.line,
+                    &format!(
+                        "Simulation input `{}` expects TimeSeries[{}] of {}, but `{}` is {}.",
+                        variable.name,
+                        expected.axis,
+                        expected.quantity_kind,
+                        option.value,
+                        actual.quantity_kind
+                    ),
+                    Some("Use a promoted CSV column such as `weather_data.T_out`."),
+                ));
+                continue;
+            };
+            if actual_axis != expected.axis {
+                diagnostics.push(Diagnostic::error(
+                    "E-SIM-INPUT-AXIS-001",
+                    option.line,
+                    &format!(
+                        "Simulation input `{}` expects axis `{}`, but `{}` has axis `{actual_axis}`.",
+                        variable.name, expected.axis, option.value
+                    ),
+                    Some("Use a DateTime-indexed TimeSeries for dynamic system inputs."),
+                ));
+            }
+            if actual.quantity_kind != expected.quantity_kind {
+                diagnostics.push(Diagnostic::error(
+                    "E-SIM-INPUT-QTY-001",
+                    option.line,
+                    &format!(
+                        "Simulation input `{}` expects {}, but `{}` is {}.",
+                        variable.name, expected.quantity_kind, option.value, actual.quantity_kind
+                    ),
+                    Some("Bind the option to a TimeSeries with the same quantity kind as the system input."),
+                ));
+            }
+        }
+    }
+    diagnostics
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ExpectedSimulationInput {
+    axis: String,
+    quantity_kind: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct SimulationOptionType {
+    axis: Option<String>,
+    quantity_kind: String,
+}
+
+fn expected_dynamic_input(variable: &SystemVariableInfo) -> Option<ExpectedSimulationInput> {
+    if variable.role != "input" {
+        return None;
+    }
+    if let Some((axis, quantity_kind)) = crate::stats::time_series_quantity(&variable.quantity_kind)
+    {
+        return Some(ExpectedSimulationInput {
+            axis,
+            quantity_kind,
+        });
+    }
+    if matches!(
+        variable.quantity_kind.as_str(),
+        "AbsoluteTemperature" | "Irradiance"
+    ) {
+        return Some(ExpectedSimulationInput {
+            axis: "Time".to_owned(),
+            quantity_kind: variable.quantity_kind.clone(),
+        });
+    }
+    None
+}
+
+fn validate_simulation_timestep(
+    owner_line: usize,
+    options: &[WithOptionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(option) = accepted_option(options, "timestep") else {
+        diagnostics.push(Diagnostic::error(
+            "E-SIM-OPTION-MISSING-001",
+            owner_line,
+            "`simulate` requires `with { timestep = <duration> }`.",
+            Some("Use a duration such as `timestep = 10 min`."),
+        ));
+        return;
+    };
+    if parse_duration_option_seconds(&option.value).is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-SIM-OPTION-TYPE-001",
+            option.line,
+            &format!(
+                "`timestep` expects a positive duration, got `{}`.",
+                option.value
+            ),
+            Some("Use units such as `s`, `min`, or `h`, for example `10 min`."),
+        ));
+    }
+}
+
+fn validate_simulation_solver(
+    owner_line: usize,
+    options: &[WithOptionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(option) = accepted_option(options, "solver") else {
+        diagnostics.push(Diagnostic::error(
+            "E-SIM-OPTION-MISSING-002",
+            owner_line,
+            "`simulate` requires `with { solver = fixed_step }` in this preview.",
+            Some("The supported dynamic runner is the fixed-step preview solver."),
+        ));
+        return;
+    };
+    if option.value.trim() != "fixed_step" {
+        diagnostics.push(Diagnostic::error(
+            "E-SIM-OPTION-TYPE-002",
+            option.line,
+            &format!("Unsupported simulation solver `{}`.", option.value),
+            Some("Use `solver = fixed_step`; adaptive and nonlinear solvers are deferred."),
+        ));
+    }
+}
+
+fn accepted_option<'a>(options: &'a [WithOptionInfo], key: &str) -> Option<&'a WithOptionInfo> {
+    options
+        .iter()
+        .find(|option| option.key == key && option.status == "accepted")
+}
+
+fn resolve_simulation_option_type(
+    program: &SemanticProgram,
+    expression: &str,
+) -> Option<SimulationOptionType> {
+    let expression = expression.trim();
+    if let Some(binding) = program
+        .typed_bindings
+        .iter()
+        .find(|binding| binding.name == expression)
+    {
+        return Some(simulation_option_type_from_semantic(&binding.semantic_type));
+    }
+    if let Some((table_binding, column_name)) = expression.split_once('.') {
+        let promotion = program
+            .csv_promotions
+            .iter()
+            .find(|promotion| promotion.binding == table_binding.trim())?;
+        let schema = program
+            .schemas
+            .iter()
+            .find(|schema| schema.name == promotion.schema_name)?;
+        let column = schema
+            .columns
+            .iter()
+            .find(|column| column.name == column_name.trim())?;
+        if column.is_index {
+            return Some(SimulationOptionType {
+                axis: None,
+                quantity_kind: column.type_name.clone(),
+            });
+        }
+        return Some(SimulationOptionType {
+            axis: Some(schema_time_axis(schema)),
+            quantity_kind: column.type_name.clone(),
+        });
+    }
+    numeric_literal_with_optional_unit(expression).map(|(_, unit)| {
+        let quantity_kind = unit
+            .as_deref()
+            .and_then(|unit| candidates_for_unit(unit).first().copied())
+            .map(|completion| completion.quantity_kind.to_owned())
+            .unwrap_or_else(|| "DimensionlessNumber".to_owned());
+        SimulationOptionType {
+            axis: None,
+            quantity_kind,
+        }
+    })
+}
+
+fn simulation_option_type_from_semantic(semantic_type: &SemanticType) -> SimulationOptionType {
+    if let Some((axis, quantity_kind)) =
+        crate::stats::time_series_quantity(&semantic_type.quantity_kind)
+    {
+        return SimulationOptionType {
+            axis: Some(axis),
+            quantity_kind,
+        };
+    }
+    SimulationOptionType {
+        axis: None,
+        quantity_kind: semantic_type.quantity_kind.clone(),
+    }
+}
+
+fn schema_time_axis(schema: &SchemaInfo) -> String {
+    schema
+        .columns
+        .iter()
+        .find(|column| column.is_index)
+        .map(|column| {
+            if column.type_name == "DateTime" {
+                "Time".to_owned()
+            } else {
+                column.type_name.clone()
+            }
+        })
+        .unwrap_or_else(|| "Sample".to_owned())
+}
+
+fn parse_duration_option_seconds(value: &str) -> Option<f64> {
+    let (amount, unit) = numeric_literal_with_optional_unit(value)?;
+    if amount <= 0.0 {
+        return None;
+    }
+    let unit = unit?;
+    let seconds = match unit.trim().to_ascii_lowercase().as_str() {
+        "s" | "sec" | "second" | "seconds" => amount,
+        "min" | "minute" | "minutes" => amount * 60.0,
+        "h" | "hr" | "hour" | "hours" => amount * 3600.0,
+        _ => return None,
+    };
+    Some(seconds)
+}
+
 fn with_option_bool(with_blocks: &[WithBlockInfo], owner_line: usize, key: &str) -> bool {
     with_blocks.iter().any(|block| {
         block.owner_line == Some(owner_line)

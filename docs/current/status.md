@@ -124,6 +124,9 @@ workflow, and covered by the breaking-change policy.
   data, simulates a one-state thermal system into `sim.T_zone`, computes
   `rmse measured_data.T_zone vs sim.T_zone`, validates a threshold, records
   time alignment metadata, and plots measured plus simulated TimeSeries.
+- `simulate ... with { ... }` is checked for the supported fixed-step preview
+  contract: Time-indexed dynamic inputs, compatible input quantity, duration
+  timestep, and `solver = fixed_step`.
 - Standalone package output with `.engpkg`, bytecode, lock, source/dependency
   copy, dependency hashes, Args help, and reviewable report artifacts.
 - Temperature spelling policy: `degC` remains the canonical ASCII spelling, and
