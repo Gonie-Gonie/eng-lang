@@ -40,6 +40,7 @@ function emptyInspectors() {
   return {
     schemas: [],
     unitConversions: [],
+    timeAxes: [],
     timeSeries: [],
     metrics: [],
     validations: [],
@@ -721,9 +722,14 @@ function renderTimePanel() {
     <div class="panel-title compact">TimeSeries</div>
     <div class="badges">
       <span class="badge">Series ${inspectorRows("timeSeries").length}</span>
+      <span class="badge">Axes ${inspectorRows("timeAxes").length}</span>
       <span class="badge">Alignments ${inspectorRows("timeAlignments").length}</span>
     </div>
-    <div class="scroll">${renderTimeSeries()}</div>
+    <div class="scroll">
+      ${renderTimeAxes()}
+      <div class="panel-title compact">Series</div>
+      ${renderTimeSeries()}
+    </div>
   `;
 }
 
@@ -815,6 +821,29 @@ function renderUnitConversions() {
     <table class="var-table">
       <thead><tr><th>Name</th><th>Source</th><th>Canonical</th><th>Display</th><th>Expression</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="5" class="muted">No conversion records.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderTimeAxes() {
+  const rows = inspectorRows("timeAxes").map((axis) => {
+    const status = axis.irregular ? "irregular" : "regular";
+    return `
+    <tr>
+      <td><strong>${escapeHtml(axis.name || "-")}</strong><div class="muted">${escapeHtml(axis.source_table || axis.sourceTable || "-")}.${escapeHtml(axis.source_column || axis.sourceColumn || "-")}</div></td>
+      <td>${metricCell(axis.start)} - ${metricCell(axis.end)}<div class="muted">${escapeHtml(axis.unit || "-")}</div></td>
+      <td>${escapeHtml(axis.count ?? "-")}</td>
+      <td>${metricCell(axis.nominal_step ?? axis.nominalStep)}</td>
+      <td>${escapeHtml(axis.missing_count ?? axis.missingCount ?? 0)}</td>
+      <td><strong>${escapeHtml(status)}</strong></td>
+    </tr>
+  `;
+  }).join("");
+  return `
+    <div class="panel-title compact">Time Axis</div>
+    <table class="var-table">
+      <thead><tr><th>Name</th><th>Range</th><th>Count</th><th>Step</th><th>Missing</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No time-axis metadata.</td></tr>`}</tbody>
     </table>
   `;
 }

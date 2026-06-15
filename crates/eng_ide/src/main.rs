@@ -114,6 +114,7 @@ struct ArtifactView {
 struct InspectorView {
     schemas: Value,
     unit_conversions: Value,
+    time_axes: Value,
     time_series: Value,
     metrics: Value,
     validations: Value,
@@ -128,6 +129,7 @@ impl Default for InspectorView {
         Self {
             schemas: Value::Array(Vec::new()),
             unit_conversions: Value::Array(Vec::new()),
+            time_axes: Value::Array(Vec::new()),
             time_series: Value::Array(Vec::new()),
             metrics: Value::Array(Vec::new()),
             validations: Value::Array(Vec::new()),
@@ -905,6 +907,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
     InspectorView {
         schemas: schema_inspector(&report, &result),
         unit_conversions: json_array_clone(&report, "unit_conversion_table"),
+        time_axes: json_array_clone(&report, "time_axes"),
         time_series: time_series_inspector(&result),
         metrics: json_array_clone(&report, "computed_metrics"),
         validations: json_array_clone(&report, "validations"),

@@ -19,6 +19,7 @@
     "computed_integrations",
     "computed_metrics",
     "validations",
+    "time_axes",
     "time_alignments",
     "policy_results",
     "domain_summary",
@@ -82,6 +83,10 @@
     "time_alignments": {
       "type": "array",
       "items": { "$ref": "#/$defs/timeAlignment" }
+    },
+    "time_axes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/timeAxis" }
     },
     "uncertainty": {
       "type": "array",
@@ -238,6 +243,35 @@
         "overlap_start": { "type": ["number", "null"] },
         "overlap_end": { "type": ["number", "null"] },
         "status": { "enum": ["matched", "overlap", "mismatch"] }
+      }
+    },
+    "timeAxis": {
+      "type": "object",
+      "required": [
+        "name",
+        "source_table",
+        "source_column",
+        "axis",
+        "unit",
+        "start",
+        "end",
+        "count",
+        "nominal_step",
+        "irregular",
+        "missing_count"
+      ],
+      "properties": {
+        "name": { "type": "string" },
+        "source_table": { "type": "string" },
+        "source_column": { "type": "string" },
+        "axis": { "type": "string" },
+        "unit": { "type": "string" },
+        "start": { "type": ["number", "null"] },
+        "end": { "type": ["number", "null"] },
+        "count": { "type": "integer", "minimum": 0 },
+        "nominal_step": { "type": ["number", "null"] },
+        "irregular": { "type": "boolean" },
+        "missing_count": { "type": "integer", "minimum": 0 }
       }
     },
     "domainSummary": {

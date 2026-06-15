@@ -433,6 +433,7 @@ pub fn run_source(
     report_spec.computed_integrations = runtime_data.report_computed_integrations();
     report_spec.computed_metrics = runtime_data.report_computed_metrics();
     report_spec.validations = runtime_data.report_validations();
+    report_spec.time_axes = runtime_data.report_time_axes();
     report_spec.time_alignments = runtime_data.report_time_alignments();
     report_spec.uncertainty = runtime_data.report_uncertainty();
     report_spec.ml = runtime_data.report_ml();
@@ -3555,6 +3556,44 @@ fn result_json(
         validations.push_str("      }");
     }
 
+    let mut time_axes = String::new();
+    for (index, axis) in runtime_data.time_axes.iter().enumerate() {
+        if index > 0 {
+            time_axes.push_str(",\n");
+        }
+        time_axes.push_str("      {\n");
+        time_axes.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&axis.name)
+        ));
+        time_axes.push_str(&format!(
+            "        \"source_table\": \"{}\",\n",
+            json_escape(&axis.source_table)
+        ));
+        time_axes.push_str(&format!(
+            "        \"source_column\": \"{}\",\n",
+            json_escape(&axis.source_column)
+        ));
+        time_axes.push_str(&format!(
+            "        \"axis\": \"{}\",\n",
+            json_escape(&axis.axis)
+        ));
+        time_axes.push_str(&format!(
+            "        \"unit\": \"{}\",\n",
+            json_escape(&axis.unit)
+        ));
+        push_optional_json_number(&mut time_axes, "start", axis.start, 8);
+        push_optional_json_number(&mut time_axes, "end", axis.end, 8);
+        time_axes.push_str(&format!("        \"count\": {},\n", axis.count));
+        push_optional_json_number(&mut time_axes, "nominal_step", axis.nominal_step, 8);
+        time_axes.push_str(&format!("        \"irregular\": {},\n", axis.irregular));
+        time_axes.push_str(&format!(
+            "        \"missing_count\": {}\n",
+            axis.missing_count
+        ));
+        time_axes.push_str("      }");
+    }
+
     let mut time_alignments = String::new();
     for (index, alignment) in runtime_data.time_alignments.iter().enumerate() {
         if index > 0 {
@@ -3716,7 +3755,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -3741,6 +3780,7 @@ fn result_json(
         integrations,
         metrics,
         validations,
+        time_axes,
         time_alignments,
         uncertainties,
         ml,

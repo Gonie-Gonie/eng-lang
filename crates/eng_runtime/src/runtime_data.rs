@@ -8,13 +8,14 @@ use eng_report::{
     PlotAxis, PlotBin, PlotPoint, PlotSeries, PlotSpec, ReportComputedIntegration,
     ReportComputedMetric, ReportComputedStatisticValue, ReportComputedStatistics,
     ReportMlCoefficient, ReportMlInfo, ReportPolicyResult, ReportPolicyViolation, ReportSpec,
-    ReportTimeAlignment, ReportUncertaintyInfo, ReportUncertaintyPropagationTerm,
+    ReportTimeAlignment, ReportTimeAxis, ReportUncertaintyInfo, ReportUncertaintyPropagationTerm,
     ReportValidationResult,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RuntimeData {
     pub tables: Vec<RuntimeTable>,
+    pub time_axes: Vec<RuntimeTimeAxis>,
     pub time_series: Vec<RuntimeTimeSeries>,
     pub statistics: Vec<RuntimeStatistics>,
     pub integrations: Vec<RuntimeIntegration>,
@@ -364,6 +365,25 @@ impl RuntimeData {
             .collect()
     }
 
+    pub fn report_time_axes(&self) -> Vec<ReportTimeAxis> {
+        self.time_axes
+            .iter()
+            .map(|axis| ReportTimeAxis {
+                name: axis.name.clone(),
+                source_table: axis.source_table.clone(),
+                source_column: axis.source_column.clone(),
+                axis: axis.axis.clone(),
+                unit: axis.unit.clone(),
+                start: axis.start,
+                end: axis.end,
+                count: axis.count,
+                nominal_step: axis.nominal_step,
+                irregular: axis.irregular,
+                missing_count: axis.missing_count,
+            })
+            .collect()
+    }
+
     pub fn report_time_alignments(&self) -> Vec<ReportTimeAlignment> {
         self.time_alignments
             .iter()
@@ -587,6 +607,21 @@ pub struct RuntimeTimeSeries {
     pub source_table: String,
     pub source_expression: String,
     pub points: Vec<RuntimePoint>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTimeAxis {
+    pub name: String,
+    pub source_table: String,
+    pub source_column: String,
+    pub axis: String,
+    pub unit: String,
+    pub start: Option<f64>,
+    pub end: Option<f64>,
+    pub count: usize,
+    pub nominal_step: Option<f64>,
+    pub irregular: bool,
+    pub missing_count: usize,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -891,6 +926,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     }
 
     data.policy_results = materialize_policy_results(report, &mut data.tables);
+    data.time_axes = materialize_time_axes(&data.tables);
     data.time_series = materialize_time_series(report, &data.tables);
     data.system_solutions = materialize_system_solutions(report, &data.time_series);
     data.component_solutions = materialize_component_solutions(report);
@@ -1068,6 +1104,56 @@ fn materialize_column(
         missing_count,
         conversion_failures: Vec::new(),
     }
+}
+
+fn materialize_time_axes(tables: &[RuntimeTable]) -> Vec<RuntimeTimeAxis> {
+    tables
+        .iter()
+        .map(|table| {
+            let (source_column, unit, values, missing_count) =
+                if let Some(column) = table.time_index_column() {
+                    let parse_failure_count = table
+                        .parse_failures
+                        .iter()
+                        .filter(|failure| failure.column == column.name)
+                        .count();
+                    (
+                        column.name.clone(),
+                        "s".to_owned(),
+                        table
+                            .normalized_time_axis_values()
+                            .unwrap_or_else(|| sample_axis_values(table.row_count)),
+                        column.missing_count + parse_failure_count,
+                    )
+                } else {
+                    (
+                        "row_index".to_owned(),
+                        "sample".to_owned(),
+                        sample_axis_values(table.row_count),
+                        0,
+                    )
+                };
+            let nominal_step = nominal_step_from_values(&values);
+            let irregular = missing_count > 0 || axis_values_irregular(&values, nominal_step);
+            RuntimeTimeAxis {
+                name: format!("{}.Time", table.binding),
+                source_table: table.binding.clone(),
+                source_column,
+                axis: "Time".to_owned(),
+                unit,
+                start: values.first().copied(),
+                end: values.last().copied(),
+                count: table.row_count,
+                nominal_step,
+                irregular,
+                missing_count,
+            }
+        })
+        .collect()
+}
+
+fn sample_axis_values(row_count: usize) -> Vec<f64> {
+    (0..row_count).map(|index| index as f64).collect()
 }
 
 fn materialize_time_series(
@@ -1453,10 +1539,15 @@ fn compare_values(left: f64, right: f64, operator: &str) -> bool {
 }
 
 fn nominal_time_step(points: &[RuntimePoint]) -> Option<f64> {
-    let mut steps = points
+    let values = points.iter().map(|point| point.x).collect::<Vec<_>>();
+    nominal_step_from_values(&values)
+}
+
+fn nominal_step_from_values(values: &[f64]) -> Option<f64> {
+    let mut steps = values
         .windows(2)
         .filter_map(|window| {
-            let step = window[1].x - window[0].x;
+            let step = window[1] - window[0];
             (step.is_finite() && step > 0.0).then_some(step)
         })
         .collect::<Vec<_>>();
@@ -1464,7 +1555,7 @@ fn nominal_time_step(points: &[RuntimePoint]) -> Option<f64> {
         return None;
     }
     steps.sort_by(|left, right| left.total_cmp(right));
-    Some(steps[steps.len() / 2])
+    Some(steps[(steps.len() - 1) / 2])
 }
 
 fn time_step_tolerance(step: f64) -> f64 {
@@ -1472,15 +1563,20 @@ fn time_step_tolerance(step: f64) -> f64 {
 }
 
 fn time_axis_irregular(points: &[RuntimePoint], nominal_step: Option<f64>) -> bool {
+    let values = points.iter().map(|point| point.x).collect::<Vec<_>>();
+    axis_values_irregular(&values, nominal_step)
+}
+
+fn axis_values_irregular(values: &[f64], nominal_step: Option<f64>) -> bool {
     let Some(nominal_step) = nominal_step else {
         return false;
     };
-    if points.len() < 3 || nominal_step <= 0.0 || !nominal_step.is_finite() {
+    if values.len() < 3 || nominal_step <= 0.0 || !nominal_step.is_finite() {
         return false;
     }
     let tolerance = time_step_tolerance(nominal_step);
-    points.windows(2).any(|window| {
-        let step = window[1].x - window[0].x;
+    values.windows(2).any(|window| {
+        let step = window[1] - window[0];
         !step.is_finite() || step <= 0.0 || (step - nominal_step).abs() > tolerance
     })
 }
@@ -2780,6 +2876,12 @@ impl RuntimeTable {
         self.columns.iter().find(|column| column.name == name)
     }
 
+    fn time_index_column(&self) -> Option<&RuntimeColumn> {
+        self.columns
+            .iter()
+            .find(|column| column.is_index && column.type_name == "DateTime")
+    }
+
     fn numeric_column_by_type(&self, type_name: &str) -> Option<&RuntimeColumn> {
         self.columns.iter().find(|column| {
             column.type_name == type_name && matches!(&column.values, RuntimeValues::Number(_))
@@ -2795,41 +2897,30 @@ impl RuntimeTable {
     }
 
     fn axis_values(&self) -> (Vec<f64>, String) {
-        let Some(column) = self
-            .columns
-            .iter()
-            .find(|column| column.is_index && column.type_name == "DateTime")
-        else {
-            return (
-                (0..self.row_count).map(|index| index as f64).collect(),
-                "sample".to_owned(),
-            );
-        };
+        if let Some(values) = self.normalized_time_axis_values() {
+            return (values, "s".to_owned());
+        }
+        (sample_axis_values(self.row_count), "sample".to_owned())
+    }
+
+    fn normalized_time_axis_values(&self) -> Option<Vec<f64>> {
+        let column = self.time_index_column()?;
         let RuntimeValues::Text(values) = &column.values else {
-            return (
-                (0..self.row_count).map(|index| index as f64).collect(),
-                "sample".to_owned(),
-            );
+            return None;
         };
         let timestamps = values
             .iter()
             .map(|value| parse_utc_timestamp_seconds(value))
             .collect::<Option<Vec<_>>>();
-        let Some(timestamps) = timestamps else {
-            return (
-                (0..self.row_count).map(|index| index as f64).collect(),
-                "sample".to_owned(),
-            );
-        };
+        let timestamps = timestamps?;
         let Some(first) = timestamps.first().copied() else {
-            return (Vec::new(), "s".to_owned());
+            return Some(Vec::new());
         };
-        (
+        Some(
             timestamps
                 .iter()
                 .map(|timestamp| (*timestamp - first) as f64)
                 .collect(),
-            "s".to_owned(),
         )
     }
 }
@@ -4647,6 +4738,43 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
     }
 
     #[test]
+    fn materializes_time_axes_from_table_indexes() {
+        let tables = vec![
+            time_axis_table(
+                "weather",
+                &[
+                    "2026-01-01T00:00:00Z",
+                    "2026-01-01T00:05:00Z",
+                    "2026-01-01T00:10:00Z",
+                ],
+            ),
+            time_axis_table(
+                "measured",
+                &[
+                    "2026-01-01T00:00:00Z",
+                    "2026-01-01T00:05:00Z",
+                    "2026-01-01T00:20:00Z",
+                ],
+            ),
+        ];
+
+        let axes = materialize_time_axes(&tables);
+
+        assert_eq!(axes.len(), 2);
+        assert_eq!(axes[0].name, "weather.Time");
+        assert_eq!(axes[0].source_column, "timestamp");
+        assert_eq!(axes[0].start, Some(0.0));
+        assert_eq!(axes[0].end, Some(600.0));
+        assert_eq!(axes[0].count, 3);
+        assert_eq!(axes[0].nominal_step, Some(300.0));
+        assert!(!axes[0].irregular);
+        assert_eq!(axes[0].missing_count, 0);
+
+        assert_eq!(axes[1].nominal_step, Some(300.0));
+        assert!(axes[1].irregular);
+    }
+
+    #[test]
     fn materializes_time_alignment_step_metadata() {
         let series = vec![
             time_series_for_alignment("left", "table_a", &[0.0, 60.0, 120.0, 180.0]),
@@ -4674,6 +4802,30 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         assert_eq!(irregular.right_nominal_step, Some(60.0));
         assert!(irregular.right_irregular);
         assert_eq!(irregular.step_status, "mismatch");
+    }
+
+    fn time_axis_table(binding: &str, timestamps: &[&str]) -> RuntimeTable {
+        RuntimeTable {
+            binding: binding.to_owned(),
+            schema_name: format!("{binding}Schema"),
+            source: format!("{binding}.csv"),
+            source_hash: Some(format!("{binding}-hash")),
+            row_count: timestamps.len(),
+            columns: vec![RuntimeColumn {
+                name: "timestamp".to_owned(),
+                type_name: "DateTime".to_owned(),
+                unit: None,
+                canonical_unit: None,
+                is_index: true,
+                values: RuntimeValues::Text(
+                    timestamps.iter().map(|value| value.to_string()).collect(),
+                ),
+                canonical_values: Vec::new(),
+                missing_count: 0,
+                conversion_failures: Vec::new(),
+            }],
+            parse_failures: Vec::new(),
+        }
     }
 
     fn time_series_for_alignment(name: &str, table: &str, xs: &[f64]) -> RuntimeTimeSeries {

@@ -59,6 +59,7 @@ pub struct ReportSpec {
     pub computed_integrations: Vec<ReportComputedIntegration>,
     pub computed_metrics: Vec<ReportComputedMetric>,
     pub validations: Vec<ReportValidationResult>,
+    pub time_axes: Vec<ReportTimeAxis>,
     pub time_alignments: Vec<ReportTimeAlignment>,
     pub uncertainty: Vec<ReportUncertaintyInfo>,
     pub ml: Vec<ReportMlInfo>,
@@ -197,6 +198,21 @@ pub struct ReportValidationResult {
     pub unit: String,
     pub status: String,
     pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportTimeAxis {
+    pub name: String,
+    pub source_table: String,
+    pub source_column: String,
+    pub axis: String,
+    pub unit: String,
+    pub start: Option<f64>,
+    pub end: Option<f64>,
+    pub count: usize,
+    pub nominal_step: Option<f64>,
+    pub irregular: bool,
+    pub missing_count: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1336,6 +1352,7 @@ pub fn report_spec_from_report(
         computed_integrations: Vec::new(),
         computed_metrics: Vec::new(),
         validations: Vec::new(),
+        time_axes: Vec::new(),
         time_alignments: Vec::new(),
         uncertainty,
         ml,
@@ -1857,6 +1874,45 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             json_escape(&validation.status)
         ));
         json.push_str(&format!("      \"line\": {}\n", validation.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"time_axes\": [\n");
+    for (index, axis) in spec.time_axes.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&axis.name)
+        ));
+        json.push_str(&format!(
+            "      \"source_table\": \"{}\",\n",
+            json_escape(&axis.source_table)
+        ));
+        json.push_str(&format!(
+            "      \"source_column\": \"{}\",\n",
+            json_escape(&axis.source_column)
+        ));
+        json.push_str(&format!(
+            "      \"axis\": \"{}\",\n",
+            json_escape(&axis.axis)
+        ));
+        json.push_str(&format!(
+            "      \"unit\": \"{}\",\n",
+            json_escape(&axis.unit)
+        ));
+        push_optional_json_f64(&mut json, "start", axis.start, 6);
+        push_optional_json_f64(&mut json, "end", axis.end, 6);
+        json.push_str(&format!("      \"count\": {},\n", axis.count));
+        push_optional_json_f64(&mut json, "nominal_step", axis.nominal_step, 6);
+        json.push_str(&format!("      \"irregular\": {},\n", axis.irregular));
+        json.push_str(&format!(
+            "      \"missing_count\": {}\n",
+            axis.missing_count
+        ));
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -4066,6 +4122,7 @@ fn render_html_inner(
         .map(render_computed_metrics_section)
         .unwrap_or_default();
     let validations_section = spec.map(render_validations_section).unwrap_or_default();
+    let time_axes_section = spec.map(render_time_axes_section).unwrap_or_default();
     let time_alignments_section = spec.map(render_time_alignments_section).unwrap_or_default();
     let component_solver_section = spec
         .map(render_component_solver_section)
@@ -4213,6 +4270,7 @@ fn render_html_inner(
       <thead><tr><th>Line</th><th>Binding</th><th>Axis</th><th>Role</th><th>Source</th></tr></thead>
       <tbody>{axis_info}</tbody>
     </table>
+    {time_axes_section}
     <h2>Statistics</h2>
     <table>
       <thead><tr><th>Line</th><th>Source</th><th>Quantity</th><th>Axis</th><th>Statistics</th><th>Cache Key</th></tr></thead>
@@ -4408,6 +4466,12 @@ fn format_alignment_step(step: Option<f64>, irregular: bool) -> String {
     label
 }
 
+fn format_optional_alignment_number(value: Option<f64>) -> String {
+    value
+        .map(format_alignment_number)
+        .unwrap_or_else(|| "n/a".to_owned())
+}
+
 fn format_alignment_number(value: f64) -> String {
     let mut text = format!("{value:.6}");
     while text.contains('.') && text.ends_with('0') {
@@ -4455,6 +4519,42 @@ fn html_escape(value: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
+}
+
+fn render_time_axes_section(spec: &ReportSpec) -> String {
+    if spec.time_axes.is_empty() {
+        return String::new();
+    }
+    let rows = spec
+        .time_axes
+        .iter()
+        .map(|axis| {
+            let start = format_optional_alignment_number(axis.start);
+            let end = format_optional_alignment_number(axis.end);
+            let step = format_alignment_step(axis.nominal_step, axis.irregular);
+            let status = if axis.irregular { "irregular" } else { "regular" };
+            format!(
+                "<tr><td>{}</td><td>{}.{}</td><td>{} - {}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                html_escape(&axis.name),
+                html_escape(&axis.source_table),
+                html_escape(&axis.source_column),
+                html_escape(&start),
+                html_escape(&end),
+                axis.count,
+                html_escape(&step),
+                axis.missing_count,
+                status
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    format!(
+        r#"<h2>Time Axes</h2>
+    <table>
+      <thead><tr><th>Name</th><th>Source</th><th>Range</th><th>Count</th><th>Nominal Step</th><th>Missing</th><th>Status</th></tr></thead>
+      <tbody>{rows}</tbody>
+    </table>"#
+    )
 }
 
 fn format_domain_signature(name: &str, parameters: &[DomainTypeParameterInfo]) -> String {
