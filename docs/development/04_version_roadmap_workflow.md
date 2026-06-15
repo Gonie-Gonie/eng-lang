@@ -1,24 +1,24 @@
 # Version And Track Workflow
 
 EngLang separates public release versions from long-term development tracks.
-Contributors should start from the current public preview scope or the relevant
+Contributors should start from the current public release scope or the relevant
 track, not from a broad feature list.
 
 ## Standard Workflow
 
 ```text
-1. Pick the current public preview scope or development track.
+1. Pick the current public release scope or development track.
 2. Read `docs/current/status.md`, `docs/current/philosophy.md`,
    `docs/current/version_plan.md`, and `docs/current/tracks.md`.
 3. Read focused reference policies such as
    `docs/reference/side_effect_policy.md` when they match the task.
 4. Open the v9 master plan only for long-term historical design sections.
-5. Create or select an issue with a preview or track target.
+5. Create or select an issue with a maturity status or track target.
 6. Implement code, tests, examples, and docs together.
 7. Run dev.bat ci.
 8. Commit and push at a reviewable unit.
-9. Update roadmap/release notes when the public preview state changes.
-10. After a public preview, run a gap audit before promoting any feature to stable.
+9. Update roadmap/release notes when public release scope changes.
+10. After a public release, run a gap audit before promoting any feature to stable.
 ```
 
 Before marking a feature done, check
@@ -69,17 +69,15 @@ Avoid combining:
 
 ## Milestone Gap Audit
 
-After a public preview is tagged, compare the implemented behavior
+After a public release is tagged, compare the implemented behavior
 against the master plan and write down seed-only areas before moving on.
 
 The audit should classify each item as:
 
 ```text
-Prototype
-Preview
+Internal
 Supported
 Stable
-Experimental
 Planned
 Deferred
 ```
@@ -87,21 +85,16 @@ Deferred
 Definitions:
 
 ```text
-Prototype
+Internal
   Internal spike or seed. Do not present as a release feature.
 
-Preview
-  Usable through official examples or package paths with explicit limitations.
-
 Supported
-  Documented, tested, has diagnostics or IDE metadata where relevant, and is
-  part of the current public preview contract.
+  Usable through official examples or package paths with explicit limitations,
+  docs, tests, diagnostics or IDE metadata where relevant, and artifacts where
+  relevant.
 
 Stable
   Public behavior with a breaking-change policy.
-
-Experimental
-  May exist on main, but is not release-supported.
 
 Planned
   Intended future work.
@@ -121,11 +114,11 @@ current planning should use [tracks](../current/tracks.md).
 
 ## Backfill Policy
 
-If a missed item is found after a preview release:
+If a missed item is found after a public release:
 
 ```text
 1. Add the missing item as a normal main-branch commit.
 2. Do not move existing tags.
 3. Mention it in docs/roadmap.md or the relevant track doc.
-4. Keep the next active preview unchanged unless the user asks for a patch label.
+4. Keep the next active release unchanged unless the user asks for a patch label.
 ```

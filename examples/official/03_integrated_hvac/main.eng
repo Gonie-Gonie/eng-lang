@@ -23,7 +23,7 @@ args {
     input: CsvFile = file("data/integrated_hvac.csv")
 }
 
-system RoomThermalPreview {
+system RoomThermal {
     state T_room: AbsoluteTemperature = 21 degC
     parameter C_room: HeatCapacity = 1500 kJ/K
     parameter UA: Conductance = 220 W/K
@@ -42,7 +42,8 @@ E_coil = integrate(Q_coil, over=Time)
 report {
     summarize Q_coil by [mean, time_weighted_mean, max, median, std, p90, p95, duration_above(5 kW)]
     show E_coil
-    plot Q_coil over Time {
+    plot Q_coil over Time
+    with {
         unit y = kW
         title = "Integrated HVAC coil heat rate"
     }

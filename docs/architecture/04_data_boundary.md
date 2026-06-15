@@ -4,7 +4,7 @@ The data-boundary track materializes the official CSV example into runtime
 table pages, TimeSeries values, computed statistics, and policy execution
 status.
 
-The implemented preview path is:
+The implemented data-boundary path is:
 
 ```text
 schema block
@@ -151,7 +151,7 @@ canonical_values
 conversion_failures
 ```
 
-`values` preserve the CSV source/display unit used by the current preview
+`values` preserve the CSV source/display unit used by the current runtime
 calculation path. `canonical_values` record each numeric cell converted into
 the quantity's canonical unit when a registered conversion seed exists.
 Unsupported source units are recorded in `conversion_failures` with row,

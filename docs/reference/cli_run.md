@@ -142,7 +142,7 @@ build\result\output_manifest.json
 ## Explicit File Operations
 
 `copy`, `move`, and `delete` provide a small filesystem mutation seed. The
-current preview keeps generated-output mutations under `build\result`.
+current runtime keeps generated-output mutations under `build\result`.
 
 ```eng partial
 copy file("data/template.txt") to "ops/copied_note.txt"
@@ -378,8 +378,8 @@ target\debug\eng.exe run examples\official\02_simple_system\main.eng
 ```
 
 This produces system/equation/residual metadata, system IR, solver_plan
-metadata, and the runtime fixed-step ODE preview for the official simple
-thermal system. Add `--save-artifacts` to write them into:
+metadata, and the runtime fixed-step one-state ODE result for the official
+simple thermal system. Add `--save-artifacts` to write them into:
 
 ```text
 build\result\review.json

@@ -1,6 +1,7 @@
 # Official 13 - File Operations
 
-This example exercises the `v0.6-preview` filesystem mutation seed.
+This example exercises the filesystem mutation seed that was introduced before
+v1.0.0 and is now part of the supported side-effect surface.
 
 It demonstrates:
 
@@ -13,4 +14,4 @@ It demonstrates:
 - recording changed outputs in `output_manifest.json`
 
 All mutation targets are constrained under `build/result` in the current
-preview.
+runtime.

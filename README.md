@@ -14,8 +14,8 @@ Active target: `v1.0.x` - stable core maintenance and scoped additions
 
 EngLang `1.0.0` is a stable-core release. The documented data-to-report
 workflow, artifact family, packaged runner, and native tester path are the
-stable contract; experimental tracks remain outside that contract.
-It is not a claim of a complete engineering simulation solver.
+stable contract. Internal implementation seeds remain outside that contract.
+EngLang 1.0.0 is not a complete engineering simulation solver.
 
 Start from these short status documents:
 
@@ -25,6 +25,7 @@ Start from these short status documents:
 - [Feature maturity matrix](docs/current/feature_maturity_matrix.md)
 - [Stable core scope](docs/current/stable_core_scope.md)
 - [Development tracks](docs/current/tracks.md)
+- [Implementation issue backlog](docs/current/implementation_issue_backlog.md)
 - [Breaking change policy](docs/reference/breaking_change_policy.md)
 - [LLM context](LLM_CONTEXT.md)
 - [LLM load map](docs/llm/load_map.yml)
@@ -52,8 +53,9 @@ Start from these short status documents:
 - Basic packaged execution
 - Native tester IDE for user testing
 
-Future and experimental work is managed by tracks, not by high-numbered public
-versions:
+Planned and internal work is managed by tracks, not by high-numbered public
+versions. These links are roadmap/context entry points, not stable workflow
+claims:
 
 - Core language
 - Data boundary
@@ -67,11 +69,12 @@ versions:
 - Class/domain-object
 - General programming/side-effect policy
 
-The system/equation path currently means a preview ODE runner for the official
-one-state fixed-step thermal workflows, plus solver metadata and solver-plan
-artifacts. General solvers, DAE solving, adaptive or multi-state solving,
-numeric component-graph solving, and domain package registries remain future
-or experimental tracks.
+The system/equation path currently means one-state fixed-step thermal workflow
+support, plus solver metadata and solver-plan artifacts for that narrow scope.
+General solvers, DAE, adaptive or multi-state solving, and numeric
+component-graph solving remain future tracks. Domain package registries also
+remain future work. Historical tags may remain for traceability; current public
+release line starts from v1.0.0.
 
 ## Quick Start
 
@@ -212,7 +215,8 @@ popd
 matching `.sha256` file, and a curated PDF user guide. The portable package
 does not copy the full developer markdown documentation tree. `package-smoke`
 extracts that zip into a path with spaces and Korean characters, then runs the
-portable `eng.exe`, `eng-ide.exe --smoke`, and experimental `eng-lsp.exe
---smoke` without relying on Rust or Python on the target side.
+portable `eng.exe`, `eng-ide.exe --smoke`, and `eng-lsp.exe --smoke` without
+relying on Rust or Python on the target side. The LSP binary is shipped for
+smoke/snapshot tooling; it is not a stable persistent editor-service contract.
 
 `docs-check` and `artifacts-check` are included in `release-check`.

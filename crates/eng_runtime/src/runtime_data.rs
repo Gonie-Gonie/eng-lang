@@ -2012,8 +2012,8 @@ fn materialize_component_solutions(report: &CheckReport) -> Vec<RuntimeComponent
                 )
             } else {
                 (
-                    "solved_preview".to_owned(),
-                    "homogeneous linear connection constraints solved by zero-vector preview"
+                    "constraint_satisfied_unique".to_owned(),
+                    "homogeneous linear connection constraints satisfy the zero-vector consistency check"
                         .to_owned(),
                     None,
                 )
@@ -2185,7 +2185,8 @@ fn materialize_first_order_thermal_solution(
         binding: binding.map(str::to_owned),
         status: "computed".to_owned(),
         method: "explicit_euler_fixed_step".to_owned(),
-        reason: "recognized first-order thermal ODE and executed fixed-step preview".to_owned(),
+        reason: "recognized first-order thermal ODE and executed fixed-step one-state path"
+            .to_owned(),
         state: state.name.clone(),
         quantity_kind: state.quantity_kind.clone(),
         display_unit: state.display_unit.clone(),
@@ -2842,7 +2843,11 @@ fn parse_plot_options(source: &str) -> PlotOptions {
         return options;
     };
     let after_plot = &source[plot_index + "plot ".len()..];
-    let header_end = after_plot.find('{').unwrap_or(after_plot.len());
+    let header_end = [after_plot.find('{'), after_plot.find('\n')]
+        .into_iter()
+        .flatten()
+        .min()
+        .unwrap_or(after_plot.len());
     let header = after_plot[..header_end].trim();
     if let Some(histogram) = parse_histogram_header(header) {
         options.histogram = Some(histogram);
@@ -4187,6 +4192,58 @@ report {
     }
 
     #[test]
+    fn parses_with_plot_options_for_special_headers() {
+        let histogram_options = parse_plot_options(
+            r#"
+report {
+    plot histogram(Q_coil)
+    with {
+        unit x = kW
+        title = "Coil heat-rate distribution"
+    }
+}
+"#,
+        );
+
+        assert_eq!(histogram_options.histogram.as_deref(), Some("Q_coil"));
+        assert_eq!(histogram_options.plot_type.as_deref(), Some("histogram"));
+        assert_eq!(histogram_options.x_unit.as_deref(), Some("kW"));
+
+        let distribution_options = parse_plot_options(
+            r#"
+report {
+    plot distribution(Q_coil_dist)
+    with {
+        title = "Coil uncertainty"
+    }
+}
+"#,
+        );
+
+        assert_eq!(
+            distribution_options.distribution.as_deref(),
+            Some("Q_coil_dist")
+        );
+        assert_eq!(distribution_options.plot_type.as_deref(), Some("histogram"));
+
+        let model_options = parse_plot_options(
+            r#"
+report {
+    plot residuals(reg_eval)
+    with {
+        title = "Regression residuals"
+    }
+}
+"#,
+        );
+
+        let model_plot = model_options.model_plot.as_ref().unwrap();
+        assert_eq!(model_plot.kind, "residuals");
+        assert_eq!(model_plot.source, "reg_eval");
+        assert_eq!(model_options.plot_type.as_deref(), Some("bar"));
+    }
+
+    #[test]
     fn parses_model_plot_options() {
         let options = parse_plot_options(
             r#"
@@ -4386,7 +4443,7 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
     }
 
     #[test]
-    fn materializes_component_assembly_solver_preview() {
+    fn materializes_component_assembly_constraint_check() {
         let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
             .join("examples/official/06_domain_port/main.eng");

@@ -6,6 +6,7 @@ default:
   - docs/current/version_plan.md
   - docs/current/feature_maturity_matrix.md
   - docs/current/tracks.md
+  - docs/current/implementation_issue_backlog.md
   - docs/language/string_formatting.md
   - docs/guide/language_grammar.md
   - docs/reference/top_level_execution_policy.md
@@ -109,6 +110,7 @@ task_types:
     - docs/current/version_plan.md
     - docs/current/stable_core_scope.md
     - docs/current/philosophy.md
+    - docs/current/implementation_issue_backlog.md
     - docs/reference/breaking_change_policy.md
     - docs/release/release-workflow.md
     - docs/release/acceptance-checklist.md
@@ -158,7 +160,7 @@ task_types:
     - docs/current/tracks.md
     - docs/current/feature_maturity_matrix.md
     - docs/guide/class_object.md
-    - examples/official/19_class_object_preview/
+    - examples/official/19_class_object/
     - examples/05_error_messages/class_missing_field.eng
     - examples/05_error_messages/class_unknown_field.eng
     - examples/05_error_messages/class_field_type_mismatch.eng
@@ -172,3 +174,12 @@ task_types:
     - crates/eng_report/src/lib.rs
     - crates/eng_ide/src/main.rs
     - crates/eng_lsp/src/lib.rs
+
+  state_space:
+    - docs/current/tracks.md
+    - docs/guide/language_grammar.md
+    - examples/internal/18_state_space_metadata/
+    - crates/eng_compiler/src/parser.rs
+    - crates/eng_compiler/src/semantic.rs
+    - crates/eng_compiler/src/lib.rs
+    - crates/eng_report/src/lib.rs

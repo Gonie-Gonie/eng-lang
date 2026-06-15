@@ -1,6 +1,6 @@
 # Data-driven Modeling Track
 
-This guide documents the current experimental data-driven modeling track. It is
+This guide documents the current internal data-driven modeling track. It is
 a deterministic path for user testing and artifact review, not a full
 production ML framework yet.
 
@@ -31,7 +31,7 @@ ModelCard
 LeakageLint
 ```
 
-The portable stdlib documents this preview surface at:
+The portable stdlib documents this internal surface at:
 
 ```text
 stdlib/eng/ml.eng
@@ -100,7 +100,7 @@ model_card
 ```
 
 Metric values are computed from the promoted CSV path through the `TimeSeries`
-test slice. This preview is deterministic and useful for artifact review,
+test slice. This path is deterministic and useful for artifact review,
 plotting, IDE inspection, and leakage-test workflows. It is not yet a
 production ML framework with cross-validation, hyperparameter search, or model
 persistence.

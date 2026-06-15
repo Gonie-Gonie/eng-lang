@@ -1,6 +1,6 @@
 # Functions And File Imports
 
-EngLang preview functions are pure quantity-aware helpers. They are intended for
+EngLang functions are pure quantity-aware helpers. They are intended for
 reusable scalar engineering relationships, not stateful systems or artifact
 generation.
 
@@ -21,7 +21,7 @@ Rules:
 - Parameters require explicit quantity annotations.
 - Parameter display units are optional but recommended at public boundaries.
 - Return quantity is explicit and unit-checked against the return expression.
-- The preview function body supports ordered local `name = expr` bindings plus
+- The current function body supports ordered local `name = expr` bindings plus
   one `return` expression.
 - Function-local bindings are part of the function body, not importable module
   symbols.
@@ -38,7 +38,7 @@ Rules:
 
 - File imports are resolved relative to the importing source file.
 - Imported files contribute top-level `const`, `fn`, `schema`, `system`,
-  `domain`, and `component` declarations in this preview.
+  `domain`, and `component` declarations.
 - Imported module `args` blocks and top-level `name = expr` executable locals
   are not imported.
 - Imported `script` blocks are not executable roots and are not executed.

@@ -15,30 +15,31 @@ official/01_csv_plot
   report, raw-value histogram variant, and standalone packaging path.
 
 official/02_simple_system
-  Preview physical system/equation metadata and fixed-step ODE preview.
+  Supported physical system/equation metadata and one-state fixed-step output.
 
 official/03_integrated_hvac
-  Recommended public preview user test. Combines Args, CSV policies, missing-value
-  interpolation, statistics, integration, plotting, reports, and system preview.
+  Recommended integration user test. Combines Args, CSV policies, missing-value
+  interpolation, statistics, integration, plotting, reports, and system
+  metadata.
 
 official/04_uncertainty_core
-  Experimental uncertainty-track path for deterministic uncertainty summaries, propagation
+  Internal uncertainty-track path for deterministic uncertainty summaries, propagation
   metadata/source terms, source and argument diagnostics, and histogram bin
   artifacts. It is tested on main but not release-supported yet.
 
 official/05_data_driven_modeling
-  Experimental data-driven modeling track path for split/model/evaluation source diagnostics,
+  Internal data-driven modeling track path for split/model/evaluation source diagnostics,
   argument diagnostics, deterministic metrics, leakage lint, model cards, and
   parity/residual plots. It is tested on main but not release-supported yet.
 
 official/06_domain_port
-  Experimental domain/component track fixture for user-defined domain declarations,
+  Internal domain/component track fixture for user-defined domain declarations,
   across/through variables, conservation metadata, components, ports, and
   domain-compatible connection review. It includes structured generic
   parameters such as Fluid[Medium M] and MechanicalNode[Frame F, Axis DOF].
 
 official/07_functions_imports
-  Preview top-level execution, importable const, function-local binding,
+  Top-level execution, importable const, function-local binding,
   relative file imports, function-call inference, CLI print, and summary CSV
   export.
 
@@ -80,6 +81,27 @@ official/16_test_assert_golden
   Local workflow verification seed with named `test` blocks, unit-aware
   `assert` statements, golden artifact comparison, and generated
   `test_results.json` artifacts.
+
+official/17_measured_vs_simulated
+  Stable measured-vs-simulated workflow with weather/measured CSV promotion,
+  one-state fixed-step simulation output, RMSE, validation, time alignment, and
+  multi-series PlotSpec.
+
+official/19_class_object
+  Supported class/domain-object authoring fixture with typed fields, defaults,
+  object literals, validation, field access metadata, immutable copy-with, and
+  class/object artifacts.
+```
+
+## Internal Implementation Fixtures
+
+`examples/internal` contains implementation fixtures that are checked by the
+development smoke path but are not user-facing release workflows.
+
+```text
+internal/18_state_space_metadata
+  StateVector/InputVector/OutputVector and LinearOperator metadata only. This
+  fixture does not perform state-space simulation.
 ```
 
 ## Compatibility Regression Examples

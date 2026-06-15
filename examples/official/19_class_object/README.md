@@ -1,6 +1,6 @@
-# Official 19 Class Object Preview
+# Official 19 Class Object
 
-Metadata-first class/domain-object preview for reviewable engineering library
+Supported class/domain-object fixture for reviewable engineering library
 objects.
 
 This example shows:
@@ -25,7 +25,7 @@ Current support boundary:
 - class/object parsing, metadata, object literal diagnostics, simple class
   validation rules, zero-argument metadata methods, immutable copy-with
   metadata, field access typing, report/review sections, and IDE artifact
-  outline visibility are supported for this preview;
+  outline visibility are supported for this scope;
 - method arguments, inheritance, mutation, and runtime object dispatch are
   deferred;
 - classes are ordinary typed engineering objects, not replacements for
@@ -34,6 +34,6 @@ Current support boundary:
 Useful commands:
 
 ```bat
-target\debug\eng.exe check examples\official\19_class_object_preview\main.eng --review
-target\debug\eng.exe run examples\official\19_class_object_preview\main.eng --save-artifacts
+target\debug\eng.exe check examples\official\19_class_object\main.eng --review
+target\debug\eng.exe run examples\official\19_class_object\main.eng --save-artifacts
 ```

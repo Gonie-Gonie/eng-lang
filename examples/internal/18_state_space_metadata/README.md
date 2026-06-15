@@ -1,7 +1,7 @@
-# Official 18 - State-Space Preview
+# Internal 18 - State-Space Metadata
 
-This example exercises the typed matrix/state-space preview surface without
-claiming a general dynamic solver.
+This internal fixture exercises the typed matrix/state-space metadata surface
+without claiming a general dynamic solver.
 
 It demonstrates:
 
@@ -16,5 +16,5 @@ Current limitation:
 - metadata and diagnostics only for the state-space surface
 - no nonlinear, DAE, adaptive, or full matrix simulation solver claim
 - numeric state trajectories still come from the supported one-state thermal
-  fixed-step preview path
+  fixed-step path
 ```

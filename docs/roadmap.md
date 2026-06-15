@@ -29,8 +29,8 @@ v1.0.0        stable core
 ```
 
 `v0.x-preview` did not mean every implemented feature was stable. `v1.0.0`
-stabilizes a narrow documented core while keeping broader tracks preview or
-experimental.
+stabilizes a narrow documented core while keeping broader tracks Internal or
+Planned unless their supported scope is explicitly documented.
 
 ## Current Public Line
 
@@ -67,8 +67,8 @@ experimental.
 Known stable-core boundary:
 
 ```text
-- uncertainty and ML examples are future-track smoke paths
-- LSP/VS Code is a secondary preview path
+- uncertainty and ML examples are internal-track smoke paths
+- LSP/VS Code is a secondary internal path
 - JIT/AOT has planning metadata only, no speedup claim
 - domain/component work is metadata-first, no numeric multi-domain solver
 - broad filesystem/network side effects, full process sandboxing, and
@@ -108,7 +108,7 @@ policy source.
 - patch fixes without changing the stable contract
 - compatible docs, diagnostics, and artifact additions
 - explicit deprecation warnings before stable removals
-- continued preview/experimental track separation
+- continued Stable/Supported/Internal/Planned track separation
 ```
 
 ## Development Tracks
@@ -129,8 +129,8 @@ T10 Class / Domain Object
 T11 General Programming / Side Effects
 ```
 
-A future preview may include early work from any track, but the track name
-should remain separate from the release version.
+A future release may include early work from any track, but the track name
+should remain separate from the release version and maturity status.
 
 ## IDE Direction
 
@@ -158,7 +158,7 @@ test workflow but is still not a full editor platform or LSP replacement.
 
 ```text
 [x] syntax and core semantics have a documented breaking-change policy
-[x] supported preview features are promoted or explicitly deferred
+[x] supported features are promoted, documented as Internal, or explicitly deferred
 [x] official examples pass on clean Windows package smoke
 [x] current status and maturity docs match implementation
 [x] portable zip works cleanly without Rust/Python on the target PC

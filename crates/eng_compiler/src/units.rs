@@ -225,7 +225,7 @@ pub fn unit_derivation(
             steps.push(format!("{unit} has no registered conversion seed"));
         }
     } else {
-        steps.push("no source unit literal found in preview expression".to_owned());
+        steps.push("no source unit literal found in current expression".to_owned());
     }
 
     if display_unit != canonical_unit {

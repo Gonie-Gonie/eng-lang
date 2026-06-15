@@ -1,6 +1,6 @@
 # Official 06 Domain Port
 
-Experimental domain/component track user-test fixture for the open domain/port and component
+Internal domain/component metadata-track user-test fixture for the open domain/port and component
 connection surface.
 
 This example is intentionally metadata-first:
@@ -19,8 +19,8 @@ This example is intentionally metadata-first:
 - Compatible connections are grouped into assembly connection sets and generate
   metadata-only across/through equation seeds plus residual graph placeholders.
 - The assembled graph contains three domain plans (`Thermal`, `Fluid[Water]`,
-  and `MechanicalNode[World, X]`) and is labeled `multi_domain_preview` in
-  review/report artifacts.
+  and `MechanicalNode[World, X]`) and records `multi_domain_preview` in the
+  legacy-named artifact status field.
 - Connection graph review also reports duplicate edges as diagnostics and
   resolved but unconnected ports as warnings.
 - A small top-level report keeps the file runnable while the domain graph

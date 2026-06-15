@@ -1,6 +1,6 @@
 # Summary Object Decision
 
-Status: deferred for the v0.2-preview scope.
+Status: deferred during the v0.2 planning scope.
 
 EngLang currently supports summary output through explicit artifact statements,
 not through a first-class `Summary` value.
@@ -21,7 +21,7 @@ export summary to csv "summary.csv" {
 
 ## Decision
 
-Do not add a first-class Summary object in v0.2-preview.
+Do not add a first-class Summary object in the v0.2 planning scope.
 
 Reasons:
 
@@ -36,7 +36,7 @@ Reasons:
 
 ## Current Meaning Of `summary`
 
-In v0.2-preview planning, `summary` is only the source selector in:
+In v0.2 planning, `summary` is only the source selector in:
 
 ```eng
 export summary to csv "summary.csv" {

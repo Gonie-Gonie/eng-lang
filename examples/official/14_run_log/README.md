@@ -1,6 +1,7 @@
 # Official 14 - Run Log
 
-This example exercises the `v0.7-preview` structured runtime message seed.
+This example exercises the structured runtime message seed that was introduced
+before v1.0.0 and is now part of the supported side-effect surface.
 
 It demonstrates:
 

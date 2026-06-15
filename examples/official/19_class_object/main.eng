@@ -74,4 +74,4 @@ better_wall_u = better_wall.u_value
 building_name = building.name
 building_summary = building.summary()
 
-print "Class object preview metadata ready"
+print "Class object metadata ready"

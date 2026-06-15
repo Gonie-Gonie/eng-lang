@@ -10,7 +10,8 @@ It is intentionally short so agents do not need to load every planning file.
 - Workspace package version: `1.0.0`
 - EngLang 1.0.0 is a stable-core release. The documented data-to-report
   workflow, artifact family, packaged runner, and native tester path are stable;
-  preview/experimental tracks remain outside that contract.
+  supported non-stable features and internal implementation seeds remain
+  outside that contract.
 - Public release versions describe packages. Long-term capabilities are tracked
   as development tracks, not as high-numbered versions.
 - Stable-core scope is documented in `docs/current/stable_core_scope.md`.
@@ -25,7 +26,8 @@ It is intentionally short so agents do not need to load every planning file.
 6. `docs/current/stable_core_scope.md`
 7. `docs/reference/breaking_change_policy.md`
 8. `docs/current/tracks.md`
-9. `docs/llm/load_map.yml`
+9. `docs/current/implementation_issue_backlog.md`
+10. `docs/llm/load_map.yml`
 
 ## Current Stable Core
 
@@ -36,7 +38,7 @@ The current stable core supports:
 - command-style built-in workflow verbs with where/with policy
 - unit-aware TimeSeries calculation
 - statistics and integration metadata
-- measured-vs-simulated workflow seed with typed simulation TimeSeries, RMSE,
+- measured-vs-simulated workflow with typed simulation TimeSeries, RMSE,
   validation, time-alignment metadata, and multi-series PlotSpec
 - unit-aware print and explicit summary CSV export
 - typed path helpers and provenance-visible `exists`
@@ -56,12 +58,11 @@ The current stable core supports:
 - curated user and language grammar PDFs
 
 Implementation seeds for uncertainty, data-driven modeling, LSP, JIT/AOT,
-domain/component, class/domain-object, and general programming/side-effect work
-may exist on `main`, but they are future tracks unless the current status
-documents explicitly promote a narrow preview scope.
-The domain/component seed includes reviewable assembly metadata, domain plans,
-and a homogeneous connection-constraint solver preview; it is not production
-multi-domain physical solving.
+domain/component, state-space, and class/domain-object work may exist on
+`main`, but they are Internal unless the current status documents a narrow
+Supported scope. The domain/component seed includes reviewable assembly
+metadata, domain plans, and a connection constraint consistency check; it is
+not production multi-domain physical solving.
 
 ## Core Invariants
 
@@ -87,12 +88,11 @@ multi-domain physical solving.
 
 ## Status Terms
 
-- `Prototype`: internal spike or seed.
-- `Preview`: works through official examples or package paths with limitations.
-- `Supported preview`: documented, tested, has diagnostics or IDE metadata
-  where relevant, and is part of the current public preview contract.
-- `Stable`: public behavior with a breaking-change policy.
-- `Experimental`: may exist on `main`, but is not public-supported.
+- `Stable`: public behavior covered by the stable-core breaking-change policy.
+- `Supported`: usable, documented, tested, and visible through diagnostics or
+  artifacts for the stated scope, but not covered by stable policy.
+- `Internal`: may have code, tests, examples, or artifacts on `main`, but is
+  not a public-supported release feature.
 - `Planned`: intended future work.
 
 ## Current Architecture

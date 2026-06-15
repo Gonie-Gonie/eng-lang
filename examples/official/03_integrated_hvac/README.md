@@ -1,9 +1,9 @@
 # Official Example 03: Integrated HVAC
 
-This example is the public preview user-test scenario for the native tester IDE and
+This example is the release user-test scenario for the native tester IDE and
 portable release package.
 
-It exercises the supported preview workflow in one file:
+It exercises the supported workflow in one file:
 
 ```text
 - Args default CSV path
@@ -15,7 +15,7 @@ It exercises the supported preview workflow in one file:
 - TimeSeries statistics and duration_above
 - trapezoidal integrate provenance
 - PlotSpec/SVG/report generation
-- simple thermal system metadata and fixed-step ODE preview
+- simple thermal system metadata and fixed-step one-state ODE result
 ```
 
 Run from the repository root:

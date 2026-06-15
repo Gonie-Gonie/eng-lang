@@ -1,6 +1,6 @@
-# Preview TimeSeries Expression Kernel
+# TimeSeries Expression Kernel
 
-The current preview has one supported table-to-TimeSeries expression kernel:
+The current runtime has one supported table-to-TimeSeries expression kernel:
 
 ```eng
 Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
@@ -34,11 +34,10 @@ plot/report/print/export surfaces.
 
 ## Deferred
 
-The preview kernel is not a general expression engine. Deferred work includes:
+The supported kernel is not a general expression engine. Deferred work includes:
 
 - arbitrary table formulas;
 - multi-table joins;
 - general unit algebra across all TimeSeries expressions;
 - user-defined kernels;
 - package-level data-source abstractions.
-

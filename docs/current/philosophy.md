@@ -181,7 +181,7 @@ general programming support plan.
 ## Completion Rule
 
 A feature is not complete because an example parses. A feature is complete for
-its stated preview scope only when these agree:
+its stated supported scope only when these agree:
 
 ```text
 language rule

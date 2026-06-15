@@ -1,7 +1,7 @@
 # Integrated HVAC User Test
 
-This tutorial is the recommended public preview user test. It uses the official
-integrated HVAC example to exercise the supported preview workflow and the native
+This tutorial is the recommended release user test. It uses the official
+integrated HVAC example to exercise the supported workflow and the native
 tester IDE in one workflow.
 
 ## What This Covers
@@ -17,7 +17,7 @@ tester IDE in one workflow.
 - TimeSeries statistics
 - trapezoidal integration
 - PlotSpec/SVG/report output
-- simple thermal system fixed-step ODE preview
+- simple thermal system fixed-step one-state ODE result
 ```
 
 ## Portable Package Flow
@@ -65,7 +65,7 @@ schema IntegratedHvacData
 args
   Provides the default CSV path.
 
-system RoomThermalPreview
+system RoomThermal
   Declares the supported one-state first-order thermal ODE shape.
 
 top-level executable workflow

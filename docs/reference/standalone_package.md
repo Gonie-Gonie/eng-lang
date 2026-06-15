@@ -1,6 +1,6 @@
 # Standalone Package Reference
 
-This page defines the current preview packaged-runner contract for
+This page defines the current packaged-runner contract for
 `eng.exe build <file.eng> --standalone --profile repro`.
 
 The supported artifact is a reproducible Windows package directory that runs
@@ -9,7 +9,7 @@ executable. Native `model.exe` generation is reserved for a later backend gate.
 
 ## Support Boundary
 
-| Area | Supported in current preview | Not Claimed |
+| Area | Supported in v1.0.0 | Not Claimed |
 |---|---|---|
 | Runner | `run.bat` invokes bundled `eng.exe run --save-artifacts` | Optimized native execution |
 | Runtime | Current `eng.exe` is copied into the bundle | Separate single-model runtime binary |
@@ -134,7 +134,7 @@ semicolons.
 The current package reserves a future executable-wrapper/AOT boundary without
 claiming it now:
 
-1. `run.bat` remains the supported preview launcher.
+1. `run.bat` remains the supported launcher.
 2. `engine = eng.exe` means the packaged runner depends on the general EngLang
    CLI runtime.
 3. A future `model.exe` must either embed the top-level workflow and runtime ABI or

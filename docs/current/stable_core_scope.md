@@ -1,12 +1,12 @@
 # Stable Core Scope
 
-EngLang `1.0.0` is a stable-core release, not a claim that every experimental
-track is complete and not a claim of a complete engineering simulation solver.
-The stable contract is intentionally narrow: the documented data-to-report
-workflow, artifact family, package smoke path, and native tester workflow are
-expected to remain compatible across `1.x` releases.
+EngLang `1.0.0` is a stable-core release, not a claim that every implementation
+seed on `main` is complete and not a claim of a complete engineering simulation
+solver. The stable contract is intentionally narrow: the documented
+data-to-report workflow, artifact family, package smoke path, and native tester
+workflow are expected to remain compatible across `1.x` releases.
 
-## Stable In 1.0.0
+## What Is Stable In 1.0.0
 
 - Top-level file execution without `script main`.
 - Root `args { ... }` for String/path/CsvFile/DirectoryPath and primitive
@@ -15,42 +15,75 @@ expected to remain compatible across `1.x` releases.
 - Built-in quantity/unit registry used by the official examples.
 - `degC` plus the `°C` alias for absolute temperature display.
 - Typed CSV promotion for the official schema/data boundary.
-- DateTime-indexed table metadata and the supported HeatRate TimeSeries path.
-- Supported TimeSeries statistics and trapezoidal integration for the official
-  data path.
-- Measured-vs-simulated workflow seed: CSV-derived measured TimeSeries, minimal
-  fixed-step one-state thermal simulation output as `sim.T_zone`, RMSE metric,
-  validation result, and time-alignment artifact metadata.
+- DateTime-indexed table metadata and the documented HeatRate TimeSeries path.
+- TimeSeries statistics and trapezoidal integration for the documented data
+  path.
+- Measured-vs-simulated workflow: CSV-derived measured TimeSeries, one-state
+  fixed-step thermal simulation output as `sim.T_zone`, RMSE metric,
+  validation result, time-alignment metadata, and multi-series PlotSpec.
 - Unit-aware `print`, structured `log <level>`, one-row summary CSV export,
   explicit write outputs, process results, and local test/assert/golden checks
   within their documented boundaries.
-- PlotSpec v1 line and multi-series line plot, SVG output, report HTML, review
-  JSON, report spec, run log, process results, test results, and output
-  manifest artifacts.
+- Explicit side-effect artifacts: `output_manifest.json`, `run_log.json`,
+  `process_results.json`, and `test_results.json`.
 - `eng run --profile safe|normal|repro` basics: safe rejects explicit workflow
   write/export/file-operation/process effects, normal is the default, and repro
   records profile diagnostics in result/run-log/output-manifest artifacts.
+- PlotSpec v1 line and multi-series line plots, SVG output, report HTML,
+  review JSON, report spec, run log, process results, test results, and output
+  manifest artifacts.
 - Standalone packaged runner with `.engpkg`, `.lock`, Args help, dependency
-  copying, package smoke, and curated PDF docs.
-- Tauri/WebView tester IDE smoke path, terminal/variables/plot preview, and
-  on-demand report/plot opening for the stable workflow.
+  copying, package smoke, curated PDF docs, release zip, and SHA256 checksum.
+- Tauri/WebView tester IDE smoke path, terminal/variables/plot/artifact
+  inspection, and on-demand report/plot opening for the stable workflow.
 
-## Shipped But Not Stable
+## Stable Artifact Family
 
-The package still includes preview or experimental tracks. They may change in
-`1.x` releases as long as the stable-core contract above is preserved:
+The stable-core artifact family is:
 
-- General nonlinear, adaptive, or multi-state physical solvers.
-- DAE solving or full equation-system solving.
-- Numeric component graph solving and domain package registries.
-- Class/domain object runtime lowering.
-- Broad TimeSeries/table expression execution beyond the documented path.
-- Uncertainty and data-driven modeling engines.
-- LSP/VS Code as a persistent editor-service contract.
+```text
+.engbc
+.engres
+review.json
+report.html
+report_spec.json
+plot_spec.json
+plot_manifest.json
+timeseries.svg
+run_log.json
+process_results.json
+test_results.json
+output_manifest.json
+```
+
+These artifact formats remain subject to the documented schema/version headers
+and stable-core breaking-change policy.
+
+## What Is Not Stable
+
+The package may contain supported features or internal implementation seeds.
+They may change in `1.x` releases as long as the stable-core contract above is
+preserved:
+
+- State-space matrix simulation.
+- Class runtime object dispatch, simulation lowering, method arguments,
+  mutation, and inheritance.
+- Component graph numeric solving and physical multi-domain solving.
+- DAE, nonlinear, adaptive, or multi-state equation solving.
+- LSP/VS Code as a stable persistent editor-service contract.
 - Native JIT/AOT execution or speedup claims.
-- Domain/component package ecosystem and numeric multi-domain solving.
+- Domain package registry or open component ecosystem.
+- Broad TimeSeries/table expression execution beyond the documented path.
+- Uncertainty and data-driven modeling engines as stable features.
 - Full filesystem/network support and full process sandboxing.
 - Workspace-wide test discovery, filtering, and fixtures.
+
+## Breaking-Change Boundary
+
+The breaking-change policy applies to stable syntax, stable CLI behavior, stable
+runtime artifact headers/sections, stable package layout, and the documented
+stable workflows above. Internal implementation seeds can evolve faster, but
+release notes must not present them as stable user-facing behavior.
 
 ## Stable-Core Maintenance Gate
 
@@ -63,8 +96,6 @@ Before a stable-core maintenance slice is accepted:
 .\dev.bat release-check
 ```
 
-The release note must distinguish stable, preview, experimental, and future
-tracks. For the first maintenance slice after `v1.0.0`, the release note should
-describe the work as documentation/release-contract hardening. Package smoke
-must pass from a clean extracted folder without Rust, Python, Node, or Visual
-Studio Build Tools on the target side.
+The release note must distinguish Stable, Supported, Internal, and Planned
+behavior. Package smoke must pass from a clean extracted folder without Rust,
+Python, Node, or Visual Studio Build Tools on the target side.

@@ -33,7 +33,8 @@ report {
     show mlp_eval
     show reg_card
     show leakage
-    plot parity(reg_eval) {
+    plot parity(reg_eval)
+    with {
         title = "Regression parity"
     }
 }

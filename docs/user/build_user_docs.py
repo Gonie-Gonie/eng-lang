@@ -14,7 +14,7 @@ def build_document(version: str) -> Document:
     is_preview = "preview" in version
     title = "EngLang User Test Guide" if is_preview else "EngLang User Guide"
     current_line = (
-        "The current public line is a preview: typed CSV import, unit-aware calculations, "
+        "The current public line is a pre-release package: typed CSV import, unit-aware calculations, "
         "TimeSeries statistics, structured runtime logs, explicit process-result records, local test-result records, PlotSpec/SVG/report generation, native IDE user testing, and basic packaged execution."
         if is_preview
         else "EngLang 1.0.0 is a stable-core package: typed CSV import, unit-aware calculations, TimeSeries statistics, structured runtime logs, explicit process-result records, local test-result records, PlotSpec/SVG/report generation, native IDE user testing, and basic packaged execution are supported within the documented scope."
@@ -35,9 +35,9 @@ def build_document(version: str) -> Document:
         else " JIT planning surface, and "
     )
     final_boundary = (
-        " harness records interpreter baseline timings only and marks JIT execution as unavailable. Backend selection metadata can record a native-preview request, but native execution remains unavailable. This release is not a stable language contract, not a full editor platform, not a general nonlinear solver, not a native JIT runtime, and not a complete domain package ecosystem. Those are future tracks. The public claim for this release is a preview data-to-report workflow with a native test IDE."
+        " harness records interpreter baseline timings only and marks JIT execution as unavailable. Backend selection metadata can record a native-preview request, but native execution remains unavailable. This release is not a stable language contract, not a full editor platform, not a general nonlinear solver, not a native JIT runtime, and not a complete domain package ecosystem. Those are future tracks. The public claim for this release is a pre-release data-to-report workflow with a native test IDE."
         if is_preview
-        else " harness remain experimental and intended for smoke checks and inspection. Backend selection metadata can record a native-preview request, but native execution remains unavailable. The stable contract is intentionally narrow: documented syntax, artifact formats, official examples, package smoke, and the native tester workflow. It is not a full editor platform, not a general nonlinear solver, not a native JIT runtime, and not a complete domain package ecosystem."
+        else " harness remain internal and intended for smoke checks and inspection. Backend selection metadata can record a native-preview request, but native execution remains unavailable. The stable contract is intentionally narrow: documented syntax, artifact formats, official examples, package smoke, and the native tester workflow. It is not a full editor platform, not a general nonlinear solver, not a native JIT runtime, and not a complete domain package ecosystem."
     )
     return Document(
         title,
@@ -59,7 +59,7 @@ def build_document(version: str) -> Document:
                 code("eng-ide.exe"),
                 " for the native IDE or ",
                 code("eng.exe"),
-                " for command-line checks. The package also includes experimental ",
+                " for command-line checks. The package also includes internal ",
                 code("eng-lsp.exe"),
                 " for editor-service smoke checks. The target PC does not need Rust, Node, Visual Studio Build Tools, or a browser IDE.",
             ),
@@ -100,11 +100,11 @@ def build_document(version: str) -> Document:
             Section(
                 "Inspect Plot Output",
                 paragraph(
-                    "The IDE previews PlotSpec data directly and still exposes the generated ",
+                    "The IDE renders PlotSpec data directly and still exposes the generated ",
                     code("plots/timeseries.svg"),
                     " and ",
                     code("report.html"),
-                    " files for external review. The in-IDE preview includes grid lines, x/y ticks, zero baseline handling, and line/scatter/bar/histogram rendering.",
+                    " files for external review. The in-IDE plot view includes grid lines, x/y ticks, zero baseline handling, and line/scatter/bar/histogram rendering.",
                 ),
             ),
             Section(
@@ -142,11 +142,11 @@ def build_document(version: str) -> Document:
                 ", computes RMSE, records validation and time-alignment metadata, and emits a multi-series PlotSpec.",
             ),
             paragraph(
-                "For future-track smoke testing, open ",
+                "For internal-track smoke testing, open ",
                 code("examples/official/04_uncertainty_core/main.eng"),
-                " and verify the in-IDE Runtime uncertainty summary plus the histogram preview. For data-driven modeling smoke testing, open ",
+                " and verify the in-IDE Runtime uncertainty summary plus the histogram view. For data-driven modeling smoke testing, open ",
                 code("examples/official/05_data_driven_modeling/main.eng"),
-                " and verify the in-IDE ML metrics, coefficients, loss history, and parity preview.",
+                " and verify the in-IDE ML metrics, coefficients, loss history, and parity plot.",
             ),
         ),
         Chapter(
@@ -178,7 +178,7 @@ def build_document(version: str) -> Document:
             ),
             paragraph(
                 "The result records policy execution, computed statistics, integration provenance, plot hashes, and "
-                "system solver boundary metadata. Future-track examples may also record uncertainty and ML preview metadata.",
+                "system solver boundary metadata. Internal-track examples may also record uncertainty and ML metadata.",
             ),
         ),
         Chapter(

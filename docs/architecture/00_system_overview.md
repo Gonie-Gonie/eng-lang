@@ -14,15 +14,15 @@ EngLang's official execution path is:
   -> HTML report + report_spec.json + review.json
 ```
 
-The current public preview implements this path incrementally: `eng run` builds
+The current runtime implements this path incrementally: `eng run` builds
 bytecode, decodes it, executes a native VM seed, and returns a typed result
 object from the VM execution record. `--save-artifacts` writes the corresponding
-`.engbc`, `.engres`, PlotSpec, SVG, report, and review files. The supported preview surface includes
+`.engbc`, `.engres`, PlotSpec, SVG, report, and review files. The supported surface includes
 TimeSeries/statistics metadata, PlotSpec v1, SVG rendering, plot manifests,
 review/report artifacts, minimal physical `system` and `eq` metadata, runtime
 table columns, TimeSeries points, computed summary statistics, trapezoidal
 integration, CSV-derived PlotSpec points, and a reviewable system IR with a
-computed fixed-step ODE preview for the official simple thermal system.
+computed fixed-step one-state ODE result for the official simple thermal system.
 
 ## Crates
 
@@ -34,7 +34,7 @@ eng_compiler
   Source check, diagnostics, AST, semantic metadata, top-level workflow data, and bytecode v1.
 
 eng_jit
-  Experimental hot-kernel detection and numeric lowering-plan metadata.
+  Internal hot-kernel detection and numeric lowering-plan metadata.
 
 eng_runtime
   Run/build orchestration, bytecode VM seed, object store, result.engres generation, and doctor checks.
@@ -60,7 +60,7 @@ source
   -> result_json
 ```
 
-Statistics/data preview adds:
+Statistics/data support adds:
 
 ```text
 TimeSeries[Time] of HeatRate
@@ -69,7 +69,7 @@ computed mean/time_weighted_mean/median/std/p90/p95/duration_above summary value
 trapezoidal integrate(HeatRate over Time) -> Energy value
 ```
 
-Plot/report preview adds:
+Plot/report support adds:
 
 ```text
 PlotSpec v1
@@ -79,7 +79,7 @@ SVG export from PlotSpec
 plot manifest
 ```
 
-Review/report preview adds:
+Review/report support adds:
 
 ```text
 review_schema_version
@@ -92,7 +92,7 @@ plot manifest path/hash section
 warning list
 ```
 
-System/equation preview adds:
+System/equation support adds:
 
 ```text
 system block
@@ -107,11 +107,11 @@ solver_boundary status = unsolved
 solver_plan metadata-only solve_order and Jacobian seed columns
 ```
 
-Current system runtime preview adds:
+Current system runtime support adds:
 
 ```text
 report_spec/result solver_boundary status = computed for the official one-state thermal ODE
-explicit_euler_fixed_step ODE runner preview
+explicit_euler_fixed_step ODE runner
 solver_result trajectory in result.engres
 ```
 
@@ -137,9 +137,9 @@ Schema columns remain public boundary metadata. They are not emitted as runtime 
 
 System variables are also boundary metadata. They appear in review/report
 variable tables, system summaries, the system IR dependency list, and
-solver_plan seed metadata. The current system runtime preview additionally
+solver_plan seed metadata. The current system runtime support additionally
 recognizes the official one-state thermal ODE and records a fixed-step runtime
-preview in run artifacts.
+result in run artifacts.
 
 ## Data Boundary
 

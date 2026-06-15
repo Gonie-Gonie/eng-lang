@@ -84,7 +84,7 @@ current nearest-rank percentile kernel, so `p95` keeps the same behavior as the
 current artifact contract.
 
 `duration_above(<threshold>)` evaluates the threshold in the TimeSeries display
-unit. When a threshold unit is supplied, the current preview supports the same
+unit. When a threshold unit is supplied, the current runtime supports the same
 W/kW conversion used by plot display conversion. The duration kernel uses
 Time-axis seconds and linearly interpolates threshold crossings between
 adjacent points.

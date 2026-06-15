@@ -4,7 +4,7 @@ EngLang supports Python-like string interpolation for CLI/debug output,
 structured runtime messages, and a small explicit CSV export surface for scalar
 summary records.
 
-Status: preview on `main`.
+Status: supported in the documented side-effect/reporting surface.
 
 ## Print
 

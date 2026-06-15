@@ -6,7 +6,7 @@ log messages, GP-6 explicit external process execution, GP-7 test/assert/
 golden support, and safe/normal/repro profile basics are implemented for
 `v1.0.0`. Broader filesystem mutation outside generated-output boundaries,
 network, workspace-wide test discovery, and full process sandboxing remain
-planned tracks, not supported preview behavior.
+planned tracks, not supported behavior.
 
 EngLang is not trying to become a fully general replacement for Python, MATLAB,
 or R. Real engineering workflows still need practical file, path, config,
@@ -123,7 +123,7 @@ data = promote csv args.input as SensorData
 Rules:
 
 ```text
-- read text/json/toml returns UTF-8 raw text in the current preview
+- read text/json/toml returns UTF-8 raw text in the current runtime
 - structured JSON/TOML values are deferred to typed promote/object support
 - imported const/function files may not hide read effects
 - source hashes are recorded when data affects runtime artifacts
@@ -151,7 +151,7 @@ Rules:
 ```text
 - overwrite default is false for changed existing output contents
 - an identical existing file is accepted so official examples can be rerun
-- output targets are constrained under build/result in the current preview
+- output targets are constrained under build/result in the current runtime
 - output files appear in review metadata and output_manifest.json
 - export is preferred over ad hoc write for reproducible artifacts
 - `write json` writes scalar quantities as JSON objects with value/unit metadata
@@ -241,7 +241,7 @@ status
 line
 ```
 
-Implemented preview rules:
+Implemented rules:
 
 ```text
 - `run command` must bind a result, for example `result = run command "cmd"`
@@ -335,4 +335,4 @@ copy/move/delete operations under `build/result`, structured runtime message
 artifacts, explicit external process records, local test/assert/golden records,
 and CLI-selected safe/normal/repro profile basics. Broader filesystem access,
 network effects, workspace-wide test discovery, and full process sandboxing
-remain outside the public preview until their policy slices land.
+remain outside the supported surface until their policy slices land.

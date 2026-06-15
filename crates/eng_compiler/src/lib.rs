@@ -235,7 +235,7 @@ fn resolve_file_imports(
                 "E-IMPORT-001",
                 import.line,
                 &format!(
-                    "`use {}` is not supported by the preview import resolver.",
+                    "`use {}` is not supported by the current import resolver.",
                     import.target
                 ),
                 Some("Use a file import such as `use \"thermal.eng\"`."),
@@ -4181,7 +4181,7 @@ mod tests {
     #[test]
     fn records_class_object_metadata_and_field_access() {
         let report = check_source(
-            "class_preview.eng",
+            "class_object.eng",
             "class Construction {\n    name: String\n    u_value: Conductance [W/K]\n    thickness: Length [m] = 0.2 m\n    validate {\n        u_value > 0 W/K\n        thickness > 0 m\n    }\n    method summary() -> String = self.name\n}\n\nclass Zone {\n    name: String\n    capacity: HeatCapacity [J/K]\n}\n\nwall = Construction {\n    name = \"South\"\n    u_value = 120 W/K\n}\n\nbetter_wall = wall with {\n    u_value = 100 W/K\n}\n\nzone = Zone {\n    name = \"Office\"\n    capacity = 120000 J/K\n}\n\nwall_u = better_wall.u_value\nwall_summary = better_wall.summary()\n",
             &CheckOptions::default(),
         );
@@ -4481,7 +4481,7 @@ mod tests {
         assert_eq!(kernel.binding, "Q_coil");
         assert_eq!(kernel.kind, "table_heat_rate_from_mass_flow_cp_delta_t");
         assert_eq!(kernel.source_table.as_deref(), Some("sensor"));
-        assert_eq!(kernel.status, "preview_supported");
+        assert_eq!(kernel.status, "supported");
         assert!(kernel
             .operations
             .iter()
@@ -5133,7 +5133,7 @@ mod tests {
     fn records_state_space_vectors_and_linear_operators() {
         let report = check_source(
             "ok.eng",
-            "system ThermalStateSpacePreview {\n    state T_zone: AbsoluteTemperature = 22 degC\n    input T_out: AbsoluteTemperature = 8 degC\n    input Q_internal: HeatRate = 500 W\n    states x = [T_zone]\n    inputs u = [T_out, Q_internal]\n    outputs y = [T_zone]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.0002]]\n    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.0002, 0.001]]\n    equation {\n        der(x) eq A * x + B * u\n    }\n}\n",
+            "system ThermalStateSpaceMetadata {\n    state T_zone: AbsoluteTemperature = 22 degC\n    input T_out: AbsoluteTemperature = 8 degC\n    input Q_internal: HeatRate = 500 W\n    states x = [T_zone]\n    inputs u = [T_out, Q_internal]\n    outputs y = [T_zone]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.0002]]\n    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.0002, 0.001]]\n    equation {\n        der(x) eq A * x + B * u\n    }\n}\n",
             &CheckOptions::default(),
         );
 

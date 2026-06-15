@@ -1,6 +1,6 @@
 # Tauri Tester IDE
 
-The public preview ships `eng-ide.exe` as a portable Tauri/WebView tester IDE.
+The release ships `eng-ide.exe` as a portable Tauri/WebView tester IDE.
 Rust remains the authoritative compiler/runtime backend, while the frontend is
 static HTML/CSS/JS embedded into the executable.
 
@@ -70,7 +70,7 @@ Right Sidebar
   conversions, TimeSeries ranges/statistics, metrics, validations, time
   alignments, system/solver metadata, component assembly metadata, artifact paths, and JSON artifact
   outlines are summarized in tables. Clicking a variable row expands canonical
-  unit, dimension, role, and line metadata. Plot previews live beside Variables
+  unit, dimension, role, and line metadata. Plot views live beside Variables
   so the bottom terminal keeps a stable height.
 
 Bottom Panel
@@ -83,7 +83,7 @@ Bottom Panel
 Reports and artifacts remain runtime objects by default. The Report toolbar
 button, Output toolbar button, Plot tab artifact button, and artifact-path rows
 save/open artifacts on demand after a successful run. This keeps the IDE
-focused on code, terminal output, variables, diagnostics, and plot preview while
+focused on code, terminal output, variables, diagnostics, and plot viewing while
 still making `review.json`, `report_spec.json`, `output_manifest.json`,
 `run_log.json`, `process_results.json`, `test_results.json`, PlotSpec, and
 plot manifest outlines inspectable.
@@ -118,14 +118,14 @@ Recommended domain/component track smoke:
 examples/official/06_domain_port/main.eng
 ```
 
-## VS Code Extension Preview
+## VS Code Extension
 
-The release zip also contains a VS Code extension preview:
+The release zip also contains a VS Code extension:
 
 ```text
-tools/englang-vscode-preview-<version>.vsix
+tools/englang-vscode-<version>.vsix
 ```
 
 The extension shares the compiler-facing diagnostic/hover/completion shape, but
-it is secondary for the current public preview. The primary no-install user test
+it is secondary for the current release. The primary no-install user test
 path is `eng-ide.exe`.

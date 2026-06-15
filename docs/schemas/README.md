@@ -1,7 +1,7 @@
 # Artifact Schemas
 
 These schema files document the current stable-core artifact contracts used by
-the release gate. Preview and experimental tracks may add optional fields, but
+the release gate. Supported and internal tracks may add optional fields, but
 stable required fields are covered by the breaking-change policy.
 
 ```text
@@ -25,7 +25,7 @@ counts without freezing volatile values such as hashes or generated paths.
 Domain/component assembly fields are schema-checked enough for IDE/report
 tooling to rely on `assembly_summary.domain_plans`,
 `assembly_summary.solver_preview`, and runtime
-`typed_payload.component_solutions` while the track remains experimental.
+`typed_payload.component_solutions` while the track remains internal.
 
 For the full standalone package field contract, see
 [Standalone package reference](../reference/standalone_package.md).

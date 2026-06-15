@@ -28,7 +28,8 @@ Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
 
 report {
     summarize Q_coil by [mean, median, std, p90, p95]
-    plot histogram(Q_coil) {
+    plot histogram(Q_coil)
+    with {
         unit x = kW
         title = "Coil heat-rate distribution"
     }

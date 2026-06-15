@@ -5,8 +5,8 @@ It is written for someone who wants to open an `.eng` file, understand the
 shape of the language, and write a small engineering workflow without reading
 the compiler source.
 
-EngLang 1.0.0 stabilizes the documented data-to-report workflow. Sections that
-describe preview or experimental tracks say so explicitly.
+EngLang 1.0.0 stabilizes the documented data-to-report workflow. Sections
+outside that stable core mark themselves as Supported, Internal, or Planned.
 
 ## What To Read First
 
@@ -179,9 +179,9 @@ The current top-level declaration families are:
 | Explicit declaration | `E: Energy [J] = 3600 J` | Public type and display unit boundary |
 | Fast binding | `Q = 10 kW` | Inferred declaration |
 | Schema | `schema SensorData { ... }` | CSV/data boundary |
-| Function | `fn heat_loss(...) -> HeatRate [W] { ... }` | Typed scalar preview |
-| System | `system Room { ... }` | Minimal equation/system preview |
-| Domain/component | `domain Fluid { ... }` | Experimental metadata track |
+| Function | `fn heat_loss(...) -> HeatRate [W] { ... }` | Typed scalar helper support |
+| System | `system Room { ... }` | Supported one-state system metadata/run support |
+| Domain/component | `domain Fluid { ... }` | Internal metadata track |
 | Print | `print "Q = {Q: .2 kW}"` | Debug/CLI output |
 | Log | `log warn "Q is high"` | Structured runtime message |
 | CSV export | `export summary to csv "summary.csv" { ... }` | Durable scalar artifact |
@@ -214,7 +214,7 @@ Use root `args { ... }` and top-level workflow statements instead.
 ```eng partial
 args {
     input: CsvFile = file("data/sensor.csv")
-    case_name: String = "preview"
+    case_name: String = "baseline"
     enabled: Bool = true
     count: Count = 3
     gain: Float = 1.0
@@ -222,11 +222,11 @@ args {
 }
 ```
 
-Supported preview argument types include:
+Supported argument types include:
 
 | Type | Example Default | CLI Shape |
 |---|---|---|
-| `String` | `"preview"` | `--case_name demo` |
+| `String` | `"baseline"` | `--case_name demo` |
 | `Path` / `FilePath` / `CsvFile` | `file("data/sensor.csv")` | `--input data/other.csv` |
 | `DirectoryPath` | `dir("runs")` | `--output runs/case1` |
 | `Bool` | `true` | `--enabled true` |
@@ -269,14 +269,14 @@ input_exists = exists args.input
 print "input exists = {input_exists}"
 ```
 
-The current preview resolves relative paths against the source file directory.
+The current runtime resolves relative paths against the source file directory.
 For `examples/official/10_path_policy/main.eng`, the review/result/report-spec
 artifacts contain an `environment_dependencies` entry for `exists args.input`.
 
 ## Read-Only I/O
 
 Use read-only I/O when a workflow needs small UTF-8 text/config companion files
-in addition to typed engineering data. The current preview returns raw strings;
+in addition to typed engineering data. The current runtime returns raw strings;
 JSON and TOML are not yet parsed into structured EngLang objects.
 
 ```eng partial
@@ -461,7 +461,7 @@ Function rules:
 |---|---|
 | Typed parameters | Each parameter has a quantity/scalar type and optional unit |
 | Explicit return type | The function declares its output quantity |
-| One return expression | Preview functions use one `return ...` |
+| One return expression | Functions currently use one `return ...` |
 | Function locals | Local bindings are scoped to the function body |
 | Unit-checked return | Return expression dimension must match the annotation |
 
@@ -498,7 +498,7 @@ ambiguous.
 Parenthesis-light syntax is reserved for built-in workflow verbs. It is not a
 general replacement for function-call parentheses.
 
-Supported command-style verbs in the current preview:
+Supported command-style verbs in the current release:
 
 | Verb | Typical Use | Canonical Shape |
 |---|---|---|
@@ -730,7 +730,7 @@ report {
 This keeps the plot request readable while keeping display details grouped
 below it.
 
-The older block-style plot option form is also still used in existing examples:
+The older block-style plot option form is accepted for compatibility:
 
 ```eng partial
 report {
@@ -838,7 +838,7 @@ Field grammar:
 expression as display_unit with "format"
 ```
 
-The current preview supports scalar values, statistics, integration results,
+The current runtime supports scalar values, statistics, integration results,
 function-call scalar outputs, and typed constants. It does not yet implement a
 first-class Summary object model or broad table/TimeSeries CSV export.
 
@@ -895,7 +895,7 @@ Rules:
 
 | Rule | Meaning |
 |---|---|
-| Top-level only | Hidden imported writes are not part of the preview |
+| Top-level only | Hidden imported writes are not supported |
 | Target is under `build/result` | Absolute paths and `..` output traversal are rejected |
 | Expression is checked | Unknown write expressions produce diagnostics/errors |
 | Changed overwrite is explicit | Different existing content requires `with { overwrite = true }` |
@@ -916,7 +916,7 @@ examples/official/12_write_output_manifest/main.eng
 ## File Operations
 
 Use file operations when a workflow needs a small, explicit filesystem mutation
-that is still reviewable. The current preview keeps the mutation boundary
+that is still reviewable. The current runtime keeps the mutation boundary
 constrained: targets live under `build/result`, and destructive operations must
 be confirmed.
 
@@ -1098,7 +1098,7 @@ examples/official/16_test_assert_golden/main.eng
 ## Report, Summarize, Show, Plot
 
 `report { ... }` asks for reviewable artifacts. The current report path can
-record summaries, plots, system metadata, uncertainty/modeling preview metadata,
+record summaries, plots, system metadata, uncertainty/modeling metadata,
 and report/review JSON.
 
 ```eng partial
@@ -1140,10 +1140,10 @@ build/result/test_results.json
 build/result/output_manifest.json
 ```
 
-## Systems, Domains, And Experimental Tracks
+## Systems, Domains, And Internal Tracks
 
-The grammar also has preview/experimental surfaces for systems and
-domain/component metadata.
+The grammar also has supported system forms and internal domain/component
+metadata forms.
 
 Minimal system shape:
 
@@ -1174,7 +1174,7 @@ rmse_T = rmse measured_data.T_zone vs sim.T_zone
 validate rmse_T < 5 K
 ```
 
-Dynamic inputs are checked as Time-indexed TimeSeries values. The preview
+Dynamic inputs are checked as Time-indexed TimeSeries values. The supported system path
 accepts scalar system input declarations such as `input T_out: AbsoluteTemperature`
 when the `simulate` binding provides a TimeSeries option, and it also parses
 explicit contracts such as:
@@ -1192,10 +1192,10 @@ Runtime materializes `sim.T_zone` as a typed TimeSeries. The RMSE result appears
 in `computed_metrics`, the validation appears in `validations`, and pairwise
 TimeSeries overlap/match status appears in `time_alignments`.
 
-The state-space preview is metadata-first:
+The state-space track is internal and metadata-first:
 
 ```eng partial
-system ThermalStateSpacePreview {
+system ThermalStateSpaceMetadata {
     state T_zone: AbsoluteTemperature = 22 degC
     input T_out: AbsoluteTemperature = 8 degC
     input Q_internal: HeatRate = 500 W
@@ -1214,7 +1214,7 @@ system ThermalStateSpacePreview {
 ```
 
 `review.json` records `state_space_vectors` and `linear_operators` for IDE and
-review tooling. This preview does not claim a general matrix, nonlinear, DAE,
+review tooling. This internal track does not claim a general matrix, nonlinear, DAE,
 or adaptive solver.
 
 Domain/component shapes are documented separately in
@@ -1414,7 +1414,7 @@ The current guide intentionally does not promise:
 | Full process sandboxing | Explicit process records and profile basics exist; sandbox isolation is deferred |
 | Project-wide test discovery/runner | Local source-file test blocks exist; workspace discovery is deferred |
 | Full package/module system | File imports and metadata seeds only |
-| General nonlinear/multi-state solving | Deferred beyond preview system path |
+| General nonlinear/multi-state solving | Deferred beyond supported one-state system path |
 | Full artifact schema evolution policy | Stable-core schemas exist; broader future-track schemas may grow |
 
 ## Authoring Checklist

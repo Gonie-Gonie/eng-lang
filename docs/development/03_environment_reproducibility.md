@@ -1,6 +1,6 @@
 # Environment Reproducibility Policy
 
-EngLang is designed around a Windows portable preview package and a
+EngLang is designed around a Windows portable package and a
 repository-local development toolchain. The core rule is simple: cloning the
 repository and running `dev.bat setup` should make the same development
 environment available on every supported PC.
@@ -15,7 +15,7 @@ environment available on every supported PC.
 5. rust-toolchain.toml and scripts/dev.ps1 must agree on the pinned toolchain.
 6. Portable Python is allowed for development-time documentation generation.
 7. The core run/report/plot path must not require Python.
-8. The packaged preview path must not require Rust or Python on the target PC.
+8. The packaged release path must not require Rust or Python on the target PC.
 9. CI and local checks should use the same dev.bat commands.
 ```
 
@@ -57,7 +57,7 @@ Current pin:
 Reasons:
 
 ```text
-- avoids requiring Visual Studio Build Tools for the preview path
+- avoids requiring Visual Studio Build Tools for the packaged path
 - keeps compiler behavior consistent across Windows PCs
 - supports the current Rust 2021 implementation
 ```
@@ -201,7 +201,7 @@ This command:
 ```
 
 The smoke folder intentionally contains both a space and Korean characters. This
-guards against path handling bugs before a preview package is shared.
+guards against path handling bugs before a package is shared.
 
 ## Clean Rebuild
 

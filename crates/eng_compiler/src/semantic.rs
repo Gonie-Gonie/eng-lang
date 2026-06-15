@@ -1714,7 +1714,7 @@ fn analyze_function_decl(
                 "Function `{}` returns unknown quantity kind `{}`.",
                 function.name, function.return_type
             ),
-            Some("Use a known quantity kind or preview scalar type such as String, CsvFile, or DirectoryPath."),
+            Some("Use a known quantity kind or supported scalar type such as String, CsvFile, or DirectoryPath."),
         ));
     }
     FunctionInfo {
@@ -1750,7 +1750,9 @@ fn analyze_function_parameter(
                 "Function parameter `{}` has unknown quantity kind `{}`.",
                 parameter.name, parameter.type_name
             ),
-            Some("Annotate function parameters with known quantity kinds or preview scalar types."),
+            Some(
+                "Annotate function parameters with known quantity kinds or supported scalar types.",
+            ),
         ));
     }
     FunctionParamInfo {
@@ -1775,7 +1777,7 @@ fn analyze_function_return(
                 "Function `{}` has more than one return expression.",
                 function.name
             ),
-            Some("Keep one explicit `return ...` in the preview function body."),
+            Some("Keep one explicit `return ...` in the function body."),
         ));
         return;
     }
@@ -1916,7 +1918,7 @@ fn analyze_csv_export_decl(
             "E-EXPORT-CSV-002",
             export.line,
             &format!(
-                "CSV export source `{}` is not supported in the preview.",
+                "CSV export source `{}` is not supported in the current runtime.",
                 export.source
             ),
             Some("Use `export summary to csv \"summary.csv\" { ... }` for scalar summary exports."),
@@ -2538,8 +2540,8 @@ fn validate_simulation_solver(
         diagnostics.push(Diagnostic::error(
             "E-SIM-OPTION-MISSING-002",
             owner_line,
-            "`simulate` requires `with { solver = fixed_step }` in this preview.",
-            Some("The supported dynamic runner is the fixed-step preview solver."),
+            "`simulate` requires `with { solver = fixed_step }` in the supported workflow.",
+            Some("The supported dynamic runner is the fixed-step one-state solver."),
         ));
         return;
     };
@@ -3368,7 +3370,7 @@ fn analyze_class_method(
                     class_info.name, method.name, method.expression
                 ),
                 Some(
-                    "The current method preview supports direct `self.<field>` return expressions.",
+                    "The current method support accepts direct `self.<field>` return expressions.",
                 ),
             ));
             "unresolved_expression"
@@ -6137,7 +6139,7 @@ fn preview_timeseries_kernel_info(
             "multiply:m_dot_cp_delta_t".to_owned(),
             "store_timeseries".to_owned(),
         ],
-        status: "preview_supported".to_owned(),
+        status: "supported".to_owned(),
         line: binding.line,
     })
 }

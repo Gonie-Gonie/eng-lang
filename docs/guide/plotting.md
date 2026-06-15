@@ -6,14 +6,15 @@ crate.
 ## Example
 
 ```eng partial
-plot Q_coil over Time {
+plot Q_coil over Time
+with {
     unit y = kW
     type = line
     title = "Coil heat rate"
 }
 ```
 
-The current preview executes the supported plot block options:
+The current report path executes the supported plot options:
 
 ```text
 unit y = <unit>
@@ -23,8 +24,8 @@ title = "<title>"
 ```
 
 The PlotSpec planner infers the requested `TimeSeries[Time]` binding from
-semantic metadata and the runtime replaces preview points with official
-CSV-derived TimeSeries points.
+semantic metadata and the runtime materializes official CSV-derived TimeSeries
+points.
 
 For `examples/official/01_csv_plot/main.eng`, this produces:
 
@@ -57,7 +58,7 @@ Example:
 }
 ```
 
-The `points` array is the renderer-independent data model. The current preview
+The `points` array is the renderer-independent data model. The current runtime
 uses runtime TimeSeries points for the official CSV example and deterministic
 fallback points only when materialized runtime data is not available.
 

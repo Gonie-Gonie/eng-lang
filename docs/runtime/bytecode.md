@@ -6,7 +6,7 @@ write/export outputs, constrained file operation records, output manifest
 metadata, structured run-log messages, explicit process-result records, system
 metadata, runtime test-result records, residuals, system IR dependencies,
 metadata-only solver_plan seeds, an explicit solver boundary, and a fixed-step
-ODE preview for the official one-state thermal system:
+ODE path for the official one-state thermal system:
 
 ```text
   .eng source
@@ -112,14 +112,14 @@ typed_payload
 provenance
 ```
 
-Plot/report preview records:
+Plot/report support records:
 
 ```text
 provenance.plot_spec_hash
 provenance.report_spec_hash
 ```
 
-System/equation preview records:
+System/equation support records:
 
 ```text
 typed_payload.systems

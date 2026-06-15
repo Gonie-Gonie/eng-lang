@@ -1,6 +1,6 @@
 # Repository Layout
 
-Current public preview layout:
+Current public release layout:
 
 ```text
 .
@@ -8,8 +8,8 @@ Current public preview layout:
 |   |-- eng_cli/        user-facing eng.exe commands
 |   |-- eng_compiler/   lexer/parser, diagnostics, semantic/stats/system metadata, bytecode v1
 |   |-- eng_ide/        portable Tauri/WebView tester IDE, built as eng-ide.exe
-|   |-- eng_jit/        experimental hot-kernel detection and lowering-plan metadata
-|   |-- eng_lsp/        experimental eng-lsp.exe smoke/snapshot/stdio editor service
+|   |-- eng_jit/        internal hot-kernel detection and lowering-plan metadata
+|   |-- eng_lsp/        internal eng-lsp.exe smoke/snapshot/stdio editor service
 |   |-- eng_runtime/    run/build/doctor, VM seed, TimeSeries object store, artifacts
 |   `-- eng_report/     PlotSpec, SVG plot, HTML review report renderer
 |-- docs/
@@ -34,10 +34,10 @@ Current public preview layout:
 |   `-- 07_data_quality/
 |-- scripts/
 |   `-- dev.ps1         the only PowerShell development entry
-|-- stdlib/             preview prelude and unit registry
+|-- stdlib/             prelude and unit registry
 |-- tools/
 |   |-- python/         repo-local Python requirements for documentation tooling
-|   `-- vscode-englang/ optional VS Code extension preview source
+|   `-- vscode-englang/ optional VS Code extension source
 |-- dev.bat             common execution-policy bypass wrapper
 |-- rust-toolchain.toml pinned Rust toolchain descriptor
 `-- Cargo.toml          Rust workspace
@@ -65,7 +65,7 @@ test
 Rules:
 
 ```text
-- CLI parsing stays dependency-light and std-only for the preview.
+- CLI parsing stays dependency-light and std-only for the supported command surface.
 - User-facing behavior changes must update docs/specs/cli.md.
 - Artifact changes must update docs/architecture/01_runtime_artifacts.md.
 ```

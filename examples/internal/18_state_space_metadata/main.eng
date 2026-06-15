@@ -1,4 +1,4 @@
-system ThermalStateSpacePreview {
+system ThermalStateSpaceMetadata {
     state T_zone: AbsoluteTemperature = 22 degC
     input T_out: AbsoluteTemperature = 8 degC
     input Q_internal: HeatRate = 500 W
@@ -15,4 +15,4 @@ system ThermalStateSpacePreview {
     }
 }
 
-print "State-space preview metadata recorded"
+print "State-space metadata recorded"

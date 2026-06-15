@@ -25,7 +25,7 @@ eng-lsp.exe --snapshot-check <file.eng>
 
 ## `eng doctor`
 
-Checks the local preview environment.
+Checks the local EngLang environment.
 
 Current checks:
 
@@ -165,7 +165,7 @@ Exit code:
 
 ## `eng jit-plan <file.eng>`
 
-Prints experimental `eng-kernel-plan-v1` JSON for runtime optimization track hot-kernel planning.
+Prints internal `eng-kernel-plan-v1` JSON for runtime optimization track hot-kernel planning.
 This command does not compile native code and does not change runtime
 execution. Its current backend is `interpreter-fallback`.
 
@@ -214,7 +214,7 @@ Exit code:
 
 ## `eng jit-bench <file.eng>`
 
-Runs an experimental `eng-jit-bench-v1` benchmark harness for runtime optimization track planning.
+Runs an internal `eng-jit-bench-v1` benchmark harness for runtime optimization track planning.
 The harness measures the current interpreter/runtime path for a small number of
 iterations and includes the current `eng-kernel-plan-v1` metadata in the same
 JSON output.
@@ -261,7 +261,7 @@ Current tester IDE features:
 - generated report and plot opening
 - Terminal tab with `clear`, `reset`, `check`, `run`, and one-line top-level commands
 - Variables table populated after successful runs
-- Variables/Plot/Run inspector tabs with in-IDE PlotSpec preview beside the variable table
+- Variables/Plot/Run inspector tabs with an in-IDE PlotSpec viewer beside the variable table
 ```
 
 `eng-ide.exe --smoke` checks the non-GUI path for release packages. It verifies
@@ -271,7 +271,7 @@ connection, and assembly metadata.
 
 ## `eng-lsp.exe`
 
-Starts the experimental stdio LSP server when no flags are supplied. The release
+Starts the stdio LSP server when no flags are supplied. The release
 package also supports smoke and snapshot commands:
 
 ```bat
@@ -328,9 +328,9 @@ build/
       timeseries.svg
 ```
 
-For the domain/component preview, `result.engres` includes
+For the domain/component metadata track, `result.engres` includes
 `typed_payload.component_solutions`. This is a small homogeneous
-connection-constraint solver preview with residual evaluation, convergence
+connection-constraint consistency check with residual evaluation, convergence
 status, and failure/limitation artifacts. `review.json` and `report_spec.json`
 also include `assembly_summary.domain_plans` and `assembly_summary.solver_preview`
 so tools can identify `multi_domain_preview` graphs and the explicit

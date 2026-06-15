@@ -1,6 +1,6 @@
 # Report and Review Artifacts
 
-The current public preview makes the review/report artifacts explicit enough
+The current artifact surface makes review/report data explicit enough
 for UI, IDE tooling, packaging, and automated review tooling to consume.
 
 Artifact schema contracts live in `docs/schemas`. Golden baselines for official
@@ -52,7 +52,7 @@ target\debug\eng.exe check examples\official\01_csv_plot\main.eng --review
 target\debug\eng.exe run examples\official\01_csv_plot\main.eng --save-artifacts
 ```
 
-The current preview contract includes:
+The current review contract includes:
 
 ```text
 format = eng-review-preview-1
@@ -92,14 +92,14 @@ connection_summary
 assembly_summary
 ```
 
-For the domain/component track preview, each `domain_summary.type_parameters`
+For the domain/component metadata track, each `domain_summary.type_parameters`
 entry is an object with `kind`, `name`, and `display` fields. For example,
 `Fluid[Medium M]` records `{ kind: "Medium", name: "M", display: "Medium M" }`.
 `assembly_summary` records metadata-only connection sets, generated
 across/through connection equations, variable/equation counts, residual graph
 dependencies, algebraic-loop candidates, Jacobian sparsity placeholders, and a
 no-solve solver-plan placeholder. It also records `domain_count`,
-`domain_plans`, and `solver_preview` for domain/component graphs. A graph with
+`domain_plans`, and the legacy-named `solver_preview` field for domain/component graphs. A graph with
 Thermal, `Fluid[Water]`, and `MechanicalNode[World, X]` connection sets reports
 `solver_preview.status = multi_domain_preview`, plus explicit future-solver
 seed statuses for nonlinear residuals, DAE splitting, delay/history buffers,
@@ -125,7 +125,7 @@ details live in `test_results.json`.
 `report_spec.json` is the runtime report contract. It is written by
 `eng run --save-artifacts` beside `report.html` and `result.engres`.
 
-The current preview contract includes:
+The current report contract includes:
 
 ```text
 format = eng-report-spec-v1
@@ -174,7 +174,7 @@ residual_count
 component_solution_count
 ```
 
-For the domain/component solver preview, `result.engres` also records
+For the domain/component connection-constraint check, `result.engres` also records
 `typed_payload.component_solutions`. Each entry includes the assembly name,
 status, method, residual norm, convergence status, zero-vector variable values,
 residual evaluations, and any failure/limitation artifact such as
@@ -191,7 +191,7 @@ residual check, not as a production multi-domain physical solve.
 explicit CSV exports, `write text/json` outputs, and constrained file
 operation records.
 
-Current preview contract:
+Current output manifest contract:
 
 ```text
 format = eng-output-manifest-v1
@@ -338,7 +338,7 @@ typed_payload.solver_boundaries
 typed_payload.system_ir
 ```
 
-State-space preview metadata appears in compiler-owned review artifacts:
+State-space internal metadata appears in compiler-owned review artifacts:
 
 ```text
 review.json
@@ -347,8 +347,8 @@ review.json
 ```
 
 These sections record `states`/`inputs`/`outputs` vector declarations and
-`LinearOperator[From -> To]` declarations for inspection. They are a
-metadata-first preview, not a general matrix simulation solver.
+`LinearOperator[From -> To]` declarations for inspection. They are an internal
+metadata seed, not a general matrix simulation solver.
 
 ## Uncertainty Metadata
 
@@ -428,8 +428,8 @@ It also validates required split/model/MLP options: malformed arguments produce
 `E-ML-ARGS-001` or `E-ML-ARGS-002`, and unsupported model options produce
 `E-ML-ARGS-003`.
 
-These metrics are deterministic preview values for user testing and artifact
-review. Full ML training maturity is a later roadmap item.
+These metrics are deterministic values for user testing and artifact review.
+Full ML training maturity is a later roadmap item.
 
 ## Manual Checks
 
@@ -475,7 +475,7 @@ $spec.plot_manifest
 
 ## Current Limits
 
-Deferred beyond the current preview artifact contract:
+Deferred beyond the current artifact contract:
 
 ```text
 - multi-plot report manifests

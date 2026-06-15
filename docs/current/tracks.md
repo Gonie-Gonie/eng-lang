@@ -4,7 +4,7 @@ Tracks are long-term capability areas. They are not public release versions.
 
 ## T1 Core Language
 
-Current preview scope:
+Current supported scope:
 
 ```text
 - fast `=`
@@ -31,7 +31,7 @@ Deferred:
 
 ## T2 Data Boundary
 
-Current preview scope:
+Current supported scope:
 
 ```text
 - schema/promote
@@ -51,7 +51,7 @@ Deferred:
 
 ## T3 Statistics, Plot, And Report
 
-Current preview scope:
+Current supported scope:
 
 ```text
 - TimeSeries statistics
@@ -74,7 +74,7 @@ Deferred:
 
 ## T4 System / Equation
 
-Current preview scope:
+Current supported scope:
 
 ```text
 - system block
@@ -94,15 +94,15 @@ Deferred:
 
 ## T5 IDE / LSP
 
-Current preview scope:
+Current stable tooling scope:
 
 ```text
 - Tauri/WebView tester IDE
 - docked explorer/editor/problems/terminal layout with Variables/Plot/Run inspector tabs
 - diagnostics and caret completions
-- PlotSpec preview beside runtime variable summaries
-- experimental eng-lsp.exe smoke/snapshot path
-- packaged VS Code extension preview
+- PlotSpec viewer beside runtime variable summaries
+- internal eng-lsp.exe smoke/snapshot path
+- packaged VS Code extension source and VSIX
 ```
 
 Deferred:
@@ -115,7 +115,7 @@ Deferred:
 
 ## T6 Uncertainty
 
-Implementation seeds on `main`:
+Internal implementation seeds on `main`:
 
 ```text
 - measured values
@@ -126,7 +126,7 @@ Implementation seeds on `main`:
 - histogram artifact path
 ```
 
-Not yet public-supported:
+Planned:
 
 ```text
 - full Monte Carlo semantics
@@ -137,7 +137,7 @@ Not yet public-supported:
 
 ## T7 Data-Driven Modeling
 
-Implementation seeds on `main`:
+Internal implementation seeds on `main`:
 
 ```text
 - train/test split metadata
@@ -148,7 +148,7 @@ Implementation seeds on `main`:
 - parity/residual plots
 ```
 
-Not yet public-supported:
+Planned:
 
 ```text
 - general ML package semantics
@@ -158,7 +158,7 @@ Not yet public-supported:
 
 ## T8 Runtime Optimization / JIT / AOT
 
-Implementation seeds on `main`:
+Internal implementation seeds on `main`:
 
 ```text
 - eng_jit crate
@@ -191,8 +191,8 @@ Implementation seeds on `main`:
 - connection-set assembly metadata
 - generated connection-equation and residual graph placeholders
 - equation/unknown count metadata
-- domain-plan based multi-domain preview metadata
-- homogeneous connection-constraint solver preview artifacts
+- domain-plan based multi-domain metadata
+- connection constraint consistency artifacts
 - IDE Domain Graph inspection
 - LSP completion/hover metadata
 - domain contract and compatibility diagnostics
@@ -209,7 +209,7 @@ Not yet public-supported:
 
 ## T10 Class / Domain Object
 
-Implementation seeds on `main`:
+Supported scope:
 
 ```text
 - class declaration for typed engineering objects

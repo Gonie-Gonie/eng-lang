@@ -1,6 +1,6 @@
 # Functions And Imports
 
-This preview example shows static file imports, importable `const` values,
+This supported example shows static file imports, importable `const` values,
 function-local bindings, top-level execution, CLI prints, and explicit summary
 CSV export.
 

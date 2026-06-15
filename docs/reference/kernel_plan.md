@@ -1,6 +1,6 @@
 # Kernel Plan Reference
 
-`eng.exe jit-plan <file.eng>` emits experimental hot-kernel metadata for the
+`eng.exe jit-plan <file.eng>` emits internal hot-kernel metadata for the
 runtime optimization track. The output is a planning artifact only. It does not mean
 native code has been generated, selected, cached, or executed.
 
@@ -14,7 +14,7 @@ The current format marker is:
 
 ## Stability Policy
 
-`eng-kernel-plan-v1` is experimental and not public release-supported.
+`eng-kernel-plan-v1` is internal and not public release-supported.
 Within this format:
 
 - Existing top-level keys keep their current type.

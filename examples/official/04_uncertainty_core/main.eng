@@ -15,7 +15,8 @@ report {
     show Q_aux_band
     show Q_coil_ensemble
     show Q_total_unc
-    plot distribution(Q_coil_dist) {
+    plot distribution(Q_coil_dist)
+    with {
         title = "Coil heat-rate uncertainty"
     }
 }

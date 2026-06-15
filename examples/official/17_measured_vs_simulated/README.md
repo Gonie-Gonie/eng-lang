@@ -28,7 +28,7 @@ Current limitation:
 
 ```text
 - one-state thermal system
-- fixed-step preview ODE runner
+- fixed-step one-state ODE runner
 - measured/weather CSV TimeSeries inputs only
 - not a general solver, calibration engine, DAE solver, adaptive solver, or
   multi-state simulation framework

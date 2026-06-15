@@ -61,7 +61,8 @@ validate rmse_T < 5 K
 report {
     show rmse_T as K
 
-    plot measured_data.T_zone and sim.T_zone over Time {
+    plot measured_data.T_zone and sim.T_zone over Time
+    with {
         unit y = degC
         title = "Measured vs simulated zone temperature"
     }

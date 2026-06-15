@@ -1,4 +1,4 @@
-print "File operation preview"
+print "File operation support"
 
 copy file("data/template.txt") to "ops/copied_note.txt"
 

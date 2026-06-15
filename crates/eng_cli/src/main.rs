@@ -532,7 +532,7 @@ fn command_new(args: Vec<String>) -> ExitCode {
 }
 
 fn command_test(_args: Vec<String>) -> ExitCode {
-    let example_groups: [(&str, &[&str]); 2] = [
+    let example_groups: [(&str, &[&str]); 3] = [
         (
             "official",
             &[
@@ -551,9 +551,12 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/15_process_result/main.eng",
                 "examples/official/16_test_assert_golden/main.eng",
                 "examples/official/17_measured_vs_simulated/main.eng",
-                "examples/official/18_state_space_preview/main.eng",
-                "examples/official/19_class_object_preview/main.eng",
+                "examples/official/19_class_object/main.eng",
             ],
+        ),
+        (
+            "internal",
+            &["examples/internal/18_state_space_metadata/main.eng"],
         ),
         (
             "compatibility regression",
@@ -655,20 +658,20 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"not_production_multi_domain\"")
-                || !output.report_html.contains("Component Solver Preview")
+                || !output.report_html.contains("Connection Constraint Check")
                 || !output.report_html.contains("domain plan")
             {
                 eprintln!(
-                    "expected domain port run to expose component assembly solver preview artifacts"
+                    "expected domain port run to expose component assembly constraint-check artifacts"
                 );
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/06_domain_port/main.eng produced component solver preview artifacts"
+                "ok: examples/official/06_domain_port/main.eng produced component constraint-check artifacts"
             );
         }
         Err(error) => {
-            eprintln!("domain assembly solver preview failed: {error}");
+            eprintln!("domain assembly constraint check failed: {error}");
             return ExitCode::from(1);
         }
     }
@@ -1230,8 +1233,8 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         return ExitCode::from(2);
     }
     match run_file(
-        Path::new("examples/official/18_state_space_preview/main.eng"),
-        Path::new("build/test-state-space-preview"),
+        Path::new("examples/internal/18_state_space_metadata/main.eng"),
+        Path::new("build/test-state-space-metadata"),
         &artifact_run_options(),
     ) {
         Ok(output) => {
@@ -1243,22 +1246,22 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !review.contains("\"to\": \"Derivative[StateVector]\"")
             {
                 eprintln!(
-                    "expected state-space preview example to record vector and operator metadata"
+                    "expected internal state-space metadata example to record vector and operator metadata"
                 );
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/18_state_space_preview/main.eng produced state-space metadata"
+                "ok: examples/internal/18_state_space_metadata/main.eng produced state-space metadata"
             );
         }
         Err(error) => {
-            eprintln!("state-space preview example failed: {error}");
+            eprintln!("state-space metadata example failed: {error}");
             return ExitCode::from(2);
         }
     }
     match run_file(
-        Path::new("examples/official/19_class_object_preview/main.eng"),
-        Path::new("build/test-class-object-preview"),
+        Path::new("examples/official/19_class_object/main.eng"),
+        Path::new("build/test-class-object"),
         &artifact_run_options(),
     ) {
         Ok(output) => {
@@ -1282,15 +1285,15 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !report_html.contains("validate")
                 || !report_html.contains("copy-with")
             {
-                eprintln!("expected class object preview to expose class/object artifacts");
+                eprintln!("expected class object example to expose class/object artifacts");
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/19_class_object_preview/main.eng produced class object metadata"
+                "ok: examples/official/19_class_object/main.eng produced class object metadata"
             );
         }
         Err(error) => {
-            eprintln!("class object preview example failed: {error}");
+            eprintln!("class object example failed: {error}");
             return ExitCode::from(2);
         }
     }
@@ -1711,6 +1714,64 @@ report {
             return ExitCode::from(2);
         }
     }
+    match build_standalone(
+        Path::new("examples/official/17_measured_vs_simulated/main.eng"),
+        Path::new("build/test-standalone-measured-vs-simulated"),
+        &BuildOptions { args: Vec::new() },
+    ) {
+        Ok(output) => {
+            let status = Command::new("cmd")
+                .arg("/C")
+                .arg("run.bat")
+                .current_dir(&output.bundle_path)
+                .status();
+            match status {
+                Ok(status) if status.success() => {
+                    let result_path = output
+                        .bundle_path
+                        .join("build")
+                        .join("result")
+                        .join("result.engres");
+                    let plot_spec_path = output
+                        .bundle_path
+                        .join("build")
+                        .join("result")
+                        .join("plots")
+                        .join("plot_spec.json");
+                    let result = std::fs::read_to_string(&result_path).unwrap_or_default();
+                    let plot_spec = std::fs::read_to_string(&plot_spec_path).unwrap_or_default();
+                    if !result.contains("\"binding\": \"rmse_T\"")
+                        || !result.contains("\"validations\"")
+                        || !result.contains("\"time_alignments\"")
+                        || !plot_spec.contains("\"name\": \"measured_data.T_zone\"")
+                        || !plot_spec.contains("\"name\": \"sim.T_zone\"")
+                    {
+                        eprintln!(
+                            "expected measured-vs-simulated standalone runner to produce metric, validation, alignment, and multi-series plot artifacts"
+                        );
+                        return ExitCode::from(2);
+                    }
+                    println!(
+                        "ok: measured-vs-simulated standalone packaged runner produced metric and multi-series plot artifacts"
+                    );
+                }
+                Ok(status) => {
+                    eprintln!(
+                        "measured-vs-simulated standalone runner failed with status {status}"
+                    );
+                    return ExitCode::from(2);
+                }
+                Err(error) => {
+                    eprintln!("failed to run measured-vs-simulated standalone runner: {error}");
+                    return ExitCode::from(2);
+                }
+            }
+        }
+        Err(error) => {
+            eprintln!("measured-vs-simulated standalone build smoke failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
     ExitCode::SUCCESS
 }
 
@@ -2112,7 +2173,7 @@ Usage:
   eng view <result.engres>
   eng test <project_or_examples>
 
-This preview intentionally keeps the core path free of Python dependencies.
+The supported core path intentionally stays free of Python dependencies.
 "#,
         version = env!("CARGO_PKG_VERSION")
     );

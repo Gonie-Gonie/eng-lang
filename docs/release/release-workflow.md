@@ -105,6 +105,7 @@ Before publishing:
 ```text
 [ ] release-check passed locally
 [ ] worktree is clean
+[ ] release note separates Stable, Supported, Internal, and Planned scope
 [ ] release note states exact stable scope and limitations
 [ ] portable package smoke passed in a clean folder
 [ ] eng.exe doctor passes from the extracted package

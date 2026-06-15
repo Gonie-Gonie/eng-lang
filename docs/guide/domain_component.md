@@ -1,12 +1,12 @@
 # Domain And Component Guide
 
-This guide documents the current experimental domain/component track surface.
+This guide documents the current domain/component metadata surface.
 It is metadata-first: the compiler records domains, ports, and connections and
 checks domain compatibility. It also emits an equation/residual assembly seed
 for compatible connection sets. When multiple compatible domain families appear
-in the same component graph, artifacts label the assembly as a multi-domain
-solver preview, but it remains a constrained residual/metadata preview rather
-than a physical multi-domain component solve.
+in the same component graph, artifacts use legacy field values such as
+`solver_preview.status = multi_domain_preview`; those are machine-readable
+metadata labels, not a physical multi-domain component solve claim.
 
 ## Domain Declaration
 
@@ -121,32 +121,31 @@ compiler records metadata-only generated equations:
 - equation/unknown counts are recorded with an underdetermined or
   overdetermined diagnostic-code seed when the metadata is not balanced;
 - residual graph metadata records residual names, dependencies, algebraic-loop
-  candidates, Jacobian sparsity placeholders, and a solver-plan placeholder.
+  candidates, Jacobian sparsity placeholders, and a solve-plan placeholder;
 - `domain_plans` group generated constraints by instantiated domain, such as
   `Thermal`, `Fluid[Water]`, and `MechanicalNode[World, X]`;
-- `solver_preview.status` is `multi_domain_preview` when one assembly contains
-  more than one domain plan.
+- `solver_preview.status` is the current artifact field for identifying when
+  one assembly contains more than one domain plan.
 
 This is not a physical component graph solver. The generated equations are
 review/report metadata for future assembly and solver work.
 
-## Solver Preview
+## Connection Constraint Check
 
-`eng run` evaluates a deliberately small assembled-solver preview for generated
-connection equations. The current runtime treats the connection equations as a
-homogeneous linear constraint system and checks the zero-vector residual. If the
-constraints are satisfied but there are fewer equations than unknowns, the
-result is marked `constraint_satisfied_nonunique` with
+`eng run` evaluates a deliberately small homogeneous connection-constraint
+check for generated connection equations. The runtime checks the zero-vector
+residual. If the constraints are satisfied but there are fewer equations than
+unknowns, the result is marked `constraint_satisfied_nonunique` with
 `W-ASSEMBLY-UNDERDETERMINED-SEED`.
 
 The runtime result artifact writes this to
 `typed_payload.component_solutions`. Runtime `report_spec.json` and
 `report.html` also expose the updated assembly status and convergence metadata.
-This preview is useful for residual-evaluation plumbing, convergence/failure
-artifacts, and future solver integration, but it is not a physical
-multi-domain solve.
+This check is useful for residual-evaluation plumbing, convergence/failure
+artifacts, and future solver integration, but it is not a physical multi-domain
+solve.
 
-The preview also records explicit future-solver seeds:
+The artifact also records explicit future-solver seeds:
 
 - algebraic-only versus mixed state/algebraic classification;
 - symbolic nonlinear residual seed status;
@@ -181,7 +180,7 @@ assembly_summary
 ```
 
 They appear in `review.json`, `build/result/report_spec.json`, and
-`build/result/report.html`. This is the domain/component track preview surface for user testing:
+`build/result/report.html`. This is the domain/component artifact surface:
 the report shows which domains exist, package/version metadata, generic type
 parameters, which component ports reference them, port type arguments, and
 whether each connection is currently `domain_compatible` or diagnostic-only.
@@ -189,7 +188,7 @@ The `assembly_summary` section shows connection sets, generated connection
 equations, variable/equation counts, residual graph dependencies, and solver
 plan placeholders. It also includes `domain_count`, `domain_plans`, and
 `solver_preview` so report, IDE, and automation consumers can distinguish a
-single-domain graph from a multi-domain preview graph.
+single-domain graph from a multi-domain metadata graph.
 The runtime result also includes `component_solutions` with residual values,
 convergence status, zero-vector variable values, and failure/limitation
 artifacts.
@@ -238,9 +237,8 @@ Current:
 - medium/frame/axis metadata compatibility diagnostics;
 - metadata-only connection-set assembly;
 - generated connection-equation and residual graph artifacts;
-- homogeneous connection-constraint residual evaluation and solver preview
-  artifact;
-- multi-domain assembly preview metadata with domain plans, future nonlinear/
+- homogeneous connection-constraint residual evaluation artifact;
+- multi-domain assembly metadata with domain plans, future nonlinear/
   DAE/delay/Predictor/adapter seed statuses, and explicit limitations;
 - review JSON output;
 - report spec and HTML report sections;

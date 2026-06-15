@@ -1,6 +1,7 @@
 # 15 Process Result
 
-This example exercises the `v0.8-preview` external process seed.
+This example exercises the external process seed that was introduced before
+v1.0.0 and is now part of the supported side-effect surface.
 
 It demonstrates:
 

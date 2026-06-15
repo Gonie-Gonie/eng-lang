@@ -11,8 +11,9 @@ v1.0.0
 ```
 
 Existing high-numbered release names are not part of the current public line.
-They may remain in git history, but current docs and release assets should not
-ask users to understand them.
+Historical tags may remain for traceability; current public release line starts
+from `v1.0.0`. Current docs and release assets should not ask users to
+understand old high-numbered labels.
 
 Public sequence:
 
@@ -61,7 +62,11 @@ typed data boundary
 packaged runner, and Tauri tester path. It does not stabilize every track on
 `main`; see [stable_core_scope.md](stable_core_scope.md).
 
-## Completed Preview Steps
+## Historical Implementation Steps
+
+These labels document historical implementation slices. They are not the active
+public release sequence, and they should not be used as user-facing feature
+names.
 
 ```text
 v0.2-preview
@@ -116,7 +121,7 @@ v0.9-preview
 ```text
 - syntax and core semantics have a documented breaking-change policy
 - stable scope is explicitly documented
-- preview/experimental tracks are marked as outside stable-core support
+- Supported, Internal, and Planned work is separated from stable-core support
 - official examples pass
 - current status and maturity docs match implementation
 - portable zip works cleanly

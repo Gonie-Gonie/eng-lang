@@ -1,6 +1,7 @@
 # Expected types and quantity completions
 
-v0.2-preview는 IDE/LSP와 strict diagnostics를 준비하기 위한 semantic data skeleton을 추가합니다.
+The expected-types layer adds semantic data needed by IDE/LSP tooling and
+strict diagnostics.
 
 v9 backfill 이후 `review.json`과 `report.html`에는 다음 record가 모두 포함됩니다.
 
@@ -177,7 +178,7 @@ system_boundary
 
 ## UnitDerivation
 
-`UnitDerivation`은 preview 단계의 단위 도출 기록입니다.
+`UnitDerivation` records unit derivation metadata.
 
 ```text
 name

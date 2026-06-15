@@ -23,9 +23,9 @@ workflow fail, produce different artifact contracts, or require source edits.
 - Adding warnings or diagnostics for previously accepted but questionable
   source, as long as valid stable workflows still pass.
 - Adding new units, quantities, examples, snippets, docs, IDE panels, or
-  experimental-track metadata.
+  internal-track metadata.
 - Improving report/IDE presentation without changing stable artifact contracts.
-- Changing preview or experimental tracks when the stable-core workflow remains
+- Changing supported/internal/planned tracks when the stable-core workflow remains
   compatible and release notes call out the change.
 
 ## Deprecation Rule
@@ -43,5 +43,5 @@ release notes.
 2.0.0  intentional breaking changes to stable-core behavior
 ```
 
-Preview and experimental tracks can evolve faster, but their release notes must
-keep the boundary visible.
+Supported, internal, and planned tracks can evolve faster than the stable core,
+but their release notes must keep the boundary visible.

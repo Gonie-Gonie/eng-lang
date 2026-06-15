@@ -65,7 +65,7 @@ Rules:
 - CLI `--<field> <value>` overrides the default.
 - `file("...")`, `dir("...")`, string literals, importable `const`, and
   deterministic zero-arg pure functions can provide defaults.
-- Environment/time/current-directory defaults are allowed in preview but
+- Environment/time/current-directory defaults are allowed in supported workflows but
   reported with `W-ARGS-RUNTIME-DEFAULT-001`.
 - Side-effecting defaults such as `download(...)` are rejected with
   `E-ARGS-SIDE-EFFECT-001`.

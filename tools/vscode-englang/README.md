@@ -16,7 +16,7 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
 
 1. Extract the EngLang portable zip.
 2. In VS Code, run `Extensions: Install from VSIX...`.
-3. Select `tools/englang-vscode-preview-<version>.vsix` from the extracted
+3. Select `tools/englang-vscode-<version>.vsix` from the extracted
    EngLang folder.
 4. Open the extracted folder or any EngLang project folder.
 5. Open a `.eng` file and run `EngLang: Check Current File`.

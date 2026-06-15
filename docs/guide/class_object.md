@@ -1,6 +1,6 @@
 # Class Object Guide
 
-This guide documents the current metadata-first class/domain-object preview.
+This guide documents the current supported class/domain-object authoring scope.
 It is for typed engineering library objects such as buildings, zones, and
 constructions. It is not a runtime object-dispatch system yet.
 
@@ -21,7 +21,7 @@ class Construction {
 Fields have a name, type, optional display unit, and optional default value.
 Fields without defaults are required in object literals.
 
-Supported field type categories in the preview:
+Supported field type categories:
 
 - built-in scalar/path types such as `String`, `Bool`, `Count`, and `Float`;
 - built-in quantity types such as `Length`, `Conductance`, and `HeatCapacity`;
@@ -43,7 +43,7 @@ class Zone {
 ```
 
 Class validation blocks are metadata-first object invariant checks. In the
-current preview they support simple field comparisons such as `field > 0 unit`,
+current supported scope includes simple field comparisons such as `field > 0 unit`,
 `field <= 1`, and `field != ""`. The check path evaluates object literal values
 and class defaults when possible, then records `pass`, `fail`, or `unresolved`
 results in the object summary.
@@ -59,7 +59,7 @@ class Building {
 building_summary = building.summary()
 ```
 
-The current method preview supports zero-argument metadata methods that return
+The current method support covers zero-argument metadata methods that return
 direct `self.<field>` values. Method calls in expressions are type-checked and
 recorded in the variable table. They are not runtime object dispatch.
 
@@ -139,7 +139,7 @@ review/report/IDE metadata consumers.
 | `E-CLASS-METHOD-RETURN-001` | Method return expression type does not match declaration. |
 | `E-CLASS-METHOD-CALL-001` | Method call references an unknown object. |
 | `E-CLASS-METHOD-CALL-002` | Method call references an unknown method. |
-| `E-CLASS-METHOD-CALL-003` | Method call passes arguments in the zero-argument preview. |
+| `E-CLASS-METHOD-CALL-003` | Method call passes arguments to a zero-argument method. |
 | `E-CLASS-COPY-001` | Copy-with references an unknown source object. |
 
 Diagnostic fixtures live under `examples/05_error_messages/`:
@@ -157,17 +157,17 @@ Diagnostic fixtures live under `examples/05_error_messages/`:
 `eng check --review` writes class and object information to `review.json`:
 
 ```bat
-target\debug\eng.exe check examples\official\19_class_object_preview\main.eng --review
+target\debug\eng.exe check examples\official\19_class_object\main.eng --review
 ```
 
 `eng run --save-artifacts` carries the same metadata into `report_spec.json`
 and `report.html`:
 
 ```bat
-target\debug\eng.exe run examples\official\19_class_object_preview\main.eng --save-artifacts
+target\debug\eng.exe run examples\official\19_class_object\main.eng --save-artifacts
 ```
 
-The preview artifact sections are:
+The artifact sections are:
 
 ```text
 class_summary

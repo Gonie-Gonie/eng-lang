@@ -3167,7 +3167,7 @@ pub fn plot_spec_from_report(report: &CheckReport) -> PlotSpec {
 
     let (name, axis, quantity, unit) = series_binding.unwrap_or_else(|| {
         (
-            "preview".to_owned(),
+            "sample".to_owned(),
             "Time".to_owned(),
             "Value".to_owned(),
             "unit".to_owned(),
@@ -3175,8 +3175,8 @@ pub fn plot_spec_from_report(report: &CheckReport) -> PlotSpec {
     });
 
     PlotSpec {
-        title: if name == "preview" {
-            "EngLang preview plot".to_owned()
+        title: if name == "sample" {
+            "EngLang sample plot".to_owned()
         } else {
             format!("{name} over {axis}")
         },
@@ -3196,7 +3196,7 @@ pub fn plot_spec_from_report(report: &CheckReport) -> PlotSpec {
             quantity_kind: "TimeSeries".to_owned(),
             display_unit: unit,
             bins: Vec::new(),
-            points: preview_points(),
+            points: sample_points(),
         }],
     }
 }
@@ -3727,7 +3727,7 @@ fn render_html_inner(
         }
         assembly_summary.push_str("<tr>");
         assembly_summary.push_str(&format!(
-            "<td>{}</td><td>solver preview</td><td>{}</td><td>{}</td><td>dynamic={}, nonlinear={}, dae={}, delay={}, predictor={}, adapter={}</td><td>{}</td>",
+            "<td>{}</td><td>constraint check</td><td>{}</td><td>{}</td><td>dynamic={}, nonlinear={}, dae={}, delay={}, predictor={}, adapter={}</td><td>{}</td>",
             assembly.line,
             html_escape(&assembly.solver_preview.status),
             html_escape(&assembly.solver_preview.method),
@@ -4122,7 +4122,7 @@ fn render_html_inner(
 <body>
   <main>
     <h1>{title}</h1>
-    <p>Reviewable EngLang preview artifact with source hash <code>{source_hash}</code>.</p>
+    <p>Reviewable EngLang artifact with source hash <code>{source_hash}</code>.</p>
     <section class="summary" aria-label="Run summary">
       <div class="metric"><span>Errors</span><strong>{error_count}</strong></div>
       <div class="metric"><span>Warnings</span><strong>{warning_count}</strong></div>
@@ -4385,7 +4385,7 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
         .collect::<Vec<_>>()
         .join("");
     format!(
-        r#"<h2>Component Solver Preview</h2>
+        r#"<h2>Connection Constraint Check</h2>
     <table>
       <thead><tr><th>Line</th><th>Assembly</th><th>Status</th><th>Eq/Unknowns</th><th>Convergence</th><th>Method</th></tr></thead>
       <tbody>{rows}</tbody>
@@ -4519,19 +4519,19 @@ fn default_plot_spec(title: &str) -> PlotSpec {
         y_axis: PlotAxis {
             name: "Value".to_owned(),
             label: "unit-aware value".to_owned(),
-            unit: "preview".to_owned(),
+            unit: "sample".to_owned(),
         },
         series: vec![PlotSeries {
-            name: "preview".to_owned(),
+            name: "sample".to_owned(),
             quantity_kind: "Value".to_owned(),
-            display_unit: "preview".to_owned(),
+            display_unit: "sample".to_owned(),
             bins: Vec::new(),
-            points: preview_points(),
+            points: sample_points(),
         }],
     }
 }
 
-fn preview_points() -> Vec<PlotPoint> {
+fn sample_points() -> Vec<PlotPoint> {
     vec![
         PlotPoint { x: 0.0, y: 20.0 },
         PlotPoint { x: 1.0, y: 32.0 },
@@ -5004,7 +5004,7 @@ mod tests {
         assert!(html.contains("Component Ports"));
         assert!(html.contains("Connections"));
         assert!(html.contains("Component Assembly"));
-        assert!(html.contains("solver preview"));
+        assert!(html.contains("constraint check"));
         assert!(html.contains("domain plan"));
         assert!(html.contains("component_residual_graph"));
         assert!(html.contains("domain_compatible"));

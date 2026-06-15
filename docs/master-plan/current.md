@@ -32,5 +32,4 @@ decisions:
 
 Open the v9 master plan only when you need long-form rationale. Its old
 high-numbered labels are historical planning labels; the current-status layer
-describes what is supported preview scope, experimental track work, or deferred
-on `main`.
+describes what is Stable, Supported, Internal track work, or Planned on `main`.

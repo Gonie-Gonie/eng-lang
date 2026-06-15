@@ -26,7 +26,8 @@ reg_eval = evaluate(reg_model, split=split)
 
 report {
     show reg_eval
-    plot residuals(reg_eval) {
+    plot residuals(reg_eval)
+    with {
         title = "Regression residuals"
     }
 }

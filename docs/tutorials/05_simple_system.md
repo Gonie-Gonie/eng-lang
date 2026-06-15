@@ -1,9 +1,9 @@
 # Simple System Tutorial
 
-The current preview includes a minimal physical `system` surface. It validates
+The current supported surface includes a minimal physical `system` form. It validates
 equation dimensions, writes residual metadata, records a small system IR, makes
 the solver boundary explicit, records solve_order and Jacobian seed columns,
-then runs a fixed-step ODE preview for the official one-state thermal system in
+then runs a fixed-step ODE path for the official one-state thermal system in
 `eng run` artifacts. It does not run a full multi-state or nonlinear ODE solver
 yet.
 
@@ -15,7 +15,7 @@ Open:
 examples/official/02_simple_system/main.eng
 ```
 
-The supported preview shape is:
+The supported shape is:
 
 ```eng
 system RoomThermal {

@@ -1,6 +1,7 @@
 # Compiler frontend
 
-v0.1-preview부터 compiler crate는 source를 직접 line scan하지 않고 다음 skeleton을 통과합니다.
+The compiler crate no longer line-scans source directly; it passes source
+through this frontend skeleton.
 
 ```text
 source text

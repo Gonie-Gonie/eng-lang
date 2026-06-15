@@ -12,34 +12,34 @@ paths before compatibility fixtures.
 
 02_simple_system
   Minimal physical system/equation surface with residual metadata, solver-plan
-  metadata, and fixed-step ODE preview output.
+  metadata, and one-state fixed-step output.
 
 03_integrated_hvac
   Combined user-test path for Args, CSV policies, missing interpolation,
-  statistics, integrate, PlotSpec/report, and simple system solver preview.
+  statistics, integrate, PlotSpec/report, and simple system metadata.
 
 04_uncertainty_core
-  Experimental uncertainty-track path for measured values, intervals,
+  Internal uncertainty-track path for measured values, intervals,
   deterministic distributions/ensembles, source and argument diagnostics,
   propagation metadata, and in-report histogram output.
 
 05_data_driven_modeling
-  Experimental data-driven modeling track path for train/test split, linear
+  Internal data-driven modeling track path for train/test split, linear
   regression, basic MLP, source and argument validation diagnostics,
   RMSE/MAE/R2 metrics, leakage lint, model card, parity plot output, and
   residual plot output via `residuals.eng`.
 
 06_domain_port
-  Experimental domain/component track path for user-defined domains,
+  Internal domain/component track path for user-defined domains,
   across/through variables, conservation metadata, component ports,
   structured generic parameters, domain-compatible connections, contract
   diagnostics, invalid connection diagnostics, metadata-only assembly
   connection sets, generated connection equations, equation/unknown counts, and
-  residual graph placeholders, domain-plan based multi-domain preview metadata,
-  and homogeneous connection-constraint solver preview artifacts.
+  residual graph placeholders, domain-plan metadata, and connection constraint
+  consistency artifacts.
 
 07_functions_imports
-  Preview top-level execution, static file import, importable const values,
+  Top-level execution, static file import, importable const values,
   function-local bindings, unit-checked parameters, dimension-checked return
   expressions, function-call inference, CLI print, and explicit summary CSV
   export.
@@ -91,18 +91,16 @@ paths before compatibility fixtures.
   RMSE calculation, threshold validation, time-alignment metadata, and a
   measured/simulated multi-series PlotSpec.
 
-18_state_space_preview
-  Typed StateVector/InputVector/OutputVector and LinearOperator metadata for
-  the state-space preview surface. This is a review/IDE metadata seed, not a
-  general matrix solver.
-
-19_class_object_preview
+19_class_object
   Typed class declarations, object literals, nested object references, simple
   class validation blocks, metadata methods, immutable copy-with, field access
-  metadata, and class/object report sections for the class object preview
-  surface. This is a review/IDE metadata seed, not runtime object dispatch.
+  metadata, and class/object report sections for the supported class object
+  authoring surface. This is not runtime object dispatch.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression
 tests. Diagnostic and data-quality fixtures live in their own top-level
 folders; they are not the first user-facing examples.
+
+Internal implementation fixtures that are not user-facing release workflows live
+under `examples/internal`, including state-space metadata-only experiments.

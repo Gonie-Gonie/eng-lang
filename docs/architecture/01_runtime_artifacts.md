@@ -345,7 +345,7 @@ Current result fields:
       {
         "system": "RoomThermal",
         "status": "computed",
-        "reason": "recognized first-order thermal ODE and executed fixed-step preview"
+        "reason": "recognized first-order thermal ODE and executed fixed-step runtime path"
       }
     ],
     "system_ir": [
@@ -507,7 +507,7 @@ residual name and expression
 status = unit_consistent or unit_unresolved
 ```
 
-The current system/equation preview also records a machine-readable `system_ir` section in
+The current system/equation support also records a machine-readable `system_ir` section in
 `review.json` and `report_spec.json`:
 
 ```text
@@ -566,7 +566,7 @@ Purpose:
 interactive-friendly plot data model consumed by native renderers/viewers
 ```
 
-Current preview format:
+Current format:
 
 ```text
 eng-plotspec-v1
@@ -600,7 +600,7 @@ Python-free plot artifact generated from PlotSpec v1 by the native report crate
 
 ## `eng build --standalone`
 
-The current preview build command creates a runnable packaged bundle:
+The current build command creates a runnable packaged bundle:
 
 ```text
 dist/

@@ -10,7 +10,7 @@ development scope: named tracks
 stable core: reserved until behavior and support are genuinely stable
 ```
 
-Use this file to understand why certain preview features exist. Do not use it
+Use this file to understand why certain historical implementation seeds exist. Do not use it
 as the active release roadmap; use `docs/current/version_plan.md`,
 `docs/current/tracks.md`, and `docs/current/status.md` instead.
 
@@ -20,13 +20,13 @@ as the active release roadmap; use `docs/current/version_plan.md`,
 Implemented
   Behavior exists, has a regression/smoke gate, and is documented.
 
-Preview
-  Behavior is useful for user testing but intentionally narrower than the
-  eventual full engine.
+Internal
+  Behavior is useful for implementation testing but intentionally narrower than
+  the eventual full engine and not presented as a release feature.
 
 Deferred
   The shape is known, but the implementation remains outside the current
-  public preview support boundary.
+  public release support boundary.
 ```
 
 ## Completed Backfills
@@ -40,15 +40,15 @@ Deferred
 | TimeSeries values | The official coil heat-rate path materializes runtime TimeSeries pages from CSV data. | runtime smoke and artifacts-check |
 | Statistics | `mean`, `time_weighted_mean`, `min`, `max`, `median`, `std`, `pNN`, `duration_above`, and trapezoidal integration run for the supported official TimeSeries path. | runtime smoke and artifacts-check |
 | Plot/report | Plot blocks execute supported `unit`, `type`, and `title` options for official line, bar, and histogram paths. PlotSpec, SVG, report spec, HTML report, and plot manifest are generated without Python. | artifacts-check and package-smoke |
-| System/equation | System metadata includes variables, equations, residuals, solver boundary, solver plan, dependency data, derivative states, and a fixed-step preview for the official one-state thermal system. | system artifact golden baselines |
+| System/equation | System metadata includes variables, equations, residuals, solver boundary, solver plan, dependency data, derivative states, and a fixed-step path for the official one-state thermal system. | system artifact golden baselines |
 | Standalone package | `eng build --standalone --profile repro` creates a runnable package with bytecode, lock metadata, argument help, dependencies, and a `run.bat` wrapper. | package-smoke |
 | Native IDE | The tester IDE opens files, runs checks, runs examples, shows diagnostics/completions/symbols/results, supports settings, and is bundled as `eng-ide.exe`. | `.\dev.bat ide-check`, package-smoke |
 | User docs | Portable release docs are curated into a PDF guide; developer markdown is not bundled into the user-test package. | package-smoke |
 
 ## Remaining Deferrals
 
-These items must stay documented as preview limits until they are implemented
-and gated:
+These items must stay documented as Internal or Planned until they are
+implemented and gated:
 
 ```text
 - adaptive, nonlinear, and multi-equation numeric system solvers
@@ -67,8 +67,8 @@ When describing these features in public docs:
 
 ```text
 Say:
-  current preview
-  supported preview path
+  current supported scope
+  internal implementation seed
   uncertainty track
   data-driven modeling track
   IDE/LSP track
@@ -78,7 +78,7 @@ Say:
 Avoid:
   using old high-numbered planning labels as public release names
   claiming stable-core support before the stable gate is met
-  implying preview seeds are complete engines
+  implying implementation seeds are complete engines
 ```
 
 ## Next Audit Point
