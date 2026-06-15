@@ -94,9 +94,10 @@ covered by the breaking-change policy.
   variable summaries, schema/TimeSeries/metric/validation/time-alignment
   inspectors for the measured workflow, schema parse/conversion failure
   inspector coverage for data-quality runs, internal state-space trajectory
-  inspector coverage, side-effect artifact panels for output manifest, run log,
-  process results, and test results, PlotSpec viewing, and on-demand report/plot
-  opening for stable workflows.
+  inspector coverage, class object summary inspector coverage, side-effect
+  artifact panels for output manifest, run log, process results, and test
+  results, PlotSpec viewing, and on-demand report/plot opening for stable
+  workflows.
 
 ## Supported Features
 
@@ -122,9 +123,9 @@ by the stable breaking-change policy.
 - Class/domain object authoring for typed fields/defaults, object literals,
   nested object references, field access metadata, simple validation blocks,
   zero-argument metadata methods, immutable copy-with metadata, diagnostics,
-  report/review serialization, IDE metadata, and LSP metadata. Runtime object
-  dispatch/lowering, method arguments, mutation, inheritance, and simulation
-  lowering remain planned.
+  report/review serialization, IDE object summary inspector, and LSP metadata.
+  Runtime object dispatch/lowering, method arguments, mutation, inheritance,
+  and simulation lowering remain planned.
 
 ## Internal Implementation Seeds
 

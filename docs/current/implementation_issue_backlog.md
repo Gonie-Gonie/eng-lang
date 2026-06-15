@@ -99,8 +99,8 @@ Definition of Done:
 
 - Runtime object representation exists for class literals and nested objects.
 - Field access produces checked runtime values.
-- Default fields, validation results, zero-argument metadata methods, and
-  copy-with behavior are covered by tests.
+- Default fields, validation results, zero-argument metadata methods,
+  copy-with behavior, and IDE object-summary inspection are covered by tests.
 - Report/review artifacts include object summaries and validation results.
 - IDE completion/hover shows fields, defaults, required fields, and units.
 - Docs keep classes separate from systems/components and avoid solver claims.

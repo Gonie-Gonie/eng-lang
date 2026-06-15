@@ -120,6 +120,7 @@ struct InspectorView {
     validations: Value,
     time_alignments: Value,
     systems: Value,
+    class_objects: Value,
     assemblies: Value,
     component_graph: Value,
     artifact_outlines: Value,
@@ -140,6 +141,7 @@ impl Default for InspectorView {
             validations: Value::Array(Vec::new()),
             time_alignments: Value::Array(Vec::new()),
             systems: Value::Array(Vec::new()),
+            class_objects: Value::Array(Vec::new()),
             assemblies: Value::Array(Vec::new()),
             component_graph: Value::Null,
             artifact_outlines: Value::Array(Vec::new()),
@@ -923,6 +925,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         validations: json_array_clone(&report, "validations"),
         time_alignments: json_array_clone(&report, "time_alignments"),
         systems: system_inspector(&report, &result),
+        class_objects: json_array_clone(&report, "object_summary"),
         assemblies: json_array_clone(&report, "assembly_summary"),
         component_graph: report
             .get("component_graph")
@@ -1982,6 +1985,32 @@ fn smoke() -> Result<(), String> {
             state_space_example.display()
         ));
     }
+    let class_example = root.join("examples/official/19_class_object/main.eng");
+    let class_output = run_file(
+        &class_example,
+        &root.join("build").join("ide-smoke-class-object"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let class_cached = CachedRunOutput::from_output(class_output);
+    let class_inspectors = runtime_inspectors(&root, &class_cached);
+    let has_class_object = class_inspectors
+        .class_objects
+        .as_array()
+        .is_some_and(|items| {
+            items.iter().any(|item| {
+                json_field_string(item, "name").as_deref() == Some("building")
+                    && json_field_string(item, "class_name").as_deref() == Some("Building")
+                    && json_field_usize(item, "field_count").unwrap_or(0) > 0
+                    && json_field_usize(item, "validation_count").unwrap_or(0) > 0
+            })
+        });
+    if !has_class_object {
+        return Err(format!(
+            "{} did not produce IDE class object inspector metadata",
+            class_example.display()
+        ));
+    }
     let effects_example = root.join("examples/official/15_process_result/main.eng");
     let effects_output = run_file(
         &effects_example,
@@ -2061,7 +2090,7 @@ fn smoke() -> Result<(), String> {
         ));
     }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), measured workflow inspectors, state-space trajectory inspector, side-effect inspectors, schema failure inspector",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), measured workflow inspectors, state-space trajectory inspector, class object inspector, side-effect inspectors, schema failure inspector",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),

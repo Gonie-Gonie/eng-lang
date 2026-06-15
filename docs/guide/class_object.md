@@ -178,8 +178,8 @@ object_summary
 `object_summary` includes copy-with provenance plus per-object validation
 results with left/right values, unit, and status.
 
-The native IDE artifact outline and LSP snapshot path expose the same sections,
-plus class/object hover and completion metadata.
+The native IDE object summary inspector, artifact outline, and LSP snapshot path
+expose the same sections, plus class/object hover and completion metadata.
 
 ## Support Boundary
 

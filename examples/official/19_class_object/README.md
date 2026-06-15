@@ -18,14 +18,15 @@ This example shows:
 - Field access such as `wall.u_value`, which is typed as `Conductance [W/K]`.
 - Method-call type metadata such as `building.summary()`, which is typed as
   `String`.
-- `class_summary` and `object_summary` metadata in review/report artifacts.
+- `class_summary` and `object_summary` metadata in review/report artifacts,
+  with the same objects visible in the IDE object summary inspector.
 
 Current support boundary:
 
 - class/object parsing, metadata, object literal diagnostics, simple class
   validation rules, zero-argument metadata methods, immutable copy-with
-  metadata, field access typing, report/review sections, and IDE artifact
-  outline visibility are supported for this scope;
+  metadata, field access typing, report/review sections, and IDE object summary
+  visibility are supported for this scope;
 - method arguments, inheritance, mutation, and runtime object dispatch are
   deferred;
 - classes are ordinary typed engineering objects, not replacements for

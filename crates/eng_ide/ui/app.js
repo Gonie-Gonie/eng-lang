@@ -46,6 +46,7 @@ function emptyInspectors() {
     validations: [],
     timeAlignments: [],
     systems: [],
+    classObjects: [],
     assemblies: [],
     artifactOutlines: [],
     outputManifest: null,
@@ -635,6 +636,7 @@ function renderSidePanel() {
         ${sideTabButton("time", "Time")}
         ${sideTabButton("plot", "Plot")}
         ${sideTabButton("checks", "Checks")}
+        ${sideTabButton("objects", "Obj")}
         ${sideTabButton("assembly", "Asm")}
         ${sideTabButton("artifacts", "Artifacts")}
         ${sideTabButton("effects", "Effects")}
@@ -654,6 +656,7 @@ function renderSideBody() {
   if (state.sideTab === "schema") return renderSchemaPanel();
   if (state.sideTab === "time") return renderTimePanel();
   if (state.sideTab === "checks") return renderChecksPanel();
+  if (state.sideTab === "objects") return renderObjectsPanel();
   if (state.sideTab === "assembly") return renderAssemblyPanel();
   if (state.sideTab === "artifacts") return renderArtifactsPanel();
   if (state.sideTab === "effects") return renderEffectsPanel();
@@ -761,6 +764,16 @@ function renderAssemblyPanel() {
       <span class="badge">Graphs ${inspectorRows("assemblies").length}</span>
     </div>
     <div class="scroll">${renderAssemblies()}</div>
+  `;
+}
+
+function renderObjectsPanel() {
+  return `
+    <div class="panel-title compact">Objects</div>
+    <div class="badges">
+      <span class="badge">Objects ${inspectorRows("classObjects").length}</span>
+    </div>
+    <div class="scroll">${renderClassObjects()}</div>
   `;
 }
 
@@ -987,6 +1000,29 @@ function renderAssemblies() {
     <table class="var-table">
       <thead><tr><th>Graph</th><th>Comp/Ports</th><th>Sets</th><th>Eq</th><th>Plan</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="5" class="muted">Run a domain/component workflow.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderClassObjects() {
+  const rows = inspectorRows("classObjects").map((object) => {
+    const fields = Array.isArray(object.fields) ? object.fields : [];
+    const validations = Array.isArray(object.validations) ? object.validations : [];
+    return `
+      <tr>
+        <td><strong>${escapeHtml(object.name || "-")}</strong><div class="muted">L${escapeHtml(object.line || "-")}</div></td>
+        <td>${escapeHtml(object.class_name || object.className || "-")}<div class="muted">${escapeHtml(object.construction || "-")}</div></td>
+        <td>${escapeHtml(object.source_object || object.sourceObject || "-")}</td>
+        <td>${escapeHtml(fieldSummary(fields))}</td>
+        <td>${escapeHtml(validationSummary(validations))}</td>
+        <td>${escapeHtml(object.status || "-")}</td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Object</th><th>Class</th><th>Source</th><th>Fields</th><th>Validation</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">Run a class object workflow.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -1307,6 +1343,23 @@ function columnSummary(columns) {
     const suffix = unit ? ` [${unit}]` : "";
     return `${column.name || "column"}: ${column.type || "-"}${suffix}`;
   }).join("; ");
+}
+
+function fieldSummary(fields) {
+  if (!Array.isArray(fields) || !fields.length) return "-";
+  return fields.map((field) => {
+    const unit = field.display_unit || field.displayUnit || "";
+    const suffix = unit ? ` [${unit}]` : "";
+    const type = field.quantity_kind || field.quantityKind || "-";
+    return `${field.name || "field"}: ${type}${suffix}`;
+  }).join("; ");
+}
+
+function validationSummary(validations) {
+  if (!Array.isArray(validations) || !validations.length) return "-";
+  const passed = validations.filter((validation) => validation.status === "passed").length;
+  const failed = validations.filter((validation) => validation.status === "failed").length;
+  return `${passed} passed / ${failed} failed`;
 }
 
 function metricCell(value) {
