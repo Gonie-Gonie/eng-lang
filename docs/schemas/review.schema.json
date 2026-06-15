@@ -108,7 +108,10 @@
     "class_summary": { "type": "array" },
     "object_summary": { "type": "array" },
     "schema_summary": { "type": "array" },
-    "system_summary": { "type": "array" },
+    "system_summary": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/systemSummary" }
+    },
     "system_ir": {
       "type": "array",
       "items": { "$ref": "#/$defs/systemIr" }
@@ -262,6 +265,80 @@
       "properties": {
         "artifact": { "type": "string" },
         "expected": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "systemSummary": {
+      "type": "object",
+      "required": ["name", "line", "variables", "equations", "residuals"],
+      "properties": {
+        "name": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "variables": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/systemVariable" }
+        },
+        "equations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/systemEquation" }
+        },
+        "residuals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/systemResidual" }
+        }
+      }
+    },
+    "systemVariable": {
+      "type": "object",
+      "required": [
+        "role",
+        "name",
+        "quantity_kind",
+        "display_unit",
+        "dimension",
+        "initial_value",
+        "line"
+      ],
+      "properties": {
+        "role": { "type": "string" },
+        "name": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "dimension": { "type": "string" },
+        "initial_value": { "type": ["string", "null"] },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "systemEquation": {
+      "type": "object",
+      "required": [
+        "left",
+        "relation",
+        "right",
+        "left_dimension",
+        "right_dimension",
+        "residual",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "left": { "type": "string" },
+        "relation": { "type": "string" },
+        "right": { "type": "string" },
+        "left_dimension": { "type": "string" },
+        "right_dimension": { "type": "string" },
+        "residual": { "type": "string" },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "systemResidual": {
+      "type": "object",
+      "required": ["name", "expression", "dimension", "line"],
+      "properties": {
+        "name": { "type": "string" },
+        "expression": { "type": "string" },
+        "dimension": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }
     },

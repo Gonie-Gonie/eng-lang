@@ -65,6 +65,10 @@
           "type": "array",
           "items": { "$ref": "#/$defs/timeAxis" }
         },
+        "systems": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/resultSystemSummary" }
+        },
         "solver_boundaries": {
           "type": "array",
           "items": { "$ref": "#/$defs/resultSolverBoundary" }
@@ -308,6 +312,105 @@
         "expression": { "type": "string" },
         "value": { "type": "number" },
         "status": { "type": "string" }
+      }
+    },
+    "resultSystemSummary": {
+      "type": "object",
+      "required": ["name", "variable_count", "equations", "residuals"],
+      "properties": {
+        "name": { "type": "string" },
+        "variable_count": { "type": "integer", "minimum": 0 },
+        "equations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/resultSystemEquation" }
+        },
+        "residuals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/resultSystemResidual" }
+        },
+        "solver_result": { "$ref": "#/$defs/resultSystemSolution" }
+      }
+    },
+    "resultSystemEquation": {
+      "type": "object",
+      "required": [
+        "left",
+        "relation",
+        "right",
+        "left_dimension",
+        "right_dimension",
+        "residual",
+        "status"
+      ],
+      "properties": {
+        "left": { "type": "string" },
+        "relation": { "type": "string" },
+        "right": { "type": "string" },
+        "left_dimension": { "type": "string" },
+        "right_dimension": { "type": "string" },
+        "residual": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    },
+    "resultSystemResidual": {
+      "type": "object",
+      "required": ["name", "expression", "dimension"],
+      "properties": {
+        "name": { "type": "string" },
+        "expression": { "type": "string" },
+        "dimension": { "type": "string" }
+      }
+    },
+    "resultSystemSolution": {
+      "type": "object",
+      "required": [
+        "status",
+        "binding",
+        "method",
+        "reason",
+        "state",
+        "quantity_kind",
+        "display_unit",
+        "canonical_unit",
+        "time_unit",
+        "duration",
+        "time_step",
+        "step_count",
+        "initial_value",
+        "final_value",
+        "canonical_initial_value",
+        "canonical_final_value",
+        "points"
+      ],
+      "properties": {
+        "status": { "enum": ["computed"] },
+        "binding": { "type": ["string", "null"] },
+        "method": { "type": "string" },
+        "reason": { "type": "string" },
+        "state": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "canonical_unit": { "type": "string" },
+        "time_unit": { "type": "string" },
+        "duration": { "type": "number" },
+        "time_step": { "type": "number" },
+        "step_count": { "type": "integer", "minimum": 0 },
+        "initial_value": { "type": "number" },
+        "final_value": { "type": "number" },
+        "canonical_initial_value": { "type": "number" },
+        "canonical_final_value": { "type": "number" },
+        "points": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/resultPoint" }
+        }
+      }
+    },
+    "resultPoint": {
+      "type": "object",
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" }
       }
     },
     "resultSolverBoundary": {
