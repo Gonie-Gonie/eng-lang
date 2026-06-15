@@ -14,3 +14,11 @@ delete "ops/scratch.txt"
 with {
     confirm = true
 }
+
+write text "ops/tmp/stale.txt", "temporary generated directory note"
+
+delete dir("ops/tmp")
+with {
+    recursive = true
+    confirm = true
+}

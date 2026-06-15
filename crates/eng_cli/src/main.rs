@@ -999,11 +999,12 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
             let manifest =
                 std::fs::read_to_string(&output.output_manifest_path).unwrap_or_default();
-            if output.file_operation_paths.len() != 3
+            if output.file_operation_paths.len() != 4
                 || !review.contains("\"file_operations\"")
                 || !manifest.contains("\"kind\": \"copy_file\"")
                 || !manifest.contains("\"kind\": \"move_file\"")
                 || !manifest.contains("\"kind\": \"delete_file\"")
+                || !manifest.contains("\"kind\": \"delete_dir\"")
             {
                 eprintln!("expected file operations example to produce review and output manifest records");
                 return ExitCode::from(2);

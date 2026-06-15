@@ -159,6 +159,14 @@ delete "ops/scratch.txt"
 with {
     confirm = true
 }
+
+write text "ops/tmp/stale.txt", "temporary generated directory note"
+
+delete dir("ops/tmp")
+with {
+    recursive = true
+    confirm = true
+}
 ```
 
 The CLI reports touched file operation paths:
@@ -166,10 +174,11 @@ The CLI reports touched file operation paths:
 ```text
 fs:       build\result\ops\archive\copied_note.txt
 fs:       build\result\ops\scratch.txt
+fs:       build\result\ops\tmp
 ```
 
 `review.json` records `file_operations[]`. `output_manifest.json` records
-entries such as `copy_file`, `move_file`, and `delete_file`.
+entries such as `copy_file`, `move_file`, `delete_file`, and `delete_dir`.
 
 ## Explicit Process Results
 
