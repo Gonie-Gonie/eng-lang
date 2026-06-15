@@ -4816,6 +4816,58 @@ mod tests {
     }
 
     #[test]
+    fn validates_command_style_validate_comparisons() {
+        let report = check_source(
+            "ok.eng",
+            "rmse_T = rmse measured.T_zone vs sim.T_zone\nvalidate rmse_T < 5 K\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert!(report
+            .semantic_program
+            .command_styles
+            .iter()
+            .any(|command| command.canonical == "validate(rmse_T < 5 K)"));
+    }
+
+    #[test]
+    fn rejects_invalid_validate_command_expressions() {
+        let non_bool = check_source(
+            "bad.eng",
+            "rmse_T = rmse measured.T_zone vs sim.T_zone\nvalidate rmse_T\n",
+            &CheckOptions::default(),
+        );
+        assert!(non_bool.has_errors());
+        assert!(non_bool
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-VALIDATE-BOOL-001"));
+
+        let unit_mismatch = check_source(
+            "bad.eng",
+            "rmse_T = rmse measured.T_zone vs sim.T_zone\nvalidate rmse_T < 5 m\n",
+            &CheckOptions::default(),
+        );
+        assert!(unit_mismatch.has_errors());
+        assert!(unit_mismatch
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-VALIDATE-UNIT-001"));
+
+        let unresolved = check_source(
+            "bad.eng",
+            "validate missing_metric < 5 K\n",
+            &CheckOptions::default(),
+        );
+        assert!(unresolved.has_errors());
+        assert!(unresolved
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-VALIDATE-EXPR-001"));
+    }
+
+    #[test]
     fn rejects_incompatible_print_and_csv_export_units() {
         let report = check_source(
             "bad.eng",

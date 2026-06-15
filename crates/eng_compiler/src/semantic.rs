@@ -1174,7 +1174,13 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 analyze_golden_decl(golden, current_test_index, &mut tests, &mut diagnostics);
             }
             AstItem::CommandStyle(command) => {
-                analyze_command_style_decl(command, &mut command_styles, &mut diagnostics);
+                analyze_command_style_decl(
+                    command,
+                    &typed_bindings,
+                    &functions,
+                    &mut command_styles,
+                    &mut diagnostics,
+                );
             }
             AstItem::ReservedKeywordUse { keyword, span } => diagnostics.push(Diagnostic::error(
                 "E-RESERVED-KEYWORD-001",
@@ -1265,6 +1271,8 @@ fn analyze_import_decl(import: &ImportDecl) -> ImportInfo {
 
 fn analyze_command_style_decl(
     command: &CommandStyleDecl,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
     command_styles: &mut Vec<CommandStyleInfo>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
@@ -1292,6 +1300,8 @@ fn analyze_command_style_decl(
             &format!("Command `{}` needs a target expression.", command.verb),
             Some("Write a binding, table, series, or parenthesized expression after the command verb."),
         ));
+    } else if command.verb == "validate" {
+        validate_command_expression(command, typed_bindings, functions, diagnostics);
     }
     command_styles.push(CommandStyleInfo {
         verb: command.verb.clone(),
@@ -1309,6 +1319,74 @@ fn analyze_command_style_decl(
         owner: command.owner.clone(),
         line: command.line,
     });
+}
+
+fn validate_command_expression(
+    command: &CommandStyleDecl,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some((left, _operator, right)) = split_validation_expression(&command.target) else {
+        diagnostics.push(Diagnostic::error(
+            "E-VALIDATE-BOOL-001",
+            command.line,
+            &format!(
+                "`validate {}` must be a comparison expression.",
+                command.target
+            ),
+            Some(
+                "Write forms such as `validate rmse_T < 5 K` so the expression evaluates to Bool.",
+            ),
+        ));
+        return;
+    };
+
+    let left_type = assert_expression_semantic_type(&left, typed_bindings, functions);
+    let right_type = assert_expression_semantic_type(&right, typed_bindings, functions);
+    if left_type.is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-VALIDATE-EXPR-001",
+            command.line,
+            &format!("Cannot resolve validation expression `{left}`."),
+            Some("Validate a typed metric, integration result, function call, or literal."),
+        ));
+    }
+    if right_type.is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-VALIDATE-EXPR-001",
+            command.line,
+            &format!("Cannot resolve validation expression `{right}`."),
+            Some("Use a typed threshold such as `5 K` or a compatible binding."),
+        ));
+    }
+    if let (Some(left_type), Some(right_type)) = (&left_type, &right_type) {
+        let left_dimension = dimension_for_quantity(&left_type.quantity_kind);
+        let right_dimension = dimension_for_quantity(&right_type.quantity_kind);
+        if !dimensions_compatible(&left_dimension, &right_dimension) {
+            diagnostics.push(Diagnostic::error(
+                "E-VALIDATE-UNIT-001",
+                command.line,
+                &format!(
+                    "Validation compares `{left}` ({left_dimension}) with `{right}` ({right_dimension})."
+                ),
+                Some("Use a threshold with the same physical dimension as the validated value."),
+            ));
+        }
+    }
+}
+
+fn split_validation_expression(expression: &str) -> Option<(String, String, String)> {
+    for operator in ["<=", ">=", "==", "!=", "<", ">"] {
+        if let Some((left, right)) = expression.split_once(operator) {
+            return Some((
+                left.trim().to_owned(),
+                operator.to_owned(),
+                right.trim().to_owned(),
+            ));
+        }
+    }
+    None
 }
 
 fn scoped_where_bindings_for_owner(

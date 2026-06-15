@@ -544,6 +544,21 @@ max Q_coil over Time       -> max(Q_coil, axis=Time)
 min Q_coil over Time       -> min(Q_coil, axis=Time)
 ```
 
+### Validate Commands
+
+`validate` accepts a comparison expression that evaluates to Bool:
+
+```eng partial
+rmse_T = rmse measured.T_zone vs sim.T_zone
+validate rmse_T < 5 K
+```
+
+The compiler resolves both sides of the comparison and checks physical
+dimensions before runtime. A missing comparison operator is rejected with
+`E-VALIDATE-BOOL-001`, unresolved values are rejected with
+`E-VALIDATE-EXPR-001`, and incompatible units are rejected with
+`E-VALIDATE-UNIT-001`.
+
 ### Command Target Rule
 
 Simple targets may omit parentheses:
@@ -1277,6 +1292,9 @@ generation.
 |---|---|---|
 | `E-CMD-AMBIG-001` | Command target is ambiguous | Parenthesize the target |
 | `E-CMD-UNKNOWN-VERB` | Command-style verb is not supported | Use a supported built-in verb or parenthesized function call |
+| `E-VALIDATE-BOOL-001` | `validate` target is not a comparison | Write `validate value < threshold` |
+| `E-VALIDATE-EXPR-001` | `validate` expression cannot be resolved | Bind the value or fix the name |
+| `E-VALIDATE-UNIT-001` | `validate` compares incompatible units | Use a compatible threshold |
 | `E-NAME-LOCAL-001` | Where-local used outside owner scope | Move it top-level or use it only in owner |
 | `E-WHERE-FWD-001` | Where-local used before definition | Reorder the where bindings |
 | `E-WITH-OPTION-001` | Unknown `with` option | Use a supported option key |
