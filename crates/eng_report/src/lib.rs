@@ -3413,15 +3413,23 @@ pub fn plot_manifest_json(
     plot_spec_hash: &str,
     svg_hash: &str,
 ) -> String {
+    let series_names = spec
+        .series
+        .iter()
+        .map(|series| series.name.clone())
+        .collect::<Vec<_>>();
+    let mut series_json = String::new();
+    push_json_string_array(&mut series_json, &series_names);
     format!(
-        "{{\n  \"format\": \"eng-plot-manifest-v1\",\n  \"plot_spec_version\": {PLOT_SPEC_VERSION},\n  \"plots\": [\n    {{\n      \"title\": \"{}\",\n      \"plot_type\": \"{}\",\n      \"plot_spec\": \"plot_spec.json\",\n      \"plot_spec_hash\": \"{}\",\n      \"svg\": \"{}\",\n      \"svg_hash\": \"{}\",\n      \"x_axis_label\": \"{}\",\n      \"y_axis_label\": \"{}\"\n    }}\n  ]\n}}\n",
+        "{{\n  \"format\": \"eng-plot-manifest-v1\",\n  \"plot_spec_version\": {PLOT_SPEC_VERSION},\n  \"plots\": [\n    {{\n      \"title\": \"{}\",\n      \"plot_type\": \"{}\",\n      \"plot_spec\": \"plot_spec.json\",\n      \"plot_spec_hash\": \"{}\",\n      \"svg\": \"{}\",\n      \"svg_hash\": \"{}\",\n      \"x_axis_label\": \"{}\",\n      \"y_axis_label\": \"{}\",\n      \"series\": [{}]\n    }}\n  ]\n}}\n",
         json_escape(&spec.title),
         json_escape(&spec.plot_type),
         json_escape(plot_spec_hash),
         json_escape(svg_relative_path),
         json_escape(svg_hash),
         json_escape(&axis_label(&spec.x_axis)),
-        json_escape(&axis_label(&spec.y_axis))
+        json_escape(&axis_label(&spec.y_axis)),
+        series_json
     )
 }
 
@@ -5005,6 +5013,30 @@ mod tests {
         assert!(scatter_json.contains("\"plot_type\": \"scatter\""));
         assert!(scatter_svg.contains("<circle cx="));
         assert!(!scatter_svg.contains("<polyline"));
+    }
+
+    #[test]
+    fn plotspec_renders_multi_series_line_legend_and_manifest_series() {
+        let mut spec = sample_plot_spec("line");
+        spec.series.push(PlotSeries {
+            name: "baseline".to_owned(),
+            quantity_kind: "HeatRate".to_owned(),
+            display_unit: "kW".to_owned(),
+            bins: Vec::new(),
+            points: vec![
+                PlotPoint { x: 0.0, y: 0.8 },
+                PlotPoint { x: 1.0, y: 1.8 },
+                PlotPoint { x: 2.0, y: 1.2 },
+            ],
+        });
+
+        let svg = render_svg_from_spec(&spec);
+        let manifest = plot_manifest_json(&spec, "timeseries.svg", "plot-hash", "svg-hash");
+
+        assert_eq!(svg.matches("<polyline").count(), 2);
+        assert!(svg.contains(">value<"));
+        assert!(svg.contains(">baseline<"));
+        assert!(manifest.contains("\"series\": [\"value\", \"baseline\"]"));
     }
 
     #[test]

@@ -25,7 +25,8 @@ title = "<title>"
 
 The PlotSpec planner infers the requested `TimeSeries[Time]` binding from
 semantic metadata and the runtime materializes official CSV-derived TimeSeries
-points.
+points. Multi-series line plots are supported with `plot A and B over Time`
+when the series share the same Time axis and compatible display units.
 
 For `examples/official/01_csv_plot/main.eng`, this produces:
 
@@ -61,6 +62,10 @@ Example:
 The `points` array is the renderer-independent data model. The current runtime
 uses runtime TimeSeries points for the official CSV example and deterministic
 fallback points only when materialized runtime data is not available.
+
+For multi-series line plots, PlotSpec stores one `series` object per line. The
+native SVG renderer draws each line with a stable color and emits a compact
+legend using the series names.
 
 `plot_type = "bar"` consumes existing PlotSpec points and emits SVG rectangles.
 `plot_type = "histogram"` bins TimeSeries y-values when requested through
@@ -119,7 +124,8 @@ y-axis: HeatRate (W)
       "svg": "timeseries.svg",
       "svg_hash": "...",
       "x_axis_label": "Time (sample)",
-      "y_axis_label": "HeatRate (W)"
+      "y_axis_label": "HeatRate (W)",
+      "series": ["Q_coil"]
     }
   ]
 }
@@ -146,6 +152,8 @@ PlotSpec JSON smoke
 SVG axis label smoke
 official run creates plot_spec.json
 official run creates plot_manifest.json
+measured-vs-simulated run creates two PlotSpec series
+SVG renderer emits one polyline and legend entry per line series
 eng view lists plot manifest
 official histogram run creates binned PlotSpec data
 ```
@@ -155,7 +163,6 @@ official histogram run creates binned PlotSpec data
 Later versions will add:
 
 ```text
-- multiple series
 - grouped/stacked bar semantics
 - multiple histogram series and custom bin counts
 - interactive viewer

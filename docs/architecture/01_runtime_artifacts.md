@@ -590,6 +590,9 @@ listing of generated plot outputs and hashes
 
 `eng view <result.engres>` prints this path when it exists.
 
+Each manifest plot entry records the generated PlotSpec/SVG paths and the
+series names included in that plot.
+
 ## `plots/*.svg`
 
 Purpose:
