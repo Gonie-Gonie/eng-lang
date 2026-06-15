@@ -5445,6 +5445,30 @@ mod tests {
     }
 
     #[test]
+    fn rejects_side_effects_inside_functions() {
+        let report = check_source(
+            "bad.eng",
+            "fn noisy(Q: HeatRate [kW], notes: TextFile) -> HeatRate [W] {\n    print \"Q={Q: .1 kW}\"\n    text = read text notes\n    return Q\n}\n\nQ = 1 kW\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert_eq!(
+            report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "E-FN-SIDE-EFFECT-001")
+                .count(),
+            2
+        );
+        assert!(report.semantic_program.prints.is_empty());
+        assert_eq!(
+            report.semantic_program.functions[0].status,
+            "side_effect_rejected"
+        );
+    }
+
+    #[test]
     fn records_hover_hint_for_inferred_declaration() {
         let report = check_source("ok.eng", "L = 1 m + 20 cm", &CheckOptions::default());
 

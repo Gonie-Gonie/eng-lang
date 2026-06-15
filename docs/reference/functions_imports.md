@@ -25,6 +25,9 @@ Rules:
   one `return` expression.
 - Function-local bindings are part of the function body, not importable module
   symbols.
+- Functions are pure. Side-effecting statements and expressions such as
+  `print`, `write`, `export`, `run command`, `read text/json/toml`, and
+  `promote` are rejected inside function bodies with `E-FN-SIDE-EFFECT-001`.
 - Top-level `const` declarations are importable and can be used by functions
   or root workflows.
 

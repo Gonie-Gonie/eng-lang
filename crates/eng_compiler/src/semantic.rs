@@ -1047,6 +1047,16 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 }
             }
             AstItem::Print(print) => {
+                if reject_function_side_effect(
+                    print.context,
+                    "print/log statement",
+                    print.line,
+                    current_function_index,
+                    &functions,
+                    &mut diagnostics,
+                ) {
+                    continue;
+                }
                 analyze_print_decl(
                     print,
                     &typed_bindings,
@@ -1056,6 +1066,17 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 );
             }
             AstItem::CsvExport(export) => {
+                if reject_function_side_effect(
+                    export.context,
+                    "CSV export",
+                    export.line,
+                    current_function_index,
+                    &functions,
+                    &mut diagnostics,
+                ) {
+                    current_csv_export_index = None;
+                    continue;
+                }
                 csv_exports.push(analyze_csv_export_decl(export, &mut diagnostics));
                 current_csv_export_index = Some(csv_exports.len() - 1);
             }
@@ -1079,6 +1100,16 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 }
             }
             AstItem::Write(write) => {
+                if reject_function_side_effect(
+                    write.context,
+                    "write statement",
+                    write.line,
+                    current_function_index,
+                    &functions,
+                    &mut diagnostics,
+                ) {
+                    continue;
+                }
                 if let Some(write_info) =
                     analyze_write_decl(write, &typed_bindings, &functions, &mut diagnostics)
                 {
@@ -1086,6 +1117,16 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 }
             }
             AstItem::FileOperation(operation) => {
+                if reject_function_side_effect(
+                    operation.context,
+                    "file operation",
+                    operation.line,
+                    current_function_index,
+                    &functions,
+                    &mut diagnostics,
+                ) {
+                    continue;
+                }
                 if let Some(operation_info) =
                     analyze_file_operation_decl(operation, &mut diagnostics)
                 {
@@ -1093,6 +1134,16 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 }
             }
             AstItem::ProcessRun(process) => {
+                if reject_function_side_effect(
+                    process.context,
+                    "process execution",
+                    process.line,
+                    current_function_index,
+                    &functions,
+                    &mut diagnostics,
+                ) {
+                    continue;
+                }
                 if let Some(process_info) = analyze_process_run_decl(
                     process,
                     &mut diagnostics,
@@ -1784,6 +1835,42 @@ fn analyze_function_return(
     function.return_expression = Some(return_decl.expression.clone());
 }
 
+fn reject_function_side_effect(
+    context: ParseContext,
+    operation: &str,
+    line: usize,
+    current_function_index: Option<usize>,
+    functions: &[FunctionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    if context != ParseContext::Function {
+        return false;
+    }
+    let function_name = current_function_index
+        .and_then(|index| functions.get(index))
+        .map(|function| function.name.as_str())
+        .unwrap_or("<unknown>");
+    diagnostics.push(function_side_effect_diagnostic(
+        function_name,
+        operation,
+        line,
+    ));
+    true
+}
+
+fn function_side_effect_diagnostic(
+    function_name: &str,
+    operation: &str,
+    line: usize,
+) -> Diagnostic {
+    Diagnostic::error(
+        "E-FN-SIDE-EFFECT-001",
+        line,
+        &format!("Function `{function_name}` cannot perform side-effecting {operation}."),
+        Some("Keep functions pure; move side effects to top-level workflow statements."),
+    )
+}
+
 fn validate_function_returns(
     functions: &mut [FunctionInfo],
     consts: &[ConstInfo],
@@ -1800,8 +1887,11 @@ fn validate_function_returns(
             function.status = "missing_return".to_owned();
             continue;
         };
+        let has_side_effect = validate_function_purity(function, &expression, diagnostics);
         if preview_scalar_type(&function.return_quantity_kind) {
-            function.status = "scalar_preview".to_owned();
+            if !has_side_effect {
+                function.status = "scalar_preview".to_owned();
+            }
             continue;
         }
         let mut symbols = consts
@@ -1867,10 +1957,40 @@ fn validate_function_returns(
                 Some("Make the return annotation match the expression quantity or fix the expression units."),
             ));
             function.status = "unit_mismatch".to_owned();
-        } else {
+        } else if !has_side_effect {
             function.status = "unit_consistent".to_owned();
         }
     }
+}
+
+fn validate_function_purity(
+    function: &mut FunctionInfo,
+    return_expression: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let mut has_side_effect = false;
+    for local in &function.locals {
+        if expression_has_side_effect(&local.expression) {
+            diagnostics.push(function_side_effect_diagnostic(
+                &function.name,
+                "local expression",
+                local.line,
+            ));
+            has_side_effect = true;
+        }
+    }
+    if expression_has_side_effect(return_expression) {
+        diagnostics.push(function_side_effect_diagnostic(
+            &function.name,
+            "return expression",
+            function.line,
+        ));
+        has_side_effect = true;
+    }
+    if has_side_effect {
+        function.status = "side_effect_rejected".to_owned();
+    }
+    has_side_effect
 }
 
 fn analyze_print_decl(
@@ -5922,6 +6042,7 @@ fn expression_has_side_effect(expression: &str) -> bool {
         "write text ",
         "write json ",
         "write_file(",
+        "run command",
         "save(",
         "export(",
         "create_temp_dir(",
