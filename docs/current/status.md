@@ -92,7 +92,8 @@ covered by the breaking-change policy.
   copying, package smoke, curated PDF docs, and SHA256 release checksum.
 - Tauri/WebView tester IDE smoke path for open/check/save/run, diagnostics,
   variable summaries, schema/TimeSeries/metric/validation/time-alignment
-  inspectors for the measured workflow, internal state-space trajectory
+  inspectors for the measured workflow, schema parse/conversion failure
+  inspector coverage for data-quality runs, internal state-space trajectory
   inspector coverage, side-effect artifact panels for output manifest, run log,
   process results, and test results, PlotSpec viewing, and on-demand report/plot
   opening for stable workflows.

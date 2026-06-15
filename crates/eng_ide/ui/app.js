@@ -802,13 +802,14 @@ function renderSchemas() {
       <td>${escapeHtml(schema.row_count ?? schema.rowCount ?? "-")}</td>
       <td>${escapeHtml(schema.date_time_index || schema.dateTimeIndex || "-")}</td>
       <td>${escapeHtml(columnSummary(schema.columns))}</td>
+      <td>${escapeHtml(schema.parse_failure_count ?? schema.parseFailureCount ?? 0)} / ${escapeHtml(schema.conversion_failure_count ?? schema.conversionFailureCount ?? 0)}</td>
       <td><code>${escapeHtml(schema.source_hash || schema.sourceHash || "-")}</code></td>
     </tr>
   `).join("");
   return `
     <table class="var-table">
-      <thead><tr><th>Name</th><th>Rows</th><th>Index</th><th>Columns</th><th>Hash</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="5" class="muted">Run a CSV workflow.</td></tr>`}</tbody>
+      <thead><tr><th>Name</th><th>Rows</th><th>Index</th><th>Columns</th><th>Parse/Conv</th><th>Hash</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">Run a CSV workflow.</td></tr>`}</tbody>
     </table>
   `;
 }

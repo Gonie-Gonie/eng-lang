@@ -1007,6 +1007,26 @@ fn schema_inspector(report: &Value, result: &Value) -> Value {
                     .and_then(|item| item.get("columns"))
                     .cloned()
                     .unwrap_or_else(|| Value::Array(Vec::new()));
+                let parse_failures = table
+                    .and_then(|item| item.get("parse_failures"))
+                    .and_then(Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
+                let conversion_failures = columns
+                    .as_array()
+                    .map(|items| {
+                        items
+                            .iter()
+                            .flat_map(|column| {
+                                column
+                                    .get("conversion_failures")
+                                    .and_then(Value::as_array)
+                                    .cloned()
+                                    .unwrap_or_default()
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
                 let date_time_index = columns
                     .as_array()
                     .and_then(|items| {
@@ -1030,6 +1050,10 @@ fn schema_inspector(report: &Value, result: &Value) -> Value {
                     "columns": columns,
                     "missing_policy_summary": format!("{} policy item(s)", json_field_usize(schema, "missing_policy_count").unwrap_or(0)),
                     "constraint_summary": format!("{} constraint(s)", json_field_usize(schema, "constraint_count").unwrap_or(0)),
+                    "parse_failure_count": parse_failures.len(),
+                    "conversion_failure_count": conversion_failures.len(),
+                    "parse_failures": parse_failures,
+                    "conversion_failures": conversion_failures,
                     "source_hash": table.and_then(|item| json_field_string(item, "source_hash")).unwrap_or_default()
                 })
             })
@@ -2012,8 +2036,33 @@ fn smoke() -> Result<(), String> {
             test_example.display()
         ));
     }
+    let data_quality_example = root.join("examples/07_data_quality/bad_numeric_cell.eng");
+    let data_quality_output = run_file(
+        &data_quality_example,
+        &root.join("build").join("ide-smoke-data-quality"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let data_quality_cached = CachedRunOutput::from_output(data_quality_output);
+    let data_quality_inspectors = runtime_inspectors(&root, &data_quality_cached);
+    let has_schema_failure_counts =
+        data_quality_inspectors
+            .schemas
+            .as_array()
+            .is_some_and(|items| {
+                items.iter().any(|item| {
+                    json_field_usize(item, "parse_failure_count").unwrap_or(0) > 0
+                        || json_field_usize(item, "conversion_failure_count").unwrap_or(0) > 0
+                })
+            });
+    if !has_schema_failure_counts {
+        return Err(format!(
+            "{} did not produce IDE schema failure inspector metadata",
+            data_quality_example.display()
+        ));
+    }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), measured workflow inspectors, state-space trajectory inspector, side-effect inspectors",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), measured workflow inspectors, state-space trajectory inspector, side-effect inspectors, schema failure inspector",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),

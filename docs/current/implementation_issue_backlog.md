@@ -35,6 +35,12 @@ Definition of Done:
   `sim.T_zone`, `rmse_T`, validation, time alignment, and two-series plot data.
 - Add automated IDE smoke coverage.
 
+Current coverage:
+
+- IDE smoke covers schema/TimeSeries/metric/validation/time-alignment metadata
+  for measured-vs-simulated and schema parse/conversion failure counts for a
+  data-quality fixture.
+
 Title: `ide: add side-effect artifact panels`
 
 Current coverage:
