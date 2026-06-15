@@ -1,6 +1,17 @@
+args {
+    weather: CsvFile = file("data/weather.csv")
+}
+
+schema WeatherData {
+    time: DateTime index
+    T_out: AbsoluteTemperature [degC]
+}
+
+weather_data = promote csv args.weather as WeatherData
+
 system ThermalStateSpaceMetadata {
     state T_zone: AbsoluteTemperature = 22 degC
-    input T_out: AbsoluteTemperature = 8 degC
+    input T_out: TimeSeries[Time] of AbsoluteTemperature [degC]
     input Q_internal: HeatRate = 500 W
 
     states x = [T_zone]
@@ -15,4 +26,11 @@ system ThermalStateSpaceMetadata {
     }
 }
 
-print "State-space metadata recorded"
+sim = simulate ThermalStateSpaceMetadata
+with {
+    T_out = weather_data.T_out
+    timestep = 10 min
+    solver = fixed_step
+}
+
+print "State-space metadata and trajectory recorded"

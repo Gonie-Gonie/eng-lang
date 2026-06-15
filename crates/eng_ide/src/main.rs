@@ -1960,8 +1960,7 @@ fn smoke() -> Result<(), String> {
             .as_array()
             .is_some_and(|items| {
                 items.iter().any(|item| {
-                    json_field_string(item, "name").as_deref()
-                        == Some("ThermalStateSpaceMetadata.T_zone")
+                    json_field_string(item, "name").as_deref() == Some("sim.T_zone")
                         && json_field_string(item, "axis").as_deref() == Some("Time")
                         && json_field_usize(item, "row_count").unwrap_or(0) > 0
                 })

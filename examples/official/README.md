@@ -104,4 +104,4 @@ tests. Diagnostic and data-quality fixtures live in their own top-level
 folders; they are not the first user-facing examples.
 
 Internal implementation fixtures that are not user-facing release workflows live
-under `examples/internal`, including state-space metadata-only experiments.
+under `examples/internal`, including the state-space trajectory seed.

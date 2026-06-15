@@ -1239,19 +1239,23 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     ) {
         Ok(output) => {
             let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
+            let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
             if !review.contains("\"state_space_vectors\"")
                 || !review.contains("\"linear_operators\"")
                 || !review.contains("\"vector_type\": \"StateVector\"")
                 || !review.contains("\"from\": \"InputVector\"")
                 || !review.contains("\"to\": \"Derivative[StateVector]\"")
+                || !result.contains("\"binding\": \"sim\"")
+                || !result.contains("\"method\": \"state_space_explicit_euler_fixed_step\"")
+                || !result.contains("TimeSeries input materialization")
             {
                 eprintln!(
-                    "expected internal state-space metadata example to record vector and operator metadata"
+                    "expected internal state-space example to record vector/operator metadata and a TimeSeries-input trajectory"
                 );
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/internal/18_state_space_metadata/main.eng produced state-space metadata"
+                "ok: examples/internal/18_state_space_metadata/main.eng produced state-space metadata and TimeSeries-input trajectory"
             );
         }
         Err(error) => {

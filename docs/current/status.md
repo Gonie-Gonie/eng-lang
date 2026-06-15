@@ -132,9 +132,9 @@ Internal seeds may have code, tests, examples, or artifacts on `main`, but they
 are not public stable workflows.
 
 - State-space metadata in `examples/internal/18_state_space_metadata`: typed
-  vector/operator declarations, review metadata, and a one-state constant-input
-  fixed-step trajectory preview. It is not a supported general state-space
-  simulation workflow.
+  vector/operator declarations, review metadata, and a one-state fixed-step
+  trajectory preview with TimeSeries input materialization. It is not a
+  supported general state-space simulation workflow.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,
   generated connection-equation metadata, residual graph metadata,
   domain-plan metadata, and connection constraint consistency artifacts. It is

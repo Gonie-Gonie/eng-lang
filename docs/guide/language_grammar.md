@@ -1240,9 +1240,10 @@ system ThermalStateSpaceMetadata {
 review tooling. Linear operator matrix rows must match the target vector size,
 and columns must match the source vector size; mismatches use
 `E-STATE-SPACE-OP-SHAPE-001`. Runtime may materialize a one-state,
-constant-input, fixed-step explicit-Euler trajectory when shape-checked A/B
-operators are available. This internal track does not claim a general matrix,
-multi-state, TimeSeries-input, nonlinear, DAE, or adaptive solver.
+fixed-step explicit-Euler trajectory when shape-checked A/B operators are
+available, including TimeSeries materialization for bound input vector members.
+This internal track does not claim a general matrix, multi-state, nonlinear,
+DAE, or adaptive solver.
 
 Domain/component shapes are documented separately in
 `docs/guide/domain_component.md`. They are useful for metadata, validation, and

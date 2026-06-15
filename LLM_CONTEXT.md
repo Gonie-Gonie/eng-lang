@@ -63,7 +63,9 @@ domain/component, state-space, and class/domain-object work may exist on
 `main`, but they are Internal unless the current status documents a narrow
 Supported scope. The domain/component seed includes reviewable assembly
 metadata, domain plans, and a connection constraint consistency check; it is
-not production multi-domain physical solving.
+not production multi-domain physical solving. The state-space seed includes a
+one-state fixed-step trajectory with promoted TimeSeries input materialization,
+but it is not a supported general state-space simulation workflow.
 
 ## Core Invariants
 

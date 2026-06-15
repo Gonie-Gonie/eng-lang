@@ -2130,7 +2130,9 @@ fn materialize_system_solutions(
     for system in &report.semantic_program.systems {
         let requests = simulate_requests(report, &system.name);
         if requests.is_empty() {
-            if let Some(solution) = materialize_state_space_solution(report, system, None, &[]) {
+            if let Some(solution) =
+                materialize_state_space_solution(report, system, None, &[], series)
+            {
                 solutions.push(solution);
             } else if let Some(solution) =
                 materialize_first_order_thermal_solution(system, None, &[], series)
@@ -2144,6 +2146,7 @@ fn materialize_system_solutions(
                     system,
                     Some(request.binding.as_str()),
                     &request.options,
+                    series,
                 ) {
                     solutions.push(solution);
                 } else if let Some(solution) = materialize_first_order_thermal_solution(
@@ -2328,6 +2331,7 @@ fn materialize_state_space_solution(
     system: &eng_compiler::SystemInfo,
     binding: Option<&str>,
     options: &[eng_compiler::WithOptionInfo],
+    series: &[RuntimeTimeSeries],
 ) -> Option<RuntimeSystemSolution> {
     let state_vector = report
         .semantic_program
@@ -2385,16 +2389,30 @@ fn materialize_state_space_solution(
         return None;
     }
 
-    let mut state_value = canonical_variable_value(state)?;
-    let input_values = inputs
+    let input_series = inputs
         .iter()
-        .map(|input| canonical_variable_value(input))
-        .collect::<Option<Vec<_>>>()?;
+        .map(|input| {
+            option_value(options, &input.name)
+                .map(str::trim)
+                .and_then(|name| series.iter().find(|series| series.name == name))
+        })
+        .collect::<Vec<_>>();
+    let mut state_value = canonical_variable_value(state)?;
     let time_step_s = option_value(options, "timestep")
         .and_then(parse_duration_seconds)
         .unwrap_or(300.0);
+    let series_duration_s = input_series
+        .iter()
+        .filter_map(|series| {
+            series
+                .and_then(|series| series.points.last())
+                .map(|point| point.x)
+                .filter(|duration| *duration > 0.0)
+        })
+        .reduce(f64::min);
     let duration_s = option_value(options, "duration")
         .and_then(parse_duration_seconds)
+        .or(series_duration_s)
         .unwrap_or(3600.0);
     if time_step_s <= 0.0 || duration_s <= 0.0 {
         return None;
@@ -2408,6 +2426,11 @@ fn materialize_state_space_solution(
 
     for step in 1..=step_count {
         let time_s = (step as f64 * time_step_s).min(duration_s);
+        let input_values = inputs
+            .iter()
+            .zip(input_series.iter())
+            .map(|(input, series)| state_space_input_value(input, *series, time_s))
+            .collect::<Option<Vec<_>>>()?;
         let input_term = b_row
             .iter()
             .zip(input_values.iter())
@@ -2426,8 +2449,12 @@ fn materialize_state_space_solution(
         binding: binding.map(str::to_owned),
         status: "computed".to_owned(),
         method: "state_space_explicit_euler_fixed_step".to_owned(),
-        reason: "recognized one-state state-space A/B operators and executed fixed-step trajectory"
-            .to_owned(),
+        reason: if input_series.iter().any(Option::is_some) {
+            "recognized one-state state-space A/B operators and executed fixed-step trajectory with TimeSeries input materialization"
+        } else {
+            "recognized one-state state-space A/B operators and executed fixed-step trajectory"
+        }
+        .to_owned(),
         state: state.name.clone(),
         quantity_kind: state.quantity_kind.clone(),
         display_unit: state.display_unit.clone(),
@@ -2442,6 +2469,25 @@ fn materialize_state_space_solution(
         canonical_final_value: state_value,
         points,
     })
+}
+
+fn state_space_input_value(
+    input: &eng_compiler::SystemVariableInfo,
+    series: Option<&RuntimeTimeSeries>,
+    time_s: f64,
+) -> Option<f64> {
+    let quantity_kind = system_variable_value_quantity(input);
+    if let Some(series) = series {
+        let value = interpolate_series_value(series, time_s)?;
+        return convert_to_canonical_unit(
+            value,
+            Some(&series.display_unit),
+            &input.canonical_unit,
+            &quantity_kind,
+        )
+        .ok();
+    }
+    canonical_variable_value(input)
 }
 
 fn parse_numeric_matrix(expression: &str) -> Option<Vec<Vec<f64>>> {
@@ -2713,21 +2759,23 @@ fn interpolate_series_value(series: &RuntimeTimeSeries, x: f64) -> Option<f64> {
 fn canonical_variable_value(variable: &eng_compiler::SystemVariableInfo) -> Option<f64> {
     let expression = variable.initial_value.as_deref()?;
     let (value, unit) = number_with_optional_unit(expression)?;
+    let quantity_kind = system_variable_value_quantity(variable);
     convert_to_canonical_unit(
         value,
         unit.as_deref(),
         &variable.canonical_unit,
-        &variable.quantity_kind,
+        &quantity_kind,
     )
     .ok()
 }
 
 fn display_variable_value(value: f64, variable: &eng_compiler::SystemVariableInfo) -> f64 {
+    let quantity_kind = system_variable_value_quantity(variable);
     convert_from_canonical_unit(
         value,
         &variable.canonical_unit,
         &variable.display_unit,
-        &variable.quantity_kind,
+        &quantity_kind,
     )
 }
 
@@ -4934,17 +4982,20 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         assert_eq!(runtime.system_solutions.len(), 1);
         let solution = &runtime.system_solutions[0];
         assert_eq!(solution.system, "ThermalStateSpaceMetadata");
+        assert_eq!(solution.binding.as_deref(), Some("sim"));
         assert_eq!(solution.status, "computed");
         assert_eq!(solution.method, "state_space_explicit_euler_fixed_step");
+        assert!(solution.reason.contains("TimeSeries input materialization"));
         assert_eq!(solution.state, "T_zone");
-        assert_eq!(solution.time_step_s, 300.0);
-        assert_eq!(solution.step_count, 12);
-        assert_eq!(solution.points.len(), 13);
+        assert_eq!(solution.time_step_s, 600.0);
+        assert_eq!(solution.duration_s, 3600.0);
+        assert_eq!(solution.step_count, 6);
+        assert_eq!(solution.points.len(), 7);
         assert!(solution.final_value.is_finite());
         assert!(runtime
             .time_series
             .iter()
-            .any(|series| series.name == "ThermalStateSpaceMetadata.T_zone"));
+            .any(|series| series.name == "sim.T_zone"));
     }
 
     #[test]
