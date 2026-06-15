@@ -326,6 +326,29 @@ pub fn hover_items(report: &CheckReport) -> Vec<LspHover> {
         }
     }
 
+    for block in &report.semantic_program.where_blocks {
+        for binding in &block.bindings {
+            hovers.push(LspHover {
+                name: format!("where.{}", binding.name),
+                kind: "where_local".to_owned(),
+                line: binding.line,
+                detail: format!(
+                    "where local `{}` = {}; owner line {}; status {}",
+                    binding.name,
+                    binding.expression,
+                    block
+                        .owner_line
+                        .map(|line| line.to_string())
+                        .unwrap_or_else(|| "-".to_owned()),
+                    binding.status
+                ),
+                quantity_kind: binding.quantity_kind.clone(),
+                display_unit: binding.display_unit.clone(),
+                status: Some(binding.status.clone()),
+            });
+        }
+    }
+
     for class_info in &report.semantic_program.classes {
         hovers.push(LspHover {
             name: class_info.name.clone(),
@@ -1243,6 +1266,28 @@ Q = heat_loss(150 W/K, 8 K)
                 && completion.kind == "function"
                 && completion.detail.contains("-> HeatRate [W]")
         }));
+    }
+
+    #[test]
+    fn snapshot_exposes_where_local_hover() {
+        let source = r#"Q_coil = 5 kW
+E_coil = integrate Q_for_energy over Time
+where {
+    Q_for_energy = Q_coil
+}
+"#;
+        let snapshot = snapshot_for_source(Path::new("where.eng"), source);
+
+        let hover = snapshot
+            .hovers
+            .iter()
+            .find(|hover| hover.kind == "where_local" && hover.name == "where.Q_for_energy")
+            .expect("where local hover should be present");
+        assert_eq!(hover.quantity_kind, "HeatRate");
+        assert_eq!(hover.display_unit, "W");
+        assert!(hover.detail.contains("owner line 2"));
+        assert!(hover.detail.contains("Q_for_energy"));
+        assert!(hover.detail.contains("= Q_coil"));
     }
 
     #[test]

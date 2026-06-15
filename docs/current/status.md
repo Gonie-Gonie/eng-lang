@@ -106,9 +106,9 @@ Supported features are usable and tested in a narrow scope, but are not covered
 by the stable breaking-change policy.
 
 - Parenthesis-light command-style built-in verbs, owner-local `where` blocks,
-  and `with` option/display blocks for documented built-in workflow commands.
-  Arbitrary user-defined command syntax and project-wide display policy remain
-  planned.
+  LSP hover metadata for where locals, and `with` option/display blocks for
+  documented built-in workflow commands. Arbitrary user-defined command syntax
+  and project-wide display policy remain planned.
 - Data-quality policies for the documented examples: missing-value handling,
   monotonic DateTime checks, constraint metadata, parse-failure artifacts, and
   unsupported unit conversion diagnostics. A general policy DSL remains

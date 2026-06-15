@@ -272,16 +272,75 @@ fn stdio_server_round_trips_core_lsp_requests() {
     assert!(function_hover_text.contains("fn heat_loss"));
     assert!(function_hover_text.contains("-> HeatRate [W]"));
 
+    let where_source_path = repo_root()
+        .join("examples/official/09_command_where_with/main.eng")
+        .canonicalize()
+        .expect("where example should exist");
+    let where_source =
+        std::fs::read_to_string(&where_source_path).expect("where example should be readable");
+    let where_uri = file_uri(&where_source_path);
+    let where_line = where_source
+        .lines()
+        .position(|line| line.contains("Q_for_energy ="))
+        .expect("where example should define Q_for_energy");
+    let where_char = where_source
+        .lines()
+        .nth(where_line)
+        .unwrap()
+        .find("Q_for_energy")
+        .unwrap()
+        + "Q_for_energy".len();
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {
+                    "uri": where_uri,
+                    "languageId": "englang",
+                    "version": 1,
+                    "text": where_source
+                }
+            }
+        }),
+    );
+    let where_published = read_message(&mut stdout);
+    assert_eq!(where_published["method"], "textDocument/publishDiagnostics");
+    assert_eq!(where_published["params"]["uri"], where_uri);
+
     write_message(
         &mut stdin,
         json!({
             "jsonrpc": "2.0",
             "id": 7,
+            "method": "textDocument/hover",
+            "params": {
+                "textDocument": { "uri": where_uri },
+                "position": { "line": where_line, "character": where_char }
+            }
+        }),
+    );
+    let where_hover = read_message(&mut stdout);
+    assert_eq!(where_hover["id"], 7);
+    let where_hover_text = where_hover["result"]["contents"]["value"]
+        .as_str()
+        .expect("where hover should return markdown contents");
+    assert!(where_hover_text.contains("where.Q_for_energy"));
+    assert!(where_hover_text.contains("where local"));
+    assert!(where_hover_text.contains("HeatRate"));
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 8,
             "method": "shutdown"
         }),
     );
     let shutdown = read_message(&mut stdout);
-    assert_eq!(shutdown["id"], 7);
+    assert_eq!(shutdown["id"], 8);
     assert!(shutdown["result"].is_null());
 
     write_message(

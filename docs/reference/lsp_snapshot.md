@@ -137,6 +137,7 @@ Current hover kinds include:
 variable
 function
 function_local
+where_local
 domain
 domain_variable
 domain_conservation
@@ -180,6 +181,9 @@ Function hovers expose the full signature, return quantity/unit, return
 expression when available, and function-local binding names. `function_local`
 hover entries are scoped as `function.local` so editor clients can distinguish
 function-local symbols from importable or top-level bindings.
+
+`where_local` hovers expose owner-local `where { ... }` bindings as
+`where.<name>` with inferred quantity/unit, owner line, expression, and status.
 
 ## Intended Consumers
 
