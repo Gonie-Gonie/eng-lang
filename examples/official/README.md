@@ -95,9 +95,9 @@ paths before compatibility fixtures.
 
 19_class_object_preview
   Typed class declarations, object literals, nested object references, simple
-  class validation blocks, field access metadata, and class/object report
-  sections for the class object preview surface. This is a review/IDE metadata
-  seed, not runtime object dispatch.
+  class validation blocks, metadata methods, immutable copy-with, field access
+  metadata, and class/object report sections for the class object preview
+  surface. This is a review/IDE metadata seed, not runtime object dispatch.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression

@@ -290,6 +290,17 @@ pub fn hover_items(report: &CheckReport) -> Vec<LspHover> {
                 status: Some(validation.status.clone()),
             });
         }
+        for method in &class_info.methods {
+            hovers.push(LspHover {
+                name: format!("{}.{}()", class_info.name, method.name),
+                kind: "class_method".to_owned(),
+                line: method.line,
+                detail: format!("method {}() -> {}", method.name, method.return_type),
+                quantity_kind: method.return_quantity_kind.clone(),
+                display_unit: method.return_display_unit.clone(),
+                status: Some(method.status.clone()),
+            });
+        }
     }
 
     for object in &report.semantic_program.class_objects {
@@ -354,6 +365,7 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         "conservation",
         "component",
         "class",
+        "method",
         "validate",
         "port",
         "connect",
@@ -469,6 +481,18 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
                 &format!("field {} [{}]", field.type_name, field.display_unit),
             );
         }
+        for method in &class_info.methods {
+            push_completion(
+                &mut items,
+                &mut seen,
+                &format!("{}.{}()", class_info.name, method.name),
+                "method",
+                &format!(
+                    "method returns {} [{}]",
+                    method.return_type, method.return_display_unit
+                ),
+            );
+        }
     }
 
     for object in &report.semantic_program.class_objects {
@@ -572,6 +596,20 @@ pub fn completion_items_at(
                             &format!(
                                 "{} [{}] from {}",
                                 field.type_name, field.display_unit, object.class_name
+                            ),
+                        );
+                    }
+                }
+                for method in &class_info.methods {
+                    if prefix.is_empty() || method.name.starts_with(&prefix) {
+                        push_completion(
+                            &mut items,
+                            &mut seen,
+                            &format!("{}()", method.name),
+                            "method",
+                            &format!(
+                                "{} [{}] from {}",
+                                method.return_type, method.return_display_unit, object.class_name
                             ),
                         );
                     }

@@ -1,0 +1,12 @@
+class Construction {
+    name: String
+    u_value: Conductance [W/K]
+    method summary() -> String = self.name
+}
+
+wall = Construction {
+    name = "south"
+    u_value = 120 W/K
+}
+
+bad_call = wall.missing()

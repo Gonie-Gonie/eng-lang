@@ -1,0 +1,8 @@
+class Construction {
+    name: String
+    u_value: Conductance [W/K]
+}
+
+copy_missing = nope with {
+    u_value = 100 W/K
+}

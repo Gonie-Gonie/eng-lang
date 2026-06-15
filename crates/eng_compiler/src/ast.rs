@@ -95,9 +95,28 @@ pub struct ClassValidationDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClassMethodDecl {
+    pub name: String,
+    pub return_type: String,
+    pub return_unit: Option<String>,
+    pub expression: String,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassObjectDecl {
     pub name: String,
     pub class_name: String,
+    pub line: usize,
+    pub span: SourceSpan,
+    pub context: ParseContext,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClassObjectCopyDecl {
+    pub name: String,
+    pub source_name: String,
     pub line: usize,
     pub span: SourceSpan,
     pub context: ParseContext,
@@ -402,7 +421,9 @@ pub enum AstItem {
     Class(ClassDecl),
     ClassField(ClassFieldDecl),
     ClassValidation(ClassValidationDecl),
+    ClassMethod(ClassMethodDecl),
     ClassObject(ClassObjectDecl),
+    ClassObjectCopy(ClassObjectCopyDecl),
     ClassObjectField(ClassObjectFieldDecl),
     ArgsField(ArgsFieldDecl),
     System(SystemDecl),

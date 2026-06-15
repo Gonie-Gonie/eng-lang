@@ -1,12 +1,13 @@
 use crate::ast::{
-    ArgsDecl, ArgsFieldDecl, AssertDecl, AstItem, ClassDecl, ClassFieldDecl, ClassObjectDecl,
-    ClassObjectFieldDecl, ClassValidationDecl, CommandClauseDecl, CommandStyleDecl, ComponentDecl,
-    ConnectDecl, ConservationDecl, ConstDecl, ConstraintDecl, CsvExportDecl, CsvExportFieldDecl,
-    DomainDecl, DomainTypeParameterDecl, DomainVariableDecl, EquationDecl, ExplicitDecl,
-    FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl,
-    MissingPolicyDecl, PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl, SchemaDecl, ScriptDecl,
-    StateSpaceVectorDecl, StructDecl, SummaryDecl, SystemDecl, SystemVariableDecl, TestDecl,
-    WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
+    ArgsDecl, ArgsFieldDecl, AssertDecl, AstItem, ClassDecl, ClassFieldDecl, ClassMethodDecl,
+    ClassObjectCopyDecl, ClassObjectDecl, ClassObjectFieldDecl, ClassValidationDecl,
+    CommandClauseDecl, CommandStyleDecl, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl,
+    ConstraintDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainTypeParameterDecl,
+    DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl,
+    FunctionParamDecl, GoldenDecl, ImportDecl, MissingPolicyDecl, PortDecl, PrintDecl,
+    ProcessRunDecl, ReturnDecl, SchemaDecl, ScriptDecl, StateSpaceVectorDecl, StructDecl,
+    SummaryDecl, SystemDecl, SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl,
+    WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -68,7 +69,9 @@ pub struct SyntaxSummary {
     pub classes: usize,
     pub class_fields: usize,
     pub class_validations: usize,
+    pub class_methods: usize,
     pub class_objects: usize,
+    pub class_object_copies: usize,
     pub class_object_fields: usize,
     pub args_blocks: usize,
     pub args_fields: usize,
@@ -98,7 +101,9 @@ impl ParsedProgram {
         let mut classes = 0usize;
         let mut class_fields = 0usize;
         let mut class_validations = 0usize;
+        let mut class_methods = 0usize;
         let mut class_objects = 0usize;
+        let mut class_object_copies = 0usize;
         let mut class_object_fields = 0usize;
         let mut args_blocks = 0usize;
         let mut args_fields = 0usize;
@@ -127,7 +132,9 @@ impl ParsedProgram {
                 AstItem::Class(_) => classes += 1,
                 AstItem::ClassField(_) => class_fields += 1,
                 AstItem::ClassValidation(_) => class_validations += 1,
+                AstItem::ClassMethod(_) => class_methods += 1,
                 AstItem::ClassObject(_) => class_objects += 1,
+                AstItem::ClassObjectCopy(_) => class_object_copies += 1,
                 AstItem::ClassObjectField(_) => class_object_fields += 1,
                 AstItem::Args(_) => args_blocks += 1,
                 AstItem::ArgsField(_) => args_fields += 1,
@@ -178,7 +185,9 @@ impl ParsedProgram {
             classes,
             class_fields,
             class_validations,
+            class_methods,
             class_objects,
+            class_object_copies,
             class_object_fields,
             args_blocks,
             args_fields,
@@ -385,7 +394,7 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             }
         }
 
-        if starts_object_literal(&tokens) {
+        if starts_object_literal(&tokens) || starts_class_object_copy_literal(&tokens) {
             current_object_owner_line = tokens.first().map(|token| token.span.line);
             object_depth += brace_delta(&tokens);
             if object_depth == 0 {
@@ -565,11 +574,17 @@ fn parse_line_items(
     if let Some(validation) = parse_class_validation_decl(tokens, line_text, context) {
         items.push(AstItem::ClassValidation(validation));
     }
+    if let Some(method) = parse_class_method_decl(tokens, line_text, context) {
+        items.push(AstItem::ClassMethod(method));
+    }
     if let Some(field) = parse_class_field_decl(tokens, line_text, context) {
         items.push(AstItem::ClassField(field));
     }
     if let Some(object) = parse_class_object_decl(tokens, context) {
         items.push(AstItem::ClassObject(object));
+    }
+    if let Some(object) = parse_class_object_copy_decl(tokens, context) {
+        items.push(AstItem::ClassObjectCopy(object));
     }
     if let Some(field) = parse_class_object_field_decl(tokens, line_text, owner_line, context) {
         items.push(AstItem::ClassObjectField(field));
@@ -916,6 +931,9 @@ fn parse_class_field_decl(
     if token_is_identifier(first, "validate") {
         return None;
     }
+    if token_is_identifier(first, "method") {
+        return None;
+    }
     let name = token_field_name(first)?;
     if !matches!(second.kind, TokenKind::Symbol(Symbol::Colon)) {
         return None;
@@ -985,6 +1003,45 @@ fn class_validation_expression_from_block_line(line_text: &str) -> Option<String
     (!expression.is_empty()).then(|| expression.to_owned())
 }
 
+fn parse_class_method_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<ClassMethodDecl> {
+    if context != ParseContext::Class {
+        return None;
+    }
+    let first = tokens.first()?;
+    if !token_is_identifier(first, "method") {
+        return None;
+    }
+    let text = line_text.trim().trim_end_matches(',');
+    let rest = text.strip_prefix("method")?.trim();
+    let open = rest.find('(')?;
+    let name = rest[..open].trim();
+    if name.is_empty() || !is_identifier_text(name) {
+        return None;
+    }
+    let after_open = &rest[open + 1..];
+    let close = after_open.find(')')?;
+    let after_signature = after_open[close + 1..].trim();
+    let after_arrow = after_signature.strip_prefix("->")?.trim();
+    let (return_part, expression) = after_arrow.split_once('=')?;
+    let (return_type, return_unit) = split_type_and_unit(return_part.trim());
+    let expression = expression.trim();
+    if return_type.is_empty() || expression.is_empty() {
+        return None;
+    }
+    Some(ClassMethodDecl {
+        name: name.to_owned(),
+        return_type,
+        return_unit,
+        expression: expression.to_owned(),
+        line: first.span.line,
+        span: first.span,
+    })
+}
+
 fn parse_class_object_decl(tokens: &[Token], context: ParseContext) -> Option<ClassObjectDecl> {
     if context != ParseContext::TopLevel && context != ParseContext::Other {
         return None;
@@ -1001,6 +1058,12 @@ fn parse_class_object_decl(tokens: &[Token], context: ParseContext) -> Option<Cl
     let TokenKind::Identifier(class_name) = &third.kind else {
         return None;
     };
+    if tokens
+        .get(3)
+        .is_some_and(|token| matches!(token.kind, TokenKind::Keyword(Keyword::With)))
+    {
+        return None;
+    }
     if !tokens
         .iter()
         .any(|token| matches!(token.kind, TokenKind::Symbol(Symbol::LBrace)))
@@ -1010,6 +1073,43 @@ fn parse_class_object_decl(tokens: &[Token], context: ParseContext) -> Option<Cl
     Some(ClassObjectDecl {
         name: name.clone(),
         class_name: class_name.clone(),
+        line: first.span.line,
+        span: first.span,
+        context,
+    })
+}
+
+fn parse_class_object_copy_decl(
+    tokens: &[Token],
+    context: ParseContext,
+) -> Option<ClassObjectCopyDecl> {
+    if context != ParseContext::TopLevel && context != ParseContext::Other {
+        return None;
+    }
+    let [first, second, third, fourth, ..] = tokens else {
+        return None;
+    };
+    let TokenKind::Identifier(name) = &first.kind else {
+        return None;
+    };
+    if !matches!(second.kind, TokenKind::Symbol(Symbol::Equal)) {
+        return None;
+    }
+    let TokenKind::Identifier(source_name) = &third.kind else {
+        return None;
+    };
+    if !matches!(fourth.kind, TokenKind::Keyword(Keyword::With)) {
+        return None;
+    }
+    if !tokens
+        .iter()
+        .any(|token| matches!(token.kind, TokenKind::Symbol(Symbol::LBrace)))
+    {
+        return None;
+    }
+    Some(ClassObjectCopyDecl {
+        name: name.clone(),
+        source_name: source_name.clone(),
         line: first.span.line,
         span: first.span,
         context,
@@ -1552,7 +1652,7 @@ fn parse_fast_binding(
     ) {
         return None;
     }
-    if starts_object_literal(tokens) {
+    if starts_object_literal(tokens) || starts_class_object_copy_literal(tokens) {
         return None;
     }
     let [first, second, ..] = tokens else {
@@ -1872,6 +1972,15 @@ fn starts_with_word_at(text: &str, index: usize, word: &str) -> bool {
 
 fn is_word_character(character: char) -> bool {
     character.is_ascii_alphanumeric() || character == '_'
+}
+
+fn is_identifier_text(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|character| character.is_ascii_alphanumeric() || character == '_')
 }
 
 fn command_target_is_ambiguous(verb: &str, target: &str) -> bool {
@@ -2537,6 +2646,19 @@ fn starts_object_literal(tokens: &[Token]) -> bool {
     matches!(first.kind, TokenKind::Identifier(_))
         && matches!(second.kind, TokenKind::Symbol(Symbol::Equal))
         && matches!(third.kind, TokenKind::Identifier(_))
+        && tokens
+            .iter()
+            .any(|token| matches!(token.kind, TokenKind::Symbol(Symbol::LBrace)))
+}
+
+fn starts_class_object_copy_literal(tokens: &[Token]) -> bool {
+    let [first, second, third, fourth, ..] = tokens else {
+        return false;
+    };
+    matches!(first.kind, TokenKind::Identifier(_))
+        && matches!(second.kind, TokenKind::Symbol(Symbol::Equal))
+        && matches!(third.kind, TokenKind::Identifier(_))
+        && matches!(fourth.kind, TokenKind::Keyword(Keyword::With))
         && tokens
             .iter()
             .any(|token| matches!(token.kind, TokenKind::Symbol(Symbol::LBrace)))

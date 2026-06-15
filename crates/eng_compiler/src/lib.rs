@@ -22,13 +22,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub use ast::{
-    ArgsDecl, ArgsFieldDecl, AssertDecl, AstItem, ClassDecl, ClassFieldDecl, ClassObjectDecl,
-    ClassObjectFieldDecl, ClassValidationDecl, CommandClauseDecl, CommandStyleDecl, ComponentDecl,
-    ConnectDecl, ConservationDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl,
-    DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl,
-    FunctionParamDecl, GoldenDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl,
-    ScriptDecl, StructDecl, SystemDecl, SystemVariableDecl, TestDecl, WhereBindingDecl,
-    WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
+    ArgsDecl, ArgsFieldDecl, AssertDecl, AstItem, ClassDecl, ClassFieldDecl, ClassMethodDecl,
+    ClassObjectCopyDecl, ClassObjectDecl, ClassObjectFieldDecl, ClassValidationDecl,
+    CommandClauseDecl, CommandStyleDecl, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl,
+    CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainVariableDecl, EquationDecl, ExplicitDecl,
+    FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl,
+    PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl, SystemDecl,
+    SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl,
+    WriteDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -44,13 +45,13 @@ pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, Sc
 pub use semantic::read_only_io_expression;
 pub use semantic::{
     ArgValueInfo, ArgsBlockInfo, ArgsFieldInfo, AssertInfo, ClassFieldInfo, ClassInfo,
-    ClassObjectFieldInfo, ClassObjectInfo, ClassObjectValidationInfo, ClassValidationInfo,
-    CommandClauseInfo, CommandStyleInfo, ComponentInfo, ConnectionInfo, ConservationInfo,
-    ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo, DomainTypeParameterInfo,
-    DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo, EquationInfo,
-    EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo, FunctionLocalInfo,
-    FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo,
-    PrintInfo, ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo,
+    ClassMethodInfo, ClassObjectFieldInfo, ClassObjectInfo, ClassObjectValidationInfo,
+    ClassValidationInfo, CommandClauseInfo, CommandStyleInfo, ComponentInfo, ConnectionInfo,
+    ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo,
+    DomainTypeParameterInfo, DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo,
+    EquationInfo, EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo,
+    FunctionLocalInfo, FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo,
+    PortInfo, PrintInfo, ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo,
     SystemVariableInfo, TestInfo, TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo,
     WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
 };
@@ -350,7 +351,8 @@ fn importable_definition_item(item: &AstItem) -> bool {
         | AstItem::Port(_)
         | AstItem::Class(_)
         | AstItem::ClassField(_)
-        | AstItem::ClassValidation(_) => true,
+        | AstItem::ClassValidation(_)
+        | AstItem::ClassMethod(_) => true,
         AstItem::ExplicitDecl(declaration) => declaration.context == ParseContext::Schema,
         _ => false,
     }
@@ -1128,8 +1130,16 @@ pub fn review_json(report: &CheckReport) -> String {
         report.syntax_summary.class_validations
     ));
     json.push_str(&format!(
+        "    \"class_methods\": {},\n",
+        report.syntax_summary.class_methods
+    ));
+    json.push_str(&format!(
         "    \"class_objects\": {},\n",
         report.syntax_summary.class_objects
+    ));
+    json.push_str(&format!(
+        "    \"class_object_copies\": {},\n",
+        report.syntax_summary.class_object_copies
     ));
     json.push_str(&format!(
         "    \"class_object_fields\": {},\n",
@@ -2654,6 +2664,10 @@ pub fn review_json(report: &CheckReport) -> String {
             class_info.validations.len()
         ));
         json.push_str(&format!(
+            "      \"method_count\": {},\n",
+            class_info.methods.len()
+        ));
+        json.push_str(&format!(
             "      \"status\": \"{}\",\n",
             json_escape(&class_info.status)
         ));
@@ -2732,6 +2746,44 @@ pub fn review_json(report: &CheckReport) -> String {
             json.push_str(&format!("          \"line\": {}\n", validation.line));
             json.push_str("        }");
         }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"methods\": [\n");
+        for (method_index, method) in class_info.methods.iter().enumerate() {
+            if method_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&method.name)
+            ));
+            json.push_str(&format!(
+                "          \"return_type\": \"{}\",\n",
+                json_escape(&method.return_type)
+            ));
+            json.push_str(&format!(
+                "          \"return_quantity_kind\": \"{}\",\n",
+                json_escape(&method.return_quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"return_display_unit\": \"{}\",\n",
+                json_escape(&method.return_display_unit)
+            ));
+            json.push_str(&format!(
+                "          \"return_canonical_unit\": \"{}\",\n",
+                json_escape(&method.return_canonical_unit)
+            ));
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&method.expression)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&method.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", method.line));
+            json.push_str("        }");
+        }
         json.push_str("\n      ]\n");
         json.push_str("    }");
     }
@@ -2749,6 +2801,17 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str(&format!(
             "      \"class_name\": \"{}\",\n",
             json_escape(&object.class_name)
+        ));
+        match &object.source_object {
+            Some(source_object) => json.push_str(&format!(
+                "      \"source_object\": \"{}\",\n",
+                json_escape(source_object)
+            )),
+            None => json.push_str("      \"source_object\": null,\n"),
+        }
+        json.push_str(&format!(
+            "      \"construction\": \"{}\",\n",
+            json_escape(&object.construction)
         ));
         json.push_str(&format!("      \"line\": {},\n", object.line));
         json.push_str(&format!(
@@ -3713,20 +3776,33 @@ mod tests {
     fn records_class_object_metadata_and_field_access() {
         let report = check_source(
             "class_preview.eng",
-            "class Construction {\n    u_value: Conductance [W/K]\n    thickness: Length [m] = 0.2 m\n    validate {\n        u_value > 0 W/K\n        thickness > 0 m\n    }\n}\n\nclass Zone {\n    name: String\n    capacity: HeatCapacity [J/K]\n}\n\nwall = Construction {\n    u_value = 120 W/K\n}\n\nzone = Zone {\n    name = \"Office\"\n    capacity = 120000 J/K\n}\n\nwall_u = wall.u_value\n",
+            "class Construction {\n    name: String\n    u_value: Conductance [W/K]\n    thickness: Length [m] = 0.2 m\n    validate {\n        u_value > 0 W/K\n        thickness > 0 m\n    }\n    method summary() -> String = self.name\n}\n\nclass Zone {\n    name: String\n    capacity: HeatCapacity [J/K]\n}\n\nwall = Construction {\n    name = \"South\"\n    u_value = 120 W/K\n}\n\nbetter_wall = wall with {\n    u_value = 100 W/K\n}\n\nzone = Zone {\n    name = \"Office\"\n    capacity = 120000 J/K\n}\n\nwall_u = better_wall.u_value\nwall_summary = better_wall.summary()\n",
             &CheckOptions::default(),
         );
 
         assert!(!report.has_errors());
         assert_eq!(report.syntax_summary.classes, 2);
         assert_eq!(report.syntax_summary.class_validations, 2);
+        assert_eq!(report.syntax_summary.class_methods, 1);
         assert_eq!(report.syntax_summary.class_objects, 2);
+        assert_eq!(report.syntax_summary.class_object_copies, 1);
         assert_eq!(report.semantic_program.classes.len(), 2);
-        assert_eq!(report.semantic_program.class_objects.len(), 2);
+        assert_eq!(report.semantic_program.class_objects.len(), 3);
         assert_eq!(report.semantic_program.classes[0].validations.len(), 2);
+        assert_eq!(report.semantic_program.classes[0].methods.len(), 1);
         assert_eq!(
             report.semantic_program.class_objects[0].validations.len(),
             2
+        );
+        assert_eq!(
+            report.semantic_program.class_objects[1]
+                .source_object
+                .as_deref(),
+            Some("wall")
+        );
+        assert_eq!(
+            report.semantic_program.class_objects[1].construction,
+            "copy_with"
         );
         assert!(report.semantic_program.class_objects[0]
             .validations
@@ -3739,10 +3815,19 @@ mod tests {
             .any(|binding| {
                 binding.name == "wall_u" && binding.semantic_type.quantity_kind == "Conductance"
             }));
+        assert!(report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .any(|binding| {
+                binding.name == "wall_summary" && binding.semantic_type.quantity_kind == "String"
+            }));
         let review = review_json(&report);
         assert!(review.contains("\"class_summary\""));
         assert!(review.contains("\"object_summary\""));
         assert!(review.contains("\"validation_count\": 2"));
+        assert!(review.contains("\"method_count\": 1"));
+        assert!(review.contains("\"construction\": \"copy_with\""));
     }
 
     #[test]
@@ -3762,6 +3847,30 @@ mod tests {
             report.semantic_program.class_objects[0].validations[0].status,
             "fail"
         );
+    }
+
+    #[test]
+    fn rejects_invalid_class_methods_and_copy_with() {
+        let report = check_source(
+            "bad_class_methods.eng",
+            "class Construction {\n    name: String\n    u_value: Conductance [W/K]\n    method bad() -> Length [m] = self.u_value\n}\n\nwall = Construction {\n    name = \"South\"\n    u_value = 120 W/K\n}\n\ncopy_missing = nope with {\n    u_value = 100 W/K\n}\n\nbad_call = wall.missing()\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        for expected_code in [
+            "E-CLASS-METHOD-RETURN-001",
+            "E-CLASS-COPY-001",
+            "E-CLASS-METHOD-CALL-002",
+        ] {
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == expected_code),
+                "expected {expected_code}"
+            );
+        }
     }
 
     #[test]

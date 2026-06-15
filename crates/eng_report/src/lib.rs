@@ -366,6 +366,7 @@ pub struct ReportClassSummary {
     pub name: String,
     pub fields: Vec<ReportClassField>,
     pub validations: Vec<ReportClassValidation>,
+    pub methods: Vec<ReportClassMethod>,
     pub status: String,
     pub line: usize,
 }
@@ -395,9 +396,23 @@ pub struct ReportClassValidation {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct ReportClassMethod {
+    pub name: String,
+    pub return_type: String,
+    pub return_quantity_kind: String,
+    pub return_display_unit: String,
+    pub return_canonical_unit: String,
+    pub expression: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct ReportClassObjectSummary {
     pub name: String,
     pub class_name: String,
+    pub source_object: Option<String>,
+    pub construction: String,
     pub fields: Vec<ReportClassObjectField>,
     pub validations: Vec<ReportClassObjectValidation>,
     pub status: String,
@@ -886,6 +901,20 @@ pub fn report_spec_from_report(
                     line: validation.line,
                 })
                 .collect(),
+            methods: class_info
+                .methods
+                .iter()
+                .map(|method| ReportClassMethod {
+                    name: method.name.clone(),
+                    return_type: method.return_type.clone(),
+                    return_quantity_kind: method.return_quantity_kind.clone(),
+                    return_display_unit: method.return_display_unit.clone(),
+                    return_canonical_unit: method.return_canonical_unit.clone(),
+                    expression: method.expression.clone(),
+                    status: method.status.clone(),
+                    line: method.line,
+                })
+                .collect(),
             status: class_info.status.clone(),
             line: class_info.line,
         })
@@ -897,6 +926,8 @@ pub fn report_spec_from_report(
         .map(|object| ReportClassObjectSummary {
             name: object.name.clone(),
             class_name: object.class_name.clone(),
+            source_object: object.source_object.clone(),
+            construction: object.construction.clone(),
             fields: object
                 .fields
                 .iter()
@@ -2026,6 +2057,10 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             class_info.validations.len()
         ));
         json.push_str(&format!(
+            "      \"method_count\": {},\n",
+            class_info.methods.len()
+        ));
+        json.push_str(&format!(
             "      \"status\": \"{}\",\n",
             json_escape(&class_info.status)
         ));
@@ -2104,6 +2139,44 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             json.push_str(&format!("          \"line\": {}\n", validation.line));
             json.push_str("        }");
         }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"methods\": [\n");
+        for (method_index, method) in class_info.methods.iter().enumerate() {
+            if method_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&method.name)
+            ));
+            json.push_str(&format!(
+                "          \"return_type\": \"{}\",\n",
+                json_escape(&method.return_type)
+            ));
+            json.push_str(&format!(
+                "          \"return_quantity_kind\": \"{}\",\n",
+                json_escape(&method.return_quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"return_display_unit\": \"{}\",\n",
+                json_escape(&method.return_display_unit)
+            ));
+            json.push_str(&format!(
+                "          \"return_canonical_unit\": \"{}\",\n",
+                json_escape(&method.return_canonical_unit)
+            ));
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&method.expression)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&method.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", method.line));
+            json.push_str("        }");
+        }
         json.push_str("\n      ]\n");
         json.push_str("    }");
     }
@@ -2122,6 +2195,17 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         json.push_str(&format!(
             "      \"class_name\": \"{}\",\n",
             json_escape(&object.class_name)
+        ));
+        match &object.source_object {
+            Some(source_object) => json.push_str(&format!(
+                "      \"source_object\": \"{}\",\n",
+                json_escape(source_object)
+            )),
+            None => json.push_str("      \"source_object\": null,\n"),
+        }
+        json.push_str(&format!(
+            "      \"construction\": \"{}\",\n",
+            json_escape(&object.construction)
         ));
         json.push_str(&format!("      \"line\": {},\n", object.line));
         json.push_str(&format!(
@@ -3002,7 +3086,10 @@ fn render_html_inner(
 
     let mut class_summary = String::new();
     for class_info in &report.semantic_program.classes {
-        if class_info.fields.is_empty() && class_info.validations.is_empty() {
+        if class_info.fields.is_empty()
+            && class_info.validations.is_empty()
+            && class_info.methods.is_empty()
+        {
             class_summary.push_str("<tr>");
             class_summary.push_str(&format!(
                 "<td>{}</td><td>{}</td><td colspan=\"6\">No fields.</td>",
@@ -3038,6 +3125,20 @@ fn render_html_inner(
             ));
             class_summary.push_str("</tr>");
         }
+        for method in &class_info.methods {
+            class_summary.push_str("<tr>");
+            class_summary.push_str(&format!(
+                "<td>{}</td><td>{}</td><td>{}()</td><td>{}</td><td>{}</td><td><code>{}</code></td><td>method</td><td>{}</td>",
+                method.line,
+                html_escape(&class_info.name),
+                html_escape(&method.name),
+                html_escape(&method.return_type),
+                html_escape(&method.return_display_unit),
+                html_escape(&method.expression),
+                html_escape(&method.status)
+            ));
+            class_summary.push_str("</tr>");
+        }
     }
     if class_summary.is_empty() {
         class_summary.push_str("<tr><td colspan=\"8\">No class metadata.</td></tr>");
@@ -3045,6 +3146,19 @@ fn render_html_inner(
 
     let mut object_summary = String::new();
     for object in &report.semantic_program.class_objects {
+        if let Some(source_object) = &object.source_object {
+            object_summary.push_str("<tr>");
+            object_summary.push_str(&format!(
+                "<td>{}</td><td>{}</td><td>{}</td><td>copy-with</td><td>{}</td><td>{}</td><td>object</td><td>{}</td>",
+                object.line,
+                html_escape(&object.name),
+                html_escape(&object.class_name),
+                html_escape(source_object),
+                html_escape(&object.construction),
+                html_escape(&object.status)
+            ));
+            object_summary.push_str("</tr>");
+        }
         if object.fields.is_empty() && object.validations.is_empty() {
             object_summary.push_str("<tr>");
             object_summary.push_str(&format!(

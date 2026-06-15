@@ -738,7 +738,7 @@ fn check_view_from_report(report: &CheckReport) -> CheckView {
 fn base_completion_items() -> Vec<CompletionView> {
     let mut items = Vec::new();
     for keyword in [
-        "args", "class", "const", "export", "fn", "if", "import", "log", "plot", "print",
+        "args", "class", "const", "export", "fn", "if", "import", "log", "method", "plot", "print",
         "promote", "read", "report", "return", "schema", "system", "test", "validate", "where",
         "with", "write",
     ] {
@@ -772,8 +772,8 @@ fn base_completion_items() -> Vec<CompletionView> {
         ),
         (
             "class object",
-            "class Construction {\n    name: String\n    u_value: Conductance [W/K]\n    validate {\n        u_value > 0 W/K\n    }\n}\n\nwall = Construction {\n    name = \"south_wall\"\n    u_value = 120 W/K\n}",
-            "class declaration, validation, and object literal",
+            "class Construction {\n    name: String\n    u_value: Conductance [W/K]\n    validate {\n        u_value > 0 W/K\n    }\n    method summary() -> String = self.name\n}\n\nwall = Construction {\n    name = \"south_wall\"\n    u_value = 120 W/K\n}\n\nbetter_wall = wall with {\n    u_value = 100 W/K\n}",
+            "class declaration, validation, method, object literal, and copy-with",
         ),
     ] {
         items.push(CompletionView {

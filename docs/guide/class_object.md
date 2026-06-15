@@ -48,6 +48,31 @@ current preview they support simple field comparisons such as `field > 0 unit`,
 and class defaults when possible, then records `pass`, `fail`, or `unresolved`
 results in the object summary.
 
+## Methods And Copy-With
+
+```text
+class Building {
+    name: String
+    method summary() -> String = self.name
+}
+
+building_summary = building.summary()
+```
+
+The current method preview supports zero-argument metadata methods that return
+direct `self.<field>` values. Method calls in expressions are type-checked and
+recorded in the variable table. They are not runtime object dispatch.
+
+```text
+better_wall = wall with {
+    u_value = 100 W/K
+}
+```
+
+Copy-with creates a new object summary from an existing object plus explicit
+field overrides. The source object is not mutated. Copied fields and overrides
+remain visible in `object_summary`.
+
 ## Object Literals
 
 ```text
@@ -110,6 +135,12 @@ review/report/IDE metadata consumers.
 | `E-CLASS-FIELD-TYPE-002` | Class field uses an unknown type. |
 | `E-CLASS-VALIDATION-001` | Class validation rule is not a supported comparison. |
 | `E-CLASS-VALIDATION-002` | Object literal fails a class validation rule. |
+| `E-CLASS-METHOD-SELF-001` | Method return expression cannot resolve `self.<field>`. |
+| `E-CLASS-METHOD-RETURN-001` | Method return expression type does not match declaration. |
+| `E-CLASS-METHOD-CALL-001` | Method call references an unknown object. |
+| `E-CLASS-METHOD-CALL-002` | Method call references an unknown method. |
+| `E-CLASS-METHOD-CALL-003` | Method call passes arguments in the zero-argument preview. |
+| `E-CLASS-COPY-001` | Copy-with references an unknown source object. |
 
 Diagnostic fixtures live under `examples/05_error_messages/`:
 
@@ -117,6 +148,9 @@ Diagnostic fixtures live under `examples/05_error_messages/`:
 - `class_unknown_field.eng`
 - `class_field_type_mismatch.eng`
 - `class_validation_fail.eng`
+- `class_method_return_mismatch.eng`
+- `class_method_unknown.eng`
+- `class_copy_unknown_source.eng`
 
 ## Artifact Surface
 
@@ -140,8 +174,9 @@ class_summary
 object_summary
 ```
 
-`class_summary` includes validation rules. `object_summary` includes
-per-object validation results with left/right values, unit, and status.
+`class_summary` includes validation rules and method declarations.
+`object_summary` includes copy-with provenance plus per-object validation
+results with left/right values, unit, and status.
 
 The native IDE artifact outline and LSP snapshot path expose the same sections,
 plus class/object hover and completion metadata.
@@ -156,6 +191,9 @@ Current:
 - nested object references;
 - field access type metadata;
 - simple class validation blocks with object-level pass/fail artifacts;
+- zero-argument `method` declarations returning direct `self.<field>` values;
+- method call type metadata;
+- immutable copy-with object metadata;
 - missing, unknown, and incompatible field diagnostics;
 - review/report artifact sections;
 - official example and CLI smoke coverage;
@@ -164,9 +202,6 @@ Current:
 
 Deferred:
 
-- methods;
-- `self` access;
-- copy-with syntax;
 - mutation;
 - runtime object dispatch/lowering;
 - inheritance;

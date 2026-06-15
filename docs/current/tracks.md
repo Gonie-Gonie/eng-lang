@@ -210,6 +210,8 @@ Implementation seeds on `main`:
 - object literal and field access
 - class validate blocks
 - validation PASS/FAIL object artifacts
+- zero-argument metadata methods with direct `self.<field>` returns
+- immutable copy-with metadata
 - report/review serialization
 - IDE field completion and object summary
 - LSP class/object hover and completion metadata
@@ -219,8 +221,7 @@ Implementation seeds on `main`:
 Deferred:
 
 ```text
-- methods and self access
-- immutable copy-with update
+- method arguments and runtime dispatch
 - runtime object dispatch/lowering
 ```
 

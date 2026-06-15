@@ -811,6 +811,18 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             "examples/05_error_messages/class_validation_fail.eng",
             "E-CLASS-VALIDATION-002",
         ),
+        (
+            "examples/05_error_messages/class_method_return_mismatch.eng",
+            "E-CLASS-METHOD-RETURN-001",
+        ),
+        (
+            "examples/05_error_messages/class_method_unknown.eng",
+            "E-CLASS-METHOD-CALL-002",
+        ),
+        (
+            "examples/05_error_messages/class_copy_unknown_source.eng",
+            "E-CLASS-COPY-001",
+        ),
     ] {
         let report = match check_file(fixture, &CheckOptions::default()) {
             Ok(report) => report,
@@ -1214,13 +1226,18 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !review.contains("\"object_summary\"")
                 || !review.contains("\"Object[Construction]\"")
                 || !review.contains("\"validation_count\"")
+                || !review.contains("\"method_count\"")
+                || !review.contains("\"construction\": \"copy_with\"")
                 || !review.contains("\"status\": \"pass\"")
                 || !report_spec.contains("\"class_summary\"")
                 || !report_spec.contains("\"object_summary\"")
                 || !report_spec.contains("\"validation_count\"")
+                || !report_spec.contains("\"method_count\"")
+                || !report_spec.contains("\"copy_with\"")
                 || !report_html.contains("Classes")
                 || !report_html.contains("Objects")
                 || !report_html.contains("validate")
+                || !report_html.contains("copy-with")
             {
                 eprintln!("expected class object preview to expose class/object artifacts");
                 return ExitCode::from(2);

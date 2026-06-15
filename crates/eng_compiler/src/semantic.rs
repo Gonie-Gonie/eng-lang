@@ -1,10 +1,10 @@
 use crate::ast::{
-    ArgsFieldDecl, AssertDecl, AstItem, ClassFieldDecl, ClassObjectDecl, ClassObjectFieldDecl,
-    ClassValidationDecl, CommandStyleDecl, ConnectDecl, ConstDecl, CsvExportDecl,
-    CsvExportFieldDecl, DomainTypeParameterDecl, DomainVariableDecl, ExplicitDecl, FastBinding,
-    FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl, PortDecl,
-    PrintDecl, ProcessRunDecl, ReturnDecl, StateSpaceVectorDecl, SystemVariableDecl, TestDecl,
-    WhereBindingDecl, WithOptionDecl, WriteDecl,
+    ArgsFieldDecl, AssertDecl, AstItem, ClassFieldDecl, ClassMethodDecl, ClassObjectCopyDecl,
+    ClassObjectDecl, ClassObjectFieldDecl, ClassValidationDecl, CommandStyleDecl, ConnectDecl,
+    ConstDecl, CsvExportDecl, CsvExportFieldDecl, DomainTypeParameterDecl, DomainVariableDecl,
+    ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl,
+    ImportDecl, PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl, StateSpaceVectorDecl,
+    SystemVariableDecl, TestDecl, WhereBindingDecl, WithOptionDecl, WriteDecl,
 };
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
@@ -290,10 +290,23 @@ pub struct ClassValidationInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClassMethodInfo {
+    pub name: String,
+    pub return_type: String,
+    pub return_quantity_kind: String,
+    pub return_display_unit: String,
+    pub return_canonical_unit: String,
+    pub expression: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassInfo {
     pub name: String,
     pub fields: Vec<ClassFieldInfo>,
     pub validations: Vec<ClassValidationInfo>,
+    pub methods: Vec<ClassMethodInfo>,
     pub status: String,
     pub line: usize,
 }
@@ -325,6 +338,8 @@ pub struct ClassObjectValidationInfo {
 pub struct ClassObjectInfo {
     pub name: String,
     pub class_name: String,
+    pub source_object: Option<String>,
+    pub construction: String,
     pub fields: Vec<ClassObjectFieldInfo>,
     pub validations: Vec<ClassObjectValidationInfo>,
     pub status: String,
@@ -727,6 +742,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     name: class_decl.name.clone(),
                     fields: Vec::new(),
                     validations: Vec::new(),
+                    methods: Vec::new(),
                     status: "metadata_only".to_owned(),
                     line: class_decl.span.line,
                 });
@@ -746,8 +762,24 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     );
                 }
             }
+            AstItem::ClassMethod(method) => {
+                if let Some(class_index) = current_class_index {
+                    analyze_class_method(method, &mut classes[class_index], &mut diagnostics);
+                }
+            }
             AstItem::ClassObject(object) => {
                 analyze_class_object_decl(
+                    object,
+                    &classes,
+                    &mut class_objects,
+                    &mut diagnostics,
+                    &mut typed_bindings,
+                    &mut hover_hints,
+                    &mut type_infos,
+                );
+            }
+            AstItem::ClassObjectCopy(object) => {
+                analyze_class_object_copy_decl(
                     object,
                     &classes,
                     &mut class_objects,
@@ -2748,6 +2780,62 @@ fn function_call_semantic_type(
     semantic_type(&function.return_quantity_kind, &display_unit)
 }
 
+fn validate_object_method_call_expression(
+    expression: &str,
+    line: usize,
+    classes: &[ClassInfo],
+    class_objects: &[ClassObjectInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<SemanticType> {
+    let call = parse_object_method_call(expression)?;
+    if !call.args.is_empty() {
+        diagnostics.push(Diagnostic::error(
+            "E-CLASS-METHOD-CALL-003",
+            line,
+            &format!(
+                "Method call `{}.{}` passes arguments, but method arguments are not supported yet.",
+                call.object_name, call.method_name
+            ),
+            Some("Use zero-argument metadata methods such as `building.summary()`."),
+        ));
+    }
+    let Some(object) = class_objects
+        .iter()
+        .find(|object| object.name == call.object_name)
+    else {
+        diagnostics.push(Diagnostic::error(
+            "E-CLASS-METHOD-CALL-001",
+            line,
+            &format!(
+                "Method call references unknown object `{}`.",
+                call.object_name
+            ),
+            Some("Declare the object before calling a class method."),
+        ));
+        return None;
+    };
+    let class_info = classes
+        .iter()
+        .find(|class_info| class_info.name == object.class_name)?;
+    let Some(method) = class_info
+        .methods
+        .iter()
+        .find(|method| method.name == call.method_name)
+    else {
+        diagnostics.push(Diagnostic::error(
+            "E-CLASS-METHOD-CALL-002",
+            line,
+            &format!(
+                "Class `{}` has no method `{}`.",
+                class_info.name, call.method_name
+            ),
+            Some("Use a method declared by the object's class."),
+        ));
+        return None;
+    };
+    semantic_type(&method.return_quantity_kind, &method.return_display_unit)
+}
+
 fn validate_function_call_expression(
     expression: &str,
     line: usize,
@@ -2833,6 +2921,13 @@ struct FunctionCall {
     args: Vec<String>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ObjectMethodCall {
+    object_name: String,
+    method_name: String,
+    args: Vec<String>,
+}
+
 fn parse_function_call(expression: &str) -> Option<FunctionCall> {
     let expression = strip_outer_parens(expression.trim());
     let open = expression.find('(')?;
@@ -2851,6 +2946,30 @@ fn parse_function_call(expression: &str) -> Option<FunctionCall> {
     };
     Some(FunctionCall {
         name: name.to_owned(),
+        args,
+    })
+}
+
+fn parse_object_method_call(expression: &str) -> Option<ObjectMethodCall> {
+    let expression = strip_outer_parens(expression.trim());
+    let open = expression.find('(')?;
+    if !expression.ends_with(')') {
+        return None;
+    }
+    let receiver = expression[..open].trim();
+    let (object_name, method_name) = receiver.split_once('.')?;
+    if !is_identifier(object_name.trim()) || !is_identifier(method_name.trim()) {
+        return None;
+    }
+    let args_text = &expression[open + 1..expression.len() - 1];
+    let args = if args_text.trim().is_empty() {
+        Vec::new()
+    } else {
+        split_top_level(args_text, &[','])
+    };
+    Some(ObjectMethodCall {
+        object_name: object_name.trim().to_owned(),
+        method_name: method_name.trim().to_owned(),
         args,
     })
 }
@@ -3095,6 +3214,62 @@ fn analyze_class_validation(
     });
 }
 
+fn analyze_class_method(
+    method: &ClassMethodDecl,
+    class_info: &mut ClassInfo,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let return_display_unit = method
+        .return_unit
+        .clone()
+        .unwrap_or_else(|| default_unit_for_type(&method.return_type));
+    let return_canonical_unit = default_unit_for_type(&method.return_type);
+    let expected = SemanticType {
+        quantity_kind: method.return_type.clone(),
+        display_unit: return_display_unit.clone(),
+    };
+    let actual = class_method_expression_semantic_type(&method.expression, class_info);
+    let status = match actual {
+        Some(actual) if class_field_types_compatible(&expected, &actual) => "typed",
+        Some(actual) => {
+            diagnostics.push(Diagnostic::error(
+                "E-CLASS-METHOD-RETURN-001",
+                method.line,
+                &format!(
+                    "Class `{}` method `{}` returns `{}`, but declaration expects `{}`.",
+                    class_info.name, method.name, actual.quantity_kind, expected.quantity_kind
+                ),
+                Some("Adjust the method return type or return a compatible `self.<field>` value."),
+            ));
+            "return_mismatch"
+        }
+        None => {
+            diagnostics.push(Diagnostic::error(
+                "E-CLASS-METHOD-SELF-001",
+                method.line,
+                &format!(
+                    "Class `{}` method `{}` cannot resolve `{}`.",
+                    class_info.name, method.name, method.expression
+                ),
+                Some(
+                    "The current method preview supports direct `self.<field>` return expressions.",
+                ),
+            ));
+            "unresolved_expression"
+        }
+    };
+    class_info.methods.push(ClassMethodInfo {
+        name: method.name.clone(),
+        return_type: method.return_type.clone(),
+        return_quantity_kind: method.return_type.clone(),
+        return_display_unit,
+        return_canonical_unit,
+        expression: method.expression.clone(),
+        status: status.to_owned(),
+        line: method.line,
+    });
+}
+
 #[allow(clippy::too_many_arguments)]
 fn analyze_class_object_decl(
     object: &ClassObjectDecl,
@@ -3148,10 +3323,90 @@ fn analyze_class_object_decl(
     class_objects.push(ClassObjectInfo {
         name: object.name.clone(),
         class_name: object.class_name.clone(),
+        source_object: None,
+        construction: "literal".to_owned(),
         fields: Vec::new(),
         validations: Vec::new(),
         status: if class_exists {
             "class_resolved".to_owned()
+        } else {
+            "unknown_class".to_owned()
+        },
+        line: object.line,
+    });
+}
+
+#[allow(clippy::too_many_arguments)]
+fn analyze_class_object_copy_decl(
+    object: &ClassObjectCopyDecl,
+    classes: &[ClassInfo],
+    class_objects: &mut Vec<ClassObjectInfo>,
+    diagnostics: &mut Vec<Diagnostic>,
+    typed_bindings: &mut Vec<TypedBinding>,
+    hover_hints: &mut Vec<HoverHint>,
+    type_infos: &mut Vec<TypeInfo>,
+) {
+    let source = class_objects
+        .iter()
+        .find(|candidate| candidate.name == object.source_name)
+        .cloned();
+    let Some(source) = source else {
+        diagnostics.push(Diagnostic::error(
+            "E-CLASS-COPY-001",
+            object.line,
+            &format!(
+                "Copy-with object `{}` references unknown source object `{}`.",
+                object.name, object.source_name
+            ),
+            Some("Declare the source object before using copy-with syntax."),
+        ));
+        return;
+    };
+    let class_exists = classes
+        .iter()
+        .any(|class_info| class_info.name == source.class_name);
+    let quantity_kind = object_type_name(&source.class_name);
+    typed_bindings.push(TypedBinding {
+        name: object.name.clone(),
+        semantic_type: SemanticType {
+            quantity_kind: quantity_kind.clone(),
+            display_unit: "object".to_owned(),
+        },
+        line: object.line,
+    });
+    hover_hints.push(HoverHint::explicit(
+        object.name.clone(),
+        quantity_kind.clone(),
+        "object".to_owned(),
+        Some(format!(
+            "{} copy of {}",
+            source.class_name, object.source_name
+        )),
+        object.span,
+    ));
+    type_infos.push(TypeInfo {
+        name: object.name.clone(),
+        quantity_kind,
+        display_unit: "object".to_owned(),
+        canonical_unit: "object".to_owned(),
+        dimension: "Object".to_owned(),
+        source: TypeInfoSource::ObjectLiteral,
+        line: object.line,
+        span: object.span,
+    });
+    let mut fields = source.fields.clone();
+    for field in &mut fields {
+        field.status = "copied".to_owned();
+    }
+    class_objects.push(ClassObjectInfo {
+        name: object.name.clone(),
+        class_name: source.class_name.clone(),
+        source_object: Some(object.source_name.clone()),
+        construction: "copy_with".to_owned(),
+        fields,
+        validations: Vec::new(),
+        status: if class_exists {
+            "copied".to_owned()
         } else {
             "unknown_class".to_owned()
         },
@@ -3277,6 +3532,11 @@ fn analyze_class_object_field(
             "unknown_field".to_owned(),
         ),
     };
+    if class_objects[object_index].construction == "copy_with" {
+        class_objects[object_index]
+            .fields
+            .retain(|existing| !(existing.name == field.name && existing.status == "copied"));
+    }
     class_objects[object_index]
         .fields
         .push(ClassObjectFieldInfo {
@@ -3570,6 +3830,24 @@ fn class_field_expected_semantic_type(
         quantity_kind: field.type_name.clone(),
         display_unit: field.display_unit.clone(),
     }
+}
+
+fn class_method_expression_semantic_type(
+    expression: &str,
+    class_info: &ClassInfo,
+) -> Option<SemanticType> {
+    let field_name = expression.trim().strip_prefix("self.")?.trim();
+    if field_name.is_empty() || field_name.contains('.') {
+        return None;
+    }
+    let field = class_info
+        .fields
+        .iter()
+        .find(|field| field.name == field_name)?;
+    Some(SemanticType {
+        quantity_kind: field.type_name.clone(),
+        display_unit: field.display_unit.clone(),
+    })
 }
 
 fn class_field_expression_semantic_type(
@@ -4583,6 +4861,13 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
     } else {
         None
     };
+    let method_call_type = validate_object_method_call_expression(
+        &binding.expression,
+        binding.line,
+        accum.classes,
+        accum.class_objects,
+        accum.diagnostics,
+    );
     let inferred_semantic_type = uncertainty
         .as_ref()
         .and_then(|uncertainty| {
@@ -4598,6 +4883,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
                 accum.class_objects,
             )
         })
+        .or(method_call_type)
         .or_else(|| path_helper_semantic_type(&binding.expression))
         .or_else(|| statistic_expression_semantic_type(&binding.expression, &available_bindings))
         .or(function_call_type)

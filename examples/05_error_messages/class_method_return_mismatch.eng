@@ -1,0 +1,10 @@
+class Construction {
+    name: String
+    u_value: Conductance [W/K]
+    method bad() -> Length [m] = self.u_value
+}
+
+wall = Construction {
+    name = "south"
+    u_value = 120 W/K
+}
