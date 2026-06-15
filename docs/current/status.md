@@ -138,7 +138,10 @@ workflow, and covered by the breaking-change policy.
   reviewable engineering object preview, not runtime object dispatch.
 - The domain/component preview records component connection graph metadata and
   reports duplicate connection edges plus resolved-but-unconnected ports for
-  review before any numeric component solver exists.
+  review. Compatible connection sets now emit metadata-only generated
+  connection equations, equation/unknown counts, residual graph dependencies,
+  algebraic-loop seeds, Jacobian sparsity placeholders, and a no-solve solver
+  plan before any numeric component solver exists.
 - Standalone package output with `.engpkg`, bytecode, lock, source/dependency
   copy, dependency hashes, Args help, and reviewable report artifacts.
 - Temperature spelling policy: `degC` remains the canonical ASCII spelling, and

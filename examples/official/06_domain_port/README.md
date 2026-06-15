@@ -16,6 +16,8 @@ This example is intentionally metadata-first:
 - `component` declarations expose named `port` entries.
 - `connect` records component-port connections and validates domain
   compatibility.
+- Compatible connections are grouped into assembly connection sets and generate
+  metadata-only across/through equation seeds plus residual graph placeholders.
 - Connection graph review also reports duplicate edges as diagnostics and
   resolved but unconnected ports as warnings.
 - A small top-level report keeps the file runnable while the domain graph
@@ -27,6 +29,8 @@ Current support boundary:
   example;
 - report spec, HTML report, native IDE, and LSP snapshot metadata expose the
   domain package/version and generic argument surface;
+- `assembly_summary` exposes generated connection equations, equation/unknown
+  counts, Jacobian sparsity placeholders, and a no-solve solver-plan placeholder;
 - numeric multi-domain simulation is not implemented;
 - medium/frame/axis compatibility diagnostics are metadata checks only.
 - duplicate connection and unconnected-port checks are graph-shape checks only.

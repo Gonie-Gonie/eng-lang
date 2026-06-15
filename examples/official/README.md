@@ -33,7 +33,9 @@ paths before compatibility fixtures.
   Experimental domain/component track path for user-defined domains,
   across/through variables, conservation metadata, component ports,
   structured generic parameters, domain-compatible connections, contract
-  diagnostics, and invalid connection diagnostics.
+  diagnostics, invalid connection diagnostics, metadata-only assembly
+  connection sets, generated connection equations, equation/unknown counts, and
+  residual graph placeholders.
 
 07_functions_imports
   Preview top-level execution, static file import, importable const values,

@@ -66,6 +66,7 @@ pub struct ReportSpec {
     pub domains: Vec<ReportDomainSummary>,
     pub components: Vec<ReportComponentSummary>,
     pub connections: Vec<ReportConnectionSummary>,
+    pub assemblies: Vec<ReportAssemblySummary>,
     pub classes: Vec<ReportClassSummary>,
     pub class_objects: Vec<ReportClassObjectSummary>,
     pub systems: Vec<ReportSystemSummary>,
@@ -362,6 +363,93 @@ pub struct ReportConnectionSummary {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct ReportAssemblySummary {
+    pub name: String,
+    pub status: String,
+    pub component_count: usize,
+    pub port_count: usize,
+    pub connection_count: usize,
+    pub component_equation_count: usize,
+    pub local_expression_count: usize,
+    pub operator_call_count: usize,
+    pub predictor_call_count: usize,
+    pub connection_sets: Vec<ReportConnectionSet>,
+    pub equations: Vec<ReportAssemblyEquation>,
+    pub variables: Vec<ReportAssemblyVariable>,
+    pub boundary: ReportAssemblyBoundary,
+    pub residual_graph: ReportResidualGraph,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportConnectionSet {
+    pub name: String,
+    pub domain: String,
+    pub ports: Vec<String>,
+    pub connection_count: usize,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportAssemblyEquation {
+    pub name: String,
+    pub kind: String,
+    pub domain: String,
+    pub expression: String,
+    pub residual: String,
+    pub dependencies: Vec<String>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportAssemblyVariable {
+    pub name: String,
+    pub role: String,
+    pub domain: String,
+    pub source: String,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportAssemblyBoundary {
+    pub state_count: usize,
+    pub algebraic_count: usize,
+    pub input_count: usize,
+    pub output_count: usize,
+    pub parameter_count: usize,
+    pub equation_count: usize,
+    pub unknown_count: usize,
+    pub balance_status: String,
+    pub diagnostic_code: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportResidualGraph {
+    pub name: String,
+    pub status: String,
+    pub residuals: Vec<String>,
+    pub dependencies: Vec<ReportResidualDependency>,
+    pub algebraic_loops: Vec<Vec<String>>,
+    pub jacobian_sparsity: Vec<ReportAssemblyJacobianSeed>,
+    pub solver_plan: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportResidualDependency {
+    pub residual: String,
+    pub variable: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportAssemblyJacobianSeed {
+    pub residual: String,
+    pub with_respect_to: Vec<String>,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct ReportClassSummary {
     pub name: String,
     pub fields: Vec<ReportClassField>,
@@ -578,6 +666,7 @@ pub struct ReportProvenance {
     pub domain_count: usize,
     pub component_count: usize,
     pub connection_count: usize,
+    pub assembly_count: usize,
     pub class_count: usize,
     pub object_count: usize,
     pub system_count: usize,
@@ -867,6 +956,97 @@ pub fn report_spec_from_report(
             line: connection.line,
         })
         .collect::<Vec<_>>();
+    let assemblies = report
+        .semantic_program
+        .component_assemblies
+        .iter()
+        .map(|assembly| ReportAssemblySummary {
+            name: assembly.name.clone(),
+            status: assembly.status.clone(),
+            component_count: assembly.component_count,
+            port_count: assembly.port_count,
+            connection_count: assembly.connection_count,
+            component_equation_count: assembly.component_equation_count,
+            local_expression_count: assembly.local_expression_count,
+            operator_call_count: assembly.operator_call_count,
+            predictor_call_count: assembly.predictor_call_count,
+            connection_sets: assembly
+                .connection_sets
+                .iter()
+                .map(|connection_set| ReportConnectionSet {
+                    name: connection_set.name.clone(),
+                    domain: connection_set.domain.clone(),
+                    ports: connection_set.ports.clone(),
+                    connection_count: connection_set.connection_count,
+                    status: connection_set.status.clone(),
+                    line: connection_set.line,
+                })
+                .collect(),
+            equations: assembly
+                .equations
+                .iter()
+                .map(|equation| ReportAssemblyEquation {
+                    name: equation.name.clone(),
+                    kind: equation.kind.clone(),
+                    domain: equation.domain.clone(),
+                    expression: equation.expression.clone(),
+                    residual: equation.residual.clone(),
+                    dependencies: equation.dependencies.clone(),
+                    status: equation.status.clone(),
+                    line: equation.line,
+                })
+                .collect(),
+            variables: assembly
+                .variables
+                .iter()
+                .map(|variable| ReportAssemblyVariable {
+                    name: variable.name.clone(),
+                    role: variable.role.clone(),
+                    domain: variable.domain.clone(),
+                    source: variable.source.clone(),
+                    status: variable.status.clone(),
+                })
+                .collect(),
+            boundary: ReportAssemblyBoundary {
+                state_count: assembly.boundary.state_count,
+                algebraic_count: assembly.boundary.algebraic_count,
+                input_count: assembly.boundary.input_count,
+                output_count: assembly.boundary.output_count,
+                parameter_count: assembly.boundary.parameter_count,
+                equation_count: assembly.boundary.equation_count,
+                unknown_count: assembly.boundary.unknown_count,
+                balance_status: assembly.boundary.balance_status.clone(),
+                diagnostic_code: assembly.boundary.diagnostic_code.clone(),
+            },
+            residual_graph: ReportResidualGraph {
+                name: assembly.residual_graph.name.clone(),
+                status: assembly.residual_graph.status.clone(),
+                residuals: assembly.residual_graph.residuals.clone(),
+                dependencies: assembly
+                    .residual_graph
+                    .dependencies
+                    .iter()
+                    .map(|dependency| ReportResidualDependency {
+                        residual: dependency.residual.clone(),
+                        variable: dependency.variable.clone(),
+                    })
+                    .collect(),
+                algebraic_loops: assembly.residual_graph.algebraic_loops.clone(),
+                jacobian_sparsity: assembly
+                    .residual_graph
+                    .jacobian_sparsity
+                    .iter()
+                    .map(|seed| ReportAssemblyJacobianSeed {
+                        residual: seed.residual.clone(),
+                        with_respect_to: seed.with_respect_to.clone(),
+                        status: seed.status.clone(),
+                    })
+                    .collect(),
+                solver_plan: assembly.residual_graph.solver_plan.clone(),
+            },
+            line: assembly.line,
+        })
+        .collect::<Vec<_>>();
     let classes = report
         .semantic_program
         .classes
@@ -1108,6 +1288,7 @@ pub fn report_spec_from_report(
         domains,
         components,
         connections,
+        assemblies,
         classes,
         class_objects,
         systems,
@@ -1126,6 +1307,7 @@ pub fn report_spec_from_report(
             domain_count: report.semantic_program.domains.len(),
             component_count: report.semantic_program.components.len(),
             connection_count: report.semantic_program.connections.len(),
+            assembly_count: report.semantic_program.component_assemblies.len(),
             class_count: report.semantic_program.classes.len(),
             object_count: report.semantic_program.class_objects.len(),
             system_count: report.semantic_program.systems.len(),
@@ -1184,6 +1366,10 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
     json.push_str(&format!(
         "    \"connection_count\": {},\n",
         spec.provenance.connection_count
+    ));
+    json.push_str(&format!(
+        "    \"assembly_count\": {},\n",
+        spec.provenance.assembly_count
     ));
     json.push_str(&format!(
         "    \"class_count\": {},\n",
@@ -2034,6 +2220,278 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             json_escape(&connection.status)
         ));
         json.push_str(&format!("      \"line\": {}\n", connection.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"assembly_summary\": [\n");
+    for (index, assembly) in spec.assemblies.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&assembly.name)
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&assembly.status)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", assembly.line));
+        json.push_str(&format!(
+            "      \"component_count\": {},\n",
+            assembly.component_count
+        ));
+        json.push_str(&format!("      \"port_count\": {},\n", assembly.port_count));
+        json.push_str(&format!(
+            "      \"connection_count\": {},\n",
+            assembly.connection_count
+        ));
+        json.push_str(&format!(
+            "      \"component_equation_count\": {},\n",
+            assembly.component_equation_count
+        ));
+        json.push_str(&format!(
+            "      \"local_expression_count\": {},\n",
+            assembly.local_expression_count
+        ));
+        json.push_str(&format!(
+            "      \"operator_call_count\": {},\n",
+            assembly.operator_call_count
+        ));
+        json.push_str(&format!(
+            "      \"predictor_call_count\": {},\n",
+            assembly.predictor_call_count
+        ));
+        json.push_str("      \"connection_sets\": [\n");
+        for (set_index, connection_set) in assembly.connection_sets.iter().enumerate() {
+            if set_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&connection_set.name)
+            ));
+            json.push_str(&format!(
+                "          \"domain\": \"{}\",\n",
+                json_escape(&connection_set.domain)
+            ));
+            json.push_str(&format!(
+                "          \"connection_count\": {},\n",
+                connection_set.connection_count
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&connection_set.status)
+            ));
+            json.push_str(&format!("          \"line\": {},\n", connection_set.line));
+            json.push_str("          \"ports\": [");
+            for (port_index, port) in connection_set.ports.iter().enumerate() {
+                if port_index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&format!("\"{}\"", json_escape(port)));
+            }
+            json.push_str("]\n");
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"equations\": [\n");
+        for (equation_index, equation) in assembly.equations.iter().enumerate() {
+            if equation_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&equation.name)
+            ));
+            json.push_str(&format!(
+                "          \"kind\": \"{}\",\n",
+                json_escape(&equation.kind)
+            ));
+            json.push_str(&format!(
+                "          \"domain\": \"{}\",\n",
+                json_escape(&equation.domain)
+            ));
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&equation.expression)
+            ));
+            json.push_str(&format!(
+                "          \"residual\": \"{}\",\n",
+                json_escape(&equation.residual)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&equation.status)
+            ));
+            json.push_str(&format!("          \"line\": {},\n", equation.line));
+            json.push_str("          \"dependencies\": [");
+            for (dependency_index, dependency) in equation.dependencies.iter().enumerate() {
+                if dependency_index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&format!("\"{}\"", json_escape(dependency)));
+            }
+            json.push_str("]\n");
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"variables\": [\n");
+        for (variable_index, variable) in assembly.variables.iter().enumerate() {
+            if variable_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&variable.name)
+            ));
+            json.push_str(&format!(
+                "          \"role\": \"{}\",\n",
+                json_escape(&variable.role)
+            ));
+            json.push_str(&format!(
+                "          \"domain\": \"{}\",\n",
+                json_escape(&variable.domain)
+            ));
+            json.push_str(&format!(
+                "          \"source\": \"{}\",\n",
+                json_escape(&variable.source)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\"\n",
+                json_escape(&variable.status)
+            ));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"boundary\": {\n");
+        json.push_str(&format!(
+            "        \"state_count\": {},\n",
+            assembly.boundary.state_count
+        ));
+        json.push_str(&format!(
+            "        \"algebraic_count\": {},\n",
+            assembly.boundary.algebraic_count
+        ));
+        json.push_str(&format!(
+            "        \"input_count\": {},\n",
+            assembly.boundary.input_count
+        ));
+        json.push_str(&format!(
+            "        \"output_count\": {},\n",
+            assembly.boundary.output_count
+        ));
+        json.push_str(&format!(
+            "        \"parameter_count\": {},\n",
+            assembly.boundary.parameter_count
+        ));
+        json.push_str(&format!(
+            "        \"equation_count\": {},\n",
+            assembly.boundary.equation_count
+        ));
+        json.push_str(&format!(
+            "        \"unknown_count\": {},\n",
+            assembly.boundary.unknown_count
+        ));
+        json.push_str(&format!(
+            "        \"balance_status\": \"{}\",\n",
+            json_escape(&assembly.boundary.balance_status)
+        ));
+        match &assembly.boundary.diagnostic_code {
+            Some(code) => json.push_str(&format!(
+                "        \"diagnostic_code\": \"{}\"\n",
+                json_escape(code)
+            )),
+            None => json.push_str("        \"diagnostic_code\": null\n"),
+        }
+        json.push_str("      },\n");
+        json.push_str("      \"residual_graph\": {\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&assembly.residual_graph.name)
+        ));
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&assembly.residual_graph.status)
+        ));
+        json.push_str(&format!(
+            "        \"solver_plan\": \"{}\",\n",
+            json_escape(&assembly.residual_graph.solver_plan)
+        ));
+        json.push_str("        \"residuals\": [");
+        for (residual_index, residual) in assembly.residual_graph.residuals.iter().enumerate() {
+            if residual_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(residual)));
+        }
+        json.push_str("],\n");
+        json.push_str("        \"dependencies\": [\n");
+        for (dependency_index, dependency) in
+            assembly.residual_graph.dependencies.iter().enumerate()
+        {
+            if dependency_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"residual\": \"{}\",\n",
+                json_escape(&dependency.residual)
+            ));
+            json.push_str(&format!(
+                "            \"variable\": \"{}\"\n",
+                json_escape(&dependency.variable)
+            ));
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
+        json.push_str("        \"algebraic_loops\": [\n");
+        for (loop_index, algebraic_loop) in
+            assembly.residual_graph.algebraic_loops.iter().enumerate()
+        {
+            if loop_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          [");
+            for (variable_index, variable) in algebraic_loop.iter().enumerate() {
+                if variable_index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&format!("\"{}\"", json_escape(variable)));
+            }
+            json.push(']');
+        }
+        json.push_str("\n        ],\n");
+        json.push_str("        \"jacobian_sparsity\": [\n");
+        for (seed_index, seed) in assembly.residual_graph.jacobian_sparsity.iter().enumerate() {
+            if seed_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"residual\": \"{}\",\n",
+                json_escape(&seed.residual)
+            ));
+            json.push_str(&format!(
+                "            \"status\": \"{}\",\n",
+                json_escape(&seed.status)
+            ));
+            json.push_str("            \"with_respect_to\": [");
+            for (variable_index, variable) in seed.with_respect_to.iter().enumerate() {
+                if variable_index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&format!("\"{}\"", json_escape(variable)));
+            }
+            json.push_str("]\n");
+            json.push_str("          }");
+        }
+        json.push_str("\n        ]\n");
+        json.push_str("      }\n");
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -3084,6 +3542,89 @@ fn render_html_inner(
         connection_summary.push_str("<tr><td colspan=\"5\">No component connections.</td></tr>");
     }
 
+    let mut assembly_summary = String::new();
+    for assembly in &report.semantic_program.component_assemblies {
+        assembly_summary.push_str("<tr>");
+        assembly_summary.push_str(&format!(
+            "<td>{}</td><td>graph</td><td>{}</td><td>components={}</td><td>ports={}, connections={}, component equations={}, local expressions={}, operators={}, predictors={}</td><td>{}</td>",
+            assembly.line,
+            html_escape(&assembly.name),
+            assembly.component_count,
+            assembly.port_count,
+            assembly.connection_count,
+            assembly.component_equation_count,
+            assembly.local_expression_count,
+            assembly.operator_call_count,
+            assembly.predictor_call_count,
+            html_escape(&assembly.status)
+        ));
+        assembly_summary.push_str("</tr>");
+        assembly_summary.push_str("<tr>");
+        assembly_summary.push_str(&format!(
+            "<td>{}</td><td>boundary</td><td>{}</td><td>unknowns={}</td><td>states={}, algebraic={}, inputs={}, outputs={}, parameters={}, equations={}</td><td>{}</td>",
+            assembly.line,
+            html_escape(&assembly.name),
+            assembly.boundary.unknown_count,
+            assembly.boundary.state_count,
+            assembly.boundary.algebraic_count,
+            assembly.boundary.input_count,
+            assembly.boundary.output_count,
+            assembly.boundary.parameter_count,
+            assembly.boundary.equation_count,
+            html_escape(
+                assembly
+                    .boundary
+                    .diagnostic_code
+                    .as_deref()
+                    .unwrap_or(&assembly.boundary.balance_status)
+            )
+        ));
+        assembly_summary.push_str("</tr>");
+        for connection_set in &assembly.connection_sets {
+            assembly_summary.push_str("<tr>");
+            assembly_summary.push_str(&format!(
+                "<td>{}</td><td>connection set</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+                connection_set.line,
+                html_escape(&connection_set.name),
+                html_escape(&connection_set.domain),
+                html_escape(&connection_set.ports.join(", ")),
+                html_escape(&connection_set.status)
+            ));
+            assembly_summary.push_str("</tr>");
+        }
+        for equation in &assembly.equations {
+            assembly_summary.push_str("<tr>");
+            assembly_summary.push_str(&format!(
+                "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><code>{}</code><br><small>residual: {}</small></td><td>{}</td>",
+                equation.line,
+                html_escape(&equation.kind),
+                html_escape(&equation.name),
+                html_escape(&equation.domain),
+                html_escape(&equation.expression),
+                html_escape(&equation.residual),
+                html_escape(&equation.status)
+            ));
+            assembly_summary.push_str("</tr>");
+        }
+        assembly_summary.push_str("<tr>");
+        assembly_summary.push_str(&format!(
+            "<td>{}</td><td>residual graph</td><td>{}</td><td>residuals={}</td><td>dependencies={}, algebraic loop seeds={}, jacobian seeds={}, solver plan={}</td><td>{}</td>",
+            assembly.line,
+            html_escape(&assembly.residual_graph.name),
+            assembly.residual_graph.residuals.len(),
+            assembly.residual_graph.dependencies.len(),
+            assembly.residual_graph.algebraic_loops.len(),
+            assembly.residual_graph.jacobian_sparsity.len(),
+            html_escape(&assembly.residual_graph.solver_plan),
+            html_escape(&assembly.residual_graph.status)
+        ));
+        assembly_summary.push_str("</tr>");
+    }
+    if assembly_summary.is_empty() {
+        assembly_summary
+            .push_str("<tr><td colspan=\"6\">No component assembly metadata.</td></tr>");
+    }
+
     let mut class_summary = String::new();
     for class_info in &report.semantic_program.classes {
         if class_info.fields.is_empty()
@@ -3312,6 +3853,7 @@ fn render_html_inner(
     let domain_count = report.semantic_program.domains.len();
     let component_count = report.semantic_program.components.len();
     let connection_count = report.semantic_program.connections.len();
+    let assembly_count = report.semantic_program.component_assemblies.len();
     let class_count = report.semantic_program.classes.len();
     let object_count = report.semantic_program.class_objects.len();
     let system_count = report.semantic_program.systems.len();
@@ -3437,6 +3979,7 @@ fn render_html_inner(
       <div class="metric"><span>Domains</span><strong>{domain_count}</strong></div>
       <div class="metric"><span>Components</span><strong>{component_count}</strong></div>
       <div class="metric"><span>Connections</span><strong>{connection_count}</strong></div>
+      <div class="metric"><span>Assemblies</span><strong>{assembly_count}</strong></div>
       <div class="metric"><span>Classes</span><strong>{class_count}</strong></div>
       <div class="metric"><span>Objects</span><strong>{object_count}</strong></div>
       <div class="metric"><span>Systems</span><strong>{system_count}</strong></div>
@@ -3515,6 +4058,11 @@ fn render_html_inner(
     <table>
       <thead><tr><th>Line</th><th>Left</th><th>Right</th><th>Domain</th><th>Status</th></tr></thead>
       <tbody>{connection_summary}</tbody>
+    </table>
+    <h2>Component Assembly</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Kind</th><th>Name</th><th>Domain</th><th>Detail</th><th>Status</th></tr></thead>
+      <tbody>{assembly_summary}</tbody>
     </table>
     <h2>Classes</h2>
     <table>
@@ -4211,6 +4759,7 @@ mod tests {
         assert_eq!(spec.provenance.domain_count, 1);
         assert_eq!(spec.provenance.component_count, 2);
         assert_eq!(spec.provenance.connection_count, 1);
+        assert_eq!(spec.provenance.assembly_count, 1);
         assert_eq!(spec.domains[0].name, "Fluid");
         assert_eq!(spec.domains[0].type_parameters[0].kind, "Medium");
         assert_eq!(spec.domains[0].type_parameters[0].name, "M");
@@ -4228,9 +4777,20 @@ mod tests {
             vec!["Water".to_owned()]
         );
         assert_eq!(spec.connections[0].status, "domain_compatible");
+        assert_eq!(spec.assemblies[0].connection_sets.len(), 1);
+        assert_eq!(spec.assemblies[0].equations.len(), 2);
+        assert_eq!(spec.assemblies[0].boundary.unknown_count, 4);
+        assert_eq!(
+            spec.assemblies[0].residual_graph.solver_plan,
+            "metadata_only_no_numeric_solve"
+        );
         assert!(json.contains("\"domain_summary\""));
         assert!(json.contains("\"component_summary\""));
         assert!(json.contains("\"connection_summary\""));
+        assert!(json.contains("\"assembly_summary\""));
+        assert!(json.contains("\"assembly_count\": 1"));
+        assert!(json.contains("\"through_conservation\""));
+        assert!(json.contains("\"jacobian_sparsity\""));
         assert!(json.contains("\"package\": \"eng.std.domains.fluid\""));
         assert!(json.contains("\"kind\": \"Medium\""));
         assert!(json.contains("\"display\": \"Medium M\""));
@@ -4241,6 +4801,8 @@ mod tests {
         assert!(html.contains("eng.std.domains.fluid"));
         assert!(html.contains("Component Ports"));
         assert!(html.contains("Connections"));
+        assert!(html.contains("Component Assembly"));
+        assert!(html.contains("component_residual_graph"));
         assert!(html.contains("domain_compatible"));
     }
 

@@ -24,6 +24,7 @@
     "domain_summary",
     "component_summary",
     "connection_summary",
+    "assembly_summary",
     "class_summary",
     "object_summary",
     "system_summary",
@@ -45,6 +46,7 @@
         "domain_count",
         "component_count",
         "connection_count",
+        "assembly_count",
         "class_count",
         "object_count",
         "system_count",
@@ -97,6 +99,10 @@
     "connection_summary": {
       "type": "array",
       "items": { "$ref": "#/$defs/connectionSummary" }
+    },
+    "assembly_summary": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/assemblySummary" }
     },
     "class_summary": { "type": "array" },
     "object_summary": { "type": "array" },
@@ -341,6 +347,185 @@
           ]
         },
         "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "assemblySummary": {
+      "type": "object",
+      "required": [
+        "name",
+        "status",
+        "line",
+        "component_count",
+        "port_count",
+        "connection_count",
+        "component_equation_count",
+        "local_expression_count",
+        "operator_call_count",
+        "predictor_call_count",
+        "connection_sets",
+        "equations",
+        "variables",
+        "boundary",
+        "residual_graph"
+      ],
+      "properties": {
+        "name": { "type": "string" },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "component_count": { "type": "integer", "minimum": 0 },
+        "port_count": { "type": "integer", "minimum": 0 },
+        "connection_count": { "type": "integer", "minimum": 0 },
+        "component_equation_count": { "type": "integer", "minimum": 0 },
+        "local_expression_count": { "type": "integer", "minimum": 0 },
+        "operator_call_count": { "type": "integer", "minimum": 0 },
+        "predictor_call_count": { "type": "integer", "minimum": 0 },
+        "connection_sets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/assemblyConnectionSet" }
+        },
+        "equations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/assemblyEquation" }
+        },
+        "variables": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/assemblyVariable" }
+        },
+        "boundary": { "$ref": "#/$defs/assemblyBoundary" },
+        "residual_graph": { "$ref": "#/$defs/assemblyResidualGraph" }
+      }
+    },
+    "assemblyConnectionSet": {
+      "type": "object",
+      "required": ["name", "domain", "connection_count", "status", "line", "ports"],
+      "properties": {
+        "name": { "type": "string" },
+        "domain": { "type": "string" },
+        "connection_count": { "type": "integer", "minimum": 0 },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "ports": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "assemblyEquation": {
+      "type": "object",
+      "required": [
+        "name",
+        "kind",
+        "domain",
+        "expression",
+        "residual",
+        "status",
+        "line",
+        "dependencies"
+      ],
+      "properties": {
+        "name": { "type": "string" },
+        "kind": { "type": "string" },
+        "domain": { "type": "string" },
+        "expression": { "type": "string" },
+        "residual": { "type": "string" },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "dependencies": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "assemblyVariable": {
+      "type": "object",
+      "required": ["name", "role", "domain", "source", "status"],
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "domain": { "type": "string" },
+        "source": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    },
+    "assemblyBoundary": {
+      "type": "object",
+      "required": [
+        "state_count",
+        "algebraic_count",
+        "input_count",
+        "output_count",
+        "parameter_count",
+        "equation_count",
+        "unknown_count",
+        "balance_status",
+        "diagnostic_code"
+      ],
+      "properties": {
+        "state_count": { "type": "integer", "minimum": 0 },
+        "algebraic_count": { "type": "integer", "minimum": 0 },
+        "input_count": { "type": "integer", "minimum": 0 },
+        "output_count": { "type": "integer", "minimum": 0 },
+        "parameter_count": { "type": "integer", "minimum": 0 },
+        "equation_count": { "type": "integer", "minimum": 0 },
+        "unknown_count": { "type": "integer", "minimum": 0 },
+        "balance_status": { "type": "string" },
+        "diagnostic_code": { "type": ["string", "null"] }
+      }
+    },
+    "assemblyResidualGraph": {
+      "type": "object",
+      "required": [
+        "name",
+        "status",
+        "solver_plan",
+        "residuals",
+        "dependencies",
+        "algebraic_loops",
+        "jacobian_sparsity"
+      ],
+      "properties": {
+        "name": { "type": "string" },
+        "status": { "type": "string" },
+        "solver_plan": { "type": "string" },
+        "residuals": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/assemblyResidualDependency" }
+        },
+        "algebraic_loops": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "jacobian_sparsity": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/assemblyJacobianSeed" }
+        }
+      }
+    },
+    "assemblyResidualDependency": {
+      "type": "object",
+      "required": ["residual", "variable"],
+      "properties": {
+        "residual": { "type": "string" },
+        "variable": { "type": "string" }
+      }
+    },
+    "assemblyJacobianSeed": {
+      "type": "object",
+      "required": ["residual", "status", "with_respect_to"],
+      "properties": {
+        "residual": { "type": "string" },
+        "status": { "type": "string" },
+        "with_respect_to": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
       }
     },
     "systemIr": {

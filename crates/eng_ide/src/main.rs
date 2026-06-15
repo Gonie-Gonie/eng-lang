@@ -119,6 +119,7 @@ struct InspectorView {
     validations: Value,
     time_alignments: Value,
     systems: Value,
+    assemblies: Value,
     artifact_outlines: Value,
 }
 
@@ -132,6 +133,7 @@ impl Default for InspectorView {
             validations: Value::Array(Vec::new()),
             time_alignments: Value::Array(Vec::new()),
             systems: Value::Array(Vec::new()),
+            assemblies: Value::Array(Vec::new()),
             artifact_outlines: Value::Array(Vec::new()),
         }
     }
@@ -908,6 +910,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         validations: json_array_clone(&report, "validations"),
         time_alignments: json_array_clone(&report, "time_alignments"),
         systems: system_inspector(&report, &result),
+        assemblies: json_array_clone(&report, "assembly_summary"),
         artifact_outlines: artifact_outlines(root, output),
     }
 }
@@ -1794,9 +1797,13 @@ fn smoke() -> Result<(), String> {
         || domain_report.semantic_program.domains.is_empty()
         || domain_report.semantic_program.components.is_empty()
         || domain_report.semantic_program.connections.is_empty()
+        || domain_report
+            .semantic_program
+            .component_assemblies
+            .is_empty()
     {
         return Err(format!(
-            "{} did not produce domain/component metadata",
+            "{} did not produce domain/component/assembly metadata",
             domain_example.display()
         ));
     }
@@ -1829,13 +1836,14 @@ fn smoke() -> Result<(), String> {
         }
     }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), measured workflow inspectors",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), measured workflow inspectors",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),
         domain_report.semantic_program.domains.len(),
         domain_report.semantic_program.components.len(),
-        domain_report.semantic_program.connections.len()
+        domain_report.semantic_program.connections.len(),
+        domain_report.semantic_program.component_assemblies.len()
     );
     Ok(())
 }

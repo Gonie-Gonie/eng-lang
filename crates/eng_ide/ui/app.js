@@ -45,6 +45,7 @@ function emptyInspectors() {
     validations: [],
     timeAlignments: [],
     systems: [],
+    assemblies: [],
     artifactOutlines: []
   };
 }
@@ -629,6 +630,7 @@ function renderSidePanel() {
         ${sideTabButton("time", "Time")}
         ${sideTabButton("plot", "Plot")}
         ${sideTabButton("checks", "Checks")}
+        ${sideTabButton("assembly", "Asm")}
         ${sideTabButton("artifacts", "Artifacts")}
         ${sideTabButton("run", "Run")}
       </div>
@@ -646,6 +648,7 @@ function renderSideBody() {
   if (state.sideTab === "schema") return renderSchemaPanel();
   if (state.sideTab === "time") return renderTimePanel();
   if (state.sideTab === "checks") return renderChecksPanel();
+  if (state.sideTab === "assembly") return renderAssemblyPanel();
   if (state.sideTab === "artifacts") return renderArtifactsPanel();
   if (state.sideTab === "run") return renderRunPanel();
   return `
@@ -736,6 +739,16 @@ function renderChecksPanel() {
       <div class="panel-title compact">Systems</div>
       ${renderSystems()}
     </div>
+  `;
+}
+
+function renderAssemblyPanel() {
+  return `
+    <div class="panel-title compact">Assembly</div>
+    <div class="badges">
+      <span class="badge">Graphs ${inspectorRows("assemblies").length}</span>
+    </div>
+    <div class="scroll">${renderAssemblies()}</div>
   `;
 }
 
@@ -893,6 +906,31 @@ function renderSystems() {
     <table class="var-table">
       <thead><tr><th>Name</th><th>Vars</th><th>Eq</th><th>Solver</th><th>Steps</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="5" class="muted">No system metadata.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderAssemblies() {
+  const rows = inspectorRows("assemblies").map((assembly) => {
+    const boundary = assembly.boundary || {};
+    const residualGraph = assembly.residual_graph || assembly.residualGraph || {};
+    const setCount = Array.isArray(assembly.connection_sets)
+      ? assembly.connection_sets.length
+      : (assembly.connectionSets?.length ?? 0);
+    return `
+      <tr>
+        <td><strong>${escapeHtml(assembly.name || "-")}</strong><div class="muted">${escapeHtml(assembly.status || "-")}</div></td>
+        <td>${escapeHtml(assembly.component_count ?? assembly.componentCount ?? 0)} / ${escapeHtml(assembly.port_count ?? assembly.portCount ?? 0)}</td>
+        <td>${escapeHtml(setCount)}</td>
+        <td>${escapeHtml(Array.isArray(assembly.equations) ? assembly.equations.length : 0)}<div class="muted">unknowns ${escapeHtml(boundary.unknown_count ?? boundary.unknownCount ?? 0)}</div></td>
+        <td>${escapeHtml(boundary.balance_status || boundary.balanceStatus || "-")}<div class="muted">${escapeHtml(residualGraph.solver_plan || residualGraph.solverPlan || "-")}</div></td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Graph</th><th>Comp/Ports</th><th>Sets</th><th>Eq</th><th>Plan</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">Run a domain/component workflow.</td></tr>`}</tbody>
     </table>
   `;
 }

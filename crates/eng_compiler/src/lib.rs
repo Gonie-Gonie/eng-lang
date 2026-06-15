@@ -46,12 +46,15 @@ pub use semantic::read_only_io_expression;
 pub use semantic::{
     ArgValueInfo, ArgsBlockInfo, ArgsFieldInfo, AssertInfo, ClassFieldInfo, ClassInfo,
     ClassMethodInfo, ClassObjectFieldInfo, ClassObjectInfo, ClassObjectValidationInfo,
-    ClassValidationInfo, CommandClauseInfo, CommandStyleInfo, ComponentInfo, ConnectionInfo,
-    ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo,
-    DomainTypeParameterInfo, DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo,
-    EquationInfo, EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo,
-    FunctionLocalInfo, FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo,
-    PortInfo, PrintInfo, ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo,
+    ClassValidationInfo, CommandClauseInfo, CommandStyleInfo, ComponentAssemblyBoundaryInfo,
+    ComponentAssemblyEquationInfo, ComponentAssemblyInfo, ComponentAssemblyVariableInfo,
+    ComponentConnectionSetInfo, ComponentInfo, ComponentJacobianSparsityInfo,
+    ComponentResidualDependencyInfo, ComponentResidualGraphInfo, ConnectionInfo, ConservationInfo,
+    ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo, DomainTypeParameterInfo,
+    DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo, EquationInfo,
+    EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo, FunctionLocalInfo,
+    FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo,
+    PrintInfo, ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo,
     SystemVariableInfo, TestInfo, TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo,
     WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
 };
@@ -2644,6 +2647,283 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    json.push_str("  \"assembly_summary\": [\n");
+    for (index, assembly) in report
+        .semantic_program
+        .component_assemblies
+        .iter()
+        .enumerate()
+    {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&assembly.name)
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&assembly.status)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", assembly.line));
+        json.push_str(&format!(
+            "      \"component_count\": {},\n",
+            assembly.component_count
+        ));
+        json.push_str(&format!("      \"port_count\": {},\n", assembly.port_count));
+        json.push_str(&format!(
+            "      \"connection_count\": {},\n",
+            assembly.connection_count
+        ));
+        json.push_str(&format!(
+            "      \"component_equation_count\": {},\n",
+            assembly.component_equation_count
+        ));
+        json.push_str(&format!(
+            "      \"local_expression_count\": {},\n",
+            assembly.local_expression_count
+        ));
+        json.push_str(&format!(
+            "      \"operator_call_count\": {},\n",
+            assembly.operator_call_count
+        ));
+        json.push_str(&format!(
+            "      \"predictor_call_count\": {},\n",
+            assembly.predictor_call_count
+        ));
+        json.push_str("      \"connection_sets\": [\n");
+        for (set_index, connection_set) in assembly.connection_sets.iter().enumerate() {
+            if set_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&connection_set.name)
+            ));
+            json.push_str(&format!(
+                "          \"domain\": \"{}\",\n",
+                json_escape(&connection_set.domain)
+            ));
+            json.push_str(&format!(
+                "          \"connection_count\": {},\n",
+                connection_set.connection_count
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&connection_set.status)
+            ));
+            json.push_str(&format!("          \"line\": {},\n", connection_set.line));
+            json.push_str("          \"ports\": [");
+            for (port_index, port) in connection_set.ports.iter().enumerate() {
+                if port_index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&format!("\"{}\"", json_escape(port)));
+            }
+            json.push_str("]\n");
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"equations\": [\n");
+        for (equation_index, equation) in assembly.equations.iter().enumerate() {
+            if equation_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&equation.name)
+            ));
+            json.push_str(&format!(
+                "          \"kind\": \"{}\",\n",
+                json_escape(&equation.kind)
+            ));
+            json.push_str(&format!(
+                "          \"domain\": \"{}\",\n",
+                json_escape(&equation.domain)
+            ));
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&equation.expression)
+            ));
+            json.push_str(&format!(
+                "          \"residual\": \"{}\",\n",
+                json_escape(&equation.residual)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&equation.status)
+            ));
+            json.push_str(&format!("          \"line\": {},\n", equation.line));
+            json.push_str("          \"dependencies\": [");
+            for (dependency_index, dependency) in equation.dependencies.iter().enumerate() {
+                if dependency_index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&format!("\"{}\"", json_escape(dependency)));
+            }
+            json.push_str("]\n");
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"variables\": [\n");
+        for (variable_index, variable) in assembly.variables.iter().enumerate() {
+            if variable_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&variable.name)
+            ));
+            json.push_str(&format!(
+                "          \"role\": \"{}\",\n",
+                json_escape(&variable.role)
+            ));
+            json.push_str(&format!(
+                "          \"domain\": \"{}\",\n",
+                json_escape(&variable.domain)
+            ));
+            json.push_str(&format!(
+                "          \"source\": \"{}\",\n",
+                json_escape(&variable.source)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\"\n",
+                json_escape(&variable.status)
+            ));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"boundary\": {\n");
+        json.push_str(&format!(
+            "        \"state_count\": {},\n",
+            assembly.boundary.state_count
+        ));
+        json.push_str(&format!(
+            "        \"algebraic_count\": {},\n",
+            assembly.boundary.algebraic_count
+        ));
+        json.push_str(&format!(
+            "        \"input_count\": {},\n",
+            assembly.boundary.input_count
+        ));
+        json.push_str(&format!(
+            "        \"output_count\": {},\n",
+            assembly.boundary.output_count
+        ));
+        json.push_str(&format!(
+            "        \"parameter_count\": {},\n",
+            assembly.boundary.parameter_count
+        ));
+        json.push_str(&format!(
+            "        \"equation_count\": {},\n",
+            assembly.boundary.equation_count
+        ));
+        json.push_str(&format!(
+            "        \"unknown_count\": {},\n",
+            assembly.boundary.unknown_count
+        ));
+        json.push_str(&format!(
+            "        \"balance_status\": \"{}\",\n",
+            json_escape(&assembly.boundary.balance_status)
+        ));
+        match &assembly.boundary.diagnostic_code {
+            Some(code) => json.push_str(&format!(
+                "        \"diagnostic_code\": \"{}\"\n",
+                json_escape(code)
+            )),
+            None => json.push_str("        \"diagnostic_code\": null\n"),
+        }
+        json.push_str("      },\n");
+        json.push_str("      \"residual_graph\": {\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&assembly.residual_graph.name)
+        ));
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&assembly.residual_graph.status)
+        ));
+        json.push_str(&format!(
+            "        \"solver_plan\": \"{}\",\n",
+            json_escape(&assembly.residual_graph.solver_plan)
+        ));
+        json.push_str("        \"residuals\": [");
+        for (residual_index, residual) in assembly.residual_graph.residuals.iter().enumerate() {
+            if residual_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(residual)));
+        }
+        json.push_str("],\n");
+        json.push_str("        \"dependencies\": [\n");
+        for (dependency_index, dependency) in
+            assembly.residual_graph.dependencies.iter().enumerate()
+        {
+            if dependency_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"residual\": \"{}\",\n",
+                json_escape(&dependency.residual)
+            ));
+            json.push_str(&format!(
+                "            \"variable\": \"{}\"\n",
+                json_escape(&dependency.variable)
+            ));
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
+        json.push_str("        \"algebraic_loops\": [\n");
+        for (loop_index, algebraic_loop) in
+            assembly.residual_graph.algebraic_loops.iter().enumerate()
+        {
+            if loop_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          [");
+            for (variable_index, variable) in algebraic_loop.iter().enumerate() {
+                if variable_index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&format!("\"{}\"", json_escape(variable)));
+            }
+            json.push(']');
+        }
+        json.push_str("\n        ],\n");
+        json.push_str("        \"jacobian_sparsity\": [\n");
+        for (seed_index, seed) in assembly.residual_graph.jacobian_sparsity.iter().enumerate() {
+            if seed_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"residual\": \"{}\",\n",
+                json_escape(&seed.residual)
+            ));
+            json.push_str(&format!(
+                "            \"status\": \"{}\",\n",
+                json_escape(&seed.status)
+            ));
+            json.push_str("            \"with_respect_to\": [");
+            for (variable_index, variable) in seed.with_respect_to.iter().enumerate() {
+                if variable_index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&format!("\"{}\"", json_escape(variable)));
+            }
+            json.push_str("]\n");
+            json.push_str("          }");
+        }
+        json.push_str("\n        ]\n");
+        json.push_str("      }\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
     json.push_str("  \"class_summary\": [\n");
     for (index, class_info) in report.semantic_program.classes.iter().enumerate() {
         if index > 0 {
@@ -3741,11 +4021,38 @@ mod tests {
             report.semantic_program.connections[0].status,
             "domain_compatible"
         );
+        assert_eq!(report.semantic_program.component_assemblies.len(), 1);
+        let assembly = &report.semantic_program.component_assemblies[0];
+        assert_eq!(assembly.status, "assembly_seed");
+        assert_eq!(assembly.connection_sets.len(), 1);
+        assert_eq!(assembly.connection_sets[0].ports.len(), 2);
+        assert_eq!(assembly.equations.len(), 2);
+        assert!(assembly
+            .equations
+            .iter()
+            .any(|equation| equation.kind == "across_equality"));
+        assert!(assembly
+            .equations
+            .iter()
+            .any(|equation| equation.kind == "through_conservation"));
+        assert_eq!(assembly.boundary.algebraic_count, 4);
+        assert_eq!(assembly.boundary.equation_count, 2);
+        assert_eq!(assembly.boundary.balance_status, "underdetermined_seed");
+        assert_eq!(
+            assembly.boundary.diagnostic_code.as_deref(),
+            Some("W-ASSEMBLY-UNDERDETERMINED-SEED")
+        );
+        assert_eq!(assembly.residual_graph.status, "metadata_only");
+        assert_eq!(assembly.residual_graph.jacobian_sparsity.len(), 2);
 
         let review = review_json(&report);
         assert!(review.contains("\"domain_summary\""));
         assert!(review.contains("\"component_summary\""));
         assert!(review.contains("\"connection_summary\""));
+        assert!(review.contains("\"assembly_summary\""));
+        assert!(review.contains("\"connection_set_1\""));
+        assert!(review.contains("\"through_conservation\""));
+        assert!(review.contains("\"component_residual_graph\""));
         assert!(review.contains("\"type_parameters\""));
         assert!(review.contains("\"kind\": \"Medium\""));
         assert!(review.contains("\"name\": \"M\""));

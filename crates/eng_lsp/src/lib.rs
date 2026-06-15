@@ -252,6 +252,56 @@ pub fn hover_items(report: &CheckReport) -> Vec<LspHover> {
         });
     }
 
+    for assembly in &report.semantic_program.component_assemblies {
+        hovers.push(LspHover {
+            name: assembly.name.clone(),
+            kind: "component_assembly".to_owned(),
+            line: assembly.line,
+            detail: format!(
+                "{} connection set(s), {} generated equation(s), {} unknown(s), balance {}",
+                assembly.connection_sets.len(),
+                assembly.equations.len(),
+                assembly.boundary.unknown_count,
+                assembly.boundary.balance_status
+            ),
+            quantity_kind: "assembly".to_owned(),
+            display_unit: "-".to_owned(),
+            status: Some(assembly.status.clone()),
+        });
+        for connection_set in &assembly.connection_sets {
+            hovers.push(LspHover {
+                name: connection_set.name.clone(),
+                kind: "connection_set".to_owned(),
+                line: connection_set.line,
+                detail: format!(
+                    "{} port(s) in domain {}: {}",
+                    connection_set.ports.len(),
+                    connection_set.domain,
+                    string_list(&connection_set.ports)
+                ),
+                quantity_kind: connection_set.domain.clone(),
+                display_unit: "-".to_owned(),
+                status: Some(connection_set.status.clone()),
+            });
+        }
+        for equation in &assembly.equations {
+            hovers.push(LspHover {
+                name: equation.name.clone(),
+                kind: "assembly_equation".to_owned(),
+                line: equation.line,
+                detail: format!(
+                    "{}; residual {}; dependencies {}",
+                    equation.expression,
+                    equation.residual,
+                    string_list(&equation.dependencies)
+                ),
+                quantity_kind: equation.domain.clone(),
+                display_unit: "-".to_owned(),
+                status: Some(equation.status.clone()),
+            });
+        }
+    }
+
     for class_info in &report.semantic_program.classes {
         hovers.push(LspHover {
             name: class_info.name.clone(),
@@ -460,6 +510,29 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
                 &format!("{}.{}", component.name, port.name),
                 "property",
                 &format!("port domain {} ({})", port.domain, port.status),
+            );
+        }
+    }
+
+    for assembly in &report.semantic_program.component_assemblies {
+        push_completion(
+            &mut items,
+            &mut seen,
+            &assembly.name,
+            "value",
+            &format!(
+                "component assembly, {} equation(s), {} unknown(s)",
+                assembly.equations.len(),
+                assembly.boundary.unknown_count
+            ),
+        );
+        for equation in &assembly.equations {
+            push_completion(
+                &mut items,
+                &mut seen,
+                &equation.name,
+                "function",
+                &format!("{} generated equation ({})", equation.kind, equation.status),
             );
         }
     }

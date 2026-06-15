@@ -266,6 +266,93 @@ pub struct ConnectionInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComponentAssemblyInfo {
+    pub name: String,
+    pub status: String,
+    pub component_count: usize,
+    pub port_count: usize,
+    pub connection_count: usize,
+    pub component_equation_count: usize,
+    pub local_expression_count: usize,
+    pub operator_call_count: usize,
+    pub predictor_call_count: usize,
+    pub connection_sets: Vec<ComponentConnectionSetInfo>,
+    pub equations: Vec<ComponentAssemblyEquationInfo>,
+    pub variables: Vec<ComponentAssemblyVariableInfo>,
+    pub boundary: ComponentAssemblyBoundaryInfo,
+    pub residual_graph: ComponentResidualGraphInfo,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComponentConnectionSetInfo {
+    pub name: String,
+    pub domain: String,
+    pub ports: Vec<String>,
+    pub connection_count: usize,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComponentAssemblyEquationInfo {
+    pub name: String,
+    pub kind: String,
+    pub domain: String,
+    pub expression: String,
+    pub residual: String,
+    pub dependencies: Vec<String>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComponentAssemblyVariableInfo {
+    pub name: String,
+    pub role: String,
+    pub domain: String,
+    pub source: String,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComponentAssemblyBoundaryInfo {
+    pub state_count: usize,
+    pub algebraic_count: usize,
+    pub input_count: usize,
+    pub output_count: usize,
+    pub parameter_count: usize,
+    pub equation_count: usize,
+    pub unknown_count: usize,
+    pub balance_status: String,
+    pub diagnostic_code: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComponentResidualGraphInfo {
+    pub name: String,
+    pub status: String,
+    pub residuals: Vec<String>,
+    pub dependencies: Vec<ComponentResidualDependencyInfo>,
+    pub algebraic_loops: Vec<Vec<String>>,
+    pub jacobian_sparsity: Vec<ComponentJacobianSparsityInfo>,
+    pub solver_plan: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComponentResidualDependencyInfo {
+    pub residual: String,
+    pub variable: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComponentJacobianSparsityInfo {
+    pub residual: String,
+    pub with_respect_to: Vec<String>,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassFieldInfo {
     pub name: String,
     pub type_name: String,
@@ -557,6 +644,7 @@ pub struct SemanticProgram {
     pub domains: Vec<DomainInfo>,
     pub components: Vec<ComponentInfo>,
     pub connections: Vec<ConnectionInfo>,
+    pub component_assemblies: Vec<ComponentAssemblyInfo>,
     pub classes: Vec<ClassInfo>,
     pub class_objects: Vec<ClassObjectInfo>,
     pub args_blocks: Vec<ArgsBlockInfo>,
@@ -1038,6 +1126,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         &raw_connections,
         &mut diagnostics,
     );
+    let component_assemblies = build_component_assembly_graphs(&domains, &components, &connections);
     SemanticOutput {
         diagnostics,
         inferred_declarations,
@@ -1064,6 +1153,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             domains,
             components,
             connections,
+            component_assemblies,
             classes,
             class_objects,
             args_blocks,
@@ -4211,6 +4301,317 @@ fn analyze_connections(
         }
     }
     connections
+}
+
+fn build_component_assembly_graphs(
+    domains: &[DomainInfo],
+    components: &[ComponentInfo],
+    connections: &[ConnectionInfo],
+) -> Vec<ComponentAssemblyInfo> {
+    if components.is_empty() {
+        return Vec::new();
+    }
+
+    let mut port_lookup = HashMap::new();
+    let mut source_order_ports = Vec::new();
+    for component in components {
+        for port in &component.ports {
+            let path = format!("{}.{}", component.name, port.name);
+            source_order_ports.push(path.clone());
+            port_lookup.insert(path, port.clone());
+        }
+    }
+
+    let compatible_connections = connections
+        .iter()
+        .filter(|connection| connection.status == "domain_compatible")
+        .collect::<Vec<_>>();
+    let mut adjacency: HashMap<String, Vec<String>> = HashMap::new();
+    for connection in &compatible_connections {
+        adjacency
+            .entry(connection.left.clone())
+            .or_default()
+            .push(connection.right.clone());
+        adjacency
+            .entry(connection.right.clone())
+            .or_default()
+            .push(connection.left.clone());
+    }
+
+    let mut visited = HashSet::new();
+    let mut connection_sets = Vec::new();
+    for port_path in &source_order_ports {
+        if visited.contains(port_path) || !adjacency.contains_key(port_path) {
+            continue;
+        }
+        let mut stack = vec![port_path.clone()];
+        let mut set = HashSet::new();
+        while let Some(current) = stack.pop() {
+            if !set.insert(current.clone()) {
+                continue;
+            }
+            if let Some(neighbors) = adjacency.get(&current) {
+                for neighbor in neighbors {
+                    if !set.contains(neighbor) {
+                        stack.push(neighbor.clone());
+                    }
+                }
+            }
+        }
+        visited.extend(set.iter().cloned());
+        let ports = source_order_ports
+            .iter()
+            .filter(|path| set.contains(*path))
+            .cloned()
+            .collect::<Vec<_>>();
+        let connection_count = compatible_connections
+            .iter()
+            .filter(|connection| set.contains(&connection.left) && set.contains(&connection.right))
+            .count();
+        let line = compatible_connections
+            .iter()
+            .filter(|connection| set.contains(&connection.left) && set.contains(&connection.right))
+            .map(|connection| connection.line)
+            .min()
+            .unwrap_or_else(|| {
+                ports
+                    .iter()
+                    .filter_map(|path| port_lookup.get(path).map(|port| port.line))
+                    .min()
+                    .unwrap_or(1)
+            });
+        let domain = ports
+            .first()
+            .and_then(|path| port_lookup.get(path))
+            .map(|port| port.domain.clone())
+            .unwrap_or_else(|| "unknown".to_owned());
+        let status = if ports
+            .first()
+            .and_then(|path| port_lookup.get(path))
+            .and_then(|port| {
+                domains
+                    .iter()
+                    .find(|domain| domain.name == port.domain_name)
+            })
+            .map(|domain| {
+                domain
+                    .variables
+                    .iter()
+                    .any(|variable| variable.role == "across")
+                    && domain
+                        .variables
+                        .iter()
+                        .any(|variable| variable.role == "through")
+            })
+            .unwrap_or(false)
+        {
+            "connection_equations_generated"
+        } else {
+            "metadata_only"
+        };
+        connection_sets.push(ComponentConnectionSetInfo {
+            name: format!("connection_set_{}", connection_sets.len() + 1),
+            domain,
+            ports,
+            connection_count,
+            status: status.to_owned(),
+            line,
+        });
+    }
+
+    let mut variables = Vec::new();
+    let mut seen_variables = HashSet::new();
+    let mut equations = Vec::new();
+    for connection_set in &connection_sets {
+        let Some(first_port) = connection_set.ports.first() else {
+            continue;
+        };
+        let Some(port_info) = port_lookup.get(first_port) else {
+            continue;
+        };
+        let Some(domain) = domains
+            .iter()
+            .find(|domain| domain.name == port_info.domain_name)
+        else {
+            continue;
+        };
+        for port_path in &connection_set.ports {
+            for variable in &domain.variables {
+                let variable_name = format!("{port_path}.{}", variable.name);
+                if seen_variables.insert(variable_name.clone()) {
+                    variables.push(ComponentAssemblyVariableInfo {
+                        name: variable_name,
+                        role: "algebraic".to_owned(),
+                        domain: connection_set.domain.clone(),
+                        source: format!("{}.{}", domain.name, variable.name),
+                        status: "classified".to_owned(),
+                    });
+                }
+            }
+        }
+
+        for variable in domain
+            .variables
+            .iter()
+            .filter(|variable| variable.role == "across")
+        {
+            let Some(anchor) = connection_set.ports.first() else {
+                continue;
+            };
+            for (index, port_path) in connection_set.ports.iter().skip(1).enumerate() {
+                let left = format!("{anchor}.{}", variable.name);
+                let right = format!("{port_path}.{}", variable.name);
+                let dependencies = vec![left.clone(), right.clone()];
+                let residual = format!("{left} - {right}");
+                equations.push(ComponentAssemblyEquationInfo {
+                    name: format!(
+                        "{}.across_{}_{}",
+                        connection_set.name,
+                        variable.name,
+                        index + 1
+                    ),
+                    kind: "across_equality".to_owned(),
+                    domain: connection_set.domain.clone(),
+                    expression: format!("{left} eq {right}"),
+                    residual,
+                    dependencies,
+                    status: "assembly_seed".to_owned(),
+                    line: connection_set.line,
+                });
+            }
+        }
+
+        for variable in domain
+            .variables
+            .iter()
+            .filter(|variable| variable.role == "through")
+        {
+            if connection_set.ports.is_empty() {
+                continue;
+            }
+            let dependencies = connection_set
+                .ports
+                .iter()
+                .map(|port_path| format!("{port_path}.{}", variable.name))
+                .collect::<Vec<_>>();
+            equations.push(ComponentAssemblyEquationInfo {
+                name: format!(
+                    "{}.through_{}_conservation",
+                    connection_set.name, variable.name
+                ),
+                kind: "through_conservation".to_owned(),
+                domain: connection_set.domain.clone(),
+                expression: format!("sum({}) eq 0", dependencies.join(", ")),
+                residual: dependencies.join(" + "),
+                dependencies,
+                status: "assembly_seed".to_owned(),
+                line: connection_set.line,
+            });
+        }
+    }
+
+    let algebraic_count = variables
+        .iter()
+        .filter(|variable| variable.role == "algebraic")
+        .count();
+    let state_count = variables
+        .iter()
+        .filter(|variable| variable.role == "state")
+        .count();
+    let unknown_count = algebraic_count + state_count;
+    let equation_count = equations.len();
+    let (balance_status, diagnostic_code) = if equation_count < unknown_count {
+        (
+            "underdetermined_seed".to_owned(),
+            Some("W-ASSEMBLY-UNDERDETERMINED-SEED".to_owned()),
+        )
+    } else if equation_count > unknown_count {
+        (
+            "overdetermined_seed".to_owned(),
+            Some("W-ASSEMBLY-OVERDETERMINED-SEED".to_owned()),
+        )
+    } else {
+        ("balanced_metadata_seed".to_owned(), None)
+    };
+    let dependencies = equations
+        .iter()
+        .flat_map(|equation| {
+            equation
+                .dependencies
+                .iter()
+                .map(|variable| ComponentResidualDependencyInfo {
+                    residual: equation.name.clone(),
+                    variable: variable.clone(),
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    let algebraic_loops = equations
+        .iter()
+        .filter(|equation| equation.dependencies.len() > 1)
+        .map(|equation| equation.dependencies.clone())
+        .collect::<Vec<_>>();
+    let jacobian_sparsity = equations
+        .iter()
+        .map(|equation| ComponentJacobianSparsityInfo {
+            residual: equation.name.clone(),
+            with_respect_to: equation.dependencies.clone(),
+            status: "placeholder".to_owned(),
+        })
+        .collect::<Vec<_>>();
+    let residual_graph = ComponentResidualGraphInfo {
+        name: "component_residual_graph".to_owned(),
+        status: if equations.is_empty() {
+            "empty".to_owned()
+        } else {
+            "metadata_only".to_owned()
+        },
+        residuals: equations
+            .iter()
+            .map(|equation| equation.name.clone())
+            .collect(),
+        dependencies,
+        algebraic_loops,
+        jacobian_sparsity,
+        solver_plan: "metadata_only_no_numeric_solve".to_owned(),
+    };
+    let line = components
+        .iter()
+        .map(|component| component.line)
+        .chain(connections.iter().map(|connection| connection.line))
+        .min()
+        .unwrap_or(1);
+    vec![ComponentAssemblyInfo {
+        name: "component_graph".to_owned(),
+        status: if equations.is_empty() {
+            "no_compatible_connections".to_owned()
+        } else {
+            "assembly_seed".to_owned()
+        },
+        component_count: components.len(),
+        port_count: source_order_ports.len(),
+        connection_count: connections.len(),
+        component_equation_count: 0,
+        local_expression_count: 0,
+        operator_call_count: 0,
+        predictor_call_count: 0,
+        connection_sets,
+        equations,
+        variables,
+        boundary: ComponentAssemblyBoundaryInfo {
+            state_count,
+            algebraic_count,
+            input_count: 0,
+            output_count: 0,
+            parameter_count: 0,
+            equation_count,
+            unknown_count,
+            balance_status,
+            diagnostic_code,
+        },
+        residual_graph,
+        line,
+    }]
 }
 
 fn normalized_connection_key(

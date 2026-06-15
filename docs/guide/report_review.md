@@ -89,11 +89,16 @@ system_ir
 domain_summary
 component_summary
 connection_summary
+assembly_summary
 ```
 
 For the domain/component track preview, each `domain_summary.type_parameters`
 entry is an object with `kind`, `name`, and `display` fields. For example,
 `Fluid[Medium M]` records `{ kind: "Medium", name: "M", display: "Medium M" }`.
+`assembly_summary` records metadata-only connection sets, generated
+across/through connection equations, variable/equation counts, residual graph
+dependencies, algebraic-loop candidates, Jacobian sparsity placeholders, and a
+no-solve solver-plan placeholder.
 
 `plot_manifest` in `review.json` declares the runtime path that `eng run` will use. It does not carry the runtime manifest hash because `eng check --review` does not render plots.
 
@@ -136,6 +141,7 @@ schema_summary
 domain_summary
 component_summary
 connection_summary
+assembly_summary
 plot_manifest
 warning_list
 system_summary

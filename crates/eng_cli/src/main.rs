@@ -621,14 +621,17 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     if !domain_review.contains("\"domain_summary\"")
         || !domain_review.contains("\"component_summary\"")
         || !domain_review.contains("\"connection_summary\"")
+        || !domain_review.contains("\"assembly_summary\"")
+        || !domain_review.contains("\"connection_equations_generated\"")
+        || !domain_review.contains("\"component_residual_graph\"")
         || !domain_review.contains("\"domain_compatible\"")
     {
         eprintln!(
-            "expected domain port example to expose domain/component/connection review metadata"
+            "expected domain port example to expose domain/component/connection/assembly review metadata"
         );
         return ExitCode::from(2);
     }
-    println!("ok: examples/official/06_domain_port/main.eng produced domain port metadata");
+    println!("ok: examples/official/06_domain_port/main.eng produced domain assembly metadata");
 
     let bad = match check_file(
         "examples/05_error_messages/unit_mismatch.eng",

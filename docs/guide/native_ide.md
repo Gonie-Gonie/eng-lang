@@ -24,7 +24,7 @@ eng-ide.exe --smoke
 
 The smoke path checks that examples are discoverable, compiler completion
 metadata is available, the official domain/component track example produces
-domain, component, and connection metadata, and the measured-vs-simulated
+domain, component, connection, and assembly metadata, and the measured-vs-simulated
 workflow produces IDE inspector payloads for schema, TimeSeries, metric,
 validation, time alignment, and artifact outlines.
 
@@ -65,10 +65,10 @@ Editor
   force suggestions, `Tab` or `Enter` to insert, and `Esc` to dismiss.
 
 Right Sidebar
-  Vars, Schema, Time, Plot, Checks, Artifacts, and Run tabs. After a successful
+  Vars, Schema, Time, Plot, Checks, Asm, Artifacts, and Run tabs. After a successful
   run, source symbols, runtime variables, Args values, schema summaries, unit
   conversions, TimeSeries ranges/statistics, metrics, validations, time
-  alignments, system/solver metadata, artifact paths, and JSON artifact
+  alignments, system/solver metadata, component assembly metadata, artifact paths, and JSON artifact
   outlines are summarized in tables. Clicking a variable row expands canonical
   unit, dimension, role, and line metadata. Plot previews live beside Variables
   so the bottom terminal keeps a stable height.

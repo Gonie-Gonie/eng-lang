@@ -132,6 +132,7 @@ system_summary
 domain_summary
 component_summary
 connection_summary
+assembly_summary
 schema_summary
 schemas
 csv_promotions
@@ -265,8 +266,8 @@ Current tester IDE features:
 
 `eng-ide.exe --smoke` checks the non-GUI path for release packages. It verifies
 that examples are discoverable, compiler completion metadata is available, and
-the official domain/component track example produces domain, component, and
-connection metadata.
+the official domain/component track example produces domain, component,
+connection, and assembly metadata.
 
 ## `eng-lsp.exe`
 
@@ -280,10 +281,11 @@ eng-lsp.exe --snapshot-check examples\official\01_csv_plot\main.eng
 ```
 
 `--smoke` verifies the official CSV snapshot path and the official domain/component track
-domain/component metadata path. `--snapshot` emits `eng-lsp-snapshot-v1` JSON
+domain/component/assembly metadata path. `--snapshot` emits `eng-lsp-snapshot-v1` JSON
 with diagnostics, completion items, and hover items. Domain/component files
 include hover `kind`/`status` metadata and completion labels such as
-`Thermal`, `RoomBoundary`, and `RoomBoundary.heat`.
+`Thermal`, `RoomBoundary`, `RoomBoundary.heat`, `component_graph`, and
+`connection_set_1.across_T_1`.
 
 ## `eng run <file.eng> [--open-report] [--save-artifacts] [--<arg> <value>...]`
 

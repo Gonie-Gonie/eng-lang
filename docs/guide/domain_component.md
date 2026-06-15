@@ -2,7 +2,8 @@
 
 This guide documents the current experimental domain/component track surface.
 It is metadata-first: the compiler records domains, ports, and connections and
-checks domain compatibility, but it does not solve a multi-domain component
+checks domain compatibility. It also emits an equation/residual assembly seed
+for compatible connection sets, but it does not solve a multi-domain component
 graph yet.
 
 ## Domain Declaration
@@ -105,6 +106,24 @@ Connections use source-order metadata. Both endpoints must be written as
 Connection summaries are emitted in source order. They are not sorted by graph
 topology because numeric graph solving is still deferred.
 
+## Assembly Seed
+
+Compatible connections are grouped into connection sets. For each set, the
+compiler records metadata-only generated equations:
+
+- across variables generate equality equations, such as
+  `RoomBoundary.heat.T eq AmbientBoundary.heat.T`;
+- through variables generate conservation equations, such as
+  `sum(RoomBoundary.heat.Q, AmbientBoundary.heat.Q) eq 0`;
+- variables are classified as algebraic unknowns for the current seed;
+- equation/unknown counts are recorded with an underdetermined or
+  overdetermined diagnostic-code seed when the metadata is not balanced;
+- residual graph metadata records residual names, dependencies, algebraic-loop
+  candidates, Jacobian sparsity placeholders, and a solver-plan placeholder.
+
+This is not a numeric component graph solver. The generated equations are
+review/report metadata for future assembly and solver work.
+
 ## Artifact Surface
 
 `eng check --review` writes domain/component information to `review.json`:
@@ -126,6 +145,7 @@ The current domain/component artifact sections are:
 domain_summary
 component_summary
 connection_summary
+assembly_summary
 ```
 
 They appear in `review.json`, `build/result/report_spec.json`, and
@@ -133,6 +153,9 @@ They appear in `review.json`, `build/result/report_spec.json`, and
 the report shows which domains exist, package/version metadata, generic type
 parameters, which component ports reference them, port type arguments, and
 whether each connection is currently `domain_compatible` or diagnostic-only.
+The `assembly_summary` section shows connection sets, generated connection
+equations, variable/equation counts, residual graph dependencies, and solver
+plan placeholders.
 
 The generated `report_spec.json` follows
 [`docs/schemas/report_spec.schema.json`](../schemas/report_spec.schema.json), so
@@ -175,6 +198,8 @@ Current:
 - connection compatibility diagnostics;
 - duplicate connection diagnostics and unconnected port warnings;
 - medium/frame/axis metadata compatibility diagnostics;
+- metadata-only connection-set assembly;
+- generated connection-equation and residual graph artifacts;
 - review JSON output;
 - report spec and HTML report sections;
 - native IDE Domain Graph inspector;
