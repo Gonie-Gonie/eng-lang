@@ -5265,6 +5265,36 @@ mod tests {
     }
 
     #[test]
+    fn rejects_simulate_unknown_system() {
+        let report = check_source(
+            "bad.eng",
+            "sim = simulate MissingSystem\nwith {\n    timestep = 10 min\n    solver = fixed_step\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SIM-SYSTEM-001"));
+    }
+
+    #[test]
+    fn rejects_simulate_unsupported_solver() {
+        let report = check_source(
+            "bad.eng",
+            "system Decay {\n    parameter C: HeatCapacity = 500 kJ/K\n    state T: AbsoluteTemperature = 24 degC\n    equation {\n        C * der(T) eq 0 W\n    }\n}\n\nsim = simulate Decay\nwith {\n    timestep = 10 min\n    solver = adaptive\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SIM-OPTION-TYPE-002"));
+    }
+
+    #[test]
     fn rejects_simulate_wrong_input_quantity() {
         let report = check_source(
             "bad.eng",
