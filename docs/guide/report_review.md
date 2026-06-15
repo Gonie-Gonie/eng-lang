@@ -166,7 +166,14 @@ environment_dependencies
 system_count
 equation_count
 residual_count
+component_solution_count
 ```
+
+For the domain/component solver preview, `result.engres` also records
+`typed_payload.component_solutions`. Each entry includes the assembly name,
+status, method, residual norm, convergence status, zero-vector variable values,
+residual evaluations, and any failure/limitation artifact such as
+`W-ASSEMBLY-UNDERDETERMINED-SEED`.
 
 ## `output_manifest.json`
 

@@ -3878,6 +3878,9 @@ fn render_html_inner(
         .unwrap_or_default();
     let validations_section = spec.map(render_validations_section).unwrap_or_default();
     let time_alignments_section = spec.map(render_time_alignments_section).unwrap_or_default();
+    let component_solver_section = spec
+        .map(render_component_solver_section)
+        .unwrap_or_default();
 
     format!(
         r#"<!doctype html>
@@ -4064,6 +4067,7 @@ fn render_html_inner(
       <thead><tr><th>Line</th><th>Kind</th><th>Name</th><th>Domain</th><th>Detail</th><th>Status</th></tr></thead>
       <tbody>{assembly_summary}</tbody>
     </table>
+    {component_solver_section}
     <h2>Classes</h2>
     <table>
       <thead><tr><th>Line</th><th>Class</th><th>Field</th><th>Type</th><th>Unit</th><th>Default</th><th>Required</th><th>Status</th></tr></thead>
@@ -4194,6 +4198,36 @@ fn render_time_alignments_section(spec: &ReportSpec) -> String {
         r#"<h2>Time Alignments</h2>
     <table>
       <thead><tr><th>Left</th><th>Right</th><th>Axis</th><th>Matched</th><th>Status</th></tr></thead>
+      <tbody>{rows}</tbody>
+    </table>"#
+    )
+}
+
+fn render_component_solver_section(spec: &ReportSpec) -> String {
+    if spec.assemblies.is_empty() {
+        return String::new();
+    }
+    let rows = spec
+        .assemblies
+        .iter()
+        .map(|assembly| {
+            format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td><td>{}</td></tr>",
+                assembly.line,
+                html_escape(&assembly.name),
+                html_escape(&assembly.status),
+                assembly.boundary.equation_count,
+                assembly.boundary.unknown_count,
+                html_escape(&assembly.residual_graph.status),
+                html_escape(&assembly.residual_graph.solver_plan)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    format!(
+        r#"<h2>Component Solver Preview</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Assembly</th><th>Status</th><th>Eq/Unknowns</th><th>Convergence</th><th>Method</th></tr></thead>
       <tbody>{rows}</tbody>
     </table>"#
     )

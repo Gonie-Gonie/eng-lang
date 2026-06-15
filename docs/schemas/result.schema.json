@@ -47,7 +47,7 @@
     },
     "typed_payload": {
       "type": "object",
-      "required": ["kind", "status", "result_format", "vm_steps", "statistics", "integrations", "metrics", "validations", "time_alignments", "policy_results", "systems", "solver_boundaries", "system_ir"],
+      "required": ["kind", "status", "result_format", "vm_steps", "statistics", "integrations", "metrics", "validations", "time_alignments", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
       "properties": {
         "metrics": {
           "type": "array",
@@ -64,6 +64,10 @@
         "solver_boundaries": {
           "type": "array",
           "items": { "$ref": "#/$defs/resultSolverBoundary" }
+        },
+        "component_solutions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/componentSolution" }
         },
         "system_ir": {
           "type": "array",
@@ -83,6 +87,7 @@
         "system_count",
         "equation_count",
         "residual_count",
+        "component_solution_count",
         "environment_dependencies",
         "profile_diagnostics",
         "data_hashes",
@@ -182,6 +187,71 @@
         "overlap_start": { "type": ["number", "null"] },
         "overlap_end": { "type": ["number", "null"] },
         "status": { "enum": ["matched", "overlap", "mismatch"] }
+      }
+    },
+    "componentSolution": {
+      "type": "object",
+      "required": [
+        "assembly",
+        "status",
+        "method",
+        "reason",
+        "equation_count",
+        "unknown_count",
+        "residual_norm",
+        "iteration_count",
+        "convergence_status",
+        "variables",
+        "residuals",
+        "failure_artifact"
+      ],
+      "properties": {
+        "assembly": { "type": "string" },
+        "status": { "type": "string" },
+        "method": { "type": "string" },
+        "reason": { "type": "string" },
+        "equation_count": { "type": "integer", "minimum": 0 },
+        "unknown_count": { "type": "integer", "minimum": 0 },
+        "residual_norm": { "type": "number" },
+        "iteration_count": { "type": "integer", "minimum": 0 },
+        "convergence_status": { "type": "string" },
+        "variables": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/componentSolutionVariable" }
+        },
+        "residuals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/componentResidualEvaluation" }
+        },
+        "failure_artifact": {
+          "type": ["object", "null"],
+          "required": ["code", "message"],
+          "properties": {
+            "code": { "type": "string" },
+            "message": { "type": "string" }
+          }
+        }
+      }
+    },
+    "componentSolutionVariable": {
+      "type": "object",
+      "required": ["name", "role", "value", "unit", "status"],
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "value": { "type": "number" },
+        "unit": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    },
+    "componentResidualEvaluation": {
+      "type": "object",
+      "required": ["name", "expression", "value", "status"],
+      "properties": {
+        "name": { "type": "string" },
+        "expression": { "type": "string" },
+        "value": { "type": "number" },
+        "status": { "type": "string" }
       }
     },
     "resultSolverBoundary": {

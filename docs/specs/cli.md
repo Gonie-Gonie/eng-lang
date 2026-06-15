@@ -328,6 +328,12 @@ build/
       timeseries.svg
 ```
 
+For the domain/component preview, `result.engres` includes
+`typed_payload.component_solutions`. This is a small homogeneous
+connection-constraint solver preview with residual evaluation, convergence
+status, and failure/limitation artifacts. It is not a production multi-domain
+solver claim.
+
 `--open-report` implies `--save-artifacts` and attempts to open the generated
 `report.html` with the OS default browser.
 

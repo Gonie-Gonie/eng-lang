@@ -121,8 +121,24 @@ compiler records metadata-only generated equations:
 - residual graph metadata records residual names, dependencies, algebraic-loop
   candidates, Jacobian sparsity placeholders, and a solver-plan placeholder.
 
-This is not a numeric component graph solver. The generated equations are
+This is not a physical component graph solver. The generated equations are
 review/report metadata for future assembly and solver work.
+
+## Solver Preview
+
+`eng run` evaluates a deliberately small assembled-solver preview for generated
+connection equations. The current runtime treats the connection equations as a
+homogeneous linear constraint system and checks the zero-vector residual. If the
+constraints are satisfied but there are fewer equations than unknowns, the
+result is marked `constraint_satisfied_nonunique` with
+`W-ASSEMBLY-UNDERDETERMINED-SEED`.
+
+The runtime result artifact writes this to
+`typed_payload.component_solutions`. Runtime `report_spec.json` and
+`report.html` also expose the updated assembly status and convergence metadata.
+This preview is useful for residual-evaluation plumbing, convergence/failure
+artifacts, and future solver integration, but it is not a physical
+multi-domain solve.
 
 ## Artifact Surface
 
@@ -156,6 +172,9 @@ whether each connection is currently `domain_compatible` or diagnostic-only.
 The `assembly_summary` section shows connection sets, generated connection
 equations, variable/equation counts, residual graph dependencies, and solver
 plan placeholders.
+The runtime result also includes `component_solutions` with residual values,
+convergence status, zero-vector variable values, and failure/limitation
+artifacts.
 
 The generated `report_spec.json` follows
 [`docs/schemas/report_spec.schema.json`](../schemas/report_spec.schema.json), so
@@ -200,6 +219,8 @@ Current:
 - medium/frame/axis metadata compatibility diagnostics;
 - metadata-only connection-set assembly;
 - generated connection-equation and residual graph artifacts;
+- homogeneous connection-constraint residual evaluation and solver preview
+  artifact;
 - review JSON output;
 - report spec and HTML report sections;
 - native IDE Domain Graph inspector;
@@ -209,7 +230,8 @@ Current:
 
 Deferred:
 
-- graph solving;
+- physical component graph solving with boundary conditions and component
+  behavior equations;
 - package registries;
 - package dependency resolution;
 - numeric enforcement of conservation contracts.

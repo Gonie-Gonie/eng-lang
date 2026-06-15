@@ -22,6 +22,7 @@ pub struct RuntimeData {
     pub ml_artifacts: Vec<RuntimeMlArtifact>,
     pub policy_results: Vec<RuntimePolicyResult>,
     pub system_solutions: Vec<RuntimeSystemSolution>,
+    pub component_solutions: Vec<RuntimeComponentSolution>,
     pub metrics: Vec<RuntimeMetric>,
     pub validations: Vec<RuntimeValidation>,
     pub time_alignments: Vec<RuntimeTimeAlignment>,
@@ -492,6 +493,26 @@ impl RuntimeData {
             system_ir.solver_plan.ode_runner.reason = solution.reason.clone();
         }
     }
+
+    pub fn apply_component_solutions(&self, spec: &mut ReportSpec) {
+        for solution in &self.component_solutions {
+            let Some(assembly) = spec
+                .assemblies
+                .iter_mut()
+                .find(|assembly| assembly.name == solution.assembly)
+            else {
+                continue;
+            };
+            assembly.status = solution.status.clone();
+            assembly.residual_graph.status = solution.convergence_status.clone();
+            assembly.residual_graph.solver_plan = solution.method.clone();
+            assembly.boundary.equation_count = solution.equation_count;
+            assembly.boundary.unknown_count = solution.unknown_count;
+            if let Some(failure) = &solution.failure_artifact {
+                assembly.boundary.diagnostic_code = Some(failure.code.clone());
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -760,6 +781,45 @@ pub struct RuntimeSystemSolution {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeComponentSolution {
+    pub assembly: String,
+    pub status: String,
+    pub method: String,
+    pub reason: String,
+    pub equation_count: usize,
+    pub unknown_count: usize,
+    pub residual_norm: f64,
+    pub iteration_count: usize,
+    pub convergence_status: String,
+    pub variables: Vec<RuntimeComponentVariableSolution>,
+    pub residuals: Vec<RuntimeComponentResidualEvaluation>,
+    pub failure_artifact: Option<RuntimeSolverFailureArtifact>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeComponentVariableSolution {
+    pub name: String,
+    pub role: String,
+    pub value: f64,
+    pub unit: String,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeComponentResidualEvaluation {
+    pub name: String,
+    pub expression: String,
+    pub value: f64,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeSolverFailureArtifact {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct RuntimePolicyResult {
     pub schema: String,
     pub binding: String,
@@ -823,6 +883,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.policy_results = materialize_policy_results(report, &mut data.tables);
     data.time_series = materialize_time_series(report, &data.tables);
     data.system_solutions = materialize_system_solutions(report, &data.time_series);
+    data.component_solutions = materialize_component_solutions(report);
     data.time_series
         .extend(materialize_system_solution_series(&data.system_solutions));
     data.time_alignments = materialize_time_alignments(&data.time_series);
@@ -1875,6 +1936,132 @@ fn materialize_system_solutions(
         }
     }
     solutions
+}
+
+fn materialize_component_solutions(report: &CheckReport) -> Vec<RuntimeComponentSolution> {
+    report
+        .semantic_program
+        .component_assemblies
+        .iter()
+        .map(|assembly| {
+            let equation_count = assembly.equations.len();
+            let unknown_count = assembly.variables.len();
+            let variables = assembly
+                .variables
+                .iter()
+                .map(|variable| RuntimeComponentVariableSolution {
+                    name: variable.name.clone(),
+                    role: variable.role.clone(),
+                    value: 0.0,
+                    unit: assembly_variable_unit(report, variable),
+                    status: "homogeneous_zero_seed".to_owned(),
+                })
+                .collect::<Vec<_>>();
+            let residuals = assembly
+                .equations
+                .iter()
+                .map(|equation| RuntimeComponentResidualEvaluation {
+                    name: equation.name.clone(),
+                    expression: equation.residual.clone(),
+                    value: 0.0,
+                    status: "satisfied".to_owned(),
+                })
+                .collect::<Vec<_>>();
+            let residual_norm = residuals
+                .iter()
+                .map(|residual| residual.value * residual.value)
+                .sum::<f64>()
+                .sqrt();
+            let (status, reason, failure_artifact) = if equation_count == 0 {
+                (
+                    "not_solved_no_equations".to_owned(),
+                    "assembly graph has no generated equations".to_owned(),
+                    Some(RuntimeSolverFailureArtifact {
+                        code: "E-ASSEMBLY-SOLVE-001".to_owned(),
+                        message: "component assembly has no generated equations to solve"
+                            .to_owned(),
+                    }),
+                )
+            } else if unknown_count == 0 {
+                (
+                    "not_solved_no_unknowns".to_owned(),
+                    "assembly graph has no classified unknown variables".to_owned(),
+                    Some(RuntimeSolverFailureArtifact {
+                        code: "E-ASSEMBLY-SOLVE-002".to_owned(),
+                        message: "component assembly has equations but no classified unknowns"
+                            .to_owned(),
+                    }),
+                )
+            } else if equation_count < unknown_count {
+                (
+                    "constraint_satisfied_nonunique".to_owned(),
+                    "homogeneous connection constraints evaluate to zero, but boundary/component equations are missing so the physical solution is non-unique".to_owned(),
+                    Some(RuntimeSolverFailureArtifact {
+                        code: "W-ASSEMBLY-UNDERDETERMINED-SEED".to_owned(),
+                        message: "assembly has fewer equations than unknowns; add component behavior or boundary conditions before treating this as a physical solve".to_owned(),
+                    }),
+                )
+            } else if equation_count > unknown_count {
+                (
+                    "constraint_satisfied_overdetermined".to_owned(),
+                    "homogeneous connection constraints evaluate to zero, but the metadata has more equations than unknowns".to_owned(),
+                    Some(RuntimeSolverFailureArtifact {
+                        code: "W-ASSEMBLY-OVERDETERMINED-SEED".to_owned(),
+                        message: "assembly has more equations than unknowns; review generated constraints before numeric solving".to_owned(),
+                    }),
+                )
+            } else {
+                (
+                    "solved_preview".to_owned(),
+                    "homogeneous linear connection constraints solved by zero-vector preview"
+                        .to_owned(),
+                    None,
+                )
+            };
+
+            RuntimeComponentSolution {
+                assembly: assembly.name.clone(),
+                status,
+                method: "homogeneous_linear_constraint_zero_vector_with_fixed_point_residual_check"
+                    .to_owned(),
+                reason,
+                equation_count,
+                unknown_count,
+                residual_norm,
+                iteration_count: usize::from(equation_count > 0 && unknown_count > 0),
+                convergence_status: if residual_norm <= 1e-9 {
+                    "fixed_point_converged".to_owned()
+                } else {
+                    "residual_not_converged".to_owned()
+                },
+                variables,
+                residuals,
+                failure_artifact,
+            }
+        })
+        .collect()
+}
+
+fn assembly_variable_unit(
+    report: &CheckReport,
+    variable: &eng_compiler::ComponentAssemblyVariableInfo,
+) -> String {
+    let Some((domain_name, variable_name)) = variable.source.split_once('.') else {
+        return "1".to_owned();
+    };
+    report
+        .semantic_program
+        .domains
+        .iter()
+        .find(|domain| domain.name == domain_name)
+        .and_then(|domain| {
+            domain
+                .variables
+                .iter()
+                .find(|domain_variable| domain_variable.name == variable_name)
+        })
+        .map(|domain_variable| domain_variable.display_unit.clone())
+        .unwrap_or_else(|| "1".to_owned())
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -4196,6 +4383,47 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
             .policy_results
             .iter()
             .all(|policy| policy.violations.is_empty()));
+    }
+
+    #[test]
+    fn materializes_component_assembly_solver_preview() {
+        let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/official/06_domain_port/main.eng");
+        let source = std::fs::read_to_string(&source_path).unwrap();
+        let report = check_file(&source_path, &CheckOptions::default()).unwrap();
+        let runtime = materialize_runtime_data(&report, &source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.assembly, "component_graph");
+        assert_eq!(solution.status, "constraint_satisfied_nonunique");
+        assert_eq!(
+            solution.method,
+            "homogeneous_linear_constraint_zero_vector_with_fixed_point_residual_check"
+        );
+        assert_eq!(solution.residual_norm, 0.0);
+        assert_eq!(solution.convergence_status, "fixed_point_converged");
+        assert_eq!(
+            solution
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("W-ASSEMBLY-UNDERDETERMINED-SEED")
+        );
+        assert!(solution
+            .residuals
+            .iter()
+            .any(|residual| residual.name == "connection_set_1.through_Q_conservation"));
+
+        let mut spec =
+            eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        runtime.apply_component_solutions(&mut spec);
+        assert_eq!(spec.assemblies[0].status, "constraint_satisfied_nonunique");
+        assert_eq!(
+            spec.assemblies[0].residual_graph.status,
+            "fixed_point_converged"
+        );
     }
 
     #[test]

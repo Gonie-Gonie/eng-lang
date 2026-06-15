@@ -632,6 +632,38 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         return ExitCode::from(2);
     }
     println!("ok: examples/official/06_domain_port/main.eng produced domain assembly metadata");
+    match run_file(
+        Path::new("examples/official/06_domain_port/main.eng"),
+        Path::new("build/test-domain-assembly-solver"),
+        &RunOptions {
+            save_artifacts: true,
+            ..RunOptions::default()
+        },
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"component_solutions\"")
+                || !output
+                    .result_json
+                    .contains("\"constraint_satisfied_nonunique\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"fixed_point_converged\"")
+                || !output.report_html.contains("Component Solver Preview")
+            {
+                eprintln!(
+                    "expected domain port run to expose component assembly solver preview artifacts"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/06_domain_port/main.eng produced component solver preview artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("domain assembly solver preview failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
 
     let bad = match check_file(
         "examples/05_error_messages/unit_mismatch.eng",

@@ -438,6 +438,7 @@ pub fn run_source(
     report_spec.ml = runtime_data.report_ml();
     report_spec.policy_results = runtime_data.report_policy_results();
     runtime_data.apply_system_solutions(&mut report_spec);
+    runtime_data.apply_component_solutions(&mut report_spec);
     let report_spec_json = eng_report::report_spec_json(&report_spec);
     let report_spec_hash = hash_text(&report_spec_json);
     let review_json = review_json(&check_report);
@@ -3686,11 +3687,12 @@ fn result_json(
         systems.push('\n');
         systems.push_str("      }");
     }
+    let component_solutions = component_solutions_json(runtime_data);
     let solver_boundaries = solver_boundaries_json(report, runtime_data);
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -3720,6 +3722,7 @@ fn result_json(
         ml,
         policy_results,
         systems,
+        component_solutions,
         solver_boundaries,
         system_ir,
         report.semantic_program.schemas.len(),
@@ -3737,6 +3740,7 @@ fn result_json(
             .iter()
             .map(|system| system.residuals.len())
             .sum::<usize>(),
+        runtime_data.component_solutions.len(),
         environment_dependencies,
         profile_diagnostics_json,
         data_hashes,
@@ -3831,6 +3835,123 @@ fn push_system_solution_json(
     push_runtime_points(json, &solution.points);
     json.push_str("]\n");
     json.push_str(&format!("{indent}}}"));
+}
+
+fn component_solutions_json(runtime_data: &RuntimeData) -> String {
+    let mut json = String::new();
+    for (solution_index, solution) in runtime_data.component_solutions.iter().enumerate() {
+        if solution_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"assembly\": \"{}\",\n",
+            json_escape(&solution.assembly)
+        ));
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&solution.status)
+        ));
+        json.push_str(&format!(
+            "        \"method\": \"{}\",\n",
+            json_escape(&solution.method)
+        ));
+        json.push_str(&format!(
+            "        \"reason\": \"{}\",\n",
+            json_escape(&solution.reason)
+        ));
+        json.push_str(&format!(
+            "        \"equation_count\": {},\n",
+            solution.equation_count
+        ));
+        json.push_str(&format!(
+            "        \"unknown_count\": {},\n",
+            solution.unknown_count
+        ));
+        json.push_str(&format!(
+            "        \"residual_norm\": {},\n",
+            format_number_with_precision(solution.residual_norm, Some(8))
+        ));
+        json.push_str(&format!(
+            "        \"iteration_count\": {},\n",
+            solution.iteration_count
+        ));
+        json.push_str(&format!(
+            "        \"convergence_status\": \"{}\",\n",
+            json_escape(&solution.convergence_status)
+        ));
+        json.push_str("        \"variables\": [\n");
+        for (variable_index, variable) in solution.variables.iter().enumerate() {
+            if variable_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"name\": \"{}\",\n",
+                json_escape(&variable.name)
+            ));
+            json.push_str(&format!(
+                "            \"role\": \"{}\",\n",
+                json_escape(&variable.role)
+            ));
+            json.push_str(&format!(
+                "            \"value\": {},\n",
+                format_number_with_precision(variable.value, Some(8))
+            ));
+            json.push_str(&format!(
+                "            \"unit\": \"{}\",\n",
+                json_escape(&variable.unit)
+            ));
+            json.push_str(&format!(
+                "            \"status\": \"{}\"\n",
+                json_escape(&variable.status)
+            ));
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
+        json.push_str("        \"residuals\": [\n");
+        for (residual_index, residual) in solution.residuals.iter().enumerate() {
+            if residual_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"name\": \"{}\",\n",
+                json_escape(&residual.name)
+            ));
+            json.push_str(&format!(
+                "            \"expression\": \"{}\",\n",
+                json_escape(&residual.expression)
+            ));
+            json.push_str(&format!(
+                "            \"value\": {},\n",
+                format_number_with_precision(residual.value, Some(8))
+            ));
+            json.push_str(&format!(
+                "            \"status\": \"{}\"\n",
+                json_escape(&residual.status)
+            ));
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
+        match &solution.failure_artifact {
+            Some(failure) => {
+                json.push_str("        \"failure_artifact\": {\n");
+                json.push_str(&format!(
+                    "          \"code\": \"{}\",\n",
+                    json_escape(&failure.code)
+                ));
+                json.push_str(&format!(
+                    "          \"message\": \"{}\"\n",
+                    json_escape(&failure.message)
+                ));
+                json.push_str("        }\n");
+            }
+            None => json.push_str("        \"failure_artifact\": null\n"),
+        }
+        json.push_str("      }");
+    }
+    json
 }
 
 fn solver_boundaries_json(report: &CheckReport, runtime_data: &RuntimeData) -> String {

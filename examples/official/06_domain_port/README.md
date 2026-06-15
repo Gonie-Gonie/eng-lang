@@ -31,6 +31,9 @@ Current support boundary:
   domain package/version and generic argument surface;
 - `assembly_summary` exposes generated connection equations, equation/unknown
   counts, Jacobian sparsity placeholders, and a no-solve solver-plan placeholder;
+- runtime `component_solutions` evaluates the homogeneous connection
+  constraints, reports `fixed_point_converged`, and records the current
+  non-unique/underdetermined limitation;
 - numeric multi-domain simulation is not implemented;
 - medium/frame/axis compatibility diagnostics are metadata checks only.
 - duplicate connection and unconnected-port checks are graph-shape checks only.

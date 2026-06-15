@@ -191,6 +191,7 @@ Implementation seeds on `main`:
 - connection-set assembly metadata
 - generated connection-equation and residual graph placeholders
 - equation/unknown count metadata
+- homogeneous connection-constraint solver preview artifacts
 - IDE Domain Graph inspection
 - LSP completion/hover metadata
 - domain contract and compatibility diagnostics
@@ -200,6 +201,7 @@ Not yet public-supported:
 
 ```text
 - numeric multi-domain simulation
+- boundary-condition/component-behavior solving
 - domain package registry
 - open component ecosystem
 ```
