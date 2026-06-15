@@ -1234,6 +1234,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         &mut diagnostics,
     );
     let component_assemblies = build_component_assembly_graphs(&domains, &components, &connections);
+    emit_component_assembly_boundary_warnings(&component_assemblies, &mut diagnostics);
     SemanticOutput {
         diagnostics,
         inferred_declarations,
@@ -4905,6 +4906,32 @@ fn build_component_assembly_graphs(
         residual_graph,
         line,
     }]
+}
+
+fn emit_component_assembly_boundary_warnings(
+    assemblies: &[ComponentAssemblyInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for assembly in assemblies {
+        let Some(code) = assembly.boundary.diagnostic_code.as_deref() else {
+            continue;
+        };
+        let message = format!(
+            "Component assembly `{}` is {} with {} equation(s) and {} unknown(s).",
+            assembly.name,
+            assembly.boundary.balance_status,
+            assembly.boundary.equation_count,
+            assembly.boundary.unknown_count
+        );
+        diagnostics.push(Diagnostic::warning(
+            code,
+            assembly.line,
+            &message,
+            Some(
+                "The current component graph path records a reviewable assembly seed and limitation artifact; numeric multi-domain solving remains planned.",
+            ),
+        ));
+    }
 }
 
 fn build_component_domain_plans(

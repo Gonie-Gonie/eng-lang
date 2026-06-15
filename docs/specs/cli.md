@@ -86,6 +86,8 @@ E-CONNECT-DOMAIN-001   connected ports have incompatible domains
 E-CONNECT-MEDIUM-001   connected generic ports have incompatible Medium arguments
 E-CONNECT-FRAME-001    connected generic ports have incompatible Frame arguments
 E-CONNECT-AXIS-001     connected generic ports have incompatible Axis arguments
+W-ASSEMBLY-UNDERDETERMINED-SEED component assembly has fewer equations than unknowns
+W-ASSEMBLY-OVERDETERMINED-SEED  component assembly has more equations than unknowns
 E-PROCESS-001          run command is supported only at top level
 E-PROCESS-BINDING-001  run command must bind a ProcessResult
 E-PROCESS-CMD-001      run command requires a command string

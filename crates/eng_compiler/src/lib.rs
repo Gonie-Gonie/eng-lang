@@ -4344,6 +4344,10 @@ mod tests {
         );
 
         assert!(!report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "W-ASSEMBLY-UNDERDETERMINED-SEED"));
         assert_eq!(report.syntax_summary.domains, 1);
         assert_eq!(report.syntax_summary.domain_variables, 2);
         assert_eq!(report.syntax_summary.components, 2);
