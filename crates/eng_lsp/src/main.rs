@@ -60,9 +60,16 @@ fn command_smoke() -> std::process::ExitCode {
                     .completions
                     .iter()
                     .any(|completion| completion.label == "RoomBoundary.heat")
+                || !domain_snapshot.hovers.iter().any(|hover| {
+                    hover.kind == "component_port"
+                        && hover.name == "SupplyPipe.inlet"
+                        && hover.detail.contains("type Fluid[Water]")
+                        && hover.detail.contains("domain Fluid")
+                        && hover.detail.contains("medium Water")
+                })
             {
                 eprintln!(
-                    "EngLang LSP smoke failed: {} produced no domain/component LSP metadata",
+                    "EngLang LSP smoke failed: {} produced incomplete domain/component LSP metadata",
                     domain_path.display()
                 );
                 return std::process::ExitCode::from(2);

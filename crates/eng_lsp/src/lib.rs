@@ -223,12 +223,10 @@ pub fn hover_items(report: &CheckReport) -> Vec<LspHover> {
                 kind: "component_port".to_owned(),
                 line: port.line,
                 detail: format!(
-                    "port {} on component {} references domain {} (base {}, arguments {})",
+                    "port {} on component {}; {}",
                     port.name,
                     component.name,
-                    port.domain,
-                    port.domain_name,
-                    string_list(&port.type_arguments)
+                    port_metadata_detail(port, &report.semantic_program.domains)
                 ),
                 quantity_kind: "port".to_owned(),
                 display_unit: port.domain.clone(),
@@ -773,6 +771,37 @@ fn string_list(values: &[String]) -> String {
     }
 }
 
+fn port_metadata_detail(
+    port: &eng_compiler::PortInfo,
+    domains: &[eng_compiler::DomainInfo],
+) -> String {
+    let mut labels = vec![
+        format!("type {}", port.domain),
+        format!("domain {}", port.domain_name),
+    ];
+    if let Some(domain) = domains
+        .iter()
+        .find(|domain| domain.name == port.domain_name)
+    {
+        let mut saw_medium = false;
+        for (parameter, argument) in domain.type_parameters.iter().zip(&port.type_arguments) {
+            let label = parameter.kind.to_ascii_lowercase();
+            if label == "medium" {
+                saw_medium = true;
+            }
+            labels.push(format!("{label} {argument}"));
+        }
+        if !saw_medium {
+            labels.push("medium -".to_owned());
+        }
+    } else if port.type_arguments.is_empty() {
+        labels.push("medium -".to_owned());
+    } else {
+        labels.push(format!("arguments {}", string_list(&port.type_arguments)));
+    }
+    labels.join("; ")
+}
+
 fn lsp_severity(severity: &str) -> u8 {
     match severity {
         "error" => 1,
@@ -1025,7 +1054,7 @@ mod tests {
 
     #[test]
     fn snapshot_exposes_domain_component_hover_and_completion() {
-        let source = "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\nconnect RoomBoundary.heat -> AmbientBoundary.heat\n";
+        let source = "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ndomain Fluid[Medium M] {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\ncomponent SupplyPipe {\n    port inlet: Fluid[Water]\n    port outlet: Fluid[Water]\n}\n\nconnect RoomBoundary.heat -> AmbientBoundary.heat\nconnect SupplyPipe.inlet -> SupplyPipe.outlet\n";
         let snapshot = snapshot_for_source(Path::new("domain.eng"), source);
 
         assert!(snapshot
@@ -1042,6 +1071,13 @@ mod tests {
             hover.kind == "component_port"
                 && hover.name == "RoomBoundary.heat"
                 && hover.status.as_deref() == Some("domain_resolved")
+        }));
+        assert!(snapshot.hovers.iter().any(|hover| {
+            hover.kind == "component_port"
+                && hover.name == "SupplyPipe.inlet"
+                && hover.detail.contains("type Fluid[Water]")
+                && hover.detail.contains("domain Fluid")
+                && hover.detail.contains("medium Water")
         }));
         assert!(snapshot.hovers.iter().any(|hover| {
             hover.kind == "connection" && hover.status.as_deref() == Some("domain_compatible")

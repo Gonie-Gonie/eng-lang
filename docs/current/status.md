@@ -141,7 +141,8 @@ are not public stable workflows.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,
   generated connection-equation metadata, residual graph metadata,
   domain-plan metadata, IDE component graph source-line navigation, and
-  connection constraint consistency artifacts. It is not a production
+  connection constraint consistency artifacts. LSP port hovers expose
+  type/base-domain and medium/frame/axis labels. It is not a production
   component-graph or multi-domain solver.
 - Uncertainty track: deterministic samples, source/argument diagnostics,
   propagation metadata, and histogram artifacts.

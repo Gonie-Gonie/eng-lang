@@ -152,8 +152,9 @@ object_validation
 For domain/component track files, hovers expose domain declarations,
 across/through variables, conservation metadata, component ports, and connection
 status. Domain hovers may include package/version metadata and generic
-parameter signatures such as `Fluid[Medium M]`; port hovers may include
-instantiated arguments such as `Fluid[Water]`. Example connection hover:
+parameter signatures such as `Fluid[Medium M]`; port hovers include the port
+type, base domain, and labeled metadata such as `medium Water`, `frame World`,
+or `axis X` when generic domain arguments are present. Example connection hover:
 
 ```json
 {

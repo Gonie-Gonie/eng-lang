@@ -257,7 +257,7 @@ Current:
 - report spec and HTML report sections;
 - native IDE Domain Graph inspector;
 - LSP snapshot/completion/hover metadata for domains, variables, ports, and
-  connections;
+  connections, including port type/base-domain and medium/frame/axis labels;
 - IDE/VS Code keyword and snippet completion.
 
 Deferred:
