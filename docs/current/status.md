@@ -54,7 +54,8 @@ covered by the breaking-change policy.
 
 - Top-level file execution, root `args { ... }`, importable top-level `const`,
   pure scalar `fn` definitions, checked return dimensions, relative file
-  imports, and no imported executable-body side effects.
+  imports, LSP function signature metadata, and no imported executable-body
+  side effects.
 - Fast `=` declarations, explicit quantity declarations, and `:=` rejection.
 - Built-in quantity/unit registry, including canonical `degC` plus the `°C`
   alias for absolute temperature display.

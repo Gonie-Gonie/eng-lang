@@ -250,18 +250,6 @@ fn publish_diagnostics<W: Write>(output: &mut W, uri: &str, text: &str) -> io::R
     )
 }
 
-fn snapshot_for_request(
-    request: &Value,
-    documents: &HashMap<String, String>,
-) -> Option<eng_lsp::LspSnapshot> {
-    let uri = request_uri(request)?;
-    let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
-    if let Some(text) = documents.get(uri) {
-        return Some(snapshot_for_source(&path, text));
-    }
-    snapshot_for_path(&path).ok()
-}
-
 fn completions_for_request(
     request: &Value,
     documents: &HashMap<String, String>,
@@ -288,13 +276,66 @@ fn hover_for_request(
     request: &Value,
     documents: &HashMap<String, String>,
 ) -> Option<eng_lsp::LspHover> {
-    let snapshot = snapshot_for_request(request, documents)?;
-    let line = request
+    let uri = request_uri(request)?;
+    let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
+    let line_zero_based = request
         .pointer("/params/position/line")
         .and_then(Value::as_u64)
-        .unwrap_or(0) as usize
-        + 1;
+        .unwrap_or(0) as usize;
+    let character = request
+        .pointer("/params/position/character")
+        .and_then(Value::as_u64)
+        .unwrap_or(0) as usize;
+    let text = documents
+        .get(uri)
+        .cloned()
+        .or_else(|| std::fs::read_to_string(&path).ok());
+    let snapshot = text
+        .as_deref()
+        .map(|text| snapshot_for_source(&path, text))
+        .or_else(|| snapshot_for_path(&path).ok())?;
+    if let Some(symbol) = text
+        .as_deref()
+        .and_then(|text| symbol_at_position(text, line_zero_based, character))
+    {
+        if let Some(hover) = snapshot
+            .hovers
+            .iter()
+            .find(|hover| {
+                hover.name == symbol || hover.name.rsplit('.').next() == Some(symbol.as_str())
+            })
+            .cloned()
+        {
+            return Some(hover);
+        }
+    }
+    let line = line_zero_based + 1;
     snapshot.hovers.into_iter().find(|hover| hover.line == line)
+}
+
+fn symbol_at_position(source: &str, line: usize, character: usize) -> Option<String> {
+    let line_text = source.lines().nth(line)?;
+    let bytes = line_text.as_bytes();
+    let mut cursor = character.min(bytes.len());
+    while cursor > 0 && !is_symbol_byte(bytes[cursor.saturating_sub(1)]) {
+        cursor -= 1;
+    }
+    let mut start = cursor;
+    while start > 0 && is_symbol_byte(bytes[start - 1]) {
+        start -= 1;
+    }
+    let mut end = cursor;
+    while end < bytes.len() && is_symbol_byte(bytes[end]) {
+        end += 1;
+    }
+    if start == end {
+        return None;
+    }
+    Some(line_text[start..end].trim_matches('.').to_owned())
+}
+
+fn is_symbol_byte(byte: u8) -> bool {
+    byte == b'.' || byte == b'_' || byte.is_ascii_alphanumeric()
 }
 
 fn document_text_from_notification(

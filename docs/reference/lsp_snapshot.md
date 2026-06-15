@@ -89,6 +89,7 @@ Current snapshot completions are global for the file and include:
 
 - EngLang keywords
 - current typed bindings
+- function names with signature details
 - schema columns
 - domain names, domain variables, component names, and `Component.port` labels.
   Generic ports include canonical labels such as `Fluid[Water]` in `detail`.
@@ -134,6 +135,8 @@ Current hover kinds include:
 
 ```text
 variable
+function
+function_local
 domain
 domain_variable
 domain_conservation
@@ -172,6 +175,11 @@ status, object literal fields, copy-with fields, validation results, and
 zero-argument metadata methods. Field hover details use the same required/default
 wording as completion details so editor clients can render compact field lists
 without reading `class_summary` directly.
+
+Function hovers expose the full signature, return quantity/unit, return
+expression when available, and function-local binding names. `function_local`
+hover entries are scoped as `function.local` so editor clients can distinguish
+function-local symbols from importable or top-level bindings.
 
 ## Intended Consumers
 

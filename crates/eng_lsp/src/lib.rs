@@ -3,7 +3,7 @@ use std::path::Path;
 
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, check_file, check_source, CheckOptions, CheckReport,
-    ClassFieldInfo, DomainTypeParameterInfo, Severity,
+    ClassFieldInfo, DomainTypeParameterInfo, FunctionInfo, Severity,
 };
 use serde_json::{json, Value};
 
@@ -300,6 +300,32 @@ pub fn hover_items(report: &CheckReport) -> Vec<LspHover> {
         }
     }
 
+    for function in &report.semantic_program.functions {
+        hovers.push(LspHover {
+            name: function.name.clone(),
+            kind: "function".to_owned(),
+            line: function.line,
+            detail: function_signature_detail(function),
+            quantity_kind: function.return_quantity_kind.clone(),
+            display_unit: function.return_display_unit.clone(),
+            status: Some(function.status.clone()),
+        });
+        for local in &function.locals {
+            hovers.push(LspHover {
+                name: format!("{}.{}", function.name, local.name),
+                kind: "function_local".to_owned(),
+                line: local.line,
+                detail: format!(
+                    "local `{}` in function `{}` = {}",
+                    local.name, function.name, local.expression
+                ),
+                quantity_kind: "local".to_owned(),
+                display_unit: "-".to_owned(),
+                status: Some("function_scope".to_owned()),
+            });
+        }
+    }
+
     for class_info in &report.semantic_program.classes {
         hovers.push(LspHover {
             name: class_info.name.clone(),
@@ -533,6 +559,16 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
                 &format!("{} generated equation ({})", equation.kind, equation.status),
             );
         }
+    }
+
+    for function in &report.semantic_program.functions {
+        push_completion(
+            &mut items,
+            &mut seen,
+            &function.name,
+            "function",
+            &function_signature_detail(function),
+        );
     }
 
     for class_info in &report.semantic_program.classes {
@@ -816,6 +852,7 @@ fn completion_kind(kind: &str) -> u8 {
         "variable" => 6,
         "property" => 10,
         "class" => 7,
+        "function" => 3,
         "method" => 2,
         "unit" => 3,
         _ => 1,
@@ -985,6 +1022,44 @@ fn display_unit_label(unit: &str) -> &str {
     }
 }
 
+fn function_signature_detail(function: &FunctionInfo) -> String {
+    let params = function
+        .parameters
+        .iter()
+        .map(|parameter| {
+            format!(
+                "{}: {} [{}]",
+                parameter.name,
+                parameter.quantity_kind,
+                display_unit_label(&parameter.display_unit)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    let mut detail = format!(
+        "fn {}({}) -> {} [{}]",
+        function.name,
+        params,
+        function.return_quantity_kind,
+        display_unit_label(&function.return_display_unit)
+    );
+    if let Some(return_expression) = &function.return_expression {
+        detail.push_str(&format!(" returns `{return_expression}`"));
+    }
+    if !function.locals.is_empty() {
+        detail.push_str(&format!(
+            "; locals {}",
+            function
+                .locals
+                .iter()
+                .map(|local| local.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
+    detail
+}
+
 fn member_completion_context(
     source: &str,
     line: usize,
@@ -1135,6 +1210,39 @@ Q = sensor.T
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "m_dot"));
+    }
+
+    #[test]
+    fn snapshot_exposes_function_signature_hover_and_completion() {
+        let source = r#"fn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {
+    UA_local = UA
+    dT_local = dT
+    return UA_local * dT_local
+}
+
+Q = heat_loss(150 W/K, 8 K)
+"#;
+        let snapshot = snapshot_for_source(Path::new("functions.eng"), source);
+
+        let function_hover = snapshot
+            .hovers
+            .iter()
+            .find(|hover| hover.kind == "function" && hover.name == "heat_loss")
+            .expect("function signature hover should be present");
+        assert!(function_hover
+            .detail
+            .contains("fn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K])"));
+        assert!(function_hover.detail.contains("-> HeatRate [W]"));
+        assert!(function_hover.detail.contains("locals UA_local, dT_local"));
+        assert!(snapshot
+            .hovers
+            .iter()
+            .any(|hover| { hover.kind == "function_local" && hover.name == "heat_loss.UA_local" }));
+        assert!(snapshot.completions.iter().any(|completion| {
+            completion.label == "heat_loss"
+                && completion.kind == "function"
+                && completion.detail.contains("-> HeatRate [W]")
+        }));
     }
 
     #[test]

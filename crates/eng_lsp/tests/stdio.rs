@@ -210,16 +210,78 @@ fn stdio_server_round_trips_core_lsp_requests() {
                 .is_some_and(|detail| detail.contains("String [-] from Building"))
     }));
 
+    let function_source_path = repo_root()
+        .join("examples/official/07_functions_imports/main.eng")
+        .canonicalize()
+        .expect("functions example should exist");
+    let function_source = std::fs::read_to_string(&function_source_path)
+        .expect("functions example should be readable");
+    let function_uri = file_uri(&function_source_path);
+    let heat_loss_line = function_source
+        .lines()
+        .position(|line| line.contains("Q_wall = heat_loss"))
+        .expect("functions example should call heat_loss");
+    let heat_loss_char = function_source
+        .lines()
+        .nth(heat_loss_line)
+        .unwrap()
+        .find("heat_loss")
+        .unwrap()
+        + "heat_loss".len();
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {
+                    "uri": function_uri,
+                    "languageId": "englang",
+                    "version": 1,
+                    "text": function_source
+                }
+            }
+        }),
+    );
+    let function_published = read_message(&mut stdout);
+    assert_eq!(
+        function_published["method"],
+        "textDocument/publishDiagnostics"
+    );
+    assert_eq!(function_published["params"]["uri"], function_uri);
+
     write_message(
         &mut stdin,
         json!({
             "jsonrpc": "2.0",
             "id": 6,
+            "method": "textDocument/hover",
+            "params": {
+                "textDocument": { "uri": function_uri },
+                "position": { "line": heat_loss_line, "character": heat_loss_char }
+            }
+        }),
+    );
+    let function_hover = read_message(&mut stdout);
+    assert_eq!(function_hover["id"], 6);
+    let function_hover_text = function_hover["result"]["contents"]["value"]
+        .as_str()
+        .expect("function hover should return markdown contents");
+    assert!(function_hover_text.contains("heat_loss"));
+    assert!(function_hover_text.contains("fn heat_loss"));
+    assert!(function_hover_text.contains("-> HeatRate [W]"));
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 7,
             "method": "shutdown"
         }),
     );
     let shutdown = read_message(&mut stdout);
-    assert_eq!(shutdown["id"], 6);
+    assert_eq!(shutdown["id"], 7);
     assert!(shutdown["result"].is_null());
 
     write_message(
