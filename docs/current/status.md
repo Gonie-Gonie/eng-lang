@@ -90,7 +90,9 @@ covered by the breaking-change policy.
 - Standalone packaged runner with `.engpkg`, `.lock`, Args help, dependency
   copying, package smoke, curated PDF docs, and SHA256 release checksum.
 - Tauri/WebView tester IDE smoke path for open/check/save/run, diagnostics,
-  variable summaries, PlotSpec viewing, and on-demand report/plot opening for
+  variable summaries, schema/TimeSeries/metric/validation/time-alignment
+  inspectors for the measured workflow, internal state-space trajectory
+  inspector coverage, PlotSpec viewing, and on-demand report/plot opening for
   stable workflows.
 
 ## Supported Features

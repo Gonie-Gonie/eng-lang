@@ -1103,10 +1103,13 @@ fn time_series_inspector(result: &Value) -> Value {
                 .and_then(Value::as_f64)
                 .map(|value| format!("{} s", format_json_number(value)))
                 .unwrap_or_default();
+            let series_owner = json_field_string(solver_result, "binding")
+                .or_else(|| json_field_string(system, "name"))
+                .unwrap_or_else(|| "system".to_owned());
             rows.push(json!({
                 "name": format!(
                     "{}.{}",
-                    json_field_string(solver_result, "binding").unwrap_or_else(|| "sim".to_owned()),
+                    series_owner,
                     json_field_string(solver_result, "state").unwrap_or_else(|| "state".to_owned())
                 ),
                 "axis": "Time",
@@ -1759,16 +1762,14 @@ fn json_field_usize(value: &Value, key: &str) -> Option<usize> {
 }
 
 fn format_json_number(value: f64) -> String {
-    if value.abs() >= 1000.0 {
+    let text = if value.abs() >= 1000.0 {
         format!("{value:.3}")
     } else if value.abs() >= 10.0 {
         format!("{value:.4}")
     } else {
         format!("{value:.6}")
-            .trim_end_matches('0')
-            .trim_end_matches('.')
-            .to_owned()
-    }
+    };
+    text.trim_end_matches('0').trim_end_matches('.').to_owned()
 }
 
 fn open_path(path: &Path) {
@@ -1875,8 +1876,46 @@ fn smoke() -> Result<(), String> {
             ));
         }
     }
+    let state_space_example = root.join("examples/internal/18_state_space_metadata/main.eng");
+    let state_space_output = run_file(
+        &state_space_example,
+        &root.join("build").join("ide-smoke-state-space"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let state_space_cached = CachedRunOutput::from_output(state_space_output);
+    let state_space_inspectors = runtime_inspectors(&root, &state_space_cached);
+    let has_state_space_series =
+        state_space_inspectors
+            .time_series
+            .as_array()
+            .is_some_and(|items| {
+                items.iter().any(|item| {
+                    json_field_string(item, "name").as_deref()
+                        == Some("ThermalStateSpaceMetadata.T_zone")
+                        && json_field_string(item, "axis").as_deref() == Some("Time")
+                        && json_field_usize(item, "row_count").unwrap_or(0) > 0
+                })
+            });
+    let has_state_space_solver = state_space_inspectors
+        .systems
+        .as_array()
+        .is_some_and(|items| {
+            items.iter().any(|item| {
+                item.get("solver_result")
+                    .and_then(|solver| json_field_string(solver, "method"))
+                    .as_deref()
+                    == Some("state_space_explicit_euler_fixed_step")
+            })
+        });
+    if !has_state_space_series || !has_state_space_solver {
+        return Err(format!(
+            "{} did not produce IDE state-space trajectory inspector metadata",
+            state_space_example.display()
+        ));
+    }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), measured workflow inspectors",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), measured workflow inspectors, state-space trajectory inspector",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),
