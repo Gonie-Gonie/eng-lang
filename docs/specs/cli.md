@@ -331,8 +331,11 @@ build/
 For the domain/component preview, `result.engres` includes
 `typed_payload.component_solutions`. This is a small homogeneous
 connection-constraint solver preview with residual evaluation, convergence
-status, and failure/limitation artifacts. It is not a production multi-domain
-solver claim.
+status, and failure/limitation artifacts. `review.json` and `report_spec.json`
+also include `assembly_summary.domain_plans` and `assembly_summary.solver_preview`
+so tools can identify `multi_domain_preview` graphs and the explicit
+nonlinear/DAE/delay/Predictor/adapter seed statuses. This is not a production
+multi-domain solver claim.
 
 `--open-report` implies `--save-artifacts` and attempts to open the generated
 `report.html` with the OS default browser.

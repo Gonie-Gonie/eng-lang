@@ -276,6 +276,9 @@ pub struct ComponentAssemblyInfo {
     pub local_expression_count: usize,
     pub operator_call_count: usize,
     pub predictor_call_count: usize,
+    pub domain_count: usize,
+    pub domain_plans: Vec<ComponentDomainPlanInfo>,
+    pub solver_preview: ComponentSolverPreviewInfo,
     pub connection_sets: Vec<ComponentConnectionSetInfo>,
     pub equations: Vec<ComponentAssemblyEquationInfo>,
     pub variables: Vec<ComponentAssemblyVariableInfo>,
@@ -292,6 +295,29 @@ pub struct ComponentConnectionSetInfo {
     pub connection_count: usize,
     pub status: String,
     pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComponentDomainPlanInfo {
+    pub domain: String,
+    pub connection_set_count: usize,
+    pub equation_count: usize,
+    pub variable_count: usize,
+    pub conservation_status: String,
+    pub solver_role: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComponentSolverPreviewInfo {
+    pub status: String,
+    pub method: String,
+    pub mixed_algebraic_dynamic: String,
+    pub nonlinear_residual: String,
+    pub dae_split: String,
+    pub delay_history: String,
+    pub predictor: String,
+    pub external_adapter: String,
+    pub limitations: Vec<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -4575,6 +4601,11 @@ fn build_component_assembly_graphs(
         jacobian_sparsity,
         solver_plan: "metadata_only_no_numeric_solve".to_owned(),
     };
+    let domain_plans =
+        build_component_domain_plans(domains, &connection_sets, &equations, &variables);
+    let domain_count = domain_plans.len();
+    let solver_preview =
+        build_component_solver_preview(domain_count, state_count, equations.len(), 0);
     let line = components
         .iter()
         .map(|component| component.line)
@@ -4595,6 +4626,9 @@ fn build_component_assembly_graphs(
         local_expression_count: 0,
         operator_call_count: 0,
         predictor_call_count: 0,
+        domain_count,
+        domain_plans,
+        solver_preview,
         connection_sets,
         equations,
         variables,
@@ -4612,6 +4646,114 @@ fn build_component_assembly_graphs(
         residual_graph,
         line,
     }]
+}
+
+fn build_component_domain_plans(
+    domains: &[DomainInfo],
+    connection_sets: &[ComponentConnectionSetInfo],
+    equations: &[ComponentAssemblyEquationInfo],
+    variables: &[ComponentAssemblyVariableInfo],
+) -> Vec<ComponentDomainPlanInfo> {
+    let mut seen = HashSet::new();
+    let mut ordered_domains = Vec::new();
+    for connection_set in connection_sets {
+        if seen.insert(connection_set.domain.clone()) {
+            ordered_domains.push(connection_set.domain.clone());
+        }
+    }
+
+    ordered_domains
+        .iter()
+        .map(|domain_signature| {
+            let domain_reference = parse_domain_reference(domain_signature);
+            let conservation_status = domains
+                .iter()
+                .find(|domain| domain.name == domain_reference.name)
+                .map(|domain| {
+                    if domain.conservations.is_empty() {
+                        "missing_conservation"
+                    } else {
+                        "conservation_recorded"
+                    }
+                })
+                .unwrap_or("unknown_domain");
+            let equation_count = equations
+                .iter()
+                .filter(|equation| equation.domain == *domain_signature)
+                .count();
+            let variable_count = variables
+                .iter()
+                .filter(|variable| variable.domain == *domain_signature)
+                .count();
+            ComponentDomainPlanInfo {
+                domain: domain_signature.clone(),
+                connection_set_count: connection_sets
+                    .iter()
+                    .filter(|connection_set| connection_set.domain == *domain_signature)
+                    .count(),
+                equation_count,
+                variable_count,
+                conservation_status: conservation_status.to_owned(),
+                solver_role: if equation_count > 0 {
+                    "homogeneous_connection_constraints".to_owned()
+                } else {
+                    "metadata_only".to_owned()
+                },
+            }
+        })
+        .collect()
+}
+
+fn build_component_solver_preview(
+    domain_count: usize,
+    state_count: usize,
+    equation_count: usize,
+    predictor_call_count: usize,
+) -> ComponentSolverPreviewInfo {
+    let status = if equation_count == 0 {
+        "no_numeric_preview"
+    } else if domain_count > 1 {
+        "multi_domain_preview"
+    } else {
+        "single_domain_preview"
+    };
+    ComponentSolverPreviewInfo {
+        status: status.to_owned(),
+        method: if equation_count == 0 {
+            "metadata_only"
+        } else {
+            "homogeneous_connection_constraint_preview"
+        }
+        .to_owned(),
+        mixed_algebraic_dynamic: if state_count > 0 {
+            "mixed_state_algebraic_seed"
+        } else {
+            "algebraic_only_seed"
+        }
+        .to_owned(),
+        nonlinear_residual: "symbolic_residual_seed_no_nonlinear_iteration".to_owned(),
+        dae_split: if state_count > 0 {
+            "dae_split_seed_deferred"
+        } else {
+            "algebraic_split_seed"
+        }
+        .to_owned(),
+        delay_history: "deferred_no_delay_calls".to_owned(),
+        predictor: if predictor_call_count > 0 {
+            "predictor_call_metadata_only"
+        } else {
+            "deferred_no_predictor_calls"
+        }
+        .to_owned(),
+        external_adapter: "deferred_no_external_behavior_adapter".to_owned(),
+        limitations: vec![
+            "not_full_dae".to_owned(),
+            "not_general_nonlinear".to_owned(),
+            "not_adaptive".to_owned(),
+            "not_production_multi_domain".to_owned(),
+            "no_jit_speed_claim".to_owned(),
+        ],
+    }
 }
 
 fn normalized_connection_key(

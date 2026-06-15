@@ -420,6 +420,7 @@ system_ir
 domain_summary
 component_summary
 connection_summary
+assembly_summary
 schema_summary
 schemas
 csv_promotions
@@ -466,6 +467,7 @@ system_ir
 domain_summary
 component_summary
 connection_summary
+assembly_summary
 plot_manifest
 warning_list
 ```
@@ -474,6 +476,13 @@ warning_list
 with `kind`, `name`, and `display`, so report/IDE/LSP consumers can distinguish
 the parameter kind (`Medium`, `Frame`, `Axis`) from the local parameter name
 used in a package declaration.
+
+`assembly_summary` stores component graph connection sets, generated
+across/through equation seeds, residual graph metadata, `domain_plans`, and
+`solver_preview`. A graph with more than one generated domain plan is labeled
+`multi_domain_preview`; that label means reviewable metadata plus homogeneous
+connection-constraint residual checking, not production physical multi-domain
+solving.
 
 The uncertainty track section records declared uncertainty forms, deterministic
 runtime summaries when available, scale/offset transforms, and propagation

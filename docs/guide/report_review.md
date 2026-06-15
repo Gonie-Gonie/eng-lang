@@ -98,7 +98,12 @@ entry is an object with `kind`, `name`, and `display` fields. For example,
 `assembly_summary` records metadata-only connection sets, generated
 across/through connection equations, variable/equation counts, residual graph
 dependencies, algebraic-loop candidates, Jacobian sparsity placeholders, and a
-no-solve solver-plan placeholder.
+no-solve solver-plan placeholder. It also records `domain_count`,
+`domain_plans`, and `solver_preview` for domain/component graphs. A graph with
+Thermal, `Fluid[Water]`, and `MechanicalNode[World, X]` connection sets reports
+`solver_preview.status = multi_domain_preview`, plus explicit future-solver
+seed statuses for nonlinear residuals, DAE splitting, delay/history buffers,
+Predictor behavior, and external behavior adapters.
 
 `plot_manifest` in `review.json` declares the runtime path that `eng run` will use. It does not carry the runtime manifest hash because `eng check --review` does not render plots.
 
@@ -174,6 +179,11 @@ For the domain/component solver preview, `result.engres` also records
 status, method, residual norm, convergence status, zero-vector variable values,
 residual evaluations, and any failure/limitation artifact such as
 `W-ASSEMBLY-UNDERDETERMINED-SEED`.
+
+The matching `report_spec.json` keeps the compiler-owned assembly plan fields
+beside the runtime-updated solver status. Tooling should treat
+`multi_domain_preview` as a reviewable plan plus homogeneous constraint
+residual check, not as a production multi-domain physical solve.
 
 ## `output_manifest.json`
 

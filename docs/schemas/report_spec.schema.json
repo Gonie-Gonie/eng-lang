@@ -362,6 +362,9 @@
         "local_expression_count",
         "operator_call_count",
         "predictor_call_count",
+        "domain_count",
+        "domain_plans",
+        "solver_preview",
         "connection_sets",
         "equations",
         "variables",
@@ -379,6 +382,12 @@
         "local_expression_count": { "type": "integer", "minimum": 0 },
         "operator_call_count": { "type": "integer", "minimum": 0 },
         "predictor_call_count": { "type": "integer", "minimum": 0 },
+        "domain_count": { "type": "integer", "minimum": 0 },
+        "domain_plans": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/assemblyDomainPlan" }
+        },
+        "solver_preview": { "$ref": "#/$defs/assemblySolverPreview" },
         "connection_sets": {
           "type": "array",
           "items": { "$ref": "#/$defs/assemblyConnectionSet" }
@@ -393,6 +402,53 @@
         },
         "boundary": { "$ref": "#/$defs/assemblyBoundary" },
         "residual_graph": { "$ref": "#/$defs/assemblyResidualGraph" }
+      }
+    },
+    "assemblyDomainPlan": {
+      "type": "object",
+      "required": [
+        "domain",
+        "connection_set_count",
+        "equation_count",
+        "variable_count",
+        "conservation_status",
+        "solver_role"
+      ],
+      "properties": {
+        "domain": { "type": "string" },
+        "connection_set_count": { "type": "integer", "minimum": 0 },
+        "equation_count": { "type": "integer", "minimum": 0 },
+        "variable_count": { "type": "integer", "minimum": 0 },
+        "conservation_status": { "type": "string" },
+        "solver_role": { "type": "string" }
+      }
+    },
+    "assemblySolverPreview": {
+      "type": "object",
+      "required": [
+        "status",
+        "method",
+        "mixed_algebraic_dynamic",
+        "nonlinear_residual",
+        "dae_split",
+        "delay_history",
+        "predictor",
+        "external_adapter",
+        "limitations"
+      ],
+      "properties": {
+        "status": { "type": "string" },
+        "method": { "type": "string" },
+        "mixed_algebraic_dynamic": { "type": "string" },
+        "nonlinear_residual": { "type": "string" },
+        "dae_split": { "type": "string" },
+        "delay_history": { "type": "string" },
+        "predictor": { "type": "string" },
+        "external_adapter": { "type": "string" },
+        "limitations": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
       }
     },
     "assemblyConnectionSet": {

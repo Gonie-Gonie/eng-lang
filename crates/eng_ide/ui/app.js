@@ -914,16 +914,21 @@ function renderAssemblies() {
   const rows = inspectorRows("assemblies").map((assembly) => {
     const boundary = assembly.boundary || {};
     const residualGraph = assembly.residual_graph || assembly.residualGraph || {};
+    const solverPreview = assembly.solver_preview || assembly.solverPreview || {};
     const setCount = Array.isArray(assembly.connection_sets)
       ? assembly.connection_sets.length
       : (assembly.connectionSets?.length ?? 0);
+    const domainCount = assembly.domain_count ?? assembly.domainCount ?? 0;
+    const limitations = Array.isArray(solverPreview.limitations)
+      ? solverPreview.limitations.join(", ")
+      : "-";
     return `
       <tr>
         <td><strong>${escapeHtml(assembly.name || "-")}</strong><div class="muted">${escapeHtml(assembly.status || "-")}</div></td>
         <td>${escapeHtml(assembly.component_count ?? assembly.componentCount ?? 0)} / ${escapeHtml(assembly.port_count ?? assembly.portCount ?? 0)}</td>
-        <td>${escapeHtml(setCount)}</td>
+        <td>${escapeHtml(setCount)}<div class="muted">domains ${escapeHtml(domainCount)}</div></td>
         <td>${escapeHtml(Array.isArray(assembly.equations) ? assembly.equations.length : 0)}<div class="muted">unknowns ${escapeHtml(boundary.unknown_count ?? boundary.unknownCount ?? 0)}</div></td>
-        <td>${escapeHtml(boundary.balance_status || boundary.balanceStatus || "-")}<div class="muted">${escapeHtml(residualGraph.solver_plan || residualGraph.solverPlan || "-")}</div></td>
+        <td>${escapeHtml(solverPreview.status || boundary.balance_status || boundary.balanceStatus || "-")}<div class="muted">${escapeHtml(solverPreview.method || residualGraph.solver_plan || residualGraph.solverPlan || "-")}</div><div class="muted">${escapeHtml(limitations)}</div></td>
       </tr>
     `;
   }).join("");

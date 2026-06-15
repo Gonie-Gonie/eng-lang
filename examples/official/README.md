@@ -35,8 +35,8 @@ paths before compatibility fixtures.
   structured generic parameters, domain-compatible connections, contract
   diagnostics, invalid connection diagnostics, metadata-only assembly
   connection sets, generated connection equations, equation/unknown counts, and
-  residual graph placeholders plus homogeneous connection-constraint solver
-  preview artifacts.
+  residual graph placeholders, domain-plan based multi-domain preview metadata,
+  and homogeneous connection-constraint solver preview artifacts.
 
 07_functions_imports
   Preview top-level execution, static file import, importable const values,

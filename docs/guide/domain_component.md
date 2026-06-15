@@ -3,8 +3,10 @@
 This guide documents the current experimental domain/component track surface.
 It is metadata-first: the compiler records domains, ports, and connections and
 checks domain compatibility. It also emits an equation/residual assembly seed
-for compatible connection sets, but it does not solve a multi-domain component
-graph yet.
+for compatible connection sets. When multiple compatible domain families appear
+in the same component graph, artifacts label the assembly as a multi-domain
+solver preview, but it remains a constrained residual/metadata preview rather
+than a physical multi-domain component solve.
 
 ## Domain Declaration
 
@@ -120,6 +122,10 @@ compiler records metadata-only generated equations:
   overdetermined diagnostic-code seed when the metadata is not balanced;
 - residual graph metadata records residual names, dependencies, algebraic-loop
   candidates, Jacobian sparsity placeholders, and a solver-plan placeholder.
+- `domain_plans` group generated constraints by instantiated domain, such as
+  `Thermal`, `Fluid[Water]`, and `MechanicalNode[World, X]`;
+- `solver_preview.status` is `multi_domain_preview` when one assembly contains
+  more than one domain plan.
 
 This is not a physical component graph solver. The generated equations are
 review/report metadata for future assembly and solver work.
@@ -139,6 +145,16 @@ The runtime result artifact writes this to
 This preview is useful for residual-evaluation plumbing, convergence/failure
 artifacts, and future solver integration, but it is not a physical
 multi-domain solve.
+
+The preview also records explicit future-solver seeds:
+
+- algebraic-only versus mixed state/algebraic classification;
+- symbolic nonlinear residual seed status;
+- DAE split seed status;
+- delay/history buffer seed status;
+- Predictor behavior and external adapter seed status;
+- limitations: `not_full_dae`, `not_general_nonlinear`, `not_adaptive`,
+  `not_production_multi_domain`, and `no_jit_speed_claim`.
 
 ## Artifact Surface
 
@@ -171,7 +187,9 @@ parameters, which component ports reference them, port type arguments, and
 whether each connection is currently `domain_compatible` or diagnostic-only.
 The `assembly_summary` section shows connection sets, generated connection
 equations, variable/equation counts, residual graph dependencies, and solver
-plan placeholders.
+plan placeholders. It also includes `domain_count`, `domain_plans`, and
+`solver_preview` so report, IDE, and automation consumers can distinguish a
+single-domain graph from a multi-domain preview graph.
 The runtime result also includes `component_solutions` with residual values,
 convergence status, zero-vector variable values, and failure/limitation
 artifacts.
@@ -186,7 +204,8 @@ re-parsing source files.
 - `examples/official/06_domain_port/main.eng`
   shows compatible Thermal, `Fluid[Water]`, and
   `MechanicalNode[World, X]` domain connections with package/version metadata
-  and structured generic parameter metadata.
+  and structured generic parameter metadata. Its assembly artifacts report
+  three domain plans and `solver_preview.status = multi_domain_preview`.
 - `examples/05_error_messages/port_domain_mismatch.eng`
   intentionally connects a Thermal port to a Fluid port and should report
   `E-CONNECT-DOMAIN-001` with a non-zero check exit.
@@ -221,6 +240,8 @@ Current:
 - generated connection-equation and residual graph artifacts;
 - homogeneous connection-constraint residual evaluation and solver preview
   artifact;
+- multi-domain assembly preview metadata with domain plans, future nonlinear/
+  DAE/delay/Predictor/adapter seed statuses, and explicit limitations;
 - review JSON output;
 - report spec and HTML report sections;
 - native IDE Domain Graph inspector;
@@ -232,6 +253,7 @@ Deferred:
 
 - physical component graph solving with boundary conditions and component
   behavior equations;
+- production multi-domain numerical solving;
 - package registries;
 - package dependency resolution;
 - numeric enforcement of conservation contracts.

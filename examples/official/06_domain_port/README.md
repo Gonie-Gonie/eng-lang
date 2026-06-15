@@ -18,6 +18,9 @@ This example is intentionally metadata-first:
   compatibility.
 - Compatible connections are grouped into assembly connection sets and generate
   metadata-only across/through equation seeds plus residual graph placeholders.
+- The assembled graph contains three domain plans (`Thermal`, `Fluid[Water]`,
+  and `MechanicalNode[World, X]`) and is labeled `multi_domain_preview` in
+  review/report artifacts.
 - Connection graph review also reports duplicate edges as diagnostics and
   resolved but unconnected ports as warnings.
 - A small top-level report keeps the file runnable while the domain graph
@@ -30,7 +33,9 @@ Current support boundary:
 - report spec, HTML report, native IDE, and LSP snapshot metadata expose the
   domain package/version and generic argument surface;
 - `assembly_summary` exposes generated connection equations, equation/unknown
-  counts, Jacobian sparsity placeholders, and a no-solve solver-plan placeholder;
+  counts, domain plans, future nonlinear/DAE/delay/Predictor/adapter seed
+  statuses, Jacobian sparsity placeholders, and a no-solve solver-plan
+  placeholder;
 - runtime `component_solutions` evaluates the homogeneous connection
   constraints, reports `fixed_point_converged`, and records the current
   non-unique/underdetermined limitation;

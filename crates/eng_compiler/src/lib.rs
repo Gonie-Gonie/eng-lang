@@ -48,15 +48,16 @@ pub use semantic::{
     ClassMethodInfo, ClassObjectFieldInfo, ClassObjectInfo, ClassObjectValidationInfo,
     ClassValidationInfo, CommandClauseInfo, CommandStyleInfo, ComponentAssemblyBoundaryInfo,
     ComponentAssemblyEquationInfo, ComponentAssemblyInfo, ComponentAssemblyVariableInfo,
-    ComponentConnectionSetInfo, ComponentInfo, ComponentJacobianSparsityInfo,
-    ComponentResidualDependencyInfo, ComponentResidualGraphInfo, ConnectionInfo, ConservationInfo,
-    ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo, DomainTypeParameterInfo,
-    DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo, EquationInfo,
-    EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo, FunctionLocalInfo,
-    FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo,
-    PrintInfo, ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo,
-    SystemVariableInfo, TestInfo, TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo,
-    WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
+    ComponentConnectionSetInfo, ComponentDomainPlanInfo, ComponentInfo,
+    ComponentJacobianSparsityInfo, ComponentResidualDependencyInfo, ComponentResidualGraphInfo,
+    ComponentSolverPreviewInfo, ConnectionInfo, ConservationInfo, ConstInfo, CsvExportFieldInfo,
+    CsvExportInfo, DomainInfo, DomainTypeParameterInfo, DomainVariableInfo,
+    EnvironmentDependencyInfo, EquationDependencyInfo, EquationInfo, EquationIrInfo,
+    FileOperationInfo, FormatExpressionInfo, FunctionInfo, FunctionLocalInfo, FunctionParamInfo,
+    GoldenInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo,
+    SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo, SystemVariableInfo, TestInfo,
+    TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo, WhereBlockInfo, WithBlockInfo,
+    WithOptionInfo, WriteInfo,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -2692,6 +2693,86 @@ pub fn review_json(report: &CheckReport) -> String {
             "      \"predictor_call_count\": {},\n",
             assembly.predictor_call_count
         ));
+        json.push_str(&format!(
+            "      \"domain_count\": {},\n",
+            assembly.domain_count
+        ));
+        json.push_str("      \"domain_plans\": [\n");
+        for (plan_index, plan) in assembly.domain_plans.iter().enumerate() {
+            if plan_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"domain\": \"{}\",\n",
+                json_escape(&plan.domain)
+            ));
+            json.push_str(&format!(
+                "          \"connection_set_count\": {},\n",
+                plan.connection_set_count
+            ));
+            json.push_str(&format!(
+                "          \"equation_count\": {},\n",
+                plan.equation_count
+            ));
+            json.push_str(&format!(
+                "          \"variable_count\": {},\n",
+                plan.variable_count
+            ));
+            json.push_str(&format!(
+                "          \"conservation_status\": \"{}\",\n",
+                json_escape(&plan.conservation_status)
+            ));
+            json.push_str(&format!(
+                "          \"solver_role\": \"{}\"\n",
+                json_escape(&plan.solver_role)
+            ));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"solver_preview\": {\n");
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&assembly.solver_preview.status)
+        ));
+        json.push_str(&format!(
+            "        \"method\": \"{}\",\n",
+            json_escape(&assembly.solver_preview.method)
+        ));
+        json.push_str(&format!(
+            "        \"mixed_algebraic_dynamic\": \"{}\",\n",
+            json_escape(&assembly.solver_preview.mixed_algebraic_dynamic)
+        ));
+        json.push_str(&format!(
+            "        \"nonlinear_residual\": \"{}\",\n",
+            json_escape(&assembly.solver_preview.nonlinear_residual)
+        ));
+        json.push_str(&format!(
+            "        \"dae_split\": \"{}\",\n",
+            json_escape(&assembly.solver_preview.dae_split)
+        ));
+        json.push_str(&format!(
+            "        \"delay_history\": \"{}\",\n",
+            json_escape(&assembly.solver_preview.delay_history)
+        ));
+        json.push_str(&format!(
+            "        \"predictor\": \"{}\",\n",
+            json_escape(&assembly.solver_preview.predictor)
+        ));
+        json.push_str(&format!(
+            "        \"external_adapter\": \"{}\",\n",
+            json_escape(&assembly.solver_preview.external_adapter)
+        ));
+        json.push_str("        \"limitations\": [");
+        for (limitation_index, limitation) in assembly.solver_preview.limitations.iter().enumerate()
+        {
+            if limitation_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(limitation)));
+        }
+        json.push_str("]\n");
+        json.push_str("      },\n");
         json.push_str("      \"connection_sets\": [\n");
         for (set_index, connection_set) in assembly.connection_sets.iter().enumerate() {
             if set_index > 0 {
@@ -4042,6 +4123,21 @@ mod tests {
             assembly.boundary.diagnostic_code.as_deref(),
             Some("W-ASSEMBLY-UNDERDETERMINED-SEED")
         );
+        assert_eq!(assembly.domain_count, 1);
+        assert_eq!(assembly.domain_plans[0].domain, "Fluid[Water]");
+        assert_eq!(
+            assembly.domain_plans[0].conservation_status,
+            "conservation_recorded"
+        );
+        assert_eq!(
+            assembly.domain_plans[0].solver_role,
+            "homogeneous_connection_constraints"
+        );
+        assert_eq!(assembly.solver_preview.status, "single_domain_preview");
+        assert_eq!(
+            assembly.solver_preview.nonlinear_residual,
+            "symbolic_residual_seed_no_nonlinear_iteration"
+        );
         assert_eq!(assembly.residual_graph.status, "metadata_only");
         assert_eq!(assembly.residual_graph.jacobian_sparsity.len(), 2);
 
@@ -4058,6 +4154,9 @@ mod tests {
         assert!(review.contains("\"name\": \"M\""));
         assert!(review.contains("\"package\": \"eng.std.domains.fluid\""));
         assert!(review.contains("\"Fluid[Water]\""));
+        assert!(review.contains("\"domain_count\": 1"));
+        assert!(review.contains("\"single_domain_preview\""));
+        assert!(review.contains("\"not_production_multi_domain\""));
         assert!(review.contains("\"domain_compatible\""));
     }
 

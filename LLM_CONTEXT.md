@@ -59,6 +59,9 @@ Implementation seeds for uncertainty, data-driven modeling, LSP, JIT/AOT,
 domain/component, class/domain-object, and general programming/side-effect work
 may exist on `main`, but they are future tracks unless the current status
 documents explicitly promote a narrow preview scope.
+The domain/component seed includes reviewable assembly metadata, domain plans,
+and a homogeneous connection-constraint solver preview; it is not production
+multi-domain physical solving.
 
 ## Core Invariants
 

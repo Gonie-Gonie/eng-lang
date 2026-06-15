@@ -140,10 +140,10 @@ workflow, and covered by the breaking-change policy.
   reports duplicate connection edges plus resolved-but-unconnected ports for
   review. Compatible connection sets now emit metadata-only generated
   connection equations, equation/unknown counts, residual graph dependencies,
-  algebraic-loop seeds, Jacobian sparsity placeholders, and a homogeneous
-  zero-vector connection-constraint solver preview. Boundary-condition solving,
-  component behavior solving, and production multi-domain solving remain
-  deferred.
+  algebraic-loop seeds, Jacobian sparsity placeholders, domain-plan based
+  multi-domain preview metadata, and a homogeneous zero-vector
+  connection-constraint solver preview. Boundary-condition solving, component
+  behavior solving, and production multi-domain solving remain deferred.
 - Standalone package output with `.engpkg`, bytecode, lock, source/dependency
   copy, dependency hashes, Args help, and reviewable report artifacts.
 - Temperature spelling policy: `degC` remains the canonical ASCII spelling, and
@@ -217,7 +217,8 @@ See [development tracks](tracks.md) for the current scope and limitations.
   counts, grouped/stacked bar hardening, and broader multi-axis semantics.
 - Multi-state, nonlinear, adaptive, or general equation-system solving is
   deferred.
-- Numeric component graph solving and domain package registries are deferred.
+- Production numeric component graph solving, physical multi-domain solving,
+  and domain package registries are deferred.
 - Quantity/unit-literal Args conversion beyond primitive typed Args is
   deferred.
 - Full Unicode unit spelling support beyond the supported `°C` alias is

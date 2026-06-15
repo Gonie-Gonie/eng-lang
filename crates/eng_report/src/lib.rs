@@ -373,12 +373,38 @@ pub struct ReportAssemblySummary {
     pub local_expression_count: usize,
     pub operator_call_count: usize,
     pub predictor_call_count: usize,
+    pub domain_count: usize,
+    pub domain_plans: Vec<ReportDomainPlan>,
+    pub solver_preview: ReportComponentSolverPreview,
     pub connection_sets: Vec<ReportConnectionSet>,
     pub equations: Vec<ReportAssemblyEquation>,
     pub variables: Vec<ReportAssemblyVariable>,
     pub boundary: ReportAssemblyBoundary,
     pub residual_graph: ReportResidualGraph,
     pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportDomainPlan {
+    pub domain: String,
+    pub connection_set_count: usize,
+    pub equation_count: usize,
+    pub variable_count: usize,
+    pub conservation_status: String,
+    pub solver_role: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComponentSolverPreview {
+    pub status: String,
+    pub method: String,
+    pub mixed_algebraic_dynamic: String,
+    pub nonlinear_residual: String,
+    pub dae_split: String,
+    pub delay_history: String,
+    pub predictor: String,
+    pub external_adapter: String,
+    pub limitations: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -970,6 +996,30 @@ pub fn report_spec_from_report(
             local_expression_count: assembly.local_expression_count,
             operator_call_count: assembly.operator_call_count,
             predictor_call_count: assembly.predictor_call_count,
+            domain_count: assembly.domain_count,
+            domain_plans: assembly
+                .domain_plans
+                .iter()
+                .map(|plan| ReportDomainPlan {
+                    domain: plan.domain.clone(),
+                    connection_set_count: plan.connection_set_count,
+                    equation_count: plan.equation_count,
+                    variable_count: plan.variable_count,
+                    conservation_status: plan.conservation_status.clone(),
+                    solver_role: plan.solver_role.clone(),
+                })
+                .collect(),
+            solver_preview: ReportComponentSolverPreview {
+                status: assembly.solver_preview.status.clone(),
+                method: assembly.solver_preview.method.clone(),
+                mixed_algebraic_dynamic: assembly.solver_preview.mixed_algebraic_dynamic.clone(),
+                nonlinear_residual: assembly.solver_preview.nonlinear_residual.clone(),
+                dae_split: assembly.solver_preview.dae_split.clone(),
+                delay_history: assembly.solver_preview.delay_history.clone(),
+                predictor: assembly.solver_preview.predictor.clone(),
+                external_adapter: assembly.solver_preview.external_adapter.clone(),
+                limitations: assembly.solver_preview.limitations.clone(),
+            },
             connection_sets: assembly
                 .connection_sets
                 .iter()
@@ -2263,6 +2313,86 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             "      \"predictor_call_count\": {},\n",
             assembly.predictor_call_count
         ));
+        json.push_str(&format!(
+            "      \"domain_count\": {},\n",
+            assembly.domain_count
+        ));
+        json.push_str("      \"domain_plans\": [\n");
+        for (plan_index, plan) in assembly.domain_plans.iter().enumerate() {
+            if plan_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"domain\": \"{}\",\n",
+                json_escape(&plan.domain)
+            ));
+            json.push_str(&format!(
+                "          \"connection_set_count\": {},\n",
+                plan.connection_set_count
+            ));
+            json.push_str(&format!(
+                "          \"equation_count\": {},\n",
+                plan.equation_count
+            ));
+            json.push_str(&format!(
+                "          \"variable_count\": {},\n",
+                plan.variable_count
+            ));
+            json.push_str(&format!(
+                "          \"conservation_status\": \"{}\",\n",
+                json_escape(&plan.conservation_status)
+            ));
+            json.push_str(&format!(
+                "          \"solver_role\": \"{}\"\n",
+                json_escape(&plan.solver_role)
+            ));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"solver_preview\": {\n");
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&assembly.solver_preview.status)
+        ));
+        json.push_str(&format!(
+            "        \"method\": \"{}\",\n",
+            json_escape(&assembly.solver_preview.method)
+        ));
+        json.push_str(&format!(
+            "        \"mixed_algebraic_dynamic\": \"{}\",\n",
+            json_escape(&assembly.solver_preview.mixed_algebraic_dynamic)
+        ));
+        json.push_str(&format!(
+            "        \"nonlinear_residual\": \"{}\",\n",
+            json_escape(&assembly.solver_preview.nonlinear_residual)
+        ));
+        json.push_str(&format!(
+            "        \"dae_split\": \"{}\",\n",
+            json_escape(&assembly.solver_preview.dae_split)
+        ));
+        json.push_str(&format!(
+            "        \"delay_history\": \"{}\",\n",
+            json_escape(&assembly.solver_preview.delay_history)
+        ));
+        json.push_str(&format!(
+            "        \"predictor\": \"{}\",\n",
+            json_escape(&assembly.solver_preview.predictor)
+        ));
+        json.push_str(&format!(
+            "        \"external_adapter\": \"{}\",\n",
+            json_escape(&assembly.solver_preview.external_adapter)
+        ));
+        json.push_str("        \"limitations\": [");
+        for (limitation_index, limitation) in assembly.solver_preview.limitations.iter().enumerate()
+        {
+            if limitation_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(limitation)));
+        }
+        json.push_str("]\n");
+        json.push_str("      },\n");
         json.push_str("      \"connection_sets\": [\n");
         for (set_index, connection_set) in assembly.connection_sets.iter().enumerate() {
             if set_index > 0 {
@@ -3546,12 +3676,13 @@ fn render_html_inner(
     for assembly in &report.semantic_program.component_assemblies {
         assembly_summary.push_str("<tr>");
         assembly_summary.push_str(&format!(
-            "<td>{}</td><td>graph</td><td>{}</td><td>components={}</td><td>ports={}, connections={}, component equations={}, local expressions={}, operators={}, predictors={}</td><td>{}</td>",
+            "<td>{}</td><td>graph</td><td>{}</td><td>components={}</td><td>ports={}, connections={}, domains={}, component equations={}, local expressions={}, operators={}, predictors={}</td><td>{}</td>",
             assembly.line,
             html_escape(&assembly.name),
             assembly.component_count,
             assembly.port_count,
             assembly.connection_count,
+            assembly.domain_count,
             assembly.component_equation_count,
             assembly.local_expression_count,
             assembly.operator_call_count,
@@ -3578,6 +3709,35 @@ fn render_html_inner(
                     .as_deref()
                     .unwrap_or(&assembly.boundary.balance_status)
             )
+        ));
+        assembly_summary.push_str("</tr>");
+        for domain_plan in &assembly.domain_plans {
+            assembly_summary.push_str("<tr>");
+            assembly_summary.push_str(&format!(
+                "<td>{}</td><td>domain plan</td><td>{}</td><td>sets={}</td><td>equations={}, variables={}, conservation={}</td><td>{}</td>",
+                assembly.line,
+                html_escape(&domain_plan.domain),
+                domain_plan.connection_set_count,
+                domain_plan.equation_count,
+                domain_plan.variable_count,
+                html_escape(&domain_plan.conservation_status),
+                html_escape(&domain_plan.solver_role)
+            ));
+            assembly_summary.push_str("</tr>");
+        }
+        assembly_summary.push_str("<tr>");
+        assembly_summary.push_str(&format!(
+            "<td>{}</td><td>solver preview</td><td>{}</td><td>{}</td><td>dynamic={}, nonlinear={}, dae={}, delay={}, predictor={}, adapter={}</td><td>{}</td>",
+            assembly.line,
+            html_escape(&assembly.solver_preview.status),
+            html_escape(&assembly.solver_preview.method),
+            html_escape(&assembly.solver_preview.mixed_algebraic_dynamic),
+            html_escape(&assembly.solver_preview.nonlinear_residual),
+            html_escape(&assembly.solver_preview.dae_split),
+            html_escape(&assembly.solver_preview.delay_history),
+            html_escape(&assembly.solver_preview.predictor),
+            html_escape(&assembly.solver_preview.external_adapter),
+            html_escape(&assembly.solver_preview.limitations.join(", "))
         ));
         assembly_summary.push_str("</tr>");
         for connection_set in &assembly.connection_sets {
@@ -4814,6 +4974,12 @@ mod tests {
         assert_eq!(spec.assemblies[0].connection_sets.len(), 1);
         assert_eq!(spec.assemblies[0].equations.len(), 2);
         assert_eq!(spec.assemblies[0].boundary.unknown_count, 4);
+        assert_eq!(spec.assemblies[0].domain_count, 1);
+        assert_eq!(spec.assemblies[0].domain_plans[0].domain, "Fluid[Water]");
+        assert_eq!(
+            spec.assemblies[0].solver_preview.status,
+            "single_domain_preview"
+        );
         assert_eq!(
             spec.assemblies[0].residual_graph.solver_plan,
             "metadata_only_no_numeric_solve"
@@ -4830,12 +4996,16 @@ mod tests {
         assert!(json.contains("\"display\": \"Medium M\""));
         assert!(json.contains("\"type_arguments\": [\"Water\"]"));
         assert!(json.contains("\"domain_count\": 1"));
+        assert!(json.contains("\"single_domain_preview\""));
+        assert!(json.contains("\"homogeneous_connection_constraints\""));
         assert!(html.contains("Domains"));
         assert!(html.contains("Fluid[Medium M]"));
         assert!(html.contains("eng.std.domains.fluid"));
         assert!(html.contains("Component Ports"));
         assert!(html.contains("Connections"));
         assert!(html.contains("Component Assembly"));
+        assert!(html.contains("solver preview"));
+        assert!(html.contains("domain plan"));
         assert!(html.contains("component_residual_graph"));
         assert!(html.contains("domain_compatible"));
     }

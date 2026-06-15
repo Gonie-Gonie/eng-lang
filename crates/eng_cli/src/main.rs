@@ -624,6 +624,8 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         || !domain_review.contains("\"assembly_summary\"")
         || !domain_review.contains("\"connection_equations_generated\"")
         || !domain_review.contains("\"component_residual_graph\"")
+        || !domain_review.contains("\"multi_domain_preview\"")
+        || !domain_review.contains("\"domain_count\": 3")
         || !domain_review.contains("\"domain_compatible\"")
     {
         eprintln!(
@@ -648,7 +650,13 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"fixed_point_converged\"")
+                || !output.report_spec_json.contains("\"domain_count\": 3")
+                || !output.report_spec_json.contains("\"multi_domain_preview\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"not_production_multi_domain\"")
                 || !output.report_html.contains("Component Solver Preview")
+                || !output.report_html.contains("domain plan")
             {
                 eprintln!(
                     "expected domain port run to expose component assembly solver preview artifacts"
