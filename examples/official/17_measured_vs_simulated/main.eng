@@ -6,11 +6,27 @@ args {
 schema WeatherData {
     time: DateTime index
     T_out: AbsoluteTemperature [degC]
+
+    constraints {
+        time is monotonic
+    }
+
+    missing {
+        T_out: error
+    }
 }
 
 schema MeasuredZoneData {
     time: DateTime index
     T_zone: AbsoluteTemperature [degC]
+
+    constraints {
+        time is monotonic
+    }
+
+    missing {
+        T_zone: error
+    }
 }
 
 weather_data = promote csv args.weather as WeatherData

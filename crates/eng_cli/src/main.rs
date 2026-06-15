@@ -1137,6 +1137,20 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(2);
         }
     }
+    if !measured_fixture_records_time_overlap(
+        "examples/official/17_measured_vs_simulated/main.eng",
+        "build/test-measured-vs-simulated-time-mismatch",
+        "data/measured_zone_time_mismatch.csv",
+    ) {
+        return ExitCode::from(2);
+    }
+    if !measured_fixture_records_missing_policy(
+        "examples/official/17_measured_vs_simulated/main.eng",
+        "build/test-measured-vs-simulated-missing",
+        "data/measured_zone_missing.csv",
+    ) {
+        return ExitCode::from(2);
+    }
     match run_file(
         Path::new("examples/official/01_csv_plot/main.eng"),
         Path::new("build/test-plot-args"),
@@ -1672,6 +1686,85 @@ fn data_quality_fixture_records_interpolation(source: &str, build_root: &str) ->
         }
         Err(error) => {
             eprintln!("interpolation fixture failed: {error}");
+            false
+        }
+    }
+}
+
+fn measured_fixture_records_time_overlap(
+    source: &str,
+    build_root: &str,
+    measured_fixture: &str,
+) -> bool {
+    match run_file(
+        Path::new(source),
+        Path::new(build_root),
+        &RunOptions {
+            save_artifacts: true,
+            args: vec![ArgOverride {
+                name: "measured".to_owned(),
+                value: measured_fixture.to_owned(),
+            }],
+            ..RunOptions::default()
+        },
+    ) {
+        Ok(output) => {
+            let result = output.result_json;
+            if !result.contains("\"sample_count\": 4")
+                || !result.contains("\"matched_count\": 4")
+                || !result.contains("\"status\": \"overlap\"")
+                || !result.contains("\"violation_count\": 0")
+            {
+                eprintln!(
+                    "expected {source} with {measured_fixture} to record partial TimeSeries overlap without policy violations"
+                );
+                return false;
+            }
+            println!("ok: {source} recorded measured/simulated partial TimeSeries overlap");
+            true
+        }
+        Err(error) => {
+            eprintln!("measured/simulated time-overlap fixture failed: {error}");
+            false
+        }
+    }
+}
+
+fn measured_fixture_records_missing_policy(
+    source: &str,
+    build_root: &str,
+    measured_fixture: &str,
+) -> bool {
+    match run_file(
+        Path::new(source),
+        Path::new(build_root),
+        &RunOptions {
+            save_artifacts: true,
+            args: vec![ArgOverride {
+                name: "measured".to_owned(),
+                value: measured_fixture.to_owned(),
+            }],
+            ..RunOptions::default()
+        },
+    ) {
+        Ok(output) => {
+            let result = output.result_json;
+            if !result.contains("\"sample_count\": 6")
+                || !result.contains("\"target\": \"T_zone\"")
+                || !result.contains("\"policy\": \"error\"")
+                || !result.contains("\"violation_count\": 1")
+                || !result.contains("missing value violates `error` policy")
+            {
+                eprintln!(
+                    "expected {source} with {measured_fixture} to record one measured-data missing policy violation"
+                );
+                return false;
+            }
+            println!("ok: {source} recorded measured-data missing policy violation");
+            true
+        }
+        Err(error) => {
+            eprintln!("measured/simulated missing-policy fixture failed: {error}");
             false
         }
     }

@@ -4,6 +4,24 @@ This official example closes the v3 roadmap fusion path: typed measured data
 and typed simulation output meet as TimeSeries, then produce an RMSE metric, a
 validation result, a multi-series PlotSpec, and reviewable artifacts.
 
+The schemas also exercise the runtime data-quality surface:
+
+```text
+- weather_data.T_out and measured_data.T_zone use missing-value `error` policies
+- both CSV inputs require monotonic DateTime indexes
+- artifact output records metric sample counts and TimeSeries alignment status
+```
+
+Regression fixtures:
+
+```text
+- data/measured_zone_time_mismatch.csv: measured samples are spaced every 20 min,
+  so the measured/simulated TimeSeries alignment is recorded as partial overlap
+- data/measured_zone_missing.csv: one measured T_zone cell is empty, so the
+  missing-value policy records a violation while the run artifacts remain
+  inspectable
+```
+
 Current limitation:
 
 ```text
