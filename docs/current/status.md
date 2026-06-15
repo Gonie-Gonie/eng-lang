@@ -70,9 +70,10 @@ covered by the breaking-change policy.
 - PlotSpec v1 line plots, measured-vs-simulated multi-series line plots, SVG
   output, plot manifests, report HTML, review JSON, report spec, and result
   artifacts.
-- Measured-vs-simulated workflow: weather/measured CSV promotion, one-state
-  fixed-step thermal simulation output as `sim.T_zone`, RMSE metric,
-  validation result, time-alignment metadata, and multi-series PlotSpec.
+- Measured-vs-simulated workflow: weather/measured CSV promotion, explicit
+  `TimeSeries[Time]` thermal input contract, one-state fixed-step thermal
+  simulation output as `sim.T_zone`, RMSE metric, validation result,
+  time-alignment metadata, and multi-series PlotSpec.
 - Unit-aware `print`, structured `log debug/info/warn/error`, one-row summary
   CSV export, explicit write outputs, process results, local test/assert/golden
   checks, and their saved artifacts.

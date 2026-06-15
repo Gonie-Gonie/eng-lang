@@ -35,8 +35,8 @@ Start from these short status documents:
 - Typed CSV promote through official examples
 - Unit-aware TimeSeries calculations
 - TimeSeries statistics and integration metadata
-- Measured-vs-simulated workflow with RMSE, validation, time alignment, and
-  multi-series PlotSpec
+- Measured-vs-simulated workflow with explicit TimeSeries input, RMSE,
+  validation, time alignment, and multi-series PlotSpec
 - Unit-aware print and explicit summary CSV export
 - Typed path helpers and provenance-visible `exists`
 - Read-only UTF-8 `read text/json/toml` with source hash provenance

@@ -38,8 +38,9 @@ The current stable core supports:
 - command-style built-in workflow verbs with where/with policy
 - unit-aware TimeSeries calculation
 - statistics and integration metadata
-- measured-vs-simulated workflow with typed simulation TimeSeries, RMSE,
-  validation, time-alignment metadata, and multi-series PlotSpec
+- measured-vs-simulated workflow with explicit TimeSeries system input, typed
+  simulation TimeSeries, RMSE, validation, time-alignment metadata, and
+  multi-series PlotSpec
 - unit-aware print and explicit summary CSV export
 - typed path helpers and provenance-visible `exists`
 - read-only UTF-8 `read text/json/toml` with source hash provenance

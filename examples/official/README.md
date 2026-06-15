@@ -87,9 +87,10 @@ paths before compatibility fixtures.
 
 17_measured_vs_simulated
   Integrated typed data plus simulation workflow with weather/measured CSV
-  promotion, fixed-step one-state thermal simulation output as `sim.T_zone`,
-  RMSE calculation, threshold validation, time-alignment metadata, and a
-  measured/simulated multi-series PlotSpec.
+  promotion, explicit TimeSeries thermal input binding, fixed-step one-state
+  thermal simulation output as `sim.T_zone`, RMSE calculation, threshold
+  validation, time-alignment metadata, and a measured/simulated multi-series
+  PlotSpec.
 
 19_class_object
   Typed class declarations, object literals, nested object references, simple

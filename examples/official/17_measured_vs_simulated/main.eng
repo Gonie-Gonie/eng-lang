@@ -38,7 +38,7 @@ system RoomThermal {
 
     state T_zone: AbsoluteTemperature = 22 degC
 
-    input T_out: AbsoluteTemperature = 8 degC
+    input T_out: TimeSeries[Time] of AbsoluteTemperature [degC]
     input Q_internal: HeatRate = 2400 W
 
     equation energy_balance:

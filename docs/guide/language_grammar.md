@@ -1189,15 +1189,17 @@ rmse_T = rmse measured_data.T_zone vs sim.T_zone
 validate rmse_T < 5 K
 ```
 
-Dynamic inputs are checked as Time-indexed TimeSeries values. The supported system path
-accepts scalar system input declarations such as `input T_out: AbsoluteTemperature`
-when the `simulate` binding provides a TimeSeries option, and it also parses
-explicit contracts such as:
+Dynamic inputs are checked as Time-indexed TimeSeries values. The supported
+measured-vs-simulated path uses an explicit input contract:
 
 ```eng partial
 input T_out: TimeSeries[Time] of AbsoluteTemperature [degC]
 input solar: TimeSeries[Time] of Irradiance [W/m2]
 ```
+
+The one-state thermal runner also keeps the earlier scalar input plus
+TimeSeries-binding form for narrow compatibility, such as
+`input T_out: AbsoluteTemperature` with `simulate ... with { T_out = weather_data.T_out }`.
 
 The compiler reports diagnostics for missing dynamic inputs, wrong TimeSeries
 quantity, wrong axis, missing `timestep`/`solver`, unsupported solver values,

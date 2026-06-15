@@ -84,8 +84,8 @@ official/16_test_assert_golden
 
 official/17_measured_vs_simulated
   Stable measured-vs-simulated workflow with weather/measured CSV promotion,
-  one-state fixed-step simulation output, RMSE, validation, time alignment, and
-  multi-series PlotSpec.
+  explicit TimeSeries input binding, one-state fixed-step simulation output,
+  RMSE, validation, time alignment, and multi-series PlotSpec.
 
 official/19_class_object
   Supported class/domain-object authoring fixture with typed fields, defaults,

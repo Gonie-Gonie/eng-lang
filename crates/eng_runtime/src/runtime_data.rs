@@ -2482,7 +2482,8 @@ fn materialize_first_order_thermal_solution(
         .iter()
         .find(|variable| variable.role == "parameter" && variable.quantity_kind == "Conductance")?;
     let outdoor_temperature = system.variables.iter().find(|variable| {
-        variable.role == "input" && variable.quantity_kind == "AbsoluteTemperature"
+        variable.role == "input"
+            && system_variable_matches_quantity(variable, "AbsoluteTemperature")
     })?;
     let internal_heat = system
         .variables
@@ -2503,7 +2504,20 @@ fn materialize_first_order_thermal_solution(
     let conductance_w_per_k = canonical_variable_value(conductance)?;
     let outdoor_series = option_value(options, &outdoor_temperature.name)
         .and_then(|name| series.iter().find(|series| series.name == name));
-    let outdoor_temperature_k = canonical_variable_value(outdoor_temperature)?;
+    let outdoor_quantity_kind = system_variable_value_quantity(outdoor_temperature);
+    let outdoor_temperature_k = canonical_variable_value(outdoor_temperature).or_else(|| {
+        outdoor_series.and_then(|series| {
+            series.points.first().and_then(|point| {
+                convert_to_canonical_unit(
+                    point.y,
+                    Some(&series.display_unit),
+                    &outdoor_temperature.canonical_unit,
+                    &outdoor_quantity_kind,
+                )
+                .ok()
+            })
+        })
+    })?;
     let internal_heat_w = canonical_variable_value(internal_heat)?;
     let initial_temperature_k = canonical_variable_value(state)?;
 
@@ -2534,7 +2548,7 @@ fn materialize_first_order_thermal_solution(
                     value,
                     Some(&outdoor_temperature.display_unit),
                     &outdoor_temperature.canonical_unit,
-                    &outdoor_temperature.quantity_kind,
+                    &outdoor_quantity_kind,
                 )
                 .unwrap_or(outdoor_temperature_k)
             })
@@ -2570,6 +2584,23 @@ fn materialize_first_order_thermal_solution(
         canonical_final_value: temperature_k,
         points,
     })
+}
+
+fn system_variable_matches_quantity(
+    variable: &eng_compiler::SystemVariableInfo,
+    quantity_kind: &str,
+) -> bool {
+    if variable.quantity_kind == quantity_kind {
+        return true;
+    }
+    time_series_quantity(&variable.quantity_kind)
+        .is_some_and(|(_, quantity)| quantity == quantity_kind)
+}
+
+fn system_variable_value_quantity(variable: &eng_compiler::SystemVariableInfo) -> String {
+    time_series_quantity(&variable.quantity_kind)
+        .map(|(_, quantity)| quantity)
+        .unwrap_or_else(|| variable.quantity_kind.clone())
 }
 
 fn materialize_system_solution_series(
@@ -5076,6 +5107,33 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         let source = std::fs::read_to_string(&source_path).unwrap();
         let report = check_file(&source_path, &CheckOptions::default()).unwrap();
         let runtime = materialize_runtime_data(&report, &source);
+
+        let room = report
+            .semantic_program
+            .systems
+            .iter()
+            .find(|system| system.name == "RoomThermal")
+            .unwrap();
+        let outdoor_input = room
+            .variables
+            .iter()
+            .find(|variable| variable.name == "T_out")
+            .unwrap();
+        assert_eq!(
+            outdoor_input.quantity_kind,
+            "TimeSeries[Time] of AbsoluteTemperature"
+        );
+        let solution = runtime
+            .system_solutions
+            .iter()
+            .find(|solution| solution.binding.as_deref() == Some("sim"))
+            .unwrap();
+        assert_eq!(solution.status, "computed");
+        assert_eq!(solution.method, "explicit_euler_fixed_step");
+        assert!(runtime
+            .time_series
+            .iter()
+            .any(|series| series.name == "sim.T_zone"));
 
         let metric = runtime
             .metrics

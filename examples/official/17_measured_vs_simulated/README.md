@@ -9,6 +9,7 @@ The schemas also exercise the runtime data-quality surface:
 ```text
 - weather_data.T_out and measured_data.T_zone use missing-value `error` policies
 - both CSV inputs require monotonic DateTime indexes
+- RoomThermal declares `T_out` as `TimeSeries[Time] of AbsoluteTemperature`
 - simulate with-options are checked for TimeSeries input quantity, Time axis,
   duration timestep, and supported solver metadata
 - artifact output records metric sample counts and TimeSeries alignment status

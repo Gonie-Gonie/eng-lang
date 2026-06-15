@@ -18,9 +18,10 @@ workflow are expected to remain compatible across `1.x` releases.
 - DateTime-indexed table metadata and the documented HeatRate TimeSeries path.
 - TimeSeries statistics and trapezoidal integration for the documented data
   path.
-- Measured-vs-simulated workflow: CSV-derived measured TimeSeries, one-state
-  fixed-step thermal simulation output as `sim.T_zone`, RMSE metric,
-  validation result, time-alignment metadata, and multi-series PlotSpec.
+- Measured-vs-simulated workflow: CSV-derived measured/weather TimeSeries,
+  explicit `TimeSeries[Time]` thermal input contract, one-state fixed-step
+  thermal simulation output as `sim.T_zone`, RMSE metric, validation result,
+  time-alignment metadata, and multi-series PlotSpec.
 - Unit-aware `print`, structured `log <level>`, one-row summary CSV export,
   explicit write outputs, process results, and local test/assert/golden checks
   within their documented boundaries.
