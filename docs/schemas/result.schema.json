@@ -149,7 +149,7 @@
     },
     "resultMetric": {
       "type": "object",
-      "required": ["binding", "kind", "left", "right", "quantity_kind", "unit", "value", "sample_count", "status", "line"],
+      "required": ["binding", "kind", "left", "right", "quantity_kind", "unit", "value", "sample_count", "alignment_reference", "alignment_status", "alignment_step_status", "status", "line"],
       "properties": {
         "binding": { "type": "string" },
         "kind": { "type": "string" },
@@ -159,6 +159,9 @@
         "unit": { "type": "string" },
         "value": { "type": "number" },
         "sample_count": { "type": "integer", "minimum": 0 },
+        "alignment_reference": { "type": ["string", "null"] },
+        "alignment_status": { "type": ["string", "null"] },
+        "alignment_step_status": { "type": ["string", "null"] },
         "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }

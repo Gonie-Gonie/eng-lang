@@ -183,6 +183,9 @@ pub struct ReportComputedMetric {
     pub unit: String,
     pub value: f64,
     pub sample_count: usize,
+    pub alignment_reference: Option<String>,
+    pub alignment_status: Option<String>,
+    pub alignment_step_status: Option<String>,
     pub status: String,
     pub line: usize,
 }
@@ -1832,6 +1835,24 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             "      \"sample_count\": {},\n",
             metric.sample_count
         ));
+        push_optional_json_string(
+            &mut json,
+            "alignment_reference",
+            metric.alignment_reference.as_deref(),
+            6,
+        );
+        push_optional_json_string(
+            &mut json,
+            "alignment_status",
+            metric.alignment_status.as_deref(),
+            6,
+        );
+        push_optional_json_string(
+            &mut json,
+            "alignment_step_status",
+            metric.alignment_step_status.as_deref(),
+            6,
+        );
         json.push_str(&format!(
             "      \"status\": \"{}\",\n",
             json_escape(&metric.status)
@@ -4365,14 +4386,27 @@ fn render_computed_metrics_section(spec: &ReportSpec) -> String {
         .computed_metrics
         .iter()
         .map(|metric| {
+            let alignment = metric
+                .alignment_reference
+                .as_deref()
+                .map(|reference| {
+                    format!(
+                        "{} ({}/{})",
+                        reference,
+                        metric.alignment_status.as_deref().unwrap_or("unknown"),
+                        metric.alignment_step_status.as_deref().unwrap_or("unknown")
+                    )
+                })
+                .unwrap_or_else(|| "n/a".to_owned());
             format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{:.6}</td><td>{}</td><td>{}</td></tr>",
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{:.6}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
                 metric.line,
                 html_escape(&metric.binding),
                 html_escape(&metric.kind),
                 html_escape(&format!("{} vs {}", metric.left, metric.right)),
                 metric.value,
                 html_escape(&metric.unit),
+                html_escape(&alignment),
                 html_escape(&metric.status)
             )
         })
@@ -4381,7 +4415,7 @@ fn render_computed_metrics_section(spec: &ReportSpec) -> String {
     format!(
         r#"<h2>Computed Metrics</h2>
     <table>
-      <thead><tr><th>Line</th><th>Binding</th><th>Kind</th><th>Comparison</th><th>Value</th><th>Unit</th><th>Status</th></tr></thead>
+      <thead><tr><th>Line</th><th>Binding</th><th>Kind</th><th>Comparison</th><th>Value</th><th>Unit</th><th>Alignment</th><th>Status</th></tr></thead>
       <tbody>{rows}</tbody>
     </table>"#
     )

@@ -868,18 +868,24 @@ function renderTimeSeries() {
 }
 
 function renderMetrics() {
-  const rows = inspectorRows("metrics").map((metric) => `
+  const rows = inspectorRows("metrics").map((metric) => {
+    const alignmentReference = metric.alignment_reference ?? metric.alignmentReference ?? "-";
+    const alignmentStatus = metric.alignment_status ?? metric.alignmentStatus ?? "-";
+    const alignmentStepStatus = metric.alignment_step_status ?? metric.alignmentStepStatus ?? "-";
+    return `
     <tr>
       <td><strong>${escapeHtml(metric.binding || "-")}</strong><div class="muted">${escapeHtml(metric.kind || "-")}</div></td>
       <td>${escapeHtml(metric.left || "-")} vs ${escapeHtml(metric.right || "-")}</td>
       <td>${metricCell(metric.value)} ${escapeHtml(metric.unit || "")}</td>
+      <td>${escapeHtml(alignmentReference)}<div class="muted">${escapeHtml(alignmentStatus)} / ${escapeHtml(alignmentStepStatus)}</div></td>
       <td>${escapeHtml(metric.status || "-")}</td>
     </tr>
-  `).join("");
+  `;
+  }).join("");
   return `
     <table class="var-table">
-      <thead><tr><th>Name</th><th>Inputs</th><th>Value</th><th>Status</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="4" class="muted">No metrics.</td></tr>`}</tbody>
+      <thead><tr><th>Name</th><th>Inputs</th><th>Value</th><th>Alignment</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">No metrics.</td></tr>`}</tbody>
     </table>
   `;
 }

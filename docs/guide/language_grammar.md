@@ -1194,7 +1194,9 @@ TimeSeries overlap/match status appears in `time_alignments`. Alignment artifact
 also include nominal left/right time steps, irregular-axis flags, and a
 `step_status` of `matched`, `mismatch`, or `unavailable`. Runtime report specs
 also include `time_axes` entries with source column, range, count, nominal step,
-missing count, and irregular-axis status per promoted table.
+missing count, and irregular-axis status per promoted table. RMSE metrics record
+their `alignment_reference`, `alignment_status`, and `alignment_step_status`
+when a corresponding TimeSeries alignment artifact exists.
 
 The state-space track is internal and metadata-first:
 

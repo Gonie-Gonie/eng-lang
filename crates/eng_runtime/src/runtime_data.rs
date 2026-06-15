@@ -342,6 +342,9 @@ impl RuntimeData {
                 unit: metric.unit.clone(),
                 value: metric.value,
                 sample_count: metric.sample_count,
+                alignment_reference: metric.alignment_reference.clone(),
+                alignment_status: metric.alignment_status.clone(),
+                alignment_step_status: metric.alignment_step_status.clone(),
                 status: metric.status.clone(),
                 line: metric.line,
             })
@@ -671,6 +674,9 @@ pub struct RuntimeMetric {
     pub unit: String,
     pub value: f64,
     pub sample_count: usize,
+    pub alignment_reference: Option<String>,
+    pub alignment_status: Option<String>,
+    pub alignment_step_status: Option<String>,
     pub status: String,
     pub line: usize,
 }
@@ -937,7 +943,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.integrations = materialize_integrations(report, &data.time_series);
     data.uncertainties = materialize_uncertainties(report);
     data.ml_artifacts = materialize_ml_artifacts(report, &data.time_series, &data.tables);
-    data.metrics = materialize_metrics(report, &data.time_series);
+    data.metrics = materialize_metrics(report, &data.time_series, &data.time_alignments);
     data.validations = materialize_validations(report, &data.metrics, &data.integrations);
     data
 }
@@ -1374,7 +1380,11 @@ fn materialize_integrations(
         .collect()
 }
 
-fn materialize_metrics(report: &CheckReport, series: &[RuntimeTimeSeries]) -> Vec<RuntimeMetric> {
+fn materialize_metrics(
+    report: &CheckReport,
+    series: &[RuntimeTimeSeries],
+    alignments: &[RuntimeTimeAlignment],
+) -> Vec<RuntimeMetric> {
     report
         .inferred_declarations
         .iter()
@@ -1382,6 +1392,8 @@ fn materialize_metrics(report: &CheckReport, series: &[RuntimeTimeSeries]) -> Ve
             let (left, right) = parse_rmse_expression(&declaration.expression)?;
             let left_series = series.iter().find(|series| series.name == left)?;
             let right_series = series.iter().find(|series| series.name == right)?;
+            let (alignment_reference, alignment_status, alignment_step_status) =
+                metric_alignment_reference(&left, &right, alignments);
             let mut actual = Vec::new();
             let mut predicted = Vec::new();
             for point in &left_series.points {
@@ -1406,6 +1418,9 @@ fn materialize_metrics(report: &CheckReport, series: &[RuntimeTimeSeries]) -> Ve
                     unit: right_series.display_unit.clone(),
                     value: 0.0,
                     sample_count: 0,
+                    alignment_reference,
+                    alignment_status,
+                    alignment_step_status,
                     status: "unavailable".to_owned(),
                     line: declaration.line,
                 });
@@ -1432,11 +1447,35 @@ fn materialize_metrics(report: &CheckReport, series: &[RuntimeTimeSeries]) -> Ve
                 unit,
                 value,
                 sample_count: actual.len(),
+                alignment_reference,
+                alignment_status,
+                alignment_step_status,
                 status: "computed".to_owned(),
                 line: declaration.line,
             })
         })
         .collect()
+}
+
+fn metric_alignment_reference(
+    left: &str,
+    right: &str,
+    alignments: &[RuntimeTimeAlignment],
+) -> (Option<String>, Option<String>, Option<String>) {
+    alignments
+        .iter()
+        .find(|alignment| {
+            (alignment.left == left && alignment.right == right)
+                || (alignment.left == right && alignment.right == left)
+        })
+        .map(|alignment| {
+            (
+                Some(format!("{} vs {}", alignment.left, alignment.right)),
+                Some(alignment.status.clone()),
+                Some(alignment.step_status.clone()),
+            )
+        })
+        .unwrap_or((None, None, None))
 }
 
 fn parse_rmse_expression(expression: &str) -> Option<(String, String)> {
@@ -4802,6 +4841,29 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         assert_eq!(irregular.right_nominal_step, Some(60.0));
         assert!(irregular.right_irregular);
         assert_eq!(irregular.step_status, "mismatch");
+    }
+
+    #[test]
+    fn materializes_rmse_metric_alignment_reference() {
+        let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/official/17_measured_vs_simulated/main.eng");
+        let source = std::fs::read_to_string(&source_path).unwrap();
+        let report = check_file(&source_path, &CheckOptions::default()).unwrap();
+        let runtime = materialize_runtime_data(&report, &source);
+
+        let metric = runtime
+            .metrics
+            .iter()
+            .find(|metric| metric.binding == "rmse_T")
+            .unwrap();
+
+        assert_eq!(
+            metric.alignment_reference.as_deref(),
+            Some("measured_data.T_zone vs sim.T_zone")
+        );
+        assert!(metric.alignment_status.is_some());
+        assert_eq!(metric.alignment_step_status.as_deref(), Some("matched"));
     }
 
     fn time_axis_table(binding: &str, timestamps: &[&str]) -> RuntimeTable {

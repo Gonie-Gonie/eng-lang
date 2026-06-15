@@ -3512,6 +3512,24 @@ fn result_json(
             "        \"sample_count\": {},\n",
             metric.sample_count
         ));
+        push_optional_json_string(
+            &mut metrics,
+            "alignment_reference",
+            metric.alignment_reference.as_deref(),
+            8,
+        );
+        push_optional_json_string(
+            &mut metrics,
+            "alignment_status",
+            metric.alignment_status.as_deref(),
+            8,
+        );
+        push_optional_json_string(
+            &mut metrics,
+            "alignment_step_status",
+            metric.alignment_step_status.as_deref(),
+            8,
+        );
         metrics.push_str(&format!(
             "        \"status\": \"{}\",\n",
             json_escape(&metric.status)
