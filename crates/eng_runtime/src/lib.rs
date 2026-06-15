@@ -378,11 +378,11 @@ pub fn run_source(
     let report_spec_path = result_dir.join("report_spec.json");
     let report_path = result_dir.join("report.html");
 
-    let bytecode = build_bytecode(&check_report, &source);
+    let bytecode = build_bytecode(&check_report, source);
     let bytecode_hash = hash_text(&bytecode);
     let bytecode_program = parse_bytecode(&bytecode)?;
     let mut execution = execute_bytecode(&bytecode_program)?;
-    let runtime_data = materialize_runtime_data(&check_report, &source);
+    let runtime_data = materialize_runtime_data(&check_report, source);
     apply_runtime_lengths(&mut execution, &runtime_data);
     let stdout = render_stdout(&check_report, &runtime_data);
     let run_log_json = run_log_json(
