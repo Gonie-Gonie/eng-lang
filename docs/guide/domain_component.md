@@ -99,6 +99,8 @@ Connections use source-order metadata. Both endpoints must be written as
 | `E-CONNECT-MEDIUM-001` | Same generic domain, but `Medium` arguments differ. |
 | `E-CONNECT-FRAME-001` | Same generic domain, but `Frame` arguments differ. |
 | `E-CONNECT-AXIS-001` | Same generic domain, but `Axis` arguments differ. |
+| `E-CONNECT-DUPLICATE-001` | The same component-port pair is connected more than once, including reversed duplicates. |
+| `W-PORT-UNCONNECTED-001` | A resolved component port has no connection edge. |
 
 Connection summaries are emitted in source order. They are not sorted by graph
 topology because numeric graph solving is still deferred.
@@ -150,6 +152,9 @@ re-parsing source files.
   `frame_mismatch.eng`, and `axis_mismatch.eng`
   intentionally connect generic domain ports with incompatible metadata
   arguments.
+- `examples/05_error_messages/duplicate_connection.eng`
+  intentionally repeats the same connection edge in reverse order and should
+  report `E-CONNECT-DUPLICATE-001`.
 - `examples/05_error_messages/generic_domain_arity.eng`
   intentionally omits the required generic domain argument.
 - `examples/05_error_messages/domain_missing_across.eng`,
@@ -168,6 +173,7 @@ Current:
 - domain variable quantity/unit metadata;
 - port domain validation;
 - connection compatibility diagnostics;
+- duplicate connection diagnostics and unconnected port warnings;
 - medium/frame/axis metadata compatibility diagnostics;
 - review JSON output;
 - report spec and HTML report sections;

@@ -131,6 +131,9 @@ workflow, and covered by the breaking-change policy.
   `InputVector`, `OutputVector`, `Derivative[...]`, and
   `LinearOperator[From -> To]` metadata in `review.json`; this is a
   metadata-first preview, not a matrix solver claim.
+- The domain/component preview records component connection graph metadata and
+  reports duplicate connection edges plus resolved-but-unconnected ports for
+  review before any numeric component solver exists.
 - Standalone package output with `.engpkg`, bytecode, lock, source/dependency
   copy, dependency hashes, Args help, and reviewable report artifacts.
 - Temperature spelling policy: `degC` remains the canonical ASCII spelling, and

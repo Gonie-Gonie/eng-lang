@@ -16,6 +16,8 @@ This example is intentionally metadata-first:
 - `component` declarations expose named `port` entries.
 - `connect` records component-port connections and validates domain
   compatibility.
+- Connection graph review also reports duplicate edges as diagnostics and
+  resolved but unconnected ports as warnings.
 - A small top-level report keeps the file runnable while the domain graph
   remains a compile-time/review artifact.
 
@@ -27,6 +29,7 @@ Current support boundary:
   domain package/version and generic argument surface;
 - numeric multi-domain simulation is not implemented;
 - medium/frame/axis compatibility diagnostics are metadata checks only.
+- duplicate connection and unconnected-port checks are graph-shape checks only.
 - domain contract diagnostics require at least one across variable, through
   variable, and conservation line.
 

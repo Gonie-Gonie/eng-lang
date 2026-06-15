@@ -1,0 +1,16 @@
+domain Thermal {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+component WallA {
+    port heat: Thermal
+}
+
+component WallB {
+    port heat: Thermal
+}
+
+connect WallA.heat -> WallB.heat
+connect WallB.heat -> WallA.heat

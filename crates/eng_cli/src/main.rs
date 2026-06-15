@@ -771,6 +771,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             "E-CONNECT-AXIS-001",
         ),
         (
+            "examples/05_error_messages/duplicate_connection.eng",
+            "E-CONNECT-DUPLICATE-001",
+        ),
+        (
             "examples/05_error_messages/generic_domain_arity.eng",
             "E-PORT-DOMAIN-002",
         ),

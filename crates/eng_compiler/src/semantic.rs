@@ -2999,6 +2999,8 @@ fn analyze_connections(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<ConnectionInfo> {
     let mut connections = Vec::new();
+    let mut seen_connections = HashSet::new();
+    let mut connected_ports = HashSet::new();
     for component in components.iter_mut() {
         for port in &mut component.ports {
             let Some(domain) = domains
@@ -3056,6 +3058,19 @@ fn analyze_connections(
             ));
             continue;
         };
+        let duplicate_key =
+            normalized_connection_key(&left_component, &left_port, &right_component, &right_port);
+        if !seen_connections.insert(duplicate_key) {
+            diagnostics.push(Diagnostic::error(
+                "E-CONNECT-DUPLICATE-001",
+                connection.line,
+                &format!(
+                    "Connection `{}` -> `{}` duplicates an existing connection.",
+                    connection.left, connection.right
+                ),
+                Some("Remove the duplicate connection so the graph has one edge per port pair."),
+            ));
+        }
         let left_resolved = resolved_port(components, &left_component, &left_port);
         let right_resolved = resolved_port(components, &right_component, &right_port);
         let (domain, status) = match (left_resolved, right_resolved) {
@@ -3110,6 +3125,12 @@ fn analyze_connections(
                 ("unknown".to_owned(), "unresolved_endpoint".to_owned())
             }
         };
+        if left_resolved.is_some() {
+            connected_ports.insert(format!("{}.{}", left_component, left_port));
+        }
+        if right_resolved.is_some() {
+            connected_ports.insert(format!("{}.{}", right_component, right_port));
+        }
 
         connections.push(ConnectionInfo {
             left: connection.left.clone(),
@@ -3123,7 +3144,36 @@ fn analyze_connections(
             line: connection.line,
         });
     }
+    for component in components {
+        for port in &component.ports {
+            if port.status == "domain_resolved"
+                && !connected_ports.contains(&format!("{}.{}", component.name, port.name))
+            {
+                diagnostics.push(Diagnostic::warning(
+                    "W-PORT-UNCONNECTED-001",
+                    port.line,
+                    &format!("Port `{}.{}` is not connected.", component.name, port.name),
+                    Some("Connect the port explicitly or leave a review note explaining the boundary assumption."),
+                ));
+            }
+        }
+    }
     connections
+}
+
+fn normalized_connection_key(
+    left_component: &str,
+    left_port: &str,
+    right_component: &str,
+    right_port: &str,
+) -> String {
+    let left = format!("{left_component}.{left_port}");
+    let right = format!("{right_component}.{right_port}");
+    if left <= right {
+        format!("{left}->{right}")
+    } else {
+        format!("{right}->{left}")
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

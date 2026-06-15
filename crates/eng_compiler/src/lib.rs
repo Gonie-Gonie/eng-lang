@@ -3458,6 +3458,24 @@ mod tests {
     }
 
     #[test]
+    fn diagnoses_duplicate_connections_and_warns_unconnected_ports() {
+        let report = check_source(
+            "bad.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent A {\n    port heat: Thermal\n}\n\ncomponent B {\n    port heat: Thermal\n}\n\ncomponent C {\n    port heat: Thermal\n}\n\nconnect A.heat -> B.heat\nconnect B.heat -> A.heat\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-CONNECT-DUPLICATE-001"));
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "W-PORT-UNCONNECTED-001" && diagnostic.severity == Severity::Warning
+        }));
+    }
+
+    #[test]
     fn rejects_incompatible_port_connection_domains() {
         let report = check_source(
             "bad.eng",
