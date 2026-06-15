@@ -11,6 +11,15 @@ This is the primary physical-system preview example. It covers:
 - fixed-step ODE preview in report_spec/result artifacts
 ```
 
+Limitations:
+
+```text
+- one-state thermal system only
+- fixed-step preview ODE runner only
+- solver metadata and solver plan are review artifacts, not a general solver
+- no DAE, adaptive, nonlinear, or multi-state solving claim
+```
+
 Run from the repository root:
 
 ```bat

@@ -15,6 +15,7 @@ Active target: `v1.0.x` - stable core maintenance and scoped additions
 EngLang `1.0.0` is a stable-core release. The documented data-to-report
 workflow, artifact family, packaged runner, and native tester path are the
 stable contract; experimental tracks remain outside that contract.
+It is not a claim of a complete engineering simulation solver.
 
 Start from these short status documents:
 
@@ -65,6 +66,12 @@ versions:
 - Domain/component
 - Class/domain-object
 - General programming/side-effect policy
+
+The system/equation path currently means a preview ODE runner for the official
+one-state fixed-step thermal workflows, plus solver metadata and solver-plan
+artifacts. General solvers, DAE solving, adaptive or multi-state solving,
+numeric component-graph solving, and domain package registries remain future
+or experimental tracks.
 
 ## Quick Start
 

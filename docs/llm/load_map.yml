@@ -112,6 +112,7 @@ task_types:
     - docs/release/release-workflow.md
     - docs/release/acceptance-checklist.md
     - docs/release/v1.0.0.md
+    - docs/release/v1.0.1.md
     - scripts/dev.ps1
 
   side_effects:

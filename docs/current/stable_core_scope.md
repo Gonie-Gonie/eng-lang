@@ -1,9 +1,10 @@
 # Stable Core Scope
 
 EngLang `1.0.0` is a stable-core release, not a claim that every experimental
-track is complete. The stable contract is intentionally narrow: the documented
-data-to-report workflow, artifact family, package smoke path, and native tester
-workflow are expected to remain compatible across `1.x` releases.
+track is complete and not a claim of a complete engineering simulation solver.
+The stable contract is intentionally narrow: the documented data-to-report
+workflow, artifact family, package smoke path, and native tester workflow are
+expected to remain compatible across `1.x` releases.
 
 ## Stable In 1.0.0
 
@@ -40,6 +41,9 @@ The package still includes preview or experimental tracks. They may change in
 `1.x` releases as long as the stable-core contract above is preserved:
 
 - General nonlinear, adaptive, or multi-state physical solvers.
+- DAE solving or full equation-system solving.
+- Numeric component graph solving and domain package registries.
+- Class/domain object runtime lowering.
 - Broad TimeSeries/table expression execution beyond the documented path.
 - Uncertainty and data-driven modeling engines.
 - LSP/VS Code as a persistent editor-service contract.
@@ -48,16 +52,19 @@ The package still includes preview or experimental tracks. They may change in
 - Full filesystem/network support and full process sandboxing.
 - Workspace-wide test discovery, filtering, and fixtures.
 
-## Stable Gate
+## Stable-Core Maintenance Gate
 
-Before a `1.0.0` package is published:
+Before a stable-core maintenance slice is accepted:
 
 ```text
+.\dev.bat ci
 .\dev.bat docs-check
 .\dev.bat artifacts-check
-.\dev.bat test
 .\dev.bat release-check
 ```
 
-The package must pass from a clean extracted folder without Rust, Python, Node,
-or Visual Studio Build Tools on the target side.
+The release note must distinguish stable, preview, experimental, and future
+tracks. For the first maintenance slice after `v1.0.0`, the release note should
+describe the work as documentation/release-contract hardening. Package smoke
+must pass from a clean extracted folder without Rust, Python, Node, or Visual
+Studio Build Tools on the target side.

@@ -14,8 +14,9 @@ agents. It separates public release versions from long-term development tracks.
 
 EngLang `1.0.0` is a stable-core release. The documented data-to-report
 workflow, artifact family, packaged runner, and native tester path are stable;
-preview and experimental tracks remain outside that contract. Earlier
-high-numbered release names are not part of the current public version line.
+preview and experimental tracks remain outside that contract. It is not a
+complete engineering simulation solver. Earlier high-numbered release names are
+not part of the current public version line.
 
 The active language philosophy is recorded in
 [Integrated Language Philosophy](philosophy.md):

@@ -23,7 +23,7 @@ language feature. Stable-core support is narrower than implementation on
 | PlotSpec line plot | Stable | CSV-derived TimeSeries line plot, measured-vs-simulated multi-series line plot, and SVG | Interactive consistency, grouped plots, and broader axis semantics deferred | Expand PlotSpec semantics |
 | Bar/histogram plot paths | Preview | Report/PlotSpec tests, raw-value histogram bins, uncertainty histogram bins, ML residual bars, and IDE rendering | Multiple histogram series, custom bin counts, and grouped/stacked bar semantics deferred | Harden before support claim |
 | Report/review artifacts | Stable | Official artifacts, schemas, report spec, review JSON | Rich report layout remains limited | Maintain schemas and improve IDE panels |
-| Minimal `system`/`eq` | Preview | One-state thermal system, unit diagnostics, fixed-step thermal preview output, and `sim.T_zone` TimeSeries for the measured-vs-simulated example | Multi-state/nonlinear/adaptive solving deferred | Clarify solver boundary |
+| Minimal `system`/`eq` | Preview | One-state thermal system, unit diagnostics, preview ODE runner output, fixed-step solver metadata, and `sim.T_zone` TimeSeries for the measured-vs-simulated example | Multi-state/nonlinear/adaptive solving deferred | Clarify solver boundary |
 | Args binding | Stable | `args { ... }` only, String/path/CsvFile/DirectoryPath, Bool, Int/Count, Float/Number, Duration normalization, dynamic pure defaults, CLI overrides, and help metadata | Quantity/unit-literal Args and flag-only booleans deferred | Maintain typed conversion and side-effect diagnostics |
 | Measured-vs-simulated workflow | Stable | Official workflow promotes measured/weather CSV data, simulates a one-state thermal system into typed TimeSeries, computes `rmse measured vs sim`, validates thresholds, emits time-alignment metadata, and plots measured plus simulated series together | Calibration, multi-state simulation, resampling policy controls, and full solver selection deferred | Maintain official example and artifact schemas |
 | Side-effect/general programming policy | Stable | v1.0.0 includes typed path defaults/helpers, provenance-visible `exists`, read-only UTF-8 `read text/json/toml` expressions with source hashes, explicit `write text/json`, idempotent overwrite hardening for write/export outputs, `output_manifest.json`, constrained copy/move/delete file operation metadata, `log debug/info/warn/error` messages with `run_log.json`, explicit `run command` process execution with `ProcessResult` and `process_results.json`, named `test` blocks with `assert`/`golden` checks plus `test_results.json`, and `eng run --profile safe|normal|repro` basics | Structured JSON/TOML values, broad filesystem mutation outside generated-output boundaries, network, workspace-wide test discovery, and full process sandboxing are not stable-supported | Maintain stable boundaries |
@@ -39,12 +39,26 @@ language feature. Stable-core support is narrower than implementation on
 | Domain/component track | Experimental | Domain/component/port/connect metadata, diagnostics, review/report sections, IDE inspector, LSP hover/completion metadata | No numeric multi-domain solver or package registry | Track work in `docs/current/tracks.md` |
 | Class/domain-object track | Planned | v0.2 documents class as a reviewable typed engineering object concept | No class declaration/object literal/runtime lowering public support | Keep as a track until minimal object semantics exist |
 
+## Stable-Core Solver Vocabulary
+
+Use these labels consistently in public docs:
+
+| Term | Current Meaning |
+|---|---|
+| Preview ODE runner | The narrow runtime path used by official one-state thermal examples. |
+| One-state fixed-step thermal preview | The supported preview shape for `02_simple_system` and measured-vs-simulated simulation output. |
+| Solver metadata | Review/result/report-spec metadata describing recognized equations, boundaries, methods, and limitations. |
+| Solver plan | Planning metadata for equation ordering and future numeric work; not proof of a general solver. |
+| General solver | Future only. Do not present as current supported behavior. |
+| Component graph solver | Future only. Domain/component metadata may exist without numeric multi-domain solving. |
+
 ## Status Terms
 
 | Status | Meaning |
 |---|---|
 | Prototype | Internal spike or seed. Do not present as a release feature. |
 | Preview | Usable through official examples or package paths with explicit limitations. |
+| Supported preview | Documented, tested, and visible through diagnostics or IDE metadata for the stated narrow scope, but not yet covered by stable breaking-change policy. |
 | Stable | Public behavior covered by the 1.0.0 stable-core scope and breaking-change policy. |
 | Experimental | May exist on `main`, but is not stable-supported. |
 | Planned | Intended future work with no supported implementation contract yet. |
@@ -52,6 +66,7 @@ language feature. Stable-core support is narrower than implementation on
 ## Completion Policy
 
 A feature is not complete merely because an example passes. A feature is
-complete only when its language rule, compiler check, runtime/check behavior,
-diagnostic, IDE metadata, official example, and documentation are aligned for
-the stated scope.
+complete only when its language rule, parser/AST support, semantic/type/unit
+check, runtime/check behavior, diagnostics, IDE metadata or inspector support,
+report/review artifact, official example, tests, and documentation are aligned
+for the stated scope.
