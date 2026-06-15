@@ -100,7 +100,8 @@ entry is an object with `kind`, `name`, and `display` fields. For example,
 across/through connection equations, variable/equation counts, residual graph
 dependencies, algebraic-loop candidates, Jacobian sparsity placeholders, and a
 no-solve solver-plan placeholder. It also records `domain_count`,
-`domain_plans`, and the legacy-named `solver_preview` field for domain/component graphs. A graph with
+`domain_plans`, component-local expression counts, and the legacy-named
+`solver_preview` field for domain/component graphs. A graph with
 Thermal, `Fluid[Water]`, and `MechanicalNode[World, X]` connection sets reports
 `solver_preview.status = multi_domain_preview`, plus explicit future-solver
 seed statuses for nonlinear residuals, DAE splitting, delay/history buffers,

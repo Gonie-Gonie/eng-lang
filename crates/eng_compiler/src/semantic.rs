@@ -249,6 +249,15 @@ pub struct PortInfo {
 pub struct ComponentInfo {
     pub name: String,
     pub ports: Vec<PortInfo>,
+    pub local_expressions: Vec<ComponentLocalExpressionInfo>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComponentLocalExpressionInfo {
+    pub name: String,
+    pub expression: String,
+    pub status: String,
     pub line: usize,
 }
 
@@ -841,6 +850,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 components.push(ComponentInfo {
                     name: component.name.clone(),
                     ports: Vec::new(),
+                    local_expressions: Vec::new(),
                     line: component.span.line,
                 });
                 current_component_index = Some(components.len() - 1);
@@ -1013,6 +1023,15 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                             expression: binding.expression.clone(),
                             line: binding.line,
                         });
+                    }
+                    continue;
+                }
+                if binding.context == ParseContext::Component {
+                    if let Some(component_index) = current_component_index {
+                        analyze_component_local_expression(
+                            binding,
+                            &mut components[component_index],
+                        );
                     }
                     continue;
                 }
@@ -4372,6 +4391,20 @@ fn analyze_port(declaration: &PortDecl, component: &mut ComponentInfo) {
     });
 }
 
+fn analyze_component_local_expression(
+    binding: &crate::ast::FastBinding,
+    component: &mut ComponentInfo,
+) {
+    component
+        .local_expressions
+        .push(ComponentLocalExpressionInfo {
+            name: binding.name.clone(),
+            expression: binding.expression.clone(),
+            status: "metadata_only".to_owned(),
+            line: binding.line,
+        });
+}
+
 fn analyze_connections(
     domains: &[DomainInfo],
     components: &mut [ComponentInfo],
@@ -4771,6 +4804,15 @@ fn build_component_assembly_graphs(
     } else {
         ("balanced_metadata_seed".to_owned(), None)
     };
+    let component_equation_count = 0;
+    let local_expression_count = components
+        .iter()
+        .map(|component| component.local_expressions.len())
+        .sum::<usize>();
+    let operator_call_count = count_component_expression_calls(components, &["operator("]);
+    let predictor_call_count =
+        count_component_expression_calls(components, &["predict(", "predictor("]);
+    let delay_call_count = count_component_expression_calls(components, &["delay("]);
     let dependencies = equations
         .iter()
         .flat_map(|equation| {
@@ -4816,8 +4858,13 @@ fn build_component_assembly_graphs(
     let domain_plans =
         build_component_domain_plans(domains, &connection_sets, &equations, &variables);
     let domain_count = domain_plans.len();
-    let solver_preview =
-        build_component_solver_preview(domain_count, state_count, equations.len(), 0);
+    let solver_preview = build_component_solver_preview(
+        domain_count,
+        state_count,
+        equations.len(),
+        predictor_call_count,
+        delay_call_count,
+    );
     let line = components
         .iter()
         .map(|component| component.line)
@@ -4834,10 +4881,10 @@ fn build_component_assembly_graphs(
         component_count: components.len(),
         port_count: source_order_ports.len(),
         connection_count: connections.len(),
-        component_equation_count: 0,
-        local_expression_count: 0,
-        operator_call_count: 0,
-        predictor_call_count: 0,
+        component_equation_count,
+        local_expression_count,
+        operator_call_count,
+        predictor_call_count,
         domain_count,
         domain_plans,
         solver_preview,
@@ -4916,11 +4963,23 @@ fn build_component_domain_plans(
         .collect()
 }
 
+fn count_component_expression_calls(components: &[ComponentInfo], needles: &[&str]) -> usize {
+    components
+        .iter()
+        .flat_map(|component| component.local_expressions.iter())
+        .filter(|local| {
+            let expression = local.expression.to_ascii_lowercase();
+            needles.iter().any(|needle| expression.contains(needle))
+        })
+        .count()
+}
+
 fn build_component_solver_preview(
     domain_count: usize,
     state_count: usize,
     equation_count: usize,
     predictor_call_count: usize,
+    delay_call_count: usize,
 ) -> ComponentSolverPreviewInfo {
     let status = if equation_count == 0 {
         "no_numeric_preview"
@@ -4950,7 +5009,12 @@ fn build_component_solver_preview(
             "algebraic_split_seed"
         }
         .to_owned(),
-        delay_history: "deferred_no_delay_calls".to_owned(),
+        delay_history: if delay_call_count > 0 {
+            "delay_call_metadata_only"
+        } else {
+            "deferred_no_delay_calls"
+        }
+        .to_owned(),
         predictor: if predictor_call_count > 0 {
             "predictor_call_metadata_only"
         } else {

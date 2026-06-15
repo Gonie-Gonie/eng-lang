@@ -365,6 +365,15 @@ pub struct ReportDomainConservation {
 pub struct ReportComponentSummary {
     pub name: String,
     pub ports: Vec<ReportPort>,
+    pub local_expressions: Vec<ReportComponentLocalExpression>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComponentLocalExpression {
+    pub name: String,
+    pub expression: String,
+    pub status: String,
     pub line: usize,
 }
 
@@ -1067,6 +1076,16 @@ pub fn report_spec_from_report(
                     type_arguments: port.type_arguments.clone(),
                     status: port.status.clone(),
                     line: port.line,
+                })
+                .collect(),
+            local_expressions: component
+                .local_expressions
+                .iter()
+                .map(|local| ReportComponentLocalExpression {
+                    name: local.name.clone(),
+                    expression: local.expression.clone(),
+                    status: local.status.clone(),
+                    line: local.line,
                 })
                 .collect(),
             line: component.line,
@@ -2557,6 +2576,10 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             "      \"port_count\": {},\n",
             component.ports.len()
         ));
+        json.push_str(&format!(
+            "      \"local_expression_count\": {},\n",
+            component.local_expressions.len()
+        ));
         json.push_str("      \"ports\": [\n");
         for (port_index, port) in component.ports.iter().enumerate() {
             if port_index > 0 {
@@ -2588,6 +2611,28 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
                 json_escape(&port.status)
             ));
             json.push_str(&format!("          \"line\": {}\n", port.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"local_expressions\": [\n");
+        for (local_index, local) in component.local_expressions.iter().enumerate() {
+            if local_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&local.name)
+            ));
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&local.expression)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&local.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", local.line));
             json.push_str("        }");
         }
         json.push_str("\n      ]\n");
@@ -4005,6 +4050,18 @@ fn render_html_inner(
                 html_escape(&port.name),
                 html_escape(&port.domain),
                 html_escape(&port.status)
+            ));
+            component_summary.push_str("</tr>");
+        }
+        for local in &component.local_expressions {
+            component_summary.push_str("<tr>");
+            component_summary.push_str(&format!(
+                "<td>{}</td><td>{}</td><td>{}</td><td><code>{}</code></td><td>{}</td>",
+                local.line,
+                html_escape(&component.name),
+                html_escape(&local.name),
+                html_escape(&local.expression),
+                html_escape(&local.status)
             ));
             component_summary.push_str("</tr>");
         }
@@ -5601,7 +5658,7 @@ mod tests {
     fn report_spec_and_html_include_domain_component_sections() {
         let report = check_source(
             "ok.eng",
-            "domain Fluid[Medium M] package \"eng.std.domains.fluid\" version \"0.1.0\" {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent Supply {\n    port outlet: Fluid[Water]\n}\n\ncomponent Return {\n    port inlet: Fluid[Water]\n}\n\nconnect Supply.outlet -> Return.inlet\n",
+            "domain Fluid[Medium M] package \"eng.std.domains.fluid\" version \"0.1.0\" {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent Supply {\n    port outlet: Fluid[Water]\n    pressure_seed = delay(outlet.m_dot, 5 s)\n}\n\ncomponent Return {\n    port inlet: Fluid[Water]\n}\n\nconnect Supply.outlet -> Return.inlet\n",
             &CheckOptions::default(),
         );
 
@@ -5629,6 +5686,10 @@ mod tests {
             spec.components[0].ports[0].type_arguments,
             vec!["Water".to_owned()]
         );
+        assert_eq!(
+            spec.components[0].local_expressions[0].name,
+            "pressure_seed"
+        );
         assert_eq!(spec.connections[0].status, "domain_compatible");
         assert_eq!(spec.component_graph.format, "eng-component-graph-v1");
         assert_eq!(spec.component_graph.node_count, 4);
@@ -5639,6 +5700,7 @@ mod tests {
         );
         assert_eq!(spec.component_graph.connections[0].source_span.column, 1);
         assert_eq!(spec.assemblies[0].connection_sets.len(), 1);
+        assert_eq!(spec.assemblies[0].local_expression_count, 1);
         assert_eq!(spec.assemblies[0].equations.len(), 2);
         assert_eq!(spec.assemblies[0].boundary.unknown_count, 4);
         assert_eq!(spec.assemblies[0].domain_count, 1);
@@ -5653,6 +5715,9 @@ mod tests {
         );
         assert!(json.contains("\"domain_summary\""));
         assert!(json.contains("\"component_summary\""));
+        assert!(json.contains("\"local_expression_count\": 1"));
+        assert!(json.contains("\"pressure_seed\""));
+        assert!(json.contains("\"delay_call_metadata_only\""));
         assert!(json.contains("\"connection_summary\""));
         assert!(json.contains("\"assembly_summary\""));
         assert!(json.contains("\"component_graph\""));
@@ -5672,6 +5737,7 @@ mod tests {
         assert!(html.contains("Fluid[Medium M]"));
         assert!(html.contains("eng.std.domains.fluid"));
         assert!(html.contains("Component Ports"));
+        assert!(html.contains("pressure_seed"));
         assert!(html.contains("Connections"));
         assert!(html.contains("Component Assembly"));
         assert!(html.contains("constraint check"));

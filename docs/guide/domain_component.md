@@ -64,6 +64,7 @@ quantity kinds produce `E-DOMAIN-VAR-001`.
 ```text
 component RoomBoundary {
     port heat: Thermal
+    ua_seed = 0.5 kW/K
 }
 
 component SupplyPipe {
@@ -73,7 +74,9 @@ component SupplyPipe {
 ```
 
 Each `port` names a component boundary and references a declared domain. If the
-domain is missing, checking reports `E-PORT-DOMAIN-001`.
+domain is missing, checking reports `E-PORT-DOMAIN-001`. A `name = expr` line
+inside a component is recorded as component-local expression metadata; it is not
+a top-level workflow binding and is not numerically solved.
 
 Generic domain ports must provide the expected number of type arguments. For
 example, `Fluid[Medium M]` expects `Fluid[Water]`, `Fluid[Air]`, or another
@@ -194,6 +197,9 @@ single-domain graph from a multi-domain metadata graph.
 The `component_graph` section is a normalized graph JSON view with component
 nodes, port nodes, connection edges, connection sets, domain labels,
 medium/frame/axis labels when present, and source spans for graph navigation.
+`component_summary.local_expressions` and
+`assembly_summary.local_expression_count` record component-local `name = expr`
+metadata without promoting it to the root runtime object store.
 The runtime result also includes `component_solutions` with residual values,
 convergence status, zero-vector variable values, and failure/limitation
 artifacts.

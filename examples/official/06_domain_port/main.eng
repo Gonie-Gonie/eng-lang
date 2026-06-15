@@ -18,6 +18,7 @@ domain MechanicalNode[Frame F, Axis DOF] package "eng.std.domains.mechanical" ve
 
 component RoomBoundary {
     port heat: Thermal
+    ua_seed = 0.5 kW/K
 }
 
 component AmbientBoundary {

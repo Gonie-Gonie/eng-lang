@@ -480,8 +480,10 @@ the parameter kind (`Medium`, `Frame`, `Axis`) from the local parameter name
 used in a package declaration.
 
 `assembly_summary` stores component graph connection sets, generated
-across/through equation seeds, residual graph metadata, `domain_plans`, and
-`solver_preview`. A graph with more than one generated domain plan is labeled
+across/through equation seeds, residual graph metadata, `domain_plans`,
+`solver_preview`, and component-local expression counts.
+`component_summary.local_expressions` keeps those component-owned
+`name = expr` metadata records separate from top-level workflow bindings. A graph with more than one generated domain plan is labeled
 `multi_domain_preview`; that label means reviewable metadata plus homogeneous
 connection-constraint residual checking, not production physical multi-domain
 solving.

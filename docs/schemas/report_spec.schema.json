@@ -363,14 +363,26 @@
     },
     "componentSummary": {
       "type": "object",
-      "required": ["name", "line", "port_count", "ports"],
+      "required": [
+        "name",
+        "line",
+        "port_count",
+        "local_expression_count",
+        "ports",
+        "local_expressions"
+      ],
       "properties": {
         "name": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 },
         "port_count": { "type": "integer", "minimum": 0 },
+        "local_expression_count": { "type": "integer", "minimum": 0 },
         "ports": {
           "type": "array",
           "items": { "$ref": "#/$defs/componentPort" }
+        },
+        "local_expressions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/componentLocalExpression" }
         }
       }
     },
@@ -393,6 +405,16 @@
             "unvalidated"
           ]
         },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "componentLocalExpression": {
+      "type": "object",
+      "required": ["name", "expression", "status", "line"],
+      "properties": {
+        "name": { "type": "string" },
+        "expression": { "type": "string" },
+        "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }
     },

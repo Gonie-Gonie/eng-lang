@@ -14,6 +14,9 @@ This example is intentionally metadata-first:
 - `domain MechanicalNode[Frame F, Axis DOF]` shows a two-parameter domain whose
   ports are instantiated as `MechanicalNode[World, X]`.
 - `component` declarations expose named `port` entries.
+- `ua_seed = 0.5 kW/K` inside `RoomBoundary` is recorded as
+  component-local expression metadata; it is not executed as a top-level
+  workflow binding.
 - `connect` records component-port connections and validates domain
   compatibility.
 - Compatible connections are grouped into assembly connection sets and generate
@@ -32,10 +35,10 @@ Current support boundary:
   example;
 - report spec, HTML report, native IDE, and LSP snapshot metadata expose the
   domain package/version and generic argument surface;
-- `assembly_summary` exposes generated connection equations, equation/unknown
-  counts, domain plans, future nonlinear/DAE/delay/Predictor/adapter seed
-  statuses, Jacobian sparsity placeholders, and a no-solve solver-plan
-  placeholder;
+- `assembly_summary` exposes component-local expression counts, generated
+  connection equations, equation/unknown counts, domain plans, future
+  nonlinear/DAE/delay/Predictor/adapter seed statuses, Jacobian sparsity
+  placeholders, and a no-solve solver-plan placeholder;
 - runtime `component_solutions` evaluates the homogeneous connection
   constraints, reports `fixed_point_converged`, and records the current
   non-unique/underdetermined limitation;

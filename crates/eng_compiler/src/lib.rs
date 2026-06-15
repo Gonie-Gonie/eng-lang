@@ -49,15 +49,15 @@ pub use semantic::{
     ClassValidationInfo, CommandClauseInfo, CommandStyleInfo, ComponentAssemblyBoundaryInfo,
     ComponentAssemblyEquationInfo, ComponentAssemblyInfo, ComponentAssemblyVariableInfo,
     ComponentConnectionSetInfo, ComponentDomainPlanInfo, ComponentInfo,
-    ComponentJacobianSparsityInfo, ComponentResidualDependencyInfo, ComponentResidualGraphInfo,
-    ComponentSolverPreviewInfo, ConnectionInfo, ConservationInfo, ConstInfo, CsvExportFieldInfo,
-    CsvExportInfo, DomainInfo, DomainTypeParameterInfo, DomainVariableInfo,
-    EnvironmentDependencyInfo, EquationDependencyInfo, EquationInfo, EquationIrInfo,
-    FileOperationInfo, FormatExpressionInfo, FunctionInfo, FunctionLocalInfo, FunctionParamInfo,
-    GoldenInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo,
-    SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo, SystemVariableInfo, TestInfo,
-    TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo, WhereBlockInfo, WithBlockInfo,
-    WithOptionInfo, WriteInfo,
+    ComponentJacobianSparsityInfo, ComponentLocalExpressionInfo, ComponentResidualDependencyInfo,
+    ComponentResidualGraphInfo, ComponentSolverPreviewInfo, ConnectionInfo, ConservationInfo,
+    ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo, DomainTypeParameterInfo,
+    DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo, EquationInfo,
+    EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo, FunctionLocalInfo,
+    FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo,
+    PrintInfo, ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo,
+    SystemVariableInfo, TestInfo, TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo,
+    WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -2594,6 +2594,10 @@ pub fn review_json(report: &CheckReport) -> String {
             "      \"port_count\": {},\n",
             component.ports.len()
         ));
+        json.push_str(&format!(
+            "      \"local_expression_count\": {},\n",
+            component.local_expressions.len()
+        ));
         json.push_str("      \"ports\": [\n");
         for (port_index, port) in component.ports.iter().enumerate() {
             if port_index > 0 {
@@ -2625,6 +2629,28 @@ pub fn review_json(report: &CheckReport) -> String {
                 json_escape(&port.status)
             ));
             json.push_str(&format!("          \"line\": {}\n", port.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"local_expressions\": [\n");
+        for (local_index, local) in component.local_expressions.iter().enumerate() {
+            if local_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&local.name)
+            ));
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&local.expression)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&local.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", local.line));
             json.push_str("        }");
         }
         json.push_str("\n      ]\n");
@@ -4313,7 +4339,7 @@ mod tests {
     fn records_domain_component_and_connection_metadata() {
         let report = check_source(
             "ok.eng",
-            "domain Fluid[Medium M] package \"eng.std.domains.fluid\" version \"0.1.0\" {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent Supply {\n    port outlet: Fluid[Water]\n}\n\ncomponent Return {\n    port inlet: Fluid[Water]\n}\n\nconnect Supply.outlet -> Return.inlet\n",
+            "domain Fluid[Medium M] package \"eng.std.domains.fluid\" version \"0.1.0\" {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent Supply {\n    port outlet: Fluid[Water]\n    pressure_seed = delay(outlet.m_dot, 5 s)\n}\n\ncomponent Return {\n    port inlet: Fluid[Water]\n}\n\nconnect Supply.outlet -> Return.inlet\n",
             &CheckOptions::default(),
         );
 
@@ -4365,12 +4391,25 @@ mod tests {
             vec!["Water".to_owned()]
         );
         assert_eq!(
+            report.semantic_program.components[0].local_expressions[0].name,
+            "pressure_seed"
+        );
+        assert!(report
+            .inferred_declarations
+            .iter()
+            .all(|declaration| declaration.name != "pressure_seed"));
+        assert_eq!(
             report.semantic_program.connections[0].status,
             "domain_compatible"
         );
         assert_eq!(report.semantic_program.component_assemblies.len(), 1);
         let assembly = &report.semantic_program.component_assemblies[0];
         assert_eq!(assembly.status, "assembly_seed");
+        assert_eq!(assembly.local_expression_count, 1);
+        assert_eq!(
+            assembly.solver_preview.delay_history,
+            "delay_call_metadata_only"
+        );
         assert_eq!(assembly.connection_sets.len(), 1);
         assert_eq!(assembly.connection_sets[0].ports.len(), 2);
         assert_eq!(assembly.equations.len(), 2);
@@ -4410,6 +4449,9 @@ mod tests {
         let review = review_json(&report);
         assert!(review.contains("\"domain_summary\""));
         assert!(review.contains("\"component_summary\""));
+        assert!(review.contains("\"local_expression_count\": 1"));
+        assert!(review.contains("\"pressure_seed\""));
+        assert!(review.contains("\"delay_call_metadata_only\""));
         assert!(review.contains("\"connection_summary\""));
         assert!(review.contains("\"assembly_summary\""));
         assert!(review.contains("\"component_graph\""));
