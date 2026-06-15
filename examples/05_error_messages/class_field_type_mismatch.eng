@@ -1,0 +1,7 @@
+class Construction {
+    u_value: Conductance [W/K]
+}
+
+wall = Construction {
+    u_value = 3 m
+}

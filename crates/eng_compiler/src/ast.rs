@@ -72,6 +72,40 @@ pub struct StructDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClassDecl {
+    pub name: String,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClassFieldDecl {
+    pub name: String,
+    pub type_name: String,
+    pub unit: Option<String>,
+    pub default_value: Option<String>,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClassObjectDecl {
+    pub name: String,
+    pub class_name: String,
+    pub line: usize,
+    pub span: SourceSpan,
+    pub context: ParseContext,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClassObjectFieldDecl {
+    pub owner_line: Option<usize>,
+    pub name: String,
+    pub expression: String,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ArgsFieldDecl {
     pub name: String,
     pub type_name: String,
@@ -358,6 +392,10 @@ pub enum AstItem {
     Const(ConstDecl),
     Return(ReturnDecl),
     Struct(StructDecl),
+    Class(ClassDecl),
+    ClassField(ClassFieldDecl),
+    ClassObject(ClassObjectDecl),
+    ClassObjectField(ClassObjectFieldDecl),
     ArgsField(ArgsFieldDecl),
     System(SystemDecl),
     Domain(DomainDecl),

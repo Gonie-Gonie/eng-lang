@@ -66,6 +66,8 @@ pub struct ReportSpec {
     pub domains: Vec<ReportDomainSummary>,
     pub components: Vec<ReportComponentSummary>,
     pub connections: Vec<ReportConnectionSummary>,
+    pub classes: Vec<ReportClassSummary>,
+    pub class_objects: Vec<ReportClassObjectSummary>,
     pub systems: Vec<ReportSystemSummary>,
     pub system_ir: Vec<ReportSystemIr>,
     pub plot_manifest: ReportPlotManifest,
@@ -360,6 +362,47 @@ pub struct ReportConnectionSummary {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct ReportClassSummary {
+    pub name: String,
+    pub fields: Vec<ReportClassField>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportClassField {
+    pub name: String,
+    pub type_name: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub dimension: String,
+    pub default_value: Option<String>,
+    pub required: bool,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportClassObjectSummary {
+    pub name: String,
+    pub class_name: String,
+    pub fields: Vec<ReportClassObjectField>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportClassObjectField {
+    pub name: String,
+    pub expression: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct ReportSystemSummary {
     pub name: String,
     pub variables: Vec<ReportSystemVariable>,
@@ -495,6 +538,8 @@ pub struct ReportProvenance {
     pub domain_count: usize,
     pub component_count: usize,
     pub connection_count: usize,
+    pub class_count: usize,
+    pub object_count: usize,
     pub system_count: usize,
     pub equation_count: usize,
     pub residual_count: usize,
@@ -782,6 +827,55 @@ pub fn report_spec_from_report(
             line: connection.line,
         })
         .collect::<Vec<_>>();
+    let classes = report
+        .semantic_program
+        .classes
+        .iter()
+        .map(|class_info| ReportClassSummary {
+            name: class_info.name.clone(),
+            fields: class_info
+                .fields
+                .iter()
+                .map(|field| ReportClassField {
+                    name: field.name.clone(),
+                    type_name: field.type_name.clone(),
+                    quantity_kind: field.quantity_kind.clone(),
+                    display_unit: field.display_unit.clone(),
+                    canonical_unit: field.canonical_unit.clone(),
+                    dimension: field.dimension.clone(),
+                    default_value: field.default_value.clone(),
+                    required: field.required,
+                    status: field.status.clone(),
+                    line: field.line,
+                })
+                .collect(),
+            status: class_info.status.clone(),
+            line: class_info.line,
+        })
+        .collect::<Vec<_>>();
+    let class_objects = report
+        .semantic_program
+        .class_objects
+        .iter()
+        .map(|object| ReportClassObjectSummary {
+            name: object.name.clone(),
+            class_name: object.class_name.clone(),
+            fields: object
+                .fields
+                .iter()
+                .map(|field| ReportClassObjectField {
+                    name: field.name.clone(),
+                    expression: field.expression.clone(),
+                    quantity_kind: field.quantity_kind.clone(),
+                    display_unit: field.display_unit.clone(),
+                    status: field.status.clone(),
+                    line: field.line,
+                })
+                .collect(),
+            status: object.status.clone(),
+            line: object.line,
+        })
+        .collect::<Vec<_>>();
 
     let systems = report
         .semantic_program
@@ -931,6 +1025,8 @@ pub fn report_spec_from_report(
         domains,
         components,
         connections,
+        classes,
+        class_objects,
         systems,
         system_ir,
         plot_manifest: ReportPlotManifest {
@@ -947,6 +1043,8 @@ pub fn report_spec_from_report(
             domain_count: report.semantic_program.domains.len(),
             component_count: report.semantic_program.components.len(),
             connection_count: report.semantic_program.connections.len(),
+            class_count: report.semantic_program.classes.len(),
+            object_count: report.semantic_program.class_objects.len(),
             system_count: report.semantic_program.systems.len(),
             equation_count,
             residual_count,
@@ -1003,6 +1101,14 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
     json.push_str(&format!(
         "    \"connection_count\": {},\n",
         spec.provenance.connection_count
+    ));
+    json.push_str(&format!(
+        "    \"class_count\": {},\n",
+        spec.provenance.class_count
+    ));
+    json.push_str(&format!(
+        "    \"object_count\": {},\n",
+        spec.provenance.object_count
     ));
     json.push_str(&format!(
         "    \"system_count\": {},\n",
@@ -1848,6 +1954,131 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    json.push_str("  \"class_summary\": [\n");
+    for (index, class_info) in spec.classes.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&class_info.name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", class_info.line));
+        json.push_str(&format!(
+            "      \"field_count\": {},\n",
+            class_info.fields.len()
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&class_info.status)
+        ));
+        json.push_str("      \"fields\": [\n");
+        for (field_index, field) in class_info.fields.iter().enumerate() {
+            if field_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&field.name)
+            ));
+            json.push_str(&format!(
+                "          \"type_name\": \"{}\",\n",
+                json_escape(&field.type_name)
+            ));
+            json.push_str(&format!(
+                "          \"quantity_kind\": \"{}\",\n",
+                json_escape(&field.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&field.display_unit)
+            ));
+            json.push_str(&format!(
+                "          \"canonical_unit\": \"{}\",\n",
+                json_escape(&field.canonical_unit)
+            ));
+            json.push_str(&format!(
+                "          \"dimension\": \"{}\",\n",
+                json_escape(&field.dimension)
+            ));
+            match &field.default_value {
+                Some(default_value) => json.push_str(&format!(
+                    "          \"default\": \"{}\",\n",
+                    json_escape(default_value)
+                )),
+                None => json.push_str("          \"default\": null,\n"),
+            }
+            json.push_str(&format!("          \"required\": {},\n", field.required));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&field.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", field.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"object_summary\": [\n");
+    for (index, object) in spec.class_objects.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&object.name)
+        ));
+        json.push_str(&format!(
+            "      \"class_name\": \"{}\",\n",
+            json_escape(&object.class_name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", object.line));
+        json.push_str(&format!(
+            "      \"field_count\": {},\n",
+            object.fields.len()
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&object.status)
+        ));
+        json.push_str("      \"fields\": [\n");
+        for (field_index, field) in object.fields.iter().enumerate() {
+            if field_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&field.name)
+            ));
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&field.expression)
+            ));
+            json.push_str(&format!(
+                "          \"quantity_kind\": \"{}\",\n",
+                json_escape(&field.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&field.display_unit)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&field.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", field.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
 
     json.push_str("  \"system_summary\": [\n");
     for (index, system) in spec.systems.iter().enumerate() {
@@ -2633,6 +2864,71 @@ fn render_html_inner(
         connection_summary.push_str("<tr><td colspan=\"5\">No component connections.</td></tr>");
     }
 
+    let mut class_summary = String::new();
+    for class_info in &report.semantic_program.classes {
+        if class_info.fields.is_empty() {
+            class_summary.push_str("<tr>");
+            class_summary.push_str(&format!(
+                "<td>{}</td><td>{}</td><td colspan=\"6\">No fields.</td>",
+                class_info.line,
+                html_escape(&class_info.name)
+            ));
+            class_summary.push_str("</tr>");
+            continue;
+        }
+        for field in &class_info.fields {
+            class_summary.push_str("<tr>");
+            class_summary.push_str(&format!(
+                "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+                field.line,
+                html_escape(&class_info.name),
+                html_escape(&field.name),
+                html_escape(&field.type_name),
+                html_escape(&field.display_unit),
+                html_escape(field.default_value.as_deref().unwrap_or("")),
+                if field.required { "yes" } else { "no" },
+                html_escape(&field.status)
+            ));
+            class_summary.push_str("</tr>");
+        }
+    }
+    if class_summary.is_empty() {
+        class_summary.push_str("<tr><td colspan=\"8\">No class metadata.</td></tr>");
+    }
+
+    let mut object_summary = String::new();
+    for object in &report.semantic_program.class_objects {
+        if object.fields.is_empty() {
+            object_summary.push_str("<tr>");
+            object_summary.push_str(&format!(
+                "<td>{}</td><td>{}</td><td>{}</td><td colspan=\"5\">No explicit fields.</td>",
+                object.line,
+                html_escape(&object.name),
+                html_escape(&object.class_name)
+            ));
+            object_summary.push_str("</tr>");
+            continue;
+        }
+        for field in &object.fields {
+            object_summary.push_str("<tr>");
+            object_summary.push_str(&format!(
+                "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+                field.line,
+                html_escape(&object.name),
+                html_escape(&object.class_name),
+                html_escape(&field.name),
+                html_escape(&field.expression),
+                html_escape(&field.quantity_kind),
+                html_escape(&field.display_unit),
+                html_escape(&field.status)
+            ));
+            object_summary.push_str("</tr>");
+        }
+    }
+    if object_summary.is_empty() {
+        object_summary.push_str("<tr><td colspan=\"8\">No class objects.</td></tr>");
+    }
+
     let mut system_equations = String::new();
     for system in &report.semantic_program.systems {
         for equation in &system.equations {
@@ -2739,6 +3035,8 @@ fn render_html_inner(
     let domain_count = report.semantic_program.domains.len();
     let component_count = report.semantic_program.components.len();
     let connection_count = report.semantic_program.connections.len();
+    let class_count = report.semantic_program.classes.len();
+    let object_count = report.semantic_program.class_objects.len();
     let system_count = report.semantic_program.systems.len();
     let equation_count = report
         .semantic_program
@@ -2862,6 +3160,8 @@ fn render_html_inner(
       <div class="metric"><span>Domains</span><strong>{domain_count}</strong></div>
       <div class="metric"><span>Components</span><strong>{component_count}</strong></div>
       <div class="metric"><span>Connections</span><strong>{connection_count}</strong></div>
+      <div class="metric"><span>Classes</span><strong>{class_count}</strong></div>
+      <div class="metric"><span>Objects</span><strong>{object_count}</strong></div>
       <div class="metric"><span>Systems</span><strong>{system_count}</strong></div>
       <div class="metric"><span>Equations</span><strong>{equation_count}</strong></div>
       <div class="metric"><span>Residuals</span><strong>{residual_count}</strong></div>
@@ -2938,6 +3238,16 @@ fn render_html_inner(
     <table>
       <thead><tr><th>Line</th><th>Left</th><th>Right</th><th>Domain</th><th>Status</th></tr></thead>
       <tbody>{connection_summary}</tbody>
+    </table>
+    <h2>Classes</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Class</th><th>Field</th><th>Type</th><th>Unit</th><th>Default</th><th>Required</th><th>Status</th></tr></thead>
+      <tbody>{class_summary}</tbody>
+    </table>
+    <h2>Objects</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Object</th><th>Class</th><th>Field</th><th>Expression</th><th>Quantity</th><th>Unit</th><th>Status</th></tr></thead>
+      <tbody>{object_summary}</tbody>
     </table>
     <h2>System Equations</h2>
     <table>

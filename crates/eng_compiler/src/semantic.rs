@@ -1,9 +1,10 @@
 use crate::ast::{
-    ArgsFieldDecl, AssertDecl, AstItem, CommandStyleDecl, ConnectDecl, ConstDecl, CsvExportDecl,
-    CsvExportFieldDecl, DomainTypeParameterDecl, DomainVariableDecl, ExplicitDecl, FastBinding,
-    FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl, PortDecl,
-    PrintDecl, ProcessRunDecl, ReturnDecl, StateSpaceVectorDecl, SystemVariableDecl, TestDecl,
-    WhereBindingDecl, WithOptionDecl, WriteDecl,
+    ArgsFieldDecl, AssertDecl, AstItem, ClassFieldDecl, ClassObjectDecl, ClassObjectFieldDecl,
+    CommandStyleDecl, ConnectDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl,
+    DomainTypeParameterDecl, DomainVariableDecl, ExplicitDecl, FastBinding, FileOperationDecl,
+    FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl, PortDecl, PrintDecl, ProcessRunDecl,
+    ReturnDecl, StateSpaceVectorDecl, SystemVariableDecl, TestDecl, WhereBindingDecl,
+    WithOptionDecl, WriteDecl,
 };
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
@@ -265,6 +266,47 @@ pub struct ConnectionInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClassFieldInfo {
+    pub name: String,
+    pub type_name: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub dimension: String,
+    pub default_value: Option<String>,
+    pub required: bool,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClassInfo {
+    pub name: String,
+    pub fields: Vec<ClassFieldInfo>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClassObjectFieldInfo {
+    pub name: String,
+    pub expression: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClassObjectInfo {
+    pub name: String,
+    pub class_name: String,
+    pub fields: Vec<ClassObjectFieldInfo>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ArgsFieldInfo {
     pub name: String,
     pub type_name: String,
@@ -475,6 +517,8 @@ pub struct SemanticProgram {
     pub domains: Vec<DomainInfo>,
     pub components: Vec<ComponentInfo>,
     pub connections: Vec<ConnectionInfo>,
+    pub classes: Vec<ClassInfo>,
+    pub class_objects: Vec<ClassObjectInfo>,
     pub args_blocks: Vec<ArgsBlockInfo>,
     pub arg_values: Vec<ArgValueInfo>,
     pub environment_dependencies: Vec<EnvironmentDependencyInfo>,
@@ -522,6 +566,9 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut components = Vec::new();
     let mut current_component_index = None;
     let mut raw_connections = Vec::new();
+    let mut classes = Vec::new();
+    let mut current_class_index = None;
+    let mut class_objects = Vec::new();
     let mut args_blocks = Vec::new();
     let mut current_args_block_index = None;
     let mut prints = Vec::new();
@@ -650,6 +697,41 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 }
             }
             AstItem::Connect(connect) => raw_connections.push(connect.clone()),
+            AstItem::Class(class_decl) => {
+                classes.push(ClassInfo {
+                    name: class_decl.name.clone(),
+                    fields: Vec::new(),
+                    status: "metadata_only".to_owned(),
+                    line: class_decl.span.line,
+                });
+                current_class_index = Some(classes.len() - 1);
+            }
+            AstItem::ClassField(field) => {
+                if let Some(class_index) = current_class_index {
+                    analyze_class_field(field, &mut classes[class_index], &mut diagnostics);
+                }
+            }
+            AstItem::ClassObject(object) => {
+                analyze_class_object_decl(
+                    object,
+                    &classes,
+                    &mut class_objects,
+                    &mut diagnostics,
+                    &mut typed_bindings,
+                    &mut hover_hints,
+                    &mut type_infos,
+                );
+            }
+            AstItem::ClassObjectField(field) => {
+                analyze_class_object_field(
+                    field,
+                    &classes,
+                    &mut class_objects,
+                    &typed_bindings,
+                    &functions,
+                    &mut diagnostics,
+                );
+            }
             AstItem::Struct(struct_decl) => {
                 current_args_block_index = None;
                 diagnostics.push(Diagnostic::error(
@@ -772,6 +854,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     uncertainty_infos: &mut uncertainty_infos,
                     ml_infos: &mut ml_infos,
                     functions: &functions,
+                    classes: &classes,
+                    class_objects: &class_objects,
                     timeseries_kernels: &mut timeseries_kernels,
                 };
                 analyze_fast_binding(binding, &mut accum);
@@ -878,6 +962,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     validate_file_operation_options(&file_operations, &with_blocks, &mut diagnostics);
     validate_where_local_uses(program, &where_blocks, &mut diagnostics);
     validate_domain_contracts(&domains, &mut diagnostics);
+    validate_class_contracts(&classes, &class_objects, &mut diagnostics);
     validate_function_returns(&mut functions, &consts, &mut diagnostics);
 
     let connections = analyze_connections(
@@ -912,6 +997,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             domains,
             components,
             connections,
+            classes,
+            class_objects,
             args_blocks,
             arg_values: Vec::new(),
             environment_dependencies: Vec::new(),
@@ -2899,6 +2986,420 @@ fn analyze_args_field(field: &ArgsFieldDecl, args_block: &mut ArgsBlockInfo) {
     });
 }
 
+fn analyze_class_field(
+    field: &ClassFieldDecl,
+    class_info: &mut ClassInfo,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let display_unit = field
+        .unit
+        .clone()
+        .unwrap_or_else(|| default_unit_for_type(&field.type_name));
+    let canonical_unit = default_unit_for_type(&field.type_name);
+    let dimension = dimension_for_type(&field.type_name);
+
+    if let Some(default_value) = &field.default_value {
+        if let Some(actual) =
+            class_field_expression_semantic_type(&field.name, default_value, &[], &[], &[], &[])
+        {
+            let expected = SemanticType {
+                quantity_kind: field.type_name.clone(),
+                display_unit: display_unit.clone(),
+            };
+            if !class_field_types_compatible(&expected, &actual) {
+                diagnostics.push(class_field_type_diagnostic(
+                    &class_info.name,
+                    &field.name,
+                    &expected.quantity_kind,
+                    &actual.quantity_kind,
+                    field.line,
+                ));
+            }
+        }
+    }
+
+    class_info.fields.push(ClassFieldInfo {
+        name: field.name.clone(),
+        type_name: field.type_name.clone(),
+        quantity_kind: field.type_name.clone(),
+        display_unit,
+        canonical_unit,
+        dimension,
+        default_value: field.default_value.clone(),
+        required: field.default_value.is_none(),
+        status: "declared".to_owned(),
+        line: field.line,
+    });
+}
+
+#[allow(clippy::too_many_arguments)]
+fn analyze_class_object_decl(
+    object: &ClassObjectDecl,
+    classes: &[ClassInfo],
+    class_objects: &mut Vec<ClassObjectInfo>,
+    diagnostics: &mut Vec<Diagnostic>,
+    typed_bindings: &mut Vec<TypedBinding>,
+    hover_hints: &mut Vec<HoverHint>,
+    type_infos: &mut Vec<TypeInfo>,
+) {
+    let class_exists = classes
+        .iter()
+        .any(|class_info| class_info.name == object.class_name);
+    if !class_exists {
+        diagnostics.push(Diagnostic::error(
+            "E-CLASS-OBJECT-001",
+            object.line,
+            &format!(
+                "Object `{}` references unknown class `{}`.",
+                object.name, object.class_name
+            ),
+            Some("Declare the class before constructing an object literal."),
+        ));
+    }
+    let quantity_kind = object_type_name(&object.class_name);
+    typed_bindings.push(TypedBinding {
+        name: object.name.clone(),
+        semantic_type: SemanticType {
+            quantity_kind: quantity_kind.clone(),
+            display_unit: "object".to_owned(),
+        },
+        line: object.line,
+    });
+    hover_hints.push(HoverHint::explicit(
+        object.name.clone(),
+        quantity_kind.clone(),
+        "object".to_owned(),
+        Some(format!("{} literal", object.class_name)),
+        object.span,
+    ));
+    type_infos.push(TypeInfo {
+        name: object.name.clone(),
+        quantity_kind,
+        display_unit: "object".to_owned(),
+        canonical_unit: "object".to_owned(),
+        dimension: "Object".to_owned(),
+        source: TypeInfoSource::ObjectLiteral,
+        line: object.line,
+        span: object.span,
+    });
+    class_objects.push(ClassObjectInfo {
+        name: object.name.clone(),
+        class_name: object.class_name.clone(),
+        fields: Vec::new(),
+        status: if class_exists {
+            "class_resolved".to_owned()
+        } else {
+            "unknown_class".to_owned()
+        },
+        line: object.line,
+    });
+}
+
+fn analyze_class_object_field(
+    field: &ClassObjectFieldDecl,
+    classes: &[ClassInfo],
+    class_objects: &mut [ClassObjectInfo],
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(owner_line) = field.owner_line else {
+        diagnostics.push(Diagnostic::error(
+            "E-CLASS-OBJECT-002",
+            field.line,
+            &format!(
+                "Object field `{}` is not attached to an object literal.",
+                field.name
+            ),
+            Some("Write object fields inside `name = ClassName { ... }`."),
+        ));
+        return;
+    };
+    let Some(object_index) = class_objects
+        .iter()
+        .position(|object| object.line == owner_line)
+    else {
+        diagnostics.push(Diagnostic::error(
+            "E-CLASS-OBJECT-002",
+            field.line,
+            &format!(
+                "Object field `{}` is not attached to an object literal.",
+                field.name
+            ),
+            Some("Write object fields inside `name = ClassName { ... }`."),
+        ));
+        return;
+    };
+    let object_name = class_objects[object_index].name.clone();
+    let class_name = class_objects[object_index].class_name.clone();
+    let class_info = classes
+        .iter()
+        .find(|class_info| class_info.name == class_name);
+    let expected_field = class_info.and_then(|class_info| {
+        class_info
+            .fields
+            .iter()
+            .find(|item| item.name == field.name)
+    });
+    if expected_field.is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-CLASS-FIELD-UNKNOWN-001",
+            field.line,
+            &format!(
+                "Object `{}` sets unknown field `{}` for class `{}`.",
+                object_name, field.name, class_name
+            ),
+            Some("Use a field declared by the class or remove this object field."),
+        ));
+    }
+
+    let actual = class_field_expression_semantic_type(
+        &field.name,
+        &field.expression,
+        typed_bindings,
+        functions,
+        classes,
+        class_objects,
+    );
+    let (quantity_kind, display_unit, status) = match (expected_field, actual) {
+        (Some(expected), Some(actual)) => {
+            let expected_type = class_field_expected_semantic_type(expected, classes);
+            if class_field_types_compatible(&expected_type, &actual) {
+                (
+                    actual.quantity_kind,
+                    actual.display_unit,
+                    "typed".to_owned(),
+                )
+            } else {
+                diagnostics.push(class_field_type_diagnostic(
+                    &class_name,
+                    &field.name,
+                    &expected_type.quantity_kind,
+                    &actual.quantity_kind,
+                    field.line,
+                ));
+                (
+                    actual.quantity_kind,
+                    actual.display_unit,
+                    "type_mismatch".to_owned(),
+                )
+            }
+        }
+        (Some(expected), None) => {
+            diagnostics.push(Diagnostic::error(
+                "E-CLASS-FIELD-TYPE-001",
+                field.line,
+                &format!(
+                    "Cannot type-check field `{}` for class `{}`.",
+                    field.name, class_name
+                ),
+                Some("Use a typed binding, object, string literal, bool, or numeric literal with a compatible unit."),
+            ));
+            let expected_type = class_field_expected_semantic_type(expected, classes);
+            (
+                expected_type.quantity_kind,
+                expected_type.display_unit,
+                "unresolved_expression".to_owned(),
+            )
+        }
+        (None, Some(actual)) => (
+            actual.quantity_kind,
+            actual.display_unit,
+            "unknown_field".to_owned(),
+        ),
+        (None, None) => (
+            "unknown".to_owned(),
+            "unknown".to_owned(),
+            "unknown_field".to_owned(),
+        ),
+    };
+    class_objects[object_index]
+        .fields
+        .push(ClassObjectFieldInfo {
+            name: field.name.clone(),
+            expression: field.expression.clone(),
+            quantity_kind,
+            display_unit,
+            status,
+            line: field.line,
+        });
+}
+
+fn validate_class_contracts(
+    classes: &[ClassInfo],
+    class_objects: &[ClassObjectInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for class_info in classes {
+        for field in &class_info.fields {
+            if !class_field_type_is_known(&field.type_name, classes) {
+                diagnostics.push(Diagnostic::error(
+                    "E-CLASS-FIELD-TYPE-002",
+                    field.line,
+                    &format!(
+                        "Class `{}` field `{}` uses unknown type `{}`.",
+                        class_info.name, field.name, field.type_name
+                    ),
+                    Some("Use a known quantity/scalar type or another declared class name."),
+                ));
+            }
+        }
+    }
+
+    for object in class_objects {
+        let Some(class_info) = classes
+            .iter()
+            .find(|class_info| class_info.name == object.class_name)
+        else {
+            continue;
+        };
+        for field in class_info.fields.iter().filter(|field| field.required) {
+            if !object
+                .fields
+                .iter()
+                .any(|object_field| object_field.name == field.name)
+            {
+                diagnostics.push(Diagnostic::error(
+                    "E-CLASS-FIELD-MISSING-001",
+                    object.line,
+                    &format!(
+                        "Object `{}` is missing required field `{}` for class `{}`.",
+                        object.name, field.name, class_info.name
+                    ),
+                    Some("Provide the field in the object literal or add a class field default."),
+                ));
+            }
+        }
+    }
+}
+
+fn class_field_type_is_known(type_name: &str, classes: &[ClassInfo]) -> bool {
+    known_decl_type(type_name)
+        || classes
+            .iter()
+            .any(|class_info| class_info.name == type_name)
+}
+
+fn class_field_expected_semantic_type(
+    field: &ClassFieldInfo,
+    classes: &[ClassInfo],
+) -> SemanticType {
+    if classes
+        .iter()
+        .any(|class_info| class_info.name == field.type_name)
+    {
+        return SemanticType {
+            quantity_kind: object_type_name(&field.type_name),
+            display_unit: "object".to_owned(),
+        };
+    }
+    SemanticType {
+        quantity_kind: field.type_name.clone(),
+        display_unit: field.display_unit.clone(),
+    }
+}
+
+fn class_field_expression_semantic_type(
+    field_name: &str,
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    classes: &[ClassInfo],
+    class_objects: &[ClassObjectInfo],
+) -> Option<SemanticType> {
+    let expression = expression.trim();
+    if expression.starts_with('"') && expression.ends_with('"') {
+        return semantic_type("String", "");
+    }
+    if matches!(expression, "true" | "false") {
+        return semantic_type("Bool", "");
+    }
+    if let Some((_, unit)) = numeric_literal_with_optional_unit(expression) {
+        if let Some(unit) = unit {
+            let quantity = candidates_for_unit(&unit).first().copied()?;
+            return semantic_type(quantity.quantity_kind, quantity.canonical_unit);
+        }
+        return semantic_type("DimensionlessNumber", "1");
+    }
+    object_field_access_semantic_type(expression, classes, class_objects)
+        .or_else(|| path_helper_semantic_type(expression))
+        .or_else(|| statistic_expression_semantic_type(expression, typed_bindings))
+        .or_else(|| function_call_semantic_type(expression, typed_bindings, functions))
+        .or_else(|| binding_alias_semantic_type(expression, typed_bindings))
+        .or_else(|| infer_quantity(field_name, expression))
+}
+
+fn object_field_access_semantic_type(
+    expression: &str,
+    classes: &[ClassInfo],
+    class_objects: &[ClassObjectInfo],
+) -> Option<SemanticType> {
+    let (object_name, field_name) = expression.trim().split_once('.')?;
+    if object_name.contains('.') || field_name.contains('.') {
+        return None;
+    }
+    let object = class_objects
+        .iter()
+        .find(|object| object.name == object_name.trim())?;
+    if let Some(field) = object
+        .fields
+        .iter()
+        .find(|field| field.name == field_name.trim() && field.status != "unknown_field")
+    {
+        return semantic_type(&field.quantity_kind, &field.display_unit);
+    }
+    let class_info = classes
+        .iter()
+        .find(|class_info| class_info.name == object.class_name)?;
+    let field = class_info
+        .fields
+        .iter()
+        .find(|field| field.name == field_name.trim())?;
+    let expected = class_field_expected_semantic_type(field, classes);
+    semantic_type(&expected.quantity_kind, &expected.display_unit)
+}
+
+fn class_field_types_compatible(expected: &SemanticType, actual: &SemanticType) -> bool {
+    if expected.quantity_kind == actual.quantity_kind {
+        return true;
+    }
+    if matches!(
+        expected.quantity_kind.as_str(),
+        "Int" | "Integer" | "Count" | "Float" | "Number"
+    ) && actual.quantity_kind == "DimensionlessNumber"
+    {
+        return true;
+    }
+    if matches!(expected.quantity_kind.as_str(), "Bool" | "String") {
+        return false;
+    }
+    dimensions_compatible(
+        &dimension_for_quantity(&expected.quantity_kind),
+        &dimension_for_quantity(&actual.quantity_kind),
+    )
+}
+
+fn class_field_type_diagnostic(
+    class_name: &str,
+    field_name: &str,
+    expected: &str,
+    actual: &str,
+    line: usize,
+) -> Diagnostic {
+    Diagnostic::error(
+        "E-CLASS-FIELD-TYPE-001",
+        line,
+        &format!(
+            "Class `{class_name}` field `{field_name}` expects `{expected}`, but got `{actual}`."
+        ),
+        Some("Use a compatible literal, typed binding, or object field value."),
+    )
+}
+
+fn object_type_name(class_name: &str) -> String {
+    format!("Object[{class_name}]")
+}
+
 fn analyze_domain_variable(declaration: &DomainVariableDecl, domain: &mut DomainInfo) {
     let display_unit = declaration
         .unit
@@ -3817,6 +4318,13 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
                 &uncertainty.display_unit,
             )
         })
+        .or_else(|| {
+            object_field_access_semantic_type(
+                &binding.expression,
+                accum.classes,
+                accum.class_objects,
+            )
+        })
         .or_else(|| path_helper_semantic_type(&binding.expression))
         .or_else(|| statistic_expression_semantic_type(&binding.expression, &available_bindings))
         .or(function_call_type)
@@ -3881,6 +4389,8 @@ struct SemanticAccum<'a> {
     uncertainty_infos: &'a mut Vec<UncertaintyInfo>,
     ml_infos: &'a mut Vec<MlInfo>,
     functions: &'a [FunctionInfo],
+    classes: &'a [ClassInfo],
+    class_objects: &'a [ClassObjectInfo],
     timeseries_kernels: &'a mut Vec<TimeSeriesKernelInfo>,
 }
 
@@ -4181,6 +4691,9 @@ fn default_unit_for_quantity(quantity_kind: &str) -> String {
     if linear_operator_type_name(quantity_kind) {
         return "operator".to_owned();
     }
+    if object_type_name_kind(quantity_kind) {
+        return "object".to_owned();
+    }
 
     crate::quantities::all_quantity_completions()
         .iter()
@@ -4211,6 +4724,9 @@ fn dimension_for_quantity(quantity_kind: &str) -> String {
     {
         return "StateSpace".to_owned();
     }
+    if object_type_name_kind(quantity_kind) {
+        return "Object".to_owned();
+    }
 
     crate::quantities::all_quantity_completions()
         .iter()
@@ -4232,6 +4748,7 @@ fn known_decl_type(type_name: &str) -> bool {
         || state_space_vector_type_name(type_name)
         || derivative_type_name(type_name)
         || linear_operator_type_name(type_name)
+        || object_type_name_kind(type_name)
         || default_unit_for_quantity(type_name) != "unknown"
 }
 
@@ -4248,6 +4765,10 @@ fn derivative_type_name(type_name: &str) -> bool {
 
 fn linear_operator_type_name(type_name: &str) -> bool {
     type_name.trim().starts_with("LinearOperator[") && type_name.trim().ends_with(']')
+}
+
+fn object_type_name_kind(type_name: &str) -> bool {
+    type_name.trim().starts_with("Object[") && type_name.trim().ends_with(']')
 }
 
 fn preview_scalar_type(type_name: &str) -> bool {

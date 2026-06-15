@@ -92,6 +92,12 @@ paths before compatibility fixtures.
   Typed StateVector/InputVector/OutputVector and LinearOperator metadata for
   the state-space preview surface. This is a review/IDE metadata seed, not a
   general matrix solver.
+
+19_class_object_preview
+  Typed class declarations, object literals, nested object references, field
+  access metadata, and class/object report sections for the class object
+  preview surface. This is a review/IDE metadata seed, not runtime object
+  dispatch.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression

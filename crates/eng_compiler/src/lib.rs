@@ -22,12 +22,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub use ast::{
-    ArgsDecl, ArgsFieldDecl, AssertDecl, AstItem, CommandClauseDecl, CommandStyleDecl,
-    ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl,
-    DomainDecl, DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FileOperationDecl,
-    FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl,
-    SchemaDecl, ScriptDecl, StructDecl, SystemDecl, SystemVariableDecl, TestDecl, WhereBindingDecl,
-    WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
+    ArgsDecl, ArgsFieldDecl, AssertDecl, AstItem, ClassDecl, ClassFieldDecl, ClassObjectDecl,
+    ClassObjectFieldDecl, CommandClauseDecl, CommandStyleDecl, ComponentDecl, ConnectDecl,
+    ConservationDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainVariableDecl,
+    EquationDecl, ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl,
+    GoldenDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl,
+    SystemDecl, SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl,
+    WithOptionDecl, WriteDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -42,14 +43,15 @@ pub use quantities::{all_quantity_completions, normalize_unit, QuantityCompletio
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
 pub use semantic::read_only_io_expression;
 pub use semantic::{
-    ArgValueInfo, ArgsBlockInfo, ArgsFieldInfo, AssertInfo, CommandClauseInfo, CommandStyleInfo,
-    ComponentInfo, ConnectionInfo, ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo,
-    DomainInfo, DomainTypeParameterInfo, DomainVariableInfo, EnvironmentDependencyInfo,
-    EquationDependencyInfo, EquationInfo, EquationIrInfo, FileOperationInfo, FormatExpressionInfo,
-    FunctionInfo, FunctionLocalInfo, FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo,
-    OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo, SemanticProgram, SemanticType,
-    SolverPlanInfo, SystemInfo, SystemVariableInfo, TestInfo, TimeSeriesKernelInfo, TypedBinding,
-    WhereBindingInfo, WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
+    ArgValueInfo, ArgsBlockInfo, ArgsFieldInfo, AssertInfo, ClassFieldInfo, ClassInfo,
+    ClassObjectFieldInfo, ClassObjectInfo, CommandClauseInfo, CommandStyleInfo, ComponentInfo,
+    ConnectionInfo, ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo,
+    DomainTypeParameterInfo, DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo,
+    EquationInfo, EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo,
+    FunctionLocalInfo, FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo,
+    PortInfo, PrintInfo, ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo,
+    SystemVariableInfo, TestInfo, TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo,
+    WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -344,7 +346,9 @@ fn importable_definition_item(item: &AstItem) -> bool {
         | AstItem::DomainVariable(_)
         | AstItem::Conservation(_)
         | AstItem::Component(_)
-        | AstItem::Port(_) => true,
+        | AstItem::Port(_)
+        | AstItem::Class(_)
+        | AstItem::ClassField(_) => true,
         AstItem::ExplicitDecl(declaration) => declaration.context == ParseContext::Schema,
         _ => false,
     }
@@ -1108,6 +1112,22 @@ pub fn review_json(report: &CheckReport) -> String {
     json.push_str(&format!(
         "    \"structs\": {},\n",
         report.syntax_summary.structs
+    ));
+    json.push_str(&format!(
+        "    \"classes\": {},\n",
+        report.syntax_summary.classes
+    ));
+    json.push_str(&format!(
+        "    \"class_fields\": {},\n",
+        report.syntax_summary.class_fields
+    ));
+    json.push_str(&format!(
+        "    \"class_objects\": {},\n",
+        report.syntax_summary.class_objects
+    ));
+    json.push_str(&format!(
+        "    \"class_object_fields\": {},\n",
+        report.syntax_summary.class_object_fields
     ));
     json.push_str(&format!(
         "    \"args_blocks\": {},\n",
@@ -2608,6 +2628,130 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    json.push_str("  \"class_summary\": [\n");
+    for (index, class_info) in report.semantic_program.classes.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&class_info.name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", class_info.line));
+        json.push_str(&format!(
+            "      \"field_count\": {},\n",
+            class_info.fields.len()
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&class_info.status)
+        ));
+        json.push_str("      \"fields\": [\n");
+        for (field_index, field) in class_info.fields.iter().enumerate() {
+            if field_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&field.name)
+            ));
+            json.push_str(&format!(
+                "          \"type_name\": \"{}\",\n",
+                json_escape(&field.type_name)
+            ));
+            json.push_str(&format!(
+                "          \"quantity_kind\": \"{}\",\n",
+                json_escape(&field.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&field.display_unit)
+            ));
+            json.push_str(&format!(
+                "          \"canonical_unit\": \"{}\",\n",
+                json_escape(&field.canonical_unit)
+            ));
+            json.push_str(&format!(
+                "          \"dimension\": \"{}\",\n",
+                json_escape(&field.dimension)
+            ));
+            match &field.default_value {
+                Some(default_value) => json.push_str(&format!(
+                    "          \"default\": \"{}\",\n",
+                    json_escape(default_value)
+                )),
+                None => json.push_str("          \"default\": null,\n"),
+            }
+            json.push_str(&format!("          \"required\": {},\n", field.required));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&field.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", field.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"object_summary\": [\n");
+    for (index, object) in report.semantic_program.class_objects.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&object.name)
+        ));
+        json.push_str(&format!(
+            "      \"class_name\": \"{}\",\n",
+            json_escape(&object.class_name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", object.line));
+        json.push_str(&format!(
+            "      \"field_count\": {},\n",
+            object.fields.len()
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&object.status)
+        ));
+        json.push_str("      \"fields\": [\n");
+        for (field_index, field) in object.fields.iter().enumerate() {
+            if field_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&field.name)
+            ));
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&field.expression)
+            ));
+            json.push_str(&format!(
+                "          \"quantity_kind\": \"{}\",\n",
+                json_escape(&field.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&field.display_unit)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&field.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", field.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
     json.push_str("  \"system_summary\": [\n");
     for (index, system) in report.semantic_program.systems.iter().enumerate() {
         if index > 0 {
@@ -3473,6 +3617,55 @@ mod tests {
         assert!(report.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "W-PORT-UNCONNECTED-001" && diagnostic.severity == Severity::Warning
         }));
+    }
+
+    #[test]
+    fn records_class_object_metadata_and_field_access() {
+        let report = check_source(
+            "class_preview.eng",
+            "class Construction {\n    u_value: Conductance [W/K]\n    thickness: Length [m] = 0.2 m\n}\n\nclass Zone {\n    name: String\n    capacity: HeatCapacity [J/K]\n}\n\nwall = Construction {\n    u_value = 120 W/K\n}\n\nzone = Zone {\n    name = \"Office\"\n    capacity = 120000 J/K\n}\n\nwall_u = wall.u_value\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(report.syntax_summary.classes, 2);
+        assert_eq!(report.syntax_summary.class_objects, 2);
+        assert_eq!(report.semantic_program.classes.len(), 2);
+        assert_eq!(report.semantic_program.class_objects.len(), 2);
+        assert!(report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .any(|binding| {
+                binding.name == "wall_u" && binding.semantic_type.quantity_kind == "Conductance"
+            }));
+        let review = review_json(&report);
+        assert!(review.contains("\"class_summary\""));
+        assert!(review.contains("\"object_summary\""));
+    }
+
+    #[test]
+    fn rejects_invalid_class_object_fields() {
+        let report = check_source(
+            "bad_class.eng",
+            "class Construction {\n    u_value: Conductance [W/K]\n    thickness: Length [m]\n}\n\nbad = Construction {\n    u_value = 2 m\n    unknown = 1 m\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        for expected_code in [
+            "E-CLASS-FIELD-TYPE-001",
+            "E-CLASS-FIELD-UNKNOWN-001",
+            "E-CLASS-FIELD-MISSING-001",
+        ] {
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == expected_code),
+                "expected {expected_code}"
+            );
+        }
     }
 
     #[test]

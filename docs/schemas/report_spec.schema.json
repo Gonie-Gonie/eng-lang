@@ -24,6 +24,8 @@
     "domain_summary",
     "component_summary",
     "connection_summary",
+    "class_summary",
+    "object_summary",
     "system_summary",
     "system_ir",
     "plot_manifest"
@@ -43,6 +45,8 @@
         "domain_count",
         "component_count",
         "connection_count",
+        "class_count",
+        "object_count",
         "system_count",
         "equation_count",
         "residual_count",
@@ -94,6 +98,8 @@
       "type": "array",
       "items": { "$ref": "#/$defs/connectionSummary" }
     },
+    "class_summary": { "type": "array" },
+    "object_summary": { "type": "array" },
     "system_summary": { "type": "array" },
     "system_ir": {
       "type": "array",

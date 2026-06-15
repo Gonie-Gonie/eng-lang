@@ -1,0 +1,38 @@
+class Construction {
+    name: String
+    u_value: Conductance [W/K]
+    thickness: Length [m] = 0.2 m
+}
+
+class Zone {
+    name: String
+    capacity: HeatCapacity [J/K]
+    occupancy: Count = 1
+}
+
+class Building {
+    name: String
+    zone: Zone
+    envelope: Construction
+}
+
+wall = Construction {
+    name = "south_wall"
+    u_value = 120 W/K
+}
+
+office = Zone {
+    name = "office"
+    capacity = 120000 J/K
+}
+
+building = Building {
+    name = "Lab"
+    zone = office
+    envelope = wall
+}
+
+wall_u = wall.u_value
+building_name = building.name
+
+print "Class object preview metadata ready"

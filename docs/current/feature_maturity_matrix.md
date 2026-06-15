@@ -37,7 +37,7 @@ language feature. Stable-core support is narrower than implementation on
 | LSP track | Experimental | `eng-lsp.exe` smoke/snapshot, stdio round-trip tests, package-smoke inclusion, optional VS Code snapshot backend, diagnostics, completion, hover | Not editor-validated as a stable release path | Track work in `docs/current/tracks.md` |
 | Runtime optimization/JIT/AOT track | Experimental | `eng_jit`, `eng.exe jit-plan`, `eng.exe jit-bench`, backend selection metadata, IDE kernel-plan display, and metadata estimates | No native code generation or speedup claim | Track work in `docs/current/tracks.md` |
 | Domain/component track | Experimental | Domain/component/port/connect metadata, diagnostics, review/report sections, IDE inspector, LSP hover/completion metadata | No numeric multi-domain solver or package registry | Track work in `docs/current/tracks.md` |
-| Class/domain-object track | Planned | v0.2 documents class as a reviewable typed engineering object concept | No class declaration/object literal/runtime lowering public support | Keep as a track until minimal object semantics exist |
+| Class/domain-object track | Supported preview | `class` declarations, typed fields/defaults, object literals, nested object references, field access metadata, diagnostics, `class_summary`/`object_summary` artifacts, IDE/LSP metadata, and official `19_class_object_preview` | Methods, copy-with, mutation, inheritance, and runtime object dispatch/lowering deferred | Harden method/copy-with design without presenting classes as replacements for systems/components |
 
 ## Stable-Core Solver Vocabulary
 

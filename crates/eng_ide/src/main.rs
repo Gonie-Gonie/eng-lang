@@ -738,8 +738,9 @@ fn check_view_from_report(report: &CheckReport) -> CheckView {
 fn base_completion_items() -> Vec<CompletionView> {
     let mut items = Vec::new();
     for keyword in [
-        "args", "const", "export", "fn", "if", "import", "log", "plot", "print", "promote", "read",
-        "report", "return", "schema", "system", "test", "where", "with", "write",
+        "args", "class", "const", "export", "fn", "if", "import", "log", "plot", "print",
+        "promote", "read", "report", "return", "schema", "system", "test", "where", "with",
+        "write",
     ] {
         items.push(CompletionView {
             label: keyword.to_owned(),
@@ -768,6 +769,11 @@ fn base_completion_items() -> Vec<CompletionView> {
             "log info",
             "log info \"message\"",
             "structured run log message",
+        ),
+        (
+            "class object",
+            "class Construction {\n    name: String\n    u_value: Conductance [W/K]\n}\n\nwall = Construction {\n    name = \"south_wall\"\n    u_value = 120 W/K\n}",
+            "class declaration and object literal",
         ),
     ] {
         items.push(CompletionView {

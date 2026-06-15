@@ -203,16 +203,25 @@ Not yet public-supported:
 
 ## T10 Class / Domain Object
 
-Planned scope:
+Implementation seeds on `main`:
 
 ```text
 - class declaration for typed engineering objects
 - object literal and field access
-- default values and validation
-- immutable copy-with update
 - report/review serialization
 - IDE field completion and object summary
+- LSP class/object hover and completion metadata
 - class object as system/component parameter
+```
+
+Deferred:
+
+```text
+- class validate blocks
+- validation PASS/FAIL object artifacts
+- methods and self access
+- immutable copy-with update
+- runtime object dispatch/lowering
 ```
 
 Non-goals:

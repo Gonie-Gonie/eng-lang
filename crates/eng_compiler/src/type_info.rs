@@ -7,6 +7,7 @@ pub enum TypeInfoSource {
     Inferred,
     PublicBoundary,
     SystemBoundary,
+    ObjectLiteral,
 }
 
 impl TypeInfoSource {
@@ -17,6 +18,7 @@ impl TypeInfoSource {
             Self::Inferred => "inferred",
             Self::PublicBoundary => "public_boundary",
             Self::SystemBoundary => "system_boundary",
+            Self::ObjectLiteral => "object_literal",
         }
     }
 }

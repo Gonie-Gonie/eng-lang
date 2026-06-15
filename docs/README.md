@@ -37,6 +37,7 @@ long-form planning documents.
 - [Uncertainty track guide](guide/uncertainty.md)
 - [Data-driven modeling track guide](guide/data_driven_modeling.md)
 - [Domain and component track guide](guide/domain_component.md)
+- [Class object preview guide](guide/class_object.md)
 - [Tauri tester IDE](guide/native_ide.md)
 - [Report and review artifacts](guide/report_review.md)
 - [Simple system tutorial](tutorials/05_simple_system.md)

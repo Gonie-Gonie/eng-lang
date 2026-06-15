@@ -1,11 +1,12 @@
 use crate::ast::{
-    ArgsDecl, ArgsFieldDecl, AssertDecl, AstItem, CommandClauseDecl, CommandStyleDecl,
-    ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl, ConstraintDecl, CsvExportDecl,
-    CsvExportFieldDecl, DomainDecl, DomainTypeParameterDecl, DomainVariableDecl, EquationDecl,
-    ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl,
-    ImportDecl, MissingPolicyDecl, PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl, SchemaDecl,
-    ScriptDecl, StateSpaceVectorDecl, StructDecl, SummaryDecl, SystemDecl, SystemVariableDecl,
-    TestDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
+    ArgsDecl, ArgsFieldDecl, AssertDecl, AstItem, ClassDecl, ClassFieldDecl, ClassObjectDecl,
+    ClassObjectFieldDecl, CommandClauseDecl, CommandStyleDecl, ComponentDecl, ConnectDecl,
+    ConservationDecl, ConstDecl, ConstraintDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl,
+    DomainTypeParameterDecl, DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding,
+    FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl, MissingPolicyDecl,
+    PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl, SchemaDecl, ScriptDecl, StateSpaceVectorDecl,
+    StructDecl, SummaryDecl, SystemDecl, SystemVariableDecl, TestDecl, WhereBindingDecl,
+    WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -20,6 +21,8 @@ pub enum ParseContext {
     Function,
     Args,
     Struct,
+    Class,
+    Object,
     System,
     Domain,
     Component,
@@ -61,6 +64,10 @@ pub struct SyntaxSummary {
     pub ports: usize,
     pub connections: usize,
     pub structs: usize,
+    pub classes: usize,
+    pub class_fields: usize,
+    pub class_objects: usize,
+    pub class_object_fields: usize,
     pub args_blocks: usize,
     pub args_fields: usize,
     pub const_declarations: usize,
@@ -86,6 +93,10 @@ impl ParsedProgram {
         let mut ports = 0usize;
         let mut connections = 0usize;
         let mut structs = 0usize;
+        let mut classes = 0usize;
+        let mut class_fields = 0usize;
+        let mut class_objects = 0usize;
+        let mut class_object_fields = 0usize;
         let mut args_blocks = 0usize;
         let mut args_fields = 0usize;
         let mut const_declarations = 0usize;
@@ -110,6 +121,10 @@ impl ParsedProgram {
                 AstItem::Port(_) => ports += 1,
                 AstItem::Connect(_) => connections += 1,
                 AstItem::Struct(_) => structs += 1,
+                AstItem::Class(_) => classes += 1,
+                AstItem::ClassField(_) => class_fields += 1,
+                AstItem::ClassObject(_) => class_objects += 1,
+                AstItem::ClassObjectField(_) => class_object_fields += 1,
                 AstItem::Args(_) => args_blocks += 1,
                 AstItem::ArgsField(_) => args_fields += 1,
                 AstItem::Const(_) => const_declarations += 1,
@@ -156,6 +171,10 @@ impl ParsedProgram {
             ports,
             connections,
             structs,
+            classes,
+            class_fields,
+            class_objects,
+            class_object_fields,
             args_blocks,
             args_fields,
             const_declarations,
@@ -180,6 +199,8 @@ pub fn parse_source(source: &str) -> ParsedProgram {
     let mut function_depth = 0i32;
     let mut args_depth = 0i32;
     let mut struct_depth = 0i32;
+    let mut class_depth = 0i32;
+    let mut object_depth = 0i32;
     let mut system_depth = 0i32;
     let mut domain_depth = 0i32;
     let mut component_depth = 0i32;
@@ -190,6 +211,7 @@ pub fn parse_source(source: &str) -> ParsedProgram {
     let mut with_depth = 0i32;
     let mut current_where_owner_line = None;
     let mut current_with_owner_line = None;
+    let mut current_object_owner_line = None;
     let mut last_attachable_line = None;
 
     for source_line in source_lines(source) {
@@ -218,6 +240,10 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             ParseContext::Args
         } else if struct_depth > 0 {
             ParseContext::Struct
+        } else if class_depth > 0 {
+            ParseContext::Class
+        } else if object_depth > 0 {
+            ParseContext::Object
         } else if domain_depth > 0 {
             ParseContext::Domain
         } else if component_depth > 0 {
@@ -232,6 +258,7 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             let owner_line = match context {
                 ParseContext::Where => current_where_owner_line,
                 ParseContext::With => current_with_owner_line,
+                ParseContext::Object => current_object_owner_line,
                 _ => last_attachable_line,
             };
             parse_line_items(&mut items, &tokens, &source_line.text, context, owner_line);
@@ -323,6 +350,32 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             struct_depth += brace_delta(&tokens);
             if struct_depth <= 0 {
                 struct_depth = 0;
+            }
+        }
+
+        if starts_with_keyword(&tokens, Keyword::Class) {
+            class_depth += brace_delta(&tokens);
+            if class_depth == 0 {
+                class_depth = 1;
+            }
+        } else if class_depth > 0 {
+            class_depth += brace_delta(&tokens);
+            if class_depth <= 0 {
+                class_depth = 0;
+            }
+        }
+
+        if starts_object_literal(&tokens) {
+            current_object_owner_line = tokens.first().map(|token| token.span.line);
+            object_depth += brace_delta(&tokens);
+            if object_depth == 0 {
+                object_depth = 1;
+            }
+        } else if object_depth > 0 {
+            object_depth += brace_delta(&tokens);
+            if object_depth <= 0 {
+                object_depth = 0;
+                current_object_owner_line = None;
             }
         }
 
@@ -486,6 +539,18 @@ fn parse_line_items(
     if let Some(struct_decl) = parse_struct_decl(tokens) {
         items.push(AstItem::Struct(struct_decl));
     }
+    if let Some(class_decl) = parse_class_decl(tokens) {
+        items.push(AstItem::Class(class_decl));
+    }
+    if let Some(field) = parse_class_field_decl(tokens, line_text, context) {
+        items.push(AstItem::ClassField(field));
+    }
+    if let Some(object) = parse_class_object_decl(tokens, context) {
+        items.push(AstItem::ClassObject(object));
+    }
+    if let Some(field) = parse_class_object_field_decl(tokens, line_text, owner_line, context) {
+        items.push(AstItem::ClassObjectField(field));
+    }
     if let Some(field) = parse_args_field_decl(tokens, line_text, context) {
         items.push(AstItem::ArgsField(field));
     }
@@ -556,6 +621,8 @@ fn parse_line_items(
         context,
         ParseContext::Args
             | ParseContext::Struct
+            | ParseContext::Class
+            | ParseContext::Object
             | ParseContext::SchemaConstraints
             | ParseContext::SchemaMissing
     ) {
@@ -791,6 +858,122 @@ fn parse_struct_decl(tokens: &[Token]) -> Option<StructDecl> {
     };
     Some(StructDecl {
         name: name.clone(),
+        span: first.span,
+    })
+}
+
+fn parse_class_decl(tokens: &[Token]) -> Option<ClassDecl> {
+    let [first, second, ..] = tokens else {
+        return None;
+    };
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::Class)) {
+        return None;
+    }
+    let TokenKind::Identifier(name) = &second.kind else {
+        return None;
+    };
+    Some(ClassDecl {
+        name: name.clone(),
+        span: first.span,
+    })
+}
+
+fn parse_class_field_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<ClassFieldDecl> {
+    if context != ParseContext::Class {
+        return None;
+    }
+    let [first, second, ..] = tokens else {
+        return None;
+    };
+    let name = token_field_name(first)?;
+    if !matches!(second.kind, TokenKind::Symbol(Symbol::Colon)) {
+        return None;
+    }
+    let raw_after_colon = line_text.split_once(':')?.1.trim().trim_end_matches(',');
+    let (type_part, default_value) = raw_after_colon
+        .split_once('=')
+        .map(|(left, right)| (left.trim(), Some(right.trim().to_owned())))
+        .unwrap_or((raw_after_colon, None));
+    let (type_name, unit) = split_type_and_unit(type_part);
+    if type_name.is_empty() {
+        return None;
+    }
+    Some(ClassFieldDecl {
+        name,
+        type_name,
+        unit,
+        default_value,
+        line: first.span.line,
+        span: first.span,
+    })
+}
+
+fn parse_class_object_decl(tokens: &[Token], context: ParseContext) -> Option<ClassObjectDecl> {
+    if context != ParseContext::TopLevel && context != ParseContext::Other {
+        return None;
+    }
+    let [first, second, third, ..] = tokens else {
+        return None;
+    };
+    let TokenKind::Identifier(name) = &first.kind else {
+        return None;
+    };
+    if !matches!(second.kind, TokenKind::Symbol(Symbol::Equal)) {
+        return None;
+    }
+    let TokenKind::Identifier(class_name) = &third.kind else {
+        return None;
+    };
+    if !tokens
+        .iter()
+        .any(|token| matches!(token.kind, TokenKind::Symbol(Symbol::LBrace)))
+    {
+        return None;
+    }
+    Some(ClassObjectDecl {
+        name: name.clone(),
+        class_name: class_name.clone(),
+        line: first.span.line,
+        span: first.span,
+        context,
+    })
+}
+
+fn parse_class_object_field_decl(
+    tokens: &[Token],
+    line_text: &str,
+    owner_line: Option<usize>,
+    context: ParseContext,
+) -> Option<ClassObjectFieldDecl> {
+    if context != ParseContext::Object {
+        return None;
+    }
+    let first = tokens.first()?;
+    if matches!(
+        &first.kind,
+        TokenKind::Symbol(Symbol::LBrace | Symbol::RBrace)
+    ) {
+        return None;
+    }
+    let [first, second, ..] = tokens else {
+        return None;
+    };
+    let TokenKind::Identifier(name) = &first.kind else {
+        return None;
+    };
+    if !matches!(second.kind, TokenKind::Symbol(Symbol::Equal)) {
+        return None;
+    }
+    let expression = expression_after(line_text.trim().trim_end_matches(','), '=')?;
+    Some(ClassObjectFieldDecl {
+        owner_line,
+        name: name.clone(),
+        expression,
+        line: first.span.line,
         span: first.span,
     })
 }
@@ -1282,7 +1465,13 @@ fn parse_fast_binding(
     line_text: &str,
     context: ParseContext,
 ) -> Option<(FastBinding, Option<CommandStyleDecl>)> {
-    if matches!(context, ParseContext::Where | ParseContext::With) {
+    if matches!(
+        context,
+        ParseContext::Where | ParseContext::With | ParseContext::Class | ParseContext::Object
+    ) {
+        return None;
+    }
+    if starts_object_literal(tokens) {
         return None;
     }
     let [first, second, ..] = tokens else {
@@ -1450,7 +1639,11 @@ fn parse_standalone_command_style_decl(
 ) -> Option<CommandStyleDecl> {
     if matches!(
         context,
-        ParseContext::Where | ParseContext::With | ParseContext::Export
+        ParseContext::Where
+            | ParseContext::With
+            | ParseContext::Export
+            | ParseContext::Class
+            | ParseContext::Object
     ) {
         return None;
     }
@@ -2253,6 +2446,18 @@ fn starts_with_identifier(tokens: &[Token], expected: &str) -> bool {
     tokens.first().is_some_and(
         |token| matches!(&token.kind, TokenKind::Identifier(found) if found == expected),
     )
+}
+
+fn starts_object_literal(tokens: &[Token]) -> bool {
+    let [first, second, third, ..] = tokens else {
+        return false;
+    };
+    matches!(first.kind, TokenKind::Identifier(_))
+        && matches!(second.kind, TokenKind::Symbol(Symbol::Equal))
+        && matches!(third.kind, TokenKind::Identifier(_))
+        && tokens
+            .iter()
+            .any(|token| matches!(token.kind, TokenKind::Symbol(Symbol::LBrace)))
 }
 
 fn line_is_attachable_owner(tokens: &[Token], context: ParseContext) -> bool {

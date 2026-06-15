@@ -252,6 +252,62 @@ pub fn hover_items(report: &CheckReport) -> Vec<LspHover> {
         });
     }
 
+    for class_info in &report.semantic_program.classes {
+        hovers.push(LspHover {
+            name: class_info.name.clone(),
+            kind: "class".to_owned(),
+            line: class_info.line,
+            detail: format!("class with {} field(s)", class_info.fields.len()),
+            quantity_kind: "class".to_owned(),
+            display_unit: "-".to_owned(),
+            status: Some(class_info.status.clone()),
+        });
+        for field in &class_info.fields {
+            hovers.push(LspHover {
+                name: format!("{}.{}", class_info.name, field.name),
+                kind: "class_field".to_owned(),
+                line: field.line,
+                detail: format!(
+                    "field {}: {} [{}], required {}",
+                    field.name,
+                    field.type_name,
+                    field.display_unit,
+                    if field.required { "yes" } else { "no" }
+                ),
+                quantity_kind: field.quantity_kind.clone(),
+                display_unit: field.display_unit.clone(),
+                status: Some(field.status.clone()),
+            });
+        }
+    }
+
+    for object in &report.semantic_program.class_objects {
+        hovers.push(LspHover {
+            name: object.name.clone(),
+            kind: "class_object".to_owned(),
+            line: object.line,
+            detail: format!(
+                "{} object with {} explicit field(s)",
+                object.class_name,
+                object.fields.len()
+            ),
+            quantity_kind: format!("Object[{}]", object.class_name),
+            display_unit: "object".to_owned(),
+            status: Some(object.status.clone()),
+        });
+        for field in &object.fields {
+            hovers.push(LspHover {
+                name: format!("{}.{}", object.name, field.name),
+                kind: "object_field".to_owned(),
+                line: field.line,
+                detail: format!("{} = {}", field.name, field.expression),
+                quantity_kind: field.quantity_kind.clone(),
+                display_unit: field.display_unit.clone(),
+                status: Some(field.status.clone()),
+            });
+        }
+    }
+
     hovers.sort_by(|left, right| {
         left.line
             .cmp(&right.line)
@@ -275,6 +331,7 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         "through",
         "conservation",
         "component",
+        "class",
         "port",
         "connect",
         "package",
@@ -372,6 +429,37 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         }
     }
 
+    for class_info in &report.semantic_program.classes {
+        push_completion(
+            &mut items,
+            &mut seen,
+            &class_info.name,
+            "class",
+            &format!("class with {} field(s)", class_info.fields.len()),
+        );
+        for field in &class_info.fields {
+            push_completion(
+                &mut items,
+                &mut seen,
+                &format!("{}.{}", class_info.name, field.name),
+                "property",
+                &format!("field {} [{}]", field.type_name, field.display_unit),
+            );
+        }
+    }
+
+    for object in &report.semantic_program.class_objects {
+        for field in &object.fields {
+            push_completion(
+                &mut items,
+                &mut seen,
+                &format!("{}.{}", object.name, field.name),
+                "property",
+                &format!("{} [{}]", field.quantity_kind, field.display_unit),
+            );
+        }
+    }
+
     for quantity in all_quantity_completions() {
         push_completion(
             &mut items,
@@ -434,6 +522,39 @@ pub fn completion_items_at(
                         );
                     }
                 }
+                return items;
+            }
+        }
+        if let Some(object) = report
+            .semantic_program
+            .class_objects
+            .iter()
+            .find(|object| object.name == receiver)
+        {
+            let mut seen = BTreeSet::new();
+            let mut items = Vec::new();
+            if let Some(class_info) = report
+                .semantic_program
+                .classes
+                .iter()
+                .find(|class_info| class_info.name == object.class_name)
+            {
+                for field in &class_info.fields {
+                    if prefix.is_empty() || field.name.starts_with(&prefix) {
+                        push_completion(
+                            &mut items,
+                            &mut seen,
+                            &field.name,
+                            "property",
+                            &format!(
+                                "{} [{}] from {}",
+                                field.type_name, field.display_unit, object.class_name
+                            ),
+                        );
+                    }
+                }
+            }
+            if !items.is_empty() {
                 return items;
             }
         }

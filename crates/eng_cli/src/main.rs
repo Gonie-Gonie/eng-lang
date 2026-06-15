@@ -552,6 +552,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/16_test_assert_golden/main.eng",
                 "examples/official/17_measured_vs_simulated/main.eng",
                 "examples/official/18_state_space_preview/main.eng",
+                "examples/official/19_class_object_preview/main.eng",
             ],
         ),
         (
@@ -793,6 +794,18 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         (
             "examples/05_error_messages/domain_unknown_quantity.eng",
             "E-DOMAIN-VAR-001",
+        ),
+        (
+            "examples/05_error_messages/class_missing_field.eng",
+            "E-CLASS-FIELD-MISSING-001",
+        ),
+        (
+            "examples/05_error_messages/class_unknown_field.eng",
+            "E-CLASS-FIELD-UNKNOWN-001",
+        ),
+        (
+            "examples/05_error_messages/class_field_type_mismatch.eng",
+            "E-CLASS-FIELD-TYPE-001",
         ),
     ] {
         let report = match check_file(fixture, &CheckOptions::default()) {
@@ -1181,6 +1194,35 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("state-space preview example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
+        Path::new("examples/official/19_class_object_preview/main.eng"),
+        Path::new("build/test-class-object-preview"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
+            let report_spec = std::fs::read_to_string(output.report_spec_path).unwrap_or_default();
+            let report_html = std::fs::read_to_string(output.report_path).unwrap_or_default();
+            if !review.contains("\"class_summary\"")
+                || !review.contains("\"object_summary\"")
+                || !review.contains("\"Object[Construction]\"")
+                || !report_spec.contains("\"class_summary\"")
+                || !report_spec.contains("\"object_summary\"")
+                || !report_html.contains("Classes")
+                || !report_html.contains("Objects")
+            {
+                eprintln!("expected class object preview to expose class/object artifacts");
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/19_class_object_preview/main.eng produced class object metadata"
+            );
+        }
+        Err(error) => {
+            eprintln!("class object preview example failed: {error}");
             return ExitCode::from(2);
         }
     }
