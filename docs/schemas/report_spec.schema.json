@@ -109,8 +109,14 @@
       "type": "array",
       "items": { "$ref": "#/$defs/assemblySummary" }
     },
-    "class_summary": { "type": "array" },
-    "object_summary": { "type": "array" },
+    "class_summary": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/classSummary" }
+    },
+    "object_summary": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/classObjectSummary" }
+    },
     "system_summary": {
       "type": "array",
       "items": { "$ref": "#/$defs/systemSummary" }
@@ -642,6 +648,172 @@
           "type": "array",
           "items": { "type": "string" }
         }
+      }
+    },
+    "classSummary": {
+      "type": "object",
+      "required": [
+        "name",
+        "line",
+        "field_count",
+        "validation_count",
+        "method_count",
+        "status",
+        "fields",
+        "validations",
+        "methods"
+      ],
+      "properties": {
+        "name": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "field_count": { "type": "integer", "minimum": 0 },
+        "validation_count": { "type": "integer", "minimum": 0 },
+        "method_count": { "type": "integer", "minimum": 0 },
+        "status": { "type": "string" },
+        "fields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/classField" }
+        },
+        "validations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/classValidation" }
+        },
+        "methods": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/classMethod" }
+        }
+      }
+    },
+    "classField": {
+      "type": "object",
+      "required": [
+        "name",
+        "type_name",
+        "quantity_kind",
+        "display_unit",
+        "canonical_unit",
+        "dimension",
+        "default",
+        "required",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "name": { "type": "string" },
+        "type_name": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "canonical_unit": { "type": "string" },
+        "dimension": { "type": "string" },
+        "default": { "type": ["string", "null"] },
+        "required": { "type": "boolean" },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "classValidation": {
+      "type": "object",
+      "required": ["expression", "left", "operator", "right", "status", "line"],
+      "properties": {
+        "expression": { "type": "string" },
+        "left": { "type": "string" },
+        "operator": { "type": "string" },
+        "right": { "type": "string" },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "classMethod": {
+      "type": "object",
+      "required": [
+        "name",
+        "return_type",
+        "return_quantity_kind",
+        "return_display_unit",
+        "return_canonical_unit",
+        "expression",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "name": { "type": "string" },
+        "return_type": { "type": "string" },
+        "return_quantity_kind": { "type": "string" },
+        "return_display_unit": { "type": "string" },
+        "return_canonical_unit": { "type": "string" },
+        "expression": { "type": "string" },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "classObjectSummary": {
+      "type": "object",
+      "required": [
+        "name",
+        "class_name",
+        "source_object",
+        "construction",
+        "line",
+        "field_count",
+        "validation_count",
+        "status",
+        "fields",
+        "validations"
+      ],
+      "properties": {
+        "name": { "type": "string" },
+        "class_name": { "type": "string" },
+        "source_object": { "type": ["string", "null"] },
+        "construction": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "field_count": { "type": "integer", "minimum": 0 },
+        "validation_count": { "type": "integer", "minimum": 0 },
+        "status": { "type": "string" },
+        "fields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/classObjectField" }
+        },
+        "validations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/classObjectValidation" }
+        }
+      }
+    },
+    "classObjectField": {
+      "type": "object",
+      "required": ["name", "expression", "quantity_kind", "display_unit", "status", "line"],
+      "properties": {
+        "name": { "type": "string" },
+        "expression": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "classObjectValidation": {
+      "type": "object",
+      "required": [
+        "expression",
+        "left",
+        "operator",
+        "right",
+        "left_value",
+        "right_value",
+        "unit",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "expression": { "type": "string" },
+        "left": { "type": "string" },
+        "operator": { "type": "string" },
+        "right": { "type": "string" },
+        "left_value": { "type": ["string", "null"] },
+        "right_value": { "type": ["string", "null"] },
+        "unit": { "type": "string" },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
       }
     },
     "systemSummary": {
