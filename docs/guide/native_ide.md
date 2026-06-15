@@ -23,8 +23,10 @@ eng-ide.exe --smoke
 ```
 
 The smoke path checks that examples are discoverable, compiler completion
-metadata is available, and the official domain/component track example produces
-domain, component, and connection metadata.
+metadata is available, the official domain/component track example produces
+domain, component, and connection metadata, and the measured-vs-simulated
+workflow produces IDE inspector payloads for schema, TimeSeries, metric,
+validation, time alignment, and artifact outlines.
 
 ## Development Flow
 
@@ -43,7 +45,8 @@ frontend is static, so setup does not install Node/npm.
 
 Top toolbar
   Compact icon-backed Run, Check, Save, Report, and Plot actions, diagnostic
-  counts, and current status.
+  counts, execution profile selection for `normal`, `safe`, and `repro`, output
+  folder opening, and current status.
 
 Workspace bar
   Shows the resolved workspace root, current file path, and Run Dir. Files
@@ -62,10 +65,13 @@ Editor
   force suggestions, `Tab` or `Enter` to insert, and `Esc` to dismiss.
 
 Right Sidebar
-  Variables, Plot, and Run tabs. After a successful run, source symbols,
-  runtime variables, and Args values are summarized in a table. Clicking a
-  variable row expands canonical unit, dimension, role, and line metadata. Plot
-  previews live beside Variables so the bottom terminal keeps a stable height.
+  Vars, Schema, Time, Plot, Checks, Artifacts, and Run tabs. After a successful
+  run, source symbols, runtime variables, Args values, schema summaries, unit
+  conversions, TimeSeries ranges/statistics, metrics, validations, time
+  alignments, system/solver metadata, artifact paths, and JSON artifact
+  outlines are summarized in tables. Clicking a variable row expands canonical
+  unit, dimension, role, and line metadata. Plot previews live beside Variables
+  so the bottom terminal keeps a stable height.
 
 Bottom Panel
   Problems and Terminal tabs. The Terminal uses an EngLang prompt, supports
@@ -75,10 +81,12 @@ Bottom Panel
   Dir without changing the open file.
 
 Reports and artifacts remain runtime objects by default. The Report toolbar
-button and Plot tab artifact button save/open those artifacts on demand after a
-successful run. This keeps the IDE focused on code, terminal output, variables,
-diagnostics, and plot preview instead of exposing an artifact browser by
-default.
+button, Output toolbar button, Plot tab artifact button, and artifact-path rows
+save/open artifacts on demand after a successful run. This keeps the IDE
+focused on code, terminal output, variables, diagnostics, and plot preview while
+still making `review.json`, `report_spec.json`, `output_manifest.json`,
+`run_log.json`, `process_results.json`, `test_results.json`, PlotSpec, and
+plot manifest outlines inspectable.
 
 ## Recommended Smoke Files
 

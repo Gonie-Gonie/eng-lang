@@ -19,6 +19,8 @@ const state = {
   artifacts: [],
   plotSpec: null,
   reportTitle: "",
+  inspectors: emptyInspectors(),
+  profile: "normal",
   terminalEntries: [{ kind: "info", text: "Ready." }],
   terminalCommands: [],
   terminalHistoryIndex: null,
@@ -32,6 +34,19 @@ let dragDropBound = false;
 
 function byId(id) {
   return document.getElementById(id);
+}
+
+function emptyInspectors() {
+  return {
+    schemas: [],
+    unitConversions: [],
+    timeSeries: [],
+    metrics: [],
+    validations: [],
+    timeAlignments: [],
+    systems: [],
+    artifactOutlines: []
+  };
 }
 
 async function call(cmd, args = {}) {
@@ -110,7 +125,11 @@ function renderToolbar() {
       ${toolButton("saveBtn", "Save", "Save current file", "save")}
       <span class="toolbar-separator"></span>
       ${toolButton("reportBtn", "Report", "Open last report", "file")}
+      ${toolButton("outputBtn", "Output", "Open output folder", "folder")}
       ${toolButton("plotBtn", "Plot", "Show plot panel", "chart")}
+      <select id="profileSelect" class="profile-select" title="Execution profile">
+        ${["normal", "safe", "repro"].map((profile) => `<option value="${profile}" ${state.profile === profile ? "selected" : ""}>${profile}</option>`).join("")}
+      </select>
       <span class="badge ${errorCount() ? "bad" : ""}">Errors ${errorCount()}</span>
       <span class="badge ${warningCount() ? "warn" : ""}">Warnings ${warningCount()}</span>
       <span class="status">${escapeHtml(state.status)}</span>
@@ -176,6 +195,7 @@ function icon(name) {
     check: '<path d="M5 12.5l4 4L19 6"/>',
     save: '<path d="M5 5h12l2 2v12H5z"/><path d="M8 5v5h8V5"/><path d="M8 19v-5h8v5"/>',
     file: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v6h5"/>',
+    folder: '<path d="M3 6h7l2 2h9v10H3z"/><path d="M3 8h18"/>',
     chart: '<path d="M4 19h16"/><path d="M7 16v-5"/><path d="M12 16V7"/><path d="M17 16v-8"/>'
   };
   return `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || ""}</svg>`;
@@ -201,8 +221,14 @@ function bind() {
   byId("saveBtn").onclick = saveCurrent;
   byId("runBtn").onclick = runCurrent;
   byId("reportBtn").onclick = () => openArtifact("report");
+  byId("outputBtn").onclick = () => openArtifact("output_folder");
   byId("plotBtn").onclick = () => {
     state.sideTab = "plot";
+    render();
+  };
+  byId("profileSelect").onchange = (event) => {
+    state.profile = event.target.value;
+    state.status = `Profile ${state.profile}`;
     render();
   };
   byId("openPathBtn").onclick = () => openFile(byId("pathInput").value);
@@ -255,6 +281,9 @@ function bind() {
   });
   const openPlotArtifact = byId("openPlotArtifact");
   if (openPlotArtifact) openPlotArtifact.onclick = () => openArtifact("plot");
+  document.querySelectorAll("[data-open-artifact-kind]").forEach((button) => {
+    button.onclick = () => openArtifact(button.dataset.openArtifactKind);
+  });
   const terminalInput = byId("terminalInput");
   if (terminalInput) {
     terminalInput.focus();
@@ -302,6 +331,7 @@ async function openFile(path) {
     state.variables = [];
     state.args = [];
     state.artifacts = [];
+    state.inspectors = emptyInspectors();
     state.completionItems = [];
     state.plotSpec = null;
     state.reportTitle = "";
@@ -354,7 +384,7 @@ async function runCurrent() {
   try {
     rememberCurrentTab();
     appendTerminal("command", `${terminalPrompt()}run ${fileName(state.currentPath)}`);
-    const result = await call("ide_run", { path: state.currentPath, source: state.source });
+    const result = await call("ide_run", { path: state.currentPath, source: state.source, profile: state.profile });
     applyRun(result, { mergeRuntime: false });
     appendRunResult(result);
     state.status = result.ok ? "Run complete" : "Run blocked";
@@ -401,7 +431,8 @@ async function sendTerminalCommand(command) {
       path: state.currentPath,
       source: state.source,
       command,
-      runDir: state.runDir
+      runDir: state.runDir,
+      profile: state.profile
     });
     applyRun(result, { mergeRuntime: command.toLowerCase() !== "run" });
     appendRunResult(result);
@@ -437,6 +468,7 @@ function applyRun(result, options = {}) {
       ? mergeRuntimeRows(state.args, result.args ?? [])
       : result.args ?? [];
     state.artifacts = result.artifacts ?? state.artifacts;
+    state.inspectors = result.inspectors ?? state.inspectors ?? emptyInspectors();
     state.plotSpec = hasPlotData(result.plotSpec) ? result.plotSpec : null;
     state.reportTitle = result.reportTitle ?? "";
     if (state.plotSpec) state.sideTab = "plot";
@@ -535,6 +567,7 @@ async function switchTab(path) {
   state.variables = [];
   state.args = [];
   state.artifacts = [];
+  state.inspectors = emptyInspectors();
   state.completionItems = [];
   state.plotSpec = null;
   state.reportTitle = "";
@@ -567,6 +600,7 @@ function closeTab(path) {
   state.variables = [];
   state.args = [];
   state.artifacts = [];
+  state.inspectors = emptyInspectors();
   state.completionItems = [];
   state.plotSpec = null;
   state.reportTitle = "";
@@ -590,17 +624,29 @@ function renderSidePanel() {
   return `
     <aside class="variables inspector">
       <div class="side-tabs">
-        <button class="side-tab ${state.sideTab === "variables" ? "active" : ""}" data-side-tab="variables">Variables</button>
-        <button class="side-tab ${state.sideTab === "plot" ? "active" : ""}" data-side-tab="plot">Plot</button>
-        <button class="side-tab ${state.sideTab === "run" ? "active" : ""}" data-side-tab="run">Run</button>
+        ${sideTabButton("variables", "Vars")}
+        ${sideTabButton("schema", "Schema")}
+        ${sideTabButton("time", "Time")}
+        ${sideTabButton("plot", "Plot")}
+        ${sideTabButton("checks", "Checks")}
+        ${sideTabButton("artifacts", "Artifacts")}
+        ${sideTabButton("run", "Run")}
       </div>
       <div class="side-body">${renderSideBody()}</div>
     </aside>
   `;
 }
 
+function sideTabButton(key, label) {
+  return `<button class="side-tab ${state.sideTab === key ? "active" : ""}" data-side-tab="${key}">${label}</button>`;
+}
+
 function renderSideBody() {
   if (state.sideTab === "plot") return renderPlotPanel();
+  if (state.sideTab === "schema") return renderSchemaPanel();
+  if (state.sideTab === "time") return renderTimePanel();
+  if (state.sideTab === "checks") return renderChecksPanel();
+  if (state.sideTab === "artifacts") return renderArtifactsPanel();
   if (state.sideTab === "run") return renderRunPanel();
   return `
     <div class="panel-title compact">Variables</div>
@@ -641,11 +687,66 @@ function renderRunPanel() {
       <div><span>Run Dir</span><code>${escapeHtml(state.runDir || ".")}</code></div>
       <div><span>File Dir</span><code>${escapeHtml(currentDirectory())}</code></div>
       <div><span>File</span><code>${escapeHtml(state.currentPath || "-")}</code></div>
+      <div><span>Profile</span><code>${escapeHtml(state.profile)}</code></div>
       <div><span>Status</span><code>${escapeHtml(state.check.status || "-")}</code></div>
       <div><span>Report</span><code>${escapeHtml(state.reportTitle || "-")}</code></div>
     </div>
-    <div class="panel-title compact">Runtime Objects</div>
-    <div class="scroll">${renderArtifacts()}</div>
+    <div class="run-actions">
+      <button data-open-artifact-kind="report">Open Report</button>
+      <button data-open-artifact-kind="output_folder">Open Output</button>
+    </div>
+  `;
+}
+
+function renderSchemaPanel() {
+  return `
+    <div class="panel-title compact">Schema</div>
+    <div class="badges">
+      <span class="badge">Schemas ${inspectorRows("schemas").length}</span>
+      <span class="badge">Conversions ${inspectorRows("unitConversions").length}</span>
+    </div>
+    <div class="scroll">
+      ${renderSchemas()}
+      <div class="panel-title compact">Unit Conversions</div>
+      ${renderUnitConversions()}
+    </div>
+  `;
+}
+
+function renderTimePanel() {
+  return `
+    <div class="panel-title compact">TimeSeries</div>
+    <div class="badges">
+      <span class="badge">Series ${inspectorRows("timeSeries").length}</span>
+      <span class="badge">Alignments ${inspectorRows("timeAlignments").length}</span>
+    </div>
+    <div class="scroll">${renderTimeSeries()}</div>
+  `;
+}
+
+function renderChecksPanel() {
+  return `
+    <div class="panel-title compact">Metrics</div>
+    <div class="scroll">
+      ${renderMetrics()}
+      <div class="panel-title compact">Validations</div>
+      ${renderValidations()}
+      <div class="panel-title compact">Time Alignment</div>
+      ${renderAlignments()}
+      <div class="panel-title compact">Systems</div>
+      ${renderSystems()}
+    </div>
+  `;
+}
+
+function renderArtifactsPanel() {
+  return `
+    <div class="panel-title compact">Artifacts</div>
+    <div class="scroll">
+      ${renderArtifacts()}
+      <div class="panel-title compact">Outlines</div>
+      ${renderArtifactOutlines()}
+    </div>
   `;
 }
 
@@ -661,10 +762,153 @@ function renderArtifacts() {
           <tr>
             <td>${escapeHtml(artifact.kind)}</td>
             <td>${escapeHtml(artifact.status)}</td>
-            <td><code>${escapeHtml(artifact.path)}</code></td>
+            <td><button class="link-button" data-open-artifact-kind="${escapeAttr(artifact.kind)}"><code>${escapeHtml(artifact.path)}</code></button></td>
           </tr>
         `).join("")}
       </tbody>
+    </table>
+  `;
+}
+
+function renderSchemas() {
+  const rows = inspectorRows("schemas").map((schema) => `
+    <tr>
+      <td><strong>${escapeHtml(schema.name || "-")}</strong><div class="muted">L${escapeHtml(schema.line || "-")}</div></td>
+      <td>${escapeHtml(schema.row_count ?? schema.rowCount ?? "-")}</td>
+      <td>${escapeHtml(schema.date_time_index || schema.dateTimeIndex || "-")}</td>
+      <td>${escapeHtml(columnSummary(schema.columns))}</td>
+      <td><code>${escapeHtml(schema.source_hash || schema.sourceHash || "-")}</code></td>
+    </tr>
+  `).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Name</th><th>Rows</th><th>Index</th><th>Columns</th><th>Hash</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">Run a CSV workflow.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderUnitConversions() {
+  const rows = inspectorRows("unitConversions").map((item) => `
+    <tr>
+      <td><strong>${escapeHtml(item.name || "-")}</strong><div class="muted">${escapeHtml(item.quantity_kind || item.quantityKind || "-")}</div></td>
+      <td>${escapeHtml(item.source_unit ?? item.sourceUnit ?? "-")}</td>
+      <td>${escapeHtml(item.canonical_unit || item.canonicalUnit || "-")}</td>
+      <td>${escapeHtml(item.display_unit || item.displayUnit || "-")}</td>
+      <td>${escapeHtml(Array.isArray(item.steps) ? item.steps.join("; ") : "-")}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Name</th><th>Source</th><th>Canonical</th><th>Display</th><th>Expression</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">No conversion records.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderTimeSeries() {
+  const rows = inspectorRows("timeSeries").map((series) => `
+    <tr>
+      <td><strong>${escapeHtml(series.name || "-")}</strong><div class="muted">${escapeHtml(series.axis || "-")}</div></td>
+      <td>${escapeHtml(series.start_time || series.startTime || "-")}<div class="muted">${escapeHtml(series.end_time || series.endTime || "-")}</div></td>
+      <td>${escapeHtml(series.timestep || "-")}</td>
+      <td>${escapeHtml(series.row_count ?? series.rowCount ?? "-")}<div class="muted">missing ${escapeHtml(series.missing_count ?? series.missingCount ?? 0)}</div></td>
+      <td>${escapeHtml(series.display_unit || series.displayUnit || "-")}</td>
+      <td>${metricCell(series.mean)} / ${metricCell(series.max)}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Name</th><th>Range</th><th>Step</th><th>Rows</th><th>Unit</th><th>Mean/Max</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">Run a TimeSeries workflow.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderMetrics() {
+  const rows = inspectorRows("metrics").map((metric) => `
+    <tr>
+      <td><strong>${escapeHtml(metric.binding || "-")}</strong><div class="muted">${escapeHtml(metric.kind || "-")}</div></td>
+      <td>${escapeHtml(metric.left || "-")} vs ${escapeHtml(metric.right || "-")}</td>
+      <td>${metricCell(metric.value)} ${escapeHtml(metric.unit || "")}</td>
+      <td>${escapeHtml(metric.status || "-")}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Name</th><th>Inputs</th><th>Value</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4" class="muted">No metrics.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderValidations() {
+  const rows = inspectorRows("validations").map((item) => `
+    <tr>
+      <td><strong>${escapeHtml(item.status || "-")}</strong><div class="muted">L${escapeHtml(item.line || "-")}</div></td>
+      <td>${escapeHtml(item.expression || "-")}</td>
+      <td>${metricCell(item.left_value ?? item.leftValue)} ${escapeHtml(item.unit || "")}</td>
+      <td>${metricCell(item.right_value ?? item.rightValue)} ${escapeHtml(item.unit || "")}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Status</th><th>Expression</th><th>Value</th><th>Threshold</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4" class="muted">No validations.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderAlignments() {
+  const rows = inspectorRows("timeAlignments").map((item) => `
+    <tr>
+      <td><strong>${escapeHtml(item.status || "-")}</strong><div class="muted">${escapeHtml(item.axis || "-")}</div></td>
+      <td>${escapeHtml(item.left || "-")}<div class="muted">${escapeHtml(item.right || "-")}</div></td>
+      <td>${escapeHtml(item.matched_count ?? item.matchedCount ?? "-")} / ${escapeHtml(item.left_count ?? item.leftCount ?? "-")}</td>
+      <td>${escapeHtml(item.overlap_start ?? item.overlapStart ?? "-")} - ${escapeHtml(item.overlap_end ?? item.overlapEnd ?? "-")}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Status</th><th>Series</th><th>Matched</th><th>Overlap</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4" class="muted">No alignment metadata.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderSystems() {
+  const rows = inspectorRows("systems").map((system) => {
+    const solver = system.solver_result || system.solverResult || {};
+    return `
+      <tr>
+        <td><strong>${escapeHtml(system.name || "-")}</strong><div class="muted">L${escapeHtml(system.line || "-")}</div></td>
+        <td>${escapeHtml(Array.isArray(system.variables) ? system.variables.length : system.variable_count ?? system.variableCount ?? 0)}</td>
+        <td>${escapeHtml(Array.isArray(system.equations) ? system.equations.length : 0)}</td>
+        <td>${escapeHtml(solver.status || "-")}<div class="muted">${escapeHtml(solver.method || "-")}</div></td>
+        <td>${escapeHtml(solver.step_count ?? solver.stepCount ?? "-")}</td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Name</th><th>Vars</th><th>Eq</th><th>Solver</th><th>Steps</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">No system metadata.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderArtifactOutlines() {
+  const rows = inspectorRows("artifactOutlines").map((artifact) => `
+    <tr>
+      <td><button class="link-button" data-open-artifact-kind="${escapeAttr(artifact.kind)}"><strong>${escapeHtml(artifact.kind || "-")}</strong></button><div class="muted">${escapeHtml(artifact.status || "-")}</div></td>
+      <td><code>${escapeHtml(artifact.path || "-")}</code></td>
+      <td>${escapeHtml((artifact.sections || []).map((section) => `${section.name}: ${section.summary}`).join("; "))}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Kind</th><th>Path</th><th>Sections</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="3" class="muted">Run a file to outline artifacts.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -844,6 +1088,26 @@ function renderTree(nodes, depth) {
       ${children}
     `;
   }).join("");
+}
+
+function inspectorRows(key) {
+  const value = state.inspectors?.[key];
+  return Array.isArray(value) ? value : [];
+}
+
+function columnSummary(columns) {
+  if (!Array.isArray(columns) || !columns.length) return "-";
+  return columns.map((column) => {
+    const unit = column.unit || column.canonical_unit || column.canonicalUnit || "";
+    const suffix = unit ? ` [${unit}]` : "";
+    return `${column.name || "column"}: ${column.type || "-"}${suffix}`;
+  }).join("; ");
+}
+
+function metricCell(value) {
+  if (value === null || value === undefined || value === "") return "-";
+  if (typeof value === "number") return fmt(value);
+  return escapeHtml(value);
 }
 
 function renderVariables() {

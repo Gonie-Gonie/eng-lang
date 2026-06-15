@@ -9,9 +9,9 @@ use std::sync::Mutex;
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, check_source, CheckOptions, CheckReport, Severity,
 };
-use eng_runtime::{run_file, run_source, RunOptions, RuntimeError};
+use eng_runtime::{run_file, run_source, ExecutionProfile, RunOptions, RuntimeError};
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{json, Value};
 use tauri::State;
 
 #[derive(Default)]
@@ -98,6 +98,7 @@ struct RunView {
     artifacts: Vec<ArtifactView>,
     plot_spec: Value,
     report_title: String,
+    inspectors: InspectorView,
 }
 
 #[derive(Clone, Serialize)]
@@ -106,6 +107,34 @@ struct ArtifactView {
     kind: String,
     path: String,
     status: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InspectorView {
+    schemas: Value,
+    unit_conversions: Value,
+    time_series: Value,
+    metrics: Value,
+    validations: Value,
+    time_alignments: Value,
+    systems: Value,
+    artifact_outlines: Value,
+}
+
+impl Default for InspectorView {
+    fn default() -> Self {
+        Self {
+            schemas: Value::Array(Vec::new()),
+            unit_conversions: Value::Array(Vec::new()),
+            time_series: Value::Array(Vec::new()),
+            metrics: Value::Array(Vec::new()),
+            validations: Value::Array(Vec::new()),
+            time_alignments: Value::Array(Vec::new()),
+            systems: Value::Array(Vec::new()),
+            artifact_outlines: Value::Array(Vec::new()),
+        }
+    }
 }
 
 #[derive(Clone, Serialize)]
@@ -146,8 +175,6 @@ struct CachedRunOutput {
     plot_spec_path: PathBuf,
     plot_manifest_path: PathBuf,
     output_manifest_path: PathBuf,
-    relative_report_path: String,
-    relative_plot_path: String,
     artifacts_saved: bool,
     bytecode: String,
     result_json: String,
@@ -164,10 +191,8 @@ struct CachedRunOutput {
 }
 
 impl CachedRunOutput {
-    fn from_output(output: eng_runtime::RunOutput, root: &Path) -> Self {
+    fn from_output(output: eng_runtime::RunOutput) -> Self {
         Self {
-            relative_report_path: relative_to(root, &output.report_path),
-            relative_plot_path: relative_to(root, &output.plot_path),
             bytecode_path: output.bytecode_path,
             result_path: output.result_path,
             review_path: output.review_path,
@@ -271,9 +296,15 @@ fn ide_check(path: String, source: String) -> CheckView {
 }
 
 #[tauri::command]
-fn ide_run(path: String, source: String, state: State<'_, IdeState>) -> Result<RunView, String> {
+fn ide_run(
+    path: String,
+    source: String,
+    profile: Option<String>,
+    state: State<'_, IdeState>,
+) -> Result<RunView, String> {
     let root = workspace_root();
     let path = resolve_path(&root, &path);
+    let profile = ide_profile(profile.as_deref())?;
     create_parent(&path)?;
     fs::write(&path, source.as_bytes()).map_err(|error| error.to_string())?;
     let check = check_view(&path, &source);
@@ -292,9 +323,10 @@ fn ide_run(path: String, source: String, state: State<'_, IdeState>) -> Result<R
             artifacts: Vec::new(),
             plot_spec: Value::Null,
             report_title: String::new(),
+            inspectors: InspectorView::default(),
         });
     }
-    run_source_file(&root, &path, check, state)
+    run_source_file(&root, &path, check, profile, state)
 }
 
 #[tauri::command]
@@ -303,11 +335,13 @@ fn ide_terminal(
     source: String,
     command: String,
     run_dir: Option<String>,
+    profile: Option<String>,
     state: State<'_, IdeState>,
 ) -> Result<RunView, String> {
     let trimmed = command.trim();
     let root = workspace_root();
     let current_path = resolve_path(&root, &path);
+    let profile_value = ide_profile(profile.as_deref())?;
     let run_dir_path =
         if let Some(value) = run_dir.as_deref().filter(|value| !value.trim().is_empty()) {
             let path = resolve_path(&root, value);
@@ -340,6 +374,7 @@ fn ide_terminal(
             artifacts: Vec::new(),
             plot_spec: Value::Null,
             report_title: String::new(),
+            inspectors: InspectorView::default(),
         });
     }
     if trimmed.eq_ignore_ascii_case("check") {
@@ -354,10 +389,11 @@ fn ide_terminal(
             artifacts: Vec::new(),
             plot_spec: Value::Null,
             report_title: String::new(),
+            inspectors: InspectorView::default(),
         });
     }
     if trimmed.eq_ignore_ascii_case("run") {
-        return ide_run(path, source, state);
+        return ide_run(path, source, Some(profile_value.as_str().to_owned()), state);
     }
 
     if let Some(check) = terminal_command_error(trimmed)
@@ -373,6 +409,7 @@ fn ide_terminal(
             artifacts: Vec::new(),
             plot_spec: Value::Null,
             report_title: String::new(),
+            inspectors: InspectorView::default(),
         });
     }
 
@@ -406,10 +443,17 @@ fn ide_terminal(
             artifacts: Vec::new(),
             plot_spec: Value::Null,
             report_title: String::new(),
+            inspectors: InspectorView::default(),
         });
     }
-    let mut view =
-        run_virtual_source_file(&root, &session_path, &session_source, check, state.clone())?;
+    let mut view = run_virtual_source_file(
+        &root,
+        &session_path,
+        &session_source,
+        check,
+        profile_value,
+        state.clone(),
+    )?;
     if view.ok {
         *state
             .terminal_session_source
@@ -426,6 +470,7 @@ fn ide_terminal(
 
 #[tauri::command]
 fn ide_open_artifact(kind: String, state: State<'_, IdeState>) -> Result<String, String> {
+    let root = workspace_root();
     let mut guard = state
         .last_output
         .lock()
@@ -436,12 +481,28 @@ fn ide_open_artifact(kind: String, state: State<'_, IdeState>) -> Result<String,
     if !output.artifacts_saved {
         output.save_artifacts()?;
     }
-    let (path, relative) = match kind.as_str() {
-        "plot" => (&output.plot_path, &output.relative_plot_path),
-        _ => (&output.report_path, &output.relative_report_path),
+    let path = match kind.as_str() {
+        "result" => output.result_path.clone(),
+        "review" => output.review_path.clone(),
+        "run_log" => output.run_log_path.clone(),
+        "process_results" => output.process_results_path.clone(),
+        "test_results" => output.test_results_path.clone(),
+        "output_manifest" => output.output_manifest_path.clone(),
+        "report" => output.report_path.clone(),
+        "report_spec" => output.report_spec_path.clone(),
+        "plot" | "plot_svg" => output.plot_path.clone(),
+        "plot_spec" => output.plot_spec_path.clone(),
+        "plot_manifest" => output.plot_manifest_path.clone(),
+        "output_folder" => output
+            .output_manifest_path
+            .parent()
+            .unwrap_or(&output.output_manifest_path)
+            .to_path_buf(),
+        _ => output.report_path.clone(),
     };
-    open_path(path);
-    Ok(relative.clone())
+    let relative = relative_to(&root, &path);
+    open_path(&path);
+    Ok(relative)
 }
 
 impl RunView {
@@ -460,6 +521,7 @@ impl RunView {
             artifacts: Vec::new(),
             plot_spec: Value::Null,
             report_title: String::new(),
+            inspectors: InspectorView::default(),
         }
     }
 }
@@ -492,6 +554,7 @@ fn run_source_file(
     root: &Path,
     path: &Path,
     check: CheckView,
+    profile: ExecutionProfile,
     state: State<'_, IdeState>,
 ) -> Result<RunView, String> {
     let build_root = root.join("build").join("ide-tauri-run");
@@ -502,12 +565,12 @@ fn run_source_file(
             open_report: false,
             save_artifacts: false,
             args: Vec::new(),
-            ..RunOptions::default()
+            profile,
         },
     ) {
         Ok(output) => {
             let stdout = output.stdout.clone();
-            let cached = CachedRunOutput::from_output(output, root);
+            let cached = CachedRunOutput::from_output(output);
             let variables = runtime_variables(&cached);
             let args = runtime_args(&cached.report_spec_json);
             let report_title = report_title(&cached.report_spec_json);
@@ -515,6 +578,7 @@ fn run_source_file(
             let plot_spec = plot_spec_or_null(plot_spec);
             let terminal = terminal_summary(&stdout, &variables, &args, &report_title, &plot_spec);
             let artifacts = runtime_artifacts(root, &cached);
+            let inspectors = runtime_inspectors(root, &cached);
             *state
                 .last_output
                 .lock()
@@ -529,6 +593,7 @@ fn run_source_file(
                 artifacts,
                 plot_spec,
                 report_title,
+                inspectors,
             })
         }
         Err(RuntimeError::Compile(report)) => {
@@ -543,6 +608,7 @@ fn run_source_file(
                 artifacts: Vec::new(),
                 plot_spec: Value::Null,
                 report_title: String::new(),
+                inspectors: InspectorView::default(),
             })
         }
         Err(error) => Err(error.to_string()),
@@ -554,6 +620,7 @@ fn run_virtual_source_file(
     path: &Path,
     source: &str,
     check: CheckView,
+    profile: ExecutionProfile,
     state: State<'_, IdeState>,
 ) -> Result<RunView, String> {
     let build_root = root.join("build").join("ide-tauri-terminal");
@@ -565,12 +632,12 @@ fn run_virtual_source_file(
             open_report: false,
             save_artifacts: false,
             args: Vec::new(),
-            ..RunOptions::default()
+            profile,
         },
     ) {
         Ok(output) => {
             let stdout = output.stdout.clone();
-            let cached = CachedRunOutput::from_output(output, root);
+            let cached = CachedRunOutput::from_output(output);
             let variables = runtime_variables(&cached);
             let args = runtime_args(&cached.report_spec_json);
             let report_title = report_title(&cached.report_spec_json);
@@ -578,6 +645,7 @@ fn run_virtual_source_file(
             let plot_spec = plot_spec_or_null(plot_spec);
             let terminal = terminal_summary(&stdout, &variables, &args, &report_title, &plot_spec);
             let artifacts = runtime_artifacts(root, &cached);
+            let inspectors = runtime_inspectors(root, &cached);
             *state
                 .last_output
                 .lock()
@@ -592,6 +660,7 @@ fn run_virtual_source_file(
                 artifacts,
                 plot_spec,
                 report_title,
+                inspectors,
             })
         }
         Err(RuntimeError::Compile(report)) => {
@@ -606,6 +675,7 @@ fn run_virtual_source_file(
                 artifacts: Vec::new(),
                 plot_spec: Value::Null,
                 report_title: String::new(),
+                inspectors: InspectorView::default(),
             })
         }
         Err(error) => Err(error.to_string()),
@@ -812,6 +882,452 @@ fn runtime_artifacts(root: &Path, output: &CachedRunOutput) -> Vec<ArtifactView>
         status: status.to_owned(),
     })
     .collect()
+}
+
+fn ide_profile(value: Option<&str>) -> Result<ExecutionProfile, String> {
+    let value = value.unwrap_or("normal");
+    ExecutionProfile::parse(value).ok_or_else(|| {
+        format!("unknown execution profile `{value}`; expected safe, normal, or repro")
+    })
+}
+
+fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
+    let report = parse_json_value(&output.report_spec_json);
+    let result = parse_json_value(&output.result_json);
+    InspectorView {
+        schemas: schema_inspector(&report, &result),
+        unit_conversions: json_array_clone(&report, "unit_conversion_table"),
+        time_series: time_series_inspector(&result),
+        metrics: json_array_clone(&report, "computed_metrics"),
+        validations: json_array_clone(&report, "validations"),
+        time_alignments: json_array_clone(&report, "time_alignments"),
+        systems: system_inspector(&report, &result),
+        artifact_outlines: artifact_outlines(root, output),
+    }
+}
+
+fn parse_json_value(text: &str) -> Value {
+    serde_json::from_str::<Value>(text).unwrap_or(Value::Null)
+}
+
+fn json_array_clone(value: &Value, key: &str) -> Value {
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .map(|items| Value::Array(items.clone()))
+        .unwrap_or_else(|| Value::Array(Vec::new()))
+}
+
+fn schema_inspector(report: &Value, result: &Value) -> Value {
+    let source_file = json_string(report, &["source_path"]).unwrap_or_default();
+    let Some(schemas) = report.get("schema_summary").and_then(Value::as_array) else {
+        return Value::Array(Vec::new());
+    };
+    let objects = result
+        .get("object_store")
+        .and_then(|store| store.get("objects"))
+        .and_then(Value::as_array);
+    Value::Array(
+        schemas
+            .iter()
+            .map(|schema| {
+                let name = json_field_string(schema, "name").unwrap_or_else(|| "schema".to_owned());
+                let table = objects.and_then(|items| {
+                    items.iter().find(|item| {
+                        json_field_string(item, "type")
+                            .and_then(|value| table_schema_name(&value))
+                            .as_deref()
+                            == Some(name.as_str())
+                    })
+                });
+                let columns = table
+                    .and_then(|item| item.get("columns"))
+                    .cloned()
+                    .unwrap_or_else(|| Value::Array(Vec::new()));
+                let date_time_index = columns
+                    .as_array()
+                    .and_then(|items| {
+                        items
+                            .iter()
+                            .find(|column| {
+                                column
+                                    .get("is_index")
+                                    .and_then(Value::as_bool)
+                                    .unwrap_or(false)
+                            })
+                            .and_then(|column| json_field_string(column, "name"))
+                    })
+                    .unwrap_or_default();
+                json!({
+                    "name": name,
+                    "source_file": source_file,
+                    "line": json_field_usize(schema, "line").unwrap_or(0),
+                    "row_count": table.and_then(|item| json_field_usize(item, "row_count")).unwrap_or(0),
+                    "date_time_index": date_time_index,
+                    "columns": columns,
+                    "missing_policy_summary": format!("{} policy item(s)", json_field_usize(schema, "missing_policy_count").unwrap_or(0)),
+                    "constraint_summary": format!("{} constraint(s)", json_field_usize(schema, "constraint_count").unwrap_or(0)),
+                    "source_hash": table.and_then(|item| json_field_string(item, "source_hash")).unwrap_or_default()
+                })
+            })
+            .collect(),
+    )
+}
+
+fn table_schema_name(value: &str) -> Option<String> {
+    value
+        .strip_prefix("Table[")
+        .and_then(|rest| rest.strip_suffix(']'))
+        .map(ToOwned::to_owned)
+}
+
+fn time_series_inspector(result: &Value) -> Value {
+    let mut rows = Vec::new();
+    if let Some(objects) = result
+        .get("object_store")
+        .and_then(|store| store.get("objects"))
+        .and_then(Value::as_array)
+    {
+        for object in objects {
+            if json_field_string(object, "kind").as_deref() != Some("table") {
+                continue;
+            }
+            if json_field_string(object, "axis").as_deref() != Some("Time") {
+                continue;
+            }
+            let table_name =
+                json_field_string(object, "name").unwrap_or_else(|| "table".to_owned());
+            let source_hash = json_field_string(object, "source_hash").unwrap_or_default();
+            let columns = object
+                .get("columns")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            let index_values = columns
+                .iter()
+                .find(|column| {
+                    column
+                        .get("is_index")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                })
+                .and_then(|column| column.get("values"))
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            for column in columns.iter().filter(|column| {
+                !column
+                    .get("is_index")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+            }) {
+                let values = numeric_values(column.get("values"));
+                let summary = numeric_summary(&values);
+                rows.push(json!({
+                    "name": format!("{}.{}", table_name, json_field_string(column, "name").unwrap_or_else(|| "series".to_owned())),
+                    "axis": "Time",
+                    "start_time": index_values.first().map(display_json_value).unwrap_or_default(),
+                    "end_time": index_values.last().map(display_json_value).unwrap_or_default(),
+                    "timestep": interval_label(&index_values),
+                    "row_count": json_field_usize(column, "len").or_else(|| json_field_usize(object, "row_count")).unwrap_or(0),
+                    "missing_count": json_field_usize(column, "missing_count").unwrap_or(0),
+                    "interpolation_policy": "none",
+                    "display_unit": json_field_string(column, "unit").unwrap_or_default(),
+                    "canonical_unit": json_field_string(column, "canonical_unit").unwrap_or_default(),
+                    "mean": summary.get("mean").cloned().unwrap_or(Value::Null),
+                    "min": summary.get("min").cloned().unwrap_or(Value::Null),
+                    "max": summary.get("max").cloned().unwrap_or(Value::Null),
+                    "p95": summary.get("p95").cloned().unwrap_or(Value::Null),
+                    "integration_metadata": Value::Null,
+                    "source_hash": source_hash.clone()
+                }));
+            }
+        }
+    }
+    if let Some(systems) = result
+        .get("typed_payload")
+        .and_then(|payload| payload.get("systems"))
+        .and_then(Value::as_array)
+    {
+        for system in systems {
+            let Some(solver_result) = system.get("solver_result") else {
+                continue;
+            };
+            if solver_result
+                .get("status")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                != "computed"
+            {
+                continue;
+            }
+            let points = solver_result
+                .get("points")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            let values = points
+                .iter()
+                .filter_map(|point| point.as_array()?.get(1)?.as_f64())
+                .collect::<Vec<_>>();
+            let summary = numeric_summary(&values);
+            let start = points
+                .first()
+                .and_then(Value::as_array)
+                .and_then(|point| point.first())
+                .and_then(Value::as_f64)
+                .map(|value| format!("{} s", format_json_number(value)))
+                .unwrap_or_default();
+            let end = points
+                .last()
+                .and_then(Value::as_array)
+                .and_then(|point| point.first())
+                .and_then(Value::as_f64)
+                .map(|value| format!("{} s", format_json_number(value)))
+                .unwrap_or_default();
+            rows.push(json!({
+                "name": format!(
+                    "{}.{}",
+                    json_field_string(solver_result, "binding").unwrap_or_else(|| "sim".to_owned()),
+                    json_field_string(solver_result, "state").unwrap_or_else(|| "state".to_owned())
+                ),
+                "axis": "Time",
+                "start_time": start,
+                "end_time": end,
+                "timestep": json_field_string(solver_result, "time_step").map(|value| format!("{value} s")).unwrap_or_default(),
+                "row_count": points.len(),
+                "missing_count": 0,
+                "interpolation_policy": "fixed-step",
+                "display_unit": json_field_string(solver_result, "display_unit").unwrap_or_default(),
+                "canonical_unit": json_field_string(solver_result, "canonical_unit").unwrap_or_default(),
+                "mean": summary.get("mean").cloned().unwrap_or(Value::Null),
+                "min": summary.get("min").cloned().unwrap_or(Value::Null),
+                "max": summary.get("max").cloned().unwrap_or(Value::Null),
+                "p95": summary.get("p95").cloned().unwrap_or(Value::Null),
+                "integration_metadata": {
+                    "method": json_field_string(solver_result, "method").unwrap_or_default(),
+                    "step_count": json_field_usize(solver_result, "step_count").unwrap_or(0),
+                    "duration": json_field_string(solver_result, "duration").unwrap_or_default(),
+                    "final_value": json_field_string(solver_result, "final_value").unwrap_or_default()
+                },
+                "source_hash": ""
+            }));
+        }
+    }
+    Value::Array(rows)
+}
+
+fn numeric_values(value: Option<&Value>) -> Vec<f64> {
+    value
+        .and_then(Value::as_array)
+        .map(|items| items.iter().filter_map(Value::as_f64).collect())
+        .unwrap_or_default()
+}
+
+fn numeric_summary(values: &[f64]) -> Value {
+    if values.is_empty() {
+        return json!({
+            "mean": Value::Null,
+            "min": Value::Null,
+            "max": Value::Null,
+            "p95": Value::Null
+        });
+    }
+    let mean = values.iter().sum::<f64>() / values.len() as f64;
+    let min = values
+        .iter()
+        .copied()
+        .fold(f64::INFINITY, |left, right| left.min(right));
+    let max = values
+        .iter()
+        .copied()
+        .fold(f64::NEG_INFINITY, |left, right| left.max(right));
+    let mut sorted = values.to_vec();
+    sorted.sort_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal));
+    let index = (((sorted.len() - 1) as f64) * 0.95).round() as usize;
+    json!({
+        "mean": mean,
+        "min": min,
+        "max": max,
+        "p95": sorted[index]
+    })
+}
+
+fn display_json_value(value: &Value) -> String {
+    if let Some(text) = value.as_str() {
+        text.to_owned()
+    } else if let Some(number) = value.as_f64() {
+        format_json_number(number)
+    } else {
+        value.to_string()
+    }
+}
+
+fn interval_label(values: &[Value]) -> String {
+    let Some(first) = values.first() else {
+        return String::new();
+    };
+    let Some(second) = values.get(1) else {
+        return String::new();
+    };
+    if let (Some(left), Some(right)) = (value_as_seconds(first), value_as_seconds(second)) {
+        return format!("{} s", right - left);
+    }
+    format!(
+        "{} -> {}",
+        display_json_value(first),
+        display_json_value(second)
+    )
+}
+
+fn value_as_seconds(value: &Value) -> Option<i64> {
+    if let Some(number) = value.as_i64() {
+        return Some(number);
+    }
+    value.as_str().and_then(parse_iso_utc_seconds)
+}
+
+fn parse_iso_utc_seconds(value: &str) -> Option<i64> {
+    let (date, time) = value.strip_suffix('Z')?.split_once('T')?;
+    let mut date_parts = date.split('-').filter_map(|part| part.parse::<i64>().ok());
+    let year = date_parts.next()?;
+    let month = date_parts.next()?;
+    let day = date_parts.next()?;
+    let mut time_parts = time.split(':').filter_map(|part| part.parse::<i64>().ok());
+    let hour = time_parts.next()?;
+    let minute = time_parts.next()?;
+    let second = time_parts.next()?;
+    Some(days_from_civil(year, month, day) * 86_400 + hour * 3600 + minute * 60 + second)
+}
+
+fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
+    let year = year - i64::from(month <= 2);
+    let era = if year >= 0 { year } else { year - 399 } / 400;
+    let yoe = year - era * 400;
+    let month_prime = month + if month > 2 { -3 } else { 9 };
+    let doy = (153 * month_prime + 2) / 5 + day - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146_097 + doe - 719_468
+}
+
+fn system_inspector(report: &Value, result: &Value) -> Value {
+    let result_systems = result
+        .get("typed_payload")
+        .and_then(|payload| payload.get("systems"))
+        .and_then(Value::as_array);
+    let Some(report_systems) = report.get("system_summary").and_then(Value::as_array) else {
+        return result_systems
+            .map(|items| Value::Array(items.clone()))
+            .unwrap_or_else(|| Value::Array(Vec::new()));
+    };
+    Value::Array(
+        report_systems
+            .iter()
+            .map(|system| {
+                let mut merged = system.as_object().cloned().unwrap_or_default();
+                let name = json_field_string(system, "name").unwrap_or_default();
+                if let Some(result_system) = result_systems.and_then(|items| {
+                    items.iter().find(|item| {
+                        json_field_string(item, "name").as_deref() == Some(name.as_str())
+                    })
+                }) {
+                    if let Some(solver_result) = result_system.get("solver_result") {
+                        merged.insert("solver_result".to_owned(), solver_result.clone());
+                    }
+                }
+                Value::Object(merged)
+            })
+            .collect(),
+    )
+}
+
+fn artifact_outlines(root: &Path, output: &CachedRunOutput) -> Value {
+    let status = if output.artifacts_saved {
+        "saved"
+    } else {
+        "memory"
+    };
+    let artifacts = [
+        ("result", &output.result_path, &output.result_json),
+        ("review", &output.review_path, &output.review_json),
+        ("run_log", &output.run_log_path, &output.run_log_json),
+        (
+            "process_results",
+            &output.process_results_path,
+            &output.process_results_json,
+        ),
+        (
+            "test_results",
+            &output.test_results_path,
+            &output.test_results_json,
+        ),
+        (
+            "output_manifest",
+            &output.output_manifest_path,
+            &output.output_manifest_json,
+        ),
+        (
+            "report_spec",
+            &output.report_spec_path,
+            &output.report_spec_json,
+        ),
+        (
+            "plot_manifest",
+            &output.plot_manifest_path,
+            &output.plot_manifest_json,
+        ),
+        ("plot_spec", &output.plot_spec_path, &output.plot_spec_json),
+    ];
+    Value::Array(
+        artifacts
+            .iter()
+            .map(|(kind, path, text)| {
+                let parsed = parse_json_value(text);
+                json!({
+                    "kind": kind,
+                    "path": relative_to(root, path),
+                    "status": status,
+                    "sections": artifact_sections(&parsed)
+                })
+            })
+            .collect(),
+    )
+}
+
+fn artifact_sections(value: &Value) -> Value {
+    let Some(object) = value.as_object() else {
+        return Value::Array(Vec::new());
+    };
+    Value::Array(
+        object
+            .iter()
+            .take(18)
+            .map(|(name, value)| {
+                json!({
+                    "name": name,
+                    "summary": value_summary(value)
+                })
+            })
+            .collect(),
+    )
+}
+
+fn value_summary(value: &Value) -> String {
+    if let Some(items) = value.as_array() {
+        format!("{} item(s)", items.len())
+    } else if let Some(object) = value.as_object() {
+        format!("{} field(s)", object.len())
+    } else if value.is_string() {
+        "string".to_owned()
+    } else if value.is_number() {
+        "number".to_owned()
+    } else if value.is_boolean() {
+        "bool".to_owned()
+    } else if value.is_null() {
+        "null".to_owned()
+    } else {
+        "value".to_owned()
+    }
 }
 
 fn runtime_object_variable(value: &Value) -> RuntimeVariableView {
@@ -1282,8 +1798,32 @@ fn smoke() -> Result<(), String> {
     if root.join("crates/eng_ide").exists() && !ui_index.exists() {
         return Err(format!("missing Tauri UI asset {}", ui_index.display()));
     }
+    let measured_example = root.join("examples/official/17_measured_vs_simulated/main.eng");
+    let measured_output = run_file(
+        &measured_example,
+        &root.join("build").join("ide-smoke"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let measured_cached = CachedRunOutput::from_output(measured_output);
+    let inspectors = runtime_inspectors(&root, &measured_cached);
+    for (label, value) in [
+        ("schema", &inspectors.schemas),
+        ("timeseries", &inspectors.time_series),
+        ("metric", &inspectors.metrics),
+        ("validation", &inspectors.validations),
+        ("time alignment", &inspectors.time_alignments),
+        ("artifact outline", &inspectors.artifact_outlines),
+    ] {
+        if value.as_array().is_none_or(Vec::is_empty) {
+            return Err(format!(
+                "{} did not produce IDE {label} inspector metadata",
+                measured_example.display()
+            ));
+        }
+    }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s)",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), measured workflow inspectors",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),

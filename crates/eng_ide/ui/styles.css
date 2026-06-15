@@ -55,6 +55,15 @@ button {
   cursor: pointer;
 }
 
+.profile-select {
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: #fff;
+  color: var(--text);
+  padding: 0 7px;
+}
+
 button.primary {
   background: var(--accent);
   border-color: var(--accent);
@@ -386,9 +395,10 @@ button:hover {
 }
 
 .side-tabs {
-  height: 34px;
+  min-height: 34px;
   display: flex;
   align-items: end;
+  flex-wrap: wrap;
   gap: 1px;
   padding: 4px 6px 0;
   background: var(--panel-alt);
@@ -401,6 +411,8 @@ button:hover {
   border-bottom: 0;
   background: transparent;
   color: var(--muted);
+  padding: 0 7px;
+  font-size: 12px;
 }
 
 .side-tab.active {
@@ -695,6 +707,32 @@ button:hover {
 
 .run-info code {
   overflow-wrap: anywhere;
+}
+
+.run-actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 10px 10px;
+}
+
+.link-button {
+  height: auto;
+  min-height: 0;
+  max-width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  padding: 0;
+  text-align: left;
+}
+
+.link-button:hover {
+  border: 0;
+  text-decoration: underline;
+}
+
+.link-button code {
+  color: inherit;
 }
 
 .artifact-table code {
