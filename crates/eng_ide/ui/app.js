@@ -48,6 +48,7 @@ function emptyInspectors() {
     systems: [],
     classObjects: [],
     assemblies: [],
+    componentGraph: null,
     artifactOutlines: [],
     outputManifest: null,
     runLog: null,
@@ -291,6 +292,9 @@ function bind() {
   document.querySelectorAll("[data-open-artifact-kind]").forEach((button) => {
     button.onclick = () => openArtifact(button.dataset.openArtifactKind);
   });
+  document.querySelectorAll("[data-source-line]").forEach((button) => {
+    button.onclick = () => selectSourceLine(Number(button.dataset.sourceLine || 0));
+  });
   const terminalInput = byId("terminalInput");
   if (terminalInput) {
     terminalInput.focus();
@@ -522,6 +526,21 @@ function mergeRuntimeRows(existingRows, incomingRows) {
 
 function runtimeRowKey(row) {
   return `${row?.name ?? ""}:${row?.line ?? ""}`;
+}
+
+function selectSourceLine(line) {
+  const editor = byId("editor");
+  if (!editor || !Number.isFinite(line) || line <= 0) return;
+  const lines = editor.value.split(/\r\n|\r|\n/);
+  const lineIndex = Math.max(0, Math.min(lines.length - 1, line - 1));
+  let offset = 0;
+  for (let index = 0; index < lineIndex; index += 1) {
+    offset += lines[index].length + 1;
+  }
+  editor.focus();
+  editor.selectionStart = offset;
+  editor.selectionEnd = offset + lines[lineIndex].length;
+  editor.scrollTop = Math.max(0, (lineIndex - 3) * 20);
 }
 
 function rememberTerminalCommand(command) {
@@ -758,12 +777,21 @@ function renderChecksPanel() {
 }
 
 function renderAssemblyPanel() {
+  const graph = inspectorObject("componentGraph");
+  const components = Array.isArray(graph.components) ? graph.components.length : 0;
+  const connections = Array.isArray(graph.connections) ? graph.connections.length : 0;
   return `
     <div class="panel-title compact">Assembly</div>
     <div class="badges">
       <span class="badge">Graphs ${inspectorRows("assemblies").length}</span>
+      <span class="badge">Components ${components}</span>
+      <span class="badge">Connections ${connections}</span>
     </div>
-    <div class="scroll">${renderAssemblies()}</div>
+    <div class="scroll">
+      ${renderAssemblies()}
+      <div class="panel-title compact">Component Graph</div>
+      ${renderComponentGraph()}
+    </div>
   `;
 }
 
@@ -1000,6 +1028,53 @@ function renderAssemblies() {
     <table class="var-table">
       <thead><tr><th>Graph</th><th>Comp/Ports</th><th>Sets</th><th>Eq</th><th>Plan</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="5" class="muted">Run a domain/component workflow.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderComponentGraph() {
+  const graph = inspectorObject("componentGraph");
+  const components = Array.isArray(graph.components) ? graph.components : [];
+  const ports = Array.isArray(graph.ports) ? graph.ports : [];
+  const connections = Array.isArray(graph.connections) ? graph.connections : [];
+  const componentRows = components.map((component) => `
+    <tr>
+      <td><strong>${escapeHtml(component.name || "-")}</strong><div class="muted">${escapeHtml(component.kind || "-")}</div></td>
+      <td>${escapeHtml(component.port_count ?? component.portCount ?? 0)}</td>
+      <td>${escapeHtml(Array.isArray(component.ports) ? component.ports.join(", ") : "-")}</td>
+      <td>${sourceLineButton(component)}</td>
+    </tr>
+  `).join("");
+  const connectionRows = connections.map((connection) => `
+    <tr>
+      <td><strong>${escapeHtml(connection.left || "-")}</strong><div class="muted">${escapeHtml(connection.right || "-")}</div></td>
+      <td>${escapeHtml(connection.domain_label || connection.domainLabel || "-")}</td>
+      <td>${escapeHtml(connection.medium_label || connection.mediumLabel || connection.frame_label || connection.frameLabel || connection.axis_label || connection.axisLabel || "-")}</td>
+      <td>${escapeHtml(connection.status || "-")}</td>
+      <td>${sourceLineButton(connection)}</td>
+    </tr>
+  `).join("");
+  const portRows = ports.map((port) => `
+    <tr>
+      <td><strong>${escapeHtml(port.component || "-")}.${escapeHtml(port.name || "-")}</strong></td>
+      <td>${escapeHtml(port.domain_label || port.domainLabel || "-")}</td>
+      <td>${escapeHtml(port.medium_label || port.mediumLabel || port.frame_label || port.frameLabel || port.axis_label || port.axisLabel || "-")}</td>
+      <td>${escapeHtml(port.status || "-")}</td>
+      <td>${sourceLineButton(port)}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Component</th><th>Ports</th><th>Port IDs</th><th>Source</th></tr></thead>
+      <tbody>${componentRows || `<tr><td colspan="4" class="muted">No component graph nodes.</td></tr>`}</tbody>
+    </table>
+    <table class="var-table">
+      <thead><tr><th>Connection</th><th>Domain</th><th>Label</th><th>Status</th><th>Source</th></tr></thead>
+      <tbody>${connectionRows || `<tr><td colspan="5" class="muted">No component graph connections.</td></tr>`}</tbody>
+    </table>
+    <table class="var-table">
+      <thead><tr><th>Port</th><th>Domain</th><th>Label</th><th>Status</th><th>Source</th></tr></thead>
+      <tbody>${portRows || `<tr><td colspan="5" class="muted">No component graph ports.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -1360,6 +1435,12 @@ function validationSummary(validations) {
   const passed = validations.filter((validation) => validation.status === "passed").length;
   const failed = validations.filter((validation) => validation.status === "failed").length;
   return `${passed} passed / ${failed} failed`;
+}
+
+function sourceLineButton(item) {
+  const line = item?.source_span?.line ?? item?.sourceSpan?.line ?? item?.line;
+  if (!line) return "-";
+  return `<button class="link-button" data-source-line="${escapeAttr(line)}">L${escapeHtml(line)}</button>`;
 }
 
 function metricCell(value) {

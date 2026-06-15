@@ -35,6 +35,8 @@ Current support boundary:
   example;
 - report spec, HTML report, native IDE, and LSP snapshot metadata expose the
   domain package/version and generic argument surface;
+- the native IDE Assembly panel shows component graph nodes, ports,
+  connections, and source-line navigation;
 - `assembly_summary` exposes component-local expression counts, generated
   connection equations, equation/unknown counts, domain plans, future
   nonlinear/DAE/delay/Predictor/adapter seed statuses, Jacobian sparsity

@@ -138,8 +138,9 @@ are not public stable workflows.
   supported general state-space simulation workflow.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,
   generated connection-equation metadata, residual graph metadata,
-  domain-plan metadata, and connection constraint consistency artifacts. It is
-  not a production component-graph or multi-domain solver.
+  domain-plan metadata, IDE component graph source-line navigation, and
+  connection constraint consistency artifacts. It is not a production
+  component-graph or multi-domain solver.
 - Uncertainty track: deterministic samples, source/argument diagnostics,
   propagation metadata, and histogram artifacts.
 - Data-driven modeling track: train/test split metadata, deterministic model

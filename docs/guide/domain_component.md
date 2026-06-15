@@ -197,6 +197,8 @@ single-domain graph from a multi-domain metadata graph.
 The `component_graph` section is a normalized graph JSON view with component
 nodes, port nodes, connection edges, connection sets, domain labels,
 medium/frame/axis labels when present, and source spans for graph navigation.
+The native IDE Assembly panel renders the same graph and lets connection,
+port, and component rows jump back to their recorded source lines.
 `component_summary.local_expressions` and
 `assembly_summary.local_expression_count` record component-local `name = expr`
 metadata without promoting it to the root runtime object store.

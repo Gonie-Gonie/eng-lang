@@ -119,6 +119,11 @@ Definition of Done:
 - Report summarizes connection graph and limitations.
 - Numeric component graph solving remains Planned.
 
+Current coverage:
+
+- IDE Assembly panel renders component graph components, ports, connections,
+  labels, statuses, and source-line navigation from `component_graph`.
+
 Title: `assembly: harden generated equations and residual graph artifacts`
 
 Definition of Done:
