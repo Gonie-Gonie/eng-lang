@@ -47,7 +47,11 @@ function emptyInspectors() {
     timeAlignments: [],
     systems: [],
     assemblies: [],
-    artifactOutlines: []
+    artifactOutlines: [],
+    outputManifest: null,
+    runLog: null,
+    processResults: null,
+    testResults: null
   };
 }
 
@@ -633,6 +637,7 @@ function renderSidePanel() {
         ${sideTabButton("checks", "Checks")}
         ${sideTabButton("assembly", "Asm")}
         ${sideTabButton("artifacts", "Artifacts")}
+        ${sideTabButton("effects", "Effects")}
         ${sideTabButton("run", "Run")}
       </div>
       <div class="side-body">${renderSideBody()}</div>
@@ -651,6 +656,7 @@ function renderSideBody() {
   if (state.sideTab === "checks") return renderChecksPanel();
   if (state.sideTab === "assembly") return renderAssemblyPanel();
   if (state.sideTab === "artifacts") return renderArtifactsPanel();
+  if (state.sideTab === "effects") return renderEffectsPanel();
   if (state.sideTab === "run") return renderRunPanel();
   return `
     <div class="panel-title compact">Variables</div>
@@ -1000,6 +1006,105 @@ function renderArtifactOutlines() {
   `;
 }
 
+function renderEffectsPanel() {
+  const manifest = inspectorObject("outputManifest");
+  const runLog = inspectorObject("runLog");
+  const processResults = inspectorObject("processResults");
+  const testResults = inspectorObject("testResults");
+  const artifacts = Array.isArray(manifest.artifacts) ? manifest.artifacts : [];
+  const messages = Array.isArray(runLog.messages) ? runLog.messages : [];
+  const processes = Array.isArray(processResults.processes) ? processResults.processes : [];
+  const tests = Array.isArray(testResults.tests) ? testResults.tests : [];
+  return `
+    <div class="panel-title compact">Effects</div>
+    <div class="badges">
+      <span class="badge">Outputs ${artifacts.length}</span>
+      <span class="badge">Log ${messages.length}</span>
+      <span class="badge">Process ${processes.length}</span>
+      <span class="badge">Tests ${tests.length}</span>
+    </div>
+    <div class="scroll">
+      <div class="panel-title compact">Output Manifest</div>
+      ${renderOutputManifest(artifacts)}
+      <div class="panel-title compact">Run Log</div>
+      ${renderRunLog(messages)}
+      <div class="panel-title compact">Process Results</div>
+      ${renderProcessResults(processes)}
+      <div class="panel-title compact">Test Results</div>
+      ${renderTestResults(tests)}
+    </div>
+  `;
+}
+
+function renderOutputManifest(artifacts) {
+  const rows = artifacts.map((artifact) => `
+    <tr>
+      <td><strong>${escapeHtml(artifact.kind || "-")}</strong></td>
+      <td><code>${escapeHtml(artifact.path || "-")}</code></td>
+      <td><code>${escapeHtml(artifact.hash || "-")}</code></td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Kind</th><th>Path</th><th>Hash</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="3" class="muted">No output manifest entries.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderRunLog(messages) {
+  const rows = messages.map((message) => `
+    <tr>
+      <td><strong>${escapeHtml(message.level || "-")}</strong><div class="muted">L${escapeHtml(message.line ?? "-")}</div></td>
+      <td>${escapeHtml(message.message || "-")}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Level</th><th>Message</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="2" class="muted">No run log messages.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderProcessResults(processes) {
+  const rows = processes.map((process) => `
+    <tr>
+      <td><strong>${escapeHtml(process.binding || "-")}</strong><div class="muted">L${escapeHtml(process.line ?? "-")}</div></td>
+      <td><code>${escapeHtml([process.command, ...(process.args || [])].filter(Boolean).join(" "))}</code><div class="muted">${escapeHtml(process.cwd || "-")}</div></td>
+      <td>${escapeHtml(process.status || "-")}<div class="muted">exit ${escapeHtml(process.exit_code ?? process.exitCode ?? "-")}</div></td>
+      <td>${escapeHtml(compactText(process.stdout || process.stderr || "-", 90))}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Binding</th><th>Command</th><th>Status</th><th>Output</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4" class="muted">No process results.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderTestResults(tests) {
+  const rows = tests.map((test) => {
+    const assertions = Array.isArray(test.assertions) ? test.assertions : [];
+    const goldens = Array.isArray(test.goldens) ? test.goldens : [];
+    return `
+      <tr>
+        <td><strong>${escapeHtml(test.name || "-")}</strong><div class="muted">L${escapeHtml(test.line ?? "-")}</div></td>
+        <td>${escapeHtml(test.status || "-")}</td>
+        <td>${escapeHtml(assertions.length)}</td>
+        <td>${escapeHtml(goldens.length)}</td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Name</th><th>Status</th><th>Assertions</th><th>Goldens</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4" class="muted">No test results.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
 function renderTabs() {
   return state.tabs.map((tab) => {
     const active = tab.path === state.currentPath ? " active" : "";
@@ -1180,6 +1285,18 @@ function renderTree(nodes, depth) {
 function inspectorRows(key) {
   const value = state.inspectors?.[key];
   return Array.isArray(value) ? value : [];
+}
+
+function inspectorObject(key) {
+  const value = state.inspectors?.[key];
+  if (!value || Array.isArray(value) || typeof value !== "object") return {};
+  return value;
+}
+
+function compactText(value, limit = 80) {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (text.length <= limit) return text;
+  return `${text.slice(0, Math.max(0, limit - 1))}...`;
 }
 
 function columnSummary(columns) {

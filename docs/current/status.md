@@ -93,8 +93,9 @@ covered by the breaking-change policy.
 - Tauri/WebView tester IDE smoke path for open/check/save/run, diagnostics,
   variable summaries, schema/TimeSeries/metric/validation/time-alignment
   inspectors for the measured workflow, internal state-space trajectory
-  inspector coverage, PlotSpec viewing, and on-demand report/plot opening for
-  stable workflows.
+  inspector coverage, side-effect artifact panels for output manifest, run log,
+  process results, and test results, PlotSpec viewing, and on-demand report/plot
+  opening for stable workflows.
 
 ## Supported Features
 

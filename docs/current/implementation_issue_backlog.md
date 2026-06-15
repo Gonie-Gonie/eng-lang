@@ -37,6 +37,12 @@ Definition of Done:
 
 Title: `ide: add side-effect artifact panels`
 
+Current coverage:
+
+- IDE `Effects` tab shows output-manifest artifacts, run-log messages,
+  process results, and test results from the latest run.
+- IDE smoke covers output manifest, run log, process results, and test results.
+
 Definition of Done:
 
 - Output manifest viewer lists generated artifacts and side-effect records.

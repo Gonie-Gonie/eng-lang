@@ -123,6 +123,10 @@ struct InspectorView {
     assemblies: Value,
     component_graph: Value,
     artifact_outlines: Value,
+    output_manifest: Value,
+    run_log: Value,
+    process_results: Value,
+    test_results: Value,
 }
 
 impl Default for InspectorView {
@@ -139,6 +143,10 @@ impl Default for InspectorView {
             assemblies: Value::Array(Vec::new()),
             component_graph: Value::Null,
             artifact_outlines: Value::Array(Vec::new()),
+            output_manifest: Value::Null,
+            run_log: Value::Null,
+            process_results: Value::Null,
+            test_results: Value::Null,
         }
     }
 }
@@ -921,6 +929,10 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
             .cloned()
             .unwrap_or(Value::Null),
         artifact_outlines: artifact_outlines(root, output),
+        output_manifest: output_manifest_inspector(root, output),
+        run_log: parse_json_value(&output.run_log_json),
+        process_results: parse_json_value(&output.process_results_json),
+        test_results: parse_json_value(&output.test_results_json),
     }
 }
 
@@ -934,6 +946,39 @@ fn json_array_clone(value: &Value, key: &str) -> Value {
         .and_then(Value::as_array)
         .map(|items| Value::Array(items.clone()))
         .unwrap_or_else(|| Value::Array(Vec::new()))
+}
+
+fn output_manifest_inspector(root: &Path, output: &CachedRunOutput) -> Value {
+    let mut manifest = parse_json_value(&output.output_manifest_json);
+    let has_artifacts = manifest
+        .get("artifacts")
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty());
+    if has_artifacts {
+        return manifest;
+    }
+
+    let artifacts = runtime_artifacts(root, output)
+        .into_iter()
+        .map(|artifact| {
+            json!({
+                "kind": artifact.kind,
+                "path": artifact.path,
+                "hash": "",
+                "status": artifact.status
+            })
+        })
+        .collect::<Vec<_>>();
+    if let Some(object) = manifest.as_object_mut() {
+        object.insert("artifact_count".to_owned(), json!(artifacts.len()));
+        object.insert("artifacts".to_owned(), Value::Array(artifacts));
+        return manifest;
+    }
+    json!({
+        "format": "eng-output-manifest-v1",
+        "artifact_count": artifacts.len(),
+        "artifacts": artifacts
+    })
 }
 
 fn schema_inspector(report: &Value, result: &Value) -> Value {
@@ -1914,8 +1959,61 @@ fn smoke() -> Result<(), String> {
             state_space_example.display()
         ));
     }
+    let effects_example = root.join("examples/official/15_process_result/main.eng");
+    let effects_output = run_file(
+        &effects_example,
+        &root.join("build").join("ide-smoke-effects"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let effects_cached = CachedRunOutput::from_output(effects_output);
+    let effects_inspectors = runtime_inspectors(&root, &effects_cached);
+    let has_manifest = effects_inspectors
+        .output_manifest
+        .get("artifacts")
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty());
+    let has_run_log = effects_inspectors
+        .run_log
+        .get("messages")
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty());
+    let has_process = effects_inspectors
+        .process_results
+        .get("processes")
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty());
+    if !has_manifest || !has_run_log || !has_process {
+        return Err(format!(
+            "{} did not produce IDE side-effect inspector metadata (manifest={}, run_log={}, process={})",
+            effects_example.display(),
+            has_manifest,
+            has_run_log,
+            has_process
+        ));
+    }
+    let test_example = root.join("examples/official/16_test_assert_golden/main.eng");
+    let test_output = run_file(
+        &test_example,
+        &root.join("build").join("ide-smoke-tests"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let test_cached = CachedRunOutput::from_output(test_output);
+    let test_inspectors = runtime_inspectors(&root, &test_cached);
+    let has_tests = test_inspectors
+        .test_results
+        .get("tests")
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty());
+    if !has_tests {
+        return Err(format!(
+            "{} did not produce IDE test-result inspector metadata",
+            test_example.display()
+        ));
+    }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), measured workflow inspectors, state-space trajectory inspector",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), measured workflow inspectors, state-space trajectory inspector, side-effect inspectors",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),
