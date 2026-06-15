@@ -1820,6 +1820,37 @@ fn smoke() -> Result<(), String> {
     if root.join("crates/eng_ide").exists() && !ui_index.exists() {
         return Err(format!("missing Tauri UI asset {}", ui_index.display()));
     }
+    let domain_output = run_file(
+        &domain_example,
+        &root.join("build").join("ide-smoke-domain"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let domain_cached = CachedRunOutput::from_output(domain_output);
+    let domain_inspectors = runtime_inspectors(&root, &domain_cached);
+    let component_graph = &domain_inspectors.component_graph;
+    let graph_components = component_graph
+        .get("components")
+        .and_then(Value::as_array)
+        .map(Vec::len)
+        .unwrap_or(0);
+    let graph_connections = component_graph
+        .get("connections")
+        .and_then(Value::as_array)
+        .map(Vec::len)
+        .unwrap_or(0);
+    let has_source_span = component_graph
+        .get("connections")
+        .and_then(Value::as_array)
+        .and_then(|connections| connections.first())
+        .and_then(|connection| connection.get("source_span"))
+        .is_some();
+    if graph_components == 0 || graph_connections == 0 || !has_source_span {
+        return Err(format!(
+            "{} did not produce IDE component graph inspector metadata",
+            domain_example.display()
+        ));
+    }
     let measured_example = root.join("examples/official/17_measured_vs_simulated/main.eng");
     let measured_output = run_file(
         &measured_example,
