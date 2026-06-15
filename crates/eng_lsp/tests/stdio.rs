@@ -32,6 +32,17 @@ fn stdio_server_round_trips_core_lsp_requests() {
         .find("sensor.")
         .unwrap()
         + "sensor.".len();
+    let q_coil_usage_line = source
+        .lines()
+        .position(|line| line.contains("integrate(Q_coil"))
+        .expect("official example should use Q_coil");
+    let q_coil_usage_char = source
+        .lines()
+        .nth(q_coil_usage_line)
+        .unwrap()
+        .find("Q_coil")
+        .unwrap()
+        + "Q_coil".len();
 
     let mut child = Command::new(server)
         .stdin(Stdio::piped())
@@ -55,6 +66,10 @@ fn stdio_server_round_trips_core_lsp_requests() {
     assert_eq!(initialize["id"], 1);
     assert_eq!(initialize["result"]["serverInfo"]["name"], "eng-lsp");
     assert_eq!(initialize["result"]["capabilities"]["hoverProvider"], true);
+    assert_eq!(
+        initialize["result"]["capabilities"]["definitionProvider"],
+        true
+    );
 
     write_message(
         &mut stdin,
@@ -142,6 +157,23 @@ fn stdio_server_round_trips_core_lsp_requests() {
     assert!(hover_text.contains("Q_coil"));
     assert!(hover_text.contains("HeatRate"));
 
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 5,
+            "method": "textDocument/definition",
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": q_coil_usage_line, "character": q_coil_usage_char }
+            }
+        }),
+    );
+    let definition = read_message(&mut stdout);
+    assert_eq!(definition["id"], 5);
+    assert_eq!(definition["result"]["uri"], uri);
+    assert_eq!(definition["result"]["range"]["start"]["line"], q_coil_line);
+
     let class_source_path = repo_root()
         .join("examples/official/19_class_object/main.eng")
         .canonicalize()
@@ -184,7 +216,7 @@ fn stdio_server_round_trips_core_lsp_requests() {
         &mut stdin,
         json!({
             "jsonrpc": "2.0",
-            "id": 5,
+            "id": 6,
             "method": "textDocument/completion",
             "params": {
                 "textDocument": { "uri": class_uri },
@@ -193,7 +225,7 @@ fn stdio_server_round_trips_core_lsp_requests() {
         }),
     );
     let class_member_completion = read_message(&mut stdout);
-    assert_eq!(class_member_completion["id"], 5);
+    assert_eq!(class_member_completion["id"], 6);
     let class_member_items = class_member_completion["result"]
         .as_array()
         .expect("class member completion result should be an array");
@@ -255,7 +287,7 @@ fn stdio_server_round_trips_core_lsp_requests() {
         &mut stdin,
         json!({
             "jsonrpc": "2.0",
-            "id": 6,
+            "id": 7,
             "method": "textDocument/hover",
             "params": {
                 "textDocument": { "uri": function_uri },
@@ -264,7 +296,7 @@ fn stdio_server_round_trips_core_lsp_requests() {
         }),
     );
     let function_hover = read_message(&mut stdout);
-    assert_eq!(function_hover["id"], 6);
+    assert_eq!(function_hover["id"], 7);
     let function_hover_text = function_hover["result"]["contents"]["value"]
         .as_str()
         .expect("function hover should return markdown contents");
@@ -314,7 +346,7 @@ fn stdio_server_round_trips_core_lsp_requests() {
         &mut stdin,
         json!({
             "jsonrpc": "2.0",
-            "id": 7,
+            "id": 8,
             "method": "textDocument/hover",
             "params": {
                 "textDocument": { "uri": where_uri },
@@ -323,7 +355,7 @@ fn stdio_server_round_trips_core_lsp_requests() {
         }),
     );
     let where_hover = read_message(&mut stdout);
-    assert_eq!(where_hover["id"], 7);
+    assert_eq!(where_hover["id"], 8);
     let where_hover_text = where_hover["result"]["contents"]["value"]
         .as_str()
         .expect("where hover should return markdown contents");
@@ -335,12 +367,12 @@ fn stdio_server_round_trips_core_lsp_requests() {
         &mut stdin,
         json!({
             "jsonrpc": "2.0",
-            "id": 8,
+            "id": 9,
             "method": "shutdown"
         }),
     );
     let shutdown = read_message(&mut stdout);
-    assert_eq!(shutdown["id"], 8);
+    assert_eq!(shutdown["id"], 9);
     assert!(shutdown["result"].is_null());
 
     write_message(

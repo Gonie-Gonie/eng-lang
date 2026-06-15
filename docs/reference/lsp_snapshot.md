@@ -200,5 +200,7 @@ Use the stdio LSP server for:
 - unsaved buffer diagnostics
 - cursor-position completion
 - hover requests in an editor
+- conservative line-based go-to-definition for symbols whose definition line is
+  in the current document
 
 The snapshot is not a replacement for full LSP editor validation.

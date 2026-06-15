@@ -167,6 +167,7 @@ fn run_lsp() -> io::Result<()> {
                             "capabilities": {
                                 "textDocumentSync": 1,
                                 "hoverProvider": true,
+                                "definitionProvider": true,
                                 "completionProvider": {
                                     "triggerCharacters": [" ", ":", "[", "."]
                                 }
@@ -210,6 +211,14 @@ fn run_lsp() -> io::Result<()> {
                 write_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": hover }),
+                )?;
+            }
+            "textDocument/definition" => {
+                let definition =
+                    definition_for_request(&request, &documents).unwrap_or(Value::Null);
+                write_response(
+                    &mut output,
+                    json!({ "jsonrpc": "2.0", "id": id, "result": definition }),
                 )?;
             }
             _ if id.is_some() => {
@@ -311,6 +320,41 @@ fn hover_for_request(
     }
     let line = line_zero_based + 1;
     snapshot.hovers.into_iter().find(|hover| hover.line == line)
+}
+
+fn definition_for_request(request: &Value, documents: &HashMap<String, String>) -> Option<Value> {
+    let uri = request_uri(request)?;
+    let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
+    let line_zero_based = request
+        .pointer("/params/position/line")
+        .and_then(Value::as_u64)
+        .unwrap_or(0) as usize;
+    let character = request
+        .pointer("/params/position/character")
+        .and_then(Value::as_u64)
+        .unwrap_or(0) as usize;
+    let text = documents
+        .get(uri)
+        .cloned()
+        .or_else(|| std::fs::read_to_string(&path).ok())?;
+    let snapshot = snapshot_for_source(&path, &text);
+    let symbol = symbol_at_position(&text, line_zero_based, character)?;
+    let hover = snapshot.hovers.iter().find(|hover| {
+        hover.name == symbol || hover.name.rsplit('.').next() == Some(symbol.as_str())
+    })?;
+    let definition_line = hover.line.saturating_sub(1);
+    let line_text = text.lines().nth(definition_line)?;
+    let label = hover.name.rsplit('.').next().unwrap_or(&hover.name);
+    if !line_text.contains(label) {
+        return None;
+    }
+    Some(json!({
+        "uri": uri,
+        "range": {
+            "start": { "line": definition_line, "character": 0 },
+            "end": { "line": definition_line, "character": 1 }
+        }
+    }))
 }
 
 fn symbol_at_position(source: &str, line: usize, character: usize) -> Option<String> {
