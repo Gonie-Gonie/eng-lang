@@ -2,8 +2,8 @@ use crate::ast::{
     ArgsFieldDecl, AssertDecl, AstItem, CommandStyleDecl, ConnectDecl, ConstDecl, CsvExportDecl,
     CsvExportFieldDecl, DomainTypeParameterDecl, DomainVariableDecl, ExplicitDecl, FastBinding,
     FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl, PortDecl,
-    PrintDecl, ProcessRunDecl, ReturnDecl, SystemVariableDecl, TestDecl, WhereBindingDecl,
-    WithOptionDecl, WriteDecl,
+    PrintDecl, ProcessRunDecl, ReturnDecl, StateSpaceVectorDecl, SystemVariableDecl, TestDecl,
+    WhereBindingDecl, WithOptionDecl, WriteDecl,
 };
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
@@ -188,6 +188,30 @@ pub struct DomainVariableInfo {
 pub struct ConservationInfo {
     pub domain: String,
     pub text: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StateSpaceVectorInfo {
+    pub system: String,
+    pub role: String,
+    pub name: String,
+    pub vector_type: String,
+    pub members: Vec<String>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LinearOperatorInfo {
+    pub system: String,
+    pub name: String,
+    pub from: String,
+    pub to: String,
+    pub expression: Option<String>,
+    pub row_count: usize,
+    pub column_count: usize,
     pub status: String,
     pub line: usize,
 }
@@ -446,6 +470,8 @@ pub struct SemanticProgram {
     pub uncertainty_infos: Vec<UncertaintyInfo>,
     pub ml_infos: Vec<MlInfo>,
     pub systems: Vec<SystemInfo>,
+    pub state_space_vectors: Vec<StateSpaceVectorInfo>,
+    pub linear_operators: Vec<LinearOperatorInfo>,
     pub domains: Vec<DomainInfo>,
     pub components: Vec<ComponentInfo>,
     pub connections: Vec<ConnectionInfo>,
@@ -488,6 +514,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut uncertainty_infos = Vec::new();
     let mut ml_infos = Vec::new();
     let mut systems = Vec::new();
+    let mut state_space_vectors = Vec::new();
+    let mut linear_operators = Vec::new();
     let mut current_system_index = None;
     let mut domains = Vec::new();
     let mut current_domain_index = None;
@@ -657,6 +685,18 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     );
                 }
             }
+            AstItem::StateSpaceVector(vector) => {
+                if let Some(system_index) = current_system_index {
+                    analyze_state_space_vector_decl(
+                        vector,
+                        &systems[system_index].name,
+                        &mut state_space_vectors,
+                        &mut typed_bindings,
+                        &mut hover_hints,
+                        &mut type_infos,
+                    );
+                }
+            }
             AstItem::Equation(equation) => {
                 if let Some(system_index) = current_system_index {
                     analyze_equation(equation, &mut systems[system_index], &mut diagnostics);
@@ -672,6 +712,13 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             }
             AstItem::ExplicitDecl(declaration) => {
                 if declaration.context != ParseContext::Function {
+                    if let Some(system_index) = current_system_index {
+                        if let Some(operator) =
+                            analyze_linear_operator_decl(declaration, &systems[system_index].name)
+                        {
+                            linear_operators.push(operator);
+                        }
+                    }
                     analyze_explicit_decl(
                         declaration,
                         &mut diagnostics,
@@ -860,6 +907,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             uncertainty_infos,
             ml_infos,
             systems,
+            state_space_vectors,
+            linear_operators,
             domains,
             components,
             connections,
@@ -3427,6 +3476,120 @@ fn analyze_system_variable(
     });
 }
 
+fn analyze_state_space_vector_decl(
+    declaration: &StateSpaceVectorDecl,
+    system_name: &str,
+    state_space_vectors: &mut Vec<StateSpaceVectorInfo>,
+    typed_bindings: &mut Vec<TypedBinding>,
+    hover_hints: &mut Vec<HoverHint>,
+    type_infos: &mut Vec<TypeInfo>,
+) {
+    let vector_type = state_space_vector_type(&declaration.role);
+    typed_bindings.push(TypedBinding {
+        name: declaration.name.clone(),
+        semantic_type: SemanticType {
+            quantity_kind: vector_type.to_owned(),
+            display_unit: "vector".to_owned(),
+        },
+        line: declaration.line,
+    });
+    hover_hints.push(HoverHint::explicit(
+        declaration.name.clone(),
+        vector_type.to_owned(),
+        "vector".to_owned(),
+        Some(format!("[{}]", declaration.members.join(", "))),
+        declaration.span,
+    ));
+    type_infos.push(TypeInfo {
+        name: declaration.name.clone(),
+        quantity_kind: vector_type.to_owned(),
+        display_unit: "vector".to_owned(),
+        canonical_unit: "vector".to_owned(),
+        dimension: "StateSpace".to_owned(),
+        source: TypeInfoSource::SystemBoundary,
+        line: declaration.line,
+        span: declaration.span,
+    });
+    state_space_vectors.push(StateSpaceVectorInfo {
+        system: system_name.to_owned(),
+        role: declaration.role.clone(),
+        name: declaration.name.clone(),
+        vector_type: vector_type.to_owned(),
+        members: declaration.members.clone(),
+        status: if declaration.members.is_empty() {
+            "empty".to_owned()
+        } else {
+            "recorded".to_owned()
+        },
+        line: declaration.line,
+    });
+}
+
+fn state_space_vector_type(role: &str) -> &'static str {
+    match role {
+        "states" => "StateVector",
+        "inputs" => "InputVector",
+        "outputs" => "OutputVector",
+        _ => "StateVector",
+    }
+}
+
+fn analyze_linear_operator_decl(
+    declaration: &ExplicitDecl,
+    system_name: &str,
+) -> Option<LinearOperatorInfo> {
+    let (from, to) = parse_linear_operator_type(&declaration.type_name)?;
+    let (row_count, column_count) = declaration
+        .expression
+        .as_deref()
+        .map(matrix_shape)
+        .unwrap_or((0, 0));
+    Some(LinearOperatorInfo {
+        system: system_name.to_owned(),
+        name: declaration.name.clone(),
+        from,
+        to,
+        expression: declaration.expression.clone(),
+        row_count,
+        column_count,
+        status: "metadata_only".to_owned(),
+        line: declaration.line,
+    })
+}
+
+fn parse_linear_operator_type(type_name: &str) -> Option<(String, String)> {
+    let rest = type_name
+        .trim()
+        .strip_prefix("LinearOperator[")?
+        .strip_suffix(']')?;
+    let (from, to) = rest.split_once("->")?;
+    Some((from.trim().to_owned(), to.trim().to_owned()))
+}
+
+fn matrix_shape(expression: &str) -> (usize, usize) {
+    let trimmed = expression
+        .trim()
+        .trim_start_matches('[')
+        .trim_end_matches(']');
+    let rows = trimmed
+        .split(';')
+        .map(str::trim)
+        .filter(|row| !row.is_empty())
+        .collect::<Vec<_>>();
+    let row_count = rows.len();
+    let column_count = rows
+        .first()
+        .map(|row| {
+            row.trim_start_matches('[')
+                .trim_end_matches(']')
+                .split(',')
+                .filter(|column| !column.trim().is_empty())
+                .count()
+        })
+        .unwrap_or(0);
+    (row_count, column_count)
+}
+
 fn analyze_equation(
     equation: &crate::ast::EquationDecl,
     system: &mut SystemInfo,
@@ -3962,6 +4125,12 @@ fn default_unit_for_quantity(quantity_kind: &str) -> String {
     if let Some((_, value_quantity)) = crate::stats::time_series_quantity(quantity_kind) {
         return default_unit_for_quantity(&value_quantity);
     }
+    if state_space_vector_type_name(quantity_kind) || derivative_type_name(quantity_kind) {
+        return "vector".to_owned();
+    }
+    if linear_operator_type_name(quantity_kind) {
+        return "operator".to_owned();
+    }
 
     crate::quantities::all_quantity_completions()
         .iter()
@@ -3986,6 +4155,12 @@ fn dimension_for_quantity(quantity_kind: &str) -> String {
     if let Some((_, value_quantity)) = crate::stats::time_series_quantity(quantity_kind) {
         return dimension_for_quantity(&value_quantity);
     }
+    if state_space_vector_type_name(quantity_kind)
+        || derivative_type_name(quantity_kind)
+        || linear_operator_type_name(quantity_kind)
+    {
+        return "StateSpace".to_owned();
+    }
 
     crate::quantities::all_quantity_completions()
         .iter()
@@ -4003,7 +4178,26 @@ fn dimension_for_type(type_name: &str) -> String {
 }
 
 fn known_decl_type(type_name: &str) -> bool {
-    preview_scalar_type(type_name) || default_unit_for_quantity(type_name) != "unknown"
+    preview_scalar_type(type_name)
+        || state_space_vector_type_name(type_name)
+        || derivative_type_name(type_name)
+        || linear_operator_type_name(type_name)
+        || default_unit_for_quantity(type_name) != "unknown"
+}
+
+fn state_space_vector_type_name(type_name: &str) -> bool {
+    matches!(
+        type_name.trim(),
+        "StateVector" | "InputVector" | "OutputVector"
+    )
+}
+
+fn derivative_type_name(type_name: &str) -> bool {
+    type_name.trim().starts_with("Derivative[") && type_name.trim().ends_with(']')
+}
+
+fn linear_operator_type_name(type_name: &str) -> bool {
+    type_name.trim().starts_with("LinearOperator[") && type_name.trim().ends_with(']')
 }
 
 fn preview_scalar_type(type_name: &str) -> bool {

@@ -551,6 +551,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/15_process_result/main.eng",
                 "examples/official/16_test_assert_golden/main.eng",
                 "examples/official/17_measured_vs_simulated/main.eng",
+                "examples/official/18_state_space_preview/main.eng",
             ],
         ),
         (
@@ -1151,6 +1152,33 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         "data/measured_zone_missing.csv",
     ) {
         return ExitCode::from(2);
+    }
+    match run_file(
+        Path::new("examples/official/18_state_space_preview/main.eng"),
+        Path::new("build/test-state-space-preview"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
+            if !review.contains("\"state_space_vectors\"")
+                || !review.contains("\"linear_operators\"")
+                || !review.contains("\"vector_type\": \"StateVector\"")
+                || !review.contains("\"from\": \"InputVector\"")
+                || !review.contains("\"to\": \"Derivative[StateVector]\"")
+            {
+                eprintln!(
+                    "expected state-space preview example to record vector and operator metadata"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/18_state_space_preview/main.eng produced state-space metadata"
+            );
+        }
+        Err(error) => {
+            eprintln!("state-space preview example failed: {error}");
+            return ExitCode::from(2);
+        }
     }
     match run_file(
         Path::new("examples/official/01_csv_plot/main.eng"),

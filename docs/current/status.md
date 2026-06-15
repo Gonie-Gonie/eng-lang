@@ -127,6 +127,10 @@ workflow, and covered by the breaking-change policy.
 - `simulate ... with { ... }` is checked for the supported fixed-step preview
   contract: Time-indexed dynamic inputs, compatible input quantity, duration
   timestep, and `solver = fixed_step`.
+- `examples/official/18_state_space_preview` records typed `StateVector`,
+  `InputVector`, `OutputVector`, `Derivative[...]`, and
+  `LinearOperator[From -> To]` metadata in `review.json`; this is a
+  metadata-first preview, not a matrix solver claim.
 - Standalone package output with `.engpkg`, bytecode, lock, source/dependency
   copy, dependency hashes, Args help, and reviewable report artifacts.
 - Temperature spelling policy: `degC` remains the canonical ASCII spelling, and

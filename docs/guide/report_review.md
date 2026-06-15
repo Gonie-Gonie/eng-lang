@@ -315,6 +315,18 @@ typed_payload.solver_boundaries
 typed_payload.system_ir
 ```
 
+State-space preview metadata appears in compiler-owned review artifacts:
+
+```text
+review.json
+  state_space_vectors
+  linear_operators
+```
+
+These sections record `states`/`inputs`/`outputs` vector declarations and
+`LinearOperator[From -> To]` declarations for inspection. They are a
+metadata-first preview, not a general matrix simulation solver.
+
 ## Uncertainty Metadata
 
 The uncertainty track adds metadata for:

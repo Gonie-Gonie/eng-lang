@@ -1664,6 +1664,85 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    json.push_str("  \"state_space_vectors\": [\n");
+    for (index, vector) in report
+        .semantic_program
+        .state_space_vectors
+        .iter()
+        .enumerate()
+    {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"system\": \"{}\",\n",
+            json_escape(&vector.system)
+        ));
+        json.push_str(&format!(
+            "      \"role\": \"{}\",\n",
+            json_escape(&vector.role)
+        ));
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&vector.name)
+        ));
+        json.push_str(&format!(
+            "      \"vector_type\": \"{}\",\n",
+            json_escape(&vector.vector_type)
+        ));
+        json.push_str("      \"members\": [");
+        for (member_index, member) in vector.members.iter().enumerate() {
+            if member_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(member)));
+        }
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&vector.status)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", vector.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"linear_operators\": [\n");
+    for (index, operator) in report.semantic_program.linear_operators.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"system\": \"{}\",\n",
+            json_escape(&operator.system)
+        ));
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&operator.name)
+        ));
+        json.push_str(&format!(
+            "      \"from\": \"{}\",\n",
+            json_escape(&operator.from)
+        ));
+        json.push_str(&format!(
+            "      \"to\": \"{}\",\n",
+            json_escape(&operator.to)
+        ));
+        push_optional_json_string(&mut json, "expression", operator.expression.as_deref(), 6);
+        json.push_str(&format!("      \"row_count\": {},\n", operator.row_count));
+        json.push_str(&format!(
+            "      \"column_count\": {},\n",
+            operator.column_count
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&operator.status)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", operator.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
     json.push_str("  \"unit_derivations\": [\n");
     for (index, derivation) in report.semantic_program.unit_derivations.iter().enumerate() {
         if index > 0 {
@@ -4202,6 +4281,36 @@ mod tests {
         assert_eq!(solar.quantity_kind, "TimeSeries[Time] of Irradiance");
         assert_eq!(solar.display_unit, "W/m2");
         assert_eq!(solar.canonical_unit, "W/m2");
+    }
+
+    #[test]
+    fn records_state_space_vectors_and_linear_operators() {
+        let report = check_source(
+            "ok.eng",
+            "system ThermalStateSpacePreview {\n    state T_zone: AbsoluteTemperature = 22 degC\n    input T_out: AbsoluteTemperature = 8 degC\n    input Q_internal: HeatRate = 500 W\n    states x = [T_zone]\n    inputs u = [T_out, Q_internal]\n    outputs y = [T_zone]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.0002]]\n    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.0002, 0.001]]\n    equation {\n        der(x) eq A * x + B * u\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(report.semantic_program.state_space_vectors.len(), 3);
+        assert_eq!(
+            report.semantic_program.state_space_vectors[0].vector_type,
+            "StateVector"
+        );
+        assert_eq!(report.semantic_program.linear_operators.len(), 2);
+        assert_eq!(
+            report.semantic_program.linear_operators[1].from,
+            "InputVector"
+        );
+        assert_eq!(
+            report.semantic_program.linear_operators[1].to,
+            "Derivative[StateVector]"
+        );
+        assert_eq!(report.semantic_program.linear_operators[1].row_count, 1);
+        assert_eq!(report.semantic_program.linear_operators[1].column_count, 2);
+        let json = review_json(&report);
+        assert!(json.contains("\"state_space_vectors\""));
+        assert!(json.contains("\"linear_operators\""));
     }
 
     #[test]

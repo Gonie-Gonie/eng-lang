@@ -1192,6 +1192,31 @@ Runtime materializes `sim.T_zone` as a typed TimeSeries. The RMSE result appears
 in `computed_metrics`, the validation appears in `validations`, and pairwise
 TimeSeries overlap/match status appears in `time_alignments`.
 
+The state-space preview is metadata-first:
+
+```eng partial
+system ThermalStateSpacePreview {
+    state T_zone: AbsoluteTemperature = 22 degC
+    input T_out: AbsoluteTemperature = 8 degC
+    input Q_internal: HeatRate = 500 W
+
+    states x = [T_zone]
+    inputs u = [T_out, Q_internal]
+    outputs y = [T_zone]
+
+    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.0002]]
+    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.0002, 0.001]]
+
+    equation {
+        der(x) eq A * x + B * u
+    }
+}
+```
+
+`review.json` records `state_space_vectors` and `linear_operators` for IDE and
+review tooling. This preview does not claim a general matrix, nonlinear, DAE,
+or adaptive solver.
+
 Domain/component shapes are documented separately in
 `docs/guide/domain_component.md`. They are useful for metadata, validation, and
 IDE inspection, but not yet a general numeric multi-domain solver.

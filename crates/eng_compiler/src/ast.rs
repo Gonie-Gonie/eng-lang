@@ -152,6 +152,16 @@ pub struct SystemVariableDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StateSpaceVectorDecl {
+    pub role: String,
+    pub name: String,
+    pub members: Vec<String>,
+    pub line: usize,
+    pub span: SourceSpan,
+    pub context: ParseContext,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EquationDecl {
     pub left: String,
     pub right: String,
@@ -357,6 +367,7 @@ pub enum AstItem {
     Port(PortDecl),
     Connect(ConnectDecl),
     SystemVariable(SystemVariableDecl),
+    StateSpaceVector(StateSpaceVectorDecl),
     Equation(EquationDecl),
     Constraint(ConstraintDecl),
     FastBinding(FastBinding),

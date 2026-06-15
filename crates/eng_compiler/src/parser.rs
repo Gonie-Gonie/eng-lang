@@ -4,8 +4,8 @@ use crate::ast::{
     CsvExportFieldDecl, DomainDecl, DomainTypeParameterDecl, DomainVariableDecl, EquationDecl,
     ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl,
     ImportDecl, MissingPolicyDecl, PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl, SchemaDecl,
-    ScriptDecl, StructDecl, SummaryDecl, SystemDecl, SystemVariableDecl, TestDecl,
-    WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
+    ScriptDecl, StateSpaceVectorDecl, StructDecl, SummaryDecl, SystemDecl, SystemVariableDecl,
+    TestDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -121,6 +121,7 @@ impl ParsedProgram {
                 AstItem::WithBlock(_) => with_blocks += 1,
                 AstItem::Test(_) => tests += 1,
                 AstItem::SystemVariable(_)
+                | AstItem::StateSpaceVector(_)
                 | AstItem::Return(_)
                 | AstItem::Conservation(_)
                 | AstItem::Constraint(_)
@@ -511,6 +512,9 @@ fn parse_line_items(
     }
     if let Some(variable) = parse_system_variable_decl(tokens, line_text, context) {
         items.push(AstItem::SystemVariable(variable));
+    }
+    if let Some(vector) = parse_state_space_vector_decl(tokens, line_text, context) {
+        items.push(AstItem::StateSpaceVector(vector));
     }
     if let Some(equation) = parse_equation_decl(tokens, line_text, context) {
         items.push(AstItem::Equation(equation));
@@ -1193,6 +1197,56 @@ fn parse_system_variable_decl(
         line: first.span.line,
         span: first.span,
     })
+}
+
+fn parse_state_space_vector_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<StateSpaceVectorDecl> {
+    if context != ParseContext::System {
+        return None;
+    }
+    let [first, second, third, ..] = tokens else {
+        return None;
+    };
+    let role = match &first.kind {
+        TokenKind::Identifier(value)
+            if matches!(value.as_str(), "states" | "inputs" | "outputs") =>
+        {
+            value.as_str()
+        }
+        _ => return None,
+    };
+    let TokenKind::Identifier(name) = &second.kind else {
+        return None;
+    };
+    if !matches!(third.kind, TokenKind::Symbol(Symbol::Equal)) {
+        return None;
+    }
+    let members = line_text
+        .split_once('=')
+        .map(|(_, right)| vector_members(right))
+        .unwrap_or_default();
+    Some(StateSpaceVectorDecl {
+        role: role.to_owned(),
+        name: name.clone(),
+        members,
+        line: first.span.line,
+        span: first.span,
+        context,
+    })
+}
+
+fn vector_members(text: &str) -> Vec<String> {
+    text.trim()
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .split(',')
+        .map(str::trim)
+        .filter(|member| !member.is_empty())
+        .map(str::to_owned)
+        .collect()
 }
 
 fn parse_equation_decl(
@@ -2151,6 +2205,14 @@ fn split_trailing_unit(type_part: &str) -> (String, Option<String>) {
     let Some(unit_start) = trimmed.rfind('[') else {
         return (trimmed.to_owned(), None);
     };
+    if unit_start > 0
+        && !trimmed[..unit_start]
+            .chars()
+            .last()
+            .is_some_and(char::is_whitespace)
+    {
+        return (trimmed.to_owned(), None);
+    }
     let unit = trimmed[unit_start + 1..trimmed.len() - 1].trim();
     if unit.is_empty() {
         return (trimmed.to_owned(), None);

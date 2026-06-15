@@ -87,6 +87,11 @@ paths before compatibility fixtures.
   promotion, fixed-step one-state thermal simulation output as `sim.T_zone`,
   RMSE calculation, threshold validation, time-alignment metadata, and a
   measured/simulated multi-series PlotSpec.
+
+18_state_space_preview
+  Typed StateVector/InputVector/OutputVector and LinearOperator metadata for
+  the state-space preview surface. This is a review/IDE metadata seed, not a
+  general matrix solver.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression
