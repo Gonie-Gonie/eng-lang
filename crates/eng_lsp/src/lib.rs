@@ -279,6 +279,17 @@ pub fn hover_items(report: &CheckReport) -> Vec<LspHover> {
                 status: Some(field.status.clone()),
             });
         }
+        for validation in &class_info.validations {
+            hovers.push(LspHover {
+                name: format!("{}.validate", class_info.name),
+                kind: "class_validation".to_owned(),
+                line: validation.line,
+                detail: format!("validates {}", validation.expression),
+                quantity_kind: "Bool".to_owned(),
+                display_unit: "1".to_owned(),
+                status: Some(validation.status.clone()),
+            });
+        }
     }
 
     for object in &report.semantic_program.class_objects {
@@ -304,6 +315,17 @@ pub fn hover_items(report: &CheckReport) -> Vec<LspHover> {
                 quantity_kind: field.quantity_kind.clone(),
                 display_unit: field.display_unit.clone(),
                 status: Some(field.status.clone()),
+            });
+        }
+        for validation in &object.validations {
+            hovers.push(LspHover {
+                name: format!("{}.validate", object.name),
+                kind: "object_validation".to_owned(),
+                line: validation.line,
+                detail: format!("{} => {}", validation.expression, validation.status),
+                quantity_kind: "Bool".to_owned(),
+                display_unit: validation.unit.clone(),
+                status: Some(validation.status.clone()),
             });
         }
     }
@@ -332,6 +354,7 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         "conservation",
         "component",
         "class",
+        "validate",
         "port",
         "connect",
         "package",

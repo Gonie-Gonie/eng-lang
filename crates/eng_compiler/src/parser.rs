@@ -1,12 +1,12 @@
 use crate::ast::{
     ArgsDecl, ArgsFieldDecl, AssertDecl, AstItem, ClassDecl, ClassFieldDecl, ClassObjectDecl,
-    ClassObjectFieldDecl, CommandClauseDecl, CommandStyleDecl, ComponentDecl, ConnectDecl,
-    ConservationDecl, ConstDecl, ConstraintDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl,
-    DomainTypeParameterDecl, DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding,
-    FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl, MissingPolicyDecl,
-    PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl, SchemaDecl, ScriptDecl, StateSpaceVectorDecl,
-    StructDecl, SummaryDecl, SystemDecl, SystemVariableDecl, TestDecl, WhereBindingDecl,
-    WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
+    ClassObjectFieldDecl, ClassValidationDecl, CommandClauseDecl, CommandStyleDecl, ComponentDecl,
+    ConnectDecl, ConservationDecl, ConstDecl, ConstraintDecl, CsvExportDecl, CsvExportFieldDecl,
+    DomainDecl, DomainTypeParameterDecl, DomainVariableDecl, EquationDecl, ExplicitDecl,
+    FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl,
+    MissingPolicyDecl, PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl, SchemaDecl, ScriptDecl,
+    StateSpaceVectorDecl, StructDecl, SummaryDecl, SystemDecl, SystemVariableDecl, TestDecl,
+    WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -22,6 +22,7 @@ pub enum ParseContext {
     Args,
     Struct,
     Class,
+    ClassValidation,
     Object,
     System,
     Domain,
@@ -66,6 +67,7 @@ pub struct SyntaxSummary {
     pub structs: usize,
     pub classes: usize,
     pub class_fields: usize,
+    pub class_validations: usize,
     pub class_objects: usize,
     pub class_object_fields: usize,
     pub args_blocks: usize,
@@ -95,6 +97,7 @@ impl ParsedProgram {
         let mut structs = 0usize;
         let mut classes = 0usize;
         let mut class_fields = 0usize;
+        let mut class_validations = 0usize;
         let mut class_objects = 0usize;
         let mut class_object_fields = 0usize;
         let mut args_blocks = 0usize;
@@ -123,6 +126,7 @@ impl ParsedProgram {
                 AstItem::Struct(_) => structs += 1,
                 AstItem::Class(_) => classes += 1,
                 AstItem::ClassField(_) => class_fields += 1,
+                AstItem::ClassValidation(_) => class_validations += 1,
                 AstItem::ClassObject(_) => class_objects += 1,
                 AstItem::ClassObjectField(_) => class_object_fields += 1,
                 AstItem::Args(_) => args_blocks += 1,
@@ -173,6 +177,7 @@ impl ParsedProgram {
             structs,
             classes,
             class_fields,
+            class_validations,
             class_objects,
             class_object_fields,
             args_blocks,
@@ -200,6 +205,7 @@ pub fn parse_source(source: &str) -> ParsedProgram {
     let mut args_depth = 0i32;
     let mut struct_depth = 0i32;
     let mut class_depth = 0i32;
+    let mut class_validation_depth = 0i32;
     let mut object_depth = 0i32;
     let mut system_depth = 0i32;
     let mut domain_depth = 0i32;
@@ -240,6 +246,8 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             ParseContext::Args
         } else if struct_depth > 0 {
             ParseContext::Struct
+        } else if class_validation_depth > 0 {
+            ParseContext::ClassValidation
         } else if class_depth > 0 {
             ParseContext::Class
         } else if object_depth > 0 {
@@ -362,6 +370,18 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             class_depth += brace_delta(&tokens);
             if class_depth <= 0 {
                 class_depth = 0;
+            }
+        }
+
+        if class_depth > 0 && starts_with_identifier(&tokens, "validate") {
+            let delta = brace_delta(&tokens);
+            if delta > 0 {
+                class_validation_depth += delta;
+            }
+        } else if class_validation_depth > 0 {
+            class_validation_depth += brace_delta(&tokens);
+            if class_validation_depth <= 0 {
+                class_validation_depth = 0;
             }
         }
 
@@ -542,6 +562,9 @@ fn parse_line_items(
     if let Some(class_decl) = parse_class_decl(tokens) {
         items.push(AstItem::Class(class_decl));
     }
+    if let Some(validation) = parse_class_validation_decl(tokens, line_text, context) {
+        items.push(AstItem::ClassValidation(validation));
+    }
     if let Some(field) = parse_class_field_decl(tokens, line_text, context) {
         items.push(AstItem::ClassField(field));
     }
@@ -622,6 +645,7 @@ fn parse_line_items(
         ParseContext::Args
             | ParseContext::Struct
             | ParseContext::Class
+            | ParseContext::ClassValidation
             | ParseContext::Object
             | ParseContext::SchemaConstraints
             | ParseContext::SchemaMissing
@@ -889,6 +913,9 @@ fn parse_class_field_decl(
     let [first, second, ..] = tokens else {
         return None;
     };
+    if token_is_identifier(first, "validate") {
+        return None;
+    }
     let name = token_field_name(first)?;
     if !matches!(second.kind, TokenKind::Symbol(Symbol::Colon)) {
         return None;
@@ -910,6 +937,52 @@ fn parse_class_field_decl(
         line: first.span.line,
         span: first.span,
     })
+}
+
+fn parse_class_validation_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<ClassValidationDecl> {
+    let first = tokens.first()?;
+    let expression = match context {
+        ParseContext::Class => {
+            if !token_is_identifier(first, "validate") {
+                return None;
+            }
+            let rest = line_text.trim_start().strip_prefix("validate")?.trim();
+            class_validation_expression_from_validate_line(rest)?
+        }
+        ParseContext::ClassValidation => class_validation_expression_from_block_line(line_text)?,
+        _ => return None,
+    };
+    Some(ClassValidationDecl {
+        expression,
+        line: first.span.line,
+        span: first.span,
+    })
+}
+
+fn class_validation_expression_from_validate_line(rest: &str) -> Option<String> {
+    let trimmed = rest.trim().trim_end_matches(',').trim();
+    if trimmed.is_empty() || trimmed == "{" {
+        return None;
+    }
+    if let Some(after_open) = trimmed.strip_prefix('{') {
+        let expression = after_open.trim().trim_end_matches('}').trim();
+        return (!expression.is_empty()).then(|| expression.to_owned());
+    }
+    let expression = trimmed.trim_end_matches('{').trim();
+    (!expression.is_empty()).then(|| expression.to_owned())
+}
+
+fn class_validation_expression_from_block_line(line_text: &str) -> Option<String> {
+    let trimmed = line_text.trim().trim_end_matches(',').trim();
+    if trimmed.is_empty() || trimmed == "}" {
+        return None;
+    }
+    let expression = trimmed.trim_end_matches('}').trim();
+    (!expression.is_empty()).then(|| expression.to_owned())
 }
 
 fn parse_class_object_decl(tokens: &[Token], context: ParseContext) -> Option<ClassObjectDecl> {
@@ -1228,6 +1301,10 @@ fn token_type_name(token: &Token) -> Option<String> {
     }
 }
 
+fn token_is_identifier(token: &Token, expected: &str) -> bool {
+    matches!(&token.kind, TokenKind::Identifier(value) if value == expected)
+}
+
 fn token_field_name(token: &Token) -> Option<String> {
     match &token.kind {
         TokenKind::Identifier(value) => Some(value.clone()),
@@ -1467,7 +1544,11 @@ fn parse_fast_binding(
 ) -> Option<(FastBinding, Option<CommandStyleDecl>)> {
     if matches!(
         context,
-        ParseContext::Where | ParseContext::With | ParseContext::Class | ParseContext::Object
+        ParseContext::Where
+            | ParseContext::With
+            | ParseContext::Class
+            | ParseContext::ClassValidation
+            | ParseContext::Object
     ) {
         return None;
     }
@@ -1643,6 +1724,7 @@ fn parse_standalone_command_style_decl(
             | ParseContext::With
             | ParseContext::Export
             | ParseContext::Class
+            | ParseContext::ClassValidation
             | ParseContext::Object
     ) {
         return None;

@@ -807,6 +807,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             "examples/05_error_messages/class_field_type_mismatch.eng",
             "E-CLASS-FIELD-TYPE-001",
         ),
+        (
+            "examples/05_error_messages/class_validation_fail.eng",
+            "E-CLASS-VALIDATION-002",
+        ),
     ] {
         let report = match check_file(fixture, &CheckOptions::default()) {
             Ok(report) => report,
@@ -1209,10 +1213,14 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             if !review.contains("\"class_summary\"")
                 || !review.contains("\"object_summary\"")
                 || !review.contains("\"Object[Construction]\"")
+                || !review.contains("\"validation_count\"")
+                || !review.contains("\"status\": \"pass\"")
                 || !report_spec.contains("\"class_summary\"")
                 || !report_spec.contains("\"object_summary\"")
+                || !report_spec.contains("\"validation_count\"")
                 || !report_html.contains("Classes")
                 || !report_html.contains("Objects")
+                || !report_html.contains("validate")
             {
                 eprintln!("expected class object preview to expose class/object artifacts");
                 return ExitCode::from(2);

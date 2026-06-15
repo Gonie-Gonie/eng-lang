@@ -365,6 +365,7 @@ pub struct ReportConnectionSummary {
 pub struct ReportClassSummary {
     pub name: String,
     pub fields: Vec<ReportClassField>,
+    pub validations: Vec<ReportClassValidation>,
     pub status: String,
     pub line: usize,
 }
@@ -384,10 +385,21 @@ pub struct ReportClassField {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct ReportClassValidation {
+    pub expression: String,
+    pub left: String,
+    pub operator: String,
+    pub right: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct ReportClassObjectSummary {
     pub name: String,
     pub class_name: String,
     pub fields: Vec<ReportClassObjectField>,
+    pub validations: Vec<ReportClassObjectValidation>,
     pub status: String,
     pub line: usize,
 }
@@ -398,6 +410,19 @@ pub struct ReportClassObjectField {
     pub expression: String,
     pub quantity_kind: String,
     pub display_unit: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportClassObjectValidation {
+    pub expression: String,
+    pub left: String,
+    pub operator: String,
+    pub right: String,
+    pub left_value: Option<String>,
+    pub right_value: Option<String>,
+    pub unit: String,
     pub status: String,
     pub line: usize,
 }
@@ -849,6 +874,18 @@ pub fn report_spec_from_report(
                     line: field.line,
                 })
                 .collect(),
+            validations: class_info
+                .validations
+                .iter()
+                .map(|validation| ReportClassValidation {
+                    expression: validation.expression.clone(),
+                    left: validation.left.clone(),
+                    operator: validation.operator.clone(),
+                    right: validation.right.clone(),
+                    status: validation.status.clone(),
+                    line: validation.line,
+                })
+                .collect(),
             status: class_info.status.clone(),
             line: class_info.line,
         })
@@ -870,6 +907,21 @@ pub fn report_spec_from_report(
                     display_unit: field.display_unit.clone(),
                     status: field.status.clone(),
                     line: field.line,
+                })
+                .collect(),
+            validations: object
+                .validations
+                .iter()
+                .map(|validation| ReportClassObjectValidation {
+                    expression: validation.expression.clone(),
+                    left: validation.left.clone(),
+                    operator: validation.operator.clone(),
+                    right: validation.right.clone(),
+                    left_value: validation.left_value.clone(),
+                    right_value: validation.right_value.clone(),
+                    unit: validation.unit.clone(),
+                    status: validation.status.clone(),
+                    line: validation.line,
                 })
                 .collect(),
             status: object.status.clone(),
@@ -1970,6 +2022,10 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             class_info.fields.len()
         ));
         json.push_str(&format!(
+            "      \"validation_count\": {},\n",
+            class_info.validations.len()
+        ));
+        json.push_str(&format!(
             "      \"status\": \"{}\",\n",
             json_escape(&class_info.status)
         ));
@@ -2018,6 +2074,36 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             json.push_str(&format!("          \"line\": {}\n", field.line));
             json.push_str("        }");
         }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"validations\": [\n");
+        for (validation_index, validation) in class_info.validations.iter().enumerate() {
+            if validation_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&validation.expression)
+            ));
+            json.push_str(&format!(
+                "          \"left\": \"{}\",\n",
+                json_escape(&validation.left)
+            ));
+            json.push_str(&format!(
+                "          \"operator\": \"{}\",\n",
+                json_escape(&validation.operator)
+            ));
+            json.push_str(&format!(
+                "          \"right\": \"{}\",\n",
+                json_escape(&validation.right)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&validation.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", validation.line));
+            json.push_str("        }");
+        }
         json.push_str("\n      ]\n");
         json.push_str("    }");
     }
@@ -2041,6 +2127,10 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         json.push_str(&format!(
             "      \"field_count\": {},\n",
             object.fields.len()
+        ));
+        json.push_str(&format!(
+            "      \"validation_count\": {},\n",
+            object.validations.len()
         ));
         json.push_str(&format!(
             "      \"status\": \"{}\",\n",
@@ -2073,6 +2163,52 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
                 json_escape(&field.status)
             ));
             json.push_str(&format!("          \"line\": {}\n", field.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"validations\": [\n");
+        for (validation_index, validation) in object.validations.iter().enumerate() {
+            if validation_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&validation.expression)
+            ));
+            json.push_str(&format!(
+                "          \"left\": \"{}\",\n",
+                json_escape(&validation.left)
+            ));
+            json.push_str(&format!(
+                "          \"operator\": \"{}\",\n",
+                json_escape(&validation.operator)
+            ));
+            json.push_str(&format!(
+                "          \"right\": \"{}\",\n",
+                json_escape(&validation.right)
+            ));
+            push_optional_json_string(
+                &mut json,
+                "left_value",
+                validation.left_value.as_deref(),
+                10,
+            );
+            push_optional_json_string(
+                &mut json,
+                "right_value",
+                validation.right_value.as_deref(),
+                10,
+            );
+            json.push_str(&format!(
+                "          \"unit\": \"{}\",\n",
+                json_escape(&validation.unit)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&validation.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", validation.line));
             json.push_str("        }");
         }
         json.push_str("\n      ]\n");
@@ -2866,7 +3002,7 @@ fn render_html_inner(
 
     let mut class_summary = String::new();
     for class_info in &report.semantic_program.classes {
-        if class_info.fields.is_empty() {
+        if class_info.fields.is_empty() && class_info.validations.is_empty() {
             class_summary.push_str("<tr>");
             class_summary.push_str(&format!(
                 "<td>{}</td><td>{}</td><td colspan=\"6\">No fields.</td>",
@@ -2891,6 +3027,17 @@ fn render_html_inner(
             ));
             class_summary.push_str("</tr>");
         }
+        for validation in &class_info.validations {
+            class_summary.push_str("<tr>");
+            class_summary.push_str(&format!(
+                "<td>{}</td><td>{}</td><td>validate</td><td colspan=\"4\"><code>{}</code></td><td>{}</td>",
+                validation.line,
+                html_escape(&class_info.name),
+                html_escape(&validation.expression),
+                html_escape(&validation.status)
+            ));
+            class_summary.push_str("</tr>");
+        }
     }
     if class_summary.is_empty() {
         class_summary.push_str("<tr><td colspan=\"8\">No class metadata.</td></tr>");
@@ -2898,7 +3045,7 @@ fn render_html_inner(
 
     let mut object_summary = String::new();
     for object in &report.semantic_program.class_objects {
-        if object.fields.is_empty() {
+        if object.fields.is_empty() && object.validations.is_empty() {
             object_summary.push_str("<tr>");
             object_summary.push_str(&format!(
                 "<td>{}</td><td>{}</td><td>{}</td><td colspan=\"5\">No explicit fields.</td>",
@@ -2921,6 +3068,22 @@ fn render_html_inner(
                 html_escape(&field.quantity_kind),
                 html_escape(&field.display_unit),
                 html_escape(&field.status)
+            ));
+            object_summary.push_str("</tr>");
+        }
+        for validation in &object.validations {
+            object_summary.push_str("<tr>");
+            object_summary.push_str(&format!(
+                "<td>{}</td><td>{}</td><td>{}</td><td>validate</td><td><code>{}</code></td><td>{} {} {}</td><td>{}</td><td>{}</td>",
+                validation.line,
+                html_escape(&object.name),
+                html_escape(&object.class_name),
+                html_escape(&validation.expression),
+                html_escape(validation.left_value.as_deref().unwrap_or("")),
+                html_escape(&validation.operator),
+                html_escape(validation.right_value.as_deref().unwrap_or("")),
+                html_escape(&validation.unit),
+                html_escape(&validation.status)
             ));
             object_summary.push_str("</tr>");
         }

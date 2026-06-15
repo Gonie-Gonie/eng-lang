@@ -162,6 +162,7 @@ task_types:
     - examples/05_error_messages/class_missing_field.eng
     - examples/05_error_messages/class_unknown_field.eng
     - examples/05_error_messages/class_field_type_mismatch.eng
+    - examples/05_error_messages/class_validation_fail.eng
     - crates/eng_compiler/src/parser.rs
     - crates/eng_compiler/src/semantic.rs
     - crates/eng_compiler/src/lib.rs

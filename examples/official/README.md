@@ -94,10 +94,10 @@ paths before compatibility fixtures.
   general matrix solver.
 
 19_class_object_preview
-  Typed class declarations, object literals, nested object references, field
-  access metadata, and class/object report sections for the class object
-  preview surface. This is a review/IDE metadata seed, not runtime object
-  dispatch.
+  Typed class declarations, object literals, nested object references, simple
+  class validation blocks, field access metadata, and class/object report
+  sections for the class object preview surface. This is a review/IDE metadata
+  seed, not runtime object dispatch.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression

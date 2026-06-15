@@ -208,6 +208,8 @@ Implementation seeds on `main`:
 ```text
 - class declaration for typed engineering objects
 - object literal and field access
+- class validate blocks
+- validation PASS/FAIL object artifacts
 - report/review serialization
 - IDE field completion and object summary
 - LSP class/object hover and completion metadata
@@ -217,8 +219,6 @@ Implementation seeds on `main`:
 Deferred:
 
 ```text
-- class validate blocks
-- validation PASS/FAIL object artifacts
 - methods and self access
 - immutable copy-with update
 - runtime object dispatch/lowering

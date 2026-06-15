@@ -88,6 +88,13 @@ pub struct ClassFieldDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClassValidationDecl {
+    pub expression: String,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassObjectDecl {
     pub name: String,
     pub class_name: String,
@@ -394,6 +401,7 @@ pub enum AstItem {
     Struct(StructDecl),
     Class(ClassDecl),
     ClassField(ClassFieldDecl),
+    ClassValidation(ClassValidationDecl),
     ClassObject(ClassObjectDecl),
     ClassObjectField(ClassObjectFieldDecl),
     ArgsField(ArgsFieldDecl),

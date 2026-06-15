@@ -23,12 +23,12 @@ use std::path::{Path, PathBuf};
 
 pub use ast::{
     ArgsDecl, ArgsFieldDecl, AssertDecl, AstItem, ClassDecl, ClassFieldDecl, ClassObjectDecl,
-    ClassObjectFieldDecl, CommandClauseDecl, CommandStyleDecl, ComponentDecl, ConnectDecl,
-    ConservationDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainVariableDecl,
-    EquationDecl, ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl,
-    GoldenDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl,
-    SystemDecl, SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl,
-    WithOptionDecl, WriteDecl,
+    ClassObjectFieldDecl, ClassValidationDecl, CommandClauseDecl, CommandStyleDecl, ComponentDecl,
+    ConnectDecl, ConservationDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl,
+    DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl,
+    FunctionParamDecl, GoldenDecl, ImportDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl,
+    ScriptDecl, StructDecl, SystemDecl, SystemVariableDecl, TestDecl, WhereBindingDecl,
+    WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -44,12 +44,13 @@ pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, Sc
 pub use semantic::read_only_io_expression;
 pub use semantic::{
     ArgValueInfo, ArgsBlockInfo, ArgsFieldInfo, AssertInfo, ClassFieldInfo, ClassInfo,
-    ClassObjectFieldInfo, ClassObjectInfo, CommandClauseInfo, CommandStyleInfo, ComponentInfo,
-    ConnectionInfo, ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo,
-    DomainTypeParameterInfo, DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo,
-    EquationInfo, EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo,
-    FunctionLocalInfo, FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo,
-    PortInfo, PrintInfo, ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo,
+    ClassObjectFieldInfo, ClassObjectInfo, ClassObjectValidationInfo, ClassValidationInfo,
+    CommandClauseInfo, CommandStyleInfo, ComponentInfo, ConnectionInfo, ConservationInfo,
+    ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo, DomainTypeParameterInfo,
+    DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo, EquationInfo,
+    EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo, FunctionLocalInfo,
+    FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo,
+    PrintInfo, ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo,
     SystemVariableInfo, TestInfo, TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo,
     WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
 };
@@ -348,7 +349,8 @@ fn importable_definition_item(item: &AstItem) -> bool {
         | AstItem::Component(_)
         | AstItem::Port(_)
         | AstItem::Class(_)
-        | AstItem::ClassField(_) => true,
+        | AstItem::ClassField(_)
+        | AstItem::ClassValidation(_) => true,
         AstItem::ExplicitDecl(declaration) => declaration.context == ParseContext::Schema,
         _ => false,
     }
@@ -1120,6 +1122,10 @@ pub fn review_json(report: &CheckReport) -> String {
     json.push_str(&format!(
         "    \"class_fields\": {},\n",
         report.syntax_summary.class_fields
+    ));
+    json.push_str(&format!(
+        "    \"class_validations\": {},\n",
+        report.syntax_summary.class_validations
     ));
     json.push_str(&format!(
         "    \"class_objects\": {},\n",
@@ -2644,6 +2650,10 @@ pub fn review_json(report: &CheckReport) -> String {
             class_info.fields.len()
         ));
         json.push_str(&format!(
+            "      \"validation_count\": {},\n",
+            class_info.validations.len()
+        ));
+        json.push_str(&format!(
             "      \"status\": \"{}\",\n",
             json_escape(&class_info.status)
         ));
@@ -2692,6 +2702,36 @@ pub fn review_json(report: &CheckReport) -> String {
             json.push_str(&format!("          \"line\": {}\n", field.line));
             json.push_str("        }");
         }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"validations\": [\n");
+        for (validation_index, validation) in class_info.validations.iter().enumerate() {
+            if validation_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&validation.expression)
+            ));
+            json.push_str(&format!(
+                "          \"left\": \"{}\",\n",
+                json_escape(&validation.left)
+            ));
+            json.push_str(&format!(
+                "          \"operator\": \"{}\",\n",
+                json_escape(&validation.operator)
+            ));
+            json.push_str(&format!(
+                "          \"right\": \"{}\",\n",
+                json_escape(&validation.right)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&validation.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", validation.line));
+            json.push_str("        }");
+        }
         json.push_str("\n      ]\n");
         json.push_str("    }");
     }
@@ -2714,6 +2754,10 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str(&format!(
             "      \"field_count\": {},\n",
             object.fields.len()
+        ));
+        json.push_str(&format!(
+            "      \"validation_count\": {},\n",
+            object.validations.len()
         ));
         json.push_str(&format!(
             "      \"status\": \"{}\",\n",
@@ -2746,6 +2790,52 @@ pub fn review_json(report: &CheckReport) -> String {
                 json_escape(&field.status)
             ));
             json.push_str(&format!("          \"line\": {}\n", field.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str("      \"validations\": [\n");
+        for (validation_index, validation) in object.validations.iter().enumerate() {
+            if validation_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"expression\": \"{}\",\n",
+                json_escape(&validation.expression)
+            ));
+            json.push_str(&format!(
+                "          \"left\": \"{}\",\n",
+                json_escape(&validation.left)
+            ));
+            json.push_str(&format!(
+                "          \"operator\": \"{}\",\n",
+                json_escape(&validation.operator)
+            ));
+            json.push_str(&format!(
+                "          \"right\": \"{}\",\n",
+                json_escape(&validation.right)
+            ));
+            push_optional_json_string(
+                &mut json,
+                "left_value",
+                validation.left_value.as_deref(),
+                10,
+            );
+            push_optional_json_string(
+                &mut json,
+                "right_value",
+                validation.right_value.as_deref(),
+                10,
+            );
+            json.push_str(&format!(
+                "          \"unit\": \"{}\",\n",
+                json_escape(&validation.unit)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&validation.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", validation.line));
             json.push_str("        }");
         }
         json.push_str("\n      ]\n");
@@ -3623,15 +3713,25 @@ mod tests {
     fn records_class_object_metadata_and_field_access() {
         let report = check_source(
             "class_preview.eng",
-            "class Construction {\n    u_value: Conductance [W/K]\n    thickness: Length [m] = 0.2 m\n}\n\nclass Zone {\n    name: String\n    capacity: HeatCapacity [J/K]\n}\n\nwall = Construction {\n    u_value = 120 W/K\n}\n\nzone = Zone {\n    name = \"Office\"\n    capacity = 120000 J/K\n}\n\nwall_u = wall.u_value\n",
+            "class Construction {\n    u_value: Conductance [W/K]\n    thickness: Length [m] = 0.2 m\n    validate {\n        u_value > 0 W/K\n        thickness > 0 m\n    }\n}\n\nclass Zone {\n    name: String\n    capacity: HeatCapacity [J/K]\n}\n\nwall = Construction {\n    u_value = 120 W/K\n}\n\nzone = Zone {\n    name = \"Office\"\n    capacity = 120000 J/K\n}\n\nwall_u = wall.u_value\n",
             &CheckOptions::default(),
         );
 
         assert!(!report.has_errors());
         assert_eq!(report.syntax_summary.classes, 2);
+        assert_eq!(report.syntax_summary.class_validations, 2);
         assert_eq!(report.syntax_summary.class_objects, 2);
         assert_eq!(report.semantic_program.classes.len(), 2);
         assert_eq!(report.semantic_program.class_objects.len(), 2);
+        assert_eq!(report.semantic_program.classes[0].validations.len(), 2);
+        assert_eq!(
+            report.semantic_program.class_objects[0].validations.len(),
+            2
+        );
+        assert!(report.semantic_program.class_objects[0]
+            .validations
+            .iter()
+            .all(|validation| validation.status == "pass"));
         assert!(report
             .semantic_program
             .typed_bindings
@@ -3642,6 +3742,26 @@ mod tests {
         let review = review_json(&report);
         assert!(review.contains("\"class_summary\""));
         assert!(review.contains("\"object_summary\""));
+        assert!(review.contains("\"validation_count\": 2"));
+    }
+
+    #[test]
+    fn rejects_failed_class_validation() {
+        let report = check_source(
+            "bad_class_validation.eng",
+            "class Construction {\n    u_value: Conductance [W/K]\n    validate {\n        u_value > 0 W/K\n    }\n}\n\nbad = Construction {\n    u_value = 0 W/K\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-CLASS-VALIDATION-002"));
+        assert_eq!(
+            report.semantic_program.class_objects[0].validations[0].status,
+            "fail"
+        );
     }
 
     #[test]

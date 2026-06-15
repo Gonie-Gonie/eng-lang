@@ -2,18 +2,42 @@ class Construction {
     name: String
     u_value: Conductance [W/K]
     thickness: Length [m] = 0.2 m
+    validate {
+        name != ""
+        u_value > 0 W/K
+        thickness > 0 m
+    }
 }
 
 class Zone {
     name: String
     capacity: HeatCapacity [J/K]
     occupancy: Count = 1
+    validate {
+        name != ""
+        capacity > 0 J/K
+        occupancy >= 0
+    }
+}
+
+class WeatherData {
+    source: String
+    temperature_column: String = "T_out"
+    solar_column: String = "solar"
+    validate {
+        source != ""
+        temperature_column != ""
+    }
 }
 
 class Building {
     name: String
     zone: Zone
     envelope: Construction
+    weather: WeatherData
+    validate {
+        name != ""
+    }
 }
 
 wall = Construction {
@@ -26,10 +50,15 @@ office = Zone {
     capacity = 120000 J/K
 }
 
+weather = WeatherData {
+    source = "weather.csv"
+}
+
 building = Building {
     name = "Lab"
     zone = office
     envelope = wall
+    weather = weather
 }
 
 wall_u = wall.u_value

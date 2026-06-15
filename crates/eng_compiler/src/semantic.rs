@@ -1,10 +1,10 @@
 use crate::ast::{
     ArgsFieldDecl, AssertDecl, AstItem, ClassFieldDecl, ClassObjectDecl, ClassObjectFieldDecl,
-    CommandStyleDecl, ConnectDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl,
-    DomainTypeParameterDecl, DomainVariableDecl, ExplicitDecl, FastBinding, FileOperationDecl,
-    FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl, PortDecl, PrintDecl, ProcessRunDecl,
-    ReturnDecl, StateSpaceVectorDecl, SystemVariableDecl, TestDecl, WhereBindingDecl,
-    WithOptionDecl, WriteDecl,
+    ClassValidationDecl, CommandStyleDecl, ConnectDecl, ConstDecl, CsvExportDecl,
+    CsvExportFieldDecl, DomainTypeParameterDecl, DomainVariableDecl, ExplicitDecl, FastBinding,
+    FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl, PortDecl,
+    PrintDecl, ProcessRunDecl, ReturnDecl, StateSpaceVectorDecl, SystemVariableDecl, TestDecl,
+    WhereBindingDecl, WithOptionDecl, WriteDecl,
 };
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
@@ -18,7 +18,7 @@ use crate::schema::{CsvPromotion, SchemaInfo};
 use crate::stats::{AxisInfo, IntegrationInfo, StatsInfo};
 use crate::type_info::{TypeInfo, TypeInfoSource};
 use crate::uncertainty::UncertaintyInfo;
-use crate::units::{unit_derivation, UnitDerivation};
+use crate::units::{unit_derivation, unit_info_for_symbol, UnitDerivation};
 use crate::workflow::Workflow;
 use crate::{Diagnostic, InferredDeclaration};
 use std::collections::{HashMap, HashSet};
@@ -280,9 +280,20 @@ pub struct ClassFieldInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClassValidationInfo {
+    pub expression: String,
+    pub left: String,
+    pub operator: String,
+    pub right: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassInfo {
     pub name: String,
     pub fields: Vec<ClassFieldInfo>,
+    pub validations: Vec<ClassValidationInfo>,
     pub status: String,
     pub line: usize,
 }
@@ -298,10 +309,24 @@ pub struct ClassObjectFieldInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClassObjectValidationInfo {
+    pub expression: String,
+    pub left: String,
+    pub operator: String,
+    pub right: String,
+    pub left_value: Option<String>,
+    pub right_value: Option<String>,
+    pub unit: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassObjectInfo {
     pub name: String,
     pub class_name: String,
     pub fields: Vec<ClassObjectFieldInfo>,
+    pub validations: Vec<ClassObjectValidationInfo>,
     pub status: String,
     pub line: usize,
 }
@@ -701,6 +726,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 classes.push(ClassInfo {
                     name: class_decl.name.clone(),
                     fields: Vec::new(),
+                    validations: Vec::new(),
                     status: "metadata_only".to_owned(),
                     line: class_decl.span.line,
                 });
@@ -709,6 +735,15 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             AstItem::ClassField(field) => {
                 if let Some(class_index) = current_class_index {
                     analyze_class_field(field, &mut classes[class_index], &mut diagnostics);
+                }
+            }
+            AstItem::ClassValidation(validation) => {
+                if let Some(class_index) = current_class_index {
+                    analyze_class_validation(
+                        validation,
+                        &mut classes[class_index],
+                        &mut diagnostics,
+                    );
                 }
             }
             AstItem::ClassObject(object) => {
@@ -962,7 +997,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     validate_file_operation_options(&file_operations, &with_blocks, &mut diagnostics);
     validate_where_local_uses(program, &where_blocks, &mut diagnostics);
     validate_domain_contracts(&domains, &mut diagnostics);
-    validate_class_contracts(&classes, &class_objects, &mut diagnostics);
+    validate_class_contracts(&classes, &mut class_objects, &mut diagnostics);
     validate_function_returns(&mut functions, &consts, &mut diagnostics);
 
     let connections = analyze_connections(
@@ -3032,6 +3067,34 @@ fn analyze_class_field(
     });
 }
 
+fn analyze_class_validation(
+    validation: &ClassValidationDecl,
+    class_info: &mut ClassInfo,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some((left, operator, right)) = split_class_validation_expression(&validation.expression)
+    else {
+        diagnostics.push(Diagnostic::error(
+            "E-CLASS-VALIDATION-001",
+            validation.line,
+            &format!(
+                "Class `{}` validation `{}` is not a supported comparison.",
+                class_info.name, validation.expression
+            ),
+            Some("Use a simple comparison such as `u_value > 0 W/K` or `name != \"\"`."),
+        ));
+        return;
+    };
+    class_info.validations.push(ClassValidationInfo {
+        expression: validation.expression.clone(),
+        left,
+        operator,
+        right,
+        status: "declared".to_owned(),
+        line: validation.line,
+    });
+}
+
 #[allow(clippy::too_many_arguments)]
 fn analyze_class_object_decl(
     object: &ClassObjectDecl,
@@ -3086,6 +3149,7 @@ fn analyze_class_object_decl(
         name: object.name.clone(),
         class_name: object.class_name.clone(),
         fields: Vec::new(),
+        validations: Vec::new(),
         status: if class_exists {
             "class_resolved".to_owned()
         } else {
@@ -3227,7 +3291,7 @@ fn analyze_class_object_field(
 
 fn validate_class_contracts(
     classes: &[ClassInfo],
-    class_objects: &[ClassObjectInfo],
+    class_objects: &mut [ClassObjectInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     for class_info in classes {
@@ -3246,7 +3310,7 @@ fn validate_class_contracts(
         }
     }
 
-    for object in class_objects {
+    for object in class_objects.iter_mut() {
         let Some(class_info) = classes
             .iter()
             .find(|class_info| class_info.name == object.class_name)
@@ -3270,6 +3334,215 @@ fn validate_class_contracts(
                 ));
             }
         }
+        evaluate_class_object_validations(class_info, object, diagnostics);
+    }
+}
+
+fn evaluate_class_object_validations(
+    class_info: &ClassInfo,
+    object: &mut ClassObjectInfo,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for validation in &class_info.validations {
+        let result = evaluate_class_validation(class_info, object, validation);
+        if result.status == "fail" {
+            diagnostics.push(Diagnostic::error(
+                "E-CLASS-VALIDATION-002",
+                object.line,
+                &format!(
+                    "Object `{}` violates class `{}` validation `{}`.",
+                    object.name, class_info.name, validation.expression
+                ),
+                Some("Adjust the object field values or the class validation rule."),
+            ));
+        }
+        object.validations.push(result);
+    }
+}
+
+fn evaluate_class_validation(
+    class_info: &ClassInfo,
+    object: &ClassObjectInfo,
+    validation: &ClassValidationInfo,
+) -> ClassObjectValidationInfo {
+    let left_value = resolve_class_validation_value(&validation.left, class_info, object);
+    let right_value = resolve_class_validation_value(&validation.right, class_info, object);
+    let (status, unit) = match (&left_value, &right_value) {
+        (Some(ClassValidationValue::Number(left)), Some(ClassValidationValue::Number(right))) => {
+            if dimensions_compatible(&left.dimension, &right.dimension) {
+                (
+                    if compare_numeric_values(left.value, right.value, &validation.operator) {
+                        "pass"
+                    } else {
+                        "fail"
+                    },
+                    if left.unit == "1" {
+                        right.unit.clone()
+                    } else {
+                        left.unit.clone()
+                    },
+                )
+            } else {
+                ("unresolved", "unit_mismatch".to_owned())
+            }
+        }
+        (Some(ClassValidationValue::Text(left)), Some(ClassValidationValue::Text(right))) => (
+            if compare_text_values(left, right, &validation.operator) {
+                "pass"
+            } else {
+                "fail"
+            },
+            "string".to_owned(),
+        ),
+        (Some(ClassValidationValue::Bool(left)), Some(ClassValidationValue::Bool(right))) => (
+            if compare_bool_values(*left, *right, &validation.operator) {
+                "pass"
+            } else {
+                "fail"
+            },
+            "bool".to_owned(),
+        ),
+        _ => ("unresolved", "unknown".to_owned()),
+    };
+    ClassObjectValidationInfo {
+        expression: validation.expression.clone(),
+        left: validation.left.clone(),
+        operator: validation.operator.clone(),
+        right: validation.right.clone(),
+        left_value: left_value.as_ref().map(ClassValidationValue::display),
+        right_value: right_value.as_ref().map(ClassValidationValue::display),
+        unit,
+        status: status.to_owned(),
+        line: validation.line,
+    }
+}
+
+#[derive(Clone, Debug)]
+enum ClassValidationValue {
+    Number(ClassValidationNumber),
+    Text(String),
+    Bool(bool),
+}
+
+#[derive(Clone, Debug)]
+struct ClassValidationNumber {
+    value: f64,
+    unit: String,
+    dimension: String,
+    display: String,
+}
+
+impl ClassValidationValue {
+    fn display(&self) -> String {
+        match self {
+            Self::Number(value) => value.display.clone(),
+            Self::Text(value) => value.clone(),
+            Self::Bool(value) => value.to_string(),
+        }
+    }
+}
+
+fn split_class_validation_expression(expression: &str) -> Option<(String, String, String)> {
+    for operator in ["==", "!=", ">=", "<=", ">", "<"] {
+        if let Some((left, right)) = expression.split_once(operator) {
+            let left = left.trim();
+            let right = right.trim();
+            if !left.is_empty() && !right.is_empty() {
+                return Some((left.to_owned(), operator.to_owned(), right.to_owned()));
+            }
+        }
+    }
+    None
+}
+
+fn resolve_class_validation_value(
+    expression: &str,
+    class_info: &ClassInfo,
+    object: &ClassObjectInfo,
+) -> Option<ClassValidationValue> {
+    let expression = expression.trim();
+    if let Some(field) = class_info
+        .fields
+        .iter()
+        .find(|field| field.name == expression)
+    {
+        let value_expression = object
+            .fields
+            .iter()
+            .find(|object_field| object_field.name == field.name)
+            .map(|object_field| object_field.expression.as_str())
+            .or(field.default_value.as_deref())?;
+        return literal_class_validation_value(value_expression);
+    }
+    literal_class_validation_value(expression)
+}
+
+fn literal_class_validation_value(expression: &str) -> Option<ClassValidationValue> {
+    let expression = expression.trim();
+    if let Some(value) = expression
+        .strip_prefix('"')
+        .and_then(|rest| rest.strip_suffix('"'))
+    {
+        return Some(ClassValidationValue::Text(value.to_owned()));
+    }
+    if matches!(expression, "true" | "false") {
+        return Some(ClassValidationValue::Bool(expression == "true"));
+    }
+    let (value, unit) = numeric_literal_with_optional_unit(expression)?;
+    let Some(unit) = unit else {
+        return Some(ClassValidationValue::Number(ClassValidationNumber {
+            value,
+            unit: "1".to_owned(),
+            dimension: "Dimensionless".to_owned(),
+            display: format_number_with_unit(value, "1"),
+        }));
+    };
+    let unit_info = unit_info_for_symbol(&unit)?;
+    let scale = unit_info.scale_to_canonical.parse::<f64>().ok()?;
+    let offset = unit_info
+        .affine_offset
+        .and_then(|offset| offset.parse::<f64>().ok())
+        .unwrap_or(0.0);
+    Some(ClassValidationValue::Number(ClassValidationNumber {
+        value: value * scale + offset,
+        unit: unit_info.canonical_unit.to_owned(),
+        dimension: unit_info.dimension.to_owned(),
+        display: format_number_with_unit(value, &unit),
+    }))
+}
+
+fn format_number_with_unit(value: f64, unit: &str) -> String {
+    if unit == "1" {
+        return value.to_string();
+    }
+    format!("{value} {unit}")
+}
+
+fn compare_numeric_values(left: f64, right: f64, operator: &str) -> bool {
+    match operator {
+        "==" => (left - right).abs() <= f64::EPSILON,
+        "!=" => (left - right).abs() > f64::EPSILON,
+        ">" => left > right,
+        "<" => left < right,
+        ">=" => left >= right,
+        "<=" => left <= right,
+        _ => false,
+    }
+}
+
+fn compare_text_values(left: &str, right: &str, operator: &str) -> bool {
+    match operator {
+        "==" => left == right,
+        "!=" => left != right,
+        _ => false,
+    }
+}
+
+fn compare_bool_values(left: bool, right: bool, operator: &str) -> bool {
+    match operator {
+        "==" => left == right,
+        "!=" => left != right,
+        _ => false,
     }
 }
 

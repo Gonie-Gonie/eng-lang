@@ -739,8 +739,8 @@ fn base_completion_items() -> Vec<CompletionView> {
     let mut items = Vec::new();
     for keyword in [
         "args", "class", "const", "export", "fn", "if", "import", "log", "plot", "print",
-        "promote", "read", "report", "return", "schema", "system", "test", "where", "with",
-        "write",
+        "promote", "read", "report", "return", "schema", "system", "test", "validate", "where",
+        "with", "write",
     ] {
         items.push(CompletionView {
             label: keyword.to_owned(),
@@ -772,8 +772,8 @@ fn base_completion_items() -> Vec<CompletionView> {
         ),
         (
             "class object",
-            "class Construction {\n    name: String\n    u_value: Conductance [W/K]\n}\n\nwall = Construction {\n    name = \"south_wall\"\n    u_value = 120 W/K\n}",
-            "class declaration and object literal",
+            "class Construction {\n    name: String\n    u_value: Conductance [W/K]\n    validate {\n        u_value > 0 W/K\n    }\n}\n\nwall = Construction {\n    name = \"south_wall\"\n    u_value = 120 W/K\n}",
+            "class declaration, validation, and object literal",
         ),
     ] {
         items.push(CompletionView {

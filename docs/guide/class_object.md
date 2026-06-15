@@ -11,6 +11,10 @@ class Construction {
     name: String
     u_value: Conductance [W/K]
     thickness: Length [m] = 0.2 m
+    validate {
+        name != ""
+        u_value > 0 W/K
+    }
 }
 ```
 
@@ -22,6 +26,27 @@ Supported field type categories in the preview:
 - built-in scalar/path types such as `String`, `Bool`, `Count`, and `Float`;
 - built-in quantity types such as `Length`, `Conductance`, and `HeatCapacity`;
 - another declared class name for nested object references.
+
+## Class Validations
+
+```text
+class Zone {
+    name: String
+    capacity: HeatCapacity [J/K]
+    occupancy: Count = 1
+    validate {
+        name != ""
+        capacity > 0 J/K
+        occupancy >= 0
+    }
+}
+```
+
+Class validation blocks are metadata-first object invariant checks. In the
+current preview they support simple field comparisons such as `field > 0 unit`,
+`field <= 1`, and `field != ""`. The check path evaluates object literal values
+and class defaults when possible, then records `pass`, `fail`, or `unresolved`
+results in the object summary.
 
 ## Object Literals
 
@@ -83,12 +108,15 @@ review/report/IDE metadata consumers.
 | `E-CLASS-FIELD-UNKNOWN-001` | Object sets a field not declared by its class. |
 | `E-CLASS-FIELD-TYPE-001` | Field value has an incompatible type or quantity. |
 | `E-CLASS-FIELD-TYPE-002` | Class field uses an unknown type. |
+| `E-CLASS-VALIDATION-001` | Class validation rule is not a supported comparison. |
+| `E-CLASS-VALIDATION-002` | Object literal fails a class validation rule. |
 
 Diagnostic fixtures live under `examples/05_error_messages/`:
 
 - `class_missing_field.eng`
 - `class_unknown_field.eng`
 - `class_field_type_mismatch.eng`
+- `class_validation_fail.eng`
 
 ## Artifact Surface
 
@@ -112,6 +140,9 @@ class_summary
 object_summary
 ```
 
+`class_summary` includes validation rules. `object_summary` includes
+per-object validation results with left/right values, unit, and status.
+
 The native IDE artifact outline and LSP snapshot path expose the same sections,
 plus class/object hover and completion metadata.
 
@@ -124,6 +155,7 @@ Current:
 - object literals;
 - nested object references;
 - field access type metadata;
+- simple class validation blocks with object-level pass/fail artifacts;
 - missing, unknown, and incompatible field diagnostics;
 - review/report artifact sections;
 - official example and CLI smoke coverage;

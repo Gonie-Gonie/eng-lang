@@ -1,0 +1,10 @@
+class Construction {
+    u_value: Conductance [W/K]
+    validate {
+        u_value > 0 W/K
+    }
+}
+
+bad = Construction {
+    u_value = 0 W/K
+}

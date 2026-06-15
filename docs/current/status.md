@@ -132,9 +132,9 @@ workflow, and covered by the breaking-change policy.
   `LinearOperator[From -> To]` metadata in `review.json`; this is a
   metadata-first preview, not a matrix solver claim.
 - `examples/official/19_class_object_preview` records typed class declarations,
-  object literals, nested object references, field access metadata, and
-  `class_summary`/`object_summary` artifacts; this is a reviewable engineering
-  object preview, not runtime object dispatch.
+  object literals, nested object references, simple class validation blocks,
+  field access metadata, and `class_summary`/`object_summary` artifacts; this
+  is a reviewable engineering object preview, not runtime object dispatch.
 - The domain/component preview records component connection graph metadata and
   reports duplicate connection edges plus resolved-but-unconnected ports for
   review before any numeric component solver exists.
@@ -229,9 +229,9 @@ See [development tracks](tracks.md) for the current scope and limitations.
   execution, safe/normal/repro profile basics, and local test/assert/golden
   checks only.
 - Class/domain objects currently support metadata-first class declarations,
-  object literals, nested object references, field access typing, diagnostics,
-  and review/report sections. Methods, copy-with, mutation, and runtime object
-  dispatch/lowering are deferred.
+  object literals, nested object references, simple validation blocks, field
+  access typing, diagnostics, and review/report sections. Methods, copy-with,
+  mutation, and runtime object dispatch/lowering are deferred.
 
 - First-class Summary objects are not part of the current scope; the v0.2
   decision is recorded in
