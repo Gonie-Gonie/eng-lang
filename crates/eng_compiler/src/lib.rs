@@ -4795,6 +4795,27 @@ mod tests {
     }
 
     #[test]
+    fn rejects_unknown_command_style_verb() {
+        let report = check_source(
+            "bad.eng",
+            "Q = 1 kW\nmedian_Q = median Q over Time\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-CMD-UNKNOWN-VERB"));
+        assert_eq!(report.semantic_program.command_styles.len(), 1);
+        assert_eq!(report.semantic_program.command_styles[0].verb, "median");
+        assert_eq!(
+            report.semantic_program.command_styles[0].status,
+            "unknown_verb"
+        );
+    }
+
+    #[test]
     fn rejects_incompatible_print_and_csv_export_units() {
         let report = check_source(
             "bad.eng",

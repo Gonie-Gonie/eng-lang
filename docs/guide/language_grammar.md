@@ -1270,6 +1270,7 @@ generation.
 | Code | Meaning | Typical Fix |
 |---|---|---|
 | `E-CMD-AMBIG-001` | Command target is ambiguous | Parenthesize the target |
+| `E-CMD-UNKNOWN-VERB` | Command-style verb is not supported | Use a supported built-in verb or parenthesized function call |
 | `E-NAME-LOCAL-001` | Where-local used outside owner scope | Move it top-level or use it only in owner |
 | `E-WHERE-FWD-001` | Where-local used before definition | Reorder the where bindings |
 | `E-WITH-OPTION-001` | Unknown `with` option | Use a supported option key |

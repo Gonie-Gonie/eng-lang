@@ -1268,7 +1268,14 @@ fn analyze_command_style_decl(
     command_styles: &mut Vec<CommandStyleInfo>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    if command.status == "ambiguous_target" {
+    if command.status == "unknown_verb" {
+        diagnostics.push(Diagnostic::error(
+            "E-CMD-UNKNOWN-VERB",
+            command.line,
+            &format!("`{}` is not a supported command-style verb.", command.verb),
+            Some("Use a supported built-in command verb or call a function with parentheses."),
+        ));
+    } else if command.status == "ambiguous_target" {
         diagnostics.push(Diagnostic::error(
             "E-CMD-AMBIG-001",
             command.line,

@@ -1817,13 +1817,26 @@ fn parse_standalone_command_style_decl(
 ) -> Option<CommandStyleDecl> {
     if matches!(
         context,
-        ParseContext::Where
+        ParseContext::Args
+            | ParseContext::Where
             | ParseContext::With
+            | ParseContext::Schema
+            | ParseContext::SchemaConstraints
+            | ParseContext::SchemaMissing
+            | ParseContext::Struct
             | ParseContext::Export
             | ParseContext::Class
             | ParseContext::ClassValidation
             | ParseContext::Object
+            | ParseContext::System
+            | ParseContext::Domain
+            | ParseContext::Component
+            | ParseContext::Equation
+            | ParseContext::Test
     ) {
+        return None;
+    }
+    if contains_symbol(tokens, Symbol::Equal) {
         return None;
     }
     let first = tokens.first()?;
@@ -1839,6 +1852,26 @@ fn parse_command_style_expression(
     let trimmed = expression.trim().trim_end_matches('{').trim();
     let (verb, rest) = split_first_word(trimmed)?;
     if !is_command_style_verb(verb) {
+        if looks_like_unknown_command_style(verb, rest) {
+            let (target, clauses) = split_command_target_and_clauses(rest);
+            return Some(CommandStyleDecl {
+                verb: verb.to_owned(),
+                target: target.trim().to_owned(),
+                clauses: clauses
+                    .iter()
+                    .map(|(name, value)| CommandClauseDecl {
+                        name: name.clone(),
+                        value: value.clone(),
+                    })
+                    .collect(),
+                canonical: trimmed.to_owned(),
+                status: "unknown_verb".to_owned(),
+                owner: owner.cloned(),
+                line: span.line,
+                span,
+                context,
+            });
+        }
         return None;
     }
     if trimmed.starts_with(&format!("{verb}(")) {
@@ -1891,6 +1924,50 @@ fn is_command_style_verb(verb: &str) -> bool {
     matches!(
         verb,
         "integrate" | "mean" | "max" | "min" | "duration" | "plot" | "show" | "validate"
+    )
+}
+
+fn looks_like_unknown_command_style(verb: &str, rest: &str) -> bool {
+    is_identifier_text(verb)
+        && !is_non_command_style_statement_verb(verb)
+        && !rest.trim().is_empty()
+        && !top_level_clause_positions(
+            rest,
+            &[
+                "over", "by", "as", "above", "below", "between", "from", "to", "with",
+            ],
+        )
+        .is_empty()
+}
+
+fn is_non_command_style_statement_verb(verb: &str) -> bool {
+    matches!(
+        verb,
+        "args"
+            | "assert"
+            | "class"
+            | "component"
+            | "const"
+            | "copy"
+            | "delete"
+            | "domain"
+            | "export"
+            | "fn"
+            | "golden"
+            | "import"
+            | "log"
+            | "move"
+            | "print"
+            | "promote"
+            | "run"
+            | "schema"
+            | "script"
+            | "struct"
+            | "summarize"
+            | "system"
+            | "test"
+            | "use"
+            | "write"
     )
 }
 
