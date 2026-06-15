@@ -873,18 +873,27 @@ function renderValidations() {
 }
 
 function renderAlignments() {
-  const rows = inspectorRows("timeAlignments").map((item) => `
+  const rows = inspectorRows("timeAlignments").map((item) => {
+    const leftCount = item.left_count ?? item.leftCount ?? "-";
+    const rightCount = item.right_count ?? item.rightCount ?? "-";
+    const leftStep = item.left_nominal_step ?? item.leftNominalStep;
+    const rightStep = item.right_nominal_step ?? item.rightNominalStep;
+    const stepStatus = item.step_status ?? item.stepStatus ?? "-";
+    const alignmentPass = item.status === "matched" && (stepStatus === "matched" || stepStatus === "-");
+    return `
     <tr>
-      <td><strong>${escapeHtml(item.status || "-")}</strong><div class="muted">${escapeHtml(item.axis || "-")}</div></td>
+      <td><strong>${alignmentPass ? "PASS" : "FAIL"}</strong><div class="muted">${escapeHtml(item.status || "-")} / ${escapeHtml(item.axis || "-")}</div></td>
       <td>${escapeHtml(item.left || "-")}<div class="muted">${escapeHtml(item.right || "-")}</div></td>
-      <td>${escapeHtml(item.matched_count ?? item.matchedCount ?? "-")} / ${escapeHtml(item.left_count ?? item.leftCount ?? "-")}</td>
+      <td>${escapeHtml(item.matched_count ?? item.matchedCount ?? "-")}<div class="muted">${escapeHtml(leftCount)} / ${escapeHtml(rightCount)}</div></td>
+      <td><strong>${escapeHtml(stepStatus)}</strong><div class="muted">${metricCell(leftStep)} / ${metricCell(rightStep)}</div></td>
       <td>${escapeHtml(item.overlap_start ?? item.overlapStart ?? "-")} - ${escapeHtml(item.overlap_end ?? item.overlapEnd ?? "-")}</td>
     </tr>
-  `).join("");
+  `;
+  }).join("");
   return `
     <table class="var-table">
-      <thead><tr><th>Status</th><th>Series</th><th>Matched</th><th>Overlap</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="4" class="muted">No alignment metadata.</td></tr>`}</tbody>
+      <thead><tr><th>Alignment</th><th>Series</th><th>Matched</th><th>Step</th><th>Overlap</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">No alignment metadata.</td></tr>`}</tbody>
     </table>
   `;
 }

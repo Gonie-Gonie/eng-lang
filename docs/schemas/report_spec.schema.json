@@ -207,7 +207,22 @@
     },
     "timeAlignment": {
       "type": "object",
-      "required": ["left", "right", "axis", "left_count", "right_count", "matched_count", "overlap_start", "overlap_end", "status"],
+      "required": [
+        "left",
+        "right",
+        "axis",
+        "left_count",
+        "right_count",
+        "matched_count",
+        "left_nominal_step",
+        "right_nominal_step",
+        "left_irregular",
+        "right_irregular",
+        "step_status",
+        "overlap_start",
+        "overlap_end",
+        "status"
+      ],
       "properties": {
         "left": { "type": "string" },
         "right": { "type": "string" },
@@ -215,6 +230,11 @@
         "left_count": { "type": "integer", "minimum": 0 },
         "right_count": { "type": "integer", "minimum": 0 },
         "matched_count": { "type": "integer", "minimum": 0 },
+        "left_nominal_step": { "type": ["number", "null"] },
+        "right_nominal_step": { "type": ["number", "null"] },
+        "left_irregular": { "type": "boolean" },
+        "right_irregular": { "type": "boolean" },
+        "step_status": { "enum": ["matched", "mismatch", "unavailable"] },
         "overlap_start": { "type": ["number", "null"] },
         "overlap_end": { "type": ["number", "null"] },
         "status": { "enum": ["matched", "overlap", "mismatch"] }

@@ -1190,7 +1190,9 @@ and `timestep` values without duration units.
 
 Runtime materializes `sim.T_zone` as a typed TimeSeries. The RMSE result appears
 in `computed_metrics`, the validation appears in `validations`, and pairwise
-TimeSeries overlap/match status appears in `time_alignments`.
+TimeSeries overlap/match status appears in `time_alignments`. Alignment artifacts
+also include nominal left/right time steps, irregular-axis flags, and a
+`step_status` of `matched`, `mismatch`, or `unavailable`.
 
 The state-space track is internal and metadata-first:
 

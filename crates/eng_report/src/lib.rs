@@ -207,6 +207,11 @@ pub struct ReportTimeAlignment {
     pub left_count: usize,
     pub right_count: usize,
     pub matched_count: usize,
+    pub left_nominal_step: Option<f64>,
+    pub right_nominal_step: Option<f64>,
+    pub left_irregular: bool,
+    pub right_irregular: bool,
+    pub step_status: String,
     pub overlap_start: Option<f64>,
     pub overlap_end: Option<f64>,
     pub status: String,
@@ -1885,6 +1890,30 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         json.push_str(&format!(
             "      \"matched_count\": {},\n",
             alignment.matched_count
+        ));
+        push_optional_json_f64(
+            &mut json,
+            "left_nominal_step",
+            alignment.left_nominal_step,
+            6,
+        );
+        push_optional_json_f64(
+            &mut json,
+            "right_nominal_step",
+            alignment.right_nominal_step,
+            6,
+        );
+        json.push_str(&format!(
+            "      \"left_irregular\": {},\n",
+            alignment.left_irregular
+        ));
+        json.push_str(&format!(
+            "      \"right_irregular\": {},\n",
+            alignment.right_irregular
+        ));
+        json.push_str(&format!(
+            "      \"step_status\": \"{}\",\n",
+            json_escape(&alignment.step_status)
         ));
         push_optional_json_f64(&mut json, "overlap_start", alignment.overlap_start, 6);
         push_optional_json_f64(&mut json, "overlap_end", alignment.overlap_end, 6);
@@ -4342,13 +4371,19 @@ fn render_time_alignments_section(spec: &ReportSpec) -> String {
         .time_alignments
         .iter()
         .map(|alignment| {
+            let left_step = format_alignment_step(alignment.left_nominal_step, alignment.left_irregular);
+            let right_step =
+                format_alignment_step(alignment.right_nominal_step, alignment.right_irregular);
             format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td></tr>",
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{} / {}</td><td>{}</td><td>{}</td></tr>",
                 html_escape(&alignment.left),
                 html_escape(&alignment.right),
                 html_escape(&alignment.axis),
                 alignment.matched_count,
                 alignment.left_count.min(alignment.right_count),
+                html_escape(&left_step),
+                html_escape(&right_step),
+                html_escape(&alignment.step_status),
                 html_escape(&alignment.status)
             )
         })
@@ -4357,10 +4392,31 @@ fn render_time_alignments_section(spec: &ReportSpec) -> String {
     format!(
         r#"<h2>Time Alignments</h2>
     <table>
-      <thead><tr><th>Left</th><th>Right</th><th>Axis</th><th>Matched</th><th>Status</th></tr></thead>
+      <thead><tr><th>Left</th><th>Right</th><th>Axis</th><th>Matched</th><th>Nominal Step</th><th>Step</th><th>Status</th></tr></thead>
       <tbody>{rows}</tbody>
     </table>"#
     )
+}
+
+fn format_alignment_step(step: Option<f64>, irregular: bool) -> String {
+    let mut label = step
+        .map(format_alignment_number)
+        .unwrap_or_else(|| "n/a".to_owned());
+    if irregular {
+        label.push_str(" (irregular)");
+    }
+    label
+}
+
+fn format_alignment_number(value: f64) -> String {
+    let mut text = format!("{value:.6}");
+    while text.contains('.') && text.ends_with('0') {
+        text.pop();
+    }
+    if text.ends_with('.') {
+        text.pop();
+    }
+    text
 }
 
 fn render_component_solver_section(spec: &ReportSpec) -> String {

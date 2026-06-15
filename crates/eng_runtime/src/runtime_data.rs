@@ -374,6 +374,11 @@ impl RuntimeData {
                 left_count: alignment.left_count,
                 right_count: alignment.right_count,
                 matched_count: alignment.matched_count,
+                left_nominal_step: alignment.left_nominal_step,
+                right_nominal_step: alignment.right_nominal_step,
+                left_irregular: alignment.left_irregular,
+                right_irregular: alignment.right_irregular,
+                step_status: alignment.step_status.clone(),
                 overlap_start: alignment.overlap_start,
                 overlap_end: alignment.overlap_end,
                 status: alignment.status.clone(),
@@ -656,6 +661,11 @@ pub struct RuntimeTimeAlignment {
     pub left_count: usize,
     pub right_count: usize,
     pub matched_count: usize,
+    pub left_nominal_step: Option<f64>,
+    pub right_nominal_step: Option<f64>,
+    pub left_irregular: bool,
+    pub right_irregular: bool,
+    pub step_status: String,
     pub overlap_start: Option<f64>,
     pub overlap_end: Option<f64>,
     pub status: String,
@@ -1442,6 +1452,59 @@ fn compare_values(left: f64, right: f64, operator: &str) -> bool {
     }
 }
 
+fn nominal_time_step(points: &[RuntimePoint]) -> Option<f64> {
+    let mut steps = points
+        .windows(2)
+        .filter_map(|window| {
+            let step = window[1].x - window[0].x;
+            (step.is_finite() && step > 0.0).then_some(step)
+        })
+        .collect::<Vec<_>>();
+    if steps.is_empty() {
+        return None;
+    }
+    steps.sort_by(|left, right| left.total_cmp(right));
+    Some(steps[steps.len() / 2])
+}
+
+fn time_step_tolerance(step: f64) -> f64 {
+    1e-6_f64.max(step.abs() * 1e-6)
+}
+
+fn time_axis_irregular(points: &[RuntimePoint], nominal_step: Option<f64>) -> bool {
+    let Some(nominal_step) = nominal_step else {
+        return false;
+    };
+    if points.len() < 3 || nominal_step <= 0.0 || !nominal_step.is_finite() {
+        return false;
+    }
+    let tolerance = time_step_tolerance(nominal_step);
+    points.windows(2).any(|window| {
+        let step = window[1].x - window[0].x;
+        !step.is_finite() || step <= 0.0 || (step - nominal_step).abs() > tolerance
+    })
+}
+
+fn time_step_status(
+    left_step: Option<f64>,
+    right_step: Option<f64>,
+    left_irregular: bool,
+    right_irregular: bool,
+) -> &'static str {
+    let (Some(left_step), Some(right_step)) = (left_step, right_step) else {
+        return "unavailable";
+    };
+    if left_irregular || right_irregular {
+        return "mismatch";
+    }
+    let tolerance = time_step_tolerance(left_step).max(time_step_tolerance(right_step));
+    if (left_step - right_step).abs() <= tolerance {
+        "matched"
+    } else {
+        "mismatch"
+    }
+}
+
 fn materialize_time_alignments(series: &[RuntimeTimeSeries]) -> Vec<RuntimeTimeAlignment> {
     let mut alignments = Vec::new();
     let table_series = series
@@ -1489,6 +1552,16 @@ fn materialize_time_alignments(series: &[RuntimeTimeSeries]) -> Vec<RuntimeTimeA
             } else {
                 "mismatch"
             };
+            let left_nominal_step = nominal_time_step(&left.points);
+            let right_nominal_step = nominal_time_step(&right.points);
+            let left_irregular = time_axis_irregular(&left.points, left_nominal_step);
+            let right_irregular = time_axis_irregular(&right.points, right_nominal_step);
+            let step_status = time_step_status(
+                left_nominal_step,
+                right_nominal_step,
+                left_irregular,
+                right_irregular,
+            );
             alignments.push(RuntimeTimeAlignment {
                 left: left.name.clone(),
                 right: right.name.clone(),
@@ -1496,6 +1569,11 @@ fn materialize_time_alignments(series: &[RuntimeTimeSeries]) -> Vec<RuntimeTimeA
                 left_count: left.points.len(),
                 right_count: right.points.len(),
                 matched_count,
+                left_nominal_step,
+                right_nominal_step,
+                left_irregular,
+                right_irregular,
+                step_status: step_status.to_owned(),
                 overlap_start,
                 overlap_end,
                 status: status.to_owned(),
@@ -4566,6 +4644,56 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
             plot_spec.series[0].points.len(),
             plot_spec.series[0].bins.len()
         );
+    }
+
+    #[test]
+    fn materializes_time_alignment_step_metadata() {
+        let series = vec![
+            time_series_for_alignment("left", "table_a", &[0.0, 60.0, 120.0, 180.0]),
+            time_series_for_alignment("right", "table_b", &[0.0, 120.0, 240.0, 360.0]),
+            time_series_for_alignment("irregular", "table_c", &[0.0, 60.0, 150.0, 210.0]),
+        ];
+
+        let alignments = materialize_time_alignments(&series);
+
+        assert_eq!(alignments.len(), 3);
+        let step_mismatch = alignments
+            .iter()
+            .find(|alignment| alignment.left == "left" && alignment.right == "right")
+            .unwrap();
+        assert_eq!(step_mismatch.left_nominal_step, Some(60.0));
+        assert_eq!(step_mismatch.right_nominal_step, Some(120.0));
+        assert!(!step_mismatch.left_irregular);
+        assert!(!step_mismatch.right_irregular);
+        assert_eq!(step_mismatch.step_status, "mismatch");
+
+        let irregular = alignments
+            .iter()
+            .find(|alignment| alignment.left == "left" && alignment.right == "irregular")
+            .unwrap();
+        assert_eq!(irregular.right_nominal_step, Some(60.0));
+        assert!(irregular.right_irregular);
+        assert_eq!(irregular.step_status, "mismatch");
+    }
+
+    fn time_series_for_alignment(name: &str, table: &str, xs: &[f64]) -> RuntimeTimeSeries {
+        RuntimeTimeSeries {
+            name: name.to_owned(),
+            axis: "Time".to_owned(),
+            x_unit: "s".to_owned(),
+            quantity_kind: "Temperature".to_owned(),
+            display_unit: "K".to_owned(),
+            source_table: table.to_owned(),
+            source_expression: String::new(),
+            points: xs
+                .iter()
+                .enumerate()
+                .map(|(index, x)| RuntimePoint {
+                    x: *x,
+                    y: index as f64,
+                })
+                .collect(),
+        }
     }
 
     fn round2(value: f64) -> f64 {

@@ -3587,6 +3587,30 @@ fn result_json(
         ));
         push_optional_json_number(
             &mut time_alignments,
+            "left_nominal_step",
+            alignment.left_nominal_step,
+            8,
+        );
+        push_optional_json_number(
+            &mut time_alignments,
+            "right_nominal_step",
+            alignment.right_nominal_step,
+            8,
+        );
+        time_alignments.push_str(&format!(
+            "        \"left_irregular\": {},\n",
+            alignment.left_irregular
+        ));
+        time_alignments.push_str(&format!(
+            "        \"right_irregular\": {},\n",
+            alignment.right_irregular
+        ));
+        time_alignments.push_str(&format!(
+            "        \"step_status\": \"{}\",\n",
+            json_escape(&alignment.step_status)
+        ));
+        push_optional_json_number(
+            &mut time_alignments,
             "overlap_start",
             alignment.overlap_start,
             8,
