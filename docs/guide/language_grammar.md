@@ -1235,8 +1235,10 @@ system ThermalStateSpaceMetadata {
 ```
 
 `review.json` records `state_space_vectors` and `linear_operators` for IDE and
-review tooling. This internal track does not claim a general matrix, nonlinear, DAE,
-or adaptive solver.
+review tooling. Linear operator matrix rows must match the target vector size,
+and columns must match the source vector size; mismatches use
+`E-STATE-SPACE-OP-SHAPE-001`. This internal track does not claim a general
+matrix, nonlinear, DAE, or adaptive solver.
 
 Domain/component shapes are documented separately in
 `docs/guide/domain_component.md`. They are useful for metadata, validation, and

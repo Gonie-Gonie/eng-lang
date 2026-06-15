@@ -1202,6 +1202,11 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     validate_domain_contracts(&domains, &mut diagnostics);
     validate_class_contracts(&classes, &mut class_objects, &mut diagnostics);
     validate_function_returns(&mut functions, &consts, &mut diagnostics);
+    validate_linear_operator_shapes(
+        &state_space_vectors,
+        &mut linear_operators,
+        &mut diagnostics,
+    );
 
     let connections = analyze_connections(
         &domains,
@@ -5440,6 +5445,72 @@ fn matrix_shape(expression: &str) -> (usize, usize) {
         })
         .unwrap_or(0);
     (row_count, column_count)
+}
+
+fn validate_linear_operator_shapes(
+    vectors: &[StateSpaceVectorInfo],
+    operators: &mut [LinearOperatorInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for operator in operators {
+        if operator.expression.is_none() {
+            continue;
+        }
+        let expected_rows = state_space_vector_size(vectors, &operator.system, &operator.to);
+        let expected_columns = state_space_vector_size(vectors, &operator.system, &operator.from);
+        let (Some(expected_rows), Some(expected_columns)) = (expected_rows, expected_columns)
+        else {
+            operator.status = "shape_unresolved".to_owned();
+            diagnostics.push(Diagnostic::error(
+                "E-STATE-SPACE-OP-SHAPE-001",
+                operator.line,
+                &format!(
+                    "Linear operator `{}` references undeclared vector type `{}` -> `{}`.",
+                    operator.name, operator.from, operator.to
+                ),
+                Some("Declare matching `states`, `inputs`, or `outputs` vectors before the operator."),
+            ));
+            continue;
+        };
+        if operator.row_count != expected_rows || operator.column_count != expected_columns {
+            operator.status = "shape_mismatch".to_owned();
+            diagnostics.push(Diagnostic::error(
+                "E-STATE-SPACE-OP-SHAPE-001",
+                operator.line,
+                &format!(
+                    "Linear operator `{}` is {}x{}, expected {}x{} for `{}` -> `{}`.",
+                    operator.name,
+                    operator.row_count,
+                    operator.column_count,
+                    expected_rows,
+                    expected_columns,
+                    operator.from,
+                    operator.to
+                ),
+                Some("Make the matrix rows match the target vector and columns match the source vector."),
+            ));
+        } else {
+            operator.status = "shape_checked".to_owned();
+        }
+    }
+}
+
+fn state_space_vector_size(
+    vectors: &[StateSpaceVectorInfo],
+    system: &str,
+    type_name: &str,
+) -> Option<usize> {
+    let trimmed = type_name.trim();
+    if let Some(inner) = trimmed
+        .strip_prefix("Derivative[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return state_space_vector_size(vectors, system, inner);
+    }
+    vectors
+        .iter()
+        .find(|vector| vector.system == system && vector.vector_type == trimmed)
+        .map(|vector| vector.members.len())
 }
 
 fn analyze_equation(

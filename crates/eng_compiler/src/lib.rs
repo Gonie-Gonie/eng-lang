@@ -5234,11 +5234,34 @@ mod tests {
             report.semantic_program.linear_operators[1].to,
             "Derivative[StateVector]"
         );
+        assert_eq!(
+            report.semantic_program.linear_operators[0].status,
+            "shape_checked"
+        );
         assert_eq!(report.semantic_program.linear_operators[1].row_count, 1);
         assert_eq!(report.semantic_program.linear_operators[1].column_count, 2);
         let json = review_json(&report);
         assert!(json.contains("\"state_space_vectors\""));
         assert!(json.contains("\"linear_operators\""));
+    }
+
+    #[test]
+    fn rejects_state_space_operator_shape_mismatch() {
+        let report = check_source(
+            "bad.eng",
+            "system BadStateSpace {\n    state T_zone: AbsoluteTemperature = 22 degC\n    input T_out: AbsoluteTemperature = 8 degC\n    states x = [T_zone]\n    inputs u = [T_out]\n    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.1, 0.2]]\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-STATE-SPACE-OP-SHAPE-001"));
+        assert_eq!(
+            report.semantic_program.linear_operators[0].status,
+            "shape_mismatch"
+        );
     }
 
     #[test]
