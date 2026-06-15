@@ -177,18 +177,23 @@ domain_summary
 component_summary
 connection_summary
 assembly_summary
+component_graph
 ```
 
-They appear in `review.json`, `build/result/report_spec.json`, and
-`build/result/report.html`. This is the domain/component artifact surface:
-the report shows which domains exist, package/version metadata, generic type
-parameters, which component ports reference them, port type arguments, and
-whether each connection is currently `domain_compatible` or diagnostic-only.
+They appear in `review.json` and `build/result/report_spec.json`; the same
+domain/component information is summarized in `build/result/report.html`.
+This is the domain/component artifact surface: the report shows which domains
+exist, package/version metadata, generic type parameters, which component ports
+reference them, port type arguments, and whether each connection is currently
+`domain_compatible` or diagnostic-only.
 The `assembly_summary` section shows connection sets, generated connection
 equations, variable/equation counts, residual graph dependencies, and solver
 plan placeholders. It also includes `domain_count`, `domain_plans`, and
 `solver_preview` so report, IDE, and automation consumers can distinguish a
 single-domain graph from a multi-domain metadata graph.
+The `component_graph` section is a normalized graph JSON view with component
+nodes, port nodes, connection edges, connection sets, domain labels,
+medium/frame/axis labels when present, and source spans for graph navigation.
 The runtime result also includes `component_solutions` with residual values,
 convergence status, zero-vector variable values, and failure/limitation
 artifacts.

@@ -23,7 +23,7 @@ The current schemas are intentionally structural baselines. They protect format
 headers, version numbers, required top-level sections, and release-critical
 counts without freezing volatile values such as hashes or generated paths.
 Domain/component assembly fields are schema-checked enough for IDE/report
-tooling to rely on `assembly_summary.domain_plans`,
+tooling to rely on `component_graph`, `assembly_summary.domain_plans`,
 `assembly_summary.solver_preview`, and runtime
 `typed_payload.component_solutions` while the track remains internal.
 

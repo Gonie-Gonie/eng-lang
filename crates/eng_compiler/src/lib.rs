@@ -3014,6 +3014,8 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    write_component_graph_json(&mut json, &report.semantic_program);
+    json.push_str(",\n");
     json.push_str("  \"class_summary\": [\n");
     for (index, class_info) in report.semantic_program.classes.iter().enumerate() {
         if index > 0 {
@@ -3766,6 +3768,261 @@ fn push_json_string_array(json: &mut String, values: &[String]) {
     }
 }
 
+fn write_component_graph_json(json: &mut String, program: &semantic::SemanticProgram) {
+    let port_count = program
+        .components
+        .iter()
+        .map(|component| component.ports.len())
+        .sum::<usize>();
+    let node_count = program.components.len() + port_count;
+    let status = if program.components.is_empty() {
+        "empty"
+    } else if program
+        .connections
+        .iter()
+        .any(|connection| connection.status != "domain_compatible")
+    {
+        "diagnostics_present"
+    } else {
+        "metadata_ready"
+    };
+    let mut port_lookup = HashMap::new();
+    for component in &program.components {
+        for port in &component.ports {
+            port_lookup.insert(format!("{}.{}", component.name, port.name), port);
+        }
+    }
+
+    json.push_str("  \"component_graph\": {\n");
+    json.push_str("    \"format\": \"eng-component-graph-v1\",\n");
+    json.push_str(&format!("    \"status\": \"{}\",\n", status));
+    json.push_str(&format!("    \"node_count\": {},\n", node_count));
+    json.push_str(&format!(
+        "    \"edge_count\": {},\n",
+        program.connections.len()
+    ));
+    json.push_str("    \"components\": [\n");
+    for (component_index, component) in program.components.iter().enumerate() {
+        if component_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"id\": \"{}\",\n",
+            json_escape(&component.name)
+        ));
+        json.push_str("        \"kind\": \"component\",\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&component.name)
+        ));
+        json.push_str(&format!(
+            "        \"port_count\": {},\n",
+            component.ports.len()
+        ));
+        json.push_str("        \"ports\": [");
+        for (port_index, port) in component.ports.iter().enumerate() {
+            if port_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!(
+                "\"{}.{}\"",
+                json_escape(&component.name),
+                json_escape(&port.name)
+            ));
+        }
+        json.push_str("],\n");
+        json.push_str(&format!("        \"line\": {},\n", component.line));
+        write_source_span_json(json, "        ", component.line, false);
+        json.push_str("\n      }");
+    }
+    json.push_str("\n    ],\n");
+
+    json.push_str("    \"ports\": [\n");
+    let mut first_port = true;
+    for component in &program.components {
+        for port in &component.ports {
+            if !first_port {
+                json.push_str(",\n");
+            }
+            first_port = false;
+            let (medium_label, frame_label, axis_label) =
+                domain_argument_labels(&program.domains, &port.domain_name, &port.type_arguments);
+            json.push_str("      {\n");
+            json.push_str(&format!(
+                "        \"id\": \"{}.{}\",\n",
+                json_escape(&component.name),
+                json_escape(&port.name)
+            ));
+            json.push_str("        \"kind\": \"port\",\n");
+            json.push_str(&format!(
+                "        \"component\": \"{}\",\n",
+                json_escape(&component.name)
+            ));
+            json.push_str(&format!(
+                "        \"name\": \"{}\",\n",
+                json_escape(&port.name)
+            ));
+            json.push_str(&format!(
+                "        \"domain_label\": \"{}\",\n",
+                json_escape(&port.domain)
+            ));
+            json.push_str(&format!(
+                "        \"domain_name\": \"{}\",\n",
+                json_escape(&port.domain_name)
+            ));
+            json.push_str("        \"type_arguments\": [");
+            push_json_string_array(json, &port.type_arguments);
+            json.push_str("],\n");
+            push_optional_json_string(json, "medium_label", medium_label.as_deref(), 8);
+            push_optional_json_string(json, "frame_label", frame_label.as_deref(), 8);
+            push_optional_json_string(json, "axis_label", axis_label.as_deref(), 8);
+            json.push_str(&format!(
+                "        \"status\": \"{}\",\n",
+                json_escape(&port.status)
+            ));
+            json.push_str(&format!("        \"line\": {},\n", port.line));
+            write_source_span_json(json, "        ", port.line, false);
+            json.push_str("\n      }");
+        }
+    }
+    json.push_str("\n    ],\n");
+
+    json.push_str("    \"connections\": [\n");
+    for (connection_index, connection) in program.connections.iter().enumerate() {
+        if connection_index > 0 {
+            json.push_str(",\n");
+        }
+        let port = port_lookup
+            .get(&connection.left)
+            .or_else(|| port_lookup.get(&connection.right));
+        let (medium_label, frame_label, axis_label) = port
+            .map(|port| {
+                domain_argument_labels(&program.domains, &port.domain_name, &port.type_arguments)
+            })
+            .unwrap_or((None, None, None));
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"id\": \"{} -> {}\",\n",
+            json_escape(&connection.left),
+            json_escape(&connection.right)
+        ));
+        json.push_str("        \"kind\": \"connection\",\n");
+        json.push_str(&format!(
+            "        \"left\": \"{}\",\n",
+            json_escape(&connection.left)
+        ));
+        json.push_str(&format!(
+            "        \"right\": \"{}\",\n",
+            json_escape(&connection.right)
+        ));
+        json.push_str(&format!(
+            "        \"left_component\": \"{}\",\n",
+            json_escape(&connection.left_component)
+        ));
+        json.push_str(&format!(
+            "        \"left_port\": \"{}\",\n",
+            json_escape(&connection.left_port)
+        ));
+        json.push_str(&format!(
+            "        \"right_component\": \"{}\",\n",
+            json_escape(&connection.right_component)
+        ));
+        json.push_str(&format!(
+            "        \"right_port\": \"{}\",\n",
+            json_escape(&connection.right_port)
+        ));
+        json.push_str(&format!(
+            "        \"domain_label\": \"{}\",\n",
+            json_escape(&connection.domain)
+        ));
+        push_optional_json_string(json, "medium_label", medium_label.as_deref(), 8);
+        push_optional_json_string(json, "frame_label", frame_label.as_deref(), 8);
+        push_optional_json_string(json, "axis_label", axis_label.as_deref(), 8);
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&connection.status)
+        ));
+        json.push_str(&format!("        \"line\": {},\n", connection.line));
+        write_source_span_json(json, "        ", connection.line, false);
+        json.push_str("\n      }");
+    }
+    json.push_str("\n    ],\n");
+
+    json.push_str("    \"connection_sets\": [\n");
+    let mut first_set = true;
+    for assembly in &program.component_assemblies {
+        for connection_set in &assembly.connection_sets {
+            if !first_set {
+                json.push_str(",\n");
+            }
+            first_set = false;
+            json.push_str("      {\n");
+            json.push_str(&format!(
+                "        \"assembly\": \"{}\",\n",
+                json_escape(&assembly.name)
+            ));
+            json.push_str(&format!(
+                "        \"name\": \"{}\",\n",
+                json_escape(&connection_set.name)
+            ));
+            json.push_str(&format!(
+                "        \"domain_label\": \"{}\",\n",
+                json_escape(&connection_set.domain)
+            ));
+            json.push_str(&format!(
+                "        \"status\": \"{}\",\n",
+                json_escape(&connection_set.status)
+            ));
+            json.push_str(&format!(
+                "        \"connection_count\": {},\n",
+                connection_set.connection_count
+            ));
+            json.push_str("        \"ports\": [");
+            push_json_string_array(json, &connection_set.ports);
+            json.push_str("],\n");
+            json.push_str(&format!("        \"line\": {},\n", connection_set.line));
+            write_source_span_json(json, "        ", connection_set.line, false);
+            json.push_str("\n      }");
+        }
+    }
+    json.push_str("\n    ]\n");
+    json.push_str("  }");
+}
+
+fn domain_argument_labels(
+    domains: &[semantic::DomainInfo],
+    domain_name: &str,
+    type_arguments: &[String],
+) -> (Option<String>, Option<String>, Option<String>) {
+    let mut medium_label = None;
+    let mut frame_label = None;
+    let mut axis_label = None;
+    if let Some(domain) = domains.iter().find(|domain| domain.name == domain_name) {
+        for (index, parameter) in domain.type_parameters.iter().enumerate() {
+            let Some(argument) = type_arguments.get(index) else {
+                continue;
+            };
+            match parameter.kind.as_str() {
+                "Medium" => medium_label = Some(argument.clone()),
+                "Frame" => frame_label = Some(argument.clone()),
+                "Axis" => axis_label = Some(argument.clone()),
+                _ => {}
+            }
+        }
+    }
+    (medium_label, frame_label, axis_label)
+}
+
+fn write_source_span_json(json: &mut String, indent: &str, line: usize, trailing_comma: bool) {
+    json.push_str(&format!(
+        "{}\"source_span\": {{ \"line\": {}, \"column\": 1 }}{}",
+        indent,
+        line,
+        if trailing_comma { "," } else { "" }
+    ));
+}
+
 fn json_escape(value: &str) -> String {
     let mut escaped = String::with_capacity(value.len());
     for character in value.chars() {
@@ -4155,6 +4412,10 @@ mod tests {
         assert!(review.contains("\"component_summary\""));
         assert!(review.contains("\"connection_summary\""));
         assert!(review.contains("\"assembly_summary\""));
+        assert!(review.contains("\"component_graph\""));
+        assert!(review.contains("\"format\": \"eng-component-graph-v1\""));
+        assert!(review.contains("\"node_count\": 4"));
+        assert!(review.contains("\"edge_count\": 1"));
         assert!(review.contains("\"connection_set_1\""));
         assert!(review.contains("\"through_conservation\""));
         assert!(review.contains("\"component_residual_graph\""));
@@ -4163,6 +4424,8 @@ mod tests {
         assert!(review.contains("\"name\": \"M\""));
         assert!(review.contains("\"package\": \"eng.std.domains.fluid\""));
         assert!(review.contains("\"Fluid[Water]\""));
+        assert!(review.contains("\"medium_label\": \"Water\""));
+        assert!(review.contains("\"source_span\""));
         assert!(review.contains("\"domain_count\": 1"));
         assert!(review.contains("\"single_domain_preview\""));
         assert!(review.contains("\"not_production_multi_domain\""));

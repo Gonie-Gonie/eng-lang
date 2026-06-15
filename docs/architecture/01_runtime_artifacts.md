@@ -421,6 +421,7 @@ domain_summary
 component_summary
 connection_summary
 assembly_summary
+component_graph
 schema_summary
 schemas
 csv_promotions
@@ -468,6 +469,7 @@ domain_summary
 component_summary
 connection_summary
 assembly_summary
+component_graph
 plot_manifest
 warning_list
 ```
@@ -483,6 +485,11 @@ across/through equation seeds, residual graph metadata, `domain_plans`, and
 `multi_domain_preview`; that label means reviewable metadata plus homogeneous
 connection-constraint residual checking, not production physical multi-domain
 solving.
+
+`component_graph` stores the graph-shaped domain/component view used by report
+and IDE consumers. It includes component nodes, port nodes, connection edges,
+connection sets, domain labels, generic medium/frame/axis labels when present,
+and source spans for source-linked graph navigation.
 
 The uncertainty track section records declared uncertainty forms, deterministic
 runtime summaries when available, scale/offset transforms, and propagation

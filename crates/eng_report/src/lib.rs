@@ -68,6 +68,7 @@ pub struct ReportSpec {
     pub components: Vec<ReportComponentSummary>,
     pub connections: Vec<ReportConnectionSummary>,
     pub assemblies: Vec<ReportAssemblySummary>,
+    pub component_graph: ReportComponentGraph,
     pub classes: Vec<ReportClassSummary>,
     pub class_objects: Vec<ReportClassObjectSummary>,
     pub systems: Vec<ReportSystemSummary>,
@@ -384,6 +385,83 @@ pub struct ReportConnectionSummary {
     pub domain: String,
     pub status: String,
     pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComponentGraph {
+    pub format: String,
+    pub status: String,
+    pub node_count: usize,
+    pub edge_count: usize,
+    pub components: Vec<ReportComponentGraphComponent>,
+    pub ports: Vec<ReportComponentGraphPort>,
+    pub connections: Vec<ReportComponentGraphConnection>,
+    pub connection_sets: Vec<ReportComponentGraphConnectionSet>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComponentGraphComponent {
+    pub id: String,
+    pub kind: String,
+    pub name: String,
+    pub port_count: usize,
+    pub ports: Vec<String>,
+    pub line: usize,
+    pub source_span: ReportSourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComponentGraphPort {
+    pub id: String,
+    pub kind: String,
+    pub component: String,
+    pub name: String,
+    pub domain_label: String,
+    pub domain_name: String,
+    pub type_arguments: Vec<String>,
+    pub medium_label: Option<String>,
+    pub frame_label: Option<String>,
+    pub axis_label: Option<String>,
+    pub status: String,
+    pub line: usize,
+    pub source_span: ReportSourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComponentGraphConnection {
+    pub id: String,
+    pub kind: String,
+    pub left: String,
+    pub right: String,
+    pub left_component: String,
+    pub left_port: String,
+    pub right_component: String,
+    pub right_port: String,
+    pub domain_label: String,
+    pub medium_label: Option<String>,
+    pub frame_label: Option<String>,
+    pub axis_label: Option<String>,
+    pub status: String,
+    pub line: usize,
+    pub source_span: ReportSourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComponentGraphConnectionSet {
+    pub assembly: String,
+    pub name: String,
+    pub domain_label: String,
+    pub status: String,
+    pub connection_count: usize,
+    pub ports: Vec<String>,
+    pub line: usize,
+    pub source_span: ReportSourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportSourceSpan {
+    pub line: usize,
+    pub column: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1121,6 +1199,7 @@ pub fn report_spec_from_report(
             line: assembly.line,
         })
         .collect::<Vec<_>>();
+    let component_graph = report_component_graph(report);
     let classes = report
         .semantic_program
         .classes
@@ -1364,6 +1443,7 @@ pub fn report_spec_from_report(
         components,
         connections,
         assemblies,
+        component_graph,
         classes,
         class_objects,
         systems,
@@ -1392,6 +1472,168 @@ pub fn report_spec_from_report(
             plot_spec_version: PLOT_SPEC_VERSION,
         },
     }
+}
+
+fn report_component_graph(report: &CheckReport) -> ReportComponentGraph {
+    let program = &report.semantic_program;
+    let port_count = program
+        .components
+        .iter()
+        .map(|component| component.ports.len())
+        .sum::<usize>();
+    let status = if program.components.is_empty() {
+        "empty"
+    } else if program
+        .connections
+        .iter()
+        .any(|connection| connection.status != "domain_compatible")
+    {
+        "diagnostics_present"
+    } else {
+        "metadata_ready"
+    };
+    let components = program
+        .components
+        .iter()
+        .map(|component| ReportComponentGraphComponent {
+            id: component.name.clone(),
+            kind: "component".to_owned(),
+            name: component.name.clone(),
+            port_count: component.ports.len(),
+            ports: component
+                .ports
+                .iter()
+                .map(|port| format!("{}.{}", component.name, port.name))
+                .collect(),
+            line: component.line,
+            source_span: report_source_span(component.line),
+        })
+        .collect::<Vec<_>>();
+    let ports = program
+        .components
+        .iter()
+        .flat_map(|component| {
+            component.ports.iter().map(move |port| {
+                let (medium_label, frame_label, axis_label) = report_domain_argument_labels(
+                    &program.domains,
+                    &port.domain_name,
+                    &port.type_arguments,
+                );
+                ReportComponentGraphPort {
+                    id: format!("{}.{}", component.name, port.name),
+                    kind: "port".to_owned(),
+                    component: component.name.clone(),
+                    name: port.name.clone(),
+                    domain_label: port.domain.clone(),
+                    domain_name: port.domain_name.clone(),
+                    type_arguments: port.type_arguments.clone(),
+                    medium_label,
+                    frame_label,
+                    axis_label,
+                    status: port.status.clone(),
+                    line: port.line,
+                    source_span: report_source_span(port.line),
+                }
+            })
+        })
+        .collect::<Vec<_>>();
+    let mut port_lookup = std::collections::HashMap::new();
+    for component in &program.components {
+        for port in &component.ports {
+            port_lookup.insert(format!("{}.{}", component.name, port.name), port);
+        }
+    }
+    let connections = program
+        .connections
+        .iter()
+        .map(|connection| {
+            let (medium_label, frame_label, axis_label) = port_lookup
+                .get(&connection.left)
+                .or_else(|| port_lookup.get(&connection.right))
+                .map(|port| {
+                    report_domain_argument_labels(
+                        &program.domains,
+                        &port.domain_name,
+                        &port.type_arguments,
+                    )
+                })
+                .unwrap_or((None, None, None));
+            ReportComponentGraphConnection {
+                id: format!("{} -> {}", connection.left, connection.right),
+                kind: "connection".to_owned(),
+                left: connection.left.clone(),
+                right: connection.right.clone(),
+                left_component: connection.left_component.clone(),
+                left_port: connection.left_port.clone(),
+                right_component: connection.right_component.clone(),
+                right_port: connection.right_port.clone(),
+                domain_label: connection.domain.clone(),
+                medium_label,
+                frame_label,
+                axis_label,
+                status: connection.status.clone(),
+                line: connection.line,
+                source_span: report_source_span(connection.line),
+            }
+        })
+        .collect::<Vec<_>>();
+    let connection_sets = program
+        .component_assemblies
+        .iter()
+        .flat_map(|assembly| {
+            assembly.connection_sets.iter().map(move |connection_set| {
+                ReportComponentGraphConnectionSet {
+                    assembly: assembly.name.clone(),
+                    name: connection_set.name.clone(),
+                    domain_label: connection_set.domain.clone(),
+                    status: connection_set.status.clone(),
+                    connection_count: connection_set.connection_count,
+                    ports: connection_set.ports.clone(),
+                    line: connection_set.line,
+                    source_span: report_source_span(connection_set.line),
+                }
+            })
+        })
+        .collect::<Vec<_>>();
+
+    ReportComponentGraph {
+        format: "eng-component-graph-v1".to_owned(),
+        status: status.to_owned(),
+        node_count: program.components.len() + port_count,
+        edge_count: program.connections.len(),
+        components,
+        ports,
+        connections,
+        connection_sets,
+    }
+}
+
+fn report_domain_argument_labels(
+    domains: &[eng_compiler::DomainInfo],
+    domain_name: &str,
+    type_arguments: &[String],
+) -> (Option<String>, Option<String>, Option<String>) {
+    let mut medium_label = None;
+    let mut frame_label = None;
+    let mut axis_label = None;
+    if let Some(domain) = domains.iter().find(|domain| domain.name == domain_name) {
+        for (index, parameter) in domain.type_parameters.iter().enumerate() {
+            let Some(argument) = type_arguments.get(index) else {
+                continue;
+            };
+            match parameter.kind.as_str() {
+                "Medium" => medium_label = Some(argument.clone()),
+                "Frame" => frame_label = Some(argument.clone()),
+                "Axis" => axis_label = Some(argument.clone()),
+                _ => {}
+            }
+        }
+    }
+    (medium_label, frame_label, axis_label)
+}
+
+fn report_source_span(line: usize) -> ReportSourceSpan {
+    ReportSourceSpan { line, column: 1 }
 }
 
 pub fn report_spec_json(spec: &ReportSpec) -> String {
@@ -2731,6 +2973,8 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    write_report_component_graph_json(&mut json, &spec.component_graph);
+    json.push_str(",\n");
     json.push_str("  \"class_summary\": [\n");
     for (index, class_info) in spec.classes.iter().enumerate() {
         if index > 0 {
@@ -4640,6 +4884,199 @@ fn xml_escape(value: &str) -> String {
     html_escape(value)
 }
 
+fn write_report_component_graph_json(json: &mut String, graph: &ReportComponentGraph) {
+    json.push_str("  \"component_graph\": {\n");
+    json.push_str(&format!(
+        "    \"format\": \"{}\",\n",
+        json_escape(&graph.format)
+    ));
+    json.push_str(&format!(
+        "    \"status\": \"{}\",\n",
+        json_escape(&graph.status)
+    ));
+    json.push_str(&format!("    \"node_count\": {},\n", graph.node_count));
+    json.push_str(&format!("    \"edge_count\": {},\n", graph.edge_count));
+    json.push_str("    \"components\": [\n");
+    for (component_index, component) in graph.components.iter().enumerate() {
+        if component_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"id\": \"{}\",\n",
+            json_escape(&component.id)
+        ));
+        json.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&component.kind)
+        ));
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&component.name)
+        ));
+        json.push_str(&format!(
+            "        \"port_count\": {},\n",
+            component.port_count
+        ));
+        json.push_str("        \"ports\": [");
+        push_json_string_array(json, &component.ports);
+        json.push_str("],\n");
+        json.push_str(&format!("        \"line\": {},\n", component.line));
+        write_report_source_span_json(json, "        ", &component.source_span, false);
+        json.push_str("\n      }");
+    }
+    json.push_str("\n    ],\n");
+
+    json.push_str("    \"ports\": [\n");
+    for (port_index, port) in graph.ports.iter().enumerate() {
+        if port_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!("        \"id\": \"{}\",\n", json_escape(&port.id)));
+        json.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&port.kind)
+        ));
+        json.push_str(&format!(
+            "        \"component\": \"{}\",\n",
+            json_escape(&port.component)
+        ));
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&port.name)
+        ));
+        json.push_str(&format!(
+            "        \"domain_label\": \"{}\",\n",
+            json_escape(&port.domain_label)
+        ));
+        json.push_str(&format!(
+            "        \"domain_name\": \"{}\",\n",
+            json_escape(&port.domain_name)
+        ));
+        json.push_str("        \"type_arguments\": [");
+        push_json_string_array(json, &port.type_arguments);
+        json.push_str("],\n");
+        push_optional_json_string(json, "medium_label", port.medium_label.as_deref(), 8);
+        push_optional_json_string(json, "frame_label", port.frame_label.as_deref(), 8);
+        push_optional_json_string(json, "axis_label", port.axis_label.as_deref(), 8);
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&port.status)
+        ));
+        json.push_str(&format!("        \"line\": {},\n", port.line));
+        write_report_source_span_json(json, "        ", &port.source_span, false);
+        json.push_str("\n      }");
+    }
+    json.push_str("\n    ],\n");
+
+    json.push_str("    \"connections\": [\n");
+    for (connection_index, connection) in graph.connections.iter().enumerate() {
+        if connection_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"id\": \"{}\",\n",
+            json_escape(&connection.id)
+        ));
+        json.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&connection.kind)
+        ));
+        json.push_str(&format!(
+            "        \"left\": \"{}\",\n",
+            json_escape(&connection.left)
+        ));
+        json.push_str(&format!(
+            "        \"right\": \"{}\",\n",
+            json_escape(&connection.right)
+        ));
+        json.push_str(&format!(
+            "        \"left_component\": \"{}\",\n",
+            json_escape(&connection.left_component)
+        ));
+        json.push_str(&format!(
+            "        \"left_port\": \"{}\",\n",
+            json_escape(&connection.left_port)
+        ));
+        json.push_str(&format!(
+            "        \"right_component\": \"{}\",\n",
+            json_escape(&connection.right_component)
+        ));
+        json.push_str(&format!(
+            "        \"right_port\": \"{}\",\n",
+            json_escape(&connection.right_port)
+        ));
+        json.push_str(&format!(
+            "        \"domain_label\": \"{}\",\n",
+            json_escape(&connection.domain_label)
+        ));
+        push_optional_json_string(json, "medium_label", connection.medium_label.as_deref(), 8);
+        push_optional_json_string(json, "frame_label", connection.frame_label.as_deref(), 8);
+        push_optional_json_string(json, "axis_label", connection.axis_label.as_deref(), 8);
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&connection.status)
+        ));
+        json.push_str(&format!("        \"line\": {},\n", connection.line));
+        write_report_source_span_json(json, "        ", &connection.source_span, false);
+        json.push_str("\n      }");
+    }
+    json.push_str("\n    ],\n");
+
+    json.push_str("    \"connection_sets\": [\n");
+    for (set_index, connection_set) in graph.connection_sets.iter().enumerate() {
+        if set_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"assembly\": \"{}\",\n",
+            json_escape(&connection_set.assembly)
+        ));
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&connection_set.name)
+        ));
+        json.push_str(&format!(
+            "        \"domain_label\": \"{}\",\n",
+            json_escape(&connection_set.domain_label)
+        ));
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&connection_set.status)
+        ));
+        json.push_str(&format!(
+            "        \"connection_count\": {},\n",
+            connection_set.connection_count
+        ));
+        json.push_str("        \"ports\": [");
+        push_json_string_array(json, &connection_set.ports);
+        json.push_str("],\n");
+        json.push_str(&format!("        \"line\": {},\n", connection_set.line));
+        write_report_source_span_json(json, "        ", &connection_set.source_span, false);
+        json.push_str("\n      }");
+    }
+    json.push_str("\n    ]\n");
+    json.push_str("  }");
+}
+
+fn write_report_source_span_json(
+    json: &mut String,
+    indent: &str,
+    span: &ReportSourceSpan,
+    trailing_comma: bool,
+) {
+    json.push_str(&format!(
+        "{}\"source_span\": {{ \"line\": {}, \"column\": {} }}{}",
+        indent,
+        span.line,
+        span.column,
+        if trailing_comma { "," } else { "" }
+    ));
+}
+
 fn json_escape(value: &str) -> String {
     let mut escaped = String::with_capacity(value.len());
     for character in value.chars() {
@@ -5193,6 +5630,14 @@ mod tests {
             vec!["Water".to_owned()]
         );
         assert_eq!(spec.connections[0].status, "domain_compatible");
+        assert_eq!(spec.component_graph.format, "eng-component-graph-v1");
+        assert_eq!(spec.component_graph.node_count, 4);
+        assert_eq!(spec.component_graph.edge_count, 1);
+        assert_eq!(
+            spec.component_graph.ports[0].medium_label.as_deref(),
+            Some("Water")
+        );
+        assert_eq!(spec.component_graph.connections[0].source_span.column, 1);
         assert_eq!(spec.assemblies[0].connection_sets.len(), 1);
         assert_eq!(spec.assemblies[0].equations.len(), 2);
         assert_eq!(spec.assemblies[0].boundary.unknown_count, 4);
@@ -5210,6 +5655,9 @@ mod tests {
         assert!(json.contains("\"component_summary\""));
         assert!(json.contains("\"connection_summary\""));
         assert!(json.contains("\"assembly_summary\""));
+        assert!(json.contains("\"component_graph\""));
+        assert!(json.contains("\"medium_label\": \"Water\""));
+        assert!(json.contains("\"source_span\""));
         assert!(json.contains("\"assembly_count\": 1"));
         assert!(json.contains("\"through_conservation\""));
         assert!(json.contains("\"jacobian_sparsity\""));

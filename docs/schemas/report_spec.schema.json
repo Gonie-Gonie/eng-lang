@@ -26,6 +26,7 @@
     "component_summary",
     "connection_summary",
     "assembly_summary",
+    "component_graph",
     "class_summary",
     "object_summary",
     "system_summary",
@@ -109,6 +110,7 @@
       "type": "array",
       "items": { "$ref": "#/$defs/assemblySummary" }
     },
+    "component_graph": { "$ref": "#/$defs/componentGraph" },
     "class_summary": {
       "type": "array",
       "items": { "$ref": "#/$defs/classSummary" }
@@ -648,6 +650,164 @@
           "type": "array",
           "items": { "type": "string" }
         }
+      }
+    },
+    "componentGraph": {
+      "type": "object",
+      "required": [
+        "format",
+        "status",
+        "node_count",
+        "edge_count",
+        "components",
+        "ports",
+        "connections",
+        "connection_sets"
+      ],
+      "properties": {
+        "format": { "const": "eng-component-graph-v1" },
+        "status": { "enum": ["empty", "metadata_ready", "diagnostics_present"] },
+        "node_count": { "type": "integer", "minimum": 0 },
+        "edge_count": { "type": "integer", "minimum": 0 },
+        "components": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/componentGraphComponent" }
+        },
+        "ports": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/componentGraphPort" }
+        },
+        "connections": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/componentGraphConnection" }
+        },
+        "connection_sets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/componentGraphConnectionSet" }
+        }
+      }
+    },
+    "componentGraphComponent": {
+      "type": "object",
+      "required": ["id", "kind", "name", "port_count", "ports", "line", "source_span"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "const": "component" },
+        "name": { "type": "string" },
+        "port_count": { "type": "integer", "minimum": 0 },
+        "ports": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "line": { "type": "integer", "minimum": 1 },
+        "source_span": { "$ref": "#/$defs/componentGraphSourceSpan" }
+      }
+    },
+    "componentGraphPort": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "component",
+        "name",
+        "domain_label",
+        "domain_name",
+        "type_arguments",
+        "medium_label",
+        "frame_label",
+        "axis_label",
+        "status",
+        "line",
+        "source_span"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "const": "port" },
+        "component": { "type": "string" },
+        "name": { "type": "string" },
+        "domain_label": { "type": "string" },
+        "domain_name": { "type": "string" },
+        "type_arguments": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "medium_label": { "type": ["string", "null"] },
+        "frame_label": { "type": ["string", "null"] },
+        "axis_label": { "type": ["string", "null"] },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "source_span": { "$ref": "#/$defs/componentGraphSourceSpan" }
+      }
+    },
+    "componentGraphConnection": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "left",
+        "right",
+        "left_component",
+        "left_port",
+        "right_component",
+        "right_port",
+        "domain_label",
+        "medium_label",
+        "frame_label",
+        "axis_label",
+        "status",
+        "line",
+        "source_span"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "const": "connection" },
+        "left": { "type": "string" },
+        "right": { "type": "string" },
+        "left_component": { "type": "string" },
+        "left_port": { "type": "string" },
+        "right_component": { "type": "string" },
+        "right_port": { "type": "string" },
+        "domain_label": { "type": "string" },
+        "medium_label": { "type": ["string", "null"] },
+        "frame_label": { "type": ["string", "null"] },
+        "axis_label": { "type": ["string", "null"] },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "source_span": { "$ref": "#/$defs/componentGraphSourceSpan" }
+      }
+    },
+    "componentGraphConnectionSet": {
+      "type": "object",
+      "required": [
+        "assembly",
+        "name",
+        "domain_label",
+        "status",
+        "connection_count",
+        "ports",
+        "line",
+        "source_span"
+      ],
+      "properties": {
+        "assembly": { "type": "string" },
+        "name": { "type": "string" },
+        "domain_label": { "type": "string" },
+        "status": { "type": "string" },
+        "connection_count": { "type": "integer", "minimum": 0 },
+        "ports": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "line": { "type": "integer", "minimum": 1 },
+        "source_span": { "$ref": "#/$defs/componentGraphSourceSpan" }
+      }
+    },
+    "componentGraphSourceSpan": {
+      "type": "object",
+      "required": ["line", "column"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
       }
     },
     "classSummary": {

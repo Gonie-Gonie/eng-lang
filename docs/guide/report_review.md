@@ -90,6 +90,7 @@ domain_summary
 component_summary
 connection_summary
 assembly_summary
+component_graph
 ```
 
 For the domain/component metadata track, each `domain_summary.type_parameters`
@@ -104,6 +105,10 @@ Thermal, `Fluid[Water]`, and `MechanicalNode[World, X]` connection sets reports
 `solver_preview.status = multi_domain_preview`, plus explicit future-solver
 seed statuses for nonlinear residuals, DAE splitting, delay/history buffers,
 Predictor behavior, and external behavior adapters.
+`component_graph` is the graph-shaped companion artifact for the same track:
+components and ports are nodes, connections are edges, connection sets are
+grouped by assembly, and each node/edge carries source span and domain label
+metadata for report, IDE, and automation tooling.
 
 `plot_manifest` in `review.json` declares the runtime path that `eng run` will use. It does not carry the runtime manifest hash because `eng check --review` does not render plots.
 

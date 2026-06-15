@@ -121,6 +121,7 @@ struct InspectorView {
     time_alignments: Value,
     systems: Value,
     assemblies: Value,
+    component_graph: Value,
     artifact_outlines: Value,
 }
 
@@ -136,6 +137,7 @@ impl Default for InspectorView {
             time_alignments: Value::Array(Vec::new()),
             systems: Value::Array(Vec::new()),
             assemblies: Value::Array(Vec::new()),
+            component_graph: Value::Null,
             artifact_outlines: Value::Array(Vec::new()),
         }
     }
@@ -914,6 +916,10 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         time_alignments: json_array_clone(&report, "time_alignments"),
         systems: system_inspector(&report, &result),
         assemblies: json_array_clone(&report, "assembly_summary"),
+        component_graph: report
+            .get("component_graph")
+            .cloned()
+            .unwrap_or(Value::Null),
         artifact_outlines: artifact_outlines(root, output),
     }
 }
