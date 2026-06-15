@@ -737,15 +737,12 @@ fn parse_import_decl(tokens: &[Token]) -> Option<ImportDecl> {
         });
     }
 
-    let mut target = String::new();
-    for token in tokens.iter().skip(1) {
-        match &token.kind {
-            TokenKind::Identifier(value) => target.push_str(value),
-            TokenKind::Keyword(_) => target.push_str(&token.lexeme),
-            TokenKind::Symbol(Symbol::Dot) => target.push('.'),
-            _ => break,
-        }
-    }
+    let target = tokens
+        .iter()
+        .skip(1)
+        .map(|token| token.lexeme.as_str())
+        .collect::<Vec<_>>()
+        .join("");
     (!target.is_empty()).then(|| ImportDecl {
         target,
         kind: kind.to_owned(),

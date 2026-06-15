@@ -42,7 +42,9 @@ Rules:
 - Imported module `args` blocks and top-level `name = expr` executable locals
   are not imported.
 - Imported `script` blocks are not executable roots and are not executed.
-- Dynamic import paths are rejected; imports must be static strings.
+- Dynamic import paths are rejected; imports must be static strings. This
+  includes args-based targets, path-helper expressions, and template-style file
+  strings containing runtime placeholders.
 - Import cycles and unreadable paths are compile diagnostics.
 - Source files should be UTF-8 encoded.
 

@@ -122,7 +122,9 @@ Not imported or executed:
   statements;
 - imported `script` blocks.
 
-Dynamic import paths are rejected with `E-IMPORT-DYNAMIC-001`.
+Dynamic import paths are rejected with `E-IMPORT-DYNAMIC-001`, including
+`use args.input`, path-helper expressions such as `use join(args.dir, "...")`,
+and template-style file strings containing runtime placeholders.
 References to top-level imported-module `name = expr` locals are diagnosed as
 `E-IMPORT-SYMBOL-001`; use `const name: Type = expr` instead.
 

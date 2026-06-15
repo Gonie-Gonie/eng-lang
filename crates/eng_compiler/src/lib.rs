@@ -230,6 +230,15 @@ fn resolve_file_imports(
         let AstItem::Import(import) = item else {
             continue;
         };
+        if import_target_is_dynamic(&import.target) {
+            diagnostics.push(Diagnostic::error(
+                "E-IMPORT-DYNAMIC-001",
+                import.line,
+                "import path cannot depend on args/runtime values.",
+                Some("Use a static file import such as `use \"./defaults.eng\"`."),
+            ));
+            continue;
+        }
         if import.kind != "file" {
             diagnostics.push(Diagnostic::error(
                 "E-IMPORT-001",
@@ -239,15 +248,6 @@ fn resolve_file_imports(
                     import.target
                 ),
                 Some("Use a file import such as `use \"thermal.eng\"`."),
-            ));
-            continue;
-        }
-        if import.target.contains('{') || import.target.contains("args.") {
-            diagnostics.push(Diagnostic::error(
-                "E-IMPORT-DYNAMIC-001",
-                import.line,
-                "import path cannot depend on args/runtime values.",
-                Some("Use a static file import such as `use \"./defaults.eng\"`."),
             ));
             continue;
         }
@@ -308,6 +308,15 @@ fn resolve_file_imports(
         visited.remove(&import_path);
     }
     imported_items
+}
+
+fn import_target_is_dynamic(target: &str) -> bool {
+    let compact = target.replace(char::is_whitespace, "");
+    compact.contains('{')
+        || compact == "args"
+        || compact.contains("args.")
+        || compact.contains("(args")
+        || compact.contains(",args")
 }
 
 fn resolve_import_path(
@@ -5376,6 +5385,25 @@ mod tests {
             .iter()
             .any(|diagnostic| diagnostic.code == "E-IMPORT-SYMBOL-001"));
         assert!(report.semantic_program.args_blocks.is_empty());
+    }
+
+    #[test]
+    fn rejects_dynamic_import_paths_from_args_expressions() {
+        let report = check_source(
+            "bad.eng",
+            "args {\n    input: CsvFile = file(\"defaults.eng\")\n    dir: DirectoryPath = dir(\".\")\n}\n\nuse args.input\nuse join(args.dir, \"defaults.eng\")\nuse \"cases/{args.case}.eng\"\n\nQ = 1 kW\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert_eq!(
+            report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "E-IMPORT-DYNAMIC-001")
+                .count(),
+            3
+        );
     }
 
     #[test]
