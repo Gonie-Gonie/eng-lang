@@ -71,7 +71,8 @@ Title: `state-space: implement actual trajectory generation or keep internal`
 Definition of Done:
 
 - Either keep `examples/internal/18_state_space_metadata` internal with clear
-  docs, or implement a supported state-space workflow.
+  docs and the current one-state trajectory preview, or implement a supported
+  state-space workflow.
 - Supported workflow requires runtime `StateVector`, `InputVector`, and
   `LinearOperator` objects, operator row/column checks, unit compatibility
   checks, discrete-time state update, state trajectory TimeSeries, plot/report

@@ -100,8 +100,9 @@ development smoke path but are not user-facing release workflows.
 
 ```text
 internal/18_state_space_metadata
-  StateVector/InputVector/OutputVector and LinearOperator metadata only. This
-  fixture does not perform state-space simulation.
+  StateVector/InputVector/OutputVector and LinearOperator metadata with a
+  narrow one-state fixed-step runtime preview. This fixture is not a supported
+  general state-space simulation workflow.
 ```
 
 ## Compatibility Regression Examples

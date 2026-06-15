@@ -357,8 +357,10 @@ review.json
 ```
 
 These sections record `states`/`inputs`/`outputs` vector declarations and
-`LinearOperator[From -> To]` declarations for inspection. They are an internal
-metadata seed, not a general matrix simulation solver.
+`LinearOperator[From -> To]` declarations for inspection. Runtime can also
+materialize a one-state, constant-input fixed-step trajectory from
+shape-checked A/B operators. This remains an internal seed, not a general
+matrix simulation solver.
 
 ## Uncertainty Metadata
 

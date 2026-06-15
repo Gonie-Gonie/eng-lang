@@ -127,8 +127,9 @@ Internal seeds may have code, tests, examples, or artifacts on `main`, but they
 are not public stable workflows.
 
 - State-space metadata in `examples/internal/18_state_space_metadata`: typed
-  vector/operator declarations and review metadata only. It does not perform
-  state-space simulation.
+  vector/operator declarations, review metadata, and a one-state constant-input
+  fixed-step trajectory preview. It is not a supported general state-space
+  simulation workflow.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,
   generated connection-equation metadata, residual graph metadata,
   domain-plan metadata, and connection constraint consistency artifacts. It is
@@ -150,7 +151,8 @@ are not public stable workflows.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
 - General nonlinear, DAE, adaptive, and multi-state equation solving.
-- State-space discrete/continuous simulation with state trajectory TimeSeries.
+- Supported state-space discrete/continuous simulation beyond the current
+  one-state internal preview.
 - Component graph solving with boundary conditions, component behavior
   equations, mixed algebraic/dynamic variables, and physical multi-domain
   coupling.

@@ -2130,14 +2130,23 @@ fn materialize_system_solutions(
     for system in &report.semantic_program.systems {
         let requests = simulate_requests(report, &system.name);
         if requests.is_empty() {
-            if let Some(solution) =
+            if let Some(solution) = materialize_state_space_solution(report, system, None, &[]) {
+                solutions.push(solution);
+            } else if let Some(solution) =
                 materialize_first_order_thermal_solution(system, None, &[], series)
             {
                 solutions.push(solution);
             }
         } else {
             for request in requests {
-                if let Some(solution) = materialize_first_order_thermal_solution(
+                if let Some(solution) = materialize_state_space_solution(
+                    report,
+                    system,
+                    Some(request.binding.as_str()),
+                    &request.options,
+                ) {
+                    solutions.push(solution);
+                } else if let Some(solution) = materialize_first_order_thermal_solution(
                     system,
                     Some(request.binding.as_str()),
                     &request.options,
@@ -2312,6 +2321,147 @@ fn simulate_requests(report: &CheckReport, system_name: &str) -> Vec<SimulateReq
             })
         })
         .collect()
+}
+
+fn materialize_state_space_solution(
+    report: &CheckReport,
+    system: &eng_compiler::SystemInfo,
+    binding: Option<&str>,
+    options: &[eng_compiler::WithOptionInfo],
+) -> Option<RuntimeSystemSolution> {
+    let state_vector = report
+        .semantic_program
+        .state_space_vectors
+        .iter()
+        .find(|vector| vector.system == system.name && vector.role == "states")?;
+    if state_vector.members.len() != 1 {
+        return None;
+    }
+    let input_vector = report
+        .semantic_program
+        .state_space_vectors
+        .iter()
+        .find(|vector| vector.system == system.name && vector.role == "inputs")?;
+    let state_name = state_vector.members.first()?;
+    let state = system
+        .variables
+        .iter()
+        .find(|variable| variable.name == *state_name && variable.role == "state")?;
+    let inputs = input_vector
+        .members
+        .iter()
+        .map(|name| {
+            system
+                .variables
+                .iter()
+                .find(|variable| variable.name == *name && variable.role == "input")
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let operator_a = report
+        .semantic_program
+        .linear_operators
+        .iter()
+        .find(|operator| {
+            operator.system == system.name
+                && operator.from == "StateVector"
+                && operator.to == "Derivative[StateVector]"
+                && operator.status == "shape_checked"
+        })?;
+    let operator_b = report
+        .semantic_program
+        .linear_operators
+        .iter()
+        .find(|operator| {
+            operator.system == system.name
+                && operator.from == "InputVector"
+                && operator.to == "Derivative[StateVector]"
+                && operator.status == "shape_checked"
+        })?;
+    let matrix_a = parse_numeric_matrix(operator_a.expression.as_deref()?)?;
+    let matrix_b = parse_numeric_matrix(operator_b.expression.as_deref()?)?;
+    let a00 = *matrix_a.first()?.first()?;
+    let b_row = matrix_b.first()?;
+    if b_row.len() != inputs.len() {
+        return None;
+    }
+
+    let mut state_value = canonical_variable_value(state)?;
+    let input_values = inputs
+        .iter()
+        .map(|input| canonical_variable_value(input))
+        .collect::<Option<Vec<_>>>()?;
+    let time_step_s = option_value(options, "timestep")
+        .and_then(parse_duration_seconds)
+        .unwrap_or(300.0);
+    let duration_s = option_value(options, "duration")
+        .and_then(parse_duration_seconds)
+        .unwrap_or(3600.0);
+    if time_step_s <= 0.0 || duration_s <= 0.0 {
+        return None;
+    }
+    let step_count = (duration_s / time_step_s).ceil() as usize;
+    let canonical_initial_value = state_value;
+    let mut points = vec![RuntimePoint {
+        x: 0.0,
+        y: display_variable_value(state_value, state),
+    }];
+
+    for step in 1..=step_count {
+        let time_s = (step as f64 * time_step_s).min(duration_s);
+        let input_term = b_row
+            .iter()
+            .zip(input_values.iter())
+            .map(|(coefficient, value)| coefficient * value)
+            .sum::<f64>();
+        let derivative = a00 * state_value + input_term;
+        state_value += derivative * time_step_s;
+        points.push(RuntimePoint {
+            x: time_s,
+            y: display_variable_value(state_value, state),
+        });
+    }
+
+    Some(RuntimeSystemSolution {
+        system: system.name.clone(),
+        binding: binding.map(str::to_owned),
+        status: "computed".to_owned(),
+        method: "state_space_explicit_euler_fixed_step".to_owned(),
+        reason: "recognized one-state state-space A/B operators and executed fixed-step trajectory"
+            .to_owned(),
+        state: state.name.clone(),
+        quantity_kind: state.quantity_kind.clone(),
+        display_unit: state.display_unit.clone(),
+        canonical_unit: state.canonical_unit.clone(),
+        time_unit: "s".to_owned(),
+        duration_s,
+        time_step_s,
+        step_count,
+        initial_value: display_variable_value(canonical_initial_value, state),
+        final_value: display_variable_value(state_value, state),
+        canonical_initial_value,
+        canonical_final_value: state_value,
+        points,
+    })
+}
+
+fn parse_numeric_matrix(expression: &str) -> Option<Vec<Vec<f64>>> {
+    let trimmed = expression
+        .trim()
+        .trim_start_matches('[')
+        .trim_end_matches(']');
+    let rows = trimmed
+        .split(';')
+        .map(str::trim)
+        .filter(|row| !row.is_empty())
+        .map(|row| {
+            row.trim_start_matches('[')
+                .trim_end_matches(']')
+                .split(',')
+                .map(|value| value.trim().parse::<f64>().ok())
+                .collect::<Option<Vec<_>>>()
+        })
+        .collect::<Option<Vec<_>>>()?;
+    (!rows.is_empty() && rows.iter().all(|row| !row.is_empty())).then_some(rows)
 }
 
 fn materialize_first_order_thermal_solution(
@@ -4739,6 +4889,31 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
             spec.assemblies[0].residual_graph.status,
             "fixed_point_converged"
         );
+    }
+
+    #[test]
+    fn materializes_one_state_state_space_solution() {
+        let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/internal/18_state_space_metadata/main.eng");
+        let source = std::fs::read_to_string(&source_path).unwrap();
+        let report = check_file(&source_path, &CheckOptions::default()).unwrap();
+        let runtime = materialize_runtime_data(&report, &source);
+
+        assert_eq!(runtime.system_solutions.len(), 1);
+        let solution = &runtime.system_solutions[0];
+        assert_eq!(solution.system, "ThermalStateSpaceMetadata");
+        assert_eq!(solution.status, "computed");
+        assert_eq!(solution.method, "state_space_explicit_euler_fixed_step");
+        assert_eq!(solution.state, "T_zone");
+        assert_eq!(solution.time_step_s, 300.0);
+        assert_eq!(solution.step_count, 12);
+        assert_eq!(solution.points.len(), 13);
+        assert!(solution.final_value.is_finite());
+        assert!(runtime
+            .time_series
+            .iter()
+            .any(|series| series.name == "ThermalStateSpaceMetadata.T_zone"));
     }
 
     #[test]
