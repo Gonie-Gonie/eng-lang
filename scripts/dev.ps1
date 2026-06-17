@@ -999,25 +999,7 @@ function Invoke-RunExample {
     Invoke-Native $cargo "run" "-p" "eng_cli" "--" "run" $example "--save-artifacts"
 }
 
-function Invoke-IdeCheck {
-    Set-DevEnvironment
-    $cargo = Get-Cargo
-    if ($null -eq $cargo) {
-        Write-Host "Cargo not found. Run .\dev.bat setup."
-        exit 1
-    }
-
-    $TauriConfigPath = Join-Path $RepoRoot "crates\eng_ide\tauri.conf.json"
-    $TauriUiIndexPath = Join-Path $RepoRoot "crates\eng_ide\ui\index.html"
-    if (-not (Test-Path $TauriConfigPath)) {
-        throw "missing Tauri IDE config at $TauriConfigPath"
-    }
-    if (-not (Test-Path $TauriUiIndexPath)) {
-        throw "missing Tauri IDE static frontend at $TauriUiIndexPath"
-    }
-    Invoke-Native $cargo "check" "-p" "eng_ide"
-    Invoke-Native $cargo "run" "-p" "eng_ide" "--" "--smoke"
-
+function Assert-VscodeExtensionContract {
     $ExtensionRoot = Join-Path $RepoRoot "tools\vscode-englang"
     $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
     $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
@@ -1080,6 +1062,28 @@ function Invoke-IdeCheck {
         Write-Host "Node not found; skipped extension.js syntax check."
     }
 
+    Write-Host "VS Code extension contract check passed."
+}
+
+function Invoke-IdeCheck {
+    Set-DevEnvironment
+    $cargo = Get-Cargo
+    if ($null -eq $cargo) {
+        Write-Host "Cargo not found. Run .\dev.bat setup."
+        exit 1
+    }
+
+    $TauriConfigPath = Join-Path $RepoRoot "crates\eng_ide\tauri.conf.json"
+    $TauriUiIndexPath = Join-Path $RepoRoot "crates\eng_ide\ui\index.html"
+    if (-not (Test-Path $TauriConfigPath)) {
+        throw "missing Tauri IDE config at $TauriConfigPath"
+    }
+    if (-not (Test-Path $TauriUiIndexPath)) {
+        throw "missing Tauri IDE static frontend at $TauriUiIndexPath"
+    }
+    Invoke-Native $cargo "check" "-p" "eng_ide"
+    Invoke-Native $cargo "run" "-p" "eng_ide" "--" "--smoke"
+    Assert-VscodeExtensionContract
     Write-Host "IDE check passed."
 }
 
@@ -1252,7 +1256,7 @@ function Invoke-IdePackage {
         [string] $PackageRoot
     )
 
-    Invoke-IdeCheck
+    Assert-VscodeExtensionContract
     $Version = Get-WorkspaceVersion
     $ExtensionSource = Join-Path $RepoRoot "tools\vscode-englang"
     $ToolsRoot = Join-Path $PackageRoot "tools"
