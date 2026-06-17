@@ -177,6 +177,9 @@ Current coverage:
   `E-SIM-MISSING-INPUT`, `E-SIM-INPUT-QTY-MISMATCH`,
   `E-SIM-INPUT-AXIS-MISMATCH`, `E-SIM-TIMESTEP-INVALID`, and
   `E-SIM-SOLVER-UNSUPPORTED`.
+- System solver artifacts carry nullable `failure_code`; unsupported simulated
+  shapes surface `E-SIM-SYSTEM-SHAPE-UNSUPPORTED` alongside the failure reason
+  in result/review/report data.
 
 ## State-Space
 

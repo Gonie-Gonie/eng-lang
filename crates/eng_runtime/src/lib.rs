@@ -3943,6 +3943,12 @@ fn push_system_solution_json(
     ));
     push_optional_json_string(
         json,
+        "failure_code",
+        solution.failure_code.as_deref(),
+        indent.len() + 2,
+    );
+    push_optional_json_string(
+        json,
         "failure_reason",
         solution.failure_reason.as_deref(),
         indent.len() + 2,
@@ -4051,6 +4057,13 @@ fn runtime_review_json(base_review: &str, runtime_data: &RuntimeData) -> String 
             "        \"convergence_status\": \"{}\",\n",
             json_escape(&first.convergence_status)
         ));
+        match &first.failure_code {
+            Some(code) => json.push_str(&format!(
+                "        \"failure_code\": \"{}\",\n",
+                json_escape(code)
+            )),
+            None => json.push_str("        \"failure_code\": null,\n"),
+        }
         match &first.failure_reason {
             Some(reason) => json.push_str(&format!(
                 "        \"failure_reason\": \"{}\"\n",

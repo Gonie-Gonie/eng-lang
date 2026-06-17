@@ -925,6 +925,7 @@ pub struct ReportSystemSolution {
     pub max_iterations: usize,
     pub iteration_count: usize,
     pub convergence_status: String,
+    pub failure_code: Option<String>,
     pub failure_reason: Option<String>,
     pub initial_value: f64,
     pub final_value: f64,
@@ -4635,6 +4636,12 @@ fn push_report_system_solutions_json(
         ));
         push_optional_json_string(
             json,
+            "failure_code",
+            solution.failure_code.as_deref(),
+            indent.len() + 4,
+        );
+        push_optional_json_string(
+            json,
             "failure_reason",
             solution.failure_reason.as_deref(),
             indent.len() + 4,
@@ -5982,11 +5989,12 @@ fn render_system_solver_section(spec: &ReportSpec) -> String {
                     html_escape(&join_or_dash(&solution.outputs))
                 );
                 let diagnostics = format!(
-                    "tol={} iter={}/{} convergence={} failure={}",
+                    "tol={} iter={}/{} convergence={} failure_code={} failure={}",
                     format_solver_tolerance(solution.tolerance),
                     solution.iteration_count,
                     solution.max_iterations,
                     html_escape(&solution.convergence_status),
+                    html_escape(solution.failure_code.as_deref().unwrap_or("-")),
                     html_escape(solution.failure_reason.as_deref().unwrap_or("-"))
                 );
                 format!(

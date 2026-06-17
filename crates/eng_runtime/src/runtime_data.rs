@@ -851,6 +851,7 @@ pub struct RuntimeSystemSolution {
     pub max_iterations: usize,
     pub iteration_count: usize,
     pub convergence_status: String,
+    pub failure_code: Option<String>,
     pub failure_reason: Option<String>,
     pub initial_value: f64,
     pub final_value: f64,
@@ -913,6 +914,11 @@ impl RuntimeSystemSolution {
             max_iterations: solver_result.diagnostics.max_iterations,
             iteration_count: solver_result.diagnostics.iteration_count,
             convergence_status: solver_result.diagnostics.convergence_status.clone(),
+            failure_code: solver_result
+                .diagnostics
+                .failure
+                .as_ref()
+                .map(|failure| failure.code.clone()),
             failure_reason: solver_result
                 .diagnostics
                 .failure
@@ -949,6 +955,7 @@ impl RuntimeSystemSolution {
             max_iterations: self.max_iterations,
             iteration_count: self.iteration_count,
             convergence_status: self.convergence_status.clone(),
+            failure_code: self.failure_code.clone(),
             failure_reason: self.failure_reason.clone(),
             initial_value: self.initial_value,
             final_value: self.final_value,
@@ -3449,6 +3456,7 @@ fn skipped_system_solution(
         max_iterations: SolverOptions::fixed_step("explicit_euler_fixed_step", 0.0).max_iterations,
         iteration_count: 0,
         convergence_status: "skipped_unsupported_shape".to_owned(),
+        failure_code: Some("E-SIM-SYSTEM-SHAPE-UNSUPPORTED".to_owned()),
         failure_reason: Some(
             "system shape is outside the supported first-order thermal ODE runner".to_owned(),
         ),
@@ -6328,6 +6336,18 @@ with {
         assert_eq!(solution.method, "explicit_euler_fixed_step");
         assert_eq!(solution.time_step_s, 600.0);
         assert_eq!(solution.step_count, 0);
+        assert_eq!(
+            solution.failure_code.as_deref(),
+            Some("E-SIM-SYSTEM-SHAPE-UNSUPPORTED")
+        );
+        assert!(solution
+            .failure_reason
+            .as_deref()
+            .is_some_and(|reason| reason.contains("supported first-order thermal ODE")));
+        assert_eq!(
+            solution.to_report_solution().failure_code.as_deref(),
+            Some("E-SIM-SYSTEM-SHAPE-UNSUPPORTED")
+        );
         assert!(solution.points.is_empty());
         assert!(runtime
             .time_series
