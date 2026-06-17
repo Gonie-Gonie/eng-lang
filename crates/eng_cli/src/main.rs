@@ -653,7 +653,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"constraint_satisfied_nonunique\"")
                 || !output
                     .report_spec_json
-                    .contains("\"fixed_point_converged\"")
+                    .contains("\"linear_residual_satisfied_nonunique\"")
                 || !output.report_spec_json.contains("\"domain_count\": 3")
                 || !output.report_spec_json.contains("\"multi_domain_preview\"")
                 || !output

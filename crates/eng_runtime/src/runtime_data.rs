@@ -13,7 +13,10 @@ use eng_report::{
 };
 
 use crate::solver::{
-    algorithms::fixed_step::{solve_explicit_euler, solve_rk4, RhsSample},
+    algorithms::{
+        fixed_step::{solve_explicit_euler, solve_rk4, RhsSample},
+        linear::solve_dense_linear_system,
+    },
     assembly::{
         ComponentEquation, ComponentInstance, ConnectionEdge, ConnectionSet, EquationAssembly,
         GeneratedEquation, PortInstance, UnknownVariable,
@@ -2219,111 +2222,152 @@ fn materialize_component_solutions(report: &CheckReport) -> Vec<RuntimeComponent
         .iter()
         .map(|assembly| {
             let solver_assembly = solver_equation_assembly_from_component_info(report, assembly);
-            let residual_graph = ResidualGraph::from_assembly(&solver_assembly);
-            let equation_count = solver_assembly.equation_count();
-            let unknown_count = solver_assembly.unknown_count();
-            let variables = solver_assembly
-                .unknowns
-                .iter()
-                .map(|variable| RuntimeComponentVariableSolution {
-                    name: variable.name.clone(),
-                    role: variable.role.clone(),
-                    value: 0.0,
-                    unit: variable.unit.clone(),
-                    status: "homogeneous_zero_seed".to_owned(),
-                })
-                .collect::<Vec<_>>();
-            let variable_values = variables
-                .iter()
-                .map(|variable| variable.value)
-                .collect::<Vec<_>>();
-            let residual_output = residual_graph.evaluate(&ResidualInput {
-                values: &variable_values,
-            });
-            let residuals = residual_graph
-                .residuals
-                .iter()
-                .zip(residual_output.values.iter())
-                .map(|(residual, value)| RuntimeComponentResidualEvaluation {
-                    name: residual.name.clone(),
-                    expression: residual.expression.text.clone(),
-                    value: value.value,
-                    status: if value.normalized_value.abs() <= 1e-9 {
-                        "satisfied".to_owned()
-                    } else {
-                        "unsatisfied".to_owned()
-                    },
-                })
-                .collect::<Vec<_>>();
-            let residual_norm = residual_output.residual_norm;
-            let (status, reason, failure_artifact) = if equation_count == 0 {
-                (
-                    "not_solved_no_equations".to_owned(),
-                    "assembly graph has no generated equations".to_owned(),
-                    Some(RuntimeSolverFailureArtifact {
-                        code: "E-ASSEMBLY-SOLVE-001".to_owned(),
-                        message: "component assembly has no generated equations to solve"
-                            .to_owned(),
-                    }),
-                )
-            } else if unknown_count == 0 {
-                (
-                    "not_solved_no_unknowns".to_owned(),
-                    "assembly graph has no classified unknown variables".to_owned(),
-                    Some(RuntimeSolverFailureArtifact {
-                        code: "E-ASSEMBLY-SOLVE-002".to_owned(),
-                        message: "component assembly has equations but no classified unknowns"
-                            .to_owned(),
-                    }),
-                )
-            } else if equation_count < unknown_count {
-                (
-                    "constraint_satisfied_nonunique".to_owned(),
-                    "homogeneous connection constraints evaluate to zero, but boundary/component equations are missing so the physical solution is non-unique".to_owned(),
-                    Some(RuntimeSolverFailureArtifact {
-                        code: "W-ASSEMBLY-UNDERDETERMINED-SEED".to_owned(),
-                        message: "assembly has fewer equations than unknowns; add component behavior or boundary conditions before treating this as a physical solve".to_owned(),
-                    }),
-                )
-            } else if equation_count > unknown_count {
-                (
-                    "constraint_satisfied_overdetermined".to_owned(),
-                    "homogeneous connection constraints evaluate to zero, but the metadata has more equations than unknowns".to_owned(),
-                    Some(RuntimeSolverFailureArtifact {
-                        code: "W-ASSEMBLY-OVERDETERMINED-SEED".to_owned(),
-                        message: "assembly has more equations than unknowns; review generated constraints before numeric solving".to_owned(),
-                    }),
-                )
-            } else {
-                (
-                    "constraint_satisfied_unique".to_owned(),
-                    "homogeneous linear connection constraints satisfy the zero-vector consistency check"
-                        .to_owned(),
-                    None,
-                )
-            };
-
-            RuntimeComponentSolution {
-                assembly: assembly.name.clone(),
-                status,
-                method: "homogeneous_linear_constraint_zero_vector_with_fixed_point_residual_check"
-                    .to_owned(),
-                reason,
-                equation_count,
-                unknown_count,
-                residual_norm,
-                iteration_count: usize::from(equation_count > 0 && unknown_count > 0),
-                convergence_status: if residual_norm <= 1e-9 {
-                    "fixed_point_converged".to_owned()
-                } else {
-                    "residual_not_converged".to_owned()
-                },
-                variables,
-                residuals,
-                failure_artifact,
-            }
+            component_solution_from_solver_assembly(&assembly.name, &solver_assembly)
         })
         .collect()
+}
+
+const COMPONENT_LINEAR_SOLVER_TOLERANCE: f64 = 1e-9;
+
+fn component_solution_from_solver_assembly(
+    assembly_name: &str,
+    solver_assembly: &EquationAssembly,
+) -> RuntimeComponentSolution {
+    let residual_graph = ResidualGraph::from_assembly(solver_assembly);
+    let equation_count = solver_assembly.equation_count();
+    let unknown_count = solver_assembly.unknown_count();
+    let mut variable_values = vec![0.0; unknown_count];
+    let mut variable_status = "homogeneous_zero_seed".to_owned();
+    let mut method = "linear_residual_graph_shape_check".to_owned();
+    let mut iteration_count = usize::from(equation_count > 0 && unknown_count > 0);
+
+    let (status, reason, failure_artifact, convergence_status) = if equation_count == 0 {
+        (
+            "not_solved_no_equations".to_owned(),
+            "assembly graph has no generated equations".to_owned(),
+            Some(RuntimeSolverFailureArtifact {
+                code: "E-ASSEMBLY-SOLVE-001".to_owned(),
+                message: "component assembly has no generated equations to solve".to_owned(),
+            }),
+            "linear_residual_not_attempted".to_owned(),
+        )
+    } else if unknown_count == 0 {
+        (
+            "not_solved_no_unknowns".to_owned(),
+            "assembly graph has no classified unknown variables".to_owned(),
+            Some(RuntimeSolverFailureArtifact {
+                code: "E-ASSEMBLY-SOLVE-002".to_owned(),
+                message: "component assembly has equations but no classified unknowns".to_owned(),
+            }),
+            "linear_residual_not_attempted".to_owned(),
+        )
+    } else if equation_count < unknown_count {
+        (
+            "constraint_satisfied_nonunique".to_owned(),
+            "homogeneous connection constraints evaluate to zero, but boundary/component equations are missing so the physical solution is non-unique".to_owned(),
+            Some(RuntimeSolverFailureArtifact {
+                code: "W-ASSEMBLY-UNDERDETERMINED-SEED".to_owned(),
+                message: "assembly has fewer equations than unknowns; add component behavior or boundary conditions before treating this as a physical solve".to_owned(),
+            }),
+            "linear_residual_satisfied_nonunique".to_owned(),
+        )
+    } else if equation_count > unknown_count {
+        (
+            "constraint_satisfied_overdetermined".to_owned(),
+            "homogeneous connection constraints evaluate to zero, but the metadata has more equations than unknowns".to_owned(),
+            Some(RuntimeSolverFailureArtifact {
+                code: "W-ASSEMBLY-OVERDETERMINED-SEED".to_owned(),
+                message: "assembly has more equations than unknowns; review generated constraints before numeric solving".to_owned(),
+            }),
+            "linear_residual_satisfied_overdetermined".to_owned(),
+        )
+    } else {
+        method = "dense_linear_residual_graph".to_owned();
+        iteration_count = 1;
+        match residual_graph.assemble_linear_system().and_then(|system| {
+            solve_dense_linear_system(
+                &system.matrix,
+                &system.rhs,
+                COMPONENT_LINEAR_SOLVER_TOLERANCE,
+            )
+        }) {
+            Ok(linear_result) => {
+                variable_values = linear_result.values;
+                variable_status = "solved_linear".to_owned();
+                let converged = linear_result.status == "converged";
+                (
+                    if converged {
+                        "solved_linear".to_owned()
+                    } else {
+                        "linear_residual_above_tolerance".to_owned()
+                    },
+                    "dense linear residual graph solve completed for the square algebraic assembly"
+                        .to_owned(),
+                    None,
+                    if converged {
+                        "linear_converged".to_owned()
+                    } else {
+                        "linear_residual_above_tolerance".to_owned()
+                    },
+                )
+            }
+            Err(failure) => (
+                "linear_solve_failed".to_owned(),
+                failure.message.clone(),
+                Some(RuntimeSolverFailureArtifact {
+                    code: failure.code,
+                    message: failure.message,
+                }),
+                "linear_failed".to_owned(),
+            ),
+        }
+    };
+
+    let variables = solver_assembly
+        .unknowns
+        .iter()
+        .zip(variable_values.iter())
+        .map(|(variable, value)| RuntimeComponentVariableSolution {
+            name: variable.name.clone(),
+            role: variable.role.clone(),
+            value: *value,
+            unit: variable.unit.clone(),
+            status: variable_status.clone(),
+        })
+        .collect::<Vec<_>>();
+    let residual_output = residual_graph.evaluate(&ResidualInput {
+        values: &variable_values,
+    });
+    let residuals = residual_graph
+        .residuals
+        .iter()
+        .zip(residual_output.values.iter())
+        .map(|(residual, value)| RuntimeComponentResidualEvaluation {
+            name: residual.name.clone(),
+            expression: residual.expression.text.clone(),
+            value: value.value,
+            status: if value.normalized_value.abs() <= COMPONENT_LINEAR_SOLVER_TOLERANCE {
+                "satisfied".to_owned()
+            } else {
+                "unsatisfied".to_owned()
+            },
+        })
+        .collect::<Vec<_>>();
+
+    RuntimeComponentSolution {
+        assembly: assembly_name.to_owned(),
+        status,
+        method,
+        reason,
+        equation_count,
+        unknown_count,
+        residual_norm: residual_output.residual_norm,
+        iteration_count,
+        convergence_status,
+        variables,
+        residuals,
+        failure_artifact,
+    }
 }
 
 fn solver_equation_assembly_from_component_info(
@@ -5517,12 +5561,12 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         let solution = &runtime.component_solutions[0];
         assert_eq!(solution.assembly, "component_graph");
         assert_eq!(solution.status, "constraint_satisfied_nonunique");
-        assert_eq!(
-            solution.method,
-            "homogeneous_linear_constraint_zero_vector_with_fixed_point_residual_check"
-        );
+        assert_eq!(solution.method, "linear_residual_graph_shape_check");
         assert_eq!(solution.residual_norm, 0.0);
-        assert_eq!(solution.convergence_status, "fixed_point_converged");
+        assert_eq!(
+            solution.convergence_status,
+            "linear_residual_satisfied_nonunique"
+        );
         assert_eq!(
             solution
                 .failure_artifact
@@ -5541,7 +5585,49 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         assert_eq!(spec.assemblies[0].status, "constraint_satisfied_nonunique");
         assert_eq!(
             spec.assemblies[0].residual_graph.status,
-            "fixed_point_converged"
+            "linear_residual_satisfied_nonunique"
+        );
+    }
+
+    #[test]
+    fn solves_square_component_residual_graph_with_dense_linear_solver() {
+        let assembly = square_linear_test_assembly("component_graph");
+
+        let solution = component_solution_from_solver_assembly("component_graph", &assembly);
+
+        assert_eq!(solution.status, "solved_linear");
+        assert_eq!(solution.method, "dense_linear_residual_graph");
+        assert_eq!(solution.convergence_status, "linear_converged");
+        assert_eq!(solution.iteration_count, 1);
+        assert_eq!(solution.residual_norm, 0.0);
+        assert!(solution.failure_artifact.is_none());
+        assert!(solution
+            .variables
+            .iter()
+            .all(|variable| variable.status == "solved_linear" && variable.value == 0.0));
+        assert!(solution
+            .residuals
+            .iter()
+            .all(|residual| residual.status == "satisfied"));
+    }
+
+    #[test]
+    fn reports_singular_square_component_residual_graph_failure() {
+        let mut assembly = square_linear_test_assembly("component_graph");
+        assembly.generated_equations[0].kind = "through_conservation".to_owned();
+        assembly.generated_equations[0].residual = "x + y".to_owned();
+
+        let solution = component_solution_from_solver_assembly("component_graph", &assembly);
+
+        assert_eq!(solution.status, "linear_solve_failed");
+        assert_eq!(solution.method, "dense_linear_residual_graph");
+        assert_eq!(solution.convergence_status, "linear_failed");
+        assert_eq!(
+            solution
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-LINEAR-SINGULAR")
         );
     }
 
@@ -5944,6 +6030,57 @@ with {
                     y: index as f64,
                 })
                 .collect(),
+        }
+    }
+
+    fn square_linear_test_assembly(name: &str) -> EquationAssembly {
+        let x = UnknownVariable {
+            name: "x".to_owned(),
+            role: "algebraic".to_owned(),
+            quantity_kind: "Dimensionless".to_owned(),
+            unit: "1".to_owned(),
+            source: "Test.x".to_owned(),
+            status: "unknown".to_owned(),
+        };
+        let y = UnknownVariable {
+            name: "y".to_owned(),
+            role: "algebraic".to_owned(),
+            quantity_kind: "Dimensionless".to_owned(),
+            unit: "1".to_owned(),
+            source: "Test.y".to_owned(),
+            status: "unknown".to_owned(),
+        };
+        EquationAssembly {
+            name: name.to_owned(),
+            generated_equations: vec![
+                GeneratedEquation {
+                    name: "r1".to_owned(),
+                    kind: "across_equality".to_owned(),
+                    domain: "Test".to_owned(),
+                    expression: "x eq y".to_owned(),
+                    residual: "x - y".to_owned(),
+                    dependencies: vec!["x".to_owned(), "y".to_owned()],
+                    source: "test".to_owned(),
+                    reason: "test linear equality".to_owned(),
+                    source_line: Some(1),
+                    status: "generated".to_owned(),
+                },
+                GeneratedEquation {
+                    name: "r2".to_owned(),
+                    kind: "through_conservation".to_owned(),
+                    domain: "Test".to_owned(),
+                    expression: "sum(x, y) eq 0".to_owned(),
+                    residual: "x + y".to_owned(),
+                    dependencies: vec!["x".to_owned(), "y".to_owned()],
+                    source: "test".to_owned(),
+                    reason: "test linear conservation".to_owned(),
+                    source_line: Some(2),
+                    status: "generated".to_owned(),
+                },
+            ],
+            unknowns: vec![x.clone(), y.clone()],
+            algebraic_variables: vec![x, y],
+            ..EquationAssembly::default()
         }
     }
 

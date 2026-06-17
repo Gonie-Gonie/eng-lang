@@ -135,18 +135,18 @@ review/report metadata for future assembly and solver work.
 
 ## Connection Constraint Check
 
-`eng run` evaluates a deliberately small homogeneous connection-constraint
-check for generated connection equations. The runtime checks the zero-vector
-residual. If the constraints are satisfied but there are fewer equations than
-unknowns, the result is marked `constraint_satisfied_nonunique` with
-`W-ASSEMBLY-UNDERDETERMINED-SEED`.
+`eng run` assembles generated connection equations into a residual graph and
+then into a dense linear residual system when the graph is square. Non-square
+graphs still get a numeric residual check. If the homogeneous constraints are
+satisfied but there are fewer equations than unknowns, the result is marked
+`constraint_satisfied_nonunique` with `W-ASSEMBLY-UNDERDETERMINED-SEED`.
 
 The runtime result artifact writes this to
 `typed_payload.component_solutions`. Runtime `report_spec.json` and
 `report.html` also expose the updated assembly status and convergence metadata.
-This check is useful for residual-evaluation plumbing, convergence/failure
-artifacts, and future solver integration, but it is not a physical multi-domain
-solve.
+This path is useful for linear residual assembly, dense solver plumbing,
+convergence/failure artifacts, and future solver integration, but it is not a
+physical multi-domain solve.
 
 The artifact also records explicit future-solver seeds:
 
@@ -203,7 +203,8 @@ port, and component rows jump back to their recorded source lines.
 `assembly_summary.local_expression_count` record component-local `name = expr`
 metadata without promoting it to the root runtime object store.
 The runtime result also includes `component_solutions` with residual values,
-convergence status, zero-vector variable values, and failure/limitation
+convergence status, solved linear variables when a square system is available,
+zero-seed variables for skipped non-square graphs, and failure/limitation
 artifacts.
 
 The generated `report_spec.json` follows

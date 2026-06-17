@@ -182,8 +182,8 @@ component_solution_count
 
 For the domain/component connection-constraint check, `result.engres` also records
 `typed_payload.component_solutions`. Each entry includes the assembly name,
-status, method, residual norm, convergence status, zero-vector variable values,
-residual evaluations, and any failure/limitation artifact such as
+status, method, residual norm, convergence status, solved linear or zero-seed
+variable values, residual evaluations, and any failure/limitation artifact such as
 `W-ASSEMBLY-UNDERDETERMINED-SEED`.
 
 The matching `report_spec.json` keeps the compiler-owned assembly plan fields

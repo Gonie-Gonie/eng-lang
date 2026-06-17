@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::assembly::EquationAssembly;
+use super::{assembly::EquationAssembly, SolverFailure};
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ResidualGraph {
@@ -94,6 +94,50 @@ impl ResidualGraph {
             variables,
             dependencies,
         }
+    }
+
+    pub fn assemble_linear_system(&self) -> Result<LinearResidualSystem, SolverFailure> {
+        let equation_count = self.residuals.len();
+        let unknown_count = self.variables.len();
+        if equation_count == 0 || unknown_count == 0 || equation_count != unknown_count {
+            return Err(SolverFailure::new(
+                "E-LINEAR-RESIDUAL-SHAPE",
+                format!(
+                    "linear residual solve requires a non-empty square residual system, got {equation_count} residual(s) and {unknown_count} unknown(s)"
+                ),
+            ));
+        }
+
+        let mut matrix = vec![vec![0.0; unknown_count]; equation_count];
+        for (row_index, residual) in self.residuals.iter().enumerate() {
+            for term in &residual.terms {
+                if term.variable_index >= unknown_count {
+                    return Err(SolverFailure::new(
+                        "E-LINEAR-RESIDUAL-INDEX",
+                        format!(
+                            "residual `{}` references variable index {} outside {} unknown(s)",
+                            residual.name, term.variable_index, unknown_count
+                        ),
+                    ));
+                }
+                matrix[row_index][term.variable_index] += term.coefficient;
+            }
+        }
+
+        Ok(LinearResidualSystem {
+            matrix,
+            rhs: vec![0.0; equation_count],
+            residual_names: self
+                .residuals
+                .iter()
+                .map(|residual| residual.name.clone())
+                .collect(),
+            variable_names: self
+                .variables
+                .iter()
+                .map(|variable| variable.name.clone())
+                .collect(),
+        })
     }
 }
 
@@ -198,6 +242,14 @@ pub struct NamedResidualValue {
     pub normalized_value: f64,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct LinearResidualSystem {
+    pub matrix: Vec<Vec<f64>>,
+    pub rhs: Vec<f64>,
+    pub residual_names: Vec<String>,
+    pub variable_names: Vec<String>,
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ResidualVariableRef {
     pub index: usize,
@@ -236,4 +288,93 @@ pub struct ResidualUnit {
 pub struct ResidualSource {
     pub line: Option<usize>,
     pub generated_reason: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn assembles_square_linear_residual_system() {
+        let graph = ResidualGraph {
+            name: "test.residual_graph".to_owned(),
+            variables: vec![
+                ResidualVariableRef {
+                    index: 0,
+                    name: "x".to_owned(),
+                    role: "algebraic".to_owned(),
+                    unit: "1".to_owned(),
+                },
+                ResidualVariableRef {
+                    index: 1,
+                    name: "y".to_owned(),
+                    role: "algebraic".to_owned(),
+                    unit: "1".to_owned(),
+                },
+            ],
+            residuals: vec![
+                residual("r1", &[(0, "x", 1.0), (1, "y", -1.0)]),
+                residual("r2", &[(0, "x", 1.0), (1, "y", 1.0)]),
+            ],
+            dependencies: Vec::new(),
+        };
+
+        let system = graph.assemble_linear_system().unwrap();
+
+        assert_eq!(system.variable_names, vec!["x", "y"]);
+        assert_eq!(system.residual_names, vec!["r1", "r2"]);
+        assert_eq!(system.matrix, vec![vec![1.0, -1.0], vec![1.0, 1.0]]);
+        assert_eq!(system.rhs, vec![0.0, 0.0]);
+    }
+
+    #[test]
+    fn rejects_non_square_linear_residual_system() {
+        let graph = ResidualGraph {
+            name: "test.residual_graph".to_owned(),
+            variables: vec![
+                ResidualVariableRef {
+                    index: 0,
+                    name: "x".to_owned(),
+                    role: "algebraic".to_owned(),
+                    unit: "1".to_owned(),
+                },
+                ResidualVariableRef {
+                    index: 1,
+                    name: "y".to_owned(),
+                    role: "algebraic".to_owned(),
+                    unit: "1".to_owned(),
+                },
+            ],
+            residuals: vec![residual("r1", &[(0, "x", 1.0), (1, "y", 1.0)])],
+            dependencies: Vec::new(),
+        };
+
+        let failure = graph.assemble_linear_system().unwrap_err();
+
+        assert_eq!(failure.code, "E-LINEAR-RESIDUAL-SHAPE");
+    }
+
+    fn residual(name: &str, terms: &[(usize, &str, f64)]) -> ResidualEquation {
+        ResidualEquation {
+            name: name.to_owned(),
+            expression: ResidualExpression {
+                text: name.to_owned(),
+            },
+            unit: ResidualUnit {
+                unit: "1".to_owned(),
+                quantity_kind: "Dimensionless".to_owned(),
+            },
+            scale: ResidualScale::default(),
+            source: ResidualSource::default(),
+            variable_indices: terms.iter().map(|(index, _, _)| *index).collect(),
+            terms: terms
+                .iter()
+                .map(|(index, variable, coefficient)| ResidualTerm {
+                    variable_index: *index,
+                    variable: (*variable).to_owned(),
+                    coefficient: *coefficient,
+                })
+                .collect(),
+        }
+    }
 }

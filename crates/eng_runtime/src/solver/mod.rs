@@ -15,8 +15,8 @@ pub use plan::{
     SolverOptions, SolverPlan, SolverScalar, StateLayout, TimeGrid,
 };
 pub use residual::{
-    NamedResidualValue, ResidualEquation, ResidualEvaluator, ResidualExpression, ResidualGraph,
-    ResidualInput, ResidualOutput, ResidualScale, ResidualSource, ResidualTerm, ResidualUnit,
-    ResidualVariableRef,
+    LinearResidualSystem, NamedResidualValue, ResidualEquation, ResidualEvaluator,
+    ResidualExpression, ResidualGraph, ResidualInput, ResidualOutput, ResidualScale,
+    ResidualSource, ResidualTerm, ResidualUnit, ResidualVariableRef,
 };
 pub use result::{SolverOutput, SolverResult, StateTrajectory};

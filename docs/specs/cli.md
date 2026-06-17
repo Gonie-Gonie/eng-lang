@@ -331,11 +331,12 @@ build/
 ```
 
 For the domain/component metadata track, `result.engres` includes
-`typed_payload.component_solutions`. This is a small homogeneous
-connection-constraint consistency check with residual evaluation, convergence
-status, and failure/limitation artifacts. `review.json` and `report_spec.json`
-also include `assembly_summary.domain_plans` and `assembly_summary.solver_preview`
-so tools can identify `multi_domain_preview` graphs and the explicit
+`typed_payload.component_solutions`. This path assembles homogeneous connection
+constraints into residuals, solves square linear residual graphs with the dense
+linear solver, and records convergence status plus failure/limitation artifacts
+for skipped non-square graphs. `review.json` and `report_spec.json` also include
+`assembly_summary.domain_plans` and `assembly_summary.solver_preview` so tools
+can identify `multi_domain_preview` graphs and the explicit
 nonlinear/DAE/delay/Predictor/adapter seed statuses. This is not a production
 multi-domain solver claim.
 

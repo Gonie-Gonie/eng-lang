@@ -41,9 +41,9 @@ Current support boundary:
   connection equations, equation/unknown counts, domain plans, future
   nonlinear/DAE/delay/Predictor/adapter seed statuses, Jacobian sparsity
   placeholders, and a no-solve solver-plan placeholder;
-- runtime `component_solutions` evaluates the homogeneous connection
-  constraints, reports `fixed_point_converged`, and records the current
-  non-unique/underdetermined limitation;
+- runtime `component_solutions` assembles generated residuals into the linear
+  solver path when square, and for this underdetermined example records
+  `linear_residual_satisfied_nonunique` plus the current limitation;
 - numeric multi-domain simulation is not implemented;
 - medium/frame/axis compatibility diagnostics are metadata checks only.
 - duplicate connection and unconnected-port checks are graph-shape checks only.
