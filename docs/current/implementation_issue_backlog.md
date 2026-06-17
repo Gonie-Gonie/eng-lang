@@ -115,6 +115,9 @@ Current coverage:
 - IDE panels expose state-space solver result rows with state trajectories,
   input/output series metadata, timestep, tolerance, iteration count,
   convergence status, and failure reason from `report_spec.json`/`result.engres`.
+- IDE TimeSeries inspector rows expose component solver state/algebraic
+  trajectory metadata plus component solver failure code/reason when a failed
+  internal dynamic-component result still carries trajectory points.
 - IDE panels expose system equation dependency rows from `system_ir` so variable
   dependencies and derivative states are visible without raw JSON.
 - IDE smoke covers residual dependency rows from

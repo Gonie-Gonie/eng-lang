@@ -1095,7 +1095,22 @@ function componentTrajectoryPointSummary(trajectories) {
 }
 
 function componentStepSummary(stepDiagnostics) {
-  if (!Array.isArray(stepDiagnostics) || stepDiagnostics.length < 2) return "-";
+  if (!Array.isArray(stepDiagnostics) || !stepDiagnostics.length) return "-";
+  const failed = stepDiagnostics.find((diagnostic) => {
+    return diagnostic.failure_artifact || diagnostic.failureArtifact
+      || diagnostic.failure_code || diagnostic.failureCode;
+  });
+  if (failed) {
+    const failure = failed.failure_artifact || failed.failureArtifact || {};
+    const code = failure.code || failed.failure_code || failed.failureCode || "failure";
+    const step = failed.step_index ?? failed.stepIndex ?? "-";
+    return `failed@${step} ${code}`;
+  }
+  if (stepDiagnostics.length < 2) {
+    return stepDiagnostics[0]?.convergence_status
+      || stepDiagnostics[0]?.convergenceStatus
+      || "-";
+  }
   const first = stepDiagnostics[0]?.time_s ?? stepDiagnostics[0]?.timeS;
   const second = stepDiagnostics[1]?.time_s ?? stepDiagnostics[1]?.timeS;
   if (Number.isFinite(Number(first)) && Number.isFinite(Number(second))) {

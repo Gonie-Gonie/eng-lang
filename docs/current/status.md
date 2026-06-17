@@ -95,7 +95,8 @@ covered by the breaking-change policy.
   variable summaries, schema/TimeSeries/metric/validation/time-alignment
   inspectors for the measured workflow, schema parse/conversion failure
   inspector coverage for data-quality runs, internal state-space trajectory and
-  solver-inspector coverage, component solver trajectory inspector rows,
+  solver-inspector coverage, component solver trajectory inspector rows with
+  failure code/reason metadata,
   dependency-graph inspector coverage, class object summary inspector coverage,
   side-effect
   artifact panels for output manifest, run log, process results, and test

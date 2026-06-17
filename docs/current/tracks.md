@@ -151,7 +151,8 @@ Current stable tooling scope:
 - PlotSpec viewer beside runtime variable summaries
 - solver inspector/result summaries for system state trajectories, component
   solver state/algebraic trajectories, input/output series metadata, timestep,
-  tolerance, iterations, convergence, and failure reason
+  tolerance, iterations, convergence, failure reason, and component solver
+  failure code/reason metadata on TimeSeries rows
 - system and residual dependency graph inspector tables
 - internal eng-lsp.exe smoke/snapshot path
 - packaged VS Code extension source and VSIX

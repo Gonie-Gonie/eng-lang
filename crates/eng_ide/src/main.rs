@@ -1268,6 +1268,20 @@ fn append_component_solver_time_series(report: &Value, rows: &mut Vec<Value>) {
                     "role": json_field_string(&trajectory, "role").unwrap_or_default(),
                     "status": json_field_string(solver_result, "status").unwrap_or_default(),
                     "convergence_status": json_field_string(solver_result, "convergence_status").unwrap_or_default(),
+                    "failure_code": json_field_string(solver_result, "failure_code")
+                        .or_else(|| {
+                            solver_result
+                                .get("failure_artifact")
+                                .and_then(|failure| json_field_string(failure, "code"))
+                        })
+                        .unwrap_or_default(),
+                    "failure_reason": json_field_string(solver_result, "failure_reason")
+                        .or_else(|| {
+                            solver_result
+                                .get("failure_artifact")
+                                .and_then(|failure| json_field_string(failure, "message"))
+                        })
+                        .unwrap_or_default(),
                     "final_value": trajectory.get("final_value").cloned().unwrap_or(Value::Null)
                 },
                 "source_hash": ""
@@ -2701,6 +2715,59 @@ mod tests {
                     .and_then(|metadata| json_field_string(metadata, "role"))
                     .as_deref()
                     == Some("algebraic")
+        }));
+    }
+
+    #[test]
+    fn time_series_inspector_includes_component_solver_failure_metadata() {
+        let report = json!({
+            "assembly_summary": [
+                {
+                    "name": "component_graph",
+                    "solver_result": {
+                        "status": "failed",
+                        "method": "dynamic_component_explicit_euler",
+                        "convergence_status": "algebraic_solve_failed",
+                        "failure_artifact": {
+                            "code": "E-FIXED-POINT-NONCONVERGENCE",
+                            "message": "fixed-point iteration did not converge"
+                        },
+                        "trajectories": [
+                            {
+                                "name": "z",
+                                "role": "algebraic",
+                                "unit": "1",
+                                "initial_value": 3.0,
+                                "final_value": 3.0,
+                                "point_count": 1,
+                                "points": [
+                                    { "x": 0.0, "y": 3.0 }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ]
+        });
+        let rows = time_series_inspector(&report, &json!({}));
+        let rows = rows.as_array().expect("time-series rows");
+
+        assert!(rows.iter().any(|row| {
+            json_field_string(row, "name").as_deref() == Some("component_graph.z")
+                && row
+                    .get("integration_metadata")
+                    .and_then(|metadata| json_field_string(metadata, "convergence_status"))
+                    .as_deref()
+                    == Some("algebraic_solve_failed")
+                && row
+                    .get("integration_metadata")
+                    .and_then(|metadata| json_field_string(metadata, "failure_code"))
+                    .as_deref()
+                    == Some("E-FIXED-POINT-NONCONVERGENCE")
+                && row
+                    .get("integration_metadata")
+                    .and_then(|metadata| json_field_string(metadata, "failure_reason"))
+                    .is_some_and(|reason| reason.contains("fixed-point iteration"))
         }));
     }
 
