@@ -1122,6 +1122,13 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     println!(
         "ok: solver API nonlinear Newton and implicit-Euler DAE smokes produced numeric results and failure artifacts"
     );
+    if let Err(message) = solver_behavior_smoke() {
+        eprintln!("{message}");
+        return ExitCode::from(2);
+    }
+    println!(
+        "ok: solver API delay, Predictor, and external behavior smokes produced numeric results, warnings, and failure artifacts"
+    );
 
     let bad = match check_file(
         "examples/05_error_messages/unit_mismatch.eng",
@@ -2805,6 +2812,280 @@ fn solver_algorithm_smoke() -> Result<(), String> {
         return Err(
             "DAE nonconvergence smoke did not return a timestep failure artifact".to_owned(),
         );
+    }
+
+    Ok(())
+}
+
+fn solver_behavior_smoke() -> Result<(), String> {
+    delay_behavior_smoke()?;
+    predictor_behavior_smoke()?;
+    external_behavior_smoke()?;
+    Ok(())
+}
+
+fn delay_behavior_smoke() -> Result<(), String> {
+    let buffer = eng_runtime::solver::DelayBuffer::new(
+        "temperature",
+        "AbsoluteTemperature",
+        "K",
+        1.0,
+        eng_runtime::solver::DelayInterpolationPolicy::Linear,
+        eng_runtime::solver::DelayInitialHistoryPolicy::HoldInitial,
+    )
+    .map_err(|failure| format!("delay buffer smoke setup failed: {}", failure.message))?;
+    let mut node = eng_runtime::solver::DelayBehaviorNode::new(buffer);
+
+    let first = node.evaluate(0.0, 10.0).map_err(|failure| {
+        format!(
+            "delay behavior initial evaluation failed: {}",
+            failure.message
+        )
+    })?;
+    let second = node.evaluate(1.0, 20.0).map_err(|failure| {
+        format!(
+            "delay behavior sample evaluation failed: {}",
+            failure.message
+        )
+    })?;
+    let third = node
+        .evaluate(1.5, 30.0)
+        .map_err(|failure| format!("delay behavior interpolation failed: {}", failure.message))?;
+    if first.status != "initial_history"
+        || (first.value - 10.0).abs() > 1e-9
+        || (second.value - 10.0).abs() > 1e-9
+        || third.status != "interpolated"
+        || (third.value - 15.0).abs() > 1e-9
+        || (third.relationship.delay_s - 1.0).abs() > 1e-9
+        || third.relationship.sample_count != 3
+    {
+        return Err(
+            "delay behavior smoke did not preserve history/interpolation artifacts".to_owned(),
+        );
+    }
+
+    let mut underflow = eng_runtime::solver::DelayBuffer::new(
+        "flow",
+        "MassFlowRate",
+        "kg/s",
+        5.0,
+        eng_runtime::solver::DelayInterpolationPolicy::PreviousSample,
+        eng_runtime::solver::DelayInitialHistoryPolicy::ErrorBeforeHistory,
+    )
+    .map_err(|failure| format!("delay underflow smoke setup failed: {}", failure.message))?;
+    underflow
+        .record(0.0, 1.0)
+        .map_err(|failure| format!("delay underflow sample record failed: {}", failure.message))?;
+    let failure = underflow.evaluate(2.0).unwrap_err();
+    if failure.code != "E-DELAY-HISTORY-UNDERFLOW" {
+        return Err("delay underflow smoke returned the wrong failure code".to_owned());
+    }
+
+    Ok(())
+}
+
+fn predictor_behavior_smoke() -> Result<(), String> {
+    let contract = eng_runtime::solver::PredictorContract::new(
+        "range_checked_predictor",
+        vec![
+            eng_runtime::solver::BehaviorSignalContract::new("x", "Dimensionless", "1")
+                .with_valid_range(Some(0.0), Some(1.0))
+                .map_err(|failure| {
+                    format!("predictor input range setup failed: {}", failure.message)
+                })?,
+        ],
+        vec![
+            eng_runtime::solver::BehaviorSignalContract::new("y", "Dimensionless", "1")
+                .with_valid_range(Some(0.0), Some(2.0))
+                .map_err(|failure| {
+                    format!("predictor output range setup failed: {}", failure.message)
+                })?,
+        ],
+        "sha256:predictor-smoke",
+        eng_runtime::solver::PredictorDifferentiability::Differentiable,
+        eng_runtime::solver::PredictorSolverPolicy {
+            explicit_call_only: true,
+            finite_difference_allowed: false,
+            jacobian_policy: eng_runtime::solver::PredictorJacobianPolicy::Supplied,
+        },
+    )
+    .map_err(|failure| format!("predictor contract smoke setup failed: {}", failure.message))?;
+    let node = eng_runtime::solver::PredictorBehaviorNode::new(contract, |inputs| {
+        Ok(vec![inputs[0] * 4.0])
+    });
+    let evaluation = node
+        .evaluate(&[2.0])
+        .map_err(|failure| format!("predictor behavior evaluation failed: {}", failure.message))?;
+    if evaluation.status != "range_warning"
+        || evaluation.outputs.len() != 1
+        || (evaluation.outputs[0] - 8.0).abs() > 1e-9
+        || evaluation.warnings.len() != 2
+        || evaluation
+            .warnings
+            .iter()
+            .any(|warning| warning.code != "W-BEHAVIOR-RANGE")
+        || evaluation.contract.model_hash != "sha256:predictor-smoke"
+        || evaluation.contract.differentiability != "differentiable"
+        || evaluation.contract.jacobian_policy != "supplied"
+    {
+        return Err(
+            "predictor behavior smoke did not expose range warnings and contract metadata"
+                .to_owned(),
+        );
+    }
+
+    let bad_contract = eng_runtime::solver::PredictorContract::new(
+        "bad_shape_predictor",
+        vec![eng_runtime::solver::BehaviorSignalContract::new(
+            "x",
+            "Dimensionless",
+            "1",
+        )],
+        vec![eng_runtime::solver::BehaviorSignalContract::new(
+            "y",
+            "Dimensionless",
+            "1",
+        )],
+        "sha256:bad-shape",
+        eng_runtime::solver::PredictorDifferentiability::Unknown,
+        eng_runtime::solver::PredictorSolverPolicy::default(),
+    )
+    .map_err(|failure| {
+        format!(
+            "bad predictor contract smoke setup failed: {}",
+            failure.message
+        )
+    })?;
+    let bad_node =
+        eng_runtime::solver::PredictorBehaviorNode::new(bad_contract, |_inputs| Ok(vec![1.0, 2.0]));
+    let failure = bad_node.evaluate(&[1.0]).unwrap_err();
+    if failure.code != "E-PREDICTOR-OUTPUT-LAYOUT" {
+        return Err("predictor layout smoke returned the wrong failure code".to_owned());
+    }
+
+    Ok(())
+}
+
+fn external_behavior_smoke() -> Result<(), String> {
+    let contract = eng_runtime::solver::ExternalBehaviorContract::new(
+        "legacy_heat_loss",
+        eng_runtime::solver::ExternalBehaviorKind::Function,
+        vec![eng_runtime::solver::BehaviorSignalContract::new(
+            "temperature",
+            "AbsoluteTemperature",
+            "K",
+        )],
+        vec![eng_runtime::solver::BehaviorSignalContract::new(
+            "loss", "HeatRate", "W",
+        )],
+        "sha256:external-smoke",
+        eng_runtime::solver::ExternalBehaviorDeterminism::Deterministic,
+        eng_runtime::solver::ExternalBehaviorProfilePolicy {
+            safe_allowed: true,
+            repro_allowed: true,
+        },
+    )
+    .map_err(|failure| format!("external contract smoke setup failed: {}", failure.message))?;
+    let node = eng_runtime::solver::ExternalBehaviorNode::new(contract, |inputs| {
+        Ok(vec![inputs[0] * 2.0])
+    });
+    let evaluation = node
+        .evaluate(
+            eng_runtime::solver::BehaviorExecutionProfile::Repro,
+            &[300.0],
+        )
+        .map_err(|failure| {
+            format!(
+                "external behavior repro evaluation failed: {}",
+                failure.message
+            )
+        })?;
+    if evaluation.status != "ok"
+        || evaluation.outputs != vec![600.0]
+        || evaluation.contract.kind != "function"
+        || evaluation.contract.provenance_hash != "sha256:external-smoke"
+        || !evaluation.contract.repro_allowed
+    {
+        return Err(
+            "external behavior smoke did not evaluate deterministic repro contract".to_owned(),
+        );
+    }
+
+    let blocked_contract = eng_runtime::solver::ExternalBehaviorContract::new(
+        "process_adapter",
+        eng_runtime::solver::ExternalBehaviorKind::Process,
+        vec![eng_runtime::solver::BehaviorSignalContract::new(
+            "x",
+            "Dimensionless",
+            "1",
+        )],
+        vec![eng_runtime::solver::BehaviorSignalContract::new(
+            "y",
+            "Dimensionless",
+            "1",
+        )],
+        "sha256:process-smoke",
+        eng_runtime::solver::ExternalBehaviorDeterminism::Deterministic,
+        eng_runtime::solver::ExternalBehaviorProfilePolicy::default(),
+    )
+    .map_err(|failure| {
+        format!(
+            "blocked external contract smoke setup failed: {}",
+            failure.message
+        )
+    })?;
+    let blocked_node = eng_runtime::solver::ExternalBehaviorNode::new(blocked_contract, |inputs| {
+        Ok(inputs.to_vec())
+    });
+    let failure = blocked_node
+        .evaluate(eng_runtime::solver::BehaviorExecutionProfile::Safe, &[1.0])
+        .unwrap_err();
+    if failure.code != "E-EXTERNAL-BEHAVIOR-PROFILE" {
+        return Err("external profile smoke returned the wrong failure code".to_owned());
+    }
+
+    let failing_contract = eng_runtime::solver::ExternalBehaviorContract::new(
+        "failing_adapter",
+        eng_runtime::solver::ExternalBehaviorKind::Function,
+        vec![eng_runtime::solver::BehaviorSignalContract::new(
+            "x",
+            "Dimensionless",
+            "1",
+        )],
+        vec![eng_runtime::solver::BehaviorSignalContract::new(
+            "y",
+            "Dimensionless",
+            "1",
+        )],
+        "sha256:failing-smoke",
+        eng_runtime::solver::ExternalBehaviorDeterminism::Deterministic,
+        eng_runtime::solver::ExternalBehaviorProfilePolicy {
+            safe_allowed: true,
+            repro_allowed: true,
+        },
+    )
+    .map_err(|failure| {
+        format!(
+            "failing external contract smoke setup failed: {}",
+            failure.message
+        )
+    })?;
+    let failing_node =
+        eng_runtime::solver::ExternalBehaviorNode::new(failing_contract, |_inputs| {
+            Err(eng_runtime::solver::SolverFailure::new(
+                "E-ADAPTER-BOOM",
+                "adapter failed",
+            ))
+        });
+    let failure = failing_node
+        .evaluate(
+            eng_runtime::solver::BehaviorExecutionProfile::Normal,
+            &[1.0],
+        )
+        .unwrap_err();
+    if failure.code != "E-EXTERNAL-BEHAVIOR-FAILURE" || !failure.message.contains("E-ADAPTER-BOOM")
+    {
+        return Err("external adapter failure smoke did not wrap adapter failure".to_owned());
     }
 
     Ok(())

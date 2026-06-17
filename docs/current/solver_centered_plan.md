@@ -35,9 +35,9 @@ release naming still follows [version_plan.md](version_plan.md).
 | SOLVER-403 | Dynamic component fixed-step solver | Implemented as an internal explicit/semi-implicit component seed. |
 | SOLVER-404 | Nonlinear Newton seed | Implemented as standalone solver-API seed and covered by CLI smoke for convergence, supplied Jacobian use, and nonconvergence failure artifacts. |
 | SOLVER-405 | DAE implicit Euler seed | Implemented as standalone solver-API seed and covered by CLI smoke for state/algebraic convergence, mass-matrix use, inconsistent initial conditions, and timestep nonconvergence artifacts. |
-| SOLVER-501 | Delay history buffer | Implemented as solver-API behavior seed. |
-| SOLVER-502 | Predictor behavior contract | Implemented as solver-API behavior seed. |
-| SOLVER-503 | External behavior wrapper | Implemented as solver-API behavior seed. |
+| SOLVER-501 | Delay history buffer | Implemented as solver-API behavior seed and covered by CLI smoke for interpolation plus history-underflow failure artifacts. |
+| SOLVER-502 | Predictor behavior contract | Implemented as solver-API behavior seed and covered by CLI smoke for valid-range warnings, contract metadata, and output-layout failure artifacts. |
+| SOLVER-503 | External behavior wrapper | Implemented as solver-API behavior seed and covered by CLI smoke for deterministic repro execution, safe-profile rejection, and adapter failure wrapping. |
 | SOLVER-504 | Behavior node report/IDE | Implemented for delay, Predictor, and external behavior metadata. |
 
 ## Checklist Ladder

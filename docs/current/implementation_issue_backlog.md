@@ -271,6 +271,11 @@ Current coverage:
   interpolation policies, explicit initial-history policy, relationship
   artifacts, out-of-order/history-underflow diagnostics, and solver-style
   behavior-node evaluation tests.
+- `eng test examples` now directly exercises solver-API behavior node numeric
+  evaluation: delay interpolation and history-underflow failure artifacts,
+  Predictor valid-range warnings and output-layout failures, and external
+  behavior deterministic repro execution, safe-profile rejection, and adapter
+  failure wrapping.
 - Component local expressions now diagnose invalid `delay(signal, duration)`
   calls, including missing arguments, unknown component port variables, and
   non-duration delay values. Example-smoke fixtures cover each public
