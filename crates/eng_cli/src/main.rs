@@ -1115,6 +1115,13 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(1);
         }
     }
+    if let Err(message) = solver_algorithm_smoke() {
+        eprintln!("{message}");
+        return ExitCode::from(2);
+    }
+    println!(
+        "ok: solver API nonlinear Newton and implicit-Euler DAE smokes produced numeric results and failure artifacts"
+    );
 
     let bad = match check_file(
         "examples/05_error_messages/unit_mismatch.eng",
@@ -2623,6 +2630,184 @@ report {
         }
     }
     ExitCode::SUCCESS
+}
+
+fn solver_algorithm_smoke() -> Result<(), String> {
+    let newton_options = eng_runtime::solver::NewtonOptions::default();
+    let nonlinear = eng_runtime::solver::solve_newton(&[0.8, 2.1], &newton_options, |values| {
+        let x = values[0];
+        let y = values[1];
+        Ok(vec![x + y - 3.0, x * x + y * y - 5.0])
+    })
+    .map_err(|failure| format!("nonlinear Newton smoke failed: {}", failure.message))?;
+    if nonlinear.convergence_status != "newton_converged"
+        || nonlinear.failure.is_some()
+        || (nonlinear.values[0] - 1.0).abs() > 1e-7
+        || (nonlinear.values[1] - 2.0).abs() > 1e-7
+        || nonlinear
+            .residual_history
+            .last()
+            .copied()
+            .unwrap_or(f64::INFINITY)
+            > 1e-9
+        || nonlinear.largest_residual.is_none()
+    {
+        return Err("nonlinear Newton smoke did not converge to the expected two-variable solution with residual metadata".to_owned());
+    }
+
+    let mut jacobian_calls = 0;
+    let analytic = eng_runtime::solver::solve_newton_with_jacobian(
+        &[1.0],
+        &newton_options,
+        |values| Ok(vec![values[0] * values[0] - 2.0]),
+        |values, _baseline_residuals| {
+            jacobian_calls += 1;
+            Ok(vec![vec![2.0 * values[0]]])
+        },
+    )
+    .map_err(|failure| format!("analytic Newton smoke failed: {}", failure.message))?;
+    if analytic.convergence_status != "newton_converged"
+        || jacobian_calls == 0
+        || (analytic.values[0] - 2.0_f64.sqrt()).abs() > 1e-7
+    {
+        return Err(
+            "analytic Newton smoke did not use the supplied Jacobian hook correctly".to_owned(),
+        );
+    }
+
+    let nonconverged = eng_runtime::solver::solve_newton(
+        &[10.0],
+        &eng_runtime::solver::NewtonOptions {
+            tolerance: 1e-15,
+            max_iterations: 1,
+            finite_difference_step: 1e-6,
+            damping: 1.0,
+            line_search_steps: 1,
+        },
+        |values| Ok(vec![values[0] * values[0] - 2.0]),
+    )
+    .map_err(|failure| format!("Newton nonconvergence smoke errored: {}", failure.message))?;
+    if nonconverged.convergence_status != "newton_not_converged"
+        || nonconverged
+            .failure
+            .as_ref()
+            .map(|failure| failure.code.as_str())
+            != Some("E-NEWTON-NONCONVERGENCE")
+        || nonconverged.largest_residual.is_none()
+    {
+        return Err("Newton nonconvergence smoke did not return a failure artifact".to_owned());
+    }
+
+    let dae_input = eng_runtime::solver::DaeInput {
+        states: vec![eng_runtime::solver::DaeVariable::new("x", 1.0)],
+        initial_state_derivatives: vec![-2.0],
+        algebraic: vec![eng_runtime::solver::DaeVariable::new("z", 2.0)],
+        inputs: Vec::new(),
+        parameters: Vec::new(),
+    };
+    let dae = eng_runtime::solver::solve_implicit_euler_dae(
+        &dae_input,
+        &eng_runtime::solver::DaeOptions::default(),
+        |sample| {
+            Ok(vec![
+                sample.state_derivative[0] + sample.algebraic[0],
+                sample.algebraic[0] - 2.0 * sample.state[0],
+            ])
+        },
+    )
+    .map_err(|failure| format!("implicit Euler DAE smoke failed: {}", failure.message))?;
+    if dae.convergence_status != "dae_converged"
+        || dae.failure.is_some()
+        || dae.step_reports.len() != 1
+        || (dae.state_trajectories[0].values[1] - (1.0 / 3.0)).abs() > 1e-9
+        || (dae.algebraic_trajectories[0].values[1] - (2.0 / 3.0)).abs() > 1e-9
+    {
+        return Err("implicit Euler DAE smoke did not solve the state/algebraic system".to_owned());
+    }
+
+    let mass_matrix_input = eng_runtime::solver::DaeInput {
+        states: vec![eng_runtime::solver::DaeVariable::new("x", 1.0)],
+        initial_state_derivatives: vec![-0.5],
+        algebraic: Vec::new(),
+        inputs: Vec::new(),
+        parameters: Vec::new(),
+    };
+    let mass_matrix = eng_runtime::solver::solve_implicit_euler_dae(
+        &mass_matrix_input,
+        &eng_runtime::solver::DaeOptions {
+            mass_matrix: Some(eng_runtime::solver::DaeMassMatrix::new(vec![vec![2.0]])),
+            ..Default::default()
+        },
+        |sample| {
+            Ok(vec![
+                sample.mass_state_derivative.unwrap()[0] + sample.state[0],
+            ])
+        },
+    )
+    .map_err(|failure| format!("DAE mass-matrix smoke failed: {}", failure.message))?;
+    if mass_matrix.convergence_status != "dae_converged"
+        || (mass_matrix.state_trajectories[0].values[1] - (2.0 / 3.0)).abs() > 1e-9
+    {
+        return Err("DAE mass-matrix smoke did not use the mass derivative".to_owned());
+    }
+
+    let inconsistent = eng_runtime::solver::solve_implicit_euler_dae(
+        &eng_runtime::solver::DaeInput {
+            states: vec![eng_runtime::solver::DaeVariable::new("x", 1.0)],
+            initial_state_derivatives: vec![0.0],
+            algebraic: Vec::new(),
+            inputs: Vec::new(),
+            parameters: Vec::new(),
+        },
+        &eng_runtime::solver::DaeOptions::default(),
+        |sample| Ok(vec![sample.state_derivative[0] + sample.state[0]]),
+    )
+    .unwrap_err();
+    if inconsistent.code != "E-DAE-INCONSISTENT-INITIAL-CONDITIONS" {
+        return Err(
+            "DAE inconsistent-initial-condition smoke returned the wrong failure code".to_owned(),
+        );
+    }
+
+    let dae_nonconverged = eng_runtime::solver::solve_implicit_euler_dae(
+        &eng_runtime::solver::DaeInput {
+            states: vec![eng_runtime::solver::DaeVariable::new("x", 1.0)],
+            initial_state_derivatives: vec![-1.0],
+            algebraic: Vec::new(),
+            inputs: Vec::new(),
+            parameters: Vec::new(),
+        },
+        &eng_runtime::solver::DaeOptions {
+            newton: eng_runtime::solver::NewtonOptions {
+                tolerance: 1e-15,
+                max_iterations: 1,
+                finite_difference_step: 1e-6,
+                damping: 1.0,
+                line_search_steps: 1,
+            },
+            ..Default::default()
+        },
+        |sample| {
+            Ok(vec![
+                sample.state_derivative[0] + sample.state[0] * sample.state[0],
+            ])
+        },
+    )
+    .map_err(|failure| format!("DAE nonconvergence smoke errored: {}", failure.message))?;
+    if dae_nonconverged.convergence_status != "dae_not_converged"
+        || dae_nonconverged
+            .failure
+            .as_ref()
+            .map(|failure| failure.code.as_str())
+            != Some("E-DAE-STEP-NONCONVERGENCE")
+        || dae_nonconverged.step_reports.is_empty()
+    {
+        return Err(
+            "DAE nonconvergence smoke did not return a timestep failure artifact".to_owned(),
+        );
+    }
+
+    Ok(())
 }
 
 struct BenchRun {

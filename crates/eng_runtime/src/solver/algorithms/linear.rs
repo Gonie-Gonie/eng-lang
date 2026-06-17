@@ -44,23 +44,25 @@ pub fn solve_dense_linear_system(
         }
 
         let pivot = a[pivot_index][pivot_index];
-        for column_index in pivot_index..n {
-            a[pivot_index][column_index] /= pivot;
+        for value in a[pivot_index].iter_mut().take(n).skip(pivot_index) {
+            *value /= pivot;
         }
         b[pivot_index] /= pivot;
+        let pivot_row = a[pivot_index].clone();
+        let pivot_rhs = b[pivot_index];
 
-        for row_index in 0..n {
+        for (row_index, row) in a.iter_mut().enumerate().take(n) {
             if row_index == pivot_index {
                 continue;
             }
-            let factor = a[row_index][pivot_index];
+            let factor = row[pivot_index];
             if factor.abs() <= f64::EPSILON {
                 continue;
             }
-            for column_index in pivot_index..n {
-                a[row_index][column_index] -= factor * a[pivot_index][column_index];
+            for (value, pivot_value) in row.iter_mut().zip(pivot_row.iter()).skip(pivot_index) {
+                *value -= factor * *pivot_value;
             }
-            b[row_index] -= factor * b[pivot_index];
+            b[row_index] -= factor * pivot_rhs;
         }
     }
 

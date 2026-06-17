@@ -122,6 +122,16 @@ pub struct DaeResult {
     pub failure: Option<SolverFailure>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AlgebraicInitializationInput<'a> {
+    pub state: &'a [f64],
+    pub state_derivative: &'a [f64],
+    pub algebraic_guess: &'a [f64],
+    pub inputs: &'a [f64],
+    pub parameters: &'a [f64],
+    pub time_s: f64,
+}
+
 pub fn solve_implicit_euler_dae<F>(
     input: &DaeInput,
     options: &DaeOptions,
@@ -266,40 +276,35 @@ where
 }
 
 pub fn initialize_algebraic_variables<F>(
-    state: &[f64],
-    state_derivative: &[f64],
-    algebraic_guess: &[f64],
-    inputs: &[f64],
-    parameters: &[f64],
-    time_s: f64,
+    input: AlgebraicInitializationInput<'_>,
     options: &NewtonOptions,
     mut residual: F,
 ) -> Result<NewtonResult, SolverFailure>
 where
     F: FnMut(DaeSample<'_>) -> Result<Vec<f64>, SolverFailure>,
 {
-    if state.is_empty() || state.len() != state_derivative.len() {
+    if input.state.is_empty() || input.state.len() != input.state_derivative.len() {
         return Err(SolverFailure::new(
             "E-DAE-STATE-LAYOUT",
             "DAE algebraic initialization requires matching state and derivative vectors",
         ));
     }
-    if algebraic_guess.is_empty() {
+    if input.algebraic_guess.is_empty() {
         return Err(SolverFailure::new(
             "E-DAE-ALGEBRAIC-SHAPE",
             "DAE algebraic initialization requires at least one algebraic variable",
         ));
     }
 
-    solve_newton(algebraic_guess, options, |algebraic| {
+    solve_newton(input.algebraic_guess, options, |algebraic| {
         residual(DaeSample {
-            time_s,
-            state,
-            state_derivative,
+            time_s: input.time_s,
+            state: input.state,
+            state_derivative: input.state_derivative,
             mass_state_derivative: None,
             algebraic,
-            inputs,
-            parameters,
+            inputs: input.inputs,
+            parameters: input.parameters,
         })
     })
 }
@@ -556,12 +561,14 @@ mod tests {
     #[test]
     fn initializes_algebraic_variables_with_newton() {
         let result = initialize_algebraic_variables(
-            &[3.0],
-            &[0.0],
-            &[1.0],
-            &[],
-            &[],
-            0.0,
+            AlgebraicInitializationInput {
+                state: &[3.0],
+                state_derivative: &[0.0],
+                algebraic_guess: &[1.0],
+                inputs: &[],
+                parameters: &[],
+                time_s: 0.0,
+            },
             &NewtonOptions::default(),
             |sample| {
                 Ok(vec![

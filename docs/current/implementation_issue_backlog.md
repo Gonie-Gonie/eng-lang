@@ -232,6 +232,11 @@ Current coverage:
   residual-history, convergence-status, singular-Jacobian, invalid-option, and
   nonconvergence tests exposed through the solver API.
 - Runtime also has dense linear and solver-API fixed-point algorithm seeds.
+- `eng test examples` now directly exercises the solver-API Newton and
+  implicit-Euler DAE seeds, including two-variable nonlinear convergence,
+  supplied Jacobian hook use, Newton nonconvergence failure artifacts,
+  state/algebraic DAE convergence, mass-matrix derivative use, inconsistent
+  initial-condition failure, and per-step DAE nonconvergence artifacts.
 - Runtime has a standalone implicit-Euler DAE seed over
   `F(x, xdot, z, u, t, p)` with optional mass matrix, initial-condition
   consistency checks, algebraic-variable initialization, ODE residual,

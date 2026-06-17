@@ -758,24 +758,24 @@ pub fn state_space_rhs_ir_for_system(report: &CheckReport, system_name: &str) ->
 
     let mut instructions = Vec::new();
     let mut next_register = 0;
-    for row in 0..state_count {
+    for (row, (matrix_a_row, matrix_b_row)) in matrix_a.iter().zip(matrix_b.iter()).enumerate() {
         let mut accumulator = None;
-        for column in 0..state_count {
+        for (column, coefficient) in matrix_a_row.iter().copied().enumerate() {
             accumulator = append_matrix_term(
                 &mut instructions,
                 &mut next_register,
                 accumulator,
                 column,
-                matrix_a[row][column],
+                coefficient,
             )?;
         }
-        for column in 0..input_count {
+        for (column, coefficient) in matrix_b_row.iter().copied().enumerate() {
             accumulator = append_matrix_term(
                 &mut instructions,
                 &mut next_register,
                 accumulator,
                 state_count + column,
-                matrix_b[row][column],
+                coefficient,
             )?;
         }
         let output_register = match accumulator {
@@ -1517,23 +1517,25 @@ fn solve_dense_kernel_system(
         }
 
         let pivot = a[pivot_index][pivot_index];
-        for column_index in pivot_index..n {
-            a[pivot_index][column_index] /= pivot;
+        for value in a[pivot_index].iter_mut().take(n).skip(pivot_index) {
+            *value /= pivot;
         }
         b[pivot_index] /= pivot;
+        let pivot_row = a[pivot_index].clone();
+        let pivot_rhs = b[pivot_index];
 
-        for row_index in 0..n {
+        for (row_index, row) in a.iter_mut().enumerate().take(n) {
             if row_index == pivot_index {
                 continue;
             }
-            let factor = a[row_index][pivot_index];
+            let factor = row[pivot_index];
             if factor.abs() <= f64::EPSILON {
                 continue;
             }
-            for column_index in pivot_index..n {
-                a[row_index][column_index] -= factor * a[pivot_index][column_index];
+            for (value, pivot_value) in row.iter_mut().zip(pivot_row.iter()).skip(pivot_index) {
+                *value -= factor * *pivot_value;
             }
-            b[row_index] -= factor * b[pivot_index];
+            b[row_index] -= factor * pivot_rhs;
         }
     }
     Ok(b)

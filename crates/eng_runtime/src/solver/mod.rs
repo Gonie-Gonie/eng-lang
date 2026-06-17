@@ -13,8 +13,9 @@ pub use algorithms::algebraic::{
     solve_linear_residual_graph, LinearResidualGraphSolution, LinearResidualVariableSolution,
 };
 pub use algorithms::dae::{
-    initialize_algebraic_variables, solve_implicit_euler_dae, DaeInput, DaeMassMatrix, DaeOptions,
-    DaeResult, DaeSample, DaeStepReport, DaeTrajectory, DaeVariable,
+    initialize_algebraic_variables, solve_implicit_euler_dae, AlgebraicInitializationInput,
+    DaeInput, DaeMassMatrix, DaeOptions, DaeResult, DaeSample, DaeStepReport, DaeTrajectory,
+    DaeVariable,
 };
 pub use algorithms::dynamic_component::{
     solve_explicit_euler_with_algebraic, AlgebraicStepInput, DynamicComponentOptions,

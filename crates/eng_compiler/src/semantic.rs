@@ -5144,10 +5144,12 @@ fn validate_predictor_call(
         component,
         local,
         arguments,
-        "Predictor",
-        "predictor(signal)` or `predict(signal)",
-        "E-PREDICTOR-CALL-001",
-        "E-PREDICTOR-SIGNAL-001",
+        &BehaviorCallSpec {
+            label: "Predictor",
+            signature: "predictor(signal)` or `predict(signal)",
+            call_code: "E-PREDICTOR-CALL-001",
+            signal_code: "E-PREDICTOR-SIGNAL-001",
+        },
         diagnostics,
     );
 }
@@ -5164,12 +5166,21 @@ fn validate_external_behavior_call(
         component,
         local,
         arguments,
-        "External behavior",
-        "external(signal)` or `adapter(signal)",
-        "E-EXTERNAL-BEHAVIOR-CALL-001",
-        "E-EXTERNAL-BEHAVIOR-SIGNAL-001",
+        &BehaviorCallSpec {
+            label: "External behavior",
+            signature: "external(signal)` or `adapter(signal)",
+            call_code: "E-EXTERNAL-BEHAVIOR-CALL-001",
+            signal_code: "E-EXTERNAL-BEHAVIOR-SIGNAL-001",
+        },
         diagnostics,
     );
+}
+
+struct BehaviorCallSpec {
+    label: &'static str,
+    signature: &'static str,
+    call_code: &'static str,
+    signal_code: &'static str,
 }
 
 fn validate_single_signal_behavior_call(
@@ -5177,20 +5188,17 @@ fn validate_single_signal_behavior_call(
     component: &ComponentInfo,
     local: &ComponentLocalExpressionInfo,
     arguments: &str,
-    label: &str,
-    signature: &str,
-    call_code: &str,
-    signal_code: &str,
+    spec: &BehaviorCallSpec,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let parts = split_top_level(arguments, &[',']);
     if parts.len() != 1 {
         diagnostics.push(Diagnostic::error(
-            call_code,
+            spec.call_code,
             local.line,
             &format!(
-                "{label} expression `{}` must use `{signature}`.",
-                local.expression
+                "{} expression `{}` must use `{}`.",
+                spec.label, local.expression, spec.signature
             ),
             Some("Pass one component port signal such as `outlet.T` while full behavior contracts remain runtime-wrapper seeds."),
         ));
@@ -5199,11 +5207,11 @@ fn validate_single_signal_behavior_call(
     let signal = parts[0].trim();
     if component_signal_type(domains, component, signal).is_none() {
         diagnostics.push(Diagnostic::error(
-            signal_code,
+            spec.signal_code,
             local.line,
             &format!(
-                "{label} signal `{signal}` is not a known component port variable in `{}`.",
-                component.name
+                "{} signal `{signal}` is not a known component port variable in `{}`.",
+                spec.label, component.name
             ),
             Some("Use a signal such as `port.variable`, where `port` is declared on the component and `variable` is declared by the port domain."),
         ));

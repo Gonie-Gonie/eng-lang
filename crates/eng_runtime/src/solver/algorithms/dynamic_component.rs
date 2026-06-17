@@ -4,17 +4,9 @@ use crate::solver::{
     StateLayout, StateTrajectory,
 };
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct DynamicComponentOptions {
     pub algebraic: FixedPointOptions,
-}
-
-impl Default for DynamicComponentOptions {
-    fn default() -> Self {
-        Self {
-            algebraic: FixedPointOptions::default(),
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
