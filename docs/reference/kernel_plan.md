@@ -176,6 +176,7 @@ statistics_fusion
 system_residual
 component_residual_graph
 component_residual_jacobian
+component_newton_step
 state_space_rhs
 ```
 
@@ -184,6 +185,9 @@ lowering shape for later work and is not a native solver backend.
 `component_residual_jacobian` records finite-difference Jacobian evaluation for
 square component residual graphs by repeatedly executing the scalar residual
 interpreter kernel.
+`component_newton_step` records a single dense Newton update using a residual
+vector and dense Jacobian for square component residual graphs. It is not an
+integrated nonlinear solver loop.
 `state_space_rhs` covers the continuous `der(x) eq A * x + B * u` scalar RHS
 kernel for checked state-space A/B operators. The fixed-step solver loop still
 runs through the normal runtime path.

@@ -383,6 +383,31 @@ pub fn plan_for_report_with_options(
                     estimate: component_jacobian_estimate(assembly),
                 },
             );
+            push_candidate(
+                &mut candidates,
+                &mut seen,
+                KernelCandidate {
+                    name: format!("{}:{}:newton_step", assembly.name, assembly.residual_graph.name),
+                    kind: "component_newton_step".to_owned(),
+                    line: assembly.line,
+                    source: assembly
+                        .equations
+                        .iter()
+                        .map(|equation| equation.residual.as_str())
+                        .collect::<Vec<_>>()
+                        .join("; "),
+                    reason: "square component residual graph can execute one Newton solver-step kernel after residual/Jacobian evaluation"
+                        .to_owned(),
+                    lowering_status: "lowerable_to_numeric_kernel_plan".to_owned(),
+                    operations: vec![
+                        format!("load_dense_jacobian:{}x{}", assembly.equations.len(), assembly.variables.len()),
+                        format!("load_residual_vector:{}", assembly.equations.len()),
+                        format!("solve_newton_step:{}", assembly.variables.len()),
+                        "store_variable_update".to_owned(),
+                    ],
+                    estimate: component_newton_step_estimate(assembly),
+                },
+            );
         }
     }
 
@@ -1419,6 +1444,7 @@ fn candidate_has_interpreter_lowering(candidate: &KernelCandidate) -> bool {
         | "timeseries_integrate"
         | "component_residual_graph"
         | "component_residual_jacobian"
+        | "component_newton_step"
         | "state_space_rhs" => true,
         "statistics_fusion" => candidate.operations.iter().all(|operation| {
             operation
@@ -1692,6 +1718,26 @@ fn component_jacobian_estimate(assembly: &ComponentAssemblyInfo) -> KernelEstima
             format!("{equation_count} residual equation(s)"),
             format!("{equation_count}x{variable_count} dense Jacobian output"),
             "uses the scalar residual interpreter kernel at perturbed variable values".to_owned(),
+        ],
+    }
+}
+
+fn component_newton_step_estimate(assembly: &ComponentAssemblyInfo) -> KernelEstimate {
+    let variable_count = assembly.variables.len();
+    let equation_count = assembly.equations.len();
+    KernelEstimate {
+        estimated_rows: None,
+        input_count: equation_count * variable_count + equation_count,
+        output_count: variable_count,
+        operation_count: variable_count.pow(3).max(1),
+        scan_count: 0,
+        complexity: "O(variables^3) dense Newton step solve".to_owned(),
+        notes: vec![
+            format!("{equation_count} residual input(s)"),
+            format!("{equation_count}x{variable_count} dense Jacobian input"),
+            format!("{variable_count} variable update output(s)"),
+            "single solver step only; nonlinear iteration remains outside this kernel candidate"
+                .to_owned(),
         ],
     }
 }
@@ -2370,6 +2416,16 @@ mod tests {
         );
         assert_eq!(jacobian_candidate["estimate"]["input_count"], 4);
         assert_eq!(jacobian_candidate["estimate"]["output_count"], 16);
+        let newton_step_candidate = candidates
+            .iter()
+            .find(|candidate| candidate["kind"] == "component_newton_step")
+            .expect("component Newton-step candidate JSON should exist");
+        assert_eq!(
+            newton_step_candidate["executor"]["status"],
+            "interpreter_supported"
+        );
+        assert_eq!(newton_step_candidate["estimate"]["input_count"], 20);
+        assert_eq!(newton_step_candidate["estimate"]["output_count"], 4);
     }
 
     #[test]
@@ -2418,6 +2474,29 @@ mod tests {
         assert!((jacobian.values[1][1] - 1.0).abs() < 1e-8);
         assert!((jacobian.values[1][3] - 1.0).abs() < 1e-8);
         assert!((jacobian.values[3][1] - 1.0).abs() < 1e-8);
+
+        let off_solution = vec![23.0, 2.0, 21.0, -1.0];
+        let residual_output = execute_interpreter_kernel(
+            &ir,
+            &KernelExecutionInput {
+                series_inputs: Vec::new(),
+                scalar_inputs: off_solution.clone(),
+            },
+        )
+        .unwrap();
+        let residuals = residual_output
+            .outputs
+            .iter()
+            .map(|output| match output {
+                KernelOutputValue::Scalar(value) => *value,
+                KernelOutputValue::Series(_) => panic!("component residuals should be scalar"),
+            })
+            .collect::<Vec<_>>();
+        let jacobian = execute_finite_difference_jacobian_kernel(&ir, &off_solution, 1e-6).unwrap();
+        let step = execute_newton_step_kernel(&jacobian.values, &residuals, 1e-9).unwrap();
+        for (actual, expected) in step.step.iter().zip([-1.0, -1.0, 1.0, 0.0]) {
+            assert!((actual - expected).abs() < 1e-7);
+        }
     }
 
     #[test]

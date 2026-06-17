@@ -39,6 +39,9 @@ Current coverage:
 - Square component assembly residual graphs are also surfaced as
   `component_residual_jacobian` kernel-plan candidates, with interpreter
   support backed by finite-difference evaluation over the scalar residual IR.
+- Square component assembly residual/Jacobian paths are surfaced as
+  `component_newton_step` candidates for a single dense Newton update; nonlinear
+  iteration remains outside this kernel candidate.
 - Continuous state-space A/B operators can lower checked `der(x) eq A * x + B *
   u` metadata into an executable scalar RHS `KernelIr`; fixed-step simulation
   remains on the normal runtime solver path.

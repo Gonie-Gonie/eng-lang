@@ -888,14 +888,27 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                         .iter()
                         .any(|operation| operation == "store_dense_jacobian:4x4")
             })
+        || !thermal_assembly_jit_plan
+            .candidates
+            .iter()
+            .any(|candidate| {
+                candidate.kind == "component_newton_step"
+                    && candidate.lowering_status == "lowerable_to_numeric_kernel_plan"
+                    && candidate.estimate.input_count == 20
+                    && candidate.estimate.output_count == 4
+                    && candidate
+                        .operations
+                        .iter()
+                        .any(|operation| operation == "solve_newton_step:4")
+            })
     {
         eprintln!(
-            "expected official thermal component assembly example to expose lowerable component residual and Jacobian kernel candidates"
+            "expected official thermal component assembly example to expose lowerable component residual, Jacobian, and Newton-step kernel candidates"
         );
         return ExitCode::from(2);
     }
     println!(
-        "ok: examples/official/21_thermal_component_assembly/main.eng produced component residual and Jacobian kernel candidates"
+        "ok: examples/official/21_thermal_component_assembly/main.eng produced component residual, Jacobian, and Newton-step kernel candidates"
     );
     match run_file(
         Path::new("examples/internal/23_component_boundary_singular/main.eng"),
@@ -2525,7 +2538,11 @@ fn jit_benchmark_targets(
             },
             candidates_by_kind(
                 plan,
-                &["component_residual_graph", "component_residual_jacobian"],
+                &[
+                    "component_residual_graph",
+                    "component_residual_jacobian",
+                    "component_newton_step",
+                ],
             ),
             "tracks small component residual graph candidates, not production multi-domain solving",
         ),

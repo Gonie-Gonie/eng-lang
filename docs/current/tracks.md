@@ -201,6 +201,8 @@ Internal implementation seeds on `main`:
 - component assembly residual graph lowering into scalar residual KernelIr
 - square component residual Jacobian kernel-plan candidates backed by
   finite-difference execution over scalar residual KernelIr
+- square component Newton-step kernel-plan candidates backed by the dense
+  solver-step interpreter kernel
 - continuous state-space A/B RHS lowering into scalar KernelIr
 - per-candidate executor/fallback reason metadata
 ```
