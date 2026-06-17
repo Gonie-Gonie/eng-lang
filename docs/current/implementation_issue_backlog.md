@@ -168,6 +168,8 @@ Current coverage:
   or elimination.
 - ResidualGraph linear-system assembly rejects non-finite residual
   coefficients or RHS values before dense solving.
+- DAE seeds reject non-finite state-derivative intermediates, mass-matrix
+  application results, and algebraic-initialization inputs.
 - Fixed-step ODE, fixed-point, and dynamic-component solver seeds reject
   non-finite RHS/update values before those values can enter trajectories or
   algebraic artifacts.

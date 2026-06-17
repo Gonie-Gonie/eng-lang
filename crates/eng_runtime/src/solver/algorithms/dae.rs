@@ -51,7 +51,7 @@ impl DaeMassMatrix {
                 "DAE mass matrix contains a non-finite value",
             ));
         }
-        Ok(self
+        let values = self
             .rows
             .iter()
             .map(|row| {
@@ -60,7 +60,13 @@ impl DaeMassMatrix {
                     .map(|(coefficient, value)| coefficient * value)
                     .sum()
             })
-            .collect())
+            .collect::<Vec<_>>();
+        ensure_finite_values(
+            "E-DAE-MASS-MATRIX-FINITE",
+            "DAE mass matrix application",
+            &values,
+        )?;
+        Ok(values)
     }
 }
 
@@ -209,6 +215,11 @@ where
                 .zip(previous_state.iter())
                 .map(|(next, previous)| (next - previous) / options.timestep_s)
                 .collect::<Vec<_>>();
+            ensure_finite_values(
+                "E-DAE-STATE-DERIVATIVE-FINITE",
+                "DAE step derivative",
+                &next_derivative,
+            )?;
             let mass_derivative = apply_mass_matrix(options, &next_derivative)?;
             residual(DaeSample {
                 time_s,
@@ -255,6 +266,11 @@ where
             .zip(previous_state.iter())
             .map(|(next, previous)| (next - previous) / options.timestep_s)
             .collect();
+        ensure_finite_values(
+            "E-DAE-STATE-DERIVATIVE-FINITE",
+            "DAE accepted derivative",
+            &state_derivative,
+        )?;
 
         for (index, value) in state.iter().copied().enumerate() {
             state_values[index].push(value);
@@ -295,6 +311,31 @@ where
             "DAE algebraic initialization requires at least one algebraic variable",
         ));
     }
+    ensure_finite_values(
+        "E-DAE-INITIAL-FINITE",
+        "DAE algebraic initialization state",
+        input.state,
+    )?;
+    ensure_finite_values(
+        "E-DAE-INITIAL-FINITE",
+        "DAE algebraic initialization derivative",
+        input.state_derivative,
+    )?;
+    ensure_finite_values(
+        "E-DAE-INITIAL-FINITE",
+        "DAE algebraic initialization guess",
+        input.algebraic_guess,
+    )?;
+    ensure_finite_values(
+        "E-DAE-INITIAL-FINITE",
+        "DAE algebraic initialization inputs",
+        input.inputs,
+    )?;
+    ensure_finite_values(
+        "E-DAE-INITIAL-FINITE",
+        "DAE algebraic initialization parameters",
+        input.parameters,
+    )?;
 
     solve_newton(input.algebraic_guess, options, |algebraic| {
         residual(DaeSample {
@@ -422,6 +463,17 @@ fn validate_dae_residual_layout(expected: usize, residuals: &[f64]) -> Result<()
     Ok(())
 }
 
+fn ensure_finite_values(code: &str, label: &str, values: &[f64]) -> Result<(), SolverFailure> {
+    if values.iter().all(|value| value.is_finite()) {
+        Ok(())
+    } else {
+        Err(SolverFailure::new(
+            code,
+            format!("{label} vector contains a non-finite value"),
+        ))
+    }
+}
+
 fn apply_mass_matrix(
     options: &DaeOptions,
     state_derivative: &[f64],
@@ -515,6 +567,15 @@ mod tests {
     }
 
     #[test]
+    fn mass_matrix_rejects_nonfinite_application() {
+        let failure = DaeMassMatrix::new(vec![vec![f64::MAX]])
+            .apply(&[2.0])
+            .unwrap_err();
+
+        assert_eq!(failure.code, "E-DAE-MASS-MATRIX-FINITE");
+    }
+
+    #[test]
     fn reports_step_nonconvergence_with_failure_artifact() {
         let input = one_state_input(1.0, -1.0);
         let options = DaeOptions {
@@ -580,5 +641,24 @@ mod tests {
 
         assert_eq!(result.convergence_status, "newton_converged");
         assert!((result.values[0] - 3.0_f64.sqrt()).abs() < 1e-7);
+    }
+
+    #[test]
+    fn rejects_nonfinite_algebraic_initialization_input() {
+        let failure = initialize_algebraic_variables(
+            AlgebraicInitializationInput {
+                state: &[f64::NAN],
+                state_derivative: &[0.0],
+                algebraic_guess: &[1.0],
+                inputs: &[],
+                parameters: &[],
+                time_s: 0.0,
+            },
+            &NewtonOptions::default(),
+            |sample| Ok(vec![sample.algebraic[0] - 1.0]),
+        )
+        .unwrap_err();
+
+        assert_eq!(failure.code, "E-DAE-INITIAL-FINITE");
     }
 }
