@@ -9,14 +9,16 @@ It demonstrates:
 - `StateVector`, `InputVector`, and `OutputVector` metadata
 - `Derivative[StateVector]` and `LinearOperator[From -> To]` type strings
 - a vector equation shape, `der(x) eq A * x + B * u`, recorded for review
-- a narrow one-state, fixed-step explicit-Euler runtime path with `T_out`
-  materialized from a promoted TimeSeries input
+- a narrow fixed-step explicit-Euler runtime path with `T_out` materialized
+  from a promoted TimeSeries input
 
 Current limitation:
 
 ```text
-- metadata, diagnostics, and one-state trajectory preview only for the
-  state-space surface
-- no nonlinear, DAE, adaptive, or full matrix simulation solver claim
-- no multi-state or unit-compatible operator algebra support
+- this fixture remains a one-state metadata/runtime smoke for the state-space
+  surface
+- multi-state state-space runtime coverage lives in examples/official/20_multi_state_thermal
+- no nonlinear, DAE, adaptive, component-coupled, or stable general matrix
+  simulation solver claim
+- no unit-compatible operator algebra support
 ```

@@ -358,9 +358,10 @@ review.json
 
 These sections record `states`/`inputs`/`outputs` vector declarations and
 `LinearOperator[From -> To]` declarations for inspection. Runtime can also
-materialize a one-state fixed-step trajectory from shape-checked A/B operators,
-including TimeSeries materialization for bound input vector members. This
-remains an internal seed, not a general matrix simulation solver.
+materialize fixed-step state trajectories from shape-checked A/B operators,
+including multi-state Euler/RK4, discrete A/B execution, and TimeSeries
+materialization for bound input vector members. This remains an internal seed,
+not a general nonlinear, DAE, adaptive, or component-coupled simulation solver.
 
 ## Uncertainty Metadata
 

@@ -135,10 +135,11 @@ by the stable breaking-change policy.
 Internal seeds may have code, tests, examples, or artifacts on `main`, but they
 are not public stable workflows.
 
-- State-space metadata in `examples/internal/18_state_space_metadata`: typed
-  vector/operator declarations, review metadata, and a one-state fixed-step
-  trajectory preview with TimeSeries input materialization. It is not a
-  supported general state-space simulation workflow.
+- State-space metadata and runtime seeds: typed vector/operator declarations,
+  review metadata, shape-checked continuous/discrete A/B execution, multi-state
+  fixed-step Euler/RK4 trajectories with TimeSeries input materialization, and
+  report/IDE solver artifacts. They are not a supported general nonlinear,
+  DAE, adaptive, or component-coupled state-space simulation workflow.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,
   generated connection-equation metadata, residual graph metadata,
   domain-plan metadata, IDE component graph source-line navigation, and
@@ -162,9 +163,10 @@ are not public stable workflows.
 - General table formulas and arbitrary TimeSeries expression execution.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
-- General nonlinear, DAE, adaptive, and multi-state equation solving.
-- Supported state-space discrete/continuous simulation beyond the current
-  one-state internal preview.
+- General nonlinear, DAE, adaptive, and multi-state equation solving outside
+  the current internal fixed-step state-space path.
+- Stable-supported state-space workflow boundaries beyond the current internal
+  fixed-step vector simulation path.
 - Component graph solving with boundary conditions, component behavior
   equations, mixed algebraic/dynamic variables, and physical multi-domain
   coupling.

@@ -91,6 +91,12 @@ official/19_class_object
   Supported class/domain-object authoring fixture with typed fields, defaults,
   object literals, validation, field access metadata, immutable copy-with, and
   class/object artifacts.
+
+official/20_multi_state_thermal
+  Multi-state state-space thermal simulation with two state trajectories,
+  TimeSeries input binding, fixed-step RK4 execution, and plot/report artifacts
+  for sim.T_air and sim.T_wall. This is not a nonlinear, DAE, adaptive, or
+  production component-graph solver.
 ```
 
 ## Internal Implementation Fixtures
@@ -101,9 +107,9 @@ development smoke path but are not user-facing release workflows.
 ```text
 internal/18_state_space_metadata
   StateVector/InputVector/OutputVector and LinearOperator metadata with a
-  narrow one-state fixed-step runtime preview that materializes a promoted
-  TimeSeries input. This fixture is not a supported general state-space
-  simulation workflow.
+  narrow fixed-step runtime preview that materializes a promoted TimeSeries
+  input. This fixture is not a supported general state-space simulation
+  workflow.
 ```
 
 ## Compatibility Regression Examples

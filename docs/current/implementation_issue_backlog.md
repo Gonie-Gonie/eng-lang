@@ -78,18 +78,19 @@ Definition of Done:
 
 ## State-Space
 
-Title: `state-space: implement actual trajectory generation or keep internal`
+Title: `state-space: close stable workflow boundaries after vector runtime seed`
 
 Definition of Done:
 
-- Either keep `examples/internal/18_state_space_metadata` internal with clear
-  docs and the current one-state TimeSeries-input trajectory preview, or
-  implement a supported state-space workflow.
-- Supported workflow requires runtime `StateVector`, `InputVector`, and
-  `LinearOperator` objects, operator row/column checks, unit compatibility
-  checks, discrete-time state update, state trajectory TimeSeries, plot/report
-  output, IDE inspector support, and tests.
-- No nonlinear/DAE/adaptive solver claim is made.
+- Keep the vector runtime seed clearly scoped until the stable workflow
+  boundary is decided.
+- Current runtime covers `StateVector`, `InputVector`, and `LinearOperator`
+  metadata, operator row/column checks, continuous and discrete A/B execution,
+  multi-state fixed-step Euler/RK4 trajectories, state trajectory TimeSeries,
+  plot/report output, IDE inspector support, and tests.
+- Remaining supported-workflow work includes unit compatibility checks,
+  broader operator algebra policy, and public stability wording.
+- No nonlinear/DAE/adaptive or component-coupled solver claim is made.
 
 ## Class/Domain Objects
 

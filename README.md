@@ -69,9 +69,11 @@ claims:
 - Class/domain-object
 - General programming/side-effect policy
 
-The system/equation path currently means one-state fixed-step thermal workflow
-support, plus solver metadata and solver-plan artifacts for that narrow scope.
-General solvers, DAE, adaptive or multi-state solving, and numeric
+The minimal system/equation path still means one-state fixed-step thermal
+workflow support, plus solver metadata and solver-plan artifacts for that
+narrow scope. A separate internal state-space track now covers multi-state
+fixed-step Euler/RK4 thermal simulations with report and IDE artifacts. General
+nonlinear solvers, DAE, adaptive solving, and production numeric
 component-graph solving remain future tracks. Domain package registries also
 remain future work. Historical tags may remain for traceability; current public
 release line starts from v1.0.0.

@@ -180,7 +180,7 @@ The current top-level declaration families are:
 | Fast binding | `Q = 10 kW` | Inferred declaration |
 | Schema | `schema SensorData { ... }` | CSV/data boundary |
 | Function | `fn heat_loss(...) -> HeatRate [W] { ... }` | Typed scalar helper support |
-| System | `system Room { ... }` | Supported one-state system metadata/run support |
+| System | `system Room { ... }` | Supported one-state system metadata/run support; internal state-space vector path |
 | Domain/component | `domain Fluid { ... }` | Internal metadata track |
 | Print | `print "Q = {Q: .2 kW}"` | Debug/CLI output |
 | Log | `log warn "Q is high"` | Structured runtime message |
@@ -1239,11 +1239,12 @@ system ThermalStateSpaceMetadata {
 `review.json` records `state_space_vectors` and `linear_operators` for IDE and
 review tooling. Linear operator matrix rows must match the target vector size,
 and columns must match the source vector size; mismatches use
-`E-STATE-SPACE-OP-SHAPE-001`. Runtime may materialize a one-state,
-fixed-step explicit-Euler trajectory when shape-checked A/B operators are
-available, including TimeSeries materialization for bound input vector members.
-This internal track does not claim a general matrix, multi-state, nonlinear,
-DAE, or adaptive solver.
+`E-STATE-SPACE-OP-SHAPE-001`. Runtime may materialize fixed-step state
+trajectories when shape-checked A/B operators are available, including
+multi-state continuous Euler/RK4 execution, discrete A/B execution, and
+TimeSeries materialization for bound input vector members. This internal track
+does not claim unit-compatible operator algebra, nonlinear, DAE, adaptive, or
+component-coupled state-space solving.
 
 Domain/component shapes are documented separately in
 `docs/guide/domain_component.md`. They are useful for metadata, validation, and
@@ -1446,7 +1447,7 @@ The current guide intentionally does not promise:
 | Full process sandboxing | Explicit process records and profile basics exist; sandbox isolation is deferred |
 | Project-wide test discovery/runner | Local source-file test blocks exist; workspace discovery is deferred |
 | Full package/module system | File imports and metadata seeds only |
-| General nonlinear/multi-state solving | Deferred beyond supported one-state system path |
+| General nonlinear/DAE/adaptive solving | Deferred beyond supported one-state system path and internal fixed-step state-space path |
 | Full artifact schema evolution policy | Stable-core schemas exist; broader future-track schemas may grow |
 
 ## Authoring Checklist
