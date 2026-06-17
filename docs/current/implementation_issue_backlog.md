@@ -147,6 +147,10 @@ Current coverage:
   `F(x, xdot, z, u, t, p)` with optional mass matrix, initial-condition
   consistency checks, algebraic-variable initialization, ODE residual,
   algebraic-variable, and mass-matrix tests.
+- Runtime has a standalone dynamic-component explicit-Euler seed that solves
+  algebraic variables with fixed point at each timestep, updates state
+  trajectories, records algebraic trajectories, and returns timestep-level
+  convergence/failure diagnostics.
 
 Definition of Done:
 
@@ -228,6 +232,8 @@ Current coverage:
   labels, statuses, and source-line navigation from `component_graph`.
 - IDE Assembly panel renders behavior nodes plus generated equation and
   evaluated residual rows from assembly artifacts.
+- Runtime has an internal dynamic-component solver seed, but component graph
+  assembly is not yet lowered into that numeric path.
 
 Title: `assembly: harden generated equations and residual graph artifacts`
 

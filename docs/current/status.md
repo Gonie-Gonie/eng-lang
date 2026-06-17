@@ -151,9 +151,11 @@ are not public stable workflows.
   residual history, largest-residual summary, and failure artifacts. The same
   internal layer has a standalone implicit-Euler DAE seed over
   `F(x, xdot, z, u, t, p)` with optional mass matrix, initial consistency
-  checks, and algebraic-variable initialization. Newton/DAE seeds are not wired
-  into language-level nonlinear systems, component assembly, or report/IDE
-  workflows.
+  checks, algebraic-variable initialization, and a dynamic-component
+  explicit-Euler seed that solves algebraic variables per timestep and returns
+  state/algebraic trajectories plus failure diagnostics. Newton/DAE/dynamic
+  component seeds are not wired into language-level nonlinear systems,
+  component assembly, or report/IDE workflows.
 - Behavior graph seeds: runtime delay buffer with linear and previous-sample
   interpolation policies, explicit initial-history policy, relationship
   artifact, and solver-style behavior-node evaluation. Runtime also has a

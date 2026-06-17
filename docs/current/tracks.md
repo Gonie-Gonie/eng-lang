@@ -91,6 +91,7 @@ Internal runtime seeds:
 - supplied analytic/JIT Jacobian hook for Newton
 - standalone implicit-Euler DAE seed over F(x, xdot, z, u, t, p)
 - optional DAE mass matrix and initial consistency checks
+- standalone dynamic-component explicit-Euler seed with algebraic solve per timestep
 - delay buffer with interpolation and initial-history policies
 - Predictor contract wrapper with model hash, range warnings, and Jacobian policy
 - external behavior wrapper with provenance, profile policy, and failure propagation
@@ -101,6 +102,7 @@ Deferred:
 
 ```text
 - language-integrated nonlinear/DAE solving
+- language-integrated dynamic component graph solving
 - language-integrated delay/Predictor/external behavior graph solving
 - adaptive solvers
 - general equation-system runtime
