@@ -963,6 +963,74 @@ pub struct RuntimeSystemSolution {
     pub points: Vec<RuntimePoint>,
 }
 
+impl RuntimeSystemSolution {
+    pub fn from_solver_result(
+        system: &eng_compiler::SystemInfo,
+        binding: Option<&str>,
+        state: &eng_compiler::SystemVariableInfo,
+        solver_result: &SolverResult,
+        reason: &str,
+    ) -> Option<Self> {
+        let trajectory = solver_result.single_state()?;
+        Self::from_solver_trajectory(system, binding, state, solver_result, trajectory, reason)
+    }
+
+    pub fn from_solver_trajectory(
+        system: &eng_compiler::SystemInfo,
+        binding: Option<&str>,
+        state: &eng_compiler::SystemVariableInfo,
+        solver_result: &SolverResult,
+        trajectory: &StateTrajectory,
+        reason: &str,
+    ) -> Option<Self> {
+        let canonical_initial_value = trajectory.initial_value()?;
+        let canonical_final_value = trajectory.final_value()?;
+        let points = trajectory
+            .time_value_points(&solver_result.time_grid)
+            .into_iter()
+            .map(|(x, value)| RuntimePoint {
+                x,
+                y: display_variable_value(value, state),
+            })
+            .collect::<Vec<_>>();
+
+        Some(Self {
+            system: system.name.clone(),
+            binding: binding.map(str::to_owned),
+            status: solver_result.diagnostics.status.clone(),
+            method: solver_result.plan.options.method.clone(),
+            reason: reason.to_owned(),
+            states: solver_result.plan.simulation.states.clone(),
+            algebraic_variables: system_variable_names_by_role(system, "algebraic"),
+            inputs: solver_result.plan.simulation.inputs.clone(),
+            parameters: solver_result.plan.simulation.parameters.clone(),
+            outputs: solver_result.plan.simulation.outputs.clone(),
+            state: trajectory.name.clone(),
+            quantity_kind: trajectory.quantity_kind.clone(),
+            display_unit: state.display_unit.clone(),
+            canonical_unit: trajectory.canonical_unit.clone(),
+            time_unit: solver_result.time_grid.unit.clone(),
+            duration_s: solver_result.time_grid.duration_s,
+            time_step_s: solver_result.time_grid.timestep_s,
+            step_count: solver_result.time_grid.step_count,
+            tolerance: solver_result.diagnostics.tolerance,
+            max_iterations: solver_result.diagnostics.max_iterations,
+            iteration_count: solver_result.diagnostics.iteration_count,
+            convergence_status: solver_result.diagnostics.convergence_status.clone(),
+            failure_reason: solver_result
+                .diagnostics
+                .failure
+                .as_ref()
+                .map(|failure| failure.message.clone()),
+            initial_value: display_variable_value(canonical_initial_value, state),
+            final_value: display_variable_value(canonical_final_value, state),
+            canonical_initial_value,
+            canonical_final_value,
+            points,
+        })
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct RuntimeComponentSolution {
     pub assembly: String,
@@ -3037,11 +3105,11 @@ fn state_space_runtime_solutions(
                 .iter()
                 .find(|state| state.name == trajectory.name)
                 .and_then(|state| {
-                    runtime_system_solution_for_trajectory(
+                    RuntimeSystemSolution::from_solver_trajectory(
                         system,
                         binding,
                         state,
-                        &solver_result,
+                        solver_result,
                         trajectory,
                         reason,
                     )
@@ -3381,86 +3449,13 @@ fn materialize_first_order_thermal_solution(
         })
         .ok()?;
 
-    runtime_system_solution_from_solver_result(
+    RuntimeSystemSolution::from_solver_result(
         system,
         binding,
         state,
         &solver_result,
         "recognized first-order thermal ODE and executed through SolverResult fixed-step one-state path",
     )
-}
-
-fn runtime_system_solution_from_solver_result(
-    system: &eng_compiler::SystemInfo,
-    binding: Option<&str>,
-    state: &eng_compiler::SystemVariableInfo,
-    solver_result: &SolverResult,
-    reason: &str,
-) -> Option<RuntimeSystemSolution> {
-    let trajectory = solver_result.single_state()?;
-    runtime_system_solution_for_trajectory(
-        system,
-        binding,
-        state,
-        solver_result,
-        trajectory,
-        reason,
-    )
-}
-
-fn runtime_system_solution_for_trajectory(
-    system: &eng_compiler::SystemInfo,
-    binding: Option<&str>,
-    state: &eng_compiler::SystemVariableInfo,
-    solver_result: &SolverResult,
-    trajectory: &StateTrajectory,
-    reason: &str,
-) -> Option<RuntimeSystemSolution> {
-    let canonical_initial_value = trajectory.initial_value()?;
-    let canonical_final_value = trajectory.final_value()?;
-    let points = trajectory
-        .time_value_points(&solver_result.time_grid)
-        .into_iter()
-        .map(|(x, value)| RuntimePoint {
-            x,
-            y: display_variable_value(value, state),
-        })
-        .collect::<Vec<_>>();
-
-    Some(RuntimeSystemSolution {
-        system: system.name.clone(),
-        binding: binding.map(str::to_owned),
-        status: solver_result.diagnostics.status.clone(),
-        method: solver_result.plan.options.method.clone(),
-        reason: reason.to_owned(),
-        states: solver_result.plan.simulation.states.clone(),
-        algebraic_variables: system_variable_names_by_role(system, "algebraic"),
-        inputs: solver_result.plan.simulation.inputs.clone(),
-        parameters: solver_result.plan.simulation.parameters.clone(),
-        outputs: solver_result.plan.simulation.outputs.clone(),
-        state: trajectory.name.clone(),
-        quantity_kind: trajectory.quantity_kind.clone(),
-        display_unit: state.display_unit.clone(),
-        canonical_unit: trajectory.canonical_unit.clone(),
-        time_unit: solver_result.time_grid.unit.clone(),
-        duration_s: solver_result.time_grid.duration_s,
-        time_step_s: solver_result.time_grid.timestep_s,
-        step_count: solver_result.time_grid.step_count,
-        tolerance: solver_result.diagnostics.tolerance,
-        max_iterations: solver_result.diagnostics.max_iterations,
-        iteration_count: solver_result.diagnostics.iteration_count,
-        convergence_status: solver_result.diagnostics.convergence_status.clone(),
-        failure_reason: solver_result
-            .diagnostics
-            .failure
-            .as_ref()
-            .map(|failure| failure.message.clone()),
-        initial_value: display_variable_value(canonical_initial_value, state),
-        final_value: display_variable_value(canonical_final_value, state),
-        canonical_initial_value,
-        canonical_final_value,
-        points,
-    })
 }
 
 fn system_variable_matches_quantity(

@@ -125,6 +125,9 @@ Current coverage:
 - The supported one-state thermal runtime path now delegates RHS evaluation and
   fixed-step execution to `solver::thermal::solve_first_order_thermal`; runtime
   materialization only recognizes the system shape and prepares canonical input.
+- `RuntimeSystemSolution::from_solver_result` and `from_solver_trajectory`
+  provide the explicit SolverResult-to-runtime artifact adapter used by
+  one-state thermal and state-space materialization paths.
 
 Title: `ide: add side-effect artifact panels`
 
