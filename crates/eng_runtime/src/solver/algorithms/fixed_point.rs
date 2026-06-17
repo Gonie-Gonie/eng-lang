@@ -79,6 +79,8 @@ where
             residuals.push(residual);
             *value = relaxed;
         }
+        ensure_finite_values("E-FIXED-POINT-VALUE", "fixed-point residual", &residuals)?;
+        ensure_finite_values("E-FIXED-POINT-VALUE", "fixed-point relaxed", &values)?;
         let residual_norm = euclidean_norm(&residuals);
         residual_history.push(residual_norm);
         if residual_norm <= options.tolerance {
@@ -179,6 +181,15 @@ mod tests {
 
         let failure = solve_fixed_point(&[0.0], &FixedPointOptions::default(), |_| {
             Ok(vec![f64::INFINITY])
+        })
+        .unwrap_err();
+        assert_eq!(failure.code, "E-FIXED-POINT-VALUE");
+    }
+
+    #[test]
+    fn rejects_nonfinite_fixed_point_intermediates() {
+        let failure = solve_fixed_point(&[f64::MAX], &FixedPointOptions::default(), |_| {
+            Ok(vec![-f64::MAX])
         })
         .unwrap_err();
         assert_eq!(failure.code, "E-FIXED-POINT-VALUE");

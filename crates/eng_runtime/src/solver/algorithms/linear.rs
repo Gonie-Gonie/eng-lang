@@ -65,6 +65,8 @@ pub fn solve_dense_linear_system(
             *value /= pivot;
         }
         b[pivot_index] /= pivot;
+        ensure_finite_values("linear solver pivot row", &a[pivot_index])?;
+        ensure_finite_values("linear solver RHS", &b)?;
         let pivot_row = a[pivot_index].clone();
         let pivot_rhs = b[pivot_index];
 
@@ -80,6 +82,8 @@ pub fn solve_dense_linear_system(
                 *value -= factor * *pivot_value;
             }
             b[row_index] -= factor * pivot_rhs;
+            ensure_finite_values("linear solver row", row)?;
+            ensure_finite_values("linear solver RHS", &b)?;
         }
     }
 
@@ -106,6 +110,17 @@ pub fn solve_dense_linear_system(
             "residual_above_tolerance".to_owned()
         },
     })
+}
+
+fn ensure_finite_values(label: &str, values: &[f64]) -> Result<(), SolverFailure> {
+    if values.iter().all(|value| value.is_finite()) {
+        Ok(())
+    } else {
+        Err(SolverFailure::new(
+            "E-LINEAR-FINITE",
+            format!("{label} contains a non-finite value"),
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -145,5 +160,14 @@ mod tests {
         let tolerance_failure =
             solve_dense_linear_system(&[vec![1.0]], &[1.0], f64::NAN).unwrap_err();
         assert_eq!(tolerance_failure.code, "E-LINEAR-TOLERANCE");
+    }
+
+    #[test]
+    fn rejects_nonfinite_linear_intermediates() {
+        let tiny = f64::MIN_POSITIVE;
+        let failure =
+            solve_dense_linear_system(&[vec![tiny]], &[f64::MAX], tiny / 2.0).unwrap_err();
+
+        assert_eq!(failure.code, "E-LINEAR-FINITE");
     }
 }

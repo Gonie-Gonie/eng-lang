@@ -269,7 +269,18 @@ where
     for column in 0..n {
         let mut perturbed = values.to_vec();
         let step = options.finite_difference_step * values[column].abs().max(1.0);
+        if !step.is_finite() {
+            return Err(SolverFailure::new(
+                "E-NEWTON-FD-CANDIDATE-FINITE",
+                "Newton finite-difference perturbation became non-finite",
+            ));
+        }
         perturbed[column] += step;
+        ensure_finite_values(
+            "E-NEWTON-FD-CANDIDATE-FINITE",
+            "Newton finite-difference candidate",
+            &perturbed,
+        )?;
         let perturbed_residuals = residual(&perturbed)?;
         validate_residual_layout(n, &perturbed_residuals)?;
         for row in 0..n {
@@ -299,12 +310,18 @@ where
     let mut scale = options.damping;
     let attempts = options.line_search_steps.max(1);
     let mut best: Option<AcceptedStep> = None;
+    let mut saw_nonfinite_candidate = false;
     for _ in 0..attempts {
         let candidate = values
             .iter()
             .zip(step.iter())
             .map(|(value, delta)| value + scale * delta)
             .collect::<Vec<_>>();
+        if candidate.iter().any(|value| !value.is_finite()) {
+            saw_nonfinite_candidate = true;
+            scale *= 0.5;
+            continue;
+        }
         let candidate_residuals = residual(&candidate)?;
         validate_residual_layout(values.len(), &candidate_residuals)?;
         let candidate_norm = norm(&candidate_residuals);
@@ -325,15 +342,33 @@ where
         scale *= 0.5;
     }
     best.ok_or_else(|| {
-        SolverFailure::new(
-            "E-NEWTON-LINE-SEARCH",
-            "Newton solver could not evaluate any damped step candidate",
-        )
+        if saw_nonfinite_candidate {
+            SolverFailure::new(
+                "E-NEWTON-CANDIDATE-FINITE",
+                "Newton line-search candidate became non-finite",
+            )
+        } else {
+            SolverFailure::new(
+                "E-NEWTON-LINE-SEARCH",
+                "Newton solver could not evaluate any damped step candidate",
+            )
+        }
     })
 }
 
 fn norm(values: &[f64]) -> f64 {
     euclidean_norm(values)
+}
+
+fn ensure_finite_values(code: &str, label: &str, values: &[f64]) -> Result<(), SolverFailure> {
+    if values.iter().all(|value| value.is_finite()) {
+        Ok(())
+    } else {
+        Err(SolverFailure::new(
+            code,
+            format!("{label} vector contains a non-finite value"),
+        ))
+    }
 }
 
 fn largest_residual(values: &[f64]) -> Option<NewtonLargestResidual> {
@@ -464,6 +499,35 @@ mod tests {
             solve_newton(&[f64::NAN], &NewtonOptions::default(), |_| Ok(vec![0.0])).unwrap_err();
 
         assert_eq!(failure.code, "E-NEWTON-INITIAL-FINITE");
+    }
+
+    #[test]
+    fn rejects_nonfinite_finite_difference_candidate() {
+        let options = NewtonOptions {
+            finite_difference_step: f64::MAX,
+            ..Default::default()
+        };
+        let failure = solve_newton(&[2.0], &options, |values| Ok(vec![values[0]])).unwrap_err();
+
+        assert_eq!(failure.code, "E-NEWTON-FD-CANDIDATE-FINITE");
+    }
+
+    #[test]
+    fn rejects_nonfinite_line_search_candidate() {
+        let options = NewtonOptions {
+            max_iterations: 1,
+            line_search_steps: 1,
+            ..Default::default()
+        };
+        let failure = solve_newton_with_jacobian(
+            &[f64::MAX],
+            &options,
+            |_| Ok(vec![-f64::MAX]),
+            |_values, _baseline_residuals| Ok(vec![vec![1.0]]),
+        )
+        .unwrap_err();
+
+        assert_eq!(failure.code, "E-NEWTON-CANDIDATE-FINITE");
     }
 
     #[test]
