@@ -1296,18 +1296,32 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"result_quantity\": \"Energy\"")
+                || !output.report_spec_json.contains("\"kernel_plan\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"kind\": \"timeseries_integrate\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"status\": \"interpreter_supported\"")
+                || !output
+                    .report_spec_json
+                    .contains("candidate can execute through the interpreter kernel IR")
                 || !output.report_html.contains("CSV Promotions")
                 || !output.report_html.contains("Source Hash")
                 || !output.report_html.contains("Axis Info")
+                || !output
+                    .report_html
+                    .contains("Runtime Optimization Kernel Plan")
+                || !output.report_html.contains("interpreter_supported")
                 || !output.report_html.contains("Energy")
             {
                 eprintln!(
-                    "expected plot example to expose source hashes, TimeSeries axes, and HeatRate-to-Energy integration artifacts"
+                    "expected plot example to expose source hashes, TimeSeries axes, HeatRate-to-Energy integration artifacts, and runtime optimization kernel plan fallback metadata"
                 );
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/01_csv_plot/main.eng produced report, PlotSpec, provenance, axis, and integration artifacts"
+                "ok: examples/official/01_csv_plot/main.eng produced report, PlotSpec, provenance, axis, integration, and kernel plan artifacts"
             );
         }
         Err(error) => {

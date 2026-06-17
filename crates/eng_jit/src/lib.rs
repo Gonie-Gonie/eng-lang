@@ -953,7 +953,7 @@ fn store_output(
     Ok(())
 }
 
-fn candidate_executor_status(candidate: &KernelCandidate) -> (&'static str, &'static str) {
+pub fn candidate_executor_status(candidate: &KernelCandidate) -> (&'static str, &'static str) {
     if candidate.lowering_status == "lowerable_to_numeric_kernel_plan" {
         (
             "interpreter_supported",

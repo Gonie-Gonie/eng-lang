@@ -121,6 +121,7 @@ struct InspectorView {
     time_alignments: Value,
     systems: Value,
     system_ir: Value,
+    kernel_plan: Value,
     class_objects: Value,
     assemblies: Value,
     component_graph: Value,
@@ -143,6 +144,7 @@ impl Default for InspectorView {
             time_alignments: Value::Array(Vec::new()),
             systems: Value::Array(Vec::new()),
             system_ir: Value::Array(Vec::new()),
+            kernel_plan: Value::Null,
             class_objects: Value::Array(Vec::new()),
             assemblies: Value::Array(Vec::new()),
             component_graph: Value::Null,
@@ -928,6 +930,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         time_alignments: json_array_clone(&report, "time_alignments"),
         systems: system_inspector(&report, &result),
         system_ir: json_array_clone(&report, "system_ir"),
+        kernel_plan: report.get("kernel_plan").cloned().unwrap_or(Value::Null),
         class_objects: json_array_clone(&report, "object_summary"),
         assemblies: json_array_clone(&report, "assembly_summary"),
         component_graph: report
@@ -2126,6 +2129,39 @@ fn smoke() -> Result<(), String> {
             state_space_example.display()
         ));
     }
+    let jit_example = root.join("examples/official/01_csv_plot/main.eng");
+    let jit_output = run_file(
+        &jit_example,
+        &root.join("build").join("ide-smoke-jit-kernels"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let jit_cached = CachedRunOutput::from_output(jit_output);
+    let jit_inspectors = runtime_inspectors(&root, &jit_cached);
+    let has_kernel_plan = jit_inspectors
+        .kernel_plan
+        .get("candidates")
+        .and_then(Value::as_array)
+        .is_some_and(|items| {
+            items.iter().any(|item| {
+                json_field_string(item, "kind").as_deref() == Some("timeseries_integrate")
+                    && item
+                        .get("executor")
+                        .and_then(|executor| json_field_string(executor, "status"))
+                        .as_deref()
+                        == Some("interpreter_supported")
+                    && item
+                        .get("executor")
+                        .and_then(|executor| json_field_string(executor, "fallback_reason"))
+                        .is_some_and(|reason| reason.contains("interpreter kernel IR"))
+            })
+        });
+    if !has_kernel_plan {
+        return Err(format!(
+            "{} did not produce IDE kernel plan fallback inspector metadata",
+            jit_example.display()
+        ));
+    }
     let class_example = root.join("examples/official/19_class_object/main.eng");
     let class_output = run_file(
         &class_example,
@@ -2231,7 +2267,7 @@ fn smoke() -> Result<(), String> {
         ));
     }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), measured workflow inspectors, solved thermal assembly inspector, state-space trajectory inspector, class object inspector, side-effect inspectors, schema failure inspector",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), measured workflow inspectors, solved thermal assembly inspector, state-space trajectory inspector, kernel plan inspector, class object inspector, side-effect inspectors, schema failure inspector",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),

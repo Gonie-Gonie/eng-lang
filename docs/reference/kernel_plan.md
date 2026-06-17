@@ -45,6 +45,14 @@ Within this format:
 `backend = "interpreter-fallback"` means the normal EngLang runtime still owns
 execution. Current JIT planning makes no speedup claim.
 
+## Report And IDE Surface
+
+`report_spec.json` embeds a `kernel_plan` object using the same top-level
+shape, candidate fields, executor status, and fallback reason described here.
+`report.html` renders that data as a Runtime Optimization Kernel Plan table,
+and the tester IDE exposes it in the Kernel inspector panel. These surfaces are
+for inspection only; they are not evidence of native execution or acceleration.
+
 ## Backend Selection
 
 Supported backend requests:

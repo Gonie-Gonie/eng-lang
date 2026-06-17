@@ -7,10 +7,10 @@ repository.workspace = true
 
 [dependencies]
 eng_compiler = { path = "../eng_compiler" }
+eng_jit = { path = "../eng_jit" }
 
 [lib]
 path = "src/lib.rs"
 
 [lints]
 workspace = true
-

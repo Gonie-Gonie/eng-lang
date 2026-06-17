@@ -191,6 +191,8 @@ Internal implementation seeds on `main`:
 - interpreter baseline metadata
 - backend selection metadata
 - hot-kernel candidate estimates
+- report-spec/report.html and IDE Kernel panel inspection of selected backend,
+  candidates, executor status, and fallback reasons
 - interpreter kernel IR and executor correctness tests for arithmetic,
   integration, residual, Jacobian, and Newton-step kernels
 - checked TimeSeries arithmetic and integration metadata lowering into

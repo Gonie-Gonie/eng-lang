@@ -38,6 +38,9 @@ Current coverage:
 - CLI example smoke checks kernel candidates, interpreter executor fallback
   metadata, component residual kernel candidates, and native-backend
   non-availability without making a speedup claim.
+- `report_spec.json`, `report.html`, and the IDE Kernel panel surface the
+  selected backend, kernel candidates, executor status, and fallback reason as
+  inspection metadata without presenting acceleration.
 - `eng.exe jit-bench` remains a normal-runtime timing harness and makes no
   speedup claim.
 
@@ -87,6 +90,9 @@ Current coverage:
 - IDE smoke covers the solved Thermal component assembly path by checking
   boundary RHS equations, dense linear solve status, solved variables, and
   normalized residual metadata from `assembly_summary`.
+- IDE smoke covers the Kernel panel by checking the official CSV workflow's
+  `timeseries_integrate` candidate and interpreter fallback reason from
+  `report_spec.json`.
 - `artifacts-check` snapshots the official one-state solver artifact contract
   across `review.json` `simulation_results`, `report_spec.json`
   `system_ir[].solver_results`, and `result.engres` `solver_result` fields.

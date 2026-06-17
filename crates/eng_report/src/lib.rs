@@ -1,4 +1,5 @@
 use eng_compiler::{CheckReport, DomainTypeParameterInfo, Severity};
+use eng_jit::{candidate_executor_status, plan_for_report};
 
 pub const REPORT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const REPORT_SPEC_VERSION: u32 = 1;
@@ -75,9 +76,47 @@ pub struct ReportSpec {
     pub state_space_vectors: Vec<ReportStateSpaceVector>,
     pub linear_operators: Vec<ReportLinearOperator>,
     pub system_ir: Vec<ReportSystemIr>,
+    pub kernel_plan: ReportKernelPlan,
     pub plot_manifest: ReportPlotManifest,
     pub warnings: Vec<ReportWarning>,
     pub provenance: ReportProvenance,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportKernelPlan {
+    pub format: String,
+    pub backend: String,
+    pub backend_selection: ReportKernelBackendSelection,
+    pub candidate_count: usize,
+    pub candidates: Vec<ReportKernelCandidate>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportKernelBackendSelection {
+    pub requested: String,
+    pub selected: String,
+    pub status: String,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportKernelCandidate {
+    pub name: String,
+    pub kind: String,
+    pub line: usize,
+    pub source: String,
+    pub reason: String,
+    pub lowering_status: String,
+    pub operations: Vec<String>,
+    pub estimated_rows: Option<usize>,
+    pub input_count: usize,
+    pub output_count: usize,
+    pub operation_count: usize,
+    pub scan_count: usize,
+    pub complexity: String,
+    pub executor_backend: String,
+    pub executor_status: String,
+    pub fallback_reason: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1625,6 +1664,7 @@ pub fn report_spec_from_report(
             line: operator.line,
         })
         .collect();
+    let kernel_plan = report_kernel_plan(report);
 
     ReportSpec {
         source_path: report.source_path.display().to_string(),
@@ -1657,6 +1697,7 @@ pub fn report_spec_from_report(
         state_space_vectors,
         linear_operators,
         system_ir,
+        kernel_plan,
         plot_manifest: ReportPlotManifest {
             path: plot_manifest_relative_path.to_owned(),
             hash: plot_manifest_hash.to_owned(),
@@ -1680,6 +1721,47 @@ pub fn report_spec_from_report(
             environment_dependencies,
             plot_spec_version: PLOT_SPEC_VERSION,
         },
+    }
+}
+
+fn report_kernel_plan(report: &CheckReport) -> ReportKernelPlan {
+    let plan = plan_for_report(report);
+    let candidates = plan
+        .candidates
+        .iter()
+        .map(|candidate| {
+            let (executor_status, fallback_reason) = candidate_executor_status(candidate);
+            ReportKernelCandidate {
+                name: candidate.name.clone(),
+                kind: candidate.kind.clone(),
+                line: candidate.line,
+                source: candidate.source.clone(),
+                reason: candidate.reason.clone(),
+                lowering_status: candidate.lowering_status.clone(),
+                operations: candidate.operations.clone(),
+                estimated_rows: candidate.estimate.estimated_rows,
+                input_count: candidate.estimate.input_count,
+                output_count: candidate.estimate.output_count,
+                operation_count: candidate.estimate.operation_count,
+                scan_count: candidate.estimate.scan_count,
+                complexity: candidate.estimate.complexity.clone(),
+                executor_backend: eng_jit::INTERPRETER_FALLBACK_BACKEND.to_owned(),
+                executor_status: executor_status.to_owned(),
+                fallback_reason: fallback_reason.to_owned(),
+            }
+        })
+        .collect::<Vec<_>>();
+    ReportKernelPlan {
+        format: plan.format,
+        backend: plan.backend,
+        backend_selection: ReportKernelBackendSelection {
+            requested: plan.backend_selection.requested,
+            selected: plan.backend_selection.selected,
+            status: plan.backend_selection.status,
+            reason: plan.backend_selection.reason,
+        },
+        candidate_count: candidates.len(),
+        candidates,
     }
 }
 
@@ -3976,6 +4058,9 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
     }
     json.push_str("\n  ],\n");
 
+    push_report_kernel_plan_json(&mut json, &spec.kernel_plan);
+    json.push_str(",\n");
+
     json.push_str("  \"plot_manifest\": {\n");
     json.push_str(&format!(
         "    \"path\": \"{}\",\n",
@@ -4557,6 +4642,118 @@ fn push_report_system_solutions_json(
         json.push_str(&format!("{indent}  }}"));
     }
     json.push_str(&format!("\n{indent}]"));
+}
+
+fn push_report_kernel_plan_json(json: &mut String, plan: &ReportKernelPlan) {
+    json.push_str("  \"kernel_plan\": {\n");
+    json.push_str(&format!(
+        "    \"format\": \"{}\",\n",
+        json_escape(&plan.format)
+    ));
+    json.push_str(&format!(
+        "    \"backend\": \"{}\",\n",
+        json_escape(&plan.backend)
+    ));
+    json.push_str("    \"backend_selection\": {\n");
+    json.push_str(&format!(
+        "      \"requested\": \"{}\",\n",
+        json_escape(&plan.backend_selection.requested)
+    ));
+    json.push_str(&format!(
+        "      \"selected\": \"{}\",\n",
+        json_escape(&plan.backend_selection.selected)
+    ));
+    json.push_str(&format!(
+        "      \"status\": \"{}\",\n",
+        json_escape(&plan.backend_selection.status)
+    ));
+    json.push_str(&format!(
+        "      \"reason\": \"{}\"\n",
+        json_escape(&plan.backend_selection.reason)
+    ));
+    json.push_str("    },\n");
+    json.push_str(&format!(
+        "    \"candidate_count\": {},\n",
+        plan.candidate_count
+    ));
+    json.push_str("    \"candidates\": [\n");
+    for (index, candidate) in plan.candidates.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&candidate.name)
+        ));
+        json.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&candidate.kind)
+        ));
+        json.push_str(&format!("        \"line\": {},\n", candidate.line));
+        json.push_str(&format!(
+            "        \"source\": \"{}\",\n",
+            json_escape(&candidate.source)
+        ));
+        json.push_str(&format!(
+            "        \"reason\": \"{}\",\n",
+            json_escape(&candidate.reason)
+        ));
+        json.push_str(&format!(
+            "        \"lowering_status\": \"{}\",\n",
+            json_escape(&candidate.lowering_status)
+        ));
+        json.push_str("        \"operations\": [");
+        push_json_string_array(json, &candidate.operations);
+        json.push_str("],\n");
+        json.push_str("        \"estimate\": {\n");
+        if let Some(estimated_rows) = candidate.estimated_rows {
+            json.push_str(&format!(
+                "          \"estimated_rows\": {},\n",
+                estimated_rows
+            ));
+        } else {
+            json.push_str("          \"estimated_rows\": null,\n");
+        }
+        json.push_str(&format!(
+            "          \"input_count\": {},\n",
+            candidate.input_count
+        ));
+        json.push_str(&format!(
+            "          \"output_count\": {},\n",
+            candidate.output_count
+        ));
+        json.push_str(&format!(
+            "          \"operation_count\": {},\n",
+            candidate.operation_count
+        ));
+        json.push_str(&format!(
+            "          \"scan_count\": {},\n",
+            candidate.scan_count
+        ));
+        json.push_str(&format!(
+            "          \"complexity\": \"{}\"\n",
+            json_escape(&candidate.complexity)
+        ));
+        json.push_str("        },\n");
+        json.push_str("        \"executor\": {\n");
+        json.push_str(&format!(
+            "          \"backend\": \"{}\",\n",
+            json_escape(&candidate.executor_backend)
+        ));
+        json.push_str(&format!(
+            "          \"status\": \"{}\",\n",
+            json_escape(&candidate.executor_status)
+        ));
+        json.push_str(&format!(
+            "          \"fallback_reason\": \"{}\"\n",
+            json_escape(&candidate.fallback_reason)
+        ));
+        json.push_str("        }\n");
+        json.push_str("      }");
+    }
+    json.push_str("\n    ]\n");
+    json.push_str("  }");
 }
 
 pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
@@ -5253,6 +5450,7 @@ fn render_html_inner(
         .unwrap_or_default();
     let state_space_section = spec.map(render_state_space_section).unwrap_or_default();
     let system_solver_section = spec.map(render_system_solver_section).unwrap_or_default();
+    let kernel_plan_section = spec.map(render_kernel_plan_section).unwrap_or_default();
 
     format!(
         r#"<!doctype html>
@@ -5458,6 +5656,7 @@ fn render_html_inner(
     </table>
     {state_space_section}
     {system_solver_section}
+    {kernel_plan_section}
     <h2>System Equations</h2>
     <table>
       <thead><tr><th>Line</th><th>System</th><th>Equation</th><th>Left Dimension</th><th>Right Dimension</th><th>Residual</th><th>Status</th></tr></thead>
@@ -5750,6 +5949,62 @@ fn render_system_solver_section(spec: &ReportSpec) -> String {
       <thead><tr><th>System</th><th>Binding</th><th>Trajectory</th><th>Variables</th><th>Status/Method</th><th>Diagnostics</th><th>Steps</th><th>Final</th><th>Step</th></tr></thead>
       <tbody>{rows}</tbody>
     </table>"#
+    )
+}
+
+fn render_kernel_plan_section(spec: &ReportSpec) -> String {
+    let plan = &spec.kernel_plan;
+    let rows = plan
+        .candidates
+        .iter()
+        .map(|candidate| {
+            let rows = candidate
+                .estimated_rows
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "-".to_owned());
+            format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td><code>{}</code></td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                candidate.line,
+                html_escape(&candidate.name),
+                html_escape(&candidate.kind),
+                html_escape(&candidate.source),
+                html_escape(&candidate.lowering_status),
+                html_escape(&candidate.executor_status),
+                html_escape(&candidate.fallback_reason),
+                html_escape(&format!(
+                    "rows={}, inputs={}, outputs={}, ops={}, scans={}",
+                    rows,
+                    candidate.input_count,
+                    candidate.output_count,
+                    candidate.operation_count,
+                    candidate.scan_count
+                )),
+                html_escape(&candidate.operations.join(", "))
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    let rows = if rows.is_empty() {
+        "<tr><td colspan=\"9\">No kernel candidates.</td></tr>".to_owned()
+    } else {
+        rows
+    };
+    format!(
+        r#"<h2>Runtime Optimization Kernel Plan</h2>
+    <table>
+      <thead><tr><th>Backend</th><th>Requested</th><th>Selected</th><th>Status</th><th>Reason</th><th>Candidates</th></tr></thead>
+      <tbody><tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr></tbody>
+    </table>
+    <table>
+      <thead><tr><th>Line</th><th>Name</th><th>Kind</th><th>Source</th><th>Lowering</th><th>Executor</th><th>Fallback Reason</th><th>Estimate</th><th>Operations</th></tr></thead>
+      <tbody>{rows}</tbody>
+    </table>"#,
+        html_escape(&plan.backend),
+        html_escape(&plan.backend_selection.requested),
+        html_escape(&plan.backend_selection.selected),
+        html_escape(&plan.backend_selection.status),
+        html_escape(&plan.backend_selection.reason),
+        plan.candidate_count
     )
 }
 
@@ -6699,6 +6954,35 @@ mod tests {
         assert!(json.contains("\"ModelMetrics\""));
         assert!(html.contains("ML Models"));
         assert!(html.contains("reg_model"));
+    }
+
+    #[test]
+    fn report_spec_and_html_include_kernel_plan_metadata() {
+        let source = include_str!("../../../examples/official/01_csv_plot/main.eng");
+        let report = check_source(
+            "examples/official/01_csv_plot/main.eng",
+            source,
+            &CheckOptions::default(),
+        );
+
+        let spec = report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        let json = report_spec_json(&spec);
+        let html = render_html_with_spec(&report, "plots/timeseries.svg", &spec);
+
+        assert_eq!(spec.kernel_plan.format, "eng-kernel-plan-v1");
+        assert_eq!(spec.kernel_plan.backend, "interpreter-fallback");
+        assert!(spec.kernel_plan.candidate_count >= 3);
+        assert!(spec.kernel_plan.candidates.iter().any(|candidate| {
+            candidate.kind == "timeseries_integrate"
+                && candidate.executor_status == "interpreter_supported"
+                && candidate.fallback_reason.contains("interpreter kernel IR")
+        }));
+        assert!(json.contains("\"kernel_plan\""));
+        assert!(json.contains("\"kind\": \"timeseries_integrate\""));
+        assert!(json.contains("\"executor\""));
+        assert!(json.contains("candidate can execute through the interpreter kernel IR"));
+        assert!(html.contains("Runtime Optimization Kernel Plan"));
+        assert!(html.contains("interpreter_supported"));
     }
 
     #[test]

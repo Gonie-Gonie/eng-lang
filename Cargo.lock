@@ -749,6 +749,7 @@ name = "eng_report"
 version = "1.0.0"
 dependencies = [
  "eng_compiler",
+ "eng_jit",
 ]
 
 [[package]]

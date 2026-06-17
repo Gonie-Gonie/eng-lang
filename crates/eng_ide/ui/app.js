@@ -47,6 +47,7 @@ function emptyInspectors() {
     timeAlignments: [],
     systems: [],
     systemIr: [],
+    kernelPlan: null,
     classObjects: [],
     assemblies: [],
     componentGraph: null,
@@ -656,6 +657,7 @@ function renderSidePanel() {
         ${sideTabButton("time", "Time")}
         ${sideTabButton("plot", "Plot")}
         ${sideTabButton("checks", "Checks")}
+        ${sideTabButton("kernels", "Kernel")}
         ${sideTabButton("objects", "Obj")}
         ${sideTabButton("assembly", "Asm")}
         ${sideTabButton("artifacts", "Artifacts")}
@@ -676,6 +678,7 @@ function renderSideBody() {
   if (state.sideTab === "schema") return renderSchemaPanel();
   if (state.sideTab === "time") return renderTimePanel();
   if (state.sideTab === "checks") return renderChecksPanel();
+  if (state.sideTab === "kernels") return renderKernelPanel();
   if (state.sideTab === "objects") return renderObjectsPanel();
   if (state.sideTab === "assembly") return renderAssemblyPanel();
   if (state.sideTab === "artifacts") return renderArtifactsPanel();
@@ -778,6 +781,52 @@ function renderChecksPanel() {
       ${renderSystems()}
       <div class="panel-title compact">System Dependency Graph</div>
       ${renderSystemDependencyGraph()}
+    </div>
+  `;
+}
+
+function renderKernelPanel() {
+  const plan = inspectorObject("kernelPlan");
+  const selection = plan.backend_selection || plan.backendSelection || {};
+  const candidates = Array.isArray(plan.candidates) ? plan.candidates : [];
+  const rows = candidates.map((candidate) => {
+    const estimate = candidate.estimate || {};
+    const executor = candidate.executor || {};
+    const estimatedRows = estimate.estimated_rows ?? estimate.estimatedRows ?? "-";
+    const counts = [
+      `rows ${estimatedRows}`,
+      `inputs ${estimate.input_count ?? estimate.inputCount ?? "-"}`,
+      `outputs ${estimate.output_count ?? estimate.outputCount ?? "-"}`,
+      `ops ${estimate.operation_count ?? estimate.operationCount ?? "-"}`,
+      `scans ${estimate.scan_count ?? estimate.scanCount ?? "-"}`
+    ].join(", ");
+    return `
+      <tr>
+        <td><strong>${escapeHtml(candidate.name || "-")}</strong><div class="muted">L${escapeHtml(candidate.line || "-")}</div></td>
+        <td>${escapeHtml(candidate.kind || "-")}<div class="muted">${escapeHtml(candidate.lowering_status || candidate.loweringStatus || "-")}</div></td>
+        <td><code>${escapeHtml(compactText(candidate.source || "-", 72))}</code></td>
+        <td>${escapeHtml(executor.status || "-")}<div class="muted">${escapeHtml(executor.backend || "-")}</div></td>
+        <td>${escapeHtml(executor.fallback_reason || executor.fallbackReason || "-")}</td>
+        <td>${escapeHtml(counts)}<div class="muted">${escapeHtml(Array.isArray(candidate.operations) ? candidate.operations.join(", ") : "-")}</div></td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <div class="panel-title compact">Kernel Plan</div>
+    <div class="badges">
+      <span class="badge">Candidates ${candidates.length}</span>
+      <span class="badge">Backend ${escapeHtml(plan.backend || "-")}</span>
+      <span class="badge">Status ${escapeHtml(selection.status || "-")}</span>
+    </div>
+    <div class="scroll">
+      <table class="var-table">
+        <thead><tr><th>Requested</th><th>Selected</th><th>Reason</th></tr></thead>
+        <tbody><tr><td>${escapeHtml(selection.requested || "-")}</td><td>${escapeHtml(selection.selected || "-")}</td><td>${escapeHtml(selection.reason || "-")}</td></tr></tbody>
+      </table>
+      <table class="var-table">
+        <thead><tr><th>Candidate</th><th>Kind</th><th>Source</th><th>Executor</th><th>Fallback</th><th>Estimate</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="6" class="muted">No kernel plan candidates.</td></tr>`}</tbody>
+      </table>
     </div>
   `;
 }
