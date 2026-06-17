@@ -196,11 +196,11 @@ are not public stable workflows.
   start of each interval. Fixed-step ODE, fixed-point, and dynamic-component
   seeds reject non-finite RHS/update values before they enter trajectories or
   algebraic artifacts. Component solver result artifacts can carry
-  state/algebraic trajectory summaries, trajectory points, timestep
-  diagnostics, and IDE TimeSeries/solver-inspector rows from that internal
-  `SolverResult` adapter. Newton/DAE/dynamic component seeds are not wired
-  into language-level nonlinear systems or production component assembly
-  workflows.
+  state/algebraic trajectory summaries, trajectory points, tolerance,
+  max-iteration, timestep diagnostics, and IDE TimeSeries/solver-inspector rows
+  from that internal `SolverResult` adapter. Newton/DAE/dynamic component seeds
+  are not wired into language-level nonlinear systems or production component
+  assembly workflows.
 - Behavior graph seeds: solver-API runtime delay buffer with linear and
   previous-sample interpolation policies, explicit initial-history policy,
   relationship artifact, solver-style behavior-node evaluation, delay-driven

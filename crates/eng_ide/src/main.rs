@@ -2146,6 +2146,9 @@ fn smoke() -> Result<(), String> {
                     };
                     json_field_string(solver_result, "method").as_deref()
                         == Some("linear_residual_graph_shape_check")
+                        && json_field_f64(solver_result, "tolerance")
+                            .is_some_and(|value| (value - 1e-9).abs() <= 1e-18)
+                        && json_field_usize(solver_result, "max_iterations") == Some(1)
                         && solver_result
                             .get("variables")
                             .and_then(Value::as_array)
@@ -2234,6 +2237,10 @@ fn smoke() -> Result<(), String> {
                 json_field_string(solver_result, "status").as_deref() == Some("solved_linear")
                     && json_field_string(solver_result, "method").as_deref()
                         == Some("dense_linear_residual_graph")
+                    && json_field_f64(solver_result, "tolerance")
+                        .is_some_and(|value| (value - 1e-9).abs() <= 1e-18)
+                    && json_field_usize(solver_result, "max_iterations") == Some(1)
+                    && json_field_usize(solver_result, "iteration_count") == Some(1)
                     && json_field_string(solver_result, "convergence_status").as_deref()
                         == Some("linear_converged")
                     && has_boundary_rhs
@@ -2301,6 +2308,10 @@ fn smoke() -> Result<(), String> {
                     json_field_string(solver_result, "status").as_deref() == Some("solved_linear")
                         && json_field_string(solver_result, "method").as_deref()
                             == Some("dense_linear_residual_graph")
+                        && json_field_f64(solver_result, "tolerance")
+                            .is_some_and(|value| (value - 1e-9).abs() <= 1e-18)
+                        && json_field_usize(solver_result, "max_iterations") == Some(1)
+                        && json_field_usize(solver_result, "iteration_count") == Some(1)
                         && json_field_string(solver_result, "convergence_status").as_deref()
                             == Some("linear_converged")
                         && has_multi_domain_shape

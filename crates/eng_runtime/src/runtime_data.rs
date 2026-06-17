@@ -982,6 +982,8 @@ pub struct RuntimeComponentSolution {
     pub equation_count: usize,
     pub unknown_count: usize,
     pub residual_norm: f64,
+    pub tolerance: f64,
+    pub max_iterations: usize,
     pub iteration_count: usize,
     pub convergence_status: String,
     pub variables: Vec<RuntimeComponentVariableSolution>,
@@ -1148,6 +1150,8 @@ impl RuntimeComponentSolution {
             equation_count,
             unknown_count,
             residual_norm: residual_output.residual_norm,
+            tolerance: COMPONENT_LINEAR_SOLVER_TOLERANCE,
+            max_iterations: 1,
             iteration_count,
             convergence_status,
             variables,
@@ -1241,6 +1245,8 @@ impl RuntimeComponentSolution {
             equation_count: 0,
             unknown_count: variables.len(),
             residual_norm: 0.0,
+            tolerance: solver_result.diagnostics.tolerance,
+            max_iterations: solver_result.diagnostics.max_iterations,
             iteration_count: solver_result.diagnostics.iteration_count,
             convergence_status: solver_result.diagnostics.convergence_status.clone(),
             variables,
@@ -1263,6 +1269,8 @@ impl RuntimeComponentSolution {
             method: self.method.clone(),
             reason: self.reason.clone(),
             residual_norm: self.residual_norm,
+            tolerance: self.tolerance,
+            max_iterations: self.max_iterations,
             iteration_count: self.iteration_count,
             convergence_status: self.convergence_status.clone(),
             variables: self
@@ -5899,6 +5907,8 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         assert_eq!(solver_result.status, "constraint_satisfied_nonunique");
         assert_eq!(solver_result.method, "linear_residual_graph_shape_check");
         assert_eq!(solver_result.residual_norm, 0.0);
+        assert_eq!(solver_result.tolerance, COMPONENT_LINEAR_SOLVER_TOLERANCE);
+        assert_eq!(solver_result.max_iterations, 1);
         assert_eq!(solver_result.variables.len(), 12);
         assert!(solver_result.residuals.iter().any(|residual| residual.name
             == "connection_set_1.through_Q_conservation"
@@ -5931,6 +5941,8 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         assert_eq!(solution.method, "dense_linear_residual_graph");
         assert_eq!(solution.convergence_status, "linear_converged");
         assert_eq!(solution.iteration_count, 1);
+        assert_eq!(solution.tolerance, COMPONENT_LINEAR_SOLVER_TOLERANCE);
+        assert_eq!(solution.max_iterations, 1);
         assert_eq!(solution.residual_norm, 0.0);
         assert!(solution.failure_artifact.is_none());
         assert!(solution
@@ -5994,6 +6006,8 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
 
         assert_eq!(solution.status, "computed");
         assert_eq!(solution.method, "dynamic_component_explicit_euler");
+        assert_eq!(solution.tolerance, 1e-9);
+        assert_eq!(solution.max_iterations, 50);
         assert_eq!(solution.variables.len(), 2);
         assert_eq!(solution.trajectories.len(), 2);
         assert!(solution
@@ -6033,6 +6047,8 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         };
         runtime.apply_component_solutions(&mut spec);
         let solver_result = spec.assemblies[0].solver_result.as_ref().unwrap();
+        assert_eq!(solver_result.tolerance, 1e-9);
+        assert_eq!(solver_result.max_iterations, 50);
         assert_eq!(solver_result.trajectories.len(), 2);
         assert!(solver_result
             .trajectories
@@ -6044,6 +6060,8 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
 
         let json = eng_report::report_spec_json(&spec);
         let html = eng_report::render_html_with_spec(&report, "plots/timeseries.svg", &spec);
+        assert!(json.contains("\"tolerance\": 0.000000001"));
+        assert!(json.contains("\"max_iterations\": 50"));
         assert!(json.contains("\"trajectories\""));
         assert!(json.contains("\"step_diagnostics\""));
         assert!(json.contains("\"algebraic_iteration_count\""));

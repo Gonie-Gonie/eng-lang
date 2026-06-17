@@ -1321,6 +1321,8 @@ function renderAssemblies() {
     const largestResiduals = solverResult.largest_residuals
       || solverResult.largestResiduals
       || solverResult.residuals;
+    const tolerance = solverResult.tolerance ?? "-";
+    const iterations = `${solverResult.iteration_count ?? solverResult.iterationCount ?? "-"} / ${solverResult.max_iterations ?? solverResult.maxIterations ?? "-"}`;
     return `
       <tr>
         <td><strong>${escapeHtml(assembly.name || "-")}</strong><div class="muted">${escapeHtml(assembly.status || "-")}</div></td>
@@ -1328,7 +1330,7 @@ function renderAssemblies() {
         <td>${escapeHtml(setCount)}<div class="muted">domains ${escapeHtml(domainCount)}</div></td>
         <td>${escapeHtml(Array.isArray(assembly.equations) ? assembly.equations.length : 0)}<div class="muted">component ${escapeHtml(assembly.component_equation_count ?? assembly.componentEquationCount ?? 0)}</div><div class="muted">unknowns ${escapeHtml(boundary.unknown_count ?? boundary.unknownCount ?? 0)}</div></td>
         <td>${escapeHtml(solverStatus)}<div class="muted">${escapeHtml(solverMethod)}</div><div class="muted">${escapeHtml(limitations)}</div></td>
-        <td>${metricCell(solverResult.residual_norm ?? solverResult.residualNorm)}<div class="muted">iter ${escapeHtml(solverResult.iteration_count ?? solverResult.iterationCount ?? "-")}</div></td>
+        <td>${metricCell(solverResult.residual_norm ?? solverResult.residualNorm)}<div class="muted">tol ${escapeHtml(tolerance)}</div><div class="muted">iter ${escapeHtml(iterations)}</div></td>
         <td>${escapeHtml(componentSolverVariableSummary(solverResult.variables))}</td>
         <td>${escapeHtml(componentSolverTrajectorySummary(solverResult.trajectories))}</td>
         <td>${escapeHtml(componentSolverLargestResidual(largestResiduals))}<div class="muted">${escapeHtml(failure.code || "-")}</div><div class="muted">${escapeHtml(failureReason)}</div></td>

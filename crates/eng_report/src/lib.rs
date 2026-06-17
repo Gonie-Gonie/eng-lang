@@ -581,6 +581,8 @@ pub struct ReportComponentSolverResult {
     pub method: String,
     pub reason: String,
     pub residual_norm: f64,
+    pub tolerance: f64,
+    pub max_iterations: usize,
     pub iteration_count: usize,
     pub convergence_status: String,
     pub variables: Vec<ReportComponentSolverVariable>,
@@ -4758,6 +4760,11 @@ fn push_report_component_solver_result_json(
         "{indent}  \"residual_norm\": {},\n",
         result.residual_norm
     ));
+    json.push_str(&format!("{indent}  \"tolerance\": {},\n", result.tolerance));
+    json.push_str(&format!(
+        "{indent}  \"max_iterations\": {},\n",
+        result.max_iterations
+    ));
     json.push_str(&format!(
         "{indent}  \"iteration_count\": {},\n",
         result.iteration_count
@@ -6580,7 +6587,15 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
                 .map(|result| format_alignment_number(result.residual_norm))
                 .unwrap_or_else(|| "-".to_owned());
             let iteration_count = solver_result
-                .map(|result| result.iteration_count.to_string())
+                .map(|result| {
+                    format!(
+                        "{} / {}",
+                        result.iteration_count, result.max_iterations
+                    )
+                })
+                .unwrap_or_else(|| "-".to_owned());
+            let tolerance = solver_result
+                .map(|result| format_solver_tolerance(result.tolerance))
                 .unwrap_or_else(|| "-".to_owned());
             let variables = solver_result
                 .map(format_component_solver_variables_summary)
@@ -6599,7 +6614,7 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
                 .map(|failure| failure.code.clone())
                 .unwrap_or_else(|| "-".to_owned());
             format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
                 assembly.line,
                 html_escape(&assembly.name),
                 html_escape(&assembly.status),
@@ -6608,6 +6623,7 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
                 html_escape(&assembly.residual_graph.status),
                 html_escape(&assembly.residual_graph.solver_plan),
                 html_escape(&residual_norm),
+                html_escape(&tolerance),
                 html_escape(&iteration_count),
                 html_escape(&variables),
                 html_escape(&trajectories),
@@ -6621,7 +6637,7 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
     format!(
         r#"<h2>Connection Constraint Check</h2>
     <table>
-      <thead><tr><th>Line</th><th>Assembly</th><th>Status</th><th>Eq/Unknowns</th><th>Convergence</th><th>Method</th><th>Residual Norm</th><th>Iterations</th><th>Variables</th><th>Trajectories</th><th>Step Diagnostics</th><th>Largest Residual</th><th>Failure</th></tr></thead>
+      <thead><tr><th>Line</th><th>Assembly</th><th>Status</th><th>Eq/Unknowns</th><th>Convergence</th><th>Method</th><th>Residual Norm</th><th>Tolerance</th><th>Iterations</th><th>Variables</th><th>Trajectories</th><th>Step Diagnostics</th><th>Largest Residual</th><th>Failure</th></tr></thead>
       <tbody>{rows}</tbody>
     </table>"#
     )
