@@ -200,10 +200,28 @@ Definition of Done:
 
 Current coverage:
 
+- Parser type splitting preserves explicit dynamic input contracts such as
+  `TimeSeries[Time] of AbsoluteTemperature [degC]`; compiler regression tests
+  cover the parsed quantity kind, display unit, and canonical unit.
+- Official measured-vs-simulated and multi-state thermal examples declare
+  `T_out` as `TimeSeries[Time] of AbsoluteTemperature [degC]` and bind it with
+  `simulate ... with { T_out = weather_data.T_out }`.
+- Simulate input validation resolves promoted CSV column types and checks the
+  explicit input contract's axis and quantity before runtime execution.
 - Simulate input/timestep/solver diagnostics use the checklist canonical codes:
   `E-SIM-MISSING-INPUT`, `E-SIM-INPUT-QTY-MISMATCH`,
   `E-SIM-INPUT-AXIS-MISMATCH`, `E-SIM-TIMESTEP-INVALID`, and
   `E-SIM-SOLVER-UNSUPPORTED`.
+- Error-message fixtures cover missing TimeSeries input, non-TimeSeries input,
+  wrong TimeSeries quantity, wrong TimeSeries axis, missing/invalid timestep,
+  missing/unsupported solver, and unknown system cases.
+- Runtime materializes `sim.T_zone` from `SolverResult` as a typed
+  TimeSeries; runtime tests assert the explicit `T_out` contract, SolverResult
+  status, state trajectory, RMSE alignment reference, and `sim.T_zone`
+  registration.
+- `docs/guide/language_grammar.md` distinguishes the explicit TimeSeries input
+  contract from the earlier scalar input plus TimeSeries-binding compatibility
+  path.
 - System solver artifacts carry nullable `failure_code`; unsupported simulated
   shapes surface `E-SIM-SYSTEM-SHAPE-UNSUPPORTED` alongside the failure reason
   in result/review/report data.
