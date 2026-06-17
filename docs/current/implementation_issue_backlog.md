@@ -360,6 +360,9 @@ Definition of Done:
 - Report and IDE show generated equations, source-line links, generated
   reasons, residual values, normalized residuals, scale policy, and residual
   graph metadata.
+- Runtime `component_solutions` and report `solver_result` expose
+  `largest_residuals`, capped to the top normalized residuals for direct
+  report/IDE inspection.
 - IDE Assembly panel shows residual dependency rows from
   `assembly_summary[].residual_graph.dependencies`.
 - Under/overdetermined cases produce diagnostics or limitation artifacts.

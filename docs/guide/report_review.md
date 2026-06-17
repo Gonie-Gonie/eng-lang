@@ -115,8 +115,9 @@ an external-wrapper seed status. None of these is a full component-solver
 behavior graph integration.
 Runtime report specs and result artifacts also attach component solver residual
 evaluations with raw value, unit, normalized value, scale, and scale policy.
-Report/IDE largest-residual summaries use the normalized residual so different
-units do not dominate the diagnostic ordering by magnitude alone.
+They also expose `largest_residuals`, capped to the top normalized residuals,
+so report/IDE summaries do not need to rescan the full residual list and
+different units do not dominate the diagnostic ordering by magnitude alone.
 Generated assembly equations carry their generation reason, so report and IDE
 equation panels can show why an across equality or through conservation row was
 created without re-parsing source.

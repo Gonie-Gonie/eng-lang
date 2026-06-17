@@ -17,7 +17,8 @@ pub mod solver;
 mod vm;
 
 use runtime_data::{
-    materialize_runtime_data, RuntimeData, RuntimeStatisticValue, RuntimeTimeSeries, RuntimeValues,
+    materialize_runtime_data, RuntimeComponentResidualEvaluation, RuntimeData,
+    RuntimeStatisticValue, RuntimeTimeSeries, RuntimeValues,
 };
 pub use vm::{execute_bytecode, VmExecution, VmObject, VmObjectKind};
 
@@ -4268,45 +4269,14 @@ fn component_solutions_json(runtime_data: &RuntimeData) -> String {
         }
         json.push_str("\n        ],\n");
         json.push_str("        \"residuals\": [\n");
-        for (residual_index, residual) in solution.residuals.iter().enumerate() {
-            if residual_index > 0 {
-                json.push_str(",\n");
-            }
-            json.push_str("          {\n");
-            json.push_str(&format!(
-                "            \"name\": \"{}\",\n",
-                json_escape(&residual.name)
-            ));
-            json.push_str(&format!(
-                "            \"expression\": \"{}\",\n",
-                json_escape(&residual.expression)
-            ));
-            json.push_str(&format!(
-                "            \"value\": {},\n",
-                format_number_with_precision(residual.value, Some(8))
-            ));
-            json.push_str(&format!(
-                "            \"unit\": \"{}\",\n",
-                json_escape(&residual.unit)
-            ));
-            json.push_str(&format!(
-                "            \"normalized_value\": {},\n",
-                format_number_with_precision(residual.normalized_value, Some(8))
-            ));
-            json.push_str(&format!(
-                "            \"scale\": {},\n",
-                format_number_with_precision(residual.scale, Some(8))
-            ));
-            json.push_str(&format!(
-                "            \"scale_policy\": \"{}\",\n",
-                json_escape(&residual.scale_policy)
-            ));
-            json.push_str(&format!(
-                "            \"status\": \"{}\"\n",
-                json_escape(&residual.status)
-            ));
-            json.push_str("          }");
-        }
+        push_component_residual_evaluations_json(&mut json, &solution.residuals, "          ");
+        json.push_str("\n        ],\n");
+        json.push_str("        \"largest_residuals\": [\n");
+        push_component_residual_evaluations_json(
+            &mut json,
+            &solution.largest_residuals,
+            "          ",
+        );
         json.push_str("\n        ],\n");
         match &solution.failure_artifact {
             Some(failure) => {
@@ -4326,6 +4296,52 @@ fn component_solutions_json(runtime_data: &RuntimeData) -> String {
         json.push_str("      }");
     }
     json
+}
+
+fn push_component_residual_evaluations_json(
+    json: &mut String,
+    residuals: &[RuntimeComponentResidualEvaluation],
+    item_indent: &str,
+) {
+    for (residual_index, residual) in residuals.iter().enumerate() {
+        if residual_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{item_indent}{{\n"));
+        json.push_str(&format!(
+            "{item_indent}  \"name\": \"{}\",\n",
+            json_escape(&residual.name)
+        ));
+        json.push_str(&format!(
+            "{item_indent}  \"expression\": \"{}\",\n",
+            json_escape(&residual.expression)
+        ));
+        json.push_str(&format!(
+            "{item_indent}  \"value\": {},\n",
+            format_number_with_precision(residual.value, Some(8))
+        ));
+        json.push_str(&format!(
+            "{item_indent}  \"unit\": \"{}\",\n",
+            json_escape(&residual.unit)
+        ));
+        json.push_str(&format!(
+            "{item_indent}  \"normalized_value\": {},\n",
+            format_number_with_precision(residual.normalized_value, Some(8))
+        ));
+        json.push_str(&format!(
+            "{item_indent}  \"scale\": {},\n",
+            format_number_with_precision(residual.scale, Some(8))
+        ));
+        json.push_str(&format!(
+            "{item_indent}  \"scale_policy\": \"{}\",\n",
+            json_escape(&residual.scale_policy)
+        ));
+        json.push_str(&format!(
+            "{item_indent}  \"status\": \"{}\"\n",
+            json_escape(&residual.status)
+        ));
+        json.push_str(&format!("{item_indent}}}"));
+    }
 }
 
 fn solver_boundaries_json(report: &CheckReport, runtime_data: &RuntimeData) -> String {

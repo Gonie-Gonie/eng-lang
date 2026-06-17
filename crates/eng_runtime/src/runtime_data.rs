@@ -987,6 +987,7 @@ pub struct RuntimeComponentSolution {
     pub variables: Vec<RuntimeComponentVariableSolution>,
     pub trajectories: Vec<RuntimeComponentTrajectory>,
     pub residuals: Vec<RuntimeComponentResidualEvaluation>,
+    pub largest_residuals: Vec<RuntimeComponentResidualEvaluation>,
     pub failure_artifact: Option<RuntimeSolverFailureArtifact>,
 }
 
@@ -1118,6 +1119,7 @@ impl RuntimeComponentSolution {
                 },
             })
             .collect::<Vec<_>>();
+        let largest_residuals = largest_component_residuals(&residuals);
 
         Self {
             assembly: assembly_name.to_owned(),
@@ -1132,6 +1134,7 @@ impl RuntimeComponentSolution {
             variables,
             trajectories: Vec::new(),
             residuals,
+            largest_residuals,
             failure_artifact,
         }
     }
@@ -1196,6 +1199,7 @@ impl RuntimeComponentSolution {
             variables,
             trajectories,
             residuals: Vec::new(),
+            largest_residuals: Vec::new(),
             failure_artifact: solver_result.diagnostics.failure.as_ref().map(|failure| {
                 RuntimeSolverFailureArtifact {
                     code: failure.code.clone(),
@@ -1259,6 +1263,20 @@ impl RuntimeComponentSolution {
                     status: residual.status.clone(),
                 })
                 .collect(),
+            largest_residuals: self
+                .largest_residuals
+                .iter()
+                .map(|residual| ReportComponentSolverResidual {
+                    name: residual.name.clone(),
+                    expression: residual.expression.clone(),
+                    value: residual.value,
+                    unit: residual.unit.clone(),
+                    normalized_value: residual.normalized_value,
+                    scale: residual.scale,
+                    scale_policy: residual.scale_policy.clone(),
+                    status: residual.status.clone(),
+                })
+                .collect(),
             failure_artifact: self.failure_artifact.as_ref().map(|failure| {
                 ReportSolverFailureArtifact {
                     code: failure.code.clone(),
@@ -1267,6 +1285,21 @@ impl RuntimeComponentSolution {
             }),
         }
     }
+}
+
+fn largest_component_residuals(
+    residuals: &[RuntimeComponentResidualEvaluation],
+) -> Vec<RuntimeComponentResidualEvaluation> {
+    let mut largest = residuals.to_vec();
+    largest.sort_by(|left, right| {
+        right
+            .normalized_value
+            .abs()
+            .total_cmp(&left.normalized_value.abs())
+            .then_with(|| left.name.cmp(&right.name))
+    });
+    largest.truncate(3);
+    largest
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -5719,6 +5752,12 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
             && residual.normalized_value == 0.0
             && residual.scale == 1.0
             && residual.scale_policy == "unit_default:HeatRate[kW]"));
+        assert_eq!(solution.largest_residuals.len(), 3);
+        assert!(solution
+            .largest_residuals
+            .iter()
+            .all(|residual| residual.normalized_value == 0.0));
+        assert!(solution.residuals.len() > solution.largest_residuals.len());
 
         let mut spec =
             eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
@@ -5737,6 +5776,11 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
             == "connection_set_1.through_Q_conservation"
             && residual.normalized_value == 0.0
             && residual.scale_policy == "unit_default:HeatRate[kW]"));
+        assert_eq!(solver_result.largest_residuals.len(), 3);
+        assert!(solver_result
+            .largest_residuals
+            .iter()
+            .all(|residual| residual.normalized_value == 0.0));
         assert_eq!(
             solver_result
                 .failure_artifact

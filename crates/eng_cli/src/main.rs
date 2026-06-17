@@ -738,6 +738,8 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"linear_residual_satisfied_nonunique\"")
                 || !output.report_spec_json.contains("\"solver_result\"")
                 || !output.report_spec_json.contains("\"residual_norm\"")
+                || !output.result_json.contains("\"largest_residuals\"")
+                || !output.report_spec_json.contains("\"largest_residuals\"")
                 || !output.report_spec_json.contains("\"failure_artifact\"")
                 || !output.report_spec_json.contains("\"domain_count\": 3")
                 || !output.report_spec_json.contains("\"multi_domain_preview\"")
@@ -789,6 +791,8 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"component_equation_count\": 2")
+                || !output.result_json.contains("\"largest_residuals\"")
+                || !output.report_spec_json.contains("\"largest_residuals\"")
                 || !output.report_html.contains("solved_linear")
                 || !output.report_html.contains("component_boundary")
             {
@@ -833,6 +837,8 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                     .report_spec_json
                     .contains("\"component_equation_count\": 2")
                 || !output.report_spec_json.contains("\"residual_norm\"")
+                || !output.result_json.contains("\"largest_residuals\"")
+                || !output.report_spec_json.contains("\"largest_residuals\"")
                 || !output.report_html.contains("solved_linear")
                 || !output.report_html.contains("component_boundary")
             {

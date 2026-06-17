@@ -221,10 +221,11 @@ port, component, and behavior rows jump back to their recorded source lines.
 `assembly_summary.local_expression_count` record component-local `name = expr`
 metadata without promoting it to the root runtime object store.
 The runtime result also includes `component_solutions` with residual values,
-normalized residuals, convergence status, solved linear variables when a square
-system is available, zero-seed variables for skipped non-square graphs, and
-failure/limitation artifacts. Runtime `report_spec.json` mirrors the same
-details under `assembly_summary[].solver_result`.
+normalized residuals, the top normalized residuals under `largest_residuals`,
+convergence status, solved linear variables when a square system is available,
+zero-seed variables for skipped non-square graphs, and failure/limitation
+artifacts. Runtime `report_spec.json` mirrors the same details under
+`assembly_summary[].solver_result`.
 
 The generated `report_spec.json` follows
 [`docs/schemas/report_spec.schema.json`](../schemas/report_spec.schema.json), so
@@ -242,7 +243,8 @@ re-parsing source files.
   focuses on one Thermal connection set with component-local boundary RHS
   equations. Its artifacts record generated connection equations, a square
   residual graph, dense linear solve status, solved variables, and residual
-  values without claiming a production multi-domain component solver.
+  values plus `largest_residuals` without claiming a production multi-domain
+  component solver.
 - `examples/05_error_messages/port_domain_mismatch.eng`
   intentionally connects a Thermal port to a Fluid port and should report
   `E-CONNECT-DOMAIN-MISMATCH` with a non-zero check exit.

@@ -568,6 +568,7 @@ pub struct ReportComponentSolverResult {
     pub variables: Vec<ReportComponentSolverVariable>,
     pub trajectories: Vec<ReportComponentSolverTrajectory>,
     pub residuals: Vec<ReportComponentSolverResidual>,
+    pub largest_residuals: Vec<ReportComponentSolverResidual>,
     pub failure_artifact: Option<ReportSolverFailureArtifact>,
 }
 
@@ -4522,6 +4523,41 @@ fn push_report_component_solver_result_json(
         json.push_str(&format!("{indent}    }}"));
     }
     json.push_str(&format!("\n{indent}  ],\n"));
+    json.push_str(&format!("{indent}  \"largest_residuals\": [\n"));
+    for (index, residual) in result.largest_residuals.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}    {{\n"));
+        json.push_str(&format!(
+            "{indent}      \"name\": \"{}\",\n",
+            json_escape(&residual.name)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"expression\": \"{}\",\n",
+            json_escape(&residual.expression)
+        ));
+        json.push_str(&format!("{indent}      \"value\": {},\n", residual.value));
+        json.push_str(&format!(
+            "{indent}      \"unit\": \"{}\",\n",
+            json_escape(&residual.unit)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"normalized_value\": {},\n",
+            residual.normalized_value
+        ));
+        json.push_str(&format!("{indent}      \"scale\": {},\n", residual.scale));
+        json.push_str(&format!(
+            "{indent}      \"scale_policy\": \"{}\",\n",
+            json_escape(&residual.scale_policy)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"status\": \"{}\"\n",
+            json_escape(&residual.status)
+        ));
+        json.push_str(&format!("{indent}    }}"));
+    }
+    json.push_str(&format!("\n{indent}  ],\n"));
     match &result.failure_artifact {
         Some(failure) => {
             json.push_str(&format!("{indent}  \"failure_artifact\": {{\n"));
@@ -6210,10 +6246,12 @@ fn format_component_solver_trajectory_summary(result: &ReportComponentSolverResu
 fn format_component_largest_residual_summary(
     result: &ReportComponentSolverResult,
 ) -> Option<String> {
-    let residual = result.residuals.iter().max_by(|left, right| {
-        left.normalized_value
-            .abs()
-            .total_cmp(&right.normalized_value.abs())
+    let residual = result.largest_residuals.first().or_else(|| {
+        result.residuals.iter().max_by(|left, right| {
+            left.normalized_value
+                .abs()
+                .total_cmp(&right.normalized_value.abs())
+        })
     })?;
     Some(format!(
         "{}={} {}, normalized={} ({})",

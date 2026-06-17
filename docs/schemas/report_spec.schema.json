@@ -523,6 +523,7 @@
         "convergence_status",
         "variables",
         "residuals",
+        "largest_residuals",
         "failure_artifact"
       ],
       "properties": {
@@ -539,6 +540,11 @@
         "residuals": {
           "type": "array",
           "items": { "$ref": "#/$defs/componentSolverResidual" }
+        },
+        "largest_residuals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/componentSolverResidual" },
+          "maxItems": 3
         },
         "failure_artifact": {
           "anyOf": [
