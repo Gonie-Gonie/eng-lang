@@ -112,6 +112,7 @@ Internal runtime seeds:
 - EquationAssembly dynamic-component state/algebraic/input/parameter split validation into solver layouts
 - component solver result trajectory and timestep-diagnostic artifact adapter for internal dynamic-component SolverResult output
 - solver-API delay buffer with interpolation and initial-history policies
+- solver-API delay node adapter that feeds delayed values into fixed-step RHS evaluation
 - component-local delay(signal, duration) diagnostics for port, prior local, and nested delay signals
 - component-local Predictor and external behavior signal diagnostics for port, prior local, and nested delay signals
 - solver-API Predictor contract wrapper with model hash, range warnings, and Jacobian policy

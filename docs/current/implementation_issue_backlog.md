@@ -341,6 +341,8 @@ Current coverage:
   interpolation policies, explicit initial-history policy, relationship
   artifacts, out-of-order/history-underflow diagnostics, and solver-style
   behavior-node evaluation tests.
+- `DelayBehaviorNode::evaluate_rhs` can feed delayed values into a fixed-step
+  RHS closure and rejects non-finite delayed RHS derivatives.
 - `eng test examples` now directly exercises solver-API behavior node numeric
   evaluation: delay interpolation and history-underflow failure artifacts,
   Predictor valid-range warnings and output-layout failures, and external

@@ -196,7 +196,8 @@ are not public stable workflows.
   component assembly, or report/IDE workflows.
 - Behavior graph seeds: solver-API runtime delay buffer with linear and
   previous-sample interpolation policies, explicit initial-history policy,
-  relationship artifact, solver-style behavior-node evaluation, and
+  relationship artifact, solver-style behavior-node evaluation, delay-driven
+  fixed-step RHS adapter coverage, and
   component-local
   `delay(signal, duration)` diagnostics for unknown signals and invalid
   durations. Component-local behavior calls accept known `port.variable`

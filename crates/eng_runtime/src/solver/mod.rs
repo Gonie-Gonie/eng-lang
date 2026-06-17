@@ -60,11 +60,12 @@ pub use algorithms::nonlinear::{
 pub use behavior::{
     BehaviorExecutionProfile, BehaviorSignalContract, BehaviorWarning, DelayBehaviorNode,
     DelayBuffer, DelayEvaluation, DelayInitialHistoryPolicy, DelayInterpolationPolicy,
-    DelayRelationshipArtifact, ExternalBehaviorArtifact, ExternalBehaviorContract,
-    ExternalBehaviorDeterminism, ExternalBehaviorEvaluation, ExternalBehaviorKind,
-    ExternalBehaviorNode, ExternalBehaviorProfilePolicy, PredictorBehaviorNode, PredictorContract,
-    PredictorContractArtifact, PredictorDifferentiability, PredictorEvaluation,
-    PredictorJacobianPolicy, PredictorSolverPolicy,
+    DelayRelationshipArtifact, DelayRhsEvaluation, ExternalBehaviorArtifact,
+    ExternalBehaviorContract, ExternalBehaviorDeterminism, ExternalBehaviorEvaluation,
+    ExternalBehaviorKind, ExternalBehaviorNode, ExternalBehaviorProfilePolicy,
+    PredictorBehaviorNode, PredictorContract, PredictorContractArtifact,
+    PredictorDifferentiability, PredictorEvaluation, PredictorJacobianPolicy,
+    PredictorSolverPolicy,
 };
 pub use diagnostics::{SolverDiagnostics, SolverFailure};
 pub use evaluator::{

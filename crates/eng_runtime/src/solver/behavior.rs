@@ -50,6 +50,13 @@ pub struct DelayEvaluation {
     pub relationship: DelayRelationshipArtifact,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct DelayRhsEvaluation {
+    pub derivatives: Vec<f64>,
+    pub delay: DelayEvaluation,
+    pub status: String,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct DelaySample {
     time_s: f64,
@@ -228,6 +235,30 @@ impl DelayBehaviorNode {
     ) -> Result<DelayEvaluation, SolverFailure> {
         self.buffer.record(time_s, current_value)?;
         self.buffer.evaluate(time_s)
+    }
+
+    pub fn evaluate_rhs<F>(
+        &mut self,
+        time_s: f64,
+        current_value: f64,
+        rhs: F,
+    ) -> Result<DelayRhsEvaluation, SolverFailure>
+    where
+        F: FnOnce(&DelayEvaluation) -> Result<Vec<f64>, SolverFailure>,
+    {
+        let delay = self.evaluate(time_s, current_value)?;
+        let derivatives = rhs(&delay)?;
+        if derivatives.iter().any(|value| !value.is_finite()) {
+            return Err(SolverFailure::new(
+                "E-DELAY-RHS-FINITE",
+                "delay RHS evaluation returned a non-finite derivative",
+            ));
+        }
+        Ok(DelayRhsEvaluation {
+            status: delay.status.clone(),
+            delay,
+            derivatives,
+        })
     }
 
     pub fn relationship_artifact(&self) -> DelayRelationshipArtifact {
@@ -765,6 +796,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::solver::{
+        solve_fixed_step_ode, FixedStepMethod, InputLayout, LayoutEntry, OutputLayout,
+        ParameterLayout, SimulationPlan, SolverInput, SolverOptions, SolverPlan, TimeGrid,
+    };
 
     fn linear_hold_buffer(delay_s: f64) -> DelayBuffer {
         DelayBuffer::new(
@@ -836,6 +871,74 @@ mod tests {
         assert_eq!(first.value, 10.0);
         assert_eq!(second.value, 10.0);
         assert!((third.value - 15.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn delay_behavior_node_can_drive_fixed_step_rhs() {
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "delayed_rhs",
+                SimulationPlan {
+                    states: vec!["x".to_owned()],
+                    inputs: Vec::new(),
+                    outputs: vec!["x".to_owned()],
+                    parameters: Vec::new(),
+                },
+                SolverOptions::fixed_step("explicit_euler", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(2.0, 1.0).unwrap(),
+            state_layout: crate::solver::StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout::default(),
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![1.0],
+            inputs: Vec::new(),
+            parameters: Vec::new(),
+        };
+        let buffer = DelayBuffer::new(
+            "x",
+            "Dimensionless",
+            "1",
+            1.0,
+            DelayInterpolationPolicy::PreviousSample,
+            DelayInitialHistoryPolicy::HoldInitial,
+        )
+        .unwrap();
+        let mut node = DelayBehaviorNode::new(buffer);
+        let mut delay_statuses = Vec::new();
+
+        let result = solve_fixed_step_ode(FixedStepMethod::ExplicitEuler, &input, |sample| {
+            let evaluation = node.evaluate_rhs(sample.time_s, sample.state[0], |delay| {
+                Ok(vec![-delay.value])
+            })?;
+            delay_statuses.push(evaluation.status);
+            Ok(evaluation.derivatives)
+        })
+        .unwrap();
+
+        assert_eq!(
+            result.output.state_trajectories[0].values,
+            vec![1.0, 0.0, -1.0]
+        );
+        assert_eq!(delay_statuses, vec!["initial_history", "initial_history"]);
+    }
+
+    #[test]
+    fn delay_behavior_node_rejects_nonfinite_rhs_derivatives() {
+        let buffer = linear_hold_buffer(1.0);
+        let mut node = DelayBehaviorNode::new(buffer);
+
+        let failure = node
+            .evaluate_rhs(0.0, 1.0, |_delay| Ok(vec![f64::INFINITY]))
+            .unwrap_err();
+
+        assert_eq!(failure.code, "E-DELAY-RHS-FINITE");
     }
 
     #[test]
