@@ -983,14 +983,23 @@ function renderAlignments() {
 
 function renderSystems() {
   const rows = inspectorRows("systems").map((system) => {
-    const solver = system.solver_result || system.solverResult || {};
+    const solverResults = Array.isArray(system.solver_results)
+      ? system.solver_results
+      : (Array.isArray(system.solverResults) ? system.solverResults : []);
+    const solver = solverResults[0] || system.solver_result || system.solverResult || {};
+    const stateLabel = solverResults.length > 1
+      ? solverResults.map((item) => item.state || "-").join(", ")
+      : (solver.state || "-");
+    const steps = solverResults.length > 1
+      ? solverResults.map((item) => item.step_count ?? item.stepCount ?? "-").join(", ")
+      : (solver.step_count ?? solver.stepCount ?? "-");
     return `
       <tr>
         <td><strong>${escapeHtml(system.name || "-")}</strong><div class="muted">L${escapeHtml(system.line || "-")}</div></td>
         <td>${escapeHtml(Array.isArray(system.variables) ? system.variables.length : system.variable_count ?? system.variableCount ?? 0)}</td>
         <td>${escapeHtml(Array.isArray(system.equations) ? system.equations.length : 0)}</td>
-        <td>${escapeHtml(solver.status || "-")}<div class="muted">${escapeHtml(solver.method || "-")}</div></td>
-        <td>${escapeHtml(solver.step_count ?? solver.stepCount ?? "-")}</td>
+        <td>${escapeHtml(solver.status || "-")}<div class="muted">${escapeHtml(solver.method || "-")}</div><div class="muted">${escapeHtml(stateLabel)}</div></td>
+        <td>${escapeHtml(steps)}</td>
       </tr>
     `;
   }).join("");

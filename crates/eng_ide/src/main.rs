@@ -1140,74 +1140,89 @@ fn time_series_inspector(result: &Value) -> Value {
         .and_then(Value::as_array)
     {
         for system in systems {
-            let Some(solver_result) = system.get("solver_result") else {
-                continue;
-            };
-            if solver_result
-                .get("status")
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                != "computed"
-            {
-                continue;
+            for solver_result in solver_results_for_system(system) {
+                if solver_result
+                    .get("status")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    != "computed"
+                {
+                    continue;
+                }
+                let points = solver_result_points(solver_result);
+                let values = points.iter().map(|(_, y)| *y).collect::<Vec<_>>();
+                let summary = numeric_summary(&values);
+                let start = points
+                    .first()
+                    .map(|(value, _)| format!("{} s", format_json_number(*value)))
+                    .unwrap_or_default();
+                let end = points
+                    .last()
+                    .map(|(value, _)| format!("{} s", format_json_number(*value)))
+                    .unwrap_or_default();
+                let series_owner = json_field_string(solver_result, "binding")
+                    .or_else(|| json_field_string(system, "name"))
+                    .unwrap_or_else(|| "system".to_owned());
+                let time_step = json_field_string(solver_result, "time_step")
+                    .or_else(|| json_field_string(solver_result, "time_step_s"));
+                rows.push(json!({
+                    "name": format!(
+                        "{}.{}",
+                        series_owner,
+                        json_field_string(solver_result, "state").unwrap_or_else(|| "state".to_owned())
+                    ),
+                    "axis": "Time",
+                    "start_time": start,
+                    "end_time": end,
+                    "timestep": time_step.map(|value| format!("{value} s")).unwrap_or_default(),
+                    "row_count": points.len(),
+                    "missing_count": 0,
+                    "interpolation_policy": "fixed-step",
+                    "display_unit": json_field_string(solver_result, "display_unit").unwrap_or_default(),
+                    "canonical_unit": json_field_string(solver_result, "canonical_unit").unwrap_or_default(),
+                    "mean": summary.get("mean").cloned().unwrap_or(Value::Null),
+                    "min": summary.get("min").cloned().unwrap_or(Value::Null),
+                    "max": summary.get("max").cloned().unwrap_or(Value::Null),
+                    "p95": summary.get("p95").cloned().unwrap_or(Value::Null),
+                    "integration_metadata": {
+                        "method": json_field_string(solver_result, "method").unwrap_or_default(),
+                        "step_count": json_field_usize(solver_result, "step_count").unwrap_or(0),
+                        "duration": json_field_string(solver_result, "duration").unwrap_or_default(),
+                        "final_value": json_field_string(solver_result, "final_value").unwrap_or_default()
+                    },
+                    "source_hash": ""
+                }));
             }
-            let points = solver_result
-                .get("points")
-                .and_then(Value::as_array)
-                .cloned()
-                .unwrap_or_default();
-            let values = points
-                .iter()
-                .filter_map(|point| point.as_array()?.get(1)?.as_f64())
-                .collect::<Vec<_>>();
-            let summary = numeric_summary(&values);
-            let start = points
-                .first()
-                .and_then(Value::as_array)
-                .and_then(|point| point.first())
-                .and_then(Value::as_f64)
-                .map(|value| format!("{} s", format_json_number(value)))
-                .unwrap_or_default();
-            let end = points
-                .last()
-                .and_then(Value::as_array)
-                .and_then(|point| point.first())
-                .and_then(Value::as_f64)
-                .map(|value| format!("{} s", format_json_number(value)))
-                .unwrap_or_default();
-            let series_owner = json_field_string(solver_result, "binding")
-                .or_else(|| json_field_string(system, "name"))
-                .unwrap_or_else(|| "system".to_owned());
-            rows.push(json!({
-                "name": format!(
-                    "{}.{}",
-                    series_owner,
-                    json_field_string(solver_result, "state").unwrap_or_else(|| "state".to_owned())
-                ),
-                "axis": "Time",
-                "start_time": start,
-                "end_time": end,
-                "timestep": json_field_string(solver_result, "time_step").map(|value| format!("{value} s")).unwrap_or_default(),
-                "row_count": points.len(),
-                "missing_count": 0,
-                "interpolation_policy": "fixed-step",
-                "display_unit": json_field_string(solver_result, "display_unit").unwrap_or_default(),
-                "canonical_unit": json_field_string(solver_result, "canonical_unit").unwrap_or_default(),
-                "mean": summary.get("mean").cloned().unwrap_or(Value::Null),
-                "min": summary.get("min").cloned().unwrap_or(Value::Null),
-                "max": summary.get("max").cloned().unwrap_or(Value::Null),
-                "p95": summary.get("p95").cloned().unwrap_or(Value::Null),
-                "integration_metadata": {
-                    "method": json_field_string(solver_result, "method").unwrap_or_default(),
-                    "step_count": json_field_usize(solver_result, "step_count").unwrap_or(0),
-                    "duration": json_field_string(solver_result, "duration").unwrap_or_default(),
-                    "final_value": json_field_string(solver_result, "final_value").unwrap_or_default()
-                },
-                "source_hash": ""
-            }));
         }
     }
     Value::Array(rows)
+}
+
+fn solver_results_for_system(system: &Value) -> Vec<&Value> {
+    if let Some(results) = system.get("solver_results").and_then(Value::as_array) {
+        if !results.is_empty() {
+            return results.iter().collect();
+        }
+    }
+    system.get("solver_result").into_iter().collect()
+}
+
+fn solver_result_points(solver_result: &Value) -> Vec<(f64, f64)> {
+    solver_result
+        .get("points")
+        .and_then(Value::as_array)
+        .map(|points| {
+            points
+                .iter()
+                .filter_map(|point| {
+                    if let Some(items) = point.as_array() {
+                        return Some((items.first()?.as_f64()?, items.get(1)?.as_f64()?));
+                    }
+                    Some((point.get("x")?.as_f64()?, point.get("y")?.as_f64()?))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn numeric_values(value: Option<&Value>) -> Vec<f64> {
@@ -1308,6 +1323,7 @@ fn system_inspector(report: &Value, result: &Value) -> Value {
         .get("typed_payload")
         .and_then(|payload| payload.get("systems"))
         .and_then(Value::as_array);
+    let report_system_ir = report.get("system_ir").and_then(Value::as_array);
     let Some(report_systems) = report.get("system_summary").and_then(Value::as_array) else {
         return result_systems
             .map(|items| Value::Array(items.clone()))
@@ -1326,6 +1342,17 @@ fn system_inspector(report: &Value, result: &Value) -> Value {
                 }) {
                     if let Some(solver_result) = result_system.get("solver_result") {
                         merged.insert("solver_result".to_owned(), solver_result.clone());
+                    }
+                    if let Some(solver_results) = result_system.get("solver_results") {
+                        merged.insert("solver_results".to_owned(), solver_results.clone());
+                    }
+                } else if let Some(report_ir) = report_system_ir.and_then(|items| {
+                    items.iter().find(|item| {
+                        json_field_string(item, "name").as_deref() == Some(name.as_str())
+                    })
+                }) {
+                    if let Some(solver_results) = report_ir.get("solver_results") {
+                        merged.insert("solver_results".to_owned(), solver_results.clone());
                     }
                 }
                 Value::Object(merged)

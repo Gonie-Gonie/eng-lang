@@ -712,6 +712,7 @@ pub struct ReportSystemIr {
     pub name: String,
     pub solver_boundary: ReportSolverBoundary,
     pub solver_plan: ReportSolverPlan,
+    pub solver_results: Vec<ReportSystemSolution>,
     pub equations: Vec<ReportEquationIr>,
     pub line: usize,
 }
@@ -740,6 +741,33 @@ pub struct ReportSolverPlan {
 pub struct ReportOdeRunner {
     pub status: String,
     pub reason: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportSystemSolution {
+    pub binding: Option<String>,
+    pub status: String,
+    pub method: String,
+    pub reason: String,
+    pub state: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub time_unit: String,
+    pub duration_s: f64,
+    pub time_step_s: f64,
+    pub step_count: usize,
+    pub initial_value: f64,
+    pub final_value: f64,
+    pub canonical_initial_value: f64,
+    pub canonical_final_value: f64,
+    pub points: Vec<ReportSystemSolutionPoint>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportSystemSolutionPoint {
+    pub x: f64,
+    pub y: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1413,6 +1441,7 @@ pub fn report_spec_from_report(
                     })
                     .collect(),
             },
+            solver_results: Vec::new(),
             equations: system
                 .equation_ir
                 .iter()
@@ -3438,6 +3467,8 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         json.push_str("      },\n");
         push_report_solver_plan_json(&mut json, &system.solver_plan, "      ");
         json.push_str(",\n");
+        push_report_system_solutions_json(&mut json, &system.solver_results, "      ");
+        json.push_str(",\n");
         json.push_str("      \"equations\": [\n");
         for (equation_index, equation) in system.equations.iter().enumerate() {
             if equation_index > 0 {
@@ -3784,6 +3815,101 @@ fn push_report_solver_plan_json(json: &mut String, plan: &ReportSolverPlan, inde
     }
     json.push_str(&format!("\n{indent}  ]\n"));
     json.push_str(&format!("{indent}}}"));
+}
+
+fn push_report_system_solutions_json(
+    json: &mut String,
+    solutions: &[ReportSystemSolution],
+    indent: &str,
+) {
+    json.push_str(&format!("{indent}\"solver_results\": [\n"));
+    for (solution_index, solution) in solutions.iter().enumerate() {
+        if solution_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}  {{\n"));
+        if let Some(binding) = &solution.binding {
+            json.push_str(&format!(
+                "{indent}    \"binding\": \"{}\",\n",
+                json_escape(binding)
+            ));
+        } else {
+            json.push_str(&format!("{indent}    \"binding\": null,\n"));
+        }
+        json.push_str(&format!(
+            "{indent}    \"status\": \"{}\",\n",
+            json_escape(&solution.status)
+        ));
+        json.push_str(&format!(
+            "{indent}    \"method\": \"{}\",\n",
+            json_escape(&solution.method)
+        ));
+        json.push_str(&format!(
+            "{indent}    \"reason\": \"{}\",\n",
+            json_escape(&solution.reason)
+        ));
+        json.push_str(&format!(
+            "{indent}    \"state\": \"{}\",\n",
+            json_escape(&solution.state)
+        ));
+        json.push_str(&format!(
+            "{indent}    \"quantity_kind\": \"{}\",\n",
+            json_escape(&solution.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "{indent}    \"display_unit\": \"{}\",\n",
+            json_escape(&solution.display_unit)
+        ));
+        json.push_str(&format!(
+            "{indent}    \"canonical_unit\": \"{}\",\n",
+            json_escape(&solution.canonical_unit)
+        ));
+        json.push_str(&format!(
+            "{indent}    \"time_unit\": \"{}\",\n",
+            json_escape(&solution.time_unit)
+        ));
+        json.push_str(&format!(
+            "{indent}    \"duration_s\": {},\n",
+            solution.duration_s
+        ));
+        json.push_str(&format!(
+            "{indent}    \"time_step_s\": {},\n",
+            solution.time_step_s
+        ));
+        json.push_str(&format!(
+            "{indent}    \"step_count\": {},\n",
+            solution.step_count
+        ));
+        json.push_str(&format!(
+            "{indent}    \"initial_value\": {},\n",
+            solution.initial_value
+        ));
+        json.push_str(&format!(
+            "{indent}    \"final_value\": {},\n",
+            solution.final_value
+        ));
+        json.push_str(&format!(
+            "{indent}    \"canonical_initial_value\": {},\n",
+            solution.canonical_initial_value
+        ));
+        json.push_str(&format!(
+            "{indent}    \"canonical_final_value\": {},\n",
+            solution.canonical_final_value
+        ));
+        json.push_str(&format!("{indent}    \"points\": [\n"));
+        for (point_index, point) in solution.points.iter().enumerate() {
+            if point_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str(&format!(
+                "{indent}      {{ \"x\": {}, \"y\": {} }}",
+                point.x, point.y
+            ));
+        }
+        json.push_str(&format!("\n{indent}    ]\n"));
+        json.push_str(&format!("{indent}  }}"));
+    }
+    json.push_str(&format!("\n{indent}]"));
 }
 
 pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
@@ -4457,6 +4583,7 @@ fn render_html_inner(
     let component_solver_section = spec
         .map(render_component_solver_section)
         .unwrap_or_default();
+    let system_solver_section = spec.map(render_system_solver_section).unwrap_or_default();
 
     format!(
         r#"<!doctype html>
@@ -4655,6 +4782,7 @@ fn render_html_inner(
       <thead><tr><th>Line</th><th>Object</th><th>Class</th><th>Field</th><th>Expression</th><th>Quantity</th><th>Unit</th><th>Status</th></tr></thead>
       <tbody>{object_summary}</tbody>
     </table>
+    {system_solver_section}
     <h2>System Equations</h2>
     <table>
       <thead><tr><th>Line</th><th>System</th><th>Equation</th><th>Left Dimension</th><th>Right Dimension</th><th>Residual</th><th>Status</th></tr></thead>
@@ -4824,6 +4952,41 @@ fn format_alignment_number(value: f64) -> String {
         text.pop();
     }
     text
+}
+
+fn render_system_solver_section(spec: &ReportSpec) -> String {
+    let rows = spec
+        .system_ir
+        .iter()
+        .flat_map(|system| {
+            system.solver_results.iter().map(move |solution| {
+                let binding = solution.binding.as_deref().unwrap_or("-");
+                format!(
+                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{:.6} {}</td></tr>",
+                    html_escape(&system.name),
+                    html_escape(binding),
+                    html_escape(&solution.state),
+                    html_escape(&solution.status),
+                    html_escape(&solution.method),
+                    solution.step_count,
+                    format_alignment_number(solution.final_value),
+                    solution.time_step_s,
+                    html_escape(&solution.time_unit)
+                )
+            })
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    if rows.is_empty() {
+        return String::new();
+    }
+    format!(
+        r#"<h2>System Solver Results</h2>
+    <table>
+      <thead><tr><th>System</th><th>Binding</th><th>State</th><th>Status</th><th>Method</th><th>Steps</th><th>Final</th><th>Step</th></tr></thead>
+      <tbody>{rows}</tbody>
+    </table>"#
+    )
 }
 
 fn render_component_solver_section(spec: &ReportSpec) -> String {

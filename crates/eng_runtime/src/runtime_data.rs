@@ -8,8 +8,8 @@ use eng_report::{
     PlotAxis, PlotBin, PlotPoint, PlotSeries, PlotSpec, ReportComputedIntegration,
     ReportComputedMetric, ReportComputedStatisticValue, ReportComputedStatistics,
     ReportMlCoefficient, ReportMlInfo, ReportPolicyResult, ReportPolicyViolation, ReportSpec,
-    ReportTimeAlignment, ReportTimeAxis, ReportUncertaintyInfo, ReportUncertaintyPropagationTerm,
-    ReportValidationResult,
+    ReportSystemSolution, ReportSystemSolutionPoint, ReportTimeAlignment, ReportTimeAxis,
+    ReportUncertaintyInfo, ReportUncertaintyPropagationTerm, ReportValidationResult,
 };
 
 use crate::solver::{
@@ -35,6 +35,35 @@ pub struct RuntimeData {
     pub validations: Vec<RuntimeValidation>,
     pub time_alignments: Vec<RuntimeTimeAlignment>,
     pub plot_options: PlotOptions,
+}
+
+fn report_system_solution(solution: &RuntimeSystemSolution) -> ReportSystemSolution {
+    ReportSystemSolution {
+        binding: solution.binding.clone(),
+        status: solution.status.clone(),
+        method: solution.method.clone(),
+        reason: solution.reason.clone(),
+        state: solution.state.clone(),
+        quantity_kind: solution.quantity_kind.clone(),
+        display_unit: solution.display_unit.clone(),
+        canonical_unit: solution.canonical_unit.clone(),
+        time_unit: solution.time_unit.clone(),
+        duration_s: solution.duration_s,
+        time_step_s: solution.time_step_s,
+        step_count: solution.step_count,
+        initial_value: solution.initial_value,
+        final_value: solution.final_value,
+        canonical_initial_value: solution.canonical_initial_value,
+        canonical_final_value: solution.canonical_final_value,
+        points: solution
+            .points
+            .iter()
+            .map(|point| ReportSystemSolutionPoint {
+                x: point.x,
+                y: point.y,
+            })
+            .collect(),
+    }
 }
 
 impl RuntimeData {
@@ -512,20 +541,22 @@ impl RuntimeData {
     }
 
     pub fn apply_system_solutions(&self, spec: &mut ReportSpec) {
-        for solution in &self.system_solutions {
-            let Some(system_ir) = spec
-                .system_ir
-                .iter_mut()
-                .find(|system| system.name == solution.system)
-            else {
-                continue;
-            };
-            system_ir.solver_boundary.status = solution.status.clone();
-            system_ir.solver_boundary.reason = solution.reason.clone();
-            system_ir.solver_plan.status = solution.status.clone();
-            system_ir.solver_plan.method = solution.method.clone();
-            system_ir.solver_plan.ode_runner.status = solution.status.clone();
-            system_ir.solver_plan.ode_runner.reason = solution.reason.clone();
+        for system_ir in &mut spec.system_ir {
+            let solver_results = self
+                .system_solutions
+                .iter()
+                .filter(|solution| solution.system == system_ir.name)
+                .map(report_system_solution)
+                .collect::<Vec<_>>();
+            if let Some(solution) = solver_results.first() {
+                system_ir.solver_boundary.status = solution.status.clone();
+                system_ir.solver_boundary.reason = solution.reason.clone();
+                system_ir.solver_plan.status = solution.status.clone();
+                system_ir.solver_plan.method = solution.method.clone();
+                system_ir.solver_plan.ode_runner.status = solution.status.clone();
+                system_ir.solver_plan.ode_runner.reason = solution.reason.clone();
+            }
+            system_ir.solver_results = solver_results;
         }
     }
 

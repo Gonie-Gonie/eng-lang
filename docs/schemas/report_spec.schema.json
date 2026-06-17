@@ -1074,11 +1074,15 @@
     },
     "systemIr": {
       "type": "object",
-      "required": ["name", "solver_boundary", "solver_plan", "equations", "line"],
+      "required": ["name", "solver_boundary", "solver_plan", "solver_results", "equations", "line"],
       "properties": {
         "name": { "type": "string" },
         "solver_boundary": { "$ref": "#/$defs/solverBoundary" },
         "solver_plan": { "$ref": "#/$defs/solverPlan" },
+        "solver_results": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/systemSolverResult" }
+        },
         "equations": {
           "type": "array",
           "items": { "$ref": "#/$defs/equationIr" }
@@ -1130,6 +1134,58 @@
       "properties": {
         "status": { "enum": ["deferred", "computed", "skipped_unsupported_shape"] },
         "reason": { "type": "string" }
+      }
+    },
+    "systemSolverResult": {
+      "type": "object",
+      "required": [
+        "binding",
+        "status",
+        "method",
+        "reason",
+        "state",
+        "quantity_kind",
+        "display_unit",
+        "canonical_unit",
+        "time_unit",
+        "duration_s",
+        "time_step_s",
+        "step_count",
+        "initial_value",
+        "final_value",
+        "canonical_initial_value",
+        "canonical_final_value",
+        "points"
+      ],
+      "properties": {
+        "binding": { "type": ["string", "null"] },
+        "status": { "type": "string" },
+        "method": { "type": "string" },
+        "reason": { "type": "string" },
+        "state": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "canonical_unit": { "type": "string" },
+        "time_unit": { "type": "string" },
+        "duration_s": { "type": "number" },
+        "time_step_s": { "type": "number" },
+        "step_count": { "type": "integer", "minimum": 0 },
+        "initial_value": { "type": "number" },
+        "final_value": { "type": "number" },
+        "canonical_initial_value": { "type": "number" },
+        "canonical_final_value": { "type": "number" },
+        "points": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/systemSolverPoint" }
+        }
+      }
+    },
+    "systemSolverPoint": {
+      "type": "object",
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" }
       }
     },
     "jacobianSeed": {

@@ -1272,6 +1272,8 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         Ok(output) => {
             let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
             let plot_spec = std::fs::read_to_string(output.plot_spec_path).unwrap_or_default();
+            let report_spec = std::fs::read_to_string(output.report_spec_path).unwrap_or_default();
+            let report_html = std::fs::read_to_string(output.report_path).unwrap_or_default();
             if !result.contains("\"binding\": \"sim\"")
                 || !result.contains("\"state\": \"T_air\"")
                 || !result.contains("\"state\": \"T_wall\"")
@@ -1279,8 +1281,14 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !result.contains("multi-state state-space")
                 || !plot_spec.contains("\"name\": \"sim.T_air\"")
                 || !plot_spec.contains("\"name\": \"sim.T_wall\"")
+                || !report_spec.contains("\"solver_results\"")
+                || !report_spec.contains("\"state\": \"T_air\"")
+                || !report_spec.contains("\"state\": \"T_wall\"")
+                || !report_html.contains("System Solver Results")
+                || !report_html.contains("T_air")
+                || !report_html.contains("T_wall")
             {
-                eprintln!("expected multi-state thermal example to produce two simulated state trajectories and plot series");
+                eprintln!("expected multi-state thermal example to produce two simulated state trajectories across result, plot, and report artifacts");
                 return ExitCode::from(2);
             }
             println!(
