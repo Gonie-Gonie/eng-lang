@@ -875,14 +875,27 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                     .iter()
                     .any(|operation| operation == "finite_difference_jacobian_ready")
         })
+        || !thermal_assembly_jit_plan
+            .candidates
+            .iter()
+            .any(|candidate| {
+                candidate.kind == "component_residual_jacobian"
+                    && candidate.lowering_status == "lowerable_to_numeric_kernel_plan"
+                    && candidate.estimate.input_count == 4
+                    && candidate.estimate.output_count == 16
+                    && candidate
+                        .operations
+                        .iter()
+                        .any(|operation| operation == "store_dense_jacobian:4x4")
+            })
     {
         eprintln!(
-            "expected official thermal component assembly example to expose a lowerable component residual kernel candidate"
+            "expected official thermal component assembly example to expose lowerable component residual and Jacobian kernel candidates"
         );
         return ExitCode::from(2);
     }
     println!(
-        "ok: examples/official/21_thermal_component_assembly/main.eng produced component residual kernel candidate"
+        "ok: examples/official/21_thermal_component_assembly/main.eng produced component residual and Jacobian kernel candidates"
     );
     match run_file(
         Path::new("examples/internal/23_component_boundary_singular/main.eng"),
@@ -2493,7 +2506,14 @@ fn jit_benchmark_targets(
             } else {
                 "not_observed_for_source"
             },
-            candidates_by_kind(plan, &["component_residual_graph", "system_residual"]),
+            candidates_by_kind(
+                plan,
+                &[
+                    "component_residual_graph",
+                    "component_residual_jacobian",
+                    "system_residual",
+                ],
+            ),
             "tracks residual evaluator candidates; system residuals may still be interface-only",
         ),
         benchmark_target(
@@ -2503,7 +2523,10 @@ fn jit_benchmark_targets(
             } else {
                 "not_observed_for_source"
             },
-            candidates_by_kind(plan, &["component_residual_graph"]),
+            candidates_by_kind(
+                plan,
+                &["component_residual_graph", "component_residual_jacobian"],
+            ),
             "tracks small component residual graph candidates, not production multi-domain solving",
         ),
         benchmark_target(

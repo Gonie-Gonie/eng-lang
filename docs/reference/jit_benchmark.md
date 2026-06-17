@@ -74,6 +74,10 @@ For continuous state-space sources, `state_space_simulation` is
 `state_space_rhs` candidate. This covers the A/B RHS kernel only; fixed-step
 simulation still uses the normal runtime solver path and no native timing is
 reported.
+For square component assemblies, `residual_evaluation` and
+`component_graph_solver_small_case` may list both `component_residual_graph`
+and `component_residual_jacobian` candidates. This records residual/Jacobian
+kernel coverage, not a production component-graph solver claim.
 
 ## Interpreter Shape
 

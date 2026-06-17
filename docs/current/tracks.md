@@ -199,6 +199,8 @@ Internal implementation seeds on `main`:
 - checked TimeSeries arithmetic, statistics, and integration metadata lowering into
   executable KernelIr
 - component assembly residual graph lowering into scalar residual KernelIr
+- square component residual Jacobian kernel-plan candidates backed by
+  finite-difference execution over scalar residual KernelIr
 - continuous state-space A/B RHS lowering into scalar KernelIr
 - per-candidate executor/fallback reason metadata
 ```

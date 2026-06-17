@@ -353,6 +353,37 @@ pub fn plan_for_report_with_options(
                 estimate: component_residual_estimate(assembly),
             },
         );
+        if assembly.variables.len() == assembly.equations.len() {
+            push_candidate(
+                &mut candidates,
+                &mut seen,
+                KernelCandidate {
+                    name: format!("{}:{}:jacobian", assembly.name, assembly.residual_graph.name),
+                    kind: "component_residual_jacobian".to_owned(),
+                    line: assembly.line,
+                    source: assembly
+                        .equations
+                        .iter()
+                        .map(|equation| equation.residual.as_str())
+                        .collect::<Vec<_>>()
+                        .join("; "),
+                    reason: "square component residual graph can execute finite-difference Jacobian evaluation"
+                        .to_owned(),
+                    lowering_status: "lowerable_to_numeric_kernel_plan".to_owned(),
+                    operations: vec![
+                        format!("load_component_variables:{}", assembly.variables.len()),
+                        format!("evaluate_component_residuals:{}", assembly.equations.len()),
+                        format!("finite_difference_columns:{}", assembly.variables.len()),
+                        format!(
+                            "store_dense_jacobian:{}x{}",
+                            assembly.equations.len(),
+                            assembly.variables.len()
+                        ),
+                    ],
+                    estimate: component_jacobian_estimate(assembly),
+                },
+            );
+        }
     }
 
     for system in &report.semantic_program.systems {
@@ -1387,6 +1418,7 @@ fn candidate_has_interpreter_lowering(candidate: &KernelCandidate) -> bool {
         "timeseries_arithmetic"
         | "timeseries_integrate"
         | "component_residual_graph"
+        | "component_residual_jacobian"
         | "state_space_rhs" => true,
         "statistics_fusion" => candidate.operations.iter().all(|operation| {
             operation
@@ -1636,6 +1668,30 @@ fn component_residual_estimate(assembly: &ComponentAssemblyInfo) -> KernelEstima
             format!("{} residual output(s)", assembly.equations.len()),
             format!("residual graph status: {}", assembly.residual_graph.status),
             format!("solver plan: {}", assembly.residual_graph.solver_plan),
+        ],
+    }
+}
+
+fn component_jacobian_estimate(assembly: &ComponentAssemblyInfo) -> KernelEstimate {
+    let variable_count = assembly.variables.len();
+    let equation_count = assembly.equations.len();
+    let dependency_count = assembly
+        .equations
+        .iter()
+        .map(|equation| equation.dependencies.len())
+        .sum::<usize>();
+    KernelEstimate {
+        estimated_rows: None,
+        input_count: variable_count,
+        output_count: equation_count * variable_count,
+        operation_count: ((variable_count + 1) * dependency_count.max(1)).max(1),
+        scan_count: 0,
+        complexity: "O(variables * residual-evaluation) finite-difference Jacobian".to_owned(),
+        notes: vec![
+            format!("{variable_count} component variable input(s)"),
+            format!("{equation_count} residual equation(s)"),
+            format!("{equation_count}x{variable_count} dense Jacobian output"),
+            "uses the scalar residual interpreter kernel at perturbed variable values".to_owned(),
         ],
     }
 }
@@ -2304,6 +2360,16 @@ mod tests {
             component_candidate["executor"]["status"],
             "interpreter_supported"
         );
+        let jacobian_candidate = candidates
+            .iter()
+            .find(|candidate| candidate["kind"] == "component_residual_jacobian")
+            .expect("component residual Jacobian candidate JSON should exist");
+        assert_eq!(
+            jacobian_candidate["executor"]["status"],
+            "interpreter_supported"
+        );
+        assert_eq!(jacobian_candidate["estimate"]["input_count"], 4);
+        assert_eq!(jacobian_candidate["estimate"]["output_count"], 16);
     }
 
     #[test]
