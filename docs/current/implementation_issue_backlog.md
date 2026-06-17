@@ -29,6 +29,8 @@ Current coverage:
 - Runtime optimization has `eng-kernel-ir-v1` plus an interpreter executor for
   element-wise TimeSeries arithmetic, trapezoid integration, scalar residual,
   finite-difference Jacobian, and Newton-step correctness tests.
+- Checked `integrate(... over Time)` metadata can lower to executable
+  trapezoid `KernelIr` when runtime TimeSeries values and timestep are supplied.
 - Component assembly residual graphs can lower checked assembly equations into
   scalar residual evaluator `KernelIr`; the official Thermal assembly fixture
   executes that IR and finite-difference Jacobian path in tests.

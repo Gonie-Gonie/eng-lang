@@ -595,6 +595,32 @@ pub fn component_residual_ir_from_assembly(assembly: &ComponentAssemblyInfo) -> 
     )
 }
 
+pub fn timeseries_integrate_ir_for_binding(
+    report: &CheckReport,
+    binding: &str,
+    timestep_s: f64,
+) -> Option<KernelIr> {
+    if !timestep_s.is_finite() || timestep_s <= 0.0 {
+        return None;
+    }
+    let integration = report
+        .semantic_program
+        .integrations
+        .iter()
+        .find(|integration| integration.binding == binding)?;
+    Some(KernelIr::new(
+        integration.binding.clone(),
+        "timeseries_integrate",
+        1,
+        1,
+        vec![KernelInstruction::IntegrateTrapezoid {
+            input: 0,
+            timestep_s,
+            output: 0,
+        }],
+    ))
+}
+
 fn push_candidate(
     candidates: &mut Vec<KernelCandidate>,
     seen: &mut BTreeSet<String>,
@@ -1312,6 +1338,34 @@ mod tests {
             NATIVE_PREVIEW_BACKEND
         );
         assert_eq!(native_plan.backend_selection.status, "not_available");
+    }
+
+    #[test]
+    fn lowers_official_integration_candidate_to_ir() {
+        let report = check_file(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../examples/official/01_csv_plot/main.eng"),
+            &CheckOptions::default(),
+        )
+        .expect("official CSV example should check");
+        let ir = timeseries_integrate_ir_for_binding(&report, "E_coil", 300.0)
+            .expect("E_coil integration should lower to IR");
+
+        assert_eq!(ir.name, "E_coil");
+        assert_eq!(ir.kind, "timeseries_integrate");
+        assert_eq!(ir.input_count, 1);
+        assert_eq!(ir.output_count, 1);
+
+        let output = execute_interpreter_kernel(
+            &ir,
+            &KernelExecutionInput {
+                series_inputs: vec![vec![4873.88, 4999.28, 4999.28, 5417.28]],
+                scalar_inputs: Vec::new(),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(output.outputs, vec![KernelOutputValue::Scalar(4543242.0)]);
     }
 
     #[test]
