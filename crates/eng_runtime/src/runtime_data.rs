@@ -20,11 +20,11 @@ use crate::solver::{
         ComponentEquation, ComponentInstance, ConnectionEdge, ConnectionSet, EquationAssembly,
         GeneratedEquation, PortInstance, UnknownVariable,
     },
-    solve_first_order_thermal, solve_fixed_step_ode, FirstOrderThermalModel, FixedStepMethod,
-    InputLayout, LayoutEntry, OutputLayout, ParameterLayout, ResidualEvaluator, ResidualGraph,
-    ResidualInput, RhsEvaluator, RhsInput, RhsStateInfo, SimulationPlan, SolverFailure,
-    SolverInput, SolverOptions, SolverOutput, SolverPlan, SolverResult, SolverScalar, StateLayout,
-    StateSpaceRhsEvaluator, StateTrajectory, TimeGrid,
+    solve_discrete_state_space, solve_first_order_thermal, solve_fixed_step_ode,
+    FirstOrderThermalModel, FixedStepMethod, InputLayout, LayoutEntry, OutputLayout,
+    ParameterLayout, ResidualEvaluator, ResidualGraph, ResidualInput, RhsEvaluator, RhsInput,
+    RhsStateInfo, SimulationPlan, SolverFailure, SolverInput, SolverOptions, SolverPlan,
+    SolverResult, SolverScalar, StateLayout, StateSpaceRhsEvaluator, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -3029,8 +3029,20 @@ fn materialize_state_space_solutions(
     };
     if is_discrete_state_space {
         let solver_result =
-            solve_discrete_state_space(&solver_input, &inputs, &input_series, &matrix_a, &matrix_b)
-                .ok()?;
+            solve_discrete_state_space(&solver_input, &matrix_a, &matrix_b, |sample_time_s| {
+                inputs
+                    .iter()
+                    .zip(input_series.iter())
+                    .map(|(input, series)| state_space_input_value(input, *series, sample_time_s))
+                    .collect::<Option<Vec<_>>>()
+                    .ok_or_else(|| {
+                        SolverFailure::new(
+                            "E-SIM-MISSING-INPUT",
+                            "discrete state-space solver could not materialize one or more input values",
+                        )
+                    })
+            })
+            .ok()?;
         let reason = if input_series.iter().any(Option::is_some) {
             "recognized discrete-time state-space A/B operators and executed state update with TimeSeries input materialization"
         } else {
@@ -3114,88 +3126,6 @@ fn state_space_runtime_solutions(
         .collect::<Vec<_>>();
 
     (!solutions.is_empty()).then_some(solutions)
-}
-
-fn solve_discrete_state_space(
-    input: &SolverInput,
-    input_variables: &[&eng_compiler::SystemVariableInfo],
-    input_series: &[Option<&RuntimeTimeSeries>],
-    matrix_a: &[Vec<f64>],
-    matrix_b: &[Vec<f64>],
-) -> Result<SolverResult, SolverFailure> {
-    input.validate_layouts()?;
-    let mut state = input.initial_state.clone();
-    let mut values_by_state = vec![Vec::with_capacity(input.time_grid.step_count + 1); state.len()];
-    for (index, value) in state.iter().copied().enumerate() {
-        values_by_state[index].push(value);
-    }
-
-    for step in 1..=input.time_grid.step_count {
-        let sample_time_s = input.time_grid.step_time_s(step - 1);
-        let input_values = input_variables
-            .iter()
-            .zip(input_series.iter())
-            .map(|(input, series)| state_space_input_value(input, *series, sample_time_s))
-            .collect::<Option<Vec<_>>>()
-            .ok_or_else(|| {
-                SolverFailure::new(
-                    "E-SIM-MISSING-INPUT",
-                    "discrete state-space solver could not materialize one or more input values",
-                )
-            })?;
-        let next_state = matrix_a
-            .iter()
-            .zip(matrix_b.iter())
-            .map(|(a_row, b_row)| {
-                let state_term = a_row
-                    .iter()
-                    .zip(state.iter())
-                    .map(|(coefficient, value)| coefficient * value)
-                    .sum::<f64>();
-                let input_term = b_row
-                    .iter()
-                    .zip(input_values.iter())
-                    .map(|(coefficient, value)| coefficient * value)
-                    .sum::<f64>();
-                state_term + input_term
-            })
-            .collect::<Vec<_>>();
-        if next_state.len() != state.len() {
-            return Err(SolverFailure::new(
-                "E-SOLVER-RHS-LAYOUT-MISMATCH",
-                "discrete state-space update length does not match state layout",
-            ));
-        }
-        state = next_state;
-        for (index, value) in state.iter().copied().enumerate() {
-            values_by_state[index].push(value);
-        }
-    }
-
-    let state_trajectories = input
-        .state_layout
-        .entries
-        .iter()
-        .zip(values_by_state)
-        .map(|(entry, values)| StateTrajectory {
-            name: entry.name.clone(),
-            quantity_kind: entry.quantity_kind.clone(),
-            canonical_unit: entry.canonical_unit.clone(),
-            values,
-        })
-        .collect();
-
-    Ok(SolverResult::computed(
-        input.plan.clone(),
-        input.time_grid.clone(),
-        input.state_layout.clone(),
-        input.output_layout.clone(),
-        SolverOutput {
-            state_trajectories,
-            algebraic_trajectories: Vec::new(),
-        },
-        input.time_grid.step_count,
-    ))
 }
 
 fn state_space_input_value(

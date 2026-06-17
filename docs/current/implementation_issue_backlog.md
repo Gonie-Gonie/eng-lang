@@ -190,6 +190,9 @@ Definition of Done:
   inputs, outputs, timestep, tolerance, iterations, convergence, and failure
   reason. Plot/report output, IDE inspector support, and continuous/discrete
   state-space smoke fixtures are in place for the current seed scope.
+- Discrete state-space fixed-step execution now lives in
+  `solver::state_space::solve_discrete_state_space`; runtime materialization
+  supplies the TimeSeries/scalar input sampler and adapts the `SolverResult`.
 - Remaining supported-workflow work includes broader operator algebra and
   coefficient-unit policy, and public stability wording.
 - No nonlinear/DAE/adaptive or component-coupled solver claim is made.
