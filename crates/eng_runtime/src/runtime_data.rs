@@ -20,11 +20,11 @@ use crate::solver::{
         ComponentEquation, ComponentInstance, ConnectionEdge, ConnectionSet, EquationAssembly,
         GeneratedEquation, PortInstance, UnknownVariable,
     },
-    solve_discrete_state_space, solve_first_order_thermal, solve_fixed_step_ode,
+    solve_continuous_state_space, solve_discrete_state_space, solve_first_order_thermal,
     FirstOrderThermalModel, FixedStepMethod, InputLayout, LayoutEntry, OutputLayout,
-    ParameterLayout, ResidualEvaluator, ResidualGraph, ResidualInput, RhsEvaluator, RhsInput,
-    RhsStateInfo, SimulationPlan, SolverFailure, SolverInput, SolverOptions, SolverPlan,
-    SolverResult, SolverScalar, StateLayout, StateSpaceRhsEvaluator, StateTrajectory, TimeGrid,
+    ParameterLayout, ResidualEvaluator, ResidualGraph, ResidualInput, SimulationPlan,
+    SolverFailure, SolverInput, SolverOptions, SolverPlan, SolverResult, SolverScalar, StateLayout,
+    StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -3050,43 +3050,25 @@ fn materialize_state_space_solutions(
         };
         return state_space_runtime_solutions(system, binding, &states, &solver_result, reason);
     }
-    let rhs_evaluator = StateSpaceRhsEvaluator::new(
-        states
-            .iter()
-            .map(|state| {
-                RhsStateInfo::new(
-                    state.name.clone(),
-                    state.quantity_kind.clone(),
-                    state.canonical_unit.clone(),
-                )
-            })
-            .collect(),
-        matrix_a,
-        matrix_b,
-        inputs.len(),
+    let solver_result = solve_continuous_state_space(
+        fixed_step_method,
+        &solver_input,
+        &matrix_a,
+        &matrix_b,
+        |sample_time_s| {
+            inputs
+                .iter()
+                .zip(input_series.iter())
+                .map(|(input, series)| state_space_input_value(input, *series, sample_time_s))
+                .collect::<Option<Vec<_>>>()
+                .ok_or_else(|| {
+                    SolverFailure::new(
+                        "E-SIM-MISSING-INPUT",
+                        "state-space solver could not materialize one or more input values",
+                    )
+                })
+        },
     )
-    .ok()?;
-
-    let solver_result = solve_fixed_step_ode(fixed_step_method, &solver_input, |sample| {
-        let input_values = inputs
-            .iter()
-            .zip(input_series.iter())
-            .map(|(input, series)| state_space_input_value(input, *series, sample.time_s))
-            .collect::<Option<Vec<_>>>()
-            .ok_or_else(|| {
-                SolverFailure::new(
-                    "E-SIM-MISSING-INPUT",
-                    "state-space solver could not materialize one or more input values",
-                )
-            })?;
-        let rhs_output = rhs_evaluator.evaluate(&RhsInput {
-            t: sample.time_s,
-            x: sample.state.to_vec(),
-            u: input_values,
-            p: Vec::new(),
-        })?;
-        Ok(rhs_output.derivatives)
-    })
     .ok()?;
 
     let reason = if input_series.iter().any(Option::is_some) {

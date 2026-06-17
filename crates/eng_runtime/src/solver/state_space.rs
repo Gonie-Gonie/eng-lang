@@ -1,4 +1,46 @@
-use super::{SolverFailure, SolverInput, SolverOutput, SolverResult, StateTrajectory};
+use super::{
+    solve_fixed_step_ode, FixedStepMethod, RhsEvaluator, RhsInput, RhsStateInfo, SolverFailure,
+    SolverInput, SolverOutput, SolverResult, StateSpaceRhsEvaluator, StateTrajectory,
+};
+
+pub fn solve_continuous_state_space<F>(
+    method: FixedStepMethod,
+    input: &SolverInput,
+    matrix_a: &[Vec<f64>],
+    matrix_b: &[Vec<f64>],
+    mut input_values_at: F,
+) -> Result<SolverResult, SolverFailure>
+where
+    F: FnMut(f64) -> Result<Vec<f64>, SolverFailure>,
+{
+    let rhs_evaluator = StateSpaceRhsEvaluator::new(
+        input
+            .state_layout
+            .entries
+            .iter()
+            .map(|entry| {
+                RhsStateInfo::new(
+                    entry.name.clone(),
+                    entry.quantity_kind.clone(),
+                    entry.canonical_unit.clone(),
+                )
+            })
+            .collect(),
+        matrix_a.to_vec(),
+        matrix_b.to_vec(),
+        input.input_layout.entries.len(),
+    )?;
+
+    solve_fixed_step_ode(method, input, |sample| {
+        let rhs_output = rhs_evaluator.evaluate(&RhsInput {
+            t: sample.time_s,
+            x: sample.state.to_vec(),
+            u: input_values_at(sample.time_s)?,
+            p: Vec::new(),
+        })?;
+        Ok(rhs_output.derivatives)
+    })
+}
 
 pub fn solve_discrete_state_space<F>(
     input: &SolverInput,
@@ -103,6 +145,53 @@ mod tests {
         InputLayout, LayoutEntry, OutputLayout, ParameterLayout, SimulationPlan, SolverOptions,
         SolverPlan, SolverScalar, TimeGrid,
     };
+
+    #[test]
+    fn solves_continuous_state_space_through_fixed_step_api() {
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "continuous_state_space",
+                SimulationPlan {
+                    states: vec!["x".to_owned()],
+                    inputs: vec!["u".to_owned()],
+                    outputs: vec!["x".to_owned()],
+                    parameters: Vec::new(),
+                },
+                SolverOptions::fixed_step("state_space_explicit_euler_fixed_step", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(2.0, 1.0).unwrap(),
+            state_layout: crate::solver::StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout {
+                entries: vec![LayoutEntry::new(0, "u", "Dimensionless", "1", "1")],
+            },
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![0.0],
+            inputs: vec![SolverScalar::new("u", "Dimensionless", "1", 0.0)],
+            parameters: Vec::new(),
+        };
+
+        let result = solve_continuous_state_space(
+            FixedStepMethod::ExplicitEuler,
+            &input,
+            &[vec![0.0]],
+            &[vec![1.0]],
+            |_| Ok(vec![1.0]),
+        )
+        .unwrap();
+
+        assert_eq!(
+            result.output.state_trajectories[0].values,
+            vec![0.0, 1.0, 2.0]
+        );
+        assert_eq!(result.diagnostics.iteration_count, 2);
+    }
 
     #[test]
     fn solves_discrete_state_space_with_sampled_input() {
