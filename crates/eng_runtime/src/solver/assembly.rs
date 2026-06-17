@@ -30,9 +30,15 @@ pub struct ConnectionSet {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct GeneratedEquation {
     pub name: String,
+    pub kind: String,
+    pub domain: String,
     pub expression: String,
+    pub residual: String,
+    pub dependencies: Vec<String>,
     pub source: String,
     pub reason: String,
+    pub source_line: Option<usize>,
+    pub status: String,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -47,6 +53,9 @@ pub struct UnknownVariable {
     pub name: String,
     pub role: String,
     pub quantity_kind: String,
+    pub unit: String,
+    pub source: String,
+    pub status: String,
 }
 
 pub type StateVariable = UnknownVariable;

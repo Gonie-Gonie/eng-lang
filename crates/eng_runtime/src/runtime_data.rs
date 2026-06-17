@@ -14,6 +14,10 @@ use eng_report::{
 
 use crate::solver::{
     algorithms::fixed_step::{solve_explicit_euler, solve_rk4, RhsSample},
+    assembly::{
+        ComponentEquation, ComponentInstance, ConnectionEdge, ConnectionSet, EquationAssembly,
+        GeneratedEquation, PortInstance, UnknownVariable,
+    },
     InputLayout, LayoutEntry, ParameterLayout, RhsEvaluator, RhsInput, RhsStateInfo,
     SimulationPlan, SolverFailure, SolverInput, SolverOptions, SolverOutput, SolverPlan,
     SolverResult, SolverScalar, StateLayout, StateSpaceRhsEvaluator, StateTrajectory, TimeGrid,
@@ -2213,21 +2217,22 @@ fn materialize_component_solutions(report: &CheckReport) -> Vec<RuntimeComponent
         .component_assemblies
         .iter()
         .map(|assembly| {
-            let equation_count = assembly.equations.len();
-            let unknown_count = assembly.variables.len();
-            let variables = assembly
-                .variables
+            let solver_assembly = solver_equation_assembly_from_component_info(report, assembly);
+            let equation_count = solver_assembly.equation_count();
+            let unknown_count = solver_assembly.unknown_count();
+            let variables = solver_assembly
+                .unknowns
                 .iter()
                 .map(|variable| RuntimeComponentVariableSolution {
                     name: variable.name.clone(),
                     role: variable.role.clone(),
                     value: 0.0,
-                    unit: assembly_variable_unit(report, variable),
+                    unit: variable.unit.clone(),
                     status: "homogeneous_zero_seed".to_owned(),
                 })
                 .collect::<Vec<_>>();
-            let residuals = assembly
-                .equations
+            let residuals = solver_assembly
+                .generated_equations
                 .iter()
                 .map(|equation| RuntimeComponentResidualEvaluation {
                     name: equation.name.clone(),
@@ -2311,12 +2316,126 @@ fn materialize_component_solutions(report: &CheckReport) -> Vec<RuntimeComponent
         .collect()
 }
 
-fn assembly_variable_unit(
+fn solver_equation_assembly_from_component_info(
+    report: &CheckReport,
+    assembly: &eng_compiler::ComponentAssemblyInfo,
+) -> EquationAssembly {
+    let components = report
+        .semantic_program
+        .components
+        .iter()
+        .map(|component| ComponentInstance {
+            name: component.name.clone(),
+            component_type: "component".to_owned(),
+            ports: component
+                .ports
+                .iter()
+                .map(|port| PortInstance {
+                    name: port.name.clone(),
+                    component: component.name.clone(),
+                    domain: port.domain.clone(),
+                    medium: port.type_arguments.first().cloned(),
+                })
+                .collect(),
+        })
+        .collect::<Vec<_>>();
+    let ports = components
+        .iter()
+        .flat_map(|component| component.ports.iter().cloned())
+        .collect::<Vec<_>>();
+    let connections = report
+        .semantic_program
+        .connections
+        .iter()
+        .map(|connection| ConnectionEdge {
+            from: connection.left.clone(),
+            to: connection.right.clone(),
+            source_line: connection.line,
+        })
+        .collect::<Vec<_>>();
+    let connection_sets = assembly
+        .connection_sets
+        .iter()
+        .map(|connection_set| ConnectionSet {
+            name: connection_set.name.clone(),
+            domain: connection_set.domain.clone(),
+            ports: connection_set.ports.clone(),
+        })
+        .collect::<Vec<_>>();
+    let generated_equations = assembly
+        .equations
+        .iter()
+        .map(|equation| GeneratedEquation {
+            name: equation.name.clone(),
+            kind: equation.kind.clone(),
+            domain: equation.domain.clone(),
+            expression: equation.expression.clone(),
+            residual: equation.residual.clone(),
+            dependencies: equation.dependencies.clone(),
+            source: "component_connection".to_owned(),
+            reason: generated_equation_reason(&equation.kind),
+            source_line: Some(equation.line),
+            status: equation.status.clone(),
+        })
+        .collect::<Vec<_>>();
+    let unknowns = assembly
+        .variables
+        .iter()
+        .map(|variable| {
+            let (quantity_kind, unit) = assembly_variable_quantity_unit(report, variable);
+            UnknownVariable {
+                name: variable.name.clone(),
+                role: variable.role.clone(),
+                quantity_kind,
+                unit,
+                source: variable.source.clone(),
+                status: variable.status.clone(),
+            }
+        })
+        .collect::<Vec<_>>();
+    let states = unknowns
+        .iter()
+        .filter(|variable| variable.role == "state")
+        .cloned()
+        .collect::<Vec<_>>();
+    let algebraic_variables = unknowns
+        .iter()
+        .filter(|variable| variable.role == "algebraic")
+        .cloned()
+        .collect::<Vec<_>>();
+
+    EquationAssembly {
+        name: assembly.name.clone(),
+        components,
+        ports,
+        connections,
+        connection_sets,
+        generated_equations,
+        component_equations: Vec::<ComponentEquation>::new(),
+        unknowns,
+        states,
+        algebraic_variables,
+        inputs: Vec::new(),
+        parameters: Vec::new(),
+    }
+}
+
+fn generated_equation_reason(kind: &str) -> String {
+    match kind {
+        "across_equality" => "domain across variable equality for connected ports".to_owned(),
+        "through_conservation" => {
+            "domain through variable conservation for connection set".to_owned()
+        }
+        _ => "component assembly generated equation".to_owned(),
+    }
+}
+
+fn assembly_variable_quantity_unit(
     report: &CheckReport,
     variable: &eng_compiler::ComponentAssemblyVariableInfo,
-) -> String {
+) -> (String, String) {
     let Some((domain_name, variable_name)) = variable.source.split_once('.') else {
-        return "1".to_owned();
+        return ("unknown".to_owned(), "1".to_owned());
     };
     report
         .semantic_program
@@ -2329,8 +2448,13 @@ fn assembly_variable_unit(
                 .iter()
                 .find(|domain_variable| domain_variable.name == variable_name)
         })
-        .map(|domain_variable| domain_variable.display_unit.clone())
-        .unwrap_or_else(|| "1".to_owned())
+        .map(|domain_variable| {
+            (
+                domain_variable.quantity_kind.clone(),
+                domain_variable.display_unit.clone(),
+            )
+        })
+        .unwrap_or_else(|| ("unknown".to_owned(), "1".to_owned()))
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -5339,6 +5463,18 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         let source = std::fs::read_to_string(&source_path).unwrap();
         let report = check_file(&source_path, &CheckOptions::default()).unwrap();
         let runtime = materialize_runtime_data(&report, &source);
+        let solver_assembly = solver_equation_assembly_from_component_info(
+            &report,
+            &report.semantic_program.component_assemblies[0],
+        );
+
+        assert_eq!(solver_assembly.name, "component_graph");
+        assert_eq!(solver_assembly.equation_count(), 6);
+        assert_eq!(solver_assembly.unknown_count(), 12);
+        assert!(solver_assembly
+            .generated_equations
+            .iter()
+            .any(|equation| equation.reason.contains("through variable conservation")));
 
         assert_eq!(runtime.component_solutions.len(), 1);
         let solution = &runtime.component_solutions[0];
