@@ -98,7 +98,8 @@ Before a stable-core maintenance slice is accepted:
 ```
 
 The `eng test examples` gate directly exercises the official run/build paths,
-Korean and space-containing paths, standalone package execution,
+Korean and space-containing paths, standalone package execution under a
+sanitized Rust/Python-free child-process PATH,
 CSV source-hash provenance, TimeSeries axis and HeatRate-to-Energy integration
 metadata, measured-vs-simulated SolverResult method/timestep/final-state
 metadata, RMSE/validation units, measured-vs-simulated repro-profile saved

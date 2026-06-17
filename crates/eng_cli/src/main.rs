@@ -2614,12 +2614,10 @@ report {
                 return ExitCode::from(2);
             }
 
-            let help_output = Command::new("cmd")
-                .arg("/C")
-                .arg("run.bat")
-                .arg("--help")
-                .current_dir(&output.bundle_path)
-                .output();
+            let help_output = {
+                let mut command = standalone_runner_command(&output.bundle_path);
+                command.arg("--help").output()
+            };
             match help_output {
                 Ok(output)
                     if output.status.success()
@@ -2634,11 +2632,7 @@ report {
                 }
             }
 
-            let status = Command::new("cmd")
-                .arg("/C")
-                .arg("run.bat")
-                .current_dir(&output.bundle_path)
-                .status();
+            let status = standalone_runner_command(&output.bundle_path).status();
             match status {
                 Ok(status) if status.success() => {
                     let report_spec = output
@@ -2683,11 +2677,7 @@ report {
         &BuildOptions { args: Vec::new() },
     ) {
         Ok(output) => {
-            let status = Command::new("cmd")
-                .arg("/C")
-                .arg("run.bat")
-                .current_dir(&output.bundle_path)
-                .status();
+            let status = standalone_runner_command(&output.bundle_path).status();
             match status {
                 Ok(status) if status.success() => {
                     let result_path = output
@@ -2780,6 +2770,55 @@ fn collect_eng_files(root: &Path, files: &mut Vec<PathBuf>) -> Result<(), std::i
         }
     }
     Ok(())
+}
+
+fn standalone_runner_command(bundle_path: &Path) -> Command {
+    let mut command = Command::new(standalone_cmd_path());
+    command.arg("/C").arg("run.bat").current_dir(bundle_path);
+    apply_standalone_smoke_env(&mut command);
+    command
+}
+
+fn standalone_cmd_path() -> PathBuf {
+    if let Some(comspec) = env::var_os("ComSpec") {
+        return PathBuf::from(comspec);
+    }
+    if let Some(system_root) = env::var_os("SystemRoot").or_else(|| env::var_os("WINDIR")) {
+        return PathBuf::from(system_root).join("System32").join("cmd.exe");
+    }
+    PathBuf::from("cmd.exe")
+}
+
+fn apply_standalone_smoke_env(command: &mut Command) {
+    for variable in [
+        "CARGO",
+        "CARGO_HOME",
+        "RUSTUP_HOME",
+        "PYTHONHOME",
+        "PYTHONPATH",
+        "VIRTUAL_ENV",
+        "ENG_REPO_ROOT",
+    ] {
+        command.env_remove(variable);
+    }
+
+    if let Some(system_root) = env::var_os("SystemRoot").or_else(|| env::var_os("WINDIR")) {
+        let system_root_path = PathBuf::from(&system_root);
+        let system_path = format!(
+            "{};{}",
+            system_root_path.join("System32").display(),
+            system_root_path.display()
+        );
+        command.env("SystemRoot", &system_root);
+        command.env("WINDIR", &system_root);
+        command.env("PATH", system_path);
+    } else {
+        command.env("PATH", "");
+    }
+
+    if let Some(comspec) = env::var_os("ComSpec") {
+        command.env("ComSpec", comspec);
+    }
 }
 
 fn solver_algorithm_smoke() -> Result<(), String> {

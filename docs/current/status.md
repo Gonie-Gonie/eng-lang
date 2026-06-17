@@ -90,7 +90,8 @@ covered by the breaking-change policy.
   `repro` records profile diagnostics in result/run-log/output-manifest
   artifacts.
 - Standalone packaged runner with `.engpkg`, `.lock`, Args help, dependency
-  copying, package smoke, curated PDF docs, and SHA256 release checksum.
+  copying, package smoke under a sanitized Rust/Python-free child-process PATH,
+  curated PDF docs, and SHA256 release checksum.
 - Tauri/WebView tester IDE smoke path for open/check/save/run, diagnostics,
   variable summaries, schema/TimeSeries/metric/validation/time-alignment
   inspectors for the measured workflow, schema parse/conversion failure
