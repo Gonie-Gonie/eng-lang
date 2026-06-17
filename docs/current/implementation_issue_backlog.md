@@ -322,6 +322,10 @@ Current coverage:
 - Dynamic-component RHS evaluation can be driven from derivative-form
   `ResidualGraph` equations, giving the internal explicit-Euler seed a concrete
   residual-to-RHS bridge for algebraic-free dynamic systems.
+- Runtime exposes a residual-graph explicit-Euler dynamic-component entrypoint
+  that validates solver input layouts, rejects algebraic variables for the
+  algebraic-free path, reuses the common dynamic-component fixed-step loop, and
+  returns `SolverResult` state trajectories plus timestep diagnostics.
 
 Definition of Done:
 

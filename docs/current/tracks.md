@@ -109,6 +109,8 @@ Internal runtime seeds:
 - optional DAE mass matrix and initial consistency checks
 - standalone dynamic-component explicit-Euler seed with algebraic-free state updates, algebraic solve per timestep, and common SolverResult state/algebraic trajectories
 - derivative-form ResidualGraph to dynamic-component RHS bridge for algebraic-free dynamic seeds
+- residual-graph explicit-Euler dynamic-component entrypoint with layout
+  validation and common SolverResult timestep diagnostics
 - EquationAssembly dynamic-component state/algebraic/input/parameter split validation into solver layouts
 - component solver result trajectory and timestep-diagnostic artifact adapter for internal dynamic-component SolverResult output
 - solver-API delay buffer with interpolation and initial-history policies

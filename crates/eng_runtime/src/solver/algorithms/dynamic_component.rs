@@ -535,6 +535,45 @@ where
     ))
 }
 
+pub fn solve_residual_graph_explicit_euler(
+    input: &SolverInput,
+    graph: &ResidualGraph,
+    options: DynamicComponentOptions,
+) -> Result<DynamicComponentResult, SolverFailure> {
+    let evaluator = ResidualGraphRhsEvaluator::new(graph)?;
+    validate_residual_graph_solver_layout(input, &evaluator)?;
+    solve_explicit_euler_with_algebraic(
+        input,
+        StateLayout::default(),
+        Vec::new(),
+        options,
+        |_| Ok(Vec::new()),
+        |sample| evaluator.evaluate(&sample),
+    )
+}
+
+fn validate_residual_graph_solver_layout(
+    input: &SolverInput,
+    evaluator: &ResidualGraphRhsEvaluator,
+) -> Result<(), SolverFailure> {
+    if evaluator.algebraic_count != 0 {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-RHS-SHAPE",
+            "residual graph explicit-Euler solve requires an algebraic-free dynamic graph",
+        ));
+    }
+    if input.state_layout.len() != evaluator.state_count
+        || input.input_layout.len() != evaluator.input_count
+        || input.parameter_layout.len() != evaluator.parameter_count
+    {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-RHS-LAYOUT",
+            "solver input layouts do not match the residual graph RHS variables",
+        ));
+    }
+    Ok(())
+}
+
 fn dynamic_component_result(
     input: &SolverInput,
     algebraic_layout: StateLayout,
@@ -865,6 +904,83 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["algebraic_not_required", "algebraic_not_required"]
         );
+    }
+
+    #[test]
+    fn residual_graph_explicit_euler_entrypoint_solves_algebraic_free_graph() {
+        let graph = residual_rhs_graph();
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "ComponentGraph",
+                SimulationPlan::default(),
+                SolverOptions::fixed_step("dynamic_component_residual_graph_explicit_euler", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(1.0, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![
+                LayoutEntry::new(0, "x", "Dimensionless", "1", "1"),
+                LayoutEntry::new(1, "y", "Dimensionless", "1", "1"),
+            ]),
+            input_layout: InputLayout {
+                entries: vec![LayoutEntry::new(0, "u", "Dimensionless", "1", "1")],
+            },
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![1.0, 2.0],
+            inputs: vec![SolverScalar::new("u", "Dimensionless", "1", 3.0)],
+            parameters: Vec::new(),
+        };
+
+        let result =
+            solve_residual_graph_explicit_euler(&input, &graph, DynamicComponentOptions::default())
+                .unwrap();
+
+        assert_eq!(
+            result.solver_result.diagnostics.convergence_status.as_str(),
+            "dynamic_component_fixed_step_completed"
+        );
+        assert_eq!(
+            result.solver_result.output.state_trajectories[0].values,
+            vec![1.0, 5.0]
+        );
+        assert_eq!(
+            result.solver_result.output.state_trajectories[1].values,
+            vec![2.0, 0.0]
+        );
+        assert!(result.algebraic_trajectories.is_empty());
+    }
+
+    #[test]
+    fn residual_graph_explicit_euler_entrypoint_rejects_layout_mismatch() {
+        let graph = residual_rhs_graph();
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "ComponentGraph",
+                SimulationPlan::default(),
+                SolverOptions::fixed_step("dynamic_component_residual_graph_explicit_euler", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(1.0, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout {
+                entries: vec![LayoutEntry::new(0, "u", "Dimensionless", "1", "1")],
+            },
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![1.0],
+            inputs: vec![SolverScalar::new("u", "Dimensionless", "1", 3.0)],
+            parameters: Vec::new(),
+        };
+
+        let failure =
+            solve_residual_graph_explicit_euler(&input, &graph, DynamicComponentOptions::default())
+                .unwrap_err();
+
+        assert_eq!(failure.code, "E-DYNAMIC-COMPONENT-RHS-LAYOUT");
     }
 
     #[test]
