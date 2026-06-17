@@ -1,0 +1,7 @@
+system BadStateSpace {
+    state T_zone: AbsoluteTemperature = 22 degC
+
+    states x = [T_zone]
+
+    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[NaN]]
+}
