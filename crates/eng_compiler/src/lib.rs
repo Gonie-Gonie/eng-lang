@@ -6018,7 +6018,7 @@ mod tests {
     fn records_state_space_vectors_and_linear_operators() {
         let report = check_source(
             "ok.eng",
-            "system ThermalStateSpaceMetadata {\n    state T_zone: AbsoluteTemperature = 22 degC\n    input T_out: AbsoluteTemperature = 8 degC\n    input Q_internal: HeatRate = 500 W\n    states x = [T_zone]\n    inputs u = [T_out, Q_internal]\n    outputs y = [T_zone]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.0002]]\n    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.0002, 0.001]]\n    equation {\n        der(x) eq A * x + B * u\n    }\n}\n",
+            "system ThermalStateSpaceMetadata {\n    state T_zone: AbsoluteTemperature = 22 degC\n    input T_out: AbsoluteTemperature = 8 degC\n    input Q_internal: HeatRate = 500 W\n    states x = [T_zone]\n    inputs u = [T_out, Q_internal]\n    outputs y = [T_zone]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.0002 1/s]]\n    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.0002 1/s, 0.001]]\n    equation {\n        der(x) eq A * x + B * u\n    }\n}\n",
             &CheckOptions::default(),
         );
 
@@ -6063,7 +6063,7 @@ mod tests {
         );
         assert_eq!(
             report.semantic_program.linear_operators[1].compatibility_status,
-            "dimensionless_entries_checked"
+            "coefficient_units_checked"
         );
         assert_eq!(report.semantic_program.linear_operators[1].row_count, 1);
         assert_eq!(report.semantic_program.linear_operators[1].column_count, 2);
@@ -6112,7 +6112,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_state_space_operator_unitful_entries_until_supported() {
+    fn rejects_unsupported_state_space_operator_coefficient_units() {
         let report = check_source(
             "bad.eng",
             "system BadStateSpace {\n    state T_zone: AbsoluteTemperature = 22 degC\n    states x = [T_zone]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[0.1 s]]\n}\n",
@@ -6124,6 +6124,21 @@ mod tests {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-STATE-SPACE-OP-ENTRY-UNIT-001"));
+        assert_eq!(
+            report.semantic_program.linear_operators[0].compatibility_status,
+            "entry_unit_unsupported"
+        );
+    }
+
+    #[test]
+    fn rejects_incompatible_state_space_operator_coefficient_units() {
+        let report = check_source(
+            "bad.eng",
+            "system BadStateSpace {\n    state T_zone: AbsoluteTemperature = 22 degC\n    input Q_internal: HeatRate = 500 W\n    states x = [T_zone]\n    inputs u = [Q_internal]\n    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.1 1/s]]\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
         assert_eq!(
             report.semantic_program.linear_operators[0].compatibility_status,
             "entry_unit_unsupported"

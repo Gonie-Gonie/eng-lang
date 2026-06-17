@@ -12,7 +12,7 @@ use crate::ml::MlInfo;
 use crate::parser::{ParseContext, ParsedProgram};
 use crate::quantities::{
     candidates_for_unit, completion_labels, first_unit_in_expression,
-    infer_quantity_from_name_and_unit, is_number_literal, QuantityCompletion,
+    infer_quantity_from_name_and_unit, is_number_literal, normalize_unit, QuantityCompletion,
 };
 use crate::schema::{CsvPromotion, SchemaInfo};
 use crate::stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -6034,12 +6034,12 @@ fn validate_linear_operator_shapes(
         {
             operator.status = "member_unresolved".to_owned();
             operator.compatibility_status = "member_unresolved".to_owned();
-        } else if !linear_operator_entries_are_unitless(operator, diagnostics) {
+        } else if !linear_operator_entries_have_supported_units(operator, diagnostics) {
             operator.status = "entry_unit_unsupported".to_owned();
             operator.compatibility_status = "entry_unit_unsupported".to_owned();
         } else {
             operator.status = "shape_checked".to_owned();
-            operator.compatibility_status = "dimensionless_entries_checked".to_owned();
+            operator.compatibility_status = "coefficient_units_checked".to_owned();
         }
     }
 }
@@ -6074,40 +6074,68 @@ fn linear_operator_rows_are_rectangular(
     false
 }
 
-fn linear_operator_entries_are_unitless(
+fn linear_operator_entries_have_supported_units(
     operator: &LinearOperatorInfo,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> bool {
     let Some(expression) = operator.expression.as_deref() else {
         return true;
     };
-    let unitful_entries = matrix_rows(expression)
-        .iter()
-        .enumerate()
-        .flat_map(|(row_index, row)| {
-            row.iter()
-                .enumerate()
-                .filter_map(move |(column_index, entry)| {
-                    numeric_literal_with_optional_unit(entry).and_then(|(_, unit)| {
-                        unit.map(|unit| (row_index + 1, column_index + 1, unit))
-                    })
-                })
-        })
-        .collect::<Vec<_>>();
-    if unitful_entries.is_empty() {
-        return true;
+    for (row_index, row) in matrix_rows(expression).iter().enumerate() {
+        for (column_index, entry) in row.iter().enumerate() {
+            let Some((_value, Some(unit))) = matrix_entry_number_with_optional_unit(entry) else {
+                continue;
+            };
+            if linear_operator_entry_unit_supported(operator, row_index, column_index, &unit) {
+                continue;
+            }
+            diagnostics.push(Diagnostic::error(
+                "E-STATE-SPACE-OP-ENTRY-UNIT-001",
+                operator.line,
+                &format!(
+                    "Linear operator `{}` entry ({}, {}) uses unit `{}`; that coefficient unit is not supported for `{}` -> `{}`.",
+                    operator.name,
+                    row_index + 1,
+                    column_index + 1,
+                    unit,
+                    operator.from,
+                    operator.to
+                ),
+                Some("Use canonical numeric coefficients, or use `1/s` only when the target derivative unit is exactly the source unit per second."),
+            ));
+            return false;
+        }
     }
-    let first = &unitful_entries[0];
-    diagnostics.push(Diagnostic::error(
-        "E-STATE-SPACE-OP-ENTRY-UNIT-001",
-        operator.line,
-        &format!(
-            "Linear operator `{}` entry ({}, {}) uses unit `{}`; unitful coefficient conversion is not supported by the current numeric state-space runtime.",
-            operator.name, first.0, first.1, first.2
-        ),
-        Some("Use canonical numeric coefficients for the current state-space seed, or keep unitful coefficient matrices out of executable examples until coefficient-unit conversion is implemented."),
-    ));
-    false
+    true
+}
+
+fn linear_operator_entry_unit_supported(
+    operator: &LinearOperatorInfo,
+    row_index: usize,
+    column_index: usize,
+    unit: &str,
+) -> bool {
+    if normalize_unit(unit) != "1/s" {
+        return false;
+    }
+    let Some(row_unit) = operator.row_units.get(row_index) else {
+        return false;
+    };
+    let Some(column_unit) = operator.column_units.get(column_index) else {
+        return false;
+    };
+    row_unit == &format!("{column_unit}/s")
+}
+
+fn matrix_entry_number_with_optional_unit(expression: &str) -> Option<(f64, Option<String>)> {
+    let mut parts = expression.split_whitespace();
+    let value_text = parts.next()?;
+    let value = value_text.parse::<f64>().ok()?;
+    let unit = parts.next().map(str::to_owned);
+    if parts.next().is_some() {
+        return None;
+    }
+    Some((value, unit))
 }
 
 fn populate_linear_operator_compatibility(

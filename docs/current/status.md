@@ -138,13 +138,15 @@ are not public stable workflows.
 
 - State-space metadata and runtime seeds: typed vector/operator declarations,
   vector-member diagnostics, operator quantity/unit summaries, review metadata,
-  non-rectangular matrix diagnostics, unitful matrix-entry diagnostics,
-  shape-checked continuous/discrete A/B execution, multi-state fixed-step
-  Euler/RK4 trajectories with TimeSeries input materialization, `OutputLayout`
-  preserved across `SolverInput`/`SolverResult`, and report/review/result/IDE
-  solver-inspector artifacts for state/input/parameter and output lists,
-  timestep, tolerance, iteration count, convergence status, failure reason, and
-  trajectory points. They are not a supported general nonlinear, DAE, adaptive,
+  non-rectangular matrix diagnostics, unsupported unitful matrix-entry
+  diagnostics, limited `1/s` coefficient checks where source and derivative
+  units are compatible, shape-checked continuous/discrete A/B execution,
+  multi-state fixed-step Euler/RK4 trajectories with TimeSeries input
+  materialization, `OutputLayout` preserved across
+  `SolverInput`/`SolverResult`, and report/review/result/IDE solver-inspector
+  artifacts for state/input/parameter and output lists, timestep, tolerance,
+  iteration count, convergence status, failure reason, and trajectory points.
+  They are not a supported general nonlinear, DAE, adaptive, broad
   coefficient-unit-converting, or component-coupled state-space simulation
   workflow.
 - System simulate diagnostics for missing inputs, non-TimeSeries bindings,

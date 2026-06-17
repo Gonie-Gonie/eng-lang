@@ -3199,11 +3199,15 @@ fn parse_numeric_matrix(expression: &str) -> Option<Vec<Vec<f64>>> {
             row.trim_start_matches('[')
                 .trim_end_matches(']')
                 .split(',')
-                .map(|value| value.trim().parse::<f64>().ok())
+                .map(matrix_coefficient_value)
                 .collect::<Option<Vec<_>>>()
         })
         .collect::<Option<Vec<_>>>()?;
     (!rows.is_empty() && rows.iter().all(|row| !row.is_empty())).then_some(rows)
+}
+
+fn matrix_coefficient_value(value: &str) -> Option<f64> {
+    value.split_whitespace().next()?.parse::<f64>().ok()
 }
 
 fn materialize_first_order_thermal_solution(

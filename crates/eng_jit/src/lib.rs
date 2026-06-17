@@ -1936,9 +1936,8 @@ fn parse_numeric_matrix(expression: &str) -> Option<Vec<Vec<f64>>> {
                 .split(',')
                 .map(str::trim)
                 .filter(|entry| !entry.is_empty())
-                .map(str::parse::<f64>)
-                .collect::<Result<Vec<_>, _>>()
-                .ok()
+                .map(parse_leading_number)
+                .collect::<Option<Vec<_>>>()
         })
         .collect::<Option<Vec<_>>>()?;
     (!rows.is_empty()).then_some(rows)

@@ -8,6 +8,7 @@ It demonstrates:
 - `states`, `inputs`, and `outputs` declarations inside a system
 - `StateVector`, `InputVector`, and `OutputVector` metadata
 - `Derivative[StateVector]` and `LinearOperator[From -> To]` type strings
+- `1/s` coefficient entries where source and derivative units are compatible
 - a vector equation shape, `der(x) eq A * x + B * u`, recorded for review
 - a narrow fixed-step explicit-Euler runtime path with `T_out` materialized
   from a promoted TimeSeries input
@@ -20,5 +21,6 @@ Current limitation:
 - multi-state state-space runtime coverage lives in examples/official/20_multi_state_thermal
 - no nonlinear, DAE, adaptive, component-coupled, or stable general matrix
   simulation solver claim
-- no unit-compatible operator algebra support
+- no broad unit-compatible operator algebra support beyond the checked `1/s`
+  derivative-coupling path
 ```
