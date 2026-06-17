@@ -233,8 +233,9 @@ Definition of Done:
 
 - Component instances, ports, connect edges, domain labels, type arguments,
   medium/frame/axis metadata, and source spans are exposed as a graph artifact.
-- Duplicate connection, unconnected port, incompatible domain, incompatible
-  medium/frame/axis, and unsupported connect-pattern diagnostics are covered.
+- Duplicate connection, unknown port, unconnected port, invalid endpoint,
+  incompatible domain, incompatible medium/frame/axis, and unsupported
+  connect-pattern diagnostics are covered.
 - IDE graph panel can navigate connections back to source.
 - Report summarizes connection graph and limitations.
 - Numeric component graph solving remains Planned.

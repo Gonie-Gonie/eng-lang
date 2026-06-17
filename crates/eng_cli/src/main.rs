@@ -833,6 +833,18 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             "E-CONNECT-DUPLICATE-001",
         ),
         (
+            "examples/05_error_messages/connect_unknown_port.eng",
+            "E-CONNECT-PORT-001",
+        ),
+        (
+            "examples/05_error_messages/connect_bad_endpoint.eng",
+            "E-CONNECT-ENDPOINT-001",
+        ),
+        (
+            "examples/05_error_messages/unconnected_port.eng",
+            "W-PORT-UNCONNECTED-001",
+        ),
+        (
             "examples/05_error_messages/generic_domain_arity.eng",
             "E-PORT-DOMAIN-002",
         ),
