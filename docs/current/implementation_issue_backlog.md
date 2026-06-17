@@ -309,7 +309,9 @@ Current coverage:
   tests exposed through the solver API. Singular Newton linear solves and failed
   line-search candidates are returned as `NewtonResult` failure artifacts so
   callers can preserve solver diagnostics instead of losing the iteration state.
-- Runtime also has dense linear and solver-API fixed-point algorithm seeds.
+- Runtime also has dense linear and solver-API fixed-point algorithm seeds; the
+  CLI example smoke now covers fixed-point convergence and nonconvergence
+  failure artifacts.
 - `eng test examples` now directly exercises the solver-API Newton and
   implicit-Euler DAE seeds, including two-variable nonlinear convergence,
   supplied Jacobian hook use, Newton nonconvergence failure artifacts,

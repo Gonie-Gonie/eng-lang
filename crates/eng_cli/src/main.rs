@@ -1215,7 +1215,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         return ExitCode::from(2);
     }
     println!(
-        "ok: solver API nonlinear Newton and implicit-Euler DAE smokes produced numeric results and failure artifacts"
+        "ok: solver API fixed-point, nonlinear Newton, and implicit-Euler DAE smokes produced numeric results and failure artifacts"
     );
     if let Err(message) = solver_behavior_smoke() {
         eprintln!("{message}");
@@ -2783,6 +2783,51 @@ fn collect_eng_files(root: &Path, files: &mut Vec<PathBuf>) -> Result<(), std::i
 }
 
 fn solver_algorithm_smoke() -> Result<(), String> {
+    let fixed_point = eng_runtime::solver::solve_fixed_point(
+        &[0.0],
+        &eng_runtime::solver::FixedPointOptions::default(),
+        |values| Ok(vec![0.5 * values[0] + 1.0]),
+    )
+    .map_err(|failure| format!("fixed-point convergence smoke failed: {}", failure.message))?;
+    if fixed_point.convergence_status != "fixed_point_converged"
+        || fixed_point.failure.is_some()
+        || fixed_point.residual_history.is_empty()
+        || (fixed_point.values[0] - 2.0).abs() > 1e-6
+    {
+        return Err(
+            "fixed-point smoke did not converge to the expected small-loop solution".to_owned(),
+        );
+    }
+
+    let fixed_point_nonconverged = eng_runtime::solver::solve_fixed_point(
+        &[0.0],
+        &eng_runtime::solver::FixedPointOptions {
+            tolerance: 1e-12,
+            max_iterations: 3,
+            relaxation: 1.0,
+        },
+        |values| Ok(vec![values[0] + 1.0]),
+    )
+    .map_err(|failure| {
+        format!(
+            "fixed-point nonconvergence smoke errored: {}",
+            failure.message
+        )
+    })?;
+    if fixed_point_nonconverged.convergence_status != "fixed_point_not_converged"
+        || fixed_point_nonconverged.iteration_count != 3
+        || fixed_point_nonconverged.residual_history.len() != 3
+        || fixed_point_nonconverged
+            .failure
+            .as_ref()
+            .map(|failure| failure.code.as_str())
+            != Some("E-FIXED-POINT-NONCONVERGENCE")
+    {
+        return Err(
+            "fixed-point nonconvergence smoke did not return a failure artifact".to_owned(),
+        );
+    }
+
     let newton_options = eng_runtime::solver::NewtonOptions::default();
     let nonlinear = eng_runtime::solver::solve_newton(&[0.8, 2.1], &newton_options, |values| {
         let x = values[0];

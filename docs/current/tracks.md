@@ -88,7 +88,9 @@ Current supported scope:
 Internal runtime seeds:
 
 ```text
-- standalone dense linear, solver-API fixed-point, and solver-API damped Newton algorithms
+- standalone dense linear, solver-API fixed-point, and solver-API damped
+  Newton algorithms, with CLI smoke coverage for fixed-point convergence and
+  nonconvergence failure artifacts
 - SolverInput/SolverResult state, input, parameter, finite numeric value, and validated output layout contracts
 - dense linear solver seeds reject non-finite matrix/RHS values and invalid tolerances
 - Newton solver seeds reject non-finite initial guesses

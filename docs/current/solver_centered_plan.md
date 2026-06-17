@@ -31,7 +31,7 @@ release naming still follows [version_plan.md](version_plan.md).
 | SOLVER-304 | ResidualGraph artifact | Implemented with dependency and solver-plan metadata. |
 | SOLVER-305 | ResidualEvaluator interpreter | Implemented as structured residual evaluation and solver-kernel seed paths. |
 | SOLVER-401 | Linear algebraic solver | Implemented for square residual graph solves. |
-| SOLVER-402 | Fixed-point solver | Implemented as solver-API algorithm seed. |
+| SOLVER-402 | Fixed-point solver | Implemented as solver-API algorithm seed and covered by CLI smoke for convergence and nonconvergence failure artifacts. |
 | SOLVER-403 | Dynamic component fixed-step solver | Implemented as an internal explicit/semi-implicit component seed. |
 | SOLVER-404 | Nonlinear Newton seed | Implemented as standalone solver-API seed and covered by CLI smoke for convergence, supplied Jacobian use, and nonconvergence failure artifacts. |
 | SOLVER-405 | DAE implicit Euler seed | Implemented as standalone solver-API seed and covered by CLI smoke for state/algebraic convergence, mass-matrix use, inconsistent initial conditions, and timestep nonconvergence artifacts. |
