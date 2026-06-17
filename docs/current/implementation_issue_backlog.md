@@ -290,6 +290,10 @@ Current coverage:
 - `examples/internal/23_component_boundary_singular` exercises the same square
   residual graph path when the dense matrix is singular and requires a
   `linear_solve_failed`/`E-LINEAR-SINGULAR` artifact.
+- `examples/internal/24_component_boundary_overdetermined` exercises the
+  overdetermined residual graph limitation path and requires a
+  `not_solved_overdetermined`/`W-ASSEMBLY-OVERDETERMINED-SEED` artifact instead
+  of attempting a dense solve.
 - Runtime has an internal dynamic-component solver seed, but component graph
   assembly is not yet lowered into that numeric path.
 

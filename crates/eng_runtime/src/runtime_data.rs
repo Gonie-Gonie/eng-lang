@@ -2450,13 +2450,13 @@ fn component_solution_from_solver_assembly(
         )
     } else if equation_count > unknown_count {
         (
-            "constraint_satisfied_overdetermined".to_owned(),
-            "homogeneous connection constraints evaluate to zero, but the metadata has more equations than unknowns".to_owned(),
+            "not_solved_overdetermined".to_owned(),
+            "assembly graph has more equations than unknowns, so the dense linear residual solve was not attempted".to_owned(),
             Some(RuntimeSolverFailureArtifact {
                 code: "W-ASSEMBLY-OVERDETERMINED-SEED".to_owned(),
                 message: "assembly has more equations than unknowns; review generated constraints before numeric solving".to_owned(),
             }),
-            "linear_residual_satisfied_overdetermined".to_owned(),
+            "linear_residual_not_attempted_overdetermined".to_owned(),
         )
     } else {
         method = "dense_linear_residual_graph".to_owned();
@@ -6066,6 +6066,40 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
                 .as_ref()
                 .map(|failure| failure.code.as_str()),
             Some("E-LINEAR-SINGULAR")
+        );
+    }
+
+    #[test]
+    fn reports_overdetermined_component_residual_graph_limitation() {
+        let mut assembly = square_linear_test_assembly("component_graph");
+        assembly.generated_equations.push(GeneratedEquation {
+            name: "r3".to_owned(),
+            kind: "component_boundary".to_owned(),
+            domain: "Test".to_owned(),
+            expression: "x eq 1".to_owned(),
+            residual: "x - 1".to_owned(),
+            rhs_value: Some(1.0),
+            dependencies: vec!["x".to_owned()],
+            source: "test".to_owned(),
+            reason: "test overdetermined boundary".to_owned(),
+            source_line: Some(3),
+            status: "generated".to_owned(),
+        });
+
+        let solution = component_solution_from_solver_assembly("component_graph", &assembly);
+
+        assert_eq!(solution.status, "not_solved_overdetermined");
+        assert_eq!(solution.method, "linear_residual_graph_shape_check");
+        assert_eq!(
+            solution.convergence_status,
+            "linear_residual_not_attempted_overdetermined"
+        );
+        assert_eq!(
+            solution
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("W-ASSEMBLY-OVERDETERMINED-SEED")
         );
     }
 

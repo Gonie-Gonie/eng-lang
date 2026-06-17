@@ -187,7 +187,8 @@ are not public stable workflows.
   behavior nodes are not wired into language-level behavior graph solving.
 - Domain/component assembly seeds include component-local boundary equations
   for internal fixtures, dense linear residual solves when the residual graph is
-  square, explicit RHS values in report specs, and solved variable/residual
+  square, explicit RHS values in report specs, solved variable/residual
+  artifacts, singular solve failure artifacts, and overdetermined limitation
   artifacts. `examples/official/21_thermal_component_assembly` exercises this
   focused Thermal assembly path. This remains an internal algebraic assembly
   seed, not a production multi-domain component graph solver.

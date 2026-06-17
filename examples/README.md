@@ -127,6 +127,11 @@ internal/23_component_boundary_singular
   Square Thermal boundary residual graph whose equations are singular. The
   runtime must emit a `linear_solve_failed` component solution with
   `E-LINEAR-SINGULAR` instead of inventing solved variables.
+
+internal/24_component_boundary_overdetermined
+  Thermal boundary residual graph with more equations than unknowns. The
+  runtime must emit `not_solved_overdetermined` with
+  `W-ASSEMBLY-OVERDETERMINED-SEED` instead of attempting a dense solve.
 ```
 
 ## Compatibility Regression Examples

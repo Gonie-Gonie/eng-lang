@@ -944,6 +944,44 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(1);
         }
     }
+    match run_file(
+        Path::new("examples/internal/24_component_boundary_overdetermined/main.eng"),
+        Path::new("build/test-component-boundary-overdetermined"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"not_solved_overdetermined\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"linear_residual_graph_shape_check\"")
+                || !output
+                    .result_json
+                    .contains("\"W-ASSEMBLY-OVERDETERMINED-SEED\"")
+                || !output.report_spec_json.contains("\"failure_artifact\"")
+                || !output.report_spec_json.contains(
+                    "\"convergence_status\": \"linear_residual_not_attempted_overdetermined\"",
+                )
+                || !output.report_html.contains("not_solved_overdetermined")
+                || !output
+                    .report_html
+                    .contains("W-ASSEMBLY-OVERDETERMINED-SEED")
+            {
+                eprintln!(
+                    "expected overdetermined component boundary fixture to report a limitation artifact"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/internal/24_component_boundary_overdetermined/main.eng reported overdetermined component residual graph limitation"
+            );
+        }
+        Err(error) => {
+            eprintln!("component boundary overdetermined fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
 
     let bad = match check_file(
         "examples/05_error_messages/unit_mismatch.eng",
