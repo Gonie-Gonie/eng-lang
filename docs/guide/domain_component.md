@@ -1,12 +1,13 @@
 # Domain And Component Guide
 
 This guide documents the current domain/component metadata surface.
-It is metadata-first: the compiler records domains, ports, and connections and
-checks domain compatibility. It also emits an equation/residual assembly seed
-for compatible connection sets. When multiple compatible domain families appear
-in the same component graph, artifacts use legacy field values such as
-`solver_preview.status = multi_domain_preview`; those are machine-readable
-metadata labels, not a physical multi-domain component solve claim.
+It is an Internal solver-track surface: the compiler records domains, ports,
+and connections and checks domain compatibility. It also emits an
+equation/residual assembly seed for compatible connection sets. When multiple
+compatible domain families appear in the same component graph, artifacts use
+legacy field values such as `solver_preview.status = multi_domain_preview`;
+those are machine-readable Internal metadata labels, not a physical
+multi-domain component solve claim.
 
 ## Domain Declaration
 
@@ -121,7 +122,7 @@ topology because numeric graph solving is still deferred.
 ## Assembly Seed
 
 Compatible connections are grouped into connection sets. For each set, the
-compiler records metadata-only generated equations:
+compiler records Internal generated equation seeds:
 
 - across variables generate equality equations, such as
   `RoomBoundary.heat.T eq AmbientBoundary.heat.T`;
@@ -272,7 +273,7 @@ Current:
 - connection compatibility diagnostics;
 - duplicate connection diagnostics and unconnected port warnings;
 - medium/frame/axis metadata compatibility diagnostics;
-- metadata-only connection-set assembly;
+- Internal connection-set assembly metadata;
 - generated connection-equation and residual graph artifacts;
 - homogeneous connection-constraint residual evaluation artifact;
 - component behavior-node graph artifacts for delay/Predictor/external

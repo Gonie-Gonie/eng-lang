@@ -33,10 +33,10 @@ paths before compatibility fixtures.
   Internal domain/component track path for user-defined domains,
   across/through variables, conservation metadata, component ports,
   structured generic parameters, domain-compatible connections, contract
-  diagnostics, invalid connection diagnostics, metadata-only assembly
-  connection sets, generated connection equations, equation/unknown counts, and
+  diagnostics, invalid connection diagnostics, Internal connection-set
+  assembly metadata, generated connection equations, equation/unknown counts,
   residual graph placeholders, domain-plan metadata, and connection constraint
-  consistency artifacts.
+  consistency artifacts. This is not a supported physical component solve.
 
 07_functions_imports
   Top-level execution, static file import, importable const values,

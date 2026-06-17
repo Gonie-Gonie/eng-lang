@@ -37,7 +37,7 @@ Limitations:
 
 ```text
 - deterministic review samples, not a production stochastic engine
-- linear propagation transform metadata only
+- Internal linear propagation transform metadata
 - no general Monte Carlo/Jacobian uncertainty solver claim
 ```
 

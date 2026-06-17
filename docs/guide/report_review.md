@@ -97,7 +97,7 @@ component_graph
 For the domain/component metadata track, each `domain_summary.type_parameters`
 entry is an object with `kind`, `name`, and `display` fields. For example,
 `Fluid[Medium M]` records `{ kind: "Medium", name: "M", display: "Medium M" }`.
-`assembly_summary` records metadata-only connection sets, generated
+`assembly_summary` records Internal connection-set metadata, generated
 across/through connection equations, variable/equation counts, residual graph
 dependencies, algebraic-loop candidates, Jacobian sparsity placeholders, and a
 no-solve solver-plan placeholder. It also records `domain_count`,
@@ -107,6 +107,8 @@ Thermal, `Fluid[Water]`, and `MechanicalNode[World, X]` connection sets reports
 `solver_preview.status = multi_domain_preview`, plus explicit future-solver
 seed statuses for nonlinear residuals, DAE splitting, delay/history buffers,
 Predictor behavior, and external behavior adapters.
+The `multi_domain_preview` value is a legacy-named Internal metadata label, not
+a supported multi-domain solve claim.
 Delay calls currently report a runtime-buffer seed status, Predictor calls
 report a contract-wrapper seed status, and external adapter expressions report
 an external-wrapper seed status. None of these is a full component-solver

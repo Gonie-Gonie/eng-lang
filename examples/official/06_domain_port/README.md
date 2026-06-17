@@ -3,7 +3,7 @@
 Internal domain/component metadata-track user-test fixture for the open domain/port and component
 connection surface.
 
-This example is intentionally metadata-first:
+This example is intentionally an Internal metadata-track fixture:
 
 - `domain Thermal package "eng.std.domains.thermal" version "0.1.0"` declares
   across/through variables, package metadata, version metadata, and a
@@ -20,10 +20,11 @@ This example is intentionally metadata-first:
 - `connect` records component-port connections and validates domain
   compatibility.
 - Compatible connections are grouped into assembly connection sets and generate
-  metadata-only across/through equation seeds plus residual graph placeholders.
+  Internal across/through equation seeds plus residual graph placeholders.
 - The assembled graph contains three domain plans (`Thermal`, `Fluid[Water]`,
   and `MechanicalNode[World, X]`) and records `multi_domain_preview` in the
-  legacy-named artifact status field.
+  legacy-named artifact status field. That field value is an Internal metadata
+  label, not a supported multi-domain solve claim.
 - Connection graph review also reports duplicate edges as diagnostics and
   resolved but unconnected ports as warnings.
 - A small top-level report keeps the file runnable while the domain graph
