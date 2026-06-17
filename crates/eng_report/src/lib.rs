@@ -837,6 +837,11 @@ pub struct ReportSystemSolution {
     pub status: String,
     pub method: String,
     pub reason: String,
+    pub states: Vec<String>,
+    pub algebraic_variables: Vec<String>,
+    pub inputs: Vec<String>,
+    pub parameters: Vec<String>,
+    pub outputs: Vec<String>,
     pub state: String,
     pub quantity_kind: String,
     pub display_unit: String,
@@ -845,6 +850,11 @@ pub struct ReportSystemSolution {
     pub duration_s: f64,
     pub time_step_s: f64,
     pub step_count: usize,
+    pub tolerance: f64,
+    pub max_iterations: usize,
+    pub iteration_count: usize,
+    pub convergence_status: String,
+    pub failure_reason: Option<String>,
     pub initial_value: f64,
     pub final_value: f64,
     pub canonical_initial_value: f64,
@@ -4242,6 +4252,21 @@ fn push_report_system_solutions_json(
             "{indent}    \"reason\": \"{}\",\n",
             json_escape(&solution.reason)
         ));
+        json.push_str(&format!("{indent}    \"states\": ["));
+        push_json_string_array(json, &solution.states);
+        json.push_str("],\n");
+        json.push_str(&format!("{indent}    \"algebraic_variables\": ["));
+        push_json_string_array(json, &solution.algebraic_variables);
+        json.push_str("],\n");
+        json.push_str(&format!("{indent}    \"inputs\": ["));
+        push_json_string_array(json, &solution.inputs);
+        json.push_str("],\n");
+        json.push_str(&format!("{indent}    \"parameters\": ["));
+        push_json_string_array(json, &solution.parameters);
+        json.push_str("],\n");
+        json.push_str(&format!("{indent}    \"outputs\": ["));
+        push_json_string_array(json, &solution.outputs);
+        json.push_str("],\n");
         json.push_str(&format!(
             "{indent}    \"state\": \"{}\",\n",
             json_escape(&solution.state)
@@ -4274,6 +4299,28 @@ fn push_report_system_solutions_json(
             "{indent}    \"step_count\": {},\n",
             solution.step_count
         ));
+        json.push_str(&format!(
+            "{indent}    \"tolerance\": {},\n",
+            solution.tolerance
+        ));
+        json.push_str(&format!(
+            "{indent}    \"max_iterations\": {},\n",
+            solution.max_iterations
+        ));
+        json.push_str(&format!(
+            "{indent}    \"iteration_count\": {},\n",
+            solution.iteration_count
+        ));
+        json.push_str(&format!(
+            "{indent}    \"convergence_status\": \"{}\",\n",
+            json_escape(&solution.convergence_status)
+        ));
+        push_optional_json_string(
+            json,
+            "failure_reason",
+            solution.failure_reason.as_deref(),
+            indent.len() + 4,
+        );
         json.push_str(&format!(
             "{indent}    \"initial_value\": {},\n",
             solution.initial_value
@@ -5451,13 +5498,31 @@ fn render_system_solver_section(spec: &ReportSpec) -> String {
         .flat_map(|system| {
             system.solver_results.iter().map(move |solution| {
                 let binding = solution.binding.as_deref().unwrap_or("-");
+                let variables = format!(
+                    "states={} algebraic={} inputs={} parameters={} outputs={}",
+                    html_escape(&join_or_dash(&solution.states)),
+                    html_escape(&join_or_dash(&solution.algebraic_variables)),
+                    html_escape(&join_or_dash(&solution.inputs)),
+                    html_escape(&join_or_dash(&solution.parameters)),
+                    html_escape(&join_or_dash(&solution.outputs))
+                );
+                let diagnostics = format!(
+                    "tol={} iter={}/{} convergence={} failure={}",
+                    format_solver_tolerance(solution.tolerance),
+                    solution.iteration_count,
+                    solution.max_iterations,
+                    html_escape(&solution.convergence_status),
+                    html_escape(solution.failure_reason.as_deref().unwrap_or("-"))
+                );
                 format!(
-                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{:.6} {}</td></tr>",
+                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{} / {}</td><td>{}</td><td>{}</td><td>{}</td><td>{:.6} {}</td></tr>",
                     html_escape(&system.name),
                     html_escape(binding),
                     html_escape(&solution.state),
+                    variables,
                     html_escape(&solution.status),
                     html_escape(&solution.method),
+                    diagnostics,
                     solution.step_count,
                     format_alignment_number(solution.final_value),
                     solution.time_step_s,
@@ -5473,10 +5538,26 @@ fn render_system_solver_section(spec: &ReportSpec) -> String {
     format!(
         r#"<h2>System Solver Results</h2>
     <table>
-      <thead><tr><th>System</th><th>Binding</th><th>State</th><th>Status</th><th>Method</th><th>Steps</th><th>Final</th><th>Step</th></tr></thead>
+      <thead><tr><th>System</th><th>Binding</th><th>Trajectory</th><th>Variables</th><th>Status/Method</th><th>Diagnostics</th><th>Steps</th><th>Final</th><th>Step</th></tr></thead>
       <tbody>{rows}</tbody>
     </table>"#
     )
+}
+
+fn join_or_dash(values: &[String]) -> String {
+    if values.is_empty() {
+        "-".to_owned()
+    } else {
+        values.join(", ")
+    }
+}
+
+fn format_solver_tolerance(value: f64) -> String {
+    if value.is_finite() && value.abs() > 0.0 && value.abs() < 0.000001 {
+        format!("{value:.3e}")
+    } else {
+        format_alignment_number(value)
+    }
 }
 
 fn render_component_solver_section(spec: &ReportSpec) -> String {

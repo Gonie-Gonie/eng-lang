@@ -94,8 +94,8 @@ covered by the breaking-change policy.
 - Tauri/WebView tester IDE smoke path for open/check/save/run, diagnostics,
   variable summaries, schema/TimeSeries/metric/validation/time-alignment
   inspectors for the measured workflow, schema parse/conversion failure
-  inspector coverage for data-quality runs, internal state-space trajectory
-  inspector coverage, class object summary inspector coverage, side-effect
+  inspector coverage for data-quality runs, internal state-space trajectory and
+  solver-inspector coverage, class object summary inspector coverage, side-effect
   artifact panels for output manifest, run log, process results, and test
   results, PlotSpec viewing, and on-demand report/plot opening for stable
   workflows.
@@ -138,10 +138,12 @@ are not public stable workflows.
 - State-space metadata and runtime seeds: typed vector/operator declarations,
   vector-member diagnostics, operator quantity/unit summaries, review metadata,
   shape-checked continuous/discrete A/B execution, multi-state fixed-step
-  Euler/RK4 trajectories with TimeSeries input materialization, and report/IDE
-  solver artifacts. They are not a supported general nonlinear, DAE, adaptive,
-  matrix-entry unit-compatible, or component-coupled state-space simulation
-  workflow.
+  Euler/RK4 trajectories with TimeSeries input materialization, and
+  report/review/result/IDE solver-inspector artifacts for state/input/parameter
+  and output lists, timestep, tolerance, iteration count, convergence status,
+  failure reason, and trajectory points. They are not a supported general
+  nonlinear, DAE, adaptive, matrix-entry unit-compatible, or component-coupled
+  state-space simulation workflow.
 - Solver algorithm seeds: dense linear solve, fixed-point iteration with
   nonconvergence diagnostics, and standalone damped Newton solve with
   finite-difference fallback, supplied analytic/JIT Jacobian hook,

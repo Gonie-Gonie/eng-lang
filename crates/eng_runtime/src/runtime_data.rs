@@ -53,6 +53,11 @@ fn report_system_solution(solution: &RuntimeSystemSolution) -> ReportSystemSolut
         status: solution.status.clone(),
         method: solution.method.clone(),
         reason: solution.reason.clone(),
+        states: solution.states.clone(),
+        algebraic_variables: solution.algebraic_variables.clone(),
+        inputs: solution.inputs.clone(),
+        parameters: solution.parameters.clone(),
+        outputs: solution.outputs.clone(),
         state: solution.state.clone(),
         quantity_kind: solution.quantity_kind.clone(),
         display_unit: solution.display_unit.clone(),
@@ -61,6 +66,11 @@ fn report_system_solution(solution: &RuntimeSystemSolution) -> ReportSystemSolut
         duration_s: solution.duration_s,
         time_step_s: solution.time_step_s,
         step_count: solution.step_count,
+        tolerance: solution.tolerance,
+        max_iterations: solution.max_iterations,
+        iteration_count: solution.iteration_count,
+        convergence_status: solution.convergence_status.clone(),
+        failure_reason: solution.failure_reason.clone(),
         initial_value: solution.initial_value,
         final_value: solution.final_value,
         canonical_initial_value: solution.canonical_initial_value,
@@ -909,6 +919,11 @@ pub struct RuntimeSystemSolution {
     pub status: String,
     pub method: String,
     pub reason: String,
+    pub states: Vec<String>,
+    pub algebraic_variables: Vec<String>,
+    pub inputs: Vec<String>,
+    pub parameters: Vec<String>,
+    pub outputs: Vec<String>,
     pub state: String,
     pub quantity_kind: String,
     pub display_unit: String,
@@ -917,6 +932,11 @@ pub struct RuntimeSystemSolution {
     pub duration_s: f64,
     pub time_step_s: f64,
     pub step_count: usize,
+    pub tolerance: f64,
+    pub max_iterations: usize,
+    pub iteration_count: usize,
+    pub convergence_status: String,
+    pub failure_reason: Option<String>,
     pub initial_value: f64,
     pub final_value: f64,
     pub canonical_initial_value: f64,
@@ -3251,6 +3271,11 @@ fn runtime_system_solution_for_trajectory(
         status: solver_result.diagnostics.status.clone(),
         method: solver_result.plan.options.method.clone(),
         reason: reason.to_owned(),
+        states: solver_result.plan.simulation.states.clone(),
+        algebraic_variables: system_variable_names_by_role(system, "algebraic"),
+        inputs: solver_result.plan.simulation.inputs.clone(),
+        parameters: solver_result.plan.simulation.parameters.clone(),
+        outputs: solver_result.plan.simulation.outputs.clone(),
         state: trajectory.name.clone(),
         quantity_kind: trajectory.quantity_kind.clone(),
         display_unit: state.display_unit.clone(),
@@ -3259,6 +3284,15 @@ fn runtime_system_solution_for_trajectory(
         duration_s: solver_result.time_grid.duration_s,
         time_step_s: solver_result.time_grid.timestep_s,
         step_count: solver_result.time_grid.step_count,
+        tolerance: solver_result.diagnostics.tolerance,
+        max_iterations: solver_result.diagnostics.max_iterations,
+        iteration_count: solver_result.diagnostics.iteration_count,
+        convergence_status: solver_result.diagnostics.convergence_status.clone(),
+        failure_reason: solver_result
+            .diagnostics
+            .failure
+            .as_ref()
+            .map(|failure| failure.message.clone()),
         initial_value: display_variable_value(canonical_initial_value, state),
         final_value: display_variable_value(canonical_final_value, state),
         canonical_initial_value,
@@ -3325,6 +3359,11 @@ fn skipped_system_solution(
         status: "skipped_unsupported_shape".to_owned(),
         method: "explicit_euler_fixed_step".to_owned(),
         reason: "system shape is outside the supported first-order thermal ODE runner".to_owned(),
+        states: system_variable_names_by_role(system, "state"),
+        algebraic_variables: system_variable_names_by_role(system, "algebraic"),
+        inputs: system_variable_names_by_role(system, "input"),
+        parameters: system_variable_names_by_role(system, "parameter"),
+        outputs: Vec::new(),
         state: state.map(|state| state.name.clone()).unwrap_or_default(),
         quantity_kind: state
             .map(|state| state.quantity_kind.clone())
@@ -3341,12 +3380,28 @@ fn skipped_system_solution(
             .and_then(parse_duration_seconds)
             .unwrap_or(0.0),
         step_count: 0,
+        tolerance: SolverOptions::fixed_step("explicit_euler_fixed_step", 0.0).tolerance,
+        max_iterations: SolverOptions::fixed_step("explicit_euler_fixed_step", 0.0).max_iterations,
+        iteration_count: 0,
+        convergence_status: "skipped_unsupported_shape".to_owned(),
+        failure_reason: Some(
+            "system shape is outside the supported first-order thermal ODE runner".to_owned(),
+        ),
         initial_value,
         final_value: initial_value,
         canonical_initial_value,
         canonical_final_value: canonical_initial_value,
         points: Vec::new(),
     }
+}
+
+fn system_variable_names_by_role(system: &eng_compiler::SystemInfo, role: &str) -> Vec<String> {
+    system
+        .variables
+        .iter()
+        .filter(|variable| variable.role == role)
+        .map(|variable| variable.name.clone())
+        .collect()
 }
 
 fn option_value<'a>(options: &'a [eng_compiler::WithOptionInfo], key: &str) -> Option<&'a str> {
@@ -5720,9 +5775,22 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         assert_eq!(solution.method, "state_space_explicit_euler_fixed_step");
         assert!(solution.reason.contains("TimeSeries input materialization"));
         assert_eq!(solution.state, "T_zone");
+        assert_eq!(solution.states, vec!["T_zone".to_owned()]);
+        assert!(solution.algebraic_variables.is_empty());
+        assert_eq!(
+            solution.inputs,
+            vec!["T_out".to_owned(), "Q_internal".to_owned()]
+        );
+        assert!(solution.parameters.is_empty());
+        assert_eq!(solution.outputs, vec!["T_zone".to_owned()]);
         assert_eq!(solution.time_step_s, 600.0);
         assert_eq!(solution.duration_s, 3600.0);
         assert_eq!(solution.step_count, 6);
+        assert_eq!(solution.tolerance, 1e-9);
+        assert_eq!(solution.max_iterations, 1);
+        assert_eq!(solution.iteration_count, 6);
+        assert_eq!(solution.convergence_status, "fixed_step_completed");
+        assert!(solution.failure_reason.is_none());
         assert_eq!(solution.points.len(), 7);
         assert!(solution.final_value.is_finite());
         assert!(runtime
@@ -5755,6 +5823,15 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         assert!(sim_solutions
             .iter()
             .all(|solution| solution.reason.contains("multi-state")));
+        assert!(sim_solutions
+            .iter()
+            .all(|solution| solution.states == vec!["T_air".to_owned(), "T_wall".to_owned()]));
+        assert!(sim_solutions
+            .iter()
+            .all(|solution| solution.outputs == vec!["T_air".to_owned(), "T_wall".to_owned()]));
+        assert!(sim_solutions
+            .iter()
+            .all(|solution| solution.convergence_status == "fixed_step_completed"));
         assert!(sim_solutions
             .iter()
             .any(|solution| solution.state == "T_air"));
@@ -6005,6 +6082,17 @@ with {
         assert_eq!(solution.status, "computed");
         assert_eq!(solution.method, "explicit_euler_fixed_step");
         assert!(solution.reason.contains("SolverResult"));
+        assert_eq!(solution.states, vec!["T_zone".to_owned()]);
+        assert_eq!(
+            solution.inputs,
+            vec!["T_out".to_owned(), "Q_internal".to_owned()]
+        );
+        assert_eq!(solution.parameters, vec!["C".to_owned(), "UA".to_owned()]);
+        assert_eq!(solution.outputs, vec!["T_zone".to_owned()]);
+        assert_eq!(solution.tolerance, 1e-9);
+        assert_eq!(solution.iteration_count, solution.step_count);
+        assert_eq!(solution.convergence_status, "fixed_step_completed");
+        assert!(solution.failure_reason.is_none());
         assert_eq!(solution.points.len(), solution.step_count + 1);
         assert!(runtime
             .time_series

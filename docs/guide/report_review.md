@@ -197,6 +197,13 @@ residual_count
 component_solution_count
 ```
 
+System solver result entries in `result.engres` and `report_spec.json` carry
+the runtime-visible solver inspector fields: state/input/parameter/output
+names, currently empty algebraic-variable lists for non-DAE paths, timestep,
+method, tolerance, iteration count, convergence status, failure reason, and
+trajectory points. `review.json` runtime augmentation groups the same data under
+`simulation_results[]` for IDE/reviewer panels.
+
 For the domain/component connection-constraint check, `result.engres` also records
 `typed_payload.component_solutions`. Each entry includes the assembly name,
 status, method, residual norm, convergence status, solved linear or zero-seed

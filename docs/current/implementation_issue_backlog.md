@@ -56,6 +56,11 @@ Definition of Done:
   parse/conversion failures.
 - TimeSeries inspector shows start/end, timestep or sample spacing, row count,
   missing count, source column, quantity/unit, canonical/display unit, and axis.
+- Solver inspector shows system name, state/algebraic/input/parameter/output
+  lists, timestep, method, tolerance, iteration count, convergence status, and
+  failure reason from runtime solver artifacts.
+- TimeSeries result panel shows solver state trajectories plus input/output
+  series metadata and point counts without requiring raw JSON inspection.
 - Measured-vs-simulated workflow shows `weather_data`, `measured_data`,
   `sim.T_zone`, `rmse_T`, validation, time alignment, and two-series plot data.
 - Add automated IDE smoke coverage.
@@ -65,6 +70,9 @@ Current coverage:
 - IDE smoke covers schema/TimeSeries/metric/validation/time-alignment metadata
   for measured-vs-simulated and schema parse/conversion failure counts for a
   data-quality fixture.
+- IDE panels expose state-space solver result rows with state trajectories,
+  input/output series metadata, timestep, tolerance, iteration count,
+  convergence status, and failure reason from `report_spec.json`/`result.engres`.
 
 Title: `ide: add side-effect artifact panels`
 
@@ -112,7 +120,9 @@ Definition of Done:
 - Current runtime covers `StateVector`, `InputVector`, and `LinearOperator`
   metadata, operator row/column checks, continuous and discrete A/B execution,
   multi-state fixed-step Euler/RK4 trajectories, state trajectory TimeSeries,
-  plot/report output, IDE inspector support, and tests.
+  and solver-inspector metadata for states, inputs, outputs, timestep,
+  tolerance, iterations, convergence, and failure reason. Plot/report output,
+  IDE inspector support, and tests are in place for the current seed scope.
 - Remaining supported-workflow work includes unit compatibility checks,
   broader operator algebra policy, and public stability wording.
 - No nonlinear/DAE/adaptive or component-coupled solver claim is made.

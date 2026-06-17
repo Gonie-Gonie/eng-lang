@@ -752,11 +752,14 @@ function renderTimePanel() {
       <span class="badge">Series ${inspectorRows("timeSeries").length}</span>
       <span class="badge">Axes ${inspectorRows("timeAxes").length}</span>
       <span class="badge">Alignments ${inspectorRows("timeAlignments").length}</span>
+      <span class="badge">Solver ${systemSolverResults().length}</span>
     </div>
     <div class="scroll">
       ${renderTimeAxes()}
       <div class="panel-title compact">Series</div>
       ${renderTimeSeries()}
+      <div class="panel-title compact">Solver Results</div>
+      ${renderSolverTrajectories()}
     </div>
   `;
 }
@@ -919,6 +922,55 @@ function renderTimeSeries() {
   `;
 }
 
+function renderSolverTrajectories() {
+  const rows = systemSolverResults().map(({ system, result }) => {
+    const states = stringList(result, "states", "states");
+    const algebraic = stringList(result, "algebraic_variables", "algebraicVariables");
+    const inputs = stringList(result, "inputs", "inputs");
+    const outputs = stringList(result, "outputs", "outputs");
+    const failure = result.failure_reason ?? result.failureReason ?? "-";
+    const pointCount = Array.isArray(result.points) ? result.points.length : "-";
+    const step = result.time_step_s ?? result.timeStepS ?? result.time_step ?? result.timeStep ?? "-";
+    const duration = result.duration_s ?? result.durationS ?? result.duration ?? "-";
+    return `
+      <tr>
+        <td><strong>${escapeHtml(system.name || "-")}</strong><div class="muted">${escapeHtml(result.binding || "-")}</div></td>
+        <td>${escapeHtml(joinOrDash(states))}<div class="muted">${escapeHtml(result.state || "-")} ${escapeHtml(result.display_unit || result.displayUnit || "")}</div></td>
+        <td>${escapeHtml(joinOrDash(algebraic))}</td>
+        <td>${escapeHtml(joinOrDash(inputs))}</td>
+        <td>${escapeHtml(joinOrDash(outputs))}</td>
+        <td>${escapeHtml(result.status || "-")}<div class="muted">${escapeHtml(result.method || "-")}</div><div class="muted">${escapeHtml(result.convergence_status || result.convergenceStatus || "-")}</div></td>
+        <td>${escapeHtml(pointCount)}<div class="muted">${escapeHtml(step)} / ${escapeHtml(duration)}</div></td>
+        <td>${metricCell(result.final_value ?? result.finalValue)}<div class="muted">${escapeHtml(failure)}</div></td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>System</th><th>State Traj</th><th>Algebraic Traj</th><th>Input Series</th><th>Output Series</th><th>Solver</th><th>Points</th><th>Final</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="8" class="muted">No solver trajectories.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function systemSolverResults() {
+  return inspectorRows("systems").flatMap((system) => {
+    const results = Array.isArray(system.solver_results)
+      ? system.solver_results
+      : (Array.isArray(system.solverResults) ? system.solverResults : []);
+    return results.map((result) => ({ system, result }));
+  });
+}
+
+function stringList(item, snakeName, camelName) {
+  const values = item?.[snakeName] ?? item?.[camelName];
+  return Array.isArray(values) ? values : [];
+}
+
+function joinOrDash(values) {
+  return values.length ? values.join(", ") : "-";
+}
+
 function renderMetrics() {
   const rows = inspectorRows("metrics").map((metric) => {
     const alignmentReference = metric.alignment_reference ?? metric.alignmentReference ?? "-";
@@ -991,26 +1043,40 @@ function renderSystems() {
       ? system.solver_results
       : (Array.isArray(system.solverResults) ? system.solverResults : []);
     const solver = solverResults[0] || system.solver_result || system.solverResult || {};
-    const stateLabel = solverResults.length > 1
-      ? solverResults.map((item) => item.state || "-").join(", ")
-      : (solver.state || "-");
+    const stateNames = stringList(solver, "states", "states");
+    const inputNames = stringList(solver, "inputs", "inputs");
+    const parameterNames = stringList(solver, "parameters", "parameters");
+    const algebraicNames = stringList(solver, "algebraic_variables", "algebraicVariables");
+    const outputNames = stringList(solver, "outputs", "outputs");
+    const stateLabel = stateNames.length
+      ? stateNames.join(", ")
+      : (solverResults.length > 1
+        ? solverResults.map((item) => item.state || "-").join(", ")
+        : (solver.state || "-"));
     const steps = solverResults.length > 1
       ? solverResults.map((item) => item.step_count ?? item.stepCount ?? "-").join(", ")
       : (solver.step_count ?? solver.stepCount ?? "-");
+    const timeStep = solver.time_step_s ?? solver.timeStepS ?? solver.time_step ?? solver.timeStep ?? "-";
+    const tolerance = solver.tolerance ?? "-";
+    const iterations = `${solver.iteration_count ?? solver.iterationCount ?? "-"} / ${solver.max_iterations ?? solver.maxIterations ?? "-"}`;
+    const convergence = solver.convergence_status ?? solver.convergenceStatus ?? "-";
+    const failure = solver.failure_reason ?? solver.failureReason ?? "-";
     return `
       <tr>
         <td><strong>${escapeHtml(system.name || "-")}</strong><div class="muted">L${escapeHtml(system.line || "-")}</div></td>
-        <td>${escapeHtml(Array.isArray(system.variables) ? system.variables.length : system.variable_count ?? system.variableCount ?? 0)}</td>
-        <td>${escapeHtml(Array.isArray(system.equations) ? system.equations.length : 0)}</td>
-        <td>${escapeHtml(solver.status || "-")}<div class="muted">${escapeHtml(solver.method || "-")}</div><div class="muted">${escapeHtml(stateLabel)}</div></td>
-        <td>${escapeHtml(steps)}</td>
+        <td>${escapeHtml(stateLabel)}<div class="muted">alg ${escapeHtml(joinOrDash(algebraicNames))}</div></td>
+        <td>${escapeHtml(joinOrDash(inputNames))}<div class="muted">params ${escapeHtml(joinOrDash(parameterNames))}</div><div class="muted">outputs ${escapeHtml(joinOrDash(outputNames))}</div></td>
+        <td>${escapeHtml(solver.status || "-")}<div class="muted">${escapeHtml(solver.method || "-")}</div></td>
+        <td>${escapeHtml(timeStep)}<div class="muted">steps ${escapeHtml(steps)}</div></td>
+        <td>${escapeHtml(tolerance)}<div class="muted">iter ${escapeHtml(iterations)}</div></td>
+        <td>${escapeHtml(convergence)}<div class="muted">${escapeHtml(failure)}</div></td>
       </tr>
     `;
   }).join("");
   return `
     <table class="var-table">
-      <thead><tr><th>Name</th><th>Vars</th><th>Eq</th><th>Solver</th><th>Steps</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="5" class="muted">No system metadata.</td></tr>`}</tbody>
+      <thead><tr><th>System</th><th>States</th><th>Inputs/Params</th><th>Solver</th><th>Timestep</th><th>Tol/Iter</th><th>Convergence</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="muted">No system metadata.</td></tr>`}</tbody>
     </table>
   `;
 }

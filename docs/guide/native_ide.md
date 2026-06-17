@@ -26,7 +26,7 @@ The smoke path checks that examples are discoverable, compiler completion
 metadata is available, the official domain/component track example produces
 domain, component, connection, and assembly metadata, and the measured-vs-simulated
 workflow produces IDE inspector payloads for schema, TimeSeries, metric,
-validation, time alignment, and artifact outlines.
+validation, time alignment, solver result trajectories, and artifact outlines.
 
 ## Development Flow
 
@@ -68,7 +68,8 @@ Right Sidebar
   Vars, Schema, Time, Plot, Checks, Asm, Artifacts, and Run tabs. After a successful
   run, source symbols, runtime variables, Args values, schema summaries, unit
   conversions, TimeSeries ranges/statistics, metrics, validations, time
-  alignments, system/solver metadata, component assembly metadata, artifact paths, and JSON artifact
+  alignments, system/solver metadata, solver state/algebraic/input/output
+  result summaries, component assembly metadata, artifact paths, and JSON artifact
   outlines are summarized in tables. Clicking a variable row expands canonical
   unit, dimension, role, and line metadata. Plot views live beside Variables
   so the bottom terminal keeps a stable height.

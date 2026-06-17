@@ -3878,6 +3878,21 @@ fn push_system_solution_json(
         "{indent}  \"reason\": \"{}\",\n",
         json_escape(&solution.reason)
     ));
+    json.push_str(&format!("{indent}  \"states\": ["));
+    push_json_string_array(json, &solution.states);
+    json.push_str("],\n");
+    json.push_str(&format!("{indent}  \"algebraic_variables\": ["));
+    push_json_string_array(json, &solution.algebraic_variables);
+    json.push_str("],\n");
+    json.push_str(&format!("{indent}  \"inputs\": ["));
+    push_json_string_array(json, &solution.inputs);
+    json.push_str("],\n");
+    json.push_str(&format!("{indent}  \"parameters\": ["));
+    push_json_string_array(json, &solution.parameters);
+    json.push_str("],\n");
+    json.push_str(&format!("{indent}  \"outputs\": ["));
+    push_json_string_array(json, &solution.outputs);
+    json.push_str("],\n");
     json.push_str(&format!(
         "{indent}  \"state\": \"{}\",\n",
         json_escape(&solution.state)
@@ -3910,6 +3925,28 @@ fn push_system_solution_json(
         "{indent}  \"step_count\": {},\n",
         solution.step_count
     ));
+    json.push_str(&format!(
+        "{indent}  \"tolerance\": {},\n",
+        solution.tolerance
+    ));
+    json.push_str(&format!(
+        "{indent}  \"max_iterations\": {},\n",
+        solution.max_iterations
+    ));
+    json.push_str(&format!(
+        "{indent}  \"iteration_count\": {},\n",
+        solution.iteration_count
+    ));
+    json.push_str(&format!(
+        "{indent}  \"convergence_status\": \"{}\",\n",
+        json_escape(&solution.convergence_status)
+    ));
+    push_optional_json_string(
+        json,
+        "failure_reason",
+        solution.failure_reason.as_deref(),
+        indent.len() + 2,
+    );
     json.push_str(&format!(
         "{indent}  \"initial_value\": {},\n",
         solution.initial_value
@@ -3983,6 +4020,45 @@ fn runtime_review_json(base_review: &str, runtime_data: &RuntimeData) -> String 
             "      \"reason\": \"{}\",\n",
             json_escape(&first.reason)
         ));
+        json.push_str("      \"variables\": {\n");
+        json.push_str("        \"states\": [");
+        push_json_string_array(&mut json, &first.states);
+        json.push_str("],\n");
+        json.push_str("        \"algebraic_variables\": [");
+        push_json_string_array(&mut json, &first.algebraic_variables);
+        json.push_str("],\n");
+        json.push_str("        \"inputs\": [");
+        push_json_string_array(&mut json, &first.inputs);
+        json.push_str("],\n");
+        json.push_str("        \"parameters\": [");
+        push_json_string_array(&mut json, &first.parameters);
+        json.push_str("],\n");
+        json.push_str("        \"outputs\": [");
+        push_json_string_array(&mut json, &first.outputs);
+        json.push_str("]\n");
+        json.push_str("      },\n");
+        json.push_str("      \"diagnostics\": {\n");
+        json.push_str(&format!("        \"tolerance\": {},\n", first.tolerance));
+        json.push_str(&format!(
+            "        \"max_iterations\": {},\n",
+            first.max_iterations
+        ));
+        json.push_str(&format!(
+            "        \"iteration_count\": {},\n",
+            first.iteration_count
+        ));
+        json.push_str(&format!(
+            "        \"convergence_status\": \"{}\",\n",
+            json_escape(&first.convergence_status)
+        ));
+        match &first.failure_reason {
+            Some(reason) => json.push_str(&format!(
+                "        \"failure_reason\": \"{}\"\n",
+                json_escape(reason)
+            )),
+            None => json.push_str("        \"failure_reason\": null\n"),
+        }
+        json.push_str("      },\n");
         json.push_str("      \"time_grid\": {\n");
         json.push_str(&format!(
             "        \"unit\": \"{}\",\n",

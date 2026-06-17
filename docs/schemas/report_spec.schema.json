@@ -1342,6 +1342,11 @@
         "status",
         "method",
         "reason",
+        "states",
+        "algebraic_variables",
+        "inputs",
+        "parameters",
+        "outputs",
         "state",
         "quantity_kind",
         "display_unit",
@@ -1350,6 +1355,11 @@
         "duration_s",
         "time_step_s",
         "step_count",
+        "tolerance",
+        "max_iterations",
+        "iteration_count",
+        "convergence_status",
+        "failure_reason",
         "initial_value",
         "final_value",
         "canonical_initial_value",
@@ -1361,6 +1371,26 @@
         "status": { "type": "string" },
         "method": { "type": "string" },
         "reason": { "type": "string" },
+        "states": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "algebraic_variables": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "inputs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "parameters": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "outputs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "state": { "type": "string" },
         "quantity_kind": { "type": "string" },
         "display_unit": { "type": "string" },
@@ -1369,6 +1399,11 @@
         "duration_s": { "type": "number" },
         "time_step_s": { "type": "number" },
         "step_count": { "type": "integer", "minimum": 0 },
+        "tolerance": { "type": "number" },
+        "max_iterations": { "type": "integer", "minimum": 0 },
+        "iteration_count": { "type": "integer", "minimum": 0 },
+        "convergence_status": { "type": "string" },
+        "failure_reason": { "type": ["string", "null"] },
         "initial_value": { "type": "number" },
         "final_value": { "type": "number" },
         "canonical_initial_value": { "type": "number" },

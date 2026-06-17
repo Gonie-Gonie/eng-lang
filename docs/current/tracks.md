@@ -115,6 +115,8 @@ Current stable tooling scope:
 - docked explorer/editor/problems/terminal layout with Variables/Plot/Run inspector tabs
 - diagnostics and caret completions
 - PlotSpec viewer beside runtime variable summaries
+- solver inspector/result summaries for system state trajectories, input/output
+  series metadata, timestep, tolerance, iterations, convergence, and failure reason
 - internal eng-lsp.exe smoke/snapshot path
 - packaged VS Code extension source and VSIX
 ```
