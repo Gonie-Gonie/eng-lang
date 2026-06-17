@@ -1102,6 +1102,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             "E-EXTERNAL-BEHAVIOR-SIGNAL-001",
         ),
         (
+            "examples/05_error_messages/component_boundary_unknown_signal.eng",
+            "E-ASSEMBLY-BOUNDARY-SIGNAL-001",
+        ),
+        (
             "examples/05_error_messages/component_boundary_bad_rhs.eng",
             "E-ASSEMBLY-BOUNDARY-RHS-001",
         ),

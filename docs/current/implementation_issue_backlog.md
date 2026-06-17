@@ -246,7 +246,8 @@ Definition of Done:
   incompatible domain, incompatible medium/frame/axis, and unsupported
   connect-pattern diagnostics are covered.
 - Component boundary equation RHS/type diagnostics reject non-numeric RHS values
-  and units that are incompatible with the connected port signal quantity.
+  and units that are incompatible with the connected port signal quantity, and
+  reject unknown `port.variable` signal paths before residual assembly.
 - IDE graph panel can navigate connections back to source.
 - Report summarizes connection graph and limitations.
 - Numeric component graph solving remains Planned.
