@@ -94,6 +94,7 @@ Internal runtime seeds:
 - standalone implicit-Euler DAE seed over F(x, xdot, z, u, t, p)
 - optional DAE mass matrix and initial consistency checks
 - standalone dynamic-component explicit-Euler seed with algebraic solve per timestep and common SolverResult state/algebraic trajectories
+- component solver result trajectory artifact adapter for internal dynamic-component SolverResult output
 - delay buffer with interpolation and initial-history policies
 - component-local delay(signal, duration) diagnostics
 - component-local Predictor and external behavior signal diagnostics

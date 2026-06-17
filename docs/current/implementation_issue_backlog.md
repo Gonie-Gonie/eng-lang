@@ -153,7 +153,9 @@ Current coverage:
   algebraic variables with fixed point at each timestep, updates state
   trajectories, carries algebraic trajectories through the common
   `SolverResult` output contract, and returns timestep-level convergence/failure
-  diagnostics.
+  diagnostics. Component solver result artifacts can now carry those
+  state/algebraic trajectories through report spec, HTML, `.engres`, and the
+  IDE assembly summary.
 
 Definition of Done:
 

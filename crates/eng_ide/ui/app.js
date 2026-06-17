@@ -1161,14 +1161,15 @@ function renderAssemblies() {
         <td>${escapeHtml(solverStatus)}<div class="muted">${escapeHtml(solverMethod)}</div><div class="muted">${escapeHtml(limitations)}</div></td>
         <td>${metricCell(solverResult.residual_norm ?? solverResult.residualNorm)}<div class="muted">iter ${escapeHtml(solverResult.iteration_count ?? solverResult.iterationCount ?? "-")}</div></td>
         <td>${escapeHtml(componentSolverVariableSummary(solverResult.variables))}</td>
+        <td>${escapeHtml(componentSolverTrajectorySummary(solverResult.trajectories))}</td>
         <td>${escapeHtml(componentSolverLargestResidual(solverResult.residuals))}<div class="muted">${escapeHtml(failure.code || "-")}</div></td>
       </tr>
     `;
   }).join("");
   return `
     <table class="var-table">
-      <thead><tr><th>Graph</th><th>Comp/Ports</th><th>Sets</th><th>Eq</th><th>Solver</th><th>Residual</th><th>Variables</th><th>Largest</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="8" class="muted">Run a domain/component workflow.</td></tr>`}</tbody>
+      <thead><tr><th>Graph</th><th>Comp/Ports</th><th>Sets</th><th>Eq</th><th>Solver</th><th>Residual</th><th>Variables</th><th>Trajectories</th><th>Largest</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="9" class="muted">Run a domain/component workflow.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -1259,6 +1260,23 @@ function componentSolverVariableSummary(variables) {
     return `${variable.name || "var"}=${metricCell(variable.value)}${unit}`;
   });
   if (variables.length > shown.length) shown.push(`+${variables.length - shown.length} more`);
+  return shown.join(", ");
+}
+
+function componentSolverTrajectorySummary(trajectories) {
+  if (!Array.isArray(trajectories) || !trajectories.length) return "-";
+  const shown = trajectories.slice(0, 3).map((trajectory) => {
+    const role = trajectory.role || "trajectory";
+    const name = trajectory.name || "var";
+    const unit = trajectory.unit ? ` ${trajectory.unit}` : "";
+    const initial = trajectory.initial_value ?? trajectory.initialValue;
+    const final = trajectory.final_value ?? trajectory.finalValue;
+    const count = trajectory.point_count ?? trajectory.pointCount ?? (
+      Array.isArray(trajectory.points) ? trajectory.points.length : "-"
+    );
+    return `${role}:${name} ${metricCell(initial)}->${metricCell(final)}${unit} (${count} pts)`;
+  });
+  if (trajectories.length > shown.length) shown.push(`+${trajectories.length - shown.length} more`);
   return shown.join(", ");
 }
 

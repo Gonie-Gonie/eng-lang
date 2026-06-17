@@ -527,6 +527,7 @@ pub struct ReportComponentSolverResult {
     pub iteration_count: usize,
     pub convergence_status: String,
     pub variables: Vec<ReportComponentSolverVariable>,
+    pub trajectories: Vec<ReportComponentSolverTrajectory>,
     pub residuals: Vec<ReportComponentSolverResidual>,
     pub failure_artifact: Option<ReportSolverFailureArtifact>,
 }
@@ -538,6 +539,18 @@ pub struct ReportComponentSolverVariable {
     pub value: f64,
     pub unit: String,
     pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComponentSolverTrajectory {
+    pub name: String,
+    pub role: String,
+    pub quantity_kind: String,
+    pub unit: String,
+    pub initial_value: f64,
+    pub final_value: f64,
+    pub point_count: usize,
+    pub points: Vec<ReportSystemSolutionPoint>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -4305,6 +4318,54 @@ fn push_report_component_solver_result_json(
         json.push_str(&format!("{indent}    }}"));
     }
     json.push_str(&format!("\n{indent}  ],\n"));
+    json.push_str(&format!("{indent}  \"trajectories\": [\n"));
+    for (index, trajectory) in result.trajectories.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}    {{\n"));
+        json.push_str(&format!(
+            "{indent}      \"name\": \"{}\",\n",
+            json_escape(&trajectory.name)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"role\": \"{}\",\n",
+            json_escape(&trajectory.role)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"quantity_kind\": \"{}\",\n",
+            json_escape(&trajectory.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"unit\": \"{}\",\n",
+            json_escape(&trajectory.unit)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"initial_value\": {},\n",
+            trajectory.initial_value
+        ));
+        json.push_str(&format!(
+            "{indent}      \"final_value\": {},\n",
+            trajectory.final_value
+        ));
+        json.push_str(&format!(
+            "{indent}      \"point_count\": {},\n",
+            trajectory.point_count
+        ));
+        json.push_str(&format!("{indent}      \"points\": [\n"));
+        for (point_index, point) in trajectory.points.iter().enumerate() {
+            if point_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str(&format!("{indent}        {{\n"));
+            json.push_str(&format!("{indent}          \"x\": {},\n", point.x));
+            json.push_str(&format!("{indent}          \"y\": {}\n", point.y));
+            json.push_str(&format!("{indent}        }}"));
+        }
+        json.push_str(&format!("\n{indent}      ]\n"));
+        json.push_str(&format!("{indent}    }}"));
+    }
+    json.push_str(&format!("\n{indent}  ],\n"));
     json.push_str(&format!("{indent}  \"residuals\": [\n"));
     for (index, residual) in result.residuals.iter().enumerate() {
         if index > 0 {
@@ -5718,6 +5779,9 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
             let variables = solver_result
                 .map(format_component_solver_variables_summary)
                 .unwrap_or_else(|| "-".to_owned());
+            let trajectories = solver_result
+                .map(format_component_solver_trajectory_summary)
+                .unwrap_or_else(|| "-".to_owned());
             let largest_residual = solver_result
                 .and_then(format_component_largest_residual_summary)
                 .unwrap_or_else(|| "-".to_owned());
@@ -5726,7 +5790,7 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
                 .map(|failure| failure.code.clone())
                 .unwrap_or_else(|| "-".to_owned());
             format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
                 assembly.line,
                 html_escape(&assembly.name),
                 html_escape(&assembly.status),
@@ -5737,6 +5801,7 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
                 html_escape(&residual_norm),
                 html_escape(&iteration_count),
                 html_escape(&variables),
+                html_escape(&trajectories),
                 html_escape(&largest_residual),
                 html_escape(&failure)
             )
@@ -5746,7 +5811,7 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
     format!(
         r#"<h2>Connection Constraint Check</h2>
     <table>
-      <thead><tr><th>Line</th><th>Assembly</th><th>Status</th><th>Eq/Unknowns</th><th>Convergence</th><th>Method</th><th>Residual Norm</th><th>Iterations</th><th>Variables</th><th>Largest Residual</th><th>Failure</th></tr></thead>
+      <thead><tr><th>Line</th><th>Assembly</th><th>Status</th><th>Eq/Unknowns</th><th>Convergence</th><th>Method</th><th>Residual Norm</th><th>Iterations</th><th>Variables</th><th>Trajectories</th><th>Largest Residual</th><th>Failure</th></tr></thead>
       <tbody>{rows}</tbody>
     </table>"#
     )
@@ -5771,6 +5836,35 @@ fn format_component_solver_variables_summary(result: &ReportComponentSolverResul
         .collect::<Vec<_>>();
     if result.variables.len() > values.len() {
         values.push(format!("+{} more", result.variables.len() - values.len()));
+    }
+    values.join(", ")
+}
+
+fn format_component_solver_trajectory_summary(result: &ReportComponentSolverResult) -> String {
+    if result.trajectories.is_empty() {
+        return "-".to_owned();
+    }
+    let mut values = result
+        .trajectories
+        .iter()
+        .take(3)
+        .map(|trajectory| {
+            format!(
+                "{}:{} {}->{} {} ({} pts)",
+                trajectory.role,
+                trajectory.name,
+                format_alignment_number(trajectory.initial_value),
+                format_alignment_number(trajectory.final_value),
+                trajectory.unit,
+                trajectory.point_count
+            )
+        })
+        .collect::<Vec<_>>();
+    if result.trajectories.len() > values.len() {
+        values.push(format!(
+            "+{} more",
+            result.trajectories.len() - values.len()
+        ));
     }
     values.join(", ")
 }

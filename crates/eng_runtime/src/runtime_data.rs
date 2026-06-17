@@ -6,12 +6,12 @@ use eng_compiler::{
 };
 use eng_report::{
     PlotAxis, PlotBin, PlotPoint, PlotSeries, PlotSpec, ReportComponentSolverResidual,
-    ReportComponentSolverResult, ReportComponentSolverVariable, ReportComputedIntegration,
-    ReportComputedMetric, ReportComputedStatisticValue, ReportComputedStatistics,
-    ReportMlCoefficient, ReportMlInfo, ReportPolicyResult, ReportPolicyViolation,
-    ReportSolverFailureArtifact, ReportSpec, ReportSystemSolution, ReportSystemSolutionPoint,
-    ReportTimeAlignment, ReportTimeAxis, ReportUncertaintyInfo, ReportUncertaintyPropagationTerm,
-    ReportValidationResult,
+    ReportComponentSolverResult, ReportComponentSolverTrajectory, ReportComponentSolverVariable,
+    ReportComputedIntegration, ReportComputedMetric, ReportComputedStatisticValue,
+    ReportComputedStatistics, ReportMlCoefficient, ReportMlInfo, ReportPolicyResult,
+    ReportPolicyViolation, ReportSolverFailureArtifact, ReportSpec, ReportSystemSolution,
+    ReportSystemSolutionPoint, ReportTimeAlignment, ReportTimeAxis, ReportUncertaintyInfo,
+    ReportUncertaintyPropagationTerm, ReportValidationResult,
 };
 
 use crate::solver::{
@@ -105,6 +105,27 @@ fn report_component_solver_result(
                 value: variable.value,
                 unit: variable.unit.clone(),
                 status: variable.status.clone(),
+            })
+            .collect(),
+        trajectories: solution
+            .trajectories
+            .iter()
+            .map(|trajectory| ReportComponentSolverTrajectory {
+                name: trajectory.name.clone(),
+                role: trajectory.role.clone(),
+                quantity_kind: trajectory.quantity_kind.clone(),
+                unit: trajectory.unit.clone(),
+                initial_value: trajectory.initial_value,
+                final_value: trajectory.final_value,
+                point_count: trajectory.point_count,
+                points: trajectory
+                    .points
+                    .iter()
+                    .map(|point| ReportSystemSolutionPoint {
+                        x: point.x,
+                        y: point.y,
+                    })
+                    .collect(),
             })
             .collect(),
         residuals: solution
@@ -956,8 +977,81 @@ pub struct RuntimeComponentSolution {
     pub iteration_count: usize,
     pub convergence_status: String,
     pub variables: Vec<RuntimeComponentVariableSolution>,
+    pub trajectories: Vec<RuntimeComponentTrajectory>,
     pub residuals: Vec<RuntimeComponentResidualEvaluation>,
     pub failure_artifact: Option<RuntimeSolverFailureArtifact>,
+}
+
+#[allow(dead_code)]
+impl RuntimeComponentSolution {
+    pub fn from_dynamic_solver_result(
+        assembly_name: &str,
+        solver_result: &SolverResult,
+        reason: &str,
+    ) -> Self {
+        let state_trajectories = solver_result
+            .output
+            .state_trajectories
+            .iter()
+            .map(|trajectory| {
+                component_trajectory_from_solver_trajectory(
+                    trajectory,
+                    "state",
+                    &solver_result.time_grid,
+                )
+            });
+        let algebraic_trajectories =
+            solver_result
+                .output
+                .algebraic_trajectories
+                .iter()
+                .map(|trajectory| {
+                    component_trajectory_from_solver_trajectory(
+                        trajectory,
+                        "algebraic",
+                        &solver_result.time_grid,
+                    )
+                });
+        let trajectories = state_trajectories
+            .chain(algebraic_trajectories)
+            .collect::<Vec<_>>();
+        let variable_status = if solver_result.diagnostics.status == "computed" {
+            "trajectory_computed"
+        } else {
+            "trajectory_failed"
+        };
+        let variables = trajectories
+            .iter()
+            .map(|trajectory| RuntimeComponentVariableSolution {
+                name: trajectory.name.clone(),
+                role: trajectory.role.clone(),
+                value: trajectory.final_value,
+                unit: trajectory.unit.clone(),
+                status: variable_status.to_owned(),
+            })
+            .collect::<Vec<_>>();
+
+        Self {
+            assembly: assembly_name.to_owned(),
+            status: solver_result.diagnostics.status.clone(),
+            method: solver_result.plan.options.method.clone(),
+            reason: reason.to_owned(),
+            equation_count: 0,
+            unknown_count: variables.len(),
+            residual_norm: 0.0,
+            iteration_count: solver_result.diagnostics.iteration_count,
+            convergence_status: solver_result.diagnostics.convergence_status.clone(),
+            variables,
+            trajectories,
+            residuals: Vec::new(),
+            failure_artifact: solver_result.diagnostics.failure.as_ref().map(|failure| {
+                RuntimeSolverFailureArtifact {
+                    code: failure.code.clone(),
+                    message: failure.message.clone(),
+                }
+            }),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -967,6 +1061,18 @@ pub struct RuntimeComponentVariableSolution {
     pub value: f64,
     pub unit: String,
     pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeComponentTrajectory {
+    pub name: String,
+    pub role: String,
+    pub quantity_kind: String,
+    pub unit: String,
+    pub initial_value: f64,
+    pub final_value: f64,
+    pub point_count: usize,
+    pub points: Vec<RuntimePoint>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -2440,8 +2546,36 @@ fn component_solution_from_solver_assembly(
         iteration_count,
         convergence_status,
         variables,
+        trajectories: Vec::new(),
         residuals,
         failure_artifact,
+    }
+}
+
+#[allow(dead_code)]
+fn component_trajectory_from_solver_trajectory(
+    trajectory: &StateTrajectory,
+    role: &str,
+    time_grid: &TimeGrid,
+) -> RuntimeComponentTrajectory {
+    let points = trajectory
+        .values
+        .iter()
+        .enumerate()
+        .map(|(index, value)| RuntimePoint {
+            x: time_grid.step_time_s(index),
+            y: *value,
+        })
+        .collect::<Vec<_>>();
+    RuntimeComponentTrajectory {
+        name: trajectory.name.clone(),
+        role: role.to_owned(),
+        quantity_kind: trajectory.quantity_kind.clone(),
+        unit: trajectory.canonical_unit.clone(),
+        initial_value: trajectory.initial_value().unwrap_or(0.0),
+        final_value: trajectory.final_value().unwrap_or(0.0),
+        point_count: points.len(),
+        points,
     }
 }
 
@@ -5339,7 +5473,7 @@ fn days_from_civil(year: i32, month: u32, day: u32) -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eng_compiler::{check_file, CheckOptions};
+    use eng_compiler::{check_file, check_source, CheckOptions, CheckReport};
 
     #[test]
     fn parses_plot_options() {
@@ -5769,6 +5903,104 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
             .residuals
             .iter()
             .all(|residual| residual.status == "satisfied"));
+    }
+
+    #[test]
+    fn adapts_dynamic_component_solver_result_with_algebraic_trajectories() {
+        use crate::solver::algorithms::dynamic_component::{
+            solve_explicit_euler_with_algebraic, DynamicComponentOptions,
+        };
+
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "component_graph",
+                SimulationPlan {
+                    states: vec!["x".to_owned()],
+                    outputs: vec!["x".to_owned(), "z".to_owned()],
+                    ..SimulationPlan::default()
+                },
+                SolverOptions::fixed_step("dynamic_component_explicit_euler", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(2.0, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout::default(),
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![0.0],
+            inputs: Vec::new(),
+            parameters: Vec::new(),
+        };
+        let algebraic_layout =
+            StateLayout::new(vec![LayoutEntry::new(0, "z", "Dimensionless", "1", "1")]);
+        let dynamic = solve_explicit_euler_with_algebraic(
+            &input,
+            algebraic_layout,
+            vec![0.0],
+            DynamicComponentOptions::default(),
+            |sample| Ok(vec![0.5 * sample.state[0] + 1.0]),
+            |sample| Ok(vec![sample.algebraic[0]]),
+        )
+        .unwrap();
+
+        let solution = RuntimeComponentSolution::from_dynamic_solver_result(
+            "component_graph",
+            &dynamic.solver_result,
+            "dynamic component SolverResult artifact adapter test",
+        );
+
+        assert_eq!(solution.status, "computed");
+        assert_eq!(solution.method, "dynamic_component_explicit_euler");
+        assert_eq!(solution.variables.len(), 2);
+        assert_eq!(solution.trajectories.len(), 2);
+        assert!(solution
+            .variables
+            .iter()
+            .any(|variable| variable.name == "x"
+                && variable.role == "state"
+                && variable.value == 2.5));
+        assert!(solution
+            .variables
+            .iter()
+            .any(|variable| variable.name == "z"
+                && variable.role == "algebraic"
+                && variable.value == 2.25));
+        assert!(solution
+            .trajectories
+            .iter()
+            .any(|trajectory| trajectory.name == "z"
+                && trajectory.role == "algebraic"
+                && trajectory.point_count == 3
+                && trajectory.points[2].y == 2.25));
+
+        let report = check_source_with_runtime_component_graph();
+        let mut spec =
+            eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        let runtime = RuntimeData {
+            component_solutions: vec![solution],
+            ..RuntimeData::default()
+        };
+        runtime.apply_component_solutions(&mut spec);
+        let solver_result = spec.assemblies[0].solver_result.as_ref().unwrap();
+        assert_eq!(solver_result.trajectories.len(), 2);
+        assert!(solver_result
+            .trajectories
+            .iter()
+            .any(|trajectory| trajectory.name == "z"
+                && trajectory.role == "algebraic"
+                && trajectory.final_value == 2.25));
+
+        let json = eng_report::report_spec_json(&spec);
+        let html = eng_report::render_html_with_spec(&report, "plots/timeseries.svg", &spec);
+        assert!(json.contains("\"trajectories\""));
+        assert!(json.contains("\"role\": \"algebraic\""));
+        assert!(html.contains("Trajectories"));
+        assert!(html.contains("algebraic:z"));
     }
 
     #[test]
@@ -6275,6 +6507,14 @@ with {
             algebraic_variables: vec![x, y],
             ..EquationAssembly::default()
         }
+    }
+
+    fn check_source_with_runtime_component_graph() -> CheckReport {
+        check_source(
+            "ok.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n}\n\ncomponent Sink {\n    port inlet: Thermal\n}\n\nconnect Source.out -> Sink.inlet\n",
+            &CheckOptions::default(),
+        )
     }
 
     fn round2(value: f64) -> f64 {

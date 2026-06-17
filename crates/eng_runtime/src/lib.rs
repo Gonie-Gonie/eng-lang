@@ -4191,6 +4191,60 @@ fn component_solutions_json(runtime_data: &RuntimeData) -> String {
             json.push_str("          }");
         }
         json.push_str("\n        ],\n");
+        json.push_str("        \"trajectories\": [\n");
+        for (trajectory_index, trajectory) in solution.trajectories.iter().enumerate() {
+            if trajectory_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"name\": \"{}\",\n",
+                json_escape(&trajectory.name)
+            ));
+            json.push_str(&format!(
+                "            \"role\": \"{}\",\n",
+                json_escape(&trajectory.role)
+            ));
+            json.push_str(&format!(
+                "            \"quantity_kind\": \"{}\",\n",
+                json_escape(&trajectory.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "            \"unit\": \"{}\",\n",
+                json_escape(&trajectory.unit)
+            ));
+            json.push_str(&format!(
+                "            \"initial_value\": {},\n",
+                format_number_with_precision(trajectory.initial_value, Some(8))
+            ));
+            json.push_str(&format!(
+                "            \"final_value\": {},\n",
+                format_number_with_precision(trajectory.final_value, Some(8))
+            ));
+            json.push_str(&format!(
+                "            \"point_count\": {},\n",
+                trajectory.point_count
+            ));
+            json.push_str("            \"points\": [\n");
+            for (point_index, point) in trajectory.points.iter().enumerate() {
+                if point_index > 0 {
+                    json.push_str(",\n");
+                }
+                json.push_str("              {\n");
+                json.push_str(&format!(
+                    "                \"x\": {},\n",
+                    format_number_with_precision(point.x, Some(8))
+                ));
+                json.push_str(&format!(
+                    "                \"y\": {}\n",
+                    format_number_with_precision(point.y, Some(8))
+                ));
+                json.push_str("              }");
+            }
+            json.push_str("\n            ]\n");
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
         json.push_str("        \"residuals\": [\n");
         for (residual_index, residual) in solution.residuals.iter().enumerate() {
             if residual_index > 0 {
