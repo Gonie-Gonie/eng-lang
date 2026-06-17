@@ -246,9 +246,9 @@ are not public stable workflows.
   `eng.exe jit-bench`, backend selection metadata, interpreter kernel IR,
   interpreter executor correctness tests for arithmetic, integration, scalar
   residual, component residual Jacobian and Newton-step candidates, state-space
-  RHS, finite-difference Jacobian, and Newton-step kernels, per-candidate
-  executor/fallback reasons, deterministic `jit-bench` interpreter-kernel
-  sample executions, and no native speedup claim.
+  RHS and explicit-Euler solver-step candidates, finite-difference Jacobian, and
+  Newton-step kernels, per-candidate executor/fallback reasons, deterministic
+  `jit-bench` interpreter-kernel sample executions, and no native speedup claim.
 - LSP/VS Code track: smoke/snapshot tests, hover/completion metadata,
   conservative same-document go-to-definition, and packaged VS Code extension
   source. This is not a stable persistent editor-service contract.

@@ -185,6 +185,14 @@ pub struct SolverStepKernelOutput {
     pub residual_norm: f64,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct FixedStepKernelOutput {
+    pub backend: String,
+    pub fallback_reason: Option<String>,
+    pub state: Vec<f64>,
+    pub derivatives: Vec<f64>,
+}
+
 impl KernelExecutionFailure {
     fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
@@ -432,6 +440,26 @@ pub fn plan_for_report_with_options(
                 estimate: state_space_rhs_estimate(state_count, input_count, &ir.instructions),
             },
         );
+        push_candidate(
+            &mut candidates,
+            &mut seen,
+            KernelCandidate {
+                name: system.name.clone(),
+                kind: "state_space_solver_step".to_owned(),
+                line: system.line,
+                source: state_space_rhs_source(system),
+                reason:
+                    "continuous state-space RHS can execute one explicit-Euler solver step kernel"
+                        .to_owned(),
+                lowering_status: "lowerable_to_numeric_kernel_plan".to_owned(),
+                operations: state_space_solver_step_operations(report, &system.name),
+                estimate: state_space_solver_step_estimate(
+                    state_count,
+                    input_count,
+                    &ir.instructions,
+                ),
+            },
+        );
     }
 
     candidates.sort_by(|left, right| {
@@ -627,6 +655,65 @@ pub fn execute_newton_step_kernel(
         fallback_reason: None,
         step,
         residual_norm,
+    })
+}
+
+pub fn execute_explicit_euler_step_kernel(
+    rhs_ir: &KernelIr,
+    state: &[f64],
+    inputs: &[f64],
+    timestep_s: f64,
+) -> Result<FixedStepKernelOutput, KernelExecutionFailure> {
+    validate_explicit_euler_step_inputs(rhs_ir, state, inputs, timestep_s)?;
+    let mut scalar_inputs = Vec::with_capacity(state.len() + inputs.len());
+    scalar_inputs.extend_from_slice(state);
+    scalar_inputs.extend_from_slice(inputs);
+    let output = execute_interpreter_kernel(
+        rhs_ir,
+        &KernelExecutionInput {
+            series_inputs: Vec::new(),
+            scalar_inputs,
+        },
+    )?;
+    let derivatives = output
+        .outputs
+        .into_iter()
+        .map(|value| match value {
+            KernelOutputValue::Scalar(value) => Ok(value),
+            KernelOutputValue::Series(_) => Err(KernelExecutionFailure::new(
+                "E-KERNEL-SOLVER-STEP-RHS-OUTPUT",
+                "solver step RHS outputs must be scalar values",
+            )),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if derivatives.len() != state.len() {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-SOLVER-STEP-LAYOUT",
+            "solver step RHS output count must match the state count",
+        ));
+    }
+
+    let next_state = state
+        .iter()
+        .zip(derivatives.iter())
+        .map(|(current, derivative)| {
+            let next = current + timestep_s * derivative;
+            if next.is_finite() {
+                Ok(next)
+            } else {
+                Err(KernelExecutionFailure::new(
+                    "E-KERNEL-SOLVER-STEP-FINITE",
+                    "solver step update produced a non-finite state value",
+                ))
+            }
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(FixedStepKernelOutput {
+        backend: INTERPRETER_FALLBACK_BACKEND.to_owned(),
+        fallback_reason: None,
+        state: next_state,
+        derivatives,
     })
 }
 
@@ -1445,7 +1532,8 @@ fn candidate_has_interpreter_lowering(candidate: &KernelCandidate) -> bool {
         | "component_residual_graph"
         | "component_residual_jacobian"
         | "component_newton_step"
-        | "state_space_rhs" => true,
+        | "state_space_rhs"
+        | "state_space_solver_step" => true,
         "statistics_fusion" => candidate.operations.iter().all(|operation| {
             operation
                 .strip_prefix("stat:")
@@ -1482,6 +1570,41 @@ fn validate_newton_step_inputs(
         return Err(KernelExecutionFailure::new(
             "E-KERNEL-NEWTON-STEP-FINITE",
             "Newton step kernel inputs must be finite",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_explicit_euler_step_inputs(
+    rhs_ir: &KernelIr,
+    state: &[f64],
+    inputs: &[f64],
+    timestep_s: f64,
+) -> Result<(), KernelExecutionFailure> {
+    if state.is_empty()
+        || rhs_ir.input_count != 0
+        || rhs_ir.output_count != state.len()
+        || rhs_ir.scalar_input_count != state.len() + inputs.len()
+    {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-SOLVER-STEP-LAYOUT",
+            "solver step kernel requires scalar-only RHS inputs and one derivative output per state",
+        ));
+    }
+    if !timestep_s.is_finite() || timestep_s <= 0.0 {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-SOLVER-STEP-TIMESTEP",
+            "solver step timestep must be a positive finite number",
+        ));
+    }
+    if state
+        .iter()
+        .chain(inputs.iter())
+        .any(|value| !value.is_finite())
+    {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-SOLVER-STEP-FINITE",
+            "solver step state and input values must be finite",
         ));
     }
     Ok(())
@@ -1768,6 +1891,31 @@ fn state_space_rhs_estimate(
     }
 }
 
+fn state_space_solver_step_estimate(
+    state_count: usize,
+    input_count: usize,
+    instructions: &[KernelInstruction],
+) -> KernelEstimate {
+    let rhs_operations = instructions
+        .iter()
+        .filter(|instruction| matches!(instruction, KernelInstruction::Binary { .. }))
+        .count()
+        .max(1);
+    KernelEstimate {
+        estimated_rows: None,
+        input_count: state_count + input_count + 1,
+        output_count: state_count,
+        operation_count: rhs_operations + state_count,
+        scan_count: 0,
+        complexity: "O(states * (states + inputs)) per explicit-Euler solver step".to_owned(),
+        notes: vec![
+            format!("{state_count} state input(s)"),
+            format!("{input_count} external input(s)"),
+            "includes timestep input and one explicit-Euler state update".to_owned(),
+        ],
+    }
+}
+
 fn state_space_rhs_source(system: &eng_compiler::SystemInfo) -> String {
     system
         .equations
@@ -1808,6 +1956,15 @@ fn state_space_rhs_operations(report: &CheckReport, system_name: &str) -> Vec<St
             .map(|operator| format!("apply_linear_operator:{}", operator.name)),
     );
     operations.push("store_derivative_vector:Derivative[StateVector]".to_owned());
+    operations
+}
+
+fn state_space_solver_step_operations(report: &CheckReport, system_name: &str) -> Vec<String> {
+    let mut operations = state_space_rhs_operations(report, system_name);
+    operations.push("load_timestep".to_owned());
+    operations.push("evaluate_rhs_kernel:state_space_rhs".to_owned());
+    operations.push("explicit_euler_update:StateVector".to_owned());
+    operations.push("store_next_state_vector:StateVector".to_owned());
     operations
 }
 
@@ -2559,6 +2716,16 @@ mod tests {
             state_space_candidate["executor"]["status"],
             "interpreter_supported"
         );
+        let solver_step_candidate = candidates
+            .iter()
+            .find(|candidate| candidate["kind"] == "state_space_solver_step")
+            .expect("state-space solver-step candidate JSON should exist");
+        assert_eq!(
+            solver_step_candidate["executor"]["status"],
+            "interpreter_supported"
+        );
+        assert_eq!(solver_step_candidate["estimate"]["input_count"], 5);
+        assert_eq!(solver_step_candidate["estimate"]["output_count"], 2);
     }
 
     #[test]
@@ -2592,6 +2759,13 @@ mod tests {
             panic!("state-space RHS output should be scalar");
         };
         assert!((*value - 0.4972).abs() < 1e-12);
+
+        let step = execute_explicit_euler_step_kernel(&ir, &[22.0], &[8.0, 500.0], 60.0).unwrap();
+        assert_eq!(step.backend, INTERPRETER_FALLBACK_BACKEND);
+        assert_eq!(step.fallback_reason, None);
+        assert_eq!(step.derivatives.len(), 1);
+        assert!((step.derivatives[0] - 0.4972).abs() < 1e-12);
+        assert!((step.state[0] - 51.832).abs() < 1e-12);
     }
 
     #[test]
@@ -2749,6 +2923,77 @@ mod tests {
         assert_eq!(output.fallback_reason, None);
         assert_eq!(output.step, vec![0.5]);
         assert!((output.residual_norm - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn interpreter_executes_explicit_euler_solver_step_kernel() {
+        let ir = KernelIr::new(
+            "linear_rhs",
+            "state_space_rhs",
+            0,
+            1,
+            vec![
+                KernelInstruction::LoadScalarInput {
+                    input: 0,
+                    register: 0,
+                },
+                KernelInstruction::LoadConstant {
+                    value: -0.5,
+                    register: 1,
+                },
+                KernelInstruction::Binary {
+                    op: KernelBinaryOp::Mul,
+                    left: 0,
+                    right: 1,
+                    target: 2,
+                },
+                KernelInstruction::LoadScalarInput {
+                    input: 1,
+                    register: 3,
+                },
+                KernelInstruction::Binary {
+                    op: KernelBinaryOp::Add,
+                    left: 2,
+                    right: 3,
+                    target: 4,
+                },
+                KernelInstruction::StoreScalar {
+                    register: 4,
+                    output: 0,
+                },
+            ],
+        )
+        .with_scalar_input_count(2);
+        let output = execute_explicit_euler_step_kernel(&ir, &[10.0], &[2.0], 0.25).unwrap();
+
+        assert_eq!(output.backend, INTERPRETER_FALLBACK_BACKEND);
+        assert_eq!(output.fallback_reason, None);
+        assert_eq!(output.derivatives, vec![-3.0]);
+        assert_eq!(output.state, vec![9.25]);
+    }
+
+    #[test]
+    fn interpreter_rejects_nonfinite_explicit_euler_update() {
+        let ir = KernelIr::new(
+            "overflow_rhs",
+            "state_space_rhs",
+            0,
+            1,
+            vec![
+                KernelInstruction::LoadConstant {
+                    value: f64::MAX,
+                    register: 0,
+                },
+                KernelInstruction::StoreScalar {
+                    register: 0,
+                    output: 0,
+                },
+            ],
+        )
+        .with_scalar_input_count(1);
+        let failure = execute_explicit_euler_step_kernel(&ir, &[1.0], &[], 2.0).unwrap_err();
+
+        assert_eq!(failure.code, "E-KERNEL-SOLVER-STEP-FINITE");
     }
 
     #[test]

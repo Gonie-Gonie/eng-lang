@@ -3321,6 +3321,10 @@ fn jit_kernel_executor_sample(
             let ir = eng_jit::component_residual_ir_from_assembly(assembly)?;
             Some(jit_newton_step_kernel_sample(candidate, &ir))
         }
+        "state_space_solver_step" => {
+            let ir = eng_jit::state_space_rhs_ir_for_system(report, candidate.name.as_str())?;
+            Some(jit_solver_step_kernel_sample(candidate, &ir))
+        }
         _ => {
             let ir = jit_kernel_ir_for_candidate(report, candidate)?;
             Some(jit_interpreter_kernel_sample(candidate, &ir))
@@ -3465,6 +3469,43 @@ fn jit_newton_step_kernel_sample(
     }
 }
 
+fn jit_solver_step_kernel_sample(
+    candidate: &eng_jit::KernelCandidate,
+    ir: &eng_jit::KernelIr,
+) -> serde_json::Value {
+    let scalar_inputs = sample_scalar_values(ir.scalar_input_count);
+    let state_count = ir.output_count;
+    if scalar_inputs.len() < state_count {
+        return json!({
+            "candidate": format!("{}:{}", candidate.kind, candidate.name),
+            "kind": candidate.kind,
+            "status": "failed",
+            "failure_code": "E-KERNEL-SOLVER-STEP-LAYOUT",
+            "failure_message": "solver step sample requires at least one state input per RHS output",
+        });
+    }
+    let state = scalar_inputs[..state_count].to_vec();
+    let inputs = scalar_inputs[state_count..].to_vec();
+    match eng_jit::execute_explicit_euler_step_kernel(ir, &state, &inputs, 60.0) {
+        Ok(output) => json!({
+            "candidate": format!("{}:{}", candidate.kind, candidate.name),
+            "kind": candidate.kind,
+            "status": "executed",
+            "backend": output.backend,
+            "fallback_reason": output.fallback_reason,
+            "state_count": output.state.len(),
+            "derivative_count": output.derivatives.len(),
+        }),
+        Err(failure) => json!({
+            "candidate": format!("{}:{}", candidate.kind, candidate.name),
+            "kind": candidate.kind,
+            "status": "failed",
+            "failure_code": failure.code,
+            "failure_message": failure.message,
+        }),
+    }
+}
+
 fn component_assembly_for_kernel_candidate<'a>(
     report: &'a CheckReport,
     candidate: &eng_jit::KernelCandidate,
@@ -3557,7 +3598,8 @@ fn jit_benchmark_targets(
     plan: &eng_jit::NumericKernelPlan,
 ) -> Vec<serde_json::Value> {
     let state_space_items = state_space_target_items(report);
-    let state_space_candidates = candidates_by_kind(plan, &["state_space_rhs"]);
+    let state_space_candidates =
+        candidates_by_kind(plan, &["state_space_rhs", "state_space_solver_step"]);
     vec![
         benchmark_target(
             "csv_heat_rate_workflow",
@@ -3638,7 +3680,7 @@ fn jit_benchmark_targets(
             } else {
                 state_space_candidates
             },
-            "tracks continuous state-space RHS kernel coverage; fixed-step solver remains the normal runtime path",
+            "tracks continuous state-space RHS and explicit-Euler solver-step kernel coverage; simulation still runs on the normal runtime path",
         ),
     ]
 }

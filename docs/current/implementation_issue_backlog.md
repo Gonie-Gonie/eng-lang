@@ -42,7 +42,7 @@ Current coverage:
 - Runtime optimization has `eng-kernel-ir-v1` plus an interpreter executor for
   element-wise TimeSeries arithmetic, TimeSeries statistics reductions,
   trapezoid integration, scalar residual, finite-difference Jacobian, and
-  Newton-step correctness tests.
+  Newton-step and explicit-Euler solver-step correctness tests.
 - Checked TimeSeries arithmetic, `summarize ... by [...]`, and
   `integrate(... over Time)` metadata can lower to executable interpreter
   `KernelIr` when runtime values/timestep are supplied.
@@ -56,14 +56,15 @@ Current coverage:
   `component_newton_step` candidates for a single dense Newton update; nonlinear
   iteration remains outside this kernel candidate.
 - Continuous state-space A/B operators can lower checked `der(x) eq A * x + B *
-  u` metadata into an executable scalar RHS `KernelIr`; fixed-step simulation
+  u` metadata into an executable scalar RHS `KernelIr`, and that RHS can execute
+  one interpreter explicit-Euler solver-step kernel; full simulation still
   remains on the normal runtime solver path.
 - CLI example smoke checks kernel candidates, interpreter executor fallback
   metadata, component residual/Jacobian/Newton-step kernel candidates,
   executable CSV/statistics interpreter-kernel samples, CSV heat-rate,
-  multi-statistics, component-graph solver, and state-space RHS benchmark
-  target coverage, and native-backend non-availability without making a
-  speedup claim.
+  multi-statistics, component-graph solver, state-space RHS, and state-space
+  solver-step benchmark target coverage, and native-backend non-availability
+  without making a speedup claim.
 - `report_spec.json`, `report.html`, and the IDE Kernel panel surface the
   selected backend, kernel candidates, executor status, and fallback reason as
   inspection metadata without presenting acceleration.
