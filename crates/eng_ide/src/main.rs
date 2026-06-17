@@ -926,7 +926,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         schemas: schema_inspector(&report, &result),
         unit_conversions: json_array_clone(&report, "unit_conversion_table"),
         time_axes: json_array_clone(&report, "time_axes"),
-        time_series: time_series_inspector(&result),
+        time_series: time_series_inspector(&report, &result),
         metrics: json_array_clone(&report, "computed_metrics"),
         validations: json_array_clone(&report, "validations"),
         time_alignments: json_array_clone(&report, "time_alignments"),
@@ -1080,7 +1080,7 @@ fn table_schema_name(value: &str) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
-fn time_series_inspector(result: &Value) -> Value {
+fn time_series_inspector(report: &Value, result: &Value) -> Value {
     let mut rows = Vec::new();
     if let Some(objects) = result
         .get("object_store")
@@ -1204,7 +1204,76 @@ fn time_series_inspector(result: &Value) -> Value {
             }
         }
     }
+    append_component_solver_time_series(report, &mut rows);
     Value::Array(rows)
+}
+
+fn append_component_solver_time_series(report: &Value, rows: &mut Vec<Value>) {
+    let Some(assemblies) = report.get("assembly_summary").and_then(Value::as_array) else {
+        return;
+    };
+    for assembly in assemblies {
+        let assembly_name =
+            json_field_string(assembly, "name").unwrap_or_else(|| "assembly".to_owned());
+        let Some(solver_result) = assembly
+            .get("solver_result")
+            .or_else(|| assembly.get("solverResult"))
+        else {
+            continue;
+        };
+        let trajectories = solver_result
+            .get("trajectories")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        for trajectory in trajectories {
+            let points = solver_result_points(&trajectory);
+            if points.is_empty() {
+                continue;
+            }
+            let values = points.iter().map(|(_, y)| *y).collect::<Vec<_>>();
+            let summary = numeric_summary(&values);
+            let start = points
+                .first()
+                .map(|(value, _)| format!("{} s", format_json_number(*value)))
+                .unwrap_or_default();
+            let end = points
+                .last()
+                .map(|(value, _)| format!("{} s", format_json_number(*value)))
+                .unwrap_or_default();
+            let point_count = json_field_usize(&trajectory, "point_count")
+                .or_else(|| json_field_usize(&trajectory, "pointCount"))
+                .unwrap_or(points.len());
+            rows.push(json!({
+                "name": format!(
+                    "{}.{}",
+                    assembly_name,
+                    json_field_string(&trajectory, "name").unwrap_or_else(|| "trajectory".to_owned())
+                ),
+                "axis": "Time",
+                "start_time": start,
+                "end_time": end,
+                "timestep": fixed_step_label(&points),
+                "row_count": point_count,
+                "missing_count": 0,
+                "interpolation_policy": "fixed-step component-solver",
+                "display_unit": json_field_string(&trajectory, "unit").unwrap_or_default(),
+                "canonical_unit": json_field_string(&trajectory, "unit").unwrap_or_default(),
+                "mean": summary.get("mean").cloned().unwrap_or(Value::Null),
+                "min": summary.get("min").cloned().unwrap_or(Value::Null),
+                "max": summary.get("max").cloned().unwrap_or(Value::Null),
+                "p95": summary.get("p95").cloned().unwrap_or(Value::Null),
+                "integration_metadata": {
+                    "method": json_field_string(solver_result, "method").unwrap_or_default(),
+                    "role": json_field_string(&trajectory, "role").unwrap_or_default(),
+                    "status": json_field_string(solver_result, "status").unwrap_or_default(),
+                    "convergence_status": json_field_string(solver_result, "convergence_status").unwrap_or_default(),
+                    "final_value": trajectory.get("final_value").cloned().unwrap_or(Value::Null)
+                },
+                "source_hash": ""
+            }));
+        }
+    }
 }
 
 fn solver_results_for_system(system: &Value) -> Vec<&Value> {
@@ -1232,6 +1301,15 @@ fn solver_result_points(solver_result: &Value) -> Vec<(f64, f64)> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+fn fixed_step_label(points: &[(f64, f64)]) -> String {
+    match (points.first(), points.get(1)) {
+        (Some((first, _)), Some((second, _))) => {
+            format!("{} s", format_json_number(second - first))
+        }
+        _ => String::new(),
+    }
 }
 
 fn numeric_values(value: Option<&Value>) -> Vec<f64> {
@@ -2020,7 +2098,7 @@ fn smoke() -> Result<(), String> {
     };
     let has_delay_node = behavior_nodes.iter().any(|node| {
         json_field_string(node, "behavior_kind").as_deref() == Some("delay")
-            && json_field_string(node, "signal").as_deref() == Some("out.T")
+            && json_field_string(node, "signal").as_deref() == Some("temperature_signal")
             && json_field_f64(node, "delay_s").is_some_and(|value| (value - 5.0).abs() <= 1e-9)
             && json_field_string(node, "relationship_status").as_deref()
                 == Some("delay_relationship_metadata_only")
@@ -2031,7 +2109,7 @@ fn smoke() -> Result<(), String> {
     });
     let has_predictor_node = behavior_nodes.iter().any(|node| {
         json_field_string(node, "behavior_kind").as_deref() == Some("predictor")
-            && json_field_string(node, "signal").as_deref() == Some("out.T")
+            && json_field_string(node, "signal").as_deref() == Some("temperature_signal")
             && json_field_string(node, "status").as_deref()
                 == Some("predictor_call_contract_seed_not_integrated")
             && json_field_string(node, "contract_status").as_deref()
@@ -2548,6 +2626,71 @@ mod tests {
             "hello"
         );
         assert!(terminal_summary("", &[], &[], "", &Value::Null).is_empty());
+    }
+
+    #[test]
+    fn time_series_inspector_includes_component_solver_trajectories() {
+        let report = json!({
+            "assembly_summary": [
+                {
+                    "name": "component_graph",
+                    "solver_result": {
+                        "status": "computed",
+                        "method": "dynamic_component_explicit_euler",
+                        "convergence_status": "dynamic_component_fixed_step_completed",
+                        "trajectories": [
+                            {
+                                "name": "x",
+                                "role": "state",
+                                "unit": "1",
+                                "initial_value": 1.0,
+                                "final_value": 3.0,
+                                "point_count": 3,
+                                "points": [
+                                    { "x": 0.0, "y": 1.0 },
+                                    { "x": 1.0, "y": 2.0 },
+                                    { "x": 2.0, "y": 3.0 }
+                                ]
+                            },
+                            {
+                                "name": "z",
+                                "role": "algebraic",
+                                "unit": "1",
+                                "initial_value": 2.0,
+                                "final_value": 4.0,
+                                "point_count": 3,
+                                "points": [
+                                    { "x": 0.0, "y": 2.0 },
+                                    { "x": 1.0, "y": 3.0 },
+                                    { "x": 2.0, "y": 4.0 }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ]
+        });
+        let rows = time_series_inspector(&report, &json!({}));
+        let rows = rows.as_array().expect("time-series rows");
+
+        assert!(rows.iter().any(|row| {
+            json_field_string(row, "name").as_deref() == Some("component_graph.x")
+                && json_field_string(row, "interpolation_policy").as_deref()
+                    == Some("fixed-step component-solver")
+                && row
+                    .get("integration_metadata")
+                    .and_then(|metadata| json_field_string(metadata, "role"))
+                    .as_deref()
+                    == Some("state")
+        }));
+        assert!(rows.iter().any(|row| {
+            json_field_string(row, "name").as_deref() == Some("component_graph.z")
+                && row
+                    .get("integration_metadata")
+                    .and_then(|metadata| json_field_string(metadata, "role"))
+                    .as_deref()
+                    == Some("algebraic")
+        }));
     }
 
     #[test]

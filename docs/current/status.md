@@ -95,8 +95,9 @@ covered by the breaking-change policy.
   variable summaries, schema/TimeSeries/metric/validation/time-alignment
   inspectors for the measured workflow, schema parse/conversion failure
   inspector coverage for data-quality runs, internal state-space trajectory and
-  solver-inspector coverage, dependency-graph inspector coverage, class object
-  summary inspector coverage, side-effect
+  solver-inspector coverage, component solver trajectory inspector rows,
+  dependency-graph inspector coverage, class object summary inspector coverage,
+  side-effect
   artifact panels for output manifest, run log, process results, and test
   results, PlotSpec viewing, and on-demand report/plot opening for stable
   workflows.
@@ -195,10 +196,11 @@ are not public stable workflows.
   start of each interval. Fixed-step ODE, fixed-point, and dynamic-component
   seeds reject non-finite RHS/update values before they enter trajectories or
   algebraic artifacts. Component solver result artifacts can carry
-  state/algebraic trajectory summaries, trajectory points, and timestep
-  diagnostics from that internal `SolverResult` adapter. Newton/DAE/dynamic
-  component seeds are not wired into language-level nonlinear systems,
-  component assembly, or report/IDE workflows.
+  state/algebraic trajectory summaries, trajectory points, timestep
+  diagnostics, and IDE TimeSeries/solver-inspector rows from that internal
+  `SolverResult` adapter. Newton/DAE/dynamic component seeds are not wired
+  into language-level nonlinear systems or production component assembly
+  workflows.
 - Behavior graph seeds: solver-API runtime delay buffer with linear and
   previous-sample interpolation policies, explicit initial-history policy,
   relationship artifact, solver-style behavior-node evaluation, delay-driven

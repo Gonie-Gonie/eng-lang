@@ -756,7 +756,7 @@ function renderTimePanel() {
       <span class="badge">Series ${inspectorRows("timeSeries").length}</span>
       <span class="badge">Axes ${inspectorRows("timeAxes").length}</span>
       <span class="badge">Alignments ${inspectorRows("timeAlignments").length}</span>
-      <span class="badge">Solver ${systemSolverResults().length}</span>
+      <span class="badge">Solver ${solverTrajectoryRows().length}</span>
     </div>
     <div class="scroll">
       ${renderTimeAxes()}
@@ -983,25 +983,17 @@ function renderTimeSeries() {
 }
 
 function renderSolverTrajectories() {
-  const rows = systemSolverResults().map(({ system, result }) => {
-    const states = stringList(result, "states", "states");
-    const algebraic = stringList(result, "algebraic_variables", "algebraicVariables");
-    const inputs = stringList(result, "inputs", "inputs");
-    const outputs = stringList(result, "outputs", "outputs");
-    const failure = result.failure_reason ?? result.failureReason ?? "-";
-    const pointCount = Array.isArray(result.points) ? result.points.length : "-";
-    const step = result.time_step_s ?? result.timeStepS ?? result.time_step ?? result.timeStep ?? "-";
-    const duration = result.duration_s ?? result.durationS ?? result.duration ?? "-";
+  const rows = solverTrajectoryRows().map((row) => {
     return `
       <tr>
-        <td><strong>${escapeHtml(system.name || "-")}</strong><div class="muted">${escapeHtml(result.binding || "-")}</div></td>
-        <td>${escapeHtml(joinOrDash(states))}<div class="muted">${escapeHtml(result.state || "-")} ${escapeHtml(result.display_unit || result.displayUnit || "")}</div></td>
-        <td>${escapeHtml(joinOrDash(algebraic))}</td>
-        <td>${escapeHtml(joinOrDash(inputs))}</td>
-        <td>${escapeHtml(joinOrDash(outputs))}</td>
-        <td>${escapeHtml(result.status || "-")}<div class="muted">${escapeHtml(result.method || "-")}</div><div class="muted">${escapeHtml(result.convergence_status || result.convergenceStatus || "-")}</div></td>
-        <td>${escapeHtml(pointCount)}<div class="muted">${escapeHtml(step)} / ${escapeHtml(duration)}</div></td>
-        <td>${metricCell(result.final_value ?? result.finalValue)}<div class="muted">${escapeHtml(failure)}</div></td>
+        <td><strong>${escapeHtml(row.owner || "-")}</strong><div class="muted">${escapeHtml(row.binding || row.kind || "-")}</div></td>
+        <td>${escapeHtml(row.states)}<div class="muted">${escapeHtml(row.stateDetail)}</div></td>
+        <td>${escapeHtml(row.algebraic)}</td>
+        <td>${escapeHtml(row.inputs)}</td>
+        <td>${escapeHtml(row.outputs)}</td>
+        <td>${escapeHtml(row.status)}<div class="muted">${escapeHtml(row.method)}</div><div class="muted">${escapeHtml(row.convergence)}</div></td>
+        <td>${escapeHtml(row.pointCount)}<div class="muted">${escapeHtml(row.step)} / ${escapeHtml(row.duration)}</div></td>
+        <td>${escapeHtml(row.finalValue)}<div class="muted">${escapeHtml(row.failure)}</div></td>
       </tr>
     `;
   }).join("");
@@ -1013,6 +1005,66 @@ function renderSolverTrajectories() {
   `;
 }
 
+function solverTrajectoryRows() {
+  const systemRows = systemSolverResults().map(({ system, result }) => {
+    const states = stringList(result, "states", "states");
+    const state = result.state || "-";
+    const unit = result.display_unit || result.displayUnit || "";
+    return {
+      kind: "system",
+      owner: system.name || "-",
+      binding: result.binding || "-",
+      states: joinOrDash(states.length ? states : [state]),
+      stateDetail: `${state} ${unit}`.trim(),
+      algebraic: joinOrDash(stringList(result, "algebraic_variables", "algebraicVariables")),
+      inputs: joinOrDash(stringList(result, "inputs", "inputs")),
+      outputs: joinOrDash(stringList(result, "outputs", "outputs")),
+      status: result.status || "-",
+      method: result.method || "-",
+      convergence: result.convergence_status || result.convergenceStatus || "-",
+      pointCount: Array.isArray(result.points) ? String(result.points.length) : "-",
+      step: result.time_step_s ?? result.timeStepS ?? result.time_step ?? result.timeStep ?? "-",
+      duration: result.duration_s ?? result.durationS ?? result.duration ?? "-",
+      finalValue: metricCell(result.final_value ?? result.finalValue),
+      failure: result.failure_reason ?? result.failureReason ?? "-"
+    };
+  });
+  const componentRows = componentSolverResults().map(({ assembly, result }) => {
+    const trajectories = Array.isArray(result.trajectories) ? result.trajectories : [];
+    const stateTrajectories = trajectories.filter((trajectory) => (trajectory.role || "") === "state");
+    const algebraicTrajectories = trajectories.filter((trajectory) => (trajectory.role || "") === "algebraic");
+    const stepDiagnostics = Array.isArray(result.step_diagnostics)
+      ? result.step_diagnostics
+      : (Array.isArray(result.stepDiagnostics) ? result.stepDiagnostics : []);
+    const lastStep = stepDiagnostics[stepDiagnostics.length - 1] || {};
+    const firstTrajectory = trajectories[0] || {};
+    const failure = result.failure_reason
+      || result.failureReason
+      || result.failure_artifact?.message
+      || result.failureArtifact?.message
+      || "-";
+    return {
+      kind: "assembly",
+      owner: assembly.name || "-",
+      binding: result.reason || "component solver",
+      states: joinOrDash(stateTrajectories.map((trajectory) => trajectory.name || "state")),
+      stateDetail: componentSolverTrajectorySummary(stateTrajectories),
+      algebraic: joinOrDash(algebraicTrajectories.map((trajectory) => trajectory.name || "algebraic")),
+      inputs: "-",
+      outputs: "-",
+      status: result.status || "-",
+      method: result.method || "-",
+      convergence: result.convergence_status || result.convergenceStatus || "-",
+      pointCount: componentTrajectoryPointSummary(trajectories),
+      step: componentStepSummary(stepDiagnostics),
+      duration: lastStep.time_s ?? lastStep.timeS ?? "-",
+      finalValue: componentSolverTrajectorySummary(trajectories.length ? [firstTrajectory] : []),
+      failure
+    };
+  });
+  return [...systemRows, ...componentRows];
+}
+
 function systemSolverResults() {
   return inspectorRows("systems").flatMap((system) => {
     const results = Array.isArray(system.solver_results)
@@ -1020,6 +1072,36 @@ function systemSolverResults() {
       : (Array.isArray(system.solverResults) ? system.solverResults : []);
     return results.map((result) => ({ system, result }));
   });
+}
+
+function componentSolverResults() {
+  return inspectorRows("assemblies").flatMap((assembly) => {
+    const result = assembly.solver_result || assembly.solverResult;
+    if (!result || typeof result !== "object") return [];
+    const trajectories = Array.isArray(result.trajectories) ? result.trajectories : [];
+    if (!trajectories.length) return [];
+    return [{ assembly, result }];
+  });
+}
+
+function componentTrajectoryPointSummary(trajectories) {
+  if (!Array.isArray(trajectories) || !trajectories.length) return "-";
+  return trajectories.map((trajectory) => {
+    const count = trajectory.point_count ?? trajectory.pointCount ?? (
+      Array.isArray(trajectory.points) ? trajectory.points.length : "-"
+    );
+    return `${trajectory.role || "trajectory"}:${trajectory.name || "var"} ${count}`;
+  }).join(", ");
+}
+
+function componentStepSummary(stepDiagnostics) {
+  if (!Array.isArray(stepDiagnostics) || stepDiagnostics.length < 2) return "-";
+  const first = stepDiagnostics[0]?.time_s ?? stepDiagnostics[0]?.timeS;
+  const second = stepDiagnostics[1]?.time_s ?? stepDiagnostics[1]?.timeS;
+  if (Number.isFinite(Number(first)) && Number.isFinite(Number(second))) {
+    return `${Number(second) - Number(first)} s`;
+  }
+  return "-";
 }
 
 function stringList(item, snakeName, camelName) {
