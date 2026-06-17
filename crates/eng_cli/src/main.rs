@@ -1119,6 +1119,9 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_html
                     .contains("diagnostics=predictor_valid_range_warning")
+                || !output.report_spec_json.contains(
+                    "behavior graph nodes are present but not yet integrated into numeric residual evaluation",
+                )
                 || !output.report_html.contains("solver_policy_not_integrated")
                 || !output
                     .report_html

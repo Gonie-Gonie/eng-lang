@@ -8,5 +8,7 @@ This fixture exercises valid component-local behavior node metadata for:
 
 Review/report/IDE artifacts must expose behavior nodes with source line,
 signal, inferred quantity-unit contract metadata, diagnostic channels, seed
-status, and solver integration limitations. This fixture does not wire behavior
-nodes into numeric RHS/residual solving.
+status, and solver integration limitations. Runtime component solver artifacts
+must also state that behavior graph nodes are present but not yet integrated
+into numeric residual evaluation. This fixture does not wire behavior nodes into
+numeric RHS/residual solving.

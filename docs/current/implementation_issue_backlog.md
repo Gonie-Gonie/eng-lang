@@ -301,6 +301,9 @@ Current coverage:
   quantity-unit contract metadata, and diagnostic channels for delay
   history-underflow, Predictor valid-range warnings, and external
   adapter/profile failures.
+- Runtime component solver artifacts now add an explicit reason/failure note
+  when behavior graph nodes are present but not yet integrated into numeric
+  residual evaluation.
 - `examples/internal/25_component_behavior_nodes` exercises valid delay,
   Predictor, and external adapter behavior-node artifacts in the CLI example
   smoke path.

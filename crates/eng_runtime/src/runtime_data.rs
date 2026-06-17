@@ -2699,12 +2699,50 @@ fn materialize_component_solutions(report: &CheckReport) -> Vec<RuntimeComponent
         .iter()
         .map(|assembly| {
             let solver_assembly = solver_equation_assembly_from_component_info(report, assembly);
-            RuntimeComponentSolution::from_solver_assembly(&assembly.name, &solver_assembly)
+            let mut solution =
+                RuntimeComponentSolution::from_solver_assembly(&assembly.name, &solver_assembly);
+            annotate_component_behavior_solution(&mut solution, assembly);
+            solution
         })
         .collect()
 }
 
 const COMPONENT_LINEAR_SOLVER_TOLERANCE: f64 = 1e-9;
+const COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE: &str =
+    "behavior graph nodes are present but not yet integrated into numeric residual evaluation";
+
+fn annotate_component_behavior_solution(
+    solution: &mut RuntimeComponentSolution,
+    assembly: &eng_compiler::ComponentAssemblyInfo,
+) {
+    if !component_assembly_has_behavior_seed(assembly) {
+        return;
+    }
+    append_component_solution_reason(solution, COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE);
+    if let Some(failure) = &mut solution.failure_artifact {
+        if !failure
+            .message
+            .contains(COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE)
+        {
+            failure.message = format!(
+                "{}; {}",
+                failure.message, COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE
+            );
+        }
+    }
+}
+
+fn component_assembly_has_behavior_seed(assembly: &eng_compiler::ComponentAssemblyInfo) -> bool {
+    assembly.solver_preview.delay_history != "deferred_no_delay_calls"
+        || assembly.solver_preview.predictor != "deferred_no_predictor_calls"
+        || assembly.solver_preview.external_adapter != "deferred_no_external_behavior_adapter"
+}
+
+fn append_component_solution_reason(solution: &mut RuntimeComponentSolution, note: &str) {
+    if !solution.reason.contains(note) {
+        solution.reason = format!("{}; {}", solution.reason, note);
+    }
+}
 
 #[allow(dead_code)]
 fn component_trajectory_from_solver_trajectory(
