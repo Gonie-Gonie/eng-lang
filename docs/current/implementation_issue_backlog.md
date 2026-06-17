@@ -128,6 +128,9 @@ Current coverage:
 - `RuntimeSystemSolution::from_solver_result` and `from_solver_trajectory`
   provide the explicit SolverResult-to-runtime artifact adapter used by
   one-state thermal and state-space materialization paths.
+- `RuntimeComponentSolution::from_solver_assembly` and
+  `from_dynamic_solver_result` provide explicit component assembly/SolverResult
+  adapters for residual-graph and dynamic-component artifact materialization.
 
 Title: `ide: add side-effect artifact panels`
 
