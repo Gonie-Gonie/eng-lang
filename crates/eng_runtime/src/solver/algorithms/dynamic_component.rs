@@ -1,6 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::solver::algorithms::fixed_point::{solve_fixed_point, FixedPointOptions};
+use crate::solver::algorithms::linear::solve_dense_linear_system;
 use crate::solver::{
     ResidualGraph, SolverDiagnostics, SolverFailure, SolverInput, SolverOutput, SolverResult,
     SolverScalar, StateLayout, StateTrajectory,
@@ -70,6 +71,31 @@ struct ResidualRhsTerm {
     role: ResidualRhsRole,
     local_index: usize,
     coefficient: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct ResidualGraphAlgebraicLinearEvaluator {
+    equations: Vec<ResidualAlgebraicEquation>,
+    state_count: usize,
+    algebraic_count: usize,
+    input_count: usize,
+    parameter_count: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct ResidualAlgebraicEquation {
+    residual_name: String,
+    rhs_value: f64,
+    terms: Vec<ResidualRhsTerm>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct AlgebraicStepSolveResult {
+    values: Vec<f64>,
+    iteration_count: usize,
+    residual_norm: f64,
+    convergence_status: String,
+    failure: Option<SolverFailure>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -329,6 +355,252 @@ impl ResidualGraphRhsEvaluator {
     }
 }
 
+impl ResidualGraphAlgebraicLinearEvaluator {
+    fn new(graph: &ResidualGraph) -> Result<Self, SolverFailure> {
+        let mut counts = ResidualRhsRoleCounts::default();
+        let mut variable_slots = HashMap::new();
+        let mut derivative_variables = HashSet::new();
+
+        for variable in &graph.variables {
+            if is_derivative_role(&variable.role) {
+                if !derivative_variables.insert(variable.index) {
+                    return Err(SolverFailure::new(
+                        "E-DYNAMIC-COMPONENT-ALGEBRAIC-VARIABLE",
+                        format!("duplicate derivative variable index {}", variable.index),
+                    ));
+                }
+                continue;
+            }
+
+            let role = residual_rhs_role(&variable.role).ok_or_else(|| {
+                SolverFailure::new(
+                    "E-DYNAMIC-COMPONENT-ALGEBRAIC-VARIABLE",
+                    format!(
+                        "residual algebraic graph variable `{}` has unsupported role `{}`",
+                        variable.name, variable.role
+                    ),
+                )
+            })?;
+            let local_index = counts.allocate(role);
+            if variable_slots
+                .insert(variable.index, (role, local_index))
+                .is_some()
+            {
+                return Err(SolverFailure::new(
+                    "E-DYNAMIC-COMPONENT-ALGEBRAIC-VARIABLE",
+                    format!(
+                        "duplicate residual algebraic variable index {}",
+                        variable.index
+                    ),
+                ));
+            }
+        }
+
+        if counts.algebraic == 0 {
+            return Err(SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-ALGEBRAIC-SHAPE",
+                "residual graph semi-implicit solve requires at least one algebraic variable",
+            ));
+        }
+
+        let mut equations = Vec::new();
+        for residual in &graph.residuals {
+            let derivative_term_count = residual
+                .terms
+                .iter()
+                .filter(|term| derivative_variables.contains(&term.variable_index))
+                .count();
+            if derivative_term_count > 1 {
+                return Err(SolverFailure::new(
+                    "E-DYNAMIC-COMPONENT-ALGEBRAIC-SHAPE",
+                    format!(
+                        "residual `{}` contains multiple derivative variables",
+                        residual.name
+                    ),
+                ));
+            }
+            if derivative_term_count == 1 {
+                continue;
+            }
+            if !residual.rhs_value.is_finite() {
+                return Err(SolverFailure::new(
+                    "E-DYNAMIC-COMPONENT-ALGEBRAIC-VALUE",
+                    format!("residual `{}` has a non-finite RHS value", residual.name),
+                ));
+            }
+
+            let mut terms = Vec::new();
+            for term in &residual.terms {
+                if !term.coefficient.is_finite() {
+                    return Err(SolverFailure::new(
+                        "E-DYNAMIC-COMPONENT-ALGEBRAIC-VALUE",
+                        format!(
+                            "residual `{}` term for `{}` has a non-finite coefficient",
+                            residual.name, term.variable
+                        ),
+                    ));
+                }
+                let (role, local_index) =
+                    variable_slots.get(&term.variable_index).ok_or_else(|| {
+                        SolverFailure::new(
+                            "E-DYNAMIC-COMPONENT-ALGEBRAIC-VARIABLE",
+                            format!(
+                                "residual `{}` references unsupported algebraic variable `{}`",
+                                residual.name, term.variable
+                            ),
+                        )
+                    })?;
+                terms.push(ResidualRhsTerm {
+                    role: *role,
+                    local_index: *local_index,
+                    coefficient: term.coefficient,
+                });
+            }
+            equations.push(ResidualAlgebraicEquation {
+                residual_name: residual.name.clone(),
+                rhs_value: residual.rhs_value,
+                terms,
+            });
+        }
+
+        if equations.len() != counts.algebraic {
+            return Err(SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-ALGEBRAIC-SHAPE",
+                format!(
+                    "residual graph semi-implicit solve requires one algebraic residual per algebraic variable, got {} residual(s) for {} variable(s)",
+                    equations.len(),
+                    counts.algebraic
+                ),
+            ));
+        }
+
+        Ok(Self {
+            equations,
+            state_count: counts.state,
+            algebraic_count: counts.algebraic,
+            input_count: counts.input,
+            parameter_count: counts.parameter,
+        })
+    }
+
+    fn solve(
+        &self,
+        sample: &AlgebraicStepInput<'_>,
+        tolerance: f64,
+    ) -> Result<AlgebraicStepSolveResult, SolverFailure> {
+        if sample.state.len() != self.state_count
+            || sample.algebraic.len() != self.algebraic_count
+            || sample.inputs.len() != self.input_count
+            || sample.parameters.len() != self.parameter_count
+        {
+            return Err(SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-ALGEBRAIC-LAYOUT",
+                "residual algebraic sample layout does not match residual graph variables",
+            ));
+        }
+        if !sample.time_s.is_finite() {
+            return Err(SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-ALGEBRAIC-VALUE",
+                "residual algebraic sample time must be finite",
+            ));
+        }
+        ensure_finite_values(
+            "E-DYNAMIC-COMPONENT-ALGEBRAIC-VALUE",
+            "residual algebraic state",
+            sample.state,
+        )?;
+        ensure_finite_values(
+            "E-DYNAMIC-COMPONENT-ALGEBRAIC-VALUE",
+            "residual algebraic guess",
+            sample.algebraic,
+        )?;
+        ensure_finite_scalars(
+            "E-DYNAMIC-COMPONENT-ALGEBRAIC-VALUE",
+            "residual algebraic input",
+            sample.inputs,
+        )?;
+        ensure_finite_scalars(
+            "E-DYNAMIC-COMPONENT-ALGEBRAIC-VALUE",
+            "residual algebraic parameter",
+            sample.parameters,
+        )?;
+
+        let mut matrix = vec![vec![0.0; self.algebraic_count]; self.equations.len()];
+        let mut rhs = self
+            .equations
+            .iter()
+            .map(|equation| equation.rhs_value)
+            .collect::<Vec<_>>();
+        for (row_index, equation) in self.equations.iter().enumerate() {
+            for term in &equation.terms {
+                match term.role {
+                    ResidualRhsRole::Algebraic => {
+                        matrix[row_index][term.local_index] += term.coefficient;
+                    }
+                    ResidualRhsRole::State => {
+                        rhs[row_index] -= term.coefficient * sample.state[term.local_index];
+                    }
+                    ResidualRhsRole::Input => {
+                        rhs[row_index] -= term.coefficient * sample.inputs[term.local_index].value;
+                    }
+                    ResidualRhsRole::Parameter => {
+                        rhs[row_index] -=
+                            term.coefficient * sample.parameters[term.local_index].value;
+                    }
+                    ResidualRhsRole::Time => {
+                        rhs[row_index] -= term.coefficient * sample.time_s;
+                    }
+                }
+                if !rhs[row_index].is_finite()
+                    || matrix[row_index].iter().any(|value| !value.is_finite())
+                {
+                    return Err(SolverFailure::new(
+                        "E-DYNAMIC-COMPONENT-ALGEBRAIC-VALUE",
+                        format!(
+                            "residual `{}` produced a non-finite algebraic linear system",
+                            equation.residual_name
+                        ),
+                    ));
+                }
+            }
+        }
+
+        match solve_dense_linear_system(&matrix, &rhs, tolerance) {
+            Ok(solution) => {
+                let failure = if solution.status == "converged" {
+                    None
+                } else {
+                    Some(SolverFailure::new(
+                        "E-DYNAMIC-COMPONENT-ALGEBRAIC-RESIDUAL",
+                        format!(
+                            "linear algebraic solve residual norm {} exceeded tolerance {}",
+                            solution.residual_norm, tolerance
+                        ),
+                    ))
+                };
+                Ok(AlgebraicStepSolveResult {
+                    values: solution.values,
+                    iteration_count: 1,
+                    residual_norm: solution.residual_norm,
+                    convergence_status: if failure.is_none() {
+                        "linear_algebraic_converged".to_owned()
+                    } else {
+                        "linear_algebraic_residual_above_tolerance".to_owned()
+                    },
+                    failure,
+                })
+            }
+            Err(failure) => Ok(AlgebraicStepSolveResult {
+                values: sample.algebraic.to_vec(),
+                iteration_count: 1,
+                residual_norm: 0.0,
+                convergence_status: "linear_algebraic_solve_failed".to_owned(),
+                failure: Some(failure),
+            }),
+        }
+    }
+}
+
 impl ResidualRhsRoleCounts {
     fn allocate(&mut self, role: ResidualRhsRole) -> usize {
         match role {
@@ -382,10 +654,51 @@ pub fn solve_explicit_euler_with_algebraic<A, R>(
     initial_algebraic: Vec<f64>,
     options: DynamicComponentOptions,
     mut algebraic_update: A,
-    mut rhs: R,
+    rhs: R,
 ) -> Result<DynamicComponentResult, SolverFailure>
 where
     A: FnMut(AlgebraicStepInput<'_>) -> Result<Vec<f64>, SolverFailure>,
+    R: FnMut(DynamicStepInput<'_>) -> Result<Vec<f64>, SolverFailure>,
+{
+    let fixed_point_options = options.algebraic.clone();
+    solve_explicit_euler_with_algebraic_solver(
+        input,
+        algebraic_layout,
+        initial_algebraic,
+        options,
+        |sample| {
+            let fixed_point = solve_fixed_point(sample.algebraic, &fixed_point_options, |guess| {
+                algebraic_update(AlgebraicStepInput {
+                    time_s: sample.time_s,
+                    step_index: sample.step_index,
+                    state: sample.state,
+                    algebraic: guess,
+                    inputs: sample.inputs,
+                    parameters: sample.parameters,
+                })
+            })?;
+            Ok(AlgebraicStepSolveResult {
+                values: fixed_point.values,
+                iteration_count: fixed_point.iteration_count,
+                residual_norm: fixed_point.residual_history.last().copied().unwrap_or(0.0),
+                convergence_status: fixed_point.convergence_status,
+                failure: fixed_point.failure,
+            })
+        },
+        rhs,
+    )
+}
+
+fn solve_explicit_euler_with_algebraic_solver<S, R>(
+    input: &SolverInput,
+    algebraic_layout: StateLayout,
+    initial_algebraic: Vec<f64>,
+    options: DynamicComponentOptions,
+    mut algebraic_solve: S,
+    mut rhs: R,
+) -> Result<DynamicComponentResult, SolverFailure>
+where
+    S: FnMut(AlgebraicStepInput<'_>) -> Result<AlgebraicStepSolveResult, SolverFailure>,
     R: FnMut(DynamicStepInput<'_>) -> Result<Vec<f64>, SolverFailure>,
 {
     if input.state_layout.is_empty() {
@@ -428,29 +741,39 @@ where
 
     for step_index in 0..=input.time_grid.step_count {
         let time_s = input.time_grid.step_time_s(step_index);
-        let (algebraic_iteration_count, residual_norm, convergence_status, failure) =
-            if algebraic.is_empty() {
-                (0, 0.0, "algebraic_not_required".to_owned(), None)
-            } else {
-                let fixed_point = solve_fixed_point(&algebraic, &options.algebraic, |guess| {
-                    algebraic_update(AlgebraicStepInput {
-                        time_s,
-                        step_index,
-                        state: &state,
-                        algebraic: guess,
-                        inputs: &input.inputs,
-                        parameters: &input.parameters,
-                    })
-                })?;
-                total_iterations += fixed_point.iteration_count;
-                algebraic = fixed_point.values;
-                (
-                    fixed_point.iteration_count,
-                    fixed_point.residual_history.last().copied().unwrap_or(0.0),
-                    fixed_point.convergence_status,
-                    fixed_point.failure.clone(),
-                )
-            };
+        let (algebraic_iteration_count, residual_norm, convergence_status, failure) = if algebraic
+            .is_empty()
+        {
+            (0, 0.0, "algebraic_not_required".to_owned(), None)
+        } else {
+            let solve = algebraic_solve(AlgebraicStepInput {
+                time_s,
+                step_index,
+                state: &state,
+                algebraic: &algebraic,
+                inputs: &input.inputs,
+                parameters: &input.parameters,
+            })?;
+            if solve.values.len() != algebraic.len() {
+                return Err(SolverFailure::new(
+                        "E-DYNAMIC-COMPONENT-ALGEBRAIC-LAYOUT",
+                        "dynamic component algebraic solve vector length does not match the algebraic layout",
+                    ));
+            }
+            ensure_finite_values(
+                "E-DYNAMIC-COMPONENT-ALGEBRAIC-VALUE",
+                "dynamic component algebraic solve",
+                &solve.values,
+            )?;
+            total_iterations += solve.iteration_count;
+            algebraic = solve.values;
+            (
+                solve.iteration_count,
+                solve.residual_norm,
+                solve.convergence_status,
+                solve.failure,
+            )
+        };
 
         for (index, value) in algebraic.iter().copied().enumerate() {
             algebraic_values_by_variable[index].push(value);
@@ -541,7 +864,13 @@ pub fn solve_residual_graph_explicit_euler(
     options: DynamicComponentOptions,
 ) -> Result<DynamicComponentResult, SolverFailure> {
     let evaluator = ResidualGraphRhsEvaluator::new(graph)?;
-    validate_residual_graph_solver_layout(input, &evaluator)?;
+    if evaluator.algebraic_count != 0 {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-RHS-SHAPE",
+            "residual graph explicit-Euler solve requires an algebraic-free dynamic graph",
+        ));
+    }
+    validate_residual_graph_solver_layout(input, &StateLayout::default(), &evaluator)?;
     solve_explicit_euler_with_algebraic(
         input,
         StateLayout::default(),
@@ -552,17 +881,84 @@ pub fn solve_residual_graph_explicit_euler(
     )
 }
 
-fn validate_residual_graph_solver_layout(
+pub fn solve_residual_graph_semi_implicit_euler(
     input: &SolverInput,
-    evaluator: &ResidualGraphRhsEvaluator,
-) -> Result<(), SolverFailure> {
-    if evaluator.algebraic_count != 0 {
+    graph: &ResidualGraph,
+    algebraic_layout: StateLayout,
+    initial_algebraic: Vec<f64>,
+    options: DynamicComponentOptions,
+) -> Result<DynamicComponentResult, SolverFailure> {
+    let derivative_graph = residual_graph_with_derivative_residuals(graph)?;
+    let rhs_evaluator = ResidualGraphRhsEvaluator::new(&derivative_graph)?;
+    let algebraic_evaluator = ResidualGraphAlgebraicLinearEvaluator::new(graph)?;
+    validate_residual_graph_solver_layout(input, &algebraic_layout, &rhs_evaluator)?;
+    if algebraic_layout.len() != algebraic_evaluator.algebraic_count
+        || input.state_layout.len() != algebraic_evaluator.state_count
+        || input.input_layout.len() != algebraic_evaluator.input_count
+        || input.parameter_layout.len() != algebraic_evaluator.parameter_count
+    {
         return Err(SolverFailure::new(
-            "E-DYNAMIC-COMPONENT-RHS-SHAPE",
-            "residual graph explicit-Euler solve requires an algebraic-free dynamic graph",
+            "E-DYNAMIC-COMPONENT-ALGEBRAIC-LAYOUT",
+            "solver layouts do not match the residual graph algebraic variables",
         ));
     }
+
+    let tolerance = options.algebraic.tolerance;
+    solve_explicit_euler_with_algebraic_solver(
+        input,
+        algebraic_layout,
+        initial_algebraic,
+        options,
+        |sample| algebraic_evaluator.solve(&sample, tolerance),
+        |sample| rhs_evaluator.evaluate(&sample),
+    )
+}
+
+fn residual_graph_with_derivative_residuals(
+    graph: &ResidualGraph,
+) -> Result<ResidualGraph, SolverFailure> {
+    let derivative_variables = graph
+        .variables
+        .iter()
+        .filter(|variable| is_derivative_role(&variable.role))
+        .map(|variable| variable.index)
+        .collect::<HashSet<_>>();
+    let mut derivative_graph = graph.clone();
+    derivative_graph.residuals = graph
+        .residuals
+        .iter()
+        .filter_map(|residual| {
+            let derivative_term_count = residual
+                .terms
+                .iter()
+                .filter(|term| derivative_variables.contains(&term.variable_index))
+                .count();
+            if derivative_term_count > 1 {
+                return Some(Err(SolverFailure::new(
+                    "E-DYNAMIC-COMPONENT-RHS-SHAPE",
+                    format!(
+                        "residual `{}` contains multiple derivative variables",
+                        residual.name
+                    ),
+                )));
+            }
+            if derivative_term_count == 1 {
+                Some(Ok(residual.clone()))
+            } else {
+                None
+            }
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(derivative_graph)
+}
+
+fn validate_residual_graph_solver_layout(
+    input: &SolverInput,
+    algebraic_layout: &StateLayout,
+    evaluator: &ResidualGraphRhsEvaluator,
+) -> Result<(), SolverFailure> {
     if input.state_layout.len() != evaluator.state_count
+        || algebraic_layout.len() != evaluator.algebraic_count
         || input.input_layout.len() != evaluator.input_count
         || input.parameter_layout.len() != evaluator.parameter_count
     {
@@ -984,6 +1380,163 @@ mod tests {
     }
 
     #[test]
+    fn residual_graph_explicit_euler_entrypoint_rejects_algebraic_graph() {
+        let graph = semi_implicit_residual_graph();
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "ComponentGraph",
+                SimulationPlan::default(),
+                SolverOptions::fixed_step("dynamic_component_residual_graph_explicit_euler", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(1.0, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout {
+                entries: vec![LayoutEntry::new(0, "u", "Dimensionless", "1", "1")],
+            },
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![1.0],
+            inputs: vec![SolverScalar::new("u", "Dimensionless", "1", 3.0)],
+            parameters: Vec::new(),
+        };
+
+        let failure =
+            solve_residual_graph_explicit_euler(&input, &graph, DynamicComponentOptions::default())
+                .unwrap_err();
+
+        assert_eq!(failure.code, "E-DYNAMIC-COMPONENT-RHS-SHAPE");
+    }
+
+    #[test]
+    fn residual_graph_semi_implicit_entrypoint_solves_linear_algebraic_residuals() {
+        let graph = semi_implicit_residual_graph();
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "ComponentGraph",
+                SimulationPlan::default(),
+                SolverOptions::fixed_step("dynamic_component_residual_graph_semi_implicit", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(1.0, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout {
+                entries: vec![LayoutEntry::new(0, "u", "Dimensionless", "1", "1")],
+            },
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![1.0],
+            inputs: vec![SolverScalar::new("u", "Dimensionless", "1", 3.0)],
+            parameters: Vec::new(),
+        };
+        let algebraic_layout =
+            StateLayout::new(vec![LayoutEntry::new(0, "z", "Dimensionless", "1", "1")]);
+
+        let result = solve_residual_graph_semi_implicit_euler(
+            &input,
+            &graph,
+            algebraic_layout,
+            vec![0.0],
+            DynamicComponentOptions::default(),
+        )
+        .unwrap();
+
+        assert_eq!(result.solver_result.diagnostics.status, "computed");
+        assert_eq!(result.solver_result.diagnostics.iteration_count, 2);
+        assert_eq!(
+            result.solver_result.output.state_trajectories[0].values,
+            vec![1.0, 3.0]
+        );
+        assert_eq!(result.algebraic_trajectories[0].values, vec![2.0, 0.0]);
+        assert_eq!(
+            result.solver_result.output.algebraic_trajectories[0].values,
+            vec![2.0, 0.0]
+        );
+        assert!(result
+            .step_diagnostics
+            .iter()
+            .all(
+                |diagnostic| diagnostic.convergence_status == "linear_algebraic_converged"
+                    && diagnostic.algebraic_iteration_count == 1
+                    && diagnostic.failure.is_none()
+            ));
+    }
+
+    #[test]
+    fn residual_graph_semi_implicit_entrypoint_reports_linear_algebraic_failure() {
+        let mut graph = semi_implicit_residual_graph();
+        graph.residuals[1] = residual("z_balance", &[(0, "x", 1.0)], 0.0);
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "ComponentGraph",
+                SimulationPlan::default(),
+                SolverOptions::fixed_step("dynamic_component_residual_graph_semi_implicit", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(1.0, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout {
+                entries: vec![LayoutEntry::new(0, "u", "Dimensionless", "1", "1")],
+            },
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![1.0],
+            inputs: vec![SolverScalar::new("u", "Dimensionless", "1", 3.0)],
+            parameters: Vec::new(),
+        };
+        let algebraic_layout =
+            StateLayout::new(vec![LayoutEntry::new(0, "z", "Dimensionless", "1", "1")]);
+
+        let result = solve_residual_graph_semi_implicit_euler(
+            &input,
+            &graph,
+            algebraic_layout,
+            vec![0.0],
+            DynamicComponentOptions::default(),
+        )
+        .unwrap();
+
+        assert_eq!(result.solver_result.diagnostics.status, "failed");
+        assert_eq!(
+            result.solver_result.diagnostics.convergence_status,
+            "algebraic_solve_failed"
+        );
+        assert_eq!(
+            result
+                .solver_result
+                .diagnostics
+                .failure
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-LINEAR-SINGULAR")
+        );
+        assert_eq!(
+            result.step_diagnostics[0].convergence_status,
+            "linear_algebraic_solve_failed"
+        );
+        assert_eq!(
+            result.solver_result.output.state_trajectories[0].values,
+            vec![1.0]
+        );
+        assert_eq!(result.algebraic_trajectories[0].values, vec![0.0]);
+    }
+
+    #[test]
     fn solves_dynamic_component_with_algebraic_node() {
         let input = SolverInput {
             plan: SolverPlan::new(
@@ -1134,6 +1687,28 @@ mod tests {
                     0.0,
                 ),
                 residual("y_rhs", &[(4, "der_y", 1.0), (1, "y", 1.0)], 0.0),
+            ],
+            parameters: Vec::new(),
+            dependencies: Vec::new(),
+        }
+    }
+
+    fn semi_implicit_residual_graph() -> ResidualGraph {
+        ResidualGraph {
+            name: "component.semi_implicit".to_owned(),
+            variables: vec![
+                variable(0, "x", "state"),
+                variable(1, "z", "algebraic"),
+                variable(2, "u", "input"),
+                variable(3, "der_x", "state_derivative"),
+            ],
+            residuals: vec![
+                residual("x_rhs", &[(3, "der_x", 1.0), (1, "z", -1.0)], 0.0),
+                residual(
+                    "z_balance",
+                    &[(1, "z", 1.0), (0, "x", 1.0), (2, "u", -1.0)],
+                    0.0,
+                ),
             ],
             parameters: Vec::new(),
             dependencies: Vec::new(),

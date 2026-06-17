@@ -326,6 +326,11 @@ Current coverage:
   that validates solver input layouts, rejects algebraic variables for the
   algebraic-free path, reuses the common dynamic-component fixed-step loop, and
   returns `SolverResult` state trajectories plus timestep diagnostics.
+- Runtime also exposes a residual-graph semi-implicit dynamic-component
+  entrypoint for derivative residuals plus linear algebraic residuals; it solves
+  algebraic variables with the dense linear solver at each timestep, reuses the
+  same fixed-step state update loop, and reports algebraic solve failures through
+  `SolverResult` diagnostics and step diagnostics.
 
 Definition of Done:
 

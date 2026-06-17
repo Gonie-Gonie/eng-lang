@@ -111,6 +111,8 @@ Internal runtime seeds:
 - derivative-form ResidualGraph to dynamic-component RHS bridge for algebraic-free dynamic seeds
 - residual-graph explicit-Euler dynamic-component entrypoint with layout
   validation and common SolverResult timestep diagnostics
+- residual-graph semi-implicit dynamic-component entrypoint with per-timestep
+  dense linear algebraic residual solves and failure diagnostics
 - EquationAssembly dynamic-component state/algebraic/input/parameter split validation into solver layouts
 - component solver result trajectory and timestep-diagnostic artifact adapter for internal dynamic-component SolverResult output
 - solver-API delay buffer with interpolation and initial-history policies
