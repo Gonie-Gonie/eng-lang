@@ -100,6 +100,9 @@ Current coverage:
   convergence status, and failure reason from `report_spec.json`/`result.engres`.
 - IDE panels expose system equation dependency rows from `system_ir` so variable
   dependencies and derivative states are visible without raw JSON.
+- IDE smoke covers residual dependency rows from
+  `assembly_summary[].residual_graph.dependencies` and behavior graph nodes for
+  delay, Predictor, and external adapter seeds from `component_graph`.
 - IDE smoke covers the solved Thermal component assembly path by checking
   boundary RHS equations, dense linear solve status, solved variables, and
   normalized residual metadata from `assembly_summary`.

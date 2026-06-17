@@ -1964,6 +1964,77 @@ fn smoke() -> Result<(), String> {
             domain_example.display()
         ));
     }
+    let has_residual_dependency_graph =
+        domain_inspectors
+            .assemblies
+            .as_array()
+            .is_some_and(|assemblies| {
+                assemblies.iter().any(|assembly| {
+                    assembly
+                        .get("residual_graph")
+                        .and_then(|graph| graph.get("dependencies"))
+                        .and_then(Value::as_array)
+                        .is_some_and(|dependencies| {
+                            dependencies.iter().any(|dependency| {
+                                json_field_string(dependency, "residual").is_some()
+                                    && json_field_string(dependency, "variable").is_some()
+                            })
+                        })
+                })
+            });
+    if !has_residual_dependency_graph {
+        return Err(format!(
+            "{} did not produce IDE residual dependency graph inspector metadata",
+            domain_example.display()
+        ));
+    }
+    let behavior_example = root.join("examples/internal/25_component_behavior_nodes/main.eng");
+    let behavior_output = run_file(
+        &behavior_example,
+        &root.join("build").join("ide-smoke-behavior-nodes"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let behavior_cached = CachedRunOutput::from_output(behavior_output);
+    let behavior_inspectors = runtime_inspectors(&root, &behavior_cached);
+    let behavior_nodes = behavior_inspectors
+        .component_graph
+        .get("behavior_nodes")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let has_delay_node = behavior_nodes.iter().any(|node| {
+        json_field_string(node, "behavior_kind").as_deref() == Some("delay")
+            && json_field_string(node, "signal").as_deref() == Some("out.T")
+            && json_field_f64(node, "delay_s").is_some_and(|value| (value - 5.0).abs() <= 1e-9)
+            && json_field_string(node, "relationship_status").as_deref()
+                == Some("delay_relationship_metadata_only")
+            && node.get("source_span").is_some()
+    });
+    let has_predictor_node = behavior_nodes.iter().any(|node| {
+        json_field_string(node, "behavior_kind").as_deref() == Some("predictor")
+            && json_field_string(node, "signal").as_deref() == Some("out.T")
+            && json_field_string(node, "status").as_deref()
+                == Some("predictor_call_contract_seed_not_integrated")
+            && json_field_string(node, "contract_status").as_deref()
+                == Some("predictor_contract_metadata_seed")
+            && node.get("source_span").is_some()
+    });
+    let has_external_node = behavior_nodes.iter().any(|node| {
+        json_field_string(node, "behavior_kind").as_deref() == Some("external")
+            && json_field_string(node, "signal").as_deref() == Some("out.Q")
+            && json_field_string(node, "status").as_deref()
+                == Some("external_behavior_wrapper_seed_not_integrated")
+            && json_field_string(node, "contract_status").as_deref()
+                == Some("external_behavior_contract_metadata_seed")
+            && node.get("source_span").is_some()
+    });
+    if !has_delay_node || !has_predictor_node || !has_external_node {
+        return Err(format!(
+            "{} did not produce IDE delay/Predictor/external behavior graph inspector metadata",
+            behavior_example.display()
+        ));
+    }
     let has_component_solver_result =
         domain_inspectors
             .assemblies
@@ -2314,7 +2385,7 @@ fn smoke() -> Result<(), String> {
         ));
     }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), measured workflow inspectors, solved thermal assembly inspector, state-space trajectory/operator inspector, kernel plan inspector, class object inspector, side-effect inspectors, schema failure inspector",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), residual dependency inspector, behavior graph inspector, measured workflow inspectors, solved thermal assembly inspector, state-space trajectory/operator inspector, kernel plan inspector, class object inspector, side-effect inspectors, schema failure inspector",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),
