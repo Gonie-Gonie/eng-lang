@@ -355,6 +355,29 @@ pub fn plan_for_report_with_options(
         );
     }
 
+    for system in &report.semantic_program.systems {
+        let Some(ir) = state_space_rhs_ir_for_system(report, &system.name) else {
+            continue;
+        };
+        let state_count = ir.output_count;
+        let input_count = ir.scalar_input_count.saturating_sub(state_count);
+        push_candidate(
+            &mut candidates,
+            &mut seen,
+            KernelCandidate {
+                name: system.name.clone(),
+                kind: "state_space_rhs".to_owned(),
+                line: system.line,
+                source: state_space_rhs_source(system),
+                reason: "continuous state-space A/B operators lower to a scalar RHS kernel"
+                    .to_owned(),
+                lowering_status: "lowerable_to_numeric_kernel_plan".to_owned(),
+                operations: state_space_rhs_operations(report, &system.name),
+                estimate: state_space_rhs_estimate(state_count, input_count, &ir.instructions),
+            },
+        );
+    }
+
     candidates.sort_by(|left, right| {
         left.line
             .cmp(&right.line)
@@ -618,6 +641,114 @@ pub fn component_residual_ir_from_assembly(assembly: &ComponentAssemblyInfo) -> 
             instructions,
         )
         .with_scalar_input_count(assembly.variables.len()),
+    )
+}
+
+pub fn state_space_rhs_ir_for_system(report: &CheckReport, system_name: &str) -> Option<KernelIr> {
+    let system = report
+        .semantic_program
+        .systems
+        .iter()
+        .find(|system| system.name == system_name)?;
+    if !system
+        .equations
+        .iter()
+        .any(|equation| equation.left.trim().starts_with("der("))
+    {
+        return None;
+    }
+    let state_vector = report
+        .semantic_program
+        .state_space_vectors
+        .iter()
+        .find(|vector| vector.system == system_name && vector.role == "states")?;
+    let input_vector = report
+        .semantic_program
+        .state_space_vectors
+        .iter()
+        .find(|vector| vector.system == system_name && vector.role == "inputs")?;
+    let operator_a = report
+        .semantic_program
+        .linear_operators
+        .iter()
+        .find(|operator| {
+            operator.system == system_name
+                && operator.from == "StateVector"
+                && operator.to == "Derivative[StateVector]"
+                && operator.status == "shape_checked"
+        })?;
+    let operator_b = report
+        .semantic_program
+        .linear_operators
+        .iter()
+        .find(|operator| {
+            operator.system == system_name
+                && operator.from == "InputVector"
+                && operator.to == "Derivative[StateVector]"
+                && operator.status == "shape_checked"
+        })?;
+    let matrix_a = parse_numeric_matrix(operator_a.expression.as_deref()?)?;
+    let matrix_b = parse_numeric_matrix(operator_b.expression.as_deref()?)?;
+    let state_count = state_vector.members.len();
+    let input_count = input_vector.members.len();
+    if state_count == 0
+        || matrix_a.len() != state_count
+        || matrix_a.iter().any(|row| row.len() != state_count)
+        || matrix_b.len() != state_count
+        || matrix_b.iter().any(|row| row.len() != input_count)
+    {
+        return None;
+    }
+
+    let mut instructions = Vec::new();
+    let mut next_register = 0;
+    for row in 0..state_count {
+        let mut accumulator = None;
+        for column in 0..state_count {
+            accumulator = append_matrix_term(
+                &mut instructions,
+                &mut next_register,
+                accumulator,
+                column,
+                matrix_a[row][column],
+            )?;
+        }
+        for column in 0..input_count {
+            accumulator = append_matrix_term(
+                &mut instructions,
+                &mut next_register,
+                accumulator,
+                state_count + column,
+                matrix_b[row][column],
+            )?;
+        }
+        let output_register = match accumulator {
+            Some(register) => register,
+            None => {
+                let register = next_register;
+                next_register += 1;
+                instructions.push(KernelInstruction::LoadConstant {
+                    value: 0.0,
+                    register,
+                });
+                register
+            }
+        };
+        instructions.push(KernelInstruction::StoreScalar {
+            register: output_register,
+            output: row,
+        });
+    }
+
+    Some(
+        KernelIr::new(
+            format!("{system_name}:state_space_rhs"),
+            "state_space_rhs",
+            0,
+            state_count,
+            instructions,
+        )
+        .with_scalar_input_count(state_count + input_count),
     )
 }
 
@@ -1253,7 +1384,10 @@ pub fn candidate_executor_status(candidate: &KernelCandidate) -> (&'static str, 
 
 fn candidate_has_interpreter_lowering(candidate: &KernelCandidate) -> bool {
     match candidate.kind.as_str() {
-        "timeseries_arithmetic" | "timeseries_integrate" | "component_residual_graph" => true,
+        "timeseries_arithmetic"
+        | "timeseries_integrate"
+        | "component_residual_graph"
+        | "state_space_rhs" => true,
         "statistics_fusion" => candidate.operations.iter().all(|operation| {
             operation
                 .strip_prefix("stat:")
@@ -1506,11 +1640,106 @@ fn component_residual_estimate(assembly: &ComponentAssemblyInfo) -> KernelEstima
     }
 }
 
+fn state_space_rhs_estimate(
+    state_count: usize,
+    input_count: usize,
+    instructions: &[KernelInstruction],
+) -> KernelEstimate {
+    let binary_count = instructions
+        .iter()
+        .filter(|instruction| matches!(instruction, KernelInstruction::Binary { .. }))
+        .count();
+    KernelEstimate {
+        estimated_rows: None,
+        input_count: state_count + input_count,
+        output_count: state_count,
+        operation_count: binary_count.max(1),
+        scan_count: 0,
+        complexity: "O(states * (states + inputs)) per RHS evaluation".to_owned(),
+        notes: vec![
+            format!("{state_count} state input(s)"),
+            format!("{input_count} external input(s)"),
+            "continuous A/B RHS kernel; fixed-step loop remains in the runtime solver".to_owned(),
+        ],
+    }
+}
+
+fn state_space_rhs_source(system: &eng_compiler::SystemInfo) -> String {
+    system
+        .equations
+        .iter()
+        .find(|equation| equation.left.trim().starts_with("der("))
+        .map(|equation| format!("{} eq {}", equation.left, equation.right))
+        .unwrap_or_else(|| "der(x) eq A * x + B * u".to_owned())
+}
+
+fn state_space_rhs_operations(report: &CheckReport, system_name: &str) -> Vec<String> {
+    let mut operations = Vec::new();
+    operations.extend(
+        report
+            .semantic_program
+            .state_space_vectors
+            .iter()
+            .filter(|vector| vector.system == system_name && vector.role == "states")
+            .map(|vector| format!("load_state_vector:{}", vector.name)),
+    );
+    operations.extend(
+        report
+            .semantic_program
+            .state_space_vectors
+            .iter()
+            .filter(|vector| vector.system == system_name && vector.role == "inputs")
+            .map(|vector| format!("load_input_vector:{}", vector.name)),
+    );
+    operations.extend(
+        report
+            .semantic_program
+            .linear_operators
+            .iter()
+            .filter(|operator| {
+                operator.system == system_name
+                    && operator.to == "Derivative[StateVector]"
+                    && (operator.from == "StateVector" || operator.from == "InputVector")
+            })
+            .map(|operator| format!("apply_linear_operator:{}", operator.name)),
+    );
+    operations.push("store_derivative_vector:Derivative[StateVector]".to_owned());
+    operations
+}
+
 fn component_residual_coefficient(kind: &str, dependency_index: usize) -> f64 {
     match kind {
         "across_equality" if dependency_index == 1 => -1.0,
         _ => 1.0,
     }
+}
+
+fn append_matrix_term(
+    instructions: &mut Vec<KernelInstruction>,
+    next_register: &mut usize,
+    accumulator: Option<usize>,
+    input: usize,
+    coefficient: f64,
+) -> Option<Option<usize>> {
+    if !coefficient.is_finite() {
+        return None;
+    }
+    if coefficient.abs() <= f64::EPSILON {
+        return Some(accumulator);
+    }
+    let input_register = *next_register;
+    *next_register += 1;
+    instructions.push(KernelInstruction::LoadScalarInput {
+        input,
+        register: input_register,
+    });
+    Some(Some(append_signed_term(
+        instructions,
+        next_register,
+        accumulator,
+        input_register,
+        coefficient,
+    )?))
 }
 
 fn append_signed_term(
@@ -1588,6 +1817,29 @@ fn append_signed_term(
 
 fn parse_leading_number(text: &str) -> Option<f64> {
     text.split_whitespace().next()?.parse::<f64>().ok()
+}
+
+fn parse_numeric_matrix(expression: &str) -> Option<Vec<Vec<f64>>> {
+    let trimmed = expression
+        .trim()
+        .trim_start_matches('[')
+        .trim_end_matches(']');
+    let rows = trimmed
+        .split(';')
+        .map(str::trim)
+        .filter(|row| !row.is_empty())
+        .map(|row| {
+            row.trim_start_matches('[')
+                .trim_end_matches(']')
+                .split(',')
+                .map(str::trim)
+                .filter(|entry| !entry.is_empty())
+                .map(str::parse::<f64>)
+                .collect::<Result<Vec<_>, _>>()
+                .ok()
+        })
+        .collect::<Option<Vec<_>>>()?;
+    (!rows.is_empty()).then_some(rows)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -2100,6 +2352,77 @@ mod tests {
         assert!((jacobian.values[1][1] - 1.0).abs() < 1e-8);
         assert!((jacobian.values[1][3] - 1.0).abs() < 1e-8);
         assert!((jacobian.values[3][1] - 1.0).abs() < 1e-8);
+    }
+
+    #[test]
+    fn detects_state_space_rhs_kernel_candidate() {
+        let report = check_file(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../examples/official/20_multi_state_thermal/main.eng"),
+            &CheckOptions::default(),
+        )
+        .expect("official multi-state thermal example should check");
+        let plan = plan_for_report(&report);
+        let candidate = plan
+            .candidates
+            .iter()
+            .find(|candidate| candidate.kind == "state_space_rhs")
+            .expect("state-space RHS candidate should exist");
+
+        assert_eq!(candidate.name, "MultiStateThermal");
+        assert_eq!(
+            candidate.lowering_status,
+            "lowerable_to_numeric_kernel_plan"
+        );
+        assert_eq!(candidate.estimate.input_count, 4);
+        assert_eq!(candidate.estimate.output_count, 2);
+        assert!(candidate
+            .operations
+            .contains(&"apply_linear_operator:A".to_owned()));
+
+        let json = plan_json(&plan);
+        let candidates = json["candidates"].as_array().unwrap();
+        let state_space_candidate = candidates
+            .iter()
+            .find(|candidate| candidate["kind"] == "state_space_rhs")
+            .expect("state-space RHS candidate JSON should exist");
+        assert_eq!(
+            state_space_candidate["executor"]["status"],
+            "interpreter_supported"
+        );
+    }
+
+    #[test]
+    fn lowers_state_space_rhs_kernel_ir() {
+        let report = check_file(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../examples/internal/18_state_space_metadata/main.eng"),
+            &CheckOptions::default(),
+        )
+        .expect("internal state-space metadata example should check");
+        let ir = state_space_rhs_ir_for_system(&report, "ThermalStateSpaceMetadata")
+            .expect("state-space RHS should lower to IR");
+
+        assert_eq!(ir.name, "ThermalStateSpaceMetadata:state_space_rhs");
+        assert_eq!(ir.kind, "state_space_rhs");
+        assert_eq!(ir.input_count, 0);
+        assert_eq!(ir.scalar_input_count, 3);
+        assert_eq!(ir.output_count, 1);
+
+        let output = execute_interpreter_kernel(
+            &ir,
+            &KernelExecutionInput {
+                series_inputs: Vec::new(),
+                scalar_inputs: vec![22.0, 8.0, 500.0],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(output.outputs.len(), 1);
+        let KernelOutputValue::Scalar(value) = &output.outputs[0] else {
+            panic!("state-space RHS output should be scalar");
+        };
+        assert!((*value - 0.4972).abs() < 1e-12);
     }
 
     #[test]

@@ -680,15 +680,16 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }],
     );
     if !state_space_bench_smoke.contains("\"name\":\"state_space_simulation\"")
-        || !state_space_bench_smoke.contains("\"status\":\"metadata_observed\"")
-        || !state_space_bench_smoke.contains("state_space_vector:ThermalStateSpaceMetadata:x")
-        || !state_space_bench_smoke.contains("linear_operator:ThermalStateSpaceMetadata:A")
+        || !state_space_bench_smoke.contains("\"status\":\"covered_by_current_source\"")
+        || !state_space_bench_smoke.contains("state_space_rhs:ThermalStateSpaceMetadata")
     {
-        eprintln!("expected internal state-space example to expose JIT benchmark target metadata");
+        eprintln!(
+            "expected internal state-space example to expose JIT benchmark state-space RHS coverage"
+        );
         return ExitCode::from(2);
     }
     println!(
-        "ok: examples/internal/18_state_space_metadata/main.eng produced JIT benchmark state-space target metadata"
+        "ok: examples/internal/18_state_space_metadata/main.eng produced JIT benchmark state-space RHS coverage"
     );
 
     let domain_port = match check_file(
@@ -2452,6 +2453,7 @@ fn jit_benchmark_targets(
     plan: &eng_jit::NumericKernelPlan,
 ) -> Vec<serde_json::Value> {
     let state_space_items = state_space_target_items(report);
+    let state_space_candidates = candidates_by_kind(plan, &["state_space_rhs"]);
     vec![
         benchmark_target(
             "csv_heat_rate_workflow",
@@ -2506,13 +2508,19 @@ fn jit_benchmark_targets(
         ),
         benchmark_target(
             "state_space_simulation",
-            if state_space_items.is_empty() {
+            if !state_space_candidates.is_empty() {
+                "covered_by_current_source"
+            } else if state_space_items.is_empty() {
                 "not_observed_for_source"
             } else {
                 "metadata_observed"
             },
-            state_space_items,
-            "tracks state-space simulation metadata; no state-space solver-step kernel is selected",
+            if state_space_candidates.is_empty() {
+                state_space_items
+            } else {
+                state_space_candidates
+            },
+            "tracks continuous state-space RHS kernel coverage; fixed-step solver remains the normal runtime path",
         ),
     ]
 }

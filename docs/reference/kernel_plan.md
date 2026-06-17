@@ -163,8 +163,9 @@ instructions for loading TimeSeries inputs, scalar inputs, constants, binary
 arithmetic, series/scalar stores, TimeSeries statistics reductions, and
 trapezoid integration. This IR currently supports correctness tests for
 element-wise arithmetic, statistics, integration, scalar residual evaluation,
-finite-difference Jacobian kernels, and Newton solver-step kernels. It is not a
-native code format and is not part of the public stable API.
+continuous state-space A/B RHS evaluation, finite-difference Jacobian kernels,
+and Newton solver-step kernels. It is not a native code format and is not part
+of the public stable API.
 
 ## Candidate Kinds
 
@@ -173,10 +174,15 @@ timeseries_arithmetic
 timeseries_integrate
 statistics_fusion
 system_residual
+component_residual_graph
+state_space_rhs
 ```
 
 `system_residual` is currently interface-only. It reserves the RHS/Jacobian
 lowering shape for later work and is not a native solver backend.
+`state_space_rhs` covers the continuous `der(x) eq A * x + B * u` scalar RHS
+kernel for checked state-space A/B operators. The fixed-step solver loop still
+runs through the normal runtime path.
 
 ## Lowering Status
 

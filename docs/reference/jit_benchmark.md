@@ -69,6 +69,11 @@ Targets that are not present in the input source remain
 `metadata_observed` means the source exposes checked metadata for the target,
 but the current kernel plan has not selected an executable kernel for that
 target.
+For continuous state-space sources, `state_space_simulation` is
+`covered_by_current_source` when the plan includes an interpreter-supported
+`state_space_rhs` candidate. This covers the A/B RHS kernel only; fixed-step
+simulation still uses the normal runtime solver path and no native timing is
+reported.
 
 ## Interpreter Shape
 

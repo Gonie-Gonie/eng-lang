@@ -194,10 +194,12 @@ Internal implementation seeds on `main`:
 - report-spec/report.html and IDE Kernel panel inspection of selected backend,
   candidates, executor status, and fallback reasons
 - interpreter kernel IR and executor correctness tests for arithmetic,
-  statistics, integration, residual, Jacobian, and Newton-step kernels
+  statistics, integration, residual, state-space RHS, Jacobian, and Newton-step
+  kernels
 - checked TimeSeries arithmetic, statistics, and integration metadata lowering into
   executable KernelIr
 - component assembly residual graph lowering into scalar residual KernelIr
+- continuous state-space A/B RHS lowering into scalar KernelIr
 - per-candidate executor/fallback reason metadata
 ```
 
