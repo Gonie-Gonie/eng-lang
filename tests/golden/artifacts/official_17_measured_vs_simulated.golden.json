@@ -24,7 +24,7 @@
     "simulation_step_count": 6,
     "simulation_point_count": 7,
     "simulation_convergence_status": "fixed_step_completed",
-    "simulation_final_temp_deg_c": 22.95005524049924
+    "simulation_final_temp_deg_c": 22.84293605785598
   },
   "report_spec": {
     "format": "eng-report-spec-v1",
@@ -33,12 +33,12 @@
     "metric_binding": "rmse_T",
     "metric_quantity": "TemperatureDelta",
     "metric_unit": "K",
-    "metric_value": 0.1999948918001166,
+    "metric_value": 0.1317823698167794,
     "validation_count": 1,
     "validation_expression": "rmse_T < 5 K",
     "validation_status": "passed",
     "validation_unit": "K",
-    "validation_left_value": 0.1999948918001166,
+    "validation_left_value": 0.1317823698167794,
     "validation_right_value": 5.0,
     "time_alignment_count": 3,
     "alignment_left": "measured_data.T_zone",
@@ -48,7 +48,7 @@
     "solver_state_name": "T_zone",
     "solver_method": "explicit_euler_fixed_step",
     "solver_step_count": 6,
-    "solver_final_temp_deg_c": 22.95005524049924
+    "solver_final_temp_deg_c": 22.84293605785598
   },
   "result": {
     "format": "engres-v1",
@@ -57,12 +57,12 @@
     "metric_binding": "rmse_T",
     "metric_quantity": "TemperatureDelta",
     "metric_unit": "K",
-    "metric_value": 0.1999948918001166,
+    "metric_value": 0.1317823698167794,
     "validation_count": 1,
     "validation_expression": "rmse_T < 5 K",
     "validation_status": "passed",
     "validation_unit": "K",
-    "validation_left_value": 0.1999948918001166,
+    "validation_left_value": 0.1317823698167794,
     "validation_right_value": 5.0,
     "time_alignment_count": 3,
     "alignment_left": "measured_data.T_zone",
@@ -72,7 +72,7 @@
     "solver_status": "computed",
     "solver_method": "explicit_euler_fixed_step",
     "solver_step_count": 6,
-    "solver_final_temp_deg_c": 22.95005524049924
+    "solver_final_temp_deg_c": 22.84293605785598
   },
   "plot_spec": {
     "format": "eng-plotspec-v1",
@@ -86,6 +86,6 @@
     "second_series": "sim.T_zone",
     "point_count": 7,
     "first_measured_y_deg_c": 22.0,
-    "last_simulated_y_deg_c": 22.95005524049924
+    "last_simulated_y_deg_c": 22.84293605785598
   }
 }

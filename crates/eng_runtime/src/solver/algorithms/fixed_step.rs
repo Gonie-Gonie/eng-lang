@@ -78,7 +78,7 @@ where
     }
 
     for step in 1..=input.time_grid.step_count {
-        let time_s = input.time_grid.step_time_s(step);
+        let time_s = input.time_grid.step_time_s(step - 1);
         let dt = input.time_grid.step_dt_s(step);
         let derivative = rhs(RhsSample {
             time_s,
@@ -327,6 +327,42 @@ mod tests {
             assert_eq!(result.output.state_trajectories[0].final_value(), Some(5.0));
             assert_eq!(result.diagnostics.iteration_count, 3);
         }
+    }
+
+    #[test]
+    fn explicit_euler_samples_rhs_at_interval_start() {
+        let method = FixedStepMethod::ExplicitEuler;
+        let options = SolverOptions::fixed_step(method.method_name(""), 1.0);
+        let input = SolverInput {
+            plan: SolverPlan::new("TimeDependentRhs", SimulationPlan::default(), options),
+            time_grid: TimeGrid::fixed_step(2.0, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout::default(),
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![0.0],
+            inputs: Vec::new(),
+            parameters: Vec::new(),
+        };
+
+        let mut sample_times = Vec::new();
+        let result = solve_fixed_step_ode(method, &input, |sample| {
+            sample_times.push(sample.time_s);
+            Ok(vec![sample.time_s])
+        })
+        .unwrap();
+
+        assert_eq!(sample_times, vec![0.0, 1.0]);
+        assert_eq!(
+            result.output.state_trajectories[0].values,
+            vec![0.0, 0.0, 1.0]
+        );
     }
 
     #[test]

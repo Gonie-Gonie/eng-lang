@@ -152,6 +152,9 @@ Current coverage:
 - `TimeGrid::step_dt_s` drives fixed-step ODE and dynamic-component state
   updates, so non-divisible durations use a shorter final integration step
   rather than overshooting the requested duration.
+- Explicit Euler RHS evaluation samples at the start of each fixed-step
+  interval, which keeps time-dependent inputs aligned with the state being
+  advanced.
 - `SolverInput::validate_layouts` rejects non-finite initial state, input, and
   parameter values before solver algorithms run.
 - `SolverInput::validate_layouts` now validates non-empty `OutputLayout`
