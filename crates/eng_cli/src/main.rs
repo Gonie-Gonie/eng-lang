@@ -647,6 +647,13 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         "covered_by_current_source",
         Some("statistics_fusion:summary:Q_coil"),
     );
+    let csv_executor_samples_recorded =
+        jit_bench_has_executor_sample(&jit_bench_smoke, "timeseries_integrate:E_coil", "executed")
+            && jit_bench_has_executor_sample(
+                &jit_bench_smoke,
+                "statistics_fusion:summary:Q_coil",
+                "executed",
+            );
     if jit_plan.candidates.len() < 3
         || jit_plan.backend_selection.selected != eng_jit::INTERPRETER_FALLBACK_BACKEND
         || jit_plan.backend_selection.status != "selected"
@@ -656,11 +663,12 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             .any(|candidate| candidate.kind == "timeseries_integrate")
         || !lowerable_executor_recorded
         || !csv_bench_targets_recorded
+        || !csv_executor_samples_recorded
         || native_preview_plan.backend_selection.status != "not_available"
         || native_preview_plan.backend_selection.selected != eng_jit::INTERPRETER_FALLBACK_BACKEND
     {
         eprintln!(
-            "expected official CSV example to expose kernel candidates, executor fallback metadata, CSV/statistics benchmark target coverage, and native backend non-availability"
+            "expected official CSV example to expose kernel candidates, executor fallback metadata, executable CSV/statistics kernel samples, benchmark target coverage, and native backend non-availability"
         );
         return ExitCode::from(2);
     }
@@ -3139,6 +3147,7 @@ fn jit_bench_json(
         "comparison_policy": "no-speedup-claim",
         "kernel_plan": eng_jit::plan_json(plan),
         "benchmark_targets": jit_benchmark_targets(report, plan),
+        "kernel_executor_samples": jit_kernel_executor_samples(report, plan),
         "interpreter": {
             "status": "measured",
             "runs": interpreter_runs.iter().map(|run| {
@@ -3170,6 +3179,221 @@ fn jit_bench_json(
     .to_string()
 }
 
+fn jit_kernel_executor_samples(
+    report: &CheckReport,
+    plan: &eng_jit::NumericKernelPlan,
+) -> Vec<serde_json::Value> {
+    plan.candidates
+        .iter()
+        .filter(|candidate| candidate.lowering_status == "lowerable_to_numeric_kernel_plan")
+        .filter_map(|candidate| jit_kernel_executor_sample(report, candidate))
+        .collect()
+}
+
+fn jit_kernel_executor_sample(
+    report: &CheckReport,
+    candidate: &eng_jit::KernelCandidate,
+) -> Option<serde_json::Value> {
+    match candidate.kind.as_str() {
+        "component_residual_jacobian" => {
+            let assembly = component_assembly_for_kernel_candidate(report, candidate)?;
+            let ir = eng_jit::component_residual_ir_from_assembly(assembly)?;
+            Some(jit_jacobian_kernel_sample(candidate, &ir))
+        }
+        "component_newton_step" => {
+            let assembly = component_assembly_for_kernel_candidate(report, candidate)?;
+            let ir = eng_jit::component_residual_ir_from_assembly(assembly)?;
+            Some(jit_newton_step_kernel_sample(candidate, &ir))
+        }
+        _ => {
+            let ir = jit_kernel_ir_for_candidate(report, candidate)?;
+            Some(jit_interpreter_kernel_sample(candidate, &ir))
+        }
+    }
+}
+
+fn jit_kernel_ir_for_candidate(
+    report: &CheckReport,
+    candidate: &eng_jit::KernelCandidate,
+) -> Option<eng_jit::KernelIr> {
+    match candidate.kind.as_str() {
+        "timeseries_arithmetic" => {
+            eng_jit::timeseries_arithmetic_ir_for_binding(report, candidate.name.as_str())
+        }
+        "timeseries_integrate" => {
+            eng_jit::timeseries_integrate_ir_for_binding(report, candidate.name.as_str(), 300.0)
+        }
+        "statistics_fusion" => {
+            eng_jit::timeseries_statistics_ir_for_source(report, candidate.source.as_str(), 300.0)
+        }
+        "component_residual_graph" => component_assembly_for_kernel_candidate(report, candidate)
+            .and_then(eng_jit::component_residual_ir_from_assembly),
+        "state_space_rhs" => {
+            eng_jit::state_space_rhs_ir_for_system(report, candidate.name.as_str())
+        }
+        _ => None,
+    }
+}
+
+fn jit_interpreter_kernel_sample(
+    candidate: &eng_jit::KernelCandidate,
+    ir: &eng_jit::KernelIr,
+) -> serde_json::Value {
+    let input = sample_kernel_input(ir);
+    match eng_jit::execute_interpreter_kernel(ir, &input) {
+        Ok(output) => json!({
+            "candidate": format!("{}:{}", candidate.kind, candidate.name),
+            "kind": candidate.kind,
+            "status": "executed",
+            "backend": output.backend,
+            "fallback_reason": output.fallback_reason,
+            "series_input_count": ir.input_count,
+            "scalar_input_count": ir.scalar_input_count,
+            "output_count": output.outputs.len(),
+            "outputs": jit_kernel_output_summary(&output.outputs),
+        }),
+        Err(failure) => json!({
+            "candidate": format!("{}:{}", candidate.kind, candidate.name),
+            "kind": candidate.kind,
+            "status": "failed",
+            "failure_code": failure.code,
+            "failure_message": failure.message,
+        }),
+    }
+}
+
+fn jit_jacobian_kernel_sample(
+    candidate: &eng_jit::KernelCandidate,
+    ir: &eng_jit::KernelIr,
+) -> serde_json::Value {
+    let values = sample_scalar_values(ir.scalar_input_count);
+    match eng_jit::execute_finite_difference_jacobian_kernel(ir, &values, 1e-6) {
+        Ok(output) => json!({
+            "candidate": format!("{}:{}", candidate.kind, candidate.name),
+            "kind": candidate.kind,
+            "status": "executed",
+            "backend": output.backend,
+            "fallback_reason": output.fallback_reason,
+            "rows": output.values.len(),
+            "columns": output.values.first().map(Vec::len).unwrap_or_default(),
+        }),
+        Err(failure) => json!({
+            "candidate": format!("{}:{}", candidate.kind, candidate.name),
+            "kind": candidate.kind,
+            "status": "failed",
+            "failure_code": failure.code,
+            "failure_message": failure.message,
+        }),
+    }
+}
+
+fn jit_newton_step_kernel_sample(
+    candidate: &eng_jit::KernelCandidate,
+    ir: &eng_jit::KernelIr,
+) -> serde_json::Value {
+    let values = sample_scalar_values(ir.scalar_input_count);
+    let residuals = match eng_jit::execute_interpreter_kernel(
+        ir,
+        &eng_jit::KernelExecutionInput {
+            series_inputs: Vec::new(),
+            scalar_inputs: values.clone(),
+        },
+    ) {
+        Ok(output) => output
+            .outputs
+            .into_iter()
+            .filter_map(|value| match value {
+                eng_jit::KernelOutputValue::Scalar(value) => Some(value),
+                eng_jit::KernelOutputValue::Series(_) => None,
+            })
+            .collect::<Vec<_>>(),
+        Err(failure) => {
+            return json!({
+                "candidate": format!("{}:{}", candidate.kind, candidate.name),
+                "kind": candidate.kind,
+                "status": "failed",
+                "failure_code": failure.code,
+                "failure_message": failure.message,
+            });
+        }
+    };
+    let jacobian = match eng_jit::execute_finite_difference_jacobian_kernel(ir, &values, 1e-6) {
+        Ok(output) => output.values,
+        Err(failure) => {
+            return json!({
+                "candidate": format!("{}:{}", candidate.kind, candidate.name),
+                "kind": candidate.kind,
+                "status": "failed",
+                "failure_code": failure.code,
+                "failure_message": failure.message,
+            });
+        }
+    };
+    match eng_jit::execute_newton_step_kernel(&jacobian, &residuals, 1e-9) {
+        Ok(output) => json!({
+            "candidate": format!("{}:{}", candidate.kind, candidate.name),
+            "kind": candidate.kind,
+            "status": "executed",
+            "backend": output.backend,
+            "fallback_reason": output.fallback_reason,
+            "step_count": output.step.len(),
+            "residual_norm": output.residual_norm,
+        }),
+        Err(failure) => json!({
+            "candidate": format!("{}:{}", candidate.kind, candidate.name),
+            "kind": candidate.kind,
+            "status": "failed",
+            "failure_code": failure.code,
+            "failure_message": failure.message,
+        }),
+    }
+}
+
+fn component_assembly_for_kernel_candidate<'a>(
+    report: &'a CheckReport,
+    candidate: &eng_jit::KernelCandidate,
+) -> Option<&'a eng_compiler::ComponentAssemblyInfo> {
+    report
+        .semantic_program
+        .component_assemblies
+        .iter()
+        .find(|assembly| candidate.name.starts_with(&format!("{}:", assembly.name)))
+}
+
+fn sample_kernel_input(ir: &eng_jit::KernelIr) -> eng_jit::KernelExecutionInput {
+    eng_jit::KernelExecutionInput {
+        series_inputs: (0..ir.input_count)
+            .map(|index| {
+                let base = index as f64 + 1.0;
+                vec![base, base + 1.0, base + 2.0, base + 3.0]
+            })
+            .collect(),
+        scalar_inputs: sample_scalar_values(ir.scalar_input_count),
+    }
+}
+
+fn sample_scalar_values(count: usize) -> Vec<f64> {
+    (0..count).map(|index| index as f64 + 1.0).collect()
+}
+
+fn jit_kernel_output_summary(outputs: &[eng_jit::KernelOutputValue]) -> Vec<serde_json::Value> {
+    outputs
+        .iter()
+        .map(|output| match output {
+            eng_jit::KernelOutputValue::Series(values) => json!({
+                "kind": "series",
+                "len": values.len(),
+                "first": values.first().copied(),
+                "last": values.last().copied(),
+            }),
+            eng_jit::KernelOutputValue::Scalar(value) => json!({
+                "kind": "scalar",
+                "value": value,
+            }),
+        })
+        .collect()
+}
+
 fn jit_bench_has_target(
     bench_json: &str,
     name: &str,
@@ -3193,6 +3417,21 @@ fn jit_bench_has_target(
                                 .any(|candidate| candidate.contains(fragment))
                         })
                     })
+            })
+        })
+}
+
+fn jit_bench_has_executor_sample(bench_json: &str, candidate: &str, status: &str) -> bool {
+    let Ok(value) = serde_json::from_str::<Value>(bench_json) else {
+        return false;
+    };
+    value["kernel_executor_samples"]
+        .as_array()
+        .is_some_and(|samples| {
+            samples.iter().any(|sample| {
+                sample["candidate"] == candidate
+                    && sample["status"] == status
+                    && sample["backend"] == eng_jit::INTERPRETER_FALLBACK_BACKEND
             })
         })
 }

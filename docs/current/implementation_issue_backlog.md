@@ -47,15 +47,18 @@ Current coverage:
   remains on the normal runtime solver path.
 - CLI example smoke checks kernel candidates, interpreter executor fallback
   metadata, component residual/Jacobian/Newton-step kernel candidates,
-  CSV heat-rate, multi-statistics, component-graph solver, and state-space RHS
-  benchmark target coverage, and native-backend non-availability without making
-  a speedup claim.
+  executable CSV/statistics interpreter-kernel samples, CSV heat-rate,
+  multi-statistics, component-graph solver, and state-space RHS benchmark
+  target coverage, and native-backend non-availability without making a
+  speedup claim.
 - `report_spec.json`, `report.html`, and the IDE Kernel panel surface the
   selected backend, kernel candidates, executor status, and fallback reason as
   inspection metadata without presenting acceleration.
 - `eng.exe jit-bench` remains a normal-runtime timing harness and makes no
   speedup claim; its `benchmark_targets` field records which checklist target
-  families were observed in the current source's kernel plan.
+  families were observed in the current source's kernel plan, and its
+  `kernel_executor_samples` field records deterministic interpreter-kernel
+  sample executions for lowerable candidates.
 
 Definition of Done:
 

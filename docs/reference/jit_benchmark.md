@@ -4,12 +4,12 @@
 artifact. It is a runtime optimization track planning harness, not a
 performance claim.
 
-The current harness measures only the normal interpreter/runtime path. The
-`eng_jit` crate also has an internal interpreter kernel IR/executor for
-correctness tests, but `eng.exe jit-bench` does not report speedups from it.
-The JIT side is present in the JSON shape as `status = "not_available"` so
-future native backend timing can be added without changing the consumer
-boundary.
+The current harness measures only the normal interpreter/runtime path. It also
+records deterministic sample executions for lowerable interpreter kernel IR
+candidates so consumers can see which candidates have executable fallback
+coverage. These samples are correctness evidence, not timing comparisons. The
+JIT side is present in the JSON shape as `status = "not_available"` so future
+native backend timing can be added without changing the consumer boundary.
 
 ## Top-Level Shape
 
@@ -21,6 +21,7 @@ boundary.
   "comparison_policy": "no-speedup-claim",
   "kernel_plan": {},
   "benchmark_targets": [],
+  "kernel_executor_samples": [],
   "interpreter": {},
   "jit": {},
   "notes": []
@@ -79,6 +80,44 @@ For square component assemblies, `residual_evaluation` may list both
 `component_graph_solver_small_case` may additionally list
 `component_newton_step`. This records residual/Jacobian/single-step kernel
 coverage, not a production component-graph solver claim.
+
+## Kernel Executor Samples
+
+`kernel_executor_samples` records deterministic sample executions for
+lowerable candidates using the interpreter kernel executor. Inputs are synthetic
+and shape-oriented; they do not represent source data and must not be used as
+benchmark timings.
+
+```json
+[
+  {
+    "candidate": "timeseries_integrate:E_coil",
+    "kind": "timeseries_integrate",
+    "status": "executed",
+    "backend": "interpreter-fallback",
+    "fallback_reason": null,
+    "series_input_count": 1,
+    "scalar_input_count": 0,
+    "output_count": 1,
+    "outputs": [
+      {
+        "kind": "scalar",
+        "value": 900
+      }
+    ]
+  }
+]
+```
+
+Known statuses:
+
+```text
+executed
+failed
+```
+
+Failures include `failure_code` and `failure_message` and indicate a sample
+execution problem, not a normal runtime failure for the source program.
 
 ## Interpreter Shape
 
