@@ -15,14 +15,13 @@ use eng_report::{
 };
 
 use crate::solver::{
-    algorithms::linear::solve_dense_linear_system,
     assembly::{
         ComponentEquation, ComponentInstance, ConnectionEdge, ConnectionSet, EquationAssembly,
         GeneratedEquation, PortInstance, UnknownVariable,
     },
     solve_continuous_state_space, solve_discrete_state_space, solve_first_order_thermal,
-    FirstOrderThermalModel, FixedStepMethod, InputLayout, LayoutEntry, OutputLayout,
-    ParameterLayout, ResidualEvaluator, ResidualGraph, ResidualInput, SimulationPlan,
+    solve_linear_residual_graph, FirstOrderThermalModel, FixedStepMethod, InputLayout, LayoutEntry,
+    OutputLayout, ParameterLayout, ResidualEvaluator, ResidualGraph, ResidualInput, SimulationPlan,
     SolverFailure, SolverInput, SolverOptions, SolverPlan, SolverResult, SolverScalar, StateLayout,
     StateTrajectory, TimeGrid,
 };
@@ -1046,17 +1045,16 @@ impl RuntimeComponentSolution {
         } else {
             method = "dense_linear_residual_graph".to_owned();
             iteration_count = 1;
-            match residual_graph.assemble_linear_system().and_then(|system| {
-                solve_dense_linear_system(
-                    &system.matrix,
-                    &system.rhs,
-                    COMPONENT_LINEAR_SOLVER_TOLERANCE,
-                )
-            }) {
-                Ok(linear_result) => {
-                    variable_values = linear_result.values;
+            match solve_linear_residual_graph(&residual_graph, COMPONENT_LINEAR_SOLVER_TOLERANCE) {
+                Ok(linear_solution) => {
+                    variable_values = linear_solution
+                        .variables
+                        .iter()
+                        .map(|variable| variable.value)
+                        .collect();
                     variable_status = "solved_linear".to_owned();
-                    let converged = linear_result.status == "converged";
+                    iteration_count = linear_solution.iteration_count;
+                    let converged = linear_solution.status == "converged";
                     (
                         if converged {
                             "solved_linear".to_owned()

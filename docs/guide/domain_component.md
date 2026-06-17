@@ -117,7 +117,7 @@ Connections use source-order metadata. Both endpoints must be written as
 | `W-CONNECT-UNCONNECTED-PORT` | A resolved component port has no connection edge. |
 
 Connection summaries are emitted in source order. They are not sorted by graph
-topology because numeric graph solving is still deferred.
+topology because production physical graph solving is still deferred.
 
 ## Assembly Seed
 
@@ -147,10 +147,13 @@ review/report metadata for future assembly and solver work.
 ## Connection Constraint Check
 
 `eng run` assembles generated connection equations into a residual graph and
-then into a dense linear residual system when the graph is square. Non-square
-graphs still get a numeric residual check. If the homogeneous constraints are
-satisfied but there are fewer equations than unknowns, the result is marked
-`constraint_satisfied_nonunique` with `E-ASSEMBLY-UNDERDETERMINED`.
+passes square graphs to the runtime `solve_linear_residual_graph` API. That API
+assembles the numeric dense system, solves it, computes the residual norm,
+returns named variable values, and reports singular or ill-conditioned systems
+through solver failures. Non-square graphs still get a numeric residual check.
+If the homogeneous constraints are satisfied but there are fewer equations than
+unknowns, the result is marked `constraint_satisfied_nonunique` with
+`E-ASSEMBLY-UNDERDETERMINED`.
 
 The runtime result artifact writes this to
 `typed_payload.component_solutions`. Runtime `report_spec.json` and

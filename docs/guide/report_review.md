@@ -118,6 +118,10 @@ evaluations with raw value, unit, normalized value, scale, and scale policy.
 They also expose `largest_residuals`, capped to the top normalized residuals,
 so report/IDE summaries do not need to rescan the full residual list and
 different units do not dominate the diagnostic ordering by magnitude alone.
+Square component residual graphs are solved through the runtime
+`solve_linear_residual_graph` API, which converts the graph to a dense linear
+system, returns named solved variables, and preserves singular/ill-conditioned
+solver failures in the artifact surface.
 The runtime residual evaluator accepts solver-provided residual scale overrides
 and tolerance values; component artifacts currently use the default
 unit/quantity scale policy unless a solver path supplies explicit overrides.

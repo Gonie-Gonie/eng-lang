@@ -1,3 +1,4 @@
+pub mod algebraic;
 pub mod dae;
 pub mod dynamic_component;
 pub mod fixed_point;

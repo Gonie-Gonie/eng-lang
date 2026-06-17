@@ -330,6 +330,10 @@ Current coverage:
 - Internal boundary fixtures can promote component-local `port.signal = literal`
   expressions into boundary residual equations and solve square dense linear
   residual graphs with explicit variable, residual, and RHS artifacts.
+- Runtime square residual graph solves are routed through
+  `solve_linear_residual_graph`, which owns linear system assembly, dense solve,
+  residual-norm evaluation, named variable output, and singular/ill-conditioned
+  failure propagation.
 - `examples/official/21_thermal_component_assembly` exercises the focused
   Thermal assembly path with generated connection equations, component-boundary
   RHS equations, a square residual graph, and dense linear solver artifacts.
@@ -367,6 +371,8 @@ Definition of Done:
 - Runtime residual evaluation consumes structured `x`, optional `xdot`, `z`,
   `u`, `p`, and `t` inputs, returns raw and named normalized residuals, and is
   repeatable without report-layer dependencies.
+- Runtime linear algebraic solves consume `ResidualGraph` through the solver
+  API instead of inlining matrix solve plumbing in component artifact code.
 - Runtime `component_solutions` and report `solver_result` expose
   `largest_residuals`, capped to the top normalized residuals for direct
   report/IDE inspection.
