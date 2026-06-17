@@ -271,6 +271,7 @@ impl ResidualGraph {
         input: &super::evaluator::ResidualInput,
     ) -> Result<Vec<f64>, SolverFailure> {
         let mut state_index = 0;
+        let mut derivative_index = 0;
         let mut algebraic_index = 0;
         let mut input_index = 0;
         let mut parameter_index = 0;
@@ -281,6 +282,15 @@ impl ResidualGraph {
                     "state" => {
                         let value = input.x.get(state_index).copied();
                         state_index += 1;
+                        value
+                    }
+                    "derivative" | "state_derivative" | "xdot" => {
+                        let value = input
+                            .xdot
+                            .as_ref()
+                            .and_then(|values| values.get(derivative_index))
+                            .copied();
+                        derivative_index += 1;
                         value
                     }
                     "algebraic" => {
@@ -298,6 +308,7 @@ impl ResidualGraph {
                         parameter_index += 1;
                         value
                     }
+                    "time" => Some(input.t),
                     _ => input.z.get(variable.index).copied(),
                 };
                 value.ok_or_else(|| {
@@ -688,6 +699,97 @@ mod tests {
         assert_eq!(output.residuals, vec![0.5]);
         assert_eq!(output.named_residuals[0].name, "state_node_delta");
         assert_eq!(output.named_residuals[0].normalized_value, 0.5);
+    }
+
+    #[test]
+    fn rich_residual_evaluator_uses_derivative_input_parameter_and_time_values() {
+        let graph = ResidualGraph {
+            name: "test.residual_graph".to_owned(),
+            variables: vec![
+                ResidualVariableRef {
+                    index: 0,
+                    name: "dT".to_owned(),
+                    role: "derivative".to_owned(),
+                    unit: "K/s".to_owned(),
+                },
+                ResidualVariableRef {
+                    index: 1,
+                    name: "z_node".to_owned(),
+                    role: "algebraic".to_owned(),
+                    unit: "K".to_owned(),
+                },
+                ResidualVariableRef {
+                    index: 2,
+                    name: "u_heat".to_owned(),
+                    role: "input".to_owned(),
+                    unit: "kW".to_owned(),
+                },
+                ResidualVariableRef {
+                    index: 3,
+                    name: "p_gain".to_owned(),
+                    role: "parameter".to_owned(),
+                    unit: "1".to_owned(),
+                },
+                ResidualVariableRef {
+                    index: 4,
+                    name: "t".to_owned(),
+                    role: "time".to_owned(),
+                    unit: "s".to_owned(),
+                },
+            ],
+            residuals: vec![residual(
+                "dynamic_balance",
+                &[
+                    (0, "dT", 1.0),
+                    (1, "z_node", 1.0),
+                    (2, "u_heat", 1.0),
+                    (3, "p_gain", 1.0),
+                    (4, "t", 1.0),
+                ],
+            )],
+            parameters: Vec::new(),
+            dependencies: Vec::new(),
+        };
+        let input = super::super::evaluator::ResidualInput {
+            xdot: Some(vec![2.0]),
+            z: vec![3.0],
+            u: vec![4.0],
+            p: vec![5.0],
+            t: 6.0,
+            ..Default::default()
+        };
+
+        let first = super::super::evaluator::ResidualEvaluator::evaluate(&graph, &input).unwrap();
+        let second = super::super::evaluator::ResidualEvaluator::evaluate(&graph, &input).unwrap();
+
+        assert_eq!(first.residuals, vec![20.0]);
+        assert_eq!(first.named_residuals[0].name, "dynamic_balance");
+        assert_eq!(first.named_residuals[0].normalized_value, 20.0);
+        assert_eq!(second, first);
+    }
+
+    #[test]
+    fn rich_residual_evaluator_requires_derivative_values_when_role_uses_xdot() {
+        let graph = ResidualGraph {
+            name: "test.residual_graph".to_owned(),
+            variables: vec![ResidualVariableRef {
+                index: 0,
+                name: "dT".to_owned(),
+                role: "derivative".to_owned(),
+                unit: "K/s".to_owned(),
+            }],
+            residuals: vec![residual("dynamic_balance", &[(0, "dT", 1.0)])],
+            parameters: Vec::new(),
+            dependencies: Vec::new(),
+        };
+
+        let failure = super::super::evaluator::ResidualEvaluator::evaluate(
+            &graph,
+            &super::super::evaluator::ResidualInput::default(),
+        )
+        .unwrap_err();
+
+        assert_eq!(failure.code, "E-RESIDUAL-INPUT-LAYOUT");
     }
 
     #[test]

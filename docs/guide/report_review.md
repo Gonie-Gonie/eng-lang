@@ -129,6 +129,9 @@ normalized residual expressions. Assembly residual graphs carry residual to
 variable dependency rows, while the runtime residual graph keeps parameter
 references indexed separately from solved variables. The native IDE renders the
 dependency graph tables from the report metadata.
+The runtime residual evaluator can consume structured solver inputs for state,
+state-derivative, algebraic, input, parameter, and time values without depending
+on the report layer.
 `component_graph` is the graph-shaped companion artifact for the same track:
 components and ports are nodes, connections are edges, connection sets are
 grouped by assembly, behavior nodes record delay/Predictor/external

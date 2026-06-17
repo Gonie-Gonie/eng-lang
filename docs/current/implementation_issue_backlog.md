@@ -364,6 +364,9 @@ Definition of Done:
 - Runtime residual evaluation accepts solver-provided tolerance and
   per-residual scale overrides; current component artifacts still default to
   unit/quantity scale policy until a user-facing scale surface is added.
+- Runtime residual evaluation consumes structured `x`, optional `xdot`, `z`,
+  `u`, `p`, and `t` inputs, returns raw and named normalized residuals, and is
+  repeatable without report-layer dependencies.
 - Runtime `component_solutions` and report `solver_result` expose
   `largest_residuals`, capped to the top normalized residuals for direct
   report/IDE inspection.
