@@ -1194,6 +1194,13 @@
         "expression",
         "row_count",
         "column_count",
+        "row_members",
+        "column_members",
+        "row_quantity_kinds",
+        "column_quantity_kinds",
+        "row_units",
+        "column_units",
+        "compatibility_status",
         "status",
         "line"
       ],
@@ -1205,6 +1212,31 @@
         "expression": { "type": ["string", "null"] },
         "row_count": { "type": "integer", "minimum": 0 },
         "column_count": { "type": "integer", "minimum": 0 },
+        "row_members": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "column_members": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "row_quantity_kinds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "column_quantity_kinds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "row_units": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "column_units": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "compatibility_status": { "type": "string" },
         "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }

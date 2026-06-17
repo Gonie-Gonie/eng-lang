@@ -213,6 +213,13 @@ pub struct LinearOperatorInfo {
     pub expression: Option<String>,
     pub row_count: usize,
     pub column_count: usize,
+    pub row_members: Vec<String>,
+    pub column_members: Vec<String>,
+    pub row_quantity_kinds: Vec<String>,
+    pub column_quantity_kinds: Vec<String>,
+    pub row_units: Vec<String>,
+    pub column_units: Vec<String>,
+    pub compatibility_status: String,
     pub status: String,
     pub line: usize,
 }
@@ -1221,7 +1228,9 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     validate_domain_contracts(&domains, &mut diagnostics);
     validate_class_contracts(&classes, &mut class_objects, &mut diagnostics);
     validate_function_returns(&mut functions, &consts, &mut diagnostics);
+    validate_state_space_vector_members(&systems, &mut state_space_vectors, &mut diagnostics);
     validate_linear_operator_shapes(
+        &systems,
         &state_space_vectors,
         &mut linear_operators,
         &mut diagnostics,
@@ -5500,6 +5509,13 @@ fn analyze_linear_operator_decl(
         expression: declaration.expression.clone(),
         row_count,
         column_count,
+        row_members: Vec::new(),
+        column_members: Vec::new(),
+        row_quantity_kinds: Vec::new(),
+        column_quantity_kinds: Vec::new(),
+        row_units: Vec::new(),
+        column_units: Vec::new(),
+        compatibility_status: "unresolved".to_owned(),
         status: "metadata_only".to_owned(),
         line: declaration.line,
     })
@@ -5538,7 +5554,42 @@ fn matrix_shape(expression: &str) -> (usize, usize) {
     (row_count, column_count)
 }
 
+fn validate_state_space_vector_members(
+    systems: &[SystemInfo],
+    vectors: &mut [StateSpaceVectorInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for vector in vectors {
+        if vector.members.is_empty() {
+            vector.status = "empty".to_owned();
+            continue;
+        }
+        let missing_members = vector
+            .members
+            .iter()
+            .filter(|member| system_variable(systems, &vector.system, member).is_none())
+            .cloned()
+            .collect::<Vec<_>>();
+        if missing_members.is_empty() {
+            vector.status = "members_checked".to_owned();
+        } else {
+            vector.status = "member_unresolved".to_owned();
+            diagnostics.push(Diagnostic::error(
+                "E-STATE-SPACE-VECTOR-MEMBER-001",
+                vector.line,
+                &format!(
+                    "State-space vector `{}` references undeclared member(s): {}.",
+                    vector.name,
+                    missing_members.join(", ")
+                ),
+                Some("List only state/input/output names declared in the same system."),
+            ));
+        }
+    }
+}
+
 fn validate_linear_operator_shapes(
+    systems: &[SystemInfo],
     vectors: &[StateSpaceVectorInfo],
     operators: &mut [LinearOperatorInfo],
     diagnostics: &mut Vec<Diagnostic>,
@@ -5549,9 +5600,11 @@ fn validate_linear_operator_shapes(
         }
         let expected_rows = state_space_vector_size(vectors, &operator.system, &operator.to);
         let expected_columns = state_space_vector_size(vectors, &operator.system, &operator.from);
+        populate_linear_operator_compatibility(systems, vectors, operator);
         let (Some(expected_rows), Some(expected_columns)) = (expected_rows, expected_columns)
         else {
             operator.status = "shape_unresolved".to_owned();
+            operator.compatibility_status = "shape_unresolved".to_owned();
             diagnostics.push(Diagnostic::error(
                 "E-STATE-SPACE-OP-SHAPE-001",
                 operator.line,
@@ -5565,6 +5618,7 @@ fn validate_linear_operator_shapes(
         };
         if operator.row_count != expected_rows || operator.column_count != expected_columns {
             operator.status = "shape_mismatch".to_owned();
+            operator.compatibility_status = "shape_mismatch".to_owned();
             diagnostics.push(Diagnostic::error(
                 "E-STATE-SPACE-OP-SHAPE-001",
                 operator.line,
@@ -5580,10 +5634,80 @@ fn validate_linear_operator_shapes(
                 ),
                 Some("Make the matrix rows match the target vector and columns match the source vector."),
             ));
+        } else if operator
+            .row_quantity_kinds
+            .iter()
+            .chain(operator.column_quantity_kinds.iter())
+            .any(|quantity_kind| quantity_kind == "unknown")
+        {
+            operator.status = "member_unresolved".to_owned();
+            operator.compatibility_status = "member_unresolved".to_owned();
         } else {
             operator.status = "shape_checked".to_owned();
+            operator.compatibility_status =
+                "member_units_recorded_entry_units_unchecked".to_owned();
         }
     }
+}
+
+fn populate_linear_operator_compatibility(
+    systems: &[SystemInfo],
+    vectors: &[StateSpaceVectorInfo],
+    operator: &mut LinearOperatorInfo,
+) {
+    operator.row_members =
+        state_space_vector_members(vectors, &operator.system, &operator.to).unwrap_or_default();
+    operator.column_members =
+        state_space_vector_members(vectors, &operator.system, &operator.from).unwrap_or_default();
+    let row_is_derivative = operator.to.trim().starts_with("Derivative[");
+    operator.row_quantity_kinds = operator
+        .row_members
+        .iter()
+        .map(|member| {
+            system_variable(systems, &operator.system, member)
+                .map(|variable| {
+                    if row_is_derivative {
+                        format!("Derivative[{}]", variable.quantity_kind)
+                    } else {
+                        variable.quantity_kind.clone()
+                    }
+                })
+                .unwrap_or_else(|| "unknown".to_owned())
+        })
+        .collect();
+    operator.column_quantity_kinds = operator
+        .column_members
+        .iter()
+        .map(|member| {
+            system_variable(systems, &operator.system, member)
+                .map(|variable| variable.quantity_kind.clone())
+                .unwrap_or_else(|| "unknown".to_owned())
+        })
+        .collect();
+    operator.row_units = operator
+        .row_members
+        .iter()
+        .map(|member| {
+            system_variable(systems, &operator.system, member)
+                .map(|variable| {
+                    if row_is_derivative {
+                        format!("{}/s", variable.canonical_unit)
+                    } else {
+                        variable.canonical_unit.clone()
+                    }
+                })
+                .unwrap_or_else(|| "unknown".to_owned())
+        })
+        .collect();
+    operator.column_units = operator
+        .column_members
+        .iter()
+        .map(|member| {
+            system_variable(systems, &operator.system, member)
+                .map(|variable| variable.canonical_unit.clone())
+                .unwrap_or_else(|| "unknown".to_owned())
+        })
+        .collect();
 }
 
 fn state_space_vector_size(
@@ -5602,6 +5726,37 @@ fn state_space_vector_size(
         .iter()
         .find(|vector| vector.system == system && vector.vector_type == trimmed)
         .map(|vector| vector.members.len())
+}
+
+fn state_space_vector_members(
+    vectors: &[StateSpaceVectorInfo],
+    system: &str,
+    type_name: &str,
+) -> Option<Vec<String>> {
+    let trimmed = type_name.trim();
+    if let Some(inner) = trimmed
+        .strip_prefix("Derivative[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return state_space_vector_members(vectors, system, inner);
+    }
+    vectors
+        .iter()
+        .find(|vector| vector.system == system && vector.vector_type == trimmed)
+        .map(|vector| vector.members.clone())
+}
+
+fn system_variable<'a>(
+    systems: &'a [SystemInfo],
+    system_name: &str,
+    variable_name: &str,
+) -> Option<&'a SystemVariableInfo> {
+    systems
+        .iter()
+        .find(|system| system.name == system_name)?
+        .variables
+        .iter()
+        .find(|variable| variable.name == variable_name)
 }
 
 fn analyze_equation(

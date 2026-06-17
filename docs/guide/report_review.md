@@ -361,11 +361,14 @@ review.json
 ```
 
 These sections record `states`/`inputs`/`outputs` vector declarations and
-`LinearOperator[From -> To]` declarations for inspection. Runtime can also
+`LinearOperator[From -> To]` declarations for inspection. Operator artifacts
+include row/column members, quantity kinds, canonical units, and compatibility
+status after vector-member resolution and shape checks. Runtime can also
 materialize fixed-step state trajectories from shape-checked A/B operators,
 including multi-state Euler/RK4, discrete A/B execution, and TimeSeries
 materialization for bound input vector members. This remains an internal seed,
-not a general nonlinear, DAE, adaptive, or component-coupled simulation solver.
+not a general nonlinear, DAE, adaptive, matrix-entry unit-compatible, or
+component-coupled simulation solver.
 
 ## Uncertainty Metadata
 

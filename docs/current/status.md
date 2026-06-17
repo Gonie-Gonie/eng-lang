@@ -136,10 +136,12 @@ Internal seeds may have code, tests, examples, or artifacts on `main`, but they
 are not public stable workflows.
 
 - State-space metadata and runtime seeds: typed vector/operator declarations,
-  review metadata, shape-checked continuous/discrete A/B execution, multi-state
-  fixed-step Euler/RK4 trajectories with TimeSeries input materialization, and
-  report/IDE solver artifacts. They are not a supported general nonlinear,
-  DAE, adaptive, or component-coupled state-space simulation workflow.
+  vector-member diagnostics, operator quantity/unit summaries, review metadata,
+  shape-checked continuous/discrete A/B execution, multi-state fixed-step
+  Euler/RK4 trajectories with TimeSeries input materialization, and report/IDE
+  solver artifacts. They are not a supported general nonlinear, DAE, adaptive,
+  matrix-entry unit-compatible, or component-coupled state-space simulation
+  workflow.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,
   generated connection-equation metadata, residual graph metadata,
   domain-plan metadata, IDE component graph source-line navigation, and

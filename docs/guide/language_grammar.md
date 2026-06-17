@@ -1237,13 +1237,16 @@ system ThermalStateSpaceMetadata {
 ```
 
 `review.json` records `state_space_vectors` and `linear_operators` for IDE and
-review tooling. Linear operator matrix rows must match the target vector size,
-and columns must match the source vector size; mismatches use
-`E-STATE-SPACE-OP-SHAPE-001`. Runtime may materialize fixed-step state
-trajectories when shape-checked A/B operators are available, including
-multi-state continuous Euler/RK4 execution, discrete A/B execution, and
-TimeSeries materialization for bound input vector members. This internal track
-does not claim unit-compatible operator algebra, nonlinear, DAE, adaptive, or
+review tooling. Vector members must resolve to variables in the same system;
+unknown members use `E-STATE-SPACE-VECTOR-MEMBER-001`. Linear operator matrix
+rows must match the target vector size, and columns must match the source
+vector size; mismatches use `E-STATE-SPACE-OP-SHAPE-001`. Operator artifacts
+also include row/column member names, quantity kinds, units, and a compatibility
+status. Runtime may materialize fixed-step state trajectories when
+shape-checked A/B operators are available, including multi-state continuous
+Euler/RK4 execution, discrete A/B execution, and TimeSeries materialization for
+bound input vector members. This internal track does not claim matrix-entry
+unit-compatible operator algebra, nonlinear, DAE, adaptive, or
 component-coupled state-space solving.
 
 Domain/component shapes are documented separately in

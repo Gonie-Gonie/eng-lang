@@ -750,6 +750,13 @@ pub struct ReportLinearOperator {
     pub expression: Option<String>,
     pub row_count: usize,
     pub column_count: usize,
+    pub row_members: Vec<String>,
+    pub column_members: Vec<String>,
+    pub row_quantity_kinds: Vec<String>,
+    pub column_quantity_kinds: Vec<String>,
+    pub row_units: Vec<String>,
+    pub column_units: Vec<String>,
+    pub compatibility_status: String,
     pub status: String,
     pub line: usize,
 }
@@ -1560,6 +1567,13 @@ pub fn report_spec_from_report(
             expression: operator.expression.clone(),
             row_count: operator.row_count,
             column_count: operator.column_count,
+            row_members: operator.row_members.clone(),
+            column_members: operator.column_members.clone(),
+            row_quantity_kinds: operator.row_quantity_kinds.clone(),
+            column_quantity_kinds: operator.column_quantity_kinds.clone(),
+            row_units: operator.row_units.clone(),
+            column_units: operator.column_units.clone(),
+            compatibility_status: operator.compatibility_status.clone(),
             status: operator.status.clone(),
             line: operator.line,
         })
@@ -3601,6 +3615,28 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             "      \"column_count\": {},\n",
             operator.column_count
         ));
+        json.push_str("      \"row_members\": [");
+        push_json_string_array(&mut json, &operator.row_members);
+        json.push_str("],\n");
+        json.push_str("      \"column_members\": [");
+        push_json_string_array(&mut json, &operator.column_members);
+        json.push_str("],\n");
+        json.push_str("      \"row_quantity_kinds\": [");
+        push_json_string_array(&mut json, &operator.row_quantity_kinds);
+        json.push_str("],\n");
+        json.push_str("      \"column_quantity_kinds\": [");
+        push_json_string_array(&mut json, &operator.column_quantity_kinds);
+        json.push_str("],\n");
+        json.push_str("      \"row_units\": [");
+        push_json_string_array(&mut json, &operator.row_units);
+        json.push_str("],\n");
+        json.push_str("      \"column_units\": [");
+        push_json_string_array(&mut json, &operator.column_units);
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "      \"compatibility_status\": \"{}\",\n",
+            json_escape(&operator.compatibility_status)
+        ));
         json.push_str(&format!(
             "      \"status\": \"{}\",\n",
             json_escape(&operator.status)
@@ -5280,8 +5316,16 @@ fn render_state_space_section(spec: &ReportSpec) -> String {
         .linear_operators
         .iter()
         .map(|operator| {
+            let compatibility = format!(
+                "rows: {} [{}]; cols: {} [{}]; {}",
+                operator.row_quantity_kinds.join(", "),
+                operator.row_units.join(", "),
+                operator.column_quantity_kinds.join(", "),
+                operator.column_units.join(", "),
+                operator.compatibility_status
+            );
             format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{} -> {}</td><td>{}x{}</td><td><code>{}</code></td><td>{}</td></tr>",
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{} -> {}</td><td>{}x{}</td><td><code>{}</code></td><td>{}</td><td>{}</td></tr>",
                 operator.line,
                 html_escape(&operator.system),
                 html_escape(&operator.name),
@@ -5290,6 +5334,7 @@ fn render_state_space_section(spec: &ReportSpec) -> String {
                 operator.row_count,
                 operator.column_count,
                 html_escape(operator.expression.as_deref().unwrap_or("-")),
+                html_escape(&compatibility),
                 html_escape(&operator.status)
             )
         })
@@ -5302,7 +5347,7 @@ fn render_state_space_section(spec: &ReportSpec) -> String {
       <tbody>{}</tbody>
     </table>
     <table>
-      <thead><tr><th>Line</th><th>System</th><th>Operator</th><th>Mapping</th><th>Shape</th><th>Expression</th><th>Status</th></tr></thead>
+      <thead><tr><th>Line</th><th>System</th><th>Operator</th><th>Mapping</th><th>Shape</th><th>Expression</th><th>Compatibility</th><th>Status</th></tr></thead>
       <tbody>{}</tbody>
     </table>"#,
         if vector_rows.is_empty() {
@@ -5311,7 +5356,7 @@ fn render_state_space_section(spec: &ReportSpec) -> String {
             vector_rows
         },
         if operator_rows.is_empty() {
-            "<tr><td colspan=\"7\">No linear operators.</td></tr>".to_owned()
+            "<tr><td colspan=\"8\">No linear operators.</td></tr>".to_owned()
         } else {
             operator_rows
         }

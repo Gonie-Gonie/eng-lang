@@ -1784,6 +1784,26 @@ pub fn review_json(report: &CheckReport) -> String {
             "      \"column_count\": {},\n",
             operator.column_count
         ));
+        push_named_json_string_array(&mut json, "row_members", &operator.row_members, 6);
+        push_named_json_string_array(&mut json, "column_members", &operator.column_members, 6);
+        push_named_json_string_array(
+            &mut json,
+            "row_quantity_kinds",
+            &operator.row_quantity_kinds,
+            6,
+        );
+        push_named_json_string_array(
+            &mut json,
+            "column_quantity_kinds",
+            &operator.column_quantity_kinds,
+            6,
+        );
+        push_named_json_string_array(&mut json, "row_units", &operator.row_units, 6);
+        push_named_json_string_array(&mut json, "column_units", &operator.column_units, 6);
+        json.push_str(&format!(
+            "      \"compatibility_status\": \"{}\",\n",
+            json_escape(&operator.compatibility_status)
+        ));
         json.push_str(&format!(
             "      \"status\": \"{}\",\n",
             json_escape(&operator.status)
@@ -3794,6 +3814,13 @@ fn push_json_string_array(json: &mut String, values: &[String]) {
     }
 }
 
+fn push_named_json_string_array(json: &mut String, key: &str, values: &[String], indent: usize) {
+    let spaces = " ".repeat(indent);
+    json.push_str(&format!("{spaces}\"{key}\": ["));
+    push_json_string_array(json, values);
+    json.push_str("],\n");
+}
+
 fn write_component_graph_json(json: &mut String, program: &semantic::SemanticProgram) {
     let port_count = program
         .components
@@ -5547,11 +5574,36 @@ mod tests {
             report.semantic_program.linear_operators[0].status,
             "shape_checked"
         );
+        assert_eq!(
+            report.semantic_program.state_space_vectors[0].status,
+            "members_checked"
+        );
+        assert_eq!(
+            report.semantic_program.linear_operators[1].row_members,
+            vec!["T_zone".to_owned()]
+        );
+        assert_eq!(
+            report.semantic_program.linear_operators[1].column_members,
+            vec!["T_out".to_owned(), "Q_internal".to_owned()]
+        );
+        assert_eq!(
+            report.semantic_program.linear_operators[1].row_quantity_kinds,
+            vec!["Derivative[AbsoluteTemperature]".to_owned()]
+        );
+        assert_eq!(
+            report.semantic_program.linear_operators[1].column_units,
+            vec!["K".to_owned(), "W".to_owned()]
+        );
+        assert_eq!(
+            report.semantic_program.linear_operators[1].compatibility_status,
+            "member_units_recorded_entry_units_unchecked"
+        );
         assert_eq!(report.semantic_program.linear_operators[1].row_count, 1);
         assert_eq!(report.semantic_program.linear_operators[1].column_count, 2);
         let json = review_json(&report);
         assert!(json.contains("\"state_space_vectors\""));
         assert!(json.contains("\"linear_operators\""));
+        assert!(json.contains("\"row_quantity_kinds\""));
     }
 
     #[test]
@@ -5570,6 +5622,29 @@ mod tests {
         assert_eq!(
             report.semantic_program.linear_operators[0].status,
             "shape_mismatch"
+        );
+    }
+
+    #[test]
+    fn rejects_state_space_vector_unknown_member() {
+        let report = check_source(
+            "bad.eng",
+            "system BadStateSpace {\n    state T_zone: AbsoluteTemperature = 22 degC\n    states x = [MissingState]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[0.1]]\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-STATE-SPACE-VECTOR-MEMBER-001"));
+        assert_eq!(
+            report.semantic_program.state_space_vectors[0].status,
+            "member_unresolved"
+        );
+        assert_eq!(
+            report.semantic_program.linear_operators[0].compatibility_status,
+            "member_unresolved"
         );
     }
 
