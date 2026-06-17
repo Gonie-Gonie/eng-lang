@@ -16,6 +16,7 @@ Current supported scope:
 - pure scalar `fn` definitions with function-local bindings
 - relative file imports for importable declarations
 - system/equation syntax seeds
+- source-preserving `eng fmt` for current block syntax and official examples
 ```
 
 Deferred:
@@ -24,7 +25,7 @@ Deferred:
 - broader expression language
 - package/module import system
 - multi-return functions
-- full formatter policy
+- full AST-aware formatter policy
 - stable breaking-change policy
 - full language editioning
 ```

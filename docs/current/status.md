@@ -110,6 +110,12 @@ by the stable breaking-change policy.
   LSP hover metadata for where locals, and `with` option/display blocks for
   documented built-in workflow commands. Arbitrary user-defined command syntax
   and project-wide display policy remain planned.
+- `eng fmt <file.eng>` source-preserving formatter with stdout, `--check`, and
+  `--write` modes. The formatter covers current block indentation,
+  colon-label continuation indentation, trailing whitespace normalization,
+  comment preservation, string-brace handling, idempotence tests, and the
+  official-example formatter-clean gate. Full AST-aware style rewriting remains
+  planned.
 - Data-quality policies for the documented examples: missing-value handling,
   monotonic DateTime checks, constraint metadata, parse-failure artifacts, and
   unsupported unit conversion diagnostics. A general policy DSL remains
