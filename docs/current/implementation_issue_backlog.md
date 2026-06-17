@@ -156,6 +156,9 @@ Current coverage:
 - Fixed-step method dispatch now lives behind the solver module as
   `FixedStepMethod`/`solve_fixed_step_ode`, so runtime materialization calls the
   solver API instead of carrying a local dispatch wrapper.
+- `eng test examples` directly exercises the fixed-step ODE solver API for
+  two-state explicit Euler/RK4 trajectories, final partial timestep handling,
+  and non-finite RHS/update failure artifacts.
 - `TimeGrid::step_dt_s` drives fixed-step ODE and dynamic-component state
   updates, so non-divisible durations use a shorter final integration step
   rather than overshooting the requested duration.

@@ -1215,7 +1215,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         return ExitCode::from(2);
     }
     println!(
-        "ok: solver API linear residual, fixed-point, nonlinear Newton, and implicit-Euler DAE smokes produced numeric results and failure artifacts"
+        "ok: solver API linear residual, fixed-step ODE, fixed-point, nonlinear Newton, and implicit-Euler DAE smokes produced numeric results and failure artifacts"
     );
     if let Err(message) = solver_behavior_smoke() {
         eprintln!("{message}");
@@ -2828,6 +2828,79 @@ fn solver_algorithm_smoke() -> Result<(), String> {
         );
     }
 
+    let fixed_step_input = solver_smoke_fixed_step_input(
+        "FixedStepSmoke",
+        eng_runtime::solver::FixedStepMethod::ExplicitEuler,
+        vec![0.0, 10.0],
+    );
+    let mut euler_sample_times = Vec::new();
+    let euler = eng_runtime::solver::solve_fixed_step_ode(
+        eng_runtime::solver::FixedStepMethod::ExplicitEuler,
+        &fixed_step_input,
+        |sample| {
+            euler_sample_times.push(sample.time_s);
+            Ok(vec![2.0, -4.0])
+        },
+    )
+    .map_err(|failure| format!("fixed-step Euler smoke failed: {}", failure.message))?;
+    if euler.diagnostics.status != "computed"
+        || euler.diagnostics.iteration_count != 3
+        || euler_sample_times != vec![0.0, 1.0, 2.0]
+        || euler.output.state_trajectories.len() != 2
+        || euler.output.state_trajectories[0].values != vec![0.0, 2.0, 4.0, 5.0]
+        || euler.output.state_trajectories[1].values != vec![10.0, 6.0, 2.0, 0.0]
+    {
+        return Err(
+            "fixed-step Euler smoke did not produce the expected two-state trajectory".to_owned(),
+        );
+    }
+
+    let rk4_input = solver_smoke_fixed_step_input(
+        "FixedStepSmoke",
+        eng_runtime::solver::FixedStepMethod::Rk4,
+        vec![0.0, 10.0],
+    );
+    let rk4 = eng_runtime::solver::solve_fixed_step_ode(
+        eng_runtime::solver::FixedStepMethod::Rk4,
+        &rk4_input,
+        |_sample| Ok(vec![2.0, -4.0]),
+    )
+    .map_err(|failure| format!("fixed-step RK4 smoke failed: {}", failure.message))?;
+    if rk4.diagnostics.status != "computed"
+        || rk4.diagnostics.iteration_count != 3
+        || rk4.output.state_trajectories[0].final_value() != Some(5.0)
+        || rk4.output.state_trajectories[1].final_value() != Some(0.0)
+    {
+        return Err(
+            "fixed-step RK4 smoke did not honor the final partial TimeGrid step".to_owned(),
+        );
+    }
+
+    let fixed_step_rhs_failure = eng_runtime::solver::solve_fixed_step_ode(
+        eng_runtime::solver::FixedStepMethod::ExplicitEuler,
+        &fixed_step_input,
+        |_sample| Ok(vec![f64::NAN, 0.0]),
+    )
+    .unwrap_err();
+    if fixed_step_rhs_failure.code != "E-SOLVER-RHS-VALUE-INVALID" {
+        return Err("fixed-step RHS failure smoke returned the wrong failure code".to_owned());
+    }
+
+    let fixed_step_update_failure_input = solver_smoke_fixed_step_input(
+        "FixedStepOverflowSmoke",
+        eng_runtime::solver::FixedStepMethod::ExplicitEuler,
+        vec![f64::MAX, 0.0],
+    );
+    let fixed_step_update_failure = eng_runtime::solver::solve_fixed_step_ode(
+        eng_runtime::solver::FixedStepMethod::ExplicitEuler,
+        &fixed_step_update_failure_input,
+        |_sample| Ok(vec![f64::MAX, 0.0]),
+    )
+    .unwrap_err();
+    if fixed_step_update_failure.code != "E-SOLVER-STATE-VALUE-INVALID" {
+        return Err("fixed-step update failure smoke returned the wrong failure code".to_owned());
+    }
+
     let linear_graph = solver_smoke_linear_residual_graph(
         "linear.residual_graph",
         &["x", "y"],
@@ -3051,6 +3124,41 @@ fn solver_algorithm_smoke() -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn solver_smoke_fixed_step_input(
+    system: &str,
+    method: eng_runtime::solver::FixedStepMethod,
+    initial_state: Vec<f64>,
+) -> eng_runtime::solver::SolverInput {
+    eng_runtime::solver::SolverInput {
+        plan: eng_runtime::solver::SolverPlan::new(
+            system,
+            eng_runtime::solver::SimulationPlan {
+                states: vec!["x".to_owned(), "y".to_owned()],
+                outputs: vec!["x".to_owned(), "y".to_owned()],
+                inputs: Vec::new(),
+                parameters: Vec::new(),
+            },
+            eng_runtime::solver::SolverOptions::fixed_step(method.method_name(""), 1.0),
+        ),
+        time_grid: eng_runtime::solver::TimeGrid::fixed_step(2.5, 1.0).unwrap(),
+        state_layout: eng_runtime::solver::StateLayout::new(vec![
+            eng_runtime::solver::LayoutEntry::new(0, "x", "Dimensionless", "1", "1"),
+            eng_runtime::solver::LayoutEntry::new(1, "y", "Dimensionless", "1", "1"),
+        ]),
+        input_layout: eng_runtime::solver::InputLayout::default(),
+        parameter_layout: eng_runtime::solver::ParameterLayout::default(),
+        output_layout: eng_runtime::solver::OutputLayout {
+            entries: vec![
+                eng_runtime::solver::LayoutEntry::new(0, "x", "Dimensionless", "1", "1"),
+                eng_runtime::solver::LayoutEntry::new(1, "y", "Dimensionless", "1", "1"),
+            ],
+        },
+        initial_state,
+        inputs: Vec::new(),
+        parameters: Vec::new(),
+    }
 }
 
 type SolverSmokeLinearTerm<'a> = (usize, &'a str, f64);

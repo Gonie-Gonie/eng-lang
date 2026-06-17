@@ -17,8 +17,8 @@ release naming still follows [version_plan.md](version_plan.md).
 | SOLVER-101 | TimeSeries system input contract | Implemented for explicit supported TimeSeries thermal inputs. |
 | SOLVER-102 | Simulate command binding to SolverInput | Implemented for supported simulation workflows. |
 | SOLVER-103 | Multi-state RHS evaluator | Internal seed in fixed-step/state-space paths; general equation solving remains planned. |
-| SOLVER-104 | Explicit Euler multi-state solver | Internal seed for supported multi-state/state-space paths. |
-| SOLVER-105 | RK4 multi-state solver | Internal seed for supported multi-state/state-space paths. |
+| SOLVER-104 | Explicit Euler multi-state solver | Internal seed for supported multi-state/state-space paths and covered by CLI smoke for two-state trajectories, interval-start RHS sampling, final partial steps, and failure artifacts. |
+| SOLVER-105 | RK4 multi-state solver | Internal seed for supported multi-state/state-space paths and covered by CLI smoke for two-state trajectories, final partial steps, and failure artifacts. |
 | SOLVER-106 | Solver diagnostics and failure artifacts | Implemented across supported system/component solver artifacts. |
 | SOLVER-201 | StateVector/InputVector parser and semantic | Implemented for current state-space seed scope. |
 | SOLVER-202 | LinearOperator unit checking | Implemented for current dense/named-entry operator seed scope. |
