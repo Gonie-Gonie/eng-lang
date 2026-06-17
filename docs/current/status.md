@@ -144,9 +144,10 @@ are not public stable workflows.
 
 - State-space metadata and runtime seeds: typed vector/operator declarations,
   vector-member diagnostics, operator quantity/unit summaries, review metadata,
-  non-rectangular matrix diagnostics, unsupported unitful matrix-entry
-  diagnostics, inverse-time coefficient checks and per-second canonicalization
-  where source and derivative units are compatible, shape-checked
+  non-rectangular matrix diagnostics, non-numeric/non-finite matrix-entry
+  diagnostics, unsupported unitful matrix-entry diagnostics, inverse-time
+  coefficient checks and per-second canonicalization where source and
+  derivative units are compatible, shape-checked
   continuous/discrete A/B execution, report/review/IDE canonical operator matrix
   and named-entry summaries, multi-state fixed-step Euler/RK4
   trajectories with TimeSeries input materialization, `OutputLayout` preserved

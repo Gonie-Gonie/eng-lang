@@ -6296,6 +6296,50 @@ mod tests {
     }
 
     #[test]
+    fn rejects_non_numeric_state_space_operator_coefficients() {
+        let report = check_source(
+            "bad.eng",
+            "system BadStateSpace {\n    state T_zone: AbsoluteTemperature = 22 degC\n    states x = [T_zone]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[oops]]\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-STATE-SPACE-OP-ENTRY-VALUE-001"));
+        assert_eq!(
+            report.semantic_program.linear_operators[0].compatibility_status,
+            "entry_value_invalid"
+        );
+        assert!(report.semantic_program.linear_operators[0]
+            .canonical_matrix
+            .is_none());
+    }
+
+    #[test]
+    fn rejects_nonfinite_state_space_operator_coefficients() {
+        let report = check_source(
+            "bad.eng",
+            "system BadStateSpace {\n    state T_zone: AbsoluteTemperature = 22 degC\n    states x = [T_zone]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[NaN]]\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-STATE-SPACE-OP-ENTRY-VALUE-001"));
+        assert_eq!(
+            report.semantic_program.linear_operators[0].compatibility_status,
+            "entry_value_invalid"
+        );
+        assert!(report.semantic_program.linear_operators[0]
+            .canonical_matrix
+            .is_none());
+    }
+
+    #[test]
     fn rejects_incompatible_state_space_operator_coefficient_units() {
         let report = check_source(
             "bad.eng",

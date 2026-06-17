@@ -6213,20 +6213,98 @@ fn validate_linear_operator_shapes(
         {
             operator.status = "member_unresolved".to_owned();
             operator.compatibility_status = "member_unresolved".to_owned();
-        } else if !linear_operator_entries_have_supported_units(operator, diagnostics) {
-            operator.status = "entry_unit_unsupported".to_owned();
-            operator.compatibility_status = "entry_unit_unsupported".to_owned();
         } else {
-            let canonical_matrix = canonical_linear_operator_matrix(operator);
-            operator.canonical_entries = canonical_matrix
-                .as_deref()
-                .map(|matrix| canonical_linear_operator_entries(operator, matrix))
-                .unwrap_or_default();
-            operator.canonical_matrix = canonical_matrix;
-            operator.status = "shape_checked".to_owned();
-            operator.compatibility_status = "coefficient_units_checked".to_owned();
+            match validate_linear_operator_entries(operator, diagnostics) {
+                LinearOperatorEntryValidation::InvalidValue => {
+                    operator.status = "entry_value_invalid".to_owned();
+                    operator.compatibility_status = "entry_value_invalid".to_owned();
+                }
+                LinearOperatorEntryValidation::UnsupportedUnit => {
+                    operator.status = "entry_unit_unsupported".to_owned();
+                    operator.compatibility_status = "entry_unit_unsupported".to_owned();
+                }
+                LinearOperatorEntryValidation::Valid => {
+                    let canonical_matrix = canonical_linear_operator_matrix(operator);
+                    operator.canonical_entries = canonical_matrix
+                        .as_deref()
+                        .map(|matrix| canonical_linear_operator_entries(operator, matrix))
+                        .unwrap_or_default();
+                    operator.canonical_matrix = canonical_matrix;
+                    operator.status = "shape_checked".to_owned();
+                    operator.compatibility_status = "coefficient_units_checked".to_owned();
+                }
+            }
         }
     }
+}
+
+enum LinearOperatorEntryValidation {
+    Valid,
+    InvalidValue,
+    UnsupportedUnit,
+}
+
+fn validate_linear_operator_entries(
+    operator: &LinearOperatorInfo,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> LinearOperatorEntryValidation {
+    let Some(expression) = operator.expression.as_deref() else {
+        return LinearOperatorEntryValidation::Valid;
+    };
+    for (row_index, row) in matrix_rows(expression).iter().enumerate() {
+        for (column_index, entry) in row.iter().enumerate() {
+            let Some((value, unit)) = matrix_entry_number_with_optional_unit(entry) else {
+                diagnostics.push(Diagnostic::error(
+                    "E-STATE-SPACE-OP-ENTRY-VALUE-001",
+                    operator.line,
+                    &format!(
+                        "Linear operator `{}` entry ({}, {}) must be a numeric coefficient with an optional unit.",
+                        operator.name,
+                        row_index + 1,
+                        column_index + 1
+                    ),
+                    Some("Use entries such as `0.1`, `0.1 1/s`, `0.1 1/min`, or `0.1 1/h`."),
+                ));
+                return LinearOperatorEntryValidation::InvalidValue;
+            };
+            if !value.is_finite() {
+                diagnostics.push(Diagnostic::error(
+                    "E-STATE-SPACE-OP-ENTRY-VALUE-001",
+                    operator.line,
+                    &format!(
+                        "Linear operator `{}` entry ({}, {}) must be finite.",
+                        operator.name,
+                        row_index + 1,
+                        column_index + 1
+                    ),
+                    Some("Use a finite numeric coefficient before runtime state-space execution."),
+                ));
+                return LinearOperatorEntryValidation::InvalidValue;
+            }
+            let Some(unit) = unit else {
+                continue;
+            };
+            if linear_operator_entry_unit_supported(operator, row_index, column_index, &unit) {
+                continue;
+            }
+            diagnostics.push(Diagnostic::error(
+                "E-STATE-SPACE-OP-ENTRY-UNIT-001",
+                operator.line,
+                &format!(
+                    "Linear operator `{}` entry ({}, {}) uses unit `{}`; that coefficient unit is not supported for `{}` -> `{}`.",
+                    operator.name,
+                    row_index + 1,
+                    column_index + 1,
+                    unit,
+                    operator.from,
+                    operator.to
+                ),
+                Some("Use canonical numeric coefficients, or an inverse-time coefficient such as `1/s`, `1/min`, or `1/h` only when the target derivative unit is exactly the source unit per second."),
+            ));
+            return LinearOperatorEntryValidation::UnsupportedUnit;
+        }
+    }
+    LinearOperatorEntryValidation::Valid
 }
 
 fn linear_operator_rows_are_rectangular(
@@ -6257,41 +6335,6 @@ fn linear_operator_rows_are_rectangular(
         Some("Provide every row with the same number of entries as the source vector."),
     ));
     false
-}
-
-fn linear_operator_entries_have_supported_units(
-    operator: &LinearOperatorInfo,
-    diagnostics: &mut Vec<Diagnostic>,
-) -> bool {
-    let Some(expression) = operator.expression.as_deref() else {
-        return true;
-    };
-    for (row_index, row) in matrix_rows(expression).iter().enumerate() {
-        for (column_index, entry) in row.iter().enumerate() {
-            let Some((_value, Some(unit))) = matrix_entry_number_with_optional_unit(entry) else {
-                continue;
-            };
-            if linear_operator_entry_unit_supported(operator, row_index, column_index, &unit) {
-                continue;
-            }
-            diagnostics.push(Diagnostic::error(
-                "E-STATE-SPACE-OP-ENTRY-UNIT-001",
-                operator.line,
-                &format!(
-                    "Linear operator `{}` entry ({}, {}) uses unit `{}`; that coefficient unit is not supported for `{}` -> `{}`.",
-                    operator.name,
-                    row_index + 1,
-                    column_index + 1,
-                    unit,
-                    operator.from,
-                    operator.to
-                ),
-                Some("Use canonical numeric coefficients, or an inverse-time coefficient such as `1/s`, `1/min`, or `1/h` only when the target derivative unit is exactly the source unit per second."),
-            ));
-            return false;
-        }
-    }
-    true
 }
 
 fn linear_operator_entry_unit_supported(

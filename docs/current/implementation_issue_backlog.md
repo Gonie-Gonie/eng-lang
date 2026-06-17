@@ -270,8 +270,9 @@ Definition of Done:
   boundary is decided.
 - Current runtime covers `StateVector`, `InputVector`, and `LinearOperator`
   metadata, operator row/column checks, non-rectangular matrix diagnostics,
-  unsupported unitful matrix-entry diagnostics, inverse-time coefficient checks
-  and per-second canonicalization for derivative-compatible source units,
+  non-numeric/non-finite matrix-entry diagnostics, unsupported unitful
+  matrix-entry diagnostics, inverse-time coefficient checks and per-second
+  canonicalization for derivative-compatible source units,
   report/review/IDE canonical operator matrix and named-entry summaries,
   continuous and discrete A/B execution, multi-state fixed-step Euler/RK4
   trajectories, state trajectory TimeSeries, `OutputLayout` preservation across

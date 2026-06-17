@@ -101,9 +101,9 @@ Internal runtime seeds:
 - explicit Euler samples RHS values at the start of each fixed-step interval
 - fixed-step ODE, fixed-point, and dynamic-component seeds reject non-finite RHS/update values
 - state-space RHS/discrete seeds reject non-finite matrix, sampled-input, derivative, and updated-state values
-- state-space non-rectangular matrix diagnostics, unsupported unitful
-  coefficient diagnostics, and inverse-time derivative-coupling coefficient
-  canonicalization
+- state-space non-rectangular matrix diagnostics, non-numeric/non-finite and
+  unsupported unitful coefficient diagnostics, and inverse-time
+  derivative-coupling coefficient canonicalization
 - supplied analytic/JIT Jacobian hook for Newton
 - solver-API standalone implicit-Euler DAE seed over F(x, xdot, z, u, t, p)
 - optional DAE mass matrix and initial consistency checks
