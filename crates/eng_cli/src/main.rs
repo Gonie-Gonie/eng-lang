@@ -654,12 +654,19 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"linear_residual_satisfied_nonunique\"")
+                || !output.report_spec_json.contains("\"solver_result\"")
+                || !output.report_spec_json.contains("\"residual_norm\"")
+                || !output.report_spec_json.contains("\"failure_artifact\"")
                 || !output.report_spec_json.contains("\"domain_count\": 3")
                 || !output.report_spec_json.contains("\"multi_domain_preview\"")
                 || !output
                     .report_spec_json
                     .contains("\"not_production_multi_domain\"")
                 || !output.report_html.contains("Connection Constraint Check")
+                || !output.report_html.contains("Residual Norm")
+                || !output
+                    .report_html
+                    .contains("W-ASSEMBLY-UNDERDETERMINED-SEED")
                 || !output.report_html.contains("domain plan")
             {
                 eprintln!(

@@ -187,9 +187,9 @@ variable values, residual evaluations, and any failure/limitation artifact such 
 `W-ASSEMBLY-UNDERDETERMINED-SEED`.
 
 The matching `report_spec.json` keeps the compiler-owned assembly plan fields
-beside the runtime-updated solver status. Tooling should treat
-`multi_domain_preview` as a reviewable plan plus homogeneous constraint
-residual check, not as a production multi-domain physical solve.
+beside the runtime-updated `assembly_summary[].solver_result` detail. Tooling
+should treat `multi_domain_preview` as a reviewable plan plus homogeneous
+constraint residual check, not as a production multi-domain physical solve.
 
 ## `output_manifest.json`
 

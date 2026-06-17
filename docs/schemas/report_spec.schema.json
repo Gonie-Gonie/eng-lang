@@ -469,7 +469,8 @@
         "equations",
         "variables",
         "boundary",
-        "residual_graph"
+        "residual_graph",
+        "solver_result"
       ],
       "properties": {
         "name": { "type": "string" },
@@ -501,7 +502,79 @@
           "items": { "$ref": "#/$defs/assemblyVariable" }
         },
         "boundary": { "$ref": "#/$defs/assemblyBoundary" },
-        "residual_graph": { "$ref": "#/$defs/assemblyResidualGraph" }
+        "residual_graph": { "$ref": "#/$defs/assemblyResidualGraph" },
+        "solver_result": { "$ref": "#/$defs/componentSolverResultNullable" }
+      }
+    },
+    "componentSolverResultNullable": {
+      "anyOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/componentSolverResult" }
+      ]
+    },
+    "componentSolverResult": {
+      "type": "object",
+      "required": [
+        "status",
+        "method",
+        "reason",
+        "residual_norm",
+        "iteration_count",
+        "convergence_status",
+        "variables",
+        "residuals",
+        "failure_artifact"
+      ],
+      "properties": {
+        "status": { "type": "string" },
+        "method": { "type": "string" },
+        "reason": { "type": "string" },
+        "residual_norm": { "type": "number" },
+        "iteration_count": { "type": "integer", "minimum": 0 },
+        "convergence_status": { "type": "string" },
+        "variables": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/componentSolverVariable" }
+        },
+        "residuals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/componentSolverResidual" }
+        },
+        "failure_artifact": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/componentSolverFailure" }
+          ]
+        }
+      }
+    },
+    "componentSolverVariable": {
+      "type": "object",
+      "required": ["name", "role", "value", "unit", "status"],
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "value": { "type": "number" },
+        "unit": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    },
+    "componentSolverResidual": {
+      "type": "object",
+      "required": ["name", "expression", "value", "status"],
+      "properties": {
+        "name": { "type": "string" },
+        "expression": { "type": "string" },
+        "value": { "type": "number" },
+        "status": { "type": "string" }
+      }
+    },
+    "componentSolverFailure": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" }
       }
     },
     "assemblyDomainPlan": {

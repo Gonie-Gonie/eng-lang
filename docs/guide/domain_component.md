@@ -205,7 +205,8 @@ metadata without promoting it to the root runtime object store.
 The runtime result also includes `component_solutions` with residual values,
 convergence status, solved linear variables when a square system is available,
 zero-seed variables for skipped non-square graphs, and failure/limitation
-artifacts.
+artifacts. Runtime `report_spec.json` mirrors the same details under
+`assembly_summary[].solver_result`.
 
 The generated `report_spec.json` follows
 [`docs/schemas/report_spec.schema.json`](../schemas/report_spec.schema.json), so

@@ -494,7 +494,44 @@ pub struct ReportAssemblySummary {
     pub variables: Vec<ReportAssemblyVariable>,
     pub boundary: ReportAssemblyBoundary,
     pub residual_graph: ReportResidualGraph,
+    pub solver_result: Option<ReportComponentSolverResult>,
     pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComponentSolverResult {
+    pub status: String,
+    pub method: String,
+    pub reason: String,
+    pub residual_norm: f64,
+    pub iteration_count: usize,
+    pub convergence_status: String,
+    pub variables: Vec<ReportComponentSolverVariable>,
+    pub residuals: Vec<ReportComponentSolverResidual>,
+    pub failure_artifact: Option<ReportSolverFailureArtifact>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComponentSolverVariable {
+    pub name: String,
+    pub role: String,
+    pub value: f64,
+    pub unit: String,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComponentSolverResidual {
+    pub name: String,
+    pub expression: String,
+    pub value: f64,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportSolverFailureArtifact {
+    pub code: String,
+    pub message: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1269,6 +1306,7 @@ pub fn report_spec_from_report(
                     .collect(),
                 solver_plan: assembly.residual_graph.solver_plan.clone(),
             },
+            solver_result: None,
             line: assembly.line,
         })
         .collect::<Vec<_>>();
@@ -3101,7 +3139,9 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             json.push_str("          }");
         }
         json.push_str("\n        ]\n");
-        json.push_str("      }\n");
+        json.push_str("      },\n");
+        push_report_component_solver_result_json(&mut json, &assembly.solver_result, "      ");
+        json.push('\n');
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -3955,6 +3995,108 @@ fn push_report_solver_plan_json(json: &mut String, plan: &ReportSolverPlan, inde
         json.push_str(&format!("{indent}    }}"));
     }
     json.push_str(&format!("\n{indent}  ]\n"));
+    json.push_str(&format!("{indent}}}"));
+}
+
+fn push_report_component_solver_result_json(
+    json: &mut String,
+    result: &Option<ReportComponentSolverResult>,
+    indent: &str,
+) {
+    json.push_str(&format!("{indent}\"solver_result\": "));
+    let Some(result) = result else {
+        json.push_str("null");
+        return;
+    };
+
+    json.push_str("{\n");
+    json.push_str(&format!(
+        "{indent}  \"status\": \"{}\",\n",
+        json_escape(&result.status)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"method\": \"{}\",\n",
+        json_escape(&result.method)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"reason\": \"{}\",\n",
+        json_escape(&result.reason)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"residual_norm\": {},\n",
+        result.residual_norm
+    ));
+    json.push_str(&format!(
+        "{indent}  \"iteration_count\": {},\n",
+        result.iteration_count
+    ));
+    json.push_str(&format!(
+        "{indent}  \"convergence_status\": \"{}\",\n",
+        json_escape(&result.convergence_status)
+    ));
+    json.push_str(&format!("{indent}  \"variables\": [\n"));
+    for (index, variable) in result.variables.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}    {{\n"));
+        json.push_str(&format!(
+            "{indent}      \"name\": \"{}\",\n",
+            json_escape(&variable.name)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"role\": \"{}\",\n",
+            json_escape(&variable.role)
+        ));
+        json.push_str(&format!("{indent}      \"value\": {},\n", variable.value));
+        json.push_str(&format!(
+            "{indent}      \"unit\": \"{}\",\n",
+            json_escape(&variable.unit)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"status\": \"{}\"\n",
+            json_escape(&variable.status)
+        ));
+        json.push_str(&format!("{indent}    }}"));
+    }
+    json.push_str(&format!("\n{indent}  ],\n"));
+    json.push_str(&format!("{indent}  \"residuals\": [\n"));
+    for (index, residual) in result.residuals.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}    {{\n"));
+        json.push_str(&format!(
+            "{indent}      \"name\": \"{}\",\n",
+            json_escape(&residual.name)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"expression\": \"{}\",\n",
+            json_escape(&residual.expression)
+        ));
+        json.push_str(&format!("{indent}      \"value\": {},\n", residual.value));
+        json.push_str(&format!(
+            "{indent}      \"status\": \"{}\"\n",
+            json_escape(&residual.status)
+        ));
+        json.push_str(&format!("{indent}    }}"));
+    }
+    json.push_str(&format!("\n{indent}  ],\n"));
+    match &result.failure_artifact {
+        Some(failure) => {
+            json.push_str(&format!("{indent}  \"failure_artifact\": {{\n"));
+            json.push_str(&format!(
+                "{indent}    \"code\": \"{}\",\n",
+                json_escape(&failure.code)
+            ));
+            json.push_str(&format!(
+                "{indent}    \"message\": \"{}\"\n",
+                json_escape(&failure.message)
+            ));
+            json.push_str(&format!("{indent}  }}\n"));
+        }
+        None => json.push_str(&format!("{indent}  \"failure_artifact\": null\n")),
+    }
     json.push_str(&format!("{indent}}}"));
 }
 
@@ -5202,15 +5344,37 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
         .assemblies
         .iter()
         .map(|assembly| {
+            let solver_result = assembly.solver_result.as_ref();
+            let residual_norm = solver_result
+                .map(|result| format_alignment_number(result.residual_norm))
+                .unwrap_or_else(|| "-".to_owned());
+            let iteration_count = solver_result
+                .map(|result| result.iteration_count.to_string())
+                .unwrap_or_else(|| "-".to_owned());
+            let variables = solver_result
+                .map(format_component_solver_variables_summary)
+                .unwrap_or_else(|| "-".to_owned());
+            let largest_residual = solver_result
+                .and_then(format_component_largest_residual_summary)
+                .unwrap_or_else(|| "-".to_owned());
+            let failure = solver_result
+                .and_then(|result| result.failure_artifact.as_ref())
+                .map(|failure| failure.code.clone())
+                .unwrap_or_else(|| "-".to_owned());
             format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td><td>{}</td></tr>",
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
                 assembly.line,
                 html_escape(&assembly.name),
                 html_escape(&assembly.status),
                 assembly.boundary.equation_count,
                 assembly.boundary.unknown_count,
                 html_escape(&assembly.residual_graph.status),
-                html_escape(&assembly.residual_graph.solver_plan)
+                html_escape(&assembly.residual_graph.solver_plan),
+                html_escape(&residual_norm),
+                html_escape(&iteration_count),
+                html_escape(&variables),
+                html_escape(&largest_residual),
+                html_escape(&failure)
             )
         })
         .collect::<Vec<_>>()
@@ -5218,10 +5382,48 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
     format!(
         r#"<h2>Connection Constraint Check</h2>
     <table>
-      <thead><tr><th>Line</th><th>Assembly</th><th>Status</th><th>Eq/Unknowns</th><th>Convergence</th><th>Method</th></tr></thead>
+      <thead><tr><th>Line</th><th>Assembly</th><th>Status</th><th>Eq/Unknowns</th><th>Convergence</th><th>Method</th><th>Residual Norm</th><th>Iterations</th><th>Variables</th><th>Largest Residual</th><th>Failure</th></tr></thead>
       <tbody>{rows}</tbody>
     </table>"#
     )
+}
+
+fn format_component_solver_variables_summary(result: &ReportComponentSolverResult) -> String {
+    if result.variables.is_empty() {
+        return "-".to_owned();
+    }
+    let mut values = result
+        .variables
+        .iter()
+        .take(4)
+        .map(|variable| {
+            format!(
+                "{}={} {}",
+                variable.name,
+                format_alignment_number(variable.value),
+                variable.unit
+            )
+        })
+        .collect::<Vec<_>>();
+    if result.variables.len() > values.len() {
+        values.push(format!("+{} more", result.variables.len() - values.len()));
+    }
+    values.join(", ")
+}
+
+fn format_component_largest_residual_summary(
+    result: &ReportComponentSolverResult,
+) -> Option<String> {
+    let residual = result
+        .residuals
+        .iter()
+        .max_by(|left, right| left.value.abs().total_cmp(&right.value.abs()))?;
+    Some(format!(
+        "{}={} ({})",
+        residual.name,
+        format_alignment_number(residual.value),
+        residual.status
+    ))
 }
 
 fn html_escape(value: &str) -> String {
@@ -6100,6 +6302,7 @@ mod tests {
         assert_eq!(spec.assemblies[0].boundary.unknown_count, 4);
         assert_eq!(spec.assemblies[0].domain_count, 1);
         assert_eq!(spec.assemblies[0].domain_plans[0].domain, "Fluid[Water]");
+        assert!(spec.assemblies[0].solver_result.is_none());
         assert_eq!(
             spec.assemblies[0].solver_preview.status,
             "single_domain_preview"
@@ -6115,6 +6318,7 @@ mod tests {
         assert!(json.contains("\"delay_call_metadata_only\""));
         assert!(json.contains("\"connection_summary\""));
         assert!(json.contains("\"assembly_summary\""));
+        assert!(json.contains("\"solver_result\": null"));
         assert!(json.contains("\"component_graph\""));
         assert!(json.contains("\"medium_label\": \"Water\""));
         assert!(json.contains("\"source_span\""));

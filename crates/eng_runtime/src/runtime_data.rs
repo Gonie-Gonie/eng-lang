@@ -5,11 +5,13 @@ use eng_compiler::{
     all_quantity_completions, all_unit_infos, normalize_unit, CheckReport, SchemaColumn, SchemaInfo,
 };
 use eng_report::{
-    PlotAxis, PlotBin, PlotPoint, PlotSeries, PlotSpec, ReportComputedIntegration,
+    PlotAxis, PlotBin, PlotPoint, PlotSeries, PlotSpec, ReportComponentSolverResidual,
+    ReportComponentSolverResult, ReportComponentSolverVariable, ReportComputedIntegration,
     ReportComputedMetric, ReportComputedStatisticValue, ReportComputedStatistics,
-    ReportMlCoefficient, ReportMlInfo, ReportPolicyResult, ReportPolicyViolation, ReportSpec,
-    ReportSystemSolution, ReportSystemSolutionPoint, ReportTimeAlignment, ReportTimeAxis,
-    ReportUncertaintyInfo, ReportUncertaintyPropagationTerm, ReportValidationResult,
+    ReportMlCoefficient, ReportMlInfo, ReportPolicyResult, ReportPolicyViolation,
+    ReportSolverFailureArtifact, ReportSpec, ReportSystemSolution, ReportSystemSolutionPoint,
+    ReportTimeAlignment, ReportTimeAxis, ReportUncertaintyInfo, ReportUncertaintyPropagationTerm,
+    ReportValidationResult,
 };
 
 use crate::solver::{
@@ -71,6 +73,46 @@ fn report_system_solution(solution: &RuntimeSystemSolution) -> ReportSystemSolut
                 y: point.y,
             })
             .collect(),
+    }
+}
+
+fn report_component_solver_result(
+    solution: &RuntimeComponentSolution,
+) -> ReportComponentSolverResult {
+    ReportComponentSolverResult {
+        status: solution.status.clone(),
+        method: solution.method.clone(),
+        reason: solution.reason.clone(),
+        residual_norm: solution.residual_norm,
+        iteration_count: solution.iteration_count,
+        convergence_status: solution.convergence_status.clone(),
+        variables: solution
+            .variables
+            .iter()
+            .map(|variable| ReportComponentSolverVariable {
+                name: variable.name.clone(),
+                role: variable.role.clone(),
+                value: variable.value,
+                unit: variable.unit.clone(),
+                status: variable.status.clone(),
+            })
+            .collect(),
+        residuals: solution
+            .residuals
+            .iter()
+            .map(|residual| ReportComponentSolverResidual {
+                name: residual.name.clone(),
+                expression: residual.expression.clone(),
+                value: residual.value,
+                status: residual.status.clone(),
+            })
+            .collect(),
+        failure_artifact: solution.failure_artifact.as_ref().map(|failure| {
+            ReportSolverFailureArtifact {
+                code: failure.code.clone(),
+                message: failure.message.clone(),
+            }
+        }),
     }
 }
 
@@ -585,6 +627,7 @@ impl RuntimeData {
             if let Some(failure) = &solution.failure_artifact {
                 assembly.boundary.diagnostic_code = Some(failure.code.clone());
             }
+            assembly.solver_result = Some(report_component_solver_result(solution));
         }
     }
 }
@@ -5586,6 +5629,22 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         assert_eq!(
             spec.assemblies[0].residual_graph.status,
             "linear_residual_satisfied_nonunique"
+        );
+        let solver_result = spec.assemblies[0].solver_result.as_ref().unwrap();
+        assert_eq!(solver_result.status, "constraint_satisfied_nonunique");
+        assert_eq!(solver_result.method, "linear_residual_graph_shape_check");
+        assert_eq!(solver_result.residual_norm, 0.0);
+        assert_eq!(solver_result.variables.len(), 12);
+        assert!(solver_result
+            .residuals
+            .iter()
+            .any(|residual| residual.name == "connection_set_1.through_Q_conservation"));
+        assert_eq!(
+            solver_result
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("W-ASSEMBLY-UNDERDETERMINED-SEED")
         );
     }
 
