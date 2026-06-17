@@ -12,6 +12,12 @@ use eng_report::{
     ReportValidationResult,
 };
 
+use crate::solver::{
+    algorithms::fixed_step::solve_explicit_euler, InputLayout, LayoutEntry, ParameterLayout,
+    SimulationPlan, SolverInput, SolverOptions, SolverPlan, SolverResult, SolverScalar,
+    StateLayout, TimeGrid,
+};
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RuntimeData {
     pub tables: Vec<RuntimeTable>,
@@ -2578,17 +2584,99 @@ fn materialize_first_order_thermal_solution(
         .and_then(|series| series.points.last().map(|point| point.x))
         .filter(|duration| *duration > 0.0)
         .unwrap_or(3600.0);
-    let step_count = (duration_s / time_step_s).ceil() as usize;
-    let mut temperature_k = initial_temperature_k;
-    let mut points = vec![RuntimePoint {
-        x: 0.0,
-        y: display_variable_value(temperature_k, state),
-    }];
+    let time_grid = TimeGrid::fixed_step(duration_s, time_step_s).ok()?;
+    let solver_options = SolverOptions::fixed_step("explicit_euler_fixed_step", time_step_s);
+    let solver_plan = SolverPlan::new(
+        system.name.clone(),
+        SimulationPlan {
+            inputs: vec![outdoor_temperature.name.clone(), internal_heat.name.clone()],
+            outputs: vec![state.name.clone()],
+            states: vec![state.name.clone()],
+            parameters: vec![heat_capacity.name.clone(), conductance.name.clone()],
+        },
+        solver_options,
+    );
+    let solver_input = SolverInput {
+        plan: solver_plan,
+        time_grid,
+        state_layout: StateLayout::new(vec![LayoutEntry::new(
+            0,
+            state.name.clone(),
+            state.quantity_kind.clone(),
+            state.canonical_unit.clone(),
+            state.display_unit.clone(),
+        )]),
+        input_layout: InputLayout {
+            entries: vec![
+                LayoutEntry::new(
+                    0,
+                    outdoor_temperature.name.clone(),
+                    outdoor_quantity_kind.clone(),
+                    outdoor_temperature.canonical_unit.clone(),
+                    outdoor_temperature.display_unit.clone(),
+                ),
+                LayoutEntry::new(
+                    1,
+                    internal_heat.name.clone(),
+                    internal_heat.quantity_kind.clone(),
+                    internal_heat.canonical_unit.clone(),
+                    internal_heat.display_unit.clone(),
+                ),
+            ],
+        },
+        parameter_layout: ParameterLayout {
+            entries: vec![
+                LayoutEntry::new(
+                    0,
+                    heat_capacity.name.clone(),
+                    heat_capacity.quantity_kind.clone(),
+                    heat_capacity.canonical_unit.clone(),
+                    heat_capacity.display_unit.clone(),
+                ),
+                LayoutEntry::new(
+                    1,
+                    conductance.name.clone(),
+                    conductance.quantity_kind.clone(),
+                    conductance.canonical_unit.clone(),
+                    conductance.display_unit.clone(),
+                ),
+            ],
+        },
+        initial_state: vec![initial_temperature_k],
+        inputs: vec![
+            SolverScalar::new(
+                outdoor_temperature.name.clone(),
+                outdoor_quantity_kind.clone(),
+                outdoor_temperature.canonical_unit.clone(),
+                outdoor_temperature_k,
+            ),
+            SolverScalar::new(
+                internal_heat.name.clone(),
+                internal_heat.quantity_kind.clone(),
+                internal_heat.canonical_unit.clone(),
+                internal_heat_w,
+            ),
+        ],
+        parameters: vec![
+            SolverScalar::new(
+                heat_capacity.name.clone(),
+                heat_capacity.quantity_kind.clone(),
+                heat_capacity.canonical_unit.clone(),
+                heat_capacity_j_per_k,
+            ),
+            SolverScalar::new(
+                conductance.name.clone(),
+                conductance.quantity_kind.clone(),
+                conductance.canonical_unit.clone(),
+                conductance_w_per_k,
+            ),
+        ],
+    };
 
-    for step in 1..=step_count {
-        let time_s = (step as f64 * time_step_s).min(duration_s);
+    let solver_result = solve_explicit_euler(&solver_input, |sample| {
+        let temperature_k = sample.state[0];
         let outdoor_k = outdoor_series
-            .and_then(|series| interpolate_series_value(series, time_s))
+            .and_then(|series| interpolate_series_value(series, sample.time_s))
             .map(|value| {
                 convert_to_canonical_unit(
                     value,
@@ -2602,32 +2690,57 @@ fn materialize_first_order_thermal_solution(
         let derivative_k_per_s = (conductance_w_per_k * (outdoor_k - temperature_k)
             + internal_heat_w)
             / heat_capacity_j_per_k;
-        temperature_k += derivative_k_per_s * time_step_s;
-        points.push(RuntimePoint {
-            x: time_s,
-            y: display_variable_value(temperature_k, state),
-        });
-    }
+        Ok(vec![derivative_k_per_s])
+    })
+    .ok()?;
+
+    runtime_system_solution_from_solver_result(
+        system,
+        binding,
+        state,
+        &solver_result,
+        "recognized first-order thermal ODE and executed through SolverResult fixed-step one-state path",
+    )
+}
+
+fn runtime_system_solution_from_solver_result(
+    system: &eng_compiler::SystemInfo,
+    binding: Option<&str>,
+    state: &eng_compiler::SystemVariableInfo,
+    solver_result: &SolverResult,
+    reason: &str,
+) -> Option<RuntimeSystemSolution> {
+    let trajectory = solver_result.single_state()?;
+    let canonical_initial_value = trajectory.initial_value()?;
+    let canonical_final_value = trajectory.final_value()?;
+    let points = trajectory
+        .values
+        .iter()
+        .enumerate()
+        .map(|(index, value)| RuntimePoint {
+            x: solver_result.time_grid.step_time_s(index),
+            y: display_variable_value(*value, state),
+        })
+        .collect::<Vec<_>>();
 
     Some(RuntimeSystemSolution {
         system: system.name.clone(),
         binding: binding.map(str::to_owned),
-        status: "computed".to_owned(),
-        method: "explicit_euler_fixed_step".to_owned(),
-        reason: "recognized first-order thermal ODE and executed fixed-step one-state path"
-            .to_owned(),
-        state: state.name.clone(),
-        quantity_kind: state.quantity_kind.clone(),
+        status: solver_result.diagnostics.status.clone(),
+        method: solver_result.plan.options.method.clone(),
+        reason: reason.to_owned(),
+        state: trajectory.name.clone(),
+        quantity_kind: trajectory.quantity_kind.clone(),
         display_unit: state.display_unit.clone(),
-        canonical_unit: state.canonical_unit.clone(),
-        time_unit: "s".to_owned(),
-        duration_s,
-        time_step_s,
-        step_count,
-        initial_value: display_variable_value(initial_temperature_k, state),
-        final_value: display_variable_value(temperature_k, state),
-        canonical_initial_value: initial_temperature_k,
-        canonical_final_value: temperature_k,
+        canonical_unit: trajectory.canonical_unit.clone(),
+        time_unit: solver_result.time_grid.unit.clone(),
+        duration_s: solver_result.time_grid.duration_s,
+        time_step_s: solver_result.time_grid.timestep_s,
+        step_count: solver_result.time_grid.step_count,
+        initial_value: display_variable_value(canonical_initial_value, state),
+        final_value: display_variable_value(canonical_final_value, state),
+        canonical_initial_value,
+        canonical_final_value,
         points,
     })
 }
@@ -5181,6 +5294,8 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
             .unwrap();
         assert_eq!(solution.status, "computed");
         assert_eq!(solution.method, "explicit_euler_fixed_step");
+        assert!(solution.reason.contains("SolverResult"));
+        assert_eq!(solution.points.len(), solution.step_count + 1);
         assert!(runtime
             .time_series
             .iter()

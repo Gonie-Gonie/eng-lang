@@ -1,0 +1,116 @@
+use crate::solver::SolverFailure;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LinearSolveResult {
+    pub values: Vec<f64>,
+    pub residual_norm: f64,
+    pub status: String,
+}
+
+pub fn solve_dense_linear_system(
+    matrix: &[Vec<f64>],
+    rhs: &[f64],
+    tolerance: f64,
+) -> Result<LinearSolveResult, SolverFailure> {
+    let n = matrix.len();
+    if n == 0 || rhs.len() != n || matrix.iter().any(|row| row.len() != n) {
+        return Err(SolverFailure::new(
+            "E-LINEAR-SHAPE",
+            "linear solver requires a non-empty square matrix and matching RHS vector",
+        ));
+    }
+
+    let mut a = matrix.to_vec();
+    let mut b = rhs.to_vec();
+    for pivot_index in 0..n {
+        let mut best_row = pivot_index;
+        let mut best_abs = a[pivot_index][pivot_index].abs();
+        for (row_index, row) in a.iter().enumerate().skip(pivot_index + 1) {
+            let value_abs = row[pivot_index].abs();
+            if value_abs > best_abs {
+                best_row = row_index;
+                best_abs = value_abs;
+            }
+        }
+        if best_abs <= tolerance {
+            return Err(SolverFailure::new(
+                "E-LINEAR-SINGULAR",
+                "linear system is singular or ill-conditioned at the requested tolerance",
+            ));
+        }
+        if best_row != pivot_index {
+            a.swap(best_row, pivot_index);
+            b.swap(best_row, pivot_index);
+        }
+
+        let pivot = a[pivot_index][pivot_index];
+        for column_index in pivot_index..n {
+            a[pivot_index][column_index] /= pivot;
+        }
+        b[pivot_index] /= pivot;
+
+        for row_index in 0..n {
+            if row_index == pivot_index {
+                continue;
+            }
+            let factor = a[row_index][pivot_index];
+            if factor.abs() <= f64::EPSILON {
+                continue;
+            }
+            for column_index in pivot_index..n {
+                a[row_index][column_index] -= factor * a[pivot_index][column_index];
+            }
+            b[row_index] -= factor * b[pivot_index];
+        }
+    }
+
+    let residual_norm = matrix
+        .iter()
+        .zip(rhs.iter())
+        .map(|(row, expected)| {
+            let actual = row
+                .iter()
+                .zip(b.iter())
+                .map(|(coefficient, value)| coefficient * value)
+                .sum::<f64>();
+            let residual = actual - expected;
+            residual * residual
+        })
+        .sum::<f64>()
+        .sqrt();
+
+    Ok(LinearSolveResult {
+        values: b,
+        residual_norm,
+        status: if residual_norm <= tolerance {
+            "converged".to_owned()
+        } else {
+            "residual_above_tolerance".to_owned()
+        },
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn solves_small_dense_system() {
+        let result =
+            solve_dense_linear_system(&[vec![2.0, 1.0], vec![1.0, -1.0]], &[5.0, 1.0], 1e-9)
+                .unwrap();
+
+        assert!((result.values[0] - 2.0).abs() <= 1e-9);
+        assert!((result.values[1] - 1.0).abs() <= 1e-9);
+        assert_eq!(result.status, "converged");
+    }
+
+    #[test]
+    fn reports_singular_system() {
+        let failure =
+            solve_dense_linear_system(&[vec![1.0, 2.0], vec![2.0, 4.0]], &[3.0, 6.0], 1e-9)
+                .unwrap_err();
+
+        assert_eq!(failure.code, "E-LINEAR-SINGULAR");
+    }
+}

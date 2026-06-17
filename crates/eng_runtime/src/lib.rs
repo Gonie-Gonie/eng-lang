@@ -13,6 +13,7 @@ use eng_compiler::{
 };
 
 mod runtime_data;
+pub mod solver;
 mod vm;
 
 use runtime_data::{
