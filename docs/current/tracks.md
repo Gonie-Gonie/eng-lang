@@ -193,6 +193,7 @@ Internal implementation seeds on `main`:
 - hot-kernel candidate estimates
 - interpreter kernel IR and executor correctness tests for arithmetic,
   integration, residual, Jacobian, and Newton-step kernels
+- component assembly residual graph lowering into scalar residual KernelIr
 - per-candidate executor/fallback reason metadata
 ```
 

@@ -800,6 +800,39 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(1);
         }
     }
+    let thermal_assembly_report = match check_file(
+        "examples/official/21_thermal_component_assembly/main.eng",
+        &CheckOptions::default(),
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    let thermal_assembly_jit_plan = eng_jit::plan_for_report(&thermal_assembly_report);
+    if !thermal_assembly_jit_plan
+        .candidates
+        .iter()
+        .any(|candidate| {
+            candidate.kind == "component_residual_graph"
+                && candidate.lowering_status == "lowerable_to_numeric_kernel_plan"
+                && candidate.estimate.input_count == 4
+                && candidate.estimate.output_count == 4
+                && candidate
+                    .operations
+                    .iter()
+                    .any(|operation| operation == "finite_difference_jacobian_ready")
+        })
+    {
+        eprintln!(
+            "expected official thermal component assembly example to expose a lowerable component residual kernel candidate"
+        );
+        return ExitCode::from(2);
+    }
+    println!(
+        "ok: examples/official/21_thermal_component_assembly/main.eng produced component residual kernel candidate"
+    );
 
     let bad = match check_file(
         "examples/05_error_messages/unit_mismatch.eng",

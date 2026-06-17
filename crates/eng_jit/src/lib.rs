@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use eng_compiler::CheckReport;
+use eng_compiler::{CheckReport, ComponentAssemblyInfo};
 use serde_json::{json, Value};
 
 pub const KERNEL_PLAN_FORMAT: &str = "eng-kernel-plan-v1";
@@ -306,6 +306,37 @@ pub fn plan_for_report_with_options(
         }
     }
 
+    for assembly in &report.semantic_program.component_assemblies {
+        if component_residual_ir_from_assembly(assembly).is_none() {
+            continue;
+        }
+        push_candidate(
+            &mut candidates,
+            &mut seen,
+            KernelCandidate {
+                name: format!("{}:{}", assembly.name, assembly.residual_graph.name),
+                kind: "component_residual_graph".to_owned(),
+                line: assembly.line,
+                source: assembly
+                    .equations
+                    .iter()
+                    .map(|equation| equation.residual.as_str())
+                    .collect::<Vec<_>>()
+                    .join("; "),
+                reason:
+                    "component assembly residual graph lowers to a scalar residual evaluator kernel"
+                        .to_owned(),
+                lowering_status: "lowerable_to_numeric_kernel_plan".to_owned(),
+                operations: vec![
+                    format!("load_component_variables:{}", assembly.variables.len()),
+                    format!("evaluate_component_residuals:{}", assembly.equations.len()),
+                    "finite_difference_jacobian_ready".to_owned(),
+                ],
+                estimate: component_residual_estimate(assembly),
+            },
+        );
+    }
+
     candidates.sort_by(|left, right| {
         left.line
             .cmp(&right.line)
@@ -492,6 +523,76 @@ pub fn execute_newton_step_kernel(
         step,
         residual_norm,
     })
+}
+
+pub fn component_residual_ir_from_assembly(assembly: &ComponentAssemblyInfo) -> Option<KernelIr> {
+    if assembly.variables.is_empty() || assembly.equations.is_empty() {
+        return None;
+    }
+    let variable_indices = assembly
+        .variables
+        .iter()
+        .enumerate()
+        .map(|(index, variable)| (variable.name.as_str(), index))
+        .collect::<BTreeMap<_, _>>();
+    let mut instructions = Vec::new();
+    let mut next_register = 0;
+
+    for (output, equation) in assembly.equations.iter().enumerate() {
+        let mut accumulator = None;
+        for (dependency_index, dependency) in equation.dependencies.iter().enumerate() {
+            let input = *variable_indices.get(dependency.as_str())?;
+            let load_register = next_register;
+            next_register += 1;
+            instructions.push(KernelInstruction::LoadScalarInput {
+                input,
+                register: load_register,
+            });
+            let coefficient = component_residual_coefficient(&equation.kind, dependency_index);
+            accumulator = Some(append_signed_term(
+                &mut instructions,
+                &mut next_register,
+                accumulator,
+                load_register,
+                coefficient,
+            )?);
+        }
+        let mut residual_register = accumulator?;
+        if let Some(rhs) = equation.rhs.as_deref().and_then(parse_leading_number) {
+            if rhs.abs() > f64::EPSILON {
+                let rhs_register = next_register;
+                next_register += 1;
+                instructions.push(KernelInstruction::LoadConstant {
+                    value: rhs,
+                    register: rhs_register,
+                });
+                let target = next_register;
+                next_register += 1;
+                instructions.push(KernelInstruction::Binary {
+                    op: KernelBinaryOp::Sub,
+                    left: residual_register,
+                    right: rhs_register,
+                    target,
+                });
+                residual_register = target;
+            }
+        }
+        instructions.push(KernelInstruction::StoreScalar {
+            register: residual_register,
+            output,
+        });
+    }
+
+    Some(
+        KernelIr::new(
+            format!("{}:{}", assembly.name, assembly.residual_graph.name),
+            "component_residual_graph",
+            0,
+            assembly.equations.len(),
+            instructions,
+        )
+        .with_scalar_input_count(assembly.variables.len()),
+    )
 }
 
 fn push_candidate(
@@ -1022,6 +1123,117 @@ fn system_residual_estimate(expression: &str, operations: &[String]) -> KernelEs
     }
 }
 
+fn component_residual_estimate(assembly: &ComponentAssemblyInfo) -> KernelEstimate {
+    let dependency_count = assembly
+        .equations
+        .iter()
+        .map(|equation| equation.dependencies.len())
+        .sum::<usize>();
+    let rhs_count = assembly
+        .equations
+        .iter()
+        .filter(|equation| equation.rhs.is_some())
+        .count();
+    KernelEstimate {
+        estimated_rows: None,
+        input_count: assembly.variables.len(),
+        output_count: assembly.equations.len(),
+        operation_count: (dependency_count + rhs_count).max(1),
+        scan_count: 0,
+        complexity: "O(equations + dependencies) per residual evaluation".to_owned(),
+        notes: vec![
+            format!("{} component variable input(s)", assembly.variables.len()),
+            format!("{} residual output(s)", assembly.equations.len()),
+            format!("residual graph status: {}", assembly.residual_graph.status),
+            format!("solver plan: {}", assembly.residual_graph.solver_plan),
+        ],
+    }
+}
+
+fn component_residual_coefficient(kind: &str, dependency_index: usize) -> f64 {
+    match kind {
+        "across_equality" if dependency_index == 1 => -1.0,
+        _ => 1.0,
+    }
+}
+
+fn append_signed_term(
+    instructions: &mut Vec<KernelInstruction>,
+    next_register: &mut usize,
+    accumulator: Option<usize>,
+    value_register: usize,
+    coefficient: f64,
+) -> Option<usize> {
+    if !coefficient.is_finite() {
+        return None;
+    }
+    if coefficient.abs() <= f64::EPSILON {
+        return accumulator;
+    }
+
+    let sign = if coefficient < 0.0 { -1.0 } else { 1.0 };
+    let magnitude = coefficient.abs();
+    let term_register = if (magnitude - 1.0).abs() <= f64::EPSILON {
+        value_register
+    } else {
+        let coefficient_register = *next_register;
+        *next_register += 1;
+        instructions.push(KernelInstruction::LoadConstant {
+            value: magnitude,
+            register: coefficient_register,
+        });
+        let target = *next_register;
+        *next_register += 1;
+        instructions.push(KernelInstruction::Binary {
+            op: KernelBinaryOp::Mul,
+            left: value_register,
+            right: coefficient_register,
+            target,
+        });
+        target
+    };
+
+    match accumulator {
+        Some(accumulator) => {
+            let target = *next_register;
+            *next_register += 1;
+            instructions.push(KernelInstruction::Binary {
+                op: if sign > 0.0 {
+                    KernelBinaryOp::Add
+                } else {
+                    KernelBinaryOp::Sub
+                },
+                left: accumulator,
+                right: term_register,
+                target,
+            });
+            Some(target)
+        }
+        None if sign > 0.0 => Some(term_register),
+        None => {
+            let zero_register = *next_register;
+            *next_register += 1;
+            instructions.push(KernelInstruction::LoadConstant {
+                value: 0.0,
+                register: zero_register,
+            });
+            let target = *next_register;
+            *next_register += 1;
+            instructions.push(KernelInstruction::Binary {
+                op: KernelBinaryOp::Sub,
+                left: zero_register,
+                right: term_register,
+                target,
+            });
+            Some(target)
+        }
+    }
+}
+
+fn parse_leading_number(text: &str) -> Option<f64> {
+    text.split_whitespace().next()?.parse::<f64>().ok()
+}
+
 fn expression_source_count(expression: &str) -> usize {
     expression_tokens(expression)
         .filter(|token| {
@@ -1100,6 +1312,92 @@ mod tests {
             NATIVE_PREVIEW_BACKEND
         );
         assert_eq!(native_plan.backend_selection.status, "not_available");
+    }
+
+    #[test]
+    fn detects_component_assembly_residual_kernel_candidate() {
+        let report = check_file(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../examples/official/21_thermal_component_assembly/main.eng"),
+            &CheckOptions::default(),
+        )
+        .expect("official thermal component assembly example should check");
+        let plan = plan_for_report(&report);
+        let candidate = plan
+            .candidates
+            .iter()
+            .find(|candidate| candidate.kind == "component_residual_graph")
+            .expect("component residual graph candidate should exist");
+
+        assert_eq!(candidate.name, "component_graph:component_residual_graph");
+        assert_eq!(
+            candidate.lowering_status,
+            "lowerable_to_numeric_kernel_plan"
+        );
+        assert_eq!(candidate.estimate.input_count, 4);
+        assert_eq!(candidate.estimate.output_count, 4);
+        assert!(candidate
+            .operations
+            .contains(&"finite_difference_jacobian_ready".to_owned()));
+
+        let json = plan_json(&plan);
+        let candidates = json["candidates"].as_array().unwrap();
+        let component_candidate = candidates
+            .iter()
+            .find(|candidate| candidate["kind"] == "component_residual_graph")
+            .expect("component residual graph candidate JSON should exist");
+        assert_eq!(
+            component_candidate["executor"]["status"],
+            "interpreter_supported"
+        );
+    }
+
+    #[test]
+    fn lowers_component_assembly_residual_kernel_ir() {
+        let report = check_file(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../examples/official/21_thermal_component_assembly/main.eng"),
+            &CheckOptions::default(),
+        )
+        .expect("official thermal component assembly example should check");
+        let assembly = report
+            .semantic_program
+            .component_assemblies
+            .first()
+            .expect("component assembly should exist");
+        let ir = component_residual_ir_from_assembly(assembly)
+            .expect("component residual graph should lower to IR");
+
+        assert_eq!(ir.kind, "component_residual_graph");
+        assert_eq!(ir.input_count, 0);
+        assert_eq!(ir.scalar_input_count, 4);
+        assert_eq!(ir.output_count, 4);
+
+        let output = execute_interpreter_kernel(
+            &ir,
+            &KernelExecutionInput {
+                series_inputs: Vec::new(),
+                scalar_inputs: vec![22.0, 1.0, 22.0, -1.0],
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            output.outputs,
+            vec![
+                KernelOutputValue::Scalar(0.0),
+                KernelOutputValue::Scalar(0.0),
+                KernelOutputValue::Scalar(0.0),
+                KernelOutputValue::Scalar(0.0)
+            ]
+        );
+
+        let jacobian =
+            execute_finite_difference_jacobian_kernel(&ir, &[22.0, 1.0, 22.0, -1.0], 1e-6).unwrap();
+        assert!((jacobian.values[0][0] - 1.0).abs() < 1e-8);
+        assert!((jacobian.values[0][2] + 1.0).abs() < 1e-8);
+        assert!((jacobian.values[1][1] - 1.0).abs() < 1e-8);
+        assert!((jacobian.values[1][3] - 1.0).abs() < 1e-8);
+        assert!((jacobian.values[3][1] - 1.0).abs() < 1e-8);
     }
 
     #[test]
