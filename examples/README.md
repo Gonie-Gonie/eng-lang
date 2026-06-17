@@ -137,6 +137,11 @@ internal/25_component_behavior_nodes
   Valid component-local delay, Predictor, and external adapter expressions.
   Review/report/IDE artifacts expose behavior-node metadata and explicit
   solver-integration limitations.
+
+internal/26_state_space_discrete
+  Discrete two-state state-space execution with `next(x) eq A * x + B * u`,
+  scalar input materialization, canonical operator matrices, and two emitted
+  state trajectories.
 ```
 
 ## Compatibility Regression Examples

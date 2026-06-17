@@ -179,6 +179,7 @@ task_types:
     - docs/current/tracks.md
     - docs/guide/language_grammar.md
     - examples/internal/18_state_space_metadata/
+    - examples/internal/26_state_space_discrete/
     - crates/eng_compiler/src/parser.rs
     - crates/eng_compiler/src/semantic.rs
     - crates/eng_compiler/src/lib.rs

@@ -148,6 +148,8 @@ are not public stable workflows.
   `SolverInput`/`SolverResult`, and report/review/result/IDE solver-inspector
   artifacts for state/input/parameter and output lists, timestep, tolerance,
   iteration count, convergence status, failure reason, and trajectory points.
+  Continuous and discrete state-space fixture paths are covered by the example
+  smoke gate.
   They are not a supported general nonlinear, DAE, adaptive, broad
   operator-algebra, or component-coupled state-space simulation workflow.
 - System simulate diagnostics for missing inputs, non-TimeSeries bindings,

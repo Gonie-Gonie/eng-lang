@@ -563,6 +563,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             &[
                 "examples/internal/18_state_space_metadata/main.eng",
                 "examples/internal/21_unsupported_system_shape/main.eng",
+                "examples/internal/26_state_space_discrete/main.eng",
             ],
         ),
         (
@@ -1921,6 +1922,45 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("unsupported system-shape example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
+        Path::new("examples/internal/26_state_space_discrete/main.eng"),
+        Path::new("build/test-state-space-discrete"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
+            let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
+            let report_spec = std::fs::read_to_string(output.report_spec_path).unwrap_or_default();
+            let report_html = std::fs::read_to_string(output.report_path).unwrap_or_default();
+            if !review.contains("\"canonical_matrix\"")
+                || !review.contains("\"name\": \"T_air\"")
+                || !review.contains("\"name\": \"T_wall\"")
+                || !result.contains("\"binding\": \"sim\"")
+                || !result.contains("\"state\": \"T_air\"")
+                || !result.contains("\"state\": \"T_wall\"")
+                || !result.contains("\"method\": \"state_space_discrete_fixed_step\"")
+                || !result.contains("recognized discrete-time state-space")
+                || !report_spec.contains("\"canonical_matrix\"")
+                || !report_spec.contains("\"solver_results\"")
+                || !report_spec.contains("\"state_space_discrete_fixed_step\"")
+                || !report_html.contains("State-Space Metadata")
+                || !report_html.contains("Canonical Matrix")
+                || !report_html.contains("state_space_discrete_fixed_step")
+            {
+                eprintln!(
+                    "expected discrete state-space fixture to produce two state trajectories and operator matrices across artifacts"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/internal/26_state_space_discrete/main.eng produced discrete state-space solver artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("discrete state-space fixture failed: {error}");
             return ExitCode::from(2);
         }
     }

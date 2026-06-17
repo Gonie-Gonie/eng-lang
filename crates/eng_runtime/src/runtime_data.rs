@@ -5703,7 +5703,7 @@ report {
 }
 "#;
         let report = eng_compiler::check_source("ok.eng", source, &CheckOptions::default());
-        let runtime = materialize_runtime_data(&report, source);
+        let runtime = materialize_runtime_data(&report, &source);
         let mut plot_spec = eng_report::plot_spec_from_report(&report);
         runtime.apply_plot_spec(&report, &mut plot_spec);
 
@@ -5755,7 +5755,7 @@ report {
 Q_unc = propagate(Q_missing, method=linear, samples=8)
 "#;
         let report = eng_compiler::check_source("bad.eng", source, &CheckOptions::default());
-        let runtime = materialize_runtime_data(&report, source);
+        let runtime = materialize_runtime_data(&report, &source);
 
         assert!(report.has_errors());
         assert_eq!(runtime.uncertainties.len(), 1);
@@ -6205,33 +6205,12 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
 
     #[test]
     fn materializes_discrete_state_space_solution() {
-        let source = r#"
-system DiscreteTwoState {
-    state T_air: AbsoluteTemperature = 20 degC
-    state T_wall: AbsoluteTemperature = 20 degC
-    input Q_hvac: HeatRate = 1000 W
-
-    states x = [T_air, T_wall]
-    inputs u = [Q_hvac]
-    outputs y = [T_air, T_wall]
-
-    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[1.0, 0.0]; [0.0, 1.0]]
-    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.001]; [0.002]]
-
-    equation {
-        next(x) eq A * x + B * u
-    }
-}
-
-sim = simulate DiscreteTwoState
-with {
-    timestep = 10 min
-    solver = fixed_step
-}
-"#;
-        let report = eng_compiler::check_source("ok.eng", source, &CheckOptions::default());
-        assert!(!report.has_errors());
-        let runtime = materialize_runtime_data(&report, source);
+        let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/internal/26_state_space_discrete/main.eng");
+        let source = std::fs::read_to_string(&source_path).unwrap();
+        let report = check_file(&source_path, &CheckOptions::default()).unwrap();
+        let runtime = materialize_runtime_data(&report, &source);
 
         let sim_solutions = runtime
             .system_solutions
