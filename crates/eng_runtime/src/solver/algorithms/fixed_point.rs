@@ -1,4 +1,4 @@
-use crate::solver::SolverFailure;
+use crate::solver::{euclidean_norm, SolverFailure};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FixedPointOptions {
@@ -72,14 +72,14 @@ where
             ));
         }
         ensure_finite_values("E-FIXED-POINT-VALUE", "fixed-point update", &next)?;
-        let mut residual_norm = 0.0;
+        let mut residuals = Vec::with_capacity(values.len());
         for (value, next_value) in values.iter_mut().zip(next) {
             let relaxed = *value + options.relaxation * (next_value - *value);
             let residual = relaxed - *value;
-            residual_norm += residual * residual;
+            residuals.push(residual);
             *value = relaxed;
         }
-        residual_norm = residual_norm.sqrt();
+        let residual_norm = euclidean_norm(&residuals);
         residual_history.push(residual_norm);
         if residual_norm <= options.tolerance {
             return Ok(FixedPointResult {

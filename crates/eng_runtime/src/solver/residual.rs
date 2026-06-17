@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{assembly::EquationAssembly, SolverFailure};
+use super::{assembly::EquationAssembly, euclidean_norm, SolverFailure};
 
 pub const DEFAULT_RESIDUAL_TOLERANCE: f64 = 1e-9;
 
@@ -229,11 +229,11 @@ impl ResidualEvaluator for ResidualGraph {
                 }
             })
             .collect::<Vec<_>>();
-        let residual_norm = values
+        let normalized_residuals = values
             .iter()
-            .map(|value| value.normalized_value * value.normalized_value)
-            .sum::<f64>()
-            .sqrt();
+            .map(|value| value.normalized_value)
+            .collect::<Vec<_>>();
+        let residual_norm = euclidean_norm(&normalized_residuals);
         ResidualOutput {
             values,
             residual_norm,

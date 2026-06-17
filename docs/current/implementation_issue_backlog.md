@@ -161,6 +161,8 @@ Current coverage:
   tolerances before pivoting.
 - Newton solver seeds reject non-finite initial guesses before residual or
   Jacobian evaluation.
+- Solver residual diagnostics use a shared scaled Euclidean norm helper to
+  avoid overflow for large finite residual values.
 - Fixed-step ODE, fixed-point, and dynamic-component solver seeds reject
   non-finite RHS/update values before those values can enter trajectories or
   algebraic artifacts.

@@ -1,4 +1,4 @@
-use crate::solver::SolverFailure;
+use crate::solver::{euclidean_norm, SolverFailure};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LinearSolveResult {
@@ -83,7 +83,7 @@ pub fn solve_dense_linear_system(
         }
     }
 
-    let residual_norm = matrix
+    let residuals = matrix
         .iter()
         .zip(rhs.iter())
         .map(|(row, expected)| {
@@ -92,11 +92,10 @@ pub fn solve_dense_linear_system(
                 .zip(b.iter())
                 .map(|(coefficient, value)| coefficient * value)
                 .sum::<f64>();
-            let residual = actual - expected;
-            residual * residual
+            actual - expected
         })
-        .sum::<f64>()
-        .sqrt();
+        .collect::<Vec<_>>();
+    let residual_norm = euclidean_norm(&residuals);
 
     Ok(LinearSolveResult {
         values: b,

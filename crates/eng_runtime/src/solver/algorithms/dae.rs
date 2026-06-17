@@ -1,6 +1,6 @@
 use crate::solver::{
     algorithms::nonlinear::{solve_newton, NewtonOptions, NewtonResult},
-    SolverFailure,
+    euclidean_norm, SolverFailure,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -434,7 +434,7 @@ fn apply_mass_matrix(
 }
 
 fn norm(values: &[f64]) -> f64 {
-    values.iter().map(|value| value * value).sum::<f64>().sqrt()
+    euclidean_norm(values)
 }
 
 #[cfg(test)]

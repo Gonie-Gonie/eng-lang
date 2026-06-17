@@ -1,4 +1,4 @@
-use crate::solver::{algorithms::linear::solve_dense_linear_system, SolverFailure};
+use crate::solver::{algorithms::linear::solve_dense_linear_system, euclidean_norm, SolverFailure};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NewtonOptions {
@@ -333,7 +333,7 @@ where
 }
 
 fn norm(values: &[f64]) -> f64 {
-    values.iter().map(|value| value * value).sum::<f64>().sqrt()
+    euclidean_norm(values)
 }
 
 fn largest_residual(values: &[f64]) -> Option<NewtonLargestResidual> {

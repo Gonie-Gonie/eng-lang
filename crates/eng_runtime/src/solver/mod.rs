@@ -9,6 +9,36 @@ pub mod result;
 pub mod state_space;
 pub mod thermal;
 
+pub(crate) fn euclidean_norm(values: &[f64]) -> f64 {
+    let mut scale = 0.0;
+    let mut sum_squares = 1.0;
+    let mut saw_nonzero = false;
+
+    for abs_value in values.iter().map(|value| value.abs()) {
+        if abs_value == 0.0 {
+            continue;
+        }
+        if !abs_value.is_finite() {
+            return abs_value;
+        }
+        saw_nonzero = true;
+        if scale < abs_value {
+            let ratio = scale / abs_value;
+            sum_squares = 1.0 + sum_squares * ratio * ratio;
+            scale = abs_value;
+        } else {
+            let ratio = abs_value / scale;
+            sum_squares += ratio * ratio;
+        }
+    }
+
+    if saw_nonzero {
+        scale * sum_squares.sqrt()
+    } else {
+        0.0
+    }
+}
+
 pub use algorithms::algebraic::{
     solve_linear_residual_graph, LinearResidualGraphSolution, LinearResidualVariableSolution,
 };
@@ -52,3 +82,16 @@ pub use residual::{
 pub use result::{SolverOutput, SolverResult, StateTrajectory};
 pub use state_space::{solve_continuous_state_space, solve_discrete_state_space};
 pub use thermal::{solve_first_order_thermal, FirstOrderThermalModel};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn euclidean_norm_handles_large_finite_values() {
+        assert_eq!(euclidean_norm(&[]), 0.0);
+        assert_eq!(euclidean_norm(&[0.0, 0.0]), 0.0);
+        assert_eq!(euclidean_norm(&[f64::MAX]), f64::MAX);
+        assert!(euclidean_norm(&[f64::MAX / 4.0, f64::MAX / 4.0]).is_finite());
+    }
+}
