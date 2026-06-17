@@ -982,6 +982,44 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(1);
         }
     }
+    match run_file(
+        Path::new("examples/internal/25_component_behavior_nodes/main.eng"),
+        Path::new("build/test-component-behavior-nodes"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.report_spec_json.contains("\"behavior_nodes\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"delay_call_runtime_buffer_seed_not_integrated\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"predictor_call_contract_seed_not_integrated\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"external_behavior_wrapper_seed_not_integrated\"")
+                || !output.report_spec_json.contains("\"signal\": \"out.T\"")
+                || !output.report_spec_json.contains("\"signal\": \"out.Q\"")
+                || !output.report_html.contains("Component Behavior")
+                || !output.report_html.contains("solver_policy_not_integrated")
+                || !output
+                    .report_html
+                    .contains("safe_repro_profile_policy_seed")
+            {
+                eprintln!(
+                    "expected component behavior fixture to expose delay, Predictor, and external behavior nodes"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/internal/25_component_behavior_nodes/main.eng exposed component behavior node artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("component behavior nodes fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
 
     let bad = match check_file(
         "examples/05_error_messages/unit_mismatch.eng",

@@ -1,0 +1,24 @@
+domain Thermal package "eng.std.domains.thermal" version "0.1.0" {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+component BehaviorSource {
+    port out: Thermal
+    delayed_temperature = delay(out.T, 5 s)
+    predicted_temperature = predictor(out.T)
+    external_heat = adapter(out.Q)
+}
+
+component BehaviorSink {
+    port inlet: Thermal
+}
+
+connect BehaviorSource.out -> BehaviorSink.inlet
+
+behavior_marker = 1
+
+report {
+    show behavior_marker
+}
