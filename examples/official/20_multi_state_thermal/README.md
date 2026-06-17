@@ -7,7 +7,8 @@ This example exercises the supported multi-state state-space simulation path.
 - `A` and `B` operators are checked for vector shape and coefficient units;
   inverse-time entries such as `1/s` and `1/min` are canonicalized to
   per-second coefficients where the target derivative unit is the source
-  state/input unit per second.
+  state/input unit per second, with canonical matrices surfaced in
+  report/review/IDE inspection.
 - Runtime artifacts emit both `sim.T_air` and `sim.T_wall` TimeSeries values.
 
 This is an actual state-space simulation path. It is not a nonlinear, DAE,

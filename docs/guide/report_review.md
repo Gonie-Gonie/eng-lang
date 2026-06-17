@@ -394,14 +394,17 @@ review.json
 These sections record `states`/`inputs`/`outputs` vector declarations and
 `LinearOperator[From -> To]` declarations for inspection. Operator artifacts
 include row/column members, quantity kinds, canonical units, and compatibility
-status after vector-member resolution and shape checks. Non-rectangular matrices
+status after vector-member resolution and shape checks. Review JSON, report
+spec, HTML report, and IDE inspection surfaces also expose a per-second
+`canonical_matrix` when operator entries can be canonicalized. Non-rectangular matrices
 are reported as shape mismatches. Matrix entries may be canonical numeric
 coefficients, or inverse-time coefficients such as `1/s`, `1/min`, and `1/h`
 when the target derivative unit is exactly the source state/input unit per
 second; these display units are canonicalized to per-second numeric
-coefficients before runtime/JIT matrix use. Unsupported unitful entries are
-diagnosed instead of being silently sent to the numeric runtime. Runtime can
-also materialize fixed-step state trajectories from shape-checked A/B
+coefficients before runtime/JIT matrix use and report/IDE inspection.
+Unsupported unitful entries are diagnosed instead of being silently sent to the
+numeric runtime. Runtime can also materialize fixed-step state trajectories from
+shape-checked A/B
 operators, including multi-state Euler/RK4, discrete A/B execution, and
 TimeSeries materialization for bound input vector members. This remains an
 internal seed, not a general nonlinear, DAE, adaptive, broad operator-algebra,

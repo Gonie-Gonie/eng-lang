@@ -779,6 +779,8 @@ function renderChecksPanel() {
       ${renderAlignments()}
       <div class="panel-title compact">Systems</div>
       ${renderSystems()}
+      <div class="panel-title compact">State-Space Operators</div>
+      ${renderLinearOperators()}
       <div class="panel-title compact">System Dependency Graph</div>
       ${renderSystemDependencyGraph()}
     </div>
@@ -1135,6 +1137,33 @@ function renderSystems() {
     <table class="var-table">
       <thead><tr><th>System</th><th>States</th><th>Inputs/Params</th><th>Solver</th><th>Timestep</th><th>Tol/Iter</th><th>Convergence</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="7" class="muted">No system metadata.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderLinearOperators() {
+  const rows = inspectorRows("linearOperators").map((operator) => {
+    const rowMembers = Array.isArray(operator.row_members) ? operator.row_members : (operator.rowMembers || []);
+    const columnMembers = Array.isArray(operator.column_members) ? operator.column_members : (operator.columnMembers || []);
+    const rowUnits = Array.isArray(operator.row_units) ? operator.row_units : (operator.rowUnits || []);
+    const columnUnits = Array.isArray(operator.column_units) ? operator.column_units : (operator.columnUnits || []);
+    const canonicalMatrix = operator.canonical_matrix ?? operator.canonicalMatrix;
+    return `
+      <tr>
+        <td><strong>${escapeHtml(operator.system || "-")}</strong><div class="muted">L${escapeHtml(operator.line || "-")}</div></td>
+        <td>${escapeHtml(operator.name || "-")}<div class="muted">${escapeHtml(operator.from || "-")} -> ${escapeHtml(operator.to || "-")}</div></td>
+        <td>${escapeHtml(operator.row_count ?? operator.rowCount ?? 0)}x${escapeHtml(operator.column_count ?? operator.columnCount ?? 0)}</td>
+        <td>${escapeHtml(joinOrDash(rowMembers))}<div class="muted">${escapeHtml(joinOrDash(rowUnits))}</div></td>
+        <td>${escapeHtml(joinOrDash(columnMembers))}<div class="muted">${escapeHtml(joinOrDash(columnUnits))}</div></td>
+        <td><code>${escapeHtml(compactText(operator.expression || "-", 60))}</code><div class="muted">${escapeHtml(matrixSummary(canonicalMatrix))}</div></td>
+        <td>${escapeHtml(operator.compatibility_status || operator.compatibilityStatus || "-")}<div class="muted">${escapeHtml(operator.status || "-")}</div></td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>System</th><th>Operator</th><th>Shape</th><th>Rows</th><th>Columns</th><th>Matrix</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="muted">No state-space operators.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -1756,6 +1785,14 @@ function compactText(value, limit = 80) {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
   if (text.length <= limit) return text;
   return `${text.slice(0, Math.max(0, limit - 1))}...`;
+}
+
+function matrixSummary(matrix) {
+  if (!Array.isArray(matrix) || !matrix.length) return "canonical -";
+  return `canonical ${matrix.map((row) => {
+    if (!Array.isArray(row)) return "[]";
+    return `[${row.map((value) => metricCell(value)).join(", ")}]`;
+  }).join("; ")}`;
 }
 
 function columnSummary(columns) {

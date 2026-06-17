@@ -1230,6 +1230,7 @@
         "from",
         "to",
         "expression",
+        "canonical_matrix",
         "row_count",
         "column_count",
         "row_members",
@@ -1248,6 +1249,13 @@
         "from": { "type": "string" },
         "to": { "type": "string" },
         "expression": { "type": ["string", "null"] },
+        "canonical_matrix": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "array",
+            "items": { "type": "number" }
+          }
+        },
         "row_count": { "type": "integer", "minimum": 0 },
         "column_count": { "type": "integer", "minimum": 0 },
         "row_members": {

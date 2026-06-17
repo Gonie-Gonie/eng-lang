@@ -121,6 +121,7 @@ struct InspectorView {
     time_alignments: Value,
     systems: Value,
     system_ir: Value,
+    linear_operators: Value,
     kernel_plan: Value,
     class_objects: Value,
     assemblies: Value,
@@ -144,6 +145,7 @@ impl Default for InspectorView {
             time_alignments: Value::Array(Vec::new()),
             systems: Value::Array(Vec::new()),
             system_ir: Value::Array(Vec::new()),
+            linear_operators: Value::Array(Vec::new()),
             kernel_plan: Value::Null,
             class_objects: Value::Array(Vec::new()),
             assemblies: Value::Array(Vec::new()),
@@ -930,6 +932,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         time_alignments: json_array_clone(&report, "time_alignments"),
         systems: system_inspector(&report, &result),
         system_ir: json_array_clone(&report, "system_ir"),
+        linear_operators: json_array_clone(&report, "linear_operators"),
         kernel_plan: report.get("kernel_plan").cloned().unwrap_or(Value::Null),
         class_objects: json_array_clone(&report, "object_summary"),
         assemblies: json_array_clone(&report, "assembly_summary"),
@@ -2123,9 +2126,25 @@ fn smoke() -> Result<(), String> {
                     == Some("state_space_explicit_euler_fixed_step")
             })
         });
-    if !has_state_space_series || !has_state_space_solver {
+    let has_state_space_operator_matrix = state_space_inspectors
+        .linear_operators
+        .as_array()
+        .is_some_and(|items| {
+            items.iter().any(|item| {
+                json_field_string(item, "name").as_deref() == Some("A")
+                    && item
+                        .get("canonical_matrix")
+                        .and_then(Value::as_array)
+                        .and_then(|rows| rows.first())
+                        .and_then(Value::as_array)
+                        .and_then(|row| row.first())
+                        .and_then(Value::as_f64)
+                        .is_some_and(|value| (value - (-0.0002)).abs() < 1e-12)
+            })
+        });
+    if !has_state_space_series || !has_state_space_solver || !has_state_space_operator_matrix {
         return Err(format!(
-            "{} did not produce IDE state-space trajectory inspector metadata",
+            "{} did not produce IDE state-space trajectory/operator inspector metadata",
             state_space_example.display()
         ));
     }
@@ -2267,7 +2286,7 @@ fn smoke() -> Result<(), String> {
         ));
     }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), measured workflow inspectors, solved thermal assembly inspector, state-space trajectory inspector, kernel plan inspector, class object inspector, side-effect inspectors, schema failure inspector",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), measured workflow inspectors, solved thermal assembly inspector, state-space trajectory/operator inspector, kernel plan inspector, class object inspector, side-effect inspectors, schema failure inspector",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),

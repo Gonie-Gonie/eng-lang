@@ -822,6 +822,7 @@ pub struct ReportLinearOperator {
     pub from: String,
     pub to: String,
     pub expression: Option<String>,
+    pub canonical_matrix: Option<Vec<Vec<f64>>>,
     pub row_count: usize,
     pub column_count: usize,
     pub row_members: Vec<String>,
@@ -1651,6 +1652,7 @@ pub fn report_spec_from_report(
             from: operator.from.clone(),
             to: operator.to.clone(),
             expression: operator.expression.clone(),
+            canonical_matrix: operator.canonical_matrix.clone(),
             row_count: operator.row_count,
             column_count: operator.column_count,
             row_members: operator.row_members.clone(),
@@ -3918,6 +3920,9 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         } else {
             json.push_str("      \"expression\": null,\n");
         }
+        json.push_str("      \"canonical_matrix\": ");
+        push_optional_json_matrix(&mut json, operator.canonical_matrix.as_deref());
+        json.push_str(",\n");
         json.push_str(&format!("      \"row_count\": {},\n", operator.row_count));
         json.push_str(&format!(
             "      \"column_count\": {},\n",
@@ -5852,6 +5857,11 @@ fn render_state_space_section(spec: &ReportSpec) -> String {
         .linear_operators
         .iter()
         .map(|operator| {
+            let canonical_matrix = operator
+                .canonical_matrix
+                .as_deref()
+                .map(format_canonical_matrix)
+                .unwrap_or_else(|| "-".to_owned());
             let compatibility = format!(
                 "rows: {} [{}]; cols: {} [{}]; {}",
                 operator.row_quantity_kinds.join(", "),
@@ -5861,7 +5871,7 @@ fn render_state_space_section(spec: &ReportSpec) -> String {
                 operator.compatibility_status
             );
             format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{} -> {}</td><td>{}x{}</td><td><code>{}</code></td><td>{}</td><td>{}</td></tr>",
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{} -> {}</td><td>{}x{}</td><td><code>{}</code></td><td><code>{}</code></td><td>{}</td><td>{}</td></tr>",
                 operator.line,
                 html_escape(&operator.system),
                 html_escape(&operator.name),
@@ -5870,6 +5880,7 @@ fn render_state_space_section(spec: &ReportSpec) -> String {
                 operator.row_count,
                 operator.column_count,
                 html_escape(operator.expression.as_deref().unwrap_or("-")),
+                html_escape(&canonical_matrix),
                 html_escape(&compatibility),
                 html_escape(&operator.status)
             )
@@ -5883,7 +5894,7 @@ fn render_state_space_section(spec: &ReportSpec) -> String {
       <tbody>{}</tbody>
     </table>
     <table>
-      <thead><tr><th>Line</th><th>System</th><th>Operator</th><th>Mapping</th><th>Shape</th><th>Expression</th><th>Compatibility</th><th>Status</th></tr></thead>
+      <thead><tr><th>Line</th><th>System</th><th>Operator</th><th>Mapping</th><th>Shape</th><th>Expression</th><th>Canonical Matrix</th><th>Compatibility</th><th>Status</th></tr></thead>
       <tbody>{}</tbody>
     </table>"#,
         if vector_rows.is_empty() {
@@ -5892,11 +5903,27 @@ fn render_state_space_section(spec: &ReportSpec) -> String {
             vector_rows
         },
         if operator_rows.is_empty() {
-            "<tr><td colspan=\"8\">No linear operators.</td></tr>".to_owned()
+            "<tr><td colspan=\"9\">No linear operators.</td></tr>".to_owned()
         } else {
             operator_rows
         }
     )
+}
+
+fn format_canonical_matrix(matrix: &[Vec<f64>]) -> String {
+    matrix
+        .iter()
+        .map(|row| {
+            format!(
+                "[{}]",
+                row.iter()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
 }
 
 fn render_system_solver_section(spec: &ReportSpec) -> String {
@@ -6515,6 +6542,36 @@ fn push_optional_json_f64(json: &mut String, key: &str, value: Option<f64>, inde
     }
 }
 
+fn push_optional_json_matrix(json: &mut String, matrix: Option<&[Vec<f64>]>) {
+    let Some(matrix) = matrix else {
+        json.push_str("null");
+        return;
+    };
+    json.push('[');
+    for (row_index, row) in matrix.iter().enumerate() {
+        if row_index > 0 {
+            json.push_str(", ");
+        }
+        json.push('[');
+        for (column_index, value) in row.iter().enumerate() {
+            if column_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format_json_number(*value));
+        }
+        json.push(']');
+    }
+    json.push(']');
+}
+
+fn format_json_number(value: f64) -> String {
+    if value.is_finite() {
+        value.to_string()
+    } else {
+        "null".to_owned()
+    }
+}
+
 fn push_json_string_array(json: &mut String, values: &[String]) {
     for (index, value) in values.iter().enumerate() {
         if index > 0 {
@@ -7029,7 +7086,7 @@ mod tests {
     fn report_spec_and_html_include_state_space_metadata() {
         let report = check_source(
             "ok.eng",
-            "system ThermalStateSpaceMetadata {\n    state T_zone: AbsoluteTemperature = 22 degC\n    input T_out: AbsoluteTemperature = 8 degC\n    input Q_internal: HeatRate = 500 W\n    states x = [T_zone]\n    inputs u = [T_out, Q_internal]\n    outputs y = [T_zone]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.0002]]\n    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.0002, 0.001]]\n    equation {\n        der(x) eq A * x + B * u\n    }\n}\n",
+            "system ThermalStateSpaceMetadata {\n    state T_zone: AbsoluteTemperature = 22 degC\n    input T_out: AbsoluteTemperature = 8 degC\n    input Q_internal: HeatRate = 500 W\n    states x = [T_zone]\n    inputs u = [T_out, Q_internal]\n    outputs y = [T_zone]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.012 1/min]]\n    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.012 1/min, 0.001]]\n    equation {\n        der(x) eq A * x + B * u\n    }\n}\n",
             &CheckOptions::default(),
         );
 
@@ -7042,11 +7099,17 @@ mod tests {
         assert_eq!(spec.state_space_vectors[0].vector_type, "StateVector");
         assert_eq!(spec.linear_operators[1].from, "InputVector");
         assert_eq!(spec.linear_operators[1].to, "Derivative[StateVector]");
+        assert_eq!(
+            spec.linear_operators[0].canonical_matrix.as_ref().unwrap()[0][0],
+            -0.0002
+        );
         assert!(json.contains("\"state_space_vectors\""));
         assert!(json.contains("\"linear_operators\""));
+        assert!(json.contains("\"canonical_matrix\": [[-0.0002]]"));
         assert!(json.contains("\"vector_type\": \"StateVector\""));
         assert!(json.contains("\"column_count\": 2"));
         assert!(html.contains("State-Space Metadata"));
+        assert!(html.contains("Canonical Matrix"));
         assert!(html.contains("StateVector"));
         assert!(html.contains("InputVector"));
         assert!(html.contains("Derivative[StateVector]"));

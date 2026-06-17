@@ -10,6 +10,7 @@ It demonstrates:
 - `Derivative[StateVector]` and `LinearOperator[From -> To]` type strings
 - inverse-time coefficient entries where source and derivative units are
   compatible
+- report/review/IDE canonical operator matrix summaries in per-second coefficients
 - a vector equation shape, `der(x) eq A * x + B * u`, recorded for review
 - a narrow fixed-step explicit-Euler runtime path with `T_out` materialized
   from a promoted TimeSeries input

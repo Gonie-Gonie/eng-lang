@@ -1779,6 +1779,9 @@ pub fn review_json(report: &CheckReport) -> String {
             json_escape(&operator.to)
         ));
         push_optional_json_string(&mut json, "expression", operator.expression.as_deref(), 6);
+        json.push_str("      \"canonical_matrix\": ");
+        push_optional_json_matrix(&mut json, operator.canonical_matrix.as_deref());
+        json.push_str(",\n");
         json.push_str(&format!("      \"row_count\": {},\n", operator.row_count));
         json.push_str(&format!(
             "      \"column_count\": {},\n",
@@ -3818,6 +3821,36 @@ fn push_optional_json_number(json: &mut String, key: &str, value: Option<f64>, i
             format_arg_number(value)
         )),
         None => json.push_str(&format!("{spaces}\"{key}\": null,\n")),
+    }
+}
+
+fn push_optional_json_matrix(json: &mut String, matrix: Option<&[Vec<f64>]>) {
+    let Some(matrix) = matrix else {
+        json.push_str("null");
+        return;
+    };
+    json.push('[');
+    for (row_index, row) in matrix.iter().enumerate() {
+        if row_index > 0 {
+            json.push_str(", ");
+        }
+        json.push('[');
+        for (column_index, value) in row.iter().enumerate() {
+            if column_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format_json_number(*value));
+        }
+        json.push(']');
+    }
+    json.push(']');
+}
+
+fn format_json_number(value: f64) -> String {
+    if value.is_finite() {
+        value.to_string()
+    } else {
+        "null".to_owned()
     }
 }
 
@@ -6065,11 +6098,19 @@ mod tests {
             report.semantic_program.linear_operators[1].compatibility_status,
             "coefficient_units_checked"
         );
+        assert_eq!(
+            report.semantic_program.linear_operators[0]
+                .canonical_matrix
+                .as_ref()
+                .unwrap()[0][0],
+            -0.0002
+        );
         assert_eq!(report.semantic_program.linear_operators[1].row_count, 1);
         assert_eq!(report.semantic_program.linear_operators[1].column_count, 2);
         let json = review_json(&report);
         assert!(json.contains("\"state_space_vectors\""));
         assert!(json.contains("\"linear_operators\""));
+        assert!(json.contains("\"canonical_matrix\": [[-0.0002]]"));
         assert!(json.contains("\"row_quantity_kinds\""));
     }
 

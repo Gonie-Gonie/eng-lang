@@ -1237,7 +1237,10 @@ system ThermalStateSpaceMetadata {
 ```
 
 `review.json` records `state_space_vectors` and `linear_operators` for IDE and
-review tooling. Vector members must resolve to variables in the same system;
+review tooling, including per-second `canonical_matrix` values when operator
+entries are canonicalizable. Report artifacts expose the same checked operator
+metadata.
+Vector members must resolve to variables in the same system;
 unknown members use `E-STATE-SPACE-VECTOR-MEMBER-001`. Linear operator matrix
 rows must match the target vector size, and columns must match the source
 vector size; mismatches use `E-STATE-SPACE-OP-SHAPE-001`. Operator artifacts
@@ -1246,8 +1249,9 @@ status. Non-rectangular matrices are reported as shape mismatches. Matrix
 entries may be canonical numeric coefficients, or inverse-time coefficients
 such as `1/s`, `1/min`, and `1/h` when the target derivative unit is exactly the
 source state/input unit per second. Inverse-time display units are canonicalized
-to per-second numeric coefficients before runtime/JIT matrix use. Unsupported
-coefficient units are diagnosed with `E-STATE-SPACE-OP-ENTRY-UNIT-001`.
+to per-second numeric coefficients before runtime/JIT matrix use and report/IDE
+inspection. Unsupported coefficient units are diagnosed with
+`E-STATE-SPACE-OP-ENTRY-UNIT-001`.
 Runtime may materialize fixed-step state trajectories when shape-checked A/B
 operators are available, including multi-state continuous Euler/RK4 execution,
 discrete A/B execution, and TimeSeries materialization for bound input vector

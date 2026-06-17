@@ -204,13 +204,14 @@ pub struct StateSpaceVectorInfo {
     pub line: usize,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LinearOperatorInfo {
     pub system: String,
     pub name: String,
     pub from: String,
     pub to: String,
     pub expression: Option<String>,
+    pub canonical_matrix: Option<Vec<Vec<f64>>>,
     pub row_count: usize,
     pub column_count: usize,
     pub row_members: Vec<String>,
@@ -664,7 +665,7 @@ pub struct TimeSeriesKernelInfo {
     pub line: usize,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SemanticProgram {
     pub imports: Vec<ImportInfo>,
     pub consts: Vec<ConstInfo>,
@@ -706,7 +707,7 @@ pub struct SemanticProgram {
     pub timeseries_kernels: Vec<TimeSeriesKernelInfo>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SemanticOutput {
     pub diagnostics: Vec<Diagnostic>,
     pub inferred_declarations: Vec<InferredDeclaration>,
@@ -5892,6 +5893,7 @@ fn analyze_linear_operator_decl(
         from,
         to,
         expression: declaration.expression.clone(),
+        canonical_matrix: None,
         row_count,
         column_count,
         row_members: Vec::new(),
@@ -6038,6 +6040,7 @@ fn validate_linear_operator_shapes(
             operator.status = "entry_unit_unsupported".to_owned();
             operator.compatibility_status = "entry_unit_unsupported".to_owned();
         } else {
+            operator.canonical_matrix = canonical_linear_operator_matrix(operator);
             operator.status = "shape_checked".to_owned();
             operator.compatibility_status = "coefficient_units_checked".to_owned();
         }
@@ -6125,6 +6128,26 @@ fn linear_operator_entry_unit_supported(
         return false;
     };
     row_unit == &format!("{column_unit}/s")
+}
+
+fn canonical_linear_operator_matrix(operator: &LinearOperatorInfo) -> Option<Vec<Vec<f64>>> {
+    let expression = operator.expression.as_deref()?;
+    let rows = matrix_rows(expression)
+        .into_iter()
+        .map(|row| {
+            row.into_iter()
+                .map(|entry| {
+                    let (value, unit) = matrix_entry_number_with_optional_unit(&entry)?;
+                    let scale = unit
+                        .as_deref()
+                        .and_then(inverse_time_coefficient_scale_to_per_second)
+                        .unwrap_or(1.0);
+                    Some(value * scale)
+                })
+                .collect::<Option<Vec<_>>>()
+        })
+        .collect::<Option<Vec<_>>>()?;
+    (!rows.is_empty() && rows.iter().all(|row| !row.is_empty())).then_some(rows)
 }
 
 fn inverse_time_coefficient_scale_to_per_second(unit: &str) -> Option<f64> {
