@@ -207,6 +207,82 @@ impl ResidualEvaluator for ResidualGraph {
     }
 }
 
+impl super::evaluator::ResidualEvaluator for ResidualGraph {
+    fn evaluate(
+        &self,
+        input: &super::evaluator::ResidualInput,
+    ) -> Result<super::evaluator::ResidualOutput, SolverFailure> {
+        let values = self.values_from_structured_input(input)?;
+        let output = <Self as ResidualEvaluator>::evaluate(
+            self,
+            &ResidualInput {
+                values: values.as_slice(),
+            },
+        );
+        Ok(super::evaluator::ResidualOutput {
+            residuals: output.values.iter().map(|value| value.value).collect(),
+            named_residuals: output
+                .values
+                .iter()
+                .map(|value| super::evaluator::NamedResidualValue {
+                    name: value.name.clone(),
+                    value: value.value,
+                    normalized_value: value.normalized_value,
+                })
+                .collect(),
+        })
+    }
+}
+
+impl ResidualGraph {
+    fn values_from_structured_input(
+        &self,
+        input: &super::evaluator::ResidualInput,
+    ) -> Result<Vec<f64>, SolverFailure> {
+        let mut state_index = 0;
+        let mut algebraic_index = 0;
+        let mut input_index = 0;
+        let mut parameter_index = 0;
+        self.variables
+            .iter()
+            .map(|variable| {
+                let value = match variable.role.as_str() {
+                    "state" => {
+                        let value = input.x.get(state_index).copied();
+                        state_index += 1;
+                        value
+                    }
+                    "algebraic" => {
+                        let value = input.z.get(algebraic_index).copied();
+                        algebraic_index += 1;
+                        value
+                    }
+                    "input" => {
+                        let value = input.u.get(input_index).copied();
+                        input_index += 1;
+                        value
+                    }
+                    "parameter" => {
+                        let value = input.p.get(parameter_index).copied();
+                        parameter_index += 1;
+                        value
+                    }
+                    _ => input.z.get(variable.index).copied(),
+                };
+                value.ok_or_else(|| {
+                    SolverFailure::new(
+                        "E-RESIDUAL-INPUT-LAYOUT",
+                        format!(
+                            "residual variable `{}` with role `{}` has no matching structured input value",
+                            variable.name, variable.role
+                        ),
+                    )
+                })
+            })
+            .collect()
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ResidualEquation {
     pub name: String,
@@ -401,6 +477,70 @@ mod tests {
         let temperature = ResidualScale::from_quantity_unit("AbsoluteTemperature", "degC");
         assert_eq!(temperature.value, 1.0);
         assert_eq!(temperature.policy, "unit_default:AbsoluteTemperature[degC]");
+    }
+
+    #[test]
+    fn rich_residual_evaluator_uses_structured_state_and_algebraic_values() {
+        let graph = ResidualGraph {
+            name: "test.residual_graph".to_owned(),
+            variables: vec![
+                ResidualVariableRef {
+                    index: 0,
+                    name: "T_state".to_owned(),
+                    role: "state".to_owned(),
+                    unit: "K".to_owned(),
+                },
+                ResidualVariableRef {
+                    index: 1,
+                    name: "T_node".to_owned(),
+                    role: "algebraic".to_owned(),
+                    unit: "K".to_owned(),
+                },
+            ],
+            residuals: vec![residual(
+                "state_node_delta",
+                &[(0, "T_state", 1.0), (1, "T_node", -1.0)],
+            )],
+            dependencies: Vec::new(),
+        };
+
+        let output = super::super::evaluator::ResidualEvaluator::evaluate(
+            &graph,
+            &super::super::evaluator::ResidualInput {
+                x: vec![300.0],
+                z: vec![299.5],
+                t: 12.0,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        assert_eq!(output.residuals, vec![0.5]);
+        assert_eq!(output.named_residuals[0].name, "state_node_delta");
+        assert_eq!(output.named_residuals[0].normalized_value, 0.5);
+    }
+
+    #[test]
+    fn rich_residual_evaluator_reports_missing_structured_values() {
+        let graph = ResidualGraph {
+            name: "test.residual_graph".to_owned(),
+            variables: vec![ResidualVariableRef {
+                index: 0,
+                name: "T_state".to_owned(),
+                role: "state".to_owned(),
+                unit: "K".to_owned(),
+            }],
+            residuals: vec![residual("state_residual", &[(0, "T_state", 1.0)])],
+            dependencies: Vec::new(),
+        };
+
+        let failure = super::super::evaluator::ResidualEvaluator::evaluate(
+            &graph,
+            &super::super::evaluator::ResidualInput::default(),
+        )
+        .unwrap_err();
+
+        assert_eq!(failure.code, "E-RESIDUAL-INPUT-LAYOUT");
     }
 
     fn residual(name: &str, terms: &[(usize, &str, f64)]) -> ResidualEquation {
