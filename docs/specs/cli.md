@@ -9,6 +9,7 @@ The core user-facing CLI is `eng.exe`. Portable tester IDE releases also ship
 eng.exe doctor
 eng.exe new <project_name>
 eng.exe check <file.eng> [--review]
+eng.exe fmt <file.eng> [--check|--write]
 eng.exe ide-check <file.eng>
 eng.exe jit-plan <file.eng> [--backend <name>]
 eng.exe jit-bench <file.eng> [--iterations N] [--backend <name>] [--<arg> <value>...]
@@ -147,6 +148,32 @@ Exit code:
 0 success
 1 IO/tooling failure
 2 compile/check failure
+```
+
+## `eng fmt <file.eng> [--check|--write]`
+
+Formats an EngLang source file using the source-preserving formatter used by
+the official example gate.
+
+Current behavior:
+
+```text
+- no flag: writes formatted source to stdout
+- --check: returns exit code 2 if the file would change
+- --write: rewrites the file in place when formatting changes are needed
+- --check and --write are mutually exclusive
+```
+
+The formatter normalizes block indentation and trailing whitespace while
+preserving comments and source text inside strings. It does not perform AST
+rewrites or semantic lowering.
+
+Exit code:
+
+```text
+0 success
+1 IO/tooling failure
+2 usage error or source would change under --check
 ```
 
 ## `eng ide-check <file.eng>`

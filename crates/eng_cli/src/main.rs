@@ -5,7 +5,8 @@ use std::process::ExitCode;
 use std::time::Instant;
 
 use eng_compiler::{
-    check_file, check_source, review_json, ArgOverride, CheckOptions, CheckReport, Severity,
+    check_file, check_source, format_source, review_json, ArgOverride, CheckOptions, CheckReport,
+    Severity,
 };
 use eng_runtime::{
     build_standalone, create_project, doctor, run_file, BuildOptions, ExecutionProfile, RunOptions,
@@ -24,6 +25,7 @@ fn main() -> ExitCode {
     match command.as_str() {
         "doctor" => command_doctor(),
         "check" => command_check(args),
+        "fmt" => command_fmt(args),
         "ide-check" => command_ide_check(args),
         "jit-plan" => command_jit_plan(args),
         "jit-bench" => command_jit_bench(args),
@@ -304,6 +306,62 @@ fn command_check(args: Vec<String>) -> ExitCode {
         );
         ExitCode::SUCCESS
     }
+}
+
+fn command_fmt(args: Vec<String>) -> ExitCode {
+    let positional: Vec<&String> = args.iter().filter(|arg| !arg.starts_with("--")).collect();
+    if positional.len() != 1 {
+        eprintln!("usage: eng fmt <file.eng> [--check|--write]");
+        return ExitCode::from(2);
+    }
+    let check = args.iter().any(|arg| arg == "--check");
+    let write = args.iter().any(|arg| arg == "--write");
+    if check && write {
+        eprintln!("eng fmt accepts only one of --check or --write");
+        return ExitCode::from(2);
+    }
+    if let Some(unknown) = args
+        .iter()
+        .find(|arg| arg.starts_with("--") && *arg != "--check" && *arg != "--write")
+    {
+        eprintln!("unknown eng fmt option: {unknown}");
+        return ExitCode::from(2);
+    }
+
+    let path = Path::new(positional[0]);
+    let source = match std::fs::read_to_string(path) {
+        Ok(source) => source,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    let result = format_source(&source);
+
+    if check {
+        if result.changed {
+            eprintln!("not formatter-clean: {}", path.display());
+            return ExitCode::from(2);
+        }
+        println!("formatter-clean: {}", path.display());
+        return ExitCode::SUCCESS;
+    }
+
+    if write {
+        if result.changed {
+            if let Err(error) = std::fs::write(path, result.formatted) {
+                eprintln!("{error}");
+                return ExitCode::from(1);
+            }
+            println!("formatted {}", path.display());
+        } else {
+            println!("unchanged {}", path.display());
+        }
+        return ExitCode::SUCCESS;
+    }
+
+    print!("{}", result.formatted);
+    ExitCode::SUCCESS
 }
 
 fn command_run(args: Vec<String>) -> ExitCode {
@@ -593,6 +651,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             }
             println!("ok: {group} example {example}");
         }
+    }
+
+    if !official_examples_are_formatter_clean() {
+        return ExitCode::from(2);
     }
 
     let jit_report = match check_file(
@@ -2665,6 +2727,50 @@ report {
     ExitCode::SUCCESS
 }
 
+fn official_examples_are_formatter_clean() -> bool {
+    let mut examples = Vec::new();
+    if let Err(error) = collect_eng_files(Path::new("examples/official"), &mut examples) {
+        eprintln!("failed to enumerate official examples: {error}");
+        return false;
+    }
+    examples.sort();
+
+    for example in examples {
+        let source = match std::fs::read_to_string(&example) {
+            Ok(source) => source,
+            Err(error) => {
+                eprintln!(
+                    "failed to read official example {}: {error}",
+                    example.display()
+                );
+                return false;
+            }
+        };
+        if format_source(&source).changed {
+            eprintln!(
+                "expected official example to be formatter-clean: {}",
+                example.display()
+            );
+            return false;
+        }
+    }
+
+    println!("ok: official examples are formatter-clean");
+    true
+}
+
+fn collect_eng_files(root: &Path, files: &mut Vec<PathBuf>) -> Result<(), std::io::Error> {
+    for entry in std::fs::read_dir(root)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            collect_eng_files(&path, files)?;
+        } else if path.extension().and_then(|value| value.to_str()) == Some("eng") {
+            files.push(path);
+        }
+    }
+    Ok(())
+}
+
 fn solver_algorithm_smoke() -> Result<(), String> {
     let newton_options = eng_runtime::solver::NewtonOptions::default();
     let nonlinear = eng_runtime::solver::solve_newton(&[0.8, 2.1], &newton_options, |values| {
@@ -3965,6 +4071,7 @@ Usage:
   eng doctor
   eng new <project_name>
   eng check <file.eng> [--review]
+  eng fmt <file.eng> [--check|--write]
   eng ide-check <file.eng>
   eng jit-plan <file.eng>
   eng jit-bench <file.eng> [--iterations N] [--<arg> <value>...]

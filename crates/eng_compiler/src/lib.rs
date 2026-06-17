@@ -1,6 +1,7 @@
 mod ast;
 mod bytecode;
 mod expected;
+mod formatter;
 mod hover;
 mod lexer;
 mod ml;
@@ -36,6 +37,7 @@ pub use bytecode::{
     BytecodeParseError, BytecodeProgram, BYTECODE_FORMAT, BYTECODE_VERSION,
 };
 pub use expected::{ExpectedType, ExpectedTypeSource};
+pub use formatter::{format_source, format_source_with_options, FormatOptions, FormatResult};
 pub use hover::HoverHint;
 pub use lexer::{Keyword, Symbol, Token, TokenKind};
 pub use ml::MlInfo;

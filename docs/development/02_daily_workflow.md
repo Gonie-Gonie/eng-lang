@@ -46,14 +46,28 @@ Preferred order:
 1. add or select an example/error case
 2. update compiler/runtime/report behavior
 3. update docs and release notes
-4. run .\dev.bat fmt
-5. run .\dev.bat test
-6. run .\dev.bat clippy when the change touches Rust behavior
+4. run eng fmt <changed.eng> --write for changed EngLang sources
+5. run .\dev.bat fmt
+6. run .\dev.bat test
+7. run .\dev.bat clippy when the change touches Rust behavior
 ```
 
 Commit after each independently useful unit that passes the relevant checks.
 
-## 4. Keep Public Examples Current
+## 4. Format EngLang Sources
+
+Use the EngLang source formatter before committing changed `.eng` files:
+
+```bat
+target\debug\eng.exe fmt examples\official\09_command_where_with\main.eng --write
+target\debug\eng.exe fmt examples\official\09_command_where_with\main.eng --check
+```
+
+Without a flag, `eng fmt` prints formatted source to stdout. `--check` is the
+CI-friendly mode and returns exit code 2 when a file is not formatter-clean.
+`eng test examples` also checks the official examples with the same formatter.
+
+## 5. Keep Public Examples Current
 
 Current official examples:
 
@@ -85,7 +99,7 @@ examples/05_error_messages/equation_unit_mismatch.eng
 
 Public behavior should have an example, a smoke test, or both.
 
-## 5. Update the Right Docs
+## 6. Update the Right Docs
 
 ```text
 CLI output or options          docs/specs/cli.md
@@ -104,7 +118,7 @@ release gates                  docs/release/acceptance-checklist.md
 Runtime artifact changes should also update the release notes for the active
 milestone.
 
-## 6. Verify Before Commit
+## 7. Verify Before Commit
 
 For a normal development slice:
 

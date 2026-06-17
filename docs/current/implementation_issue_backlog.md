@@ -18,6 +18,19 @@ Definition of Done:
 - Add regression tests for formatter output.
 - Document the formatter workflow in development docs.
 
+Current coverage:
+
+- `eng fmt <file.eng>` exposes the compiler formatter with stdout, `--check`,
+  and `--write` modes.
+- The formatter is source-preserving: it normalizes block indentation and
+  trailing whitespace while preserving comments and string contents.
+- Regression tests cover `args`, `schema`, `system`, `report`, `where`, and
+  `with` block indentation, comment preservation, string brace handling,
+  idempotence, and semantic-summary stability for valid source.
+- `eng test examples` checks all files under `examples/official` for
+  formatter-clean source.
+- The development workflow documents how to run formatter write/check modes.
+
 ## Runtime Optimization / JIT
 
 Title: `jit: connect kernel IR to runtime optimization without native claims`
