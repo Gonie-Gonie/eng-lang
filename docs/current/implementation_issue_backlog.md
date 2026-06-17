@@ -98,7 +98,8 @@ Title: `solver: integrate nonlinear and DAE paths beyond standalone algorithm se
 
 Current coverage:
 
-- Runtime has a standalone finite-difference damped Newton algorithm seed with
+- Runtime has a standalone damped Newton algorithm seed with finite-difference
+  fallback, supplied analytic/JIT Jacobian hook, largest-residual summary,
   residual-history, convergence-status, singular-Jacobian, invalid-option, and
   nonconvergence tests.
 - Runtime also has dense linear and fixed-point algorithm seeds.
@@ -107,7 +108,6 @@ Definition of Done:
 
 - Wire Newton or quasi-Newton solving into language-level nonlinear residual
   systems.
-- Add analytic/JIT Jacobian hooks without making native-code speedup claims.
 - Add DAE residual form `F(x, xdot, z, u, t, p)` and an implicit Euler seed.
 - Add initial-condition consistency diagnostics.
 - Add runtime examples for a small nonlinear system and a small implicit DAE.

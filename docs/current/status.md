@@ -143,10 +143,11 @@ are not public stable workflows.
   matrix-entry unit-compatible, or component-coupled state-space simulation
   workflow.
 - Solver algorithm seeds: dense linear solve, fixed-point iteration with
-  nonconvergence diagnostics, and standalone finite-difference damped Newton
-  solve with residual history and failure artifacts. Newton is not wired into
-  language-level nonlinear systems, component assembly, DAE solving, or
-  analytic/JIT Jacobians.
+  nonconvergence diagnostics, and standalone damped Newton solve with
+  finite-difference fallback, supplied analytic/JIT Jacobian hook,
+  residual history, largest-residual summary, and failure artifacts. Newton is
+  not wired into language-level nonlinear systems, component assembly, or DAE
+  solving.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,
   generated connection-equation metadata, residual graph metadata,
   structured residual evaluator input, domain-plan metadata, IDE component

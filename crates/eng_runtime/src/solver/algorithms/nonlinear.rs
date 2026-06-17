@@ -25,18 +25,64 @@ impl Default for NewtonOptions {
 pub struct NewtonResult {
     pub values: Vec<f64>,
     pub residual_history: Vec<f64>,
+    pub largest_residual: Option<NewtonLargestResidual>,
     pub iteration_count: usize,
     pub convergence_status: String,
     pub failure: Option<SolverFailure>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct NewtonLargestResidual {
+    pub index: usize,
+    pub value: f64,
+    pub abs_value: f64,
+}
+
 pub fn solve_newton<F>(
     initial: &[f64],
     options: &NewtonOptions,
-    mut residual: F,
+    residual: F,
 ) -> Result<NewtonResult, SolverFailure>
 where
     F: FnMut(&[f64]) -> Result<Vec<f64>, SolverFailure>,
+{
+    solve_newton_core(
+        initial,
+        options,
+        residual,
+        |values, baseline_residuals, options, residual| {
+            finite_difference_jacobian(values, baseline_residuals, options, residual)
+        },
+    )
+}
+
+pub fn solve_newton_with_jacobian<F, J>(
+    initial: &[f64],
+    options: &NewtonOptions,
+    residual: F,
+    mut jacobian: J,
+) -> Result<NewtonResult, SolverFailure>
+where
+    F: FnMut(&[f64]) -> Result<Vec<f64>, SolverFailure>,
+    J: FnMut(&[f64], &[f64]) -> Result<Vec<Vec<f64>>, SolverFailure>,
+{
+    solve_newton_core(
+        initial,
+        options,
+        residual,
+        |values, baseline_residuals, _options, _residual| jacobian(values, baseline_residuals),
+    )
+}
+
+fn solve_newton_core<F, J>(
+    initial: &[f64],
+    options: &NewtonOptions,
+    mut residual: F,
+    mut jacobian: J,
+) -> Result<NewtonResult, SolverFailure>
+where
+    F: FnMut(&[f64]) -> Result<Vec<f64>, SolverFailure>,
+    J: FnMut(&[f64], &[f64], &NewtonOptions, &mut F) -> Result<Vec<Vec<f64>>, SolverFailure>,
 {
     validate_newton_options(initial, options)?;
 
@@ -46,18 +92,19 @@ where
     let mut residual_norm = norm(&residual_values);
     let mut residual_history = vec![residual_norm];
     if residual_norm <= options.tolerance {
-        return Ok(NewtonResult {
+        return Ok(build_newton_result(
             values,
             residual_history,
-            iteration_count: 0,
-            convergence_status: "newton_converged".to_owned(),
-            failure: None,
-        });
+            0,
+            "newton_converged",
+            None,
+            &residual_values,
+        ));
     }
 
     for iteration in 1..=options.max_iterations {
-        let jacobian =
-            finite_difference_jacobian(&values, &residual_values, options, &mut residual)?;
+        let jacobian = jacobian(&values, &residual_values, options, &mut residual)?;
+        validate_jacobian_layout(values.len(), &jacobian)?;
         let rhs = residual_values
             .iter()
             .map(|value| -value)
@@ -70,29 +117,49 @@ where
         residual_history.push(residual_norm);
 
         if residual_norm <= options.tolerance {
-            return Ok(NewtonResult {
+            return Ok(build_newton_result(
                 values,
                 residual_history,
-                iteration_count: iteration,
-                convergence_status: "newton_converged".to_owned(),
-                failure: None,
-            });
+                iteration,
+                "newton_converged",
+                None,
+                &residual_values,
+            ));
         }
     }
 
-    Ok(NewtonResult {
+    Ok(build_newton_result(
         values,
         residual_history,
-        iteration_count: options.max_iterations,
-        convergence_status: "newton_not_converged".to_owned(),
-        failure: Some(SolverFailure::new(
+        options.max_iterations,
+        "newton_not_converged",
+        Some(SolverFailure::new(
             "E-NEWTON-NONCONVERGENCE",
             format!(
                 "Newton solver did not converge after {} iteration(s); final residual norm was {}",
                 options.max_iterations, residual_norm
             ),
         )),
-    })
+        &residual_values,
+    ))
+}
+
+fn build_newton_result(
+    values: Vec<f64>,
+    residual_history: Vec<f64>,
+    iteration_count: usize,
+    convergence_status: &str,
+    failure: Option<SolverFailure>,
+    residual_values: &[f64],
+) -> NewtonResult {
+    NewtonResult {
+        values,
+        residual_history,
+        largest_residual: largest_residual(residual_values),
+        iteration_count,
+        convergence_status: convergence_status.to_owned(),
+        failure,
+    }
 }
 
 fn validate_newton_options(initial: &[f64], options: &NewtonOptions) -> Result<(), SolverFailure> {
@@ -145,6 +212,39 @@ fn validate_residual_layout(expected: usize, residuals: &[f64]) -> Result<(), So
             "E-NEWTON-RESIDUAL-FINITE",
             "Newton residual evaluator returned a non-finite value",
         ));
+    }
+    Ok(())
+}
+
+fn validate_jacobian_layout(expected: usize, jacobian: &[Vec<f64>]) -> Result<(), SolverFailure> {
+    if jacobian.len() != expected {
+        return Err(SolverFailure::new(
+            "E-NEWTON-JACOBIAN-LAYOUT",
+            format!(
+                "Newton Jacobian row count {} does not match variable count {}",
+                jacobian.len(),
+                expected
+            ),
+        ));
+    }
+    for (row_index, row) in jacobian.iter().enumerate() {
+        if row.len() != expected {
+            return Err(SolverFailure::new(
+                "E-NEWTON-JACOBIAN-LAYOUT",
+                format!(
+                    "Newton Jacobian row {} length {} does not match variable count {}",
+                    row_index,
+                    row.len(),
+                    expected
+                ),
+            ));
+        }
+        if row.iter().any(|value| !value.is_finite()) {
+            return Err(SolverFailure::new(
+                "E-NEWTON-JACOBIAN-FINITE",
+                "Newton Jacobian evaluator returned a non-finite value",
+            ));
+        }
     }
     Ok(())
 }
@@ -230,6 +330,22 @@ fn norm(values: &[f64]) -> f64 {
     values.iter().map(|value| value * value).sum::<f64>().sqrt()
 }
 
+fn largest_residual(values: &[f64]) -> Option<NewtonLargestResidual> {
+    values
+        .iter()
+        .enumerate()
+        .map(|(index, value)| NewtonLargestResidual {
+            index,
+            value: *value,
+            abs_value: value.abs(),
+        })
+        .max_by(|left, right| {
+            left.abs_value
+                .partial_cmp(&right.abs_value)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,6 +361,13 @@ mod tests {
         assert!(result.failure.is_none());
         assert!((result.values[0] - 2.0_f64.sqrt()).abs() < 1e-7);
         assert!(result.residual_history.last().copied().unwrap() <= 1e-9);
+        assert_eq!(
+            result
+                .largest_residual
+                .as_ref()
+                .map(|residual| residual.index),
+            Some(0)
+        );
     }
 
     #[test]
@@ -259,6 +382,38 @@ mod tests {
         assert_eq!(result.convergence_status, "newton_converged");
         assert!((result.values[0] - 1.0).abs() < 1e-7);
         assert!((result.values[1] - 2.0).abs() < 1e-7);
+    }
+
+    #[test]
+    fn uses_supplied_jacobian_hook() {
+        let mut jacobian_calls = 0;
+        let result = solve_newton_with_jacobian(
+            &[1.0],
+            &NewtonOptions::default(),
+            |values| Ok(vec![values[0] * values[0] - 2.0]),
+            |values, _baseline_residuals| {
+                jacobian_calls += 1;
+                Ok(vec![vec![2.0 * values[0]]])
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.convergence_status, "newton_converged");
+        assert!(jacobian_calls > 0);
+        assert!((result.values[0] - 2.0_f64.sqrt()).abs() < 1e-7);
+    }
+
+    #[test]
+    fn rejects_invalid_supplied_jacobian_layout() {
+        let failure = solve_newton_with_jacobian(
+            &[0.0, 0.0],
+            &NewtonOptions::default(),
+            |values| Ok(vec![values[0] - 1.0, values[1] - 1.0]),
+            |_values, _baseline_residuals| Ok(vec![vec![1.0]]),
+        )
+        .unwrap_err();
+
+        assert_eq!(failure.code, "E-NEWTON-JACOBIAN-LAYOUT");
     }
 
     #[test]
@@ -287,6 +442,13 @@ mod tests {
         assert_eq!(
             result.failure.as_ref().map(|failure| failure.code.as_str()),
             Some("E-NEWTON-NONCONVERGENCE")
+        );
+        assert_eq!(
+            result
+                .largest_residual
+                .as_ref()
+                .map(|residual| residual.index),
+            Some(0)
         );
     }
 
