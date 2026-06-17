@@ -6030,7 +6030,7 @@ mod tests {
         );
         assert_eq!(
             report.semantic_program.linear_operators[1].compatibility_status,
-            "member_units_recorded_entry_units_unchecked"
+            "dimensionless_entries_checked"
         );
         assert_eq!(report.semantic_program.linear_operators[1].row_count, 1);
         assert_eq!(report.semantic_program.linear_operators[1].column_count, 2);
@@ -6056,6 +6056,44 @@ mod tests {
         assert_eq!(
             report.semantic_program.linear_operators[0].status,
             "shape_mismatch"
+        );
+    }
+
+    #[test]
+    fn rejects_state_space_operator_missing_matrix_entry() {
+        let report = check_source(
+            "bad.eng",
+            "system BadStateSpace {\n    state T_air: AbsoluteTemperature = 22 degC\n    state T_wall: AbsoluteTemperature = 20 degC\n    states x = [T_air, T_wall]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[0.1, 0.2]; [0.3]]\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-STATE-SPACE-OP-SHAPE-001"));
+        assert_eq!(
+            report.semantic_program.linear_operators[0].status,
+            "shape_mismatch"
+        );
+    }
+
+    #[test]
+    fn rejects_state_space_operator_unitful_entries_until_supported() {
+        let report = check_source(
+            "bad.eng",
+            "system BadStateSpace {\n    state T_zone: AbsoluteTemperature = 22 degC\n    states x = [T_zone]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[0.1 s]]\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-STATE-SPACE-OP-ENTRY-UNIT-001"));
+        assert_eq!(
+            report.semantic_program.linear_operators[0].compatibility_status,
+            "entry_unit_unsupported"
         );
     }
 

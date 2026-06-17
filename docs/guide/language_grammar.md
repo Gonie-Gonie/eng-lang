@@ -1242,11 +1242,14 @@ unknown members use `E-STATE-SPACE-VECTOR-MEMBER-001`. Linear operator matrix
 rows must match the target vector size, and columns must match the source
 vector size; mismatches use `E-STATE-SPACE-OP-SHAPE-001`. Operator artifacts
 also include row/column member names, quantity kinds, units, and a compatibility
-status. Runtime may materialize fixed-step state trajectories when
-shape-checked A/B operators are available, including multi-state continuous
-Euler/RK4 execution, discrete A/B execution, and TimeSeries materialization for
-bound input vector members. This internal track does not claim matrix-entry
-unit-compatible operator algebra, nonlinear, DAE, adaptive, or
+status. Non-rectangular matrices are reported as shape mismatches. Unitful
+matrix entries are diagnosed with `E-STATE-SPACE-OP-ENTRY-UNIT-001` because the
+current numeric runtime accepts canonical numeric coefficients only. Runtime may
+materialize fixed-step state trajectories when shape-checked A/B operators are
+available, including multi-state continuous Euler/RK4 execution, discrete A/B
+execution, and TimeSeries materialization for bound input vector members. This
+internal track does not claim coefficient-unit conversion, nonlinear, DAE,
+adaptive, or
 component-coupled state-space solving.
 
 Domain/component shapes are documented separately in

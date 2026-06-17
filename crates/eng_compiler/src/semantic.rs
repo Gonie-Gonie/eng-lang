@@ -5771,27 +5771,31 @@ fn parse_linear_operator_type(type_name: &str) -> Option<(String, String)> {
 }
 
 fn matrix_shape(expression: &str) -> (usize, usize) {
+    let rows = matrix_rows(expression);
+    let row_count = rows.len();
+    let column_count = rows.first().map(Vec::len).unwrap_or(0);
+    (row_count, column_count)
+}
+
+fn matrix_rows(expression: &str) -> Vec<Vec<String>> {
     let trimmed = expression
         .trim()
         .trim_start_matches('[')
         .trim_end_matches(']');
-    let rows = trimmed
+    trimmed
         .split(';')
         .map(str::trim)
         .filter(|row| !row.is_empty())
-        .collect::<Vec<_>>();
-    let row_count = rows.len();
-    let column_count = rows
-        .first()
         .map(|row| {
             row.trim_start_matches('[')
                 .trim_end_matches(']')
                 .split(',')
-                .filter(|column| !column.trim().is_empty())
-                .count()
+                .map(str::trim)
+                .filter(|column| !column.is_empty())
+                .map(str::to_owned)
+                .collect()
         })
-        .unwrap_or(0);
-    (row_count, column_count)
+        .collect()
 }
 
 fn validate_state_space_vector_members(
@@ -5874,6 +5878,9 @@ fn validate_linear_operator_shapes(
                 ),
                 Some("Make the matrix rows match the target vector and columns match the source vector."),
             ));
+        } else if !linear_operator_rows_are_rectangular(operator, expected_columns, diagnostics) {
+            operator.status = "shape_mismatch".to_owned();
+            operator.compatibility_status = "shape_mismatch".to_owned();
         } else if operator
             .row_quantity_kinds
             .iter()
@@ -5882,12 +5889,80 @@ fn validate_linear_operator_shapes(
         {
             operator.status = "member_unresolved".to_owned();
             operator.compatibility_status = "member_unresolved".to_owned();
+        } else if !linear_operator_entries_are_unitless(operator, diagnostics) {
+            operator.status = "entry_unit_unsupported".to_owned();
+            operator.compatibility_status = "entry_unit_unsupported".to_owned();
         } else {
             operator.status = "shape_checked".to_owned();
-            operator.compatibility_status =
-                "member_units_recorded_entry_units_unchecked".to_owned();
+            operator.compatibility_status = "dimensionless_entries_checked".to_owned();
         }
     }
+}
+
+fn linear_operator_rows_are_rectangular(
+    operator: &LinearOperatorInfo,
+    expected_columns: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let Some(expression) = operator.expression.as_deref() else {
+        return true;
+    };
+    let rows = matrix_rows(expression);
+    if rows.iter().all(|row| row.len() == expected_columns) {
+        return true;
+    }
+    let row_summary = rows
+        .iter()
+        .enumerate()
+        .map(|(index, row)| format!("row {} has {}", index + 1, row.len()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    diagnostics.push(Diagnostic::error(
+        "E-STATE-SPACE-OP-SHAPE-001",
+        operator.line,
+        &format!(
+            "Linear operator `{}` has a non-rectangular matrix: {} column(s) expected, {}.",
+            operator.name, expected_columns, row_summary
+        ),
+        Some("Provide every row with the same number of entries as the source vector."),
+    ));
+    false
+}
+
+fn linear_operator_entries_are_unitless(
+    operator: &LinearOperatorInfo,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let Some(expression) = operator.expression.as_deref() else {
+        return true;
+    };
+    let unitful_entries = matrix_rows(expression)
+        .iter()
+        .enumerate()
+        .flat_map(|(row_index, row)| {
+            row.iter()
+                .enumerate()
+                .filter_map(move |(column_index, entry)| {
+                    numeric_literal_with_optional_unit(entry).and_then(|(_, unit)| {
+                        unit.map(|unit| (row_index + 1, column_index + 1, unit))
+                    })
+                })
+        })
+        .collect::<Vec<_>>();
+    if unitful_entries.is_empty() {
+        return true;
+    }
+    let first = &unitful_entries[0];
+    diagnostics.push(Diagnostic::error(
+        "E-STATE-SPACE-OP-ENTRY-UNIT-001",
+        operator.line,
+        &format!(
+            "Linear operator `{}` entry ({}, {}) uses unit `{}`; unitful coefficient conversion is not supported by the current numeric state-space runtime.",
+            operator.name, first.0, first.1, first.2
+        ),
+        Some("Use canonical numeric coefficients for the current state-space seed, or keep unitful coefficient matrices out of executable examples until coefficient-unit conversion is implemented."),
+    ));
+    false
 }
 
 fn populate_linear_operator_compatibility(

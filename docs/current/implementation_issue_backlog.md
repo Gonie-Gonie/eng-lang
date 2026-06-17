@@ -123,13 +123,14 @@ Definition of Done:
 - Keep the vector runtime seed clearly scoped until the stable workflow
   boundary is decided.
 - Current runtime covers `StateVector`, `InputVector`, and `LinearOperator`
-  metadata, operator row/column checks, continuous and discrete A/B execution,
+  metadata, operator row/column checks, non-rectangular matrix diagnostics,
+  unitful matrix-entry diagnostics, continuous and discrete A/B execution,
   multi-state fixed-step Euler/RK4 trajectories, state trajectory TimeSeries,
   `OutputLayout` preservation across solver input/result contracts, and
   solver-inspector metadata for states, inputs, outputs, timestep, tolerance,
   iterations, convergence, and failure reason. Plot/report output, IDE
   inspector support, and tests are in place for the current seed scope.
-- Remaining supported-workflow work includes unit compatibility checks,
+- Remaining supported-workflow work includes full coefficient-unit conversion,
   broader operator algebra policy, and public stability wording.
 - No nonlinear/DAE/adaptive or component-coupled solver claim is made.
 
