@@ -90,8 +90,8 @@ Internal runtime seeds:
 - standalone dense linear, fixed-point, and damped Newton algorithms
 - SolverInput/SolverResult state, input, parameter, and output layout contracts
 - state-space non-rectangular matrix diagnostics, unsupported unitful
-  coefficient diagnostics, and limited `1/s` derivative-coupling coefficient
-  checks
+  coefficient diagnostics, and inverse-time derivative-coupling coefficient
+  canonicalization
 - supplied analytic/JIT Jacobian hook for Newton
 - standalone implicit-Euler DAE seed over F(x, xdot, z, u, t, p)
 - optional DAE mass matrix and initial consistency checks

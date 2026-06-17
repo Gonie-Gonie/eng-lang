@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use eng_compiler::{CheckReport, ComponentAssemblyInfo};
+use eng_compiler::{normalize_unit, CheckReport, ComponentAssemblyInfo};
 use serde_json::{json, Value};
 
 pub const KERNEL_PLAN_FORMAT: &str = "eng-kernel-plan-v1";
@@ -1917,8 +1917,31 @@ fn append_signed_term(
     }
 }
 
+fn parse_matrix_coefficient(text: &str) -> Option<f64> {
+    let mut parts = text.split_whitespace();
+    let coefficient = parts.next()?.parse::<f64>().ok()?;
+    let unit = parts.next();
+    if parts.next().is_some() {
+        return None;
+    }
+    let scale = match unit {
+        Some(unit) => inverse_time_coefficient_scale_to_per_second(unit)?,
+        None => 1.0,
+    };
+    Some(coefficient * scale)
+}
+
 fn parse_leading_number(text: &str) -> Option<f64> {
     text.split_whitespace().next()?.parse::<f64>().ok()
+}
+
+fn inverse_time_coefficient_scale_to_per_second(unit: &str) -> Option<f64> {
+    match normalize_unit(unit).as_str() {
+        "1/s" | "1/sec" | "1/second" => Some(1.0),
+        "1/min" | "1/minute" => Some(1.0 / 60.0),
+        "1/h" | "1/hr" | "1/hour" => Some(1.0 / 3600.0),
+        _ => None,
+    }
 }
 
 fn parse_numeric_matrix(expression: &str) -> Option<Vec<Vec<f64>>> {
@@ -1936,7 +1959,7 @@ fn parse_numeric_matrix(expression: &str) -> Option<Vec<Vec<f64>>> {
                 .split(',')
                 .map(str::trim)
                 .filter(|entry| !entry.is_empty())
-                .map(parse_leading_number)
+                .map(parse_matrix_coefficient)
                 .collect::<Option<Vec<_>>>()
         })
         .collect::<Option<Vec<_>>>()?;
@@ -2567,6 +2590,16 @@ mod tests {
             panic!("state-space RHS output should be scalar");
         };
         assert!((*value - 0.4972).abs() < 1e-12);
+    }
+
+    #[test]
+    fn parses_state_space_matrix_coefficients_to_canonical_per_second() {
+        let matrix = parse_numeric_matrix("[[60 1/min, 2 1/h, -0.5]]").unwrap();
+
+        assert_eq!(matrix.len(), 1);
+        assert!((matrix[0][0] - 1.0).abs() < 1e-12);
+        assert!((matrix[0][1] - (2.0 / 3600.0)).abs() < 1e-12);
+        assert_eq!(matrix[0][2], -0.5);
     }
 
     #[test]

@@ -1227,8 +1227,8 @@ system ThermalStateSpaceMetadata {
     inputs u = [T_out, Q_internal]
     outputs y = [T_zone]
 
-    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.0002 1/s]]
-    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.0002 1/s, 0.001]]
+    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.012 1/min]]
+    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.012 1/min, 0.001]]
 
     equation {
         der(x) eq A * x + B * u
@@ -1243,15 +1243,16 @@ rows must match the target vector size, and columns must match the source
 vector size; mismatches use `E-STATE-SPACE-OP-SHAPE-001`. Operator artifacts
 also include row/column member names, quantity kinds, units, and a compatibility
 status. Non-rectangular matrices are reported as shape mismatches. Matrix
-entries may be canonical numeric coefficients, or `1/s` coefficients when the
-target derivative unit is exactly the source state/input unit per second.
-Unsupported coefficient units are diagnosed with
-`E-STATE-SPACE-OP-ENTRY-UNIT-001`. Runtime may materialize fixed-step state
-trajectories when shape-checked A/B operators are available, including
-multi-state continuous Euler/RK4 execution, discrete A/B execution, and
-TimeSeries materialization for bound input vector members. This internal track
-does not claim broad coefficient-unit conversion, nonlinear, DAE, adaptive, or
-component-coupled state-space solving.
+entries may be canonical numeric coefficients, or inverse-time coefficients
+such as `1/s`, `1/min`, and `1/h` when the target derivative unit is exactly the
+source state/input unit per second. Inverse-time display units are canonicalized
+to per-second numeric coefficients before runtime/JIT matrix use. Unsupported
+coefficient units are diagnosed with `E-STATE-SPACE-OP-ENTRY-UNIT-001`.
+Runtime may materialize fixed-step state trajectories when shape-checked A/B
+operators are available, including multi-state continuous Euler/RK4 execution,
+discrete A/B execution, and TimeSeries materialization for bound input vector
+members. This internal track does not claim broad operator algebra, nonlinear,
+DAE, adaptive, or component-coupled state-space solving.
 
 Domain/component shapes are documented separately in
 `docs/guide/domain_component.md`. They are useful for metadata, validation, and

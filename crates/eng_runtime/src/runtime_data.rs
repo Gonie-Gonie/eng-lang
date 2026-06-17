@@ -3207,7 +3207,26 @@ fn parse_numeric_matrix(expression: &str) -> Option<Vec<Vec<f64>>> {
 }
 
 fn matrix_coefficient_value(value: &str) -> Option<f64> {
-    value.split_whitespace().next()?.parse::<f64>().ok()
+    let mut parts = value.split_whitespace();
+    let coefficient = parts.next()?.parse::<f64>().ok()?;
+    let unit = parts.next();
+    if parts.next().is_some() {
+        return None;
+    }
+    let scale = match unit {
+        Some(unit) => inverse_time_coefficient_scale_to_per_second(unit)?,
+        None => 1.0,
+    };
+    Some(coefficient * scale)
+}
+
+fn inverse_time_coefficient_scale_to_per_second(unit: &str) -> Option<f64> {
+    match normalize_unit(unit).as_str() {
+        "1/s" | "1/sec" | "1/second" => Some(1.0),
+        "1/min" | "1/minute" => Some(1.0 / 60.0),
+        "1/h" | "1/hr" | "1/hour" => Some(1.0 / 3600.0),
+        _ => None,
+    }
 }
 
 fn materialize_first_order_thermal_solution(
@@ -6048,6 +6067,16 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
                 .map(|failure| failure.code.as_str()),
             Some("E-LINEAR-SINGULAR")
         );
+    }
+
+    #[test]
+    fn parses_state_space_matrix_coefficients_to_canonical_per_second() {
+        let matrix = parse_numeric_matrix("[[60 1/min, 2 1/h, -0.5]]").unwrap();
+
+        assert_eq!(matrix.len(), 1);
+        assert!((matrix[0][0] - 1.0).abs() < 1e-12);
+        assert!((matrix[0][1] - (2.0 / 3600.0)).abs() < 1e-12);
+        assert_eq!(matrix[0][2], -0.5);
     }
 
     #[test]

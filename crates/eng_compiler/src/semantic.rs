@@ -6101,7 +6101,7 @@ fn linear_operator_entries_have_supported_units(
                     operator.from,
                     operator.to
                 ),
-                Some("Use canonical numeric coefficients, or use `1/s` only when the target derivative unit is exactly the source unit per second."),
+                Some("Use canonical numeric coefficients, or an inverse-time coefficient such as `1/s`, `1/min`, or `1/h` only when the target derivative unit is exactly the source unit per second."),
             ));
             return false;
         }
@@ -6115,7 +6115,7 @@ fn linear_operator_entry_unit_supported(
     column_index: usize,
     unit: &str,
 ) -> bool {
-    if normalize_unit(unit) != "1/s" {
+    if inverse_time_coefficient_scale_to_per_second(unit).is_none() {
         return false;
     }
     let Some(row_unit) = operator.row_units.get(row_index) else {
@@ -6125,6 +6125,15 @@ fn linear_operator_entry_unit_supported(
         return false;
     };
     row_unit == &format!("{column_unit}/s")
+}
+
+fn inverse_time_coefficient_scale_to_per_second(unit: &str) -> Option<f64> {
+    match normalize_unit(unit).as_str() {
+        "1/s" | "1/sec" | "1/second" => Some(1.0),
+        "1/min" | "1/minute" => Some(1.0 / 60.0),
+        "1/h" | "1/hr" | "1/hour" => Some(1.0 / 3600.0),
+        _ => None,
+    }
 }
 
 fn matrix_entry_number_with_optional_unit(expression: &str) -> Option<(f64, Option<String>)> {

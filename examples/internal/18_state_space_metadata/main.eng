@@ -18,8 +18,8 @@ system ThermalStateSpaceMetadata {
     inputs u = [T_out, Q_internal]
     outputs y = [T_zone]
 
-    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.0002 1/s]]
-    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.0002 1/s, 0.001]]
+    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.012 1/min]]
+    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.012 1/min, 0.001]]
 
     equation {
         der(x) eq A * x + B * u

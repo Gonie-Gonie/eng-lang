@@ -6018,7 +6018,7 @@ mod tests {
     fn records_state_space_vectors_and_linear_operators() {
         let report = check_source(
             "ok.eng",
-            "system ThermalStateSpaceMetadata {\n    state T_zone: AbsoluteTemperature = 22 degC\n    input T_out: AbsoluteTemperature = 8 degC\n    input Q_internal: HeatRate = 500 W\n    states x = [T_zone]\n    inputs u = [T_out, Q_internal]\n    outputs y = [T_zone]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.0002 1/s]]\n    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.0002 1/s, 0.001]]\n    equation {\n        der(x) eq A * x + B * u\n    }\n}\n",
+            "system ThermalStateSpaceMetadata {\n    state T_zone: AbsoluteTemperature = 22 degC\n    input T_out: AbsoluteTemperature = 8 degC\n    input Q_internal: HeatRate = 500 W\n    states x = [T_zone]\n    inputs u = [T_out, Q_internal]\n    outputs y = [T_zone]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.012 1/min]]\n    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.012 1/min, 0.001]]\n    equation {\n        der(x) eq A * x + B * u\n    }\n}\n",
             &CheckOptions::default(),
         );
 
@@ -6134,7 +6134,7 @@ mod tests {
     fn rejects_incompatible_state_space_operator_coefficient_units() {
         let report = check_source(
             "bad.eng",
-            "system BadStateSpace {\n    state T_zone: AbsoluteTemperature = 22 degC\n    input Q_internal: HeatRate = 500 W\n    states x = [T_zone]\n    inputs u = [Q_internal]\n    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.1 1/s]]\n}\n",
+            "system BadStateSpace {\n    state T_zone: AbsoluteTemperature = 22 degC\n    input Q_internal: HeatRate = 500 W\n    states x = [T_zone]\n    inputs u = [Q_internal]\n    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.1 1/min]]\n}\n",
             &CheckOptions::default(),
         );
 

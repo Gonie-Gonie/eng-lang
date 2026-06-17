@@ -20,8 +20,8 @@ system MultiStateThermal {
     inputs u = [T_out, Q_hvac]
     outputs y = [T_air, T_wall]
 
-    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.00035 1/s, 0.00012 1/s]; [0.00008 1/s, -0.00016 1/s]]
-    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.00023 1/s, 0.0000012]; [0.00008 1/s, 0.0]]
+    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.021 1/min, 0.0072 1/min]; [0.0048 1/min, -0.0096 1/min]]
+    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.0138 1/min, 0.0000012]; [0.0048 1/min, 0.0]]
 
     equation {
         der(x) eq A * x + B * u
