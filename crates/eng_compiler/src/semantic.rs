@@ -4868,13 +4868,19 @@ fn build_component_assembly_graphs(
             status: "placeholder".to_owned(),
         })
         .collect::<Vec<_>>();
+    let (residual_graph_status, residual_solver_plan) = if equations.is_empty() {
+        ("empty", "no_residual_equations")
+    } else if equation_count == unknown_count {
+        (
+            "linear_residual_graph_candidate",
+            "dense_linear_residual_graph_candidate",
+        )
+    } else {
+        ("metadata_only", "metadata_only_no_numeric_solve")
+    };
     let residual_graph = ComponentResidualGraphInfo {
         name: "component_residual_graph".to_owned(),
-        status: if equations.is_empty() {
-            "empty".to_owned()
-        } else {
-            "metadata_only".to_owned()
-        },
+        status: residual_graph_status.to_owned(),
         residuals: equations
             .iter()
             .map(|equation| equation.name.clone())
@@ -4882,7 +4888,7 @@ fn build_component_assembly_graphs(
         dependencies,
         algebraic_loops,
         jacobian_sparsity,
-        solver_plan: "metadata_only_no_numeric_solve".to_owned(),
+        solver_plan: residual_solver_plan.to_owned(),
     };
     let domain_plans =
         build_component_domain_plans(domains, &connection_sets, &equations, &variables);

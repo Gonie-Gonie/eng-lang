@@ -4824,6 +4824,39 @@ mod tests {
     }
 
     #[test]
+    fn records_square_component_boundary_residual_candidate() {
+        let report = check_source(
+            "ok.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n    boundary_T = heat.T = 22 degC\n    boundary_Q = heat.Q = 1 kW\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\nconnect RoomBoundary.heat -> AmbientBoundary.heat\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        let assembly = &report.semantic_program.component_assemblies[0];
+        assert_eq!(assembly.boundary.balance_status, "balanced_metadata_seed");
+        assert_eq!(assembly.boundary.equation_count, 4);
+        assert_eq!(assembly.boundary.unknown_count, 4);
+        assert_eq!(assembly.component_equation_count, 2);
+        assert!(assembly
+            .equations
+            .iter()
+            .any(|equation| equation.kind == "component_boundary"
+                && equation.rhs.as_deref() == Some("22 degC")));
+        assert_eq!(
+            assembly.residual_graph.status,
+            "linear_residual_graph_candidate"
+        );
+        assert_eq!(
+            assembly.residual_graph.solver_plan,
+            "dense_linear_residual_graph_candidate"
+        );
+
+        let review = review_json(&report);
+        assert!(review.contains("\"linear_residual_graph_candidate\""));
+        assert!(review.contains("\"dense_linear_residual_graph_candidate\""));
+    }
+
+    #[test]
     fn rejects_invalid_component_delay_calls() {
         let missing_duration = check_source(
             "bad.eng",
