@@ -298,8 +298,10 @@ Current coverage:
 
 - Runtime has a standalone damped Newton algorithm seed with finite-difference
   fallback, supplied analytic/JIT Jacobian hook, largest-residual summary,
-  residual-history, convergence-status, singular-Jacobian, invalid-option, and
-  nonconvergence tests exposed through the solver API.
+  residual-history, convergence-status, invalid-option, and nonconvergence
+  tests exposed through the solver API. Singular Newton linear solves and failed
+  line-search candidates are returned as `NewtonResult` failure artifacts so
+  callers can preserve solver diagnostics instead of losing the iteration state.
 - Runtime also has dense linear and solver-API fixed-point algorithm seeds.
 - `eng test examples` now directly exercises the solver-API Newton and
   implicit-Euler DAE seeds, including two-variable nonlinear convergence,

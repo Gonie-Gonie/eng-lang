@@ -109,8 +109,32 @@ where
             .iter()
             .map(|value| -value)
             .collect::<Vec<_>>();
-        let step = solve_dense_linear_system(&jacobian, &rhs, options.tolerance)?.values;
-        let accepted = damped_step(&values, &step, residual_norm, options, &mut residual)?;
+        let step = match solve_dense_linear_system(&jacobian, &rhs, options.tolerance) {
+            Ok(linear) => linear.values,
+            Err(failure) => {
+                return Ok(build_newton_result(
+                    values,
+                    residual_history,
+                    iteration,
+                    "newton_linear_solve_failed",
+                    Some(failure),
+                    &residual_values,
+                ));
+            }
+        };
+        let accepted = match damped_step(&values, &step, residual_norm, options, &mut residual) {
+            Ok(accepted) => accepted,
+            Err(failure) => {
+                return Ok(build_newton_result(
+                    values,
+                    residual_history,
+                    iteration,
+                    "newton_line_search_failed",
+                    Some(failure),
+                    &residual_values,
+                ));
+            }
+        };
         values = accepted.values;
         residual_values = accepted.residuals;
         residual_norm = accepted.residual_norm;
@@ -459,10 +483,21 @@ mod tests {
 
     #[test]
     fn reports_singular_jacobian_failure() {
-        let failure =
-            solve_newton(&[1.0], &NewtonOptions::default(), |_| Ok(vec![1.0])).unwrap_err();
+        let result = solve_newton(&[1.0], &NewtonOptions::default(), |_| Ok(vec![1.0])).unwrap();
 
-        assert_eq!(failure.code, "E-LINEAR-SINGULAR");
+        assert_eq!(result.convergence_status, "newton_linear_solve_failed");
+        assert_eq!(result.iteration_count, 1);
+        assert_eq!(
+            result.failure.as_ref().map(|failure| failure.code.as_str()),
+            Some("E-LINEAR-SINGULAR")
+        );
+        assert_eq!(
+            result
+                .largest_residual
+                .as_ref()
+                .map(|residual| residual.index),
+            Some(0)
+        );
     }
 
     #[test]
@@ -513,21 +548,26 @@ mod tests {
     }
 
     #[test]
-    fn rejects_nonfinite_line_search_candidate() {
+    fn reports_nonfinite_line_search_candidate() {
         let options = NewtonOptions {
             max_iterations: 1,
             line_search_steps: 1,
             ..Default::default()
         };
-        let failure = solve_newton_with_jacobian(
+        let result = solve_newton_with_jacobian(
             &[f64::MAX],
             &options,
             |_| Ok(vec![-f64::MAX]),
             |_values, _baseline_residuals| Ok(vec![vec![1.0]]),
         )
-        .unwrap_err();
+        .unwrap();
 
-        assert_eq!(failure.code, "E-NEWTON-CANDIDATE-FINITE");
+        assert_eq!(result.convergence_status, "newton_line_search_failed");
+        assert_eq!(result.iteration_count, 1);
+        assert_eq!(
+            result.failure.as_ref().map(|failure| failure.code.as_str()),
+            Some("E-NEWTON-CANDIDATE-FINITE")
+        );
     }
 
     #[test]

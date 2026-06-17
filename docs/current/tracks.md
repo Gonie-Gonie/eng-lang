@@ -92,6 +92,8 @@ Internal runtime seeds:
 - SolverInput/SolverResult state, input, parameter, finite numeric value, and validated output layout contracts
 - dense linear solver seeds reject non-finite matrix/RHS values and invalid tolerances
 - Newton solver seeds reject non-finite initial guesses
+- Newton iteration failures for singular linear solves and failed line-search
+  candidates are returned as failure artifacts
 - solver residual diagnostics use a shared scaled Euclidean norm helper
 - fixed-point, Newton, and dense linear solver seeds reject non-finite intermediate values
 - ResidualGraph linear assembly rejects non-finite coefficients and RHS values

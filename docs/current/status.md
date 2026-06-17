@@ -175,7 +175,8 @@ are not public stable workflows.
   finite-difference fallback, supplied analytic/JIT Jacobian hook,
   residual history, largest-residual summary, shared scaled residual-norm
   diagnostics, residual-assembly/evaluation finite-value checks, intermediate
-  overflow rejection, and failure artifacts. The same
+  overflow rejection, and nonconvergence/singular-linear-solve/line-search
+  failure artifacts. The same
   internal layer has a solver-API standalone implicit-Euler DAE seed over
   `F(x, xdot, z, u, t, p)` with optional mass matrix, finite
   derivative/mass-application checks, initial consistency checks,
