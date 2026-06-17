@@ -996,6 +996,121 @@ function Assert-SystemGolden {
     Assert-ArtifactFloat @($resultSolverPoints[$resultSolverPoints.Count - 1])[0] $Golden.result.solver_last_point_time_s "system result.solver_result last point time"
 }
 
+function Assert-MeasuredVsSimulatedGolden {
+    param(
+        [Parameter(Mandatory = $true)]
+        $Golden,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Eng
+    )
+
+    Remove-Item -LiteralPath (Join-Path $RepoRoot "build\result") -Recurse -Force -ErrorAction SilentlyContinue
+    Invoke-Native $Eng "run" $Golden.source "--save-artifacts"
+
+    $review = Read-ArtifactJson (Join-Path $RepoRoot "build\result\review.json")
+    Assert-ArtifactValue $review.format $Golden.review.format "measured review.format"
+    Assert-ArtifactNumber $review.review_schema_version $Golden.review.review_schema_version "measured review.review_schema_version"
+    Assert-ArtifactValue (Get-NormalizedArtifactPath $review.source_path) (Get-NormalizedArtifactPath $Golden.source) "measured review.source_path"
+    Assert-ArtifactNumber @($review.csv_promotions).Count $Golden.review.csv_promotion_count "measured review.csv_promotions count"
+    $reviewWeather = @($review.csv_promotions) | Where-Object { $_.binding -eq $Golden.review.weather_binding } | Select-Object -First 1
+    $reviewMeasured = @($review.csv_promotions) | Where-Object { $_.binding -eq $Golden.review.measured_binding } | Select-Object -First 1
+    Assert-Artifact ($null -ne $reviewWeather) "measured review missing weather CSV promotion"
+    Assert-Artifact ($null -ne $reviewMeasured) "measured review missing measured CSV promotion"
+    Assert-ArtifactValue $reviewWeather.source_hash $Golden.review.weather_source_hash "measured review weather source_hash"
+    Assert-ArtifactValue $reviewMeasured.source_hash $Golden.review.measured_source_hash "measured review measured source_hash"
+    $reviewMetric = @($review.variable_table) | Where-Object { $_.name -eq $Golden.review.metric_binding } | Select-Object -First 1
+    Assert-Artifact ($null -ne $reviewMetric) "measured review missing RMSE variable"
+    Assert-ArtifactValue $reviewMetric.quantity_kind $Golden.review.metric_quantity "measured review RMSE quantity"
+    Assert-ArtifactValue $reviewMetric.display_unit $Golden.review.metric_unit "measured review RMSE unit"
+    $reviewValidation = @($review.command_styles) | Where-Object { $_.canonical -eq $Golden.review.validation_canonical } | Select-Object -First 1
+    Assert-Artifact ($null -ne $reviewValidation) "measured review missing validation command"
+    Assert-ArtifactNumber @($review.simulation_results).Count $Golden.review.simulation_result_count "measured review.simulation_results count"
+    $reviewSimulation = @($review.simulation_results)[0]
+    Assert-ArtifactValue $reviewSimulation.system $Golden.review.simulation_system "measured review simulation system"
+    Assert-ArtifactValue $reviewSimulation.binding $Golden.review.simulation_binding "measured review simulation binding"
+    Assert-ArtifactValue $reviewSimulation.status $Golden.review.simulation_status "measured review simulation status"
+    Assert-ArtifactValue $reviewSimulation.method $Golden.review.simulation_method "measured review simulation method"
+    Assert-ArtifactNumber $reviewSimulation.time_grid.step_count $Golden.review.simulation_step_count "measured review simulation step_count"
+    Assert-ArtifactValue $reviewSimulation.diagnostics.convergence_status $Golden.review.simulation_convergence_status "measured review simulation convergence_status"
+    Assert-ArtifactNumber @($reviewSimulation.solver_results).Count $Golden.review.solver_result_count "measured review solver_results count"
+    $reviewSolver = @($reviewSimulation.solver_results)[0]
+    Assert-ArtifactValue $reviewSolver.state $Golden.review.simulation_state_name "measured review solver state"
+    Assert-ArtifactNumber @($reviewSolver.points).Count $Golden.review.simulation_point_count "measured review solver point count"
+    Assert-ArtifactFloat $reviewSolver.final_value $Golden.review.simulation_final_temp_deg_c "measured review solver final_value"
+
+    $reportSpec = Read-ArtifactJson (Join-Path $RepoRoot "build\result\report_spec.json")
+    Assert-ArtifactValue $reportSpec.format $Golden.report_spec.format "measured report_spec.format"
+    Assert-ArtifactNumber $reportSpec.report_schema_version $Golden.report_spec.report_schema_version "measured report_spec.report_schema_version"
+    Assert-ArtifactNumber @($reportSpec.computed_metrics).Count $Golden.report_spec.metric_count "measured report_spec.computed_metrics count"
+    $reportMetric = @($reportSpec.computed_metrics)[0]
+    Assert-ArtifactValue $reportMetric.binding $Golden.report_spec.metric_binding "measured report_spec metric binding"
+    Assert-ArtifactValue $reportMetric.quantity_kind $Golden.report_spec.metric_quantity "measured report_spec metric quantity"
+    Assert-ArtifactValue $reportMetric.unit $Golden.report_spec.metric_unit "measured report_spec metric unit"
+    Assert-ArtifactFloat $reportMetric.value $Golden.report_spec.metric_value "measured report_spec metric value"
+    Assert-ArtifactNumber @($reportSpec.validations).Count $Golden.report_spec.validation_count "measured report_spec.validations count"
+    $reportValidation = @($reportSpec.validations)[0]
+    Assert-ArtifactValue $reportValidation.expression $Golden.report_spec.validation_expression "measured report_spec validation expression"
+    Assert-ArtifactValue $reportValidation.status $Golden.report_spec.validation_status "measured report_spec validation status"
+    Assert-ArtifactValue $reportValidation.unit $Golden.report_spec.validation_unit "measured report_spec validation unit"
+    Assert-ArtifactFloat $reportValidation.left_value $Golden.report_spec.validation_left_value "measured report_spec validation left_value"
+    Assert-ArtifactFloat $reportValidation.right_value $Golden.report_spec.validation_right_value "measured report_spec validation right_value"
+    Assert-ArtifactNumber @($reportSpec.time_alignments).Count $Golden.report_spec.time_alignment_count "measured report_spec.time_alignments count"
+    $reportAlignment = @($reportSpec.time_alignments) | Where-Object { $_.left -eq $Golden.report_spec.alignment_left -and $_.right -eq $Golden.report_spec.alignment_right } | Select-Object -First 1
+    Assert-Artifact ($null -ne $reportAlignment) "measured report_spec missing measured/sim alignment"
+    Assert-ArtifactValue $reportAlignment.status $Golden.report_spec.alignment_status "measured report_spec alignment status"
+    Assert-ArtifactNumber $reportAlignment.matched_count $Golden.report_spec.alignment_matched_count "measured report_spec alignment matched_count"
+    $reportSolver = @(@($reportSpec.system_ir)[0].solver_results)[0]
+    Assert-ArtifactValue $reportSolver.state $Golden.report_spec.solver_state_name "measured report_spec solver state"
+    Assert-ArtifactValue $reportSolver.method $Golden.report_spec.solver_method "measured report_spec solver method"
+    Assert-ArtifactNumber $reportSolver.step_count $Golden.report_spec.solver_step_count "measured report_spec solver step_count"
+    Assert-ArtifactFloat $reportSolver.final_value $Golden.report_spec.solver_final_temp_deg_c "measured report_spec solver final_value"
+
+    $result = Read-ArtifactJson (Join-Path $RepoRoot "build\result\result.engres")
+    Assert-ArtifactValue $result.format $Golden.result.format "measured result.format"
+    Assert-ArtifactNumber $result.result_format_version $Golden.result.result_format_version "measured result.result_format_version"
+    Assert-ArtifactNumber @($result.typed_payload.metrics).Count $Golden.result.metric_count "measured result.typed_payload.metrics count"
+    $resultMetric = @($result.typed_payload.metrics)[0]
+    Assert-ArtifactValue $resultMetric.binding $Golden.result.metric_binding "measured result metric binding"
+    Assert-ArtifactValue $resultMetric.quantity_kind $Golden.result.metric_quantity "measured result metric quantity"
+    Assert-ArtifactValue $resultMetric.unit $Golden.result.metric_unit "measured result metric unit"
+    Assert-ArtifactFloat $resultMetric.value $Golden.result.metric_value "measured result metric value"
+    Assert-ArtifactNumber @($result.typed_payload.validations).Count $Golden.result.validation_count "measured result.typed_payload.validations count"
+    $resultValidation = @($result.typed_payload.validations)[0]
+    Assert-ArtifactValue $resultValidation.expression $Golden.result.validation_expression "measured result validation expression"
+    Assert-ArtifactValue $resultValidation.status $Golden.result.validation_status "measured result validation status"
+    Assert-ArtifactValue $resultValidation.unit $Golden.result.validation_unit "measured result validation unit"
+    Assert-ArtifactFloat $resultValidation.left_value $Golden.result.validation_left_value "measured result validation left_value"
+    Assert-ArtifactFloat $resultValidation.right_value $Golden.result.validation_right_value "measured result validation right_value"
+    Assert-ArtifactNumber @($result.typed_payload.time_alignments).Count $Golden.result.time_alignment_count "measured result.time_alignments count"
+    $resultAlignment = @($result.typed_payload.time_alignments) | Where-Object { $_.left -eq $Golden.result.alignment_left -and $_.right -eq $Golden.result.alignment_right } | Select-Object -First 1
+    Assert-Artifact ($null -ne $resultAlignment) "measured result missing measured/sim alignment"
+    Assert-ArtifactValue $resultAlignment.status $Golden.result.alignment_status "measured result alignment status"
+    Assert-ArtifactNumber $resultAlignment.matched_count $Golden.result.alignment_matched_count "measured result alignment matched_count"
+    $resultSolver = @($result.typed_payload.systems)[0].solver_result
+    Assert-ArtifactValue $resultSolver.status $Golden.result.solver_status "measured result solver status"
+    Assert-ArtifactValue $resultSolver.method $Golden.result.solver_method "measured result solver method"
+    Assert-ArtifactNumber $resultSolver.step_count $Golden.result.solver_step_count "measured result solver step_count"
+    Assert-ArtifactFloat $resultSolver.final_value $Golden.result.solver_final_temp_deg_c "measured result solver final_value"
+
+    $plotSpec = Read-ArtifactJson (Join-Path $RepoRoot "build\result\plots\plot_spec.json")
+    Assert-ArtifactValue $plotSpec.format $Golden.plot_spec.format "measured plot_spec.format"
+    Assert-ArtifactNumber $plotSpec.plot_spec_version $Golden.plot_spec.plot_spec_version "measured plot_spec.plot_spec_version"
+    Assert-ArtifactValue $plotSpec.plot_type $Golden.plot_spec.plot_type "measured plot_spec.plot_type"
+    Assert-ArtifactValue $plotSpec.title $Golden.plot_spec.title "measured plot_spec.title"
+    Assert-ArtifactValue $plotSpec.x_axis.unit $Golden.plot_spec.x_unit "measured plot_spec.x_axis.unit"
+    Assert-ArtifactValue $plotSpec.y_axis.unit $Golden.plot_spec.y_unit "measured plot_spec.y_axis.unit"
+    Assert-ArtifactNumber @($plotSpec.series).Count $Golden.plot_spec.series_count "measured plot_spec.series count"
+    $measuredSeries = @($plotSpec.series)[0]
+    $simSeries = @($plotSpec.series)[1]
+    Assert-ArtifactValue $measuredSeries.name $Golden.plot_spec.first_series "measured plot_spec first series"
+    Assert-ArtifactValue $simSeries.name $Golden.plot_spec.second_series "measured plot_spec second series"
+    Assert-ArtifactNumber @($measuredSeries.points).Count $Golden.plot_spec.point_count "measured plot_spec measured point count"
+    Assert-ArtifactNumber @($simSeries.points).Count $Golden.plot_spec.point_count "measured plot_spec simulated point count"
+    Assert-ArtifactFloat @(@($measuredSeries.points)[0])[1] $Golden.plot_spec.first_measured_y_deg_c "measured plot_spec first measured y"
+    Assert-ArtifactFloat @(@($simSeries.points)[@($simSeries.points).Count - 1])[1] $Golden.plot_spec.last_simulated_y_deg_c "measured plot_spec last simulated y"
+}
+
 function Invoke-ArtifactsCheck {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -1010,9 +1125,11 @@ function Invoke-ArtifactsCheck {
     $goldenRoot = Join-Path $RepoRoot "tests\golden\artifacts"
     $csvGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_01_csv_plot.golden.json")
     $systemGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_02_simple_system.golden.json")
+    $measuredGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_17_measured_vs_simulated.golden.json")
 
     Assert-CsvPlotGolden $csvGolden $Eng
     Assert-SystemGolden $systemGolden $Eng
+    Assert-MeasuredVsSimulatedGolden $measuredGolden $Eng
 
     Write-Host "Artifact check passed. Validated schema files and official golden artifacts."
 }

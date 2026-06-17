@@ -108,6 +108,9 @@ Current coverage:
 - `artifacts-check` snapshots the official CSV workflow's promoted data source
   hash, TimeSeries axis metadata, and HeatRate-to-Energy integration unit
   contract across `review.json`, `report_spec.json`, and `result.engres`.
+- `artifacts-check` snapshots the measured-vs-simulated workflow's RMSE
+  `TemperatureDelta` metric, validation result, matched measured/simulated time
+  alignment, SolverResult state trajectory, and two-series PlotSpec contract.
 - `artifacts-check` snapshots the official one-state solver artifact contract
   across `review.json` `simulation_results[].solver_results`,
   `report_spec.json` `system_ir[].solver_results`, and `result.engres`
