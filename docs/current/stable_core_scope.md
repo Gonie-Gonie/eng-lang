@@ -99,10 +99,11 @@ Before a stable-core maintenance slice is accepted:
 
 The `eng test examples` gate directly exercises the official run/build paths,
 Korean and space-containing paths, standalone package execution,
-measured-vs-simulated artifacts, side-effect artifacts, safe-profile rejection
-of explicit export/write/file/process effects, normal-profile
-process/test/output-manifest fields, and repro-profile diagnostics in saved
-artifacts.
+CSV source-hash provenance, TimeSeries axis and HeatRate-to-Energy integration
+metadata, measured-vs-simulated RMSE/validation units, side-effect artifacts,
+safe-profile rejection of explicit export/write/file/process effects,
+normal-profile process/test/output-manifest fields, and repro-profile
+diagnostics in saved artifacts.
 
 The release note must distinguish Stable, Supported, Internal, and Planned
 behavior. Package smoke must pass from a clean extracted folder without Rust,

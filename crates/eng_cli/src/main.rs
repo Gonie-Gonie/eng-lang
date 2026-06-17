@@ -1098,18 +1098,50 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         Path::new("build/test-plot"),
         &artifact_run_options(),
     ) {
-        Ok(output)
-            if output.plot_spec_path.exists()
-                && output.plot_manifest_path.exists()
-                && output.report_spec_path.exists() =>
-        {
+        Ok(output) => {
+            if !output.plot_spec_path.exists()
+                || !output.plot_manifest_path.exists()
+                || !output.report_spec_path.exists()
+                || !output.review_json.contains("\"csv_promotions\"")
+                || !output.review_json.contains("\"source_hash\": \"")
+                || !output.review_json.contains("\"axis_info\"")
+                || !output.review_json.contains("\"binding\": \"Q_coil\"")
+                || !output.review_json.contains("\"axis\": \"Time\"")
+                || !output
+                    .review_json
+                    .contains("\"result_quantity\": \"Energy\"")
+                || !output.result_json.contains("\"data_hashes\"")
+                || !output.result_json.contains("\"source_hash\": \"")
+                || !output.result_json.contains("\"time_axes\"")
+                || !output
+                    .result_json
+                    .contains("\"input_quantity\": \"HeatRate\"")
+                || !output
+                    .result_json
+                    .contains("\"result_quantity\": \"Energy\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"computed_integrations\"")
+                || !output.report_spec_json.contains("\"time_axes\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"input_quantity\": \"HeatRate\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"result_quantity\": \"Energy\"")
+                || !output.report_html.contains("CSV Promotions")
+                || !output.report_html.contains("Source Hash")
+                || !output.report_html.contains("Axis Info")
+                || !output.report_html.contains("Energy")
+            {
+                eprintln!(
+                    "expected plot example to expose source hashes, TimeSeries axes, and HeatRate-to-Energy integration artifacts"
+                );
+                return ExitCode::from(2);
+            }
             println!(
-                "ok: examples/official/01_csv_plot/main.eng produced report and PlotSpec artifacts"
+                "ok: examples/official/01_csv_plot/main.eng produced report, PlotSpec, provenance, axis, and integration artifacts"
             );
-        }
-        Ok(_) => {
-            eprintln!("expected plot example to produce report and PlotSpec artifacts");
-            return ExitCode::from(2);
         }
         Err(error) => {
             eprintln!("plot example failed: {error}");
@@ -1403,17 +1435,30 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !review.contains("\"time_grid\"")
                 || !review.contains("\"binding\": \"sim\"")
                 || !review.contains("\"name\": \"T_zone\"")
+                || !review.contains("\"name\": \"rmse_T\"")
+                || !review.contains("\"quantity_kind\": \"TemperatureDelta\"")
+                || !review.contains("\"display_unit\": \"K\"")
+                || !review.contains("\"canonical\": \"validate(rmse_T < 5 K)\"")
                 || !result.contains("\"metrics\"")
                 || !result.contains("\"validations\"")
                 || !result.contains("\"time_alignments\"")
                 || !result.contains("\"binding\": \"rmse_T\"")
+                || !result.contains("\"quantity_kind\": \"TemperatureDelta\"")
+                || !result.contains("\"unit\": \"K\"")
+                || !result.contains("\"expression\": \"rmse_T < 5 K\"")
                 || !report_spec.contains("\"computed_metrics\"")
+                || !report_spec.contains("\"quantity_kind\": \"TemperatureDelta\"")
+                || !report_spec.contains("\"unit\": \"K\"")
+                || !report_spec.contains("\"expression\": \"rmse_T < 5 K\"")
                 || !report_spec.contains("\"status\": \"passed\"")
+                || !report_html.contains("Computed Metrics")
                 || !report_html.contains("Validations")
+                || !report_html.contains("rmse_T")
+                || !report_html.contains("rmse_T &lt; 5 K")
                 || !plot_spec.contains("\"name\": \"measured_data.T_zone\"")
                 || !plot_spec.contains("\"name\": \"sim.T_zone\"")
             {
-                eprintln!("expected measured-vs-simulated example to produce RMSE, validation, alignment, and multi-series plot artifacts");
+                eprintln!("expected measured-vs-simulated example to produce RMSE TemperatureDelta/K, validation, alignment, and multi-series plot artifacts");
                 return ExitCode::from(2);
             }
             println!(
