@@ -1006,7 +1006,7 @@ function Assert-MeasuredVsSimulatedGolden {
     )
 
     Remove-Item -LiteralPath (Join-Path $RepoRoot "build\result") -Recurse -Force -ErrorAction SilentlyContinue
-    Invoke-Native $Eng "run" $Golden.source "--save-artifacts"
+    Invoke-Native $Eng "run" $Golden.source "--profile" $Golden.profile "--save-artifacts"
 
     $review = Read-ArtifactJson (Join-Path $RepoRoot "build\result\review.json")
     Assert-ArtifactValue $review.format $Golden.review.format "measured review.format"
@@ -1069,6 +1069,7 @@ function Assert-MeasuredVsSimulatedGolden {
     $result = Read-ArtifactJson (Join-Path $RepoRoot "build\result\result.engres")
     Assert-ArtifactValue $result.format $Golden.result.format "measured result.format"
     Assert-ArtifactNumber $result.result_format_version $Golden.result.result_format_version "measured result.result_format_version"
+    Assert-ArtifactValue $result.execution_profile $Golden.profile "measured result.execution_profile"
     Assert-ArtifactNumber @($result.typed_payload.metrics).Count $Golden.result.metric_count "measured result.typed_payload.metrics count"
     $resultMetric = @($result.typed_payload.metrics)[0]
     Assert-ArtifactValue $resultMetric.binding $Golden.result.metric_binding "measured result metric binding"
