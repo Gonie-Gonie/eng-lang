@@ -27,8 +27,8 @@ Current coverage:
 - `eng_jit` records kernel-plan candidates, backend selection metadata, and
   per-candidate interpreter executor/fallback reasons.
 - Runtime optimization has `eng-kernel-ir-v1` plus an interpreter executor for
-  element-wise TimeSeries arithmetic and trapezoid integration correctness
-  tests.
+  element-wise TimeSeries arithmetic, trapezoid integration, scalar residual,
+  and finite-difference Jacobian correctness tests.
 - `eng.exe jit-bench` remains a normal-runtime timing harness and makes no
   speedup claim.
 
@@ -36,7 +36,8 @@ Definition of Done:
 
 - Lower real TimeSeries arithmetic/integration candidates from checked source
   into executable interpreter IR using runtime inputs.
-- Add residual evaluator and Jacobian evaluator kernel IR/executor coverage.
+- Lower residual evaluator and Jacobian evaluator kernels from checked source
+  and solver assembly artifacts, not just hand-built IR tests.
 - Keep native backend selection behind `not_available` until native execution
   exists and is benchmarked.
 - Report selected kernel/fallback reason in report/IDE surfaces without

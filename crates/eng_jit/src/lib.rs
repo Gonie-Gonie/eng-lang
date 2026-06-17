@@ -54,6 +54,7 @@ pub struct KernelIr {
     pub name: String,
     pub kind: String,
     pub input_count: usize,
+    pub scalar_input_count: usize,
     pub output_count: usize,
     pub instructions: Vec<KernelInstruction>,
 }
@@ -71,15 +72,25 @@ impl KernelIr {
             name: name.into(),
             kind: kind.into(),
             input_count,
+            scalar_input_count: 0,
             output_count,
             instructions,
         }
+    }
+
+    pub fn with_scalar_input_count(mut self, scalar_input_count: usize) -> Self {
+        self.scalar_input_count = scalar_input_count;
+        self
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum KernelInstruction {
     LoadInput {
+        input: usize,
+        register: usize,
+    },
+    LoadScalarInput {
         input: usize,
         register: usize,
     },
@@ -94,6 +105,10 @@ pub enum KernelInstruction {
         target: usize,
     },
     StoreSeries {
+        register: usize,
+        output: usize,
+    },
+    StoreScalar {
         register: usize,
         output: usize,
     },
@@ -115,6 +130,7 @@ pub enum KernelBinaryOp {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct KernelExecutionInput {
     pub series_inputs: Vec<Vec<f64>>,
+    pub scalar_inputs: Vec<f64>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -134,6 +150,13 @@ pub enum KernelOutputValue {
 pub struct KernelExecutionFailure {
     pub code: String,
     pub message: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct JacobianKernelOutput {
+    pub backend: String,
+    pub fallback_reason: Option<String>,
+    pub values: Vec<Vec<f64>>,
 }
 
 impl KernelExecutionFailure {
@@ -393,6 +416,55 @@ pub fn execute_interpreter_kernel(
     })
 }
 
+pub fn execute_finite_difference_jacobian_kernel(
+    residual_ir: &KernelIr,
+    values: &[f64],
+    finite_difference_step: f64,
+) -> Result<JacobianKernelOutput, KernelExecutionFailure> {
+    if values.is_empty() || residual_ir.scalar_input_count != values.len() {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-JACOBIAN-LAYOUT",
+            "Jacobian kernel requires scalar inputs matching the variable vector",
+        ));
+    }
+    if !finite_difference_step.is_finite() || finite_difference_step <= 0.0 {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-JACOBIAN-STEP",
+            "Jacobian finite-difference step must be a positive finite number",
+        ));
+    }
+    let baseline = execute_residual_scalar_kernel(residual_ir, values)?;
+    if baseline.len() != values.len() {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-JACOBIAN-LAYOUT",
+            "Jacobian kernel requires residual output count to match variable count",
+        ));
+    }
+
+    let mut jacobian = vec![vec![0.0; values.len()]; values.len()];
+    for column in 0..values.len() {
+        let mut perturbed = values.to_vec();
+        let step = finite_difference_step * values[column].abs().max(1.0);
+        perturbed[column] += step;
+        let residuals = execute_residual_scalar_kernel(residual_ir, &perturbed)?;
+        if residuals.len() != baseline.len() {
+            return Err(KernelExecutionFailure::new(
+                "E-KERNEL-JACOBIAN-LAYOUT",
+                "Jacobian residual output count changed during finite differencing",
+            ));
+        }
+        for row in 0..baseline.len() {
+            jacobian[row][column] = (residuals[row] - baseline[row]) / step;
+        }
+    }
+
+    Ok(JacobianKernelOutput {
+        backend: INTERPRETER_FALLBACK_BACKEND.to_owned(),
+        fallback_reason: None,
+        values: jacobian,
+    })
+}
+
 fn push_candidate(
     candidates: &mut Vec<KernelCandidate>,
     seen: &mut BTreeSet<String>,
@@ -440,7 +512,10 @@ fn validate_kernel_ir(ir: &KernelIr) -> Result<(), KernelExecutionFailure> {
             "unsupported kernel IR format",
         ));
     }
-    if ir.input_count == 0 || ir.output_count == 0 || ir.instructions.is_empty() {
+    if (ir.input_count + ir.scalar_input_count) == 0
+        || ir.output_count == 0
+        || ir.instructions.is_empty()
+    {
         return Err(KernelExecutionFailure::new(
             "E-KERNEL-IR-SHAPE",
             "kernel IR requires at least one input, one output, and one instruction",
@@ -456,7 +531,23 @@ fn validate_kernel_ir(ir: &KernelIr) -> Result<(), KernelExecutionFailure> {
                     ));
                 }
             }
+            KernelInstruction::LoadScalarInput { input, .. } => {
+                if *input >= ir.scalar_input_count {
+                    return Err(KernelExecutionFailure::new(
+                        "E-KERNEL-IR-SCALAR-INPUT",
+                        "kernel instruction references an out-of-range scalar input",
+                    ));
+                }
+            }
             KernelInstruction::StoreSeries { output, .. } => {
+                if *output >= ir.output_count {
+                    return Err(KernelExecutionFailure::new(
+                        "E-KERNEL-IR-OUTPUT",
+                        "kernel instruction references an out-of-range output",
+                    ));
+                }
+            }
+            KernelInstruction::StoreScalar { output, .. } => {
                 if *output >= ir.output_count {
                     return Err(KernelExecutionFailure::new(
                         "E-KERNEL-IR-OUTPUT",
@@ -494,13 +585,17 @@ fn validate_kernel_input(
             "kernel input series count does not match the IR input count",
         ));
     }
-    let Some(first) = input.series_inputs.first() else {
+    if input.scalar_inputs.len() != ir.scalar_input_count {
         return Err(KernelExecutionFailure::new(
-            "E-KERNEL-INPUT-LAYOUT",
-            "kernel requires at least one series input",
+            "E-KERNEL-SCALAR-INPUT-LAYOUT",
+            "kernel scalar input count does not match the IR scalar input count",
         ));
-    };
-    let row_count = first.len();
+    }
+    let row_count = input
+        .series_inputs
+        .first()
+        .map(|series| series.len())
+        .unwrap_or(1);
     if input
         .series_inputs
         .iter()
@@ -515,6 +610,7 @@ fn validate_kernel_input(
         .series_inputs
         .iter()
         .flatten()
+        .chain(input.scalar_inputs.iter())
         .any(|value| !value.is_finite())
     {
         return Err(KernelExecutionFailure::new(
@@ -537,6 +633,10 @@ fn execute_row_instruction(
             input: input_index,
             register,
         } => set_register(registers, *register, input.series_inputs[*input_index][row]),
+        KernelInstruction::LoadScalarInput {
+            input: input_index,
+            register,
+        } => set_register(registers, *register, input.scalar_inputs[*input_index]),
         KernelInstruction::LoadConstant { value, register } => {
             if !value.is_finite() {
                 return Err(KernelExecutionFailure::new(
@@ -589,8 +689,36 @@ fn execute_row_instruction(
                 )),
             }
         }
+        KernelInstruction::StoreScalar { register, output } => {
+            let value = get_register(registers, *register)?;
+            store_output(outputs, *output, KernelOutputValue::Scalar(value))
+        }
         KernelInstruction::IntegrateTrapezoid { .. } => Ok(()),
     }
+}
+
+fn execute_residual_scalar_kernel(
+    residual_ir: &KernelIr,
+    values: &[f64],
+) -> Result<Vec<f64>, KernelExecutionFailure> {
+    let output = execute_interpreter_kernel(
+        residual_ir,
+        &KernelExecutionInput {
+            series_inputs: Vec::new(),
+            scalar_inputs: values.to_vec(),
+        },
+    )?;
+    output
+        .outputs
+        .into_iter()
+        .map(|value| match value {
+            KernelOutputValue::Scalar(value) => Ok(value),
+            KernelOutputValue::Series(_) => Err(KernelExecutionFailure::new(
+                "E-KERNEL-RESIDUAL-OUTPUT",
+                "residual kernel outputs must be scalar values",
+            )),
+        })
+        .collect()
 }
 
 fn set_register(
@@ -903,6 +1031,7 @@ mod tests {
             &ir,
             &KernelExecutionInput {
                 series_inputs: vec![vec![1.0, 2.0], vec![10.0, 20.0]],
+                scalar_inputs: Vec::new(),
             },
         )
         .unwrap();
@@ -932,6 +1061,7 @@ mod tests {
             &ir,
             &KernelExecutionInput {
                 series_inputs: vec![vec![0.0, 2.0, 4.0]],
+                scalar_inputs: Vec::new(),
             },
         )
         .unwrap();
@@ -955,11 +1085,45 @@ mod tests {
             &ir,
             &KernelExecutionInput {
                 series_inputs: vec![vec![1.0], vec![1.0, 2.0]],
+                scalar_inputs: Vec::new(),
             },
         )
         .unwrap_err();
 
         assert_eq!(failure.code, "E-KERNEL-INPUT-LAYOUT");
+    }
+
+    #[test]
+    fn interpreter_executes_scalar_residual_kernel_ir() {
+        let ir = small_linear_residual_ir();
+        let output = execute_interpreter_kernel(
+            &ir,
+            &KernelExecutionInput {
+                series_inputs: Vec::new(),
+                scalar_inputs: vec![2.0, 1.0],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            output.outputs,
+            vec![
+                KernelOutputValue::Scalar(0.0),
+                KernelOutputValue::Scalar(0.0)
+            ]
+        );
+    }
+
+    #[test]
+    fn interpreter_executes_finite_difference_jacobian_kernel() {
+        let ir = small_linear_residual_ir();
+        let output = execute_finite_difference_jacobian_kernel(&ir, &[2.0, 1.0], 1e-6).unwrap();
+
+        assert_eq!(output.backend, INTERPRETER_FALLBACK_BACKEND);
+        assert!((output.values[0][0] - 1.0).abs() < 1e-8);
+        assert!((output.values[0][1] - 1.0).abs() < 1e-8);
+        assert!((output.values[1][0] - 1.0).abs() < 1e-8);
+        assert!((output.values[1][1] + 1.0).abs() < 1e-8);
     }
 
     #[test]
@@ -993,5 +1157,65 @@ mod tests {
                 .unwrap()
                 .contains("does not yet have")
         );
+    }
+
+    fn small_linear_residual_ir() -> KernelIr {
+        KernelIr::new(
+            "linear_residual",
+            "residual_evaluator",
+            0,
+            2,
+            vec![
+                KernelInstruction::LoadScalarInput {
+                    input: 0,
+                    register: 0,
+                },
+                KernelInstruction::LoadScalarInput {
+                    input: 1,
+                    register: 1,
+                },
+                KernelInstruction::Binary {
+                    op: KernelBinaryOp::Add,
+                    left: 0,
+                    right: 1,
+                    target: 2,
+                },
+                KernelInstruction::LoadConstant {
+                    value: 3.0,
+                    register: 3,
+                },
+                KernelInstruction::Binary {
+                    op: KernelBinaryOp::Sub,
+                    left: 2,
+                    right: 3,
+                    target: 4,
+                },
+                KernelInstruction::StoreScalar {
+                    register: 4,
+                    output: 0,
+                },
+                KernelInstruction::Binary {
+                    op: KernelBinaryOp::Sub,
+                    left: 0,
+                    right: 1,
+                    target: 5,
+                },
+                KernelInstruction::LoadConstant {
+                    value: 1.0,
+                    register: 6,
+                },
+                KernelInstruction::Binary {
+                    op: KernelBinaryOp::Sub,
+                    left: 5,
+                    right: 6,
+                    target: 7,
+                },
+                KernelInstruction::StoreScalar {
+                    register: 7,
+                    output: 1,
+                },
+            ],
+        )
+        .with_scalar_input_count(2)
     }
 }

@@ -151,10 +151,11 @@ but do not yet have executable interpreter lowering.
 ## Kernel IR
 
 The internal interpreter executor uses `eng-kernel-ir-v1` with explicit
-instructions for loading TimeSeries inputs, constants, binary arithmetic,
-series stores, and trapezoid integration. This IR currently supports
-correctness tests for element-wise arithmetic and integration kernels. It is
-not a native code format and is not part of the public stable API.
+instructions for loading TimeSeries inputs, scalar inputs, constants, binary
+arithmetic, series/scalar stores, and trapezoid integration. This IR currently
+supports correctness tests for element-wise arithmetic, integration, scalar
+residual evaluation, and finite-difference Jacobian kernels. It is not a native
+code format and is not part of the public stable API.
 
 ## Candidate Kinds
 
