@@ -127,6 +127,12 @@ impl ResidualGraph {
 
         let mut matrix = vec![vec![0.0; unknown_count]; equation_count];
         for (row_index, residual) in self.residuals.iter().enumerate() {
+            if !residual.rhs_value.is_finite() {
+                return Err(SolverFailure::new(
+                    "E-LINEAR-RESIDUAL-FINITE",
+                    format!("residual `{}` has a non-finite RHS value", residual.name),
+                ));
+            }
             for term in &residual.terms {
                 if term.variable_index >= unknown_count {
                     return Err(SolverFailure::new(
@@ -134,6 +140,15 @@ impl ResidualGraph {
                         format!(
                             "residual `{}` references variable index {} outside {} unknown(s)",
                             residual.name, term.variable_index, unknown_count
+                        ),
+                    ));
+                }
+                if !term.coefficient.is_finite() {
+                    return Err(SolverFailure::new(
+                        "E-LINEAR-RESIDUAL-FINITE",
+                        format!(
+                            "residual `{}` term for `{}` has a non-finite coefficient",
+                            residual.name, term.variable
                         ),
                     ));
                 }
@@ -572,6 +587,39 @@ mod tests {
         let failure = graph.assemble_linear_system().unwrap_err();
 
         assert_eq!(failure.code, "E-LINEAR-RESIDUAL-SHAPE");
+    }
+
+    #[test]
+    fn rejects_nonfinite_linear_residual_system_values() {
+        let graph = ResidualGraph {
+            name: "test.residual_graph".to_owned(),
+            variables: vec![ResidualVariableRef {
+                index: 0,
+                name: "x".to_owned(),
+                role: "algebraic".to_owned(),
+                unit: "1".to_owned(),
+            }],
+            residuals: vec![residual("r1", &[(0, "x", f64::NAN)])],
+            parameters: Vec::new(),
+            dependencies: Vec::new(),
+        };
+        let failure = graph.assemble_linear_system().unwrap_err();
+        assert_eq!(failure.code, "E-LINEAR-RESIDUAL-FINITE");
+
+        let graph = ResidualGraph {
+            name: "test.residual_graph".to_owned(),
+            variables: vec![ResidualVariableRef {
+                index: 0,
+                name: "x".to_owned(),
+                role: "algebraic".to_owned(),
+                unit: "1".to_owned(),
+            }],
+            residuals: vec![residual_with_rhs("r1", &[(0, "x", 1.0)], f64::INFINITY)],
+            parameters: Vec::new(),
+            dependencies: Vec::new(),
+        };
+        let failure = graph.assemble_linear_system().unwrap_err();
+        assert_eq!(failure.code, "E-LINEAR-RESIDUAL-FINITE");
     }
 
     #[test]

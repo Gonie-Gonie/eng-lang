@@ -171,7 +171,8 @@ are not public stable workflows.
   solver-API standalone damped Newton solve with finite initial-guess checks,
   finite-difference fallback, supplied analytic/JIT Jacobian hook,
   residual history, largest-residual summary, shared scaled residual-norm
-  diagnostics, intermediate overflow rejection, and failure artifacts. The same
+  diagnostics, residual-assembly finite-value checks, intermediate overflow
+  rejection, and failure artifacts. The same
   internal layer has a solver-API standalone implicit-Euler DAE seed over
   `F(x, xdot, z, u, t, p)` with optional mass matrix, initial consistency
   checks, algebraic-variable initialization, and a dynamic-component

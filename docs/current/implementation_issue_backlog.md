@@ -166,6 +166,8 @@ Current coverage:
 - Fixed-point, Newton, and dense linear solver seeds reject non-finite
   intermediate values produced by relaxation, line search, finite differences,
   or elimination.
+- ResidualGraph linear-system assembly rejects non-finite residual
+  coefficients or RHS values before dense solving.
 - Fixed-step ODE, fixed-point, and dynamic-component solver seeds reject
   non-finite RHS/update values before those values can enter trajectories or
   algebraic artifacts.

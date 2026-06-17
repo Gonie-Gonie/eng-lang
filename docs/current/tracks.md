@@ -94,6 +94,7 @@ Internal runtime seeds:
 - Newton solver seeds reject non-finite initial guesses
 - solver residual diagnostics use a shared scaled Euclidean norm helper
 - fixed-point, Newton, and dense linear solver seeds reject non-finite intermediate values
+- ResidualGraph linear assembly rejects non-finite coefficients and RHS values
 - fixed-step ODE and dynamic-component updates use the actual final partial TimeGrid interval
 - explicit Euler samples RHS values at the start of each fixed-step interval
 - fixed-step ODE, fixed-point, and dynamic-component seeds reject non-finite RHS/update values
