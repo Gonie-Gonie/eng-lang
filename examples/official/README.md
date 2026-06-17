@@ -97,6 +97,12 @@ paths before compatibility fixtures.
   class validation blocks, metadata methods, immutable copy-with, field access
   metadata, and class/object report sections for the supported class object
   authoring surface. This is not runtime object dispatch.
+
+20_multi_state_thermal
+  Multi-state state-space thermal simulation with two state trajectories,
+  TimeSeries input binding, fixed-step explicit Euler execution, and plot/report
+  artifacts for `sim.T_air` and `sim.T_wall`. This is not a nonlinear, DAE,
+  adaptive, or production component-graph solver.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression

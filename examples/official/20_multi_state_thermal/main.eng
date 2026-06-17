@@ -1,0 +1,46 @@
+args {
+    weather: CsvFile = file("data/weather.csv")
+}
+
+schema WeatherData {
+    time: DateTime index
+    T_out: AbsoluteTemperature [degC]
+}
+
+weather_data = promote csv args.weather as WeatherData
+
+system MultiStateThermal {
+    state T_air: AbsoluteTemperature = 22 degC
+    state T_wall: AbsoluteTemperature = 20 degC
+
+    input T_out: TimeSeries[Time] of AbsoluteTemperature [degC]
+    input Q_hvac: HeatRate = 1800 W
+
+    states x = [T_air, T_wall]
+    inputs u = [T_out, Q_hvac]
+    outputs y = [T_air, T_wall]
+
+    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.00035, 0.00012]; [0.00008, -0.00016]]
+    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.00023, 0.0000012]; [0.00008, 0.0]]
+
+    equation {
+        der(x) eq A * x + B * u
+    }
+}
+
+sim = simulate MultiStateThermal
+with {
+    T_out = weather_data.T_out
+    timestep = 10 min
+    solver = fixed_step
+}
+
+print "Multi-state thermal simulation recorded"
+
+report {
+    plot sim.T_air and sim.T_wall over Time
+    with {
+        unit y = degC
+        title = "Multi-state thermal simulation"
+    }
+}

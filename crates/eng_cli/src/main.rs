@@ -552,6 +552,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/16_test_assert_golden/main.eng",
                 "examples/official/17_measured_vs_simulated/main.eng",
                 "examples/official/19_class_object/main.eng",
+                "examples/official/20_multi_state_thermal/main.eng",
             ],
         ),
         (
@@ -1260,6 +1261,34 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("state-space metadata example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
+        Path::new("examples/official/20_multi_state_thermal/main.eng"),
+        Path::new("build/test-multi-state-thermal"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
+            let plot_spec = std::fs::read_to_string(output.plot_spec_path).unwrap_or_default();
+            if !result.contains("\"binding\": \"sim\"")
+                || !result.contains("\"state\": \"T_air\"")
+                || !result.contains("\"state\": \"T_wall\"")
+                || !result.contains("\"method\": \"state_space_explicit_euler_fixed_step\"")
+                || !result.contains("multi-state state-space")
+                || !plot_spec.contains("\"name\": \"sim.T_air\"")
+                || !plot_spec.contains("\"name\": \"sim.T_wall\"")
+            {
+                eprintln!("expected multi-state thermal example to produce two simulated state trajectories and plot series");
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/20_multi_state_thermal/main.eng produced multi-state solver artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("multi-state thermal example failed: {error}");
             return ExitCode::from(2);
         }
     }

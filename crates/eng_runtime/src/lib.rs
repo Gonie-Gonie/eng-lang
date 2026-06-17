@@ -3758,13 +3758,25 @@ fn result_json(
             systems.push_str("          }");
         }
         systems.push_str("\n        ]");
-        if let Some(solution) = runtime_data
+        let system_solutions = runtime_data
             .system_solutions
             .iter()
-            .find(|solution| solution.system == system.name)
-        {
+            .filter(|solution| solution.system == system.name)
+            .collect::<Vec<_>>();
+        if let Some(solution) = system_solutions.first() {
             systems.push_str(",\n        \"solver_result\": ");
             push_system_solution_json(&mut systems, solution, "        ");
+        }
+        if !system_solutions.is_empty() {
+            systems.push_str(",\n        \"solver_results\": [\n");
+            for (solution_index, solution) in system_solutions.iter().enumerate() {
+                if solution_index > 0 {
+                    systems.push_str(",\n");
+                }
+                systems.push_str("          ");
+                push_system_solution_json(&mut systems, solution, "          ");
+            }
+            systems.push_str("\n        ]");
         }
         systems.push('\n');
         systems.push_str("      }");

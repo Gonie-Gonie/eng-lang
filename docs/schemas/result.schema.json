@@ -328,7 +328,11 @@
           "type": "array",
           "items": { "$ref": "#/$defs/resultSystemResidual" }
         },
-        "solver_result": { "$ref": "#/$defs/resultSystemSolution" }
+        "solver_result": { "$ref": "#/$defs/resultSystemSolution" },
+        "solver_results": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/resultSystemSolution" }
+        }
       }
     },
     "resultSystemEquation": {

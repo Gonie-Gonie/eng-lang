@@ -14,8 +14,8 @@ use eng_report::{
 
 use crate::solver::{
     algorithms::fixed_step::solve_explicit_euler, InputLayout, LayoutEntry, ParameterLayout,
-    SimulationPlan, SolverInput, SolverOptions, SolverPlan, SolverResult, SolverScalar,
-    StateLayout, TimeGrid,
+    SimulationPlan, SolverFailure, SolverInput, SolverOptions, SolverPlan, SolverResult,
+    SolverScalar, StateLayout, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -2136,10 +2136,10 @@ fn materialize_system_solutions(
     for system in &report.semantic_program.systems {
         let requests = simulate_requests(report, &system.name);
         if requests.is_empty() {
-            if let Some(solution) =
-                materialize_state_space_solution(report, system, None, &[], series)
+            if let Some(mut state_space_solutions) =
+                materialize_state_space_solutions(report, system, None, &[], series)
             {
-                solutions.push(solution);
+                solutions.append(&mut state_space_solutions);
             } else if let Some(solution) =
                 materialize_first_order_thermal_solution(system, None, &[], series)
             {
@@ -2147,14 +2147,14 @@ fn materialize_system_solutions(
             }
         } else {
             for request in requests {
-                if let Some(solution) = materialize_state_space_solution(
+                if let Some(mut state_space_solutions) = materialize_state_space_solutions(
                     report,
                     system,
                     Some(request.binding.as_str()),
                     &request.options,
                     series,
                 ) {
-                    solutions.push(solution);
+                    solutions.append(&mut state_space_solutions);
                 } else if let Some(solution) = materialize_first_order_thermal_solution(
                     system,
                     Some(request.binding.as_str()),
@@ -2332,31 +2332,38 @@ fn simulate_requests(report: &CheckReport, system_name: &str) -> Vec<SimulateReq
         .collect()
 }
 
-fn materialize_state_space_solution(
+fn materialize_state_space_solutions(
     report: &CheckReport,
     system: &eng_compiler::SystemInfo,
     binding: Option<&str>,
     options: &[eng_compiler::WithOptionInfo],
     series: &[RuntimeTimeSeries],
-) -> Option<RuntimeSystemSolution> {
+) -> Option<Vec<RuntimeSystemSolution>> {
     let state_vector = report
         .semantic_program
         .state_space_vectors
         .iter()
         .find(|vector| vector.system == system.name && vector.role == "states")?;
-    if state_vector.members.len() != 1 {
-        return None;
-    }
     let input_vector = report
         .semantic_program
         .state_space_vectors
         .iter()
         .find(|vector| vector.system == system.name && vector.role == "inputs")?;
-    let state_name = state_vector.members.first()?;
-    let state = system
-        .variables
+    let output_vector = report
+        .semantic_program
+        .state_space_vectors
         .iter()
-        .find(|variable| variable.name == *state_name && variable.role == "state")?;
+        .find(|vector| vector.system == system.name && vector.role == "outputs");
+    let states = state_vector
+        .members
+        .iter()
+        .map(|name| {
+            system
+                .variables
+                .iter()
+                .find(|variable| variable.name == *name && variable.role == "state")
+        })
+        .collect::<Option<Vec<_>>>()?;
     let inputs = input_vector
         .members
         .iter()
@@ -2389,9 +2396,11 @@ fn materialize_state_space_solution(
         })?;
     let matrix_a = parse_numeric_matrix(operator_a.expression.as_deref()?)?;
     let matrix_b = parse_numeric_matrix(operator_b.expression.as_deref()?)?;
-    let a00 = *matrix_a.first()?.first()?;
-    let b_row = matrix_b.first()?;
-    if b_row.len() != inputs.len() {
+    if matrix_a.len() != states.len()
+        || matrix_a.iter().any(|row| row.len() != states.len())
+        || matrix_b.len() != states.len()
+        || matrix_b.iter().any(|row| row.len() != inputs.len())
+    {
         return None;
     }
 
@@ -2403,7 +2412,10 @@ fn materialize_state_space_solution(
                 .and_then(|name| series.iter().find(|series| series.name == name))
         })
         .collect::<Vec<_>>();
-    let mut state_value = canonical_variable_value(state)?;
+    let initial_state = states
+        .iter()
+        .map(|state| canonical_variable_value(state))
+        .collect::<Option<Vec<_>>>()?;
     let time_step_s = option_value(options, "timestep")
         .and_then(parse_duration_seconds)
         .unwrap_or(300.0);
@@ -2420,61 +2432,134 @@ fn materialize_state_space_solution(
         .and_then(parse_duration_seconds)
         .or(series_duration_s)
         .unwrap_or(3600.0);
-    if time_step_s <= 0.0 || duration_s <= 0.0 {
-        return None;
-    }
-    let step_count = (duration_s / time_step_s).ceil() as usize;
-    let canonical_initial_value = state_value;
-    let mut points = vec![RuntimePoint {
-        x: 0.0,
-        y: display_variable_value(state_value, state),
-    }];
+    let time_grid = TimeGrid::fixed_step(duration_s, time_step_s).ok()?;
+    let solver_options =
+        SolverOptions::fixed_step("state_space_explicit_euler_fixed_step", time_step_s);
+    let output_members = output_vector
+        .map(|vector| vector.members.clone())
+        .unwrap_or_else(|| state_vector.members.clone());
+    let solver_plan = SolverPlan::new(
+        system.name.clone(),
+        SimulationPlan {
+            inputs: input_vector.members.clone(),
+            outputs: output_members,
+            states: state_vector.members.clone(),
+            parameters: Vec::new(),
+        },
+        solver_options,
+    );
+    let solver_input = SolverInput {
+        plan: solver_plan,
+        time_grid,
+        state_layout: StateLayout::new(
+            states
+                .iter()
+                .enumerate()
+                .map(|(index, state)| {
+                    LayoutEntry::new(
+                        index,
+                        state.name.clone(),
+                        state.quantity_kind.clone(),
+                        state.canonical_unit.clone(),
+                        state.display_unit.clone(),
+                    )
+                })
+                .collect(),
+        ),
+        input_layout: InputLayout {
+            entries: inputs
+                .iter()
+                .enumerate()
+                .map(|(index, input)| {
+                    LayoutEntry::new(
+                        index,
+                        input.name.clone(),
+                        system_variable_value_quantity(input),
+                        input.canonical_unit.clone(),
+                        input.display_unit.clone(),
+                    )
+                })
+                .collect(),
+        },
+        parameter_layout: ParameterLayout::default(),
+        initial_state,
+        inputs: inputs
+            .iter()
+            .zip(input_series.iter())
+            .map(|(input, series)| {
+                state_space_input_value(input, *series, 0.0).map(|value| {
+                    SolverScalar::new(
+                        input.name.clone(),
+                        system_variable_value_quantity(input),
+                        input.canonical_unit.clone(),
+                        value,
+                    )
+                })
+            })
+            .collect::<Option<Vec<_>>>()?,
+        parameters: Vec::new(),
+    };
 
-    for step in 1..=step_count {
-        let time_s = (step as f64 * time_step_s).min(duration_s);
+    let solver_result = solve_explicit_euler(&solver_input, |sample| {
         let input_values = inputs
             .iter()
             .zip(input_series.iter())
-            .map(|(input, series)| state_space_input_value(input, *series, time_s))
-            .collect::<Option<Vec<_>>>()?;
-        let input_term = b_row
+            .map(|(input, series)| state_space_input_value(input, *series, sample.time_s))
+            .collect::<Option<Vec<_>>>()
+            .ok_or_else(|| {
+                SolverFailure::new(
+                    "E-SIM-MISSING-INPUT",
+                    "state-space solver could not materialize one or more input values",
+                )
+            })?;
+        let derivatives = matrix_a
             .iter()
-            .zip(input_values.iter())
-            .map(|(coefficient, value)| coefficient * value)
-            .sum::<f64>();
-        let derivative = a00 * state_value + input_term;
-        state_value += derivative * time_step_s;
-        points.push(RuntimePoint {
-            x: time_s,
-            y: display_variable_value(state_value, state),
-        });
-    }
-
-    Some(RuntimeSystemSolution {
-        system: system.name.clone(),
-        binding: binding.map(str::to_owned),
-        status: "computed".to_owned(),
-        method: "state_space_explicit_euler_fixed_step".to_owned(),
-        reason: if input_series.iter().any(Option::is_some) {
-            "recognized one-state state-space A/B operators and executed fixed-step trajectory with TimeSeries input materialization"
-        } else {
-            "recognized one-state state-space A/B operators and executed fixed-step trajectory"
-        }
-        .to_owned(),
-        state: state.name.clone(),
-        quantity_kind: state.quantity_kind.clone(),
-        display_unit: state.display_unit.clone(),
-        canonical_unit: state.canonical_unit.clone(),
-        time_unit: "s".to_owned(),
-        duration_s,
-        time_step_s,
-        step_count,
-        initial_value: display_variable_value(canonical_initial_value, state),
-        final_value: display_variable_value(state_value, state),
-        canonical_initial_value,
-        canonical_final_value: state_value,
-        points,
+            .zip(matrix_b.iter())
+            .map(|(a_row, b_row)| {
+                let state_term = a_row
+                    .iter()
+                    .zip(sample.state.iter())
+                    .map(|(coefficient, value)| coefficient * value)
+                    .sum::<f64>();
+                let input_term = b_row
+                    .iter()
+                    .zip(input_values.iter())
+                    .map(|(coefficient, value)| coefficient * value)
+                    .sum::<f64>();
+                state_term + input_term
+            })
+            .collect::<Vec<_>>();
+        Ok(derivatives)
     })
+    .ok()?;
+
+    let reason = if input_series.iter().any(Option::is_some) {
+        "recognized multi-state state-space A/B operators and executed fixed-step trajectories with TimeSeries input materialization"
+    } else {
+        "recognized multi-state state-space A/B operators and executed fixed-step trajectories"
+    };
+    let solutions = solver_result
+        .output
+        .state_trajectories
+        .iter()
+        .filter_map(|trajectory| {
+            states
+                .iter()
+                .find(|state| state.name == trajectory.name)
+                .and_then(|state| {
+                    runtime_system_solution_for_trajectory(
+                        system,
+                        binding,
+                        state,
+                        &solver_result,
+                        trajectory,
+                        reason,
+                    )
+                })
+        })
+        .collect::<Vec<_>>();
+
+    (!solutions.is_empty()).then_some(solutions)
 }
 
 fn state_space_input_value(
@@ -2711,6 +2796,24 @@ fn runtime_system_solution_from_solver_result(
     reason: &str,
 ) -> Option<RuntimeSystemSolution> {
     let trajectory = solver_result.single_state()?;
+    runtime_system_solution_for_trajectory(
+        system,
+        binding,
+        state,
+        solver_result,
+        trajectory,
+        reason,
+    )
+}
+
+fn runtime_system_solution_for_trajectory(
+    system: &eng_compiler::SystemInfo,
+    binding: Option<&str>,
+    state: &eng_compiler::SystemVariableInfo,
+    solver_result: &SolverResult,
+    trajectory: &StateTrajectory,
+    reason: &str,
+) -> Option<RuntimeSystemSolution> {
     let canonical_initial_value = trajectory.initial_value()?;
     let canonical_final_value = trajectory.final_value()?;
     let points = trajectory
@@ -5109,6 +5212,46 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
             .time_series
             .iter()
             .any(|series| series.name == "sim.T_zone"));
+    }
+
+    #[test]
+    fn materializes_multi_state_state_space_solution() {
+        let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/official/20_multi_state_thermal/main.eng");
+        let source = std::fs::read_to_string(&source_path).unwrap();
+        let report = check_file(&source_path, &CheckOptions::default()).unwrap();
+        let runtime = materialize_runtime_data(&report, &source);
+
+        let sim_solutions = runtime
+            .system_solutions
+            .iter()
+            .filter(|solution| solution.binding.as_deref() == Some("sim"))
+            .collect::<Vec<_>>();
+        assert_eq!(sim_solutions.len(), 2);
+        assert!(sim_solutions
+            .iter()
+            .all(|solution| solution.status == "computed"));
+        assert!(sim_solutions
+            .iter()
+            .all(|solution| solution.method == "state_space_explicit_euler_fixed_step"));
+        assert!(sim_solutions
+            .iter()
+            .all(|solution| solution.reason.contains("multi-state")));
+        assert!(sim_solutions
+            .iter()
+            .any(|solution| solution.state == "T_air"));
+        assert!(sim_solutions
+            .iter()
+            .any(|solution| solution.state == "T_wall"));
+        assert!(runtime
+            .time_series
+            .iter()
+            .any(|series| series.name == "sim.T_air"));
+        assert!(runtime
+            .time_series
+            .iter()
+            .any(|series| series.name == "sim.T_wall"));
     }
 
     #[test]
