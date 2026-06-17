@@ -237,6 +237,13 @@ impl TimeGrid {
     pub fn step_time_s(&self, step: usize) -> f64 {
         (step as f64 * self.timestep_s).min(self.duration_s)
     }
+
+    pub fn step_dt_s(&self, step: usize) -> f64 {
+        if step == 0 {
+            return 0.0;
+        }
+        self.step_time_s(step) - self.step_time_s(step - 1)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -410,6 +417,13 @@ mod tests {
         assert!(InputLayout::default().is_empty());
         assert!(ParameterLayout::default().is_empty());
         assert!(OutputLayout::default().is_empty());
+
+        let time_grid = TimeGrid::fixed_step(2.5, 1.0).unwrap();
+        assert_eq!(time_grid.step_count, 3);
+        assert_eq!(time_grid.step_time_s(3), 2.5);
+        assert_eq!(time_grid.step_dt_s(1), 1.0);
+        assert_eq!(time_grid.step_dt_s(2), 1.0);
+        assert_eq!(time_grid.step_dt_s(3), 0.5);
     }
 
     #[test]

@@ -90,6 +90,7 @@ Internal runtime seeds:
 ```text
 - standalone dense linear, solver-API fixed-point, and solver-API damped Newton algorithms
 - SolverInput/SolverResult state, input, parameter, finite numeric value, and validated output layout contracts
+- fixed-step ODE and dynamic-component updates use the actual final partial TimeGrid interval
 - state-space non-rectangular matrix diagnostics, unsupported unitful
   coefficient diagnostics, and inverse-time derivative-coupling coefficient
   canonicalization

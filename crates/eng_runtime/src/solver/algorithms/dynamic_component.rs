@@ -149,6 +149,7 @@ where
             break;
         }
 
+        let dt = input.time_grid.step_dt_s(step_index + 1);
         let derivative = rhs(DynamicStepInput {
             time_s,
             step_index,
@@ -164,7 +165,7 @@ where
             ));
         }
         for (state_value, derivative_value) in state.iter_mut().zip(derivative) {
-            *state_value += derivative_value * input.time_grid.timestep_s;
+            *state_value += derivative_value * dt;
         }
         for (index, value) in state.iter().copied().enumerate() {
             state_values_by_state[index].push(value);
@@ -304,6 +305,48 @@ mod tests {
                 && diagnostic.convergence_status == "algebraic_not_required"
                 && diagnostic.failure.is_none()
         }));
+    }
+
+    #[test]
+    fn dynamic_component_uses_partial_final_step() {
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "ComponentGraph",
+                SimulationPlan::default(),
+                SolverOptions::fixed_step("dynamic_component_explicit_euler", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(2.5, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout::default(),
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![0.0],
+            inputs: Vec::new(),
+            parameters: Vec::new(),
+        };
+
+        let result = solve_explicit_euler_with_algebraic(
+            &input,
+            StateLayout::default(),
+            Vec::new(),
+            DynamicComponentOptions::default(),
+            |_| Ok(Vec::new()),
+            |_sample| Ok(vec![2.0]),
+        )
+        .unwrap();
+
+        assert_eq!(
+            result.solver_result.output.state_trajectories[0].values,
+            vec![0.0, 2.0, 4.0, 5.0]
+        );
+        assert_eq!(result.step_diagnostics.len(), 4);
+        assert_eq!(result.step_diagnostics[3].time_s, 2.5);
     }
 
     #[test]

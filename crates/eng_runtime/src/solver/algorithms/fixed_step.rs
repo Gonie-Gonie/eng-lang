@@ -79,6 +79,7 @@ where
 
     for step in 1..=input.time_grid.step_count {
         let time_s = input.time_grid.step_time_s(step);
+        let dt = input.time_grid.step_dt_s(step);
         let derivative = rhs(RhsSample {
             time_s,
             state: &state,
@@ -92,7 +93,7 @@ where
             ));
         }
         for (state_value, derivative_value) in state.iter_mut().zip(derivative) {
-            *state_value += derivative_value * input.time_grid.timestep_s;
+            *state_value += derivative_value * dt;
         }
         for (index, value) in state.iter().copied().enumerate() {
             values_by_state[index].push(value);
@@ -151,7 +152,7 @@ where
 
     for step in 1..=input.time_grid.step_count {
         let t0 = input.time_grid.step_time_s(step - 1);
-        let dt = input.time_grid.timestep_s;
+        let dt = input.time_grid.step_dt_s(step);
         let half_dt = dt / 2.0;
         let t_half = t0 + half_dt;
         let t1 = input.time_grid.step_time_s(step);
@@ -293,6 +294,39 @@ mod tests {
         assert_eq!(result.output_layout.entries[0].name, "x");
         assert!(result.output.algebraic_trajectories.is_empty());
         assert_eq!(result.diagnostics.status, "computed");
+    }
+
+    #[test]
+    fn fixed_step_methods_use_partial_final_step() {
+        for method in [FixedStepMethod::ExplicitEuler, FixedStepMethod::Rk4] {
+            let options = SolverOptions::fixed_step(method.method_name(""), 1.0);
+            let input = SolverInput {
+                plan: SolverPlan::new("PartialStep", SimulationPlan::default(), options),
+                time_grid: TimeGrid::fixed_step(2.5, 1.0).unwrap(),
+                state_layout: StateLayout::new(vec![LayoutEntry::new(
+                    0,
+                    "x",
+                    "Dimensionless",
+                    "1",
+                    "1",
+                )]),
+                input_layout: InputLayout::default(),
+                parameter_layout: ParameterLayout::default(),
+                output_layout: OutputLayout::default(),
+                initial_state: vec![0.0],
+                inputs: Vec::new(),
+                parameters: Vec::new(),
+            };
+
+            let result = solve_fixed_step_ode(method, &input, |_sample| Ok(vec![2.0])).unwrap();
+
+            assert_eq!(
+                result.output.state_trajectories[0].values,
+                vec![0.0, 2.0, 4.0, 5.0]
+            );
+            assert_eq!(result.output.state_trajectories[0].final_value(), Some(5.0));
+            assert_eq!(result.diagnostics.iteration_count, 3);
+        }
     }
 
     #[test]
