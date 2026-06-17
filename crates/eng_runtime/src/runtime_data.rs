@@ -2900,8 +2900,8 @@ fn materialize_state_space_solutions(
                 && operator.to == "Derivative[StateVector]"
                 && operator.status == "shape_checked"
         })?;
-    let matrix_a = parse_numeric_matrix(operator_a.expression.as_deref()?)?;
-    let matrix_b = parse_numeric_matrix(operator_b.expression.as_deref()?)?;
+    let matrix_a = operator_a.canonical_matrix.clone()?;
+    let matrix_b = operator_b.canonical_matrix.clone()?;
     if matrix_a.len() != states.len()
         || matrix_a.iter().any(|row| row.len() != states.len())
         || matrix_b.len() != states.len()
@@ -3134,49 +3134,6 @@ fn state_space_input_value(
         .ok();
     }
     canonical_variable_value(input)
-}
-
-fn parse_numeric_matrix(expression: &str) -> Option<Vec<Vec<f64>>> {
-    let trimmed = expression
-        .trim()
-        .trim_start_matches('[')
-        .trim_end_matches(']');
-    let rows = trimmed
-        .split(';')
-        .map(str::trim)
-        .filter(|row| !row.is_empty())
-        .map(|row| {
-            row.trim_start_matches('[')
-                .trim_end_matches(']')
-                .split(',')
-                .map(matrix_coefficient_value)
-                .collect::<Option<Vec<_>>>()
-        })
-        .collect::<Option<Vec<_>>>()?;
-    (!rows.is_empty() && rows.iter().all(|row| !row.is_empty())).then_some(rows)
-}
-
-fn matrix_coefficient_value(value: &str) -> Option<f64> {
-    let mut parts = value.split_whitespace();
-    let coefficient = parts.next()?.parse::<f64>().ok()?;
-    let unit = parts.next();
-    if parts.next().is_some() {
-        return None;
-    }
-    let scale = match unit {
-        Some(unit) => inverse_time_coefficient_scale_to_per_second(unit)?,
-        None => 1.0,
-    };
-    Some(coefficient * scale)
-}
-
-fn inverse_time_coefficient_scale_to_per_second(unit: &str) -> Option<f64> {
-    match normalize_unit(unit).as_str() {
-        "1/s" | "1/sec" | "1/second" => Some(1.0),
-        "1/min" | "1/minute" => Some(1.0 / 60.0),
-        "1/h" | "1/hr" | "1/hour" => Some(1.0 / 3600.0),
-        _ => None,
-    }
 }
 
 fn materialize_first_order_thermal_solution(
@@ -5964,10 +5921,20 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
     }
 
     #[test]
-    fn parses_state_space_matrix_coefficients_to_canonical_per_second() {
-        let matrix = parse_numeric_matrix("[[60 1/min, 2 1/h, -0.5]]").unwrap();
+    fn uses_compiler_canonical_state_space_matrix_coefficients() {
+        let report = check_source(
+            "ok.eng",
+            "system CanonicalStateSpace {\n    state T1: AbsoluteTemperature = 22 degC\n    state T2: AbsoluteTemperature = 21 degC\n    state T3: AbsoluteTemperature = 20 degC\n\n    states x = [T1, T2, T3]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[60 1/min, 2 1/h, -0.5]; [0, 0, 0]; [0, 0, 0]]\n\n    equation {\n        der(x) eq A * x\n    }\n}\n",
+            &CheckOptions::default(),
+        );
 
-        assert_eq!(matrix.len(), 1);
+        assert!(!report.has_errors());
+        let matrix = report.semantic_program.linear_operators[0]
+            .canonical_matrix
+            .as_ref()
+            .unwrap();
+
+        assert_eq!(matrix.len(), 3);
         assert!((matrix[0][0] - 1.0).abs() < 1e-12);
         assert!((matrix[0][1] - (2.0 / 3600.0)).abs() < 1e-12);
         assert_eq!(matrix[0][2], -0.5);

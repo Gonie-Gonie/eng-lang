@@ -203,6 +203,9 @@ Definition of Done:
 - Discrete and continuous state-space fixed-step execution now live in
   `solver::state_space`; runtime materialization supplies the TimeSeries/scalar
   input sampler and adapts the `SolverResult`.
+- State-space runtime materialization consumes compiler-provided
+  `LinearOperatorInfo::canonical_matrix` instead of reparsing operator
+  expression strings.
 - Remaining supported-workflow work includes broader operator algebra and
   coefficient-unit policy, and public stability wording.
 - No nonlinear/DAE/adaptive or component-coupled solver claim is made.
