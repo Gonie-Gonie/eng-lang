@@ -158,8 +158,8 @@ are not public stable workflows.
 - Unsupported simulated system shapes are covered by an internal example smoke
   that requires an explicit `skipped_unsupported_shape` artifact instead of a
   fabricated trajectory.
-- Solver algorithm seeds: dense linear solve, fixed-point iteration with
-  nonconvergence diagnostics, and standalone damped Newton solve with
+- Solver algorithm seeds: dense linear solve, solver-API fixed-point iteration
+  with nonconvergence diagnostics, and standalone damped Newton solve with
   finite-difference fallback, supplied analytic/JIT Jacobian hook,
   residual history, largest-residual summary, and failure artifacts. The same
   internal layer has a standalone implicit-Euler DAE seed over

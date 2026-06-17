@@ -87,7 +87,7 @@ Current supported scope:
 Internal runtime seeds:
 
 ```text
-- standalone dense linear, fixed-point, and damped Newton algorithms
+- standalone dense linear, solver-API fixed-point, and damped Newton algorithms
 - SolverInput/SolverResult state, input, parameter, and output layout contracts
 - state-space non-rectangular matrix diagnostics, unsupported unitful
   coefficient diagnostics, and inverse-time derivative-coupling coefficient

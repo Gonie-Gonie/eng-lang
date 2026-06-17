@@ -157,5 +157,31 @@ mod tests {
         let failure =
             solve_fixed_point(&[0.0], &options, |values| Ok(values.to_vec())).unwrap_err();
         assert_eq!(failure.code, "E-FIXED-POINT-TOLERANCE");
+
+        options.tolerance = 1e-9;
+        options.relaxation = 0.0;
+        let failure =
+            solve_fixed_point(&[0.0], &options, |values| Ok(values.to_vec())).unwrap_err();
+        assert_eq!(failure.code, "E-FIXED-POINT-RELAXATION");
+    }
+
+    #[test]
+    fn rejects_empty_initial_vector() {
+        let failure = solve_fixed_point(&[], &FixedPointOptions::default(), |values| {
+            Ok(values.to_vec())
+        })
+        .unwrap_err();
+
+        assert_eq!(failure.code, "E-FIXED-POINT-SHAPE");
+    }
+
+    #[test]
+    fn rejects_update_layout_changes() {
+        let failure = solve_fixed_point(&[0.0], &FixedPointOptions::default(), |_| {
+            Ok(vec![0.0, 1.0])
+        })
+        .unwrap_err();
+
+        assert_eq!(failure.code, "E-FIXED-POINT-LAYOUT");
     }
 }

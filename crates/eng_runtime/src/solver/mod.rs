@@ -12,6 +12,7 @@ pub mod thermal;
 pub use algorithms::algebraic::{
     solve_linear_residual_graph, LinearResidualGraphSolution, LinearResidualVariableSolution,
 };
+pub use algorithms::fixed_point::{solve_fixed_point, FixedPointOptions, FixedPointResult};
 pub use algorithms::fixed_step::{solve_fixed_step_ode, FixedStepMethod, RhsSample};
 pub use diagnostics::{SolverDiagnostics, SolverFailure};
 pub use evaluator::{
