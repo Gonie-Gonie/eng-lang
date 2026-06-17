@@ -157,6 +157,9 @@ Current coverage:
   advanced.
 - `SolverInput::validate_layouts` rejects non-finite initial state, input, and
   parameter values before solver algorithms run.
+- State-space RHS/discrete seeds reject non-finite A/B matrix, sampled input,
+  derivative, and updated state values before those values can enter
+  trajectories.
 - Dense linear solver seeds reject non-finite matrix/RHS values and invalid
   tolerances before pivoting.
 - Newton solver seeds reject non-finite initial guesses before residual or

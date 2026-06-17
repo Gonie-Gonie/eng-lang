@@ -77,6 +77,8 @@ impl StateSpaceRhsEvaluator {
                 "state-space RHS matrix dimensions do not match state/input layouts",
             ));
         }
+        ensure_finite_matrix("E-RHS-MATRIX-FINITE", "state-space RHS A matrix", &matrix_a)?;
+        ensure_finite_matrix("E-RHS-MATRIX-FINITE", "state-space RHS B matrix", &matrix_b)?;
         Ok(Self {
             states,
             matrix_a,
@@ -100,6 +102,15 @@ impl RhsEvaluator for StateSpaceRhsEvaluator {
                 "RHS input vector length does not match input metadata",
             ));
         }
+        if !input.t.is_finite() {
+            return Err(SolverFailure::new(
+                "E-RHS-TIME-FINITE",
+                "RHS evaluation time must be finite",
+            ));
+        }
+        ensure_finite_values("E-RHS-STATE-FINITE", "RHS state", &input.x)?;
+        ensure_finite_values("E-RHS-INPUT-FINITE", "RHS input", &input.u)?;
+        ensure_finite_values("E-RHS-PARAMETER-FINITE", "RHS parameter", &input.p)?;
 
         let derivatives = self
             .matrix_a
@@ -119,6 +130,7 @@ impl RhsEvaluator for StateSpaceRhsEvaluator {
                 state_term + input_term
             })
             .collect::<Vec<_>>();
+        ensure_finite_values("E-RHS-DERIVATIVE-FINITE", "RHS derivative", &derivatives)?;
         let named_derivatives = self
             .states
             .iter()
@@ -136,6 +148,26 @@ impl RhsEvaluator for StateSpaceRhsEvaluator {
             named_derivatives,
         })
     }
+}
+
+fn ensure_finite_matrix(code: &str, label: &str, matrix: &[Vec<f64>]) -> Result<(), SolverFailure> {
+    if matrix.iter().flatten().all(|value| value.is_finite()) {
+        return Ok(());
+    }
+    Err(SolverFailure::new(
+        code,
+        format!("{label} contains a non-finite value"),
+    ))
+}
+
+fn ensure_finite_values(code: &str, label: &str, values: &[f64]) -> Result<(), SolverFailure> {
+    if values.iter().all(|value| value.is_finite()) {
+        return Ok(());
+    }
+    Err(SolverFailure::new(
+        code,
+        format!("{label} vector contains a non-finite value"),
+    ))
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -212,6 +244,92 @@ mod tests {
         assert!((output.derivatives[1] - (-6.1)).abs() < 1e-9);
         assert_eq!(output.named_derivatives[0].state, "T_air");
         assert_eq!(output.named_derivatives[1].canonical_unit, "K");
+    }
+
+    #[test]
+    fn state_space_rhs_rejects_nonfinite_matrices() {
+        let failure = StateSpaceRhsEvaluator::new(
+            vec![RhsStateInfo::new("x", "Dimensionless", "1")],
+            vec![vec![f64::NAN]],
+            vec![vec![0.0]],
+            1,
+        )
+        .unwrap_err();
+
+        assert_eq!(failure.code, "E-RHS-MATRIX-FINITE");
+    }
+
+    #[test]
+    fn state_space_rhs_rejects_nonfinite_inputs() {
+        let evaluator = StateSpaceRhsEvaluator::new(
+            vec![RhsStateInfo::new("x", "Dimensionless", "1")],
+            vec![vec![1.0]],
+            vec![vec![1.0]],
+            1,
+        )
+        .unwrap();
+
+        let failure = evaluator
+            .evaluate(&RhsInput {
+                t: f64::INFINITY,
+                x: vec![1.0],
+                u: vec![1.0],
+                p: Vec::new(),
+            })
+            .unwrap_err();
+        assert_eq!(failure.code, "E-RHS-TIME-FINITE");
+
+        let failure = evaluator
+            .evaluate(&RhsInput {
+                t: 0.0,
+                x: vec![f64::NAN],
+                u: vec![1.0],
+                p: Vec::new(),
+            })
+            .unwrap_err();
+        assert_eq!(failure.code, "E-RHS-STATE-FINITE");
+
+        let failure = evaluator
+            .evaluate(&RhsInput {
+                t: 0.0,
+                x: vec![1.0],
+                u: vec![f64::INFINITY],
+                p: Vec::new(),
+            })
+            .unwrap_err();
+        assert_eq!(failure.code, "E-RHS-INPUT-FINITE");
+
+        let failure = evaluator
+            .evaluate(&RhsInput {
+                t: 0.0,
+                x: vec![1.0],
+                u: vec![1.0],
+                p: vec![f64::NAN],
+            })
+            .unwrap_err();
+        assert_eq!(failure.code, "E-RHS-PARAMETER-FINITE");
+    }
+
+    #[test]
+    fn state_space_rhs_rejects_nonfinite_derivatives() {
+        let evaluator = StateSpaceRhsEvaluator::new(
+            vec![RhsStateInfo::new("x", "Dimensionless", "1")],
+            vec![vec![f64::MAX]],
+            vec![vec![0.0]],
+            1,
+        )
+        .unwrap();
+
+        let failure = evaluator
+            .evaluate(&RhsInput {
+                t: 0.0,
+                x: vec![2.0],
+                u: vec![0.0],
+                p: Vec::new(),
+            })
+            .unwrap_err();
+
+        assert_eq!(failure.code, "E-RHS-DERIVATIVE-FINITE");
     }
 }
 

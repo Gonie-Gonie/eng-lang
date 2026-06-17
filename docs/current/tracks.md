@@ -100,6 +100,7 @@ Internal runtime seeds:
 - fixed-step ODE and dynamic-component updates use the actual final partial TimeGrid interval
 - explicit Euler samples RHS values at the start of each fixed-step interval
 - fixed-step ODE, fixed-point, and dynamic-component seeds reject non-finite RHS/update values
+- state-space RHS/discrete seeds reject non-finite matrix, sampled-input, derivative, and updated-state values
 - state-space non-rectangular matrix diagnostics, unsupported unitful
   coefficient diagnostics, and inverse-time derivative-coupling coefficient
   canonicalization

@@ -69,6 +69,11 @@ where
                 "discrete state-space input vector length does not match input layout",
             ));
         }
+        ensure_finite_values(
+            "E-RHS-INPUT-FINITE",
+            "discrete state-space input",
+            &input_values,
+        )?;
 
         state = matrix_a
             .iter()
@@ -87,6 +92,7 @@ where
                 state_term + input_term
             })
             .collect::<Vec<_>>();
+        ensure_finite_values("E-RHS-STATE-FINITE", "discrete state-space state", &state)?;
         for (index, value) in state.iter().copied().enumerate() {
             values_by_state[index].push(value);
         }
@@ -135,7 +141,37 @@ fn validate_discrete_state_space_layout(
             "discrete state-space A/B matrix dimensions do not match state/input layouts",
         ));
     }
+    ensure_finite_matrix(
+        "E-RHS-MATRIX-FINITE",
+        "discrete state-space A matrix",
+        matrix_a,
+    )?;
+    ensure_finite_matrix(
+        "E-RHS-MATRIX-FINITE",
+        "discrete state-space B matrix",
+        matrix_b,
+    )?;
     Ok(())
+}
+
+fn ensure_finite_matrix(code: &str, label: &str, matrix: &[Vec<f64>]) -> Result<(), SolverFailure> {
+    if matrix.iter().flatten().all(|value| value.is_finite()) {
+        return Ok(());
+    }
+    Err(SolverFailure::new(
+        code,
+        format!("{label} contains a non-finite value"),
+    ))
+}
+
+fn ensure_finite_values(code: &str, label: &str, values: &[f64]) -> Result<(), SolverFailure> {
+    if values.iter().all(|value| value.is_finite()) {
+        return Ok(());
+    }
+    Err(SolverFailure::new(
+        code,
+        format!("{label} vector contains a non-finite value"),
+    ))
 }
 
 #[cfg(test)]
@@ -277,5 +313,71 @@ mod tests {
                 .unwrap_err();
 
         assert_eq!(failure.code, "E-RHS-MATRIX-SHAPE");
+    }
+
+    #[test]
+    fn rejects_discrete_state_space_nonfinite_matrix_values() {
+        let input = one_state_input();
+
+        let failure =
+            solve_discrete_state_space(&input, &[vec![f64::NAN]], &[vec![0.0]], |_| Ok(vec![0.0]))
+                .unwrap_err();
+
+        assert_eq!(failure.code, "E-RHS-MATRIX-FINITE");
+    }
+
+    #[test]
+    fn rejects_discrete_state_space_nonfinite_sampled_inputs() {
+        let input = one_state_input();
+
+        let failure = solve_discrete_state_space(&input, &[vec![1.0]], &[vec![1.0]], |_| {
+            Ok(vec![f64::INFINITY])
+        })
+        .unwrap_err();
+
+        assert_eq!(failure.code, "E-RHS-INPUT-FINITE");
+    }
+
+    #[test]
+    fn rejects_discrete_state_space_nonfinite_updated_states() {
+        let mut input = one_state_input();
+        input.initial_state = vec![2.0];
+
+        let failure =
+            solve_discrete_state_space(&input, &[vec![f64::MAX]], &[vec![0.0]], |_| Ok(vec![0.0]))
+                .unwrap_err();
+
+        assert_eq!(failure.code, "E-RHS-STATE-FINITE");
+    }
+
+    fn one_state_input() -> SolverInput {
+        SolverInput {
+            plan: SolverPlan::new(
+                "discrete_state_space",
+                SimulationPlan {
+                    states: vec!["x".to_owned()],
+                    inputs: vec!["u".to_owned()],
+                    outputs: vec!["x".to_owned()],
+                    parameters: Vec::new(),
+                },
+                SolverOptions::fixed_step("state_space_discrete_fixed_step", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(1.0, 1.0).unwrap(),
+            state_layout: crate::solver::StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout {
+                entries: vec![LayoutEntry::new(0, "u", "Dimensionless", "1", "1")],
+            },
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![1.0],
+            inputs: vec![SolverScalar::new("u", "Dimensionless", "1", 0.0)],
+            parameters: Vec::new(),
+        }
     }
 }

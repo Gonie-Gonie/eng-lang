@@ -152,7 +152,9 @@ are not public stable workflows.
   trajectories with TimeSeries input materialization, `OutputLayout` preserved
   across `SolverInput`/`SolverResult`, non-empty output layouts validated
   against state quantity/unit metadata, non-finite state/input/parameter
-  numeric values rejected before solver execution, and report/review/result/IDE
+  numeric values rejected before solver execution, non-finite state-space
+  matrix/input/derivative/update values rejected before trajectory emission,
+  and report/review/result/IDE
   solver-inspector artifacts for state/input/parameter and output lists,
   timestep, tolerance, iteration count, convergence status, failure reason,
   and trajectory points.
