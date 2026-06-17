@@ -19,6 +19,23 @@ pub fn solve_dense_linear_system(
             "linear solver requires a non-empty square matrix and matching RHS vector",
         ));
     }
+    if !tolerance.is_finite() || tolerance <= 0.0 {
+        return Err(SolverFailure::new(
+            "E-LINEAR-TOLERANCE",
+            "linear solver tolerance must be a positive finite number",
+        ));
+    }
+    if matrix
+        .iter()
+        .flatten()
+        .chain(rhs.iter())
+        .any(|value| !value.is_finite())
+    {
+        return Err(SolverFailure::new(
+            "E-LINEAR-FINITE",
+            "linear solver matrix and RHS values must be finite",
+        ));
+    }
 
     let mut a = matrix.to_vec();
     let mut b = rhs.to_vec();
@@ -114,5 +131,20 @@ mod tests {
                 .unwrap_err();
 
         assert_eq!(failure.code, "E-LINEAR-SINGULAR");
+    }
+
+    #[test]
+    fn rejects_nonfinite_linear_inputs() {
+        let matrix_failure =
+            solve_dense_linear_system(&[vec![f64::NAN]], &[1.0], 1e-9).unwrap_err();
+        assert_eq!(matrix_failure.code, "E-LINEAR-FINITE");
+
+        let rhs_failure =
+            solve_dense_linear_system(&[vec![1.0]], &[f64::INFINITY], 1e-9).unwrap_err();
+        assert_eq!(rhs_failure.code, "E-LINEAR-FINITE");
+
+        let tolerance_failure =
+            solve_dense_linear_system(&[vec![1.0]], &[1.0], f64::NAN).unwrap_err();
+        assert_eq!(tolerance_failure.code, "E-LINEAR-TOLERANCE");
     }
 }
