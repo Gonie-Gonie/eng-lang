@@ -106,8 +106,9 @@ Current coverage:
   `timeseries_integrate` candidate and interpreter fallback reason from
   `report_spec.json`.
 - `artifacts-check` snapshots the official one-state solver artifact contract
-  across `review.json` `simulation_results`, `report_spec.json`
-  `system_ir[].solver_results`, and `result.engres` `solver_result` fields.
+  across `review.json` `simulation_results[].solver_results`,
+  `report_spec.json` `system_ir[].solver_results`, and `result.engres`
+  `solver_result` fields.
 
 Title: `ide: add side-effect artifact panels`
 

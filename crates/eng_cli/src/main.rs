@@ -1767,6 +1767,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             let report_html = std::fs::read_to_string(output.report_path).unwrap_or_default();
             let plot_spec = std::fs::read_to_string(output.plot_spec_path).unwrap_or_default();
             if !review.contains("\"simulation_results\"")
+                || !review.contains("\"solver_results\"")
                 || !review.contains("\"time_grid\"")
                 || !review.contains("\"binding\": \"sim\"")
                 || !review.contains("\"name\": \"T_zone\"")
@@ -1979,6 +1980,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             let report_spec = std::fs::read_to_string(output.report_spec_path).unwrap_or_default();
             let report_html = std::fs::read_to_string(output.report_path).unwrap_or_default();
             if !review.contains("\"simulation_results\"")
+                || !review.contains("\"solver_results\"")
                 || !review.contains("\"time_grid\"")
                 || !review.contains("\"name\": \"T_air\"")
                 || !review.contains("\"name\": \"T_wall\"")

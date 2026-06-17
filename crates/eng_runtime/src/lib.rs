@@ -4068,6 +4068,15 @@ fn runtime_review_json(base_review: &str, runtime_data: &RuntimeData) -> String 
         json.push_str(&format!("        \"timestep\": {},\n", first.time_step_s));
         json.push_str(&format!("        \"step_count\": {}\n", first.step_count));
         json.push_str("      },\n");
+        json.push_str("      \"solver_results\": [\n");
+        for (solution_index, solution) in group.iter().enumerate() {
+            if solution_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        ");
+            push_system_solution_json(&mut json, solution, "        ");
+        }
+        json.push_str("\n      ],\n");
         json.push_str("      \"states\": [\n");
         for (state_index, solution) in group.iter().enumerate() {
             if state_index > 0 {
