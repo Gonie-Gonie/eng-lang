@@ -1435,6 +1435,9 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !review.contains("\"time_grid\"")
                 || !review.contains("\"binding\": \"sim\"")
                 || !review.contains("\"name\": \"T_zone\"")
+                || !review.contains("\"method\": \"explicit_euler_fixed_step\"")
+                || !review.contains("\"step_count\": 6")
+                || !review.contains("\"final_value\"")
                 || !review.contains("\"name\": \"rmse_T\"")
                 || !review.contains("\"quantity_kind\": \"TemperatureDelta\"")
                 || !review.contains("\"display_unit\": \"K\"")
@@ -1446,11 +1449,21 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !result.contains("\"quantity_kind\": \"TemperatureDelta\"")
                 || !result.contains("\"unit\": \"K\"")
                 || !result.contains("\"expression\": \"rmse_T < 5 K\"")
+                || !result.contains("\"method\": \"explicit_euler_fixed_step\"")
+                || !result.contains("\"time_step\": 600")
+                || !result.contains("\"step_count\": 6")
+                || !result.contains("\"final_value\"")
                 || !report_spec.contains("\"computed_metrics\"")
                 || !report_spec.contains("\"quantity_kind\": \"TemperatureDelta\"")
                 || !report_spec.contains("\"unit\": \"K\"")
                 || !report_spec.contains("\"expression\": \"rmse_T < 5 K\"")
+                || !report_spec.contains("\"method\": \"explicit_euler_fixed_step\"")
+                || !report_spec.contains("\"time_step_s\": 600")
+                || !report_spec.contains("\"step_count\": 6")
+                || !report_spec.contains("\"final_value\"")
                 || !report_spec.contains("\"status\": \"passed\"")
+                || !report_html.contains("System Solver Results")
+                || !report_html.contains("explicit_euler_fixed_step")
                 || !report_html.contains("Computed Metrics")
                 || !report_html.contains("Validations")
                 || !report_html.contains("rmse_T")
@@ -1458,7 +1471,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !plot_spec.contains("\"name\": \"measured_data.T_zone\"")
                 || !plot_spec.contains("\"name\": \"sim.T_zone\"")
             {
-                eprintln!("expected measured-vs-simulated example to produce RMSE TemperatureDelta/K, validation, alignment, and multi-series plot artifacts");
+                eprintln!("expected measured-vs-simulated example to produce SolverResult method/timestep/final-state metadata, RMSE TemperatureDelta/K, validation, alignment, and multi-series plot artifacts");
                 return ExitCode::from(2);
             }
             println!(
