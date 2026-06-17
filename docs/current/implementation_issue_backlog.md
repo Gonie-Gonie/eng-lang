@@ -230,8 +230,9 @@ Current coverage:
   solves at each timestep, updates state trajectories, carries algebraic
   trajectories through the common `SolverResult` output contract, and returns
   timestep-level convergence/failure diagnostics. Component solver result
-  artifacts can now carry those state/algebraic trajectories through report
-  spec, HTML, `.engres`, and the IDE assembly summary.
+  artifacts can now carry those state/algebraic trajectories and timestep
+  diagnostics through report spec, HTML, `.engres`, and the IDE assembly
+  summary.
 
 Definition of Done:
 

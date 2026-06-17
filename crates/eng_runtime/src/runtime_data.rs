@@ -6,12 +6,13 @@ use eng_compiler::{
 };
 use eng_report::{
     PlotAxis, PlotBin, PlotPoint, PlotSeries, PlotSpec, ReportComponentSolverResidual,
-    ReportComponentSolverResult, ReportComponentSolverTrajectory, ReportComponentSolverVariable,
-    ReportComputedIntegration, ReportComputedMetric, ReportComputedStatisticValue,
-    ReportComputedStatistics, ReportMlCoefficient, ReportMlInfo, ReportPolicyResult,
-    ReportPolicyViolation, ReportSolverFailureArtifact, ReportSpec, ReportSystemSolution,
-    ReportSystemSolutionPoint, ReportTimeAlignment, ReportTimeAxis, ReportUncertaintyInfo,
-    ReportUncertaintyPropagationTerm, ReportValidationResult,
+    ReportComponentSolverResult, ReportComponentSolverStepDiagnostic,
+    ReportComponentSolverTrajectory, ReportComponentSolverVariable, ReportComputedIntegration,
+    ReportComputedMetric, ReportComputedStatisticValue, ReportComputedStatistics,
+    ReportMlCoefficient, ReportMlInfo, ReportPolicyResult, ReportPolicyViolation,
+    ReportSolverFailureArtifact, ReportSpec, ReportSystemSolution, ReportSystemSolutionPoint,
+    ReportTimeAlignment, ReportTimeAxis, ReportUncertaintyInfo, ReportUncertaintyPropagationTerm,
+    ReportValidationResult,
 };
 
 use crate::solver::{
@@ -20,10 +21,10 @@ use crate::solver::{
         GeneratedEquation, PortInstance, UnknownVariable,
     },
     solve_continuous_state_space, solve_discrete_state_space, solve_first_order_thermal,
-    solve_linear_residual_graph, FirstOrderThermalModel, FixedStepMethod, InputLayout, LayoutEntry,
-    OutputLayout, ParameterLayout, ResidualEvaluator, ResidualGraph, ResidualInput, SimulationPlan,
-    SolverFailure, SolverInput, SolverOptions, SolverPlan, SolverResult, SolverScalar, StateLayout,
-    StateTrajectory, TimeGrid,
+    solve_linear_residual_graph, DynamicComponentResult, FirstOrderThermalModel, FixedStepMethod,
+    InputLayout, LayoutEntry, OutputLayout, ParameterLayout, ResidualEvaluator, ResidualGraph,
+    ResidualInput, SimulationPlan, SolverFailure, SolverInput, SolverOptions, SolverPlan,
+    SolverResult, SolverScalar, StateLayout, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -985,6 +986,7 @@ pub struct RuntimeComponentSolution {
     pub convergence_status: String,
     pub variables: Vec<RuntimeComponentVariableSolution>,
     pub trajectories: Vec<RuntimeComponentTrajectory>,
+    pub step_diagnostics: Vec<RuntimeComponentStepDiagnostic>,
     pub residuals: Vec<RuntimeComponentResidualEvaluation>,
     pub largest_residuals: Vec<RuntimeComponentResidualEvaluation>,
     pub failure_artifact: Option<RuntimeSolverFailureArtifact>,
@@ -1127,10 +1129,38 @@ impl RuntimeComponentSolution {
             convergence_status,
             variables,
             trajectories: Vec::new(),
+            step_diagnostics: Vec::new(),
             residuals,
             largest_residuals,
             failure_artifact,
         }
+    }
+
+    pub fn from_dynamic_component_result(
+        assembly_name: &str,
+        dynamic_result: &DynamicComponentResult,
+        reason: &str,
+    ) -> Self {
+        let mut solution =
+            Self::from_dynamic_solver_result(assembly_name, &dynamic_result.solver_result, reason);
+        solution.step_diagnostics = dynamic_result
+            .step_diagnostics
+            .iter()
+            .map(|diagnostic| RuntimeComponentStepDiagnostic {
+                step_index: diagnostic.step_index,
+                time_s: diagnostic.time_s,
+                algebraic_iteration_count: diagnostic.algebraic_iteration_count,
+                residual_norm: diagnostic.residual_norm,
+                convergence_status: diagnostic.convergence_status.clone(),
+                failure_artifact: diagnostic.failure.as_ref().map(|failure| {
+                    RuntimeSolverFailureArtifact {
+                        code: failure.code.clone(),
+                        message: failure.message.clone(),
+                    }
+                }),
+            })
+            .collect();
+        solution
     }
 
     pub fn from_dynamic_solver_result(
@@ -1192,6 +1222,7 @@ impl RuntimeComponentSolution {
             convergence_status: solver_result.diagnostics.convergence_status.clone(),
             variables,
             trajectories,
+            step_diagnostics: Vec::new(),
             residuals: Vec::new(),
             largest_residuals: Vec::new(),
             failure_artifact: solver_result.diagnostics.failure.as_ref().map(|failure| {
@@ -1241,6 +1272,23 @@ impl RuntimeComponentSolution {
                             y: point.y,
                         })
                         .collect(),
+                })
+                .collect(),
+            step_diagnostics: self
+                .step_diagnostics
+                .iter()
+                .map(|diagnostic| ReportComponentSolverStepDiagnostic {
+                    step_index: diagnostic.step_index,
+                    time_s: diagnostic.time_s,
+                    algebraic_iteration_count: diagnostic.algebraic_iteration_count,
+                    residual_norm: diagnostic.residual_norm,
+                    convergence_status: diagnostic.convergence_status.clone(),
+                    failure_artifact: diagnostic.failure_artifact.as_ref().map(|failure| {
+                        ReportSolverFailureArtifact {
+                            code: failure.code.clone(),
+                            message: failure.message.clone(),
+                        }
+                    }),
                 })
                 .collect(),
             residuals: self
@@ -1315,6 +1363,16 @@ pub struct RuntimeComponentTrajectory {
     pub final_value: f64,
     pub point_count: usize,
     pub points: Vec<RuntimePoint>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeComponentStepDiagnostic {
+    pub step_index: usize,
+    pub time_s: f64,
+    pub algebraic_iteration_count: usize,
+    pub residual_norm: f64,
+    pub convergence_status: String,
+    pub failure_artifact: Option<RuntimeSolverFailureArtifact>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -5863,9 +5921,9 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         )
         .unwrap();
 
-        let solution = RuntimeComponentSolution::from_dynamic_solver_result(
+        let solution = RuntimeComponentSolution::from_dynamic_component_result(
             "component_graph",
-            &dynamic.solver_result,
+            &dynamic,
             "dynamic component SolverResult artifact adapter test",
         );
 
@@ -5892,6 +5950,14 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
                 && trajectory.role == "algebraic"
                 && trajectory.point_count == 3
                 && trajectory.points[2].y == 2.25));
+        assert_eq!(solution.step_diagnostics.len(), 3);
+        assert!(solution
+            .step_diagnostics
+            .iter()
+            .all(
+                |diagnostic| diagnostic.convergence_status == "fixed_point_converged"
+                    && diagnostic.failure_artifact.is_none()
+            ));
 
         let report = check_source_with_runtime_component_graph();
         let mut spec =
@@ -5909,12 +5975,16 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
             .any(|trajectory| trajectory.name == "z"
                 && trajectory.role == "algebraic"
                 && trajectory.final_value == 2.25));
+        assert_eq!(solver_result.step_diagnostics.len(), 3);
 
         let json = eng_report::report_spec_json(&spec);
         let html = eng_report::render_html_with_spec(&report, "plots/timeseries.svg", &spec);
         assert!(json.contains("\"trajectories\""));
+        assert!(json.contains("\"step_diagnostics\""));
+        assert!(json.contains("\"algebraic_iteration_count\""));
         assert!(json.contains("\"role\": \"algebraic\""));
         assert!(html.contains("Trajectories"));
+        assert!(html.contains("Step Diagnostics"));
         assert!(html.contains("algebraic:z"));
     }
 

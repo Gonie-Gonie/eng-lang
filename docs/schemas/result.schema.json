@@ -264,6 +264,8 @@
         "failure_code",
         "failure_reason",
         "variables",
+        "trajectories",
+        "step_diagnostics",
         "residuals",
         "largest_residuals",
         "failure_artifact"
@@ -283,6 +285,14 @@
         "variables": {
           "type": "array",
           "items": { "$ref": "#/$defs/componentSolutionVariable" }
+        },
+        "trajectories": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/componentSolutionTrajectory" }
+        },
+        "step_diagnostics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/componentSolutionStepDiagnostic" }
         },
         "residuals": {
           "type": "array",
@@ -312,6 +322,44 @@
         "value": { "type": "number" },
         "unit": { "type": "string" },
         "status": { "type": "string" }
+      }
+    },
+    "componentSolutionTrajectory": {
+      "type": "object",
+      "required": ["name", "role", "quantity_kind", "unit", "initial_value", "final_value", "point_count", "points"],
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "unit": { "type": "string" },
+        "initial_value": { "type": "number" },
+        "final_value": { "type": "number" },
+        "point_count": { "type": "integer", "minimum": 0 },
+        "points": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/resultPoint" }
+        }
+      }
+    },
+    "componentSolutionStepDiagnostic": {
+      "type": "object",
+      "required": ["step_index", "time_s", "algebraic_iteration_count", "residual_norm", "convergence_status", "failure_code", "failure_reason", "failure_artifact"],
+      "properties": {
+        "step_index": { "type": "integer", "minimum": 0 },
+        "time_s": { "type": "number" },
+        "algebraic_iteration_count": { "type": "integer", "minimum": 0 },
+        "residual_norm": { "type": "number" },
+        "convergence_status": { "type": "string" },
+        "failure_code": { "type": ["string", "null"] },
+        "failure_reason": { "type": ["string", "null"] },
+        "failure_artifact": {
+          "type": ["object", "null"],
+          "required": ["code", "message"],
+          "properties": {
+            "code": { "type": "string" },
+            "message": { "type": "string" }
+          }
+        }
       }
     },
     "componentResidualEvaluation": {

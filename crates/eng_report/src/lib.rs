@@ -567,6 +567,7 @@ pub struct ReportComponentSolverResult {
     pub convergence_status: String,
     pub variables: Vec<ReportComponentSolverVariable>,
     pub trajectories: Vec<ReportComponentSolverTrajectory>,
+    pub step_diagnostics: Vec<ReportComponentSolverStepDiagnostic>,
     pub residuals: Vec<ReportComponentSolverResidual>,
     pub largest_residuals: Vec<ReportComponentSolverResidual>,
     pub failure_artifact: Option<ReportSolverFailureArtifact>,
@@ -591,6 +592,16 @@ pub struct ReportComponentSolverTrajectory {
     pub final_value: f64,
     pub point_count: usize,
     pub points: Vec<ReportSystemSolutionPoint>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComponentSolverStepDiagnostic {
+    pub step_index: usize,
+    pub time_s: f64,
+    pub algebraic_iteration_count: usize,
+    pub residual_norm: f64,
+    pub convergence_status: String,
+    pub failure_artifact: Option<ReportSolverFailureArtifact>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -4506,6 +4517,68 @@ fn push_report_component_solver_result_json(
         json.push_str(&format!("{indent}    }}"));
     }
     json.push_str(&format!("\n{indent}  ],\n"));
+    json.push_str(&format!("{indent}  \"step_diagnostics\": [\n"));
+    for (index, diagnostic) in result.step_diagnostics.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}    {{\n"));
+        json.push_str(&format!(
+            "{indent}      \"step_index\": {},\n",
+            diagnostic.step_index
+        ));
+        json.push_str(&format!(
+            "{indent}      \"time_s\": {},\n",
+            diagnostic.time_s
+        ));
+        json.push_str(&format!(
+            "{indent}      \"algebraic_iteration_count\": {},\n",
+            diagnostic.algebraic_iteration_count
+        ));
+        json.push_str(&format!(
+            "{indent}      \"residual_norm\": {},\n",
+            diagnostic.residual_norm
+        ));
+        json.push_str(&format!(
+            "{indent}      \"convergence_status\": \"{}\",\n",
+            json_escape(&diagnostic.convergence_status)
+        ));
+        push_optional_json_string(
+            json,
+            "failure_code",
+            diagnostic
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            indent.len() + 6,
+        );
+        push_optional_json_string(
+            json,
+            "failure_reason",
+            diagnostic
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.message.as_str()),
+            indent.len() + 6,
+        );
+        match &diagnostic.failure_artifact {
+            Some(failure) => {
+                json.push_str(&format!("{indent}      \"failure_artifact\": {{\n"));
+                json.push_str(&format!(
+                    "{indent}        \"code\": \"{}\",\n",
+                    json_escape(&failure.code)
+                ));
+                json.push_str(&format!(
+                    "{indent}        \"message\": \"{}\"\n",
+                    json_escape(&failure.message)
+                ));
+                json.push_str(&format!("{indent}      }}\n"));
+            }
+            None => json.push_str(&format!("{indent}      \"failure_artifact\": null\n")),
+        }
+        json.push_str(&format!("{indent}    }}"));
+    }
+    json.push_str(&format!("\n{indent}  ],\n"));
     json.push_str(&format!("{indent}  \"residuals\": [\n"));
     for (index, residual) in result.residuals.iter().enumerate() {
         if index > 0 {
@@ -6174,6 +6247,9 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
             let trajectories = solver_result
                 .map(format_component_solver_trajectory_summary)
                 .unwrap_or_else(|| "-".to_owned());
+            let step_diagnostics = solver_result
+                .map(format_component_solver_step_diagnostics_summary)
+                .unwrap_or_else(|| "-".to_owned());
             let largest_residual = solver_result
                 .and_then(format_component_largest_residual_summary)
                 .unwrap_or_else(|| "-".to_owned());
@@ -6182,7 +6258,7 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
                 .map(|failure| failure.code.clone())
                 .unwrap_or_else(|| "-".to_owned());
             format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
                 assembly.line,
                 html_escape(&assembly.name),
                 html_escape(&assembly.status),
@@ -6194,6 +6270,7 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
                 html_escape(&iteration_count),
                 html_escape(&variables),
                 html_escape(&trajectories),
+                html_escape(&step_diagnostics),
                 html_escape(&largest_residual),
                 html_escape(&failure)
             )
@@ -6203,7 +6280,7 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
     format!(
         r#"<h2>Connection Constraint Check</h2>
     <table>
-      <thead><tr><th>Line</th><th>Assembly</th><th>Status</th><th>Eq/Unknowns</th><th>Convergence</th><th>Method</th><th>Residual Norm</th><th>Iterations</th><th>Variables</th><th>Trajectories</th><th>Largest Residual</th><th>Failure</th></tr></thead>
+      <thead><tr><th>Line</th><th>Assembly</th><th>Status</th><th>Eq/Unknowns</th><th>Convergence</th><th>Method</th><th>Residual Norm</th><th>Iterations</th><th>Variables</th><th>Trajectories</th><th>Step Diagnostics</th><th>Largest Residual</th><th>Failure</th></tr></thead>
       <tbody>{rows}</tbody>
     </table>"#
     )
@@ -6259,6 +6336,40 @@ fn format_component_solver_trajectory_summary(result: &ReportComponentSolverResu
         ));
     }
     values.join(", ")
+}
+
+fn format_component_solver_step_diagnostics_summary(
+    result: &ReportComponentSolverResult,
+) -> String {
+    if result.step_diagnostics.is_empty() {
+        return "-".to_owned();
+    }
+    let failed = result
+        .step_diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.failure_artifact.is_some());
+    if let Some(diagnostic) = failed {
+        return format!(
+            "steps={} failed@{} {}",
+            result.step_diagnostics.len(),
+            diagnostic.step_index,
+            diagnostic
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str())
+                .unwrap_or("-")
+        );
+    }
+    let max_residual = result
+        .step_diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.residual_norm.abs())
+        .fold(0.0, f64::max);
+    format!(
+        "steps={} max_residual={}",
+        result.step_diagnostics.len(),
+        format_alignment_number(max_residual)
+    )
 }
 
 fn format_component_largest_residual_summary(

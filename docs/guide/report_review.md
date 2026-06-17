@@ -232,7 +232,8 @@ For the domain/component connection-constraint check, `result.engres` also recor
 `typed_payload.component_solutions`. Each entry includes the assembly name,
 status, method, residual norm, convergence status, solved linear or zero-seed
 variable values, residual evaluations, nullable `failure_code`/`failure_reason`
-aliases, and any failure/limitation artifact such as
+aliases, dynamic trajectory/timestep diagnostic adapters where present, and any
+failure/limitation artifact such as
 `E-ASSEMBLY-UNDERDETERMINED`.
 
 The matching `report_spec.json` keeps the compiler-owned assembly plan fields

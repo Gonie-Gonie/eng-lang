@@ -4286,6 +4286,68 @@ fn component_solutions_json(runtime_data: &RuntimeData) -> String {
             json.push_str("          }");
         }
         json.push_str("\n        ],\n");
+        json.push_str("        \"step_diagnostics\": [\n");
+        for (diagnostic_index, diagnostic) in solution.step_diagnostics.iter().enumerate() {
+            if diagnostic_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"step_index\": {},\n",
+                diagnostic.step_index
+            ));
+            json.push_str(&format!(
+                "            \"time_s\": {},\n",
+                format_number_with_precision(diagnostic.time_s, Some(8))
+            ));
+            json.push_str(&format!(
+                "            \"algebraic_iteration_count\": {},\n",
+                diagnostic.algebraic_iteration_count
+            ));
+            json.push_str(&format!(
+                "            \"residual_norm\": {},\n",
+                format_number_with_precision(diagnostic.residual_norm, Some(8))
+            ));
+            json.push_str(&format!(
+                "            \"convergence_status\": \"{}\",\n",
+                json_escape(&diagnostic.convergence_status)
+            ));
+            push_optional_json_string(
+                &mut json,
+                "failure_code",
+                diagnostic
+                    .failure_artifact
+                    .as_ref()
+                    .map(|failure| failure.code.as_str()),
+                12,
+            );
+            push_optional_json_string(
+                &mut json,
+                "failure_reason",
+                diagnostic
+                    .failure_artifact
+                    .as_ref()
+                    .map(|failure| failure.message.as_str()),
+                12,
+            );
+            match &diagnostic.failure_artifact {
+                Some(failure) => {
+                    json.push_str("            \"failure_artifact\": {\n");
+                    json.push_str(&format!(
+                        "              \"code\": \"{}\",\n",
+                        json_escape(&failure.code)
+                    ));
+                    json.push_str(&format!(
+                        "              \"message\": \"{}\"\n",
+                        json_escape(&failure.message)
+                    ));
+                    json.push_str("            }\n");
+                }
+                None => json.push_str("            \"failure_artifact\": null\n"),
+            }
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
         json.push_str("        \"residuals\": [\n");
         push_component_residual_evaluations_json(&mut json, &solution.residuals, "          ");
         json.push_str("\n        ],\n");
