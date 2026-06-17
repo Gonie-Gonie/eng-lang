@@ -233,6 +233,7 @@ Implementation seeds on `main`:
 - equation/unknown count metadata
 - generated-equation reasons and normalized residual evaluation artifacts
 - domain-plan based multi-domain metadata
+- constrained Thermal/Fluid/MechanicalNode boundary solve fixture
 - connection constraint consistency artifacts
 - IDE Domain Graph inspection
 - IDE assembly equation/residual inspection
@@ -245,7 +246,7 @@ Not yet public-supported:
 
 ```text
 - production numeric multi-domain simulation
-- boundary-condition/component-behavior solving
+- general boundary-condition/component-behavior solving
 - domain package registry
 - open component ecosystem
 ```

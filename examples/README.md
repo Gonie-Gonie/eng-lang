@@ -103,6 +103,12 @@ official/21_thermal_component_assembly
   component-local boundary RHS equations, a square residual graph, and a dense
   linear residual solve artifact. This is not a production multi-domain
   component solver.
+
+official/22_multi_domain_boundary_solve
+  Small Thermal/Fluid/MechanicalNode boundary fixture whose generated
+  connection equations plus component-local boundary equations form a square
+  residual graph solved by the dense linear path. This is still a constrained
+  algebraic seed, not a production physical multi-domain simulation engine.
 ```
 
 ## Internal Implementation Fixtures

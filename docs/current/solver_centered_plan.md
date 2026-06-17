@@ -52,7 +52,7 @@ release naming still follows [version_plan.md](version_plan.md).
 | v1.5 algebraic solver | Linear algebraic solve, fixed-point solve, diagnostics | Implemented as solver-API algorithm seeds and square residual graph solve path. |
 | v1.6 small dynamic component solver | Assembled dynamic component graph solves, state/algebraic TimeSeries outputs | Implemented as internal dynamic-component solver seed; not public-supported component graph solving. |
 | v1.7 nonlinear/delay/Predictor integration | Nonlinear seed, delay buffer, Predictor contract | Implemented as standalone/API seeds and report/IDE metadata; language-level integration remains planned. |
-| v2.0 multi-domain solver | Small multi-domain official example actually solves, report/IDE show equations, plan, residuals, results | Partially covered by single-domain Thermal boundary solve and multi-domain metadata; production multi-domain solving remains planned. |
+| v2.0 multi-domain solver | Small multi-domain official example actually solves, report/IDE show equations, plan, residuals, results | Covered by `examples/official/22_multi_domain_boundary_solve` for a constrained Thermal/Fluid/MechanicalNode boundary solve; production multi-domain solving remains planned. |
 
 ## Final Solver Rule
 
@@ -69,5 +69,5 @@ specific supported scope being claimed:
 | TimeSeries outputs are generated | Solver trajectories are converted into TimeSeries-style report/result/IDE rows. |
 | Report/review artifacts explain the solve | `report_spec.json`, `review.json`, `.engres`, and HTML report solver sections. |
 | IDE shows the solve | `dev.bat ide-check` smoke covers solver, residual, dependency, behavior, state-space, and kernel inspectors. |
-| Official example exercises the solve | Official measured-vs-simulated, multi-state thermal, and thermal component assembly examples. |
+| Official example exercises the solve | Official measured-vs-simulated, multi-state thermal, thermal component assembly, and multi-domain boundary solve examples. |
 | Tests cover success and failure | `eng test examples`, cargo tests, `artifacts-check`, `jit-check`, and `ide-check`. |

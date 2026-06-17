@@ -556,6 +556,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/19_class_object/main.eng",
                 "examples/official/20_multi_state_thermal/main.eng",
                 "examples/official/21_thermal_component_assembly/main.eng",
+                "examples/official/22_multi_domain_boundary_solve/main.eng",
             ],
         ),
         (
@@ -951,6 +952,51 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     println!(
         "ok: examples/official/21_thermal_component_assembly/main.eng produced component residual, Jacobian, and Newton-step kernel candidates"
     );
+    match run_file(
+        Path::new("examples/official/22_multi_domain_boundary_solve/main.eng"),
+        Path::new("build/test-multi-domain-boundary-solve"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"solved_linear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dense_linear_residual_graph\"")
+                || !output.result_json.contains("\"equation_count\": 12")
+                || !output.result_json.contains("\"unknown_count\": 12")
+                || !output.result_json.contains("\"residual_norm\": 0.00000000")
+                || !output
+                    .result_json
+                    .contains("\"name\": \"SupplyPipe.outlet.m_dot\"")
+                || !output.result_json.contains("\"value\": -0.20000000")
+                || !output.result_json.contains("\"name\": \"ShaftB.shaft.P\"")
+                || !output.result_json.contains("\"value\": -100.00000000")
+                || !output.result_json.contains("\"largest_residuals\"")
+                || !output.report_spec_json.contains("\"domain_count\": 3")
+                || !output.report_spec_json.contains("\"multi_domain_preview\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"not_production_multi_domain\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"solver_plan\": \"dense_linear_residual_graph\"")
+                || !output.report_html.contains("dense_linear_residual_graph")
+                || !output.report_html.contains("multi_domain_preview")
+            {
+                eprintln!(
+                    "expected official multi-domain boundary fixture to solve a square residual graph across Thermal, Fluid, and MechanicalNode domains"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/22_multi_domain_boundary_solve/main.eng solved a small multi-domain boundary residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("multi-domain boundary solve fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
     match run_file(
         Path::new("examples/internal/23_component_boundary_singular/main.eng"),
         Path::new("build/test-component-boundary-singular"),

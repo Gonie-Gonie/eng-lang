@@ -2142,6 +2142,76 @@ fn smoke() -> Result<(), String> {
             thermal_assembly_example.display()
         ));
     }
+    let multi_domain_example =
+        root.join("examples/official/22_multi_domain_boundary_solve/main.eng");
+    let multi_domain_output = run_file(
+        &multi_domain_example,
+        &root.join("build").join("ide-smoke-multi-domain-boundary"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let multi_domain_cached = CachedRunOutput::from_output(multi_domain_output);
+    let multi_domain_inspectors = runtime_inspectors(&root, &multi_domain_cached);
+    let has_multi_domain_solver_result =
+        multi_domain_inspectors
+            .assemblies
+            .as_array()
+            .is_some_and(|assemblies| {
+                assemblies.iter().any(|assembly| {
+                    let Some(solver_result) = assembly.get("solver_result") else {
+                        return false;
+                    };
+                    let has_multi_domain_shape = json_field_usize(assembly, "domain_count")
+                        == Some(3)
+                        && json_field_usize(assembly, "component_count") == Some(5)
+                        && assembly
+                            .get("residual_graph")
+                            .and_then(|graph| graph.get("dependencies"))
+                            .and_then(Value::as_array)
+                            .is_some_and(|dependencies| {
+                                dependencies.iter().any(|dependency| {
+                                    json_field_string(dependency, "variable").as_deref()
+                                        == Some("SupplyPipe.outlet.m_dot")
+                                }) && dependencies.iter().any(|dependency| {
+                                    json_field_string(dependency, "variable").as_deref()
+                                        == Some("ShaftB.shaft.P")
+                                })
+                            });
+                    let has_solved_cross_domain_variables = solver_result
+                        .get("variables")
+                        .and_then(Value::as_array)
+                        .is_some_and(|variables| {
+                            variables.iter().any(|variable| {
+                                json_field_string(variable, "name").as_deref()
+                                    == Some("SupplyPipe.outlet.m_dot")
+                                    && json_field_f64(variable, "value")
+                                        .is_some_and(|value| (value + 0.2).abs() <= 1e-9)
+                            }) && variables.iter().any(|variable| {
+                                json_field_string(variable, "name").as_deref()
+                                    == Some("ShaftB.shaft.P")
+                                    && json_field_f64(variable, "value")
+                                        .is_some_and(|value| (value + 100.0).abs() <= 1e-9)
+                            })
+                        });
+                    json_field_string(solver_result, "status").as_deref() == Some("solved_linear")
+                        && json_field_string(solver_result, "method").as_deref()
+                            == Some("dense_linear_residual_graph")
+                        && json_field_string(solver_result, "convergence_status").as_deref()
+                            == Some("linear_converged")
+                        && has_multi_domain_shape
+                        && has_solved_cross_domain_variables
+                        && solver_result
+                            .get("largest_residuals")
+                            .and_then(Value::as_array)
+                            .is_some_and(|residuals| !residuals.is_empty())
+                })
+            });
+    if !has_multi_domain_solver_result {
+        return Err(format!(
+            "{} did not produce IDE multi-domain boundary solve inspector metadata",
+            multi_domain_example.display()
+        ));
+    }
     let measured_example = root.join("examples/official/17_measured_vs_simulated/main.eng");
     let measured_output = run_file(
         &measured_example,
@@ -2385,7 +2455,7 @@ fn smoke() -> Result<(), String> {
         ));
     }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), residual dependency inspector, behavior graph inspector, measured workflow inspectors, solved thermal assembly inspector, state-space trajectory/operator inspector, kernel plan inspector, class object inspector, side-effect inspectors, schema failure inspector",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), residual dependency inspector, behavior graph inspector, measured workflow inspectors, solved thermal assembly inspector, multi-domain boundary solve inspector, state-space trajectory/operator inspector, kernel plan inspector, class object inspector, side-effect inspectors, schema failure inspector",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),
