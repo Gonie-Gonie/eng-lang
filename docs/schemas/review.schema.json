@@ -22,6 +22,7 @@
     "file_operations",
     "process_runs",
     "tests",
+    "simulation_requests",
     "domain_summary",
     "component_summary",
     "connection_summary",
@@ -89,6 +90,10 @@
     "tests": {
       "type": "array",
       "items": { "$ref": "#/$defs/testBlock" }
+    },
+    "simulation_requests": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/simulationRequest" }
     },
     "domain_summary": {
       "type": "array",
@@ -254,6 +259,41 @@
           "type": "array",
           "items": { "$ref": "#/$defs/goldenCheck" }
         }
+      }
+    },
+    "simulationRequest": {
+      "type": "object",
+      "required": ["binding", "system", "solver", "time_grid", "inputs", "line"],
+      "properties": {
+        "binding": { "type": "string" },
+        "system": { "type": "string" },
+        "solver": { "type": "string" },
+        "time_grid": { "$ref": "#/$defs/simulationTimeGrid" },
+        "inputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/simulationInputBinding" }
+        },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "simulationTimeGrid": {
+      "type": "object",
+      "required": ["status", "timestep_s", "duration_s", "step_count"],
+      "properties": {
+        "status": { "type": "string" },
+        "timestep_s": { "type": ["number", "null"] },
+        "duration_s": { "type": ["number", "null"] },
+        "step_count": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "simulationInputBinding": {
+      "type": "object",
+      "required": ["name", "source", "status", "line"],
+      "properties": {
+        "name": { "type": "string" },
+        "source": { "type": "string" },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
       }
     },
     "assertion": {

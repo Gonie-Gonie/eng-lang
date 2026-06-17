@@ -81,6 +81,7 @@ writes
 file_operations
 process_runs
 tests
+simulation_requests
 diagnostics
 warning_list
 plot_manifest
@@ -129,6 +130,13 @@ live in `process_results.json`.
 `tests[]` records named test blocks, assertions, and golden checks. The
 compiler-owned review artifact records what should be checked; runtime pass/fail
 details live in `test_results.json`.
+
+`simulation_requests[]` records `simulate` bindings, their target system,
+solver option, bound inputs, and compiler-visible time-grid metadata. When
+`duration` is present, `time_grid.step_count` is computed from `duration` and
+`timestep`; otherwise a TimeSeries-driven simulation records
+`time_grid.status = runtime_from_timeseries` and leaves duration/step count for
+runtime artifacts.
 
 ## `report_spec.json`
 

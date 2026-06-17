@@ -2346,6 +2346,7 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    push_simulation_requests_json(&mut json, report);
     json.push_str("  \"timeseries_kernels\": [\n");
     for (index, kernel) in report
         .semantic_program
@@ -3805,6 +3806,17 @@ fn push_optional_json_string(json: &mut String, key: &str, value: Option<&str>, 
     }
 }
 
+fn push_optional_json_number(json: &mut String, key: &str, value: Option<f64>, indent: usize) {
+    let spaces = " ".repeat(indent);
+    match value {
+        Some(value) => json.push_str(&format!(
+            "{spaces}\"{key}\": {},\n",
+            format_arg_number(value)
+        )),
+        None => json.push_str(&format!("{spaces}\"{key}\": null,\n")),
+    }
+}
+
 fn push_json_string_array(json: &mut String, values: &[String]) {
     for (index, value) in values.iter().enumerate() {
         if index > 0 {
@@ -3819,6 +3831,117 @@ fn push_named_json_string_array(json: &mut String, key: &str, values: &[String],
     json.push_str(&format!("{spaces}\"{key}\": ["));
     push_json_string_array(json, values);
     json.push_str("],\n");
+}
+
+fn push_simulation_requests_json(json: &mut String, report: &CheckReport) {
+    json.push_str("  \"simulation_requests\": [\n");
+    let mut first_request = true;
+    for declaration in &report.inferred_declarations {
+        let Some(system) = declaration
+            .expression
+            .trim()
+            .strip_prefix("simulate ")
+            .map(str::trim)
+        else {
+            continue;
+        };
+        if !first_request {
+            json.push_str(",\n");
+        }
+        first_request = false;
+        let options = report
+            .semantic_program
+            .with_blocks
+            .iter()
+            .find(|block| block.owner_line == Some(declaration.line))
+            .map(|block| block.options.as_slice())
+            .unwrap_or(&[]);
+        let solver = review_option_value(options, "solver").unwrap_or("missing");
+        let timestep = review_option_value(options, "timestep");
+        let duration = review_option_value(options, "duration");
+        let timestep_s = timestep.and_then(review_duration_seconds);
+        let duration_s = duration.and_then(review_duration_seconds);
+        let step_count = timestep_s.zip(duration_s).map(|(timestep_s, duration_s)| {
+            if timestep_s > 0.0 {
+                (duration_s / timestep_s).ceil() as usize
+            } else {
+                0
+            }
+        });
+        let time_grid_status = match (timestep_s, duration_s) {
+            (Some(_), Some(_)) => "declared_fixed_step",
+            (Some(_), None) => "runtime_from_timeseries",
+            _ => "missing_timestep",
+        };
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&declaration.name)
+        ));
+        json.push_str(&format!("      \"system\": \"{}\",\n", json_escape(system)));
+        json.push_str(&format!("      \"solver\": \"{}\",\n", json_escape(solver)));
+        json.push_str("      \"time_grid\": {\n");
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(time_grid_status)
+        ));
+        push_optional_json_number(json, "timestep_s", timestep_s, 8);
+        push_optional_json_number(json, "duration_s", duration_s, 8);
+        match step_count {
+            Some(step_count) => json.push_str(&format!("        \"step_count\": {}\n", step_count)),
+            None => json.push_str("        \"step_count\": null\n"),
+        }
+        json.push_str("      },\n");
+        json.push_str("      \"inputs\": [\n");
+        let mut first_input = true;
+        for option in options
+            .iter()
+            .filter(|option| !matches!(option.key.as_str(), "solver" | "timestep" | "duration"))
+        {
+            if !first_input {
+                json.push_str(",\n");
+            }
+            first_input = false;
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&option.key)
+            ));
+            json.push_str(&format!(
+                "          \"source\": \"{}\",\n",
+                json_escape(&option.value)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&option.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", option.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str(&format!("      \"line\": {}\n", declaration.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+}
+
+fn review_option_value<'a>(options: &'a [semantic::WithOptionInfo], key: &str) -> Option<&'a str> {
+    options
+        .iter()
+        .find(|option| option.key == key && option.status == "accepted")
+        .map(|option| option.value.as_str())
+}
+
+fn review_duration_seconds(value: &str) -> Option<f64> {
+    let mut parts = value.split_whitespace();
+    let number = parts.next()?.parse::<f64>().ok()?;
+    let unit = parts.next().unwrap_or("s");
+    match unit {
+        "s" | "sec" | "second" | "seconds" => Some(number),
+        "min" | "minute" | "minutes" => Some(number * 60.0),
+        "h" | "hr" | "hour" | "hours" => Some(number * 3600.0),
+        _ => None,
+    }
 }
 
 fn write_component_graph_json(json: &mut String, program: &semantic::SemanticProgram) {
@@ -5669,6 +5792,24 @@ mod tests {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-SIM-INPUT-MISSING-001"));
+    }
+
+    #[test]
+    fn review_json_exposes_simulation_request_time_grid() {
+        let report = check_source(
+            "ok.eng",
+            "system Decay {\n    state T: AbsoluteTemperature = 24 degC\n}\n\nsim = simulate Decay\nwith {\n    timestep = 10 min\n    duration = 30 min\n    solver = fixed_step\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        let json = review_json(&report);
+        assert!(json.contains("\"simulation_requests\""));
+        assert!(json.contains("\"binding\": \"sim\""));
+        assert!(json.contains("\"status\": \"declared_fixed_step\""));
+        assert!(json.contains("\"timestep_s\": 600"));
+        assert!(json.contains("\"duration_s\": 1800"));
+        assert!(json.contains("\"step_count\": 3"));
     }
 
     #[test]

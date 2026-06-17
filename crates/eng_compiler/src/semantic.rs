@@ -1690,6 +1690,7 @@ fn known_with_option(key: &str) -> bool {
             | "display_unit"
             | "solver"
             | "timestep"
+            | "duration"
             | "T_out"
             | "Q_internal"
             | "solar"

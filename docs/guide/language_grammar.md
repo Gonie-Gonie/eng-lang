@@ -1266,6 +1266,7 @@ syntax_summary.tests
 command_styles[]
 where_blocks[]
 with_blocks[]
+simulation_requests[]
 process_runs[]
 tests[]
 ```
@@ -1286,6 +1287,12 @@ tests[]
 display units, and local status.
 
 `with_blocks[]` records owner line and accepted/unknown options.
+
+`simulation_requests[]` records `simulate` bindings, target system, solver,
+bound inputs, and compiler-visible time-grid metadata. When `duration` is
+declared, the review artifact includes `duration_s` and computed `step_count`;
+otherwise TimeSeries-driven simulations use `time_grid.status =
+runtime_from_timeseries` and leave duration/step count to runtime artifacts.
 
 `process_runs[]` records explicit external process declarations with binding,
 command, and source line. Runtime execution details are written to
