@@ -159,10 +159,10 @@ are not public stable workflows.
   that requires an explicit `skipped_unsupported_shape` artifact instead of a
   fabricated trajectory.
 - Solver algorithm seeds: dense linear solve, solver-API fixed-point iteration
-  with nonconvergence diagnostics, and standalone damped Newton solve with
-  finite-difference fallback, supplied analytic/JIT Jacobian hook,
+  with nonconvergence diagnostics, and solver-API standalone damped Newton
+  solve with finite-difference fallback, supplied analytic/JIT Jacobian hook,
   residual history, largest-residual summary, and failure artifacts. The same
-  internal layer has a standalone implicit-Euler DAE seed over
+  internal layer has a solver-API standalone implicit-Euler DAE seed over
   `F(x, xdot, z, u, t, p)` with optional mass matrix, initial consistency
   checks, algebraic-variable initialization, and a dynamic-component
   explicit-Euler seed that supports algebraic-free state updates plus

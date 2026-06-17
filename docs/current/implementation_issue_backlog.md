@@ -219,12 +219,13 @@ Current coverage:
 - Runtime has a standalone damped Newton algorithm seed with finite-difference
   fallback, supplied analytic/JIT Jacobian hook, largest-residual summary,
   residual-history, convergence-status, singular-Jacobian, invalid-option, and
-  nonconvergence tests.
+  nonconvergence tests exposed through the solver API.
 - Runtime also has dense linear and solver-API fixed-point algorithm seeds.
 - Runtime has a standalone implicit-Euler DAE seed over
   `F(x, xdot, z, u, t, p)` with optional mass matrix, initial-condition
   consistency checks, algebraic-variable initialization, ODE residual,
-  algebraic-variable, and mass-matrix tests.
+  algebraic-variable, mass-matrix, inconsistent-initial-condition, and step
+  nonconvergence tests exposed through the solver API.
 - Runtime has a standalone dynamic-component explicit-Euler seed that supports
   algebraic-free two-state updates and semi-implicit fixed-point algebraic
   solves at each timestep, updates state trajectories, carries algebraic

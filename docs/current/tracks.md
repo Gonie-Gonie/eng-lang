@@ -87,13 +87,13 @@ Current supported scope:
 Internal runtime seeds:
 
 ```text
-- standalone dense linear, solver-API fixed-point, and damped Newton algorithms
+- standalone dense linear, solver-API fixed-point, and solver-API damped Newton algorithms
 - SolverInput/SolverResult state, input, parameter, and output layout contracts
 - state-space non-rectangular matrix diagnostics, unsupported unitful
   coefficient diagnostics, and inverse-time derivative-coupling coefficient
   canonicalization
 - supplied analytic/JIT Jacobian hook for Newton
-- standalone implicit-Euler DAE seed over F(x, xdot, z, u, t, p)
+- solver-API standalone implicit-Euler DAE seed over F(x, xdot, z, u, t, p)
 - optional DAE mass matrix and initial consistency checks
 - standalone dynamic-component explicit-Euler seed with algebraic-free state updates, algebraic solve per timestep, and common SolverResult state/algebraic trajectories
 - component solver result trajectory and timestep-diagnostic artifact adapter for internal dynamic-component SolverResult output

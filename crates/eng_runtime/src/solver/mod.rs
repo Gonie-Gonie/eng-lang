@@ -12,12 +12,19 @@ pub mod thermal;
 pub use algorithms::algebraic::{
     solve_linear_residual_graph, LinearResidualGraphSolution, LinearResidualVariableSolution,
 };
+pub use algorithms::dae::{
+    initialize_algebraic_variables, solve_implicit_euler_dae, DaeInput, DaeMassMatrix, DaeOptions,
+    DaeResult, DaeSample, DaeStepReport, DaeTrajectory, DaeVariable,
+};
 pub use algorithms::dynamic_component::{
     solve_explicit_euler_with_algebraic, AlgebraicStepInput, DynamicComponentOptions,
     DynamicComponentResult, DynamicComponentStepDiagnostic, DynamicStepInput,
 };
 pub use algorithms::fixed_point::{solve_fixed_point, FixedPointOptions, FixedPointResult};
 pub use algorithms::fixed_step::{solve_fixed_step_ode, FixedStepMethod, RhsSample};
+pub use algorithms::nonlinear::{
+    solve_newton, solve_newton_with_jacobian, NewtonLargestResidual, NewtonOptions, NewtonResult,
+};
 pub use diagnostics::{SolverDiagnostics, SolverFailure};
 pub use evaluator::{
     NamedDerivative, RhsEvaluator, RhsInput, RhsOutput, RhsStateInfo, StateSpaceRhsEvaluator,

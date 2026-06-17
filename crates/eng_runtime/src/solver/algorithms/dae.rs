@@ -510,6 +510,39 @@ mod tests {
     }
 
     #[test]
+    fn reports_step_nonconvergence_with_failure_artifact() {
+        let input = one_state_input(1.0, -1.0);
+        let options = DaeOptions {
+            newton: NewtonOptions {
+                tolerance: 1e-15,
+                max_iterations: 1,
+                finite_difference_step: 1e-6,
+                damping: 1.0,
+                line_search_steps: 1,
+            },
+            ..Default::default()
+        };
+
+        let result = solve_implicit_euler_dae(&input, &options, |sample| {
+            Ok(vec![
+                sample.state_derivative[0] + sample.state[0] * sample.state[0],
+            ])
+        })
+        .unwrap();
+
+        assert_eq!(result.convergence_status, "dae_not_converged");
+        assert_eq!(
+            result.failure.as_ref().map(|failure| failure.code.as_str()),
+            Some("E-DAE-STEP-NONCONVERGENCE")
+        );
+        assert_eq!(result.step_reports.len(), 1);
+        assert_eq!(
+            result.step_reports[0].newton.convergence_status,
+            "newton_not_converged"
+        );
+    }
+
+    #[test]
     fn rejects_inconsistent_initial_conditions() {
         let input = one_state_input(1.0, 0.0);
         let failure = solve_implicit_euler_dae(&input, &DaeOptions::default(), |sample| {
