@@ -261,6 +261,8 @@
         "residual_norm",
         "iteration_count",
         "convergence_status",
+        "failure_code",
+        "failure_reason",
         "variables",
         "residuals",
         "largest_residuals",
@@ -276,6 +278,8 @@
         "residual_norm": { "type": "number" },
         "iteration_count": { "type": "integer", "minimum": 0 },
         "convergence_status": { "type": "string" },
+        "failure_code": { "type": ["string", "null"] },
+        "failure_reason": { "type": ["string", "null"] },
         "variables": {
           "type": "array",
           "items": { "$ref": "#/$defs/componentSolutionVariable" }

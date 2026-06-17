@@ -4185,6 +4185,24 @@ fn component_solutions_json(runtime_data: &RuntimeData) -> String {
             "        \"convergence_status\": \"{}\",\n",
             json_escape(&solution.convergence_status)
         ));
+        push_optional_json_string(
+            &mut json,
+            "failure_code",
+            solution
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            8,
+        );
+        push_optional_json_string(
+            &mut json,
+            "failure_reason",
+            solution
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.message.as_str()),
+            8,
+        );
         json.push_str("        \"variables\": [\n");
         for (variable_index, variable) in solution.variables.iter().enumerate() {
             if variable_index > 0 {

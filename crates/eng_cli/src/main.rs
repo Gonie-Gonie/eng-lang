@@ -741,6 +741,8 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"largest_residuals\"")
                 || !output.report_spec_json.contains("\"largest_residuals\"")
                 || !output.report_spec_json.contains("\"failure_artifact\"")
+                || !output.report_spec_json.contains("\"failure_code\"")
+                || !output.report_spec_json.contains("\"failure_reason\"")
                 || !output.report_spec_json.contains("\"domain_count\": 3")
                 || !output.report_spec_json.contains("\"multi_domain_preview\"")
                 || !output
@@ -931,6 +933,12 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.report_spec_json.contains("\"failure_artifact\"")
                 || !output
                     .report_spec_json
+                    .contains("\"failure_code\": \"E-LINEAR-SINGULAR\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"failure_reason\": \"linear system is singular")
+                || !output
+                    .report_spec_json
                     .contains("\"convergence_status\": \"linear_failed\"")
                 || !output.report_html.contains("linear_solve_failed")
                 || !output.report_html.contains("E-LINEAR-SINGULAR")
@@ -963,6 +971,12 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"method\": \"linear_residual_graph_shape_check\"")
                 || !output.result_json.contains("\"E-ASSEMBLY-OVERDETERMINED\"")
                 || !output.report_spec_json.contains("\"failure_artifact\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"failure_code\": \"E-ASSEMBLY-OVERDETERMINED\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"failure_reason\": \"assembly has more equations than unknowns")
                 || !output.report_spec_json.contains(
                     "\"convergence_status\": \"linear_residual_not_attempted_overdetermined\"",
                 )

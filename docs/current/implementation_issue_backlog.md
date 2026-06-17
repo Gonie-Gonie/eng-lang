@@ -374,8 +374,8 @@ Definition of Done:
 - Runtime linear algebraic solves consume `ResidualGraph` through the solver
   API instead of inlining matrix solve plumbing in component artifact code.
 - Runtime `component_solutions` and report `solver_result` expose
-  `largest_residuals`, capped to the top normalized residuals for direct
-  report/IDE inspection.
+  nullable `failure_code`/`failure_reason` aliases plus `largest_residuals`,
+  capped to the top normalized residuals for direct report/IDE inspection.
 - IDE Assembly panel shows residual dependency rows from
   `assembly_summary[].residual_graph.dependencies`.
 - Under/overdetermined cases produce diagnostics or limitation artifacts.

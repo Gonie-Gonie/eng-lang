@@ -4414,6 +4414,24 @@ fn push_report_component_solver_result_json(
         "{indent}  \"convergence_status\": \"{}\",\n",
         json_escape(&result.convergence_status)
     ));
+    push_optional_json_string(
+        json,
+        "failure_code",
+        result
+            .failure_artifact
+            .as_ref()
+            .map(|failure| failure.code.as_str()),
+        indent.len() + 2,
+    );
+    push_optional_json_string(
+        json,
+        "failure_reason",
+        result
+            .failure_artifact
+            .as_ref()
+            .map(|failure| failure.message.as_str()),
+        indent.len() + 2,
+    );
     json.push_str(&format!("{indent}  \"variables\": [\n"));
     for (index, variable) in result.variables.iter().enumerate() {
         if index > 0 {

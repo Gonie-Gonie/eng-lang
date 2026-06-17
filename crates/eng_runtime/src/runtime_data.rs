@@ -5793,6 +5793,9 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
                 .map(|failure| failure.code.as_str()),
             Some("E-ASSEMBLY-UNDERDETERMINED")
         );
+        let json = eng_report::report_spec_json(&spec);
+        assert!(json.contains("\"failure_code\": \"E-ASSEMBLY-UNDERDETERMINED\""));
+        assert!(json.contains("\"failure_reason\": \"assembly has fewer equations than unknowns"));
     }
 
     #[test]
