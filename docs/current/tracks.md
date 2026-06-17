@@ -222,8 +222,9 @@ Internal implementation seeds on `main`:
 - eng_jit crate
 - eng.exe jit-plan
 - eng.exe jit-bench with benchmark target coverage metadata and deterministic
-  interpreter-kernel sample executions for CSV, component, and state-space
-  smoke targets, with dev-gate assertions for representative candidates
+  interpreter-kernel sample executions for CSV, multi-statistics, residual,
+  component, and state-space smoke targets, with dev-gate assertions for each
+  checklist benchmark target family
 - interpreter baseline metadata
 - backend selection metadata
 - hot-kernel candidate estimates

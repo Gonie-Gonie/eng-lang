@@ -1515,6 +1515,8 @@ function Invoke-JitCheck {
     Invoke-Native $cargo "run" "-p" "eng_cli" "--" "jit-plan" "examples\official\01_csv_plot\main.eng"
     Invoke-Native $cargo "run" "-p" "eng_cli" "--" "jit-plan" "examples\official\01_csv_plot\main.eng" "--backend" "native-preview"
     Invoke-JitBenchTargetCheck $cargo "examples\official\01_csv_plot\main.eng" "csv_heat_rate_workflow" "covered_by_current_source" "timeseries_integrate"
+    Invoke-JitBenchTargetCheck $cargo "examples\official\01_csv_plot\main.eng" "multi_statistics_fusion" "covered_by_current_source" "statistics_fusion:summary:Q_coil"
+    Invoke-JitBenchTargetCheck $cargo "examples\official\21_thermal_component_assembly\main.eng" "residual_evaluation" "covered_by_current_source" "component_residual_jacobian"
     Invoke-JitBenchTargetCheck $cargo "examples\official\21_thermal_component_assembly\main.eng" "component_graph_solver_small_case" "covered_by_current_source" "component_newton_step"
     Invoke-JitBenchTargetCheck $cargo "examples\internal\18_state_space_metadata\main.eng" "state_space_simulation" "covered_by_current_source" "state_space_solver_step"
     Write-Host "JIT plan check passed."

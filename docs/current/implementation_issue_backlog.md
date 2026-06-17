@@ -74,8 +74,8 @@ Current coverage:
   `kernel_executor_samples` field records deterministic interpreter-kernel
   sample executions for lowerable candidates.
 - `dev.bat jit-check` asserts benchmark smoke coverage for the CSV heat-rate,
-  Thermal component assembly residual/Jacobian/Newton-step, and continuous
-  state-space RHS/solver-step target families.
+  multi-statistics fusion, residual evaluation, Thermal component assembly
+  Newton-step, and continuous state-space RHS/solver-step target families.
 
 Definition of Done:
 
