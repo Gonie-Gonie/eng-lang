@@ -463,6 +463,13 @@ pub struct PredictorEvaluation {
     pub contract: PredictorContractArtifact,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct PredictorRhsEvaluation {
+    pub derivatives: Vec<f64>,
+    pub predictor: PredictorEvaluation,
+    pub status: String,
+}
+
 pub struct PredictorBehaviorNode<F>
 where
     F: Fn(&[f64]) -> Result<Vec<f64>, SolverFailure>,
@@ -540,6 +547,29 @@ where
 
     pub fn contract_artifact(&self) -> PredictorContractArtifact {
         self.contract.artifact("ready")
+    }
+
+    pub fn evaluate_rhs<R>(
+        &self,
+        inputs: &[f64],
+        rhs: R,
+    ) -> Result<PredictorRhsEvaluation, SolverFailure>
+    where
+        R: FnOnce(&PredictorEvaluation) -> Result<Vec<f64>, SolverFailure>,
+    {
+        let predictor = self.evaluate(inputs)?;
+        let derivatives = rhs(&predictor)?;
+        if derivatives.iter().any(|value| !value.is_finite()) {
+            return Err(SolverFailure::new(
+                "E-PREDICTOR-RHS-FINITE",
+                "predictor RHS evaluation returned a non-finite derivative",
+            ));
+        }
+        Ok(PredictorRhsEvaluation {
+            status: predictor.status.clone(),
+            predictor,
+            derivatives,
+        })
     }
 }
 
@@ -987,6 +1017,70 @@ mod tests {
     }
 
     #[test]
+    fn predictor_behavior_node_can_drive_fixed_step_rhs() {
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "predictor_rhs",
+                SimulationPlan {
+                    states: vec!["x".to_owned()],
+                    inputs: Vec::new(),
+                    outputs: vec!["x".to_owned()],
+                    parameters: Vec::new(),
+                },
+                SolverOptions::fixed_step("explicit_euler", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(2.0, 1.0).unwrap(),
+            state_layout: crate::solver::StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout::default(),
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![1.0],
+            inputs: Vec::new(),
+            parameters: Vec::new(),
+        };
+        let contract = PredictorContract::new(
+            "state_feedback_predictor",
+            vec![BehaviorSignalContract::new("x", "Dimensionless", "1")],
+            vec![BehaviorSignalContract::new(
+                "x_feedback",
+                "Dimensionless",
+                "1",
+            )],
+            "sha256:predictor-rhs",
+            PredictorDifferentiability::Differentiable,
+            PredictorSolverPolicy {
+                explicit_call_only: true,
+                finite_difference_allowed: true,
+                jacobian_policy: PredictorJacobianPolicy::FiniteDifferenceAllowed,
+            },
+        )
+        .unwrap();
+        let node = PredictorBehaviorNode::new(contract, |inputs| Ok(vec![inputs[0]]));
+        let mut predictor_statuses = Vec::new();
+
+        let result = solve_fixed_step_ode(FixedStepMethod::ExplicitEuler, &input, |sample| {
+            let evaluation = node.evaluate_rhs(&[sample.state[0]], |predictor| {
+                Ok(vec![-predictor.outputs[0]])
+            })?;
+            predictor_statuses.push(evaluation.status);
+            Ok(evaluation.derivatives)
+        })
+        .unwrap();
+
+        assert_eq!(
+            result.output.state_trajectories[0].values,
+            vec![1.0, 0.0, 0.0]
+        );
+        assert_eq!(predictor_statuses, vec!["ok", "ok"]);
+    }
+
+    #[test]
     fn predictor_behavior_node_reports_range_warnings() {
         let contract = PredictorContract::new(
             "range_checked_predictor",
@@ -1032,6 +1126,26 @@ mod tests {
         let failure = node.evaluate(&[1.0]).unwrap_err();
 
         assert_eq!(failure.code, "E-PREDICTOR-OUTPUT-LAYOUT");
+    }
+
+    #[test]
+    fn predictor_behavior_node_rejects_nonfinite_rhs_derivatives() {
+        let contract = PredictorContract::new(
+            "bad_rhs_predictor",
+            vec![BehaviorSignalContract::new("x", "Dimensionless", "1")],
+            vec![BehaviorSignalContract::new("y", "Dimensionless", "1")],
+            "sha256:bad-rhs",
+            PredictorDifferentiability::Unknown,
+            PredictorSolverPolicy::default(),
+        )
+        .unwrap();
+        let node = PredictorBehaviorNode::new(contract, |_inputs| Ok(vec![1.0]));
+
+        let failure = node
+            .evaluate_rhs(&[1.0], |_predictor| Ok(vec![f64::INFINITY]))
+            .unwrap_err();
+
+        assert_eq!(failure.code, "E-PREDICTOR-RHS-FINITE");
     }
 
     #[test]

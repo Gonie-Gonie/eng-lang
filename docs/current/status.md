@@ -209,7 +209,8 @@ are not public stable workflows.
   by the CLI example smoke gate. Runtime also has a solver-API Predictor
   behavior contract wrapper with input/output quantity-unit metadata,
   valid-range warnings, model hash, differentiability flag, and solver Jacobian
-  policy. Runtime also has a solver-API external function/process behavior
+  policy plus predictor-driven fixed-step RHS adapter coverage. Runtime also
+  has a solver-API external function/process behavior
   wrapper with typed contracts, provenance hash, determinism metadata,
   safe/repro profile policy, and adapter failure propagation. Component
   artifacts distinguish delay/Predictor/external calls

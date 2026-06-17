@@ -65,7 +65,7 @@ pub use behavior::{
     ExternalBehaviorKind, ExternalBehaviorNode, ExternalBehaviorProfilePolicy,
     PredictorBehaviorNode, PredictorContract, PredictorContractArtifact,
     PredictorDifferentiability, PredictorEvaluation, PredictorJacobianPolicy,
-    PredictorSolverPolicy,
+    PredictorRhsEvaluation, PredictorSolverPolicy,
 };
 pub use diagnostics::{SolverDiagnostics, SolverFailure};
 pub use evaluator::{

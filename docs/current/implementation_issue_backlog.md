@@ -361,6 +361,8 @@ Current coverage:
 - Runtime has a solver-API Predictor behavior contract wrapper with input/output
   quantity-unit metadata, valid-range warnings, provenance/model hash,
   differentiability flag, solver Jacobian policy, and evaluation/failure tests.
+- `PredictorBehaviorNode::evaluate_rhs` can feed predictor outputs into a
+  fixed-step RHS closure and rejects non-finite predictor-driven derivatives.
 - Runtime has a solver-API external function/process behavior wrapper with typed
   input/output contracts, provenance hash, determinism metadata, safe/repro
   profile policy, range warnings, adapter failure propagation, and tests.
