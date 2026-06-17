@@ -618,6 +618,16 @@ function Assert-CsvPlotGolden {
     $reviewPromotion = @($review.csv_promotions)[0]
     Assert-ArtifactValue $reviewPromotion.source_literal $Golden.review.csv_source_literal "review.csv_promotions[0].source_literal"
     Assert-ArtifactValue $reviewPromotion.source_value $Golden.review.csv_source_value "review.csv_promotions[0].source_value"
+    Assert-ArtifactValue $reviewPromotion.source_hash $Golden.review.csv_source_hash "review.csv_promotions[0].source_hash"
+    Assert-ArtifactNumber @($review.axis_info).Count $Golden.review.axis_info_count "review.axis_info count"
+    $reviewSeriesAxis = @($review.axis_info) | Where-Object { $_.binding -eq $Golden.review.timeseries_axis_binding } | Select-Object -First 1
+    Assert-Artifact ($null -ne $reviewSeriesAxis) "review.axis_info missing $($Golden.review.timeseries_axis_binding)"
+    Assert-ArtifactValue $reviewSeriesAxis.axis $Golden.review.timeseries_axis "review.axis_info TimeSeries axis"
+    Assert-ArtifactValue $reviewSeriesAxis.role $Golden.review.timeseries_axis_role "review.axis_info TimeSeries role"
+    $reviewIntegration = @($review.integrations)[0]
+    Assert-ArtifactValue $reviewIntegration.binding $Golden.review.integration_binding "review.integrations[0].binding"
+    Assert-ArtifactValue $reviewIntegration.over_axis $Golden.review.integration_over_axis "review.integrations[0].over_axis"
+    Assert-ArtifactValue $reviewIntegration.result_quantity $Golden.review.integration_result_quantity "review.integrations[0].result_quantity"
     $policyWarnings = @(@($review.warning_list) | Where-Object { $_.code -eq "W-SCHEMA-POLICY-001" })
     Assert-ArtifactNumber $policyWarnings.Count $Golden.review.policy_warning_count "review schema policy warning count"
 
@@ -636,6 +646,11 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactNumber $reportSpec.provenance.system_count $Golden.report_spec.system_count "report_spec.provenance.system_count"
     Assert-ArtifactNumber $reportSpec.provenance.residual_count $Golden.report_spec.residual_count "report_spec.provenance.residual_count"
     Assert-ArtifactNumber $reportSpec.provenance.plot_spec_version $Golden.report_spec.plot_spec_version "report_spec.provenance.plot_spec_version"
+    Assert-ArtifactNumber @($reportSpec.time_axes).Count $Golden.report_spec.time_axis_count "report_spec.time_axes count"
+    $reportTimeAxis = @($reportSpec.time_axes)[0]
+    Assert-ArtifactValue $reportTimeAxis.name $Golden.report_spec.time_axis_name "report_spec.time_axes[0].name"
+    Assert-ArtifactValue $reportTimeAxis.axis $Golden.report_spec.time_axis "report_spec.time_axes[0].axis"
+    Assert-ArtifactValue $reportTimeAxis.unit $Golden.report_spec.time_axis_unit "report_spec.time_axes[0].unit"
     Assert-ArtifactNumber @($reportSpec.computed_statistics).Count $Golden.report_spec.computed_statistics_count "report_spec.computed_statistics count"
     Assert-ArtifactNumber @($reportSpec.computed_integrations).Count $Golden.report_spec.computed_integrations_count "report_spec.computed_integrations count"
     $reportStats = @($reportSpec.computed_statistics)[0]
@@ -650,6 +665,9 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactValue $reportDurationAbove.unit $Golden.report_spec.duration_above_unit "report_spec.duration_above unit"
     $reportIntegration = @($reportSpec.computed_integrations)[0]
     Assert-ArtifactValue $reportIntegration.status $Golden.report_spec.computed_integration_status "report_spec.computed_integrations[0].status"
+    Assert-ArtifactValue $reportIntegration.over_axis $Golden.report_spec.integration_over_axis "report_spec.computed_integrations[0].over_axis"
+    Assert-ArtifactValue $reportIntegration.result_quantity $Golden.report_spec.integration_result_quantity "report_spec.computed_integrations[0].result_quantity"
+    Assert-ArtifactValue $reportIntegration.unit $Golden.report_spec.integration_unit "report_spec.computed_integrations[0].unit"
     Assert-ArtifactFloat $reportIntegration.value $Golden.report_spec.integration_value_j "report_spec.computed_integrations[0].value"
     $reportPolicies = @($reportSpec.policy_results)
     Assert-ArtifactNumber $reportPolicies.Count $Golden.report_spec.policy_result_count "report_spec.policy_results count"
@@ -678,6 +696,7 @@ function Assert-CsvPlotGolden {
     $resultDataHash = @($result.provenance.data_hashes)[0]
     Assert-ArtifactValue $resultDataHash.source $Golden.result.csv_source_literal "result.provenance.data_hashes[0].source"
     Assert-ArtifactValue $resultDataHash.source_value $Golden.result.csv_source_value "result.provenance.data_hashes[0].source_value"
+    Assert-ArtifactValue $resultDataHash.hash $Golden.result.csv_source_hash "result.provenance.data_hashes[0].hash"
     Assert-ArtifactNumber $result.object_store.scalar_count $Golden.result.scalar_count "result.object_store.scalar_count"
     Assert-ArtifactNumber $result.object_store.table_count $Golden.result.table_count "result.object_store.table_count"
     Assert-ArtifactNumber $result.object_store.timeseries_count $Golden.result.timeseries_count "result.object_store.timeseries_count"
@@ -687,6 +706,7 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactNumber @($result.typed_payload.integrations).Count $Golden.result.integrations_count "result.typed_payload.integrations count"
     $tableObject = @($result.object_store.objects) | Where-Object { $_.name -eq "sensor" } | Select-Object -First 1
     Assert-Artifact ($null -ne $tableObject) "result.object_store.objects missing sensor table"
+    Assert-ArtifactValue $tableObject.source_hash $Golden.result.csv_source_hash "result.sensor.source_hash"
     Assert-ArtifactNumber $tableObject.row_count $Golden.result.table_row_count "result.sensor.row_count"
     Assert-ArtifactNumber @($tableObject.columns).Count $Golden.result.table_column_count "result.sensor.columns count"
     Assert-ArtifactNumber @($tableObject.parse_failures).Count $Golden.result.parse_failure_count "result.sensor.parse_failures count"
@@ -705,6 +725,7 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactFloat @($mDotColumn.canonical_values)[0] $Golden.result.first_m_dot_kg_s "result.sensor.m_dot.canonical_values[0]"
     $seriesObject = @($result.object_store.objects) | Where-Object { $_.name -eq "Q_coil" } | Select-Object -First 1
     Assert-Artifact ($null -ne $seriesObject) "result.object_store.objects missing Q_coil TimeSeries"
+    Assert-ArtifactValue $seriesObject.axis $Golden.result.timeseries_axis "result.Q_coil.axis"
     Assert-ArtifactNumber $seriesObject.len $Golden.result.timeseries_len "result.Q_coil.len"
     Assert-ArtifactNumber @($seriesObject.points).Count $Golden.result.timeseries_point_count "result.Q_coil.points count"
     Assert-ArtifactFloat @(@($seriesObject.points)[0])[1] $Golden.result.first_timeseries_y_w "result.Q_coil.points[0].y"
@@ -723,7 +744,15 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactValue $durationAbove.unit $Golden.result.duration_above_unit "result.duration_above unit"
     $integrationPayload = @($result.typed_payload.integrations)[0]
     Assert-ArtifactValue $integrationPayload.status $Golden.result.integration_status "result.typed_payload.integrations[0].status"
+    Assert-ArtifactValue $integrationPayload.over_axis $Golden.result.integration_over_axis "result.typed_payload.integrations[0].over_axis"
+    Assert-ArtifactValue $integrationPayload.result_quantity $Golden.result.integration_result_quantity "result.typed_payload.integrations[0].result_quantity"
+    Assert-ArtifactValue $integrationPayload.unit $Golden.result.integration_unit "result.typed_payload.integrations[0].unit"
     Assert-ArtifactFloat $integrationPayload.value $Golden.result.integration_value_j "result.typed_payload.integrations[0].value"
+    Assert-ArtifactNumber @($result.typed_payload.time_axes).Count $Golden.result.time_axis_count "result.typed_payload.time_axes count"
+    $resultTimeAxis = @($result.typed_payload.time_axes)[0]
+    Assert-ArtifactValue $resultTimeAxis.name $Golden.result.time_axis_name "result.typed_payload.time_axes[0].name"
+    Assert-ArtifactValue $resultTimeAxis.axis $Golden.result.time_axis "result.typed_payload.time_axes[0].axis"
+    Assert-ArtifactValue $resultTimeAxis.unit $Golden.result.time_axis_unit "result.typed_payload.time_axes[0].unit"
     $resultPolicies = @($result.typed_payload.policy_results)
     Assert-ArtifactNumber $resultPolicies.Count $Golden.result.policy_result_count "result.typed_payload.policy_results count"
     $resultExecutedPolicies = @($resultPolicies | Where-Object { $_.status -eq "executed" })

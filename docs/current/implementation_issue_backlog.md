@@ -105,6 +105,9 @@ Current coverage:
 - IDE smoke covers the Kernel panel by checking the official CSV workflow's
   `timeseries_integrate` candidate and interpreter fallback reason from
   `report_spec.json`.
+- `artifacts-check` snapshots the official CSV workflow's promoted data source
+  hash, TimeSeries axis metadata, and HeatRate-to-Energy integration unit
+  contract across `review.json`, `report_spec.json`, and `result.engres`.
 - `artifacts-check` snapshots the official one-state solver artifact contract
   across `review.json` `simulation_results[].solver_results`,
   `report_spec.json` `system_ir[].solver_results`, and `result.engres`
