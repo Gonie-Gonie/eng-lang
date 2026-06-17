@@ -1175,9 +1175,14 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 std::fs::read_to_string(&output.output_manifest_path).unwrap_or_default();
             if output.csv_export_paths.is_empty()
                 || output.write_output_paths.len() != 2
+                || !manifest.contains("\"execution_profile\": \"normal\"")
+                || !manifest.contains("\"artifact_count\":")
                 || !manifest.contains("\"kind\": \"csv_export\"")
+                || !manifest.contains("\"path\": \"outputs/summary.csv\"")
                 || !manifest.contains("\"kind\": \"write_text\"")
+                || !manifest.contains("\"path\": \"outputs/run_note.txt\"")
                 || !manifest.contains("\"kind\": \"write_json\"")
+                || !manifest.contains("\"path\": \"outputs/energy.json\"")
             {
                 eprintln!("expected write/output manifest example to produce export, write, and output manifest artifacts");
                 return ExitCode::from(2);
@@ -1260,11 +1265,18 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             if !review.contains("\"process_runs\"")
                 || !review.contains("\"binding\": \"echo_result\"")
                 || !process_results.contains("\"format\": \"eng-process-results-v1\"")
+                || !process_results.contains("\"execution_profile\": \"normal\"")
+                || !process_results.contains("\"process_count\": 1")
+                || !process_results.contains("\"command\": \"cmd\"")
+                || !process_results.contains("\"args\": [\"/C\", \"echo\", \"eng-process-ok\"]")
+                || !process_results.contains("\"cwd\": \"examples/official/15_process_result\"")
+                || !process_results.contains("\"exit_code\": 0")
+                || !process_results.contains("\"status\": \"completed\"")
                 || !process_results.contains("eng-process-ok")
                 || !manifest.contains("\"kind\": \"process_results\"")
             {
                 eprintln!(
-                    "expected process result example to produce review, process_results, and manifest records"
+                    "expected process result example to produce review, process_results command/cwd/args/exit-code fields, and manifest records"
                 );
                 return ExitCode::from(2);
             }
@@ -1290,11 +1302,17 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 std::fs::read_to_string(&output.output_manifest_path).unwrap_or_default();
             if !review.contains("\"tests\"")
                 || !test_results.contains("\"format\": \"eng-test-results-v1\"")
+                || !test_results.contains("\"test_count\": 1")
                 || !test_results.contains("\"failed_count\": 0")
+                || !test_results.contains("\"name\": \"summary values\"")
+                || !test_results.contains("\"left\": \"Q\"")
+                || !test_results.contains("\"tolerance\": \"0.001 kW\"")
+                || !test_results.contains("\"artifact\": \"summary.csv\"")
+                || !test_results.contains("\"message\": \"golden matched\"")
                 || !manifest.contains("\"kind\": \"test_results\"")
             {
                 eprintln!(
-                    "expected test/assert/golden example to produce review, test_results, and manifest records"
+                    "expected test/assert/golden example to produce named tests, assertions, golden comparison status, and manifest records"
                 );
                 return ExitCode::from(2);
             }
@@ -1304,6 +1322,69 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("test/assert/golden example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    if !safe_profile_rejects_path(
+        Path::new("examples/official/12_write_output_manifest/main.eng"),
+        Path::new("build/test-safe-profile-export"),
+        "E-PROFILE-SAFE-EXPORT",
+    ) {
+        return ExitCode::from(2);
+    }
+    if !safe_profile_rejects_source(
+        "test-safe-profile-write",
+        "write text \"note.txt\", \"blocked\"\n",
+        "E-PROFILE-SAFE-WRITE",
+    ) {
+        return ExitCode::from(2);
+    }
+    if !safe_profile_rejects_source(
+        "test-safe-profile-file-operation",
+        "copy file(\"template.txt\") to \"copied.txt\"\n",
+        "E-PROFILE-SAFE-FS",
+    ) {
+        return ExitCode::from(2);
+    }
+    if !safe_profile_rejects_path(
+        Path::new("examples/official/15_process_result/main.eng"),
+        Path::new("build/test-safe-profile-process"),
+        "E-PROFILE-SAFE-PROCESS",
+    ) {
+        return ExitCode::from(2);
+    }
+    match run_file(
+        Path::new("examples/official/15_process_result/main.eng"),
+        Path::new("build/test-repro-profile-process"),
+        &RunOptions {
+            save_artifacts: true,
+            profile: ExecutionProfile::Repro,
+            ..RunOptions::default()
+        },
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"execution_profile\": \"repro\"")
+                || !output.result_json.contains("W-PROFILE-REPRO-PROCESS")
+                || !output.run_log_json.contains("\"profile_diagnostics\"")
+                || !output.run_log_json.contains("W-PROFILE-REPRO-PROCESS")
+                || !output
+                    .output_manifest_json
+                    .contains("\"execution_profile\": \"repro\"")
+                || !output
+                    .output_manifest_json
+                    .contains("\"profile_diagnostics\"")
+            {
+                eprintln!(
+                    "expected repro profile process run to record profile diagnostics in result, run log, and output manifest"
+                );
+                return ExitCode::from(2);
+            }
+            println!("ok: repro profile recorded process diagnostics in saved artifacts");
+        }
+        Err(error) => {
+            eprintln!("repro profile process smoke failed: {error}");
             return ExitCode::from(2);
         }
     }
@@ -2336,6 +2417,67 @@ fn artifact_run_options() -> RunOptions {
         save_artifacts: true,
         ..RunOptions::default()
     }
+}
+
+fn safe_profile_rejects_path(source: &Path, build_root: &Path, expected_code: &str) -> bool {
+    match run_file(
+        source,
+        build_root,
+        &RunOptions {
+            profile: ExecutionProfile::Safe,
+            ..RunOptions::default()
+        },
+    ) {
+        Err(error) if error.to_string().contains(expected_code) => {
+            println!(
+                "ok: safe profile rejected {} with {expected_code}",
+                source.display()
+            );
+            true
+        }
+        Err(error) => {
+            eprintln!(
+                "expected safe profile to reject {} with {expected_code}, got: {error}",
+                source.display()
+            );
+            false
+        }
+        Ok(_) => {
+            eprintln!(
+                "expected safe profile to reject {} with {expected_code}",
+                source.display()
+            );
+            false
+        }
+    }
+}
+
+fn safe_profile_rejects_source(name: &str, source: &str, expected_code: &str) -> bool {
+    let source_root = Path::new("build").join(name).join("source");
+    let build_root = Path::new("build").join(name).join("output");
+    let source_path = source_root.join("main.eng");
+    if let Err(error) = std::fs::create_dir_all(&source_root) {
+        eprintln!(
+            "failed to create safe-profile source folder {}: {error}",
+            source_root.display()
+        );
+        return false;
+    }
+    if let Err(error) = std::fs::write(source_root.join("template.txt"), "template") {
+        eprintln!(
+            "failed to write safe-profile fixture data in {}: {error}",
+            source_root.display()
+        );
+        return false;
+    }
+    if let Err(error) = std::fs::write(&source_path, source) {
+        eprintln!(
+            "failed to write safe-profile fixture {}: {error}",
+            source_path.display()
+        );
+        return false;
+    }
+    safe_profile_rejects_path(&source_path, &build_root, expected_code)
 }
 
 fn print_diagnostics(report: &eng_compiler::CheckReport) {
