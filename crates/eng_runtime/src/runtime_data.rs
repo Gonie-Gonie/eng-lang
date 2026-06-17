@@ -45,110 +45,6 @@ pub struct RuntimeData {
     pub plot_options: PlotOptions,
 }
 
-fn report_system_solution(solution: &RuntimeSystemSolution) -> ReportSystemSolution {
-    ReportSystemSolution {
-        binding: solution.binding.clone(),
-        status: solution.status.clone(),
-        method: solution.method.clone(),
-        reason: solution.reason.clone(),
-        states: solution.states.clone(),
-        algebraic_variables: solution.algebraic_variables.clone(),
-        inputs: solution.inputs.clone(),
-        parameters: solution.parameters.clone(),
-        outputs: solution.outputs.clone(),
-        state: solution.state.clone(),
-        quantity_kind: solution.quantity_kind.clone(),
-        display_unit: solution.display_unit.clone(),
-        canonical_unit: solution.canonical_unit.clone(),
-        time_unit: solution.time_unit.clone(),
-        duration_s: solution.duration_s,
-        time_step_s: solution.time_step_s,
-        step_count: solution.step_count,
-        tolerance: solution.tolerance,
-        max_iterations: solution.max_iterations,
-        iteration_count: solution.iteration_count,
-        convergence_status: solution.convergence_status.clone(),
-        failure_reason: solution.failure_reason.clone(),
-        initial_value: solution.initial_value,
-        final_value: solution.final_value,
-        canonical_initial_value: solution.canonical_initial_value,
-        canonical_final_value: solution.canonical_final_value,
-        points: solution
-            .points
-            .iter()
-            .map(|point| ReportSystemSolutionPoint {
-                x: point.x,
-                y: point.y,
-            })
-            .collect(),
-    }
-}
-
-fn report_component_solver_result(
-    solution: &RuntimeComponentSolution,
-) -> ReportComponentSolverResult {
-    ReportComponentSolverResult {
-        status: solution.status.clone(),
-        method: solution.method.clone(),
-        reason: solution.reason.clone(),
-        residual_norm: solution.residual_norm,
-        iteration_count: solution.iteration_count,
-        convergence_status: solution.convergence_status.clone(),
-        variables: solution
-            .variables
-            .iter()
-            .map(|variable| ReportComponentSolverVariable {
-                name: variable.name.clone(),
-                role: variable.role.clone(),
-                value: variable.value,
-                unit: variable.unit.clone(),
-                status: variable.status.clone(),
-            })
-            .collect(),
-        trajectories: solution
-            .trajectories
-            .iter()
-            .map(|trajectory| ReportComponentSolverTrajectory {
-                name: trajectory.name.clone(),
-                role: trajectory.role.clone(),
-                quantity_kind: trajectory.quantity_kind.clone(),
-                unit: trajectory.unit.clone(),
-                initial_value: trajectory.initial_value,
-                final_value: trajectory.final_value,
-                point_count: trajectory.point_count,
-                points: trajectory
-                    .points
-                    .iter()
-                    .map(|point| ReportSystemSolutionPoint {
-                        x: point.x,
-                        y: point.y,
-                    })
-                    .collect(),
-            })
-            .collect(),
-        residuals: solution
-            .residuals
-            .iter()
-            .map(|residual| ReportComponentSolverResidual {
-                name: residual.name.clone(),
-                expression: residual.expression.clone(),
-                value: residual.value,
-                unit: residual.unit.clone(),
-                normalized_value: residual.normalized_value,
-                scale: residual.scale,
-                scale_policy: residual.scale_policy.clone(),
-                status: residual.status.clone(),
-            })
-            .collect(),
-        failure_artifact: solution.failure_artifact.as_ref().map(|failure| {
-            ReportSolverFailureArtifact {
-                code: failure.code.clone(),
-                message: failure.message.clone(),
-            }
-        }),
-    }
-}
-
 impl RuntimeData {
     pub fn apply_plot_spec(&self, report: &CheckReport, spec: &mut PlotSpec) {
         if let Some(distribution_name) = self.plot_options.distribution.as_deref() {
@@ -629,7 +525,7 @@ impl RuntimeData {
                 .system_solutions
                 .iter()
                 .filter(|solution| solution.system == system_ir.name)
-                .map(report_system_solution)
+                .map(RuntimeSystemSolution::to_report_solution)
                 .collect::<Vec<_>>();
             if let Some(solution) = solver_results.first() {
                 system_ir.solver_boundary.status = solution.status.clone();
@@ -660,7 +556,7 @@ impl RuntimeData {
             if let Some(failure) = &solution.failure_artifact {
                 assembly.boundary.diagnostic_code = Some(failure.code.clone());
             }
-            assembly.solver_result = Some(report_component_solver_result(solution));
+            assembly.solver_result = Some(solution.to_report_solver_result());
         }
     }
 }
@@ -1029,6 +925,45 @@ impl RuntimeSystemSolution {
             points,
         })
     }
+
+    pub fn to_report_solution(&self) -> ReportSystemSolution {
+        ReportSystemSolution {
+            binding: self.binding.clone(),
+            status: self.status.clone(),
+            method: self.method.clone(),
+            reason: self.reason.clone(),
+            states: self.states.clone(),
+            algebraic_variables: self.algebraic_variables.clone(),
+            inputs: self.inputs.clone(),
+            parameters: self.parameters.clone(),
+            outputs: self.outputs.clone(),
+            state: self.state.clone(),
+            quantity_kind: self.quantity_kind.clone(),
+            display_unit: self.display_unit.clone(),
+            canonical_unit: self.canonical_unit.clone(),
+            time_unit: self.time_unit.clone(),
+            duration_s: self.duration_s,
+            time_step_s: self.time_step_s,
+            step_count: self.step_count,
+            tolerance: self.tolerance,
+            max_iterations: self.max_iterations,
+            iteration_count: self.iteration_count,
+            convergence_status: self.convergence_status.clone(),
+            failure_reason: self.failure_reason.clone(),
+            initial_value: self.initial_value,
+            final_value: self.final_value,
+            canonical_initial_value: self.canonical_initial_value,
+            canonical_final_value: self.canonical_final_value,
+            points: self
+                .points
+                .iter()
+                .map(|point| ReportSystemSolutionPoint {
+                    x: point.x,
+                    y: point.y,
+                })
+                .collect(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1256,6 +1191,69 @@ impl RuntimeComponentSolution {
             residuals: Vec::new(),
             failure_artifact: solver_result.diagnostics.failure.as_ref().map(|failure| {
                 RuntimeSolverFailureArtifact {
+                    code: failure.code.clone(),
+                    message: failure.message.clone(),
+                }
+            }),
+        }
+    }
+
+    pub fn to_report_solver_result(&self) -> ReportComponentSolverResult {
+        ReportComponentSolverResult {
+            status: self.status.clone(),
+            method: self.method.clone(),
+            reason: self.reason.clone(),
+            residual_norm: self.residual_norm,
+            iteration_count: self.iteration_count,
+            convergence_status: self.convergence_status.clone(),
+            variables: self
+                .variables
+                .iter()
+                .map(|variable| ReportComponentSolverVariable {
+                    name: variable.name.clone(),
+                    role: variable.role.clone(),
+                    value: variable.value,
+                    unit: variable.unit.clone(),
+                    status: variable.status.clone(),
+                })
+                .collect(),
+            trajectories: self
+                .trajectories
+                .iter()
+                .map(|trajectory| ReportComponentSolverTrajectory {
+                    name: trajectory.name.clone(),
+                    role: trajectory.role.clone(),
+                    quantity_kind: trajectory.quantity_kind.clone(),
+                    unit: trajectory.unit.clone(),
+                    initial_value: trajectory.initial_value,
+                    final_value: trajectory.final_value,
+                    point_count: trajectory.point_count,
+                    points: trajectory
+                        .points
+                        .iter()
+                        .map(|point| ReportSystemSolutionPoint {
+                            x: point.x,
+                            y: point.y,
+                        })
+                        .collect(),
+                })
+                .collect(),
+            residuals: self
+                .residuals
+                .iter()
+                .map(|residual| ReportComponentSolverResidual {
+                    name: residual.name.clone(),
+                    expression: residual.expression.clone(),
+                    value: residual.value,
+                    unit: residual.unit.clone(),
+                    normalized_value: residual.normalized_value,
+                    scale: residual.scale,
+                    scale_policy: residual.scale_policy.clone(),
+                    status: residual.status.clone(),
+                })
+                .collect(),
+            failure_artifact: self.failure_artifact.as_ref().map(|failure| {
+                ReportSolverFailureArtifact {
                     code: failure.code.clone(),
                     message: failure.message.clone(),
                 }

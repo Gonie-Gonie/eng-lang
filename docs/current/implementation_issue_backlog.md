@@ -131,6 +131,9 @@ Current coverage:
 - `RuntimeComponentSolution::from_solver_assembly` and
   `from_dynamic_solver_result` provide explicit component assembly/SolverResult
   adapters for residual-graph and dynamic-component artifact materialization.
+- `RuntimeSystemSolution::to_report_solution` and
+  `RuntimeComponentSolution::to_report_solver_result` keep the
+  runtime-artifact-to-report/review projection explicit.
 
 Title: `ide: add side-effect artifact panels`
 
