@@ -29,6 +29,8 @@ Current coverage:
 - Runtime optimization has `eng-kernel-ir-v1` plus an interpreter executor for
   element-wise TimeSeries arithmetic, trapezoid integration, scalar residual,
   finite-difference Jacobian, and Newton-step correctness tests.
+- CLI example smoke checks kernel candidates, interpreter executor fallback
+  metadata, and native-backend non-availability without making a speedup claim.
 - `eng.exe jit-bench` remains a normal-runtime timing harness and makes no
   speedup claim.
 

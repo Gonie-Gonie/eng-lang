@@ -601,18 +601,44 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
     };
     let jit_plan = eng_jit::plan_for_report(&jit_report);
+    let jit_plan_json = eng_jit::plan_json(&jit_plan);
+    let lowerable_executor_recorded = jit_plan_json["candidates"]
+        .as_array()
+        .map(|candidates| {
+            candidates.iter().any(|candidate| {
+                candidate["executor"]["backend"] == eng_jit::INTERPRETER_FALLBACK_BACKEND
+                    && candidate["executor"]["status"] == "interpreter_supported"
+                    && candidate["executor"]["fallback_reason"]
+                        .as_str()
+                        .is_some_and(|reason| reason.contains("runtime inputs"))
+            })
+        })
+        .unwrap_or(false);
+    let native_preview_plan = eng_jit::plan_for_report_with_options(
+        &jit_report,
+        &eng_jit::PlanOptions {
+            requested_backend: eng_jit::NATIVE_PREVIEW_BACKEND.to_owned(),
+        },
+    );
     if jit_plan.candidates.len() < 3
+        || jit_plan.backend_selection.selected != eng_jit::INTERPRETER_FALLBACK_BACKEND
+        || jit_plan.backend_selection.status != "selected"
         || !jit_plan
             .candidates
             .iter()
             .any(|candidate| candidate.kind == "timeseries_integrate")
+        || !lowerable_executor_recorded
+        || native_preview_plan.backend_selection.status != "not_available"
+        || native_preview_plan.backend_selection.selected != eng_jit::INTERPRETER_FALLBACK_BACKEND
     {
         eprintln!(
-            "expected official CSV example to expose runtime optimization track kernel candidates"
+            "expected official CSV example to expose kernel candidates, executor fallback metadata, and native backend non-availability"
         );
         return ExitCode::from(2);
     }
-    println!("ok: official CSV example produced JIT kernel candidates");
+    println!(
+        "ok: official CSV example produced JIT kernel candidates with executor fallback metadata"
+    );
 
     let domain_port = match check_file(
         "examples/official/06_domain_port/main.eng",
