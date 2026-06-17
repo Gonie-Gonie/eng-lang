@@ -4824,6 +4824,8 @@ fn build_component_assembly_graphs(
     let predictor_call_count =
         count_component_expression_calls(components, &["predict(", "predictor("]);
     let delay_call_count = count_component_expression_calls(components, &["delay("]);
+    let external_call_count =
+        count_component_expression_calls(components, &["external(", "adapter("]);
     let dependencies = equations
         .iter()
         .flat_map(|equation| {
@@ -4875,6 +4877,7 @@ fn build_component_assembly_graphs(
         equations.len(),
         predictor_call_count,
         delay_call_count,
+        external_call_count,
     );
     let line = components
         .iter()
@@ -5017,6 +5020,7 @@ fn build_component_solver_preview(
     equation_count: usize,
     predictor_call_count: usize,
     delay_call_count: usize,
+    external_call_count: usize,
 ) -> ComponentSolverPreviewInfo {
     let status = if equation_count == 0 {
         "no_numeric_preview"
@@ -5058,7 +5062,12 @@ fn build_component_solver_preview(
             "deferred_no_predictor_calls"
         }
         .to_owned(),
-        external_adapter: "deferred_no_external_behavior_adapter".to_owned(),
+        external_adapter: if external_call_count > 0 {
+            "external_behavior_wrapper_seed_not_integrated"
+        } else {
+            "deferred_no_external_behavior_adapter"
+        }
+        .to_owned(),
         limitations: vec![
             "not_full_dae".to_owned(),
             "not_general_nonlinear".to_owned(),

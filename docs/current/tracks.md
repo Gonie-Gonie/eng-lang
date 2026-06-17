@@ -93,6 +93,7 @@ Internal runtime seeds:
 - optional DAE mass matrix and initial consistency checks
 - delay buffer with interpolation and initial-history policies
 - Predictor contract wrapper with model hash, range warnings, and Jacobian policy
+- external behavior wrapper with provenance, profile policy, and failure propagation
 ```
 
 Deferred:

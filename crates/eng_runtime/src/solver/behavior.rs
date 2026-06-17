@@ -512,6 +512,256 @@ where
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ExternalBehaviorKind {
+    Function,
+    Process,
+}
+
+impl ExternalBehaviorKind {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Function => "function",
+            Self::Process => "process",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ExternalBehaviorDeterminism {
+    Deterministic,
+    NonDeterministic,
+    Unknown,
+}
+
+impl ExternalBehaviorDeterminism {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Deterministic => "deterministic",
+            Self::NonDeterministic => "non_deterministic",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExternalBehaviorProfilePolicy {
+    pub safe_allowed: bool,
+    pub repro_allowed: bool,
+}
+
+impl Default for ExternalBehaviorProfilePolicy {
+    fn default() -> Self {
+        Self {
+            safe_allowed: false,
+            repro_allowed: true,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum BehaviorExecutionProfile {
+    Safe,
+    Normal,
+    Repro,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExternalBehaviorContract {
+    pub name: String,
+    pub kind: ExternalBehaviorKind,
+    pub inputs: Vec<BehaviorSignalContract>,
+    pub outputs: Vec<BehaviorSignalContract>,
+    pub provenance_hash: String,
+    pub determinism: ExternalBehaviorDeterminism,
+    pub profile_policy: ExternalBehaviorProfilePolicy,
+}
+
+impl ExternalBehaviorContract {
+    pub fn new(
+        name: impl Into<String>,
+        kind: ExternalBehaviorKind,
+        inputs: Vec<BehaviorSignalContract>,
+        outputs: Vec<BehaviorSignalContract>,
+        provenance_hash: impl Into<String>,
+        determinism: ExternalBehaviorDeterminism,
+        profile_policy: ExternalBehaviorProfilePolicy,
+    ) -> Result<Self, SolverFailure> {
+        if inputs.is_empty() || outputs.is_empty() {
+            return Err(SolverFailure::new(
+                "E-EXTERNAL-BEHAVIOR-CONTRACT-SHAPE",
+                "external behavior contract requires at least one input and one output",
+            ));
+        }
+        let provenance_hash = provenance_hash.into();
+        if provenance_hash.trim().is_empty() {
+            return Err(SolverFailure::new(
+                "E-EXTERNAL-BEHAVIOR-PROVENANCE",
+                "external behavior contract requires deterministic provenance metadata",
+            ));
+        }
+        Ok(Self {
+            name: name.into(),
+            kind,
+            inputs,
+            outputs,
+            provenance_hash,
+            determinism,
+            profile_policy,
+        })
+    }
+
+    pub fn artifact(&self, status: impl Into<String>) -> ExternalBehaviorArtifact {
+        ExternalBehaviorArtifact {
+            name: self.name.clone(),
+            kind: self.kind.as_str().to_owned(),
+            input_count: self.inputs.len(),
+            output_count: self.outputs.len(),
+            provenance_hash: self.provenance_hash.clone(),
+            determinism: self.determinism.as_str().to_owned(),
+            safe_allowed: self.profile_policy.safe_allowed,
+            repro_allowed: self.profile_policy.repro_allowed,
+            status: status.into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExternalBehaviorArtifact {
+    pub name: String,
+    pub kind: String,
+    pub input_count: usize,
+    pub output_count: usize,
+    pub provenance_hash: String,
+    pub determinism: String,
+    pub safe_allowed: bool,
+    pub repro_allowed: bool,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExternalBehaviorEvaluation {
+    pub outputs: Vec<f64>,
+    pub warnings: Vec<BehaviorWarning>,
+    pub status: String,
+    pub contract: ExternalBehaviorArtifact,
+}
+
+pub struct ExternalBehaviorNode<F>
+where
+    F: Fn(&[f64]) -> Result<Vec<f64>, SolverFailure>,
+{
+    contract: ExternalBehaviorContract,
+    evaluator: F,
+}
+
+impl<F> ExternalBehaviorNode<F>
+where
+    F: Fn(&[f64]) -> Result<Vec<f64>, SolverFailure>,
+{
+    pub fn new(contract: ExternalBehaviorContract, evaluator: F) -> Self {
+        Self {
+            contract,
+            evaluator,
+        }
+    }
+
+    pub fn evaluate(
+        &self,
+        profile: BehaviorExecutionProfile,
+        inputs: &[f64],
+    ) -> Result<ExternalBehaviorEvaluation, SolverFailure> {
+        self.validate_profile(profile)?;
+        if inputs.len() != self.contract.inputs.len() {
+            return Err(SolverFailure::new(
+                "E-EXTERNAL-BEHAVIOR-INPUT-LAYOUT",
+                "external behavior input vector length does not match the contract",
+            ));
+        }
+        if inputs.iter().any(|value| !value.is_finite()) {
+            return Err(SolverFailure::new(
+                "E-EXTERNAL-BEHAVIOR-INPUT-FINITE",
+                "external behavior inputs must be finite",
+            ));
+        }
+
+        let mut warnings = self
+            .contract
+            .inputs
+            .iter()
+            .zip(inputs.iter().copied())
+            .filter_map(|(contract, value)| contract.range_warning("input", value))
+            .collect::<Vec<_>>();
+        let outputs = (self.evaluator)(inputs).map_err(|failure| {
+            SolverFailure::new(
+                "E-EXTERNAL-BEHAVIOR-FAILURE",
+                format!(
+                    "external behavior `{}` failed with {}: {}",
+                    self.contract.name, failure.code, failure.message
+                ),
+            )
+        })?;
+        if outputs.len() != self.contract.outputs.len() {
+            return Err(SolverFailure::new(
+                "E-EXTERNAL-BEHAVIOR-OUTPUT-LAYOUT",
+                "external behavior output vector length does not match the contract",
+            ));
+        }
+        if outputs.iter().any(|value| !value.is_finite()) {
+            return Err(SolverFailure::new(
+                "E-EXTERNAL-BEHAVIOR-OUTPUT-FINITE",
+                "external behavior outputs must be finite",
+            ));
+        }
+        warnings.extend(
+            self.contract
+                .outputs
+                .iter()
+                .zip(outputs.iter().copied())
+                .filter_map(|(contract, value)| contract.range_warning("output", value)),
+        );
+        let status = if warnings.is_empty() {
+            "ok"
+        } else {
+            "range_warning"
+        };
+        Ok(ExternalBehaviorEvaluation {
+            outputs,
+            warnings,
+            status: status.to_owned(),
+            contract: self.contract.artifact(status),
+        })
+    }
+
+    pub fn contract_artifact(&self) -> ExternalBehaviorArtifact {
+        self.contract.artifact("ready")
+    }
+
+    fn validate_profile(&self, profile: BehaviorExecutionProfile) -> Result<(), SolverFailure> {
+        match profile {
+            BehaviorExecutionProfile::Safe if !self.contract.profile_policy.safe_allowed => {
+                Err(SolverFailure::new(
+                    "E-EXTERNAL-BEHAVIOR-PROFILE",
+                    "external behavior is not allowed in the safe execution profile",
+                ))
+            }
+            BehaviorExecutionProfile::Repro => {
+                if !self.contract.profile_policy.repro_allowed
+                    || self.contract.determinism != ExternalBehaviorDeterminism::Deterministic
+                {
+                    Err(SolverFailure::new(
+                        "E-EXTERNAL-BEHAVIOR-PROFILE",
+                        "external behavior must be deterministic and repro-allowed in the repro execution profile",
+                    ))
+                } else {
+                    Ok(())
+                }
+            }
+            _ => Ok(()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -679,5 +929,109 @@ mod tests {
         let failure = node.evaluate(&[1.0]).unwrap_err();
 
         assert_eq!(failure.code, "E-PREDICTOR-OUTPUT-LAYOUT");
+    }
+
+    #[test]
+    fn external_behavior_node_evaluates_function_contract() {
+        let contract = ExternalBehaviorContract::new(
+            "legacy_heat_loss",
+            ExternalBehaviorKind::Function,
+            vec![BehaviorSignalContract::new(
+                "temperature",
+                "AbsoluteTemperature",
+                "K",
+            )],
+            vec![BehaviorSignalContract::new("loss", "HeatRate", "W")],
+            "sha256:external123",
+            ExternalBehaviorDeterminism::Deterministic,
+            ExternalBehaviorProfilePolicy {
+                safe_allowed: true,
+                repro_allowed: true,
+            },
+        )
+        .unwrap();
+        let node = ExternalBehaviorNode::new(contract, |inputs| Ok(vec![inputs[0] * 2.0]));
+
+        let evaluation = node
+            .evaluate(BehaviorExecutionProfile::Repro, &[300.0])
+            .unwrap();
+
+        assert_eq!(evaluation.status, "ok");
+        assert_eq!(evaluation.outputs, vec![600.0]);
+        assert_eq!(evaluation.contract.kind, "function");
+        assert_eq!(evaluation.contract.provenance_hash, "sha256:external123");
+        assert!(evaluation.contract.repro_allowed);
+    }
+
+    #[test]
+    fn external_behavior_node_rejects_safe_profile_when_disallowed() {
+        let contract = ExternalBehaviorContract::new(
+            "process_adapter",
+            ExternalBehaviorKind::Process,
+            vec![BehaviorSignalContract::new("x", "Dimensionless", "1")],
+            vec![BehaviorSignalContract::new("y", "Dimensionless", "1")],
+            "sha256:process123",
+            ExternalBehaviorDeterminism::Deterministic,
+            ExternalBehaviorProfilePolicy::default(),
+        )
+        .unwrap();
+        let node = ExternalBehaviorNode::new(contract, |inputs| Ok(inputs.to_vec()));
+
+        let failure = node
+            .evaluate(BehaviorExecutionProfile::Safe, &[1.0])
+            .unwrap_err();
+
+        assert_eq!(failure.code, "E-EXTERNAL-BEHAVIOR-PROFILE");
+    }
+
+    #[test]
+    fn external_behavior_node_rejects_nondeterministic_repro_profile() {
+        let contract = ExternalBehaviorContract::new(
+            "weather_service",
+            ExternalBehaviorKind::Process,
+            vec![BehaviorSignalContract::new("x", "Dimensionless", "1")],
+            vec![BehaviorSignalContract::new("y", "Dimensionless", "1")],
+            "sha256:weather123",
+            ExternalBehaviorDeterminism::NonDeterministic,
+            ExternalBehaviorProfilePolicy {
+                safe_allowed: false,
+                repro_allowed: true,
+            },
+        )
+        .unwrap();
+        let node = ExternalBehaviorNode::new(contract, |inputs| Ok(inputs.to_vec()));
+
+        let failure = node
+            .evaluate(BehaviorExecutionProfile::Repro, &[1.0])
+            .unwrap_err();
+
+        assert_eq!(failure.code, "E-EXTERNAL-BEHAVIOR-PROFILE");
+    }
+
+    #[test]
+    fn external_behavior_node_wraps_adapter_failures() {
+        let contract = ExternalBehaviorContract::new(
+            "failing_adapter",
+            ExternalBehaviorKind::Function,
+            vec![BehaviorSignalContract::new("x", "Dimensionless", "1")],
+            vec![BehaviorSignalContract::new("y", "Dimensionless", "1")],
+            "sha256:failing",
+            ExternalBehaviorDeterminism::Deterministic,
+            ExternalBehaviorProfilePolicy {
+                safe_allowed: true,
+                repro_allowed: true,
+            },
+        )
+        .unwrap();
+        let node = ExternalBehaviorNode::new(contract, |_inputs| {
+            Err(SolverFailure::new("E-ADAPTER-BOOM", "adapter failed"))
+        });
+
+        let failure = node
+            .evaluate(BehaviorExecutionProfile::Normal, &[1.0])
+            .unwrap_err();
+
+        assert_eq!(failure.code, "E-EXTERNAL-BEHAVIOR-FAILURE");
+        assert!(failure.message.contains("E-ADAPTER-BOOM"));
     }
 }

@@ -4646,6 +4646,22 @@ mod tests {
     }
 
     #[test]
+    fn records_external_behavior_seed_status_in_component_preview() {
+        let report = check_source(
+            "ok.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n    adapter_value = adapter(out.T)\n}\n\ncomponent Sink {\n    port inlet: Thermal\n}\n\nconnect Source.out -> Sink.inlet\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        let assembly = &report.semantic_program.component_assemblies[0];
+        assert_eq!(
+            assembly.solver_preview.external_adapter,
+            "external_behavior_wrapper_seed_not_integrated"
+        );
+    }
+
+    #[test]
     fn diagnoses_duplicate_connections_and_warns_unconnected_ports() {
         let report = check_source(
             "bad.eng",

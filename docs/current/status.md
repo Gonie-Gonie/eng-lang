@@ -156,9 +156,11 @@ are not public stable workflows.
   artifact, and solver-style behavior-node evaluation. Runtime also has a
   Predictor behavior contract wrapper with input/output quantity-unit metadata,
   valid-range warnings, model hash, differentiability flag, and solver Jacobian
-  policy. Component artifacts distinguish delay/Predictor calls as runtime
-  seeds, but delay, Predictor, and external behavior nodes are not wired into
-  language-level behavior graph solving.
+  policy. Runtime also has an external function/process behavior wrapper with
+  typed contracts, provenance hash, determinism metadata, safe/repro profile
+  policy, and adapter failure propagation. Component artifacts distinguish
+  delay/Predictor/external calls as runtime seeds, but behavior nodes are not
+  wired into language-level behavior graph solving.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,
   generated connection-equation metadata, residual graph metadata,
   structured residual evaluator input, domain-plan metadata, IDE component
@@ -191,7 +193,8 @@ are not public stable workflows.
 - Component graph solving with boundary conditions, component behavior
   equations, mixed algebraic/dynamic variables, and physical multi-domain
   coupling.
-- Predictor contracts and external behavior wrappers for solver integration.
+- Behavior graph integration for delay, Predictor, and external behavior
+  wrappers.
 - Domain package registry and open component ecosystem.
 - Runtime object dispatch/lowering for class/domain objects.
 - Persistent LSP editor contract and production editor integration.

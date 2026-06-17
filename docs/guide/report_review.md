@@ -107,8 +107,9 @@ Thermal, `Fluid[Water]`, and `MechanicalNode[World, X]` connection sets reports
 `solver_preview.status = multi_domain_preview`, plus explicit future-solver
 seed statuses for nonlinear residuals, DAE splitting, delay/history buffers,
 Predictor behavior, and external behavior adapters.
-Delay calls currently report a runtime-buffer seed status, and Predictor calls
-report a contract-wrapper seed status. Neither is a full component-solver
+Delay calls currently report a runtime-buffer seed status, Predictor calls
+report a contract-wrapper seed status, and external adapter expressions report
+an external-wrapper seed status. None of these is a full component-solver
 behavior graph integration.
 Runtime report specs and result artifacts also attach component solver residual
 evaluations with raw value, unit, normalized value, scale, and scale policy.

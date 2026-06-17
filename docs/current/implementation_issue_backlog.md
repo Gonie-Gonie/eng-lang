@@ -131,9 +131,13 @@ Current coverage:
 - Runtime has a Predictor behavior contract wrapper with input/output
   quantity-unit metadata, valid-range warnings, provenance/model hash,
   differentiability flag, solver Jacobian policy, and evaluation/failure tests.
+- Runtime has an external function/process behavior wrapper with typed
+  input/output contracts, provenance hash, determinism metadata, safe/repro
+  profile policy, range warnings, adapter failure propagation, and tests.
 - Component artifacts distinguish delay calls as
   `delay_call_runtime_buffer_seed_not_integrated` and Predictor calls as
-  `predictor_call_contract_seed_not_integrated`.
+  `predictor_call_contract_seed_not_integrated`; external behavior expressions
+  report `external_behavior_wrapper_seed_not_integrated`.
 
 Definition of Done:
 
@@ -143,9 +147,8 @@ Definition of Done:
   paths.
 - Wire Predictor behavior nodes into supported solver paths and report/IDE
   artifacts.
-- Add external process/function behavior wrappers with typed input/output
-  contracts, deterministic/provenance metadata, failure propagation, and
-  safe/repro profile policy.
+- Wire external behavior wrappers into supported solver paths and report/IDE
+  artifacts.
 - Report and IDE should show behavior contracts and invalid/extrapolated
   behavior warnings.
 
