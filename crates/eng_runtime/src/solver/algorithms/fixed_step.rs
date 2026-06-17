@@ -16,6 +16,7 @@ pub fn solve_explicit_euler<F>(
 where
     F: FnMut(RhsSample<'_>) -> Result<Vec<f64>, SolverFailure>,
 {
+    input.validate_layouts()?;
     if input.state_layout.is_empty() {
         return Err(SolverFailure::new(
             "E-SIM-SYSTEM-SHAPE-UNSUPPORTED",
@@ -87,6 +88,7 @@ pub fn solve_rk4<F>(input: &SolverInput, mut rhs: F) -> Result<SolverResult, Sol
 where
     F: FnMut(RhsSample<'_>) -> Result<Vec<f64>, SolverFailure>,
 {
+    input.validate_layouts()?;
     if input.state_layout.is_empty() {
         return Err(SolverFailure::new(
             "E-SIM-SYSTEM-SHAPE-UNSUPPORTED",

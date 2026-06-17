@@ -77,6 +77,7 @@ where
             "initial state vector length does not match the state layout",
         ));
     }
+    input.validate_layouts()?;
     if initial_algebraic.len() != algebraic_layout.len() {
         return Err(SolverFailure::new(
             "E-DYNAMIC-COMPONENT-ALGEBRAIC-LAYOUT",
