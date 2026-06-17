@@ -92,9 +92,11 @@ where
                 "RHS vector length does not match the state layout",
             ));
         }
+        ensure_finite_values("E-SOLVER-RHS-VALUE-INVALID", "RHS derivative", &derivative)?;
         for (state_value, derivative_value) in state.iter_mut().zip(derivative) {
             *state_value += derivative_value * dt;
         }
+        ensure_finite_values("E-SOLVER-STATE-VALUE-INVALID", "updated state", &state)?;
         for (index, value) in state.iter().copied().enumerate() {
             values_by_state[index].push(value);
         }
@@ -164,8 +166,14 @@ where
             parameters: &input.parameters,
         })?;
         ensure_derivative_len(&k1, state.len())?;
+        ensure_finite_values("E-SOLVER-RHS-VALUE-INVALID", "RHS derivative", &k1)?;
 
         let state_k2 = offset_state(&state, &k1, half_dt);
+        ensure_finite_values(
+            "E-SOLVER-STATE-VALUE-INVALID",
+            "intermediate state",
+            &state_k2,
+        )?;
         let k2 = rhs(RhsSample {
             time_s: t_half,
             state: &state_k2,
@@ -173,8 +181,14 @@ where
             parameters: &input.parameters,
         })?;
         ensure_derivative_len(&k2, state.len())?;
+        ensure_finite_values("E-SOLVER-RHS-VALUE-INVALID", "RHS derivative", &k2)?;
 
         let state_k3 = offset_state(&state, &k2, half_dt);
+        ensure_finite_values(
+            "E-SOLVER-STATE-VALUE-INVALID",
+            "intermediate state",
+            &state_k3,
+        )?;
         let k3 = rhs(RhsSample {
             time_s: t_half,
             state: &state_k3,
@@ -182,8 +196,14 @@ where
             parameters: &input.parameters,
         })?;
         ensure_derivative_len(&k3, state.len())?;
+        ensure_finite_values("E-SOLVER-RHS-VALUE-INVALID", "RHS derivative", &k3)?;
 
         let state_k4 = offset_state(&state, &k3, dt);
+        ensure_finite_values(
+            "E-SOLVER-STATE-VALUE-INVALID",
+            "intermediate state",
+            &state_k4,
+        )?;
         let k4 = rhs(RhsSample {
             time_s: t1,
             state: &state_k4,
@@ -191,10 +211,12 @@ where
             parameters: &input.parameters,
         })?;
         ensure_derivative_len(&k4, state.len())?;
+        ensure_finite_values("E-SOLVER-RHS-VALUE-INVALID", "RHS derivative", &k4)?;
 
         for index in 0..state.len() {
             state[index] += dt / 6.0 * (k1[index] + 2.0 * k2[index] + 2.0 * k3[index] + k4[index]);
         }
+        ensure_finite_values("E-SOLVER-STATE-VALUE-INVALID", "updated state", &state)?;
         for (index, value) in state.iter().copied().enumerate() {
             values_by_state[index].push(value);
         }
@@ -233,6 +255,17 @@ fn ensure_derivative_len(derivative: &[f64], state_len: usize) -> Result<(), Sol
         Err(SolverFailure::new(
             "E-SOLVER-RHS-LAYOUT-MISMATCH",
             "RHS vector length does not match the state layout",
+        ))
+    }
+}
+
+fn ensure_finite_values(code: &str, label: &str, values: &[f64]) -> Result<(), SolverFailure> {
+    if values.iter().all(|value| value.is_finite()) {
+        Ok(())
+    } else {
+        Err(SolverFailure::new(
+            code,
+            format!("{label} vector contains a non-finite value"),
         ))
     }
 }
@@ -363,6 +396,42 @@ mod tests {
             result.output.state_trajectories[0].values,
             vec![0.0, 0.0, 1.0]
         );
+    }
+
+    #[test]
+    fn fixed_step_rejects_nonfinite_rhs_values() {
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "BadRhs",
+                SimulationPlan::default(),
+                SolverOptions::fixed_step("explicit_euler_fixed_step", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(1.0, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout::default(),
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![0.0],
+            inputs: Vec::new(),
+            parameters: Vec::new(),
+        };
+
+        let explicit_failure = solve_fixed_step_ode(FixedStepMethod::ExplicitEuler, &input, |_| {
+            Ok(vec![f64::NAN])
+        })
+        .unwrap_err();
+        assert_eq!(explicit_failure.code, "E-SOLVER-RHS-VALUE-INVALID");
+
+        let rk4_failure =
+            solve_fixed_step_ode(FixedStepMethod::Rk4, &input, |_| Ok(vec![f64::INFINITY]))
+                .unwrap_err();
+        assert_eq!(rk4_failure.code, "E-SOLVER-RHS-VALUE-INVALID");
     }
 
     #[test]

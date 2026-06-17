@@ -179,7 +179,9 @@ are not public stable workflows.
   diagnostics. Fixed-step ODE and dynamic-component seeds use the actual
   `TimeGrid` interval length for the final partial step when duration is not an
   exact multiple of timestep, and explicit Euler samples RHS values at the
-  start of each interval. Component solver result artifacts can carry
+  start of each interval. Fixed-step ODE, fixed-point, and dynamic-component
+  seeds reject non-finite RHS/update values before they enter trajectories or
+  algebraic artifacts. Component solver result artifacts can carry
   state/algebraic trajectory summaries, trajectory points, and timestep
   diagnostics from that internal `SolverResult` adapter. Newton/DAE/dynamic
   component seeds are not wired into language-level nonlinear systems,

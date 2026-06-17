@@ -92,6 +92,7 @@ Internal runtime seeds:
 - SolverInput/SolverResult state, input, parameter, finite numeric value, and validated output layout contracts
 - fixed-step ODE and dynamic-component updates use the actual final partial TimeGrid interval
 - explicit Euler samples RHS values at the start of each fixed-step interval
+- fixed-step ODE, fixed-point, and dynamic-component seeds reject non-finite RHS/update values
 - state-space non-rectangular matrix diagnostics, unsupported unitful
   coefficient diagnostics, and inverse-time derivative-coupling coefficient
   canonicalization

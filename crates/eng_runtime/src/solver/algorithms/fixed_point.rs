@@ -59,6 +59,8 @@ where
         ));
     }
 
+    ensure_finite_values("E-FIXED-POINT-VALUE", "fixed-point initial", initial)?;
+
     let mut values = initial.to_vec();
     let mut residual_history = Vec::new();
     for iteration in 1..=options.max_iterations {
@@ -69,6 +71,7 @@ where
                 "fixed-point update vector length changed during iteration",
             ));
         }
+        ensure_finite_values("E-FIXED-POINT-VALUE", "fixed-point update", &next)?;
         let mut residual_norm = 0.0;
         for (value, next_value) in values.iter_mut().zip(next) {
             let relaxed = *value + options.relaxation * (next_value - *value);
@@ -103,6 +106,17 @@ where
             ),
         )),
     })
+}
+
+fn ensure_finite_values(code: &str, label: &str, values: &[f64]) -> Result<(), SolverFailure> {
+    if values.iter().all(|value| value.is_finite()) {
+        Ok(())
+    } else {
+        Err(SolverFailure::new(
+            code,
+            format!("{label} vector contains a non-finite value"),
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -153,6 +167,21 @@ mod tests {
             result.failure.as_ref().map(|failure| failure.code.as_str()),
             Some("E-FIXED-POINT-NONCONVERGENCE")
         );
+    }
+
+    #[test]
+    fn rejects_nonfinite_fixed_point_values() {
+        let failure = solve_fixed_point(&[f64::NAN], &FixedPointOptions::default(), |values| {
+            Ok(values.to_vec())
+        })
+        .unwrap_err();
+        assert_eq!(failure.code, "E-FIXED-POINT-VALUE");
+
+        let failure = solve_fixed_point(&[0.0], &FixedPointOptions::default(), |_| {
+            Ok(vec![f64::INFINITY])
+        })
+        .unwrap_err();
+        assert_eq!(failure.code, "E-FIXED-POINT-VALUE");
     }
 
     #[test]

@@ -157,6 +157,9 @@ Current coverage:
   advanced.
 - `SolverInput::validate_layouts` rejects non-finite initial state, input, and
   parameter values before solver algorithms run.
+- Fixed-step ODE, fixed-point, and dynamic-component solver seeds reject
+  non-finite RHS/update values before those values can enter trajectories or
+  algebraic artifacts.
 - `SolverInput::validate_layouts` now validates non-empty `OutputLayout`
   entries against declared outputs and state quantity/unit metadata while still
   allowing empty output layouts for internal vector-output seeds.

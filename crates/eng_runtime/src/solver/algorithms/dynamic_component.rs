@@ -76,6 +76,11 @@ where
             "initial algebraic vector length does not match the algebraic layout",
         ));
     }
+    ensure_finite_values(
+        "E-DYNAMIC-COMPONENT-ALGEBRAIC-VALUE",
+        "initial algebraic",
+        &initial_algebraic,
+    )?;
 
     let mut state = input.initial_state.clone();
     let mut algebraic = initial_algebraic;
@@ -164,9 +169,19 @@ where
                 "dynamic component RHS vector length does not match the state layout",
             ));
         }
+        ensure_finite_values(
+            "E-DYNAMIC-COMPONENT-RHS-VALUE",
+            "dynamic component RHS",
+            &derivative,
+        )?;
         for (state_value, derivative_value) in state.iter_mut().zip(derivative) {
             *state_value += derivative_value * dt;
         }
+        ensure_finite_values(
+            "E-DYNAMIC-COMPONENT-STATE-VALUE",
+            "dynamic component state",
+            &state,
+        )?;
         for (index, value) in state.iter().copied().enumerate() {
             state_values_by_state[index].push(value);
         }
@@ -233,6 +248,17 @@ fn trajectories_from_layout(
             values,
         })
         .collect()
+}
+
+fn ensure_finite_values(code: &str, label: &str, values: &[f64]) -> Result<(), SolverFailure> {
+    if values.iter().all(|value| value.is_finite()) {
+        Ok(())
+    } else {
+        Err(SolverFailure::new(
+            code,
+            format!("{label} vector contains a non-finite value"),
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -347,6 +373,66 @@ mod tests {
         );
         assert_eq!(result.step_diagnostics.len(), 4);
         assert_eq!(result.step_diagnostics[3].time_s, 2.5);
+    }
+
+    #[test]
+    fn dynamic_component_rejects_nonfinite_values() {
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "ComponentGraph",
+                SimulationPlan::default(),
+                SolverOptions::fixed_step("dynamic_component_explicit_euler", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(1.0, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout::default(),
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![0.0],
+            inputs: Vec::new(),
+            parameters: Vec::new(),
+        };
+        let algebraic_layout =
+            StateLayout::new(vec![LayoutEntry::new(0, "z", "Dimensionless", "1", "1")]);
+
+        let failure = solve_explicit_euler_with_algebraic(
+            &input,
+            algebraic_layout.clone(),
+            vec![f64::NAN],
+            DynamicComponentOptions::default(),
+            |_| Ok(vec![0.0]),
+            |_sample| Ok(vec![0.0]),
+        )
+        .unwrap_err();
+        assert_eq!(failure.code, "E-DYNAMIC-COMPONENT-ALGEBRAIC-VALUE");
+
+        let failure = solve_explicit_euler_with_algebraic(
+            &input,
+            StateLayout::default(),
+            Vec::new(),
+            DynamicComponentOptions::default(),
+            |_| Ok(Vec::new()),
+            |_sample| Ok(vec![f64::INFINITY]),
+        )
+        .unwrap_err();
+        assert_eq!(failure.code, "E-DYNAMIC-COMPONENT-RHS-VALUE");
+
+        let failure = solve_explicit_euler_with_algebraic(
+            &input,
+            algebraic_layout,
+            vec![0.0],
+            DynamicComponentOptions::default(),
+            |_| Ok(vec![f64::INFINITY]),
+            |_sample| Ok(vec![0.0]),
+        )
+        .unwrap_err();
+        assert_eq!(failure.code, "E-FIXED-POINT-VALUE");
     }
 
     #[test]
