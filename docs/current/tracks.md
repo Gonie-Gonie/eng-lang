@@ -116,7 +116,9 @@ Internal runtime seeds:
 - residual-graph semi-implicit dynamic-component entrypoint with per-timestep
   dense linear algebraic residual solves and failure diagnostics
 - EquationAssembly dynamic-component state/algebraic/input/parameter split validation into solver layouts
-- component solver result trajectory and timestep-diagnostic artifact adapter for internal dynamic-component SolverResult output
+- component solver result trajectory, timestep-diagnostic, and per-step
+  nonconvergence failure-artifact adapter for internal dynamic-component
+  SolverResult output
 - solver-API delay buffer with interpolation and initial-history policies
 - solver-API delay node adapter that feeds delayed values into fixed-step RHS evaluation
 - component-local delay(signal, duration) diagnostics for port, prior local, and nested delay signals

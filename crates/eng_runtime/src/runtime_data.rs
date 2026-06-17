@@ -6112,6 +6112,123 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
     }
 
     #[test]
+    fn adapts_dynamic_component_nonconvergence_failure_artifact() {
+        use crate::solver::algorithms::dynamic_component::{
+            solve_explicit_euler_with_algebraic, DynamicComponentOptions,
+        };
+        use crate::solver::algorithms::fixed_point::FixedPointOptions;
+
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "component_graph",
+                SimulationPlan {
+                    states: vec!["x".to_owned()],
+                    outputs: vec!["x".to_owned(), "z".to_owned()],
+                    ..SimulationPlan::default()
+                },
+                SolverOptions::fixed_step("dynamic_component_explicit_euler", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(2.0, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout::default(),
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![0.0],
+            inputs: Vec::new(),
+            parameters: Vec::new(),
+        };
+        let algebraic_layout =
+            StateLayout::new(vec![LayoutEntry::new(0, "z", "Dimensionless", "1", "1")]);
+        let dynamic = solve_explicit_euler_with_algebraic(
+            &input,
+            algebraic_layout,
+            vec![0.0],
+            DynamicComponentOptions {
+                algebraic: FixedPointOptions {
+                    tolerance: 1e-12,
+                    max_iterations: 3,
+                    relaxation: 1.0,
+                },
+            },
+            |sample| Ok(vec![sample.algebraic[0] + 1.0]),
+            |_sample| Ok(vec![0.0]),
+        )
+        .unwrap();
+
+        let solution = RuntimeComponentSolution::from_dynamic_component_result(
+            "component_graph",
+            &dynamic,
+            "dynamic component nonconvergence adapter test",
+        );
+
+        assert_eq!(solution.status, "failed");
+        assert_eq!(solution.convergence_status, "algebraic_solve_failed");
+        assert_eq!(solution.tolerance, 1e-12);
+        assert_eq!(solution.max_iterations, 3);
+        assert_eq!(solution.iteration_count, 3);
+        assert_eq!(
+            solution
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-FIXED-POINT-NONCONVERGENCE")
+        );
+        assert_eq!(solution.step_diagnostics.len(), 1);
+        assert_eq!(
+            solution.step_diagnostics[0].convergence_status,
+            "fixed_point_not_converged"
+        );
+        assert_eq!(
+            solution.step_diagnostics[0]
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-FIXED-POINT-NONCONVERGENCE")
+        );
+
+        let report = check_source_with_runtime_component_graph();
+        let mut spec =
+            eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        let runtime = RuntimeData {
+            component_solutions: vec![solution],
+            ..RuntimeData::default()
+        };
+        runtime.apply_component_solutions(&mut spec);
+        let solver_result = spec.assemblies[0].solver_result.as_ref().unwrap();
+        assert_eq!(solver_result.status, "failed");
+        assert_eq!(solver_result.convergence_status, "algebraic_solve_failed");
+        assert_eq!(
+            solver_result
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-FIXED-POINT-NONCONVERGENCE")
+        );
+        assert_eq!(
+            solver_result.step_diagnostics[0]
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-FIXED-POINT-NONCONVERGENCE")
+        );
+
+        let json = eng_report::report_spec_json(&spec);
+        let html = eng_report::render_html_with_spec(&report, "plots/timeseries.svg", &spec);
+        assert!(json.contains("\"convergence_status\": \"algebraic_solve_failed\""));
+        assert!(json.contains("\"failure_code\": \"E-FIXED-POINT-NONCONVERGENCE\""));
+        assert!(json.contains("\"failure_reason\""));
+        assert!(json.contains("\"convergence_status\": \"fixed_point_not_converged\""));
+        assert!(html.contains("failed@0 E-FIXED-POINT-NONCONVERGENCE"));
+        assert!(html.contains("E-FIXED-POINT-NONCONVERGENCE"));
+    }
+
+    #[test]
     fn reports_singular_square_component_residual_graph_failure() {
         let mut assembly = square_linear_test_assembly("component_graph");
         assembly.generated_equations[0].kind = "through_conservation".to_owned();
