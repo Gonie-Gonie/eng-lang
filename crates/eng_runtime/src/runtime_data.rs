@@ -18,7 +18,7 @@ use crate::solver::{
         ComponentEquation, ComponentInstance, ConnectionEdge, ConnectionSet, EquationAssembly,
         GeneratedEquation, PortInstance, UnknownVariable,
     },
-    InputLayout, LayoutEntry, ParameterLayout, RhsEvaluator, RhsInput, RhsStateInfo,
+    InputLayout, LayoutEntry, ParameterLayout, ResidualGraph, RhsEvaluator, RhsInput, RhsStateInfo,
     SimulationPlan, SolverFailure, SolverInput, SolverOptions, SolverOutput, SolverPlan,
     SolverResult, SolverScalar, StateLayout, StateSpaceRhsEvaluator, StateTrajectory, TimeGrid,
 };
@@ -2218,6 +2218,7 @@ fn materialize_component_solutions(report: &CheckReport) -> Vec<RuntimeComponent
         .iter()
         .map(|assembly| {
             let solver_assembly = solver_equation_assembly_from_component_info(report, assembly);
+            let residual_graph = ResidualGraph::from_assembly(&solver_assembly);
             let equation_count = solver_assembly.equation_count();
             let unknown_count = solver_assembly.unknown_count();
             let variables = solver_assembly
@@ -2231,12 +2232,12 @@ fn materialize_component_solutions(report: &CheckReport) -> Vec<RuntimeComponent
                     status: "homogeneous_zero_seed".to_owned(),
                 })
                 .collect::<Vec<_>>();
-            let residuals = solver_assembly
-                .generated_equations
+            let residuals = residual_graph
+                .residuals
                 .iter()
-                .map(|equation| RuntimeComponentResidualEvaluation {
-                    name: equation.name.clone(),
-                    expression: equation.residual.clone(),
+                .map(|residual| RuntimeComponentResidualEvaluation {
+                    name: residual.name.clone(),
+                    expression: residual.expression.text.clone(),
                     value: 0.0,
                     status: "satisfied".to_owned(),
                 })
@@ -5475,6 +5476,21 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
             .generated_equations
             .iter()
             .any(|equation| equation.reason.contains("through variable conservation")));
+        let residual_graph = ResidualGraph::from_assembly(&solver_assembly);
+        assert_eq!(residual_graph.name, "component_graph.residual_graph");
+        assert_eq!(
+            residual_graph.residuals.len(),
+            solver_assembly.equation_count()
+        );
+        assert!(residual_graph.residuals.iter().any(|residual| {
+            residual.name == "connection_set_1.through_Q_conservation"
+                && residual.variable_indices.len() == 2
+                && residual
+                    .source
+                    .generated_reason
+                    .as_deref()
+                    .is_some_and(|reason| reason.contains("through variable conservation"))
+        }));
 
         assert_eq!(runtime.component_solutions.len(), 1);
         let solution = &runtime.component_solutions[0];

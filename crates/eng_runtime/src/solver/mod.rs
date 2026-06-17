@@ -14,4 +14,8 @@ pub use plan::{
     InputLayout, LayoutEntry, OutputLayout, ParameterLayout, SimulationPlan, SolverInput,
     SolverOptions, SolverPlan, SolverScalar, StateLayout, TimeGrid,
 };
+pub use residual::{
+    ResidualEquation, ResidualExpression, ResidualGraph, ResidualScale, ResidualSource,
+    ResidualUnit, ResidualVariableRef,
+};
 pub use result::{SolverOutput, SolverResult, StateTrajectory};
