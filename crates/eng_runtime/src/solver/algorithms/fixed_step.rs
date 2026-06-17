@@ -2,11 +2,52 @@ use crate::solver::{
     SolverFailure, SolverInput, SolverOutput, SolverResult, SolverScalar, StateTrajectory,
 };
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum FixedStepMethod {
+    ExplicitEuler,
+    Rk4,
+}
+
+impl FixedStepMethod {
+    pub fn from_solver_name(name: Option<&str>) -> Self {
+        match name.map(str::trim).map(str::to_ascii_lowercase) {
+            Some(name) if name.contains("rk4") => Self::Rk4,
+            _ => Self::ExplicitEuler,
+        }
+    }
+
+    pub fn method_name(self, prefix: &str) -> String {
+        let base = match self {
+            Self::ExplicitEuler => "explicit_euler_fixed_step",
+            Self::Rk4 => "rk4_fixed_step",
+        };
+        if prefix.is_empty() {
+            base.to_owned()
+        } else {
+            format!("{prefix}_{base}")
+        }
+    }
+}
+
 pub struct RhsSample<'a> {
     pub time_s: f64,
     pub state: &'a [f64],
     pub inputs: &'a [SolverScalar],
     pub parameters: &'a [SolverScalar],
+}
+
+pub fn solve_fixed_step_ode<F>(
+    method: FixedStepMethod,
+    input: &SolverInput,
+    rhs: F,
+) -> Result<SolverResult, SolverFailure>
+where
+    F: FnMut(RhsSample<'_>) -> Result<Vec<f64>, SolverFailure>,
+{
+    match method {
+        FixedStepMethod::ExplicitEuler => solve_explicit_euler(input, rhs),
+        FixedStepMethod::Rk4 => solve_rk4(input, rhs),
+    }
 }
 
 pub fn solve_explicit_euler<F>(
@@ -213,7 +254,8 @@ mod tests {
 
     #[test]
     fn explicit_euler_solves_vector_state() {
-        let options = SolverOptions::fixed_step("explicit_euler_fixed_step", 1.0);
+        let method = FixedStepMethod::from_solver_name(None);
+        let options = SolverOptions::fixed_step(method.method_name(""), 1.0);
         let input = SolverInput {
             plan: SolverPlan::new("TwoState", SimulationPlan::default(), options),
             time_grid: TimeGrid::fixed_step(2.0, 1.0).unwrap(),
@@ -234,7 +276,7 @@ mod tests {
             parameters: Vec::new(),
         };
 
-        let result = solve_explicit_euler(&input, |sample| {
+        let result = solve_fixed_step_ode(method, &input, |sample| {
             Ok(vec![sample.state[0], -sample.state[1] / 2.0])
         })
         .unwrap();
@@ -255,7 +297,8 @@ mod tests {
 
     #[test]
     fn rk4_solves_vector_state() {
-        let options = SolverOptions::fixed_step("rk4_fixed_step", 1.0);
+        let method = FixedStepMethod::from_solver_name(Some("rk4"));
+        let options = SolverOptions::fixed_step(method.method_name(""), 1.0);
         let input = SolverInput {
             plan: SolverPlan::new("TwoState", SimulationPlan::default(), options),
             time_grid: TimeGrid::fixed_step(2.0, 1.0).unwrap(),
@@ -271,7 +314,7 @@ mod tests {
             parameters: Vec::new(),
         };
 
-        let result = solve_rk4(&input, |sample| {
+        let result = solve_fixed_step_ode(method, &input, |sample| {
             Ok(vec![sample.state[0], -sample.state[1] / 2.0])
         })
         .unwrap();

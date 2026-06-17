@@ -7,6 +7,7 @@ pub mod plan;
 pub mod residual;
 pub mod result;
 
+pub use algorithms::fixed_step::{solve_fixed_step_ode, FixedStepMethod, RhsSample};
 pub use diagnostics::{SolverDiagnostics, SolverFailure};
 pub use evaluator::{
     NamedDerivative, RhsEvaluator, RhsInput, RhsOutput, RhsStateInfo, StateSpaceRhsEvaluator,

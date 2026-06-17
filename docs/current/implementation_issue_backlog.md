@@ -119,6 +119,9 @@ Current coverage:
 - `StateTrajectory::time_value_points` keeps SolverOutput state trajectories
   directly convertible to TimeSeries-style `(time, value)` points, and runtime
   system/component artifact adapters use that helper.
+- Fixed-step method dispatch now lives behind the solver module as
+  `FixedStepMethod`/`solve_fixed_step_ode`, so runtime materialization calls the
+  solver API instead of carrying a local dispatch wrapper.
 
 Title: `ide: add side-effect artifact panels`
 

@@ -15,18 +15,15 @@ use eng_report::{
 };
 
 use crate::solver::{
-    algorithms::{
-        fixed_step::{solve_explicit_euler, solve_rk4, RhsSample},
-        linear::solve_dense_linear_system,
-    },
+    algorithms::linear::solve_dense_linear_system,
     assembly::{
         ComponentEquation, ComponentInstance, ConnectionEdge, ConnectionSet, EquationAssembly,
         GeneratedEquation, PortInstance, UnknownVariable,
     },
-    InputLayout, LayoutEntry, OutputLayout, ParameterLayout, ResidualEvaluator, ResidualGraph,
-    ResidualInput, RhsEvaluator, RhsInput, RhsStateInfo, SimulationPlan, SolverFailure,
-    SolverInput, SolverOptions, SolverOutput, SolverPlan, SolverResult, SolverScalar, StateLayout,
-    StateSpaceRhsEvaluator, StateTrajectory, TimeGrid,
+    solve_fixed_step_ode, FixedStepMethod, InputLayout, LayoutEntry, OutputLayout, ParameterLayout,
+    ResidualEvaluator, ResidualGraph, ResidualInput, RhsEvaluator, RhsInput, RhsStateInfo,
+    SimulationPlan, SolverFailure, SolverInput, SolverOptions, SolverOutput, SolverPlan,
+    SolverResult, SolverScalar, StateLayout, StateSpaceRhsEvaluator, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -2744,33 +2741,6 @@ struct SimulateRequest {
     options: Vec<eng_compiler::WithOptionInfo>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum RuntimeFixedStepMethod {
-    ExplicitEuler,
-    Rk4,
-}
-
-impl RuntimeFixedStepMethod {
-    fn from_options(options: &[eng_compiler::WithOptionInfo]) -> Self {
-        match option_value(options, "solver").map(str::trim) {
-            Some("rk4") => Self::Rk4,
-            _ => Self::ExplicitEuler,
-        }
-    }
-
-    fn method_name(self, prefix: &str) -> String {
-        let base = match self {
-            Self::ExplicitEuler => "explicit_euler_fixed_step",
-            Self::Rk4 => "rk4_fixed_step",
-        };
-        if prefix.is_empty() {
-            base.to_owned()
-        } else {
-            format!("{prefix}_{base}")
-        }
-    }
-}
-
 fn simulate_requests(report: &CheckReport, system_name: &str) -> Vec<SimulateRequest> {
     report
         .inferred_declarations
@@ -2897,7 +2867,7 @@ fn materialize_state_space_solutions(
         .or(series_duration_s)
         .unwrap_or(3600.0);
     let time_grid = TimeGrid::fixed_step(duration_s, time_step_s).ok()?;
-    let fixed_step_method = RuntimeFixedStepMethod::from_options(options);
+    let fixed_step_method = FixedStepMethod::from_solver_name(option_value(options, "solver"));
     let is_discrete_state_space = system
         .equations
         .iter()
@@ -3294,7 +3264,7 @@ fn materialize_first_order_thermal_solution(
         .filter(|duration| *duration > 0.0)
         .unwrap_or(3600.0);
     let time_grid = TimeGrid::fixed_step(duration_s, time_step_s).ok()?;
-    let fixed_step_method = RuntimeFixedStepMethod::from_options(options);
+    let fixed_step_method = FixedStepMethod::from_solver_name(option_value(options, "solver"));
     let solver_options = SolverOptions::fixed_step(fixed_step_method.method_name(""), time_step_s);
     let solver_plan = SolverPlan::new(
         system.name.clone(),
@@ -3420,20 +3390,6 @@ fn materialize_first_order_thermal_solution(
         &solver_result,
         "recognized first-order thermal ODE and executed through SolverResult fixed-step one-state path",
     )
-}
-
-fn solve_fixed_step_ode<F>(
-    method: RuntimeFixedStepMethod,
-    input: &SolverInput,
-    rhs: F,
-) -> Result<SolverResult, SolverFailure>
-where
-    F: FnMut(RhsSample<'_>) -> Result<Vec<f64>, SolverFailure>,
-{
-    match method {
-        RuntimeFixedStepMethod::ExplicitEuler => solve_explicit_euler(input, rhs),
-        RuntimeFixedStepMethod::Rk4 => solve_rk4(input, rhs),
-    }
 }
 
 fn runtime_system_solution_from_solver_result(
