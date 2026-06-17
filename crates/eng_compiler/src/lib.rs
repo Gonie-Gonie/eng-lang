@@ -6269,15 +6269,15 @@ mod tests {
         assert!(report
             .diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.code == "E-SIM-OPTION-MISSING-001"));
+            .any(|diagnostic| diagnostic.code == "E-SIM-TIMESTEP-INVALID"));
         assert!(report
             .diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.code == "E-SIM-OPTION-MISSING-002"));
+            .any(|diagnostic| diagnostic.code == "E-SIM-SOLVER-UNSUPPORTED"));
         assert!(report
             .diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.code == "E-SIM-INPUT-MISSING-001"));
+            .any(|diagnostic| diagnostic.code == "E-SIM-MISSING-INPUT"));
     }
 
     #[test]
@@ -6325,7 +6325,7 @@ mod tests {
         assert!(report
             .diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.code == "E-SIM-OPTION-TYPE-002"));
+            .any(|diagnostic| diagnostic.code == "E-SIM-SOLVER-UNSUPPORTED"));
     }
 
     #[test]
@@ -6340,7 +6340,7 @@ mod tests {
         assert!(report
             .diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.code == "E-SIM-INPUT-QTY-001"));
+            .any(|diagnostic| diagnostic.code == "E-SIM-INPUT-QTY-MISMATCH"));
     }
 
     #[test]
@@ -6355,11 +6355,11 @@ mod tests {
         assert!(report
             .diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.code == "E-SIM-INPUT-AXIS-001"));
+            .any(|diagnostic| diagnostic.code == "E-SIM-INPUT-AXIS-MISMATCH"));
         assert!(report
             .diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.code == "E-SIM-OPTION-TYPE-001"));
+            .any(|diagnostic| diagnostic.code == "E-SIM-TIMESTEP-INVALID"));
     }
 
     #[test]

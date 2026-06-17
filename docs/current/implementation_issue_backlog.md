@@ -171,6 +171,13 @@ Definition of Done:
 - Docs distinguish the current scalar input plus TimeSeries binding rule from
   the explicit TimeSeries input form.
 
+Current coverage:
+
+- Simulate input/timestep/solver diagnostics use the checklist canonical codes:
+  `E-SIM-MISSING-INPUT`, `E-SIM-INPUT-QTY-MISMATCH`,
+  `E-SIM-INPUT-AXIS-MISMATCH`, `E-SIM-TIMESTEP-INVALID`, and
+  `E-SIM-SOLVER-UNSUPPORTED`.
+
 ## State-Space
 
 Title: `state-space: close stable workflow boundaries after vector runtime seed`

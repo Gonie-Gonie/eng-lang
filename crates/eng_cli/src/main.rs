@@ -1273,35 +1273,35 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         ),
         (
             "examples/05_error_messages/simulate_missing_input.eng",
-            "E-SIM-INPUT-MISSING-001",
+            "E-SIM-MISSING-INPUT",
         ),
         (
             "examples/05_error_messages/simulate_input_not_timeseries.eng",
-            "E-SIM-INPUT-TYPE-001",
+            "E-SIM-INPUT-AXIS-MISMATCH",
         ),
         (
             "examples/05_error_messages/simulate_input_axis_mismatch.eng",
-            "E-SIM-INPUT-AXIS-001",
+            "E-SIM-INPUT-AXIS-MISMATCH",
         ),
         (
             "examples/05_error_messages/simulate_input_quantity_mismatch.eng",
-            "E-SIM-INPUT-QTY-001",
+            "E-SIM-INPUT-QTY-MISMATCH",
         ),
         (
             "examples/05_error_messages/simulate_missing_timestep.eng",
-            "E-SIM-OPTION-MISSING-001",
+            "E-SIM-TIMESTEP-INVALID",
         ),
         (
             "examples/05_error_messages/simulate_bad_timestep.eng",
-            "E-SIM-OPTION-TYPE-001",
+            "E-SIM-TIMESTEP-INVALID",
         ),
         (
             "examples/05_error_messages/simulate_missing_solver.eng",
-            "E-SIM-OPTION-MISSING-002",
+            "E-SIM-SOLVER-UNSUPPORTED",
         ),
         (
             "examples/05_error_messages/simulate_unsupported_solver.eng",
-            "E-SIM-OPTION-TYPE-002",
+            "E-SIM-SOLVER-UNSUPPORTED",
         ),
         (
             "examples/05_error_messages/state_space_missing_operator_entry.eng",

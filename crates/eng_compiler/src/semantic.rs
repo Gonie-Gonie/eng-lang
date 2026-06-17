@@ -2656,7 +2656,7 @@ pub fn validate_simulation_contracts(
             };
             let Some(option) = accepted_option(options, &variable.name) else {
                 diagnostics.push(Diagnostic::error(
-                    "E-SIM-INPUT-MISSING-001",
+                    "E-SIM-MISSING-INPUT",
                     declaration.line,
                     &format!(
                         "Simulation of `{system_name}` requires TimeSeries input `{}`.",
@@ -2671,7 +2671,7 @@ pub fn validate_simulation_contracts(
             };
             let Some(actual) = resolve_simulation_option_type(program, &option.value) else {
                 diagnostics.push(Diagnostic::error(
-                    "E-SIM-INPUT-TYPE-001",
+                    "E-SIM-MISSING-INPUT",
                     option.line,
                     &format!(
                         "Simulation input `{}` cannot resolve `{}` as a typed value.",
@@ -2683,7 +2683,7 @@ pub fn validate_simulation_contracts(
             };
             let Some(actual_axis) = actual.axis.as_deref() else {
                 diagnostics.push(Diagnostic::error(
-                    "E-SIM-INPUT-TYPE-001",
+                    "E-SIM-INPUT-AXIS-MISMATCH",
                     option.line,
                     &format!(
                         "Simulation input `{}` expects TimeSeries[{}] of {}, but `{}` is {}.",
@@ -2699,7 +2699,7 @@ pub fn validate_simulation_contracts(
             };
             if actual_axis != expected.axis {
                 diagnostics.push(Diagnostic::error(
-                    "E-SIM-INPUT-AXIS-001",
+                    "E-SIM-INPUT-AXIS-MISMATCH",
                     option.line,
                     &format!(
                         "Simulation input `{}` expects axis `{}`, but `{}` has axis `{actual_axis}`.",
@@ -2710,7 +2710,7 @@ pub fn validate_simulation_contracts(
             }
             if actual.quantity_kind != expected.quantity_kind {
                 diagnostics.push(Diagnostic::error(
-                    "E-SIM-INPUT-QTY-001",
+                    "E-SIM-INPUT-QTY-MISMATCH",
                     option.line,
                     &format!(
                         "Simulation input `{}` expects {}, but `{}` is {}.",
@@ -2766,7 +2766,7 @@ fn validate_simulation_timestep(
 ) {
     let Some(option) = accepted_option(options, "timestep") else {
         diagnostics.push(Diagnostic::error(
-            "E-SIM-OPTION-MISSING-001",
+            "E-SIM-TIMESTEP-INVALID",
             owner_line,
             "`simulate` requires `with { timestep = <duration> }`.",
             Some("Use a duration such as `timestep = 10 min`."),
@@ -2775,7 +2775,7 @@ fn validate_simulation_timestep(
     };
     if parse_duration_option_seconds(&option.value).is_none() {
         diagnostics.push(Diagnostic::error(
-            "E-SIM-OPTION-TYPE-001",
+            "E-SIM-TIMESTEP-INVALID",
             option.line,
             &format!(
                 "`timestep` expects a positive duration, got `{}`.",
@@ -2793,7 +2793,7 @@ fn validate_simulation_solver(
 ) {
     let Some(option) = accepted_option(options, "solver") else {
         diagnostics.push(Diagnostic::error(
-            "E-SIM-OPTION-MISSING-002",
+            "E-SIM-SOLVER-UNSUPPORTED",
             owner_line,
             "`simulate` requires a supported fixed-step solver in the attached `with` block.",
             Some("Use `solver = fixed_step`, `solver = explicit_euler`, or `solver = rk4`."),
@@ -2802,7 +2802,7 @@ fn validate_simulation_solver(
     };
     if !matches!(option.value.trim(), "fixed_step" | "explicit_euler" | "rk4") {
         diagnostics.push(Diagnostic::error(
-            "E-SIM-OPTION-TYPE-002",
+            "E-SIM-SOLVER-UNSUPPORTED",
             option.line,
             &format!("Unsupported simulation solver `{}`.", option.value),
             Some("Use `fixed_step`/`explicit_euler` for Euler or `rk4` for fixed-step RK4; adaptive and nonlinear solvers are deferred."),
