@@ -1863,6 +1863,10 @@ fn json_field_usize(value: &Value, key: &str) -> Option<usize> {
         .and_then(|value| usize::try_from(value).ok())
 }
 
+fn json_field_f64(value: &Value, key: &str) -> Option<f64> {
+    value.get(key).and_then(Value::as_f64)
+}
+
 fn format_json_number(value: f64) -> String {
     let text = if value.abs() >= 1000.0 {
         format!("{value:.3}")
@@ -1989,6 +1993,76 @@ fn smoke() -> Result<(), String> {
         return Err(format!(
             "{} did not produce IDE component solver result inspector metadata",
             domain_example.display()
+        ));
+    }
+    let thermal_assembly_example =
+        root.join("examples/official/21_thermal_component_assembly/main.eng");
+    let thermal_assembly_output = run_file(
+        &thermal_assembly_example,
+        &root.join("build").join("ide-smoke-thermal-assembly"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let thermal_assembly_cached = CachedRunOutput::from_output(thermal_assembly_output);
+    let thermal_assembly_inspectors = runtime_inspectors(&root, &thermal_assembly_cached);
+    let has_solved_component_solver_result = thermal_assembly_inspectors
+        .assemblies
+        .as_array()
+        .is_some_and(|assemblies| {
+            assemblies.iter().any(|assembly| {
+                let has_boundary_rhs = assembly
+                    .get("equations")
+                    .and_then(Value::as_array)
+                    .is_some_and(|equations| {
+                        equations.iter().any(|equation| {
+                            json_field_string(equation, "kind").as_deref()
+                                == Some("component_boundary")
+                                && json_field_string(equation, "rhs").as_deref() == Some("22 degC")
+                        })
+                    });
+                let Some(solver_result) = assembly.get("solver_result") else {
+                    return false;
+                };
+                let has_solved_variables = solver_result
+                    .get("variables")
+                    .and_then(Value::as_array)
+                    .is_some_and(|variables| {
+                        variables.iter().any(|variable| {
+                            json_field_string(variable, "name").as_deref()
+                                == Some("RoomBoundary.heat.T")
+                                && json_field_f64(variable, "value")
+                                    .is_some_and(|value| (value - 22.0).abs() <= 1e-9)
+                        }) && variables.iter().any(|variable| {
+                            json_field_string(variable, "name").as_deref()
+                                == Some("AmbientBoundary.heat.Q")
+                                && json_field_f64(variable, "value")
+                                    .is_some_and(|value| (value + 1.0).abs() <= 1e-9)
+                        })
+                    });
+                let has_satisfied_residuals = solver_result
+                    .get("residuals")
+                    .and_then(Value::as_array)
+                    .is_some_and(|residuals| {
+                        residuals.iter().any(|residual| {
+                            json_field_string(residual, "status").as_deref() == Some("satisfied")
+                                && residual.get("normalized_value").is_some()
+                                && residual.get("scale_policy").is_some()
+                        })
+                    });
+                json_field_string(solver_result, "status").as_deref() == Some("solved_linear")
+                    && json_field_string(solver_result, "method").as_deref()
+                        == Some("dense_linear_residual_graph")
+                    && json_field_string(solver_result, "convergence_status").as_deref()
+                        == Some("linear_converged")
+                    && has_boundary_rhs
+                    && has_solved_variables
+                    && has_satisfied_residuals
+            })
+        });
+    if !has_solved_component_solver_result {
+        return Err(format!(
+            "{} did not produce IDE solved component assembly inspector metadata",
+            thermal_assembly_example.display()
         ));
     }
     let measured_example = root.join("examples/official/17_measured_vs_simulated/main.eng");
@@ -2157,7 +2231,7 @@ fn smoke() -> Result<(), String> {
         ));
     }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), measured workflow inspectors, state-space trajectory inspector, class object inspector, side-effect inspectors, schema failure inspector",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), measured workflow inspectors, solved thermal assembly inspector, state-space trajectory inspector, class object inspector, side-effect inspectors, schema failure inspector",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),

@@ -77,6 +77,9 @@ Current coverage:
   convergence status, and failure reason from `report_spec.json`/`result.engres`.
 - IDE panels expose system equation dependency rows from `system_ir` so variable
   dependencies and derivative states are visible without raw JSON.
+- IDE smoke covers the solved Thermal component assembly path by checking
+  boundary RHS equations, dense linear solve status, solved variables, and
+  normalized residual metadata from `assembly_summary`.
 - `artifacts-check` snapshots the official one-state solver artifact contract
   across `review.json` `simulation_results`, `report_spec.json`
   `system_ir[].solver_results`, and `result.engres` `solver_result` fields.
