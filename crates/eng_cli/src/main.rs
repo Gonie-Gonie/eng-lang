@@ -1215,7 +1215,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         return ExitCode::from(2);
     }
     println!(
-        "ok: solver API fixed-point, nonlinear Newton, and implicit-Euler DAE smokes produced numeric results and failure artifacts"
+        "ok: solver API linear residual, fixed-point, nonlinear Newton, and implicit-Euler DAE smokes produced numeric results and failure artifacts"
     );
     if let Err(message) = solver_behavior_smoke() {
         eprintln!("{message}");
@@ -2828,6 +2828,54 @@ fn solver_algorithm_smoke() -> Result<(), String> {
         );
     }
 
+    let linear_graph = solver_smoke_linear_residual_graph(
+        "linear.residual_graph",
+        &["x", "y"],
+        &[
+            ("r_energy", &[(0, "x", 2.0), (1, "y", 1.0)], 5.0),
+            ("r_balance", &[(0, "x", 1.0), (1, "y", -1.0)], 1.0),
+        ],
+    );
+    let linear = eng_runtime::solver::solve_linear_residual_graph(&linear_graph, 1e-9)
+        .map_err(|failure| format!("linear residual graph smoke failed: {}", failure.message))?;
+    if linear.status != "converged"
+        || linear.iteration_count != 1
+        || linear.residual_norm > 1e-9
+        || linear.residuals.is_empty()
+        || linear
+            .residuals
+            .iter()
+            .any(|residual| residual.status != "satisfied")
+        || !linear
+            .variables
+            .iter()
+            .any(|variable| variable.name == "x" && (variable.value - 2.0).abs() <= 1e-9)
+        || !linear
+            .variables
+            .iter()
+            .any(|variable| variable.name == "y" && (variable.value - 1.0).abs() <= 1e-9)
+    {
+        return Err(
+            "linear residual graph smoke did not solve the expected square system".to_owned(),
+        );
+    }
+
+    let singular_linear_graph = solver_smoke_linear_residual_graph(
+        "singular.residual_graph",
+        &["x", "y"],
+        &[
+            ("r_energy", &[(0, "x", 1.0), (1, "y", 2.0)], 3.0),
+            ("r_balance", &[(0, "x", 2.0), (1, "y", 4.0)], 6.0),
+        ],
+    );
+    let singular_linear =
+        eng_runtime::solver::solve_linear_residual_graph(&singular_linear_graph, 1e-9).unwrap_err();
+    if singular_linear.code != "E-LINEAR-SINGULAR" {
+        return Err(
+            "linear residual graph singular smoke returned the wrong failure code".to_owned(),
+        );
+    }
+
     let newton_options = eng_runtime::solver::NewtonOptions::default();
     let nonlinear = eng_runtime::solver::solve_newton(&[0.8, 2.1], &newton_options, |values| {
         let x = values[0];
@@ -3003,6 +3051,69 @@ fn solver_algorithm_smoke() -> Result<(), String> {
     }
 
     Ok(())
+}
+
+type SolverSmokeLinearTerm<'a> = (usize, &'a str, f64);
+type SolverSmokeLinearResidualSpec<'a> = (&'a str, &'a [SolverSmokeLinearTerm<'a>], f64);
+
+fn solver_smoke_linear_residual_graph(
+    name: &str,
+    variable_names: &[&str],
+    residual_specs: &[SolverSmokeLinearResidualSpec<'_>],
+) -> eng_runtime::solver::ResidualGraph {
+    eng_runtime::solver::ResidualGraph {
+        name: name.to_owned(),
+        variables: variable_names
+            .iter()
+            .enumerate()
+            .map(
+                |(index, variable)| eng_runtime::solver::ResidualVariableRef {
+                    index,
+                    name: (*variable).to_owned(),
+                    role: "algebraic".to_owned(),
+                    unit: "1".to_owned(),
+                },
+            )
+            .collect(),
+        residuals: residual_specs
+            .iter()
+            .map(
+                |(name, terms, rhs_value)| eng_runtime::solver::ResidualEquation {
+                    name: (*name).to_owned(),
+                    expression: eng_runtime::solver::ResidualExpression {
+                        text: (*name).to_owned(),
+                    },
+                    rhs_value: *rhs_value,
+                    unit: eng_runtime::solver::ResidualUnit {
+                        unit: "1".to_owned(),
+                        quantity_kind: "Dimensionless".to_owned(),
+                    },
+                    scale: eng_runtime::solver::ResidualScale::default(),
+                    source: eng_runtime::solver::ResidualSource::default(),
+                    variable_indices: terms.iter().map(|(index, _, _)| *index).collect(),
+                    terms: terms
+                        .iter()
+                        .map(
+                            |(index, variable, coefficient)| eng_runtime::solver::ResidualTerm {
+                                variable_index: *index,
+                                variable: (*variable).to_owned(),
+                                coefficient: *coefficient,
+                            },
+                        )
+                        .collect(),
+                },
+            )
+            .collect(),
+        parameters: Vec::new(),
+        dependencies: residual_specs
+            .iter()
+            .flat_map(|(residual, terms, _)| {
+                terms
+                    .iter()
+                    .map(|(_, variable, _)| ((*residual).to_owned(), (*variable).to_owned()))
+            })
+            .collect(),
+    }
 }
 
 fn solver_behavior_smoke() -> Result<(), String> {
