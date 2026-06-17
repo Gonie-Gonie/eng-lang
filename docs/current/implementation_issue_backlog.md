@@ -128,8 +128,12 @@ Current coverage:
   policies, explicit initial-history policy, relationship artifacts,
   out-of-order/history-underflow diagnostics, and solver-style behavior-node
   evaluation tests.
+- Runtime has a Predictor behavior contract wrapper with input/output
+  quantity-unit metadata, valid-range warnings, provenance/model hash,
+  differentiability flag, solver Jacobian policy, and evaluation/failure tests.
 - Component artifacts distinguish delay calls as
-  `delay_call_runtime_buffer_seed_not_integrated`.
+  `delay_call_runtime_buffer_seed_not_integrated` and Predictor calls as
+  `predictor_call_contract_seed_not_integrated`.
 
 Definition of Done:
 
@@ -137,9 +141,8 @@ Definition of Done:
   compatibility and non-negative delay duration.
 - Wire delay behavior nodes into RHS/residual evaluation for supported solver
   paths.
-- Add Predictor input/output contracts with unit/quantity checks, valid-range
-  diagnostics, provenance/model hash, differentiability flag, and solver
-  integration policy.
+- Wire Predictor behavior nodes into supported solver paths and report/IDE
+  artifacts.
 - Add external process/function behavior wrappers with typed input/output
   contracts, deterministic/provenance metadata, failure propagation, and
   safe/repro profile policy.

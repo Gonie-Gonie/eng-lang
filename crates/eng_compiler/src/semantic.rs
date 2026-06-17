@@ -5053,7 +5053,7 @@ fn build_component_solver_preview(
         }
         .to_owned(),
         predictor: if predictor_call_count > 0 {
-            "predictor_call_metadata_only"
+            "predictor_call_contract_seed_not_integrated"
         } else {
             "deferred_no_predictor_calls"
         }

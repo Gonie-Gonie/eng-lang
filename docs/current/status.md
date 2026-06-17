@@ -153,10 +153,12 @@ are not public stable workflows.
   workflows.
 - Behavior graph seeds: runtime delay buffer with linear and previous-sample
   interpolation policies, explicit initial-history policy, relationship
-  artifact, and solver-style behavior-node evaluation. Component artifacts
-  distinguish delay calls as runtime-buffer seeds, but delay, Predictor, and
-  external behavior nodes are not wired into language-level behavior graph
-  solving.
+  artifact, and solver-style behavior-node evaluation. Runtime also has a
+  Predictor behavior contract wrapper with input/output quantity-unit metadata,
+  valid-range warnings, model hash, differentiability flag, and solver Jacobian
+  policy. Component artifacts distinguish delay/Predictor calls as runtime
+  seeds, but delay, Predictor, and external behavior nodes are not wired into
+  language-level behavior graph solving.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,
   generated connection-equation metadata, residual graph metadata,
   structured residual evaluator input, domain-plan metadata, IDE component

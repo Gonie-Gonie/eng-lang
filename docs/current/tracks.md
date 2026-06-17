@@ -92,6 +92,7 @@ Internal runtime seeds:
 - standalone implicit-Euler DAE seed over F(x, xdot, z, u, t, p)
 - optional DAE mass matrix and initial consistency checks
 - delay buffer with interpolation and initial-history policies
+- Predictor contract wrapper with model hash, range warnings, and Jacobian policy
 ```
 
 Deferred:
