@@ -1193,11 +1193,16 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         &artifact_run_options(),
     ) {
         Ok(output) => {
+            let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
             let result = std::fs::read_to_string(output.result_path).unwrap_or_default();
             let report_spec = std::fs::read_to_string(output.report_spec_path).unwrap_or_default();
             let report_html = std::fs::read_to_string(output.report_path).unwrap_or_default();
             let plot_spec = std::fs::read_to_string(output.plot_spec_path).unwrap_or_default();
-            if !result.contains("\"metrics\"")
+            if !review.contains("\"simulation_results\"")
+                || !review.contains("\"time_grid\"")
+                || !review.contains("\"binding\": \"sim\"")
+                || !review.contains("\"name\": \"T_zone\"")
+                || !result.contains("\"metrics\"")
                 || !result.contains("\"validations\"")
                 || !result.contains("\"time_alignments\"")
                 || !result.contains("\"binding\": \"rmse_T\"")
@@ -1270,11 +1275,16 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         &artifact_run_options(),
     ) {
         Ok(output) => {
+            let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
             let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
             let plot_spec = std::fs::read_to_string(output.plot_spec_path).unwrap_or_default();
             let report_spec = std::fs::read_to_string(output.report_spec_path).unwrap_or_default();
             let report_html = std::fs::read_to_string(output.report_path).unwrap_or_default();
-            if !result.contains("\"binding\": \"sim\"")
+            if !review.contains("\"simulation_results\"")
+                || !review.contains("\"time_grid\"")
+                || !review.contains("\"name\": \"T_air\"")
+                || !review.contains("\"name\": \"T_wall\"")
+                || !result.contains("\"binding\": \"sim\"")
                 || !result.contains("\"state\": \"T_air\"")
                 || !result.contains("\"state\": \"T_wall\"")
                 || !result.contains("\"method\": \"state_space_rk4_fixed_step\"")

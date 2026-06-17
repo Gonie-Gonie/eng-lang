@@ -443,7 +443,7 @@ pub fn run_source(
     runtime_data.apply_component_solutions(&mut report_spec);
     let report_spec_json = eng_report::report_spec_json(&report_spec);
     let report_spec_hash = hash_text(&report_spec_json);
-    let review_json = review_json(&check_report);
+    let review_json = runtime_review_json(&review_json(&check_report), &runtime_data);
     let report_html =
         eng_report::render_html_with_spec(&check_report, "plots/timeseries.svg", &report_spec);
     let result_json = result_json(
@@ -3930,6 +3930,117 @@ fn push_system_solution_json(
     push_runtime_points(json, &solution.points);
     json.push_str("]\n");
     json.push_str(&format!("{indent}}}"));
+}
+
+fn runtime_review_json(base_review: &str, runtime_data: &RuntimeData) -> String {
+    let trimmed = base_review.trim_end();
+    let Some(prefix) = trimmed.strip_suffix('}') else {
+        return base_review.to_owned();
+    };
+    let mut groups: Vec<Vec<&runtime_data::RuntimeSystemSolution>> = Vec::new();
+    for solution in &runtime_data.system_solutions {
+        if let Some(group) = groups.iter_mut().find(|group| {
+            group.first().is_some_and(|first| {
+                first.system == solution.system
+                    && first.binding == solution.binding
+                    && first.method == solution.method
+            })
+        }) {
+            group.push(solution);
+        } else {
+            groups.push(vec![solution]);
+        }
+    }
+
+    let mut json = prefix.trim_end().to_owned();
+    json.push_str(",\n  \"simulation_results\": [\n");
+    for (group_index, group) in groups.iter().enumerate() {
+        if group_index > 0 {
+            json.push_str(",\n");
+        }
+        let first = group[0];
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"system\": \"{}\",\n",
+            json_escape(&first.system)
+        ));
+        match &first.binding {
+            Some(binding) => json.push_str(&format!(
+                "      \"binding\": \"{}\",\n",
+                json_escape(binding)
+            )),
+            None => json.push_str("      \"binding\": null,\n"),
+        }
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&first.status)
+        ));
+        json.push_str(&format!(
+            "      \"method\": \"{}\",\n",
+            json_escape(&first.method)
+        ));
+        json.push_str(&format!(
+            "      \"reason\": \"{}\",\n",
+            json_escape(&first.reason)
+        ));
+        json.push_str("      \"time_grid\": {\n");
+        json.push_str(&format!(
+            "        \"unit\": \"{}\",\n",
+            json_escape(&first.time_unit)
+        ));
+        json.push_str(&format!("        \"duration\": {},\n", first.duration_s));
+        json.push_str(&format!("        \"timestep\": {},\n", first.time_step_s));
+        json.push_str(&format!("        \"step_count\": {}\n", first.step_count));
+        json.push_str("      },\n");
+        json.push_str("      \"states\": [\n");
+        for (state_index, solution) in group.iter().enumerate() {
+            if state_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&solution.state)
+            ));
+            json.push_str(&format!(
+                "          \"quantity_kind\": \"{}\",\n",
+                json_escape(&solution.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&solution.display_unit)
+            ));
+            json.push_str(&format!(
+                "          \"canonical_unit\": \"{}\",\n",
+                json_escape(&solution.canonical_unit)
+            ));
+            json.push_str(&format!(
+                "          \"initial_value\": {},\n",
+                solution.initial_value
+            ));
+            json.push_str(&format!(
+                "          \"final_value\": {},\n",
+                solution.final_value
+            ));
+            json.push_str(&format!(
+                "          \"canonical_initial_value\": {},\n",
+                solution.canonical_initial_value
+            ));
+            json.push_str(&format!(
+                "          \"canonical_final_value\": {},\n",
+                solution.canonical_final_value
+            ));
+            json.push_str(&format!(
+                "          \"point_count\": {}\n",
+                solution.points.len()
+            ));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
+        json.push_str("    }");
+    }
+    json.push_str("\n  ]\n}\n");
+    json
 }
 
 fn component_solutions_json(runtime_data: &RuntimeData) -> String {
