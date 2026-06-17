@@ -55,6 +55,10 @@ pub struct ResidualGraphRhsEvaluator {
     algebraic_count: usize,
     input_count: usize,
     parameter_count: usize,
+    state_names: Vec<String>,
+    algebraic_names: Vec<String>,
+    input_names: Vec<String>,
+    parameter_names: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -80,6 +84,10 @@ struct ResidualGraphAlgebraicLinearEvaluator {
     algebraic_count: usize,
     input_count: usize,
     parameter_count: usize,
+    state_names: Vec<String>,
+    algebraic_names: Vec<String>,
+    input_names: Vec<String>,
+    parameter_names: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -115,9 +123,18 @@ struct ResidualRhsRoleCounts {
     parameter: usize,
 }
 
+#[derive(Clone, Debug, Default)]
+struct ResidualRhsRoleNames {
+    state: Vec<String>,
+    algebraic: Vec<String>,
+    input: Vec<String>,
+    parameter: Vec<String>,
+}
+
 impl ResidualGraphRhsEvaluator {
     pub fn new(graph: &ResidualGraph) -> Result<Self, SolverFailure> {
         let mut counts = ResidualRhsRoleCounts::default();
+        let mut names = ResidualRhsRoleNames::default();
         let mut variable_slots = HashMap::new();
         let mut derivative_variables = HashMap::new();
 
@@ -145,6 +162,7 @@ impl ResidualGraphRhsEvaluator {
                 )
             })?;
             let local_index = counts.allocate(role);
+            names.record(role, local_index, variable.name.clone());
             if variable_slots
                 .insert(variable.index, (role, local_index))
                 .is_some()
@@ -274,6 +292,10 @@ impl ResidualGraphRhsEvaluator {
             algebraic_count: counts.algebraic,
             input_count: counts.input,
             parameter_count: counts.parameter,
+            state_names: names.state,
+            algebraic_names: names.algebraic,
+            input_names: names.input,
+            parameter_names: names.parameter,
         })
     }
 
@@ -358,6 +380,7 @@ impl ResidualGraphRhsEvaluator {
 impl ResidualGraphAlgebraicLinearEvaluator {
     fn new(graph: &ResidualGraph) -> Result<Self, SolverFailure> {
         let mut counts = ResidualRhsRoleCounts::default();
+        let mut names = ResidualRhsRoleNames::default();
         let mut variable_slots = HashMap::new();
         let mut derivative_variables = HashSet::new();
 
@@ -382,6 +405,7 @@ impl ResidualGraphAlgebraicLinearEvaluator {
                 )
             })?;
             let local_index = counts.allocate(role);
+            names.record(role, local_index, variable.name.clone());
             if variable_slots
                 .insert(variable.index, (role, local_index))
                 .is_some()
@@ -480,6 +504,10 @@ impl ResidualGraphAlgebraicLinearEvaluator {
             algebraic_count: counts.algebraic,
             input_count: counts.input,
             parameter_count: counts.parameter,
+            state_names: names.state,
+            algebraic_names: names.algebraic,
+            input_names: names.input,
+            parameter_names: names.parameter,
         })
     }
 
@@ -626,6 +654,20 @@ impl ResidualRhsRoleCounts {
             }
             ResidualRhsRole::Time => 0,
         }
+    }
+}
+
+impl ResidualRhsRoleNames {
+    fn record(&mut self, role: ResidualRhsRole, local_index: usize, name: String) {
+        let names = match role {
+            ResidualRhsRole::State => &mut self.state,
+            ResidualRhsRole::Algebraic => &mut self.algebraic,
+            ResidualRhsRole::Input => &mut self.input,
+            ResidualRhsRole::Parameter => &mut self.parameter,
+            ResidualRhsRole::Time => return,
+        };
+        debug_assert_eq!(names.len(), local_index);
+        names.push(name);
     }
 }
 
@@ -892,16 +934,7 @@ pub fn solve_residual_graph_semi_implicit_euler(
     let rhs_evaluator = ResidualGraphRhsEvaluator::new(&derivative_graph)?;
     let algebraic_evaluator = ResidualGraphAlgebraicLinearEvaluator::new(graph)?;
     validate_residual_graph_solver_layout(input, &algebraic_layout, &rhs_evaluator)?;
-    if algebraic_layout.len() != algebraic_evaluator.algebraic_count
-        || input.state_layout.len() != algebraic_evaluator.state_count
-        || input.input_layout.len() != algebraic_evaluator.input_count
-        || input.parameter_layout.len() != algebraic_evaluator.parameter_count
-    {
-        return Err(SolverFailure::new(
-            "E-DYNAMIC-COMPONENT-ALGEBRAIC-LAYOUT",
-            "solver layouts do not match the residual graph algebraic variables",
-        ));
-    }
+    validate_residual_graph_algebraic_layout(input, &algebraic_layout, &algebraic_evaluator)?;
 
     let tolerance = options.algebraic.tolerance;
     solve_explicit_euler_with_algebraic_solver(
@@ -912,6 +945,50 @@ pub fn solve_residual_graph_semi_implicit_euler(
         |sample| algebraic_evaluator.solve(&sample, tolerance),
         |sample| rhs_evaluator.evaluate(&sample),
     )
+}
+
+fn validate_residual_graph_algebraic_layout(
+    input: &SolverInput,
+    algebraic_layout: &StateLayout,
+    evaluator: &ResidualGraphAlgebraicLinearEvaluator,
+) -> Result<(), SolverFailure> {
+    validate_residual_graph_layout_entries(
+        "state",
+        &input.state_layout.entries,
+        &evaluator.state_names,
+        evaluator.state_count,
+    )
+    .map_err(|failure| {
+        SolverFailure::new("E-DYNAMIC-COMPONENT-ALGEBRAIC-LAYOUT", failure.message)
+    })?;
+    validate_residual_graph_layout_entries(
+        "algebraic",
+        &algebraic_layout.entries,
+        &evaluator.algebraic_names,
+        evaluator.algebraic_count,
+    )
+    .map_err(|failure| {
+        SolverFailure::new("E-DYNAMIC-COMPONENT-ALGEBRAIC-LAYOUT", failure.message)
+    })?;
+    validate_residual_graph_layout_entries(
+        "input",
+        &input.input_layout.entries,
+        &evaluator.input_names,
+        evaluator.input_count,
+    )
+    .map_err(|failure| {
+        SolverFailure::new("E-DYNAMIC-COMPONENT-ALGEBRAIC-LAYOUT", failure.message)
+    })?;
+    validate_residual_graph_layout_entries(
+        "parameter",
+        &input.parameter_layout.entries,
+        &evaluator.parameter_names,
+        evaluator.parameter_count,
+    )
+    .map_err(|failure| {
+        SolverFailure::new("E-DYNAMIC-COMPONENT-ALGEBRAIC-LAYOUT", failure.message)
+    })?;
+    Ok(())
 }
 
 fn residual_graph_with_derivative_residuals(
@@ -957,15 +1034,55 @@ fn validate_residual_graph_solver_layout(
     algebraic_layout: &StateLayout,
     evaluator: &ResidualGraphRhsEvaluator,
 ) -> Result<(), SolverFailure> {
-    if input.state_layout.len() != evaluator.state_count
-        || algebraic_layout.len() != evaluator.algebraic_count
-        || input.input_layout.len() != evaluator.input_count
-        || input.parameter_layout.len() != evaluator.parameter_count
-    {
+    validate_residual_graph_layout_entries(
+        "state",
+        &input.state_layout.entries,
+        &evaluator.state_names,
+        evaluator.state_count,
+    )?;
+    validate_residual_graph_layout_entries(
+        "algebraic",
+        &algebraic_layout.entries,
+        &evaluator.algebraic_names,
+        evaluator.algebraic_count,
+    )?;
+    validate_residual_graph_layout_entries(
+        "input",
+        &input.input_layout.entries,
+        &evaluator.input_names,
+        evaluator.input_count,
+    )?;
+    validate_residual_graph_layout_entries(
+        "parameter",
+        &input.parameter_layout.entries,
+        &evaluator.parameter_names,
+        evaluator.parameter_count,
+    )?;
+    Ok(())
+}
+
+fn validate_residual_graph_layout_entries(
+    role: &str,
+    entries: &[crate::solver::LayoutEntry],
+    expected_names: &[String],
+    expected_count: usize,
+) -> Result<(), SolverFailure> {
+    if entries.len() != expected_count {
         return Err(SolverFailure::new(
             "E-DYNAMIC-COMPONENT-RHS-LAYOUT",
-            "solver input layouts do not match the residual graph RHS variables",
+            format!("solver {role} layout count does not match residual graph {role} variables"),
         ));
+    }
+    for (entry, expected_name) in entries.iter().zip(expected_names.iter()) {
+        if entry.name != *expected_name {
+            return Err(SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-RHS-LAYOUT",
+                format!(
+                    "solver {role} layout entry `{}` does not match residual graph variable `{}`",
+                    entry.name, expected_name
+                ),
+            ));
+        }
     }
     Ok(())
 }
@@ -1419,6 +1536,44 @@ mod tests {
     }
 
     #[test]
+    fn residual_graph_explicit_euler_entrypoint_rejects_layout_name_mismatch() {
+        let graph = parameterized_residual_rhs_graph();
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "ComponentGraph",
+                SimulationPlan::default(),
+                SolverOptions::fixed_step("dynamic_component_residual_graph_explicit_euler", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(1.0, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout {
+                entries: vec![LayoutEntry::new(0, "u", "Dimensionless", "1", "1")],
+            },
+            parameter_layout: ParameterLayout {
+                entries: vec![LayoutEntry::new(0, "wrong_k", "Dimensionless", "1", "1")],
+            },
+            output_layout: OutputLayout::default(),
+            initial_state: vec![1.0],
+            inputs: vec![SolverScalar::new("u", "Dimensionless", "1", 3.0)],
+            parameters: vec![SolverScalar::new("wrong_k", "Dimensionless", "1", 2.0)],
+        };
+
+        let failure =
+            solve_residual_graph_explicit_euler(&input, &graph, DynamicComponentOptions::default())
+                .unwrap_err();
+
+        assert_eq!(failure.code, "E-DYNAMIC-COMPONENT-RHS-LAYOUT");
+        assert!(failure.message.contains("wrong_k"));
+        assert!(failure.message.contains("k"));
+    }
+
+    #[test]
     fn residual_graph_explicit_euler_entrypoint_rejects_algebraic_graph() {
         let graph = semi_implicit_residual_graph();
         let input = SolverInput {
@@ -1620,6 +1775,56 @@ mod tests {
             vec![1.0]
         );
         assert_eq!(result.algebraic_trajectories[0].values, vec![0.0]);
+    }
+
+    #[test]
+    fn residual_graph_semi_implicit_entrypoint_rejects_algebraic_layout_name_mismatch() {
+        let graph = parameterized_semi_implicit_residual_graph();
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "ComponentGraph",
+                SimulationPlan::default(),
+                SolverOptions::fixed_step("dynamic_component_residual_graph_semi_implicit", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(1.0, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout {
+                entries: vec![LayoutEntry::new(0, "u", "Dimensionless", "1", "1")],
+            },
+            parameter_layout: ParameterLayout {
+                entries: vec![LayoutEntry::new(0, "k", "Dimensionless", "1", "1")],
+            },
+            output_layout: OutputLayout::default(),
+            initial_state: vec![1.0],
+            inputs: vec![SolverScalar::new("u", "Dimensionless", "1", 5.0)],
+            parameters: vec![SolverScalar::new("k", "Dimensionless", "1", 2.0)],
+        };
+        let algebraic_layout = StateLayout::new(vec![LayoutEntry::new(
+            0,
+            "wrong_z",
+            "Dimensionless",
+            "1",
+            "1",
+        )]);
+
+        let failure = solve_residual_graph_semi_implicit_euler(
+            &input,
+            &graph,
+            algebraic_layout,
+            vec![0.0],
+            DynamicComponentOptions::default(),
+        )
+        .unwrap_err();
+
+        assert_eq!(failure.code, "E-DYNAMIC-COMPONENT-RHS-LAYOUT");
+        assert!(failure.message.contains("wrong_z"));
+        assert!(failure.message.contains("z"));
     }
 
     #[test]
