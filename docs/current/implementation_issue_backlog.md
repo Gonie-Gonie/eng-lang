@@ -75,6 +75,9 @@ Current coverage:
   convergence status, and failure reason from `report_spec.json`/`result.engres`.
 - IDE panels expose system equation dependency rows from `system_ir` so variable
   dependencies and derivative states are visible without raw JSON.
+- `artifacts-check` snapshots the official one-state solver artifact contract
+  across `review.json` `simulation_results`, `report_spec.json`
+  `system_ir[].solver_results`, and `result.engres` `solver_result` fields.
 
 Title: `ide: add side-effect artifact panels`
 

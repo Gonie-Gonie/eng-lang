@@ -209,7 +209,9 @@ the runtime-visible solver inspector fields: state/input/parameter/output
 names, currently empty algebraic-variable lists for non-DAE paths, timestep,
 method, tolerance, iteration count, convergence status, failure reason, and
 trajectory points. `review.json` runtime augmentation groups the same data under
-`simulation_results[]` for IDE/reviewer panels.
+`simulation_results[]` for IDE/reviewer panels. The official one-state thermal
+example is pinned by the artifact golden baseline so these solver fields remain
+present in review, report spec, and result artifacts.
 
 For the domain/component connection-constraint check, `result.engres` also records
 `typed_payload.component_solutions`. Each entry includes the assembly name,
