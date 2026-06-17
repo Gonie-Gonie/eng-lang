@@ -142,6 +142,11 @@ are not public stable workflows.
   solver artifacts. They are not a supported general nonlinear, DAE, adaptive,
   matrix-entry unit-compatible, or component-coupled state-space simulation
   workflow.
+- Solver algorithm seeds: dense linear solve, fixed-point iteration with
+  nonconvergence diagnostics, and standalone finite-difference damped Newton
+  solve with residual history and failure artifacts. Newton is not wired into
+  language-level nonlinear systems, component assembly, DAE solving, or
+  analytic/JIT Jacobians.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,
   generated connection-equation metadata, residual graph metadata,
   structured residual evaluator input, domain-plan metadata, IDE component

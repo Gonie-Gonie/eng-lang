@@ -92,6 +92,28 @@ Definition of Done:
   broader operator algebra policy, and public stability wording.
 - No nonlinear/DAE/adaptive or component-coupled solver claim is made.
 
+## Nonlinear / DAE Solver
+
+Title: `solver: integrate nonlinear and DAE paths beyond standalone algorithm seeds`
+
+Current coverage:
+
+- Runtime has a standalone finite-difference damped Newton algorithm seed with
+  residual-history, convergence-status, singular-Jacobian, invalid-option, and
+  nonconvergence tests.
+- Runtime also has dense linear and fixed-point algorithm seeds.
+
+Definition of Done:
+
+- Wire Newton or quasi-Newton solving into language-level nonlinear residual
+  systems.
+- Add analytic/JIT Jacobian hooks without making native-code speedup claims.
+- Add DAE residual form `F(x, xdot, z, u, t, p)` and an implicit Euler seed.
+- Add initial-condition consistency diagnostics.
+- Add runtime examples for a small nonlinear system and a small implicit DAE.
+- Keep unsupported paths explicit in review/report/IDE artifacts until
+  integrated solving is truly available.
+
 ## Class/Domain Objects
 
 Title: `class: close runtime object support before any stable claim`
