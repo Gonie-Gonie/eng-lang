@@ -221,6 +221,8 @@ Current coverage:
 
 - IDE Assembly panel renders component graph components, ports, connections,
   labels, statuses, and source-line navigation from `component_graph`.
+- IDE Assembly panel renders behavior nodes plus generated equation and
+  evaluated residual rows from assembly artifacts.
 
 Title: `assembly: harden generated equations and residual graph artifacts`
 
@@ -231,6 +233,8 @@ Definition of Done:
 - Record state/algebraic/input/output classification, equation count, unknown
   count, residual list, dependency graph, algebraic-loop seed, sparsity
   placeholder, and solver-plan placeholder.
-- Report and IDE show generated equations and residual graph.
+- Report and IDE show generated equations, source-line links, generated
+  reasons, residual values, normalized residuals, scale policy, and residual
+  graph metadata.
 - Under/overdetermined cases produce diagnostics or limitation artifacts.
 - No production multi-domain solver claim is made.

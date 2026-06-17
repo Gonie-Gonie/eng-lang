@@ -343,6 +343,7 @@ pub struct ComponentAssemblyEquationInfo {
     pub domain: String,
     pub expression: String,
     pub residual: String,
+    pub reason: String,
     pub dependencies: Vec<String>,
     pub status: String,
     pub line: usize,
@@ -4756,6 +4757,7 @@ fn build_component_assembly_graphs(
                     domain: connection_set.domain.clone(),
                     expression: format!("{left} eq {right}"),
                     residual,
+                    reason: component_generated_equation_reason("across_equality"),
                     dependencies,
                     status: "assembly_seed".to_owned(),
                     line: connection_set.line,
@@ -4785,6 +4787,7 @@ fn build_component_assembly_graphs(
                 domain: connection_set.domain.clone(),
                 expression: format!("sum({}) eq 0", dependencies.join(", ")),
                 residual: dependencies.join(" + "),
+                reason: component_generated_equation_reason("through_conservation"),
                 dependencies,
                 status: "assembly_seed".to_owned(),
                 line: connection_set.line,
@@ -5012,6 +5015,18 @@ fn count_component_expression_calls(components: &[ComponentInfo], needles: &[&st
             needles.iter().any(|needle| expression.contains(needle))
         })
         .count()
+}
+
+fn component_generated_equation_reason(kind: &str) -> String {
+    match kind {
+        "across_equality" => {
+            "generated from across variable equality within a connection set".to_owned()
+        }
+        "through_conservation" => {
+            "generated from through variable conservation within a connection set".to_owned()
+        }
+        _ => "generated from component assembly metadata".to_owned(),
+    }
 }
 
 fn build_component_solver_preview(

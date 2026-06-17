@@ -166,8 +166,10 @@ are not public stable workflows.
   language-level behavior graph solving.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,
   generated connection-equation metadata, residual graph metadata,
-  structured residual evaluator input, domain-plan metadata, IDE component
-  graph source-line navigation, and connection constraint consistency artifacts.
+  structured residual evaluator input, normalized residual evaluation,
+  generated-equation reasons, domain-plan metadata, IDE component graph and
+  equation/residual source-line inspection, and connection constraint
+  consistency artifacts.
   LSP port hovers expose
   type/base-domain and medium/frame/axis labels. It is not a production
   component-graph or multi-domain solver.

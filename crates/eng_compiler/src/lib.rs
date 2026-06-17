@@ -2890,6 +2890,10 @@ pub fn review_json(report: &CheckReport) -> String {
                 json_escape(&equation.residual)
             ));
             json.push_str(&format!(
+                "          \"reason\": \"{}\",\n",
+                json_escape(&equation.reason)
+            ));
+            json.push_str(&format!(
                 "          \"status\": \"{}\",\n",
                 json_escape(&equation.status)
             ));
@@ -4658,6 +4662,8 @@ mod tests {
             .equations
             .iter()
             .any(|equation| equation.kind == "through_conservation"));
+        assert!(assembly.equations.iter().any(|equation| equation.reason
+            == "generated from through variable conservation within a connection set"));
         assert_eq!(assembly.boundary.algebraic_count, 4);
         assert_eq!(assembly.boundary.equation_count, 2);
         assert_eq!(assembly.boundary.balance_status, "underdetermined_seed");
@@ -4699,6 +4705,9 @@ mod tests {
         assert!(review.contains("\"behavior_kind\": \"delay\""));
         assert!(review.contains("\"connection_set_1\""));
         assert!(review.contains("\"through_conservation\""));
+        assert!(
+            review.contains("generated from through variable conservation within a connection set")
+        );
         assert!(review.contains("\"component_residual_graph\""));
         assert!(review.contains("\"type_parameters\""));
         assert!(review.contains("\"kind\": \"Medium\""));

@@ -846,6 +846,7 @@
         "domain",
         "expression",
         "residual",
+        "reason",
         "status",
         "line",
         "dependencies"
@@ -856,6 +857,7 @@
         "domain": { "type": "string" },
         "expression": { "type": "string" },
         "residual": { "type": "string" },
+        "reason": { "type": "string" },
         "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 },
         "dependencies": {

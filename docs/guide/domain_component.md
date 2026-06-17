@@ -191,9 +191,9 @@ exist, package/version metadata, generic type parameters, which component ports
 reference them, port type arguments, and whether each connection is currently
 `domain_compatible` or diagnostic-only.
 The `assembly_summary` section shows connection sets, generated connection
-equations, variable/equation counts, residual graph dependencies, and solver
-plan placeholders. It also includes `domain_count`, `domain_plans`, and
-`solver_preview` so report, IDE, and automation consumers can distinguish a
+equations, generated reasons, variable/equation counts, residual graph
+dependencies, and solver plan placeholders. It also includes `domain_count`,
+`domain_plans`, and `solver_preview` so report, IDE, and automation consumers can distinguish a
 single-domain graph from a multi-domain metadata graph.
 The `component_graph` section is a normalized graph JSON view with component
 nodes, port nodes, connection edges, connection sets, domain labels,
@@ -205,10 +205,10 @@ port, component, and behavior rows jump back to their recorded source lines.
 `assembly_summary.local_expression_count` record component-local `name = expr`
 metadata without promoting it to the root runtime object store.
 The runtime result also includes `component_solutions` with residual values,
-convergence status, solved linear variables when a square system is available,
-zero-seed variables for skipped non-square graphs, and failure/limitation
-artifacts. Runtime `report_spec.json` mirrors the same details under
-`assembly_summary[].solver_result`.
+normalized residuals, convergence status, solved linear variables when a square
+system is available, zero-seed variables for skipped non-square graphs, and
+failure/limitation artifacts. Runtime `report_spec.json` mirrors the same
+details under `assembly_summary[].solver_result`.
 
 The generated `report_spec.json` follows
 [`docs/schemas/report_spec.schema.json`](../schemas/report_spec.schema.json), so

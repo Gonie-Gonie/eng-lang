@@ -210,9 +210,11 @@ Implementation seeds on `main`:
 - connection-set assembly metadata
 - generated connection-equation and residual graph placeholders
 - equation/unknown count metadata
+- generated-equation reasons and normalized residual evaluation artifacts
 - domain-plan based multi-domain metadata
 - connection constraint consistency artifacts
 - IDE Domain Graph inspection
+- IDE assembly equation/residual inspection
 - LSP completion/hover metadata
 - domain contract and compatibility diagnostics
 ```

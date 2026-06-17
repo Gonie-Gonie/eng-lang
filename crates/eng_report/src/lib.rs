@@ -592,6 +592,7 @@ pub struct ReportAssemblyEquation {
     pub domain: String,
     pub expression: String,
     pub residual: String,
+    pub reason: String,
     pub dependencies: Vec<String>,
     pub status: String,
     pub line: usize,
@@ -1288,6 +1289,7 @@ pub fn report_spec_from_report(
                     domain: equation.domain.clone(),
                     expression: equation.expression.clone(),
                     residual: equation.residual.clone(),
+                    reason: equation.reason.clone(),
                     dependencies: equation.dependencies.clone(),
                     status: equation.status.clone(),
                     line: equation.line,
@@ -3058,6 +3060,10 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
                 json_escape(&equation.residual)
             ));
             json.push_str(&format!(
+                "          \"reason\": \"{}\",\n",
+                json_escape(&equation.reason)
+            ));
+            json.push_str(&format!(
                 "          \"status\": \"{}\",\n",
                 json_escape(&equation.status)
             ));
@@ -4755,13 +4761,14 @@ fn render_html_inner(
         for equation in &assembly.equations {
             assembly_summary.push_str("<tr>");
             assembly_summary.push_str(&format!(
-                "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><code>{}</code><br><small>residual: {}</small></td><td>{}</td>",
+                "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><code>{}</code><br><small>residual: {}</small><br><small>reason: {}</small></td><td>{}</td>",
                 equation.line,
                 html_escape(&equation.kind),
                 html_escape(&equation.name),
                 html_escape(&equation.domain),
                 html_escape(&equation.expression),
                 html_escape(&equation.residual),
+                html_escape(&equation.reason),
                 html_escape(&equation.status)
             ));
             assembly_summary.push_str("</tr>");
@@ -6568,6 +6575,11 @@ mod tests {
         assert_eq!(spec.assemblies[0].connection_sets.len(), 1);
         assert_eq!(spec.assemblies[0].local_expression_count, 1);
         assert_eq!(spec.assemblies[0].equations.len(), 2);
+        assert!(spec.assemblies[0]
+            .equations
+            .iter()
+            .any(|equation| equation.reason
+                == "generated from through variable conservation within a connection set"));
         assert_eq!(spec.assemblies[0].boundary.unknown_count, 4);
         assert_eq!(spec.assemblies[0].domain_count, 1);
         assert_eq!(spec.assemblies[0].domain_plans[0].domain, "Fluid[Water]");
@@ -6595,6 +6607,9 @@ mod tests {
         assert!(json.contains("\"source_span\""));
         assert!(json.contains("\"assembly_count\": 1"));
         assert!(json.contains("\"through_conservation\""));
+        assert!(
+            json.contains("generated from through variable conservation within a connection set")
+        );
         assert!(json.contains("\"jacobian_sparsity\""));
         assert!(json.contains("\"package\": \"eng.std.domains.fluid\""));
         assert!(json.contains("\"kind\": \"Medium\""));
@@ -6612,6 +6627,7 @@ mod tests {
         assert!(html.contains("Component Assembly"));
         assert!(html.contains("constraint check"));
         assert!(html.contains("domain plan"));
+        assert!(html.contains("generated from through variable conservation"));
         assert!(html.contains("component_residual_graph"));
         assert!(html.contains("domain_compatible"));
     }

@@ -796,6 +796,10 @@ function renderAssemblyPanel() {
     </div>
     <div class="scroll">
       ${renderAssemblies()}
+      <div class="panel-title compact">Equations</div>
+      ${renderAssemblyEquations()}
+      <div class="panel-title compact">Residuals</div>
+      ${renderAssemblyResiduals()}
       <div class="panel-title compact">Component Graph</div>
       ${renderComponentGraph()}
     </div>
@@ -1111,7 +1115,7 @@ function renderAssemblies() {
         <td><strong>${escapeHtml(assembly.name || "-")}</strong><div class="muted">${escapeHtml(assembly.status || "-")}</div></td>
         <td>${escapeHtml(assembly.component_count ?? assembly.componentCount ?? 0)} / ${escapeHtml(assembly.port_count ?? assembly.portCount ?? 0)}</td>
         <td>${escapeHtml(setCount)}<div class="muted">domains ${escapeHtml(domainCount)}</div></td>
-        <td>${escapeHtml(Array.isArray(assembly.equations) ? assembly.equations.length : 0)}<div class="muted">unknowns ${escapeHtml(boundary.unknown_count ?? boundary.unknownCount ?? 0)}</div></td>
+        <td>${escapeHtml(Array.isArray(assembly.equations) ? assembly.equations.length : 0)}<div class="muted">component ${escapeHtml(assembly.component_equation_count ?? assembly.componentEquationCount ?? 0)}</div><div class="muted">unknowns ${escapeHtml(boundary.unknown_count ?? boundary.unknownCount ?? 0)}</div></td>
         <td>${escapeHtml(solverStatus)}<div class="muted">${escapeHtml(solverMethod)}</div><div class="muted">${escapeHtml(limitations)}</div></td>
         <td>${metricCell(solverResult.residual_norm ?? solverResult.residualNorm)}<div class="muted">iter ${escapeHtml(solverResult.iteration_count ?? solverResult.iterationCount ?? "-")}</div></td>
         <td>${escapeHtml(componentSolverVariableSummary(solverResult.variables))}</td>
@@ -1123,6 +1127,54 @@ function renderAssemblies() {
     <table class="var-table">
       <thead><tr><th>Graph</th><th>Comp/Ports</th><th>Sets</th><th>Eq</th><th>Solver</th><th>Residual</th><th>Variables</th><th>Largest</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="8" class="muted">Run a domain/component workflow.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderAssemblyEquations() {
+  const rows = inspectorRows("assemblies").flatMap((assembly) => {
+    const equations = Array.isArray(assembly.equations) ? assembly.equations : [];
+    return equations.map((equation) => `
+      <tr>
+        <td><strong>${escapeHtml(assembly.name || "-")}</strong><div class="muted">${escapeHtml(equation.kind || "-")}</div></td>
+        <td><code>${escapeHtml(equation.expression || "-")}</code><div class="muted">residual ${escapeHtml(equation.residual || "-")}</div></td>
+        <td>${escapeHtml(Array.isArray(equation.dependencies) ? equation.dependencies.join(", ") : "-")}</td>
+        <td>${escapeHtml(equation.reason || "-")}<div class="muted">${escapeHtml(equation.status || "-")}</div></td>
+        <td>${sourceLineButton(equation)}</td>
+      </tr>
+    `);
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Assembly</th><th>Generated Equation</th><th>Dependencies</th><th>Reason</th><th>Source</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">No generated equations.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderAssemblyResiduals() {
+  const rows = inspectorRows("assemblies").flatMap((assembly) => {
+    const solverResult = assembly.solver_result || assembly.solverResult || {};
+    const residuals = Array.isArray(solverResult.residuals) ? solverResult.residuals : [];
+    return residuals.map((residual) => {
+      const normalized = residual.normalized_value ?? residual.normalizedValue;
+      const scale = residual.scale ?? "-";
+      const scalePolicy = residual.scale_policy ?? residual.scalePolicy ?? "-";
+      return `
+        <tr>
+          <td><strong>${escapeHtml(assembly.name || "-")}</strong><div class="muted">${escapeHtml(residual.name || "-")}</div></td>
+          <td><code>${escapeHtml(residual.expression || "-")}</code></td>
+          <td>${metricCell(residual.value)} ${escapeHtml(residual.unit || "")}</td>
+          <td>${metricCell(normalized)}<div class="muted">scale ${metricCell(scale)} ${escapeHtml(scalePolicy)}</div></td>
+          <td>${escapeHtml(residual.status || "-")}</td>
+        </tr>
+      `;
+    });
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Assembly</th><th>Residual</th><th>Value</th><th>Normalized</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">No evaluated residuals.</td></tr>`}</tbody>
     </table>
   `;
 }
