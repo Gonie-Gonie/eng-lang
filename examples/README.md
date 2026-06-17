@@ -97,6 +97,12 @@ official/20_multi_state_thermal
   TimeSeries input binding, fixed-step RK4 execution, and plot/report artifacts
   for sim.T_air and sim.T_wall. This is not a nonlinear, DAE, adaptive, or
   production component-graph solver.
+
+official/21_thermal_component_assembly
+  Focused thermal component assembly with generated connection equations,
+  component-local boundary RHS equations, a square residual graph, and a dense
+  linear residual solve artifact. This is not a production multi-domain
+  component solver.
 ```
 
 ## Internal Implementation Fixtures

@@ -553,6 +553,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/17_measured_vs_simulated/main.eng",
                 "examples/official/19_class_object/main.eng",
                 "examples/official/20_multi_state_thermal/main.eng",
+                "examples/official/21_thermal_component_assembly/main.eng",
             ],
         ),
         (
@@ -752,6 +753,50 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("component boundary solve fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("examples/official/21_thermal_component_assembly/main.eng"),
+        Path::new("build/test-thermal-component-assembly"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"solved_linear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dense_linear_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"name\": \"RoomBoundary.heat.T\"")
+                || !output.result_json.contains("\"value\": 22.00000000")
+                || !output
+                    .result_json
+                    .contains("\"name\": \"AmbientBoundary.heat.Q\"")
+                || !output.result_json.contains("\"value\": -1.00000000")
+                || !output
+                    .report_spec_json
+                    .contains("\"kind\": \"component_boundary\"")
+                || !output.report_spec_json.contains("\"rhs\": \"22 degC\"")
+                || !output.report_spec_json.contains("\"rhs\": \"1 kW\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"component_equation_count\": 2")
+                || !output.report_spec_json.contains("\"residual_norm\"")
+                || !output.report_html.contains("solved_linear")
+                || !output.report_html.contains("component_boundary")
+            {
+                eprintln!(
+                    "expected official thermal component assembly example to solve a square linear residual graph"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/21_thermal_component_assembly/main.eng solved thermal component assembly residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("thermal component assembly example failed: {error}");
             return ExitCode::from(1);
         }
     }

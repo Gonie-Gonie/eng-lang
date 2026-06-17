@@ -253,6 +253,9 @@ Current coverage:
 - Internal boundary fixtures can promote component-local `port.signal = literal`
   expressions into boundary residual equations and solve square dense linear
   residual graphs with explicit variable, residual, and RHS artifacts.
+- `examples/official/21_thermal_component_assembly` exercises the focused
+  Thermal assembly path with generated connection equations, component-boundary
+  RHS equations, a square residual graph, and dense linear solver artifacts.
 - Runtime has an internal dynamic-component solver seed, but component graph
   assembly is not yet lowered into that numeric path.
 

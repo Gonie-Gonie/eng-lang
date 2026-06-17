@@ -237,6 +237,11 @@ re-parsing source files.
   `MechanicalNode[World, X]` domain connections with package/version metadata
   and structured generic parameter metadata. Its assembly artifacts report
   three domain plans and `solver_preview.status = multi_domain_preview`.
+- `examples/official/21_thermal_component_assembly/main.eng`
+  focuses on one Thermal connection set with component-local boundary RHS
+  equations. Its artifacts record generated connection equations, a square
+  residual graph, dense linear solve status, solved variables, and residual
+  values without claiming a production multi-domain component solver.
 - `examples/05_error_messages/port_domain_mismatch.eng`
   intentionally connects a Thermal port to a Fluid port and should report
   `E-CONNECT-DOMAIN-001` with a non-zero check exit.
