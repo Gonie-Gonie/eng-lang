@@ -1,0 +1,10 @@
+domain Thermal {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+component Source {
+    port out: Thermal
+    prediction = predict(out.unknown)
+}

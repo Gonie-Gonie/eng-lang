@@ -177,7 +177,8 @@ Current coverage:
   evaluation tests.
 - Component local expressions now diagnose invalid `delay(signal, duration)`
   calls, including missing arguments, unknown component port variables, and
-  non-duration delay values.
+  non-duration delay values. Example-smoke fixtures cover the public diagnostic
+  codes for invalid durations and behavior call shapes.
 - Component local Predictor and external behavior expressions now diagnose
   invalid seed syntax and unknown component port variables before they become
   behavior-node metadata.
