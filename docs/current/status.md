@@ -159,8 +159,9 @@ are not public stable workflows.
   policy. Runtime also has an external function/process behavior wrapper with
   typed contracts, provenance hash, determinism metadata, safe/repro profile
   policy, and adapter failure propagation. Component artifacts distinguish
-  delay/Predictor/external calls as runtime seeds, but behavior nodes are not
-  wired into language-level behavior graph solving.
+  delay/Predictor/external calls as runtime seeds through component graph,
+  report, and IDE behavior nodes, but behavior nodes are not wired into
+  language-level behavior graph solving.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,
   generated connection-equation metadata, residual graph metadata,
   structured residual evaluator input, domain-plan metadata, IDE component

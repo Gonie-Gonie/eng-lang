@@ -94,6 +94,7 @@ Internal runtime seeds:
 - delay buffer with interpolation and initial-history policies
 - Predictor contract wrapper with model hash, range warnings, and Jacobian policy
 - external behavior wrapper with provenance, profile policy, and failure propagation
+- component graph/report/IDE behavior nodes for delay, Predictor, and external calls
 ```
 
 Deferred:

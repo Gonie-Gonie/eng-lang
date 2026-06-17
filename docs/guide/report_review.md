@@ -117,8 +117,9 @@ Report/IDE largest-residual summaries use the normalized residual so different
 units do not dominate the diagnostic ordering by magnitude alone.
 `component_graph` is the graph-shaped companion artifact for the same track:
 components and ports are nodes, connections are edges, connection sets are
-grouped by assembly, and each node/edge carries source span and domain label
-metadata for report, IDE, and automation tooling.
+grouped by assembly, behavior nodes record delay/Predictor/external
+expressions, and each node/edge carries source span and domain label metadata
+for report, IDE, and automation tooling.
 
 `plot_manifest` in `review.json` declares the runtime path that `eng run` will use. It does not carry the runtime manifest hash because `eng check --review` does not render plots.
 

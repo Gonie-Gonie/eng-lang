@@ -408,6 +408,7 @@ pub struct ReportComponentGraph {
     pub ports: Vec<ReportComponentGraphPort>,
     pub connections: Vec<ReportComponentGraphConnection>,
     pub connection_sets: Vec<ReportComponentGraphConnectionSet>,
+    pub behavior_nodes: Vec<ReportComponentGraphBehaviorNode>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -465,6 +466,19 @@ pub struct ReportComponentGraphConnectionSet {
     pub status: String,
     pub connection_count: usize,
     pub ports: Vec<String>,
+    pub line: usize,
+    pub source_span: ReportSourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComponentGraphBehaviorNode {
+    pub id: String,
+    pub kind: String,
+    pub behavior_kind: String,
+    pub component: String,
+    pub name: String,
+    pub expression: String,
+    pub status: String,
     pub line: usize,
     pub source_span: ReportSourceSpan,
 }
@@ -1757,17 +1771,61 @@ fn report_component_graph(report: &CheckReport) -> ReportComponentGraph {
             })
         })
         .collect::<Vec<_>>();
+    let behavior_nodes = report_component_behavior_nodes(report);
 
     ReportComponentGraph {
         format: "eng-component-graph-v1".to_owned(),
         status: status.to_owned(),
-        node_count: program.components.len() + port_count,
+        node_count: program.components.len() + port_count + behavior_nodes.len(),
         edge_count: program.connections.len(),
         components,
         ports,
         connections,
         connection_sets,
+        behavior_nodes,
     }
+}
+
+fn report_component_behavior_nodes(report: &CheckReport) -> Vec<ReportComponentGraphBehaviorNode> {
+    report
+        .semantic_program
+        .components
+        .iter()
+        .flat_map(|component| {
+            component.local_expressions.iter().flat_map(move |local| {
+                report_behavior_node_kinds(&local.expression)
+                    .into_iter()
+                    .map(
+                        move |(behavior_kind, status)| ReportComponentGraphBehaviorNode {
+                            id: format!("{}.{}:{}", component.name, local.name, behavior_kind),
+                            kind: "behavior".to_owned(),
+                            behavior_kind: behavior_kind.to_owned(),
+                            component: component.name.clone(),
+                            name: local.name.clone(),
+                            expression: local.expression.clone(),
+                            status: status.to_owned(),
+                            line: local.line,
+                            source_span: report_source_span(local.line),
+                        },
+                    )
+            })
+        })
+        .collect()
+}
+
+fn report_behavior_node_kinds(expression: &str) -> Vec<(&'static str, &'static str)> {
+    let normalized = expression.to_ascii_lowercase();
+    let mut nodes = Vec::new();
+    if normalized.contains("delay(") {
+        nodes.push(("delay", "delay_call_runtime_buffer_seed_not_integrated"));
+    }
+    if normalized.contains("predict(") || normalized.contains("predictor(") {
+        nodes.push(("predictor", "predictor_call_contract_seed_not_integrated"));
+    }
+    if normalized.contains("external(") || normalized.contains("adapter(") {
+        nodes.push(("external", "external_behavior_wrapper_seed_not_integrated"));
+    }
+    nodes
 }
 
 fn report_domain_argument_labels(
@@ -4532,6 +4590,24 @@ fn render_html_inner(
         component_summary.push_str("<tr><td colspan=\"5\">No component ports.</td></tr>");
     }
 
+    let mut component_behavior = String::new();
+    for node in report_component_behavior_nodes(report) {
+        component_behavior.push_str("<tr>");
+        component_behavior.push_str(&format!(
+            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><code>{}</code></td><td>{}</td>",
+            node.line,
+            html_escape(&node.component),
+            html_escape(&node.name),
+            html_escape(&node.behavior_kind),
+            html_escape(&node.expression),
+            html_escape(&node.status)
+        ));
+        component_behavior.push_str("</tr>");
+    }
+    if component_behavior.is_empty() {
+        component_behavior.push_str("<tr><td colspan=\"6\">No component behavior nodes.</td></tr>");
+    }
+
     let mut connection_summary = String::new();
     for connection in &report.semantic_program.connections {
         connection_summary.push_str("<tr>");
@@ -5097,6 +5173,11 @@ fn render_html_inner(
     <table>
       <thead><tr><th>Line</th><th>Component</th><th>Port</th><th>Domain</th><th>Status</th></tr></thead>
       <tbody>{component_summary}</tbody>
+    </table>
+    <h2>Component Behavior</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Component</th><th>Name</th><th>Kind</th><th>Expression</th><th>Status</th></tr></thead>
+      <tbody>{component_behavior}</tbody>
     </table>
     <h2>Connections</h2>
     <table>
@@ -5750,6 +5831,43 @@ fn write_report_component_graph_json(json: &mut String, graph: &ReportComponentG
         write_report_source_span_json(json, "        ", &connection_set.source_span, false);
         json.push_str("\n      }");
     }
+    json.push_str("\n    ],\n");
+
+    json.push_str("    \"behavior_nodes\": [\n");
+    for (node_index, node) in graph.behavior_nodes.iter().enumerate() {
+        if node_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!("        \"id\": \"{}\",\n", json_escape(&node.id)));
+        json.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&node.kind)
+        ));
+        json.push_str(&format!(
+            "        \"behavior_kind\": \"{}\",\n",
+            json_escape(&node.behavior_kind)
+        ));
+        json.push_str(&format!(
+            "        \"component\": \"{}\",\n",
+            json_escape(&node.component)
+        ));
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&node.name)
+        ));
+        json.push_str(&format!(
+            "        \"expression\": \"{}\",\n",
+            json_escape(&node.expression)
+        ));
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&node.status)
+        ));
+        json.push_str(&format!("        \"line\": {},\n", node.line));
+        write_report_source_span_json(json, "        ", &node.source_span, false);
+        json.push_str("\n      }");
+    }
     json.push_str("\n    ]\n");
     json.push_str("  }");
 }
@@ -6354,8 +6472,13 @@ mod tests {
         );
         assert_eq!(spec.connections[0].status, "domain_compatible");
         assert_eq!(spec.component_graph.format, "eng-component-graph-v1");
-        assert_eq!(spec.component_graph.node_count, 4);
+        assert_eq!(spec.component_graph.node_count, 5);
         assert_eq!(spec.component_graph.edge_count, 1);
+        assert_eq!(spec.component_graph.behavior_nodes.len(), 1);
+        assert_eq!(
+            spec.component_graph.behavior_nodes[0].behavior_kind,
+            "delay"
+        );
         assert_eq!(
             spec.component_graph.ports[0].medium_label.as_deref(),
             Some("Water")
@@ -6385,6 +6508,8 @@ mod tests {
         assert!(json.contains("\"assembly_summary\""));
         assert!(json.contains("\"solver_result\": null"));
         assert!(json.contains("\"component_graph\""));
+        assert!(json.contains("\"behavior_nodes\""));
+        assert!(json.contains("\"behavior_kind\": \"delay\""));
         assert!(json.contains("\"medium_label\": \"Water\""));
         assert!(json.contains("\"source_span\""));
         assert!(json.contains("\"assembly_count\": 1"));

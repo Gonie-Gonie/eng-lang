@@ -3950,7 +3950,8 @@ fn write_component_graph_json(json: &mut String, program: &semantic::SemanticPro
         .iter()
         .map(|component| component.ports.len())
         .sum::<usize>();
-    let node_count = program.components.len() + port_count;
+    let behavior_nodes = component_behavior_nodes(program);
+    let node_count = program.components.len() + port_count + behavior_nodes.len();
     let status = if program.components.is_empty() {
         "empty"
     } else if program
@@ -4162,8 +4163,90 @@ fn write_component_graph_json(json: &mut String, program: &semantic::SemanticPro
             json.push_str("\n      }");
         }
     }
+    json.push_str("\n    ],\n");
+
+    json.push_str("    \"behavior_nodes\": [\n");
+    for (node_index, node) in behavior_nodes.iter().enumerate() {
+        if node_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!("        \"id\": \"{}\",\n", json_escape(&node.id)));
+        json.push_str("        \"kind\": \"behavior\",\n");
+        json.push_str(&format!(
+            "        \"behavior_kind\": \"{}\",\n",
+            json_escape(&node.behavior_kind)
+        ));
+        json.push_str(&format!(
+            "        \"component\": \"{}\",\n",
+            json_escape(&node.component)
+        ));
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&node.name)
+        ));
+        json.push_str(&format!(
+            "        \"expression\": \"{}\",\n",
+            json_escape(&node.expression)
+        ));
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&node.status)
+        ));
+        json.push_str(&format!("        \"line\": {},\n", node.line));
+        write_source_span_json(json, "        ", node.line, false);
+        json.push_str("\n      }");
+    }
     json.push_str("\n    ]\n");
     json.push_str("  }");
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ComponentBehaviorNode {
+    id: String,
+    behavior_kind: String,
+    component: String,
+    name: String,
+    expression: String,
+    status: String,
+    line: usize,
+}
+
+fn component_behavior_nodes(program: &semantic::SemanticProgram) -> Vec<ComponentBehaviorNode> {
+    program
+        .components
+        .iter()
+        .flat_map(|component| {
+            component.local_expressions.iter().flat_map(move |local| {
+                behavior_node_kinds(&local.expression).into_iter().map(
+                    move |(behavior_kind, status)| ComponentBehaviorNode {
+                        id: format!("{}.{}:{}", component.name, local.name, behavior_kind),
+                        behavior_kind: behavior_kind.to_owned(),
+                        component: component.name.clone(),
+                        name: local.name.clone(),
+                        expression: local.expression.clone(),
+                        status: status.to_owned(),
+                        line: local.line,
+                    },
+                )
+            })
+        })
+        .collect()
+}
+
+fn behavior_node_kinds(expression: &str) -> Vec<(&'static str, &'static str)> {
+    let normalized = expression.to_ascii_lowercase();
+    let mut nodes = Vec::new();
+    if normalized.contains("delay(") {
+        nodes.push(("delay", "delay_call_runtime_buffer_seed_not_integrated"));
+    }
+    if normalized.contains("predict(") || normalized.contains("predictor(") {
+        nodes.push(("predictor", "predictor_call_contract_seed_not_integrated"));
+    }
+    if normalized.contains("external(") || normalized.contains("adapter(") {
+        nodes.push(("external", "external_behavior_wrapper_seed_not_integrated"));
+    }
+    nodes
 }
 
 fn domain_argument_labels(
@@ -4610,8 +4693,10 @@ mod tests {
         assert!(review.contains("\"assembly_summary\""));
         assert!(review.contains("\"component_graph\""));
         assert!(review.contains("\"format\": \"eng-component-graph-v1\""));
-        assert!(review.contains("\"node_count\": 4"));
+        assert!(review.contains("\"node_count\": 5"));
         assert!(review.contains("\"edge_count\": 1"));
+        assert!(review.contains("\"behavior_nodes\""));
+        assert!(review.contains("\"behavior_kind\": \"delay\""));
         assert!(review.contains("\"connection_set_1\""));
         assert!(review.contains("\"through_conservation\""));
         assert!(review.contains("\"component_residual_graph\""));

@@ -780,12 +780,16 @@ function renderAssemblyPanel() {
   const graph = inspectorObject("componentGraph");
   const components = Array.isArray(graph.components) ? graph.components.length : 0;
   const connections = Array.isArray(graph.connections) ? graph.connections.length : 0;
+  const behaviorNodes = Array.isArray(graph.behavior_nodes)
+    ? graph.behavior_nodes.length
+    : (Array.isArray(graph.behaviorNodes) ? graph.behaviorNodes.length : 0);
   return `
     <div class="panel-title compact">Assembly</div>
     <div class="badges">
       <span class="badge">Graphs ${inspectorRows("assemblies").length}</span>
       <span class="badge">Components ${components}</span>
       <span class="badge">Connections ${connections}</span>
+      <span class="badge">Behavior ${behaviorNodes}</span>
     </div>
     <div class="scroll">
       ${renderAssemblies()}
@@ -1089,6 +1093,9 @@ function renderComponentGraph() {
   const components = Array.isArray(graph.components) ? graph.components : [];
   const ports = Array.isArray(graph.ports) ? graph.ports : [];
   const connections = Array.isArray(graph.connections) ? graph.connections : [];
+  const behaviorNodes = Array.isArray(graph.behavior_nodes)
+    ? graph.behavior_nodes
+    : (Array.isArray(graph.behaviorNodes) ? graph.behaviorNodes : []);
   const componentRows = components.map((component) => `
     <tr>
       <td><strong>${escapeHtml(component.name || "-")}</strong><div class="muted">${escapeHtml(component.kind || "-")}</div></td>
@@ -1115,6 +1122,14 @@ function renderComponentGraph() {
       <td>${sourceLineButton(port)}</td>
     </tr>
   `).join("");
+  const behaviorRows = behaviorNodes.map((node) => `
+    <tr>
+      <td><strong>${escapeHtml(node.component || "-")}.${escapeHtml(node.name || "-")}</strong><div class="muted">${escapeHtml(node.behavior_kind || node.behaviorKind || "-")}</div></td>
+      <td><code>${escapeHtml(node.expression || "-")}</code></td>
+      <td>${escapeHtml(node.status || "-")}</td>
+      <td>${sourceLineButton(node)}</td>
+    </tr>
+  `).join("");
   return `
     <table class="var-table">
       <thead><tr><th>Component</th><th>Ports</th><th>Port IDs</th><th>Source</th></tr></thead>
@@ -1127,6 +1142,10 @@ function renderComponentGraph() {
     <table class="var-table">
       <thead><tr><th>Port</th><th>Domain</th><th>Label</th><th>Status</th><th>Source</th></tr></thead>
       <tbody>${portRows || `<tr><td colspan="5" class="muted">No component graph ports.</td></tr>`}</tbody>
+    </table>
+    <table class="var-table">
+      <thead><tr><th>Behavior</th><th>Expression</th><th>Status</th><th>Source</th></tr></thead>
+      <tbody>${behaviorRows || `<tr><td colspan="4" class="muted">No component behavior nodes.</td></tr>`}</tbody>
     </table>
   `;
 }

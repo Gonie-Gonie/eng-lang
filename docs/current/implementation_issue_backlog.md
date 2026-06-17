@@ -163,6 +163,8 @@ Current coverage:
   `delay_call_runtime_buffer_seed_not_integrated` and Predictor calls as
   `predictor_call_contract_seed_not_integrated`; external behavior expressions
   report `external_behavior_wrapper_seed_not_integrated`.
+- Review/report/component-graph artifacts and the IDE Assembly panel expose
+  behavior nodes with source navigation metadata.
 
 Definition of Done:
 
@@ -174,8 +176,8 @@ Definition of Done:
   artifacts.
 - Wire external behavior wrappers into supported solver paths and report/IDE
   artifacts.
-- Report and IDE should show behavior contracts and invalid/extrapolated
-  behavior warnings.
+- Report and IDE should show full behavior contracts and invalid/extrapolated
+  behavior warnings once behavior nodes are connected to runtime evaluation.
 
 ## Class/Domain Objects
 

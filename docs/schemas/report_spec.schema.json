@@ -780,7 +780,8 @@
         "components",
         "ports",
         "connections",
-        "connection_sets"
+        "connection_sets",
+        "behavior_nodes"
       ],
       "properties": {
         "format": { "const": "eng-component-graph-v1" },
@@ -802,6 +803,10 @@
         "connection_sets": {
           "type": "array",
           "items": { "$ref": "#/$defs/componentGraphConnectionSet" }
+        },
+        "behavior_nodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/componentGraphBehaviorNode" }
         }
       }
     },
@@ -916,6 +921,31 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "line": { "type": "integer", "minimum": 1 },
+        "source_span": { "$ref": "#/$defs/componentGraphSourceSpan" }
+      }
+    },
+    "componentGraphBehaviorNode": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "behavior_kind",
+        "component",
+        "name",
+        "expression",
+        "status",
+        "line",
+        "source_span"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "const": "behavior" },
+        "behavior_kind": { "enum": ["delay", "predictor", "external"] },
+        "component": { "type": "string" },
+        "name": { "type": "string" },
+        "expression": { "type": "string" },
+        "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 },
         "source_span": { "$ref": "#/$defs/componentGraphSourceSpan" }
       }
