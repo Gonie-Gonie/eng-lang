@@ -294,7 +294,10 @@ Current coverage:
   `predictor_call_contract_seed_not_integrated`; external behavior expressions
   report `external_behavior_wrapper_seed_not_integrated`.
 - Review/report/component-graph artifacts and the IDE Assembly panel expose
-  behavior nodes with source navigation metadata.
+  behavior nodes with source navigation metadata, inferred input/output
+  quantity-unit contract metadata, and diagnostic channels for delay
+  history-underflow, Predictor valid-range warnings, and external
+  adapter/profile failures.
 - `examples/internal/25_component_behavior_nodes` exercises valid delay,
   Predictor, and external adapter behavior-node artifacts in the CLI example
   smoke path.

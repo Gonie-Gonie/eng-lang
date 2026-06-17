@@ -524,8 +524,22 @@ pub struct ReportComponentGraphBehaviorNode {
     pub contract_status: Option<String>,
     pub jacobian_policy: Option<String>,
     pub profile_policy: Option<String>,
+    pub contract_inputs: Vec<ReportBehaviorSignalContract>,
+    pub contract_outputs: Vec<ReportBehaviorSignalContract>,
+    pub diagnostic_channels: Vec<String>,
+    pub runtime_warning_status: Option<String>,
     pub line: usize,
     pub source_span: ReportSourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportBehaviorSignalContract {
+    pub role: String,
+    pub name: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub status: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1944,7 +1958,7 @@ fn report_component_behavior_nodes(report: &CheckReport) -> Vec<ReportComponentG
         .iter()
         .flat_map(|component| {
             component.local_expressions.iter().flat_map(move |local| {
-                report_behavior_node_seeds(&local.expression)
+                report_behavior_node_seeds(report, component, local)
                     .into_iter()
                     .map(move |seed| ReportComponentGraphBehaviorNode {
                         id: format!("{}.{}:{}", component.name, local.name, seed.behavior_kind),
@@ -1960,6 +1974,10 @@ fn report_component_behavior_nodes(report: &CheckReport) -> Vec<ReportComponentG
                         contract_status: seed.contract_status,
                         jacobian_policy: seed.jacobian_policy,
                         profile_policy: seed.profile_policy,
+                        contract_inputs: seed.contract_inputs,
+                        contract_outputs: seed.contract_outputs,
+                        diagnostic_channels: seed.diagnostic_channels,
+                        runtime_warning_status: seed.runtime_warning_status,
                         line: local.line,
                         source_span: report_source_span(local.line),
                     })
@@ -1977,18 +1995,54 @@ struct ReportBehaviorSeed {
     contract_status: Option<String>,
     jacobian_policy: Option<String>,
     profile_policy: Option<String>,
+    contract_inputs: Vec<ReportBehaviorSignalContract>,
+    contract_outputs: Vec<ReportBehaviorSignalContract>,
+    diagnostic_channels: Vec<String>,
+    runtime_warning_status: Option<String>,
 }
 
-fn report_behavior_node_seeds(expression: &str) -> Vec<ReportBehaviorSeed> {
+fn report_behavior_node_seeds(
+    report: &CheckReport,
+    component: &eng_compiler::ComponentInfo,
+    local: &eng_compiler::ComponentLocalExpressionInfo,
+) -> Vec<ReportBehaviorSeed> {
+    let expression = &local.expression;
     let normalized = expression.to_ascii_lowercase();
     let mut nodes = Vec::new();
     if normalized.contains("delay(") {
         let arguments =
             first_report_behavior_call_arguments(expression, "delay").unwrap_or_default();
+        let signal = arguments.first().cloned();
+        let mut contract_inputs = Vec::new();
+        if let Some(signal) = signal.as_deref() {
+            contract_inputs.push(report_behavior_signal_contract(
+                report, component, "input", signal,
+            ));
+        }
+        contract_inputs.push(ReportBehaviorSignalContract {
+            role: "input".to_owned(),
+            name: "tau".to_owned(),
+            quantity_kind: "Duration".to_owned(),
+            display_unit: "s".to_owned(),
+            canonical_unit: "s".to_owned(),
+            status: "literal_duration_resolved".to_owned(),
+        });
+        let contract_outputs = contract_inputs
+            .first()
+            .map(|input| ReportBehaviorSignalContract {
+                role: "output".to_owned(),
+                name: local.name.clone(),
+                quantity_kind: input.quantity_kind.clone(),
+                display_unit: input.display_unit.clone(),
+                canonical_unit: input.canonical_unit.clone(),
+                status: "same_quantity_as_delayed_signal".to_owned(),
+            })
+            .into_iter()
+            .collect();
         nodes.push(ReportBehaviorSeed {
             behavior_kind: "delay".to_owned(),
             status: "delay_call_runtime_buffer_seed_not_integrated".to_owned(),
-            signal: arguments.first().cloned(),
+            signal,
             delay_s: arguments
                 .get(1)
                 .and_then(|duration| report_duration_seconds(duration.trim())),
@@ -1996,37 +2050,153 @@ fn report_behavior_node_seeds(expression: &str) -> Vec<ReportBehaviorSeed> {
             contract_status: None,
             jacobian_policy: None,
             profile_policy: None,
+            contract_inputs,
+            contract_outputs,
+            diagnostic_channels: vec![
+                "delay_history_underflow_failure".to_owned(),
+                "delay_out_of_order_sample_failure".to_owned(),
+            ],
+            runtime_warning_status: Some("not_evaluated_in_language_behavior_graph".to_owned()),
         });
     }
     if normalized.contains("predict(") || normalized.contains("predictor(") {
+        let signal = first_report_behavior_call_arguments(expression, "predictor")
+            .or_else(|| first_report_behavior_call_arguments(expression, "predict"))
+            .and_then(|arguments| arguments.first().cloned());
+        let contract_inputs = signal
+            .as_deref()
+            .map(|signal| report_behavior_signal_contract(report, component, "input", signal))
+            .into_iter()
+            .collect();
         nodes.push(ReportBehaviorSeed {
             behavior_kind: "predictor".to_owned(),
             status: "predictor_call_contract_seed_not_integrated".to_owned(),
-            signal: first_report_behavior_call_arguments(expression, "predictor")
-                .or_else(|| first_report_behavior_call_arguments(expression, "predict"))
-                .and_then(|arguments| arguments.first().cloned()),
+            signal,
             delay_s: None,
             relationship_status: None,
             contract_status: Some("predictor_contract_metadata_seed".to_owned()),
             jacobian_policy: Some("solver_policy_not_integrated".to_owned()),
             profile_policy: None,
+            contract_inputs,
+            contract_outputs: vec![ReportBehaviorSignalContract {
+                role: "output".to_owned(),
+                name: local.name.clone(),
+                quantity_kind: "unspecified_by_seed".to_owned(),
+                display_unit: "unspecified".to_owned(),
+                canonical_unit: "unspecified".to_owned(),
+                status: "predictor_output_contract_metadata_pending".to_owned(),
+            }],
+            diagnostic_channels: vec![
+                "predictor_valid_range_warning".to_owned(),
+                "predictor_output_layout_failure".to_owned(),
+            ],
+            runtime_warning_status: Some(
+                "solver_api_only_until_behavior_graph_integration".to_owned(),
+            ),
         });
     }
     if normalized.contains("external(") || normalized.contains("adapter(") {
+        let signal = first_report_behavior_call_arguments(expression, "external")
+            .or_else(|| first_report_behavior_call_arguments(expression, "adapter"))
+            .and_then(|arguments| arguments.first().cloned());
+        let contract_inputs = signal
+            .as_deref()
+            .map(|signal| report_behavior_signal_contract(report, component, "input", signal))
+            .into_iter()
+            .collect();
         nodes.push(ReportBehaviorSeed {
             behavior_kind: "external".to_owned(),
             status: "external_behavior_wrapper_seed_not_integrated".to_owned(),
-            signal: first_report_behavior_call_arguments(expression, "external")
-                .or_else(|| first_report_behavior_call_arguments(expression, "adapter"))
-                .and_then(|arguments| arguments.first().cloned()),
+            signal,
             delay_s: None,
             relationship_status: None,
             contract_status: Some("external_behavior_contract_metadata_seed".to_owned()),
             jacobian_policy: None,
             profile_policy: Some("safe_repro_profile_policy_seed".to_owned()),
+            contract_inputs,
+            contract_outputs: vec![ReportBehaviorSignalContract {
+                role: "output".to_owned(),
+                name: local.name.clone(),
+                quantity_kind: "unspecified_by_seed".to_owned(),
+                display_unit: "unspecified".to_owned(),
+                canonical_unit: "unspecified".to_owned(),
+                status: "external_output_contract_metadata_pending".to_owned(),
+            }],
+            diagnostic_channels: vec![
+                "external_profile_policy_failure".to_owned(),
+                "external_adapter_failure".to_owned(),
+            ],
+            runtime_warning_status: Some(
+                "solver_api_only_until_behavior_graph_integration".to_owned(),
+            ),
         });
     }
     nodes
+}
+
+fn report_behavior_signal_contract(
+    report: &CheckReport,
+    component: &eng_compiler::ComponentInfo,
+    role: &str,
+    signal: &str,
+) -> ReportBehaviorSignalContract {
+    let Some((port_name, variable_name)) = signal.split_once('.') else {
+        return ReportBehaviorSignalContract {
+            role: role.to_owned(),
+            name: signal.to_owned(),
+            quantity_kind: "unknown".to_owned(),
+            display_unit: "unknown".to_owned(),
+            canonical_unit: "unknown".to_owned(),
+            status: "signal_contract_unresolved".to_owned(),
+        };
+    };
+    let Some(port) = component.ports.iter().find(|port| port.name == port_name) else {
+        return ReportBehaviorSignalContract {
+            role: role.to_owned(),
+            name: signal.to_owned(),
+            quantity_kind: "unknown".to_owned(),
+            display_unit: "unknown".to_owned(),
+            canonical_unit: "unknown".to_owned(),
+            status: "signal_contract_unresolved".to_owned(),
+        };
+    };
+    let Some(domain) = report
+        .semantic_program
+        .domains
+        .iter()
+        .find(|domain| domain.name == port.domain_name)
+    else {
+        return ReportBehaviorSignalContract {
+            role: role.to_owned(),
+            name: signal.to_owned(),
+            quantity_kind: "unknown".to_owned(),
+            display_unit: "unknown".to_owned(),
+            canonical_unit: "unknown".to_owned(),
+            status: "signal_contract_unresolved".to_owned(),
+        };
+    };
+    let Some(variable) = domain
+        .variables
+        .iter()
+        .find(|variable| variable.name == variable_name)
+    else {
+        return ReportBehaviorSignalContract {
+            role: role.to_owned(),
+            name: signal.to_owned(),
+            quantity_kind: "unknown".to_owned(),
+            display_unit: "unknown".to_owned(),
+            canonical_unit: "unknown".to_owned(),
+            status: "signal_contract_unresolved".to_owned(),
+        };
+    };
+    ReportBehaviorSignalContract {
+        role: role.to_owned(),
+        name: signal.to_owned(),
+        quantity_kind: variable.quantity_kind.clone(),
+        display_unit: variable.display_unit.clone(),
+        canonical_unit: variable.canonical_unit.clone(),
+        status: "domain_signal_resolved".to_owned(),
+    }
 }
 
 fn first_report_behavior_call_arguments(expression: &str, call_name: &str) -> Option<Vec<String>> {
@@ -2097,11 +2267,49 @@ fn report_behavior_node_detail(node: &ReportComponentGraphBehaviorNode) -> Strin
     if let Some(policy) = &node.profile_policy {
         parts.push(format!("profile={policy}"));
     }
+    if !node.contract_inputs.is_empty() {
+        parts.push(format!(
+            "inputs={}",
+            report_behavior_signal_contracts_detail(&node.contract_inputs)
+        ));
+    }
+    if !node.contract_outputs.is_empty() {
+        parts.push(format!(
+            "outputs={}",
+            report_behavior_signal_contracts_detail(&node.contract_outputs)
+        ));
+    }
+    if !node.diagnostic_channels.is_empty() {
+        parts.push(format!(
+            "diagnostics={}",
+            node.diagnostic_channels.join("|")
+        ));
+    }
+    if let Some(status) = &node.runtime_warning_status {
+        parts.push(format!("runtime_warnings={status}"));
+    }
     if parts.is_empty() {
         "-".to_owned()
     } else {
         parts.join(", ")
     }
+}
+
+fn report_behavior_signal_contracts_detail(contracts: &[ReportBehaviorSignalContract]) -> String {
+    contracts
+        .iter()
+        .map(|contract| {
+            format!(
+                "{}:{}:{}[{}]/{}",
+                contract.role,
+                contract.name,
+                contract.quantity_kind,
+                contract.display_unit,
+                contract.status
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn report_domain_argument_labels(
@@ -6695,12 +6903,65 @@ fn write_report_component_graph_json(json: &mut String, graph: &ReportComponentG
         push_optional_json_string(json, "contract_status", node.contract_status.as_deref(), 8);
         push_optional_json_string(json, "jacobian_policy", node.jacobian_policy.as_deref(), 8);
         push_optional_json_string(json, "profile_policy", node.profile_policy.as_deref(), 8);
+        write_behavior_signal_contracts_json(json, "contract_inputs", &node.contract_inputs, 8);
+        write_behavior_signal_contracts_json(json, "contract_outputs", &node.contract_outputs, 8);
+        json.push_str("        \"diagnostic_channels\": [");
+        push_json_string_array(json, &node.diagnostic_channels);
+        json.push_str("],\n");
+        push_optional_json_string(
+            json,
+            "runtime_warning_status",
+            node.runtime_warning_status.as_deref(),
+            8,
+        );
         json.push_str(&format!("        \"line\": {},\n", node.line));
         write_report_source_span_json(json, "        ", &node.source_span, false);
         json.push_str("\n      }");
     }
     json.push_str("\n    ]\n");
     json.push_str("  }");
+}
+
+fn write_behavior_signal_contracts_json(
+    json: &mut String,
+    key: &str,
+    contracts: &[ReportBehaviorSignalContract],
+    indent: usize,
+) {
+    let spaces = " ".repeat(indent);
+    json.push_str(&format!("{spaces}\"{key}\": [\n"));
+    for (index, contract) in contracts.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{spaces}  {{\n"));
+        json.push_str(&format!(
+            "{spaces}    \"role\": \"{}\",\n",
+            json_escape(&contract.role)
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"name\": \"{}\",\n",
+            json_escape(&contract.name)
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"quantity_kind\": \"{}\",\n",
+            json_escape(&contract.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"display_unit\": \"{}\",\n",
+            json_escape(&contract.display_unit)
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"canonical_unit\": \"{}\",\n",
+            json_escape(&contract.canonical_unit)
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"status\": \"{}\"\n",
+            json_escape(&contract.status)
+        ));
+        json.push_str(&format!("{spaces}  }}"));
+    }
+    json.push_str(&format!("\n{spaces}],\n"));
 }
 
 fn write_report_source_span_json(
@@ -7428,6 +7689,25 @@ mod tests {
             Some("delay_relationship_metadata_only")
         );
         assert_eq!(
+            spec.component_graph.behavior_nodes[0].contract_inputs[0].name,
+            "outlet.m_dot"
+        );
+        assert_eq!(
+            spec.component_graph.behavior_nodes[0].contract_inputs[0].quantity_kind,
+            "MassFlowRate"
+        );
+        assert_eq!(
+            spec.component_graph.behavior_nodes[0].contract_outputs[0].name,
+            "pressure_seed"
+        );
+        assert_eq!(
+            spec.component_graph.behavior_nodes[0].contract_outputs[0].quantity_kind,
+            "MassFlowRate"
+        );
+        assert!(spec.component_graph.behavior_nodes[0]
+            .diagnostic_channels
+            .contains(&"delay_history_underflow_failure".to_owned()));
+        assert_eq!(
             spec.component_graph.ports[0].medium_label.as_deref(),
             Some("Water")
         );
@@ -7466,6 +7746,10 @@ mod tests {
         assert!(json.contains("\"signal\": \"outlet.m_dot\""));
         assert!(json.contains("\"delay_s\": 5"));
         assert!(json.contains("\"relationship_status\": \"delay_relationship_metadata_only\""));
+        assert!(json.contains("\"contract_inputs\""));
+        assert!(json.contains("\"quantity_kind\": \"MassFlowRate\""));
+        assert!(json.contains("\"diagnostic_channels\""));
+        assert!(json.contains("\"delay_history_underflow_failure\""));
         assert!(json.contains("\"medium_label\": \"Water\""));
         assert!(json.contains("\"source_span\""));
         assert!(json.contains("\"assembly_count\": 1"));
@@ -7489,6 +7773,9 @@ mod tests {
         assert!(html.contains("signal=outlet.m_dot"));
         assert!(html.contains("delay_s=5"));
         assert!(html.contains("relationship=delay_relationship_metadata_only"));
+        assert!(html.contains("inputs=input:outlet.m_dot:MassFlowRate"));
+        assert!(html.contains("outputs=output:pressure_seed:MassFlowRate"));
+        assert!(html.contains("diagnostics=delay_history_underflow_failure"));
         assert!(html.contains("Connections"));
         assert!(html.contains("Component Assembly"));
         assert!(html.contains("constraint check"));

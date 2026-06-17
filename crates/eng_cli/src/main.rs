@@ -1095,7 +1095,22 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"external_behavior_wrapper_seed_not_integrated\"")
                 || !output.report_spec_json.contains("\"signal\": \"out.T\"")
                 || !output.report_spec_json.contains("\"signal\": \"out.Q\"")
+                || !output.report_spec_json.contains("\"contract_inputs\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"quantity_kind\": \"AbsoluteTemperature\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"quantity_kind\": \"HeatRate\"")
+                || !output.report_spec_json.contains("\"diagnostic_channels\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"predictor_valid_range_warning\"")
                 || !output.report_html.contains("Component Behavior")
+                || !output.report_html.contains("inputs=input:out.T")
+                || !output
+                    .report_html
+                    .contains("diagnostics=predictor_valid_range_warning")
                 || !output.report_html.contains("solver_policy_not_integrated")
                 || !output
                     .report_html

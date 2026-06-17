@@ -38,7 +38,7 @@ release naming still follows [version_plan.md](version_plan.md).
 | SOLVER-501 | Delay history buffer | Implemented as solver-API behavior seed and covered by CLI smoke for interpolation plus history-underflow failure artifacts. |
 | SOLVER-502 | Predictor behavior contract | Implemented as solver-API behavior seed and covered by CLI smoke for valid-range warnings, contract metadata, and output-layout failure artifacts. |
 | SOLVER-503 | External behavior wrapper | Implemented as solver-API behavior seed and covered by CLI smoke for deterministic repro execution, safe-profile rejection, and adapter failure wrapping. |
-| SOLVER-504 | Behavior node report/IDE | Implemented for delay, Predictor, and external behavior metadata. |
+| SOLVER-504 | Behavior node report/IDE | Implemented for delay, Predictor, and external behavior metadata, including inferred contract fields and diagnostic channels. |
 
 ## Checklist Ladder
 

@@ -102,7 +102,7 @@ Internal runtime seeds:
 - component-local Predictor and external behavior signal diagnostics
 - solver-API Predictor contract wrapper with model hash, range warnings, and Jacobian policy
 - solver-API external behavior wrapper with provenance, profile policy, and failure propagation
-- component graph/report/IDE behavior nodes for delay, Predictor, and external calls
+- component graph/report/IDE behavior nodes for delay, Predictor, and external calls with inferred contract fields and diagnostic channels
 ```
 
 Deferred:

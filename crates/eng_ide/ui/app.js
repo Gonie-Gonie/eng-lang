@@ -1447,13 +1447,38 @@ function behaviorNodeDetails(node) {
   const contract = node.contract_status ?? node.contractStatus;
   const jacobian = node.jacobian_policy ?? node.jacobianPolicy;
   const profile = node.profile_policy ?? node.profilePolicy;
+  const contractInputs = node.contract_inputs ?? node.contractInputs ?? [];
+  const contractOutputs = node.contract_outputs ?? node.contractOutputs ?? [];
+  const diagnostics = node.diagnostic_channels ?? node.diagnosticChannels ?? [];
+  const runtimeWarnings = node.runtime_warning_status ?? node.runtimeWarningStatus;
   if (signal) parts.push(`signal=${signal}`);
   if (delayS !== null && delayS !== undefined) parts.push(`delay_s=${delayS}`);
   if (relationship) parts.push(`relationship=${relationship}`);
   if (contract) parts.push(`contract=${contract}`);
   if (jacobian) parts.push(`jacobian=${jacobian}`);
   if (profile) parts.push(`profile=${profile}`);
+  if (Array.isArray(contractInputs) && contractInputs.length) {
+    parts.push(`inputs=${behaviorContractDetails(contractInputs)}`);
+  }
+  if (Array.isArray(contractOutputs) && contractOutputs.length) {
+    parts.push(`outputs=${behaviorContractDetails(contractOutputs)}`);
+  }
+  if (Array.isArray(diagnostics) && diagnostics.length) {
+    parts.push(`diagnostics=${diagnostics.join("|")}`);
+  }
+  if (runtimeWarnings) parts.push(`runtime_warnings=${runtimeWarnings}`);
   return parts.length ? parts.join(", ") : "-";
+}
+
+function behaviorContractDetails(contracts) {
+  return contracts.map((contract) => {
+    const role = contract.role || "-";
+    const name = contract.name || "-";
+    const quantity = contract.quantity_kind || contract.quantityKind || "-";
+    const unit = contract.display_unit || contract.displayUnit || "-";
+    const status = contract.status || "-";
+    return `${role}:${name}:${quantity}[${unit}]/${status}`;
+  }).join("|");
 }
 
 function renderClassObjects() {

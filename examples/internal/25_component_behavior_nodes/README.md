@@ -7,5 +7,6 @@ This fixture exercises valid component-local behavior node metadata for:
 - `adapter(out.Q)`
 
 Review/report/IDE artifacts must expose behavior nodes with source line,
-signal, seed status, and solver integration limitations. This fixture does not
-wire behavior nodes into numeric RHS/residual solving.
+signal, inferred quantity-unit contract metadata, diagnostic channels, seed
+status, and solver integration limitations. This fixture does not wire behavior
+nodes into numeric RHS/residual solving.
