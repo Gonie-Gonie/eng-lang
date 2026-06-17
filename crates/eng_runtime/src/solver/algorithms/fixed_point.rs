@@ -23,6 +23,7 @@ pub struct FixedPointResult {
     pub residual_history: Vec<f64>,
     pub iteration_count: usize,
     pub convergence_status: String,
+    pub failure: Option<SolverFailure>,
 }
 
 pub fn solve_fixed_point<F>(
@@ -43,6 +44,18 @@ where
         return Err(SolverFailure::new(
             "E-FIXED-POINT-RELAXATION",
             "fixed-point relaxation must be in the interval (0, 1]",
+        ));
+    }
+    if options.max_iterations == 0 {
+        return Err(SolverFailure::new(
+            "E-FIXED-POINT-ITERATIONS",
+            "fixed-point solver requires max_iterations greater than zero",
+        ));
+    }
+    if !options.tolerance.is_finite() || options.tolerance <= 0.0 {
+        return Err(SolverFailure::new(
+            "E-FIXED-POINT-TOLERANCE",
+            "fixed-point solver tolerance must be a positive finite number",
         ));
     }
 
@@ -71,15 +84,24 @@ where
                 residual_history,
                 iteration_count: iteration,
                 convergence_status: "fixed_point_converged".to_owned(),
+                failure: None,
             });
         }
     }
 
+    let final_residual = residual_history.last().copied().unwrap_or(f64::INFINITY);
     Ok(FixedPointResult {
         values,
         residual_history,
         iteration_count: options.max_iterations,
         convergence_status: "fixed_point_not_converged".to_owned(),
+        failure: Some(SolverFailure::new(
+            "E-FIXED-POINT-NONCONVERGENCE",
+            format!(
+                "fixed-point solver did not converge after {} iteration(s); final residual norm was {}",
+                options.max_iterations, final_residual
+            ),
+        )),
     })
 }
 
@@ -95,6 +117,45 @@ mod tests {
         .unwrap();
 
         assert_eq!(result.convergence_status, "fixed_point_converged");
+        assert!(result.failure.is_none());
+        assert!(!result.residual_history.is_empty());
         assert!((result.values[0] - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn reports_nonconvergence_with_failure_artifact() {
+        let options = FixedPointOptions {
+            tolerance: 1e-12,
+            max_iterations: 3,
+            relaxation: 1.0,
+        };
+        let result =
+            solve_fixed_point(&[0.0], &options, |values| Ok(vec![values[0] + 1.0])).unwrap();
+
+        assert_eq!(result.convergence_status, "fixed_point_not_converged");
+        assert_eq!(result.iteration_count, 3);
+        assert_eq!(result.residual_history.len(), 3);
+        assert_eq!(
+            result.failure.as_ref().map(|failure| failure.code.as_str()),
+            Some("E-FIXED-POINT-NONCONVERGENCE")
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_fixed_point_options() {
+        let mut options = FixedPointOptions {
+            tolerance: 1e-9,
+            max_iterations: 0,
+            relaxation: 1.0,
+        };
+        let failure =
+            solve_fixed_point(&[0.0], &options, |values| Ok(values.to_vec())).unwrap_err();
+        assert_eq!(failure.code, "E-FIXED-POINT-ITERATIONS");
+
+        options.max_iterations = 1;
+        options.tolerance = 0.0;
+        let failure =
+            solve_fixed_point(&[0.0], &options, |values| Ok(values.to_vec())).unwrap_err();
+        assert_eq!(failure.code, "E-FIXED-POINT-TOLERANCE");
     }
 }
