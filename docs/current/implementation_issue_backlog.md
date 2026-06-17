@@ -366,6 +366,28 @@ Definition of Done:
 - IDE completion/hover shows fields, defaults, required fields, and units.
 - Docs keep classes separate from systems/components and avoid solver claims.
 
+Current coverage:
+
+- `examples/official/19_class_object` exercises typed class fields/defaults,
+  object literals, nested object references, field access metadata, validation
+  blocks, zero-argument metadata methods, immutable copy-with, and class/object
+  report sections.
+- Compiler semantic analysis records `class_summary` and `object_summary`,
+  evaluates supported object validation rules, checks required/unknown/typed
+  fields, and validates zero-argument method declarations/calls.
+- CLI smoke checks class/object review and report artifacts including
+  validation count, method count, copy-with construction, field access, and
+  generated report HTML.
+- Error-message fixtures cover missing required fields, unknown fields,
+  incompatible field values, validation failures, method return mismatches,
+  unknown method calls, and copy-with unknown sources.
+- IDE object-summary inspection and LSP hover/member/object-literal completion
+  expose class fields, defaults, required fields, and units.
+- `docs/guide/class_object.md`, the feature maturity matrix, and stable-core
+  scope keep classes separate from systems/components and state that runtime
+  object dispatch/lowering, method arguments, mutation, inheritance, and
+  simulation lowering remain deferred.
+
 ## Component Graph
 
 Title: `component: implement graph inspector without numeric solver claims`
