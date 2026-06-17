@@ -621,6 +621,40 @@ pub fn timeseries_integrate_ir_for_binding(
     ))
 }
 
+pub fn timeseries_arithmetic_ir_for_binding(
+    report: &CheckReport,
+    binding: &str,
+) -> Option<KernelIr> {
+    let expression = report
+        .semantic_program
+        .hover_hints
+        .iter()
+        .find(|hover| hover.name == binding)?
+        .expression
+        .as_deref()?;
+    let tokens = tokenize_arithmetic_expression(expression)?;
+    let mut builder = ArithmeticIrBuilder::default();
+    let mut position = 0;
+    let output_register = parse_add_sub(&tokens, &mut position, &mut builder)?;
+    if position != tokens.len() {
+        return None;
+    }
+    builder.instructions.push(KernelInstruction::StoreSeries {
+        register: output_register,
+        output: 0,
+    });
+    Some(
+        KernelIr::new(
+            binding.to_owned(),
+            "timeseries_arithmetic",
+            builder.series_inputs.len(),
+            1,
+            builder.instructions,
+        )
+        .with_scalar_input_count(builder.scalar_inputs.len()),
+    )
+}
+
 fn push_candidate(
     candidates: &mut Vec<KernelCandidate>,
     seen: &mut BTreeSet<String>,
@@ -1260,6 +1294,205 @@ fn parse_leading_number(text: &str) -> Option<f64> {
     text.split_whitespace().next()?.parse::<f64>().ok()
 }
 
+#[derive(Clone, Debug, PartialEq)]
+enum ArithmeticToken {
+    Identifier(String),
+    Number(f64),
+    Operator(char),
+    LeftParen,
+    RightParen,
+}
+
+#[derive(Default)]
+struct ArithmeticIrBuilder {
+    instructions: Vec<KernelInstruction>,
+    next_register: usize,
+    series_inputs: BTreeMap<String, usize>,
+    scalar_inputs: BTreeMap<String, usize>,
+}
+
+impl ArithmeticIrBuilder {
+    fn load_identifier(&mut self, name: &str) -> usize {
+        let register = self.take_register();
+        if name.contains('.') {
+            let input = intern_index(&mut self.series_inputs, name);
+            self.instructions
+                .push(KernelInstruction::LoadInput { input, register });
+        } else {
+            let input = intern_index(&mut self.scalar_inputs, name);
+            self.instructions
+                .push(KernelInstruction::LoadScalarInput { input, register });
+        }
+        register
+    }
+
+    fn load_number(&mut self, value: f64) -> usize {
+        let register = self.take_register();
+        self.instructions
+            .push(KernelInstruction::LoadConstant { value, register });
+        register
+    }
+
+    fn binary(&mut self, op: KernelBinaryOp, left: usize, right: usize) -> usize {
+        let target = self.take_register();
+        self.instructions.push(KernelInstruction::Binary {
+            op,
+            left,
+            right,
+            target,
+        });
+        target
+    }
+
+    fn take_register(&mut self) -> usize {
+        let register = self.next_register;
+        self.next_register += 1;
+        register
+    }
+}
+
+fn intern_index(map: &mut BTreeMap<String, usize>, name: &str) -> usize {
+    if let Some(index) = map.get(name) {
+        *index
+    } else {
+        let index = map.len();
+        map.insert(name.to_owned(), index);
+        index
+    }
+}
+
+fn tokenize_arithmetic_expression(expression: &str) -> Option<Vec<ArithmeticToken>> {
+    let chars = expression.chars().collect::<Vec<_>>();
+    let mut tokens = Vec::new();
+    let mut index = 0;
+    while index < chars.len() {
+        let ch = chars[index];
+        if ch.is_whitespace() {
+            index += 1;
+            continue;
+        }
+        match ch {
+            '+' | '-' | '*' | '/' => {
+                tokens.push(ArithmeticToken::Operator(ch));
+                index += 1;
+            }
+            '(' => {
+                tokens.push(ArithmeticToken::LeftParen);
+                index += 1;
+            }
+            ')' => {
+                tokens.push(ArithmeticToken::RightParen);
+                index += 1;
+            }
+            _ if ch.is_ascii_digit() || ch == '.' => {
+                let start = index;
+                index += 1;
+                while index < chars.len()
+                    && (chars[index].is_ascii_digit()
+                        || chars[index] == '.'
+                        || chars[index] == 'e'
+                        || chars[index] == 'E'
+                        || ((chars[index] == '+' || chars[index] == '-')
+                            && matches!(chars.get(index.wrapping_sub(1)), Some('e' | 'E'))))
+                {
+                    index += 1;
+                }
+                let text = chars[start..index].iter().collect::<String>();
+                tokens.push(ArithmeticToken::Number(text.parse::<f64>().ok()?));
+            }
+            _ if ch.is_ascii_alphabetic() || ch == '_' => {
+                let start = index;
+                index += 1;
+                while index < chars.len()
+                    && (chars[index].is_ascii_alphanumeric()
+                        || chars[index] == '_'
+                        || chars[index] == '.')
+                {
+                    index += 1;
+                }
+                tokens.push(ArithmeticToken::Identifier(
+                    chars[start..index].iter().collect(),
+                ));
+            }
+            _ => return None,
+        }
+    }
+    Some(tokens)
+}
+
+fn parse_add_sub(
+    tokens: &[ArithmeticToken],
+    position: &mut usize,
+    builder: &mut ArithmeticIrBuilder,
+) -> Option<usize> {
+    let mut left = parse_mul_div(tokens, position, builder)?;
+    while let Some(ArithmeticToken::Operator(op @ ('+' | '-'))) = tokens.get(*position) {
+        let op = *op;
+        *position += 1;
+        let right = parse_mul_div(tokens, position, builder)?;
+        left = builder.binary(
+            if op == '+' {
+                KernelBinaryOp::Add
+            } else {
+                KernelBinaryOp::Sub
+            },
+            left,
+            right,
+        );
+    }
+    Some(left)
+}
+
+fn parse_mul_div(
+    tokens: &[ArithmeticToken],
+    position: &mut usize,
+    builder: &mut ArithmeticIrBuilder,
+) -> Option<usize> {
+    let mut left = parse_primary(tokens, position, builder)?;
+    while let Some(ArithmeticToken::Operator(op @ ('*' | '/'))) = tokens.get(*position) {
+        let op = *op;
+        *position += 1;
+        let right = parse_primary(tokens, position, builder)?;
+        left = builder.binary(
+            if op == '*' {
+                KernelBinaryOp::Mul
+            } else {
+                KernelBinaryOp::Div
+            },
+            left,
+            right,
+        );
+    }
+    Some(left)
+}
+
+fn parse_primary(
+    tokens: &[ArithmeticToken],
+    position: &mut usize,
+    builder: &mut ArithmeticIrBuilder,
+) -> Option<usize> {
+    match tokens.get(*position)?.clone() {
+        ArithmeticToken::Identifier(name) => {
+            *position += 1;
+            Some(builder.load_identifier(&name))
+        }
+        ArithmeticToken::Number(value) => {
+            *position += 1;
+            Some(builder.load_number(value))
+        }
+        ArithmeticToken::LeftParen => {
+            *position += 1;
+            let register = parse_add_sub(tokens, position, builder)?;
+            if !matches!(tokens.get(*position), Some(ArithmeticToken::RightParen)) {
+                return None;
+            }
+            *position += 1;
+            Some(register)
+        }
+        ArithmeticToken::Operator(_) | ArithmeticToken::RightParen => None,
+    }
+}
+
 fn expression_source_count(expression: &str) -> usize {
     expression_tokens(expression)
         .filter(|token| {
@@ -1366,6 +1599,45 @@ mod tests {
         .unwrap();
 
         assert_eq!(output.outputs, vec![KernelOutputValue::Scalar(4543242.0)]);
+    }
+
+    #[test]
+    fn lowers_official_timeseries_arithmetic_candidate_to_ir() {
+        let report = check_file(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../examples/official/01_csv_plot/main.eng"),
+            &CheckOptions::default(),
+        )
+        .expect("official CSV example should check");
+        let ir = timeseries_arithmetic_ir_for_binding(&report, "Q_coil")
+            .expect("Q_coil arithmetic should lower to IR");
+
+        assert_eq!(ir.name, "Q_coil");
+        assert_eq!(ir.kind, "timeseries_arithmetic");
+        assert_eq!(ir.input_count, 3);
+        assert_eq!(ir.scalar_input_count, 1);
+        assert_eq!(ir.output_count, 1);
+
+        let output = execute_interpreter_kernel(
+            &ir,
+            &KernelExecutionInput {
+                series_inputs: vec![
+                    vec![0.22, 0.23, 0.23, 0.24],
+                    vec![12.4, 12.6, 12.9, 13.3],
+                    vec![7.1, 7.4, 7.7, 7.9],
+                ],
+                scalar_inputs: vec![4180.0],
+            },
+        )
+        .unwrap();
+
+        let KernelOutputValue::Series(values) = &output.outputs[0] else {
+            panic!("Q_coil output should be a TimeSeries");
+        };
+        assert_eq!(values.len(), 4);
+        for (actual, expected) in values.iter().zip([4873.88, 4999.28, 4999.28, 5417.28]) {
+            assert!((actual - expected).abs() < 1e-9);
+        }
     }
 
     #[test]

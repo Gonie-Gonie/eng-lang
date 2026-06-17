@@ -193,7 +193,8 @@ Internal implementation seeds on `main`:
 - hot-kernel candidate estimates
 - interpreter kernel IR and executor correctness tests for arithmetic,
   integration, residual, Jacobian, and Newton-step kernels
-- checked integration metadata lowering into trapezoid KernelIr
+- checked TimeSeries arithmetic and integration metadata lowering into
+  executable KernelIr
 - component assembly residual graph lowering into scalar residual KernelIr
 - per-candidate executor/fallback reason metadata
 ```
