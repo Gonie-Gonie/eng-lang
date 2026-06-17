@@ -100,9 +100,9 @@ paths before compatibility fixtures.
 
 20_multi_state_thermal
   Multi-state state-space thermal simulation with two state trajectories,
-  TimeSeries input binding, fixed-step explicit Euler execution, and plot/report
-  artifacts for `sim.T_air` and `sim.T_wall`. This is not a nonlinear, DAE,
-  adaptive, or production component-graph solver.
+  TimeSeries input binding, fixed-step RK4 execution, and plot/report artifacts
+  for `sim.T_air` and `sim.T_wall`. This is not a nonlinear, DAE, adaptive, or
+  production component-graph solver.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression

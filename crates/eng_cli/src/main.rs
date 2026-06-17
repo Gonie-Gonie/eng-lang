@@ -1275,7 +1275,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             if !result.contains("\"binding\": \"sim\"")
                 || !result.contains("\"state\": \"T_air\"")
                 || !result.contains("\"state\": \"T_wall\"")
-                || !result.contains("\"method\": \"state_space_explicit_euler_fixed_step\"")
+                || !result.contains("\"method\": \"state_space_rk4_fixed_step\"")
                 || !result.contains("multi-state state-space")
                 || !plot_spec.contains("\"name\": \"sim.T_air\"")
                 || !plot_spec.contains("\"name\": \"sim.T_wall\"")

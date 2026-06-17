@@ -13,9 +13,9 @@ use eng_report::{
 };
 
 use crate::solver::{
-    algorithms::fixed_step::solve_explicit_euler, InputLayout, LayoutEntry, ParameterLayout,
-    SimulationPlan, SolverFailure, SolverInput, SolverOptions, SolverPlan, SolverResult,
-    SolverScalar, StateLayout, StateTrajectory, TimeGrid,
+    algorithms::fixed_step::{solve_explicit_euler, solve_rk4, RhsSample},
+    InputLayout, LayoutEntry, ParameterLayout, SimulationPlan, SolverFailure, SolverInput,
+    SolverOptions, SolverPlan, SolverResult, SolverScalar, StateLayout, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -2307,6 +2307,33 @@ struct SimulateRequest {
     options: Vec<eng_compiler::WithOptionInfo>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum RuntimeFixedStepMethod {
+    ExplicitEuler,
+    Rk4,
+}
+
+impl RuntimeFixedStepMethod {
+    fn from_options(options: &[eng_compiler::WithOptionInfo]) -> Self {
+        match option_value(options, "solver").map(str::trim) {
+            Some("rk4") => Self::Rk4,
+            _ => Self::ExplicitEuler,
+        }
+    }
+
+    fn method_name(self, prefix: &str) -> String {
+        let base = match self {
+            Self::ExplicitEuler => "explicit_euler_fixed_step",
+            Self::Rk4 => "rk4_fixed_step",
+        };
+        if prefix.is_empty() {
+            base.to_owned()
+        } else {
+            format!("{prefix}_{base}")
+        }
+    }
+}
+
 fn simulate_requests(report: &CheckReport, system_name: &str) -> Vec<SimulateRequest> {
     report
         .inferred_declarations
@@ -2433,8 +2460,9 @@ fn materialize_state_space_solutions(
         .or(series_duration_s)
         .unwrap_or(3600.0);
     let time_grid = TimeGrid::fixed_step(duration_s, time_step_s).ok()?;
+    let fixed_step_method = RuntimeFixedStepMethod::from_options(options);
     let solver_options =
-        SolverOptions::fixed_step("state_space_explicit_euler_fixed_step", time_step_s);
+        SolverOptions::fixed_step(fixed_step_method.method_name("state_space"), time_step_s);
     let output_members = output_vector
         .map(|vector| vector.members.clone())
         .unwrap_or_else(|| state_vector.members.clone());
@@ -2500,7 +2528,7 @@ fn materialize_state_space_solutions(
         parameters: Vec::new(),
     };
 
-    let solver_result = solve_explicit_euler(&solver_input, |sample| {
+    let solver_result = solve_fixed_step_ode(fixed_step_method, &solver_input, |sample| {
         let input_values = inputs
             .iter()
             .zip(input_series.iter())
@@ -2670,7 +2698,8 @@ fn materialize_first_order_thermal_solution(
         .filter(|duration| *duration > 0.0)
         .unwrap_or(3600.0);
     let time_grid = TimeGrid::fixed_step(duration_s, time_step_s).ok()?;
-    let solver_options = SolverOptions::fixed_step("explicit_euler_fixed_step", time_step_s);
+    let fixed_step_method = RuntimeFixedStepMethod::from_options(options);
+    let solver_options = SolverOptions::fixed_step(fixed_step_method.method_name(""), time_step_s);
     let solver_plan = SolverPlan::new(
         system.name.clone(),
         SimulationPlan {
@@ -2758,7 +2787,7 @@ fn materialize_first_order_thermal_solution(
         ],
     };
 
-    let solver_result = solve_explicit_euler(&solver_input, |sample| {
+    let solver_result = solve_fixed_step_ode(fixed_step_method, &solver_input, |sample| {
         let temperature_k = sample.state[0];
         let outdoor_k = outdoor_series
             .and_then(|series| interpolate_series_value(series, sample.time_s))
@@ -2786,6 +2815,20 @@ fn materialize_first_order_thermal_solution(
         &solver_result,
         "recognized first-order thermal ODE and executed through SolverResult fixed-step one-state path",
     )
+}
+
+fn solve_fixed_step_ode<F>(
+    method: RuntimeFixedStepMethod,
+    input: &SolverInput,
+    rhs: F,
+) -> Result<SolverResult, SolverFailure>
+where
+    F: FnMut(RhsSample<'_>) -> Result<Vec<f64>, SolverFailure>,
+{
+    match method {
+        RuntimeFixedStepMethod::ExplicitEuler => solve_explicit_euler(input, rhs),
+        RuntimeFixedStepMethod::Rk4 => solve_rk4(input, rhs),
+    }
 }
 
 fn runtime_system_solution_from_solver_result(
@@ -5234,7 +5277,7 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
             .all(|solution| solution.status == "computed"));
         assert!(sim_solutions
             .iter()
-            .all(|solution| solution.method == "state_space_explicit_euler_fixed_step"));
+            .all(|solution| solution.method == "state_space_rk4_fixed_step"));
         assert!(sim_solutions
             .iter()
             .all(|solution| solution.reason.contains("multi-state")));

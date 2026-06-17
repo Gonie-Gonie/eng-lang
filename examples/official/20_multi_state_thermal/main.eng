@@ -32,7 +32,7 @@ sim = simulate MultiStateThermal
 with {
     T_out = weather_data.T_out
     timestep = 10 min
-    solver = fixed_step
+    solver = rk4
 }
 
 print "Multi-state thermal simulation recorded"

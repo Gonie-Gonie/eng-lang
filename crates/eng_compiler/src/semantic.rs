@@ -2770,17 +2770,17 @@ fn validate_simulation_solver(
         diagnostics.push(Diagnostic::error(
             "E-SIM-OPTION-MISSING-002",
             owner_line,
-            "`simulate` requires `with { solver = fixed_step }` in the supported workflow.",
-            Some("The supported dynamic runner is the fixed-step one-state solver."),
+            "`simulate` requires a supported fixed-step solver in the attached `with` block.",
+            Some("Use `solver = fixed_step`, `solver = explicit_euler`, or `solver = rk4`."),
         ));
         return;
     };
-    if option.value.trim() != "fixed_step" {
+    if !matches!(option.value.trim(), "fixed_step" | "explicit_euler" | "rk4") {
         diagnostics.push(Diagnostic::error(
             "E-SIM-OPTION-TYPE-002",
             option.line,
             &format!("Unsupported simulation solver `{}`.", option.value),
-            Some("Use `solver = fixed_step`; adaptive and nonlinear solvers are deferred."),
+            Some("Use `fixed_step`/`explicit_euler` for Euler or `rk4` for fixed-step RK4; adaptive and nonlinear solvers are deferred."),
         ));
     }
 }
