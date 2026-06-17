@@ -1492,6 +1492,10 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.component_solutions = materialize_component_solutions(report);
     data.time_series
         .extend(materialize_system_solution_series(&data.system_solutions));
+    data.time_series
+        .extend(materialize_component_solution_series(
+            &data.component_solutions,
+        ));
     data.time_alignments = materialize_time_alignments(&data.time_series);
     data.statistics = materialize_statistics(report, &data.time_series);
     data.integrations = materialize_integrations(report, &data.time_series);
@@ -3534,6 +3538,31 @@ fn materialize_system_solution_series(
             source_table: solution.system.clone(),
             source_expression: format!("simulate {}", solution.system),
             points: solution.points.clone(),
+        })
+        .collect()
+}
+
+fn materialize_component_solution_series(
+    solutions: &[RuntimeComponentSolution],
+) -> Vec<RuntimeTimeSeries> {
+    solutions
+        .iter()
+        .filter(|solution| solution.status == "computed")
+        .flat_map(|solution| {
+            solution
+                .trajectories
+                .iter()
+                .map(|trajectory| RuntimeTimeSeries {
+                    name: format!("{}.{}", solution.assembly, trajectory.name),
+                    axis: "Time".to_owned(),
+                    x_unit: "s".to_owned(),
+                    quantity_kind: trajectory.quantity_kind.clone(),
+                    display_unit: trajectory.unit.clone(),
+                    source_table: solution.assembly.clone(),
+                    source_expression: format!("component solver {}", solution.assembly),
+                    points: trajectory.points.clone(),
+                })
+                .collect::<Vec<_>>()
         })
         .collect()
 }
@@ -6037,6 +6066,17 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
                 |diagnostic| diagnostic.convergence_status == "fixed_point_converged"
                     && diagnostic.failure_artifact.is_none()
             ));
+        let component_series = materialize_component_solution_series(&[solution.clone()]);
+        assert!(component_series
+            .iter()
+            .any(|series| series.name == "component_graph.x"
+                && series.axis == "Time"
+                && series.points[2].y == 2.5));
+        assert!(component_series
+            .iter()
+            .any(|series| series.name == "component_graph.z"
+                && series.axis == "Time"
+                && series.points[2].y == 2.25));
 
         let report = check_source_with_runtime_component_graph();
         let mut spec =
