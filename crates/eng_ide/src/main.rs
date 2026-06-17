@@ -1951,6 +1951,38 @@ fn smoke() -> Result<(), String> {
             domain_example.display()
         ));
     }
+    let has_component_solver_result =
+        domain_inspectors
+            .assemblies
+            .as_array()
+            .is_some_and(|assemblies| {
+                assemblies.iter().any(|assembly| {
+                    let Some(solver_result) = assembly.get("solver_result") else {
+                        return false;
+                    };
+                    json_field_string(solver_result, "method").as_deref()
+                        == Some("linear_residual_graph_shape_check")
+                        && solver_result
+                            .get("variables")
+                            .and_then(Value::as_array)
+                            .is_some_and(|variables| !variables.is_empty())
+                        && solver_result
+                            .get("residuals")
+                            .and_then(Value::as_array)
+                            .is_some_and(|residuals| !residuals.is_empty())
+                        && solver_result
+                            .get("failure_artifact")
+                            .and_then(|failure| json_field_string(failure, "code"))
+                            .as_deref()
+                            == Some("W-ASSEMBLY-UNDERDETERMINED-SEED")
+                })
+            });
+    if !has_component_solver_result {
+        return Err(format!(
+            "{} did not produce IDE component solver result inspector metadata",
+            domain_example.display()
+        ));
+    }
     let measured_example = root.join("examples/official/17_measured_vs_simulated/main.eng");
     let measured_output = run_file(
         &measured_example,

@@ -1023,22 +1023,60 @@ function renderAssemblies() {
     const limitations = Array.isArray(solverPreview.limitations)
       ? solverPreview.limitations.join(", ")
       : "-";
+    const solverResult = assembly.solver_result || assembly.solverResult || {};
+    const solverMethod = solverResult.method
+      || solverPreview.method
+      || residualGraph.solver_plan
+      || residualGraph.solverPlan
+      || "-";
+    const solverStatus = solverResult.convergence_status
+      || solverResult.convergenceStatus
+      || solverPreview.status
+      || boundary.balance_status
+      || boundary.balanceStatus
+      || "-";
+    const failure = solverResult.failure_artifact || solverResult.failureArtifact || {};
     return `
       <tr>
         <td><strong>${escapeHtml(assembly.name || "-")}</strong><div class="muted">${escapeHtml(assembly.status || "-")}</div></td>
         <td>${escapeHtml(assembly.component_count ?? assembly.componentCount ?? 0)} / ${escapeHtml(assembly.port_count ?? assembly.portCount ?? 0)}</td>
         <td>${escapeHtml(setCount)}<div class="muted">domains ${escapeHtml(domainCount)}</div></td>
         <td>${escapeHtml(Array.isArray(assembly.equations) ? assembly.equations.length : 0)}<div class="muted">unknowns ${escapeHtml(boundary.unknown_count ?? boundary.unknownCount ?? 0)}</div></td>
-        <td>${escapeHtml(solverPreview.status || boundary.balance_status || boundary.balanceStatus || "-")}<div class="muted">${escapeHtml(solverPreview.method || residualGraph.solver_plan || residualGraph.solverPlan || "-")}</div><div class="muted">${escapeHtml(limitations)}</div></td>
+        <td>${escapeHtml(solverStatus)}<div class="muted">${escapeHtml(solverMethod)}</div><div class="muted">${escapeHtml(limitations)}</div></td>
+        <td>${metricCell(solverResult.residual_norm ?? solverResult.residualNorm)}<div class="muted">iter ${escapeHtml(solverResult.iteration_count ?? solverResult.iterationCount ?? "-")}</div></td>
+        <td>${escapeHtml(componentSolverVariableSummary(solverResult.variables))}</td>
+        <td>${escapeHtml(componentSolverLargestResidual(solverResult.residuals))}<div class="muted">${escapeHtml(failure.code || "-")}</div></td>
       </tr>
     `;
   }).join("");
   return `
     <table class="var-table">
-      <thead><tr><th>Graph</th><th>Comp/Ports</th><th>Sets</th><th>Eq</th><th>Plan</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="5" class="muted">Run a domain/component workflow.</td></tr>`}</tbody>
+      <thead><tr><th>Graph</th><th>Comp/Ports</th><th>Sets</th><th>Eq</th><th>Solver</th><th>Residual</th><th>Variables</th><th>Largest</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="8" class="muted">Run a domain/component workflow.</td></tr>`}</tbody>
     </table>
   `;
+}
+
+function componentSolverVariableSummary(variables) {
+  if (!Array.isArray(variables) || !variables.length) return "-";
+  const shown = variables.slice(0, 4).map((variable) => {
+    const unit = variable.unit ? ` ${variable.unit}` : "";
+    return `${variable.name || "var"}=${metricCell(variable.value)}${unit}`;
+  });
+  if (variables.length > shown.length) shown.push(`+${variables.length - shown.length} more`);
+  return shown.join(", ");
+}
+
+function componentSolverLargestResidual(residuals) {
+  if (!Array.isArray(residuals) || !residuals.length) return "-";
+  const largest = residuals.reduce((best, residual) => {
+    if (!best) return residual;
+    return Math.abs(Number(residual.value ?? 0)) > Math.abs(Number(best.value ?? 0))
+      ? residual
+      : best;
+  }, null);
+  if (!largest) return "-";
+  return `${largest.name || "residual"}=${metricCell(largest.value)} (${largest.status || "-"})`;
 }
 
 function renderComponentGraph() {
