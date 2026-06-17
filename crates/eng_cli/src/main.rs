@@ -557,7 +557,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         ),
         (
             "internal",
-            &["examples/internal/18_state_space_metadata/main.eng"],
+            &[
+                "examples/internal/18_state_space_metadata/main.eng",
+                "examples/internal/21_unsupported_system_shape/main.eng",
+            ],
         ),
         (
             "compatibility regression",
@@ -1345,6 +1348,34 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("state-space metadata example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
+        Path::new("examples/internal/21_unsupported_system_shape/main.eng"),
+        Path::new("build/test-unsupported-system-shape"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
+            let report_spec = std::fs::read_to_string(&output.report_spec_path).unwrap_or_default();
+            let report_html = std::fs::read_to_string(&output.report_path).unwrap_or_default();
+            if !result.contains("\"status\": \"skipped_unsupported_shape\"")
+                || !result.contains("\"failure_reason\": \"system shape is outside the supported first-order thermal ODE runner\"")
+                || !report_spec.contains("\"convergence_status\": \"skipped_unsupported_shape\"")
+                || !report_html.contains("skipped_unsupported_shape")
+            {
+                eprintln!(
+                    "expected unsupported system-shape example to produce an explicit skipped solver artifact"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/internal/21_unsupported_system_shape/main.eng recorded an explicit skipped solver artifact"
+            );
+        }
+        Err(error) => {
+            eprintln!("unsupported system-shape example failed: {error}");
             return ExitCode::from(2);
         }
     }
