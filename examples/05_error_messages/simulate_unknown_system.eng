@@ -1,0 +1,5 @@
+sim = simulate MissingSystem
+with {
+    timestep = 10 min
+    solver = fixed_step
+}

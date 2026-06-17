@@ -107,8 +107,9 @@ Definition of Done:
   checks.
 - `simulate ... with { T_out = weather_data.T_out }` validates axis and
   quantity against the explicit input contract.
-- Missing input, wrong quantity, wrong axis, invalid timestep, and unsupported
-  solver diagnostics are covered.
+- Missing input, wrong type, wrong quantity, wrong axis, missing/invalid
+  timestep, missing/unsupported solver, and unknown system diagnostics are
+  covered by compiler tests and `examples/05_error_messages` smoke fixtures.
 - `sim.T_zone` remains materialized as a typed TimeSeries in result/report/IDE
   artifacts.
 - Docs distinguish the current scalar input plus TimeSeries binding rule from

@@ -906,6 +906,42 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             "E-EXTERNAL-BEHAVIOR-SIGNAL-001",
         ),
         (
+            "examples/05_error_messages/simulate_unknown_system.eng",
+            "E-SIM-SYSTEM-001",
+        ),
+        (
+            "examples/05_error_messages/simulate_missing_input.eng",
+            "E-SIM-INPUT-MISSING-001",
+        ),
+        (
+            "examples/05_error_messages/simulate_input_not_timeseries.eng",
+            "E-SIM-INPUT-TYPE-001",
+        ),
+        (
+            "examples/05_error_messages/simulate_input_axis_mismatch.eng",
+            "E-SIM-INPUT-AXIS-001",
+        ),
+        (
+            "examples/05_error_messages/simulate_input_quantity_mismatch.eng",
+            "E-SIM-INPUT-QTY-001",
+        ),
+        (
+            "examples/05_error_messages/simulate_missing_timestep.eng",
+            "E-SIM-OPTION-MISSING-001",
+        ),
+        (
+            "examples/05_error_messages/simulate_bad_timestep.eng",
+            "E-SIM-OPTION-TYPE-001",
+        ),
+        (
+            "examples/05_error_messages/simulate_missing_solver.eng",
+            "E-SIM-OPTION-MISSING-002",
+        ),
+        (
+            "examples/05_error_messages/simulate_unsupported_solver.eng",
+            "E-SIM-OPTION-TYPE-002",
+        ),
+        (
             "examples/05_error_messages/state_space_missing_operator_entry.eng",
             "E-STATE-SPACE-OP-SHAPE-001",
         ),

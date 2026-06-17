@@ -147,6 +147,9 @@ are not public stable workflows.
   trajectory points. They are not a supported general nonlinear, DAE, adaptive,
   coefficient-unit-converting, or component-coupled state-space simulation
   workflow.
+- System simulate diagnostics for missing inputs, non-TimeSeries bindings,
+  axis/quantity mismatches, timestep options, solver options, and unknown
+  systems are covered by the CLI example smoke gate.
 - Solver algorithm seeds: dense linear solve, fixed-point iteration with
   nonconvergence diagnostics, and standalone damped Newton solve with
   finite-difference fallback, supplied analytic/JIT Jacobian hook,

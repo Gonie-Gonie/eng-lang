@@ -1,0 +1,8 @@
+system Decay {
+    state T: AbsoluteTemperature = 24 degC
+}
+
+sim = simulate Decay
+with {
+    timestep = 10 min
+}

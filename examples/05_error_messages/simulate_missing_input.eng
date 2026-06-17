@@ -1,0 +1,17 @@
+system RoomThermal {
+    parameter C: HeatCapacity = 500 kJ/K
+    parameter UA: Conductance = 150 W/K
+    state T: AbsoluteTemperature = 24 degC
+    input T_out: TimeSeries[Time] of AbsoluteTemperature [degC]
+    input Q_internal: HeatRate = 500 W
+
+    equation {
+        C * der(T) eq UA * (T_out - T) + Q_internal
+    }
+}
+
+sim = simulate RoomThermal
+with {
+    timestep = 10 min
+    solver = fixed_step
+}
