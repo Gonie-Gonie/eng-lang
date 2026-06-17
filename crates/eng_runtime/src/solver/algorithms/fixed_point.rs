@@ -110,7 +110,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn solves_contracting_map() {
+    fn solves_fixed_point_small_loop() {
         let result = solve_fixed_point(&[0.0], &FixedPointOptions::default(), |values| {
             Ok(vec![0.5 * values[0] + 1.0])
         })
@@ -123,7 +123,21 @@ mod tests {
     }
 
     #[test]
-    fn reports_nonconvergence_with_failure_artifact() {
+    fn applies_relaxation_factor_to_iteration_history() {
+        let options = FixedPointOptions {
+            tolerance: 1e-12,
+            max_iterations: 1,
+            relaxation: 0.25,
+        };
+        let result = solve_fixed_point(&[0.0], &options, |_| Ok(vec![4.0])).unwrap();
+
+        assert_eq!(result.values, vec![1.0]);
+        assert_eq!(result.residual_history, vec![1.0]);
+        assert_eq!(result.convergence_status, "fixed_point_not_converged");
+    }
+
+    #[test]
+    fn reports_fixed_point_nonconvergence_artifact() {
         let options = FixedPointOptions {
             tolerance: 1e-12,
             max_iterations: 3,

@@ -344,6 +344,15 @@ Current coverage:
   overdetermined residual graph limitation path and requires a
   `not_solved_overdetermined`/`E-ASSEMBLY-OVERDETERMINED` artifact instead
   of attempting a dense solve.
+- Checklist 9.4 test names are covered by current repo test surfaces as
+  follows: `linear_algebraic_thermal_node.eng` maps to
+  `examples/official/21_thermal_component_assembly` and
+  `examples/internal/22_component_boundary_solve` smoke checks;
+  `linear_singular_system.eng` maps to
+  `examples/internal/23_component_boundary_singular`; fixed-point
+  `small_loop` and `nonconvergence` cases are runtime algorithm tests in
+  `crates/eng_runtime/src/solver/algorithms/fixed_point.rs` until a
+  language-level algebraic-loop fixture surface is added.
 - Runtime has an internal dynamic-component solver seed, but component graph
   assembly is not yet lowered into that numeric path.
 - Component connection/assembly diagnostics use checklist canonical codes for
