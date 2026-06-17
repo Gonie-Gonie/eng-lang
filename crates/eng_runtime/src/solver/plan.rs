@@ -166,6 +166,14 @@ impl StateLayout {
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
+
+    pub fn get(&self, name: &str) -> Option<&LayoutEntry> {
+        self.entries.iter().find(|entry| entry.name == name)
+    }
+
+    pub fn index_of(&self, name: &str) -> Option<usize> {
+        self.get(name).map(|entry| entry.index)
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -173,12 +181,117 @@ pub struct InputLayout {
     pub entries: Vec<LayoutEntry>,
 }
 
+impl InputLayout {
+    pub fn new(entries: Vec<LayoutEntry>) -> Self {
+        Self { entries }
+    }
+
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    pub fn get(&self, name: &str) -> Option<&LayoutEntry> {
+        self.entries.iter().find(|entry| entry.name == name)
+    }
+
+    pub fn index_of(&self, name: &str) -> Option<usize> {
+        self.get(name).map(|entry| entry.index)
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ParameterLayout {
     pub entries: Vec<LayoutEntry>,
 }
 
+impl ParameterLayout {
+    pub fn new(entries: Vec<LayoutEntry>) -> Self {
+        Self { entries }
+    }
+
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    pub fn get(&self, name: &str) -> Option<&LayoutEntry> {
+        self.entries.iter().find(|entry| entry.name == name)
+    }
+
+    pub fn index_of(&self, name: &str) -> Option<usize> {
+        self.get(name).map(|entry| entry.index)
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct OutputLayout {
     pub entries: Vec<LayoutEntry>,
+}
+
+impl OutputLayout {
+    pub fn new(entries: Vec<LayoutEntry>) -> Self {
+        Self { entries }
+    }
+
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    pub fn get(&self, name: &str) -> Option<&LayoutEntry> {
+        self.entries.iter().find(|entry| entry.name == name)
+    }
+
+    pub fn index_of(&self, name: &str) -> Option<usize> {
+        self.get(name).map(|entry| entry.index)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn layouts_preserve_named_indices_and_units() {
+        let states = StateLayout::new(vec![
+            LayoutEntry::new(0, "T_air", "AbsoluteTemperature", "K", "degC"),
+            LayoutEntry::new(1, "T_wall", "AbsoluteTemperature", "K", "degC"),
+        ]);
+        let inputs = InputLayout::new(vec![LayoutEntry::new(
+            0,
+            "T_out",
+            "AbsoluteTemperature",
+            "K",
+            "degC",
+        )]);
+        let parameters =
+            ParameterLayout::new(vec![LayoutEntry::new(0, "UA", "Conductance", "W/K", "W/K")]);
+        let outputs = OutputLayout::new(vec![
+            LayoutEntry::new(0, "T_air", "AbsoluteTemperature", "K", "degC"),
+            LayoutEntry::new(1, "T_wall", "AbsoluteTemperature", "K", "degC"),
+        ]);
+
+        assert_eq!(states.len(), 2);
+        assert_eq!(states.index_of("T_wall"), Some(1));
+        assert_eq!(states.get("T_air").unwrap().display_unit, "degC");
+        assert_eq!(inputs.len(), 1);
+        assert_eq!(inputs.index_of("T_out"), Some(0));
+        assert_eq!(parameters.len(), 1);
+        assert_eq!(parameters.get("UA").unwrap().canonical_unit, "W/K");
+        assert_eq!(outputs.len(), 2);
+        assert_eq!(outputs.index_of("missing"), None);
+        assert!(InputLayout::default().is_empty());
+        assert!(ParameterLayout::default().is_empty());
+        assert!(OutputLayout::default().is_empty());
+    }
 }
