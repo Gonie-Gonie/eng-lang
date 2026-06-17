@@ -314,8 +314,9 @@ Current coverage:
   calls, including missing arguments, unknown component signals, and
   non-duration delay values. Signals can be declared component `port.variable`
   references or prior component-local expressions with resolved quantity/unit
-  metadata. Example-smoke fixtures cover each public component behavior
-  diagnostic code.
+  metadata; nested delay behavior expressions also preserve their delayed
+  signal quantity/unit contract when used as behavior-call inputs.
+  Example-smoke fixtures cover each public component behavior diagnostic code.
 - Component local Predictor and external behavior expressions now diagnose
   invalid seed syntax and unknown component signals before they become
   behavior-node metadata.

@@ -2153,8 +2153,70 @@ fn report_behavior_signal_contract(
     role: &str,
     signal: &str,
 ) -> ReportBehaviorSignalContract {
+    report_behavior_expression_contract(report, component, local, role, signal, 0).unwrap_or_else(
+        || ReportBehaviorSignalContract {
+            role: role.to_owned(),
+            name: signal.to_owned(),
+            quantity_kind: "unknown".to_owned(),
+            display_unit: "unknown".to_owned(),
+            canonical_unit: "unknown".to_owned(),
+            status: "signal_contract_unresolved".to_owned(),
+        },
+    )
+}
+
+fn report_behavior_expression_contract(
+    report: &CheckReport,
+    component: &eng_compiler::ComponentInfo,
+    local: &eng_compiler::ComponentLocalExpressionInfo,
+    role: &str,
+    expression: &str,
+    depth: usize,
+) -> Option<ReportBehaviorSignalContract> {
+    if depth > 8 {
+        return None;
+    }
+    let trimmed_expression = report_strip_outer_parens(expression.trim());
+    if let Some(contract) =
+        report_named_signal_contract(report, component, local, role, trimmed_expression)
+    {
+        return Some(contract);
+    }
+    if let Some(arguments) = report_behavior_call_arguments_expression(trimmed_expression, "delay")
+    {
+        let parts = report_split_behavior_arguments(&arguments);
+        if parts.len() != 2 || report_duration_seconds(parts[1].trim()).is_none() {
+            return None;
+        }
+        let signal_contract = report_behavior_expression_contract(
+            report,
+            component,
+            local,
+            role,
+            parts[0].trim(),
+            depth + 1,
+        )?;
+        return Some(ReportBehaviorSignalContract {
+            role: role.to_owned(),
+            name: expression.trim().to_owned(),
+            quantity_kind: signal_contract.quantity_kind,
+            display_unit: signal_contract.display_unit,
+            canonical_unit: signal_contract.canonical_unit,
+            status: "delay_expression_signal_resolved".to_owned(),
+        });
+    }
+    None
+}
+
+fn report_named_signal_contract(
+    report: &CheckReport,
+    component: &eng_compiler::ComponentInfo,
+    local: &eng_compiler::ComponentLocalExpressionInfo,
+    role: &str,
+    signal: &str,
+) -> Option<ReportBehaviorSignalContract> {
     let Some((port_name, variable_name)) = signal.split_once('.') else {
-        if let Some(local_signal) = component
+        return component
             .local_expressions
             .iter()
             .find(|candidate| candidate.name == signal.trim() && candidate.line < local.line)
@@ -2162,72 +2224,36 @@ fn report_behavior_signal_contract(
                 candidate.quantity_kind != "unknown"
                     && candidate.type_status != "signal_contract_unresolved"
             })
-        {
-            return ReportBehaviorSignalContract {
+            .map(|local_signal| ReportBehaviorSignalContract {
                 role: role.to_owned(),
                 name: signal.to_owned(),
                 quantity_kind: local_signal.quantity_kind.clone(),
                 display_unit: local_signal.display_unit.clone(),
                 canonical_unit: local_signal.canonical_unit.clone(),
                 status: "component_local_signal_resolved".to_owned(),
-            };
-        }
-        return ReportBehaviorSignalContract {
-            role: role.to_owned(),
-            name: signal.to_owned(),
-            quantity_kind: "unknown".to_owned(),
-            display_unit: "unknown".to_owned(),
-            canonical_unit: "unknown".to_owned(),
-            status: "signal_contract_unresolved".to_owned(),
-        };
+            });
     };
-    let Some(port) = component.ports.iter().find(|port| port.name == port_name) else {
-        return ReportBehaviorSignalContract {
-            role: role.to_owned(),
-            name: signal.to_owned(),
-            quantity_kind: "unknown".to_owned(),
-            display_unit: "unknown".to_owned(),
-            canonical_unit: "unknown".to_owned(),
-            status: "signal_contract_unresolved".to_owned(),
-        };
-    };
-    let Some(domain) = report
+    let port = component
+        .ports
+        .iter()
+        .find(|port| port.name == port_name.trim())?;
+    let domain = report
         .semantic_program
         .domains
         .iter()
-        .find(|domain| domain.name == port.domain_name)
-    else {
-        return ReportBehaviorSignalContract {
-            role: role.to_owned(),
-            name: signal.to_owned(),
-            quantity_kind: "unknown".to_owned(),
-            display_unit: "unknown".to_owned(),
-            canonical_unit: "unknown".to_owned(),
-            status: "signal_contract_unresolved".to_owned(),
-        };
-    };
-    let Some(variable) = domain
+        .find(|domain| domain.name == port.domain_name)?;
+    let variable = domain
         .variables
         .iter()
-        .find(|variable| variable.name == variable_name)
-    else {
-        return ReportBehaviorSignalContract {
-            role: role.to_owned(),
-            name: signal.to_owned(),
-            quantity_kind: "unknown".to_owned(),
-            display_unit: "unknown".to_owned(),
-            canonical_unit: "unknown".to_owned(),
-            status: "signal_contract_unresolved".to_owned(),
-        };
-    };
-    ReportBehaviorSignalContract {
+        .find(|variable| variable.name == variable_name.trim())?;
+    Some(ReportBehaviorSignalContract {
         role: role.to_owned(),
         name: signal.to_owned(),
         quantity_kind: variable.quantity_kind.clone(),
         display_unit: variable.display_unit.clone(),
         canonical_unit: variable.canonical_unit.clone(),
         status: "domain_signal_resolved".to_owned(),
-    }
+    })
 }
 
 fn first_report_behavior_call_arguments(expression: &str, call_name: &str) -> Option<Vec<String>> {
@@ -2252,12 +2278,72 @@ fn first_report_behavior_call_arguments(expression: &str, call_name: &str) -> Op
     }
     let close_index = close_index?;
     Some(
-        expression[open_index + 1..close_index]
-            .split(',')
-            .map(|part| part.trim().to_owned())
+        report_split_behavior_arguments(&expression[open_index + 1..close_index])
+            .into_iter()
             .filter(|part| !part.is_empty())
             .collect(),
     )
+}
+
+fn report_behavior_call_arguments_expression(expression: &str, call_name: &str) -> Option<String> {
+    let trimmed = report_strip_outer_parens(expression.trim());
+    let lowered = trimmed.to_ascii_lowercase();
+    let prefix = format!("{call_name}(");
+    if !lowered.starts_with(&prefix) || !trimmed.ends_with(')') {
+        return None;
+    }
+    let inner = &trimmed[call_name.len() + 1..trimmed.len() - 1];
+    report_is_balanced(inner).then(|| inner.to_owned())
+}
+
+fn report_split_behavior_arguments(arguments: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut depth = 0i32;
+    let mut start = 0usize;
+    for (index, character) in arguments.char_indices() {
+        match character {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            ',' if depth == 0 => {
+                parts.push(arguments[start..index].trim().to_owned());
+                start = index + character.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    parts.push(arguments[start..].trim().to_owned());
+    parts
+}
+
+fn report_strip_outer_parens(mut expression: &str) -> &str {
+    loop {
+        let trimmed = expression.trim();
+        if !(trimmed.starts_with('(') && trimmed.ends_with(')')) {
+            return trimmed;
+        }
+        let inner = &trimmed[1..trimmed.len() - 1];
+        if !report_is_balanced(inner) {
+            return trimmed;
+        }
+        expression = inner;
+    }
+}
+
+fn report_is_balanced(expression: &str) -> bool {
+    let mut depth = 0i32;
+    for character in expression.chars() {
+        match character {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth < 0 {
+                    return false;
+                }
+            }
+            _ => {}
+        }
+    }
+    depth == 0
 }
 
 fn report_duration_seconds(value: &str) -> Option<f64> {
@@ -7836,7 +7922,7 @@ mod tests {
     fn report_behavior_nodes_resolve_prior_component_local_signals() {
         let report = check_source(
             "ok.eng",
-            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n    temperature_signal = out.T\n    delayed_temperature = delay(temperature_signal, 5 s)\n    predicted_temperature = predictor(temperature_signal)\n}\n",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n    temperature_signal = out.T\n    delayed_temperature = delay(temperature_signal, 5 s)\n    nested_delayed_temperature = delay(delay(out.T, 1 s), 5 s)\n    predicted_temperature = predictor(delay(out.T, 1 s))\n}\n",
             &CheckOptions::default(),
         );
 
@@ -7854,6 +7940,10 @@ mod tests {
         );
         assert_eq!(
             spec.components[0].local_expressions[1].type_status,
+            "delay_output_matches_signal"
+        );
+        assert_eq!(
+            spec.components[0].local_expressions[2].type_status,
             "delay_output_matches_signal"
         );
         let delay_node = spec
@@ -7876,6 +7966,24 @@ mod tests {
             delay_node.contract_outputs[0].quantity_kind,
             "AbsoluteTemperature"
         );
+        let nested_delay_node = spec
+            .component_graph
+            .behavior_nodes
+            .iter()
+            .find(|node| node.name == "nested_delayed_temperature")
+            .expect("nested delay behavior node");
+        assert_eq!(
+            nested_delay_node.signal.as_deref(),
+            Some("delay(out.T, 1 s)")
+        );
+        assert_eq!(
+            nested_delay_node.contract_inputs[0].status,
+            "delay_expression_signal_resolved"
+        );
+        assert_eq!(
+            nested_delay_node.contract_inputs[0].quantity_kind,
+            "AbsoluteTemperature"
+        );
         let predictor_node = spec
             .component_graph
             .behavior_nodes
@@ -7884,12 +7992,15 @@ mod tests {
             .expect("predictor behavior node");
         assert_eq!(
             predictor_node.contract_inputs[0].status,
-            "component_local_signal_resolved"
+            "delay_expression_signal_resolved"
         );
         assert!(json.contains("\"type_status\": \"delay_output_matches_signal\""));
         assert!(json.contains("\"component_local_signal_resolved\""));
+        assert!(json.contains("\"delay_expression_signal_resolved\""));
         assert!(html.contains("signal=temperature_signal"));
+        assert!(html.contains("signal=delay(out.T, 1 s)"));
         assert!(html.contains("inputs=input:temperature_signal:AbsoluteTemperature"));
+        assert!(html.contains("inputs=input:delay(out.T, 1 s):AbsoluteTemperature"));
     }
 
     fn sample_plot_spec(plot_type: &str) -> PlotSpec {

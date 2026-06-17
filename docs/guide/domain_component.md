@@ -175,13 +175,14 @@ The artifact also records explicit future-solver seeds:
 
 Component-local `delay(signal, duration)` calls are checked for a known
 component signal, either `port.variable` or a prior component-local expression
-with resolved quantity/unit metadata, and a positive time duration such as
-`5 s`.
+with resolved quantity/unit metadata. A nested delay expression such as
+`delay(out.T, 1 s)` can also be used as a signal argument. Delay calls must
+still provide a positive time duration such as `5 s`.
 Component-local `predictor(signal)`/`predict(signal)` and
 `external(signal)`/`adapter(signal)` calls are also checked for a single known
-component signal. Full Predictor and external behavior contracts remain
-runtime-wrapper seeds until behavior graph solving is wired into supported
-solver paths.
+component signal or behavior expression. Full Predictor and external behavior
+contracts remain runtime-wrapper seeds until behavior graph solving is wired
+into supported solver paths.
 
 ## Artifact Surface
 

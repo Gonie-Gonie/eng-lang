@@ -186,8 +186,9 @@ are not public stable workflows.
   `delay(signal, duration)` diagnostics for unknown signals and invalid
   durations. Component-local behavior calls accept known `port.variable`
   signals and prior component-local expressions with resolved quantity/unit
-  metadata. Component-local Predictor calls and external behavior calls also
-  validate their seed syntax and known component signal before becoming
+  metadata, plus nested delay behavior expressions as typed signal inputs.
+  Component-local Predictor calls and external behavior calls also validate
+  their seed syntax and known component signal before becoming
   behavior-node metadata, with each component behavior diagnostic code covered
   by the CLI example smoke gate. Runtime also has a solver-API Predictor
   behavior contract wrapper with input/output quantity-unit metadata,

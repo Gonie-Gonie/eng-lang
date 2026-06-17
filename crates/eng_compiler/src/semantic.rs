@@ -4461,29 +4461,8 @@ fn infer_component_local_expression_signal_contract(
     current_line: usize,
     expression: &str,
 ) -> ComponentSignalContract {
-    let trimmed = expression.trim();
-    if let Some(contract) =
-        component_behavior_signal_contract(domains, component, current_line, trimmed)
-    {
-        return contract;
-    }
-    for arguments in extract_call_arguments(trimmed, "delay") {
-        let parts = split_top_level(&arguments, &[',']);
-        if parts.len() != 2 || parse_duration_option_seconds(parts[1].trim()).is_none() {
-            continue;
-        }
-        if let Some(signal_contract) =
-            component_behavior_signal_contract(domains, component, current_line, parts[0].trim())
-        {
-            return ComponentSignalContract {
-                quantity_kind: signal_contract.quantity_kind,
-                display_unit: signal_contract.display_unit,
-                canonical_unit: signal_contract.canonical_unit,
-                status: "delay_output_matches_signal".to_owned(),
-            };
-        }
-    }
-    unknown_component_signal_contract()
+    component_behavior_signal_contract(domains, component, current_line, expression)
+        .unwrap_or_else(unknown_component_signal_contract)
 }
 
 fn analyze_connections(
@@ -5171,7 +5150,7 @@ fn validate_delay_call(
                 "Delay signal `{signal}` is not a known component signal in `{}`.",
                 component.name
             ),
-            Some("Use a component signal such as `port.variable`, or a prior component-local expression with resolved quantity/unit metadata."),
+            Some("Use a component signal such as `port.variable`, a prior component-local expression, or a behavior expression with resolved quantity/unit metadata."),
         ));
     }
     if parse_duration_option_seconds(parts[1].trim()).is_none() {
@@ -5255,7 +5234,7 @@ fn validate_single_signal_behavior_call(
                 "{} expression `{}` must use `{}`.",
                 spec.label, local.expression, spec.signature
             ),
-            Some("Pass one component signal such as `outlet.T` or a prior component-local signal while full behavior contracts remain runtime-wrapper seeds."),
+            Some("Pass one component signal such as `outlet.T`, a prior component-local signal, or a behavior expression while full behavior contracts remain runtime-wrapper seeds."),
         ));
         return;
     }
@@ -5268,12 +5247,59 @@ fn validate_single_signal_behavior_call(
                 "{} signal `{signal}` is not a known component signal in `{}`.",
                 spec.label, component.name
             ),
-            Some("Use a component signal such as `port.variable`, or a prior component-local expression with resolved quantity/unit metadata."),
+            Some("Use a component signal such as `port.variable`, a prior component-local expression, or a behavior expression with resolved quantity/unit metadata."),
         ));
     }
 }
 
 fn component_behavior_signal_contract(
+    domains: &[DomainInfo],
+    component: &ComponentInfo,
+    current_line: usize,
+    signal: &str,
+) -> Option<ComponentSignalContract> {
+    component_behavior_expression_contract(domains, component, current_line, signal, 0)
+}
+
+fn component_behavior_expression_contract(
+    domains: &[DomainInfo],
+    component: &ComponentInfo,
+    current_line: usize,
+    expression: &str,
+    depth: usize,
+) -> Option<ComponentSignalContract> {
+    if depth > 8 {
+        return None;
+    }
+    let trimmed_expression = strip_outer_parens(expression.trim());
+    if let Some(contract) =
+        component_named_signal_contract(domains, component, current_line, trimmed_expression)
+    {
+        return Some(contract);
+    }
+    if let Some(arguments) = behavior_call_arguments_expression(trimmed_expression, "delay") {
+        let parts = split_top_level(&arguments, &[',']);
+        if parts.len() != 2 || parse_duration_option_seconds(parts[1].trim()).is_none() {
+            return None;
+        }
+        let signal_contract = component_behavior_expression_contract(
+            domains,
+            component,
+            current_line,
+            parts[0].trim(),
+            depth + 1,
+        )?;
+        return Some(ComponentSignalContract {
+            quantity_kind: signal_contract.quantity_kind,
+            display_unit: signal_contract.display_unit,
+            canonical_unit: signal_contract.canonical_unit,
+            status: "delay_output_matches_signal".to_owned(),
+        });
+    }
+    None
+}
+
+fn component_named_signal_contract(
     domains: &[DomainInfo],
     component: &ComponentInfo,
     current_line: usize,
@@ -5286,7 +5312,7 @@ fn component_behavior_signal_contract(
         ));
     }
     let trimmed_signal = signal.trim();
-    if trimmed_signal.contains('.') || trimmed_signal.is_empty() {
+    if !is_identifier(trimmed_signal) {
         return None;
     }
     let local = component
@@ -5302,6 +5328,17 @@ fn component_behavior_signal_contract(
         canonical_unit: local.canonical_unit.clone(),
         status: "component_local_signal_resolved".to_owned(),
     })
+}
+
+fn behavior_call_arguments_expression(expression: &str, call_name: &str) -> Option<String> {
+    let trimmed = strip_outer_parens(expression.trim());
+    let lowered = trimmed.to_ascii_lowercase();
+    let prefix = format!("{call_name}(");
+    if !lowered.starts_with(&prefix) || !trimmed.ends_with(')') {
+        return None;
+    }
+    let inner = &trimmed[call_name.len() + 1..trimmed.len() - 1];
+    is_balanced(inner).then(|| inner.to_owned())
 }
 
 fn domain_variable_signal_contract(

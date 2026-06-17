@@ -4432,12 +4432,30 @@ fn first_behavior_call_arguments(expression: &str, call_name: &str) -> Option<Ve
     }
     let close_index = close_index?;
     Some(
-        expression[open_index + 1..close_index]
-            .split(',')
-            .map(|part| part.trim().to_owned())
+        split_behavior_arguments(&expression[open_index + 1..close_index])
+            .into_iter()
             .filter(|part| !part.is_empty())
             .collect(),
     )
+}
+
+fn split_behavior_arguments(arguments: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut depth = 0i32;
+    let mut start = 0usize;
+    for (index, character) in arguments.char_indices() {
+        match character {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            ',' if depth == 0 => {
+                parts.push(arguments[start..index].trim().to_owned());
+                start = index + character.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    parts.push(arguments[start..].trim().to_owned());
+    parts
 }
 
 fn domain_argument_labels(
@@ -4916,13 +4934,13 @@ mod tests {
     fn component_behavior_calls_accept_prior_local_signal_contracts() {
         let report = check_source(
             "ok.eng",
-            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n    temperature_signal = out.T\n    delayed_temperature = delay(temperature_signal, 5 s)\n    predicted_temperature = predictor(temperature_signal)\n}\n",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n    temperature_signal = out.T\n    delayed_temperature = delay(temperature_signal, 5 s)\n    nested_delayed_temperature = delay(delay(out.T, 1 s), 5 s)\n    predicted_temperature = predictor(delay(out.T, 1 s))\n}\n",
             &CheckOptions::default(),
         );
 
         assert!(!report.has_errors());
         let locals = &report.semantic_program.components[0].local_expressions;
-        assert_eq!(locals.len(), 3);
+        assert_eq!(locals.len(), 4);
         assert_eq!(locals[0].name, "temperature_signal");
         assert_eq!(locals[0].quantity_kind, "AbsoluteTemperature");
         assert_eq!(locals[0].display_unit, "degC");
@@ -4933,9 +4951,15 @@ mod tests {
         assert_eq!(locals[1].display_unit, "degC");
         assert_eq!(locals[1].canonical_unit, "K");
         assert_eq!(locals[1].type_status, "delay_output_matches_signal");
+        assert_eq!(locals[2].name, "nested_delayed_temperature");
+        assert_eq!(locals[2].quantity_kind, "AbsoluteTemperature");
+        assert_eq!(locals[2].display_unit, "degC");
+        assert_eq!(locals[2].canonical_unit, "K");
+        assert_eq!(locals[2].type_status, "delay_output_matches_signal");
 
         let review = review_json(&report);
         assert!(review.contains("\"signal\": \"temperature_signal\""));
+        assert!(review.contains("\"signal\": \"delay(out.T, 1 s)\""));
         assert!(review.contains("\"quantity_kind\": \"AbsoluteTemperature\""));
         assert!(review.contains("\"type_status\": \"delay_output_matches_signal\""));
     }
