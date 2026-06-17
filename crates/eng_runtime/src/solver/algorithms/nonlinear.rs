@@ -223,6 +223,12 @@ fn validate_newton_options(initial: &[f64], options: &NewtonOptions) -> Result<(
             "Newton solver damping must be in the interval (0, 1]",
         ));
     }
+    if options.line_search_steps == 0 {
+        return Err(SolverFailure::new(
+            "E-NEWTON-LINE-SEARCH-STEPS",
+            "Newton solver line_search_steps must be greater than zero",
+        ));
+    }
     Ok(())
 }
 
@@ -587,5 +593,13 @@ mod tests {
         let failure = solve_newton(&[1.0], &options, |values| Ok(values.to_vec())).unwrap_err();
 
         assert_eq!(failure.code, "E-NEWTON-DAMPING");
+
+        let options = NewtonOptions {
+            line_search_steps: 0,
+            ..Default::default()
+        };
+        let failure = solve_newton(&[1.0], &options, |values| Ok(values.to_vec())).unwrap_err();
+
+        assert_eq!(failure.code, "E-NEWTON-LINE-SEARCH-STEPS");
     }
 }
