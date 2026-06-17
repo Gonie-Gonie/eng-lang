@@ -1978,6 +1978,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !review.contains("\"time_grid\"")
                 || !review.contains("\"binding\": \"sim\"")
                 || !review.contains("\"name\": \"T_zone\"")
+                || !review.contains("\"states\": [\"T_zone\"]")
+                || !review.contains("\"inputs\": [\"T_out\", \"Q_internal\"]")
+                || !review.contains("\"parameters\": [\"C\", \"UA\"]")
+                || !review.contains("\"outputs\": [\"T_zone\"]")
                 || !review.contains("\"method\": \"explicit_euler_fixed_step\"")
                 || !review.contains("\"step_count\": 6")
                 || !review.contains("\"final_value\"")
@@ -1993,6 +1997,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !result.contains("\"unit\": \"K\"")
                 || !result.contains("\"expression\": \"rmse_T < 5 K\"")
                 || !result.contains("\"method\": \"explicit_euler_fixed_step\"")
+                || !result.contains("\"states\": [\"T_zone\"]")
+                || !result.contains("\"inputs\": [\"T_out\", \"Q_internal\"]")
+                || !result.contains("\"parameters\": [\"C\", \"UA\"]")
+                || !result.contains("\"outputs\": [\"T_zone\"]")
                 || !result.contains("\"time_step\": 600")
                 || !result.contains("\"step_count\": 6")
                 || !result.contains("\"final_value\"")
@@ -2001,11 +2009,17 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !report_spec.contains("\"unit\": \"K\"")
                 || !report_spec.contains("\"expression\": \"rmse_T < 5 K\"")
                 || !report_spec.contains("\"method\": \"explicit_euler_fixed_step\"")
+                || !report_spec.contains("\"states\": [\"T_zone\"]")
+                || !report_spec.contains("\"inputs\": [\"T_out\", \"Q_internal\"]")
+                || !report_spec.contains("\"parameters\": [\"C\", \"UA\"]")
+                || !report_spec.contains("\"outputs\": [\"T_zone\"]")
                 || !report_spec.contains("\"time_step_s\": 600")
                 || !report_spec.contains("\"step_count\": 6")
                 || !report_spec.contains("\"final_value\"")
                 || !report_spec.contains("\"status\": \"passed\"")
                 || !report_html.contains("System Solver Results")
+                || !report_html
+                    .contains("states=T_zone algebraic=- inputs=T_out, Q_internal parameters=C, UA outputs=T_zone")
                 || !report_html.contains("explicit_euler_fixed_step")
                 || !report_html.contains("Computed Metrics")
                 || !report_html.contains("Validations")
@@ -2014,7 +2028,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !plot_spec.contains("\"name\": \"measured_data.T_zone\"")
                 || !plot_spec.contains("\"name\": \"sim.T_zone\"")
             {
-                eprintln!("expected measured-vs-simulated example to produce SolverResult method/timestep/final-state metadata, RMSE TemperatureDelta/K, validation, alignment, and multi-series plot artifacts");
+                eprintln!("expected measured-vs-simulated example to produce SolverResult state/input/parameter/output, method/timestep/final-state metadata, RMSE TemperatureDelta/K, validation, alignment, and multi-series plot artifacts");
                 return ExitCode::from(2);
             }
             println!(

@@ -143,6 +143,9 @@ Current coverage:
   across `review.json` `simulation_results[].solver_results`,
   `report_spec.json` `system_ir[].solver_results`, and `result.engres`
   `solver_result` fields.
+- `eng test examples` directly asserts the measured-vs-simulated SolverResult
+  state/input/parameter/output lists across review, result, report spec, and
+  report HTML artifacts.
 - `artifacts-check` snapshots the official multi-state, Thermal component
   assembly, and constrained multi-domain boundary solve examples so solver
   trajectories, residual graph solve status, solved variables, and residual
