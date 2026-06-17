@@ -149,6 +149,8 @@ Current coverage:
 - Fixed-step method dispatch now lives behind the solver module as
   `FixedStepMethod`/`solve_fixed_step_ode`, so runtime materialization calls the
   solver API instead of carrying a local dispatch wrapper.
+- `SolverInput::validate_layouts` rejects non-finite initial state, input, and
+  parameter values before solver algorithms run.
 - `SolverInput::validate_layouts` now validates non-empty `OutputLayout`
   entries against declared outputs and state quantity/unit metadata while still
   allowing empty output layouts for internal vector-output seeds.

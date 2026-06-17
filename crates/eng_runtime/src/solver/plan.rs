@@ -69,6 +69,7 @@ impl SolverInput {
                 "initial state vector length does not match the state layout",
             ));
         }
+        validate_state_values(&self.state_layout, &self.initial_state)?;
         validate_scalar_layout("input", &self.input_layout.entries, &self.inputs)?;
         validate_scalar_layout(
             "parameter",
@@ -108,6 +109,18 @@ impl SolverScalar {
     }
 }
 
+fn validate_state_values(state_layout: &StateLayout, values: &[f64]) -> Result<(), SolverFailure> {
+    for (entry, value) in state_layout.entries.iter().zip(values.iter().copied()) {
+        if !value.is_finite() {
+            return Err(SolverFailure::new(
+                "E-SOLVER-STATE-VALUE-INVALID",
+                format!("initial state `{}` must be finite", entry.name),
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn validate_scalar_layout(
     role: &str,
     layout: &[LayoutEntry],
@@ -130,6 +143,12 @@ fn validate_scalar_layout(
                     "{role} scalar `{}` does not match layout entry `{}`",
                     value.name, entry.name
                 ),
+            ));
+        }
+        if !value.value.is_finite() {
+            return Err(SolverFailure::new(
+                format!("E-SOLVER-{}-VALUE-INVALID", role.to_ascii_uppercase()),
+                format!("{role} scalar `{}` must be finite", value.name),
             ));
         }
     }
@@ -454,11 +473,25 @@ mod tests {
             "E-SOLVER-STATE-LAYOUT-MISMATCH"
         );
 
+        let mut state_value_invalid = input.clone();
+        state_value_invalid.initial_state[0] = f64::NAN;
+        assert_eq!(
+            state_value_invalid.validate_layouts().unwrap_err().code,
+            "E-SOLVER-STATE-VALUE-INVALID"
+        );
+
         let mut input_count_mismatch = input.clone();
         input_count_mismatch.inputs.clear();
         assert_eq!(
             input_count_mismatch.validate_layouts().unwrap_err().code,
             "E-SOLVER-INPUT-LAYOUT-MISMATCH"
+        );
+
+        let mut input_value_invalid = input.clone();
+        input_value_invalid.inputs[0].value = f64::INFINITY;
+        assert_eq!(
+            input_value_invalid.validate_layouts().unwrap_err().code,
+            "E-SOLVER-INPUT-VALUE-INVALID"
         );
 
         let mut output_plan_mismatch = input.clone();
@@ -504,6 +537,14 @@ mod tests {
                 .unwrap_err()
                 .code,
             "E-SOLVER-PARAMETER-SCALAR-MISMATCH"
+        );
+
+        let mut parameter_value_invalid = parameter_scalar_mismatch;
+        parameter_value_invalid.parameters[0].canonical_unit = "W/K".to_owned();
+        parameter_value_invalid.parameters[0].value = f64::NEG_INFINITY;
+        assert_eq!(
+            parameter_value_invalid.validate_layouts().unwrap_err().code,
+            "E-SOLVER-PARAMETER-VALUE-INVALID"
         );
     }
 }
