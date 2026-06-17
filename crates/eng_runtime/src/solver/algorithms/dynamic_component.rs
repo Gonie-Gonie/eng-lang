@@ -100,30 +100,39 @@ where
 
     for step_index in 0..=input.time_grid.step_count {
         let time_s = input.time_grid.step_time_s(step_index);
-        let fixed_point = solve_fixed_point(&algebraic, &options.algebraic, |guess| {
-            algebraic_update(AlgebraicStepInput {
-                time_s,
-                step_index,
-                state: &state,
-                algebraic: guess,
-                inputs: &input.inputs,
-                parameters: &input.parameters,
-            })
-        })?;
-        total_iterations += fixed_point.iteration_count;
-        algebraic = fixed_point.values;
+        let (algebraic_iteration_count, residual_norm, convergence_status, failure) =
+            if algebraic.is_empty() {
+                (0, 0.0, "algebraic_not_required".to_owned(), None)
+            } else {
+                let fixed_point = solve_fixed_point(&algebraic, &options.algebraic, |guess| {
+                    algebraic_update(AlgebraicStepInput {
+                        time_s,
+                        step_index,
+                        state: &state,
+                        algebraic: guess,
+                        inputs: &input.inputs,
+                        parameters: &input.parameters,
+                    })
+                })?;
+                total_iterations += fixed_point.iteration_count;
+                algebraic = fixed_point.values;
+                (
+                    fixed_point.iteration_count,
+                    fixed_point.residual_history.last().copied().unwrap_or(0.0),
+                    fixed_point.convergence_status,
+                    fixed_point.failure.clone(),
+                )
+            };
 
         for (index, value) in algebraic.iter().copied().enumerate() {
             algebraic_values_by_variable[index].push(value);
         }
-        let residual_norm = fixed_point.residual_history.last().copied().unwrap_or(0.0);
-        let failure = fixed_point.failure.clone();
         step_diagnostics.push(DynamicComponentStepDiagnostic {
             step_index,
             time_s,
-            algebraic_iteration_count: fixed_point.iteration_count,
+            algebraic_iteration_count,
             residual_norm,
-            convergence_status: fixed_point.convergence_status,
+            convergence_status,
             failure: failure.clone(),
         });
         if let Some(failure) = failure {
@@ -240,6 +249,70 @@ mod tests {
         InputLayout, LayoutEntry, OutputLayout, ParameterLayout, SimulationPlan, SolverOptions,
         SolverPlan, TimeGrid,
     };
+
+    #[test]
+    fn solves_dynamic_component_two_state_without_algebraic_node() {
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "ComponentGraph",
+                SimulationPlan::default(),
+                SolverOptions::fixed_step("dynamic_component_explicit_euler", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(2.0, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![
+                LayoutEntry::new(0, "x", "Dimensionless", "1", "1"),
+                LayoutEntry::new(1, "y", "Dimensionless", "1", "1"),
+            ]),
+            input_layout: InputLayout::default(),
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![0.0, 10.0],
+            inputs: Vec::new(),
+            parameters: Vec::new(),
+        };
+        let mut algebraic_update_called = false;
+
+        let result = solve_explicit_euler_with_algebraic(
+            &input,
+            StateLayout::default(),
+            Vec::new(),
+            DynamicComponentOptions::default(),
+            |_| {
+                algebraic_update_called = true;
+                Ok(Vec::new())
+            },
+            |sample| {
+                assert!(sample.algebraic.is_empty());
+                Ok(vec![1.0, -2.0])
+            },
+        )
+        .unwrap();
+
+        assert!(!algebraic_update_called);
+        assert_eq!(result.solver_result.diagnostics.status, "computed");
+        assert_eq!(result.solver_result.diagnostics.iteration_count, 0);
+        assert_eq!(
+            result.solver_result.output.state_trajectories[0].values,
+            vec![0.0, 1.0, 2.0]
+        );
+        assert_eq!(
+            result.solver_result.output.state_trajectories[1].values,
+            vec![10.0, 8.0, 6.0]
+        );
+        assert!(result.algebraic_trajectories.is_empty());
+        assert!(result
+            .solver_result
+            .output
+            .algebraic_trajectories
+            .is_empty());
+        assert_eq!(result.step_diagnostics.len(), 3);
+        assert!(result.step_diagnostics.iter().all(|diagnostic| {
+            diagnostic.algebraic_iteration_count == 0
+                && diagnostic.residual_norm == 0.0
+                && diagnostic.convergence_status == "algebraic_not_required"
+                && diagnostic.failure.is_none()
+        }));
+    }
 
     #[test]
     fn solves_dynamic_component_with_algebraic_node() {

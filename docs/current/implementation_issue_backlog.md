@@ -225,13 +225,13 @@ Current coverage:
   `F(x, xdot, z, u, t, p)` with optional mass matrix, initial-condition
   consistency checks, algebraic-variable initialization, ODE residual,
   algebraic-variable, and mass-matrix tests.
-- Runtime has a standalone dynamic-component explicit-Euler seed that solves
-  algebraic variables with fixed point at each timestep, updates state
-  trajectories, carries algebraic trajectories through the common
-  `SolverResult` output contract, and returns timestep-level convergence/failure
-  diagnostics. Component solver result artifacts can now carry those
-  state/algebraic trajectories through report spec, HTML, `.engres`, and the
-  IDE assembly summary.
+- Runtime has a standalone dynamic-component explicit-Euler seed that supports
+  algebraic-free two-state updates and semi-implicit fixed-point algebraic
+  solves at each timestep, updates state trajectories, carries algebraic
+  trajectories through the common `SolverResult` output contract, and returns
+  timestep-level convergence/failure diagnostics. Component solver result
+  artifacts can now carry those state/algebraic trajectories through report
+  spec, HTML, `.engres`, and the IDE assembly summary.
 
 Definition of Done:
 
