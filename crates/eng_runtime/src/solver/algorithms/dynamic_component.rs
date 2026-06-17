@@ -1346,6 +1346,45 @@ mod tests {
     }
 
     #[test]
+    fn residual_graph_explicit_euler_entrypoint_uses_parameters() {
+        let graph = parameterized_residual_rhs_graph();
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "ComponentGraph",
+                SimulationPlan::default(),
+                SolverOptions::fixed_step("dynamic_component_residual_graph_explicit_euler", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(1.0, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout {
+                entries: vec![LayoutEntry::new(0, "u", "Dimensionless", "1", "1")],
+            },
+            parameter_layout: ParameterLayout {
+                entries: vec![LayoutEntry::new(0, "k", "Dimensionless", "1", "1")],
+            },
+            output_layout: OutputLayout::default(),
+            initial_state: vec![1.0],
+            inputs: vec![SolverScalar::new("u", "Dimensionless", "1", 3.0)],
+            parameters: vec![SolverScalar::new("k", "Dimensionless", "1", 2.0)],
+        };
+
+        let result =
+            solve_residual_graph_explicit_euler(&input, &graph, DynamicComponentOptions::default())
+                .unwrap();
+
+        assert_eq!(
+            result.solver_result.output.state_trajectories[0].values,
+            vec![1.0, 6.0]
+        );
+    }
+
+    #[test]
     fn residual_graph_explicit_euler_entrypoint_rejects_layout_mismatch() {
         let graph = residual_rhs_graph();
         let input = SolverInput {
@@ -1470,6 +1509,53 @@ mod tests {
                     && diagnostic.algebraic_iteration_count == 1
                     && diagnostic.failure.is_none()
             ));
+    }
+
+    #[test]
+    fn residual_graph_semi_implicit_entrypoint_uses_parameters() {
+        let graph = parameterized_semi_implicit_residual_graph();
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "ComponentGraph",
+                SimulationPlan::default(),
+                SolverOptions::fixed_step("dynamic_component_residual_graph_semi_implicit", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(1.0, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout {
+                entries: vec![LayoutEntry::new(0, "u", "Dimensionless", "1", "1")],
+            },
+            parameter_layout: ParameterLayout {
+                entries: vec![LayoutEntry::new(0, "k", "Dimensionless", "1", "1")],
+            },
+            output_layout: OutputLayout::default(),
+            initial_state: vec![1.0],
+            inputs: vec![SolverScalar::new("u", "Dimensionless", "1", 5.0)],
+            parameters: vec![SolverScalar::new("k", "Dimensionless", "1", 2.0)],
+        };
+        let algebraic_layout =
+            StateLayout::new(vec![LayoutEntry::new(0, "z", "Dimensionless", "1", "1")]);
+
+        let result = solve_residual_graph_semi_implicit_euler(
+            &input,
+            &graph,
+            algebraic_layout,
+            vec![0.0],
+            DynamicComponentOptions::default(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            result.solver_result.output.state_trajectories[0].values,
+            vec![1.0, 3.0]
+        );
+        assert_eq!(result.algebraic_trajectories[0].values, vec![2.0, 0.0]);
     }
 
     #[test]
@@ -1693,6 +1779,25 @@ mod tests {
         }
     }
 
+    fn parameterized_residual_rhs_graph() -> ResidualGraph {
+        ResidualGraph {
+            name: "component.parameterized_rhs".to_owned(),
+            variables: vec![
+                variable(0, "x", "state"),
+                variable(1, "u", "input"),
+                variable(2, "k", "parameter"),
+                variable(3, "der_x", "state_derivative"),
+            ],
+            residuals: vec![residual(
+                "x_rhs",
+                &[(3, "der_x", 1.0), (1, "u", -1.0), (2, "k", -1.0)],
+                0.0,
+            )],
+            parameters: Vec::new(),
+            dependencies: Vec::new(),
+        }
+    }
+
     fn semi_implicit_residual_graph() -> ResidualGraph {
         ResidualGraph {
             name: "component.semi_implicit".to_owned(),
@@ -1707,6 +1812,29 @@ mod tests {
                 residual(
                     "z_balance",
                     &[(1, "z", 1.0), (0, "x", 1.0), (2, "u", -1.0)],
+                    0.0,
+                ),
+            ],
+            parameters: Vec::new(),
+            dependencies: Vec::new(),
+        }
+    }
+
+    fn parameterized_semi_implicit_residual_graph() -> ResidualGraph {
+        ResidualGraph {
+            name: "component.parameterized_semi_implicit".to_owned(),
+            variables: vec![
+                variable(0, "x", "state"),
+                variable(1, "z", "algebraic"),
+                variable(2, "u", "input"),
+                variable(3, "k", "parameter"),
+                variable(4, "der_x", "state_derivative"),
+            ],
+            residuals: vec![
+                residual("x_rhs", &[(4, "der_x", 1.0), (1, "z", -1.0)], 0.0),
+                residual(
+                    "z_balance",
+                    &[(1, "z", 1.0), (0, "x", 1.0), (3, "k", 1.0), (2, "u", -1.0)],
                     0.0,
                 ),
             ],

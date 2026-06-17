@@ -186,10 +186,10 @@ are not public stable workflows.
   fixed-point algebraic solves per timestep and returns state/algebraic
   trajectories through the common `SolverResult` output contract plus failure
   diagnostics. The dynamic-component seed can also drive algebraic-free RHS
-  updates from derivative-form `ResidualGraph` equations through a validated
-  residual-graph explicit-Euler entrypoint, and derivative plus linear
-  algebraic residual graphs through a semi-implicit entrypoint with per-step
-  dense linear algebraic solves. Fixed-step ODE and
+  updates from derivative-form `ResidualGraph` equations, including input and
+  parameter terms, through a validated residual-graph explicit-Euler entrypoint,
+  and derivative plus linear algebraic residual graphs through a semi-implicit
+  entrypoint with per-step dense linear algebraic solves. Fixed-step ODE and
   dynamic-component seeds use the actual
   `TimeGrid` interval length for the final partial step when duration is not an
   exact multiple of timestep, and explicit Euler samples RHS values at the
