@@ -122,6 +122,11 @@ internal/22_component_boundary_solve
   equations form a square linear residual graph and exercise the internal dense
   algebraic solver artifact path. This fixture is not a production
   multi-domain component graph solver.
+
+internal/23_component_boundary_singular
+  Square Thermal boundary residual graph whose equations are singular. The
+  runtime must emit a `linear_solve_failed` component solution with
+  `E-LINEAR-SINGULAR` instead of inventing solved variables.
 ```
 
 ## Compatibility Regression Examples

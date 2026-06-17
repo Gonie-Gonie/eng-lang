@@ -833,6 +833,40 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     println!(
         "ok: examples/official/21_thermal_component_assembly/main.eng produced component residual kernel candidate"
     );
+    match run_file(
+        Path::new("examples/internal/23_component_boundary_singular/main.eng"),
+        Path::new("build/test-component-boundary-singular"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"linear_solve_failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dense_linear_residual_graph\"")
+                || !output.result_json.contains("\"E-LINEAR-SINGULAR\"")
+                || !output.report_spec_json.contains("\"failure_artifact\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"convergence_status\": \"linear_failed\"")
+                || !output.report_html.contains("linear_solve_failed")
+                || !output.report_html.contains("E-LINEAR-SINGULAR")
+            {
+                eprintln!(
+                    "expected singular component boundary fixture to report a dense linear solve failure artifact"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/internal/23_component_boundary_singular/main.eng reported singular component residual graph failure"
+            );
+        }
+        Err(error) => {
+            eprintln!("component boundary singular fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
 
     let bad = match check_file(
         "examples/05_error_messages/unit_mismatch.eng",

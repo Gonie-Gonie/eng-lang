@@ -263,6 +263,9 @@ Current coverage:
 - `examples/official/21_thermal_component_assembly` exercises the focused
   Thermal assembly path with generated connection equations, component-boundary
   RHS equations, a square residual graph, and dense linear solver artifacts.
+- `examples/internal/23_component_boundary_singular` exercises the same square
+  residual graph path when the dense matrix is singular and requires a
+  `linear_solve_failed`/`E-LINEAR-SINGULAR` artifact.
 - Runtime has an internal dynamic-component solver seed, but component graph
   assembly is not yet lowered into that numeric path.
 
