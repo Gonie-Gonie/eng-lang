@@ -63,9 +63,9 @@ pub use behavior::{
     DelayRelationshipArtifact, DelayRhsEvaluation, ExternalBehaviorArtifact,
     ExternalBehaviorContract, ExternalBehaviorDeterminism, ExternalBehaviorEvaluation,
     ExternalBehaviorKind, ExternalBehaviorNode, ExternalBehaviorProfilePolicy,
-    PredictorBehaviorNode, PredictorContract, PredictorContractArtifact,
-    PredictorDifferentiability, PredictorEvaluation, PredictorJacobianPolicy,
-    PredictorRhsEvaluation, PredictorSolverPolicy,
+    ExternalBehaviorRhsEvaluation, PredictorBehaviorNode, PredictorContract,
+    PredictorContractArtifact, PredictorDifferentiability, PredictorEvaluation,
+    PredictorJacobianPolicy, PredictorRhsEvaluation, PredictorSolverPolicy,
 };
 pub use diagnostics::{SolverDiagnostics, SolverFailure};
 pub use evaluator::{

@@ -708,6 +708,13 @@ pub struct ExternalBehaviorEvaluation {
     pub contract: ExternalBehaviorArtifact,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExternalBehaviorRhsEvaluation {
+    pub derivatives: Vec<f64>,
+    pub external: ExternalBehaviorEvaluation,
+    pub status: String,
+}
+
 pub struct ExternalBehaviorNode<F>
 where
     F: Fn(&[f64]) -> Result<Vec<f64>, SolverFailure>,
@@ -796,6 +803,30 @@ where
 
     pub fn contract_artifact(&self) -> ExternalBehaviorArtifact {
         self.contract.artifact("ready")
+    }
+
+    pub fn evaluate_rhs<R>(
+        &self,
+        profile: BehaviorExecutionProfile,
+        inputs: &[f64],
+        rhs: R,
+    ) -> Result<ExternalBehaviorRhsEvaluation, SolverFailure>
+    where
+        R: FnOnce(&ExternalBehaviorEvaluation) -> Result<Vec<f64>, SolverFailure>,
+    {
+        let external = self.evaluate(profile, inputs)?;
+        let derivatives = rhs(&external)?;
+        if derivatives.iter().any(|value| !value.is_finite()) {
+            return Err(SolverFailure::new(
+                "E-EXTERNAL-BEHAVIOR-RHS-FINITE",
+                "external behavior RHS evaluation returned a non-finite derivative",
+            ));
+        }
+        Ok(ExternalBehaviorRhsEvaluation {
+            status: external.status.clone(),
+            external,
+            derivatives,
+        })
     }
 
     fn validate_profile(&self, profile: BehaviorExecutionProfile) -> Result<(), SolverFailure> {
@@ -1181,6 +1212,72 @@ mod tests {
     }
 
     #[test]
+    fn external_behavior_node_can_drive_fixed_step_rhs() {
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "external_rhs",
+                SimulationPlan {
+                    states: vec!["x".to_owned()],
+                    inputs: Vec::new(),
+                    outputs: vec!["x".to_owned()],
+                    parameters: Vec::new(),
+                },
+                SolverOptions::fixed_step("explicit_euler", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(2.0, 1.0).unwrap(),
+            state_layout: crate::solver::StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout::default(),
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![1.0],
+            inputs: Vec::new(),
+            parameters: Vec::new(),
+        };
+        let contract = ExternalBehaviorContract::new(
+            "state_feedback_adapter",
+            ExternalBehaviorKind::Function,
+            vec![BehaviorSignalContract::new("x", "Dimensionless", "1")],
+            vec![BehaviorSignalContract::new(
+                "x_feedback",
+                "Dimensionless",
+                "1",
+            )],
+            "sha256:external-rhs",
+            ExternalBehaviorDeterminism::Deterministic,
+            ExternalBehaviorProfilePolicy {
+                safe_allowed: true,
+                repro_allowed: true,
+            },
+        )
+        .unwrap();
+        let node = ExternalBehaviorNode::new(contract, |inputs| Ok(vec![inputs[0]]));
+        let mut external_statuses = Vec::new();
+
+        let result = solve_fixed_step_ode(FixedStepMethod::ExplicitEuler, &input, |sample| {
+            let evaluation = node.evaluate_rhs(
+                BehaviorExecutionProfile::Repro,
+                &[sample.state[0]],
+                |external| Ok(vec![-external.outputs[0]]),
+            )?;
+            external_statuses.push(evaluation.status);
+            Ok(evaluation.derivatives)
+        })
+        .unwrap();
+
+        assert_eq!(
+            result.output.state_trajectories[0].values,
+            vec![1.0, 0.0, 0.0]
+        );
+        assert_eq!(external_statuses, vec!["ok", "ok"]);
+    }
+
+    #[test]
     fn external_behavior_node_rejects_safe_profile_when_disallowed() {
         let contract = ExternalBehaviorContract::new(
             "process_adapter",
@@ -1199,6 +1296,32 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(failure.code, "E-EXTERNAL-BEHAVIOR-PROFILE");
+    }
+
+    #[test]
+    fn external_behavior_node_rejects_nonfinite_rhs_derivatives() {
+        let contract = ExternalBehaviorContract::new(
+            "bad_rhs_adapter",
+            ExternalBehaviorKind::Function,
+            vec![BehaviorSignalContract::new("x", "Dimensionless", "1")],
+            vec![BehaviorSignalContract::new("y", "Dimensionless", "1")],
+            "sha256:bad-external-rhs",
+            ExternalBehaviorDeterminism::Deterministic,
+            ExternalBehaviorProfilePolicy {
+                safe_allowed: true,
+                repro_allowed: true,
+            },
+        )
+        .unwrap();
+        let node = ExternalBehaviorNode::new(contract, |_inputs| Ok(vec![1.0]));
+
+        let failure = node
+            .evaluate_rhs(BehaviorExecutionProfile::Repro, &[1.0], |_external| {
+                Ok(vec![f64::INFINITY])
+            })
+            .unwrap_err();
+
+        assert_eq!(failure.code, "E-EXTERNAL-BEHAVIOR-RHS-FINITE");
     }
 
     #[test]

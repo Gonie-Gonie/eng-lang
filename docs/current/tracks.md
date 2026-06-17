@@ -118,6 +118,7 @@ Internal runtime seeds:
 - solver-API Predictor contract wrapper with model hash, range warnings, and Jacobian policy
 - solver-API Predictor node adapter that feeds predictor outputs into fixed-step RHS evaluation
 - solver-API external behavior wrapper with provenance, profile policy, and failure propagation
+- solver-API external behavior adapter that feeds external outputs into fixed-step RHS evaluation
 - component graph/report/IDE behavior nodes for delay, Predictor, and external calls with inferred contract fields and diagnostic channels
 ```
 

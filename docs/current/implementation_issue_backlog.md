@@ -366,6 +366,8 @@ Current coverage:
 - Runtime has a solver-API external function/process behavior wrapper with typed
   input/output contracts, provenance hash, determinism metadata, safe/repro
   profile policy, range warnings, adapter failure propagation, and tests.
+- `ExternalBehaviorNode::evaluate_rhs` can feed external behavior outputs into a
+  fixed-step RHS closure while preserving profile checks and adapter failures.
 - Component artifacts distinguish delay calls as
   `delay_call_runtime_buffer_seed_not_integrated` and Predictor calls as
   `predictor_call_contract_seed_not_integrated`; external behavior expressions

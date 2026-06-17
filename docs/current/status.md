@@ -210,9 +210,10 @@ are not public stable workflows.
   behavior contract wrapper with input/output quantity-unit metadata,
   valid-range warnings, model hash, differentiability flag, and solver Jacobian
   policy plus predictor-driven fixed-step RHS adapter coverage. Runtime also
-  has a solver-API external function/process behavior
-  wrapper with typed contracts, provenance hash, determinism metadata,
-  safe/repro profile policy, and adapter failure propagation. Component
+  has a solver-API external function/process behavior wrapper with typed
+  contracts, provenance hash, determinism metadata, safe/repro profile policy,
+  adapter failure propagation, and external-driven fixed-step RHS adapter
+  coverage. Component
   artifacts distinguish delay/Predictor/external calls
   as runtime seeds through component graph, report, and IDE behavior nodes with
   inferred contract fields and diagnostic channels, but behavior nodes are not
