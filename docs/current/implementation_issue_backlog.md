@@ -28,7 +28,7 @@ Current coverage:
   per-candidate interpreter executor/fallback reasons.
 - Runtime optimization has `eng-kernel-ir-v1` plus an interpreter executor for
   element-wise TimeSeries arithmetic, trapezoid integration, scalar residual,
-  and finite-difference Jacobian correctness tests.
+  finite-difference Jacobian, and Newton-step correctness tests.
 - `eng.exe jit-bench` remains a normal-runtime timing harness and makes no
   speedup claim.
 

@@ -181,7 +181,7 @@ Internal implementation seeds on `main`:
 - backend selection metadata
 - hot-kernel candidate estimates
 - interpreter kernel IR and executor correctness tests for arithmetic,
-  integration, residual, and Jacobian kernels
+  integration, residual, Jacobian, and Newton-step kernels
 - per-candidate executor/fallback reason metadata
 ```
 

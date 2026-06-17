@@ -159,6 +159,14 @@ pub struct JacobianKernelOutput {
     pub values: Vec<Vec<f64>>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct SolverStepKernelOutput {
+    pub backend: String,
+    pub fallback_reason: Option<String>,
+    pub step: Vec<f64>,
+    pub residual_norm: f64,
+}
+
 impl KernelExecutionFailure {
     fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
@@ -462,6 +470,27 @@ pub fn execute_finite_difference_jacobian_kernel(
         backend: INTERPRETER_FALLBACK_BACKEND.to_owned(),
         fallback_reason: None,
         values: jacobian,
+    })
+}
+
+pub fn execute_newton_step_kernel(
+    jacobian: &[Vec<f64>],
+    residuals: &[f64],
+    tolerance: f64,
+) -> Result<SolverStepKernelOutput, KernelExecutionFailure> {
+    validate_newton_step_inputs(jacobian, residuals, tolerance)?;
+    let rhs = residuals.iter().map(|value| -value).collect::<Vec<_>>();
+    let step = solve_dense_kernel_system(jacobian, &rhs, tolerance)?;
+    let residual_norm = residuals
+        .iter()
+        .map(|value| value * value)
+        .sum::<f64>()
+        .sqrt();
+    Ok(SolverStepKernelOutput {
+        backend: INTERPRETER_FALLBACK_BACKEND.to_owned(),
+        fallback_reason: None,
+        step,
+        residual_norm,
     })
 }
 
@@ -775,6 +804,90 @@ fn candidate_executor_status(candidate: &KernelCandidate) -> (&'static str, &'st
             "candidate does not yet have an executable interpreter kernel lowering",
         )
     }
+}
+
+fn validate_newton_step_inputs(
+    jacobian: &[Vec<f64>],
+    residuals: &[f64],
+    tolerance: f64,
+) -> Result<(), KernelExecutionFailure> {
+    let n = jacobian.len();
+    if n == 0 || residuals.len() != n || jacobian.iter().any(|row| row.len() != n) {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-NEWTON-STEP-SHAPE",
+            "Newton step kernel requires a non-empty square Jacobian and matching residual vector",
+        ));
+    }
+    if !tolerance.is_finite() || tolerance <= 0.0 {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-NEWTON-STEP-TOLERANCE",
+            "Newton step kernel tolerance must be a positive finite number",
+        ));
+    }
+    if jacobian
+        .iter()
+        .flatten()
+        .chain(residuals.iter())
+        .any(|value| !value.is_finite())
+    {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-NEWTON-STEP-FINITE",
+            "Newton step kernel inputs must be finite",
+        ));
+    }
+    Ok(())
+}
+
+fn solve_dense_kernel_system(
+    matrix: &[Vec<f64>],
+    rhs: &[f64],
+    tolerance: f64,
+) -> Result<Vec<f64>, KernelExecutionFailure> {
+    let n = matrix.len();
+    let mut a = matrix.to_vec();
+    let mut b = rhs.to_vec();
+    for pivot_index in 0..n {
+        let mut best_row = pivot_index;
+        let mut best_abs = a[pivot_index][pivot_index].abs();
+        for (row_index, row) in a.iter().enumerate().skip(pivot_index + 1) {
+            let value_abs = row[pivot_index].abs();
+            if value_abs > best_abs {
+                best_row = row_index;
+                best_abs = value_abs;
+            }
+        }
+        if best_abs <= tolerance {
+            return Err(KernelExecutionFailure::new(
+                "E-KERNEL-NEWTON-STEP-SINGULAR",
+                "Newton step kernel Jacobian is singular or ill-conditioned",
+            ));
+        }
+        if best_row != pivot_index {
+            a.swap(best_row, pivot_index);
+            b.swap(best_row, pivot_index);
+        }
+
+        let pivot = a[pivot_index][pivot_index];
+        for column_index in pivot_index..n {
+            a[pivot_index][column_index] /= pivot;
+        }
+        b[pivot_index] /= pivot;
+
+        for row_index in 0..n {
+            if row_index == pivot_index {
+                continue;
+            }
+            let factor = a[row_index][pivot_index];
+            if factor.abs() <= f64::EPSILON {
+                continue;
+            }
+            for column_index in pivot_index..n {
+                a[row_index][column_index] -= factor * a[pivot_index][column_index];
+            }
+            b[row_index] -= factor * b[pivot_index];
+        }
+    }
+    Ok(b)
 }
 
 fn elementwise_operations(expression: &str) -> Vec<String> {
@@ -1124,6 +1237,25 @@ mod tests {
         assert!((output.values[0][1] - 1.0).abs() < 1e-8);
         assert!((output.values[1][0] - 1.0).abs() < 1e-8);
         assert!((output.values[1][1] + 1.0).abs() < 1e-8);
+    }
+
+    #[test]
+    fn interpreter_executes_newton_step_kernel() {
+        let output = execute_newton_step_kernel(&[vec![2.0]], &[-1.0], 1e-9).unwrap();
+
+        assert_eq!(output.backend, INTERPRETER_FALLBACK_BACKEND);
+        assert_eq!(output.fallback_reason, None);
+        assert_eq!(output.step, vec![0.5]);
+        assert!((output.residual_norm - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn interpreter_reports_singular_newton_step_kernel() {
+        let failure =
+            execute_newton_step_kernel(&[vec![1.0, 2.0], vec![2.0, 4.0]], &[1.0, 2.0], 1e-9)
+                .unwrap_err();
+
+        assert_eq!(failure.code, "E-KERNEL-NEWTON-STEP-SINGULAR");
     }
 
     #[test]
