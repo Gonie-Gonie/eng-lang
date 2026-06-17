@@ -1992,7 +1992,7 @@ fn smoke() -> Result<(), String> {
                             .get("failure_artifact")
                             .and_then(|failure| json_field_string(failure, "code"))
                             .as_deref()
-                            == Some("W-ASSEMBLY-UNDERDETERMINED-SEED")
+                            == Some("E-ASSEMBLY-UNDERDETERMINED")
                 })
             });
     if !has_component_solver_result {

@@ -9,6 +9,6 @@ equations overconstrain the two-port Thermal graph. Runtime artifacts must emit:
 - `not_solved_overdetermined`
 - method `linear_residual_graph_shape_check`
 - convergence status `linear_residual_not_attempted_overdetermined`
-- failure artifact `W-ASSEMBLY-OVERDETERMINED-SEED`
+- failure artifact `E-ASSEMBLY-OVERDETERMINED`
 
 This is not a production multi-domain component graph solver.

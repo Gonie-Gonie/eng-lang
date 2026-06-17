@@ -131,7 +131,7 @@ internal/23_component_boundary_singular
 internal/24_component_boundary_overdetermined
   Thermal boundary residual graph with more equations than unknowns. The
   runtime must emit `not_solved_overdetermined` with
-  `W-ASSEMBLY-OVERDETERMINED-SEED` instead of attempting a dense solve.
+  `E-ASSEMBLY-OVERDETERMINED` instead of attempting a dense solve.
 
 internal/25_component_behavior_nodes
   Valid component-local delay, Predictor, and external adapter expressions.

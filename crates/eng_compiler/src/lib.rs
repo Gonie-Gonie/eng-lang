@@ -4753,7 +4753,7 @@ mod tests {
         assert!(report
             .diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.code == "W-ASSEMBLY-UNDERDETERMINED-SEED"));
+            .any(|diagnostic| diagnostic.code == "E-ASSEMBLY-UNDERDETERMINED"));
         assert_eq!(report.syntax_summary.domains, 1);
         assert_eq!(report.syntax_summary.domain_variables, 2);
         assert_eq!(report.syntax_summary.components, 2);
@@ -4838,7 +4838,7 @@ mod tests {
         assert_eq!(assembly.boundary.balance_status, "underdetermined_seed");
         assert_eq!(
             assembly.boundary.diagnostic_code.as_deref(),
-            Some("W-ASSEMBLY-UNDERDETERMINED-SEED")
+            Some("E-ASSEMBLY-UNDERDETERMINED")
         );
         assert_eq!(assembly.domain_count, 1);
         assert_eq!(assembly.domain_plans[0].domain, "Fluid[Water]");
@@ -4921,10 +4921,15 @@ mod tests {
             assembly.residual_graph.solver_plan,
             "dense_linear_residual_graph_candidate"
         );
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "W-ASSEMBLY-ALGEBRAIC-LOOP"
+                && diagnostic.severity == Severity::Warning
+        }));
 
         let review = review_json(&report);
         assert!(review.contains("\"linear_residual_graph_candidate\""));
         assert!(review.contains("\"dense_linear_residual_graph_candidate\""));
+        assert!(review.contains("\"algebraic_loops\""));
     }
 
     #[test]
@@ -5057,7 +5062,8 @@ mod tests {
             .iter()
             .any(|diagnostic| diagnostic.code == "E-CONNECT-DUPLICATE-001"));
         assert!(report.diagnostics.iter().any(|diagnostic| {
-            diagnostic.code == "W-PORT-UNCONNECTED-001" && diagnostic.severity == Severity::Warning
+            diagnostic.code == "W-CONNECT-UNCONNECTED-PORT"
+                && diagnostic.severity == Severity::Warning
         }));
     }
 
@@ -5198,7 +5204,7 @@ mod tests {
         assert!(report
             .diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.code == "E-CONNECT-DOMAIN-001"));
+            .any(|diagnostic| diagnostic.code == "E-CONNECT-DOMAIN-MISMATCH"));
         assert_eq!(
             report.semantic_program.connections[0].status,
             "domain_mismatch"
@@ -5212,7 +5218,7 @@ mod tests {
                 "Medium",
                 "Water",
                 "Air",
-                "E-CONNECT-MEDIUM-001",
+                "E-CONNECT-MEDIUM-MISMATCH",
                 "medium_mismatch",
             ),
             (

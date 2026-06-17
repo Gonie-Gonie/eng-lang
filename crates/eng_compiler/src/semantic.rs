@@ -4542,7 +4542,7 @@ fn analyze_connections(
             }
             (Some(left), Some(right)) => {
                 diagnostics.push(Diagnostic::error(
-                    "E-CONNECT-DOMAIN-001",
+                    "E-CONNECT-DOMAIN-MISMATCH",
                     connection.line,
                     &format!(
                         "Cannot connect `{}` ({}) to `{}` ({}).",
@@ -4554,7 +4554,7 @@ fn analyze_connections(
             }
             _ => {
                 diagnostics.push(Diagnostic::error(
-                    "E-CONNECT-PORT-001",
+                    "E-CONNECT-UNKNOWN-PORT",
                     connection.line,
                     "Connection endpoint does not resolve to a declared component port.",
                     Some(
@@ -4589,7 +4589,7 @@ fn analyze_connections(
                 && !connected_ports.contains(&format!("{}.{}", component.name, port.name))
             {
                 diagnostics.push(Diagnostic::warning(
-                    "W-PORT-UNCONNECTED-001",
+                    "W-CONNECT-UNCONNECTED-PORT",
                     port.line,
                     &format!("Port `{}.{}` is not connected.", component.name, port.name),
                     Some("Connect the port explicitly or leave a review note explaining the boundary assumption."),
@@ -4829,12 +4829,12 @@ fn build_component_assembly_graphs(
     let (balance_status, diagnostic_code) = if equation_count < unknown_count {
         (
             "underdetermined_seed".to_owned(),
-            Some("W-ASSEMBLY-UNDERDETERMINED-SEED".to_owned()),
+            Some("E-ASSEMBLY-UNDERDETERMINED".to_owned()),
         )
     } else if equation_count > unknown_count {
         (
             "overdetermined_seed".to_owned(),
-            Some("W-ASSEMBLY-OVERDETERMINED-SEED".to_owned()),
+            Some("E-ASSEMBLY-OVERDETERMINED".to_owned()),
         )
     } else {
         ("balanced_metadata_seed".to_owned(), None)
@@ -4959,6 +4959,20 @@ fn emit_component_assembly_boundary_warnings(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     for assembly in assemblies {
+        for algebraic_loop in &assembly.residual_graph.algebraic_loops {
+            diagnostics.push(Diagnostic::warning(
+                "W-ASSEMBLY-ALGEBRAIC-LOOP",
+                assembly.line,
+                &format!(
+                    "Component assembly `{}` contains an algebraic dependency loop: {}.",
+                    assembly.name,
+                    algebraic_loop.join(" -> ")
+                ),
+                Some(
+                    "Review the residual dependency graph before treating the assembly as a physical solve.",
+                ),
+            ));
+        }
         let Some(code) = assembly.boundary.diagnostic_code.as_deref() else {
             continue;
         };
@@ -5561,7 +5575,7 @@ fn parameter_mismatch_diagnostic(
     parameter_name: &str,
 ) -> (&'static str, &'static str, &'static str) {
     match parameter_name {
-        "Medium" => ("E-CONNECT-MEDIUM-001", "medium_mismatch", "medium"),
+        "Medium" => ("E-CONNECT-MEDIUM-MISMATCH", "medium_mismatch", "medium"),
         "Frame" => ("E-CONNECT-FRAME-001", "frame_mismatch", "frame"),
         "Axis" => ("E-CONNECT-AXIS-001", "axis_mismatch", "axis"),
         _ => (

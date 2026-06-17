@@ -1027,7 +1027,7 @@ impl RuntimeComponentSolution {
                 "constraint_satisfied_nonunique".to_owned(),
                 "homogeneous connection constraints evaluate to zero, but boundary/component equations are missing so the physical solution is non-unique".to_owned(),
                 Some(RuntimeSolverFailureArtifact {
-                    code: "W-ASSEMBLY-UNDERDETERMINED-SEED".to_owned(),
+                    code: "E-ASSEMBLY-UNDERDETERMINED".to_owned(),
                     message: "assembly has fewer equations than unknowns; add component behavior or boundary conditions before treating this as a physical solve".to_owned(),
                 }),
                 "linear_residual_satisfied_nonunique".to_owned(),
@@ -1037,7 +1037,7 @@ impl RuntimeComponentSolution {
                 "not_solved_overdetermined".to_owned(),
                 "assembly graph has more equations than unknowns, so the dense linear residual solve was not attempted".to_owned(),
                 Some(RuntimeSolverFailureArtifact {
-                    code: "W-ASSEMBLY-OVERDETERMINED-SEED".to_owned(),
+                    code: "E-ASSEMBLY-OVERDETERMINED".to_owned(),
                     message: "assembly has more equations than unknowns; review generated constraints before numeric solving".to_owned(),
                 }),
                 "linear_residual_not_attempted_overdetermined".to_owned(),
@@ -5712,7 +5712,7 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
                 .failure_artifact
                 .as_ref()
                 .map(|failure| failure.code.as_str()),
-            Some("W-ASSEMBLY-UNDERDETERMINED-SEED")
+            Some("E-ASSEMBLY-UNDERDETERMINED")
         );
         assert!(solution.residuals.iter().any(|residual| residual.name
             == "connection_set_1.through_Q_conservation"
@@ -5742,7 +5742,7 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
                 .failure_artifact
                 .as_ref()
                 .map(|failure| failure.code.as_str()),
-            Some("W-ASSEMBLY-UNDERDETERMINED-SEED")
+            Some("E-ASSEMBLY-UNDERDETERMINED")
         );
     }
 
@@ -5916,7 +5916,7 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
                 .failure_artifact
                 .as_ref()
                 .map(|failure| failure.code.as_str()),
-            Some("W-ASSEMBLY-OVERDETERMINED-SEED")
+            Some("E-ASSEMBLY-OVERDETERMINED")
         );
     }
 

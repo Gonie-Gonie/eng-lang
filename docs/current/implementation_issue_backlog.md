@@ -338,10 +338,13 @@ Current coverage:
   `linear_solve_failed`/`E-LINEAR-SINGULAR` artifact.
 - `examples/internal/24_component_boundary_overdetermined` exercises the
   overdetermined residual graph limitation path and requires a
-  `not_solved_overdetermined`/`W-ASSEMBLY-OVERDETERMINED-SEED` artifact instead
+  `not_solved_overdetermined`/`E-ASSEMBLY-OVERDETERMINED` artifact instead
   of attempting a dense solve.
 - Runtime has an internal dynamic-component solver seed, but component graph
   assembly is not yet lowered into that numeric path.
+- Component connection/assembly diagnostics use checklist canonical codes for
+  domain mismatch, medium mismatch, unknown port, unconnected port,
+  underdetermined/overdetermined assembly, and algebraic-loop warnings.
 
 Title: `assembly: harden generated equations and residual graph artifacts`
 

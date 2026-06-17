@@ -101,9 +101,9 @@ Connections use source-order metadata. Both endpoints must be written as
 | `E-DOMAIN-CONTRACT-003` | Domain has no `conservation` line. |
 | `E-DOMAIN-VAR-001` | Domain variable uses an unknown quantity kind. |
 | `E-CONNECT-ENDPOINT-001` | Endpoint is not written as `Component.port`. |
-| `E-CONNECT-PORT-001` | Endpoint does not resolve to a declared component port. |
-| `E-CONNECT-DOMAIN-001` | Both ports resolve, but their domains differ. |
-| `E-CONNECT-MEDIUM-001` | Same generic domain, but `Medium` arguments differ. |
+| `E-CONNECT-UNKNOWN-PORT` | Endpoint does not resolve to a declared component port. |
+| `E-CONNECT-DOMAIN-MISMATCH` | Both ports resolve, but their domains differ. |
+| `E-CONNECT-MEDIUM-MISMATCH` | Same generic domain, but `Medium` arguments differ. |
 | `E-CONNECT-FRAME-001` | Same generic domain, but `Frame` arguments differ. |
 | `E-CONNECT-AXIS-001` | Same generic domain, but `Axis` arguments differ. |
 | `E-CONNECT-DUPLICATE-001` | The same component-port pair is connected more than once, including reversed duplicates. |
@@ -114,7 +114,7 @@ Connections use source-order metadata. Both endpoints must be written as
 | `E-PREDICTOR-SIGNAL-001` | Predictor signal is not a known `port.variable`. |
 | `E-EXTERNAL-BEHAVIOR-CALL-001` | Component-local external behavior call is not `external(signal)` or `adapter(signal)`. |
 | `E-EXTERNAL-BEHAVIOR-SIGNAL-001` | External behavior signal is not a known `port.variable`. |
-| `W-PORT-UNCONNECTED-001` | A resolved component port has no connection edge. |
+| `W-CONNECT-UNCONNECTED-PORT` | A resolved component port has no connection edge. |
 
 Connection summaries are emitted in source order. They are not sorted by graph
 topology because numeric graph solving is still deferred.
@@ -147,7 +147,7 @@ review/report metadata for future assembly and solver work.
 then into a dense linear residual system when the graph is square. Non-square
 graphs still get a numeric residual check. If the homogeneous constraints are
 satisfied but there are fewer equations than unknowns, the result is marked
-`constraint_satisfied_nonunique` with `W-ASSEMBLY-UNDERDETERMINED-SEED`.
+`constraint_satisfied_nonunique` with `E-ASSEMBLY-UNDERDETERMINED`.
 
 The runtime result artifact writes this to
 `typed_payload.component_solutions`. Runtime `report_spec.json` and
@@ -245,7 +245,7 @@ re-parsing source files.
   values without claiming a production multi-domain component solver.
 - `examples/05_error_messages/port_domain_mismatch.eng`
   intentionally connects a Thermal port to a Fluid port and should report
-  `E-CONNECT-DOMAIN-001` with a non-zero check exit.
+  `E-CONNECT-DOMAIN-MISMATCH` with a non-zero check exit.
 - `examples/05_error_messages/medium_mismatch.eng`,
   `frame_mismatch.eng`, and `axis_mismatch.eng`
   intentionally connect generic domain ports with incompatible metadata

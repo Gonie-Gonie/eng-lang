@@ -81,13 +81,14 @@ E-DOMAIN-VAR-001       domain variable uses an unknown quantity kind
 E-PORT-DOMAIN-001      component port references an unknown domain
 E-PORT-DOMAIN-002      generic domain reference has wrong argument count
 E-CONNECT-ENDPOINT-001 connection endpoint is not Component.port
-E-CONNECT-PORT-001     connection endpoint does not resolve to a port
-E-CONNECT-DOMAIN-001   connected ports have incompatible domains
-E-CONNECT-MEDIUM-001   connected generic ports have incompatible Medium arguments
+E-CONNECT-UNKNOWN-PORT connection endpoint does not resolve to a port
+E-CONNECT-DOMAIN-MISMATCH connected ports have incompatible domains
+E-CONNECT-MEDIUM-MISMATCH connected generic ports have incompatible Medium arguments
 E-CONNECT-FRAME-001    connected generic ports have incompatible Frame arguments
 E-CONNECT-AXIS-001     connected generic ports have incompatible Axis arguments
-W-ASSEMBLY-UNDERDETERMINED-SEED component assembly has fewer equations than unknowns
-W-ASSEMBLY-OVERDETERMINED-SEED  component assembly has more equations than unknowns
+E-ASSEMBLY-UNDERDETERMINED component assembly has fewer equations than unknowns
+E-ASSEMBLY-OVERDETERMINED  component assembly has more equations than unknowns
+W-ASSEMBLY-ALGEBRAIC-LOOP component assembly has an algebraic dependency loop
 E-PROCESS-001          run command is supported only at top level
 E-PROCESS-BINDING-001  run command must bind a ProcessResult
 E-PROCESS-CMD-001      run command requires a command string

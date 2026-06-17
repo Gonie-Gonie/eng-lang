@@ -746,9 +746,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"not_production_multi_domain\"")
                 || !output.report_html.contains("Connection Constraint Check")
                 || !output.report_html.contains("Residual Norm")
-                || !output
-                    .report_html
-                    .contains("W-ASSEMBLY-UNDERDETERMINED-SEED")
+                || !output.report_html.contains("E-ASSEMBLY-UNDERDETERMINED")
                 || !output.report_html.contains("domain plan")
             {
                 eprintln!(
@@ -957,17 +955,13 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"method\": \"linear_residual_graph_shape_check\"")
-                || !output
-                    .result_json
-                    .contains("\"W-ASSEMBLY-OVERDETERMINED-SEED\"")
+                || !output.result_json.contains("\"E-ASSEMBLY-OVERDETERMINED\"")
                 || !output.report_spec_json.contains("\"failure_artifact\"")
                 || !output.report_spec_json.contains(
                     "\"convergence_status\": \"linear_residual_not_attempted_overdetermined\"",
                 )
                 || !output.report_html.contains("not_solved_overdetermined")
-                || !output
-                    .report_html
-                    .contains("W-ASSEMBLY-OVERDETERMINED-SEED")
+                || !output.report_html.contains("E-ASSEMBLY-OVERDETERMINED")
             {
                 eprintln!(
                     "expected overdetermined component boundary fixture to report a limitation artifact"
@@ -1143,9 +1137,9 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     if !port_domain_mismatch
         .diagnostics
         .iter()
-        .any(|diagnostic| diagnostic.code == "E-CONNECT-DOMAIN-001")
+        .any(|diagnostic| diagnostic.code == "E-CONNECT-DOMAIN-MISMATCH")
     {
-        eprintln!("expected port_domain_mismatch.eng to produce E-CONNECT-DOMAIN-001");
+        eprintln!("expected port_domain_mismatch.eng to produce E-CONNECT-DOMAIN-MISMATCH");
         return ExitCode::from(2);
     }
     println!("ok: examples/05_error_messages/port_domain_mismatch.eng produced diagnostics");
@@ -1153,7 +1147,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     for (fixture, expected_code) in [
         (
             "examples/05_error_messages/medium_mismatch.eng",
-            "E-CONNECT-MEDIUM-001",
+            "E-CONNECT-MEDIUM-MISMATCH",
         ),
         (
             "examples/05_error_messages/frame_mismatch.eng",
@@ -1169,7 +1163,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         ),
         (
             "examples/05_error_messages/connect_unknown_port.eng",
-            "E-CONNECT-PORT-001",
+            "E-CONNECT-UNKNOWN-PORT",
         ),
         (
             "examples/05_error_messages/connect_bad_endpoint.eng",
@@ -1177,7 +1171,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         ),
         (
             "examples/05_error_messages/unconnected_port.eng",
-            "W-PORT-UNCONNECTED-001",
+            "W-CONNECT-UNCONNECTED-PORT",
         ),
         (
             "examples/05_error_messages/generic_domain_arity.eng",
