@@ -611,6 +611,7 @@ pub struct ReportAssemblyEquation {
     pub domain: String,
     pub expression: String,
     pub residual: String,
+    pub rhs: Option<String>,
     pub reason: String,
     pub dependencies: Vec<String>,
     pub status: String,
@@ -1308,6 +1309,7 @@ pub fn report_spec_from_report(
                     domain: equation.domain.clone(),
                     expression: equation.expression.clone(),
                     residual: equation.residual.clone(),
+                    rhs: equation.rhs.clone(),
                     reason: equation.reason.clone(),
                     dependencies: equation.dependencies.clone(),
                     status: equation.status.clone(),
@@ -3203,6 +3205,12 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
                 "          \"residual\": \"{}\",\n",
                 json_escape(&equation.residual)
             ));
+            match &equation.rhs {
+                Some(rhs) => {
+                    json.push_str(&format!("          \"rhs\": \"{}\",\n", json_escape(rhs)))
+                }
+                None => json.push_str("          \"rhs\": null,\n"),
+            }
             json.push_str(&format!(
                 "          \"reason\": \"{}\",\n",
                 json_escape(&equation.reason)

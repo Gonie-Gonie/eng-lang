@@ -248,6 +248,9 @@ Current coverage:
   labels, statuses, and source-line navigation from `component_graph`.
 - IDE Assembly panel renders behavior nodes plus generated equation and
   evaluated residual rows from assembly artifacts.
+- Internal boundary fixtures can promote component-local `port.signal = literal`
+  expressions into boundary residual equations and solve square dense linear
+  residual graphs with explicit variable, residual, and RHS artifacts.
 - Runtime has an internal dynamic-component solver seed, but component graph
   assembly is not yet lowered into that numeric path.
 
@@ -257,6 +260,8 @@ Definition of Done:
 
 - Collect component instances, ports, connection sets, and generated connection
   equations.
+- Preserve component-local boundary equation seeds with RHS literals for
+  internal square algebraic fixtures.
 - Record state/algebraic/input/output classification, equation count, unknown
   count, residual list, dependency graph, algebraic-loop seed, sparsity
   placeholder, and solver-plan placeholder.

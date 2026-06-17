@@ -110,6 +110,12 @@ internal/18_state_space_metadata
   narrow internal fixed-step runtime seed that materializes a promoted
   TimeSeries input. This fixture is not a supported general state-space
   simulation workflow.
+
+internal/22_component_boundary_solve
+  Component-local boundary equations plus generated Thermal connection
+  equations form a square linear residual graph and exercise the internal dense
+  algebraic solver artifact path. This fixture is not a production
+  multi-domain component graph solver.
 ```
 
 ## Compatibility Regression Examples

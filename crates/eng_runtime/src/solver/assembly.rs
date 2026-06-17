@@ -34,6 +34,7 @@ pub struct GeneratedEquation {
     pub domain: String,
     pub expression: String,
     pub residual: String,
+    pub rhs_value: Option<f64>,
     pub dependencies: Vec<String>,
     pub source: String,
     pub reason: String,

@@ -343,6 +343,7 @@ pub struct ComponentAssemblyEquationInfo {
     pub domain: String,
     pub expression: String,
     pub residual: String,
+    pub rhs: Option<String>,
     pub reason: String,
     pub dependencies: Vec<String>,
     pub status: String,
@@ -4758,6 +4759,7 @@ fn build_component_assembly_graphs(
                     domain: connection_set.domain.clone(),
                     expression: format!("{left} eq {right}"),
                     residual,
+                    rhs: None,
                     reason: component_generated_equation_reason("across_equality"),
                     dependencies,
                     status: "assembly_seed".to_owned(),
@@ -4788,6 +4790,7 @@ fn build_component_assembly_graphs(
                 domain: connection_set.domain.clone(),
                 expression: format!("sum({}) eq 0", dependencies.join(", ")),
                 residual: dependencies.join(" + "),
+                rhs: None,
                 reason: component_generated_equation_reason("through_conservation"),
                 dependencies,
                 status: "assembly_seed".to_owned(),
@@ -4795,6 +4798,10 @@ fn build_component_assembly_graphs(
             });
         }
     }
+
+    let component_boundary_equations =
+        component_boundary_equations(domains, components, &connection_sets);
+    equations.extend(component_boundary_equations);
 
     let algebraic_count = variables
         .iter()
@@ -4819,7 +4826,10 @@ fn build_component_assembly_graphs(
     } else {
         ("balanced_metadata_seed".to_owned(), None)
     };
-    let component_equation_count = 0;
+    let component_equation_count = equations
+        .iter()
+        .filter(|equation| equation.kind == "component_boundary")
+        .count();
     let local_expression_count = components
         .iter()
         .map(|component| component.local_expressions.len())
@@ -5242,6 +5252,87 @@ fn component_generated_equation_reason(kind: &str) -> String {
         }
         _ => "generated from component assembly metadata".to_owned(),
     }
+}
+
+fn component_boundary_equations(
+    domains: &[DomainInfo],
+    components: &[ComponentInfo],
+    connection_sets: &[ComponentConnectionSetInfo],
+) -> Vec<ComponentAssemblyEquationInfo> {
+    let connected_variables = connection_sets
+        .iter()
+        .flat_map(|connection_set| {
+            connection_set
+                .ports
+                .iter()
+                .flat_map(|port| {
+                    domains
+                        .iter()
+                        .find(|domain| connection_set.domain.starts_with(domain.name.as_str()))
+                        .map(|domain| {
+                            domain
+                                .variables
+                                .iter()
+                                .map(|variable| format!("{port}.{}", variable.name))
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default()
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<HashSet<_>>();
+    let mut equations = Vec::new();
+    for component in components {
+        for local in &component.local_expressions {
+            let Some((signal, rhs)) = local.expression.split_once('=') else {
+                continue;
+            };
+            let signal = signal.trim();
+            let rhs = rhs.trim();
+            let Some((port_name, variable_name)) = signal.split_once('.') else {
+                continue;
+            };
+            let port_name = port_name.trim();
+            let variable_name = variable_name.trim();
+            let Some(port) = component
+                .ports
+                .iter()
+                .find(|port| port.name == port_name && port.status == "domain_resolved")
+            else {
+                continue;
+            };
+            let Some(domain) = domains
+                .iter()
+                .find(|domain| domain.name == port.domain_name)
+            else {
+                continue;
+            };
+            if !domain
+                .variables
+                .iter()
+                .any(|variable| variable.name == variable_name)
+            {
+                continue;
+            }
+            let variable = format!("{}.{}.{}", component.name, port_name, variable_name);
+            if !connected_variables.contains(&variable) {
+                continue;
+            }
+            equations.push(ComponentAssemblyEquationInfo {
+                name: format!("{}.boundary_{}", component.name, local.name),
+                kind: "component_boundary".to_owned(),
+                domain: port.domain.clone(),
+                expression: format!("{variable} eq {rhs}"),
+                residual: format!("{variable} - ({rhs})"),
+                rhs: Some(rhs.to_owned()),
+                reason: "component-local boundary equation seed".to_owned(),
+                dependencies: vec![variable],
+                status: "component_boundary_seed".to_owned(),
+                line: local.line,
+            });
+        }
+    }
+    equations
 }
 
 fn build_component_solver_preview(

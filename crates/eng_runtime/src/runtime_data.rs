@@ -2634,9 +2634,17 @@ fn solver_equation_assembly_from_component_info(
             domain: equation.domain.clone(),
             expression: equation.expression.clone(),
             residual: equation.residual.clone(),
+            rhs_value: equation
+                .rhs
+                .as_ref()
+                .and_then(|rhs| component_equation_rhs_value(report, assembly, equation, rhs)),
             dependencies: equation.dependencies.clone(),
-            source: "component_connection".to_owned(),
-            reason: generated_equation_reason(&equation.kind),
+            source: if equation.kind == "component_boundary" {
+                "component_local_expression".to_owned()
+            } else {
+                "component_connection".to_owned()
+            },
+            reason: equation.reason.clone(),
             source_line: Some(equation.line),
             status: equation.status.clone(),
         })
@@ -2683,14 +2691,28 @@ fn solver_equation_assembly_from_component_info(
     }
 }
 
-fn generated_equation_reason(kind: &str) -> String {
-    match kind {
-        "across_equality" => "domain across variable equality for connected ports".to_owned(),
-        "through_conservation" => {
-            "domain through variable conservation for connection set".to_owned()
-        }
-        _ => "component assembly generated equation".to_owned(),
-    }
+fn component_equation_rhs_value(
+    report: &CheckReport,
+    assembly: &eng_compiler::ComponentAssemblyInfo,
+    equation: &eng_compiler::ComponentAssemblyEquationInfo,
+    rhs: &str,
+) -> Option<f64> {
+    let dependency = equation.dependencies.first()?;
+    let variable = assembly
+        .variables
+        .iter()
+        .find(|variable| variable.name == *dependency)?;
+    let (_quantity_kind, display_unit) = assembly_variable_quantity_unit(report, variable);
+    let (value, unit) = parse_numeric_value_with_optional_unit(rhs)?;
+    let source_unit = unit.as_deref().unwrap_or(display_unit.as_str());
+    Some(convert_display_value(value, source_unit, &display_unit))
+}
+
+fn parse_numeric_value_with_optional_unit(value: &str) -> Option<(f64, Option<String>)> {
+    let mut parts = value.split_whitespace();
+    let number = parts.next()?.parse::<f64>().ok()?;
+    let unit = parts.next().map(str::to_owned);
+    Some((number, unit))
 }
 
 fn assembly_variable_quantity_unit(
@@ -6485,6 +6507,7 @@ with {
                     domain: "Test".to_owned(),
                     expression: "x eq y".to_owned(),
                     residual: "x - y".to_owned(),
+                    rhs_value: None,
                     dependencies: vec!["x".to_owned(), "y".to_owned()],
                     source: "test".to_owned(),
                     reason: "test linear equality".to_owned(),
@@ -6497,6 +6520,7 @@ with {
                     domain: "Test".to_owned(),
                     expression: "sum(x, y) eq 0".to_owned(),
                     residual: "x + y".to_owned(),
+                    rhs_value: None,
                     dependencies: vec!["x".to_owned(), "y".to_owned()],
                     source: "test".to_owned(),
                     reason: "test linear conservation".to_owned(),

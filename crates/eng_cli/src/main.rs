@@ -712,6 +712,49 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(1);
         }
     }
+    match run_file(
+        Path::new("examples/internal/22_component_boundary_solve/main.eng"),
+        Path::new("build/test-component-boundary-solve"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"solved_linear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dense_linear_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"name\": \"RoomBoundary.heat.T\"")
+                || !output.result_json.contains("\"value\": 22.00000000")
+                || !output
+                    .result_json
+                    .contains("\"name\": \"AmbientBoundary.heat.Q\"")
+                || !output.result_json.contains("\"value\": -1.00000000")
+                || !output
+                    .report_spec_json
+                    .contains("\"kind\": \"component_boundary\"")
+                || !output.report_spec_json.contains("\"rhs\": \"22 degC\"")
+                || !output.report_spec_json.contains("\"rhs\": \"1 kW\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"component_equation_count\": 2")
+                || !output.report_html.contains("solved_linear")
+                || !output.report_html.contains("component_boundary")
+            {
+                eprintln!(
+                    "expected component boundary fixture to solve a square linear residual graph"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/internal/22_component_boundary_solve/main.eng solved component boundary residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("component boundary solve fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
 
     let bad = match check_file(
         "examples/05_error_messages/unit_mismatch.eng",

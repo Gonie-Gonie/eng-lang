@@ -63,6 +63,7 @@ impl ResidualGraph {
                     expression: ResidualExpression {
                         text: equation.residual.clone(),
                     },
+                    rhs_value: equation.rhs_value.unwrap_or(0.0),
                     unit: ResidualUnit {
                         unit,
                         quantity_kind,
@@ -127,7 +128,11 @@ impl ResidualGraph {
 
         Ok(LinearResidualSystem {
             matrix,
-            rhs: vec![0.0; equation_count],
+            rhs: self
+                .residuals
+                .iter()
+                .map(|residual| residual.rhs_value)
+                .collect(),
             residual_names: self
                 .residuals
                 .iter()
@@ -186,7 +191,8 @@ impl ResidualEvaluator for ResidualGraph {
                                 .copied()
                                 .unwrap_or_default()
                     })
-                    .sum::<f64>();
+                    .sum::<f64>()
+                    - residual.rhs_value;
                 let normalized_value = value / residual.scale.value.max(f64::EPSILON);
                 NamedResidualValue {
                     name: residual.name.clone(),
@@ -287,6 +293,7 @@ impl ResidualGraph {
 pub struct ResidualEquation {
     pub name: String,
     pub expression: ResidualExpression,
+    pub rhs_value: f64,
     pub unit: ResidualUnit,
     pub scale: ResidualScale,
     pub source: ResidualSource,
@@ -469,6 +476,31 @@ mod tests {
     }
 
     #[test]
+    fn linear_residual_system_and_evaluator_use_rhs_values() {
+        let graph = ResidualGraph {
+            name: "test.residual_graph".to_owned(),
+            variables: vec![ResidualVariableRef {
+                index: 0,
+                name: "x".to_owned(),
+                role: "algebraic".to_owned(),
+                unit: "1".to_owned(),
+            }],
+            residuals: vec![residual_with_rhs("r1", &[(0, "x", 1.0)], 4.0)],
+            dependencies: Vec::new(),
+        };
+
+        let system = graph.assemble_linear_system().unwrap();
+        assert_eq!(system.matrix, vec![vec![1.0]]);
+        assert_eq!(system.rhs, vec![4.0]);
+
+        let output = <ResidualGraph as ResidualEvaluator>::evaluate(
+            &graph,
+            &ResidualInput { values: &[5.0] },
+        );
+        assert_eq!(output.values[0].value, 1.0);
+    }
+
+    #[test]
     fn residual_scales_use_quantity_unit_defaults() {
         let heat_rate = ResidualScale::from_quantity_unit("HeatRate", "W");
         assert_eq!(heat_rate.value, 1000.0);
@@ -544,11 +576,20 @@ mod tests {
     }
 
     fn residual(name: &str, terms: &[(usize, &str, f64)]) -> ResidualEquation {
+        residual_with_rhs(name, terms, 0.0)
+    }
+
+    fn residual_with_rhs(
+        name: &str,
+        terms: &[(usize, &str, f64)],
+        rhs_value: f64,
+    ) -> ResidualEquation {
         ResidualEquation {
             name: name.to_owned(),
             expression: ResidualExpression {
                 text: name.to_owned(),
             },
+            rhs_value,
             unit: ResidualUnit {
                 unit: "1".to_owned(),
                 quantity_kind: "Dimensionless".to_owned(),

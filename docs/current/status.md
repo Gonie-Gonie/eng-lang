@@ -183,6 +183,11 @@ are not public stable workflows.
   propagation. Component artifacts distinguish delay/Predictor/external calls
   as runtime seeds through component graph, report, and IDE behavior nodes, but
   behavior nodes are not wired into language-level behavior graph solving.
+- Domain/component assembly seeds include component-local boundary equations
+  for internal fixtures, dense linear residual solves when the residual graph is
+  square, explicit RHS values in report specs, and solved variable/residual
+  artifacts. This remains an internal algebraic assembly seed, not a production
+  multi-domain component graph solver.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,
   generated connection-equation metadata, residual graph metadata,
   structured residual evaluator input, normalized residual evaluation,
