@@ -75,6 +75,11 @@ impl SolverInput {
             &self.parameter_layout.entries,
             &self.parameters,
         )?;
+        validate_output_layout(
+            &self.plan.simulation.outputs,
+            &self.state_layout,
+            &self.output_layout,
+        )?;
         Ok(())
     }
 }
@@ -124,6 +129,53 @@ fn validate_scalar_layout(
                 format!(
                     "{role} scalar `{}` does not match layout entry `{}`",
                     value.name, entry.name
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_output_layout(
+    declared_outputs: &[String],
+    state_layout: &StateLayout,
+    output_layout: &OutputLayout,
+) -> Result<(), SolverFailure> {
+    if output_layout.is_empty() {
+        return Ok(());
+    }
+    if !declared_outputs.is_empty() && declared_outputs.len() != output_layout.len() {
+        return Err(SolverFailure::new(
+            "E-SOLVER-OUTPUT-LAYOUT-MISMATCH",
+            "declared solver outputs do not match the output layout",
+        ));
+    }
+    for output_name in declared_outputs {
+        if output_layout.get(output_name).is_none() {
+            return Err(SolverFailure::new(
+                "E-SOLVER-OUTPUT-LAYOUT-MISMATCH",
+                format!("declared solver output `{output_name}` is missing from the output layout"),
+            ));
+        }
+    }
+    for output in &output_layout.entries {
+        let Some(state) = state_layout.get(&output.name) else {
+            return Err(SolverFailure::new(
+                "E-SOLVER-OUTPUT-LAYOUT-MISMATCH",
+                format!(
+                    "output `{}` does not resolve to a state layout entry",
+                    output.name
+                ),
+            ));
+        };
+        if output.quantity_kind != state.quantity_kind
+            || output.canonical_unit != state.canonical_unit
+        {
+            return Err(SolverFailure::new(
+                "E-SOLVER-OUTPUT-LAYOUT-MISMATCH",
+                format!(
+                    "output `{}` quantity/unit metadata does not match the state layout",
+                    output.name
                 ),
             ));
         }
@@ -408,6 +460,41 @@ mod tests {
             input_count_mismatch.validate_layouts().unwrap_err().code,
             "E-SOLVER-INPUT-LAYOUT-MISMATCH"
         );
+
+        let mut output_plan_mismatch = input.clone();
+        output_plan_mismatch.plan.simulation.outputs = vec!["T_missing".to_owned()];
+        assert_eq!(
+            output_plan_mismatch.validate_layouts().unwrap_err().code,
+            "E-SOLVER-OUTPUT-LAYOUT-MISMATCH"
+        );
+
+        let mut output_state_mismatch = input.clone();
+        output_state_mismatch.output_layout = OutputLayout::new(vec![LayoutEntry::new(
+            0,
+            "T_missing",
+            "AbsoluteTemperature",
+            "K",
+            "degC",
+        )]);
+        assert_eq!(
+            output_state_mismatch.validate_layouts().unwrap_err().code,
+            "E-SOLVER-OUTPUT-LAYOUT-MISMATCH"
+        );
+
+        let mut output_quantity_mismatch = input.clone();
+        output_quantity_mismatch.output_layout =
+            OutputLayout::new(vec![LayoutEntry::new(0, "T_zone", "HeatRate", "W", "W")]);
+        assert_eq!(
+            output_quantity_mismatch
+                .validate_layouts()
+                .unwrap_err()
+                .code,
+            "E-SOLVER-OUTPUT-LAYOUT-MISMATCH"
+        );
+
+        let mut empty_output_layout = input.clone();
+        empty_output_layout.output_layout = OutputLayout::default();
+        empty_output_layout.validate_layouts().unwrap();
 
         let mut parameter_scalar_mismatch = input;
         parameter_scalar_mismatch.parameters[0].canonical_unit = "kW/K".to_owned();

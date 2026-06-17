@@ -150,10 +150,11 @@ are not public stable workflows.
   continuous/discrete A/B execution, report/review/IDE canonical operator matrix
   and named-entry summaries, multi-state fixed-step Euler/RK4
   trajectories with TimeSeries input materialization, `OutputLayout` preserved
-  across
-  `SolverInput`/`SolverResult`, and report/review/result/IDE solver-inspector
-  artifacts for state/input/parameter and output lists, timestep, tolerance,
-  iteration count, convergence status, failure reason, and trajectory points.
+  across `SolverInput`/`SolverResult`, non-empty output layouts validated
+  against state quantity/unit metadata, and report/review/result/IDE
+  solver-inspector artifacts for state/input/parameter and output lists,
+  timestep, tolerance, iteration count, convergence status, failure reason,
+  and trajectory points.
   Continuous and discrete state-space fixture paths are covered by the example
   smoke gate.
   They are not a supported general nonlinear, DAE, adaptive, broad
