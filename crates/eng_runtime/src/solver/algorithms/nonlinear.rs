@@ -169,6 +169,12 @@ fn validate_newton_options(initial: &[f64], options: &NewtonOptions) -> Result<(
             "Newton solver requires at least one variable",
         ));
     }
+    if initial.iter().any(|value| !value.is_finite()) {
+        return Err(SolverFailure::new(
+            "E-NEWTON-INITIAL-FINITE",
+            "Newton solver initial values must be finite",
+        ));
+    }
     if options.max_iterations == 0 {
         return Err(SolverFailure::new(
             "E-NEWTON-ITERATIONS",
@@ -450,6 +456,14 @@ mod tests {
                 .map(|residual| residual.index),
             Some(0)
         );
+    }
+
+    #[test]
+    fn rejects_nonfinite_initial_guess() {
+        let failure =
+            solve_newton(&[f64::NAN], &NewtonOptions::default(), |_| Ok(vec![0.0])).unwrap_err();
+
+        assert_eq!(failure.code, "E-NEWTON-INITIAL-FINITE");
     }
 
     #[test]

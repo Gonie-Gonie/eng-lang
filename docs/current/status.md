@@ -168,8 +168,8 @@ are not public stable workflows.
   fabricated trajectory.
 - Solver algorithm seeds: dense linear solve with finite matrix/RHS/tolerance
   checks, solver-API fixed-point iteration with nonconvergence diagnostics, and
-  solver-API standalone damped Newton solve with finite-difference fallback,
-  supplied analytic/JIT Jacobian hook,
+  solver-API standalone damped Newton solve with finite initial-guess checks,
+  finite-difference fallback, supplied analytic/JIT Jacobian hook,
   residual history, largest-residual summary, and failure artifacts. The same
   internal layer has a solver-API standalone implicit-Euler DAE seed over
   `F(x, xdot, z, u, t, p)` with optional mass matrix, initial consistency

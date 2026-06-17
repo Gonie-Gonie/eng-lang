@@ -159,6 +159,8 @@ Current coverage:
   parameter values before solver algorithms run.
 - Dense linear solver seeds reject non-finite matrix/RHS values and invalid
   tolerances before pivoting.
+- Newton solver seeds reject non-finite initial guesses before residual or
+  Jacobian evaluation.
 - Fixed-step ODE, fixed-point, and dynamic-component solver seeds reject
   non-finite RHS/update values before those values can enter trajectories or
   algebraic artifacts.
