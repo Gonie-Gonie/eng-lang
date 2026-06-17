@@ -4,7 +4,9 @@ use std::process::Command;
 use std::process::ExitCode;
 use std::time::Instant;
 
-use eng_compiler::{check_file, check_source, review_json, ArgOverride, CheckOptions, Severity};
+use eng_compiler::{
+    check_file, check_source, review_json, ArgOverride, CheckOptions, CheckReport, Severity,
+};
 use eng_runtime::{
     build_standalone, create_project, doctor, run_file, BuildOptions, ExecutionProfile, RunOptions,
     RuntimeError,
@@ -181,7 +183,7 @@ fn command_jit_bench(args: Vec<String>) -> ExitCode {
 
     println!(
         "{}",
-        jit_bench_json(&path, iterations, &plan, &interpreter_runs)
+        jit_bench_json(&path, iterations, &report, &plan, &interpreter_runs)
     );
     ExitCode::SUCCESS
 }
@@ -624,6 +626,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     let jit_bench_smoke = jit_bench_json(
         "examples/official/01_csv_plot/main.eng",
         1,
+        &jit_report,
         &jit_plan,
         &[BenchRun {
             iteration: 1,
@@ -652,6 +655,40 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     }
     println!(
         "ok: official CSV example produced JIT kernel candidates with executor fallback and benchmark target metadata"
+    );
+
+    let state_space_jit_report = match check_file(
+        "examples/internal/18_state_space_metadata/main.eng",
+        &CheckOptions::default(),
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    let state_space_jit_plan = eng_jit::plan_for_report(&state_space_jit_report);
+    let state_space_bench_smoke = jit_bench_json(
+        "examples/internal/18_state_space_metadata/main.eng",
+        1,
+        &state_space_jit_report,
+        &state_space_jit_plan,
+        &[BenchRun {
+            iteration: 1,
+            elapsed_ms: 1.0,
+            result_path: "build/jit-bench/iter-000/result/result.engres".to_owned(),
+        }],
+    );
+    if !state_space_bench_smoke.contains("\"name\":\"state_space_simulation\"")
+        || !state_space_bench_smoke.contains("\"status\":\"metadata_observed\"")
+        || !state_space_bench_smoke.contains("state_space_vector:ThermalStateSpaceMetadata:x")
+        || !state_space_bench_smoke.contains("linear_operator:ThermalStateSpaceMetadata:A")
+    {
+        eprintln!("expected internal state-space example to expose JIT benchmark target metadata");
+        return ExitCode::from(2);
+    }
+    println!(
+        "ok: examples/internal/18_state_space_metadata/main.eng produced JIT benchmark state-space target metadata"
     );
 
     let domain_port = match check_file(
@@ -2355,6 +2392,7 @@ struct BenchRun {
 fn jit_bench_json(
     source_path: &str,
     iterations: usize,
+    report: &CheckReport,
     plan: &eng_jit::NumericKernelPlan,
     interpreter_runs: &[BenchRun],
 ) -> String {
@@ -2377,7 +2415,7 @@ fn jit_bench_json(
         "iterations_requested": iterations,
         "comparison_policy": "no-speedup-claim",
         "kernel_plan": eng_jit::plan_json(plan),
-        "benchmark_targets": jit_benchmark_targets(plan),
+        "benchmark_targets": jit_benchmark_targets(report, plan),
         "interpreter": {
             "status": "measured",
             "runs": interpreter_runs.iter().map(|run| {
@@ -2409,7 +2447,11 @@ fn jit_bench_json(
     .to_string()
 }
 
-fn jit_benchmark_targets(plan: &eng_jit::NumericKernelPlan) -> Vec<serde_json::Value> {
+fn jit_benchmark_targets(
+    report: &CheckReport,
+    plan: &eng_jit::NumericKernelPlan,
+) -> Vec<serde_json::Value> {
+    let state_space_items = state_space_target_items(report);
     vec![
         benchmark_target(
             "csv_heat_rate_workflow",
@@ -2464,9 +2506,13 @@ fn jit_benchmark_targets(plan: &eng_jit::NumericKernelPlan) -> Vec<serde_json::V
         ),
         benchmark_target(
             "state_space_simulation",
-            "not_observed_for_source",
-            Vec::new(),
-            "reserved benchmark target; no state-space solver-step kernel is selected by this source",
+            if state_space_items.is_empty() {
+                "not_observed_for_source"
+            } else {
+                "metadata_observed"
+            },
+            state_space_items,
+            "tracks state-space simulation metadata; no state-space solver-step kernel is selected",
         ),
     ]
 }
@@ -2498,6 +2544,23 @@ fn candidates_by_kind(plan: &eng_jit::NumericKernelPlan, kinds: &[&str]) -> Vec<
         .filter(|candidate| kinds.contains(&candidate.kind.as_str()))
         .map(|candidate| format!("{}:{}", candidate.kind, candidate.name))
         .collect()
+}
+
+fn state_space_target_items(report: &CheckReport) -> Vec<String> {
+    let mut items = report
+        .semantic_program
+        .state_space_vectors
+        .iter()
+        .map(|vector| format!("state_space_vector:{}:{}", vector.system, vector.name))
+        .collect::<Vec<_>>();
+    items.extend(
+        report
+            .semantic_program
+            .linear_operators
+            .iter()
+            .map(|operator| format!("linear_operator:{}:{}", operator.system, operator.name)),
+    );
+    items
 }
 
 fn rounded_ms(value: f64) -> f64 {

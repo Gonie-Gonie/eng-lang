@@ -57,6 +57,7 @@ Known statuses:
 ```text
 covered_by_current_source
 interface_only
+metadata_observed
 not_observed_for_source
 ```
 
@@ -65,6 +66,9 @@ Current target names are `csv_heat_rate_workflow`,
 `component_graph_solver_small_case`, and `state_space_simulation`.
 Targets that are not present in the input source remain
 `not_observed_for_source`.
+`metadata_observed` means the source exposes checked metadata for the target,
+but the current kernel plan has not selected an executable kernel for that
+target.
 
 ## Interpreter Shape
 
