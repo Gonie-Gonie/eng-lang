@@ -1465,6 +1465,45 @@ function Invoke-LspCheck {
     Write-Host "LSP check passed."
 }
 
+function Invoke-JitBenchTargetCheck {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Cargo,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Source,
+
+        [Parameter(Mandatory = $true)]
+        [string] $TargetName,
+
+        [Parameter(Mandatory = $true)]
+        [string] $ExpectedStatus,
+
+        [Parameter(Mandatory = $true)]
+        [string] $CandidateFragment
+    )
+
+    $output = & $Cargo "run" "-p" "eng_cli" "--quiet" "--" "jit-bench" $Source "--iterations" "1"
+    if ($LASTEXITCODE -ne 0) {
+        throw "jit-bench failed for $Source with exit code $LASTEXITCODE"
+    }
+    $jsonText = ($output | Out-String).Trim()
+    Write-Host $jsonText
+    $bench = $jsonText | ConvertFrom-Json
+    $target = @($bench.benchmark_targets | Where-Object {
+        $_.name -eq $TargetName -and $_.status -eq $ExpectedStatus
+    }) | Select-Object -First 1
+    if ($null -eq $target) {
+        throw "jit-bench $Source did not report $TargetName as $ExpectedStatus"
+    }
+    $candidate = @($target.candidates | Where-Object {
+        $_ -like "*$CandidateFragment*"
+    }) | Select-Object -First 1
+    if ($null -eq $candidate) {
+        throw "jit-bench $Source target $TargetName did not include candidate containing $CandidateFragment"
+    }
+}
+
 function Invoke-JitCheck {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -1475,9 +1514,9 @@ function Invoke-JitCheck {
     Invoke-Native $cargo "test" "-p" "eng_jit" "--" "--nocapture"
     Invoke-Native $cargo "run" "-p" "eng_cli" "--" "jit-plan" "examples\official\01_csv_plot\main.eng"
     Invoke-Native $cargo "run" "-p" "eng_cli" "--" "jit-plan" "examples\official\01_csv_plot\main.eng" "--backend" "native-preview"
-    Invoke-Native $cargo "run" "-p" "eng_cli" "--" "jit-bench" "examples\official\01_csv_plot\main.eng" "--iterations" "1"
-    Invoke-Native $cargo "run" "-p" "eng_cli" "--" "jit-bench" "examples\official\21_thermal_component_assembly\main.eng" "--iterations" "1"
-    Invoke-Native $cargo "run" "-p" "eng_cli" "--" "jit-bench" "examples\internal\18_state_space_metadata\main.eng" "--iterations" "1"
+    Invoke-JitBenchTargetCheck $cargo "examples\official\01_csv_plot\main.eng" "csv_heat_rate_workflow" "covered_by_current_source" "timeseries_integrate"
+    Invoke-JitBenchTargetCheck $cargo "examples\official\21_thermal_component_assembly\main.eng" "component_graph_solver_small_case" "covered_by_current_source" "component_newton_step"
+    Invoke-JitBenchTargetCheck $cargo "examples\internal\18_state_space_metadata\main.eng" "state_space_simulation" "covered_by_current_source" "state_space_solver_step"
     Write-Host "JIT plan check passed."
 }
 
