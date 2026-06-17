@@ -25,6 +25,15 @@ pub use algorithms::fixed_step::{solve_fixed_step_ode, FixedStepMethod, RhsSampl
 pub use algorithms::nonlinear::{
     solve_newton, solve_newton_with_jacobian, NewtonLargestResidual, NewtonOptions, NewtonResult,
 };
+pub use behavior::{
+    BehaviorExecutionProfile, BehaviorSignalContract, BehaviorWarning, DelayBehaviorNode,
+    DelayBuffer, DelayEvaluation, DelayInitialHistoryPolicy, DelayInterpolationPolicy,
+    DelayRelationshipArtifact, ExternalBehaviorArtifact, ExternalBehaviorContract,
+    ExternalBehaviorDeterminism, ExternalBehaviorEvaluation, ExternalBehaviorKind,
+    ExternalBehaviorNode, ExternalBehaviorProfilePolicy, PredictorBehaviorNode, PredictorContract,
+    PredictorContractArtifact, PredictorDifferentiability, PredictorEvaluation,
+    PredictorJacobianPolicy, PredictorSolverPolicy,
+};
 pub use diagnostics::{SolverDiagnostics, SolverFailure};
 pub use evaluator::{
     NamedDerivative, RhsEvaluator, RhsInput, RhsOutput, RhsStateInfo, StateSpaceRhsEvaluator,

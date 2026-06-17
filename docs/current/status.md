@@ -173,20 +173,21 @@ are not public stable workflows.
   internal `SolverResult` adapter. Newton/DAE/dynamic component seeds are not
   wired into language-level nonlinear systems,
   component assembly, or report/IDE workflows.
-- Behavior graph seeds: runtime delay buffer with linear and previous-sample
-  interpolation policies, explicit initial-history policy, relationship
-  artifact, solver-style behavior-node evaluation, and component-local
+- Behavior graph seeds: solver-API runtime delay buffer with linear and
+  previous-sample interpolation policies, explicit initial-history policy,
+  relationship artifact, solver-style behavior-node evaluation, and
+  component-local
   `delay(signal, duration)` diagnostics for unknown signals and invalid
   durations. Component-local Predictor calls and external behavior calls also
   validate their seed syntax and known `port.variable` signal before becoming
   behavior-node metadata, with each component behavior diagnostic code covered
-  by the CLI example smoke gate. Runtime also has a Predictor behavior contract
-  wrapper
-  with input/output quantity-unit metadata, valid-range warnings, model hash,
-  differentiability flag, and solver Jacobian policy. Runtime also has an
-  external function/process behavior wrapper with typed contracts, provenance
-  hash, determinism metadata, safe/repro profile policy, and adapter failure
-  propagation. Component artifacts distinguish delay/Predictor/external calls
+  by the CLI example smoke gate. Runtime also has a solver-API Predictor
+  behavior contract wrapper with input/output quantity-unit metadata,
+  valid-range warnings, model hash, differentiability flag, and solver Jacobian
+  policy. Runtime also has a solver-API external function/process behavior
+  wrapper with typed contracts, provenance hash, determinism metadata,
+  safe/repro profile policy, and adapter failure propagation. Component
+  artifacts distinguish delay/Predictor/external calls
   as runtime seeds through component graph, report, and IDE behavior nodes, but
   behavior nodes are not wired into language-level behavior graph solving. The
   valid behavior-node fixture is covered by the CLI example smoke path.

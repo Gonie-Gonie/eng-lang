@@ -251,10 +251,10 @@ Title: `solver: integrate behavior graph nodes into numeric evaluation`
 
 Current coverage:
 
-- Runtime has a delay buffer seed with linear and previous-sample interpolation
-  policies, explicit initial-history policy, relationship artifacts,
-  out-of-order/history-underflow diagnostics, and solver-style behavior-node
-  evaluation tests.
+- Runtime has a solver-API delay buffer seed with linear and previous-sample
+  interpolation policies, explicit initial-history policy, relationship
+  artifacts, out-of-order/history-underflow diagnostics, and solver-style
+  behavior-node evaluation tests.
 - Component local expressions now diagnose invalid `delay(signal, duration)`
   calls, including missing arguments, unknown component port variables, and
   non-duration delay values. Example-smoke fixtures cover each public
@@ -262,10 +262,10 @@ Current coverage:
 - Component local Predictor and external behavior expressions now diagnose
   invalid seed syntax and unknown component port variables before they become
   behavior-node metadata.
-- Runtime has a Predictor behavior contract wrapper with input/output
+- Runtime has a solver-API Predictor behavior contract wrapper with input/output
   quantity-unit metadata, valid-range warnings, provenance/model hash,
   differentiability flag, solver Jacobian policy, and evaluation/failure tests.
-- Runtime has an external function/process behavior wrapper with typed
+- Runtime has a solver-API external function/process behavior wrapper with typed
   input/output contracts, provenance hash, determinism metadata, safe/repro
   profile policy, range warnings, adapter failure propagation, and tests.
 - Component artifacts distinguish delay calls as
