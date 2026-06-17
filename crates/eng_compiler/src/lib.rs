@@ -54,10 +54,10 @@ pub use semantic::{
     ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo, DomainTypeParameterInfo,
     DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo, EquationInfo,
     EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo, FunctionLocalInfo,
-    FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo, OdeRunnerInfo, PortInfo,
-    PrintInfo, ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo, SystemInfo,
-    SystemVariableInfo, TestInfo, TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo,
-    WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
+    FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo, LinearOperatorEntryInfo,
+    OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo, SemanticProgram, SemanticType,
+    SolverPlanInfo, SystemInfo, SystemVariableInfo, TestInfo, TimeSeriesKernelInfo, TypedBinding,
+    WhereBindingInfo, WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -1782,6 +1782,7 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("      \"canonical_matrix\": ");
         push_optional_json_matrix(&mut json, operator.canonical_matrix.as_deref());
         json.push_str(",\n");
+        push_linear_operator_entries_json(&mut json, &operator.canonical_entries, 6);
         json.push_str(&format!("      \"row_count\": {},\n", operator.row_count));
         json.push_str(&format!(
             "      \"column_count\": {},\n",
@@ -3852,6 +3853,43 @@ fn format_json_number(value: f64) -> String {
     } else {
         "null".to_owned()
     }
+}
+
+fn push_linear_operator_entries_json(
+    json: &mut String,
+    entries: &[LinearOperatorEntryInfo],
+    indent: usize,
+) {
+    let spaces = " ".repeat(indent);
+    json.push_str(&format!("{spaces}\"canonical_entries\": [\n"));
+    for (index, entry) in entries.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{spaces}  {{\n"));
+        json.push_str(&format!(
+            "{spaces}    \"row_index\": {},\n",
+            entry.row_index
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"column_index\": {},\n",
+            entry.column_index
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"row_member\": \"{}\",\n",
+            json_escape(&entry.row_member)
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"column_member\": \"{}\",\n",
+            json_escape(&entry.column_member)
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"coefficient\": {}\n",
+            format_json_number(entry.coefficient)
+        ));
+        json.push_str(&format!("{spaces}  }}"));
+    }
+    json.push_str(&format!("\n{spaces}],\n"));
 }
 
 fn push_json_string_array(json: &mut String, values: &[String]) {
@@ -6105,12 +6143,22 @@ mod tests {
                 .unwrap()[0][0],
             -0.0002
         );
+        assert_eq!(
+            report.semantic_program.linear_operators[1].canonical_entries[0].row_member,
+            "T_zone"
+        );
+        assert_eq!(
+            report.semantic_program.linear_operators[1].canonical_entries[1].column_member,
+            "Q_internal"
+        );
         assert_eq!(report.semantic_program.linear_operators[1].row_count, 1);
         assert_eq!(report.semantic_program.linear_operators[1].column_count, 2);
         let json = review_json(&report);
         assert!(json.contains("\"state_space_vectors\""));
         assert!(json.contains("\"linear_operators\""));
         assert!(json.contains("\"canonical_matrix\": [[-0.0002]]"));
+        assert!(json.contains("\"canonical_entries\""));
+        assert!(json.contains("\"column_member\": \"Q_internal\""));
         assert!(json.contains("\"row_quantity_kinds\""));
     }
 

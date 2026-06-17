@@ -2142,9 +2142,37 @@ fn smoke() -> Result<(), String> {
                         .is_some_and(|value| (value - (-0.0002)).abs() < 1e-12)
             })
         });
+    let has_state_space_operator_entry = state_space_inspectors
+        .linear_operators
+        .as_array()
+        .is_some_and(|items| {
+            items.iter().any(|item| {
+                json_field_string(item, "name").as_deref() == Some("B")
+                    && item
+                        .get("canonical_entries")
+                        .and_then(Value::as_array)
+                        .is_some_and(|entries| {
+                            entries.iter().any(|entry| {
+                                json_field_string(entry, "row_member").as_deref() == Some("T_zone")
+                                    && json_field_string(entry, "column_member").as_deref()
+                                        == Some("Q_internal")
+                                    && entry
+                                        .get("coefficient")
+                                        .and_then(Value::as_f64)
+                                        .is_some_and(|value| (value - 0.001).abs() < 1e-12)
+                            })
+                        })
+            })
+        });
     if !has_state_space_series || !has_state_space_solver || !has_state_space_operator_matrix {
         return Err(format!(
             "{} did not produce IDE state-space trajectory/operator inspector metadata",
+            state_space_example.display()
+        ));
+    }
+    if !has_state_space_operator_entry {
+        return Err(format!(
+            "{} did not produce IDE state-space named operator entry metadata",
             state_space_example.display()
         ));
     }

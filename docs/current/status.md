@@ -142,7 +142,7 @@ are not public stable workflows.
   diagnostics, inverse-time coefficient checks and per-second canonicalization
   where source and derivative units are compatible, shape-checked
   continuous/discrete A/B execution, report/review/IDE canonical operator matrix
-  summaries, multi-state fixed-step Euler/RK4
+  and named-entry summaries, multi-state fixed-step Euler/RK4
   trajectories with TimeSeries input materialization, `OutputLayout` preserved
   across
   `SolverInput`/`SolverResult`, and report/review/result/IDE solver-inspector

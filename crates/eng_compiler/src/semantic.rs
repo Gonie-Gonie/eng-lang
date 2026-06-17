@@ -205,6 +205,15 @@ pub struct StateSpaceVectorInfo {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct LinearOperatorEntryInfo {
+    pub row_index: usize,
+    pub column_index: usize,
+    pub row_member: String,
+    pub column_member: String,
+    pub coefficient: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct LinearOperatorInfo {
     pub system: String,
     pub name: String,
@@ -212,6 +221,7 @@ pub struct LinearOperatorInfo {
     pub to: String,
     pub expression: Option<String>,
     pub canonical_matrix: Option<Vec<Vec<f64>>>,
+    pub canonical_entries: Vec<LinearOperatorEntryInfo>,
     pub row_count: usize,
     pub column_count: usize,
     pub row_members: Vec<String>,
@@ -5894,6 +5904,7 @@ fn analyze_linear_operator_decl(
         to,
         expression: declaration.expression.clone(),
         canonical_matrix: None,
+        canonical_entries: Vec::new(),
         row_count,
         column_count,
         row_members: Vec::new(),
@@ -6040,7 +6051,12 @@ fn validate_linear_operator_shapes(
             operator.status = "entry_unit_unsupported".to_owned();
             operator.compatibility_status = "entry_unit_unsupported".to_owned();
         } else {
-            operator.canonical_matrix = canonical_linear_operator_matrix(operator);
+            let canonical_matrix = canonical_linear_operator_matrix(operator);
+            operator.canonical_entries = canonical_matrix
+                .as_deref()
+                .map(|matrix| canonical_linear_operator_entries(operator, matrix))
+                .unwrap_or_default();
+            operator.canonical_matrix = canonical_matrix;
             operator.status = "shape_checked".to_owned();
             operator.compatibility_status = "coefficient_units_checked".to_owned();
         }
@@ -6148,6 +6164,36 @@ fn canonical_linear_operator_matrix(operator: &LinearOperatorInfo) -> Option<Vec
         })
         .collect::<Option<Vec<_>>>()?;
     (!rows.is_empty() && rows.iter().all(|row| !row.is_empty())).then_some(rows)
+}
+
+fn canonical_linear_operator_entries(
+    operator: &LinearOperatorInfo,
+    matrix: &[Vec<f64>],
+) -> Vec<LinearOperatorEntryInfo> {
+    matrix
+        .iter()
+        .enumerate()
+        .flat_map(|(row_index, row)| {
+            row.iter()
+                .enumerate()
+                .filter(|(_, coefficient)| **coefficient != 0.0)
+                .map(move |(column_index, coefficient)| LinearOperatorEntryInfo {
+                    row_index,
+                    column_index,
+                    row_member: operator
+                        .row_members
+                        .get(row_index)
+                        .cloned()
+                        .unwrap_or_else(|| format!("row[{row_index}]")),
+                    column_member: operator
+                        .column_members
+                        .get(column_index)
+                        .cloned()
+                        .unwrap_or_else(|| format!("column[{column_index}]")),
+                    coefficient: *coefficient,
+                })
+        })
+        .collect()
 }
 
 fn inverse_time_coefficient_scale_to_per_second(unit: &str) -> Option<f64> {

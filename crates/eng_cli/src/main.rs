@@ -1876,6 +1876,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
             if !review.contains("\"state_space_vectors\"")
                 || !review.contains("\"linear_operators\"")
+                || !review.contains("\"canonical_entries\"")
                 || !review.contains("\"vector_type\": \"StateVector\"")
                 || !review.contains("\"from\": \"InputVector\"")
                 || !review.contains("\"to\": \"Derivative[StateVector]\"")
@@ -1936,6 +1937,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             let report_spec = std::fs::read_to_string(output.report_spec_path).unwrap_or_default();
             let report_html = std::fs::read_to_string(output.report_path).unwrap_or_default();
             if !review.contains("\"canonical_matrix\"")
+                || !review.contains("\"canonical_entries\"")
                 || !review.contains("\"name\": \"T_air\"")
                 || !review.contains("\"name\": \"T_wall\"")
                 || !result.contains("\"binding\": \"sim\"")
@@ -1944,6 +1946,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !result.contains("\"method\": \"state_space_discrete_fixed_step\"")
                 || !result.contains("recognized discrete-time state-space")
                 || !report_spec.contains("\"canonical_matrix\"")
+                || !report_spec.contains("\"canonical_entries\"")
                 || !report_spec.contains("\"solver_results\"")
                 || !report_spec.contains("\"state_space_discrete_fixed_step\"")
                 || !report_html.contains("State-Space Metadata")

@@ -396,8 +396,9 @@ These sections record `states`/`inputs`/`outputs` vector declarations and
 include row/column members, quantity kinds, canonical units, and compatibility
 status after vector-member resolution and shape checks. Review JSON, report
 spec, HTML report, and IDE inspection surfaces also expose a per-second
-`canonical_matrix` when operator entries can be canonicalized. Non-rectangular matrices
-are reported as shape mismatches. Matrix entries may be canonical numeric
+`canonical_matrix` and named nonzero `canonical_entries` when operator entries
+can be canonicalized. Non-rectangular matrices are reported as shape mismatches.
+Matrix entries may be canonical numeric
 coefficients, or inverse-time coefficients such as `1/s`, `1/min`, and `1/h`
 when the target derivative unit is exactly the source state/input unit per
 second; these display units are canonicalized to per-second numeric

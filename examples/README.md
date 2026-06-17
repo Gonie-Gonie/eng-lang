@@ -140,8 +140,8 @@ internal/25_component_behavior_nodes
 
 internal/26_state_space_discrete
   Discrete two-state state-space execution with `next(x) eq A * x + B * u`,
-  scalar input materialization, canonical operator matrices, and two emitted
-  state trajectories.
+  scalar input materialization, canonical operator matrices, named nonzero
+  entries, and two emitted state trajectories.
 ```
 
 ## Compatibility Regression Examples

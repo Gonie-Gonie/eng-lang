@@ -1231,6 +1231,7 @@
         "to",
         "expression",
         "canonical_matrix",
+        "canonical_entries",
         "row_count",
         "column_count",
         "row_members",
@@ -1254,6 +1255,27 @@
           "items": {
             "type": "array",
             "items": { "type": "number" }
+          }
+        },
+        "canonical_entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "row_index",
+              "column_index",
+              "row_member",
+              "column_member",
+              "coefficient"
+            ],
+            "properties": {
+              "row_index": { "type": "integer", "minimum": 0 },
+              "column_index": { "type": "integer", "minimum": 0 },
+              "row_member": { "type": "string" },
+              "column_member": { "type": "string" },
+              "coefficient": { "type": "number" }
+            },
+            "additionalProperties": false
           }
         },
         "row_count": { "type": "integer", "minimum": 0 },

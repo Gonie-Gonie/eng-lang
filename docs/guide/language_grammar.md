@@ -1238,8 +1238,8 @@ system ThermalStateSpaceMetadata {
 
 `review.json` records `state_space_vectors` and `linear_operators` for IDE and
 review tooling, including per-second `canonical_matrix` values when operator
-entries are canonicalizable. Report artifacts expose the same checked operator
-metadata.
+entries are canonicalizable and `canonical_entries` for nonzero row/column
+member pairs. Report artifacts expose the same checked operator metadata.
 Vector members must resolve to variables in the same system;
 unknown members use `E-STATE-SPACE-VECTOR-MEMBER-001`. Linear operator matrix
 rows must match the target vector size, and columns must match the source

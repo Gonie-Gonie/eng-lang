@@ -823,6 +823,7 @@ pub struct ReportLinearOperator {
     pub to: String,
     pub expression: Option<String>,
     pub canonical_matrix: Option<Vec<Vec<f64>>>,
+    pub canonical_entries: Vec<ReportLinearOperatorEntry>,
     pub row_count: usize,
     pub column_count: usize,
     pub row_members: Vec<String>,
@@ -834,6 +835,15 @@ pub struct ReportLinearOperator {
     pub compatibility_status: String,
     pub status: String,
     pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportLinearOperatorEntry {
+    pub row_index: usize,
+    pub column_index: usize,
+    pub row_member: String,
+    pub column_member: String,
+    pub coefficient: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1653,6 +1663,17 @@ pub fn report_spec_from_report(
             to: operator.to.clone(),
             expression: operator.expression.clone(),
             canonical_matrix: operator.canonical_matrix.clone(),
+            canonical_entries: operator
+                .canonical_entries
+                .iter()
+                .map(|entry| ReportLinearOperatorEntry {
+                    row_index: entry.row_index,
+                    column_index: entry.column_index,
+                    row_member: entry.row_member.clone(),
+                    column_member: entry.column_member.clone(),
+                    coefficient: entry.coefficient,
+                })
+                .collect(),
             row_count: operator.row_count,
             column_count: operator.column_count,
             row_members: operator.row_members.clone(),
@@ -3923,6 +3944,7 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         json.push_str("      \"canonical_matrix\": ");
         push_optional_json_matrix(&mut json, operator.canonical_matrix.as_deref());
         json.push_str(",\n");
+        push_linear_operator_entries_json(&mut json, &operator.canonical_entries, 6);
         json.push_str(&format!("      \"row_count\": {},\n", operator.row_count));
         json.push_str(&format!(
             "      \"column_count\": {},\n",
@@ -5862,6 +5884,7 @@ fn render_state_space_section(spec: &ReportSpec) -> String {
                 .as_deref()
                 .map(format_canonical_matrix)
                 .unwrap_or_else(|| "-".to_owned());
+            let canonical_entries = format_canonical_entries(&operator.canonical_entries);
             let compatibility = format!(
                 "rows: {} [{}]; cols: {} [{}]; {}",
                 operator.row_quantity_kinds.join(", "),
@@ -5871,7 +5894,7 @@ fn render_state_space_section(spec: &ReportSpec) -> String {
                 operator.compatibility_status
             );
             format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{} -> {}</td><td>{}x{}</td><td><code>{}</code></td><td><code>{}</code></td><td>{}</td><td>{}</td></tr>",
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{} -> {}</td><td>{}x{}</td><td><code>{}</code></td><td><code>{}</code></td><td><code>{}</code></td><td>{}</td><td>{}</td></tr>",
                 operator.line,
                 html_escape(&operator.system),
                 html_escape(&operator.name),
@@ -5881,6 +5904,7 @@ fn render_state_space_section(spec: &ReportSpec) -> String {
                 operator.column_count,
                 html_escape(operator.expression.as_deref().unwrap_or("-")),
                 html_escape(&canonical_matrix),
+                html_escape(&canonical_entries),
                 html_escape(&compatibility),
                 html_escape(&operator.status)
             )
@@ -5894,7 +5918,7 @@ fn render_state_space_section(spec: &ReportSpec) -> String {
       <tbody>{}</tbody>
     </table>
     <table>
-      <thead><tr><th>Line</th><th>System</th><th>Operator</th><th>Mapping</th><th>Shape</th><th>Expression</th><th>Canonical Matrix</th><th>Compatibility</th><th>Status</th></tr></thead>
+      <thead><tr><th>Line</th><th>System</th><th>Operator</th><th>Mapping</th><th>Shape</th><th>Expression</th><th>Canonical Matrix</th><th>Canonical Entries</th><th>Compatibility</th><th>Status</th></tr></thead>
       <tbody>{}</tbody>
     </table>"#,
         if vector_rows.is_empty() {
@@ -5903,11 +5927,27 @@ fn render_state_space_section(spec: &ReportSpec) -> String {
             vector_rows
         },
         if operator_rows.is_empty() {
-            "<tr><td colspan=\"9\">No linear operators.</td></tr>".to_owned()
+            "<tr><td colspan=\"10\">No linear operators.</td></tr>".to_owned()
         } else {
             operator_rows
         }
     )
+}
+
+fn format_canonical_entries(entries: &[ReportLinearOperatorEntry]) -> String {
+    if entries.is_empty() {
+        return "-".to_owned();
+    }
+    entries
+        .iter()
+        .map(|entry| {
+            format!(
+                "{}<-{}: {}",
+                entry.row_member, entry.column_member, entry.coefficient
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
 }
 
 fn format_canonical_matrix(matrix: &[Vec<f64>]) -> String {
@@ -6572,6 +6612,43 @@ fn format_json_number(value: f64) -> String {
     }
 }
 
+fn push_linear_operator_entries_json(
+    json: &mut String,
+    entries: &[ReportLinearOperatorEntry],
+    indent: usize,
+) {
+    let spaces = " ".repeat(indent);
+    json.push_str(&format!("{spaces}\"canonical_entries\": [\n"));
+    for (index, entry) in entries.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{spaces}  {{\n"));
+        json.push_str(&format!(
+            "{spaces}    \"row_index\": {},\n",
+            entry.row_index
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"column_index\": {},\n",
+            entry.column_index
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"row_member\": \"{}\",\n",
+            json_escape(&entry.row_member)
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"column_member\": \"{}\",\n",
+            json_escape(&entry.column_member)
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"coefficient\": {}\n",
+            format_json_number(entry.coefficient)
+        ));
+        json.push_str(&format!("{spaces}  }}"));
+    }
+    json.push_str(&format!("\n{spaces}],\n"));
+}
+
 fn push_json_string_array(json: &mut String, values: &[String]) {
     for (index, value) in values.iter().enumerate() {
         if index > 0 {
@@ -7103,13 +7180,17 @@ mod tests {
             spec.linear_operators[0].canonical_matrix.as_ref().unwrap()[0][0],
             -0.0002
         );
+        assert_eq!(spec.linear_operators[1].canonical_entries.len(), 2);
         assert!(json.contains("\"state_space_vectors\""));
         assert!(json.contains("\"linear_operators\""));
         assert!(json.contains("\"canonical_matrix\": [[-0.0002]]"));
+        assert!(json.contains("\"canonical_entries\""));
+        assert!(json.contains("\"column_member\": \"Q_internal\""));
         assert!(json.contains("\"vector_type\": \"StateVector\""));
         assert!(json.contains("\"column_count\": 2"));
         assert!(html.contains("State-Space Metadata"));
         assert!(html.contains("Canonical Matrix"));
+        assert!(html.contains("Canonical Entries"));
         assert!(html.contains("StateVector"));
         assert!(html.contains("InputVector"));
         assert!(html.contains("Derivative[StateVector]"));

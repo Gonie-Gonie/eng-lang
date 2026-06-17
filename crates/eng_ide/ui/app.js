@@ -1148,6 +1148,7 @@ function renderLinearOperators() {
     const rowUnits = Array.isArray(operator.row_units) ? operator.row_units : (operator.rowUnits || []);
     const columnUnits = Array.isArray(operator.column_units) ? operator.column_units : (operator.columnUnits || []);
     const canonicalMatrix = operator.canonical_matrix ?? operator.canonicalMatrix;
+    const canonicalEntries = operator.canonical_entries ?? operator.canonicalEntries ?? [];
     return `
       <tr>
         <td><strong>${escapeHtml(operator.system || "-")}</strong><div class="muted">L${escapeHtml(operator.line || "-")}</div></td>
@@ -1155,7 +1156,7 @@ function renderLinearOperators() {
         <td>${escapeHtml(operator.row_count ?? operator.rowCount ?? 0)}x${escapeHtml(operator.column_count ?? operator.columnCount ?? 0)}</td>
         <td>${escapeHtml(joinOrDash(rowMembers))}<div class="muted">${escapeHtml(joinOrDash(rowUnits))}</div></td>
         <td>${escapeHtml(joinOrDash(columnMembers))}<div class="muted">${escapeHtml(joinOrDash(columnUnits))}</div></td>
-        <td><code>${escapeHtml(compactText(operator.expression || "-", 60))}</code><div class="muted">${escapeHtml(matrixSummary(canonicalMatrix))}</div></td>
+        <td><code>${escapeHtml(compactText(operator.expression || "-", 60))}</code><div class="muted">${escapeHtml(matrixSummary(canonicalMatrix))}</div><div class="muted">${escapeHtml(entriesSummary(canonicalEntries))}</div></td>
         <td>${escapeHtml(operator.compatibility_status || operator.compatibilityStatus || "-")}<div class="muted">${escapeHtml(operator.status || "-")}</div></td>
       </tr>
     `;
@@ -1793,6 +1794,16 @@ function matrixSummary(matrix) {
     if (!Array.isArray(row)) return "[]";
     return `[${row.map((value) => metricCell(value)).join(", ")}]`;
   }).join("; ")}`;
+}
+
+function entriesSummary(entries) {
+  if (!Array.isArray(entries) || !entries.length) return "entries -";
+  return `entries ${entries.slice(0, 6).map((entry) => {
+    const row = entry.row_member ?? entry.rowMember ?? `r${entry.row_index ?? entry.rowIndex ?? "-"}`;
+    const column = entry.column_member ?? entry.columnMember ?? `c${entry.column_index ?? entry.columnIndex ?? "-"}`;
+    const coefficient = entry.coefficient ?? "-";
+    return `${row}<-${column}: ${metricCell(coefficient)}`;
+  }).join("; ")}${entries.length > 6 ? " ..." : ""}`;
 }
 
 function columnSummary(columns) {
