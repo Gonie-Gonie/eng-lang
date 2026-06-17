@@ -160,8 +160,10 @@ are not public stable workflows.
   interpolation policies, explicit initial-history policy, relationship
   artifact, solver-style behavior-node evaluation, and component-local
   `delay(signal, duration)` diagnostics for unknown signals and invalid
-  durations. Runtime also has a Predictor behavior contract wrapper with
-  input/output quantity-unit metadata, valid-range warnings, model hash,
+  durations. Component-local Predictor calls and external behavior calls also
+  validate their seed syntax and known `port.variable` signal before becoming
+  behavior-node metadata. Runtime also has a Predictor behavior contract wrapper
+  with input/output quantity-unit metadata, valid-range warnings, model hash,
   differentiability flag, and solver Jacobian policy. Runtime also has an
   external function/process behavior wrapper with typed contracts, provenance
   hash, determinism metadata, safe/repro profile policy, and adapter failure

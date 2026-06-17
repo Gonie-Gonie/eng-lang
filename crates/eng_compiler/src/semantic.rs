@@ -5028,6 +5028,18 @@ fn validate_component_behavior_calls(
             for arguments in extract_call_arguments(&local.expression, "delay") {
                 validate_delay_call(domains, component, local, &arguments, diagnostics);
             }
+            for arguments in extract_call_arguments(&local.expression, "predict") {
+                validate_predictor_call(domains, component, local, &arguments, diagnostics);
+            }
+            for arguments in extract_call_arguments(&local.expression, "predictor") {
+                validate_predictor_call(domains, component, local, &arguments, diagnostics);
+            }
+            for arguments in extract_call_arguments(&local.expression, "external") {
+                validate_external_behavior_call(domains, component, local, &arguments, diagnostics);
+            }
+            for arguments in extract_call_arguments(&local.expression, "adapter") {
+                validate_external_behavior_call(domains, component, local, &arguments, diagnostics);
+            }
         }
     }
 }
@@ -5073,6 +5085,84 @@ fn validate_delay_call(
                 parts[1].trim()
             ),
             Some("Use a duration with time units such as `s`, `min`, or `h`, for example `5 s`."),
+        ));
+    }
+}
+
+fn validate_predictor_call(
+    domains: &[DomainInfo],
+    component: &ComponentInfo,
+    local: &ComponentLocalExpressionInfo,
+    arguments: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    validate_single_signal_behavior_call(
+        domains,
+        component,
+        local,
+        arguments,
+        "Predictor",
+        "predictor(signal)` or `predict(signal)",
+        "E-PREDICTOR-CALL-001",
+        "E-PREDICTOR-SIGNAL-001",
+        diagnostics,
+    );
+}
+
+fn validate_external_behavior_call(
+    domains: &[DomainInfo],
+    component: &ComponentInfo,
+    local: &ComponentLocalExpressionInfo,
+    arguments: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    validate_single_signal_behavior_call(
+        domains,
+        component,
+        local,
+        arguments,
+        "External behavior",
+        "external(signal)` or `adapter(signal)",
+        "E-EXTERNAL-BEHAVIOR-CALL-001",
+        "E-EXTERNAL-BEHAVIOR-SIGNAL-001",
+        diagnostics,
+    );
+}
+
+fn validate_single_signal_behavior_call(
+    domains: &[DomainInfo],
+    component: &ComponentInfo,
+    local: &ComponentLocalExpressionInfo,
+    arguments: &str,
+    label: &str,
+    signature: &str,
+    call_code: &str,
+    signal_code: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let parts = split_top_level(arguments, &[',']);
+    if parts.len() != 1 {
+        diagnostics.push(Diagnostic::error(
+            call_code,
+            local.line,
+            &format!(
+                "{label} expression `{}` must use `{signature}`.",
+                local.expression
+            ),
+            Some("Pass one component port signal such as `outlet.T` while full behavior contracts remain runtime-wrapper seeds."),
+        ));
+        return;
+    }
+    let signal = parts[0].trim();
+    if component_signal_type(domains, component, signal).is_none() {
+        diagnostics.push(Diagnostic::error(
+            signal_code,
+            local.line,
+            &format!(
+                "{label} signal `{signal}` is not a known component port variable in `{}`.",
+                component.name
+            ),
+            Some("Use a signal such as `port.variable`, where `port` is declared on the component and `variable` is declared by the port domain."),
         ));
     }
 }

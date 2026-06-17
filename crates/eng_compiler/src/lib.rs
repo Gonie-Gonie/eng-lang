@@ -4860,6 +4860,53 @@ mod tests {
     }
 
     #[test]
+    fn rejects_invalid_component_predictor_and_external_calls() {
+        let predictor_extra_arg = check_source(
+            "bad.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n    prediction = predictor(out.T, out.Q)\n}\n",
+            &CheckOptions::default(),
+        );
+        assert!(predictor_extra_arg.has_errors());
+        assert!(predictor_extra_arg
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-PREDICTOR-CALL-001"));
+
+        let predictor_unknown_signal = check_source(
+            "bad.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n    prediction = predict(out.unknown)\n}\n",
+            &CheckOptions::default(),
+        );
+        assert!(predictor_unknown_signal.has_errors());
+        assert!(predictor_unknown_signal
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-PREDICTOR-SIGNAL-001"));
+
+        let external_extra_arg = check_source(
+            "bad.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n    adapter_value = external(out.T, out.Q)\n}\n",
+            &CheckOptions::default(),
+        );
+        assert!(external_extra_arg.has_errors());
+        assert!(external_extra_arg
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-EXTERNAL-BEHAVIOR-CALL-001"));
+
+        let external_unknown_signal = check_source(
+            "bad.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n    adapter_value = adapter(out.unknown)\n}\n",
+            &CheckOptions::default(),
+        );
+        assert!(external_unknown_signal.has_errors());
+        assert!(external_unknown_signal
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-EXTERNAL-BEHAVIOR-SIGNAL-001"));
+    }
+
+    #[test]
     fn records_predictor_contract_seed_status_in_component_preview() {
         let report = check_source(
             "ok.eng",

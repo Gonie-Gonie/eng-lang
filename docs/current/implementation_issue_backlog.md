@@ -175,6 +175,9 @@ Current coverage:
 - Component local expressions now diagnose invalid `delay(signal, duration)`
   calls, including missing arguments, unknown component port variables, and
   non-duration delay values.
+- Component local Predictor and external behavior expressions now diagnose
+  invalid seed syntax and unknown component port variables before they become
+  behavior-node metadata.
 - Runtime has a Predictor behavior contract wrapper with input/output
   quantity-unit metadata, valid-range warnings, provenance/model hash,
   differentiability flag, solver Jacobian policy, and evaluation/failure tests.

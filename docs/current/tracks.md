@@ -94,6 +94,7 @@ Internal runtime seeds:
 - standalone dynamic-component explicit-Euler seed with algebraic solve per timestep
 - delay buffer with interpolation and initial-history policies
 - component-local delay(signal, duration) diagnostics
+- component-local Predictor and external behavior signal diagnostics
 - Predictor contract wrapper with model hash, range warnings, and Jacobian policy
 - external behavior wrapper with provenance, profile policy, and failure propagation
 - component graph/report/IDE behavior nodes for delay, Predictor, and external calls
