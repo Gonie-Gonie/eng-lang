@@ -107,9 +107,9 @@ development smoke path but are not user-facing release workflows.
 ```text
 internal/18_state_space_metadata
   StateVector/InputVector/OutputVector and LinearOperator metadata with a
-  narrow fixed-step runtime preview that materializes a promoted TimeSeries
-  input. This fixture is not a supported general state-space simulation
-  workflow.
+  narrow internal fixed-step runtime seed that materializes a promoted
+  TimeSeries input. This fixture is not a supported general state-space
+  simulation workflow.
 ```
 
 ## Compatibility Regression Examples
