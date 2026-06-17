@@ -878,8 +878,16 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             "E-CLASS-COPY-001",
         ),
         (
+            "examples/05_error_messages/component_delay_bad_call.eng",
+            "E-DELAY-CALL-001",
+        ),
+        (
             "examples/05_error_messages/component_delay_bad_duration.eng",
             "E-DELAY-DURATION-001",
+        ),
+        (
+            "examples/05_error_messages/component_delay_unknown_signal.eng",
+            "E-DELAY-SIGNAL-001",
         ),
         (
             "examples/05_error_messages/component_predictor_bad_call.eng",
@@ -892,6 +900,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         (
             "examples/05_error_messages/component_external_bad_call.eng",
             "E-EXTERNAL-BEHAVIOR-CALL-001",
+        ),
+        (
+            "examples/05_error_messages/component_external_unknown_signal.eng",
+            "E-EXTERNAL-BEHAVIOR-SIGNAL-001",
         ),
         (
             "examples/05_error_messages/state_space_missing_operator_entry.eng",

@@ -1,0 +1,10 @@
+domain Fluid {
+    across height: Length [m]
+    through m_dot: MassFlowRate [kg/s]
+    conservation sum(m_dot) = 0
+}
+
+component Supply {
+    port outlet: Fluid
+    pressure_seed = delay(outlet.unknown, 5 s)
+}

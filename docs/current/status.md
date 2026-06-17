@@ -165,8 +165,9 @@ are not public stable workflows.
   `delay(signal, duration)` diagnostics for unknown signals and invalid
   durations. Component-local Predictor calls and external behavior calls also
   validate their seed syntax and known `port.variable` signal before becoming
-  behavior-node metadata, with diagnostic examples covered by the CLI example
-  smoke gate. Runtime also has a Predictor behavior contract wrapper
+  behavior-node metadata, with each component behavior diagnostic code covered
+  by the CLI example smoke gate. Runtime also has a Predictor behavior contract
+  wrapper
   with input/output quantity-unit metadata, valid-range warnings, model hash,
   differentiability flag, and solver Jacobian policy. Runtime also has an
   external function/process behavior wrapper with typed contracts, provenance
