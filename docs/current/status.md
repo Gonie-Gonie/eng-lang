@@ -151,6 +151,12 @@ are not public stable workflows.
   checks, and algebraic-variable initialization. Newton/DAE seeds are not wired
   into language-level nonlinear systems, component assembly, or report/IDE
   workflows.
+- Behavior graph seeds: runtime delay buffer with linear and previous-sample
+  interpolation policies, explicit initial-history policy, relationship
+  artifact, and solver-style behavior-node evaluation. Component artifacts
+  distinguish delay calls as runtime-buffer seeds, but delay, Predictor, and
+  external behavior nodes are not wired into language-level behavior graph
+  solving.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,
   generated connection-equation metadata, residual graph metadata,
   structured residual evaluator input, domain-plan metadata, IDE component
@@ -183,6 +189,7 @@ are not public stable workflows.
 - Component graph solving with boundary conditions, component behavior
   equations, mixed algebraic/dynamic variables, and physical multi-domain
   coupling.
+- Predictor contracts and external behavior wrappers for solver integration.
 - Domain package registry and open component ecosystem.
 - Runtime object dispatch/lowering for class/domain objects.
 - Persistent LSP editor contract and production editor integration.

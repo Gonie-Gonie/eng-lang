@@ -1,5 +1,6 @@
 pub mod algorithms;
 pub mod assembly;
+pub mod behavior;
 pub mod diagnostics;
 pub mod evaluator;
 pub mod plan;

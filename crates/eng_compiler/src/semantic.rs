@@ -5047,7 +5047,7 @@ fn build_component_solver_preview(
         }
         .to_owned(),
         delay_history: if delay_call_count > 0 {
-            "delay_call_metadata_only"
+            "delay_call_runtime_buffer_seed_not_integrated"
         } else {
             "deferred_no_delay_calls"
         }

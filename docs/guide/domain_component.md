@@ -153,7 +153,8 @@ The artifact also records explicit future-solver seeds:
 - algebraic-only versus mixed state/algebraic classification;
 - symbolic nonlinear residual seed status;
 - DAE split seed status;
-- delay/history buffer seed status;
+- delay/history buffer seed status, including whether delay calls are backed by
+  the runtime delay-buffer seed but not yet integrated as a component solve;
 - Predictor behavior and external adapter seed status;
 - limitations: `not_full_dae`, `not_general_nonlinear`, `not_adaptive`,
   `not_production_multi_domain`, and `no_jit_speed_claim`.

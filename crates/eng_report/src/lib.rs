@@ -6380,7 +6380,7 @@ mod tests {
         assert!(json.contains("\"component_summary\""));
         assert!(json.contains("\"local_expression_count\": 1"));
         assert!(json.contains("\"pressure_seed\""));
-        assert!(json.contains("\"delay_call_metadata_only\""));
+        assert!(json.contains("\"delay_call_runtime_buffer_seed_not_integrated\""));
         assert!(json.contains("\"connection_summary\""));
         assert!(json.contains("\"assembly_summary\""));
         assert!(json.contains("\"solver_result\": null"));

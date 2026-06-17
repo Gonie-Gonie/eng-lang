@@ -118,6 +118,34 @@ Definition of Done:
 - Keep unsupported paths explicit in review/report/IDE artifacts until
   integrated solving is truly available.
 
+## Delay / Predictor / External Behavior
+
+Title: `solver: integrate behavior graph nodes into numeric evaluation`
+
+Current coverage:
+
+- Runtime has a delay buffer seed with linear and previous-sample interpolation
+  policies, explicit initial-history policy, relationship artifacts,
+  out-of-order/history-underflow diagnostics, and solver-style behavior-node
+  evaluation tests.
+- Component artifacts distinguish delay calls as
+  `delay_call_runtime_buffer_seed_not_integrated`.
+
+Definition of Done:
+
+- Type-check `delay(x, tau)` at the language level, including quantity/unit
+  compatibility and non-negative delay duration.
+- Wire delay behavior nodes into RHS/residual evaluation for supported solver
+  paths.
+- Add Predictor input/output contracts with unit/quantity checks, valid-range
+  diagnostics, provenance/model hash, differentiability flag, and solver
+  integration policy.
+- Add external process/function behavior wrappers with typed input/output
+  contracts, deterministic/provenance metadata, failure propagation, and
+  safe/repro profile policy.
+- Report and IDE should show behavior contracts and invalid/extrapolated
+  behavior warnings.
+
 ## Class/Domain Objects
 
 Title: `class: close runtime object support before any stable claim`

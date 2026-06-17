@@ -4562,7 +4562,7 @@ mod tests {
         assert_eq!(assembly.local_expression_count, 1);
         assert_eq!(
             assembly.solver_preview.delay_history,
-            "delay_call_metadata_only"
+            "delay_call_runtime_buffer_seed_not_integrated"
         );
         assert_eq!(assembly.connection_sets.len(), 1);
         assert_eq!(assembly.connection_sets[0].ports.len(), 2);
@@ -4605,7 +4605,7 @@ mod tests {
         assert!(review.contains("\"component_summary\""));
         assert!(review.contains("\"local_expression_count\": 1"));
         assert!(review.contains("\"pressure_seed\""));
-        assert!(review.contains("\"delay_call_metadata_only\""));
+        assert!(review.contains("\"delay_call_runtime_buffer_seed_not_integrated\""));
         assert!(review.contains("\"connection_summary\""));
         assert!(review.contains("\"assembly_summary\""));
         assert!(review.contains("\"component_graph\""));
