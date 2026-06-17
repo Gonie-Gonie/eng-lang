@@ -120,6 +120,7 @@ struct InspectorView {
     validations: Value,
     time_alignments: Value,
     systems: Value,
+    system_ir: Value,
     class_objects: Value,
     assemblies: Value,
     component_graph: Value,
@@ -141,6 +142,7 @@ impl Default for InspectorView {
             validations: Value::Array(Vec::new()),
             time_alignments: Value::Array(Vec::new()),
             systems: Value::Array(Vec::new()),
+            system_ir: Value::Array(Vec::new()),
             class_objects: Value::Array(Vec::new()),
             assemblies: Value::Array(Vec::new()),
             component_graph: Value::Null,
@@ -925,6 +927,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         validations: json_array_clone(&report, "validations"),
         time_alignments: json_array_clone(&report, "time_alignments"),
         systems: system_inspector(&report, &result),
+        system_ir: json_array_clone(&report, "system_ir"),
         class_objects: json_array_clone(&report, "object_summary"),
         assemblies: json_array_clone(&report, "assembly_summary"),
         component_graph: report

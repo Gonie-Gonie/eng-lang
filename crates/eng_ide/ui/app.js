@@ -46,6 +46,7 @@ function emptyInspectors() {
     validations: [],
     timeAlignments: [],
     systems: [],
+    systemIr: [],
     classObjects: [],
     assemblies: [],
     componentGraph: null,
@@ -775,6 +776,8 @@ function renderChecksPanel() {
       ${renderAlignments()}
       <div class="panel-title compact">Systems</div>
       ${renderSystems()}
+      <div class="panel-title compact">System Dependency Graph</div>
+      ${renderSystemDependencyGraph()}
     </div>
   `;
 }
@@ -800,6 +803,8 @@ function renderAssemblyPanel() {
       ${renderAssemblyEquations()}
       <div class="panel-title compact">Residuals</div>
       ${renderAssemblyResiduals()}
+      <div class="panel-title compact">Residual Graph</div>
+      ${renderAssemblyResidualGraph()}
       <div class="panel-title compact">Component Graph</div>
       ${renderComponentGraph()}
     </div>
@@ -1085,6 +1090,43 @@ function renderSystems() {
   `;
 }
 
+function renderSystemDependencyGraph() {
+  const rows = inspectorRows("systemIr").flatMap((system) => {
+    const equations = Array.isArray(system.equations) ? system.equations : [];
+    return equations.flatMap((equation) => {
+      const dependencies = Array.isArray(equation.dependencies) ? equation.dependencies : [];
+      if (!dependencies.length) {
+        return [`
+          <tr>
+            <td><strong>${escapeHtml(system.name || "-")}</strong><div class="muted">${sourceLineButton(equation)}</div></td>
+            <td>${escapeHtml(equation.residual || "-")}<div class="muted">${escapeHtml(equation.relation || "-")}</div></td>
+            <td>-</td>
+            <td>${escapeHtml(equation.normalized_residual || equation.normalizedResidual || "-")}</td>
+            <td>${escapeHtml(Array.isArray(equation.derivative_states) ? equation.derivative_states.join(", ") : "-")}</td>
+            <td>${escapeHtml(equation.status || "-")}</td>
+          </tr>
+        `];
+      }
+      return dependencies.map((dependency) => `
+        <tr>
+          <td><strong>${escapeHtml(system.name || "-")}</strong><div class="muted">${sourceLineButton(equation)}</div></td>
+          <td>${escapeHtml(equation.residual || "-")}<div class="muted">${escapeHtml(equation.relation || "-")}</div></td>
+          <td>${escapeHtml(dependency.name || "-")}<div class="muted">${escapeHtml(dependency.role || "-")}</div></td>
+          <td>${escapeHtml(equation.normalized_residual || equation.normalizedResidual || "-")}</td>
+          <td>${escapeHtml(Array.isArray(equation.derivative_states) ? equation.derivative_states.join(", ") : "-")}</td>
+          <td>${escapeHtml(dependency.quantity_kind || dependency.quantityKind || equation.status || "-")}</td>
+        </tr>
+      `);
+    });
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>System</th><th>Residual</th><th>Variable</th><th>Normalized</th><th>Derivatives</th><th>Quantity/Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No system dependency graph.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
 function renderAssemblies() {
   const rows = inspectorRows("assemblies").map((assembly) => {
     const boundary = assembly.boundary || {};
@@ -1175,6 +1217,37 @@ function renderAssemblyResiduals() {
     <table class="var-table">
       <thead><tr><th>Assembly</th><th>Residual</th><th>Value</th><th>Normalized</th><th>Status</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="5" class="muted">No evaluated residuals.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderAssemblyResidualGraph() {
+  const rows = inspectorRows("assemblies").flatMap((assembly) => {
+    const residualGraph = assembly.residual_graph || assembly.residualGraph || {};
+    const dependencies = Array.isArray(residualGraph.dependencies) ? residualGraph.dependencies : [];
+    if (!dependencies.length && Array.isArray(residualGraph.residuals) && residualGraph.residuals.length) {
+      return residualGraph.residuals.map((residual) => `
+        <tr>
+          <td><strong>${escapeHtml(assembly.name || "-")}</strong><div class="muted">${escapeHtml(residualGraph.status || "-")}</div></td>
+          <td>${escapeHtml(residual)}</td>
+          <td>-</td>
+          <td>${escapeHtml(residualGraph.solver_plan || residualGraph.solverPlan || "-")}</td>
+        </tr>
+      `);
+    }
+    return dependencies.map((dependency) => `
+      <tr>
+        <td><strong>${escapeHtml(assembly.name || "-")}</strong><div class="muted">${escapeHtml(residualGraph.status || "-")}</div></td>
+        <td>${escapeHtml(dependency.residual || "-")}</td>
+        <td>${escapeHtml(dependency.variable || "-")}</td>
+        <td>${escapeHtml(residualGraph.solver_plan || residualGraph.solverPlan || "-")}</td>
+      </tr>
+    `);
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Assembly</th><th>Residual</th><th>Variable</th><th>Solver Plan</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4" class="muted">No residual dependency graph.</td></tr>`}</tbody>
     </table>
   `;
 }

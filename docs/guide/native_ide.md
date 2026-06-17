@@ -69,8 +69,9 @@ Right Sidebar
   run, source symbols, runtime variables, Args values, schema summaries, unit
   conversions, TimeSeries ranges/statistics, metrics, validations, time
   alignments, system/solver metadata, solver state/algebraic/input/output
-  result summaries, component assembly metadata, artifact paths, and JSON artifact
-  outlines are summarized in tables. Clicking a variable row expands canonical
+  result summaries, system dependency rows, component assembly metadata,
+  residual dependency rows, artifact paths, and JSON artifact outlines are
+  summarized in tables. Clicking a variable row expands canonical
   unit, dimension, role, and line metadata. Plot views live beside Variables
   so the bottom terminal keeps a stable height.
 

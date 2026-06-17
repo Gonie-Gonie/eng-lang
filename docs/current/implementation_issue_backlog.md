@@ -73,6 +73,8 @@ Current coverage:
 - IDE panels expose state-space solver result rows with state trajectories,
   input/output series metadata, timestep, tolerance, iteration count,
   convergence status, and failure reason from `report_spec.json`/`result.engres`.
+- IDE panels expose system equation dependency rows from `system_ir` so variable
+  dependencies and derivative states are visible without raw JSON.
 
 Title: `ide: add side-effect artifact panels`
 
@@ -236,5 +238,7 @@ Definition of Done:
 - Report and IDE show generated equations, source-line links, generated
   reasons, residual values, normalized residuals, scale policy, and residual
   graph metadata.
+- IDE Assembly panel shows residual dependency rows from
+  `assembly_summary[].residual_graph.dependencies`.
 - Under/overdetermined cases produce diagnostics or limitation artifacts.
 - No production multi-domain solver claim is made.

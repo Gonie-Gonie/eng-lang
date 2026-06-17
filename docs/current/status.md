@@ -95,7 +95,8 @@ covered by the breaking-change policy.
   variable summaries, schema/TimeSeries/metric/validation/time-alignment
   inspectors for the measured workflow, schema parse/conversion failure
   inspector coverage for data-quality runs, internal state-space trajectory and
-  solver-inspector coverage, class object summary inspector coverage, side-effect
+  solver-inspector coverage, dependency-graph inspector coverage, class object
+  summary inspector coverage, side-effect
   artifact panels for output manifest, run log, process results, and test
   results, PlotSpec viewing, and on-demand report/plot opening for stable
   workflows.
@@ -168,7 +169,7 @@ are not public stable workflows.
   generated connection-equation metadata, residual graph metadata,
   structured residual evaluator input, normalized residual evaluation,
   generated-equation reasons, domain-plan metadata, IDE component graph and
-  equation/residual source-line inspection, and connection constraint
+  equation/residual/dependency source-line inspection, and connection constraint
   consistency artifacts.
   LSP port hovers expose
   type/base-domain and medium/frame/axis labels. It is not a production

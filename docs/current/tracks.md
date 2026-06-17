@@ -117,6 +117,7 @@ Current stable tooling scope:
 - PlotSpec viewer beside runtime variable summaries
 - solver inspector/result summaries for system state trajectories, input/output
   series metadata, timestep, tolerance, iterations, convergence, and failure reason
+- system and residual dependency graph inspector tables
 - internal eng-lsp.exe smoke/snapshot path
 - packaged VS Code extension source and VSIX
 ```
@@ -215,6 +216,7 @@ Implementation seeds on `main`:
 - connection constraint consistency artifacts
 - IDE Domain Graph inspection
 - IDE assembly equation/residual inspection
+- IDE residual dependency graph inspection
 - LSP completion/hover metadata
 - domain contract and compatibility diagnostics
 ```
