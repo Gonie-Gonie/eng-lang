@@ -1483,6 +1483,40 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(2);
         }
     }
+    match run_file(
+        Path::new("examples/official/17_measured_vs_simulated/main.eng"),
+        Path::new("build/test-measured-vs-simulated-repro"),
+        &RunOptions {
+            save_artifacts: true,
+            profile: ExecutionProfile::Repro,
+            ..RunOptions::default()
+        },
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"execution_profile\": \"repro\"")
+                || !output.report_spec_json.contains("\"computed_metrics\"")
+                || !output.report_html.contains("Computed Metrics")
+                || !output.plot_spec_json.contains("\"name\": \"sim.T_zone\"")
+                || !output
+                    .output_manifest_json
+                    .contains("\"execution_profile\": \"repro\"")
+            {
+                eprintln!(
+                    "expected measured-vs-simulated repro run to save metrics, plot, and repro-profile artifacts"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/17_measured_vs_simulated/main.eng produced repro-profile artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("measured-vs-simulated repro example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
     if !measured_fixture_records_time_overlap(
         "examples/official/17_measured_vs_simulated/main.eng",
         "build/test-measured-vs-simulated-time-mismatch",

@@ -101,10 +101,10 @@ The `eng test examples` gate directly exercises the official run/build paths,
 Korean and space-containing paths, standalone package execution,
 CSV source-hash provenance, TimeSeries axis and HeatRate-to-Energy integration
 metadata, measured-vs-simulated SolverResult method/timestep/final-state
-metadata, RMSE/validation units, side-effect artifacts, safe-profile rejection
-of explicit export/write/file/process effects, normal-profile
-process/test/output-manifest fields, and repro-profile diagnostics in saved
-artifacts.
+metadata, RMSE/validation units, measured-vs-simulated repro-profile saved
+artifacts, side-effect artifacts, safe-profile rejection of explicit
+export/write/file/process effects, normal-profile process/test/output-manifest
+fields, and repro-profile diagnostics in saved artifacts.
 
 The release note must distinguish Stable, Supported, Internal, and Planned
 behavior. Package smoke must pass from a clean extracted folder without Rust,
