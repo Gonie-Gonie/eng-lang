@@ -118,6 +118,9 @@ evaluations with raw value, unit, normalized value, scale, and scale policy.
 They also expose `largest_residuals`, capped to the top normalized residuals,
 so report/IDE summaries do not need to rescan the full residual list and
 different units do not dominate the diagnostic ordering by magnitude alone.
+The runtime residual evaluator accepts solver-provided residual scale overrides
+and tolerance values; component artifacts currently use the default
+unit/quantity scale policy unless a solver path supplies explicit overrides.
 Generated assembly equations carry their generation reason, so report and IDE
 equation panels can show why an across equality or through conservation row was
 created without re-parsing source.

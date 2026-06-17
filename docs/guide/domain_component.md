@@ -229,6 +229,10 @@ convergence status, solved linear variables when a square system is available,
 zero-seed variables for skipped non-square graphs, and failure/limitation
 artifacts. Runtime `report_spec.json` mirrors the same details under
 `assembly_summary[].solver_result`.
+Residual status is evaluated against the solver-supplied residual tolerance.
+Current component assembly runs use the default tolerance and unit/quantity
+scale policy; the solver residual API can accept explicit per-residual scale
+overrides for future user-facing controls.
 
 The generated `report_spec.json` follows
 [`docs/schemas/report_spec.schema.json`](../schemas/report_spec.schema.json), so

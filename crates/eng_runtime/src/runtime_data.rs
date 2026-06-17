@@ -1097,9 +1097,9 @@ impl RuntimeComponentSolution {
                 status: variable_status.clone(),
             })
             .collect::<Vec<_>>();
-        let residual_output = residual_graph.evaluate(&ResidualInput {
-            values: &variable_values,
-        });
+        let residual_output = residual_graph.evaluate(
+            &ResidualInput::new(&variable_values).with_tolerance(COMPONENT_LINEAR_SOLVER_TOLERANCE),
+        );
         let residuals = residual_graph
             .residuals
             .iter()
@@ -1112,11 +1112,7 @@ impl RuntimeComponentSolution {
                 normalized_value: value.normalized_value,
                 scale: residual.scale.value,
                 scale_policy: residual.scale.policy.clone(),
-                status: if value.normalized_value.abs() <= COMPONENT_LINEAR_SOLVER_TOLERANCE {
-                    "satisfied".to_owned()
-                } else {
-                    "unsatisfied".to_owned()
-                },
+                status: value.status.clone(),
             })
             .collect::<Vec<_>>();
         let largest_residuals = largest_component_residuals(&residuals);
@@ -5734,15 +5730,11 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
                     .is_some_and(|reason| reason.contains("through variable conservation"))
         }));
         let zero_values = vec![0.0; residual_graph.variables.len()];
-        let zero_output = residual_graph.evaluate(&ResidualInput {
-            values: &zero_values,
-        });
+        let zero_output = residual_graph.evaluate(&ResidualInput::new(&zero_values));
         assert_eq!(zero_output.residual_norm, 0.0);
         let mut perturbed_values = zero_values;
         perturbed_values[0] = 1.0;
-        let perturbed_output = residual_graph.evaluate(&ResidualInput {
-            values: &perturbed_values,
-        });
+        let perturbed_output = residual_graph.evaluate(&ResidualInput::new(&perturbed_values));
         assert!(perturbed_output.residual_norm > 0.0);
 
         assert_eq!(runtime.component_solutions.len(), 1);

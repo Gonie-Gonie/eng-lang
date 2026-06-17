@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use super::{assembly::EquationAssembly, SolverFailure};
 
+pub const DEFAULT_RESIDUAL_TOLERANCE: f64 = 1e-9;
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ResidualGraph {
     pub name: String,
@@ -189,6 +191,7 @@ pub trait ResidualEvaluator {
 
 impl ResidualEvaluator for ResidualGraph {
     fn evaluate(&self, input: &ResidualInput<'_>) -> ResidualOutput {
+        let tolerance = input.tolerance.unwrap_or(DEFAULT_RESIDUAL_TOLERANCE);
         let values = self
             .residuals
             .iter()
@@ -206,11 +209,23 @@ impl ResidualEvaluator for ResidualGraph {
                     })
                     .sum::<f64>()
                     - residual.rhs_value;
-                let normalized_value = value / residual.scale.value.max(f64::EPSILON);
+                let scale = input
+                    .scale_overrides
+                    .iter()
+                    .find(|scale| scale.residual == residual.name)
+                    .map(|scale| scale.scale.value)
+                    .unwrap_or(residual.scale.value);
+                let normalized_value = value / scale.max(f64::EPSILON);
+                let status = if normalized_value.abs() <= tolerance {
+                    "satisfied"
+                } else {
+                    "unsatisfied"
+                };
                 NamedResidualValue {
                     name: residual.name.clone(),
                     value,
                     normalized_value,
+                    status: status.to_owned(),
                 }
             })
             .collect::<Vec<_>>();
@@ -222,6 +237,7 @@ impl ResidualEvaluator for ResidualGraph {
         ResidualOutput {
             values,
             residual_norm,
+            tolerance,
         }
     }
 }
@@ -232,12 +248,8 @@ impl super::evaluator::ResidualEvaluator for ResidualGraph {
         input: &super::evaluator::ResidualInput,
     ) -> Result<super::evaluator::ResidualOutput, SolverFailure> {
         let values = self.values_from_structured_input(input)?;
-        let output = <Self as ResidualEvaluator>::evaluate(
-            self,
-            &ResidualInput {
-                values: values.as_slice(),
-            },
-        );
+        let output =
+            <Self as ResidualEvaluator>::evaluate(self, &ResidualInput::new(values.as_slice()));
         Ok(super::evaluator::ResidualOutput {
             residuals: output.values.iter().map(|value| value.value).collect(),
             named_residuals: output
@@ -324,12 +336,48 @@ pub struct ResidualTerm {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ResidualInput<'a> {
     pub values: &'a [f64],
+    pub scale_overrides: &'a [ResidualScaleOverride],
+    pub tolerance: Option<f64>,
+}
+
+impl<'a> ResidualInput<'a> {
+    pub fn new(values: &'a [f64]) -> Self {
+        Self {
+            values,
+            scale_overrides: &[],
+            tolerance: None,
+        }
+    }
+
+    pub fn with_scale_overrides(mut self, scale_overrides: &'a [ResidualScaleOverride]) -> Self {
+        self.scale_overrides = scale_overrides;
+        self
+    }
+
+    pub fn with_tolerance(mut self, tolerance: f64) -> Self {
+        if tolerance.is_finite() && tolerance > 0.0 {
+            self.tolerance = Some(tolerance);
+        }
+        self
+    }
+
+    pub fn try_with_tolerance(mut self, tolerance: f64) -> Result<Self, SolverFailure> {
+        if !tolerance.is_finite() || tolerance <= 0.0 {
+            return Err(SolverFailure::new(
+                "E-RESIDUAL-TOLERANCE-001",
+                "user-provided residual tolerance must be a positive finite number",
+            ));
+        }
+        self.tolerance = Some(tolerance);
+        Ok(self)
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ResidualOutput {
     pub values: Vec<NamedResidualValue>,
     pub residual_norm: f64,
+    pub tolerance: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -337,6 +385,7 @@ pub struct NamedResidualValue {
     pub name: String,
     pub value: f64,
     pub normalized_value: f64,
+    pub status: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -368,6 +417,12 @@ pub struct ResidualScale {
     pub policy: String,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct ResidualScaleOverride {
+    pub residual: String,
+    pub scale: ResidualScale,
+}
+
 impl Default for ResidualScale {
     fn default() -> Self {
         Self {
@@ -378,6 +433,21 @@ impl Default for ResidualScale {
 }
 
 impl ResidualScale {
+    pub fn user_provided(value: f64, label: &str) -> Result<Self, SolverFailure> {
+        if !value.is_finite() || value <= 0.0 {
+            return Err(SolverFailure::new(
+                "E-RESIDUAL-SCALE-001",
+                "user-provided residual scale must be a positive finite number",
+            ));
+        }
+        let label = label.trim();
+        let label = if label.is_empty() { "unnamed" } else { label };
+        Ok(Self {
+            value,
+            policy: format!("user_provided:{label}"),
+        })
+    }
+
     pub fn from_quantity_unit(quantity_kind: &str, unit: &str) -> Self {
         let trimmed_unit = unit.trim();
         let normalized_unit = trimmed_unit.to_ascii_lowercase();
@@ -512,10 +582,8 @@ mod tests {
         assert_eq!(system.matrix, vec![vec![1.0]]);
         assert_eq!(system.rhs, vec![4.0]);
 
-        let output = <ResidualGraph as ResidualEvaluator>::evaluate(
-            &graph,
-            &ResidualInput { values: &[5.0] },
-        );
+        let output =
+            <ResidualGraph as ResidualEvaluator>::evaluate(&graph, &ResidualInput::new(&[5.0]));
         assert_eq!(output.values[0].value, 1.0);
     }
 
@@ -528,6 +596,56 @@ mod tests {
         let temperature = ResidualScale::from_quantity_unit("AbsoluteTemperature", "degC");
         assert_eq!(temperature.value, 1.0);
         assert_eq!(temperature.policy, "unit_default:AbsoluteTemperature[degC]");
+    }
+
+    #[test]
+    fn evaluator_applies_user_provided_scale_and_tolerance() {
+        let graph = ResidualGraph {
+            name: "test.residual_graph".to_owned(),
+            variables: vec![ResidualVariableRef {
+                index: 0,
+                name: "Q".to_owned(),
+                role: "algebraic".to_owned(),
+                unit: "kW".to_owned(),
+            }],
+            residuals: vec![residual_with_rhs("heat_balance", &[(0, "Q", 1.0)], 2.0)],
+            parameters: Vec::new(),
+            dependencies: Vec::new(),
+        };
+        let overrides = vec![ResidualScaleOverride {
+            residual: "heat_balance".to_owned(),
+            scale: ResidualScale::user_provided(4.0, "heat_balance_nominal").unwrap(),
+        }];
+
+        let output = <ResidualGraph as ResidualEvaluator>::evaluate(
+            &graph,
+            &ResidualInput::new(&[4.0])
+                .with_scale_overrides(&overrides)
+                .with_tolerance(0.51),
+        );
+
+        assert_eq!(output.tolerance, 0.51);
+        assert_eq!(output.values[0].value, 2.0);
+        assert_eq!(output.values[0].normalized_value, 0.5);
+        assert_eq!(output.values[0].status, "satisfied");
+        assert_eq!(output.residual_norm, 0.5);
+    }
+
+    #[test]
+    fn rejects_invalid_user_provided_residual_scale() {
+        let failure = ResidualScale::user_provided(0.0, "bad").unwrap_err();
+
+        assert_eq!(failure.code, "E-RESIDUAL-SCALE-001");
+    }
+
+    #[test]
+    fn rejects_invalid_user_provided_residual_tolerance() {
+        let values = [0.0];
+        let failure = ResidualInput::new(&values)
+            .try_with_tolerance(f64::NAN)
+            .unwrap_err();
+
+        assert_eq!(failure.code, "E-RESIDUAL-TOLERANCE-001");
     }
 
     #[test]

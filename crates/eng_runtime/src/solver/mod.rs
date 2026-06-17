@@ -21,7 +21,8 @@ pub use plan::{
 pub use residual::{
     LinearResidualSystem, NamedResidualValue, ResidualEquation, ResidualEvaluator,
     ResidualExpression, ResidualGraph, ResidualInput, ResidualOutput, ResidualScale,
-    ResidualSource, ResidualTerm, ResidualUnit, ResidualVariableRef,
+    ResidualScaleOverride, ResidualSource, ResidualTerm, ResidualUnit, ResidualVariableRef,
+    DEFAULT_RESIDUAL_TOLERANCE,
 };
 pub use result::{SolverOutput, SolverResult, StateTrajectory};
 pub use state_space::{solve_continuous_state_space, solve_discrete_state_space};
