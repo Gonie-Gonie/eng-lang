@@ -27,11 +27,12 @@ Current coverage:
 - `eng_jit` records kernel-plan candidates, backend selection metadata, and
   per-candidate interpreter executor/fallback reasons.
 - Runtime optimization has `eng-kernel-ir-v1` plus an interpreter executor for
-  element-wise TimeSeries arithmetic, trapezoid integration, scalar residual,
-  finite-difference Jacobian, and Newton-step correctness tests.
-- Checked TimeSeries arithmetic and `integrate(... over Time)` metadata can
-  lower to executable interpreter `KernelIr` when runtime values/timestep are
-  supplied.
+  element-wise TimeSeries arithmetic, TimeSeries statistics reductions,
+  trapezoid integration, scalar residual, finite-difference Jacobian, and
+  Newton-step correctness tests.
+- Checked TimeSeries arithmetic, `summarize ... by [...]`, and
+  `integrate(... over Time)` metadata can lower to executable interpreter
+  `KernelIr` when runtime values/timestep are supplied.
 - Component assembly residual graphs can lower checked assembly equations into
   scalar residual evaluator `KernelIr`; the official Thermal assembly fixture
   executes that IR and finite-difference Jacobian path in tests.

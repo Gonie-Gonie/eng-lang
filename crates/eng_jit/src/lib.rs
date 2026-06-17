@@ -117,6 +117,12 @@ pub enum KernelInstruction {
         timestep_s: f64,
         output: usize,
     },
+    ReduceSeries {
+        input: usize,
+        op: KernelStatisticOp,
+        timestep_s: f64,
+        output: usize,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -125,6 +131,18 @@ pub enum KernelBinaryOp {
     Sub,
     Mul,
     Div,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum KernelStatisticOp {
+    Mean,
+    TimeWeightedMean,
+    Max,
+    Min,
+    Median,
+    PopulationStd,
+    NearestRankPercentile(f64),
+    DurationAbove(f64),
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -407,24 +425,32 @@ pub fn execute_interpreter_kernel(
     let mut outputs = vec![None; ir.output_count];
 
     for instruction in &ir.instructions {
-        if let KernelInstruction::IntegrateTrapezoid {
-            input: input_index,
-            timestep_s,
-            output,
-        } = instruction
-        {
-            if !timestep_s.is_finite() || *timestep_s <= 0.0 {
-                return Err(KernelExecutionFailure::new(
-                    "E-KERNEL-TIMESTEP",
-                    "trapezoid integration timestep must be a positive finite number",
-                ));
+        match instruction {
+            KernelInstruction::IntegrateTrapezoid {
+                input: input_index,
+                timestep_s,
+                output,
+            } => {
+                let integral = kernel_trapezoid_integral_uniform(
+                    &input.series_inputs[*input_index],
+                    *timestep_s,
+                )?;
+                store_output(&mut outputs, *output, KernelOutputValue::Scalar(integral))?;
             }
-            let values = &input.series_inputs[*input_index];
-            let integral = values
-                .windows(2)
-                .map(|window| (window[0] + window[1]) * 0.5 * timestep_s)
-                .sum::<f64>();
-            store_output(&mut outputs, *output, KernelOutputValue::Scalar(integral))?;
+            KernelInstruction::ReduceSeries {
+                input: input_index,
+                op,
+                timestep_s,
+                output,
+            } => {
+                let value = execute_statistic_reduction(
+                    &input.series_inputs[*input_index],
+                    op,
+                    *timestep_s,
+                )?;
+                store_output(&mut outputs, *output, KernelOutputValue::Scalar(value))?;
+            }
+            _ => {}
         }
     }
 
@@ -621,6 +647,37 @@ pub fn timeseries_integrate_ir_for_binding(
     ))
 }
 
+pub fn timeseries_statistics_ir_for_source(
+    report: &CheckReport,
+    source: &str,
+    timestep_s: f64,
+) -> Option<KernelIr> {
+    if !timestep_s.is_finite() || timestep_s <= 0.0 {
+        return None;
+    }
+    let stats = report
+        .semantic_program
+        .stats_infos
+        .iter()
+        .find(|stats| stats.source == source)?;
+    let mut instructions = Vec::new();
+    for (output, statistic) in stats.statistics.iter().enumerate() {
+        instructions.push(KernelInstruction::ReduceSeries {
+            input: 0,
+            op: statistic_reduction_op(statistic)?,
+            timestep_s,
+            output,
+        });
+    }
+    Some(KernelIr::new(
+        format!("summary:{source}"),
+        "statistics_fusion",
+        1,
+        stats.statistics.len(),
+        instructions,
+    ))
+}
+
 pub fn timeseries_arithmetic_ir_for_binding(
     report: &CheckReport,
     binding: &str,
@@ -653,6 +710,24 @@ pub fn timeseries_arithmetic_ir_for_binding(
         )
         .with_scalar_input_count(builder.scalar_inputs.len()),
     )
+}
+
+fn statistic_reduction_op(name: &str) -> Option<KernelStatisticOp> {
+    match name {
+        "mean" => Some(KernelStatisticOp::Mean),
+        "time_weighted_mean" => Some(KernelStatisticOp::TimeWeightedMean),
+        "max" => Some(KernelStatisticOp::Max),
+        "min" => Some(KernelStatisticOp::Min),
+        "median" => Some(KernelStatisticOp::Median),
+        "std" => Some(KernelStatisticOp::PopulationStd),
+        percentile if percentile_fraction(percentile).is_some() => Some(
+            KernelStatisticOp::NearestRankPercentile(percentile_fraction(percentile)?),
+        ),
+        duration if duration.starts_with("duration_above(") => Some(
+            KernelStatisticOp::DurationAbove(duration_above_threshold(duration)?),
+        ),
+        _ => None,
+    }
 }
 
 fn push_candidate(
@@ -759,6 +834,32 @@ fn validate_kernel_ir(ir: &KernelIr) -> Result<(), KernelExecutionFailure> {
                     ));
                 }
             }
+            KernelInstruction::ReduceSeries {
+                input,
+                op,
+                timestep_s,
+                output,
+            } => {
+                if *input >= ir.input_count {
+                    return Err(KernelExecutionFailure::new(
+                        "E-KERNEL-IR-INPUT",
+                        "kernel instruction references an out-of-range input",
+                    ));
+                }
+                if !timestep_s.is_finite() || *timestep_s <= 0.0 {
+                    return Err(KernelExecutionFailure::new(
+                        "E-KERNEL-TIMESTEP",
+                        "statistics reduction timestep must be a positive finite number",
+                    ));
+                }
+                validate_statistic_op(op)?;
+                if *output >= ir.output_count {
+                    return Err(KernelExecutionFailure::new(
+                        "E-KERNEL-IR-OUTPUT",
+                        "kernel instruction references an out-of-range output",
+                    ));
+                }
+            }
             KernelInstruction::LoadConstant { .. } | KernelInstruction::Binary { .. } => {}
         }
     }
@@ -809,6 +910,26 @@ fn validate_kernel_input(
         ));
     }
     Ok(row_count)
+}
+
+fn validate_statistic_op(op: &KernelStatisticOp) -> Result<(), KernelExecutionFailure> {
+    match op {
+        KernelStatisticOp::NearestRankPercentile(percentile)
+            if !percentile.is_finite() || *percentile <= 0.0 || *percentile > 1.0 =>
+        {
+            Err(KernelExecutionFailure::new(
+                "E-KERNEL-STAT-PERCENTILE",
+                "percentile reduction requires a percentile in (0, 1]",
+            ))
+        }
+        KernelStatisticOp::DurationAbove(threshold) if !threshold.is_finite() => {
+            Err(KernelExecutionFailure::new(
+                "E-KERNEL-STAT-THRESHOLD",
+                "duration-above threshold must be finite",
+            ))
+        }
+        _ => Ok(()),
+    }
 }
 
 fn execute_row_instruction(
@@ -883,8 +1004,169 @@ fn execute_row_instruction(
             let value = get_register(registers, *register)?;
             store_output(outputs, *output, KernelOutputValue::Scalar(value))
         }
-        KernelInstruction::IntegrateTrapezoid { .. } => Ok(()),
+        KernelInstruction::IntegrateTrapezoid { .. } | KernelInstruction::ReduceSeries { .. } => {
+            Ok(())
+        }
     }
+}
+
+fn execute_statistic_reduction(
+    values: &[f64],
+    op: &KernelStatisticOp,
+    timestep_s: f64,
+) -> Result<f64, KernelExecutionFailure> {
+    if values.is_empty() {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-STAT-EMPTY",
+            "statistics reduction requires at least one value",
+        ));
+    }
+    match op {
+        KernelStatisticOp::Mean => Ok(values.iter().sum::<f64>() / values.len() as f64),
+        KernelStatisticOp::TimeWeightedMean => {
+            let duration = timestep_s * values.len().saturating_sub(1) as f64;
+            if duration <= 0.0 {
+                return Err(KernelExecutionFailure::new(
+                    "E-KERNEL-STAT-DURATION",
+                    "time-weighted mean requires at least two samples",
+                ));
+            }
+            Ok(kernel_trapezoid_integral_uniform(values, timestep_s)? / duration)
+        }
+        KernelStatisticOp::Max => values.iter().copied().reduce(f64::max).ok_or_else(|| {
+            KernelExecutionFailure::new(
+                "E-KERNEL-STAT-EMPTY",
+                "max reduction requires at least one value",
+            )
+        }),
+        KernelStatisticOp::Min => values.iter().copied().reduce(f64::min).ok_or_else(|| {
+            KernelExecutionFailure::new(
+                "E-KERNEL-STAT-EMPTY",
+                "min reduction requires at least one value",
+            )
+        }),
+        KernelStatisticOp::Median => kernel_median(values),
+        KernelStatisticOp::PopulationStd => Ok(kernel_population_std(values)),
+        KernelStatisticOp::NearestRankPercentile(percentile) => {
+            kernel_nearest_rank_percentile(values, *percentile)
+        }
+        KernelStatisticOp::DurationAbove(threshold) => {
+            kernel_duration_above(values, *threshold, timestep_s)
+        }
+    }
+}
+
+fn kernel_trapezoid_integral_uniform(
+    values: &[f64],
+    timestep_s: f64,
+) -> Result<f64, KernelExecutionFailure> {
+    if !timestep_s.is_finite() || timestep_s <= 0.0 {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-TIMESTEP",
+            "trapezoid integration timestep must be a positive finite number",
+        ));
+    }
+    if values.len() < 2 {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-INTEGRATE-SAMPLES",
+            "trapezoid integration requires at least two samples",
+        ));
+    }
+    Ok(values
+        .windows(2)
+        .map(|window| (window[0] + window[1]) * 0.5 * timestep_s)
+        .sum::<f64>())
+}
+
+fn kernel_median(values: &[f64]) -> Result<f64, KernelExecutionFailure> {
+    let mut sorted = values.to_vec();
+    sorted.sort_by(f64::total_cmp);
+    let midpoint = sorted.len() / 2;
+    if sorted.len() & 1 == 0 {
+        Ok((sorted[midpoint - 1] + sorted[midpoint]) * 0.5)
+    } else {
+        sorted.get(midpoint).copied().ok_or_else(|| {
+            KernelExecutionFailure::new(
+                "E-KERNEL-STAT-EMPTY",
+                "median reduction requires at least one value",
+            )
+        })
+    }
+}
+
+fn kernel_population_std(values: &[f64]) -> f64 {
+    let mean = values.iter().sum::<f64>() / values.len() as f64;
+    let variance = values
+        .iter()
+        .map(|value| {
+            let delta = value - mean;
+            delta * delta
+        })
+        .sum::<f64>()
+        / values.len() as f64;
+    variance.sqrt()
+}
+
+fn kernel_nearest_rank_percentile(
+    values: &[f64],
+    percentile: f64,
+) -> Result<f64, KernelExecutionFailure> {
+    if !percentile.is_finite() || percentile <= 0.0 || percentile > 1.0 {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-STAT-PERCENTILE",
+            "percentile reduction requires a percentile in (0, 1]",
+        ));
+    }
+    let mut sorted = values.to_vec();
+    sorted.sort_by(f64::total_cmp);
+    let rank = (percentile * sorted.len() as f64).ceil() as usize;
+    sorted.get(rank.saturating_sub(1)).copied().ok_or_else(|| {
+        KernelExecutionFailure::new(
+            "E-KERNEL-STAT-EMPTY",
+            "percentile reduction requires at least one value",
+        )
+    })
+}
+
+fn kernel_duration_above(
+    values: &[f64],
+    threshold: f64,
+    timestep_s: f64,
+) -> Result<f64, KernelExecutionFailure> {
+    if !threshold.is_finite() {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-STAT-THRESHOLD",
+            "duration-above threshold must be finite",
+        ));
+    }
+    if values.len() < 2 {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-STAT-DURATION",
+            "duration-above reduction requires at least two samples",
+        ));
+    }
+    let mut duration = 0.0;
+    for window in values.windows(2) {
+        let y0 = window[0];
+        let y1 = window[1];
+        let y0_above = y0 > threshold;
+        let y1_above = y1 > threshold;
+        if y0_above && y1_above {
+            duration += timestep_s;
+        } else if y0_above != y1_above {
+            let dy = y1 - y0;
+            if dy.abs() <= f64::EPSILON {
+                continue;
+            }
+            let fraction = ((threshold - y0) / dy).clamp(0.0, 1.0);
+            duration += if y0_above {
+                fraction * timestep_s
+            } else {
+                (1.0 - fraction) * timestep_s
+            };
+        }
+    }
+    Ok(duration)
 }
 
 fn execute_residual_scalar_kernel(
@@ -954,7 +1236,9 @@ fn store_output(
 }
 
 pub fn candidate_executor_status(candidate: &KernelCandidate) -> (&'static str, &'static str) {
-    if candidate.lowering_status == "lowerable_to_numeric_kernel_plan" {
+    if candidate.lowering_status == "lowerable_to_numeric_kernel_plan"
+        && candidate_has_interpreter_lowering(candidate)
+    {
         (
             "interpreter_supported",
             "candidate can execute through the interpreter kernel IR when runtime inputs are supplied",
@@ -964,6 +1248,18 @@ pub fn candidate_executor_status(candidate: &KernelCandidate) -> (&'static str, 
             "fallback_metadata_only",
             "candidate does not yet have an executable interpreter kernel lowering",
         )
+    }
+}
+
+fn candidate_has_interpreter_lowering(candidate: &KernelCandidate) -> bool {
+    match candidate.kind.as_str() {
+        "timeseries_arithmetic" | "timeseries_integrate" | "component_residual_graph" => true,
+        "statistics_fusion" => candidate.operations.iter().all(|operation| {
+            operation
+                .strip_prefix("stat:")
+                .is_some_and(|statistic| statistic_reduction_op(statistic).is_some())
+        }),
+        _ => false,
     }
 }
 
@@ -1493,6 +1789,35 @@ fn parse_primary(
     }
 }
 
+fn percentile_fraction(name: &str) -> Option<f64> {
+    let percentile = name.strip_prefix('p')?.parse::<u32>().ok()?;
+    (1..=100)
+        .contains(&percentile)
+        .then_some(percentile as f64 / 100.0)
+}
+
+fn duration_above_threshold(name: &str) -> Option<f64> {
+    let inside = name
+        .trim()
+        .strip_prefix("duration_above(")?
+        .strip_suffix(')')?;
+    let mut parts = inside.split_whitespace();
+    let value = parts.next()?.parse::<f64>().ok()?;
+    let unit = parts.next().map(|unit| {
+        unit.trim_matches(|character| matches!(character, '(' | ')' | ','))
+            .to_owned()
+    });
+    if parts.next().is_some() {
+        return None;
+    }
+    match unit.as_deref() {
+        None | Some("") | Some("W") => Some(value),
+        Some("kW") => Some(value * 1000.0),
+        Some("MW") => Some(value * 1_000_000.0),
+        _ => None,
+    }
+}
+
 fn expression_source_count(expression: &str) -> usize {
     expression_tokens(expression)
         .filter(|token| {
@@ -1558,6 +1883,14 @@ mod tests {
         );
         assert!(json["candidate_count"].as_u64().unwrap() >= 3);
         assert_eq!(json["candidates"][0]["estimate"]["estimated_rows"], 4);
+        assert!(json["candidates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|candidate| {
+                candidate["kind"] == "statistics_fusion"
+                    && candidate["executor"]["status"] == "interpreter_supported"
+            }));
 
         let native_plan = plan_for_report_with_options(
             &report,
@@ -1599,6 +1932,49 @@ mod tests {
         .unwrap();
 
         assert_eq!(output.outputs, vec![KernelOutputValue::Scalar(4543242.0)]);
+    }
+
+    #[test]
+    fn lowers_official_statistics_candidate_to_ir() {
+        let report = check_file(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../examples/official/01_csv_plot/main.eng"),
+            &CheckOptions::default(),
+        )
+        .expect("official CSV example should check");
+        let ir = timeseries_statistics_ir_for_source(&report, "Q_coil", 300.0)
+            .expect("Q_coil statistics should lower to IR");
+
+        assert_eq!(ir.name, "summary:Q_coil");
+        assert_eq!(ir.kind, "statistics_fusion");
+        assert_eq!(ir.input_count, 1);
+        assert_eq!(ir.output_count, 8);
+
+        let output = execute_interpreter_kernel(
+            &ir,
+            &KernelExecutionInput {
+                series_inputs: vec![vec![4873.88, 4999.28, 4999.28, 5417.28]],
+                scalar_inputs: Vec::new(),
+            },
+        )
+        .unwrap();
+        let values = output
+            .outputs
+            .iter()
+            .map(|output| match output {
+                KernelOutputValue::Scalar(value) => *value,
+                KernelOutputValue::Series(_) => panic!("statistics outputs should be scalar"),
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(values.len(), 8);
+        assert!((values[0] - 5072.43).abs() < 1e-9);
+        assert!((values[1] - 5048.046666666667).abs() < 1e-9);
+        assert!((values[2] - 5417.28).abs() < 1e-9);
+        assert!((values[3] - 4999.28).abs() < 1e-9);
+        assert!((values[5] - 5417.28).abs() < 1e-9);
+        assert!((values[6] - 5417.28).abs() < 1e-9);
+        assert!((values[7] - 299.4832535885168).abs() < 1e-9);
     }
 
     #[test]

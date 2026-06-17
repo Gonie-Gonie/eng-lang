@@ -160,11 +160,11 @@ but do not yet have executable interpreter lowering.
 
 The internal interpreter executor uses `eng-kernel-ir-v1` with explicit
 instructions for loading TimeSeries inputs, scalar inputs, constants, binary
-arithmetic, series/scalar stores, and trapezoid integration. This IR currently
-supports correctness tests for element-wise arithmetic, integration, scalar
-residual evaluation, finite-difference Jacobian kernels, and Newton solver-step
-kernels. It is not a native code format and is not part of the public stable
-API.
+arithmetic, series/scalar stores, TimeSeries statistics reductions, and
+trapezoid integration. This IR currently supports correctness tests for
+element-wise arithmetic, statistics, integration, scalar residual evaluation,
+finite-difference Jacobian kernels, and Newton solver-step kernels. It is not a
+native code format and is not part of the public stable API.
 
 ## Candidate Kinds
 
@@ -186,7 +186,9 @@ interface_only
 ```
 
 `lowerable_to_numeric_kernel_plan` means the candidate has enough semantic
-metadata to describe numeric operations. It does not mean native code exists.
+metadata to describe numeric operations. Candidate `executor.status` must still
+be checked to know whether the current interpreter IR can execute that specific
+candidate. It does not mean native code exists.
 
 `interface_only` means the candidate is recorded to preserve the future backend
 boundary but should not be benchmarked or presented as executable JIT work.
