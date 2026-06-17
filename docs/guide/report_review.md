@@ -106,6 +106,10 @@ Thermal, `Fluid[Water]`, and `MechanicalNode[World, X]` connection sets reports
 `solver_preview.status = multi_domain_preview`, plus explicit future-solver
 seed statuses for nonlinear residuals, DAE splitting, delay/history buffers,
 Predictor behavior, and external behavior adapters.
+Runtime report specs and result artifacts also attach component solver residual
+evaluations with raw value, unit, normalized value, scale, and scale policy.
+Report/IDE largest-residual summaries use the normalized residual so different
+units do not dominate the diagnostic ordering by magnitude alone.
 `component_graph` is the graph-shaped companion artifact for the same track:
 components and ports are nodes, connections are edges, connection sets are
 grouped by assembly, and each node/edge carries source span and domain label

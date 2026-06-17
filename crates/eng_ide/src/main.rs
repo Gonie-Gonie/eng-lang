@@ -1969,7 +1969,12 @@ fn smoke() -> Result<(), String> {
                         && solver_result
                             .get("residuals")
                             .and_then(Value::as_array)
-                            .is_some_and(|residuals| !residuals.is_empty())
+                            .is_some_and(|residuals| {
+                                residuals.iter().any(|residual| {
+                                    residual.get("normalized_value").is_some()
+                                        && residual.get("scale_policy").is_some()
+                                })
+                            })
                         && solver_result
                             .get("failure_artifact")
                             .and_then(|failure| json_field_string(failure, "code"))

@@ -306,11 +306,24 @@
     },
     "componentResidualEvaluation": {
       "type": "object",
-      "required": ["name", "expression", "value", "status"],
+      "required": [
+        "name",
+        "expression",
+        "value",
+        "unit",
+        "normalized_value",
+        "scale",
+        "scale_policy",
+        "status"
+      ],
       "properties": {
         "name": { "type": "string" },
         "expression": { "type": "string" },
         "value": { "type": "number" },
+        "unit": { "type": "string" },
+        "normalized_value": { "type": "number" },
+        "scale": { "type": "number" },
+        "scale_policy": { "type": "string" },
         "status": { "type": "string" }
       }
     },

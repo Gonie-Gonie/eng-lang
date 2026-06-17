@@ -104,6 +104,10 @@ fn report_component_solver_result(
                 name: residual.name.clone(),
                 expression: residual.expression.clone(),
                 value: residual.value,
+                unit: residual.unit.clone(),
+                normalized_value: residual.normalized_value,
+                scale: residual.scale,
+                scale_policy: residual.scale_policy.clone(),
                 status: residual.status.clone(),
             })
             .collect(),
@@ -950,6 +954,10 @@ pub struct RuntimeComponentResidualEvaluation {
     pub name: String,
     pub expression: String,
     pub value: f64,
+    pub unit: String,
+    pub normalized_value: f64,
+    pub scale: f64,
+    pub scale_policy: String,
     pub status: String,
 }
 
@@ -2389,6 +2397,10 @@ fn component_solution_from_solver_assembly(
             name: residual.name.clone(),
             expression: residual.expression.text.clone(),
             value: value.value,
+            unit: residual.unit.unit.clone(),
+            normalized_value: value.normalized_value,
+            scale: residual.scale.value,
+            scale_policy: residual.scale.policy.clone(),
             status: if value.normalized_value.abs() <= COMPONENT_LINEAR_SOLVER_TOLERANCE {
                 "satisfied".to_owned()
             } else {
@@ -5617,10 +5629,11 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
                 .map(|failure| failure.code.as_str()),
             Some("W-ASSEMBLY-UNDERDETERMINED-SEED")
         );
-        assert!(solution
-            .residuals
-            .iter()
-            .any(|residual| residual.name == "connection_set_1.through_Q_conservation"));
+        assert!(solution.residuals.iter().any(|residual| residual.name
+            == "connection_set_1.through_Q_conservation"
+            && residual.normalized_value == 0.0
+            && residual.scale == 1.0
+            && residual.scale_policy == "unit_default:HeatRate[kW]"));
 
         let mut spec =
             eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
@@ -5635,10 +5648,10 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         assert_eq!(solver_result.method, "linear_residual_graph_shape_check");
         assert_eq!(solver_result.residual_norm, 0.0);
         assert_eq!(solver_result.variables.len(), 12);
-        assert!(solver_result
-            .residuals
-            .iter()
-            .any(|residual| residual.name == "connection_set_1.through_Q_conservation"));
+        assert!(solver_result.residuals.iter().any(|residual| residual.name
+            == "connection_set_1.through_Q_conservation"
+            && residual.normalized_value == 0.0
+            && residual.scale_policy == "unit_default:HeatRate[kW]"));
         assert_eq!(
             solver_result
                 .failure_artifact

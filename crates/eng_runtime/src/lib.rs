@@ -4134,6 +4134,22 @@ fn component_solutions_json(runtime_data: &RuntimeData) -> String {
                 format_number_with_precision(residual.value, Some(8))
             ));
             json.push_str(&format!(
+                "            \"unit\": \"{}\",\n",
+                json_escape(&residual.unit)
+            ));
+            json.push_str(&format!(
+                "            \"normalized_value\": {},\n",
+                format_number_with_precision(residual.normalized_value, Some(8))
+            ));
+            json.push_str(&format!(
+                "            \"scale\": {},\n",
+                format_number_with_precision(residual.scale, Some(8))
+            ));
+            json.push_str(&format!(
+                "            \"scale_policy\": \"{}\",\n",
+                json_escape(&residual.scale_policy)
+            ));
+            json.push_str(&format!(
                 "            \"status\": \"{}\"\n",
                 json_escape(&residual.status)
             ));

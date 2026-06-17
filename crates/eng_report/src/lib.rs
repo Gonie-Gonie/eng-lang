@@ -525,6 +525,10 @@ pub struct ReportComponentSolverResidual {
     pub name: String,
     pub expression: String,
     pub value: f64,
+    pub unit: String,
+    pub normalized_value: f64,
+    pub scale: f64,
+    pub scale_policy: String,
     pub status: String,
 }
 
@@ -4076,6 +4080,19 @@ fn push_report_component_solver_result_json(
         ));
         json.push_str(&format!("{indent}      \"value\": {},\n", residual.value));
         json.push_str(&format!(
+            "{indent}      \"unit\": \"{}\",\n",
+            json_escape(&residual.unit)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"normalized_value\": {},\n",
+            residual.normalized_value
+        ));
+        json.push_str(&format!("{indent}      \"scale\": {},\n", residual.scale));
+        json.push_str(&format!(
+            "{indent}      \"scale_policy\": \"{}\",\n",
+            json_escape(&residual.scale_policy)
+        ));
+        json.push_str(&format!(
             "{indent}      \"status\": \"{}\"\n",
             json_escape(&residual.status)
         ));
@@ -5414,14 +5431,17 @@ fn format_component_solver_variables_summary(result: &ReportComponentSolverResul
 fn format_component_largest_residual_summary(
     result: &ReportComponentSolverResult,
 ) -> Option<String> {
-    let residual = result
-        .residuals
-        .iter()
-        .max_by(|left, right| left.value.abs().total_cmp(&right.value.abs()))?;
+    let residual = result.residuals.iter().max_by(|left, right| {
+        left.normalized_value
+            .abs()
+            .total_cmp(&right.normalized_value.abs())
+    })?;
     Some(format!(
-        "{}={} ({})",
+        "{}={} {}, normalized={} ({})",
         residual.name,
         format_alignment_number(residual.value),
+        residual.unit,
+        format_alignment_number(residual.normalized_value),
         residual.status
     ))
 }

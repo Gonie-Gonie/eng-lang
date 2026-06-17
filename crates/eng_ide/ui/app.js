@@ -1071,12 +1071,17 @@ function componentSolverLargestResidual(residuals) {
   if (!Array.isArray(residuals) || !residuals.length) return "-";
   const largest = residuals.reduce((best, residual) => {
     if (!best) return residual;
-    return Math.abs(Number(residual.value ?? 0)) > Math.abs(Number(best.value ?? 0))
+    const residualScore = Math.abs(Number(residual.normalized_value ?? residual.normalizedValue ?? residual.value ?? 0));
+    const bestScore = Math.abs(Number(best.normalized_value ?? best.normalizedValue ?? best.value ?? 0));
+    return residualScore > bestScore
       ? residual
       : best;
   }, null);
   if (!largest) return "-";
-  return `${largest.name || "residual"}=${metricCell(largest.value)} (${largest.status || "-"})`;
+  const unit = largest.unit ? ` ${largest.unit}` : "";
+  const normalized = largest.normalized_value ?? largest.normalizedValue;
+  const normalizedText = normalized == null ? "" : `, norm=${metricCell(normalized)}`;
+  return `${largest.name || "residual"}=${metricCell(largest.value)}${unit}${normalizedText} (${largest.status || "-"})`;
 }
 
 function renderComponentGraph() {

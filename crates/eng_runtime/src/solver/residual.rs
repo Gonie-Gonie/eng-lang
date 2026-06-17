@@ -57,6 +57,7 @@ impl ResidualGraph {
                     .and_then(|dependency| variable_units.get(dependency))
                     .cloned()
                     .unwrap_or_else(|| ("1".to_owned(), "unknown".to_owned()));
+                let scale = ResidualScale::from_quantity_unit(&quantity_kind, &unit);
                 ResidualEquation {
                     name: equation.name.clone(),
                     expression: ResidualExpression {
@@ -66,7 +67,7 @@ impl ResidualGraph {
                         unit,
                         quantity_kind,
                     },
-                    scale: ResidualScale::default(),
+                    scale,
                     source: ResidualSource {
                         line: equation.source_line,
                         generated_reason: Some(equation.reason.clone()),
@@ -273,7 +274,44 @@ impl Default for ResidualScale {
     fn default() -> Self {
         Self {
             value: 1.0,
-            policy: "unit_nominal_default".to_owned(),
+            policy: "unit_default:dimensionless[1]".to_owned(),
+        }
+    }
+}
+
+impl ResidualScale {
+    pub fn from_quantity_unit(quantity_kind: &str, unit: &str) -> Self {
+        let trimmed_unit = unit.trim();
+        let normalized_unit = trimmed_unit.to_ascii_lowercase();
+        let normalized_quantity = quantity_kind.trim().to_ascii_lowercase();
+        let value = match normalized_unit.as_str() {
+            "kw" => 1.0,
+            "w" if matches!(
+                normalized_quantity.as_str(),
+                "heatrate" | "mechanicalpower" | "power"
+            ) =>
+            {
+                1000.0
+            }
+            "k" | "degc" | "c" => 1.0,
+            "m" | "kg/s" | "1" | "" => 1.0,
+            _ if normalized_quantity.contains("pressure") => 1000.0,
+            _ if normalized_quantity.contains("energy") => 1000.0,
+            _ => 1.0,
+        };
+        let unit_label = if trimmed_unit.is_empty() {
+            "1"
+        } else {
+            trimmed_unit
+        };
+        let quantity_label = if quantity_kind.trim().is_empty() {
+            "unknown"
+        } else {
+            quantity_kind.trim()
+        };
+        Self {
+            value,
+            policy: format!("unit_default:{quantity_label}[{unit_label}]"),
         }
     }
 }
@@ -352,6 +390,17 @@ mod tests {
         let failure = graph.assemble_linear_system().unwrap_err();
 
         assert_eq!(failure.code, "E-LINEAR-RESIDUAL-SHAPE");
+    }
+
+    #[test]
+    fn residual_scales_use_quantity_unit_defaults() {
+        let heat_rate = ResidualScale::from_quantity_unit("HeatRate", "W");
+        assert_eq!(heat_rate.value, 1000.0);
+        assert_eq!(heat_rate.policy, "unit_default:HeatRate[W]");
+
+        let temperature = ResidualScale::from_quantity_unit("AbsoluteTemperature", "degC");
+        assert_eq!(temperature.value, 1.0);
+        assert_eq!(temperature.policy, "unit_default:AbsoluteTemperature[degC]");
     }
 
     fn residual(name: &str, terms: &[(usize, &str, f64)]) -> ResidualEquation {
