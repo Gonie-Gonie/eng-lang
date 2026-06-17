@@ -11,7 +11,7 @@ use eng_runtime::{
     build_standalone, create_project, doctor, run_file, BuildOptions, ExecutionProfile, RunOptions,
     RuntimeError,
 };
-use serde_json::json;
+use serde_json::{json, Value};
 
 fn main() -> ExitCode {
     let mut args: Vec<String> = env::args().skip(1).collect();
@@ -635,6 +635,17 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             result_path: "build/jit-bench/iter-000/result/result.engres".to_owned(),
         }],
     );
+    let csv_bench_targets_recorded = jit_bench_has_target(
+        &jit_bench_smoke,
+        "csv_heat_rate_workflow",
+        "covered_by_current_source",
+        Some("timeseries_integrate:E_coil"),
+    ) && jit_bench_has_target(
+        &jit_bench_smoke,
+        "multi_statistics_fusion",
+        "covered_by_current_source",
+        Some("statistics_fusion:summary:Q_coil"),
+    );
     if jit_plan.candidates.len() < 3
         || jit_plan.backend_selection.selected != eng_jit::INTERPRETER_FALLBACK_BACKEND
         || jit_plan.backend_selection.status != "selected"
@@ -643,14 +654,12 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             .iter()
             .any(|candidate| candidate.kind == "timeseries_integrate")
         || !lowerable_executor_recorded
-        || !jit_bench_smoke.contains("\"benchmark_targets\"")
-        || !jit_bench_smoke.contains("\"name\":\"csv_heat_rate_workflow\"")
-        || !jit_bench_smoke.contains("\"status\":\"covered_by_current_source\"")
+        || !csv_bench_targets_recorded
         || native_preview_plan.backend_selection.status != "not_available"
         || native_preview_plan.backend_selection.selected != eng_jit::INTERPRETER_FALLBACK_BACKEND
     {
         eprintln!(
-            "expected official CSV example to expose kernel candidates, executor fallback metadata, benchmark target coverage, and native backend non-availability"
+            "expected official CSV example to expose kernel candidates, executor fallback metadata, CSV/statistics benchmark target coverage, and native backend non-availability"
         );
         return ExitCode::from(2);
     }
@@ -680,10 +689,12 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             result_path: "build/jit-bench/iter-000/result/result.engres".to_owned(),
         }],
     );
-    if !state_space_bench_smoke.contains("\"name\":\"state_space_simulation\"")
-        || !state_space_bench_smoke.contains("\"status\":\"covered_by_current_source\"")
-        || !state_space_bench_smoke.contains("state_space_rhs:ThermalStateSpaceMetadata")
-    {
+    if !jit_bench_has_target(
+        &state_space_bench_smoke,
+        "state_space_simulation",
+        "covered_by_current_source",
+        Some("state_space_rhs:ThermalStateSpaceMetadata"),
+    ) {
         eprintln!(
             "expected internal state-space example to expose JIT benchmark state-space RHS coverage"
         );
@@ -869,6 +880,17 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
     };
     let thermal_assembly_jit_plan = eng_jit::plan_for_report(&thermal_assembly_report);
+    let thermal_assembly_bench_smoke = jit_bench_json(
+        "examples/official/21_thermal_component_assembly/main.eng",
+        1,
+        &thermal_assembly_report,
+        &thermal_assembly_jit_plan,
+        &[BenchRun {
+            iteration: 1,
+            elapsed_ms: 1.0,
+            result_path: "build/jit-bench/iter-000/result/result.engres".to_owned(),
+        }],
+    );
     if !thermal_assembly_jit_plan
         .candidates
         .iter()
@@ -908,9 +930,21 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                         .iter()
                         .any(|operation| operation == "solve_newton_step:4")
             })
+        || !jit_bench_has_target(
+            &thermal_assembly_bench_smoke,
+            "residual_evaluation",
+            "covered_by_current_source",
+            Some("component_residual_jacobian"),
+        )
+        || !jit_bench_has_target(
+            &thermal_assembly_bench_smoke,
+            "component_graph_solver_small_case",
+            "covered_by_current_source",
+            Some("component_newton_step"),
+        )
     {
         eprintln!(
-            "expected official thermal component assembly example to expose lowerable component residual, Jacobian, and Newton-step kernel candidates"
+            "expected official thermal component assembly example to expose lowerable component residual, Jacobian, Newton-step kernel candidates, and benchmark target coverage"
         );
         return ExitCode::from(2);
     }
@@ -2607,6 +2641,33 @@ fn jit_bench_json(
         ],
     })
     .to_string()
+}
+
+fn jit_bench_has_target(
+    bench_json: &str,
+    name: &str,
+    status: &str,
+    candidate_fragment: Option<&str>,
+) -> bool {
+    let Ok(value) = serde_json::from_str::<Value>(bench_json) else {
+        return false;
+    };
+    value["benchmark_targets"]
+        .as_array()
+        .is_some_and(|targets| {
+            targets.iter().any(|target| {
+                target["name"] == name
+                    && target["status"] == status
+                    && candidate_fragment.is_none_or(|fragment| {
+                        target["candidates"].as_array().is_some_and(|candidates| {
+                            candidates
+                                .iter()
+                                .filter_map(Value::as_str)
+                                .any(|candidate| candidate.contains(fragment))
+                        })
+                    })
+            })
+        })
 }
 
 fn jit_benchmark_targets(
