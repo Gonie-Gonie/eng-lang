@@ -621,6 +621,16 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             requested_backend: eng_jit::NATIVE_PREVIEW_BACKEND.to_owned(),
         },
     );
+    let jit_bench_smoke = jit_bench_json(
+        "examples/official/01_csv_plot/main.eng",
+        1,
+        &jit_plan,
+        &[BenchRun {
+            iteration: 1,
+            elapsed_ms: 1.0,
+            result_path: "build/jit-bench/iter-000/result/result.engres".to_owned(),
+        }],
+    );
     if jit_plan.candidates.len() < 3
         || jit_plan.backend_selection.selected != eng_jit::INTERPRETER_FALLBACK_BACKEND
         || jit_plan.backend_selection.status != "selected"
@@ -629,16 +639,19 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             .iter()
             .any(|candidate| candidate.kind == "timeseries_integrate")
         || !lowerable_executor_recorded
+        || !jit_bench_smoke.contains("\"benchmark_targets\"")
+        || !jit_bench_smoke.contains("\"name\":\"csv_heat_rate_workflow\"")
+        || !jit_bench_smoke.contains("\"status\":\"covered_by_current_source\"")
         || native_preview_plan.backend_selection.status != "not_available"
         || native_preview_plan.backend_selection.selected != eng_jit::INTERPRETER_FALLBACK_BACKEND
     {
         eprintln!(
-            "expected official CSV example to expose kernel candidates, executor fallback metadata, and native backend non-availability"
+            "expected official CSV example to expose kernel candidates, executor fallback metadata, benchmark target coverage, and native backend non-availability"
         );
         return ExitCode::from(2);
     }
     println!(
-        "ok: official CSV example produced JIT kernel candidates with executor fallback metadata"
+        "ok: official CSV example produced JIT kernel candidates with executor fallback and benchmark target metadata"
     );
 
     let domain_port = match check_file(
@@ -2364,6 +2377,7 @@ fn jit_bench_json(
         "iterations_requested": iterations,
         "comparison_policy": "no-speedup-claim",
         "kernel_plan": eng_jit::plan_json(plan),
+        "benchmark_targets": jit_benchmark_targets(plan),
         "interpreter": {
             "status": "measured",
             "runs": interpreter_runs.iter().map(|run| {
@@ -2393,6 +2407,97 @@ fn jit_bench_json(
         ],
     })
     .to_string()
+}
+
+fn jit_benchmark_targets(plan: &eng_jit::NumericKernelPlan) -> Vec<serde_json::Value> {
+    vec![
+        benchmark_target(
+            "csv_heat_rate_workflow",
+            if has_candidate(plan, "timeseries_arithmetic")
+                && has_candidate(plan, "timeseries_integrate")
+            {
+                "covered_by_current_source"
+            } else {
+                "not_observed_for_source"
+            },
+            candidates_by_kind(
+                plan,
+                &[
+                    "timeseries_arithmetic",
+                    "statistics_fusion",
+                    "timeseries_integrate",
+                ],
+            ),
+            "covers checked TimeSeries arithmetic/statistics/integration candidates when present",
+        ),
+        benchmark_target(
+            "multi_statistics_fusion",
+            if has_candidate(plan, "statistics_fusion") {
+                "covered_by_current_source"
+            } else {
+                "not_observed_for_source"
+            },
+            candidates_by_kind(plan, &["statistics_fusion"]),
+            "tracks summarize-by statistics fusion candidates",
+        ),
+        benchmark_target(
+            "residual_evaluation",
+            if has_candidate(plan, "component_residual_graph") {
+                "covered_by_current_source"
+            } else if has_candidate(plan, "system_residual") {
+                "interface_only"
+            } else {
+                "not_observed_for_source"
+            },
+            candidates_by_kind(plan, &["component_residual_graph", "system_residual"]),
+            "tracks residual evaluator candidates; system residuals may still be interface-only",
+        ),
+        benchmark_target(
+            "component_graph_solver_small_case",
+            if has_candidate(plan, "component_residual_graph") {
+                "covered_by_current_source"
+            } else {
+                "not_observed_for_source"
+            },
+            candidates_by_kind(plan, &["component_residual_graph"]),
+            "tracks small component residual graph candidates, not production multi-domain solving",
+        ),
+        benchmark_target(
+            "state_space_simulation",
+            "not_observed_for_source",
+            Vec::new(),
+            "reserved benchmark target; no state-space solver-step kernel is selected by this source",
+        ),
+    ]
+}
+
+fn benchmark_target(
+    name: &str,
+    status: &str,
+    candidates: Vec<String>,
+    note: &str,
+) -> serde_json::Value {
+    json!({
+        "name": name,
+        "status": status,
+        "candidate_count": candidates.len(),
+        "candidates": candidates,
+        "note": note,
+    })
+}
+
+fn has_candidate(plan: &eng_jit::NumericKernelPlan, kind: &str) -> bool {
+    plan.candidates
+        .iter()
+        .any(|candidate| candidate.kind == kind)
+}
+
+fn candidates_by_kind(plan: &eng_jit::NumericKernelPlan, kinds: &[&str]) -> Vec<String> {
+    plan.candidates
+        .iter()
+        .filter(|candidate| kinds.contains(&candidate.kind.as_str()))
+        .map(|candidate| format!("{}:{}", candidate.kind, candidate.name))
+        .collect()
 }
 
 fn rounded_ms(value: f64) -> f64 {

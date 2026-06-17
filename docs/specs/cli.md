@@ -228,6 +228,8 @@ Current behavior:
 - allowed iterations: 1..100
 - `--backend <name>` records backend selection metadata
 - other `--<arg> <value>` flags are forwarded as Eng Args overrides
+- `benchmark_targets` records which internal target families were observed in
+  the current source's kernel plan
 - `jit.status` is `not_available`
 - comparison_policy is `no-speedup-claim`
 ```

@@ -187,7 +187,7 @@ Internal implementation seeds on `main`:
 ```text
 - eng_jit crate
 - eng.exe jit-plan
-- eng.exe jit-bench
+- eng.exe jit-bench with benchmark target coverage metadata
 - interpreter baseline metadata
 - backend selection metadata
 - hot-kernel candidate estimates

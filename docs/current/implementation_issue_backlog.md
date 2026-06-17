@@ -43,7 +43,8 @@ Current coverage:
   selected backend, kernel candidates, executor status, and fallback reason as
   inspection metadata without presenting acceleration.
 - `eng.exe jit-bench` remains a normal-runtime timing harness and makes no
-  speedup claim.
+  speedup claim; its `benchmark_targets` field records which checklist target
+  families were observed in the current source's kernel plan.
 
 Definition of Done:
 
