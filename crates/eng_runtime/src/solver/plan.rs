@@ -55,6 +55,7 @@ pub struct SolverInput {
     pub state_layout: StateLayout,
     pub input_layout: InputLayout,
     pub parameter_layout: ParameterLayout,
+    pub output_layout: OutputLayout,
     pub initial_state: Vec<f64>,
     pub inputs: Vec<SolverScalar>,
     pub parameters: Vec<SolverScalar>,

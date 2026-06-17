@@ -125,9 +125,10 @@ Definition of Done:
 - Current runtime covers `StateVector`, `InputVector`, and `LinearOperator`
   metadata, operator row/column checks, continuous and discrete A/B execution,
   multi-state fixed-step Euler/RK4 trajectories, state trajectory TimeSeries,
-  and solver-inspector metadata for states, inputs, outputs, timestep,
-  tolerance, iterations, convergence, and failure reason. Plot/report output,
-  IDE inspector support, and tests are in place for the current seed scope.
+  `OutputLayout` preservation across solver input/result contracts, and
+  solver-inspector metadata for states, inputs, outputs, timestep, tolerance,
+  iterations, convergence, and failure reason. Plot/report output, IDE
+  inspector support, and tests are in place for the current seed scope.
 - Remaining supported-workflow work includes unit compatibility checks,
   broader operator algebra policy, and public stability wording.
 - No nonlinear/DAE/adaptive or component-coupled solver claim is made.

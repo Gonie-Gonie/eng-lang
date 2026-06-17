@@ -1,11 +1,12 @@
 use super::diagnostics::SolverDiagnostics;
-use super::plan::{SolverPlan, StateLayout, TimeGrid};
+use super::plan::{OutputLayout, SolverPlan, StateLayout, TimeGrid};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SolverResult {
     pub plan: SolverPlan,
     pub time_grid: TimeGrid,
     pub state_layout: StateLayout,
+    pub output_layout: OutputLayout,
     pub output: SolverOutput,
     pub diagnostics: SolverDiagnostics,
 }
@@ -15,6 +16,7 @@ impl SolverResult {
         plan: SolverPlan,
         time_grid: TimeGrid,
         state_layout: StateLayout,
+        output_layout: OutputLayout,
         output: SolverOutput,
         iteration_count: usize,
     ) -> Self {
@@ -24,6 +26,7 @@ impl SolverResult {
             plan,
             time_grid,
             state_layout,
+            output_layout,
             output,
             diagnostics: SolverDiagnostics::computed(tolerance, max_iterations, iteration_count),
         }

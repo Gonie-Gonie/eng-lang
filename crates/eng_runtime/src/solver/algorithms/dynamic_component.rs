@@ -202,6 +202,7 @@ fn dynamic_component_result(
             plan: input.plan.clone(),
             time_grid: input.time_grid.clone(),
             state_layout: input.state_layout.clone(),
+            output_layout: input.output_layout.clone(),
             output: SolverOutput {
                 state_trajectories,
                 algebraic_trajectories: algebraic_trajectories.clone(),
@@ -235,8 +236,8 @@ fn trajectories_from_layout(
 mod tests {
     use super::*;
     use crate::solver::{
-        InputLayout, LayoutEntry, ParameterLayout, SimulationPlan, SolverOptions, SolverPlan,
-        TimeGrid,
+        InputLayout, LayoutEntry, OutputLayout, ParameterLayout, SimulationPlan, SolverOptions,
+        SolverPlan, TimeGrid,
     };
 
     #[test]
@@ -257,6 +258,7 @@ mod tests {
             )]),
             input_layout: InputLayout::default(),
             parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
             initial_state: vec![0.0],
             inputs: Vec::new(),
             parameters: Vec::new(),
@@ -317,6 +319,7 @@ mod tests {
             )]),
             input_layout: InputLayout::default(),
             parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
             initial_state: vec![0.0],
             inputs: Vec::new(),
             parameters: Vec::new(),

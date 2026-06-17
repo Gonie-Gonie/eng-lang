@@ -74,6 +74,7 @@ where
         input.plan.clone(),
         input.time_grid.clone(),
         input.state_layout.clone(),
+        input.output_layout.clone(),
         SolverOutput {
             state_trajectories,
             algebraic_trajectories: Vec::new(),
@@ -172,6 +173,7 @@ where
         input.plan.clone(),
         input.time_grid.clone(),
         input.state_layout.clone(),
+        input.output_layout.clone(),
         SolverOutput {
             state_trajectories,
             algebraic_trajectories: Vec::new(),
@@ -203,8 +205,8 @@ fn offset_state(state: &[f64], derivative: &[f64], scale: f64) -> Vec<f64> {
 mod tests {
     use super::*;
     use crate::solver::{
-        InputLayout, LayoutEntry, ParameterLayout, SimulationPlan, SolverOptions, SolverPlan,
-        StateLayout, TimeGrid,
+        InputLayout, LayoutEntry, OutputLayout, ParameterLayout, SimulationPlan, SolverOptions,
+        SolverPlan, StateLayout, TimeGrid,
     };
 
     #[test]
@@ -219,6 +221,12 @@ mod tests {
             ]),
             input_layout: InputLayout::default(),
             parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout {
+                entries: vec![
+                    LayoutEntry::new(0, "x", "Dimensionless", "1", "1"),
+                    LayoutEntry::new(1, "y", "Dimensionless", "1", "1"),
+                ],
+            },
             initial_state: vec![1.0, 10.0],
             inputs: Vec::new(),
             parameters: Vec::new(),
@@ -237,6 +245,8 @@ mod tests {
             result.output.state_trajectories[1].values,
             vec![10.0, 5.0, 2.5]
         );
+        assert_eq!(result.output_layout.entries.len(), 2);
+        assert_eq!(result.output_layout.entries[0].name, "x");
         assert!(result.output.algebraic_trajectories.is_empty());
         assert_eq!(result.diagnostics.status, "computed");
     }
@@ -253,6 +263,7 @@ mod tests {
             ]),
             input_layout: InputLayout::default(),
             parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
             initial_state: vec![1.0, 10.0],
             inputs: Vec::new(),
             parameters: Vec::new(),

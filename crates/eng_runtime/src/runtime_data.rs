@@ -23,9 +23,9 @@ use crate::solver::{
         ComponentEquation, ComponentInstance, ConnectionEdge, ConnectionSet, EquationAssembly,
         GeneratedEquation, PortInstance, UnknownVariable,
     },
-    InputLayout, LayoutEntry, ParameterLayout, ResidualEvaluator, ResidualGraph, ResidualInput,
-    RhsEvaluator, RhsInput, RhsStateInfo, SimulationPlan, SolverFailure, SolverInput,
-    SolverOptions, SolverOutput, SolverPlan, SolverResult, SolverScalar, StateLayout,
+    InputLayout, LayoutEntry, OutputLayout, ParameterLayout, ResidualEvaluator, ResidualGraph,
+    ResidualInput, RhsEvaluator, RhsInput, RhsStateInfo, SimulationPlan, SolverFailure,
+    SolverInput, SolverOptions, SolverOutput, SolverPlan, SolverResult, SolverScalar, StateLayout,
     StateSpaceRhsEvaluator, StateTrajectory, TimeGrid,
 };
 
@@ -2763,7 +2763,7 @@ fn materialize_state_space_solutions(
         system.name.clone(),
         SimulationPlan {
             inputs: input_vector.members.clone(),
-            outputs: output_members,
+            outputs: output_members.clone(),
             states: state_vector.members.clone(),
             parameters: Vec::new(),
         },
@@ -2803,6 +2803,26 @@ fn materialize_state_space_solutions(
                 .collect(),
         },
         parameter_layout: ParameterLayout::default(),
+        output_layout: OutputLayout {
+            entries: output_members
+                .iter()
+                .enumerate()
+                .filter_map(|(index, member)| {
+                    states
+                        .iter()
+                        .find(|state| state.name == *member)
+                        .map(|state| {
+                            LayoutEntry::new(
+                                index,
+                                state.name.clone(),
+                                state.quantity_kind.clone(),
+                                state.canonical_unit.clone(),
+                                state.display_unit.clone(),
+                            )
+                        })
+                })
+                .collect(),
+        },
         initial_state,
         inputs: inputs
             .iter()
@@ -2981,6 +3001,7 @@ fn solve_discrete_state_space(
         input.plan.clone(),
         input.time_grid.clone(),
         input.state_layout.clone(),
+        input.output_layout.clone(),
         SolverOutput {
             state_trajectories,
             algebraic_trajectories: Vec::new(),
@@ -3154,6 +3175,15 @@ fn materialize_first_order_thermal_solution(
                     conductance.display_unit.clone(),
                 ),
             ],
+        },
+        output_layout: OutputLayout {
+            entries: vec![LayoutEntry::new(
+                0,
+                state.name.clone(),
+                state.quantity_kind.clone(),
+                state.canonical_unit.clone(),
+                state.display_unit.clone(),
+            )],
         },
         initial_state: vec![initial_temperature_k],
         inputs: vec![

@@ -139,10 +139,11 @@ are not public stable workflows.
 - State-space metadata and runtime seeds: typed vector/operator declarations,
   vector-member diagnostics, operator quantity/unit summaries, review metadata,
   shape-checked continuous/discrete A/B execution, multi-state fixed-step
-  Euler/RK4 trajectories with TimeSeries input materialization, and
-  report/review/result/IDE solver-inspector artifacts for state/input/parameter
-  and output lists, timestep, tolerance, iteration count, convergence status,
-  failure reason, and trajectory points. They are not a supported general
+  Euler/RK4 trajectories with TimeSeries input materialization, `OutputLayout`
+  preserved across `SolverInput`/`SolverResult`, and report/review/result/IDE
+  solver-inspector artifacts for state/input/parameter and output lists,
+  timestep, tolerance, iteration count, convergence status, failure reason, and
+  trajectory points. They are not a supported general
   nonlinear, DAE, adaptive, matrix-entry unit-compatible, or component-coupled
   state-space simulation workflow.
 - Solver algorithm seeds: dense linear solve, fixed-point iteration with

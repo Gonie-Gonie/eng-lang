@@ -88,6 +88,7 @@ Internal runtime seeds:
 
 ```text
 - standalone dense linear, fixed-point, and damped Newton algorithms
+- SolverInput/SolverResult state, input, parameter, and output layout contracts
 - supplied analytic/JIT Jacobian hook for Newton
 - standalone implicit-Euler DAE seed over F(x, xdot, z, u, t, p)
 - optional DAE mass matrix and initial consistency checks
