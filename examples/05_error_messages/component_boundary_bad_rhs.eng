@@ -1,0 +1,16 @@
+domain Thermal {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+component Boundary {
+    port heat: Thermal
+    boundary_T = heat.T = warm
+}
+
+component Ambient {
+    port heat: Thermal
+}
+
+connect Boundary.heat -> Ambient.heat

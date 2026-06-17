@@ -1245,7 +1245,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         &raw_connections,
         &mut diagnostics,
     );
-    let component_assemblies = build_component_assembly_graphs(&domains, &components, &connections);
+    let component_assemblies =
+        build_component_assembly_graphs(&domains, &components, &connections, &mut diagnostics);
     emit_component_assembly_boundary_warnings(&component_assemblies, &mut diagnostics);
     SemanticOutput {
         diagnostics,
@@ -4592,6 +4593,7 @@ fn build_component_assembly_graphs(
     domains: &[DomainInfo],
     components: &[ComponentInfo],
     connections: &[ConnectionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<ComponentAssemblyInfo> {
     if components.is_empty() {
         return Vec::new();
@@ -4800,7 +4802,7 @@ fn build_component_assembly_graphs(
     }
 
     let component_boundary_equations =
-        component_boundary_equations(domains, components, &connection_sets);
+        component_boundary_equations(domains, components, &connection_sets, diagnostics);
     equations.extend(component_boundary_equations);
 
     let algebraic_count = variables
@@ -5258,6 +5260,7 @@ fn component_boundary_equations(
     domains: &[DomainInfo],
     components: &[ComponentInfo],
     connection_sets: &[ComponentConnectionSetInfo],
+    diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<ComponentAssemblyEquationInfo> {
     let connected_variables = connection_sets
         .iter()
@@ -5299,6 +5302,17 @@ fn component_boundary_equations(
                 .iter()
                 .find(|port| port.name == port_name && port.status == "domain_resolved")
             else {
+                diagnostics.push(Diagnostic::error(
+                    "E-ASSEMBLY-BOUNDARY-SIGNAL-001",
+                    local.line,
+                    &format!(
+                        "Component boundary expression `{signal}` is not a known port signal in `{}`.",
+                        component.name
+                    ),
+                    Some(
+                        "Use `name = port.variable = literal` with a declared component port and domain variable.",
+                    ),
+                ));
                 continue;
             };
             let Some(domain) = domains
@@ -5307,16 +5321,50 @@ fn component_boundary_equations(
             else {
                 continue;
             };
-            if !domain
+            let Some(domain_variable) = domain
                 .variables
                 .iter()
-                .any(|variable| variable.name == variable_name)
-            {
+                .find(|variable| variable.name == variable_name)
+            else {
+                diagnostics.push(Diagnostic::error(
+                    "E-ASSEMBLY-BOUNDARY-SIGNAL-001",
+                    local.line,
+                    &format!(
+                        "Component boundary expression `{signal}` is not a known domain variable on `{}`.",
+                        port.domain
+                    ),
+                    Some(
+                        "Use a variable declared by the connected port domain, such as `heat.T`.",
+                    ),
+                ));
                 continue;
-            }
+            };
             let variable = format!("{}.{}.{}", component.name, port_name, variable_name);
             if !connected_variables.contains(&variable) {
                 continue;
+            }
+            let Some((_value, unit)) = numeric_literal_with_optional_unit(rhs) else {
+                diagnostics.push(Diagnostic::error(
+                    "E-ASSEMBLY-BOUNDARY-RHS-001",
+                    local.line,
+                    &format!("Component boundary RHS `{rhs}` is not a numeric literal."),
+                    Some("Use a numeric literal with an optional compatible unit, such as `22 degC`."),
+                ));
+                continue;
+            };
+            if let Some(unit) = unit {
+                if !unit_compatible_with_quantity(&domain_variable.quantity_kind, &unit) {
+                    diagnostics.push(Diagnostic::error(
+                        "E-ASSEMBLY-BOUNDARY-UNIT-001",
+                        local.line,
+                        &format!(
+                            "Component boundary RHS unit `{unit}` is not compatible with `{}`.",
+                            domain_variable.quantity_kind
+                        ),
+                        Some("Use a unit compatible with the connected port signal quantity."),
+                    ));
+                    continue;
+                }
             }
             equations.push(ComponentAssemblyEquationInfo {
                 name: format!("{}.boundary_{}", component.name, local.name),

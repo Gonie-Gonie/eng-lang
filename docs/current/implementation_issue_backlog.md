@@ -238,6 +238,8 @@ Definition of Done:
 - Duplicate connection, unknown port, unconnected port, invalid endpoint,
   incompatible domain, incompatible medium/frame/axis, and unsupported
   connect-pattern diagnostics are covered.
+- Component boundary equation RHS/type diagnostics reject non-numeric RHS values
+  and units that are incompatible with the connected port signal quantity.
 - IDE graph panel can navigate connections back to source.
 - Report summarizes connection graph and limitations.
 - Numeric component graph solving remains Planned.
