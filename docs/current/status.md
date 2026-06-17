@@ -173,7 +173,9 @@ are not public stable workflows.
 - Data-driven modeling track: train/test split metadata, deterministic model
   metrics, model-card metadata, parity plots, and residual plots.
 - Runtime optimization/JIT/AOT track: `eng_jit`, `eng.exe jit-plan`,
-  `eng.exe jit-bench`, backend selection metadata, and no speedup claim.
+  `eng.exe jit-bench`, backend selection metadata, interpreter kernel IR,
+  interpreter executor correctness tests, per-candidate executor/fallback
+  reasons, and no native speedup claim.
 - LSP/VS Code track: smoke/snapshot tests, hover/completion metadata,
   conservative same-document go-to-definition, and packaged VS Code extension
   source. This is not a stable persistent editor-service contract.

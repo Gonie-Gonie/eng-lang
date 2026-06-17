@@ -180,6 +180,8 @@ Internal implementation seeds on `main`:
 - interpreter baseline metadata
 - backend selection metadata
 - hot-kernel candidate estimates
+- interpreter kernel IR and executor correctness tests
+- per-candidate executor/fallback reason metadata
 ```
 
 Not yet public-supported:

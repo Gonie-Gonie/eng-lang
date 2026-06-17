@@ -18,6 +18,30 @@ Definition of Done:
 - Add regression tests for formatter output.
 - Document the formatter workflow in development docs.
 
+## Runtime Optimization / JIT
+
+Title: `jit: connect kernel IR to runtime optimization without native claims`
+
+Current coverage:
+
+- `eng_jit` records kernel-plan candidates, backend selection metadata, and
+  per-candidate interpreter executor/fallback reasons.
+- Runtime optimization has `eng-kernel-ir-v1` plus an interpreter executor for
+  element-wise TimeSeries arithmetic and trapezoid integration correctness
+  tests.
+- `eng.exe jit-bench` remains a normal-runtime timing harness and makes no
+  speedup claim.
+
+Definition of Done:
+
+- Lower real TimeSeries arithmetic/integration candidates from checked source
+  into executable interpreter IR using runtime inputs.
+- Add residual evaluator and Jacobian evaluator kernel IR/executor coverage.
+- Keep native backend selection behind `not_available` until native execution
+  exists and is benchmarked.
+- Report selected kernel/fallback reason in report/IDE surfaces without
+  presenting it as acceleration.
+
 ## IDE Inspectors
 
 Title: `ide: implement variable/unit/schema/TimeSeries inspectors`

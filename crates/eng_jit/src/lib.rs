@@ -4,6 +4,7 @@ use eng_compiler::CheckReport;
 use serde_json::{json, Value};
 
 pub const KERNEL_PLAN_FORMAT: &str = "eng-kernel-plan-v1";
+pub const KERNEL_IR_FORMAT: &str = "eng-kernel-ir-v1";
 pub const DEFAULT_BACKEND_REQUEST: &str = "auto";
 pub const INTERPRETER_FALLBACK_BACKEND: &str = "interpreter-fallback";
 pub const NATIVE_PREVIEW_BACKEND: &str = "native-preview";
@@ -45,6 +46,103 @@ pub struct BackendSelection {
     pub selected: String,
     pub status: String,
     pub reason: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct KernelIr {
+    pub format: String,
+    pub name: String,
+    pub kind: String,
+    pub input_count: usize,
+    pub output_count: usize,
+    pub instructions: Vec<KernelInstruction>,
+}
+
+impl KernelIr {
+    pub fn new(
+        name: impl Into<String>,
+        kind: impl Into<String>,
+        input_count: usize,
+        output_count: usize,
+        instructions: Vec<KernelInstruction>,
+    ) -> Self {
+        Self {
+            format: KERNEL_IR_FORMAT.to_owned(),
+            name: name.into(),
+            kind: kind.into(),
+            input_count,
+            output_count,
+            instructions,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum KernelInstruction {
+    LoadInput {
+        input: usize,
+        register: usize,
+    },
+    LoadConstant {
+        value: f64,
+        register: usize,
+    },
+    Binary {
+        op: KernelBinaryOp,
+        left: usize,
+        right: usize,
+        target: usize,
+    },
+    StoreSeries {
+        register: usize,
+        output: usize,
+    },
+    IntegrateTrapezoid {
+        input: usize,
+        timestep_s: f64,
+        output: usize,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum KernelBinaryOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct KernelExecutionInput {
+    pub series_inputs: Vec<Vec<f64>>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct KernelExecutionOutput {
+    pub backend: String,
+    pub fallback_reason: Option<String>,
+    pub outputs: Vec<KernelOutputValue>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum KernelOutputValue {
+    Series(Vec<f64>),
+    Scalar(f64),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct KernelExecutionFailure {
+    pub code: String,
+    pub message: String,
+}
+
+impl KernelExecutionFailure {
+    fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            code: code.into(),
+            message: message.into(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -212,6 +310,7 @@ pub fn plan_json_string(plan: &NumericKernelPlan) -> String {
 }
 
 fn candidate_json(candidate: &KernelCandidate) -> Value {
+    let (executor_status, executor_reason) = candidate_executor_status(candidate);
     json!({
         "name": candidate.name,
         "kind": candidate.kind,
@@ -229,6 +328,68 @@ fn candidate_json(candidate: &KernelCandidate) -> Value {
             "complexity": candidate.estimate.complexity,
             "notes": candidate.estimate.notes,
         },
+        "executor": {
+            "backend": INTERPRETER_FALLBACK_BACKEND,
+            "status": executor_status,
+            "fallback_reason": executor_reason,
+        },
+    })
+}
+
+pub fn execute_interpreter_kernel(
+    ir: &KernelIr,
+    input: &KernelExecutionInput,
+) -> Result<KernelExecutionOutput, KernelExecutionFailure> {
+    validate_kernel_ir(ir)?;
+    let row_count = validate_kernel_input(ir, input)?;
+    let mut outputs = vec![None; ir.output_count];
+
+    for instruction in &ir.instructions {
+        if let KernelInstruction::IntegrateTrapezoid {
+            input: input_index,
+            timestep_s,
+            output,
+        } = instruction
+        {
+            if !timestep_s.is_finite() || *timestep_s <= 0.0 {
+                return Err(KernelExecutionFailure::new(
+                    "E-KERNEL-TIMESTEP",
+                    "trapezoid integration timestep must be a positive finite number",
+                ));
+            }
+            let values = &input.series_inputs[*input_index];
+            let integral = values
+                .windows(2)
+                .map(|window| (window[0] + window[1]) * 0.5 * timestep_s)
+                .sum::<f64>();
+            store_output(&mut outputs, *output, KernelOutputValue::Scalar(integral))?;
+        }
+    }
+
+    for row in 0..row_count {
+        let mut registers = Vec::new();
+        for instruction in &ir.instructions {
+            execute_row_instruction(instruction, row, input, &mut registers, &mut outputs)?;
+        }
+    }
+
+    let outputs = outputs
+        .into_iter()
+        .enumerate()
+        .map(|(index, output)| {
+            output.ok_or_else(|| {
+                KernelExecutionFailure::new(
+                    "E-KERNEL-OUTPUT-MISSING",
+                    format!("kernel output slot {index} was not written"),
+                )
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(KernelExecutionOutput {
+        backend: INTERPRETER_FALLBACK_BACKEND.to_owned(),
+        fallback_reason: None,
+        outputs,
     })
 }
 
@@ -269,6 +430,222 @@ fn select_backend(requested: &str) -> BackendSelection {
             status: "unknown_request".to_owned(),
             reason: "unknown backend request; falling back to interpreter metadata".to_owned(),
         },
+    }
+}
+
+fn validate_kernel_ir(ir: &KernelIr) -> Result<(), KernelExecutionFailure> {
+    if ir.format != KERNEL_IR_FORMAT {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-IR-FORMAT",
+            "unsupported kernel IR format",
+        ));
+    }
+    if ir.input_count == 0 || ir.output_count == 0 || ir.instructions.is_empty() {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-IR-SHAPE",
+            "kernel IR requires at least one input, one output, and one instruction",
+        ));
+    }
+    for instruction in &ir.instructions {
+        match instruction {
+            KernelInstruction::LoadInput { input, .. } => {
+                if *input >= ir.input_count {
+                    return Err(KernelExecutionFailure::new(
+                        "E-KERNEL-IR-INPUT",
+                        "kernel instruction references an out-of-range input",
+                    ));
+                }
+            }
+            KernelInstruction::StoreSeries { output, .. } => {
+                if *output >= ir.output_count {
+                    return Err(KernelExecutionFailure::new(
+                        "E-KERNEL-IR-OUTPUT",
+                        "kernel instruction references an out-of-range output",
+                    ));
+                }
+            }
+            KernelInstruction::IntegrateTrapezoid { input, output, .. } => {
+                if *input >= ir.input_count {
+                    return Err(KernelExecutionFailure::new(
+                        "E-KERNEL-IR-INPUT",
+                        "kernel instruction references an out-of-range input",
+                    ));
+                }
+                if *output >= ir.output_count {
+                    return Err(KernelExecutionFailure::new(
+                        "E-KERNEL-IR-OUTPUT",
+                        "kernel instruction references an out-of-range output",
+                    ));
+                }
+            }
+            KernelInstruction::LoadConstant { .. } | KernelInstruction::Binary { .. } => {}
+        }
+    }
+    Ok(())
+}
+
+fn validate_kernel_input(
+    ir: &KernelIr,
+    input: &KernelExecutionInput,
+) -> Result<usize, KernelExecutionFailure> {
+    if input.series_inputs.len() != ir.input_count {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-INPUT-LAYOUT",
+            "kernel input series count does not match the IR input count",
+        ));
+    }
+    let Some(first) = input.series_inputs.first() else {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-INPUT-LAYOUT",
+            "kernel requires at least one series input",
+        ));
+    };
+    let row_count = first.len();
+    if input
+        .series_inputs
+        .iter()
+        .any(|series| series.len() != row_count)
+    {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-INPUT-LAYOUT",
+            "kernel input series must have equal row counts",
+        ));
+    }
+    if input
+        .series_inputs
+        .iter()
+        .flatten()
+        .any(|value| !value.is_finite())
+    {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-INPUT-FINITE",
+            "kernel input series contain a non-finite value",
+        ));
+    }
+    Ok(row_count)
+}
+
+fn execute_row_instruction(
+    instruction: &KernelInstruction,
+    row: usize,
+    input: &KernelExecutionInput,
+    registers: &mut Vec<f64>,
+    outputs: &mut [Option<KernelOutputValue>],
+) -> Result<(), KernelExecutionFailure> {
+    match instruction {
+        KernelInstruction::LoadInput {
+            input: input_index,
+            register,
+        } => set_register(registers, *register, input.series_inputs[*input_index][row]),
+        KernelInstruction::LoadConstant { value, register } => {
+            if !value.is_finite() {
+                return Err(KernelExecutionFailure::new(
+                    "E-KERNEL-CONSTANT-FINITE",
+                    "kernel constant must be finite",
+                ));
+            }
+            set_register(registers, *register, *value)
+        }
+        KernelInstruction::Binary {
+            op,
+            left,
+            right,
+            target,
+        } => {
+            let left = get_register(registers, *left)?;
+            let right = get_register(registers, *right)?;
+            let value = match op {
+                KernelBinaryOp::Add => left + right,
+                KernelBinaryOp::Sub => left - right,
+                KernelBinaryOp::Mul => left * right,
+                KernelBinaryOp::Div => {
+                    if right.abs() <= f64::EPSILON {
+                        return Err(KernelExecutionFailure::new(
+                            "E-KERNEL-DIVIDE-BY-ZERO",
+                            "kernel division denominator is zero",
+                        ));
+                    }
+                    left / right
+                }
+            };
+            set_register(registers, *target, value)
+        }
+        KernelInstruction::StoreSeries { register, output } => {
+            let value = get_register(registers, *register)?;
+            match &mut outputs[*output] {
+                None => {
+                    let mut values = vec![0.0; input.series_inputs[0].len()];
+                    values[row] = value;
+                    outputs[*output] = Some(KernelOutputValue::Series(values));
+                    Ok(())
+                }
+                Some(KernelOutputValue::Series(values)) => {
+                    values[row] = value;
+                    Ok(())
+                }
+                Some(KernelOutputValue::Scalar(_)) => Err(KernelExecutionFailure::new(
+                    "E-KERNEL-OUTPUT-KIND",
+                    "kernel attempted to write a series into a scalar output slot",
+                )),
+            }
+        }
+        KernelInstruction::IntegrateTrapezoid { .. } => Ok(()),
+    }
+}
+
+fn set_register(
+    registers: &mut Vec<f64>,
+    register: usize,
+    value: f64,
+) -> Result<(), KernelExecutionFailure> {
+    if !value.is_finite() {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-VALUE-FINITE",
+            "kernel instruction produced a non-finite value",
+        ));
+    }
+    if register >= registers.len() {
+        registers.resize(register + 1, 0.0);
+    }
+    registers[register] = value;
+    Ok(())
+}
+
+fn get_register(registers: &[f64], register: usize) -> Result<f64, KernelExecutionFailure> {
+    registers.get(register).copied().ok_or_else(|| {
+        KernelExecutionFailure::new(
+            "E-KERNEL-REGISTER",
+            "kernel instruction references an unset register",
+        )
+    })
+}
+
+fn store_output(
+    outputs: &mut [Option<KernelOutputValue>],
+    output: usize,
+    value: KernelOutputValue,
+) -> Result<(), KernelExecutionFailure> {
+    if outputs[output].is_some() {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-OUTPUT-DUPLICATE",
+            "kernel output slot was written more than once",
+        ));
+    }
+    outputs[output] = Some(value);
+    Ok(())
+}
+
+fn candidate_executor_status(candidate: &KernelCandidate) -> (&'static str, &'static str) {
+    if candidate.lowering_status == "lowerable_to_numeric_kernel_plan" {
+        (
+            "interpreter_supported",
+            "candidate can execute through the interpreter kernel IR when runtime inputs are supplied",
+        )
+    } else {
+        (
+            "fallback_metadata_only",
+            "candidate does not yet have an executable interpreter kernel lowering",
+        )
     }
 }
 
@@ -482,5 +859,139 @@ mod tests {
             NATIVE_PREVIEW_BACKEND
         );
         assert_eq!(native_plan.backend_selection.status, "not_available");
+    }
+
+    #[test]
+    fn interpreter_executes_elementwise_kernel_ir() {
+        let ir = KernelIr::new(
+            "mul_add",
+            "timeseries_arithmetic",
+            2,
+            1,
+            vec![
+                KernelInstruction::LoadInput {
+                    input: 0,
+                    register: 0,
+                },
+                KernelInstruction::LoadInput {
+                    input: 1,
+                    register: 1,
+                },
+                KernelInstruction::Binary {
+                    op: KernelBinaryOp::Mul,
+                    left: 0,
+                    right: 1,
+                    target: 2,
+                },
+                KernelInstruction::LoadConstant {
+                    value: 1.0,
+                    register: 3,
+                },
+                KernelInstruction::Binary {
+                    op: KernelBinaryOp::Add,
+                    left: 2,
+                    right: 3,
+                    target: 4,
+                },
+                KernelInstruction::StoreSeries {
+                    register: 4,
+                    output: 0,
+                },
+            ],
+        );
+        let output = execute_interpreter_kernel(
+            &ir,
+            &KernelExecutionInput {
+                series_inputs: vec![vec![1.0, 2.0], vec![10.0, 20.0]],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(output.backend, INTERPRETER_FALLBACK_BACKEND);
+        assert_eq!(output.fallback_reason, None);
+        assert_eq!(
+            output.outputs,
+            vec![KernelOutputValue::Series(vec![11.0, 41.0])]
+        );
+    }
+
+    #[test]
+    fn interpreter_executes_trapezoid_integral_kernel_ir() {
+        let ir = KernelIr::new(
+            "integrate_q",
+            "timeseries_integrate",
+            1,
+            1,
+            vec![KernelInstruction::IntegrateTrapezoid {
+                input: 0,
+                timestep_s: 0.5,
+                output: 0,
+            }],
+        );
+        let output = execute_interpreter_kernel(
+            &ir,
+            &KernelExecutionInput {
+                series_inputs: vec![vec![0.0, 2.0, 4.0]],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(output.outputs, vec![KernelOutputValue::Scalar(2.0)]);
+    }
+
+    #[test]
+    fn interpreter_reports_input_shape_failure() {
+        let ir = KernelIr::new(
+            "bad_shape",
+            "timeseries_arithmetic",
+            2,
+            1,
+            vec![KernelInstruction::LoadInput {
+                input: 0,
+                register: 0,
+            }],
+        );
+        let failure = execute_interpreter_kernel(
+            &ir,
+            &KernelExecutionInput {
+                series_inputs: vec![vec![1.0], vec![1.0, 2.0]],
+            },
+        )
+        .unwrap_err();
+
+        assert_eq!(failure.code, "E-KERNEL-INPUT-LAYOUT");
+    }
+
+    #[test]
+    fn plan_json_reports_executor_status_and_fallback_reason() {
+        let lowerable = KernelCandidate {
+            name: "candidate".to_owned(),
+            kind: "timeseries_arithmetic".to_owned(),
+            line: 1,
+            source: "a + b".to_owned(),
+            reason: "test".to_owned(),
+            lowering_status: "lowerable_to_numeric_kernel_plan".to_owned(),
+            operations: vec!["elementwise_add".to_owned()],
+            estimate: elementwise_estimate("a + b", &["elementwise_add".to_owned()], Some(2)),
+        };
+        let interface_only = KernelCandidate {
+            lowering_status: "interface_only".to_owned(),
+            ..lowerable.clone()
+        };
+
+        assert_eq!(
+            candidate_json(&lowerable)["executor"]["status"],
+            "interpreter_supported"
+        );
+        assert_eq!(
+            candidate_json(&interface_only)["executor"]["status"],
+            "fallback_metadata_only"
+        );
+        assert!(
+            candidate_json(&interface_only)["executor"]["fallback_reason"]
+                .as_str()
+                .unwrap()
+                .contains("does not yet have")
+        );
     }
 }

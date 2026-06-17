@@ -1,8 +1,9 @@
 # Kernel Plan Reference
 
 `eng.exe jit-plan <file.eng>` emits internal hot-kernel metadata for the
-runtime optimization track. The output is a planning artifact only. It does not mean
-native code has been generated, selected, cached, or executed.
+runtime optimization track. The output includes per-candidate interpreter
+executor status, but it does not mean native code has been generated, selected,
+cached, or executed.
 
 The current format marker is:
 
@@ -87,6 +88,11 @@ execution, or benchmarked.
       "adjacent samples form trapezoid intervals",
       "stores one integrated quantity"
     ]
+  },
+  "executor": {
+    "backend": "interpreter-fallback",
+    "status": "interpreter_supported",
+    "fallback_reason": "candidate can execute through the interpreter kernel IR when runtime inputs are supplied"
   }
 }
 ```
@@ -117,6 +123,38 @@ as interface-only system residual planning.
 `operation_count` is an operation-class count used for planning and inspection.
 It is not a floating-point operation count and must not be used for performance
 claims.
+
+## Executor Shape
+
+`executor` records whether the internal interpreter kernel IR can execute the
+candidate when runtime inputs are supplied. It is still not a native backend.
+
+```json
+{
+  "backend": "interpreter-fallback",
+  "status": "interpreter_supported",
+  "fallback_reason": "candidate can execute through the interpreter kernel IR when runtime inputs are supplied"
+}
+```
+
+Known statuses:
+
+```text
+interpreter_supported
+fallback_metadata_only
+```
+
+`fallback_metadata_only` is used for candidates such as current
+`system_residual` entries that reserve a future solver/RHS/Jacobian boundary
+but do not yet have executable interpreter lowering.
+
+## Kernel IR
+
+The internal interpreter executor uses `eng-kernel-ir-v1` with explicit
+instructions for loading TimeSeries inputs, constants, binary arithmetic,
+series stores, and trapezoid integration. This IR currently supports
+correctness tests for element-wise arithmetic and integration kernels. It is
+not a native code format and is not part of the public stable API.
 
 ## Candidate Kinds
 
@@ -151,7 +189,7 @@ Use the kernel plan for:
 - native IDE Runtime/Inspector summaries
 - coarse candidate size/cost inspection
 - `eng-jit-bench-v1` interpreter baseline harness metadata
-- future backend lowering tests
+- interpreter kernel correctness tests and future backend lowering tests
 
 Do not use the kernel plan as:
 

@@ -4,9 +4,12 @@
 artifact. It is a runtime optimization track planning harness, not a
 performance claim.
 
-The current harness measures only the normal interpreter/runtime path. The JIT
-side is present in the JSON shape as `status = "not_available"` so future native
-backend timing can be added without changing the consumer boundary.
+The current harness measures only the normal interpreter/runtime path. The
+`eng_jit` crate also has an internal interpreter kernel IR/executor for
+correctness tests, but `eng.exe jit-bench` does not report speedups from it.
+The JIT side is present in the JSON shape as `status = "not_available"` so
+future native backend timing can be added without changing the consumer
+boundary.
 
 ## Top-Level Shape
 
