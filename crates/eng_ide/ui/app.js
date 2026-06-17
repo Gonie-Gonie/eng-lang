@@ -1231,6 +1231,14 @@ function renderAssemblies() {
       || boundary.balanceStatus
       || "-";
     const failure = solverResult.failure_artifact || solverResult.failureArtifact || {};
+    const failureReason = solverResult.failure_reason
+      || solverResult.failureReason
+      || failure.message
+      || failure.reason
+      || "-";
+    const largestResiduals = solverResult.largest_residuals
+      || solverResult.largestResiduals
+      || solverResult.residuals;
     return `
       <tr>
         <td><strong>${escapeHtml(assembly.name || "-")}</strong><div class="muted">${escapeHtml(assembly.status || "-")}</div></td>
@@ -1241,7 +1249,7 @@ function renderAssemblies() {
         <td>${metricCell(solverResult.residual_norm ?? solverResult.residualNorm)}<div class="muted">iter ${escapeHtml(solverResult.iteration_count ?? solverResult.iterationCount ?? "-")}</div></td>
         <td>${escapeHtml(componentSolverVariableSummary(solverResult.variables))}</td>
         <td>${escapeHtml(componentSolverTrajectorySummary(solverResult.trajectories))}</td>
-        <td>${escapeHtml(componentSolverLargestResidual(solverResult.residuals))}<div class="muted">${escapeHtml(failure.code || "-")}</div></td>
+        <td>${escapeHtml(componentSolverLargestResidual(largestResiduals))}<div class="muted">${escapeHtml(failure.code || "-")}</div><div class="muted">${escapeHtml(failureReason)}</div></td>
       </tr>
     `;
   }).join("");

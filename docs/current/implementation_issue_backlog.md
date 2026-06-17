@@ -420,6 +420,7 @@ Definition of Done:
   nullable `failure_code`/`failure_reason` aliases plus `largest_residuals`,
   capped to the top normalized residuals for direct report/IDE inspection.
 - IDE Assembly panel shows residual dependency rows from
-  `assembly_summary[].residual_graph.dependencies`.
+  `assembly_summary[].residual_graph.dependencies` and surfaces solver failure
+  code/message plus `largest_residuals` aliases when present.
 - Under/overdetermined cases produce diagnostics or limitation artifacts.
 - No production multi-domain solver claim is made.

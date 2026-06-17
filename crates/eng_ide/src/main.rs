@@ -2086,6 +2086,11 @@ fn smoke() -> Result<(), String> {
                             .and_then(|failure| json_field_string(failure, "code"))
                             .as_deref()
                             == Some("E-ASSEMBLY-UNDERDETERMINED")
+                        && solver_result
+                            .get("failure_artifact")
+                            .and_then(|failure| json_field_string(failure, "message"))
+                            .is_some()
+                        && json_field_string(solver_result, "failure_reason").is_some()
                 })
             });
     if !has_component_solver_result {
