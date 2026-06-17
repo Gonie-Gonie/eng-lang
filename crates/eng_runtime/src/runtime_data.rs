@@ -18,9 +18,10 @@ use crate::solver::{
         ComponentEquation, ComponentInstance, ConnectionEdge, ConnectionSet, EquationAssembly,
         GeneratedEquation, PortInstance, UnknownVariable,
     },
-    InputLayout, LayoutEntry, ParameterLayout, ResidualGraph, RhsEvaluator, RhsInput, RhsStateInfo,
-    SimulationPlan, SolverFailure, SolverInput, SolverOptions, SolverOutput, SolverPlan,
-    SolverResult, SolverScalar, StateLayout, StateSpaceRhsEvaluator, StateTrajectory, TimeGrid,
+    InputLayout, LayoutEntry, ParameterLayout, ResidualEvaluator, ResidualGraph, ResidualInput,
+    RhsEvaluator, RhsInput, RhsStateInfo, SimulationPlan, SolverFailure, SolverInput,
+    SolverOptions, SolverOutput, SolverPlan, SolverResult, SolverScalar, StateLayout,
+    StateSpaceRhsEvaluator, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -2232,21 +2233,29 @@ fn materialize_component_solutions(report: &CheckReport) -> Vec<RuntimeComponent
                     status: "homogeneous_zero_seed".to_owned(),
                 })
                 .collect::<Vec<_>>();
+            let variable_values = variables
+                .iter()
+                .map(|variable| variable.value)
+                .collect::<Vec<_>>();
+            let residual_output = residual_graph.evaluate(&ResidualInput {
+                values: &variable_values,
+            });
             let residuals = residual_graph
                 .residuals
                 .iter()
-                .map(|residual| RuntimeComponentResidualEvaluation {
+                .zip(residual_output.values.iter())
+                .map(|(residual, value)| RuntimeComponentResidualEvaluation {
                     name: residual.name.clone(),
                     expression: residual.expression.text.clone(),
-                    value: 0.0,
-                    status: "satisfied".to_owned(),
+                    value: value.value,
+                    status: if value.normalized_value.abs() <= 1e-9 {
+                        "satisfied".to_owned()
+                    } else {
+                        "unsatisfied".to_owned()
+                    },
                 })
                 .collect::<Vec<_>>();
-            let residual_norm = residuals
-                .iter()
-                .map(|residual| residual.value * residual.value)
-                .sum::<f64>()
-                .sqrt();
+            let residual_norm = residual_output.residual_norm;
             let (status, reason, failure_artifact) = if equation_count == 0 {
                 (
                     "not_solved_no_equations".to_owned(),
@@ -5485,12 +5494,24 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         assert!(residual_graph.residuals.iter().any(|residual| {
             residual.name == "connection_set_1.through_Q_conservation"
                 && residual.variable_indices.len() == 2
+                && residual.terms.iter().all(|term| term.coefficient == 1.0)
                 && residual
                     .source
                     .generated_reason
                     .as_deref()
                     .is_some_and(|reason| reason.contains("through variable conservation"))
         }));
+        let zero_values = vec![0.0; residual_graph.variables.len()];
+        let zero_output = residual_graph.evaluate(&ResidualInput {
+            values: &zero_values,
+        });
+        assert_eq!(zero_output.residual_norm, 0.0);
+        let mut perturbed_values = zero_values;
+        perturbed_values[0] = 1.0;
+        let perturbed_output = residual_graph.evaluate(&ResidualInput {
+            values: &perturbed_values,
+        });
+        assert!(perturbed_output.residual_norm > 0.0);
 
         assert_eq!(runtime.component_solutions.len(), 1);
         let solution = &runtime.component_solutions[0];

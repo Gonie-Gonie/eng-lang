@@ -46,6 +46,11 @@ impl ResidualGraph {
                     .iter()
                     .filter_map(|dependency| variable_indices.get(dependency).copied())
                     .collect::<Vec<_>>();
+                let terms = residual_terms_for_generated_equation(
+                    &equation.kind,
+                    &equation.dependencies,
+                    &variable_indices,
+                );
                 let (unit, quantity_kind) = equation
                     .dependencies
                     .first()
@@ -67,6 +72,7 @@ impl ResidualGraph {
                         generated_reason: Some(equation.reason.clone()),
                     },
                     variable_indices: indices,
+                    terms,
                 }
             })
             .collect::<Vec<_>>();
@@ -91,6 +97,71 @@ impl ResidualGraph {
     }
 }
 
+fn residual_terms_for_generated_equation(
+    kind: &str,
+    dependencies: &[String],
+    variable_indices: &HashMap<String, usize>,
+) -> Vec<ResidualTerm> {
+    dependencies
+        .iter()
+        .enumerate()
+        .filter_map(|(index, variable)| {
+            let variable_index = variable_indices.get(variable).copied()?;
+            let coefficient = match kind {
+                "across_equality" if index == 1 => -1.0,
+                _ => 1.0,
+            };
+            Some(ResidualTerm {
+                variable_index,
+                variable: variable.clone(),
+                coefficient,
+            })
+        })
+        .collect()
+}
+
+pub trait ResidualEvaluator {
+    fn evaluate(&self, input: &ResidualInput<'_>) -> ResidualOutput;
+}
+
+impl ResidualEvaluator for ResidualGraph {
+    fn evaluate(&self, input: &ResidualInput<'_>) -> ResidualOutput {
+        let values = self
+            .residuals
+            .iter()
+            .map(|residual| {
+                let value = residual
+                    .terms
+                    .iter()
+                    .map(|term| {
+                        term.coefficient
+                            * input
+                                .values
+                                .get(term.variable_index)
+                                .copied()
+                                .unwrap_or_default()
+                    })
+                    .sum::<f64>();
+                let normalized_value = value / residual.scale.value.max(f64::EPSILON);
+                NamedResidualValue {
+                    name: residual.name.clone(),
+                    value,
+                    normalized_value,
+                }
+            })
+            .collect::<Vec<_>>();
+        let residual_norm = values
+            .iter()
+            .map(|value| value.normalized_value * value.normalized_value)
+            .sum::<f64>()
+            .sqrt();
+        ResidualOutput {
+            values,
+            residual_norm,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ResidualEquation {
     pub name: String,
@@ -99,6 +170,32 @@ pub struct ResidualEquation {
     pub scale: ResidualScale,
     pub source: ResidualSource,
     pub variable_indices: Vec<usize>,
+    pub terms: Vec<ResidualTerm>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ResidualTerm {
+    pub variable_index: usize,
+    pub variable: String,
+    pub coefficient: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ResidualInput<'a> {
+    pub values: &'a [f64],
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ResidualOutput {
+    pub values: Vec<NamedResidualValue>,
+    pub residual_norm: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct NamedResidualValue {
+    pub name: String,
+    pub value: f64,
+    pub normalized_value: f64,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
