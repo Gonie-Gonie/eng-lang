@@ -487,6 +487,10 @@ Current coverage:
 - Component connection/assembly diagnostics use checklist canonical codes for
   domain mismatch, medium mismatch, unknown port, unconnected port,
   underdetermined/overdetermined assembly, and algebraic-loop warnings.
+- `EquationAssembly::dynamic_component_split` validates state/algebraic/input/
+  parameter role splits, rejects duplicate or inconsistent variable
+  classifications, and produces solver layouts for the dynamic-component seed
+  boundary.
 
 Title: `assembly: harden generated equations and residual graph artifacts`
 

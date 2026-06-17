@@ -228,9 +228,10 @@ are not public stable workflows.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,
   generated connection-equation metadata, residual graph metadata,
   structured residual evaluator input, normalized residual evaluation,
-  generated-equation reasons, domain-plan metadata, IDE component graph and
-  equation/residual/dependency source-line inspection, and connection constraint
-  consistency artifacts.
+  generated-equation reasons, domain-plan metadata, dynamic-component
+  state/algebraic/input/parameter split validation into solver layouts, IDE
+  component graph and equation/residual/dependency source-line inspection, and
+  connection constraint consistency artifacts.
   LSP port hovers expose
   type/base-domain and medium/frame/axis labels. It is not a production
   component-graph or multi-domain solver.
