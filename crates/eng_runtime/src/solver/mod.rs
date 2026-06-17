@@ -7,6 +7,9 @@ pub mod residual;
 pub mod result;
 
 pub use diagnostics::{SolverDiagnostics, SolverFailure};
+pub use evaluator::{
+    NamedDerivative, RhsEvaluator, RhsInput, RhsOutput, RhsStateInfo, StateSpaceRhsEvaluator,
+};
 pub use plan::{
     InputLayout, LayoutEntry, OutputLayout, ParameterLayout, SimulationPlan, SolverInput,
     SolverOptions, SolverPlan, SolverScalar, StateLayout, TimeGrid,

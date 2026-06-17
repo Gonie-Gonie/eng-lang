@@ -14,8 +14,9 @@ use eng_report::{
 
 use crate::solver::{
     algorithms::fixed_step::{solve_explicit_euler, solve_rk4, RhsSample},
-    InputLayout, LayoutEntry, ParameterLayout, SimulationPlan, SolverFailure, SolverInput,
-    SolverOptions, SolverPlan, SolverResult, SolverScalar, StateLayout, StateTrajectory, TimeGrid,
+    InputLayout, LayoutEntry, ParameterLayout, RhsEvaluator, RhsInput, RhsStateInfo,
+    SimulationPlan, SolverFailure, SolverInput, SolverOptions, SolverPlan, SolverResult,
+    SolverScalar, StateLayout, StateSpaceRhsEvaluator, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -2527,6 +2528,22 @@ fn materialize_state_space_solutions(
             .collect::<Option<Vec<_>>>()?,
         parameters: Vec::new(),
     };
+    let rhs_evaluator = StateSpaceRhsEvaluator::new(
+        states
+            .iter()
+            .map(|state| {
+                RhsStateInfo::new(
+                    state.name.clone(),
+                    state.quantity_kind.clone(),
+                    state.canonical_unit.clone(),
+                )
+            })
+            .collect(),
+        matrix_a,
+        matrix_b,
+        inputs.len(),
+    )
+    .ok()?;
 
     let solver_result = solve_fixed_step_ode(fixed_step_method, &solver_input, |sample| {
         let input_values = inputs
@@ -2540,24 +2557,13 @@ fn materialize_state_space_solutions(
                     "state-space solver could not materialize one or more input values",
                 )
             })?;
-        let derivatives = matrix_a
-            .iter()
-            .zip(matrix_b.iter())
-            .map(|(a_row, b_row)| {
-                let state_term = a_row
-                    .iter()
-                    .zip(sample.state.iter())
-                    .map(|(coefficient, value)| coefficient * value)
-                    .sum::<f64>();
-                let input_term = b_row
-                    .iter()
-                    .zip(input_values.iter())
-                    .map(|(coefficient, value)| coefficient * value)
-                    .sum::<f64>();
-                state_term + input_term
-            })
-            .collect::<Vec<_>>();
-        Ok(derivatives)
+        let rhs_output = rhs_evaluator.evaluate(&RhsInput {
+            t: sample.time_s,
+            x: sample.state.to_vec(),
+            u: input_values,
+            p: Vec::new(),
+        })?;
+        Ok(rhs_output.derivatives)
     })
     .ok()?;
 
