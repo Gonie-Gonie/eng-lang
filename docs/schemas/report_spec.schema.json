@@ -30,6 +30,8 @@
     "class_summary",
     "object_summary",
     "system_summary",
+    "state_space_vectors",
+    "linear_operators",
     "system_ir",
     "plot_manifest"
   ],
@@ -122,6 +124,14 @@
     "system_summary": {
       "type": "array",
       "items": { "$ref": "#/$defs/systemSummary" }
+    },
+    "state_space_vectors": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/stateSpaceVector" }
+    },
+    "linear_operators": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/linearOperator" }
     },
     "system_ir": {
       "type": "array",
@@ -1069,6 +1079,47 @@
         "name": { "type": "string" },
         "expression": { "type": "string" },
         "dimension": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "stateSpaceVector": {
+      "type": "object",
+      "required": ["system", "role", "name", "vector_type", "members", "status", "line"],
+      "properties": {
+        "system": { "type": "string" },
+        "role": { "type": "string" },
+        "name": { "type": "string" },
+        "vector_type": { "type": "string" },
+        "members": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "linearOperator": {
+      "type": "object",
+      "required": [
+        "system",
+        "name",
+        "from",
+        "to",
+        "expression",
+        "row_count",
+        "column_count",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "system": { "type": "string" },
+        "name": { "type": "string" },
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "expression": { "type": ["string", "null"] },
+        "row_count": { "type": "integer", "minimum": 0 },
+        "column_count": { "type": "integer", "minimum": 0 },
+        "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }
     },

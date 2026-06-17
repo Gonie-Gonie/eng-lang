@@ -72,6 +72,8 @@ pub struct ReportSpec {
     pub classes: Vec<ReportClassSummary>,
     pub class_objects: Vec<ReportClassObjectSummary>,
     pub systems: Vec<ReportSystemSummary>,
+    pub state_space_vectors: Vec<ReportStateSpaceVector>,
+    pub linear_operators: Vec<ReportLinearOperator>,
     pub system_ir: Vec<ReportSystemIr>,
     pub plot_manifest: ReportPlotManifest,
     pub warnings: Vec<ReportWarning>,
@@ -684,6 +686,30 @@ pub struct ReportSystemVariable {
     pub display_unit: String,
     pub dimension: String,
     pub initial_value: Option<String>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportStateSpaceVector {
+    pub system: String,
+    pub role: String,
+    pub name: String,
+    pub vector_type: String,
+    pub members: Vec<String>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportLinearOperator {
+    pub system: String,
+    pub name: String,
+    pub from: String,
+    pub to: String,
+    pub expression: Option<String>,
+    pub row_count: usize,
+    pub column_count: usize,
+    pub status: String,
     pub line: usize,
 }
 
@@ -1466,6 +1492,36 @@ pub fn report_spec_from_report(
             line: system.line,
         })
         .collect();
+    let state_space_vectors = report
+        .semantic_program
+        .state_space_vectors
+        .iter()
+        .map(|vector| ReportStateSpaceVector {
+            system: vector.system.clone(),
+            role: vector.role.clone(),
+            name: vector.name.clone(),
+            vector_type: vector.vector_type.clone(),
+            members: vector.members.clone(),
+            status: vector.status.clone(),
+            line: vector.line,
+        })
+        .collect();
+    let linear_operators = report
+        .semantic_program
+        .linear_operators
+        .iter()
+        .map(|operator| ReportLinearOperator {
+            system: operator.system.clone(),
+            name: operator.name.clone(),
+            from: operator.from.clone(),
+            to: operator.to.clone(),
+            expression: operator.expression.clone(),
+            row_count: operator.row_count,
+            column_count: operator.column_count,
+            status: operator.status.clone(),
+            line: operator.line,
+        })
+        .collect();
 
     ReportSpec {
         source_path: report.source_path.display().to_string(),
@@ -1495,6 +1551,8 @@ pub fn report_spec_from_report(
         classes,
         class_objects,
         systems,
+        state_space_vectors,
+        linear_operators,
         system_ir,
         plot_manifest: ReportPlotManifest {
             path: plot_manifest_relative_path.to_owned(),
@@ -3425,6 +3483,89 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
     }
     json.push_str("\n  ],\n");
 
+    json.push_str("  \"state_space_vectors\": [\n");
+    for (index, vector) in spec.state_space_vectors.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"system\": \"{}\",\n",
+            json_escape(&vector.system)
+        ));
+        json.push_str(&format!(
+            "      \"role\": \"{}\",\n",
+            json_escape(&vector.role)
+        ));
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&vector.name)
+        ));
+        json.push_str(&format!(
+            "      \"vector_type\": \"{}\",\n",
+            json_escape(&vector.vector_type)
+        ));
+        json.push_str("      \"members\": [");
+        for (member_index, member) in vector.members.iter().enumerate() {
+            if member_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(member)));
+        }
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&vector.status)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", vector.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
+    json.push_str("  \"linear_operators\": [\n");
+    for (index, operator) in spec.linear_operators.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"system\": \"{}\",\n",
+            json_escape(&operator.system)
+        ));
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&operator.name)
+        ));
+        json.push_str(&format!(
+            "      \"from\": \"{}\",\n",
+            json_escape(&operator.from)
+        ));
+        json.push_str(&format!(
+            "      \"to\": \"{}\",\n",
+            json_escape(&operator.to)
+        ));
+        if let Some(expression) = &operator.expression {
+            json.push_str(&format!(
+                "      \"expression\": \"{}\",\n",
+                json_escape(expression)
+            ));
+        } else {
+            json.push_str("      \"expression\": null,\n");
+        }
+        json.push_str(&format!("      \"row_count\": {},\n", operator.row_count));
+        json.push_str(&format!(
+            "      \"column_count\": {},\n",
+            operator.column_count
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&operator.status)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", operator.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+
     json.push_str("  \"system_ir\": [\n");
     for (index, system) in spec.system_ir.iter().enumerate() {
         if index > 0 {
@@ -4583,6 +4724,7 @@ fn render_html_inner(
     let component_solver_section = spec
         .map(render_component_solver_section)
         .unwrap_or_default();
+    let state_space_section = spec.map(render_state_space_section).unwrap_or_default();
     let system_solver_section = spec.map(render_system_solver_section).unwrap_or_default();
 
     format!(
@@ -4782,6 +4924,7 @@ fn render_html_inner(
       <thead><tr><th>Line</th><th>Object</th><th>Class</th><th>Field</th><th>Expression</th><th>Quantity</th><th>Unit</th><th>Status</th></tr></thead>
       <tbody>{object_summary}</tbody>
     </table>
+    {state_space_section}
     {system_solver_section}
     <h2>System Equations</h2>
     <table>
@@ -4952,6 +5095,68 @@ fn format_alignment_number(value: f64) -> String {
         text.pop();
     }
     text
+}
+
+fn render_state_space_section(spec: &ReportSpec) -> String {
+    if spec.state_space_vectors.is_empty() && spec.linear_operators.is_empty() {
+        return String::new();
+    }
+    let vector_rows = spec
+        .state_space_vectors
+        .iter()
+        .map(|vector| {
+            format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                vector.line,
+                html_escape(&vector.system),
+                html_escape(&vector.name),
+                html_escape(&vector.vector_type),
+                html_escape(&vector.members.join(", ")),
+                html_escape(&vector.status)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    let operator_rows = spec
+        .linear_operators
+        .iter()
+        .map(|operator| {
+            format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{} -> {}</td><td>{}x{}</td><td><code>{}</code></td><td>{}</td></tr>",
+                operator.line,
+                html_escape(&operator.system),
+                html_escape(&operator.name),
+                html_escape(&operator.from),
+                html_escape(&operator.to),
+                operator.row_count,
+                operator.column_count,
+                html_escape(operator.expression.as_deref().unwrap_or("-")),
+                html_escape(&operator.status)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    format!(
+        r#"<h2>State-Space Metadata</h2>
+    <table>
+      <thead><tr><th>Line</th><th>System</th><th>Vector</th><th>Type</th><th>Members</th><th>Status</th></tr></thead>
+      <tbody>{}</tbody>
+    </table>
+    <table>
+      <thead><tr><th>Line</th><th>System</th><th>Operator</th><th>Mapping</th><th>Shape</th><th>Expression</th><th>Status</th></tr></thead>
+      <tbody>{}</tbody>
+    </table>"#,
+        if vector_rows.is_empty() {
+            "<tr><td colspan=\"6\">No state-space vectors.</td></tr>".to_owned()
+        } else {
+            vector_rows
+        },
+        if operator_rows.is_empty() {
+            "<tr><td colspan=\"7\">No linear operators.</td></tr>".to_owned()
+        } else {
+            operator_rows
+        }
+    )
 }
 
 fn render_system_solver_section(spec: &ReportSpec) -> String {
@@ -5815,6 +6020,33 @@ mod tests {
         assert!(json.contains("\"RoomThermal.residual_1\""));
         assert!(html.contains("System Equations"));
         assert!(html.contains("unit_consistent"));
+    }
+
+    #[test]
+    fn report_spec_and_html_include_state_space_metadata() {
+        let report = check_source(
+            "ok.eng",
+            "system ThermalStateSpaceMetadata {\n    state T_zone: AbsoluteTemperature = 22 degC\n    input T_out: AbsoluteTemperature = 8 degC\n    input Q_internal: HeatRate = 500 W\n    states x = [T_zone]\n    inputs u = [T_out, Q_internal]\n    outputs y = [T_zone]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.0002]]\n    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.0002, 0.001]]\n    equation {\n        der(x) eq A * x + B * u\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+
+        let spec = report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        let json = report_spec_json(&spec);
+        let html = render_html_with_spec(&report, "plots/timeseries.svg", &spec);
+
+        assert_eq!(spec.state_space_vectors.len(), 3);
+        assert_eq!(spec.linear_operators.len(), 2);
+        assert_eq!(spec.state_space_vectors[0].vector_type, "StateVector");
+        assert_eq!(spec.linear_operators[1].from, "InputVector");
+        assert_eq!(spec.linear_operators[1].to, "Derivative[StateVector]");
+        assert!(json.contains("\"state_space_vectors\""));
+        assert!(json.contains("\"linear_operators\""));
+        assert!(json.contains("\"vector_type\": \"StateVector\""));
+        assert!(json.contains("\"column_count\": 2"));
+        assert!(html.contains("State-Space Metadata"));
+        assert!(html.contains("StateVector"));
+        assert!(html.contains("InputVector"));
+        assert!(html.contains("Derivative[StateVector]"));
     }
 
     #[test]
