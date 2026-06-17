@@ -2747,7 +2747,7 @@ fn solver_equation_assembly_from_component_info(
             status: equation.status.clone(),
         })
         .collect::<Vec<_>>();
-    let unknowns = assembly
+    let variables = assembly
         .variables
         .iter()
         .map(|variable| {
@@ -2762,14 +2762,29 @@ fn solver_equation_assembly_from_component_info(
             }
         })
         .collect::<Vec<_>>();
-    let states = unknowns
+    let unknowns = variables
+        .iter()
+        .filter(|variable| variable.role == "state" || variable.role == "algebraic")
+        .cloned()
+        .collect::<Vec<_>>();
+    let states = variables
         .iter()
         .filter(|variable| variable.role == "state")
         .cloned()
         .collect::<Vec<_>>();
-    let algebraic_variables = unknowns
+    let algebraic_variables = variables
         .iter()
         .filter(|variable| variable.role == "algebraic")
+        .cloned()
+        .collect::<Vec<_>>();
+    let inputs = variables
+        .iter()
+        .filter(|variable| variable.role == "input")
+        .cloned()
+        .collect::<Vec<_>>();
+    let parameters = variables
+        .iter()
+        .filter(|variable| variable.role == "parameter")
         .cloned()
         .collect::<Vec<_>>();
 
@@ -2784,8 +2799,8 @@ fn solver_equation_assembly_from_component_info(
         unknowns,
         states,
         algebraic_variables,
-        inputs: Vec::new(),
-        parameters: Vec::new(),
+        inputs,
+        parameters,
     }
 }
 

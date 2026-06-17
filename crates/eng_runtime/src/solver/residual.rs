@@ -7,6 +7,7 @@ pub struct ResidualGraph {
     pub name: String,
     pub residuals: Vec<ResidualEquation>,
     pub variables: Vec<ResidualVariableRef>,
+    pub parameters: Vec<ResidualParameterRef>,
     pub dependencies: Vec<(String, String)>,
 }
 
@@ -21,6 +22,17 @@ impl ResidualGraph {
                 name: variable.name.clone(),
                 role: variable.role.clone(),
                 unit: variable.unit.clone(),
+            })
+            .collect::<Vec<_>>();
+        let parameters = assembly
+            .parameters
+            .iter()
+            .enumerate()
+            .map(|(index, parameter)| ResidualParameterRef {
+                index,
+                name: parameter.name.clone(),
+                role: parameter.role.clone(),
+                unit: parameter.unit.clone(),
             })
             .collect::<Vec<_>>();
         let variable_indices = variables
@@ -94,6 +106,7 @@ impl ResidualGraph {
             name: format!("{}.residual_graph", assembly.name),
             residuals,
             variables,
+            parameters,
             dependencies,
         }
     }
@@ -342,6 +355,8 @@ pub struct ResidualVariableRef {
     pub unit: String,
 }
 
+pub type ResidualParameterRef = ResidualVariableRef;
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ResidualExpression {
     pub text: String,
@@ -413,6 +428,7 @@ pub struct ResidualSource {
 
 #[cfg(test)]
 mod tests {
+    use super::super::assembly::UnknownVariable;
     use super::*;
 
     #[test]
@@ -437,6 +453,7 @@ mod tests {
                 residual("r1", &[(0, "x", 1.0), (1, "y", -1.0)]),
                 residual("r2", &[(0, "x", 1.0), (1, "y", 1.0)]),
             ],
+            parameters: Vec::new(),
             dependencies: Vec::new(),
         };
 
@@ -467,6 +484,7 @@ mod tests {
                 },
             ],
             residuals: vec![residual("r1", &[(0, "x", 1.0), (1, "y", 1.0)])],
+            parameters: Vec::new(),
             dependencies: Vec::new(),
         };
 
@@ -486,6 +504,7 @@ mod tests {
                 unit: "1".to_owned(),
             }],
             residuals: vec![residual_with_rhs("r1", &[(0, "x", 1.0)], 4.0)],
+            parameters: Vec::new(),
             dependencies: Vec::new(),
         };
 
@@ -533,6 +552,7 @@ mod tests {
                 "state_node_delta",
                 &[(0, "T_state", 1.0), (1, "T_node", -1.0)],
             )],
+            parameters: Vec::new(),
             dependencies: Vec::new(),
         };
 
@@ -563,6 +583,7 @@ mod tests {
                 unit: "K".to_owned(),
             }],
             residuals: vec![residual("state_residual", &[(0, "T_state", 1.0)])],
+            parameters: Vec::new(),
             dependencies: Vec::new(),
         };
 
@@ -573,6 +594,41 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(failure.code, "E-RESIDUAL-INPUT-LAYOUT");
+    }
+
+    #[test]
+    fn residual_graph_preserves_parameter_indices_from_assembly() {
+        let assembly = EquationAssembly {
+            name: "parametric".to_owned(),
+            unknowns: vec![UnknownVariable {
+                name: "T".to_owned(),
+                role: "algebraic".to_owned(),
+                quantity_kind: "AbsoluteTemperature".to_owned(),
+                unit: "K".to_owned(),
+                source: "node.T".to_owned(),
+                status: "classified".to_owned(),
+            }],
+            parameters: vec![UnknownVariable {
+                name: "R".to_owned(),
+                role: "parameter".to_owned(),
+                quantity_kind: "ThermalResistance".to_owned(),
+                unit: "K/kW".to_owned(),
+                source: "wall.R".to_owned(),
+                status: "classified".to_owned(),
+            }],
+            ..Default::default()
+        };
+
+        let graph = ResidualGraph::from_assembly(&assembly);
+
+        assert_eq!(graph.variables.len(), 1);
+        assert_eq!(graph.variables[0].index, 0);
+        assert_eq!(graph.variables[0].name, "T");
+        assert_eq!(graph.parameters.len(), 1);
+        assert_eq!(graph.parameters[0].index, 0);
+        assert_eq!(graph.parameters[0].name, "R");
+        assert_eq!(graph.parameters[0].role, "parameter");
+        assert_eq!(graph.parameters[0].unit, "K/kW");
     }
 
     fn residual(name: &str, terms: &[(usize, &str, f64)]) -> ResidualEquation {

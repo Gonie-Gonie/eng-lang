@@ -356,7 +356,8 @@ Definition of Done:
   internal square algebraic fixtures.
 - Record state/algebraic/input/output classification, equation count, unknown
   count, residual list, dependency graph, algebraic-loop seed, sparsity
-  placeholder, and solver-plan placeholder.
+  placeholder, solver-plan placeholder, and runtime parameter references with
+  stable indices separate from solved variables.
 - Report and IDE show generated equations, source-line links, generated
   reasons, residual values, normalized residuals, scale policy, and residual
   graph metadata.

@@ -123,8 +123,9 @@ equation panels can show why an across equality or through conservation row was
 created without re-parsing source.
 System IR equations carry variable dependency rows, derivative-state lists, and
 normalized residual expressions. Assembly residual graphs carry residual to
-variable dependency rows. The native IDE renders both as dependency graph
-tables.
+variable dependency rows, while the runtime residual graph keeps parameter
+references indexed separately from solved variables. The native IDE renders the
+dependency graph tables from the report metadata.
 `component_graph` is the graph-shaped companion artifact for the same track:
 components and ports are nodes, connections are edges, connection sets are
 grouped by assembly, behavior nodes record delay/Predictor/external

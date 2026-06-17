@@ -133,6 +133,9 @@ compiler records Internal generated equation seeds:
   overdetermined diagnostic-code seed when the metadata is not balanced;
 - residual graph metadata records residual names, dependencies, algebraic-loop
   candidates, Jacobian sparsity placeholders, and a solve-plan placeholder;
+- the runtime residual graph indexes parameter references separately from
+  solved variables so future parametric residual evaluators do not pollute the
+  unknown vector;
 - `domain_plans` group generated constraints by instantiated domain, such as
   `Thermal`, `Fluid[Water]`, and `MechanicalNode[World, X]`;
 - `solver_preview.status` is the current artifact field for identifying when
