@@ -6,8 +6,9 @@ domain Thermal package "eng.std.domains.thermal" version "0.1.0" {
 
 component BehaviorSource {
     port out: Thermal
-    delayed_temperature = delay(out.T, 5 s)
-    predicted_temperature = predictor(out.T)
+    temperature_signal = out.T
+    delayed_temperature = delay(temperature_signal, 5 s)
+    predicted_temperature = predictor(temperature_signal)
     external_heat = adapter(out.Q)
 }
 

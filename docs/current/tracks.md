@@ -99,8 +99,8 @@ Internal runtime seeds:
 - standalone dynamic-component explicit-Euler seed with algebraic-free state updates, algebraic solve per timestep, and common SolverResult state/algebraic trajectories
 - component solver result trajectory and timestep-diagnostic artifact adapter for internal dynamic-component SolverResult output
 - solver-API delay buffer with interpolation and initial-history policies
-- component-local delay(signal, duration) diagnostics
-- component-local Predictor and external behavior signal diagnostics
+- component-local delay(signal, duration) diagnostics for port and prior local signals
+- component-local Predictor and external behavior signal diagnostics for port and prior local signals
 - solver-API Predictor contract wrapper with model hash, range warnings, and Jacobian policy
 - solver-API external behavior wrapper with provenance, profile policy, and failure propagation
 - component graph/report/IDE behavior nodes for delay, Predictor, and external calls with inferred contract fields and diagnostic channels

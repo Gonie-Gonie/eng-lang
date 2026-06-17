@@ -2677,6 +2677,22 @@ pub fn review_json(report: &CheckReport) -> String {
                 "          \"status\": \"{}\",\n",
                 json_escape(&local.status)
             ));
+            json.push_str(&format!(
+                "          \"quantity_kind\": \"{}\",\n",
+                json_escape(&local.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&local.display_unit)
+            ));
+            json.push_str(&format!(
+                "          \"canonical_unit\": \"{}\",\n",
+                json_escape(&local.canonical_unit)
+            ));
+            json.push_str(&format!(
+                "          \"type_status\": \"{}\",\n",
+                json_escape(&local.type_status)
+            ));
             json.push_str(&format!("          \"line\": {}\n", local.line));
             json.push_str("        }");
         }
@@ -4894,6 +4910,34 @@ mod tests {
         assert!(review.contains("\"single_domain_preview\""));
         assert!(review.contains("\"not_production_multi_domain\""));
         assert!(review.contains("\"domain_compatible\""));
+    }
+
+    #[test]
+    fn component_behavior_calls_accept_prior_local_signal_contracts() {
+        let report = check_source(
+            "ok.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n    temperature_signal = out.T\n    delayed_temperature = delay(temperature_signal, 5 s)\n    predicted_temperature = predictor(temperature_signal)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        let locals = &report.semantic_program.components[0].local_expressions;
+        assert_eq!(locals.len(), 3);
+        assert_eq!(locals[0].name, "temperature_signal");
+        assert_eq!(locals[0].quantity_kind, "AbsoluteTemperature");
+        assert_eq!(locals[0].display_unit, "degC");
+        assert_eq!(locals[0].canonical_unit, "K");
+        assert_eq!(locals[0].type_status, "domain_signal_resolved");
+        assert_eq!(locals[1].name, "delayed_temperature");
+        assert_eq!(locals[1].quantity_kind, "AbsoluteTemperature");
+        assert_eq!(locals[1].display_unit, "degC");
+        assert_eq!(locals[1].canonical_unit, "K");
+        assert_eq!(locals[1].type_status, "delay_output_matches_signal");
+
+        let review = review_json(&report);
+        assert!(review.contains("\"signal\": \"temperature_signal\""));
+        assert!(review.contains("\"quantity_kind\": \"AbsoluteTemperature\""));
+        assert!(review.contains("\"type_status\": \"delay_output_matches_signal\""));
     }
 
     #[test]

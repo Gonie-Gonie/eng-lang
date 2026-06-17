@@ -415,6 +415,10 @@ pub struct ReportComponentLocalExpression {
     pub name: String,
     pub expression: String,
     pub status: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub type_status: String,
     pub line: usize,
 }
 
@@ -1309,6 +1313,10 @@ pub fn report_spec_from_report(
                     name: local.name.clone(),
                     expression: local.expression.clone(),
                     status: local.status.clone(),
+                    quantity_kind: local.quantity_kind.clone(),
+                    display_unit: local.display_unit.clone(),
+                    canonical_unit: local.canonical_unit.clone(),
+                    type_status: local.type_status.clone(),
                     line: local.line,
                 })
                 .collect(),
@@ -2016,7 +2024,7 @@ fn report_behavior_node_seeds(
         let mut contract_inputs = Vec::new();
         if let Some(signal) = signal.as_deref() {
             contract_inputs.push(report_behavior_signal_contract(
-                report, component, "input", signal,
+                report, component, local, "input", signal,
             ));
         }
         contract_inputs.push(ReportBehaviorSignalContract {
@@ -2065,7 +2073,9 @@ fn report_behavior_node_seeds(
             .and_then(|arguments| arguments.first().cloned());
         let contract_inputs = signal
             .as_deref()
-            .map(|signal| report_behavior_signal_contract(report, component, "input", signal))
+            .map(|signal| {
+                report_behavior_signal_contract(report, component, local, "input", signal)
+            })
             .into_iter()
             .collect();
         nodes.push(ReportBehaviorSeed {
@@ -2101,7 +2111,9 @@ fn report_behavior_node_seeds(
             .and_then(|arguments| arguments.first().cloned());
         let contract_inputs = signal
             .as_deref()
-            .map(|signal| report_behavior_signal_contract(report, component, "input", signal))
+            .map(|signal| {
+                report_behavior_signal_contract(report, component, local, "input", signal)
+            })
             .into_iter()
             .collect();
         nodes.push(ReportBehaviorSeed {
@@ -2137,10 +2149,29 @@ fn report_behavior_node_seeds(
 fn report_behavior_signal_contract(
     report: &CheckReport,
     component: &eng_compiler::ComponentInfo,
+    local: &eng_compiler::ComponentLocalExpressionInfo,
     role: &str,
     signal: &str,
 ) -> ReportBehaviorSignalContract {
     let Some((port_name, variable_name)) = signal.split_once('.') else {
+        if let Some(local_signal) = component
+            .local_expressions
+            .iter()
+            .find(|candidate| candidate.name == signal.trim() && candidate.line < local.line)
+            .filter(|candidate| {
+                candidate.quantity_kind != "unknown"
+                    && candidate.type_status != "signal_contract_unresolved"
+            })
+        {
+            return ReportBehaviorSignalContract {
+                role: role.to_owned(),
+                name: signal.to_owned(),
+                quantity_kind: local_signal.quantity_kind.clone(),
+                display_unit: local_signal.display_unit.clone(),
+                canonical_unit: local_signal.canonical_unit.clone(),
+                status: "component_local_signal_resolved".to_owned(),
+            };
+        }
         return ReportBehaviorSignalContract {
             role: role.to_owned(),
             name: signal.to_owned(),
@@ -3316,6 +3347,22 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             json.push_str(&format!(
                 "          \"status\": \"{}\",\n",
                 json_escape(&local.status)
+            ));
+            json.push_str(&format!(
+                "          \"quantity_kind\": \"{}\",\n",
+                json_escape(&local.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&local.display_unit)
+            ));
+            json.push_str(&format!(
+                "          \"canonical_unit\": \"{}\",\n",
+                json_escape(&local.canonical_unit)
+            ));
+            json.push_str(&format!(
+                "          \"type_status\": \"{}\",\n",
+                json_escape(&local.type_status)
             ));
             json.push_str(&format!("          \"line\": {}\n", local.line));
             json.push_str("        }");
@@ -7783,6 +7830,66 @@ mod tests {
         assert!(html.contains("generated from through variable conservation"));
         assert!(html.contains("component_residual_graph"));
         assert!(html.contains("domain_compatible"));
+    }
+
+    #[test]
+    fn report_behavior_nodes_resolve_prior_component_local_signals() {
+        let report = check_source(
+            "ok.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n    temperature_signal = out.T\n    delayed_temperature = delay(temperature_signal, 5 s)\n    predicted_temperature = predictor(temperature_signal)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        let spec = report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        let json = report_spec_json(&spec);
+        let html = render_html(&report, "plots/timeseries.svg");
+
+        assert_eq!(
+            spec.components[0].local_expressions[0].name,
+            "temperature_signal"
+        );
+        assert_eq!(
+            spec.components[0].local_expressions[0].type_status,
+            "domain_signal_resolved"
+        );
+        assert_eq!(
+            spec.components[0].local_expressions[1].type_status,
+            "delay_output_matches_signal"
+        );
+        let delay_node = spec
+            .component_graph
+            .behavior_nodes
+            .iter()
+            .find(|node| node.behavior_kind == "delay")
+            .expect("delay behavior node");
+        assert_eq!(delay_node.signal.as_deref(), Some("temperature_signal"));
+        assert_eq!(
+            delay_node.contract_inputs[0].status,
+            "component_local_signal_resolved"
+        );
+        assert_eq!(
+            delay_node.contract_inputs[0].quantity_kind,
+            "AbsoluteTemperature"
+        );
+        assert_eq!(delay_node.contract_outputs[0].name, "delayed_temperature");
+        assert_eq!(
+            delay_node.contract_outputs[0].quantity_kind,
+            "AbsoluteTemperature"
+        );
+        let predictor_node = spec
+            .component_graph
+            .behavior_nodes
+            .iter()
+            .find(|node| node.behavior_kind == "predictor")
+            .expect("predictor behavior node");
+        assert_eq!(
+            predictor_node.contract_inputs[0].status,
+            "component_local_signal_resolved"
+        );
+        assert!(json.contains("\"type_status\": \"delay_output_matches_signal\""));
+        assert!(json.contains("\"component_local_signal_resolved\""));
+        assert!(html.contains("signal=temperature_signal"));
+        assert!(html.contains("inputs=input:temperature_signal:AbsoluteTemperature"));
     }
 
     fn sample_plot_spec(plot_type: &str) -> PlotSpec {

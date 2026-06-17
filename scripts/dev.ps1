@@ -1315,6 +1315,10 @@ function Assert-BehaviorNodesGolden {
         if ($null -ne $expectedNode.delay_s) {
             Assert-ArtifactFloat $node.delay_s $expectedNode.delay_s "$($Golden.name) report_spec $($expectedNode.behavior_kind) delay_s"
         }
+        $inputContract = @($node.contract_inputs) | Select-Object -First 1
+        Assert-Artifact ($null -ne $inputContract) "$($Golden.name) report_spec $($expectedNode.behavior_kind) input contract"
+        Assert-ArtifactValue $inputContract.status $expectedNode.input_contract_status "$($Golden.name) report_spec $($expectedNode.behavior_kind) input contract status"
+        Assert-ArtifactValue $inputContract.quantity_kind $expectedNode.input_quantity_kind "$($Golden.name) report_spec $($expectedNode.behavior_kind) input quantity"
     }
 }
 

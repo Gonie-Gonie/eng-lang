@@ -276,6 +276,10 @@ pub struct ComponentLocalExpressionInfo {
     pub name: String,
     pub expression: String,
     pub status: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub type_status: String,
     pub line: usize,
 }
 
@@ -1051,6 +1055,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                         analyze_component_local_expression(
                             binding,
                             &mut components[component_index],
+                            &domains,
                         );
                     }
                     continue;
@@ -4420,15 +4425,65 @@ fn analyze_port(declaration: &PortDecl, component: &mut ComponentInfo) {
 fn analyze_component_local_expression(
     binding: &crate::ast::FastBinding,
     component: &mut ComponentInfo,
+    domains: &[DomainInfo],
 ) {
+    let signal_contract = infer_component_local_expression_signal_contract(
+        domains,
+        component,
+        binding.line,
+        &binding.expression,
+    );
     component
         .local_expressions
         .push(ComponentLocalExpressionInfo {
             name: binding.name.clone(),
             expression: binding.expression.clone(),
             status: "metadata_only".to_owned(),
+            quantity_kind: signal_contract.quantity_kind,
+            display_unit: signal_contract.display_unit,
+            canonical_unit: signal_contract.canonical_unit,
+            type_status: signal_contract.status,
             line: binding.line,
         });
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ComponentSignalContract {
+    quantity_kind: String,
+    display_unit: String,
+    canonical_unit: String,
+    status: String,
+}
+
+fn infer_component_local_expression_signal_contract(
+    domains: &[DomainInfo],
+    component: &ComponentInfo,
+    current_line: usize,
+    expression: &str,
+) -> ComponentSignalContract {
+    let trimmed = expression.trim();
+    if let Some(contract) =
+        component_behavior_signal_contract(domains, component, current_line, trimmed)
+    {
+        return contract;
+    }
+    for arguments in extract_call_arguments(trimmed, "delay") {
+        let parts = split_top_level(&arguments, &[',']);
+        if parts.len() != 2 || parse_duration_option_seconds(parts[1].trim()).is_none() {
+            continue;
+        }
+        if let Some(signal_contract) =
+            component_behavior_signal_contract(domains, component, current_line, parts[0].trim())
+        {
+            return ComponentSignalContract {
+                quantity_kind: signal_contract.quantity_kind,
+                display_unit: signal_contract.display_unit,
+                canonical_unit: signal_contract.canonical_unit,
+                status: "delay_output_matches_signal".to_owned(),
+            };
+        }
+    }
+    unknown_component_signal_contract()
 }
 
 fn analyze_connections(
@@ -5108,15 +5163,15 @@ fn validate_delay_call(
         return;
     }
     let signal = parts[0].trim();
-    if component_signal_type(domains, component, signal).is_none() {
+    if component_behavior_signal_contract(domains, component, local.line, signal).is_none() {
         diagnostics.push(Diagnostic::error(
             "E-DELAY-SIGNAL-001",
             local.line,
             &format!(
-                "Delay signal `{signal}` is not a known component port variable in `{}`.",
+                "Delay signal `{signal}` is not a known component signal in `{}`.",
                 component.name
             ),
-            Some("Use a signal such as `port.variable`, where `port` is declared on the component and `variable` is declared by the port domain."),
+            Some("Use a component signal such as `port.variable`, or a prior component-local expression with resolved quantity/unit metadata."),
         ));
     }
     if parse_duration_option_seconds(parts[1].trim()).is_none() {
@@ -5200,21 +5255,73 @@ fn validate_single_signal_behavior_call(
                 "{} expression `{}` must use `{}`.",
                 spec.label, local.expression, spec.signature
             ),
-            Some("Pass one component port signal such as `outlet.T` while full behavior contracts remain runtime-wrapper seeds."),
+            Some("Pass one component signal such as `outlet.T` or a prior component-local signal while full behavior contracts remain runtime-wrapper seeds."),
         ));
         return;
     }
     let signal = parts[0].trim();
-    if component_signal_type(domains, component, signal).is_none() {
+    if component_behavior_signal_contract(domains, component, local.line, signal).is_none() {
         diagnostics.push(Diagnostic::error(
             spec.signal_code,
             local.line,
             &format!(
-                "{} signal `{signal}` is not a known component port variable in `{}`.",
+                "{} signal `{signal}` is not a known component signal in `{}`.",
                 spec.label, component.name
             ),
-            Some("Use a signal such as `port.variable`, where `port` is declared on the component and `variable` is declared by the port domain."),
+            Some("Use a component signal such as `port.variable`, or a prior component-local expression with resolved quantity/unit metadata."),
         ));
+    }
+}
+
+fn component_behavior_signal_contract(
+    domains: &[DomainInfo],
+    component: &ComponentInfo,
+    current_line: usize,
+    signal: &str,
+) -> Option<ComponentSignalContract> {
+    if let Some(variable) = component_signal_type(domains, component, signal) {
+        return Some(domain_variable_signal_contract(
+            variable,
+            "domain_signal_resolved",
+        ));
+    }
+    let trimmed_signal = signal.trim();
+    if trimmed_signal.contains('.') || trimmed_signal.is_empty() {
+        return None;
+    }
+    let local = component
+        .local_expressions
+        .iter()
+        .find(|local| local.name == trimmed_signal && local.line < current_line)?;
+    if local.quantity_kind == "unknown" || local.type_status == "signal_contract_unresolved" {
+        return None;
+    }
+    Some(ComponentSignalContract {
+        quantity_kind: local.quantity_kind.clone(),
+        display_unit: local.display_unit.clone(),
+        canonical_unit: local.canonical_unit.clone(),
+        status: "component_local_signal_resolved".to_owned(),
+    })
+}
+
+fn domain_variable_signal_contract(
+    variable: &DomainVariableInfo,
+    status: &str,
+) -> ComponentSignalContract {
+    ComponentSignalContract {
+        quantity_kind: variable.quantity_kind.clone(),
+        display_unit: variable.display_unit.clone(),
+        canonical_unit: variable.canonical_unit.clone(),
+        status: status.to_owned(),
+    }
+}
+
+fn unknown_component_signal_contract() -> ComponentSignalContract {
+    ComponentSignalContract {
+        quantity_kind: "unknown".to_owned(),
+        display_unit: "unknown".to_owned(),
+        canonical_unit: "unknown".to_owned(),
+        status: "signal_contract_unresolved".to_owned(),
     }
 }
 

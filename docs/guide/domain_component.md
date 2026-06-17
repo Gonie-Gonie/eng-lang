@@ -108,12 +108,12 @@ Connections use source-order metadata. Both endpoints must be written as
 | `E-CONNECT-AXIS-001` | Same generic domain, but `Axis` arguments differ. |
 | `E-CONNECT-DUPLICATE-001` | The same component-port pair is connected more than once, including reversed duplicates. |
 | `E-DELAY-CALL-001` | Component-local delay call is not `delay(signal, duration)`. |
-| `E-DELAY-SIGNAL-001` | Delay signal is not a known `port.variable`. |
+| `E-DELAY-SIGNAL-001` | Delay signal is not a known component signal. |
 | `E-DELAY-DURATION-001` | Delay duration is not a positive time value. |
 | `E-PREDICTOR-CALL-001` | Component-local Predictor call is not `predictor(signal)` or `predict(signal)`. |
-| `E-PREDICTOR-SIGNAL-001` | Predictor signal is not a known `port.variable`. |
+| `E-PREDICTOR-SIGNAL-001` | Predictor signal is not a known component signal. |
 | `E-EXTERNAL-BEHAVIOR-CALL-001` | Component-local external behavior call is not `external(signal)` or `adapter(signal)`. |
-| `E-EXTERNAL-BEHAVIOR-SIGNAL-001` | External behavior signal is not a known `port.variable`. |
+| `E-EXTERNAL-BEHAVIOR-SIGNAL-001` | External behavior signal is not a known component signal. |
 | `W-CONNECT-UNCONNECTED-PORT` | A resolved component port has no connection edge. |
 
 Connection summaries are emitted in source order. They are not sorted by graph
@@ -174,10 +174,12 @@ The artifact also records explicit future-solver seeds:
   `not_production_multi_domain`, and `no_jit_speed_claim`.
 
 Component-local `delay(signal, duration)` calls are checked for a known
-`port.variable` signal and a positive time duration such as `5 s`.
+component signal, either `port.variable` or a prior component-local expression
+with resolved quantity/unit metadata, and a positive time duration such as
+`5 s`.
 Component-local `predictor(signal)`/`predict(signal)` and
 `external(signal)`/`adapter(signal)` calls are also checked for a single known
-`port.variable` signal. Full Predictor and external behavior contracts remain
+component signal. Full Predictor and external behavior contracts remain
 runtime-wrapper seeds until behavior graph solving is wired into supported
 solver paths.
 

@@ -311,11 +311,13 @@ Current coverage:
   behavior deterministic repro execution, safe-profile rejection, and adapter
   failure wrapping.
 - Component local expressions now diagnose invalid `delay(signal, duration)`
-  calls, including missing arguments, unknown component port variables, and
-  non-duration delay values. Example-smoke fixtures cover each public
-  component behavior diagnostic code.
+  calls, including missing arguments, unknown component signals, and
+  non-duration delay values. Signals can be declared component `port.variable`
+  references or prior component-local expressions with resolved quantity/unit
+  metadata. Example-smoke fixtures cover each public component behavior
+  diagnostic code.
 - Component local Predictor and external behavior expressions now diagnose
-  invalid seed syntax and unknown component port variables before they become
+  invalid seed syntax and unknown component signals before they become
   behavior-node metadata.
 - Runtime has a solver-API Predictor behavior contract wrapper with input/output
   quantity-unit metadata, valid-range warnings, provenance/model hash,
@@ -336,8 +338,8 @@ Current coverage:
   when behavior graph nodes are present but not yet integrated into numeric
   residual evaluation.
 - `examples/internal/25_component_behavior_nodes` exercises valid delay,
-  Predictor, and external adapter behavior-node artifacts in the CLI example
-  smoke path.
+  Predictor, and external adapter behavior-node artifacts, including prior
+  component-local signal contract resolution, in the CLI example smoke path.
 
 Definition of Done:
 

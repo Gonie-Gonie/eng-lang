@@ -22,20 +22,24 @@
     {
       "behavior_kind": "delay",
       "status": "delay_call_runtime_buffer_seed_not_integrated",
-      "signal": "out.T",
+      "signal": "temperature_signal",
       "delay_s": 5.0,
       "contract_status": null,
       "jacobian_policy": null,
-      "profile_policy": null
+      "profile_policy": null,
+      "input_contract_status": "component_local_signal_resolved",
+      "input_quantity_kind": "AbsoluteTemperature"
     },
     {
       "behavior_kind": "predictor",
       "status": "predictor_call_contract_seed_not_integrated",
-      "signal": "out.T",
+      "signal": "temperature_signal",
       "delay_s": null,
       "contract_status": "predictor_contract_metadata_seed",
       "jacobian_policy": "solver_policy_not_integrated",
-      "profile_policy": null
+      "profile_policy": null,
+      "input_contract_status": "component_local_signal_resolved",
+      "input_quantity_kind": "AbsoluteTemperature"
     },
     {
       "behavior_kind": "external",
@@ -44,7 +48,9 @@
       "delay_s": null,
       "contract_status": "external_behavior_contract_metadata_seed",
       "jacobian_policy": null,
-      "profile_policy": "safe_repro_profile_policy_seed"
+      "profile_policy": "safe_repro_profile_policy_seed",
+      "input_contract_status": "domain_signal_resolved",
+      "input_quantity_kind": "HeatRate"
     }
   ]
 }

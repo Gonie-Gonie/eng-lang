@@ -420,11 +420,24 @@
     },
     "componentLocalExpression": {
       "type": "object",
-      "required": ["name", "expression", "status", "line"],
+      "required": [
+        "name",
+        "expression",
+        "status",
+        "quantity_kind",
+        "display_unit",
+        "canonical_unit",
+        "type_status",
+        "line"
+      ],
       "properties": {
         "name": { "type": "string" },
         "expression": { "type": "string" },
         "status": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "canonical_unit": { "type": "string" },
+        "type_status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }
     },

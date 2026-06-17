@@ -1163,9 +1163,14 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"external_behavior_wrapper_seed_not_integrated\"")
-                || !output.report_spec_json.contains("\"signal\": \"out.T\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"signal\": \"temperature_signal\"")
                 || !output.report_spec_json.contains("\"signal\": \"out.Q\"")
                 || !output.report_spec_json.contains("\"contract_inputs\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"component_local_signal_resolved\"")
                 || !output
                     .report_spec_json
                     .contains("\"quantity_kind\": \"AbsoluteTemperature\"")
@@ -1177,7 +1182,9 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                     .report_spec_json
                     .contains("\"predictor_valid_range_warning\"")
                 || !output.report_html.contains("Component Behavior")
-                || !output.report_html.contains("inputs=input:out.T")
+                || !output
+                    .report_html
+                    .contains("inputs=input:temperature_signal")
                 || !output
                     .report_html
                     .contains("diagnostics=predictor_valid_range_warning")
