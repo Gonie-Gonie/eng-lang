@@ -488,6 +488,23 @@ function Assert-ArtifactValue {
     Assert-Artifact ([string]$Actual -eq [string]$Expected) "$Label expected $Expected but got $Actual"
 }
 
+function Assert-ArtifactNullableValue {
+    param(
+        $Actual,
+
+        $Expected,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Label
+    )
+
+    if ($null -eq $Expected) {
+        Assert-Artifact ($null -eq $Actual) "$Label expected null but got $Actual"
+    } else {
+        Assert-ArtifactValue $Actual $Expected $Label
+    }
+}
+
 function Assert-ArtifactNumber {
     param(
         [Parameter(Mandatory = $true)]
@@ -1245,6 +1262,62 @@ function Assert-ComponentSolverGolden {
     }
 }
 
+function Assert-BehaviorNodesGolden {
+    param(
+        [Parameter(Mandatory = $true)]
+        $Golden,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Eng
+    )
+
+    Remove-Item -LiteralPath (Join-Path $RepoRoot "build\result") -Recurse -Force -ErrorAction SilentlyContinue
+    Invoke-Native $Eng "run" $Golden.source "--save-artifacts"
+
+    $review = Read-ArtifactJson (Join-Path $RepoRoot "build\result\review.json")
+    Assert-ArtifactValue $review.format $Golden.review.format "$($Golden.name) review.format"
+    Assert-ArtifactNumber $review.review_schema_version $Golden.review.review_schema_version "$($Golden.name) review.review_schema_version"
+    Assert-ArtifactValue (Get-NormalizedArtifactPath $review.source_path) (Get-NormalizedArtifactPath $Golden.source) "$($Golden.name) review.source_path"
+    Assert-ArtifactNumber @($review.domain_summary).Count $Golden.review.domain_count "$($Golden.name) review domain count"
+    Assert-ArtifactNumber @($review.component_summary).Count $Golden.review.component_count "$($Golden.name) review component count"
+    Assert-ArtifactNumber @($review.connection_summary).Count $Golden.review.connection_count "$($Golden.name) review connection count"
+    Assert-ArtifactNumber @($review.assembly_summary).Count $Golden.review.assembly_count "$($Golden.name) review assembly count"
+    Assert-ArtifactNumber @($review.component_graph.behavior_nodes).Count $Golden.review.behavior_node_count "$($Golden.name) review behavior node count"
+    foreach ($expectedNode in @($Golden.behavior_nodes)) {
+        $node = @($review.component_graph.behavior_nodes) | Where-Object { $_.behavior_kind -eq $expectedNode.behavior_kind } | Select-Object -First 1
+        Assert-Artifact ($null -ne $node) "$($Golden.name) review missing behavior node $($expectedNode.behavior_kind)"
+        Assert-ArtifactValue $node.status $expectedNode.status "$($Golden.name) review $($expectedNode.behavior_kind) status"
+        Assert-ArtifactValue $node.signal $expectedNode.signal "$($Golden.name) review $($expectedNode.behavior_kind) signal"
+        Assert-ArtifactNullableValue $node.contract_status $expectedNode.contract_status "$($Golden.name) review $($expectedNode.behavior_kind) contract_status"
+        Assert-ArtifactNullableValue $node.jacobian_policy $expectedNode.jacobian_policy "$($Golden.name) review $($expectedNode.behavior_kind) jacobian_policy"
+        Assert-ArtifactNullableValue $node.profile_policy $expectedNode.profile_policy "$($Golden.name) review $($expectedNode.behavior_kind) profile_policy"
+        if ($null -ne $expectedNode.delay_s) {
+            Assert-ArtifactFloat $node.delay_s $expectedNode.delay_s "$($Golden.name) review $($expectedNode.behavior_kind) delay_s"
+        }
+    }
+
+    $reportSpec = Read-ArtifactJson (Join-Path $RepoRoot "build\result\report_spec.json")
+    Assert-ArtifactValue $reportSpec.format $Golden.report_spec.format "$($Golden.name) report_spec.format"
+    Assert-ArtifactNumber $reportSpec.report_schema_version $Golden.report_spec.report_schema_version "$($Golden.name) report_spec.report_schema_version"
+    Assert-ArtifactNumber @($reportSpec.component_graph.behavior_nodes).Count $Golden.report_spec.behavior_node_count "$($Golden.name) report_spec behavior node count"
+    $reportAssembly = @($reportSpec.assembly_summary)[0]
+    Assert-ArtifactValue $reportAssembly.solver_preview.delay_history $Golden.report_spec.delay_history "$($Golden.name) report_spec delay history"
+    Assert-ArtifactValue $reportAssembly.solver_preview.predictor $Golden.report_spec.predictor "$($Golden.name) report_spec predictor"
+    Assert-ArtifactValue $reportAssembly.solver_preview.external_adapter $Golden.report_spec.external_adapter "$($Golden.name) report_spec external adapter"
+    foreach ($expectedNode in @($Golden.behavior_nodes)) {
+        $node = @($reportSpec.component_graph.behavior_nodes) | Where-Object { $_.behavior_kind -eq $expectedNode.behavior_kind } | Select-Object -First 1
+        Assert-Artifact ($null -ne $node) "$($Golden.name) report_spec missing behavior node $($expectedNode.behavior_kind)"
+        Assert-ArtifactValue $node.status $expectedNode.status "$($Golden.name) report_spec $($expectedNode.behavior_kind) status"
+        Assert-ArtifactValue $node.signal $expectedNode.signal "$($Golden.name) report_spec $($expectedNode.behavior_kind) signal"
+        Assert-ArtifactNullableValue $node.contract_status $expectedNode.contract_status "$($Golden.name) report_spec $($expectedNode.behavior_kind) contract_status"
+        Assert-ArtifactNullableValue $node.jacobian_policy $expectedNode.jacobian_policy "$($Golden.name) report_spec $($expectedNode.behavior_kind) jacobian_policy"
+        Assert-ArtifactNullableValue $node.profile_policy $expectedNode.profile_policy "$($Golden.name) report_spec $($expectedNode.behavior_kind) profile_policy"
+        if ($null -ne $expectedNode.delay_s) {
+            Assert-ArtifactFloat $node.delay_s $expectedNode.delay_s "$($Golden.name) report_spec $($expectedNode.behavior_kind) delay_s"
+        }
+    }
+}
+
 function Invoke-ArtifactsCheck {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -1263,6 +1336,7 @@ function Invoke-ArtifactsCheck {
     $multiStateGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_20_multi_state_thermal.golden.json")
     $thermalAssemblyGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_21_thermal_component_assembly.golden.json")
     $multiDomainGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_22_multi_domain_boundary_solve.golden.json")
+    $behaviorNodesGolden = Read-ArtifactJson (Join-Path $goldenRoot "internal_25_component_behavior_nodes.golden.json")
 
     Assert-CsvPlotGolden $csvGolden $Eng
     Assert-SystemGolden $systemGolden $Eng
@@ -1270,8 +1344,9 @@ function Invoke-ArtifactsCheck {
     Assert-MultiStateThermalGolden $multiStateGolden $Eng
     Assert-ComponentSolverGolden $thermalAssemblyGolden $Eng
     Assert-ComponentSolverGolden $multiDomainGolden $Eng
+    Assert-BehaviorNodesGolden $behaviorNodesGolden $Eng
 
-    Write-Host "Artifact check passed. Validated schema files and official golden artifacts, including solver-centered examples."
+    Write-Host "Artifact check passed. Validated schema files and solver-centered golden artifacts."
 }
 
 function Invoke-RunExample {

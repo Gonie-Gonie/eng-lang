@@ -124,6 +124,9 @@ Current coverage:
   assembly, and constrained multi-domain boundary solve examples so solver
   trajectories, residual graph solve status, solved variables, and residual
   counts are covered by golden baselines.
+- `artifacts-check` snapshots the internal behavior-node fixture so delay,
+  Predictor, and external adapter artifact statuses remain explicit until
+  language-level behavior graph solving is wired.
 - `StateTrajectory::time_value_points` keeps SolverOutput state trajectories
   directly convertible to TimeSeries-style `(time, value)` points, and runtime
   system/component artifact adapters use that helper.

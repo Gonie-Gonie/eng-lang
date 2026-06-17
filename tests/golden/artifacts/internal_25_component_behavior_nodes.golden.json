@@ -1,0 +1,50 @@
+{
+  "name": "internal_25_component_behavior_nodes",
+  "source": "examples\\internal\\25_component_behavior_nodes\\main.eng",
+  "review": {
+    "format": "eng-review-preview-1",
+    "review_schema_version": 1,
+    "domain_count": 1,
+    "component_count": 2,
+    "connection_count": 1,
+    "assembly_count": 1,
+    "behavior_node_count": 3
+  },
+  "report_spec": {
+    "format": "eng-report-spec-v1",
+    "report_schema_version": 1,
+    "behavior_node_count": 3,
+    "delay_history": "delay_call_runtime_buffer_seed_not_integrated",
+    "predictor": "predictor_call_contract_seed_not_integrated",
+    "external_adapter": "external_behavior_wrapper_seed_not_integrated"
+  },
+  "behavior_nodes": [
+    {
+      "behavior_kind": "delay",
+      "status": "delay_call_runtime_buffer_seed_not_integrated",
+      "signal": "out.T",
+      "delay_s": 5.0,
+      "contract_status": null,
+      "jacobian_policy": null,
+      "profile_policy": null
+    },
+    {
+      "behavior_kind": "predictor",
+      "status": "predictor_call_contract_seed_not_integrated",
+      "signal": "out.T",
+      "delay_s": null,
+      "contract_status": "predictor_contract_metadata_seed",
+      "jacobian_policy": "solver_policy_not_integrated",
+      "profile_policy": null
+    },
+    {
+      "behavior_kind": "external",
+      "status": "external_behavior_wrapper_seed_not_integrated",
+      "signal": "out.Q",
+      "delay_s": null,
+      "contract_status": "external_behavior_contract_metadata_seed",
+      "jacobian_policy": null,
+      "profile_policy": "safe_repro_profile_policy_seed"
+    }
+  ]
+}
