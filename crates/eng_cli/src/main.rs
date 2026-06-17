@@ -877,6 +877,14 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             "examples/05_error_messages/class_copy_unknown_source.eng",
             "E-CLASS-COPY-001",
         ),
+        (
+            "examples/05_error_messages/state_space_missing_operator_entry.eng",
+            "E-STATE-SPACE-OP-SHAPE-001",
+        ),
+        (
+            "examples/05_error_messages/state_space_operator_unit_mismatch.eng",
+            "E-STATE-SPACE-OP-ENTRY-UNIT-001",
+        ),
     ] {
         let report = match check_file(fixture, &CheckOptions::default()) {
             Ok(report) => report,

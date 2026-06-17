@@ -1,0 +1,8 @@
+system BadStateSpace {
+    state T_air: AbsoluteTemperature = 22 degC
+    state T_wall: AbsoluteTemperature = 20 degC
+
+    states x = [T_air, T_wall]
+
+    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[0.1, 0.2]; [0.3]]
+}
