@@ -168,6 +168,9 @@ Current coverage:
   or elimination.
 - ResidualGraph linear-system assembly rejects non-finite residual
   coefficients or RHS values before dense solving.
+- ResidualEvaluator rejects non-finite residual inputs, scales, evaluated
+  residuals, normalized residuals, and residual norms instead of emitting
+  non-finite diagnostics.
 - DAE seeds reject non-finite state-derivative intermediates, mass-matrix
   application results, and algebraic-initialization inputs.
 - Fixed-step ODE, fixed-point, and dynamic-component solver seeds reject

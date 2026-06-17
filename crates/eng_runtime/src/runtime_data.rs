@@ -23,8 +23,8 @@ use crate::solver::{
     solve_continuous_state_space, solve_discrete_state_space, solve_first_order_thermal,
     solve_linear_residual_graph, DynamicComponentResult, FirstOrderThermalModel, FixedStepMethod,
     InputLayout, LayoutEntry, OutputLayout, ParameterLayout, ResidualEvaluator, ResidualGraph,
-    ResidualInput, SimulationPlan, SolverFailure, SolverInput, SolverOptions, SolverPlan,
-    SolverResult, SolverScalar, StateLayout, StateTrajectory, TimeGrid,
+    ResidualInput, ResidualOutput, SimulationPlan, SolverFailure, SolverInput, SolverOptions,
+    SolverPlan, SolverResult, SolverScalar, StateLayout, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -1003,29 +1003,31 @@ impl RuntimeComponentSolution {
         let mut method = "linear_residual_graph_shape_check".to_owned();
         let mut iteration_count = usize::from(equation_count > 0 && unknown_count > 0);
 
-        let (status, reason, failure_artifact, convergence_status) = if equation_count == 0 {
-            (
-                "not_solved_no_equations".to_owned(),
-                "assembly graph has no generated equations".to_owned(),
-                Some(RuntimeSolverFailureArtifact {
-                    code: "E-ASSEMBLY-SOLVE-001".to_owned(),
-                    message: "component assembly has no generated equations to solve".to_owned(),
-                }),
-                "linear_residual_not_attempted".to_owned(),
-            )
-        } else if unknown_count == 0 {
-            (
-                "not_solved_no_unknowns".to_owned(),
-                "assembly graph has no classified unknown variables".to_owned(),
-                Some(RuntimeSolverFailureArtifact {
-                    code: "E-ASSEMBLY-SOLVE-002".to_owned(),
-                    message: "component assembly has equations but no classified unknowns"
-                        .to_owned(),
-                }),
-                "linear_residual_not_attempted".to_owned(),
-            )
-        } else if equation_count < unknown_count {
-            (
+        let (mut status, mut reason, mut failure_artifact, mut convergence_status) =
+            if equation_count == 0 {
+                (
+                    "not_solved_no_equations".to_owned(),
+                    "assembly graph has no generated equations".to_owned(),
+                    Some(RuntimeSolverFailureArtifact {
+                        code: "E-ASSEMBLY-SOLVE-001".to_owned(),
+                        message: "component assembly has no generated equations to solve"
+                            .to_owned(),
+                    }),
+                    "linear_residual_not_attempted".to_owned(),
+                )
+            } else if unknown_count == 0 {
+                (
+                    "not_solved_no_unknowns".to_owned(),
+                    "assembly graph has no classified unknown variables".to_owned(),
+                    Some(RuntimeSolverFailureArtifact {
+                        code: "E-ASSEMBLY-SOLVE-002".to_owned(),
+                        message: "component assembly has equations but no classified unknowns"
+                            .to_owned(),
+                    }),
+                    "linear_residual_not_attempted".to_owned(),
+                )
+            } else if equation_count < unknown_count {
+                (
                 "constraint_satisfied_nonunique".to_owned(),
                 "homogeneous connection constraints evaluate to zero, but boundary/component equations are missing so the physical solution is non-unique".to_owned(),
                 Some(RuntimeSolverFailureArtifact {
@@ -1034,8 +1036,8 @@ impl RuntimeComponentSolution {
                 }),
                 "linear_residual_satisfied_nonunique".to_owned(),
             )
-        } else if equation_count > unknown_count {
-            (
+            } else if equation_count > unknown_count {
+                (
                 "not_solved_overdetermined".to_owned(),
                 "assembly graph has more equations than unknowns, so the dense linear residual solve was not attempted".to_owned(),
                 Some(RuntimeSolverFailureArtifact {
@@ -1044,20 +1046,23 @@ impl RuntimeComponentSolution {
                 }),
                 "linear_residual_not_attempted_overdetermined".to_owned(),
             )
-        } else {
-            method = "dense_linear_residual_graph".to_owned();
-            iteration_count = 1;
-            match solve_linear_residual_graph(&residual_graph, COMPONENT_LINEAR_SOLVER_TOLERANCE) {
-                Ok(linear_solution) => {
-                    variable_values = linear_solution
-                        .variables
-                        .iter()
-                        .map(|variable| variable.value)
-                        .collect();
-                    variable_status = "solved_linear".to_owned();
-                    iteration_count = linear_solution.iteration_count;
-                    let converged = linear_solution.status == "converged";
-                    (
+            } else {
+                method = "dense_linear_residual_graph".to_owned();
+                iteration_count = 1;
+                match solve_linear_residual_graph(
+                    &residual_graph,
+                    COMPONENT_LINEAR_SOLVER_TOLERANCE,
+                ) {
+                    Ok(linear_solution) => {
+                        variable_values = linear_solution
+                            .variables
+                            .iter()
+                            .map(|variable| variable.value)
+                            .collect();
+                        variable_status = "solved_linear".to_owned();
+                        iteration_count = linear_solution.iteration_count;
+                        let converged = linear_solution.status == "converged";
+                        (
                         if converged {
                             "solved_linear".to_owned()
                         } else {
@@ -1072,18 +1077,18 @@ impl RuntimeComponentSolution {
                             "linear_residual_above_tolerance".to_owned()
                         },
                     )
+                    }
+                    Err(failure) => (
+                        "linear_solve_failed".to_owned(),
+                        failure.message.clone(),
+                        Some(RuntimeSolverFailureArtifact {
+                            code: failure.code,
+                            message: failure.message,
+                        }),
+                        "linear_failed".to_owned(),
+                    ),
                 }
-                Err(failure) => (
-                    "linear_solve_failed".to_owned(),
-                    failure.message.clone(),
-                    Some(RuntimeSolverFailureArtifact {
-                        code: failure.code,
-                        message: failure.message,
-                    }),
-                    "linear_failed".to_owned(),
-                ),
-            }
-        };
+            };
 
         let variables = solver_assembly
             .unknowns
@@ -1097,9 +1102,27 @@ impl RuntimeComponentSolution {
                 status: variable_status.clone(),
             })
             .collect::<Vec<_>>();
-        let residual_output = residual_graph.evaluate(
+        let residual_output = match residual_graph.evaluate(
             &ResidualInput::new(&variable_values).with_tolerance(COMPONENT_LINEAR_SOLVER_TOLERANCE),
-        );
+        ) {
+            Ok(output) => output,
+            Err(failure) => {
+                if failure_artifact.is_none() {
+                    status = "residual_evaluation_failed".to_owned();
+                    convergence_status = "residual_evaluation_failed".to_owned();
+                    reason = failure.message.clone();
+                    failure_artifact = Some(RuntimeSolverFailureArtifact {
+                        code: failure.code,
+                        message: failure.message,
+                    });
+                }
+                ResidualOutput {
+                    values: Vec::new(),
+                    residual_norm: f64::INFINITY,
+                    tolerance: COMPONENT_LINEAR_SOLVER_TOLERANCE,
+                }
+            }
+        };
         let residuals = residual_graph
             .residuals
             .iter()
@@ -5824,11 +5847,15 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
                     .is_some_and(|reason| reason.contains("through variable conservation"))
         }));
         let zero_values = vec![0.0; residual_graph.variables.len()];
-        let zero_output = residual_graph.evaluate(&ResidualInput::new(&zero_values));
+        let zero_output = residual_graph
+            .evaluate(&ResidualInput::new(&zero_values))
+            .unwrap();
         assert_eq!(zero_output.residual_norm, 0.0);
         let mut perturbed_values = zero_values;
         perturbed_values[0] = 1.0;
-        let perturbed_output = residual_graph.evaluate(&ResidualInput::new(&perturbed_values));
+        let perturbed_output = residual_graph
+            .evaluate(&ResidualInput::new(&perturbed_values))
+            .unwrap();
         assert!(perturbed_output.residual_norm > 0.0);
 
         assert_eq!(runtime.component_solutions.len(), 1);

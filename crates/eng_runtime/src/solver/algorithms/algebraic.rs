@@ -31,8 +31,8 @@ pub fn solve_linear_residual_graph(
 
     let system = graph.assemble_linear_system()?;
     let linear_result = solve_dense_linear_system(&system.matrix, &system.rhs, tolerance)?;
-    let residual_output =
-        graph.evaluate(&ResidualInput::new(&linear_result.values).try_with_tolerance(tolerance)?);
+    let residual_output = graph
+        .evaluate(&ResidualInput::new(&linear_result.values).try_with_tolerance(tolerance)?)?;
     let variables = system
         .variable_names
         .iter()

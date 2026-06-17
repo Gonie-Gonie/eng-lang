@@ -201,59 +201,112 @@ fn residual_terms_for_generated_equation(
 }
 
 pub trait ResidualEvaluator {
-    fn evaluate(&self, input: &ResidualInput<'_>) -> ResidualOutput;
+    fn evaluate(&self, input: &ResidualInput<'_>) -> Result<ResidualOutput, SolverFailure>;
 }
 
 impl ResidualEvaluator for ResidualGraph {
-    fn evaluate(&self, input: &ResidualInput<'_>) -> ResidualOutput {
+    fn evaluate(&self, input: &ResidualInput<'_>) -> Result<ResidualOutput, SolverFailure> {
         let tolerance = input.tolerance.unwrap_or(DEFAULT_RESIDUAL_TOLERANCE);
-        let values = self
-            .residuals
-            .iter()
-            .map(|residual| {
-                let value = residual
-                    .terms
-                    .iter()
-                    .map(|term| {
-                        term.coefficient
-                            * input
-                                .values
-                                .get(term.variable_index)
-                                .copied()
-                                .unwrap_or_default()
-                    })
-                    .sum::<f64>()
-                    - residual.rhs_value;
-                let scale = input
-                    .scale_overrides
-                    .iter()
-                    .find(|scale| scale.residual == residual.name)
-                    .map(|scale| scale.scale.value)
-                    .unwrap_or(residual.scale.value);
-                let normalized_value = value / scale.max(f64::EPSILON);
-                let status = if normalized_value.abs() <= tolerance {
-                    "satisfied"
-                } else {
-                    "unsatisfied"
-                };
-                NamedResidualValue {
-                    name: residual.name.clone(),
-                    value,
-                    normalized_value,
-                    status: status.to_owned(),
+        if !tolerance.is_finite() || tolerance <= 0.0 {
+            return Err(SolverFailure::new(
+                "E-RESIDUAL-TOLERANCE-001",
+                "residual evaluator tolerance must be a positive finite number",
+            ));
+        }
+        ensure_finite_values(
+            "E-RESIDUAL-INPUT-FINITE",
+            "residual evaluator input",
+            input.values,
+        )?;
+
+        let mut values = Vec::with_capacity(self.residuals.len());
+        for residual in &self.residuals {
+            if !residual.rhs_value.is_finite() {
+                return Err(SolverFailure::new(
+                    "E-RESIDUAL-FINITE",
+                    format!("residual `{}` has a non-finite RHS value", residual.name),
+                ));
+            }
+            let mut value = -residual.rhs_value;
+            for term in &residual.terms {
+                if !term.coefficient.is_finite() {
+                    return Err(SolverFailure::new(
+                        "E-RESIDUAL-FINITE",
+                        format!(
+                            "residual `{}` term for `{}` has a non-finite coefficient",
+                            residual.name, term.variable
+                        ),
+                    ));
                 }
-            })
-            .collect::<Vec<_>>();
+                value += term.coefficient
+                    * input
+                        .values
+                        .get(term.variable_index)
+                        .copied()
+                        .unwrap_or_default();
+            }
+            if !value.is_finite() {
+                return Err(SolverFailure::new(
+                    "E-RESIDUAL-FINITE",
+                    format!(
+                        "residual `{}` evaluated to a non-finite value",
+                        residual.name
+                    ),
+                ));
+            }
+            let scale = input
+                .scale_overrides
+                .iter()
+                .find(|scale| scale.residual == residual.name)
+                .map(|scale| scale.scale.value)
+                .unwrap_or(residual.scale.value);
+            if !scale.is_finite() || scale <= 0.0 {
+                return Err(SolverFailure::new(
+                    "E-RESIDUAL-SCALE-001",
+                    format!(
+                        "residual `{}` scale must be a positive finite number",
+                        residual.name
+                    ),
+                ));
+            }
+            let normalized_value = value / scale.max(f64::EPSILON);
+            if !normalized_value.is_finite() {
+                return Err(SolverFailure::new(
+                    "E-RESIDUAL-FINITE",
+                    format!(
+                        "residual `{}` normalized value is non-finite",
+                        residual.name
+                    ),
+                ));
+            }
+            let status = if normalized_value.abs() <= tolerance {
+                "satisfied"
+            } else {
+                "unsatisfied"
+            };
+            values.push(NamedResidualValue {
+                name: residual.name.clone(),
+                value,
+                normalized_value,
+                status: status.to_owned(),
+            });
+        }
         let normalized_residuals = values
             .iter()
             .map(|value| value.normalized_value)
             .collect::<Vec<_>>();
         let residual_norm = euclidean_norm(&normalized_residuals);
-        ResidualOutput {
+        if !residual_norm.is_finite() {
+            return Err(SolverFailure::new(
+                "E-RESIDUAL-FINITE",
+                "residual norm is non-finite",
+            ));
+        }
+        Ok(ResidualOutput {
             values,
             residual_norm,
             tolerance,
-        }
+        })
     }
 }
 
@@ -264,7 +317,7 @@ impl super::evaluator::ResidualEvaluator for ResidualGraph {
     ) -> Result<super::evaluator::ResidualOutput, SolverFailure> {
         let values = self.values_from_structured_input(input)?;
         let output =
-            <Self as ResidualEvaluator>::evaluate(self, &ResidualInput::new(values.as_slice()));
+            <Self as ResidualEvaluator>::evaluate(self, &ResidualInput::new(values.as_slice()))?;
         Ok(super::evaluator::ResidualOutput {
             residuals: output.values.iter().map(|value| value.value).collect(),
             named_residuals: output
@@ -277,6 +330,17 @@ impl super::evaluator::ResidualEvaluator for ResidualGraph {
                 })
                 .collect(),
         })
+    }
+}
+
+fn ensure_finite_values(code: &str, label: &str, values: &[f64]) -> Result<(), SolverFailure> {
+    if values.iter().all(|value| value.is_finite()) {
+        Ok(())
+    } else {
+        Err(SolverFailure::new(
+            code,
+            format!("{label} vector contains a non-finite value"),
+        ))
     }
 }
 
@@ -642,7 +706,8 @@ mod tests {
         assert_eq!(system.rhs, vec![4.0]);
 
         let output =
-            <ResidualGraph as ResidualEvaluator>::evaluate(&graph, &ResidualInput::new(&[5.0]));
+            <ResidualGraph as ResidualEvaluator>::evaluate(&graph, &ResidualInput::new(&[5.0]))
+                .unwrap();
         assert_eq!(output.values[0].value, 1.0);
     }
 
@@ -681,7 +746,8 @@ mod tests {
             &ResidualInput::new(&[4.0])
                 .with_scale_overrides(&overrides)
                 .with_tolerance(0.51),
-        );
+        )
+        .unwrap();
 
         assert_eq!(output.tolerance, 0.51);
         assert_eq!(output.values[0].value, 2.0);
@@ -705,6 +771,60 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(failure.code, "E-RESIDUAL-TOLERANCE-001");
+    }
+
+    #[test]
+    fn evaluator_rejects_nonfinite_inputs_scales_and_values() {
+        let graph = ResidualGraph {
+            name: "test.residual_graph".to_owned(),
+            variables: vec![ResidualVariableRef {
+                index: 0,
+                name: "x".to_owned(),
+                role: "algebraic".to_owned(),
+                unit: "1".to_owned(),
+            }],
+            residuals: vec![residual("r1", &[(0, "x", 1.0)])],
+            parameters: Vec::new(),
+            dependencies: Vec::new(),
+        };
+
+        let failure = <ResidualGraph as ResidualEvaluator>::evaluate(
+            &graph,
+            &ResidualInput::new(&[f64::NAN]),
+        )
+        .unwrap_err();
+        assert_eq!(failure.code, "E-RESIDUAL-INPUT-FINITE");
+
+        let bad_scale = vec![ResidualScaleOverride {
+            residual: "r1".to_owned(),
+            scale: ResidualScale {
+                value: f64::NAN,
+                policy: "test".to_owned(),
+            },
+        }];
+        let failure = <ResidualGraph as ResidualEvaluator>::evaluate(
+            &graph,
+            &ResidualInput::new(&[1.0]).with_scale_overrides(&bad_scale),
+        )
+        .unwrap_err();
+        assert_eq!(failure.code, "E-RESIDUAL-SCALE-001");
+
+        let graph = ResidualGraph {
+            name: "test.residual_graph".to_owned(),
+            variables: vec![ResidualVariableRef {
+                index: 0,
+                name: "x".to_owned(),
+                role: "algebraic".to_owned(),
+                unit: "1".to_owned(),
+            }],
+            residuals: vec![residual("r1", &[(0, "x", f64::MAX)])],
+            parameters: Vec::new(),
+            dependencies: Vec::new(),
+        };
+        let failure =
+            <ResidualGraph as ResidualEvaluator>::evaluate(&graph, &ResidualInput::new(&[2.0]))
+                .unwrap_err();
+        assert_eq!(failure.code, "E-RESIDUAL-FINITE");
     }
 
     #[test]
