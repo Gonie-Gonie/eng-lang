@@ -202,7 +202,10 @@ fn dynamic_component_result(
             plan: input.plan.clone(),
             time_grid: input.time_grid.clone(),
             state_layout: input.state_layout.clone(),
-            output: SolverOutput { state_trajectories },
+            output: SolverOutput {
+                state_trajectories,
+                algebraic_trajectories: algebraic_trajectories.clone(),
+            },
             diagnostics,
         },
         algebraic_layout,
@@ -284,6 +287,10 @@ mod tests {
             result.algebraic_trajectories[0].values,
             vec![1.0, 1.5, 2.25]
         );
+        assert_eq!(
+            result.solver_result.output.algebraic_trajectories[0].values,
+            vec![1.0, 1.5, 2.25]
+        );
         assert_eq!(result.step_diagnostics.len(), 3);
         assert!(result
             .step_diagnostics
@@ -358,5 +365,9 @@ mod tests {
             vec![0.0]
         );
         assert_eq!(result.algebraic_trajectories[0].values, vec![3.0]);
+        assert_eq!(
+            result.solver_result.output.algebraic_trajectories[0].values,
+            vec![3.0]
+        );
     }
 }

@@ -37,6 +37,7 @@ impl SolverResult {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SolverOutput {
     pub state_trajectories: Vec<StateTrajectory>,
+    pub algebraic_trajectories: Vec<StateTrajectory>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

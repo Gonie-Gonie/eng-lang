@@ -91,7 +91,7 @@ Internal runtime seeds:
 - supplied analytic/JIT Jacobian hook for Newton
 - standalone implicit-Euler DAE seed over F(x, xdot, z, u, t, p)
 - optional DAE mass matrix and initial consistency checks
-- standalone dynamic-component explicit-Euler seed with algebraic solve per timestep
+- standalone dynamic-component explicit-Euler seed with algebraic solve per timestep and common SolverResult state/algebraic trajectories
 - delay buffer with interpolation and initial-history policies
 - component-local delay(signal, duration) diagnostics
 - component-local Predictor and external behavior signal diagnostics

@@ -153,8 +153,9 @@ are not public stable workflows.
   `F(x, xdot, z, u, t, p)` with optional mass matrix, initial consistency
   checks, algebraic-variable initialization, and a dynamic-component
   explicit-Euler seed that solves algebraic variables per timestep and returns
-  state/algebraic trajectories plus failure diagnostics. Newton/DAE/dynamic
-  component seeds are not wired into language-level nonlinear systems,
+  state/algebraic trajectories through the common `SolverResult` output
+  contract plus failure diagnostics. Newton/DAE/dynamic component seeds are not
+  wired into language-level nonlinear systems,
   component assembly, or report/IDE workflows.
 - Behavior graph seeds: runtime delay buffer with linear and previous-sample
   interpolation policies, explicit initial-history policy, relationship

@@ -74,7 +74,10 @@ where
         input.plan.clone(),
         input.time_grid.clone(),
         input.state_layout.clone(),
-        SolverOutput { state_trajectories },
+        SolverOutput {
+            state_trajectories,
+            algebraic_trajectories: Vec::new(),
+        },
         input.time_grid.step_count,
     ))
 }
@@ -169,7 +172,10 @@ where
         input.plan.clone(),
         input.time_grid.clone(),
         input.state_layout.clone(),
-        SolverOutput { state_trajectories },
+        SolverOutput {
+            state_trajectories,
+            algebraic_trajectories: Vec::new(),
+        },
         input.time_grid.step_count,
     ))
 }
@@ -231,6 +237,7 @@ mod tests {
             result.output.state_trajectories[1].values,
             vec![10.0, 5.0, 2.5]
         );
+        assert!(result.output.algebraic_trajectories.is_empty());
         assert_eq!(result.diagnostics.status, "computed");
     }
 
@@ -260,6 +267,7 @@ mod tests {
         let y_final = result.output.state_trajectories[1].final_value().unwrap();
         assert!((x_final - 7.335069444444444).abs() < 1e-9);
         assert!((y_final - 3.681708441840278).abs() < 1e-9);
+        assert!(result.output.algebraic_trajectories.is_empty());
         assert_eq!(result.diagnostics.status, "computed");
     }
 }

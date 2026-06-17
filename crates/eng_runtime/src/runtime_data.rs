@@ -2981,7 +2981,10 @@ fn solve_discrete_state_space(
         input.plan.clone(),
         input.time_grid.clone(),
         input.state_layout.clone(),
-        SolverOutput { state_trajectories },
+        SolverOutput {
+            state_trajectories,
+            algebraic_trajectories: Vec::new(),
+        },
         input.time_grid.step_count,
     ))
 }

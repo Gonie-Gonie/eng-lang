@@ -149,8 +149,9 @@ Current coverage:
   algebraic-variable, and mass-matrix tests.
 - Runtime has a standalone dynamic-component explicit-Euler seed that solves
   algebraic variables with fixed point at each timestep, updates state
-  trajectories, records algebraic trajectories, and returns timestep-level
-  convergence/failure diagnostics.
+  trajectories, carries algebraic trajectories through the common
+  `SolverResult` output contract, and returns timestep-level convergence/failure
+  diagnostics.
 
 Definition of Done:
 
