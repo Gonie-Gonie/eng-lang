@@ -122,6 +122,9 @@ Current coverage:
 - Fixed-step method dispatch now lives behind the solver module as
   `FixedStepMethod`/`solve_fixed_step_ode`, so runtime materialization calls the
   solver API instead of carrying a local dispatch wrapper.
+- The supported one-state thermal runtime path now delegates RHS evaluation and
+  fixed-step execution to `solver::thermal::solve_first_order_thermal`; runtime
+  materialization only recognizes the system shape and prepares canonical input.
 
 Title: `ide: add side-effect artifact panels`
 

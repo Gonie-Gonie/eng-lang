@@ -20,10 +20,11 @@ use crate::solver::{
         ComponentEquation, ComponentInstance, ConnectionEdge, ConnectionSet, EquationAssembly,
         GeneratedEquation, PortInstance, UnknownVariable,
     },
-    solve_fixed_step_ode, FixedStepMethod, InputLayout, LayoutEntry, OutputLayout, ParameterLayout,
-    ResidualEvaluator, ResidualGraph, ResidualInput, RhsEvaluator, RhsInput, RhsStateInfo,
-    SimulationPlan, SolverFailure, SolverInput, SolverOptions, SolverOutput, SolverPlan,
-    SolverResult, SolverScalar, StateLayout, StateSpaceRhsEvaluator, StateTrajectory, TimeGrid,
+    solve_first_order_thermal, solve_fixed_step_ode, FirstOrderThermalModel, FixedStepMethod,
+    InputLayout, LayoutEntry, OutputLayout, ParameterLayout, ResidualEvaluator, ResidualGraph,
+    ResidualInput, RhsEvaluator, RhsInput, RhsStateInfo, SimulationPlan, SolverFailure,
+    SolverInput, SolverOptions, SolverOutput, SolverPlan, SolverResult, SolverScalar, StateLayout,
+    StateSpaceRhsEvaluator, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -3252,9 +3253,9 @@ fn materialize_first_order_thermal_solution(
     let internal_heat_w = canonical_variable_value(internal_heat)?;
     let initial_temperature_k = canonical_variable_value(state)?;
 
-    if heat_capacity_j_per_k <= 0.0 || conductance_w_per_k < 0.0 {
-        return None;
-    }
+    let thermal_model =
+        FirstOrderThermalModel::new(heat_capacity_j_per_k, conductance_w_per_k, internal_heat_w)
+            .ok()?;
 
     let time_step_s = option_value(options, "timestep")
         .and_then(parse_duration_seconds)
@@ -3362,26 +3363,23 @@ fn materialize_first_order_thermal_solution(
         ],
     };
 
-    let solver_result = solve_fixed_step_ode(fixed_step_method, &solver_input, |sample| {
-        let temperature_k = sample.state[0];
-        let outdoor_k = outdoor_series
-            .and_then(|series| interpolate_series_value(series, sample.time_s))
-            .map(|value| {
-                convert_to_canonical_unit(
-                    value,
-                    Some(&outdoor_temperature.display_unit),
-                    &outdoor_temperature.canonical_unit,
-                    &outdoor_quantity_kind,
-                )
-                .unwrap_or(outdoor_temperature_k)
-            })
-            .unwrap_or(outdoor_temperature_k);
-        let derivative_k_per_s = (conductance_w_per_k * (outdoor_k - temperature_k)
-            + internal_heat_w)
-            / heat_capacity_j_per_k;
-        Ok(vec![derivative_k_per_s])
-    })
-    .ok()?;
+    let solver_result =
+        solve_first_order_thermal(fixed_step_method, &solver_input, thermal_model, |time_s| {
+            let outdoor_k = outdoor_series
+                .and_then(|series| interpolate_series_value(series, time_s))
+                .map(|value| {
+                    convert_to_canonical_unit(
+                        value,
+                        outdoor_series.map(|series| series.display_unit.as_str()),
+                        &outdoor_temperature.canonical_unit,
+                        &outdoor_quantity_kind,
+                    )
+                    .unwrap_or(outdoor_temperature_k)
+                })
+                .unwrap_or(outdoor_temperature_k);
+            Ok(outdoor_k)
+        })
+        .ok()?;
 
     runtime_system_solution_from_solver_result(
         system,

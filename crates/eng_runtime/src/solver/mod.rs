@@ -6,6 +6,7 @@ pub mod evaluator;
 pub mod plan;
 pub mod residual;
 pub mod result;
+pub mod thermal;
 
 pub use algorithms::fixed_step::{solve_fixed_step_ode, FixedStepMethod, RhsSample};
 pub use diagnostics::{SolverDiagnostics, SolverFailure};
@@ -22,3 +23,4 @@ pub use residual::{
     ResidualSource, ResidualTerm, ResidualUnit, ResidualVariableRef,
 };
 pub use result::{SolverOutput, SolverResult, StateTrajectory};
+pub use thermal::{solve_first_order_thermal, FirstOrderThermalModel};
