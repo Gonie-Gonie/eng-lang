@@ -3070,6 +3070,7 @@ fn solve_discrete_state_space(
     matrix_a: &[Vec<f64>],
     matrix_b: &[Vec<f64>],
 ) -> Result<SolverResult, SolverFailure> {
+    input.validate_layouts()?;
     let mut state = input.initial_state.clone();
     let mut values_by_state = vec![Vec::with_capacity(input.time_grid.step_count + 1); state.len()];
     for (index, value) in state.iter().copied().enumerate() {
