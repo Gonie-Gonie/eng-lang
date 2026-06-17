@@ -948,6 +948,12 @@
         "name": { "type": "string" },
         "expression": { "type": "string" },
         "status": { "type": "string" },
+        "signal": { "type": ["string", "null"] },
+        "delay_s": { "type": ["number", "null"] },
+        "relationship_status": { "type": ["string", "null"] },
+        "contract_status": { "type": ["string", "null"] },
+        "jacobian_policy": { "type": ["string", "null"] },
+        "profile_policy": { "type": ["string", "null"] },
         "line": { "type": "integer", "minimum": 1 },
         "source_span": { "$ref": "#/$defs/componentGraphSourceSpan" }
       }

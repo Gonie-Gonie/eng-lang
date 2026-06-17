@@ -479,6 +479,12 @@ pub struct ReportComponentGraphBehaviorNode {
     pub name: String,
     pub expression: String,
     pub status: String,
+    pub signal: Option<String>,
+    pub delay_s: Option<f64>,
+    pub relationship_status: Option<String>,
+    pub contract_status: Option<String>,
+    pub jacobian_policy: Option<String>,
+    pub profile_policy: Option<String>,
     pub line: usize,
     pub source_span: ReportSourceSpan,
 }
@@ -1805,39 +1811,164 @@ fn report_component_behavior_nodes(report: &CheckReport) -> Vec<ReportComponentG
         .iter()
         .flat_map(|component| {
             component.local_expressions.iter().flat_map(move |local| {
-                report_behavior_node_kinds(&local.expression)
+                report_behavior_node_seeds(&local.expression)
                     .into_iter()
-                    .map(
-                        move |(behavior_kind, status)| ReportComponentGraphBehaviorNode {
-                            id: format!("{}.{}:{}", component.name, local.name, behavior_kind),
-                            kind: "behavior".to_owned(),
-                            behavior_kind: behavior_kind.to_owned(),
-                            component: component.name.clone(),
-                            name: local.name.clone(),
-                            expression: local.expression.clone(),
-                            status: status.to_owned(),
-                            line: local.line,
-                            source_span: report_source_span(local.line),
-                        },
-                    )
+                    .map(move |seed| ReportComponentGraphBehaviorNode {
+                        id: format!("{}.{}:{}", component.name, local.name, seed.behavior_kind),
+                        kind: "behavior".to_owned(),
+                        behavior_kind: seed.behavior_kind,
+                        component: component.name.clone(),
+                        name: local.name.clone(),
+                        expression: local.expression.clone(),
+                        status: seed.status,
+                        signal: seed.signal,
+                        delay_s: seed.delay_s,
+                        relationship_status: seed.relationship_status,
+                        contract_status: seed.contract_status,
+                        jacobian_policy: seed.jacobian_policy,
+                        profile_policy: seed.profile_policy,
+                        line: local.line,
+                        source_span: report_source_span(local.line),
+                    })
             })
         })
         .collect()
 }
 
-fn report_behavior_node_kinds(expression: &str) -> Vec<(&'static str, &'static str)> {
+struct ReportBehaviorSeed {
+    behavior_kind: String,
+    status: String,
+    signal: Option<String>,
+    delay_s: Option<f64>,
+    relationship_status: Option<String>,
+    contract_status: Option<String>,
+    jacobian_policy: Option<String>,
+    profile_policy: Option<String>,
+}
+
+fn report_behavior_node_seeds(expression: &str) -> Vec<ReportBehaviorSeed> {
     let normalized = expression.to_ascii_lowercase();
     let mut nodes = Vec::new();
     if normalized.contains("delay(") {
-        nodes.push(("delay", "delay_call_runtime_buffer_seed_not_integrated"));
+        let arguments =
+            first_report_behavior_call_arguments(expression, "delay").unwrap_or_default();
+        nodes.push(ReportBehaviorSeed {
+            behavior_kind: "delay".to_owned(),
+            status: "delay_call_runtime_buffer_seed_not_integrated".to_owned(),
+            signal: arguments.first().cloned(),
+            delay_s: arguments
+                .get(1)
+                .and_then(|duration| report_duration_seconds(duration.trim())),
+            relationship_status: Some("delay_relationship_metadata_only".to_owned()),
+            contract_status: None,
+            jacobian_policy: None,
+            profile_policy: None,
+        });
     }
     if normalized.contains("predict(") || normalized.contains("predictor(") {
-        nodes.push(("predictor", "predictor_call_contract_seed_not_integrated"));
+        nodes.push(ReportBehaviorSeed {
+            behavior_kind: "predictor".to_owned(),
+            status: "predictor_call_contract_seed_not_integrated".to_owned(),
+            signal: first_report_behavior_call_arguments(expression, "predictor")
+                .or_else(|| first_report_behavior_call_arguments(expression, "predict"))
+                .and_then(|arguments| arguments.first().cloned()),
+            delay_s: None,
+            relationship_status: None,
+            contract_status: Some("predictor_contract_metadata_seed".to_owned()),
+            jacobian_policy: Some("solver_policy_not_integrated".to_owned()),
+            profile_policy: None,
+        });
     }
     if normalized.contains("external(") || normalized.contains("adapter(") {
-        nodes.push(("external", "external_behavior_wrapper_seed_not_integrated"));
+        nodes.push(ReportBehaviorSeed {
+            behavior_kind: "external".to_owned(),
+            status: "external_behavior_wrapper_seed_not_integrated".to_owned(),
+            signal: first_report_behavior_call_arguments(expression, "external")
+                .or_else(|| first_report_behavior_call_arguments(expression, "adapter"))
+                .and_then(|arguments| arguments.first().cloned()),
+            delay_s: None,
+            relationship_status: None,
+            contract_status: Some("external_behavior_contract_metadata_seed".to_owned()),
+            jacobian_policy: None,
+            profile_policy: Some("safe_repro_profile_policy_seed".to_owned()),
+        });
     }
     nodes
+}
+
+fn first_report_behavior_call_arguments(expression: &str, call_name: &str) -> Option<Vec<String>> {
+    let lowered = expression.to_ascii_lowercase();
+    let needle = format!("{call_name}(");
+    let start = lowered.find(&needle)?;
+    let open_index = start + call_name.len();
+    let mut depth = 0i32;
+    let mut close_index = None;
+    for (index, character) in expression[open_index..].char_indices() {
+        match character {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    close_index = Some(open_index + index);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let close_index = close_index?;
+    Some(
+        expression[open_index + 1..close_index]
+            .split(',')
+            .map(|part| part.trim().to_owned())
+            .filter(|part| !part.is_empty())
+            .collect(),
+    )
+}
+
+fn report_duration_seconds(value: &str) -> Option<f64> {
+    let mut parts = value.split_whitespace();
+    let number = parts.next()?.parse::<f64>().ok()?;
+    if number <= 0.0 {
+        return None;
+    }
+    let unit = parts.next()?;
+    if parts.next().is_some() {
+        return None;
+    }
+    match unit {
+        "s" | "sec" | "second" | "seconds" => Some(number),
+        "min" | "minute" | "minutes" => Some(number * 60.0),
+        "h" | "hr" | "hour" | "hours" => Some(number * 3600.0),
+        _ => None,
+    }
+}
+
+fn report_behavior_node_detail(node: &ReportComponentGraphBehaviorNode) -> String {
+    let mut parts = Vec::new();
+    if let Some(signal) = &node.signal {
+        parts.push(format!("signal={signal}"));
+    }
+    if let Some(delay_s) = node.delay_s {
+        parts.push(format!("delay_s={delay_s}"));
+    }
+    if let Some(status) = &node.relationship_status {
+        parts.push(format!("relationship={status}"));
+    }
+    if let Some(status) = &node.contract_status {
+        parts.push(format!("contract={status}"));
+    }
+    if let Some(policy) = &node.jacobian_policy {
+        parts.push(format!("jacobian={policy}"));
+    }
+    if let Some(policy) = &node.profile_policy {
+        parts.push(format!("profile={policy}"));
+    }
+    if parts.is_empty() {
+        "-".to_owned()
+    } else {
+        parts.join(", ")
+    }
 }
 
 fn report_domain_argument_labels(
@@ -4645,20 +4776,22 @@ fn render_html_inner(
 
     let mut component_behavior = String::new();
     for node in report_component_behavior_nodes(report) {
+        let detail = report_behavior_node_detail(&node);
         component_behavior.push_str("<tr>");
         component_behavior.push_str(&format!(
-            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><code>{}</code></td><td>{}</td>",
+            "<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><code>{}</code></td><td>{}</td><td>{}</td>",
             node.line,
             html_escape(&node.component),
             html_escape(&node.name),
             html_escape(&node.behavior_kind),
             html_escape(&node.expression),
-            html_escape(&node.status)
+            html_escape(&node.status),
+            html_escape(&detail)
         ));
         component_behavior.push_str("</tr>");
     }
     if component_behavior.is_empty() {
-        component_behavior.push_str("<tr><td colspan=\"6\">No component behavior nodes.</td></tr>");
+        component_behavior.push_str("<tr><td colspan=\"7\">No component behavior nodes.</td></tr>");
     }
 
     let mut connection_summary = String::new();
@@ -5230,7 +5363,7 @@ fn render_html_inner(
     </table>
     <h2>Component Behavior</h2>
     <table>
-      <thead><tr><th>Line</th><th>Component</th><th>Name</th><th>Kind</th><th>Expression</th><th>Status</th></tr></thead>
+      <thead><tr><th>Line</th><th>Component</th><th>Name</th><th>Kind</th><th>Expression</th><th>Status</th><th>Details</th></tr></thead>
       <tbody>{component_behavior}</tbody>
     </table>
     <h2>Connections</h2>
@@ -5952,6 +6085,17 @@ fn write_report_component_graph_json(json: &mut String, graph: &ReportComponentG
             "        \"status\": \"{}\",\n",
             json_escape(&node.status)
         ));
+        push_optional_json_string(json, "signal", node.signal.as_deref(), 8);
+        push_optional_json_f64(json, "delay_s", node.delay_s, 8);
+        push_optional_json_string(
+            json,
+            "relationship_status",
+            node.relationship_status.as_deref(),
+            8,
+        );
+        push_optional_json_string(json, "contract_status", node.contract_status.as_deref(), 8);
+        push_optional_json_string(json, "jacobian_policy", node.jacobian_policy.as_deref(), 8);
+        push_optional_json_string(json, "profile_policy", node.profile_policy.as_deref(), 8);
         json.push_str(&format!("        \"line\": {},\n", node.line));
         write_report_source_span_json(json, "        ", &node.source_span, false);
         json.push_str("\n      }");
@@ -6568,6 +6712,17 @@ mod tests {
             "delay"
         );
         assert_eq!(
+            spec.component_graph.behavior_nodes[0].signal.as_deref(),
+            Some("outlet.m_dot")
+        );
+        assert_eq!(spec.component_graph.behavior_nodes[0].delay_s, Some(5.0));
+        assert_eq!(
+            spec.component_graph.behavior_nodes[0]
+                .relationship_status
+                .as_deref(),
+            Some("delay_relationship_metadata_only")
+        );
+        assert_eq!(
             spec.component_graph.ports[0].medium_label.as_deref(),
             Some("Water")
         );
@@ -6603,6 +6758,9 @@ mod tests {
         assert!(json.contains("\"component_graph\""));
         assert!(json.contains("\"behavior_nodes\""));
         assert!(json.contains("\"behavior_kind\": \"delay\""));
+        assert!(json.contains("\"signal\": \"outlet.m_dot\""));
+        assert!(json.contains("\"delay_s\": 5"));
+        assert!(json.contains("\"relationship_status\": \"delay_relationship_metadata_only\""));
         assert!(json.contains("\"medium_label\": \"Water\""));
         assert!(json.contains("\"source_span\""));
         assert!(json.contains("\"assembly_count\": 1"));
@@ -6623,6 +6781,9 @@ mod tests {
         assert!(html.contains("eng.std.domains.fluid"));
         assert!(html.contains("Component Ports"));
         assert!(html.contains("pressure_seed"));
+        assert!(html.contains("signal=outlet.m_dot"));
+        assert!(html.contains("delay_s=5"));
+        assert!(html.contains("relationship=delay_relationship_metadata_only"));
         assert!(html.contains("Connections"));
         assert!(html.contains("Component Assembly"));
         assert!(html.contains("constraint check"));

@@ -1318,6 +1318,7 @@ function renderComponentGraph() {
       <td><strong>${escapeHtml(node.component || "-")}.${escapeHtml(node.name || "-")}</strong><div class="muted">${escapeHtml(node.behavior_kind || node.behaviorKind || "-")}</div></td>
       <td><code>${escapeHtml(node.expression || "-")}</code></td>
       <td>${escapeHtml(node.status || "-")}</td>
+      <td>${escapeHtml(behaviorNodeDetails(node))}</td>
       <td>${sourceLineButton(node)}</td>
     </tr>
   `).join("");
@@ -1335,10 +1336,27 @@ function renderComponentGraph() {
       <tbody>${portRows || `<tr><td colspan="5" class="muted">No component graph ports.</td></tr>`}</tbody>
     </table>
     <table class="var-table">
-      <thead><tr><th>Behavior</th><th>Expression</th><th>Status</th><th>Source</th></tr></thead>
-      <tbody>${behaviorRows || `<tr><td colspan="4" class="muted">No component behavior nodes.</td></tr>`}</tbody>
+      <thead><tr><th>Behavior</th><th>Expression</th><th>Status</th><th>Details</th><th>Source</th></tr></thead>
+      <tbody>${behaviorRows || `<tr><td colspan="5" class="muted">No component behavior nodes.</td></tr>`}</tbody>
     </table>
   `;
+}
+
+function behaviorNodeDetails(node) {
+  const parts = [];
+  const signal = node.signal;
+  const delayS = node.delay_s ?? node.delayS;
+  const relationship = node.relationship_status ?? node.relationshipStatus;
+  const contract = node.contract_status ?? node.contractStatus;
+  const jacobian = node.jacobian_policy ?? node.jacobianPolicy;
+  const profile = node.profile_policy ?? node.profilePolicy;
+  if (signal) parts.push(`signal=${signal}`);
+  if (delayS !== null && delayS !== undefined) parts.push(`delay_s=${delayS}`);
+  if (relationship) parts.push(`relationship=${relationship}`);
+  if (contract) parts.push(`contract=${contract}`);
+  if (jacobian) parts.push(`jacobian=${jacobian}`);
+  if (profile) parts.push(`profile=${profile}`);
+  return parts.length ? parts.join(", ") : "-";
 }
 
 function renderClassObjects() {
