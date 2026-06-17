@@ -480,3 +480,32 @@ Definition of Done:
   code/message plus `largest_residuals` aliases when present.
 - Under/overdetermined cases produce diagnostics or limitation artifacts.
 - No production multi-domain solver claim is made.
+
+Current coverage:
+
+- Compiler semantic assembly records component instances, ports, connection
+  sets, generated connection equations, boundary RHS equation seeds, equation
+  and unknown counts, residual lists, dependency rows, algebraic-loop seeds,
+  jacobian-sparsity placeholders, solver-plan placeholders, and domain plans.
+- `assembly_summary` and `component_graph` review/report artifacts preserve
+  generated reasons, source-line navigation data, residual graph status,
+  dependency rows, scale policy, and limitation metadata for report and IDE
+  consumers.
+- Runtime builds solver residual graphs from compiler assembly artifacts and
+  evaluates raw and normalized residuals through `solver::residual` without
+  depending on report-layer JSON.
+- `ResidualEvaluationInput` accepts solver-provided tolerance and optional
+  per-residual scale overrides; tests cover default unit/quantity scales,
+  user-provided scale overrides, invalid scales, structured `x`/`xdot`/`z`/`u`
+  inputs, and repeatable named residual evaluation.
+- Square algebraic assembly paths call `solve_linear_residual_graph`, and
+  runtime component artifacts adapt the solver result instead of inlining dense
+  matrix solve plumbing in report code.
+- Runtime `component_solutions`, report `solver_result`, and IDE Assembly
+  smoke expose nullable `failure_code`/`failure_reason` aliases plus capped
+  `largest_residuals` for solved, singular, underdetermined, and overdetermined
+  paths.
+- Official/internal fixtures cover the focused Thermal square solve, constrained
+  multi-domain boundary solve, singular dense solve failure, and overdetermined
+  limitation artifact while keeping production multi-domain solving out of the
+  public claim.
