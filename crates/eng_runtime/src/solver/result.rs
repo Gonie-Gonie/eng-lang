@@ -59,4 +59,33 @@ impl StateTrajectory {
     pub fn final_value(&self) -> Option<f64> {
         self.values.last().copied()
     }
+
+    pub fn time_value_points(&self, time_grid: &TimeGrid) -> Vec<(f64, f64)> {
+        self.values
+            .iter()
+            .enumerate()
+            .map(|(index, value)| (time_grid.step_time_s(index), *value))
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn state_trajectory_exposes_time_series_ready_points() {
+        let trajectory = StateTrajectory {
+            name: "T_zone".to_owned(),
+            quantity_kind: "AbsoluteTemperature".to_owned(),
+            canonical_unit: "K".to_owned(),
+            values: vec![295.15, 296.15, 297.15],
+        };
+        let time_grid = TimeGrid::fixed_step(120.0, 60.0).unwrap();
+
+        assert_eq!(
+            trajectory.time_value_points(&time_grid),
+            vec![(0.0, 295.15), (60.0, 296.15), (120.0, 297.15)]
+        );
+    }
 }

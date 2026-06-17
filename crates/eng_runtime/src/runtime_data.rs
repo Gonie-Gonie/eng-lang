@@ -2559,13 +2559,9 @@ fn component_trajectory_from_solver_trajectory(
     time_grid: &TimeGrid,
 ) -> RuntimeComponentTrajectory {
     let points = trajectory
-        .values
-        .iter()
-        .enumerate()
-        .map(|(index, value)| RuntimePoint {
-            x: time_grid.step_time_s(index),
-            y: *value,
-        })
+        .time_value_points(time_grid)
+        .into_iter()
+        .map(|(x, y)| RuntimePoint { x, y })
         .collect::<Vec<_>>();
     RuntimeComponentTrajectory {
         name: trajectory.name.clone(),
@@ -3469,12 +3465,11 @@ fn runtime_system_solution_for_trajectory(
     let canonical_initial_value = trajectory.initial_value()?;
     let canonical_final_value = trajectory.final_value()?;
     let points = trajectory
-        .values
-        .iter()
-        .enumerate()
-        .map(|(index, value)| RuntimePoint {
-            x: solver_result.time_grid.step_time_s(index),
-            y: display_variable_value(*value, state),
+        .time_value_points(&solver_result.time_grid)
+        .into_iter()
+        .map(|(x, value)| RuntimePoint {
+            x,
+            y: display_variable_value(value, state),
         })
         .collect::<Vec<_>>();
 

@@ -116,6 +116,9 @@ Current coverage:
   across `review.json` `simulation_results[].solver_results`,
   `report_spec.json` `system_ir[].solver_results`, and `result.engres`
   `solver_result` fields.
+- `StateTrajectory::time_value_points` keeps SolverOutput state trajectories
+  directly convertible to TimeSeries-style `(time, value)` points, and runtime
+  system/component artifact adapters use that helper.
 
 Title: `ide: add side-effect artifact panels`
 
