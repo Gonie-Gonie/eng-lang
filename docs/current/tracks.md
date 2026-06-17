@@ -84,10 +84,19 @@ Current supported scope:
 - explicit solver-boundary artifacts
 ```
 
+Internal runtime seeds:
+
+```text
+- standalone dense linear, fixed-point, and damped Newton algorithms
+- supplied analytic/JIT Jacobian hook for Newton
+- standalone implicit-Euler DAE seed over F(x, xdot, z, u, t, p)
+- optional DAE mass matrix and initial consistency checks
+```
+
 Deferred:
 
 ```text
-- multi-state nonlinear solving
+- language-integrated nonlinear/DAE solving
 - adaptive solvers
 - general equation-system runtime
 ```

@@ -103,14 +103,18 @@ Current coverage:
   residual-history, convergence-status, singular-Jacobian, invalid-option, and
   nonconvergence tests.
 - Runtime also has dense linear and fixed-point algorithm seeds.
+- Runtime has a standalone implicit-Euler DAE seed over
+  `F(x, xdot, z, u, t, p)` with optional mass matrix, initial-condition
+  consistency checks, algebraic-variable initialization, ODE residual,
+  algebraic-variable, and mass-matrix tests.
 
 Definition of Done:
 
 - Wire Newton or quasi-Newton solving into language-level nonlinear residual
   systems.
-- Add DAE residual form `F(x, xdot, z, u, t, p)` and an implicit Euler seed.
-- Add initial-condition consistency diagnostics.
+- Wire implicit Euler DAE solving into language-level examples and artifacts.
 - Add runtime examples for a small nonlinear system and a small implicit DAE.
+- Add BDF policy after implicit Euler integration is stable.
 - Keep unsupported paths explicit in review/report/IDE artifacts until
   integrated solving is truly available.
 

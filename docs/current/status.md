@@ -145,9 +145,12 @@ are not public stable workflows.
 - Solver algorithm seeds: dense linear solve, fixed-point iteration with
   nonconvergence diagnostics, and standalone damped Newton solve with
   finite-difference fallback, supplied analytic/JIT Jacobian hook,
-  residual history, largest-residual summary, and failure artifacts. Newton is
-  not wired into language-level nonlinear systems, component assembly, or DAE
-  solving.
+  residual history, largest-residual summary, and failure artifacts. The same
+  internal layer has a standalone implicit-Euler DAE seed over
+  `F(x, xdot, z, u, t, p)` with optional mass matrix, initial consistency
+  checks, and algebraic-variable initialization. Newton/DAE seeds are not wired
+  into language-level nonlinear systems, component assembly, or report/IDE
+  workflows.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,
   generated connection-equation metadata, residual graph metadata,
   structured residual evaluator input, domain-plan metadata, IDE component
@@ -173,7 +176,8 @@ are not public stable workflows.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
 - General nonlinear, DAE, adaptive, and multi-state equation solving outside
-  the current internal fixed-step state-space path.
+  the current internal fixed-step state-space path and standalone runtime
+  algorithm seeds.
 - Stable-supported state-space workflow boundaries beyond the current internal
   fixed-step vector simulation path.
 - Component graph solving with boundary conditions, component behavior
