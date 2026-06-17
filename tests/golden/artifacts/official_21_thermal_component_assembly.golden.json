@@ -1,0 +1,51 @@
+{
+  "name": "official_21_thermal_component_assembly",
+  "source": "examples\\official\\21_thermal_component_assembly\\main.eng",
+  "review": {
+    "format": "eng-review-preview-1",
+    "review_schema_version": 1,
+    "domain_count": 1,
+    "component_count": 2,
+    "connection_count": 1,
+    "assembly_count": 1,
+    "domain_plan_count": 1,
+    "equation_count": 4,
+    "unknown_count": 4,
+    "residual_dependency_count": 6
+  },
+  "report_spec": {
+    "format": "eng-report-spec-v1",
+    "report_schema_version": 1,
+    "domain_count": 1,
+    "component_count": 2,
+    "assembly_count": 1,
+    "solver_status": "solved_linear",
+    "solver_method": "dense_linear_residual_graph",
+    "solver_convergence_status": "linear_converged",
+    "solver_variable_count": 4,
+    "largest_residual_count": 3
+  },
+  "result": {
+    "format": "engres-v1",
+    "result_format_version": 1,
+    "component_solution_count": 1,
+    "status": "solved_linear",
+    "method": "dense_linear_residual_graph",
+    "convergence_status": "linear_converged",
+    "equation_count": 4,
+    "unknown_count": 4,
+    "variable_count": 4,
+    "largest_residual_count": 3,
+    "residual_norm": 0.0,
+    "expected_variables": [
+      {
+        "name": "RoomBoundary.heat.T",
+        "value": 22.0
+      },
+      {
+        "name": "AmbientBoundary.heat.Q",
+        "value": -1.0
+      }
+    ]
+  }
+}

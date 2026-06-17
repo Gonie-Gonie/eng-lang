@@ -1112,6 +1112,139 @@ function Assert-MeasuredVsSimulatedGolden {
     Assert-ArtifactFloat @(@($simSeries.points)[@($simSeries.points).Count - 1])[1] $Golden.plot_spec.last_simulated_y_deg_c "measured plot_spec last simulated y"
 }
 
+function Assert-MultiStateThermalGolden {
+    param(
+        [Parameter(Mandatory = $true)]
+        $Golden,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Eng
+    )
+
+    Remove-Item -LiteralPath (Join-Path $RepoRoot "build\result") -Recurse -Force -ErrorAction SilentlyContinue
+    Invoke-Native $Eng "run" $Golden.source "--save-artifacts"
+
+    $review = Read-ArtifactJson (Join-Path $RepoRoot "build\result\review.json")
+    Assert-ArtifactValue $review.format $Golden.review.format "multi-state review.format"
+    Assert-ArtifactNumber $review.review_schema_version $Golden.review.review_schema_version "multi-state review.review_schema_version"
+    Assert-ArtifactValue (Get-NormalizedArtifactPath $review.source_path) (Get-NormalizedArtifactPath $Golden.source) "multi-state review.source_path"
+    Assert-ArtifactNumber @($review.simulation_results).Count $Golden.review.simulation_result_count "multi-state review.simulation_results count"
+    $reviewSimulation = @($review.simulation_results)[0]
+    Assert-ArtifactValue $reviewSimulation.method $Golden.review.simulation_method "multi-state review simulation method"
+    Assert-ArtifactNumber @($reviewSimulation.solver_results).Count $Golden.review.solver_result_count "multi-state review solver_results count"
+    foreach ($expectedState in @($Golden.review.states)) {
+        $solver = @($reviewSimulation.solver_results) | Where-Object { $_.state -eq $expectedState.name } | Select-Object -First 1
+        Assert-Artifact ($null -ne $solver) "multi-state review missing solver state $($expectedState.name)"
+        Assert-ArtifactValue $solver.status $expectedState.status "multi-state review $($expectedState.name) status"
+        Assert-ArtifactValue $solver.method $Golden.review.simulation_method "multi-state review $($expectedState.name) method"
+        Assert-ArtifactNumber $solver.step_count $expectedState.step_count "multi-state review $($expectedState.name) step_count"
+        Assert-ArtifactNumber @($solver.points).Count $expectedState.point_count "multi-state review $($expectedState.name) point count"
+        Assert-ArtifactFloat $solver.final_value $expectedState.final_value "multi-state review $($expectedState.name) final_value"
+    }
+
+    $reportSpec = Read-ArtifactJson (Join-Path $RepoRoot "build\result\report_spec.json")
+    Assert-ArtifactValue $reportSpec.format $Golden.report_spec.format "multi-state report_spec.format"
+    Assert-ArtifactNumber $reportSpec.report_schema_version $Golden.report_spec.report_schema_version "multi-state report_spec.report_schema_version"
+    Assert-ArtifactNumber @($reportSpec.state_space_vectors).Count $Golden.report_spec.state_space_vector_count "multi-state report_spec.state_space_vectors count"
+    Assert-ArtifactNumber @($reportSpec.linear_operators).Count $Golden.report_spec.linear_operator_count "multi-state report_spec.linear_operators count"
+    Assert-ArtifactNumber @(@($reportSpec.system_ir)[0].solver_results).Count $Golden.report_spec.solver_result_count "multi-state report_spec solver_results count"
+    foreach ($expectedState in @($Golden.report_spec.states)) {
+        $solver = @(@($reportSpec.system_ir)[0].solver_results) | Where-Object { $_.state -eq $expectedState.name } | Select-Object -First 1
+        Assert-Artifact ($null -ne $solver) "multi-state report_spec missing solver state $($expectedState.name)"
+        Assert-ArtifactValue $solver.status $expectedState.status "multi-state report_spec $($expectedState.name) status"
+        Assert-ArtifactValue $solver.method $Golden.report_spec.solver_method "multi-state report_spec $($expectedState.name) method"
+        Assert-ArtifactNumber $solver.step_count $expectedState.step_count "multi-state report_spec $($expectedState.name) step_count"
+        Assert-ArtifactFloat $solver.final_value $expectedState.final_value "multi-state report_spec $($expectedState.name) final_value"
+    }
+
+    $result = Read-ArtifactJson (Join-Path $RepoRoot "build\result\result.engres")
+    Assert-ArtifactValue $result.format $Golden.result.format "multi-state result.format"
+    Assert-ArtifactNumber $result.result_format_version $Golden.result.result_format_version "multi-state result.result_format_version"
+    Assert-ArtifactNumber @($result.typed_payload.systems).Count $Golden.result.system_count "multi-state result systems count"
+    $resultSystem = @($result.typed_payload.systems)[0]
+    Assert-ArtifactNumber @($resultSystem.solver_results).Count $Golden.result.solver_result_count "multi-state result solver_results count"
+    foreach ($expectedState in @($Golden.result.states)) {
+        $solver = @($resultSystem.solver_results) | Where-Object { $_.state -eq $expectedState.name } | Select-Object -First 1
+        Assert-Artifact ($null -ne $solver) "multi-state result missing solver state $($expectedState.name)"
+        Assert-ArtifactValue $solver.status $expectedState.status "multi-state result $($expectedState.name) status"
+        Assert-ArtifactValue $solver.method $Golden.result.solver_method "multi-state result $($expectedState.name) method"
+        Assert-ArtifactNumber $solver.step_count $expectedState.step_count "multi-state result $($expectedState.name) step_count"
+        Assert-ArtifactNumber @($solver.points).Count $expectedState.point_count "multi-state result $($expectedState.name) point count"
+        Assert-ArtifactFloat $solver.final_value $expectedState.final_value "multi-state result $($expectedState.name) final_value"
+    }
+
+    $plotSpec = Read-ArtifactJson (Join-Path $RepoRoot "build\result\plots\plot_spec.json")
+    Assert-ArtifactValue $plotSpec.format $Golden.plot_spec.format "multi-state plot_spec.format"
+    Assert-ArtifactNumber $plotSpec.plot_spec_version $Golden.plot_spec.plot_spec_version "multi-state plot_spec.plot_spec_version"
+    Assert-ArtifactNumber @($plotSpec.series).Count $Golden.plot_spec.series_count "multi-state plot_spec.series count"
+    foreach ($expectedSeries in @($Golden.plot_spec.series)) {
+        $series = @($plotSpec.series) | Where-Object { $_.name -eq $expectedSeries.name } | Select-Object -First 1
+        Assert-Artifact ($null -ne $series) "multi-state plot_spec missing series $($expectedSeries.name)"
+        Assert-ArtifactNumber @($series.points).Count $expectedSeries.point_count "multi-state plot_spec $($expectedSeries.name) point count"
+    }
+}
+
+function Assert-ComponentSolverGolden {
+    param(
+        [Parameter(Mandatory = $true)]
+        $Golden,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Eng
+    )
+
+    Remove-Item -LiteralPath (Join-Path $RepoRoot "build\result") -Recurse -Force -ErrorAction SilentlyContinue
+    Invoke-Native $Eng "run" $Golden.source "--save-artifacts"
+
+    $review = Read-ArtifactJson (Join-Path $RepoRoot "build\result\review.json")
+    Assert-ArtifactValue $review.format $Golden.review.format "$($Golden.name) review.format"
+    Assert-ArtifactNumber $review.review_schema_version $Golden.review.review_schema_version "$($Golden.name) review.review_schema_version"
+    Assert-ArtifactValue (Get-NormalizedArtifactPath $review.source_path) (Get-NormalizedArtifactPath $Golden.source) "$($Golden.name) review.source_path"
+    Assert-ArtifactNumber @($review.domain_summary).Count $Golden.review.domain_count "$($Golden.name) review domain count"
+    Assert-ArtifactNumber @($review.component_summary).Count $Golden.review.component_count "$($Golden.name) review component count"
+    Assert-ArtifactNumber @($review.connection_summary).Count $Golden.review.connection_count "$($Golden.name) review connection count"
+    Assert-ArtifactNumber @($review.assembly_summary).Count $Golden.review.assembly_count "$($Golden.name) review assembly count"
+    $reviewAssembly = @($review.assembly_summary)[0]
+    Assert-ArtifactNumber @($reviewAssembly.domain_plans).Count $Golden.review.domain_plan_count "$($Golden.name) review domain plan count"
+    Assert-ArtifactNumber @($reviewAssembly.equations).Count $Golden.review.equation_count "$($Golden.name) review equation count"
+    Assert-ArtifactNumber @($reviewAssembly.variables).Count $Golden.review.unknown_count "$($Golden.name) review variable count"
+    Assert-ArtifactNumber $reviewAssembly.boundary.equation_count $Golden.review.equation_count "$($Golden.name) review boundary equation count"
+    Assert-ArtifactNumber $reviewAssembly.boundary.unknown_count $Golden.review.unknown_count "$($Golden.name) review boundary unknown count"
+    Assert-ArtifactNumber @($reviewAssembly.residual_graph.dependencies).Count $Golden.review.residual_dependency_count "$($Golden.name) review residual dependency count"
+
+    $reportSpec = Read-ArtifactJson (Join-Path $RepoRoot "build\result\report_spec.json")
+    Assert-ArtifactValue $reportSpec.format $Golden.report_spec.format "$($Golden.name) report_spec.format"
+    Assert-ArtifactNumber $reportSpec.report_schema_version $Golden.report_spec.report_schema_version "$($Golden.name) report_spec.report_schema_version"
+    Assert-ArtifactNumber @($reportSpec.domain_summary).Count $Golden.report_spec.domain_count "$($Golden.name) report_spec domain count"
+    Assert-ArtifactNumber @($reportSpec.component_summary).Count $Golden.report_spec.component_count "$($Golden.name) report_spec component count"
+    Assert-ArtifactNumber @($reportSpec.assembly_summary).Count $Golden.report_spec.assembly_count "$($Golden.name) report_spec assembly count"
+    $reportAssembly = @($reportSpec.assembly_summary)[0]
+    Assert-ArtifactValue $reportAssembly.solver_result.status $Golden.report_spec.solver_status "$($Golden.name) report_spec solver status"
+    Assert-ArtifactValue $reportAssembly.solver_result.method $Golden.report_spec.solver_method "$($Golden.name) report_spec solver method"
+    Assert-ArtifactValue $reportAssembly.solver_result.convergence_status $Golden.report_spec.solver_convergence_status "$($Golden.name) report_spec solver convergence"
+    Assert-ArtifactNumber @($reportAssembly.solver_result.variables).Count $Golden.report_spec.solver_variable_count "$($Golden.name) report_spec solver variable count"
+    Assert-ArtifactNumber @($reportAssembly.solver_result.largest_residuals).Count $Golden.report_spec.largest_residual_count "$($Golden.name) report_spec largest residual count"
+
+    $result = Read-ArtifactJson (Join-Path $RepoRoot "build\result\result.engres")
+    Assert-ArtifactValue $result.format $Golden.result.format "$($Golden.name) result.format"
+    Assert-ArtifactNumber $result.result_format_version $Golden.result.result_format_version "$($Golden.name) result.result_format_version"
+    Assert-ArtifactNumber @($result.typed_payload.component_solutions).Count $Golden.result.component_solution_count "$($Golden.name) result component solution count"
+    $solution = @($result.typed_payload.component_solutions)[0]
+    Assert-ArtifactValue $solution.status $Golden.result.status "$($Golden.name) result solver status"
+    Assert-ArtifactValue $solution.method $Golden.result.method "$($Golden.name) result solver method"
+    Assert-ArtifactValue $solution.convergence_status $Golden.result.convergence_status "$($Golden.name) result convergence"
+    Assert-ArtifactNumber $solution.equation_count $Golden.result.equation_count "$($Golden.name) result equation count"
+    Assert-ArtifactNumber $solution.unknown_count $Golden.result.unknown_count "$($Golden.name) result unknown count"
+    Assert-ArtifactNumber @($solution.variables).Count $Golden.result.variable_count "$($Golden.name) result variable count"
+    Assert-ArtifactNumber @($solution.largest_residuals).Count $Golden.result.largest_residual_count "$($Golden.name) result largest residual count"
+    Assert-ArtifactFloat $solution.residual_norm $Golden.result.residual_norm "$($Golden.name) result residual_norm"
+    foreach ($expectedVariable in @($Golden.result.expected_variables)) {
+        $variable = @($solution.variables) | Where-Object { $_.name -eq $expectedVariable.name } | Select-Object -First 1
+        Assert-Artifact ($null -ne $variable) "$($Golden.name) result missing solved variable $($expectedVariable.name)"
+        Assert-ArtifactFloat $variable.value $expectedVariable.value "$($Golden.name) result $($expectedVariable.name)"
+    }
+}
+
 function Invoke-ArtifactsCheck {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -1127,12 +1260,18 @@ function Invoke-ArtifactsCheck {
     $csvGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_01_csv_plot.golden.json")
     $systemGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_02_simple_system.golden.json")
     $measuredGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_17_measured_vs_simulated.golden.json")
+    $multiStateGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_20_multi_state_thermal.golden.json")
+    $thermalAssemblyGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_21_thermal_component_assembly.golden.json")
+    $multiDomainGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_22_multi_domain_boundary_solve.golden.json")
 
     Assert-CsvPlotGolden $csvGolden $Eng
     Assert-SystemGolden $systemGolden $Eng
     Assert-MeasuredVsSimulatedGolden $measuredGolden $Eng
+    Assert-MultiStateThermalGolden $multiStateGolden $Eng
+    Assert-ComponentSolverGolden $thermalAssemblyGolden $Eng
+    Assert-ComponentSolverGolden $multiDomainGolden $Eng
 
-    Write-Host "Artifact check passed. Validated schema files and official golden artifacts."
+    Write-Host "Artifact check passed. Validated schema files and official golden artifacts, including solver-centered examples."
 }
 
 function Invoke-RunExample {

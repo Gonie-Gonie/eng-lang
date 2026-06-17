@@ -120,6 +120,10 @@ Current coverage:
   across `review.json` `simulation_results[].solver_results`,
   `report_spec.json` `system_ir[].solver_results`, and `result.engres`
   `solver_result` fields.
+- `artifacts-check` snapshots the official multi-state, Thermal component
+  assembly, and constrained multi-domain boundary solve examples so solver
+  trajectories, residual graph solve status, solved variables, and residual
+  counts are covered by golden baselines.
 - `StateTrajectory::time_value_points` keeps SolverOutput state trajectories
   directly convertible to TimeSeries-style `(time, value)` points, and runtime
   system/component artifact adapters use that helper.

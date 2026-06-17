@@ -1,0 +1,87 @@
+{
+  "name": "official_20_multi_state_thermal",
+  "source": "examples\\official\\20_multi_state_thermal\\main.eng",
+  "review": {
+    "format": "eng-review-preview-1",
+    "review_schema_version": 1,
+    "simulation_result_count": 1,
+    "simulation_method": "state_space_rk4_fixed_step",
+    "solver_result_count": 2,
+    "states": [
+      {
+        "name": "T_air",
+        "status": "computed",
+        "step_count": 6,
+        "point_count": 7,
+        "final_value": 19.02972228635855
+      },
+      {
+        "name": "T_wall",
+        "status": "computed",
+        "step_count": 6,
+        "point_count": 7,
+        "final_value": 17.400156666157557
+      }
+    ]
+  },
+  "report_spec": {
+    "format": "eng-report-spec-v1",
+    "report_schema_version": 1,
+    "state_space_vector_count": 3,
+    "linear_operator_count": 2,
+    "solver_result_count": 2,
+    "solver_method": "state_space_rk4_fixed_step",
+    "states": [
+      {
+        "name": "T_air",
+        "status": "computed",
+        "step_count": 6,
+        "final_value": 19.02972228635855
+      },
+      {
+        "name": "T_wall",
+        "status": "computed",
+        "step_count": 6,
+        "final_value": 17.400156666157557
+      }
+    ]
+  },
+  "result": {
+    "format": "engres-v1",
+    "result_format_version": 1,
+    "system_count": 1,
+    "solver_result_count": 2,
+    "solver_method": "state_space_rk4_fixed_step",
+    "states": [
+      {
+        "name": "T_air",
+        "status": "computed",
+        "step_count": 6,
+        "point_count": 7,
+        "final_value": 19.02972228635855
+      },
+      {
+        "name": "T_wall",
+        "status": "computed",
+        "step_count": 6,
+        "point_count": 7,
+        "final_value": 17.400156666157557
+      }
+    ]
+  },
+  "plot_spec": {
+    "format": "eng-plotspec-v1",
+    "plot_spec_version": 1,
+    "series_count": 2,
+    "series": [
+      {
+        "name": "sim.T_air",
+        "point_count": 7
+      },
+      {
+        "name": "sim.T_wall",
+        "point_count": 7
+      }
+    ]
+  }
+}

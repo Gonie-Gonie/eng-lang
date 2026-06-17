@@ -1,0 +1,51 @@
+{
+  "name": "official_22_multi_domain_boundary_solve",
+  "source": "examples\\official\\22_multi_domain_boundary_solve\\main.eng",
+  "review": {
+    "format": "eng-review-preview-1",
+    "review_schema_version": 1,
+    "domain_count": 3,
+    "component_count": 5,
+    "connection_count": 3,
+    "assembly_count": 1,
+    "domain_plan_count": 3,
+    "equation_count": 12,
+    "unknown_count": 12,
+    "residual_dependency_count": 18
+  },
+  "report_spec": {
+    "format": "eng-report-spec-v1",
+    "report_schema_version": 1,
+    "domain_count": 3,
+    "component_count": 5,
+    "assembly_count": 1,
+    "solver_status": "solved_linear",
+    "solver_method": "dense_linear_residual_graph",
+    "solver_convergence_status": "linear_converged",
+    "solver_variable_count": 12,
+    "largest_residual_count": 3
+  },
+  "result": {
+    "format": "engres-v1",
+    "result_format_version": 1,
+    "component_solution_count": 1,
+    "status": "solved_linear",
+    "method": "dense_linear_residual_graph",
+    "convergence_status": "linear_converged",
+    "equation_count": 12,
+    "unknown_count": 12,
+    "variable_count": 12,
+    "largest_residual_count": 3,
+    "residual_norm": 0.0,
+    "expected_variables": [
+      {
+        "name": "SupplyPipe.outlet.m_dot",
+        "value": -0.2
+      },
+      {
+        "name": "ShaftB.shaft.P",
+        "value": -100.0
+      }
+    ]
+  }
+}
