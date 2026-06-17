@@ -317,6 +317,9 @@ Current coverage:
   artifacts can now carry those state/algebraic trajectories and timestep
   diagnostics through report spec, HTML, `.engres`, and the IDE assembly
   summary.
+- Dynamic-component RHS evaluation can be driven from derivative-form
+  `ResidualGraph` equations, giving the internal explicit-Euler seed a concrete
+  residual-to-RHS bridge for algebraic-free dynamic systems.
 
 Definition of Done:
 

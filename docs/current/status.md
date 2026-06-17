@@ -182,7 +182,9 @@ are not public stable workflows.
   explicit-Euler seed that supports algebraic-free state updates plus
   fixed-point algebraic solves per timestep and returns state/algebraic
   trajectories through the common `SolverResult` output contract plus failure
-  diagnostics. Fixed-step ODE and dynamic-component seeds use the actual
+  diagnostics. The dynamic-component seed can also drive algebraic-free RHS
+  updates from derivative-form `ResidualGraph` equations. Fixed-step ODE and
+  dynamic-component seeds use the actual
   `TimeGrid` interval length for the final partial step when duration is not an
   exact multiple of timestep, and explicit Euler samples RHS values at the
   start of each interval. Fixed-step ODE, fixed-point, and dynamic-component

@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use crate::solver::algorithms::fixed_point::{solve_fixed_point, FixedPointOptions};
 use crate::solver::{
-    SolverDiagnostics, SolverFailure, SolverInput, SolverOutput, SolverResult, SolverScalar,
-    StateLayout, StateTrajectory,
+    ResidualGraph, SolverDiagnostics, SolverFailure, SolverInput, SolverOutput, SolverResult,
+    SolverScalar, StateLayout, StateTrajectory,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -43,6 +45,335 @@ pub struct DynamicStepInput<'a> {
     pub algebraic: &'a [f64],
     pub inputs: &'a [SolverScalar],
     pub parameters: &'a [SolverScalar],
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ResidualGraphRhsEvaluator {
+    equations: Vec<ResidualRhsEquation>,
+    state_count: usize,
+    algebraic_count: usize,
+    input_count: usize,
+    parameter_count: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct ResidualRhsEquation {
+    residual_name: String,
+    derivative_variable: String,
+    derivative_coefficient: f64,
+    rhs_value: f64,
+    terms: Vec<ResidualRhsTerm>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct ResidualRhsTerm {
+    role: ResidualRhsRole,
+    local_index: usize,
+    coefficient: f64,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ResidualRhsRole {
+    State,
+    Algebraic,
+    Input,
+    Parameter,
+    Time,
+}
+
+#[derive(Clone, Debug, Default)]
+struct ResidualRhsRoleCounts {
+    state: usize,
+    algebraic: usize,
+    input: usize,
+    parameter: usize,
+}
+
+impl ResidualGraphRhsEvaluator {
+    pub fn new(graph: &ResidualGraph) -> Result<Self, SolverFailure> {
+        let mut counts = ResidualRhsRoleCounts::default();
+        let mut variable_slots = HashMap::new();
+        let mut derivative_variables = HashMap::new();
+
+        for variable in &graph.variables {
+            if is_derivative_role(&variable.role) {
+                if derivative_variables
+                    .insert(variable.index, variable.name.clone())
+                    .is_some()
+                {
+                    return Err(SolverFailure::new(
+                        "E-DYNAMIC-COMPONENT-RHS-VARIABLE",
+                        format!("duplicate derivative variable index {}", variable.index),
+                    ));
+                }
+                continue;
+            }
+
+            let role = residual_rhs_role(&variable.role).ok_or_else(|| {
+                SolverFailure::new(
+                    "E-DYNAMIC-COMPONENT-RHS-VARIABLE",
+                    format!(
+                        "residual RHS graph variable `{}` has unsupported role `{}`",
+                        variable.name, variable.role
+                    ),
+                )
+            })?;
+            let local_index = counts.allocate(role);
+            if variable_slots
+                .insert(variable.index, (role, local_index))
+                .is_some()
+            {
+                return Err(SolverFailure::new(
+                    "E-DYNAMIC-COMPONENT-RHS-VARIABLE",
+                    format!("duplicate residual RHS variable index {}", variable.index),
+                ));
+            }
+        }
+
+        if counts.state == 0 {
+            return Err(SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-RHS-SHAPE",
+                "residual RHS graph requires at least one state variable",
+            ));
+        }
+        if derivative_variables.len() != counts.state {
+            return Err(SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-RHS-SHAPE",
+                "residual RHS graph requires one derivative variable per state",
+            ));
+        }
+
+        let mut equations_by_derivative = Vec::new();
+        for residual in &graph.residuals {
+            if !residual.rhs_value.is_finite() {
+                return Err(SolverFailure::new(
+                    "E-DYNAMIC-COMPONENT-RHS-VALUE",
+                    format!("residual `{}` has a non-finite RHS value", residual.name),
+                ));
+            }
+            let derivative_terms = residual
+                .terms
+                .iter()
+                .filter(|term| derivative_variables.contains_key(&term.variable_index))
+                .collect::<Vec<_>>();
+            if derivative_terms.len() != 1 {
+                return Err(SolverFailure::new(
+                    "E-DYNAMIC-COMPONENT-RHS-SHAPE",
+                    format!(
+                        "residual `{}` must contain exactly one derivative variable",
+                        residual.name
+                    ),
+                ));
+            }
+            let derivative_term = derivative_terms[0];
+            if !derivative_term.coefficient.is_finite() || derivative_term.coefficient == 0.0 {
+                return Err(SolverFailure::new(
+                    "E-DYNAMIC-COMPONENT-RHS-VALUE",
+                    format!(
+                        "residual `{}` derivative coefficient must be a finite non-zero value",
+                        residual.name
+                    ),
+                ));
+            }
+
+            let mut terms = Vec::new();
+            for term in &residual.terms {
+                if !term.coefficient.is_finite() {
+                    return Err(SolverFailure::new(
+                        "E-DYNAMIC-COMPONENT-RHS-VALUE",
+                        format!(
+                            "residual `{}` term for `{}` has a non-finite coefficient",
+                            residual.name, term.variable
+                        ),
+                    ));
+                }
+                if term.variable_index == derivative_term.variable_index {
+                    continue;
+                }
+                let (role, local_index) =
+                    variable_slots.get(&term.variable_index).ok_or_else(|| {
+                        SolverFailure::new(
+                            "E-DYNAMIC-COMPONENT-RHS-VARIABLE",
+                            format!(
+                                "residual `{}` references unsupported RHS variable `{}`",
+                                residual.name, term.variable
+                            ),
+                        )
+                    })?;
+                terms.push(ResidualRhsTerm {
+                    role: *role,
+                    local_index: *local_index,
+                    coefficient: term.coefficient,
+                });
+            }
+
+            equations_by_derivative.push((
+                derivative_term.variable_index,
+                ResidualRhsEquation {
+                    residual_name: residual.name.clone(),
+                    derivative_variable: derivative_variables
+                        .get(&derivative_term.variable_index)
+                        .cloned()
+                        .unwrap_or_else(|| term_variable_name(derivative_term.variable_index)),
+                    derivative_coefficient: derivative_term.coefficient,
+                    rhs_value: residual.rhs_value,
+                    terms,
+                },
+            ));
+        }
+
+        equations_by_derivative.sort_by_key(|(variable_index, _)| *variable_index);
+        if equations_by_derivative
+            .windows(2)
+            .any(|pair| pair[0].0 == pair[1].0)
+        {
+            return Err(SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-RHS-SHAPE",
+                "residual RHS graph contains multiple residuals for the same derivative variable",
+            ));
+        }
+        if equations_by_derivative.len() != counts.state {
+            return Err(SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-RHS-SHAPE",
+                "residual RHS graph requires one derivative residual per state",
+            ));
+        }
+
+        Ok(Self {
+            equations: equations_by_derivative
+                .into_iter()
+                .map(|(_, equation)| equation)
+                .collect(),
+            state_count: counts.state,
+            algebraic_count: counts.algebraic,
+            input_count: counts.input,
+            parameter_count: counts.parameter,
+        })
+    }
+
+    pub fn evaluate(&self, sample: &DynamicStepInput<'_>) -> Result<Vec<f64>, SolverFailure> {
+        if sample.state.len() != self.state_count
+            || sample.algebraic.len() != self.algebraic_count
+            || sample.inputs.len() != self.input_count
+            || sample.parameters.len() != self.parameter_count
+        {
+            return Err(SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-RHS-LAYOUT",
+                "residual RHS sample layout does not match residual graph variables",
+            ));
+        }
+        if !sample.time_s.is_finite() {
+            return Err(SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-RHS-VALUE",
+                "residual RHS sample time must be finite",
+            ));
+        }
+        ensure_finite_values(
+            "E-DYNAMIC-COMPONENT-RHS-VALUE",
+            "residual RHS state",
+            sample.state,
+        )?;
+        ensure_finite_values(
+            "E-DYNAMIC-COMPONENT-RHS-VALUE",
+            "residual RHS algebraic",
+            sample.algebraic,
+        )?;
+        ensure_finite_scalars(
+            "E-DYNAMIC-COMPONENT-RHS-VALUE",
+            "residual RHS input",
+            sample.inputs,
+        )?;
+        ensure_finite_scalars(
+            "E-DYNAMIC-COMPONENT-RHS-VALUE",
+            "residual RHS parameter",
+            sample.parameters,
+        )?;
+
+        let mut derivatives = Vec::with_capacity(self.equations.len());
+        for equation in &self.equations {
+            let mut remaining = equation.rhs_value;
+            for term in &equation.terms {
+                let value = match term.role {
+                    ResidualRhsRole::State => sample.state[term.local_index],
+                    ResidualRhsRole::Algebraic => sample.algebraic[term.local_index],
+                    ResidualRhsRole::Input => sample.inputs[term.local_index].value,
+                    ResidualRhsRole::Parameter => sample.parameters[term.local_index].value,
+                    ResidualRhsRole::Time => sample.time_s,
+                };
+                remaining -= term.coefficient * value;
+                if !remaining.is_finite() {
+                    return Err(SolverFailure::new(
+                        "E-DYNAMIC-COMPONENT-RHS-VALUE",
+                        format!(
+                            "residual `{}` produced a non-finite RHS accumulator",
+                            equation.residual_name
+                        ),
+                    ));
+                }
+            }
+
+            let derivative = remaining / equation.derivative_coefficient;
+            if !derivative.is_finite() {
+                return Err(SolverFailure::new(
+                    "E-DYNAMIC-COMPONENT-RHS-VALUE",
+                    format!(
+                        "residual `{}` produced a non-finite derivative for `{}`",
+                        equation.residual_name, equation.derivative_variable
+                    ),
+                ));
+            }
+            derivatives.push(derivative);
+        }
+
+        Ok(derivatives)
+    }
+}
+
+impl ResidualRhsRoleCounts {
+    fn allocate(&mut self, role: ResidualRhsRole) -> usize {
+        match role {
+            ResidualRhsRole::State => {
+                let index = self.state;
+                self.state += 1;
+                index
+            }
+            ResidualRhsRole::Algebraic => {
+                let index = self.algebraic;
+                self.algebraic += 1;
+                index
+            }
+            ResidualRhsRole::Input => {
+                let index = self.input;
+                self.input += 1;
+                index
+            }
+            ResidualRhsRole::Parameter => {
+                let index = self.parameter;
+                self.parameter += 1;
+                index
+            }
+            ResidualRhsRole::Time => 0,
+        }
+    }
+}
+
+fn is_derivative_role(role: &str) -> bool {
+    matches!(role, "derivative" | "state_derivative" | "xdot")
+}
+
+fn residual_rhs_role(role: &str) -> Option<ResidualRhsRole> {
+    match role {
+        "state" => Some(ResidualRhsRole::State),
+        "algebraic" => Some(ResidualRhsRole::Algebraic),
+        "input" => Some(ResidualRhsRole::Input),
+        "parameter" => Some(ResidualRhsRole::Parameter),
+        "time" => Some(ResidualRhsRole::Time),
+        _ => None,
+    }
+}
+
+fn term_variable_name(variable_index: usize) -> String {
+    format!("variable#{variable_index}")
 }
 
 pub fn solve_explicit_euler_with_algebraic<A, R>(
@@ -261,12 +592,28 @@ fn ensure_finite_values(code: &str, label: &str, values: &[f64]) -> Result<(), S
     }
 }
 
+fn ensure_finite_scalars(
+    code: &str,
+    label: &str,
+    values: &[SolverScalar],
+) -> Result<(), SolverFailure> {
+    if values.iter().all(|value| value.value.is_finite()) {
+        Ok(())
+    } else {
+        Err(SolverFailure::new(
+            code,
+            format!("{label} vector contains a non-finite value"),
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::solver::{
-        InputLayout, LayoutEntry, OutputLayout, ParameterLayout, SimulationPlan, SolverOptions,
-        SolverPlan, TimeGrid,
+        InputLayout, LayoutEntry, OutputLayout, ParameterLayout, ResidualEquation,
+        ResidualExpression, ResidualScale, ResidualSource, ResidualTerm, ResidualUnit,
+        ResidualVariableRef, SimulationPlan, SolverOptions, SolverPlan, TimeGrid,
     };
 
     #[test]
@@ -436,6 +783,91 @@ mod tests {
     }
 
     #[test]
+    fn residual_graph_rhs_evaluator_lowers_derivative_residuals() {
+        let graph = residual_rhs_graph();
+        let evaluator = ResidualGraphRhsEvaluator::new(&graph).unwrap();
+        let state = vec![1.0, 2.0];
+        let inputs = vec![SolverScalar::new("u", "Dimensionless", "1", 3.0)];
+        let parameters = Vec::new();
+
+        let derivative = evaluator
+            .evaluate(&DynamicStepInput {
+                time_s: 0.0,
+                step_index: 0,
+                state: &state,
+                algebraic: &[],
+                inputs: &inputs,
+                parameters: &parameters,
+            })
+            .unwrap();
+
+        assert_eq!(derivative, vec![4.0, -2.0]);
+    }
+
+    #[test]
+    fn residual_graph_rhs_evaluator_rejects_invalid_dynamic_graphs() {
+        let mut graph = residual_rhs_graph();
+        graph.residuals.pop();
+
+        let failure = ResidualGraphRhsEvaluator::new(&graph).unwrap_err();
+
+        assert_eq!(failure.code, "E-DYNAMIC-COMPONENT-RHS-SHAPE");
+    }
+
+    #[test]
+    fn dynamic_component_solver_uses_residual_graph_rhs() {
+        let graph = residual_rhs_graph();
+        let evaluator = ResidualGraphRhsEvaluator::new(&graph).unwrap();
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "ComponentGraph",
+                SimulationPlan::default(),
+                SolverOptions::fixed_step("dynamic_component_explicit_euler", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(1.0, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![
+                LayoutEntry::new(0, "x", "Dimensionless", "1", "1"),
+                LayoutEntry::new(1, "y", "Dimensionless", "1", "1"),
+            ]),
+            input_layout: InputLayout {
+                entries: vec![LayoutEntry::new(0, "u", "Dimensionless", "1", "1")],
+            },
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![1.0, 2.0],
+            inputs: vec![SolverScalar::new("u", "Dimensionless", "1", 3.0)],
+            parameters: Vec::new(),
+        };
+
+        let result = solve_explicit_euler_with_algebraic(
+            &input,
+            StateLayout::default(),
+            Vec::new(),
+            DynamicComponentOptions::default(),
+            |_| Ok(Vec::new()),
+            |sample| evaluator.evaluate(&sample),
+        )
+        .unwrap();
+
+        assert_eq!(
+            result.solver_result.output.state_trajectories[0].values,
+            vec![1.0, 5.0]
+        );
+        assert_eq!(
+            result.solver_result.output.state_trajectories[1].values,
+            vec![2.0, 0.0]
+        );
+        assert_eq!(
+            result
+                .step_diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.convergence_status.as_str())
+                .collect::<Vec<_>>(),
+            vec!["algebraic_not_required", "algebraic_not_required"]
+        );
+    }
+
+    #[test]
     fn solves_dynamic_component_with_algebraic_node() {
         let input = SolverInput {
             plan: SolverPlan::new(
@@ -567,5 +999,62 @@ mod tests {
             result.solver_result.output.algebraic_trajectories[0].values,
             vec![3.0]
         );
+    }
+
+    fn residual_rhs_graph() -> ResidualGraph {
+        ResidualGraph {
+            name: "component.rhs".to_owned(),
+            variables: vec![
+                variable(0, "x", "state"),
+                variable(1, "y", "state"),
+                variable(2, "u", "input"),
+                variable(3, "der_x", "state_derivative"),
+                variable(4, "der_y", "state_derivative"),
+            ],
+            residuals: vec![
+                residual(
+                    "x_rhs",
+                    &[(3, "der_x", 1.0), (0, "x", -1.0), (2, "u", -1.0)],
+                    0.0,
+                ),
+                residual("y_rhs", &[(4, "der_y", 1.0), (1, "y", 1.0)], 0.0),
+            ],
+            parameters: Vec::new(),
+            dependencies: Vec::new(),
+        }
+    }
+
+    fn variable(index: usize, name: &str, role: &str) -> ResidualVariableRef {
+        ResidualVariableRef {
+            index,
+            name: name.to_owned(),
+            role: role.to_owned(),
+            unit: "1".to_owned(),
+        }
+    }
+
+    fn residual(name: &str, terms: &[(usize, &str, f64)], rhs_value: f64) -> ResidualEquation {
+        ResidualEquation {
+            name: name.to_owned(),
+            expression: ResidualExpression {
+                text: name.to_owned(),
+            },
+            rhs_value,
+            unit: ResidualUnit {
+                unit: "1".to_owned(),
+                quantity_kind: "Dimensionless".to_owned(),
+            },
+            scale: ResidualScale::default(),
+            source: ResidualSource::default(),
+            variable_indices: terms.iter().map(|(index, _, _)| *index).collect(),
+            terms: terms
+                .iter()
+                .map(|(index, variable, coefficient)| ResidualTerm {
+                    variable_index: *index,
+                    variable: (*variable).to_owned(),
+                    coefficient: *coefficient,
+                })
+                .collect(),
+        }
     }
 }
