@@ -4723,6 +4723,42 @@ mod tests {
     }
 
     #[test]
+    fn rejects_invalid_component_delay_calls() {
+        let missing_duration = check_source(
+            "bad.eng",
+            "domain Fluid {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent Supply {\n    port outlet: Fluid\n    pressure_seed = delay(outlet.m_dot)\n}\n",
+            &CheckOptions::default(),
+        );
+        assert!(missing_duration.has_errors());
+        assert!(missing_duration
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-DELAY-CALL-001"));
+
+        let bad_duration = check_source(
+            "bad.eng",
+            "domain Fluid {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent Supply {\n    port outlet: Fluid\n    pressure_seed = delay(outlet.m_dot, 5 kg)\n}\n",
+            &CheckOptions::default(),
+        );
+        assert!(bad_duration.has_errors());
+        assert!(bad_duration
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-DELAY-DURATION-001"));
+
+        let unknown_signal = check_source(
+            "bad.eng",
+            "domain Fluid {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent Supply {\n    port outlet: Fluid\n    pressure_seed = delay(outlet.unknown, 5 s)\n}\n",
+            &CheckOptions::default(),
+        );
+        assert!(unknown_signal.has_errors());
+        assert!(unknown_signal
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-DELAY-SIGNAL-001"));
+    }
+
+    #[test]
     fn records_predictor_contract_seed_status_in_component_preview() {
         let report = check_source(
             "ok.eng",

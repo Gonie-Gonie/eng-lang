@@ -172,6 +172,9 @@ Current coverage:
   policies, explicit initial-history policy, relationship artifacts,
   out-of-order/history-underflow diagnostics, and solver-style behavior-node
   evaluation tests.
+- Component local expressions now diagnose invalid `delay(signal, duration)`
+  calls, including missing arguments, unknown component port variables, and
+  non-duration delay values.
 - Runtime has a Predictor behavior contract wrapper with input/output
   quantity-unit metadata, valid-range warnings, provenance/model hash,
   differentiability flag, solver Jacobian policy, and evaluation/failure tests.
@@ -187,8 +190,8 @@ Current coverage:
 
 Definition of Done:
 
-- Type-check `delay(x, tau)` at the language level, including quantity/unit
-  compatibility and non-negative delay duration.
+- Expand `delay(x, tau)` type checking beyond component port variables into
+  full behavior graph expressions.
 - Wire delay behavior nodes into RHS/residual evaluation for supported solver
   paths.
 - Wire Predictor behavior nodes into supported solver paths and report/IDE

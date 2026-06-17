@@ -159,6 +159,9 @@ The artifact also records explicit future-solver seeds:
 - limitations: `not_full_dae`, `not_general_nonlinear`, `not_adaptive`,
   `not_production_multi_domain`, and `no_jit_speed_claim`.
 
+Component-local `delay(signal, duration)` calls are checked for a known
+`port.variable` signal and a positive time duration such as `5 s`.
+
 ## Artifact Surface
 
 `eng check --review` writes domain/component information to `review.json`:

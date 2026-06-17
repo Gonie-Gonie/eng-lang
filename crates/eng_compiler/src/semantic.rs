@@ -1227,6 +1227,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     validate_file_operation_options(&file_operations, &with_blocks, &mut diagnostics);
     validate_where_local_uses(program, &where_blocks, &mut diagnostics);
     validate_domain_contracts(&domains, &mut diagnostics);
+    validate_component_behavior_calls(&domains, &components, &mut diagnostics);
     validate_class_contracts(&classes, &mut class_objects, &mut diagnostics);
     validate_function_returns(&mut functions, &consts, &mut diagnostics);
     validate_state_space_vector_members(&systems, &mut state_space_vectors, &mut diagnostics);
@@ -5015,6 +5016,130 @@ fn count_component_expression_calls(components: &[ComponentInfo], needles: &[&st
             needles.iter().any(|needle| expression.contains(needle))
         })
         .count()
+}
+
+fn validate_component_behavior_calls(
+    domains: &[DomainInfo],
+    components: &[ComponentInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for component in components {
+        for local in &component.local_expressions {
+            for arguments in extract_call_arguments(&local.expression, "delay") {
+                validate_delay_call(domains, component, local, &arguments, diagnostics);
+            }
+        }
+    }
+}
+
+fn validate_delay_call(
+    domains: &[DomainInfo],
+    component: &ComponentInfo,
+    local: &ComponentLocalExpressionInfo,
+    arguments: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let parts = split_top_level(arguments, &[',']);
+    if parts.len() != 2 {
+        diagnostics.push(Diagnostic::error(
+            "E-DELAY-CALL-001",
+            local.line,
+            &format!(
+                "Delay expression `{}` must use `delay(signal, duration)`.",
+                local.expression
+            ),
+            Some("Provide a component port signal and a positive duration such as `delay(outlet.m_dot, 5 s)`."),
+        ));
+        return;
+    }
+    let signal = parts[0].trim();
+    if component_signal_type(domains, component, signal).is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-DELAY-SIGNAL-001",
+            local.line,
+            &format!(
+                "Delay signal `{signal}` is not a known component port variable in `{}`.",
+                component.name
+            ),
+            Some("Use a signal such as `port.variable`, where `port` is declared on the component and `variable` is declared by the port domain."),
+        ));
+    }
+    if parse_duration_option_seconds(parts[1].trim()).is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-DELAY-DURATION-001",
+            local.line,
+            &format!(
+                "Delay duration `{}` is not a positive duration.",
+                parts[1].trim()
+            ),
+            Some("Use a duration with time units such as `s`, `min`, or `h`, for example `5 s`."),
+        ));
+    }
+}
+
+fn component_signal_type<'a>(
+    domains: &'a [DomainInfo],
+    component: &ComponentInfo,
+    signal: &str,
+) -> Option<&'a DomainVariableInfo> {
+    let (port_name, variable_name) = signal.split_once('.')?;
+    if variable_name.contains('.') {
+        return None;
+    }
+    let port = component
+        .ports
+        .iter()
+        .find(|port| port.name == port_name.trim())?;
+    let domain = domains
+        .iter()
+        .find(|domain| domain.name == port.domain_name)?;
+    domain
+        .variables
+        .iter()
+        .find(|variable| variable.name == variable_name.trim())
+}
+
+fn extract_call_arguments(expression: &str, call_name: &str) -> Vec<String> {
+    let mut arguments = Vec::new();
+    let lowered = expression.to_ascii_lowercase();
+    let needle = format!("{call_name}(");
+    let mut cursor = 0usize;
+    while let Some(relative_start) = lowered[cursor..].find(&needle) {
+        let call_start = cursor + relative_start;
+        if call_start > 0 {
+            let previous = lowered[..call_start].chars().next_back();
+            if previous.is_some_and(|character| {
+                character.is_ascii_alphanumeric() || character == '_' || character == '.'
+            }) {
+                cursor = call_start + needle.len();
+                continue;
+            }
+        }
+        let open_index = call_start + call_name.len();
+        let mut depth = 0i32;
+        let mut close_index = None;
+        for (index, character) in expression[open_index..].char_indices() {
+            match character {
+                '(' => depth += 1,
+                ')' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        close_index = Some(open_index + index);
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        if let Some(close_index) = close_index {
+            arguments.push(expression[open_index + 1..close_index].to_owned());
+            cursor = close_index + 1;
+        } else {
+            arguments.push(expression[open_index + 1..].to_owned());
+            break;
+        }
+    }
+    arguments
 }
 
 fn component_generated_equation_reason(kind: &str) -> String {

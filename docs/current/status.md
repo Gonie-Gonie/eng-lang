@@ -158,15 +158,16 @@ are not public stable workflows.
   component assembly, or report/IDE workflows.
 - Behavior graph seeds: runtime delay buffer with linear and previous-sample
   interpolation policies, explicit initial-history policy, relationship
-  artifact, and solver-style behavior-node evaluation. Runtime also has a
-  Predictor behavior contract wrapper with input/output quantity-unit metadata,
-  valid-range warnings, model hash, differentiability flag, and solver Jacobian
-  policy. Runtime also has an external function/process behavior wrapper with
-  typed contracts, provenance hash, determinism metadata, safe/repro profile
-  policy, and adapter failure propagation. Component artifacts distinguish
-  delay/Predictor/external calls as runtime seeds through component graph,
-  report, and IDE behavior nodes, but behavior nodes are not wired into
-  language-level behavior graph solving.
+  artifact, solver-style behavior-node evaluation, and component-local
+  `delay(signal, duration)` diagnostics for unknown signals and invalid
+  durations. Runtime also has a Predictor behavior contract wrapper with
+  input/output quantity-unit metadata, valid-range warnings, model hash,
+  differentiability flag, and solver Jacobian policy. Runtime also has an
+  external function/process behavior wrapper with typed contracts, provenance
+  hash, determinism metadata, safe/repro profile policy, and adapter failure
+  propagation. Component artifacts distinguish delay/Predictor/external calls
+  as runtime seeds through component graph, report, and IDE behavior nodes, but
+  behavior nodes are not wired into language-level behavior graph solving.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,
   generated connection-equation metadata, residual graph metadata,
   structured residual evaluator input, normalized residual evaluation,
