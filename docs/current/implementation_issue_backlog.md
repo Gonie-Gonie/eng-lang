@@ -278,8 +278,8 @@ Current coverage:
   `E-SIM-SYSTEM-SHAPE-UNSUPPORTED`.
 - Error-message fixtures cover missing TimeSeries input, non-TimeSeries input,
   wrong TimeSeries quantity, wrong TimeSeries axis, missing/invalid timestep,
-  missing/unsupported solver, unsupported method-specific system shape, and
-  unknown system cases.
+  missing/unsupported solver, unsupported method-specific system shape
+  including discrete state-space `adaptive_heun`, and unknown system cases.
 - Runtime materializes `sim.T_zone` from `SolverResult` as a typed
   TimeSeries; runtime tests assert the explicit `T_out` contract, SolverResult
   status, state trajectory, RMSE alignment reference, and `sim.T_zone`

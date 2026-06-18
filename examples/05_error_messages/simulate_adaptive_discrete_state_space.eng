@@ -1,0 +1,22 @@
+system DiscreteStateSpaceAdaptive {
+    state T_air: AbsoluteTemperature = 20 degC
+    state T_wall: AbsoluteTemperature = 20 degC
+    input Q_hvac: HeatRate = 1000 W
+
+    states x = [T_air, T_wall]
+    inputs u = [Q_hvac]
+    outputs y = [T_air, T_wall]
+
+    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[1.0, 0.0]; [0.0, 1.0]]
+    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.001]; [0.002]]
+
+    equation {
+        next(x) eq A * x + B * u
+    }
+}
+
+sim = simulate DiscreteStateSpaceAdaptive
+with {
+    timestep = 10 min
+    solver = adaptive_heun
+}

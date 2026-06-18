@@ -6462,6 +6462,20 @@ mod tests {
     }
 
     #[test]
+    fn rejects_adaptive_heun_for_discrete_state_space_shape() {
+        let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/05_error_messages/simulate_adaptive_discrete_state_space.eng");
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SIM-SYSTEM-SHAPE-UNSUPPORTED"));
+    }
+
+    #[test]
     fn rejects_invalid_simulate_duration_and_tolerance() {
         let report = check_source(
             "bad.eng",

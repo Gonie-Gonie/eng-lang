@@ -1513,6 +1513,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             "E-SIM-SYSTEM-SHAPE-UNSUPPORTED",
         ),
         (
+            "examples/05_error_messages/simulate_adaptive_discrete_state_space.eng",
+            "E-SIM-SYSTEM-SHAPE-UNSUPPORTED",
+        ),
+        (
             "examples/05_error_messages/state_space_missing_operator_entry.eng",
             "E-STATE-SPACE-OP-SHAPE-001",
         ),
