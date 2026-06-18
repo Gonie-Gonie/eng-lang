@@ -63,9 +63,10 @@ domain/component, state-space, and class/domain-object work may exist on
 `main`, but they are Internal unless the current status documents a narrow
 Supported scope. The domain/component seed includes reviewable assembly
 metadata, domain plans, and a connection constraint consistency check; it is
-not production multi-domain physical solving. The state-space seed includes a
-one-state fixed-step trajectory with promoted TimeSeries input materialization,
-but it is not a supported general state-space simulation workflow.
+not production multi-domain physical solving. The state-space seed includes
+multi-state fixed-step/adaptive trajectories with promoted TimeSeries input
+materialization, but it is not a supported general state-space simulation
+workflow.
 
 ## Core Invariants
 
@@ -81,8 +82,8 @@ but it is not a supported general state-space simulation workflow.
 - Temperature spelling: `degC` is the canonical ASCII spelling; `°C` is a
   supported user-facing alias for `AbsoluteTemperature`.
 - Examples taxonomy: `examples/official` is the user-test/release namespace.
-  Top-level numbered examples are compatibility regressions; diagnostic and
-  data-quality fixtures are intentionally separate.
+  Compatibility regressions live under `examples/compat`; diagnostic and
+  data-quality fixtures live under `examples/diagnostics`.
 - Hidden imported side effects are disallowed for file run/build paths; explicit
   top-level workflow effects must be typed, recorded, and reviewable.
 - Public feature claims must match the feature maturity matrix.
@@ -117,5 +118,5 @@ Use the current architecture unless a concrete task requires a split.
 
 A feature is not complete merely because an example passes. It is complete only
 when the language rule, compiler check, runtime/check behavior, diagnostic,
-IDE metadata, official example, and documentation are aligned for the stated
-scope.
+IDE metadata, official example or internal fixture, and documentation are
+aligned for the stated scope.

@@ -67,7 +67,7 @@ end:
 | v1.5 algebraic solver | Linear algebraic solve, fixed-point solve, diagnostics | Implemented as solver-API algorithm seeds and square residual graph solve path. |
 | v1.6 small dynamic component solver | Assembled dynamic component graph solves, state/algebraic TimeSeries outputs | Implemented as internal dynamic-component solver seed plus simple-linear `EquationAssembly` bridge; not public-supported component graph solving. |
 | v1.7 nonlinear/delay/Predictor integration | Nonlinear seed, delay buffer, Predictor contract | Adaptive Heun is wired into the one-state thermal path and internal continuous state-space path; nonlinear/DAE and behavior integration remain standalone/API seeds plus report/IDE metadata, with broader language-level integration planned. |
-| v2.0 multi-domain solver | Small multi-domain official example actually solves, report/IDE show equations, plan, residuals, results | Covered by `examples/internal/22_multi_domain_boundary_solve` for a constrained Thermal/Fluid/MechanicalNode boundary solve; production multi-domain solving remains planned. |
+| v2.0 multi-domain solver | Small multi-domain fixture actually solves, report/IDE show equations, plan, residuals, results | Covered by `examples/internal/22_multi_domain_boundary_solve` for a constrained Thermal/Fluid/MechanicalNode boundary solve; production multi-domain solving remains planned. |
 
 ## Final Solver Rule
 
@@ -84,5 +84,5 @@ specific supported scope being claimed:
 | TimeSeries outputs are generated | Solver trajectories are converted into TimeSeries-style report/result/IDE rows. |
 | Report/review artifacts explain the solve | `report_spec.json`, `review.json`, `.engres`, and HTML report solver sections. |
 | IDE shows the solve | `dev.bat ide-check` smoke covers solver, residual, dependency, behavior, state-space, and kernel inspectors. |
-| Official example exercises the solve | Official measured-vs-simulated, multi-state thermal, thermal component assembly, and multi-domain boundary solve examples. |
+| Example or fixture exercises the solve | Official measured-vs-simulated covers the supported one-state thermal workflow. Internal fixtures cover multi-state thermal, thermal component assembly, and constrained multi-domain boundary solve seeds. |
 | Tests cover success and failure | `eng test examples`, cargo tests, `artifacts-check`, `jit-check`, and `ide-check`. |

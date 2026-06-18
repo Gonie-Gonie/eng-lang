@@ -149,8 +149,8 @@ Current coverage:
 - `eng test examples` directly asserts the measured-vs-simulated SolverResult
   state/input/parameter/output lists across review, result, report spec, and
   report HTML artifacts.
-- `artifacts-check` snapshots the official multi-state, Thermal component
-  assembly, and constrained multi-domain boundary solve examples so solver
+- `artifacts-check` snapshots the internal multi-state, Thermal component
+  assembly, and constrained multi-domain boundary solve fixtures so solver
   trajectories, residual graph solve status, solved variables, and residual
   counts are covered by golden baselines.
 - `artifacts-check` snapshots the internal behavior-node fixture so delay,
@@ -267,9 +267,9 @@ Current coverage:
 - Parser type splitting preserves explicit dynamic input contracts such as
   `TimeSeries[Time] of AbsoluteTemperature [degC]`; compiler regression tests
   cover the parsed quantity kind, display unit, and canonical unit.
-- Official measured-vs-simulated and multi-state thermal examples declare
-  `T_out` as `TimeSeries[Time] of AbsoluteTemperature [degC]` and bind it with
-  `simulate ... with { T_out = weather_data.T_out }`.
+- Official measured-vs-simulated and internal multi-state thermal fixtures
+  declare `T_out` as `TimeSeries[Time] of AbsoluteTemperature [degC]` and bind
+  it with `simulate ... with { T_out = weather_data.T_out }`.
 - Simulate input validation resolves promoted CSV column types and checks the
   explicit input contract's axis and quantity before runtime execution.
 - Simulate input/timestep/solver diagnostics use the checklist canonical codes:
