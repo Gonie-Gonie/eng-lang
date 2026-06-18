@@ -117,6 +117,8 @@ Internal runtime seeds:
 - supplied analytic/JIT Jacobian hook for Newton
 - solver-API standalone implicit-Euler DAE seed over F(x, xdot, z, u, t, p)
 - optional DAE mass matrix and initial consistency checks
+- explicit DAE method policy where BDF requests return
+  E-DAE-METHOD-UNSUPPORTED until a real BDF implementation exists
 - standalone dynamic-component explicit-Euler seed with algebraic-free state updates, algebraic solve per timestep, and common SolverResult state/algebraic trajectories
 - derivative-form ResidualGraph to dynamic-component RHS bridge for algebraic-free dynamic seeds
 - residual-graph explicit-Euler dynamic-component entrypoint with layout

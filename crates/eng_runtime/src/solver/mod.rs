@@ -47,8 +47,8 @@ pub use algorithms::algebraic::{
 };
 pub use algorithms::dae::{
     initialize_algebraic_variables, solve_implicit_euler_dae, AlgebraicInitializationInput,
-    DaeInput, DaeMassMatrix, DaeOptions, DaeResult, DaeSample, DaeStepReport, DaeTrajectory,
-    DaeVariable,
+    DaeInput, DaeMassMatrix, DaeMethod, DaeOptions, DaeResult, DaeSample, DaeStepReport,
+    DaeTrajectory, DaeVariable,
 };
 pub use algorithms::dynamic_component::{
     solve_dynamic_component_assembly, solve_explicit_euler_with_algebraic,

@@ -183,7 +183,8 @@ are not public stable workflows.
   internal layer has a solver-API standalone implicit-Euler DAE seed over
   `F(x, xdot, z, u, t, p)` with optional mass matrix, finite
   derivative/mass-application checks, initial consistency checks,
-  algebraic-variable initialization, and a dynamic-component
+  algebraic-variable initialization, explicit unsupported BDF policy, and a
+  dynamic-component
   explicit-Euler seed that supports algebraic-free state updates plus
   fixed-point algebraic solves per timestep and returns state/algebraic
   trajectories through the common `SolverResult` output contract plus failure

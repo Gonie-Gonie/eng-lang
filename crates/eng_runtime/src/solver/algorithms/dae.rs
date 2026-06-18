@@ -5,6 +5,7 @@ use crate::solver::{
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DaeOptions {
+    pub method: DaeMethod,
     pub initial_time_s: f64,
     pub timestep_s: f64,
     pub step_count: usize,
@@ -16,6 +17,7 @@ pub struct DaeOptions {
 impl Default for DaeOptions {
     fn default() -> Self {
         Self {
+            method: DaeMethod::ImplicitEuler,
             initial_time_s: 0.0,
             timestep_s: 1.0,
             step_count: 1,
@@ -24,6 +26,12 @@ impl Default for DaeOptions {
             mass_matrix: None,
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum DaeMethod {
+    ImplicitEuler,
+    Bdf { order: usize },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -386,6 +394,7 @@ fn build_dae_result(
 }
 
 fn validate_dae_input(input: &DaeInput, options: &DaeOptions) -> Result<(), SolverFailure> {
+    validate_dae_method(&options.method)?;
     if input.states.is_empty() {
         return Err(SolverFailure::new(
             "E-DAE-STATE-SHAPE",
@@ -441,6 +450,18 @@ fn validate_dae_input(input: &DaeInput, options: &DaeOptions) -> Result<(), Solv
         mass_matrix.apply(&input.initial_state_derivatives)?;
     }
     Ok(())
+}
+
+fn validate_dae_method(method: &DaeMethod) -> Result<(), SolverFailure> {
+    match method {
+        DaeMethod::ImplicitEuler => Ok(()),
+        DaeMethod::Bdf { order } => Err(SolverFailure::new(
+            "E-DAE-METHOD-UNSUPPORTED",
+            format!(
+                "BDF order {order} is planned but not implemented; use implicit Euler for the current DAE solver seed"
+            ),
+        )),
+    }
 }
 
 fn validate_dae_residual_layout(expected: usize, residuals: &[f64]) -> Result<(), SolverFailure> {
@@ -573,6 +594,23 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(failure.code, "E-DAE-MASS-MATRIX-FINITE");
+    }
+
+    #[test]
+    fn bdf_policy_is_explicitly_unsupported() {
+        let input = one_state_input(1.0, -1.0);
+        let options = DaeOptions {
+            method: DaeMethod::Bdf { order: 2 },
+            ..Default::default()
+        };
+
+        let failure = solve_implicit_euler_dae(&input, &options, |sample| {
+            Ok(vec![sample.state_derivative[0] + sample.state[0]])
+        })
+        .unwrap_err();
+
+        assert_eq!(failure.code, "E-DAE-METHOD-UNSUPPORTED");
+        assert!(failure.message.contains("BDF order 2"));
     }
 
     #[test]

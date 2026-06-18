@@ -335,6 +335,10 @@ Current coverage:
   consistency checks, algebraic-variable initialization, ODE residual,
   algebraic-variable, mass-matrix, inconsistent-initial-condition, and step
   nonconvergence tests exposed through the solver API.
+- DAE method selection is explicit: `DaeMethod::ImplicitEuler` is the only
+  implemented method, and `DaeMethod::Bdf { order }` returns
+  `E-DAE-METHOD-UNSUPPORTED` through runtime tests and `eng test examples`
+  smoke coverage instead of silently falling back.
 - Runtime has a standalone adaptive Heun/Euler ODE seed that preserves fixed
   output-grid trajectories while adapting internal substeps, exposes
   accepted/rejected substep reports, and is covered by runtime and
@@ -372,7 +376,8 @@ Definition of Done:
   systems.
 - Wire implicit Euler DAE solving into language-level examples and artifacts.
 - Add runtime examples for a small nonlinear system and a small implicit DAE.
-- Add BDF policy after implicit Euler integration is stable.
+- Keep BDF as an explicit unsupported policy until a real BDF implementation is
+  added.
 - Keep unsupported paths explicit in review/report/IDE artifacts until
   integrated solving is truly available.
 

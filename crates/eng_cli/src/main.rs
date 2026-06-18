@@ -3213,6 +3213,25 @@ fn solver_algorithm_smoke() -> Result<(), String> {
         );
     }
 
+    let bdf_policy = eng_runtime::solver::solve_implicit_euler_dae(
+        &eng_runtime::solver::DaeInput {
+            states: vec![eng_runtime::solver::DaeVariable::new("x", 1.0)],
+            initial_state_derivatives: vec![-1.0],
+            algebraic: Vec::new(),
+            inputs: Vec::new(),
+            parameters: Vec::new(),
+        },
+        &eng_runtime::solver::DaeOptions {
+            method: eng_runtime::solver::DaeMethod::Bdf { order: 2 },
+            ..eng_runtime::solver::DaeOptions::default()
+        },
+        |sample| Ok(vec![sample.state_derivative[0] + sample.state[0]]),
+    )
+    .unwrap_err();
+    if bdf_policy.code != "E-DAE-METHOD-UNSUPPORTED" {
+        return Err("DAE BDF policy smoke returned the wrong failure code".to_owned());
+    }
+
     let dae_nonconverged = eng_runtime::solver::solve_implicit_euler_dae(
         &eng_runtime::solver::DaeInput {
             states: vec![eng_runtime::solver::DaeVariable::new("x", 1.0)],
