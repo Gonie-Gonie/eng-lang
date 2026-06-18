@@ -1,0 +1,13 @@
+system Decay {
+    state x: Dimensionless = 1
+
+    equation {
+        der(x) eq 0
+    }
+}
+
+sim = simulate Decay
+with {
+    timestep = 1 s
+    solver = adaptive_heun
+}

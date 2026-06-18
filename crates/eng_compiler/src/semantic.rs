@@ -2859,7 +2859,7 @@ fn validate_simulation_solver(
         ));
     } else if solver_name == "adaptive_heun" && !supports_one_state_adaptive_heun(system) {
         diagnostics.push(Diagnostic::error(
-            "E-SIM-SOLVER-UNSUPPORTED",
+            "E-SIM-SYSTEM-SHAPE-UNSUPPORTED",
             option.line,
             "`adaptive_heun` is currently supported only for the one-state thermal workflow.",
             Some("Use `fixed_step`/`explicit_euler`/`rk4` for other supported simulation shapes, or use a system with one AbsoluteTemperature state, HeatCapacity and Conductance parameters, and AbsoluteTemperature plus HeatRate inputs."),

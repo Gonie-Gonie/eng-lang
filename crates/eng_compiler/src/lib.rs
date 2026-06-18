@@ -6478,7 +6478,7 @@ mod tests {
         assert!(report
             .diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.code == "E-SIM-SOLVER-UNSUPPORTED"));
+            .any(|diagnostic| diagnostic.code == "E-SIM-SYSTEM-SHAPE-UNSUPPORTED"));
     }
 
     #[test]
