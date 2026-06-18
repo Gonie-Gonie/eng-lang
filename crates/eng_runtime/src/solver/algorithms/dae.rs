@@ -440,10 +440,12 @@ fn validate_dae_input(input: &DaeInput, options: &DaeOptions) -> Result<(), Solv
             .initial_state_derivatives
             .iter()
             .any(|value| !value.is_finite())
+        || input.inputs.iter().any(|value| !value.is_finite())
+        || input.parameters.iter().any(|value| !value.is_finite())
     {
         return Err(SolverFailure::new(
             "E-DAE-INITIAL-FINITE",
-            "DAE initial state, derivative, and algebraic values must be finite",
+            "DAE initial state, derivative, algebraic, input, and parameter values must be finite",
         ));
     }
     if let Some(mass_matrix) = &options.mass_matrix {
@@ -655,6 +657,25 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(failure.code, "E-DAE-INCONSISTENT-INITIAL-CONDITIONS");
+    }
+
+    #[test]
+    fn rejects_nonfinite_dae_inputs_and_parameters() {
+        let mut input = one_state_input(1.0, -1.0);
+        input.inputs = vec![f64::NAN];
+        let failure = solve_implicit_euler_dae(&input, &DaeOptions::default(), |sample| {
+            Ok(vec![sample.state_derivative[0] + sample.state[0]])
+        })
+        .unwrap_err();
+        assert_eq!(failure.code, "E-DAE-INITIAL-FINITE");
+
+        let mut input = one_state_input(1.0, -1.0);
+        input.parameters = vec![f64::INFINITY];
+        let failure = solve_implicit_euler_dae(&input, &DaeOptions::default(), |sample| {
+            Ok(vec![sample.state_derivative[0] + sample.state[0]])
+        })
+        .unwrap_err();
+        assert_eq!(failure.code, "E-DAE-INITIAL-FINITE");
     }
 
     #[test]
