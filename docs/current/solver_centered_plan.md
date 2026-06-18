@@ -31,8 +31,8 @@ end:
 | SOLVER-101 | TimeSeries system input contract | Implemented for explicit supported TimeSeries thermal inputs. |
 | SOLVER-102 | Simulate command binding to SolverInput | Implemented for supported simulation workflows. |
 | SOLVER-103 | Multi-state RHS evaluator | Internal seed in fixed-step/state-space paths; general equation solving remains planned. |
-| SOLVER-104 | Explicit Euler multi-state solver | Internal seed for supported multi-state/state-space paths and covered by CLI smoke for two-state trajectories, interval-start RHS sampling, final partial steps, and failure artifacts. |
-| SOLVER-105 | RK4 multi-state solver | Internal seed for supported multi-state/state-space paths and covered by CLI smoke for two-state trajectories, final partial steps, and failure artifacts. |
+| SOLVER-104 | Explicit Euler multi-state solver | Internal seed for multi-state/state-space paths and covered by CLI smoke for two-state trajectories, interval-start RHS sampling, final partial steps, and failure artifacts. |
+| SOLVER-105 | RK4 multi-state solver | Internal seed for multi-state/state-space paths and covered by CLI smoke for two-state trajectories, final partial steps, and failure artifacts. |
 | SOLVER-106 | Solver diagnostics and failure artifacts | Implemented across supported system/component solver artifacts. |
 | SOLVER-107 | Adaptive Heun simulation paths | Implemented for the one-state thermal `simulate` path and internal continuous state-space path as `solver = adaptive_heun`, preserving a fixed output TimeGrid while adapting internal substeps and exposing substep diagnostics in result/report/review/IDE artifacts. |
 | SOLVER-201 | StateVector/InputVector parser and semantic | Implemented for current state-space seed scope. |
@@ -67,7 +67,7 @@ end:
 | v1.5 algebraic solver | Linear algebraic solve, fixed-point solve, diagnostics | Implemented as solver-API algorithm seeds and square residual graph solve path. |
 | v1.6 small dynamic component solver | Assembled dynamic component graph solves, state/algebraic TimeSeries outputs | Implemented as internal dynamic-component solver seed plus simple-linear `EquationAssembly` bridge; not public-supported component graph solving. |
 | v1.7 nonlinear/delay/Predictor integration | Nonlinear seed, delay buffer, Predictor contract | Adaptive Heun is wired into the one-state thermal path and internal continuous state-space path; nonlinear/DAE and behavior integration remain standalone/API seeds plus report/IDE metadata, with broader language-level integration planned. |
-| v2.0 multi-domain solver | Small multi-domain official example actually solves, report/IDE show equations, plan, residuals, results | Covered by `examples/official/22_multi_domain_boundary_solve` for a constrained Thermal/Fluid/MechanicalNode boundary solve; production multi-domain solving remains planned. |
+| v2.0 multi-domain solver | Small multi-domain official example actually solves, report/IDE show equations, plan, residuals, results | Covered by `examples/internal/22_multi_domain_boundary_solve` for a constrained Thermal/Fluid/MechanicalNode boundary solve; production multi-domain solving remains planned. |
 
 ## Final Solver Rule
 

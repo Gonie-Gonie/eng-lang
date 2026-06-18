@@ -165,24 +165,24 @@ typed_payload.ml
 Run:
 
 ```bat
-.\target\debug\eng.exe run examples\official\05_data_driven_modeling\main.eng --save-artifacts
+.\target\debug\eng.exe run examples\internal\05_data_driven_modeling\main.eng --save-artifacts
 ```
 
 or open this file in the Tauri IDE:
 
 ```text
-examples/official/05_data_driven_modeling/main.eng
+examples/internal/05_data_driven_modeling/main.eng
 ```
 
 The main example renders the parity scatter plot. The residual bar plot path is
 available as:
 
 ```bat
-.\target\debug\eng.exe run examples\official\05_data_driven_modeling\residuals.eng --save-artifacts
+.\target\debug\eng.exe run examples\internal\05_data_driven_modeling\residuals.eng --save-artifacts
 ```
 
 or in the Tauri IDE:
 
 ```text
-examples/official/05_data_driven_modeling/residuals.eng
+examples/internal/05_data_driven_modeling/residuals.eng
 ```

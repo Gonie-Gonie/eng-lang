@@ -599,7 +599,6 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/01_csv_plot/main.eng",
                 "examples/official/02_simple_system/main.eng",
                 "examples/official/03_integrated_hvac/main.eng",
-                "examples/official/06_domain_port/main.eng",
                 "examples/official/07_functions_imports/main.eng",
                 "examples/official/08_print_export_summary/main.eng",
                 "examples/official/09_command_where_with/main.eng",
@@ -612,16 +611,19 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/16_test_assert_golden/main.eng",
                 "examples/official/17_measured_vs_simulated/main.eng",
                 "examples/official/19_class_object/main.eng",
-                "examples/official/20_multi_state_thermal/main.eng",
-                "examples/official/21_thermal_component_assembly/main.eng",
-                "examples/official/22_multi_domain_boundary_solve/main.eng",
             ],
         ),
         (
             "internal",
             &[
+                "examples/internal/04_uncertainty_core/main.eng",
+                "examples/internal/05_data_driven_modeling/main.eng",
+                "examples/internal/06_domain_port/main.eng",
                 "examples/internal/18_state_space_metadata/main.eng",
+                "examples/internal/20_multi_state_thermal/main.eng",
                 "examples/internal/21_unsupported_system_shape/main.eng",
+                "examples/internal/21_thermal_component_assembly/main.eng",
+                "examples/internal/22_multi_domain_boundary_solve/main.eng",
                 "examples/internal/26_state_space_discrete/main.eng",
                 "examples/internal/27_adaptive_heun_thermal/main.eng",
                 "examples/internal/28_adaptive_state_space/main.eng",
@@ -778,7 +780,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     );
 
     let domain_port = match check_file(
-        "examples/official/06_domain_port/main.eng",
+        "examples/internal/06_domain_port/main.eng",
         &CheckOptions::default(),
     ) {
         Ok(report) => report,
@@ -803,9 +805,9 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         );
         return ExitCode::from(2);
     }
-    println!("ok: examples/official/06_domain_port/main.eng produced domain assembly metadata");
+    println!("ok: examples/internal/06_domain_port/main.eng produced domain assembly metadata");
     match run_file(
-        Path::new("examples/official/06_domain_port/main.eng"),
+        Path::new("examples/internal/06_domain_port/main.eng"),
         Path::new("build/test-domain-assembly-solver"),
         &RunOptions {
             save_artifacts: true,
@@ -843,7 +845,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/06_domain_port/main.eng produced component constraint-check artifacts"
+                "ok: examples/internal/06_domain_port/main.eng produced component constraint-check artifacts"
             );
         }
         Err(error) => {
@@ -897,7 +899,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/official/21_thermal_component_assembly/main.eng"),
+        Path::new("examples/internal/21_thermal_component_assembly/main.eng"),
         Path::new("build/test-thermal-component-assembly"),
         &artifact_run_options(),
     ) {
@@ -934,7 +936,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/21_thermal_component_assembly/main.eng solved thermal component assembly residual graph"
+                "ok: examples/internal/21_thermal_component_assembly/main.eng solved thermal component assembly residual graph"
             );
         }
         Err(error) => {
@@ -943,7 +945,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     let thermal_assembly_report = match check_file(
-        "examples/official/21_thermal_component_assembly/main.eng",
+        "examples/internal/21_thermal_component_assembly/main.eng",
         &CheckOptions::default(),
     ) {
         Ok(report) => report,
@@ -954,7 +956,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     };
     let thermal_assembly_jit_plan = eng_jit::plan_for_report(&thermal_assembly_report);
     let thermal_assembly_bench_smoke = jit_bench_json(
-        "examples/official/21_thermal_component_assembly/main.eng",
+        "examples/internal/21_thermal_component_assembly/main.eng",
         1,
         &thermal_assembly_report,
         &thermal_assembly_jit_plan,
@@ -1022,10 +1024,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         return ExitCode::from(2);
     }
     println!(
-        "ok: examples/official/21_thermal_component_assembly/main.eng produced component residual, Jacobian, and Newton-step kernel candidates"
+        "ok: examples/internal/21_thermal_component_assembly/main.eng produced component residual, Jacobian, and Newton-step kernel candidates"
     );
     match run_file(
-        Path::new("examples/official/22_multi_domain_boundary_solve/main.eng"),
+        Path::new("examples/internal/22_multi_domain_boundary_solve/main.eng"),
         Path::new("build/test-multi-domain-boundary-solve"),
         &artifact_run_options(),
     ) {
@@ -1061,7 +1063,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/22_multi_domain_boundary_solve/main.eng solved a small multi-domain boundary residual graph"
+                "ok: examples/internal/22_multi_domain_boundary_solve/main.eng solved a small multi-domain boundary residual graph"
             );
         }
         Err(error) => {
@@ -2270,7 +2272,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/official/20_multi_state_thermal/main.eng"),
+        Path::new("examples/internal/20_multi_state_thermal/main.eng"),
         Path::new("build/test-multi-state-thermal"),
         &artifact_run_options(),
     ) {
@@ -2308,7 +2310,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/20_multi_state_thermal/main.eng produced multi-state solver artifacts"
+                "ok: examples/internal/20_multi_state_thermal/main.eng produced multi-state solver artifacts"
             );
         }
         Err(error) => {
@@ -2498,7 +2500,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/official/04_uncertainty_core/main.eng"),
+        Path::new("examples/internal/04_uncertainty_core/main.eng"),
         Path::new("build/test-uncertainty-core"),
         &RunOptions {
             open_report: false,
@@ -2529,7 +2531,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/04_uncertainty_core/main.eng produced uncertainty artifacts"
+                "ok: examples/internal/04_uncertainty_core/main.eng produced uncertainty artifacts"
             );
         }
         Err(error) => {
@@ -2538,7 +2540,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/official/05_data_driven_modeling/main.eng"),
+        Path::new("examples/internal/05_data_driven_modeling/main.eng"),
         Path::new("build/test-data-driven-modeling"),
         &RunOptions {
             open_report: false,
@@ -2569,7 +2571,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/05_data_driven_modeling/main.eng produced ML artifacts"
+                "ok: examples/internal/05_data_driven_modeling/main.eng produced ML artifacts"
             );
         }
         Err(error) => {
@@ -2578,7 +2580,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/official/05_data_driven_modeling/residuals.eng"),
+        Path::new("examples/internal/05_data_driven_modeling/residuals.eng"),
         Path::new("build/test-data-driven-modeling-residuals"),
         &RunOptions {
             open_report: false,
@@ -2600,7 +2602,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/05_data_driven_modeling/residuals.eng produced residual plot artifacts"
+                "ok: examples/internal/05_data_driven_modeling/residuals.eng produced residual plot artifacts"
             );
         }
         Err(error) => {

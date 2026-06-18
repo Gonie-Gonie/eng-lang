@@ -104,20 +104,20 @@ step-by-step flow.
 Recommended uncertainty-track smoke:
 
 ```text
-examples/official/04_uncertainty_core/main.eng
+examples/internal/04_uncertainty_core/main.eng
 ```
 
 Recommended data-driven modeling track smoke:
 
 ```text
-examples/official/05_data_driven_modeling/main.eng
-examples/official/05_data_driven_modeling/residuals.eng
+examples/internal/05_data_driven_modeling/main.eng
+examples/internal/05_data_driven_modeling/residuals.eng
 ```
 
 Recommended domain/component track smoke:
 
 ```text
-examples/official/06_domain_port/main.eng
+examples/internal/06_domain_port/main.eng
 ```
 
 ## VS Code Extension

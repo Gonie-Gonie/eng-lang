@@ -548,10 +548,10 @@ Current coverage:
   `solve_linear_residual_graph`, which owns linear system assembly, dense solve,
   residual-norm evaluation, named variable output, and singular/ill-conditioned
   failure propagation.
-- `examples/official/21_thermal_component_assembly` exercises the focused
+- `examples/internal/21_thermal_component_assembly` exercises the focused
   Thermal assembly path with generated connection equations, component-boundary
   RHS equations, a square residual graph, and dense linear solver artifacts.
-- `examples/official/22_multi_domain_boundary_solve` exercises a constrained
+- `examples/internal/22_multi_domain_boundary_solve` exercises a constrained
   Thermal/Fluid/MechanicalNode boundary path with generated connection
   equations, component-boundary RHS equations, a square residual graph, and
   dense linear solver artifacts while preserving the non-production
@@ -565,7 +565,7 @@ Current coverage:
   of attempting a dense solve.
 - Checklist 9.4 test names are covered by current repo test surfaces as
   follows: `linear_algebraic_thermal_node.eng` maps to
-  `examples/official/21_thermal_component_assembly` and
+  `examples/internal/21_thermal_component_assembly` and
   `examples/internal/22_component_boundary_solve` smoke checks;
   `linear_singular_system.eng` maps to
   `examples/internal/23_component_boundary_singular`; fixed-point

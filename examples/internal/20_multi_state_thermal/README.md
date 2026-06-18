@@ -1,6 +1,6 @@
-# Multi-State Thermal
+# Internal 20 Multi-State Thermal
 
-This example exercises the supported multi-state state-space simulation path.
+This fixture exercises the internal multi-state state-space simulation path.
 
 - `T_air` and `T_wall` are simulated as separate state trajectories.
 - `weather_data.T_out` is bound as a `TimeSeries[Time]` input.
@@ -11,5 +11,6 @@ This example exercises the supported multi-state state-space simulation path.
   entries surfaced in report/review/IDE inspection.
 - Runtime artifacts emit both `sim.T_air` and `sim.T_wall` TimeSeries values.
 
-This is an actual state-space simulation path. It is not a nonlinear, DAE,
-adaptive, or production component-graph solver.
+This is an actual state-space runtime seed. It is not a public-supported
+general state-space workflow, nonlinear solver, DAE solver, adaptive solver, or
+production component-graph solver.

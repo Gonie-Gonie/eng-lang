@@ -1,10 +1,11 @@
-# Official 04 Uncertainty Core
+# Internal 04 Uncertainty Core
 
 Purpose:
 
 ```text
-Show the current deterministic uncertainty metadata path, including measured,
-interval, distribution, ensemble, propagation, and histogram artifacts.
+Exercise the internal deterministic uncertainty metadata path, including
+measured, interval, distribution, ensemble, propagation, and histogram
+artifacts.
 ```
 
 Language features shown:
@@ -20,7 +21,7 @@ Language features shown:
 Run:
 
 ```bat
-target\debug\eng.exe run examples\official\04_uncertainty_core\main.eng --save-artifacts
+target\debug\eng.exe run examples\internal\04_uncertainty_core\main.eng --save-artifacts
 ```
 
 Expected artifacts:

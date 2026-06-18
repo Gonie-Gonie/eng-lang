@@ -1337,9 +1337,9 @@ function Invoke-ArtifactsCheck {
     $csvGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_01_csv_plot.golden.json")
     $systemGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_02_simple_system.golden.json")
     $measuredGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_17_measured_vs_simulated.golden.json")
-    $multiStateGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_20_multi_state_thermal.golden.json")
-    $thermalAssemblyGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_21_thermal_component_assembly.golden.json")
-    $multiDomainGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_22_multi_domain_boundary_solve.golden.json")
+    $multiStateGolden = Read-ArtifactJson (Join-Path $goldenRoot "internal_20_multi_state_thermal.golden.json")
+    $thermalAssemblyGolden = Read-ArtifactJson (Join-Path $goldenRoot "internal_21_thermal_component_assembly.golden.json")
+    $multiDomainGolden = Read-ArtifactJson (Join-Path $goldenRoot "internal_22_multi_domain_boundary_solve.golden.json")
     $behaviorNodesGolden = Read-ArtifactJson (Join-Path $goldenRoot "internal_25_component_behavior_nodes.golden.json")
 
     Assert-CsvPlotGolden $csvGolden $Eng
@@ -1516,8 +1516,8 @@ function Invoke-JitCheck {
     Invoke-Native $cargo "run" "-p" "eng_cli" "--" "jit-plan" "examples\official\01_csv_plot\main.eng" "--backend" "native-preview"
     Invoke-JitBenchTargetCheck $cargo "examples\official\01_csv_plot\main.eng" "csv_heat_rate_workflow" "covered_by_current_source" "timeseries_integrate"
     Invoke-JitBenchTargetCheck $cargo "examples\official\01_csv_plot\main.eng" "multi_statistics_fusion" "covered_by_current_source" "statistics_fusion:summary:Q_coil"
-    Invoke-JitBenchTargetCheck $cargo "examples\official\21_thermal_component_assembly\main.eng" "residual_evaluation" "covered_by_current_source" "component_residual_jacobian"
-    Invoke-JitBenchTargetCheck $cargo "examples\official\21_thermal_component_assembly\main.eng" "component_graph_solver_small_case" "covered_by_current_source" "component_newton_step"
+    Invoke-JitBenchTargetCheck $cargo "examples\internal\21_thermal_component_assembly\main.eng" "residual_evaluation" "covered_by_current_source" "component_residual_jacobian"
+    Invoke-JitBenchTargetCheck $cargo "examples\internal\21_thermal_component_assembly\main.eng" "component_graph_solver_small_case" "covered_by_current_source" "component_newton_step"
     Invoke-JitBenchTargetCheck $cargo "examples\internal\18_state_space_metadata\main.eng" "state_space_simulation" "covered_by_current_source" "state_space_solver_step"
     Write-Host "JIT plan check passed."
 }

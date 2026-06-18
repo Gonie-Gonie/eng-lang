@@ -1,4 +1,4 @@
-# Official 21 Thermal Component Assembly
+# Internal 21 Thermal Component Assembly
 
 Focused thermal component-assembly fixture for the residual graph and dense
 linear algebraic solver seed.
@@ -26,6 +26,6 @@ Current support boundary:
 Useful commands:
 
 ```bat
-target\debug\eng.exe check examples\official\21_thermal_component_assembly\main.eng --review
-target\debug\eng.exe run examples\official\21_thermal_component_assembly\main.eng --save-artifacts
+target\debug\eng.exe check examples\internal\21_thermal_component_assembly\main.eng --review
+target\debug\eng.exe run examples\internal\21_thermal_component_assembly\main.eng --save-artifacts
 ```

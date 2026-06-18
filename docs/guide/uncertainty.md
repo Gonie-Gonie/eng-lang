@@ -122,12 +122,12 @@ user-facing artifact review, histogram testing, and IDE inspection.
 Run:
 
 ```bat
-.\target\debug\eng.exe run examples\official\04_uncertainty_core\main.eng --save-artifacts
+.\target\debug\eng.exe run examples\internal\04_uncertainty_core\main.eng --save-artifacts
 .\target\debug\eng.exe check examples\05_error_messages\invalid_uncertainty_arguments.eng --review
 ```
 
 or open this file in the Tauri IDE:
 
 ```text
-examples/official/04_uncertainty_core/main.eng
+examples/internal/04_uncertainty_core/main.eng
 ```

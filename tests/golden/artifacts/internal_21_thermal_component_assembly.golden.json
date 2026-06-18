@@ -1,6 +1,6 @@
 {
-  "name": "official_21_thermal_component_assembly",
-  "source": "examples\\official\\21_thermal_component_assembly\\main.eng",
+  "name": "internal_21_thermal_component_assembly",
+  "source": "examples\\internal\\21_thermal_component_assembly\\main.eng",
   "review": {
     "format": "eng-review-preview-1",
     "review_schema_version": 1,

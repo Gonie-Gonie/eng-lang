@@ -2555,7 +2555,7 @@ mod tests {
     fn detects_component_assembly_residual_kernel_candidate() {
         let report = check_file(
             Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../examples/official/21_thermal_component_assembly/main.eng"),
+                .join("../../examples/internal/21_thermal_component_assembly/main.eng"),
             &CheckOptions::default(),
         )
         .expect("official thermal component assembly example should check");
@@ -2613,7 +2613,7 @@ mod tests {
     fn lowers_component_assembly_residual_kernel_ir() {
         let report = check_file(
             Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../examples/official/21_thermal_component_assembly/main.eng"),
+                .join("../../examples/internal/21_thermal_component_assembly/main.eng"),
             &CheckOptions::default(),
         )
         .expect("official thermal component assembly example should check");
@@ -2684,7 +2684,7 @@ mod tests {
     fn detects_state_space_rhs_kernel_candidate() {
         let report = check_file(
             Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../examples/official/20_multi_state_thermal/main.eng"),
+                .join("../../examples/internal/20_multi_state_thermal/main.eng"),
             &CheckOptions::default(),
         )
         .expect("official multi-state thermal example should check");

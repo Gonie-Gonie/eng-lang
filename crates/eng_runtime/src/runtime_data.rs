@@ -6062,7 +6062,7 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
     fn materializes_component_assembly_constraint_check() {
         let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
-            .join("examples/official/06_domain_port/main.eng");
+            .join("examples/internal/06_domain_port/main.eng");
         let source = std::fs::read_to_string(&source_path).unwrap();
         let report = check_file(&source_path, &CheckOptions::default()).unwrap();
         let runtime = materialize_runtime_data(&report, &source);
@@ -6700,7 +6700,7 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
     fn materializes_multi_state_state_space_solution() {
         let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
-            .join("examples/official/20_multi_state_thermal/main.eng");
+            .join("examples/internal/20_multi_state_thermal/main.eng");
         let source = std::fs::read_to_string(&source_path).unwrap();
         let report = check_file(&source_path, &CheckOptions::default()).unwrap();
         let runtime = materialize_runtime_data(&report, &source);
@@ -6778,7 +6778,7 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
     fn materializes_ml_metrics_and_parity_plot() {
         let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
-            .join("examples/official/05_data_driven_modeling/main.eng");
+            .join("examples/internal/05_data_driven_modeling/main.eng");
         let source = std::fs::read_to_string(&source_path).unwrap();
         let report = check_file(&source_path, &CheckOptions::default()).unwrap();
         let runtime = materialize_runtime_data(&report, &source);
@@ -6824,7 +6824,7 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
 
         let residual_source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
-            .join("examples/official/05_data_driven_modeling/residuals.eng");
+            .join("examples/internal/05_data_driven_modeling/residuals.eng");
         let residual_source = std::fs::read_to_string(&residual_source_path).unwrap();
         let residual_report = check_file(&residual_source_path, &CheckOptions::default()).unwrap();
         let residual_runtime = materialize_runtime_data(&residual_report, &residual_source);

@@ -18,26 +18,6 @@ paths before compatibility fixtures.
   Combined user-test path for Args, CSV policies, missing interpolation,
   statistics, integrate, PlotSpec/report, and simple system metadata.
 
-04_uncertainty_core
-  Internal uncertainty-track path for measured values, intervals,
-  deterministic distributions/ensembles, source and argument diagnostics,
-  propagation metadata, and in-report histogram output.
-
-05_data_driven_modeling
-  Internal data-driven modeling track path for train/test split, linear
-  regression, basic MLP, source and argument validation diagnostics,
-  RMSE/MAE/R2 metrics, leakage lint, model card, parity plot output, and
-  residual plot output via `residuals.eng`.
-
-06_domain_port
-  Internal domain/component track path for user-defined domains,
-  across/through variables, conservation metadata, component ports,
-  structured generic parameters, domain-compatible connections, contract
-  diagnostics, invalid connection diagnostics, Internal connection-set
-  assembly metadata, generated connection equations, equation/unknown counts,
-  residual graph placeholders, domain-plan metadata, and connection constraint
-  consistency artifacts. This is not a supported physical component solve.
-
 07_functions_imports
   Top-level execution, static file import, importable const values,
   function-local bindings, unit-checked parameters, dimension-checked return
@@ -97,24 +77,6 @@ paths before compatibility fixtures.
   class validation blocks, metadata methods, immutable copy-with, field access
   metadata, and class/object report sections for the supported class object
   authoring surface. This is not runtime object dispatch.
-
-20_multi_state_thermal
-  Multi-state state-space thermal simulation with two state trajectories,
-  TimeSeries input binding, fixed-step RK4 execution, and plot/report artifacts
-  for `sim.T_air` and `sim.T_wall`. This is not a nonlinear, DAE, adaptive, or
-  production component-graph solver.
-
-21_thermal_component_assembly
-  Focused thermal component assembly with generated connection equations,
-  component-local boundary RHS equations, a square residual graph, and a dense
-  linear residual solve artifact. This is not a production multi-domain
-  component solver.
-
-22_multi_domain_boundary_solve
-  Small Thermal/Fluid/MechanicalNode boundary fixture whose generated
-  connection equations plus component-local boundary equations form a square
-  residual graph solved by the dense linear path. This is still a constrained
-  algebraic seed, not a production physical multi-domain simulation engine.
 ```
 
 Top-level numbered examples remain for compatibility and focused regression
@@ -122,4 +84,5 @@ tests. Diagnostic and data-quality fixtures live in their own top-level
 folders; they are not the first user-facing examples.
 
 Internal implementation fixtures that are not user-facing release workflows live
-under `examples/internal`, including the state-space trajectory seed.
+under `examples/internal`, including uncertainty, data-driven modeling,
+domain/component, state-space, adaptive, and component-solver seeds.

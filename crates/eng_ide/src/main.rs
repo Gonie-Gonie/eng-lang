@@ -2019,7 +2019,7 @@ fn smoke() -> Result<(), String> {
     if report.has_errors() {
         return Err(format!("{} has diagnostics", first.display()));
     }
-    let domain_example = root.join("examples/official/06_domain_port/main.eng");
+    let domain_example = root.join("examples/internal/06_domain_port/main.eng");
     let domain_source = read_utf8(&domain_example)?;
     let domain_report = check_source(&domain_example, &domain_source, &CheckOptions::default());
     if domain_report.has_errors()
@@ -2210,7 +2210,7 @@ fn smoke() -> Result<(), String> {
         ));
     }
     let thermal_assembly_example =
-        root.join("examples/official/21_thermal_component_assembly/main.eng");
+        root.join("examples/internal/21_thermal_component_assembly/main.eng");
     let thermal_assembly_output = run_file(
         &thermal_assembly_example,
         &root.join("build").join("ide-smoke-thermal-assembly"),
@@ -2284,7 +2284,7 @@ fn smoke() -> Result<(), String> {
         ));
     }
     let multi_domain_example =
-        root.join("examples/official/22_multi_domain_boundary_solve/main.eng");
+        root.join("examples/internal/22_multi_domain_boundary_solve/main.eng");
     let multi_domain_output = run_file(
         &multi_domain_example,
         &root.join("build").join("ide-smoke-multi-domain-boundary"),

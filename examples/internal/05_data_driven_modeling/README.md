@@ -1,4 +1,4 @@
-# Official 05 Data-driven Modeling
+# Internal 05 Data-driven Modeling
 
 Purpose:
 
@@ -20,8 +20,8 @@ Language features shown:
 Run:
 
 ```bat
-target\debug\eng.exe run examples\official\05_data_driven_modeling\main.eng --save-artifacts
-target\debug\eng.exe run examples\official\05_data_driven_modeling\residuals.eng --save-artifacts
+target\debug\eng.exe run examples\internal\05_data_driven_modeling\main.eng --save-artifacts
+target\debug\eng.exe run examples\internal\05_data_driven_modeling\residuals.eng --save-artifacts
 ```
 
 Expected artifacts:

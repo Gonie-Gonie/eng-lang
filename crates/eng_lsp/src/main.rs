@@ -33,7 +33,7 @@ fn command_smoke() -> std::process::ExitCode {
     let path = Path::new("examples/official/01_csv_plot/main.eng");
     match snapshot_for_path(path) {
         Ok(snapshot) => {
-            let domain_path = Path::new("examples/official/06_domain_port/main.eng");
+            let domain_path = Path::new("examples/internal/06_domain_port/main.eng");
             let domain_snapshot = match snapshot_for_path(domain_path) {
                 Ok(snapshot) => snapshot,
                 Err(error) => {

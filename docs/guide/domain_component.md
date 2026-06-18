@@ -190,14 +190,14 @@ graph solving is wired into supported component solver paths.
 `eng check --review` writes domain/component information to `review.json`:
 
 ```bat
-target\debug\eng.exe check examples\official\06_domain_port\main.eng --review
+target\debug\eng.exe check examples\internal\06_domain_port\main.eng --review
 ```
 
 `eng run` also carries the same metadata into runtime report objects. Add
 `--save-artifacts` for user-facing report files:
 
 ```bat
-target\debug\eng.exe run examples\official\06_domain_port\main.eng --save-artifacts
+target\debug\eng.exe run examples\internal\06_domain_port\main.eng --save-artifacts
 ```
 
 The current domain/component artifact sections are:
@@ -251,12 +251,12 @@ re-parsing source files.
 
 ## Official Examples
 
-- `examples/official/06_domain_port/main.eng`
+- `examples/internal/06_domain_port/main.eng`
   shows compatible Thermal, `Fluid[Water]`, and
   `MechanicalNode[World, X]` domain connections with package/version metadata
   and structured generic parameter metadata. Its assembly artifacts report
   three domain plans and `solver_preview.status = multi_domain_preview`.
-- `examples/official/21_thermal_component_assembly/main.eng`
+- `examples/internal/21_thermal_component_assembly/main.eng`
   focuses on one Thermal connection set with component-local boundary RHS
   equations. Its artifacts record generated connection equations, a square
   residual graph, dense linear solve status, solved variables, and residual

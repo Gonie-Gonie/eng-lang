@@ -21,7 +21,7 @@ Current limitation:
 ```text
 - this fixture remains a one-state metadata/runtime smoke for the state-space
   surface
-- multi-state state-space runtime coverage lives in examples/official/20_multi_state_thermal
+- multi-state state-space runtime coverage lives in examples/internal/20_multi_state_thermal
 - no nonlinear, DAE, adaptive, component-coupled, or stable general matrix
   simulation solver claim
 - no broad unit-compatible operator algebra support beyond the checked

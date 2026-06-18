@@ -308,7 +308,7 @@ package also supports smoke and snapshot commands:
 
 ```bat
 eng-lsp.exe --smoke
-eng-lsp.exe --snapshot examples\official\06_domain_port\main.eng
+eng-lsp.exe --snapshot examples\internal\06_domain_port\main.eng
 eng-lsp.exe --snapshot-check examples\official\01_csv_plot\main.eng
 ```
 

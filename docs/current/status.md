@@ -244,9 +244,9 @@ are not public stable workflows.
   for internal fixtures, dense linear residual solves when the residual graph is
   square, explicit RHS values in report specs, solved variable/residual
   artifacts, singular solve failure artifacts, and overdetermined limitation
-  artifacts. `examples/official/21_thermal_component_assembly` exercises the
+  artifacts. `examples/internal/21_thermal_component_assembly` exercises the
   focused Thermal assembly path, and
-  `examples/official/22_multi_domain_boundary_solve` exercises a constrained
+  `examples/internal/22_multi_domain_boundary_solve` exercises a constrained
   Thermal/Fluid/MechanicalNode boundary solve. These remain internal algebraic
   assembly seeds, not a production multi-domain component graph solver.
 - Domain/component graph metadata: domains, ports, connections, diagnostics,

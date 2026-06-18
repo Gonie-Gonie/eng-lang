@@ -98,8 +98,8 @@ task_types:
     - docs/current/tracks.md
     - docs/architecture/01_runtime_artifacts.md
     - examples/official/17_measured_vs_simulated/
-    - examples/official/20_multi_state_thermal/
-    - examples/official/21_thermal_component_assembly/
+    - examples/internal/20_multi_state_thermal/
+    - examples/internal/21_thermal_component_assembly/
     - crates/eng_runtime/src/solver/
     - crates/eng_runtime/src/runtime_data.rs
     - crates/eng_compiler/src/semantic.rs
@@ -107,7 +107,7 @@ task_types:
   uncertainty:
     - docs/current/tracks.md
     - docs/guide/uncertainty.md
-    - examples/official/04_uncertainty_core/
+    - examples/internal/04_uncertainty_core/
     - examples/05_error_messages/invalid_uncertainty_arguments.eng
     - crates/eng_compiler/src/uncertainty.rs
     - crates/eng_runtime/src/runtime_data.rs
@@ -116,7 +116,7 @@ task_types:
     - docs/current/tracks.md
     - docs/guide/data_driven_modeling.md
     - stdlib/eng/ml.eng
-    - examples/official/05_data_driven_modeling/
+    - examples/internal/05_data_driven_modeling/
     - crates/eng_compiler/src/ml.rs
     - crates/eng_runtime/src/runtime_data.rs
 
@@ -153,7 +153,7 @@ task_types:
   domain_component:
     - docs/current/tracks.md
     - docs/guide/domain_component.md
-    - examples/official/06_domain_port/
+    - examples/internal/06_domain_port/
     - examples/05_error_messages/port_domain_mismatch.eng
     - examples/05_error_messages/medium_mismatch.eng
     - examples/05_error_messages/frame_mismatch.eng

@@ -1,4 +1,4 @@
-# Official 06 Domain Port
+# Internal 06 Domain Port
 
 Internal domain/component metadata-track user-test fixture for the open domain/port and component
 connection surface.
@@ -54,6 +54,6 @@ Current support boundary:
 Useful commands:
 
 ```bat
-target\debug\eng.exe check examples\official\06_domain_port\main.eng --review
-target\debug\eng.exe run examples\official\06_domain_port\main.eng
+target\debug\eng.exe check examples\internal\06_domain_port\main.eng --review
+target\debug\eng.exe run examples\internal\06_domain_port\main.eng
 ```

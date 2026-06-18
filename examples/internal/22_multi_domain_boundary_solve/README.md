@@ -1,6 +1,6 @@
-# Multi-Domain Boundary Solve
+# Internal 22 Multi-Domain Boundary Solve
 
-This official fixture exercises a small multi-domain algebraic boundary solve
+This internal fixture exercises a small multi-domain algebraic boundary solve
 across Thermal, Fluid, and MechanicalNode connection sets.
 
 Each domain contributes generated connection equations plus component-local
