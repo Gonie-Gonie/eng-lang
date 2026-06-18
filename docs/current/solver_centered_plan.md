@@ -20,7 +20,7 @@ release naming still follows [version_plan.md](version_plan.md).
 | SOLVER-104 | Explicit Euler multi-state solver | Internal seed for supported multi-state/state-space paths and covered by CLI smoke for two-state trajectories, interval-start RHS sampling, final partial steps, and failure artifacts. |
 | SOLVER-105 | RK4 multi-state solver | Internal seed for supported multi-state/state-space paths and covered by CLI smoke for two-state trajectories, final partial steps, and failure artifacts. |
 | SOLVER-106 | Solver diagnostics and failure artifacts | Implemented across supported system/component solver artifacts. |
-| SOLVER-107 | Adaptive Heun simulation paths | Implemented for the one-state thermal `simulate` path and internal continuous state-space path as `solver = adaptive_heun`, preserving a fixed output TimeGrid while adapting internal substeps. |
+| SOLVER-107 | Adaptive Heun simulation paths | Implemented for the one-state thermal `simulate` path and internal continuous state-space path as `solver = adaptive_heun`, preserving a fixed output TimeGrid while adapting internal substeps and exposing substep diagnostics in result/report/review/IDE artifacts. |
 | SOLVER-201 | StateVector/InputVector parser and semantic | Implemented for current state-space seed scope. |
 | SOLVER-202 | LinearOperator unit checking | Implemented for current dense/named-entry operator seed scope. |
 | SOLVER-203 | Discrete state-space runtime | Implemented as an internal runtime seed. |

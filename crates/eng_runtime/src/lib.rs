@@ -4014,6 +4014,26 @@ fn push_system_step_diagnostics_json(
     json.push_str(&format!("\n{indent}  ],\n"));
 }
 
+fn system_step_diagnostic_review_summary(
+    solutions: &[&runtime_data::RuntimeSystemSolution],
+) -> (usize, usize, usize, Option<f64>) {
+    let diagnostics = solutions
+        .iter()
+        .find(|solution| !solution.step_diagnostics.is_empty())
+        .map(|solution| solution.step_diagnostics.as_slice())
+        .unwrap_or(&[]);
+    let accepted = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.status == "accepted")
+        .count();
+    let rejected = diagnostics.len().saturating_sub(accepted);
+    let max_error_norm = diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.error_norm.abs())
+        .reduce(f64::max);
+    (diagnostics.len(), accepted, rejected, max_error_norm)
+}
+
 fn runtime_review_json(base_review: &str, runtime_data: &RuntimeData) -> String {
     let trimmed = base_review.trim_end();
     let Some(prefix) = trimmed.strip_suffix('}') else {
@@ -4105,10 +4125,27 @@ fn runtime_review_json(base_review: &str, runtime_data: &RuntimeData) -> String 
         }
         match &first.failure_reason {
             Some(reason) => json.push_str(&format!(
-                "        \"failure_reason\": \"{}\"\n",
+                "        \"failure_reason\": \"{}\",\n",
                 json_escape(reason)
             )),
-            None => json.push_str("        \"failure_reason\": null\n"),
+            None => json.push_str("        \"failure_reason\": null,\n"),
+        }
+        let (substep_count, accepted_substep_count, rejected_substep_count, max_error_norm) =
+            system_step_diagnostic_review_summary(group);
+        json.push_str(&format!("        \"substep_count\": {},\n", substep_count));
+        json.push_str(&format!(
+            "        \"accepted_substep_count\": {},\n",
+            accepted_substep_count
+        ));
+        json.push_str(&format!(
+            "        \"rejected_substep_count\": {},\n",
+            rejected_substep_count
+        ));
+        match max_error_norm {
+            Some(value) => {
+                json.push_str(&format!("        \"max_substep_error_norm\": {}\n", value))
+            }
+            None => json.push_str("        \"max_substep_error_norm\": null\n"),
         }
         json.push_str("      },\n");
         json.push_str("      \"time_grid\": {\n");
@@ -5166,6 +5203,29 @@ mod tests {
             .output_manifest_json
             .contains("\"kind\": \"test_results\""));
         assert!(output.test_results_path.exists());
+    }
+
+    #[test]
+    fn run_file_review_summarizes_adaptive_substeps() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_path = repo_root.join("examples/internal/27_adaptive_heun_thermal/main.eng");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-adaptive-review-summary");
+        let _ = fs::remove_dir_all(&build_root);
+
+        let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+
+        assert!(output.review_json.contains("\"substep_count\": "));
+        assert!(output.review_json.contains("\"accepted_substep_count\": "));
+        assert!(output.review_json.contains("\"rejected_substep_count\": "));
+        assert!(output.review_json.contains("\"max_substep_error_norm\": "));
+        assert!(!output
+            .review_json
+            .contains("\"max_substep_error_norm\": null"));
     }
 
     #[test]

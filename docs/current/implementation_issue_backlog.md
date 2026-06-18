@@ -214,7 +214,9 @@ Current coverage:
   one-state thermal and state-space materialization paths.
 - Adaptive one-state thermal and continuous state-space runtime artifacts
   preserve accepted/rejected internal substep reports as system solver
-  `step_diagnostics` in result, review, and report-spec outputs.
+  `step_diagnostics` in result, review, and report-spec outputs; review
+  `simulation_results[].diagnostics` also carries substep count, accepted/
+  rejected counts, and max error-norm summaries.
 - `RuntimeComponentSolution::from_solver_assembly` and
   `from_dynamic_solver_result` provide explicit component assembly/SolverResult
   adapters for residual-graph and dynamic-component artifact materialization.

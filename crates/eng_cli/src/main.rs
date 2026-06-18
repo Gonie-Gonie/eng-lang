@@ -2160,6 +2160,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         &artifact_run_options(),
     ) {
         Ok(output) => {
+            let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
             let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
             let report_spec = std::fs::read_to_string(&output.report_spec_path).unwrap_or_default();
             let report_html = std::fs::read_to_string(&output.report_path).unwrap_or_default();
@@ -2168,6 +2169,8 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !result.contains("\"tolerance\": 0.0001")
                 || !result.contains("\"step_diagnostics\": [")
                 || !result.contains("\"status\": \"accepted\"")
+                || !review.contains("\"substep_count\"")
+                || !review.contains("\"accepted_substep_count\"")
                 || !report_spec.contains("\"adaptive_heun\"")
                 || !report_spec.contains("\"adaptive_heun_completed\"")
                 || !report_spec.contains("\"step_diagnostics\": [")
@@ -2195,6 +2198,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         &artifact_run_options(),
     ) {
         Ok(output) => {
+            let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
             let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
             let report_spec = std::fs::read_to_string(&output.report_spec_path).unwrap_or_default();
             let report_html = std::fs::read_to_string(&output.report_path).unwrap_or_default();
@@ -2204,6 +2208,8 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !result.contains("recognized continuous state-space A/B operators")
                 || !result.contains("\"step_diagnostics\": [")
                 || !result.contains("\"status\": \"accepted\"")
+                || !review.contains("\"substep_count\"")
+                || !review.contains("\"accepted_substep_count\"")
                 || !report_spec.contains("\"adaptive_heun\"")
                 || !report_spec.contains("\"adaptive_heun_completed\"")
                 || !report_spec.contains("\"step_diagnostics\": [")

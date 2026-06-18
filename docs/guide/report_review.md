@@ -226,7 +226,9 @@ method, tolerance, iteration count, convergence status, failure reason, and
 trajectory points. Adaptive thermal and continuous state-space solver paths also
 carry `step_diagnostics[]` entries for accepted/rejected internal substeps with
 output index, start/end time, timestep, error norm, and status. `review.json`
-runtime augmentation groups the same data under
+runtime augmentation also summarizes those adaptive substeps under
+`simulation_results[].diagnostics` with total, accepted/rejected, and max
+error-norm fields. It groups the same per-state data under
 `simulation_results[]`, including per-state `solver_results[]` entries for
 IDE/reviewer panels. The official one-state thermal example is pinned by the
 artifact golden baseline so these solver fields remain present in review,
