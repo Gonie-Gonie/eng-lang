@@ -104,6 +104,9 @@ Internal runtime seeds:
 - DAE seeds reject non-finite derivative, mass-application, and algebraic-init values
 - fixed-step ODE CLI smoke covers two-state explicit Euler/RK4 trajectories,
   final partial timestep handling, and non-finite RHS/update failure artifacts
+- solver-API adaptive Heun/Euler ODE seed with fixed output-grid trajectories,
+  internal substep adaptation, accepted/rejected substep reports, and
+  step-limit/non-finite failure diagnostics
 - fixed-step ODE and dynamic-component updates use the actual final partial TimeGrid interval
 - explicit Euler samples RHS values at the start of each fixed-step interval
 - fixed-step ODE, fixed-point, and dynamic-component seeds reject non-finite RHS/update values

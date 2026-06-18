@@ -1215,7 +1215,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         return ExitCode::from(2);
     }
     println!(
-        "ok: solver API linear residual, fixed-step ODE, fixed-point, nonlinear Newton, implicit-Euler DAE, and dynamic component assembly smokes produced numeric results and failure artifacts"
+        "ok: solver API linear residual, fixed/adaptive ODE, fixed-point, nonlinear Newton, implicit-Euler DAE, and dynamic component assembly smokes produced numeric results and failure artifacts"
     );
     if let Err(message) = solver_behavior_smoke() {
         eprintln!("{message}");
@@ -2929,6 +2929,41 @@ fn solver_algorithm_smoke() -> Result<(), String> {
         );
     }
 
+    let adaptive_input = solver_smoke_adaptive_input();
+    let adaptive = eng_runtime::solver::solve_adaptive_heun_ode(
+        &adaptive_input,
+        &eng_runtime::solver::AdaptiveOdeOptions {
+            tolerance: 1e-4,
+            initial_step_s: 0.5,
+            min_step_s: 1e-4,
+            max_step_s: 0.5,
+            safety_factor: 0.9,
+            max_steps: 100,
+        },
+        |sample| Ok(vec![-sample.state[0]]),
+    )
+    .map_err(|failure| format!("adaptive Heun smoke failed: {}", failure.message))?;
+    let adaptive_final = adaptive.solver_result.output.state_trajectories[0]
+        .final_value()
+        .unwrap_or(f64::INFINITY);
+    if adaptive.solver_result.diagnostics.status != "computed"
+        || adaptive.solver_result.diagnostics.convergence_status != "adaptive_heun_completed"
+        || adaptive.solver_result.output.state_trajectories[0]
+            .values
+            .len()
+            != 3
+        || (adaptive_final - (-1.0_f64).exp()).abs() > 0.01
+        || !adaptive
+            .step_reports
+            .iter()
+            .any(|report| report.status == "rejected_error_above_tolerance")
+    {
+        return Err(
+            "adaptive Heun smoke did not produce the expected fixed-output trajectory and substep diagnostics"
+                .to_owned(),
+        );
+    }
+
     let fixed_step_rhs_failure = eng_runtime::solver::solve_fixed_step_ode(
         eng_runtime::solver::FixedStepMethod::ExplicitEuler,
         &fixed_step_input,
@@ -3249,6 +3284,44 @@ fn solver_smoke_fixed_step_input(
             ],
         },
         initial_state,
+        inputs: Vec::new(),
+        parameters: Vec::new(),
+    }
+}
+
+fn solver_smoke_adaptive_input() -> eng_runtime::solver::SolverInput {
+    eng_runtime::solver::SolverInput {
+        plan: eng_runtime::solver::SolverPlan::new(
+            "AdaptiveDecaySmoke",
+            eng_runtime::solver::SimulationPlan {
+                states: vec!["x".to_owned()],
+                outputs: vec!["x".to_owned()],
+                inputs: Vec::new(),
+                parameters: Vec::new(),
+            },
+            eng_runtime::solver::SolverOptions {
+                method: "adaptive_heun".to_owned(),
+                timestep_s: 0.5,
+                tolerance: 1e-4,
+                max_iterations: 100,
+            },
+        ),
+        time_grid: eng_runtime::solver::TimeGrid::fixed_step(1.0, 0.5).unwrap(),
+        state_layout: eng_runtime::solver::StateLayout::new(vec![
+            eng_runtime::solver::LayoutEntry::new(0, "x", "Dimensionless", "1", "1"),
+        ]),
+        input_layout: eng_runtime::solver::InputLayout::default(),
+        parameter_layout: eng_runtime::solver::ParameterLayout::default(),
+        output_layout: eng_runtime::solver::OutputLayout {
+            entries: vec![eng_runtime::solver::LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )],
+        },
+        initial_state: vec![1.0],
         inputs: Vec::new(),
         parameters: Vec::new(),
     }

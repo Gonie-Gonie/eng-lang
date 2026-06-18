@@ -195,7 +195,10 @@ are not public stable workflows.
   internal `EquationAssembly` bridge now validates dynamic component
   state/algebraic/input/parameter layouts, lowers simple linear derivative and
   algebraic residuals into those residual-graph entrypoints, and preserves
-  equation/unknown counts in component solver artifacts.
+  equation/unknown counts in component solver artifacts. The solver API also
+  has an internal adaptive Heun/Euler ODE seed that preserves fixed output-grid
+  trajectories while adapting internal substeps and reporting accepted/rejected
+  substep diagnostics.
   Fixed-step ODE and
   dynamic-component seeds use the actual
   `TimeGrid` interval length for the final partial step when duration is not an
@@ -206,9 +209,9 @@ are not public stable workflows.
   state/algebraic trajectory summaries, trajectory points, RuntimeTimeSeries
   materialization, tolerance, max-iteration, timestep diagnostics, per-step
   nonconvergence failure artifacts, and IDE TimeSeries/solver-inspector rows
-  from that internal `SolverResult` adapter. Newton/DAE/dynamic component seeds
-  are not wired into language-level nonlinear systems or production component
-  assembly workflows.
+  from that internal `SolverResult` adapter. Newton/DAE/adaptive/dynamic
+  component seeds are not wired into language-level nonlinear systems or
+  production component assembly workflows.
 - Behavior graph seeds: solver-API runtime delay buffer with linear and
   previous-sample interpolation policies, explicit initial-history policy,
   relationship artifact, solver-style behavior-node evaluation, delay-driven

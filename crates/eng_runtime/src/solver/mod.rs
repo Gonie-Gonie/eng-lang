@@ -39,6 +39,9 @@ pub(crate) fn euclidean_norm(values: &[f64]) -> f64 {
     }
 }
 
+pub use algorithms::adaptive::{
+    solve_adaptive_heun_ode, AdaptiveOdeOptions, AdaptiveOdeResult, AdaptiveOdeStepReport,
+};
 pub use algorithms::algebraic::{
     solve_linear_residual_graph, LinearResidualGraphSolution, LinearResidualVariableSolution,
 };

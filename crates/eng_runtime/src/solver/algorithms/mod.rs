@@ -1,3 +1,4 @@
+pub mod adaptive;
 pub mod algebraic;
 pub mod dae;
 pub mod dynamic_component;

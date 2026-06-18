@@ -162,6 +162,11 @@ Current coverage:
 - `eng test examples` directly exercises the fixed-step ODE solver API for
   two-state explicit Euler/RK4 trajectories, final partial timestep handling,
   and non-finite RHS/update failure artifacts.
+- Runtime has an internal adaptive Heun/Euler ODE seed that keeps the public
+  output `TimeGrid` fixed while adapting internal substeps by an error estimate;
+  it returns `SolverResult` trajectories plus accepted/rejected substep reports
+  and exposes tolerance, non-finite RHS, and step-limit failures through solver
+  diagnostics.
 - `TimeGrid::step_dt_s` drives fixed-step ODE and dynamic-component state
   updates, so non-divisible durations use a shorter final integration step
   rather than overshooting the requested duration.
@@ -301,7 +306,8 @@ Definition of Done:
   expression strings.
 - Remaining supported-workflow work includes broader operator algebra and
   coefficient-unit policy, and public stability wording.
-- No nonlinear/DAE/adaptive or component-coupled solver claim is made.
+- No language-level nonlinear/DAE/adaptive or component-coupled solver claim is
+  made.
 
 ## Nonlinear / DAE Solver
 
@@ -329,6 +335,10 @@ Current coverage:
   consistency checks, algebraic-variable initialization, ODE residual,
   algebraic-variable, mass-matrix, inconsistent-initial-condition, and step
   nonconvergence tests exposed through the solver API.
+- Runtime has a standalone adaptive Heun/Euler ODE seed that preserves fixed
+  output-grid trajectories while adapting internal substeps, exposes
+  accepted/rejected substep reports, and is covered by runtime and
+  `eng test examples` solver-API smokes.
 - Runtime has a standalone dynamic-component explicit-Euler seed that supports
   algebraic-free two-state updates and semi-implicit fixed-point algebraic
   solves at each timestep, updates state trajectories, carries algebraic
