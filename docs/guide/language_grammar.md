@@ -1197,6 +1197,12 @@ input T_out: TimeSeries[Time] of AbsoluteTemperature [degC]
 input solar: TimeSeries[Time] of Irradiance [W/m2]
 ```
 
+For the same one-state thermal shape, `solver = adaptive_heun` is accepted as a
+supported solver option. It keeps the report/output TimeGrid fixed by
+`timestep` and adapts internal Heun/Euler substeps. A numeric `tolerance` option
+may be supplied for that path; broad adaptive equation-system solving remains
+deferred.
+
 The one-state thermal runner also keeps the earlier scalar input plus
 TimeSeries-binding form for narrow compatibility, such as
 `input T_out: AbsoluteTemperature` with `simulate ... with { T_out = weather_data.T_out }`.
@@ -1256,7 +1262,7 @@ Runtime may materialize fixed-step state trajectories when shape-checked A/B
 operators are available, including multi-state continuous Euler/RK4 execution,
 discrete A/B execution, and TimeSeries materialization for bound input vector
 members. This internal track does not claim broad operator algebra, nonlinear,
-DAE, adaptive, or component-coupled state-space solving.
+DAE, broad adaptive, or component-coupled state-space solving.
 
 Domain/component shapes are documented separately in
 `docs/guide/domain_component.md`. They are useful for metadata, validation, and
@@ -1466,7 +1472,7 @@ The current guide intentionally does not promise:
 | Full process sandboxing | Explicit process records and profile basics exist; sandbox isolation is deferred |
 | Project-wide test discovery/runner | Local source-file test blocks exist; workspace discovery is deferred |
 | Full package/module system | File imports and metadata seeds only |
-| General nonlinear/DAE/adaptive solving | Deferred beyond supported one-state system path and internal fixed-step state-space path |
+| General nonlinear/DAE/broad adaptive solving | Deferred beyond supported one-state thermal fixed/adaptive path and internal fixed-step state-space path |
 | Full artifact schema evolution policy | Stable-core schemas exist; broader future-track schemas may grow |
 
 ## Authoring Checklist

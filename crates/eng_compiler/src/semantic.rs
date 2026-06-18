@@ -2800,17 +2800,20 @@ fn validate_simulation_solver(
         diagnostics.push(Diagnostic::error(
             "E-SIM-SOLVER-UNSUPPORTED",
             owner_line,
-            "`simulate` requires a supported fixed-step solver in the attached `with` block.",
-            Some("Use `solver = fixed_step`, `solver = explicit_euler`, or `solver = rk4`."),
+            "`simulate` requires a supported solver in the attached `with` block.",
+            Some("Use `solver = fixed_step`, `solver = explicit_euler`, `solver = rk4`, or `solver = adaptive_heun`."),
         ));
         return;
     };
-    if !matches!(option.value.trim(), "fixed_step" | "explicit_euler" | "rk4") {
+    if !matches!(
+        option.value.trim(),
+        "fixed_step" | "explicit_euler" | "rk4" | "adaptive_heun"
+    ) {
         diagnostics.push(Diagnostic::error(
             "E-SIM-SOLVER-UNSUPPORTED",
             option.line,
             &format!("Unsupported simulation solver `{}`.", option.value),
-            Some("Use `fixed_step`/`explicit_euler` for Euler or `rk4` for fixed-step RK4; adaptive and nonlinear solvers are deferred."),
+            Some("Use fixed-step Euler/RK4 or `adaptive_heun` for the one-state thermal workflow; general adaptive and nonlinear solvers are deferred."),
         ));
     }
 }

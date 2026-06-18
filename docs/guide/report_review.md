@@ -425,8 +425,8 @@ numeric runtime. Runtime can also materialize fixed-step state trajectories from
 shape-checked A/B
 operators, including multi-state Euler/RK4, discrete A/B execution, and
 TimeSeries materialization for bound input vector members. This remains an
-internal seed, not a general nonlinear, DAE, adaptive, broad operator-algebra,
-or component-coupled simulation solver.
+internal seed, not a general nonlinear, DAE, broad adaptive,
+operator-algebra, or component-coupled simulation solver.
 
 ## Uncertainty Metadata
 
@@ -560,5 +560,5 @@ Deferred beyond the current artifact contract:
 - interactive report viewer
 - rendered review cards
 - stable binary report package
-- adaptive or multi-equation numeric system solver
+- broad adaptive or multi-equation numeric system solver
 ```

@@ -6434,6 +6434,20 @@ mod tests {
     }
 
     #[test]
+    fn accepts_one_state_adaptive_heun_solver_option() {
+        let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/internal/27_adaptive_heun_thermal/main.eng");
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| { diagnostic.code != "E-SIM-SOLVER-UNSUPPORTED" }));
+    }
+
+    #[test]
     fn rejects_simulate_unsupported_solver() {
         let report = check_source(
             "bad.eng",

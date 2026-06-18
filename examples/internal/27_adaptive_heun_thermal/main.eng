@@ -1,0 +1,37 @@
+args {
+    weather: CsvFile = file("../../official/17_measured_vs_simulated/data/weather.csv")
+}
+
+schema WeatherData {
+    time: DateTime index
+    T_out: AbsoluteTemperature [degC]
+}
+
+weather_data = promote csv args.weather as WeatherData
+
+system RoomThermal {
+    parameter C: HeatCapacity = 500 kJ/K
+    parameter UA: Conductance = 150 W/K
+
+    state T_zone: AbsoluteTemperature = 24 degC
+
+    input T_out: TimeSeries[Time] of AbsoluteTemperature [degC]
+    input Q_internal: HeatRate = 0 W
+
+    equation {
+        C * der(T_zone) eq UA * (T_out - T_zone) + Q_internal
+    }
+}
+
+sim = simulate RoomThermal
+with {
+    T_out = weather_data.T_out
+    timestep = 10 min
+    duration = 30 min
+    solver = adaptive_heun
+    tolerance = 0.0001
+}
+
+report {
+    show T_zone
+}

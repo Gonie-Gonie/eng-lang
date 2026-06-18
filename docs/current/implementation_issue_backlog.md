@@ -271,6 +271,11 @@ Current coverage:
   TimeSeries; runtime tests assert the explicit `T_out` contract, SolverResult
   status, state trajectory, RMSE alignment reference, and `sim.T_zone`
   registration.
+- The supported one-state thermal runtime path accepts `solver = adaptive_heun`
+  with an optional numeric `tolerance`, preserves the requested output
+  `TimeGrid`, adapts internal Heun/Euler substeps, honors `duration`, and emits
+  `adaptive_heun_completed` solver artifacts through runtime and CLI smoke
+  coverage. The legacy `solver = adaptive` spelling remains unsupported.
 - `docs/guide/language_grammar.md` distinguishes the explicit TimeSeries input
   contract from the earlier scalar input plus TimeSeries-binding compatibility
   path.
@@ -306,8 +311,8 @@ Definition of Done:
   expression strings.
 - Remaining supported-workflow work includes broader operator algebra and
   coefficient-unit policy, and public stability wording.
-- No language-level nonlinear/DAE/adaptive or component-coupled solver claim is
-  made.
+- No language-level nonlinear/DAE, broad adaptive, or component-coupled solver
+  claim is made.
 
 ## Nonlinear / DAE Solver
 
@@ -343,6 +348,9 @@ Current coverage:
   output-grid trajectories while adapting internal substeps, exposes
   accepted/rejected substep reports, and is covered by runtime and
   `eng test examples` solver-API smokes.
+- The one-state thermal `simulate` path wires `solver = adaptive_heun` into that
+  adaptive seed for language-level SolverResult artifacts; general adaptive
+  equation-system solving remains outside the supported scope.
 - Runtime has a standalone dynamic-component explicit-Euler seed that supports
   algebraic-free two-state updates and semi-implicit fixed-point algebraic
   solves at each timestep, updates state trajectories, carries algebraic

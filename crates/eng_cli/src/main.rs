@@ -623,6 +623,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/internal/18_state_space_metadata/main.eng",
                 "examples/internal/21_unsupported_system_shape/main.eng",
                 "examples/internal/26_state_space_discrete/main.eng",
+                "examples/internal/27_adaptive_heun_thermal/main.eng",
             ],
         ),
         (
@@ -2145,6 +2146,36 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("unsupported system-shape example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
+        Path::new("examples/internal/27_adaptive_heun_thermal/main.eng"),
+        Path::new("build/test-adaptive-heun-thermal"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
+            let report_spec = std::fs::read_to_string(&output.report_spec_path).unwrap_or_default();
+            let report_html = std::fs::read_to_string(&output.report_path).unwrap_or_default();
+            if !result.contains("\"method\": \"adaptive_heun\"")
+                || !result.contains("\"convergence_status\": \"adaptive_heun_completed\"")
+                || !result.contains("\"tolerance\": 0.0001")
+                || !report_spec.contains("\"adaptive_heun\"")
+                || !report_spec.contains("\"adaptive_heun_completed\"")
+                || !report_html.contains("adaptive_heun")
+            {
+                eprintln!(
+                    "expected adaptive Heun thermal fixture to produce adaptive solver artifacts"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/internal/27_adaptive_heun_thermal/main.eng produced adaptive Heun solver artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("adaptive Heun thermal fixture failed: {error}");
             return ExitCode::from(2);
         }
     }

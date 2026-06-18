@@ -20,11 +20,12 @@ use crate::solver::{
         ComponentEquation, ComponentInstance, ConnectionEdge, ConnectionSet, EquationAssembly,
         GeneratedEquation, PortInstance, UnknownVariable,
     },
-    solve_continuous_state_space, solve_discrete_state_space, solve_first_order_thermal,
-    solve_linear_residual_graph, DynamicComponentResult, FirstOrderThermalModel, FixedStepMethod,
-    InputLayout, LayoutEntry, OutputLayout, ParameterLayout, ResidualEvaluator, ResidualGraph,
-    ResidualInput, ResidualOutput, SimulationPlan, SolverFailure, SolverInput, SolverOptions,
-    SolverPlan, SolverResult, SolverScalar, StateLayout, StateTrajectory, TimeGrid,
+    solve_adaptive_heun_ode, solve_continuous_state_space, solve_discrete_state_space,
+    solve_first_order_thermal, solve_linear_residual_graph, AdaptiveOdeOptions,
+    DynamicComponentResult, FirstOrderThermalModel, FixedStepMethod, InputLayout, LayoutEntry,
+    OutputLayout, ParameterLayout, ResidualEvaluator, ResidualGraph, ResidualInput, ResidualOutput,
+    SimulationPlan, SolverFailure, SolverInput, SolverOptions, SolverPlan, SolverResult,
+    SolverScalar, StateLayout, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -3385,13 +3386,32 @@ fn materialize_first_order_thermal_solution(
     let time_step_s = option_value(options, "timestep")
         .and_then(parse_duration_seconds)
         .unwrap_or(300.0);
-    let duration_s = outdoor_series
+    let series_duration_s = outdoor_series
         .and_then(|series| series.points.last().map(|point| point.x))
-        .filter(|duration| *duration > 0.0)
+        .filter(|duration| *duration > 0.0);
+    let duration_s = option_value(options, "duration")
+        .and_then(parse_duration_seconds)
+        .or(series_duration_s)
         .unwrap_or(3600.0);
     let time_grid = TimeGrid::fixed_step(duration_s, time_step_s).ok()?;
-    let fixed_step_method = FixedStepMethod::from_solver_name(option_value(options, "solver"));
-    let solver_options = SolverOptions::fixed_step(fixed_step_method.method_name(""), time_step_s);
+    let solver_name = option_value(options, "solver")
+        .map(str::trim)
+        .unwrap_or("fixed_step");
+    let use_adaptive_heun = solver_name == "adaptive_heun";
+    let fixed_step_method = FixedStepMethod::from_solver_name(Some(solver_name));
+    let adaptive_options =
+        use_adaptive_heun.then(|| adaptive_heun_options_from_simulation(options, time_step_s));
+    let solver_options = adaptive_options
+        .as_ref()
+        .map(|options| SolverOptions {
+            method: "adaptive_heun".to_owned(),
+            timestep_s: time_step_s,
+            tolerance: options.tolerance,
+            max_iterations: options.max_steps,
+        })
+        .unwrap_or_else(|| {
+            SolverOptions::fixed_step(fixed_step_method.method_name(""), time_step_s)
+        });
     let solver_plan = SolverPlan::new(
         system.name.clone(),
         SimulationPlan {
@@ -3488,7 +3508,36 @@ fn materialize_first_order_thermal_solution(
         ],
     };
 
-    let solver_result =
+    let solver_result = if let Some(adaptive_options) = adaptive_options {
+        solve_adaptive_heun_ode(&solver_input, &adaptive_options, |sample| {
+            let temperature_k = sample.state[0];
+            let outdoor_k = outdoor_series
+                .and_then(|series| interpolate_series_value(series, sample.time_s))
+                .map(|value| {
+                    convert_to_canonical_unit(
+                        value,
+                        outdoor_series.map(|series| series.display_unit.as_str()),
+                        &outdoor_temperature.canonical_unit,
+                        &outdoor_quantity_kind,
+                    )
+                    .unwrap_or(outdoor_temperature_k)
+                })
+                .unwrap_or(outdoor_temperature_k);
+            if !outdoor_k.is_finite() {
+                return Err(SolverFailure::new(
+                    "E-SOLVER-THERMAL-INPUT-INVALID",
+                    "first-order thermal solver requires finite outdoor temperature input",
+                ));
+            }
+            let derivative_k_per_s = (thermal_model.conductance_w_per_k
+                * (outdoor_k - temperature_k)
+                + thermal_model.internal_heat_w)
+                / thermal_model.heat_capacity_j_per_k;
+            Ok(vec![derivative_k_per_s])
+        })
+        .ok()?
+        .solver_result
+    } else {
         solve_first_order_thermal(fixed_step_method, &solver_input, thermal_model, |time_s| {
             let outdoor_k = outdoor_series
                 .and_then(|series| interpolate_series_value(series, time_s))
@@ -3504,15 +3553,15 @@ fn materialize_first_order_thermal_solution(
                 .unwrap_or(outdoor_temperature_k);
             Ok(outdoor_k)
         })
-        .ok()?;
+        .ok()?
+    };
+    let reason = if use_adaptive_heun {
+        "recognized first-order thermal ODE and executed through SolverResult adaptive Heun one-state path"
+    } else {
+        "recognized first-order thermal ODE and executed through SolverResult fixed-step one-state path"
+    };
 
-    RuntimeSystemSolution::from_solver_result(
-        system,
-        binding,
-        state,
-        &solver_result,
-        "recognized first-order thermal ODE and executed through SolverResult fixed-step one-state path",
-    )
+    RuntimeSystemSolution::from_solver_result(system, binding, state, &solver_result, reason)
 }
 
 fn system_variable_matches_quantity(
@@ -3649,6 +3698,28 @@ fn option_value<'a>(options: &'a [eng_compiler::WithOptionInfo], key: &str) -> O
         .iter()
         .find(|option| option.key == key)
         .map(|option| option.value.as_str())
+}
+
+fn adaptive_heun_options_from_simulation(
+    options: &[eng_compiler::WithOptionInfo],
+    output_timestep_s: f64,
+) -> AdaptiveOdeOptions {
+    let mut adaptive = AdaptiveOdeOptions::default();
+    if let Some(tolerance) = option_value(options, "tolerance")
+        .and_then(|value| value.trim().parse::<f64>().ok())
+        .filter(|value| value.is_finite() && *value > 0.0)
+    {
+        adaptive.tolerance = tolerance;
+    }
+    adaptive.initial_step_s = adaptive
+        .initial_step_s
+        .min(output_timestep_s)
+        .max(adaptive.min_step_s);
+    adaptive.max_step_s = adaptive
+        .max_step_s
+        .min(output_timestep_s)
+        .max(adaptive.min_step_s);
+    adaptive
 }
 
 fn parse_duration_seconds(value: &str) -> Option<f64> {
@@ -6693,6 +6764,34 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         );
         assert!(metric.alignment_status.is_some());
         assert_eq!(metric.alignment_step_status.as_deref(), Some("matched"));
+    }
+
+    #[test]
+    fn materializes_one_state_adaptive_heun_solution() {
+        let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/internal/27_adaptive_heun_thermal/main.eng");
+        let source = std::fs::read_to_string(&source_path).unwrap();
+        let report = check_file(&source_path, &CheckOptions::default()).unwrap();
+        assert!(!report.has_errors());
+
+        let runtime = materialize_runtime_data(&report, &source);
+        let solution = runtime
+            .system_solutions
+            .iter()
+            .find(|solution| solution.binding.as_deref() == Some("sim"))
+            .unwrap();
+
+        assert_eq!(solution.status, "computed");
+        assert_eq!(solution.method, "adaptive_heun");
+        assert_eq!(solution.convergence_status, "adaptive_heun_completed");
+        assert_eq!(solution.tolerance, 0.0001);
+        assert!(solution.iteration_count > solution.step_count);
+        assert!(solution.reason.contains("adaptive Heun"));
+        assert_eq!(solution.step_count, 3);
+        assert_eq!(solution.states, vec!["T_zone".to_owned()]);
+        assert_eq!(solution.outputs, vec!["T_zone".to_owned()]);
+        assert_eq!(solution.points.len(), solution.step_count + 1);
     }
 
     #[test]

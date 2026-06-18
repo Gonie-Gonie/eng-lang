@@ -128,9 +128,9 @@ by the stable breaking-change policy.
   multi-series histogram behavior remain planned.
 - Minimal `system`/`eq` support for parsing, semantic/unit diagnostics,
   parameter/state/input metadata, `der(...)`, one-state fixed-step thermal
-  execution, and `sim.T_zone` materialization for the documented workflow.
-  Multi-state, nonlinear, DAE, adaptive, and component-coupled solving remain
-  planned.
+  execution, one-state `adaptive_heun` simulation, and `sim.T_zone`
+  materialization for the documented workflow. Multi-state, nonlinear, DAE,
+  broad adaptive, and component-coupled solving remain planned.
 - Class/domain object authoring for typed fields/defaults, object literals,
   nested object references, field access metadata, simple validation blocks,
   zero-argument metadata methods, immutable copy-with metadata, diagnostics,
@@ -199,7 +199,8 @@ are not public stable workflows.
   equation/unknown counts in component solver artifacts. The solver API also
   has an internal adaptive Heun/Euler ODE seed that preserves fixed output-grid
   trajectories while adapting internal substeps and reporting accepted/rejected
-  substep diagnostics.
+  substep diagnostics; the one-state thermal `simulate` path wires
+  `solver = adaptive_heun` to that seed and emits SolverResult artifacts.
   Fixed-step ODE and
   dynamic-component seeds use the actual
   `TimeGrid` interval length for the final partial step when duration is not an
@@ -210,9 +211,9 @@ are not public stable workflows.
   state/algebraic trajectory summaries, trajectory points, RuntimeTimeSeries
   materialization, tolerance, max-iteration, timestep diagnostics, per-step
   nonconvergence failure artifacts, and IDE TimeSeries/solver-inspector rows
-  from that internal `SolverResult` adapter. Newton/DAE/adaptive/dynamic
-  component seeds are not wired into language-level nonlinear systems or
-  production component assembly workflows.
+  from that internal `SolverResult` adapter. Newton/DAE/dynamic component seeds
+  and broad adaptive solving are not wired into language-level nonlinear
+  systems or production component assembly workflows.
 - Behavior graph seeds: solver-API runtime delay buffer with linear and
   previous-sample interpolation policies, explicit initial-history policy,
   relationship artifact, solver-style behavior-node evaluation, delay-driven
@@ -277,9 +278,9 @@ are not public stable workflows.
 - General table formulas and arbitrary TimeSeries expression execution.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
-- General nonlinear, DAE, adaptive, and multi-state equation solving outside
-  the current internal fixed-step state-space path and standalone runtime
-  algorithm seeds.
+- General nonlinear, DAE, broad adaptive, and multi-state equation solving
+  outside the current one-state thermal adaptive path, internal fixed-step
+  state-space path, and standalone runtime algorithm seeds.
 - Stable-supported state-space workflow boundaries beyond the current internal
   fixed-step vector simulation path.
 - Component graph solving with boundary conditions, component behavior
@@ -302,8 +303,8 @@ are not public stable workflows.
 - General quantity rules for all statistics are not complete.
 - Plot semantics beyond current PlotSpec paths need custom histogram bin
   counts, grouped/stacked bar hardening, and broader multi-axis semantics.
-- Multi-state, nonlinear, adaptive, or general equation-system solving is
-  deferred.
+- Multi-state, nonlinear, broad adaptive, or general equation-system solving is
+  deferred outside the one-state thermal `adaptive_heun` path.
 - Production numeric component graph solving, physical multi-domain solving,
   and domain package registries are deferred.
 - Full Unicode unit spelling support beyond the supported `°C` alias is

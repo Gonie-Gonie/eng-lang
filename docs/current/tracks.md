@@ -107,6 +107,9 @@ Internal runtime seeds:
 - solver-API adaptive Heun/Euler ODE seed with fixed output-grid trajectories,
   internal substep adaptation, accepted/rejected substep reports, and
   step-limit/non-finite failure diagnostics
+- one-state thermal `simulate` integration for `solver = adaptive_heun`,
+  including optional numeric `tolerance`, explicit `duration`, fixed output
+  TimeGrid artifacts, and internal fixture/CLI smoke coverage
 - fixed-step ODE and dynamic-component updates use the actual final partial TimeGrid interval
 - explicit Euler samples RHS values at the start of each fixed-step interval
 - fixed-step ODE, fixed-point, and dynamic-component seeds reject non-finite RHS/update values
@@ -150,7 +153,7 @@ Deferred:
 - language-integrated nonlinear/DAE solving
 - language-integrated dynamic component graph solving
 - language-integrated delay/Predictor/external behavior graph solving
-- adaptive solvers
+- broad adaptive solvers beyond the one-state thermal `adaptive_heun` path
 - general equation-system runtime
 ```
 
