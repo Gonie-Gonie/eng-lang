@@ -200,7 +200,9 @@ are not public stable workflows.
   has an internal adaptive Heun/Euler ODE seed that preserves fixed output-grid
   trajectories while adapting internal substeps and reporting accepted/rejected
   substep diagnostics; the one-state thermal `simulate` path wires
-  `solver = adaptive_heun` to that seed and emits SolverResult artifacts.
+  `solver = adaptive_heun` to that seed and emits SolverResult artifacts, and
+  the internal continuous state-space path now reuses the same adaptive seed for
+  shape-checked `der(x) eq A * x + B * u` systems.
   Fixed-step ODE and
   dynamic-component seeds use the actual
   `TimeGrid` interval length for the final partial step when duration is not an
@@ -212,8 +214,9 @@ are not public stable workflows.
   materialization, tolerance, max-iteration, timestep diagnostics, per-step
   nonconvergence failure artifacts, and IDE TimeSeries/solver-inspector rows
   from that internal `SolverResult` adapter. Newton/DAE/dynamic component seeds
-  and broad adaptive solving are not wired into language-level nonlinear
-  systems or production component assembly workflows.
+  and broad adaptive solving beyond the narrow thermal/state-space adaptive
+  paths are not wired into language-level nonlinear systems or production
+  component assembly workflows.
 - Behavior graph seeds: solver-API runtime delay buffer with linear and
   previous-sample interpolation policies, explicit initial-history policy,
   relationship artifact, solver-style behavior-node evaluation, delay-driven

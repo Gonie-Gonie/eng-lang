@@ -6448,6 +6448,20 @@ mod tests {
     }
 
     #[test]
+    fn accepts_continuous_state_space_adaptive_heun_solver_option() {
+        let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/internal/28_adaptive_state_space/main.eng");
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors());
+        assert!(report.diagnostics.iter().all(|diagnostic| {
+            diagnostic.code != "E-SIM-SOLVER-UNSUPPORTED"
+                && diagnostic.code != "E-SIM-SYSTEM-SHAPE-UNSUPPORTED"
+        }));
+    }
+
+    #[test]
     fn rejects_invalid_simulate_duration_and_tolerance() {
         let report = check_source(
             "bad.eng",

@@ -1,0 +1,38 @@
+args {
+    weather: CsvFile = file("../18_state_space_metadata/data/weather.csv")
+}
+
+schema WeatherData {
+    time: DateTime index
+    T_out: AbsoluteTemperature [degC]
+}
+
+weather_data = promote csv args.weather as WeatherData
+
+system AdaptiveStateSpace {
+    state T_zone: AbsoluteTemperature = 22 degC
+    input T_out: TimeSeries[Time] of AbsoluteTemperature [degC]
+    input Q_internal: HeatRate = 500 W
+
+    states x = [T_zone]
+    inputs u = [T_out, Q_internal]
+    outputs y = [T_zone]
+
+    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.012 1/min]]
+    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.012 1/min, 0.001]]
+
+    equation {
+        der(x) eq A * x + B * u
+    }
+}
+
+sim = simulate AdaptiveStateSpace
+with {
+    T_out = weather_data.T_out
+    timestep = 10 min
+    duration = 30 min
+    solver = adaptive_heun
+    tolerance = 0.0001
+}
+
+print "Adaptive state-space trajectory recorded"

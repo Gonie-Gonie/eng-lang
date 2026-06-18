@@ -89,7 +89,9 @@ pub use residual::{
     DEFAULT_RESIDUAL_TOLERANCE,
 };
 pub use result::{SolverOutput, SolverResult, StateTrajectory};
-pub use state_space::{solve_continuous_state_space, solve_discrete_state_space};
+pub use state_space::{
+    solve_adaptive_state_space, solve_continuous_state_space, solve_discrete_state_space,
+};
 pub use thermal::{solve_first_order_thermal, FirstOrderThermalModel};
 
 #[cfg(test)]

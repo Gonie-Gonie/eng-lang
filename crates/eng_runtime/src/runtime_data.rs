@@ -20,12 +20,12 @@ use crate::solver::{
         ComponentEquation, ComponentInstance, ConnectionEdge, ConnectionSet, EquationAssembly,
         GeneratedEquation, PortInstance, UnknownVariable,
     },
-    solve_adaptive_heun_ode, solve_continuous_state_space, solve_discrete_state_space,
-    solve_first_order_thermal, solve_linear_residual_graph, AdaptiveOdeOptions,
-    DynamicComponentResult, FirstOrderThermalModel, FixedStepMethod, InputLayout, LayoutEntry,
-    OutputLayout, ParameterLayout, ResidualEvaluator, ResidualGraph, ResidualInput, ResidualOutput,
-    SimulationPlan, SolverFailure, SolverInput, SolverOptions, SolverPlan, SolverResult,
-    SolverScalar, StateLayout, StateTrajectory, TimeGrid,
+    solve_adaptive_heun_ode, solve_adaptive_state_space, solve_continuous_state_space,
+    solve_discrete_state_space, solve_first_order_thermal, solve_linear_residual_graph,
+    AdaptiveOdeOptions, DynamicComponentResult, FirstOrderThermalModel, FixedStepMethod,
+    InputLayout, LayoutEntry, OutputLayout, ParameterLayout, ResidualEvaluator, ResidualGraph,
+    ResidualInput, ResidualOutput, SimulationPlan, SolverFailure, SolverInput, SolverOptions,
+    SolverPlan, SolverResult, SolverScalar, StateLayout, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -3138,17 +3138,36 @@ fn materialize_state_space_solutions(
         .or(series_duration_s)
         .unwrap_or(3600.0);
     let time_grid = TimeGrid::fixed_step(duration_s, time_step_s).ok()?;
-    let fixed_step_method = FixedStepMethod::from_solver_name(option_value(options, "solver"));
+    let solver_name = option_value(options, "solver")
+        .map(str::trim)
+        .unwrap_or("fixed_step");
+    let fixed_step_method = FixedStepMethod::from_solver_name(Some(solver_name));
     let is_discrete_state_space = system
         .equations
         .iter()
         .any(|equation| equation.left.trim().starts_with("next("));
+    if is_discrete_state_space && solver_name == "adaptive_heun" {
+        return None;
+    }
+    let use_adaptive_heun = solver_name == "adaptive_heun";
+    let adaptive_options =
+        use_adaptive_heun.then(|| adaptive_heun_options_from_simulation(options, time_step_s));
     let solver_method = if is_discrete_state_space {
         "state_space_discrete_fixed_step".to_owned()
+    } else if use_adaptive_heun {
+        "adaptive_heun".to_owned()
     } else {
         fixed_step_method.method_name("state_space")
     };
-    let solver_options = SolverOptions::fixed_step(solver_method, time_step_s);
+    let solver_options = adaptive_options
+        .as_ref()
+        .map(|options| SolverOptions {
+            method: solver_method.clone(),
+            timestep_s: time_step_s,
+            tolerance: options.tolerance,
+            max_iterations: options.max_steps,
+        })
+        .unwrap_or_else(|| SolverOptions::fixed_step(solver_method, time_step_s));
     let output_members = output_vector
         .map(|vector| vector.members.clone())
         .unwrap_or_else(|| state_vector.members.clone());
@@ -3255,6 +3274,40 @@ fn materialize_state_space_solutions(
             "recognized discrete-time state-space A/B operators and executed state update"
         };
         return state_space_runtime_solutions(system, binding, &states, &solver_result, reason);
+    }
+    if let Some(adaptive_options) = adaptive_options {
+        let adaptive_result = solve_adaptive_state_space(
+            &solver_input,
+            &matrix_a,
+            &matrix_b,
+            &adaptive_options,
+            |sample_time_s| {
+                inputs
+                    .iter()
+                    .zip(input_series.iter())
+                    .map(|(input, series)| state_space_input_value(input, *series, sample_time_s))
+                    .collect::<Option<Vec<_>>>()
+                    .ok_or_else(|| {
+                        SolverFailure::new(
+                            "E-SIM-MISSING-INPUT",
+                            "adaptive state-space solver could not materialize one or more input values",
+                        )
+                    })
+            },
+        )
+        .ok()?;
+        let reason = if input_series.iter().any(Option::is_some) {
+            "recognized continuous state-space A/B operators and executed adaptive Heun trajectories with TimeSeries input materialization"
+        } else {
+            "recognized continuous state-space A/B operators and executed adaptive Heun trajectories"
+        };
+        return state_space_runtime_solutions(
+            system,
+            binding,
+            &states,
+            &adaptive_result.solver_result,
+            reason,
+        );
     }
     let solver_result = solve_continuous_state_space(
         fixed_step_method,
@@ -6528,6 +6581,38 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         assert_eq!(solution.convergence_status, "fixed_step_completed");
         assert!(solution.failure_reason.is_none());
         assert_eq!(solution.points.len(), 7);
+        assert!(solution.final_value.is_finite());
+        assert!(runtime
+            .time_series
+            .iter()
+            .any(|series| series.name == "sim.T_zone"));
+    }
+
+    #[test]
+    fn materializes_adaptive_state_space_solution() {
+        let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/internal/28_adaptive_state_space/main.eng");
+        let source = std::fs::read_to_string(&source_path).unwrap();
+        let report = check_file(&source_path, &CheckOptions::default()).unwrap();
+        let runtime = materialize_runtime_data(&report, &source);
+
+        assert_eq!(runtime.system_solutions.len(), 1);
+        let solution = &runtime.system_solutions[0];
+        assert_eq!(solution.system, "AdaptiveStateSpace");
+        assert_eq!(solution.binding.as_deref(), Some("sim"));
+        assert_eq!(solution.status, "computed");
+        assert_eq!(solution.method, "adaptive_heun");
+        assert_eq!(solution.convergence_status, "adaptive_heun_completed");
+        assert_eq!(solution.tolerance, 0.0001);
+        assert!(solution.iteration_count >= solution.step_count);
+        assert_eq!(solution.step_count, 3);
+        assert_eq!(solution.duration_s, 1800.0);
+        assert!(solution
+            .reason
+            .contains("continuous state-space A/B operators"));
+        assert!(solution.reason.contains("adaptive Heun"));
+        assert_eq!(solution.points.len(), solution.step_count + 1);
         assert!(solution.final_value.is_finite());
         assert!(runtime
             .time_series

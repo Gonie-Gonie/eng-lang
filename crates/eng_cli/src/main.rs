@@ -624,6 +624,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/internal/21_unsupported_system_shape/main.eng",
                 "examples/internal/26_state_space_discrete/main.eng",
                 "examples/internal/27_adaptive_heun_thermal/main.eng",
+                "examples/internal/28_adaptive_state_space/main.eng",
             ],
         ),
         (
@@ -2180,6 +2181,37 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("adaptive Heun thermal fixture failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
+        Path::new("examples/internal/28_adaptive_state_space/main.eng"),
+        Path::new("build/test-adaptive-state-space"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
+            let report_spec = std::fs::read_to_string(&output.report_spec_path).unwrap_or_default();
+            let report_html = std::fs::read_to_string(&output.report_path).unwrap_or_default();
+            if !result.contains("\"method\": \"adaptive_heun\"")
+                || !result.contains("\"convergence_status\": \"adaptive_heun_completed\"")
+                || !result.contains("\"tolerance\": 0.0001")
+                || !result.contains("recognized continuous state-space A/B operators")
+                || !report_spec.contains("\"adaptive_heun\"")
+                || !report_spec.contains("\"adaptive_heun_completed\"")
+                || !report_html.contains("adaptive_heun")
+            {
+                eprintln!(
+                    "expected adaptive state-space fixture to produce adaptive solver artifacts"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/internal/28_adaptive_state_space/main.eng produced adaptive state-space solver artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("adaptive state-space fixture failed: {error}");
             return ExitCode::from(2);
         }
     }

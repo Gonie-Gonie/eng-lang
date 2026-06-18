@@ -1,6 +1,7 @@
 use super::{
-    solve_fixed_step_ode, FixedStepMethod, RhsEvaluator, RhsInput, RhsStateInfo, SolverFailure,
-    SolverInput, SolverOutput, SolverResult, StateSpaceRhsEvaluator, StateTrajectory,
+    solve_adaptive_heun_ode, solve_fixed_step_ode, AdaptiveOdeOptions, AdaptiveOdeResult,
+    FixedStepMethod, RhsEvaluator, RhsInput, RhsStateInfo, SolverFailure, SolverInput,
+    SolverOutput, SolverResult, StateSpaceRhsEvaluator, StateTrajectory,
 };
 
 pub fn solve_continuous_state_space<F>(
@@ -13,7 +14,48 @@ pub fn solve_continuous_state_space<F>(
 where
     F: FnMut(f64) -> Result<Vec<f64>, SolverFailure>,
 {
-    let rhs_evaluator = StateSpaceRhsEvaluator::new(
+    let rhs_evaluator = continuous_state_space_rhs_evaluator(input, matrix_a, matrix_b)?;
+
+    solve_fixed_step_ode(method, input, |sample| {
+        let rhs_output = rhs_evaluator.evaluate(&RhsInput {
+            t: sample.time_s,
+            x: sample.state.to_vec(),
+            u: input_values_at(sample.time_s)?,
+            p: Vec::new(),
+        })?;
+        Ok(rhs_output.derivatives)
+    })
+}
+
+pub fn solve_adaptive_state_space<F>(
+    input: &SolverInput,
+    matrix_a: &[Vec<f64>],
+    matrix_b: &[Vec<f64>],
+    options: &AdaptiveOdeOptions,
+    mut input_values_at: F,
+) -> Result<AdaptiveOdeResult, SolverFailure>
+where
+    F: FnMut(f64) -> Result<Vec<f64>, SolverFailure>,
+{
+    let rhs_evaluator = continuous_state_space_rhs_evaluator(input, matrix_a, matrix_b)?;
+
+    solve_adaptive_heun_ode(input, options, |sample| {
+        let rhs_output = rhs_evaluator.evaluate(&RhsInput {
+            t: sample.time_s,
+            x: sample.state.to_vec(),
+            u: input_values_at(sample.time_s)?,
+            p: Vec::new(),
+        })?;
+        Ok(rhs_output.derivatives)
+    })
+}
+
+fn continuous_state_space_rhs_evaluator(
+    input: &SolverInput,
+    matrix_a: &[Vec<f64>],
+    matrix_b: &[Vec<f64>],
+) -> Result<StateSpaceRhsEvaluator, SolverFailure> {
+    StateSpaceRhsEvaluator::new(
         input
             .state_layout
             .entries
@@ -29,17 +71,7 @@ where
         matrix_a.to_vec(),
         matrix_b.to_vec(),
         input.input_layout.entries.len(),
-    )?;
-
-    solve_fixed_step_ode(method, input, |sample| {
-        let rhs_output = rhs_evaluator.evaluate(&RhsInput {
-            t: sample.time_s,
-            x: sample.state.to_vec(),
-            u: input_values_at(sample.time_s)?,
-            p: Vec::new(),
-        })?;
-        Ok(rhs_output.derivatives)
-    })
+    )
 }
 
 pub fn solve_discrete_state_space<F>(
@@ -227,6 +259,75 @@ mod tests {
             vec![0.0, 1.0, 2.0]
         );
         assert_eq!(result.diagnostics.iteration_count, 2);
+    }
+
+    #[test]
+    fn solves_continuous_state_space_through_adaptive_heun_api() {
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "adaptive_state_space",
+                SimulationPlan {
+                    states: vec!["x".to_owned()],
+                    inputs: vec!["u".to_owned()],
+                    outputs: vec!["x".to_owned()],
+                    parameters: Vec::new(),
+                },
+                SolverOptions {
+                    method: "adaptive_heun".to_owned(),
+                    timestep_s: 1.0,
+                    tolerance: 1e-6,
+                    max_iterations: 100,
+                },
+            ),
+            time_grid: TimeGrid::fixed_step(2.0, 1.0).unwrap(),
+            state_layout: crate::solver::StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout {
+                entries: vec![LayoutEntry::new(0, "u", "Dimensionless", "1", "1")],
+            },
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![0.0],
+            inputs: vec![SolverScalar::new("u", "Dimensionless", "1", 0.0)],
+            parameters: Vec::new(),
+        };
+
+        let adaptive = solve_adaptive_state_space(
+            &input,
+            &[vec![0.0]],
+            &[vec![1.0]],
+            &AdaptiveOdeOptions {
+                tolerance: 1e-6,
+                initial_step_s: 0.25,
+                min_step_s: 1e-6,
+                max_step_s: 1.0,
+                safety_factor: 0.9,
+                max_steps: 100,
+            },
+            |_| Ok(vec![1.0]),
+        )
+        .unwrap();
+
+        let result = adaptive.solver_result;
+        assert_eq!(
+            result.output.state_trajectories[0].values,
+            vec![0.0, 1.0, 2.0]
+        );
+        assert_eq!(
+            result.diagnostics.convergence_status,
+            "adaptive_heun_completed"
+        );
+        assert_eq!(result.diagnostics.tolerance, 1e-6);
+        assert!(result.diagnostics.iteration_count >= 2);
+        assert!(adaptive
+            .step_reports
+            .iter()
+            .all(|report| report.status == "accepted"));
     }
 
     #[test]

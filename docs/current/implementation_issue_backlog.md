@@ -281,6 +281,10 @@ Current coverage:
   `TimeGrid`, adapts internal Heun/Euler substeps, honors `duration`, and emits
   `adaptive_heun_completed` solver artifacts through runtime and CLI smoke
   coverage. The legacy `solver = adaptive` spelling remains unsupported.
+- The internal continuous state-space runtime path also accepts
+  `solver = adaptive_heun` for shape-checked `der(x) eq A * x + B * u`
+  systems, preserving the fixed output `TimeGrid` while adapting internal
+  substeps through the shared solver API.
 - `docs/guide/language_grammar.md` distinguishes the explicit TimeSeries input
   contract from the earlier scalar input plus TimeSeries-binding compatibility
   path.
@@ -311,6 +315,9 @@ Definition of Done:
 - Discrete and continuous state-space fixed-step execution now live in
   `solver::state_space`; runtime materialization supplies the TimeSeries/scalar
   input sampler and adapts the `SolverResult`.
+- Continuous state-space execution can use the shared adaptive Heun/Euler seed
+  via `solver = adaptive_heun`; discrete `next(x)` state-space remains
+  fixed-step only.
 - State-space runtime materialization consumes compiler-provided
   `LinearOperatorInfo::canonical_matrix` instead of reparsing operator
   expression strings.

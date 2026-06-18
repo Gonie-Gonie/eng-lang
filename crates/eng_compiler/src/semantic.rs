@@ -2655,7 +2655,7 @@ pub fn validate_simulation_contracts(
         validate_simulation_timestep(declaration.line, options, &mut diagnostics);
         validate_simulation_duration(options, &mut diagnostics);
         validate_simulation_tolerance(options, &mut diagnostics);
-        validate_simulation_solver(declaration.line, system, options, &mut diagnostics);
+        validate_simulation_solver(declaration.line, program, system, options, &mut diagnostics);
 
         for variable in &system.variables {
             let Some(expected) = expected_dynamic_input(variable) else {
@@ -2833,6 +2833,7 @@ fn validate_simulation_tolerance(options: &[WithOptionInfo], diagnostics: &mut V
 
 fn validate_simulation_solver(
     owner_line: usize,
+    program: &SemanticProgram,
     system: &SystemInfo,
     options: &[WithOptionInfo],
     diagnostics: &mut Vec<Diagnostic>,
@@ -2857,14 +2858,20 @@ fn validate_simulation_solver(
             &format!("Unsupported simulation solver `{}`.", option.value),
             Some("Use fixed-step Euler/RK4 or `adaptive_heun` for the one-state thermal workflow; general adaptive and nonlinear solvers are deferred."),
         ));
-    } else if solver_name == "adaptive_heun" && !supports_one_state_adaptive_heun(system) {
+    } else if solver_name == "adaptive_heun" && !supports_adaptive_heun_simulation(program, system)
+    {
         diagnostics.push(Diagnostic::error(
             "E-SIM-SYSTEM-SHAPE-UNSUPPORTED",
             option.line,
-            "`adaptive_heun` is currently supported only for the one-state thermal workflow.",
-            Some("Use `fixed_step`/`explicit_euler`/`rk4` for other supported simulation shapes, or use a system with one AbsoluteTemperature state, HeatCapacity and Conductance parameters, and AbsoluteTemperature plus HeatRate inputs."),
+            "`adaptive_heun` is currently supported only for one-state thermal and continuous state-space workflows.",
+            Some("Use `fixed_step`/`explicit_euler`/`rk4` for other supported simulation shapes, or use a one-state thermal system or a continuous state-space system with shape-checked A/B operators."),
         ));
     }
+}
+
+fn supports_adaptive_heun_simulation(program: &SemanticProgram, system: &SystemInfo) -> bool {
+    supports_one_state_adaptive_heun(system)
+        || supports_continuous_state_space_adaptive_heun(program, system)
 }
 
 fn supports_one_state_adaptive_heun(system: &SystemInfo) -> bool {
@@ -2899,6 +2906,43 @@ fn supports_one_state_adaptive_heun(system: &SystemInfo) -> bool {
         && has_outdoor_temperature
         && has_internal_heat
         && has_derivative_equation
+}
+
+fn supports_continuous_state_space_adaptive_heun(
+    program: &SemanticProgram,
+    system: &SystemInfo,
+) -> bool {
+    let has_continuous_state_space_equation = system
+        .equations
+        .iter()
+        .any(|equation| equation.left.trim().starts_with("der("));
+    let has_discrete_state_space_equation = system
+        .equations
+        .iter()
+        .any(|equation| equation.left.trim().starts_with("next("));
+    if !has_continuous_state_space_equation || has_discrete_state_space_equation {
+        return false;
+    }
+    let has_state_vector = program.state_space_vectors.iter().any(|vector| {
+        vector.system == system.name && vector.role == "states" && !vector.members.is_empty()
+    });
+    let has_input_vector = program.state_space_vectors.iter().any(|vector| {
+        vector.system == system.name && vector.role == "inputs" && !vector.members.is_empty()
+    });
+    let has_state_operator = program.linear_operators.iter().any(|operator| {
+        operator.system == system.name
+            && operator.from == "StateVector"
+            && operator.to == "Derivative[StateVector]"
+            && operator.status == "shape_checked"
+    });
+    let has_input_operator = program.linear_operators.iter().any(|operator| {
+        operator.system == system.name
+            && operator.from == "InputVector"
+            && operator.to == "Derivative[StateVector]"
+            && operator.status == "shape_checked"
+    });
+
+    has_state_vector && has_input_vector && has_state_operator && has_input_operator
 }
 
 fn simulation_value_quantity(variable: &SystemVariableInfo) -> String {

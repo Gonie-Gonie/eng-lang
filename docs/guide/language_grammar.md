@@ -1198,10 +1198,11 @@ input solar: TimeSeries[Time] of Irradiance [W/m2]
 ```
 
 For the same one-state thermal shape, `solver = adaptive_heun` is accepted as a
-supported solver option. It keeps the report/output TimeGrid fixed by
-`timestep` and adapts internal Heun/Euler substeps. A numeric `tolerance` option
-may be supplied for that path; broad adaptive equation-system solving remains
-deferred.
+supported solver option. Internal continuous state-space systems with
+shape-checked `der(x) eq A * x + B * u` operators can also use
+`adaptive_heun`. These paths keep the report/output TimeGrid fixed by
+`timestep` and adapt internal Heun/Euler substeps. A numeric `tolerance` option
+may be supplied; broad adaptive equation-system solving remains deferred.
 
 The one-state thermal runner also keeps the earlier scalar input plus
 TimeSeries-binding form for narrow compatibility, such as
