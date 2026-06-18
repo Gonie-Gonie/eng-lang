@@ -1215,7 +1215,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         return ExitCode::from(2);
     }
     println!(
-        "ok: solver API linear residual, fixed-step ODE, fixed-point, nonlinear Newton, and implicit-Euler DAE smokes produced numeric results and failure artifacts"
+        "ok: solver API linear residual, fixed-step ODE, fixed-point, nonlinear Newton, implicit-Euler DAE, and dynamic component assembly smokes produced numeric results and failure artifacts"
     );
     if let Err(message) = solver_behavior_smoke() {
         eprintln!("{message}");
@@ -3002,6 +3002,46 @@ fn solver_algorithm_smoke() -> Result<(), String> {
         );
     }
 
+    let dynamic_assembly = solver_smoke_dynamic_component_assembly();
+    let dynamic_component = eng_runtime::solver::solve_dynamic_component_assembly(
+        &dynamic_assembly,
+        eng_runtime::solver::DynamicComponentAssemblySolveInput {
+            duration_s: 1.0,
+            timestep_s: 1.0,
+            initial_state: vec![1.0],
+            initial_algebraic: vec![0.0],
+            inputs: vec![eng_runtime::solver::SolverScalar::new(
+                "u",
+                "Dimensionless",
+                "1",
+                5.0,
+            )],
+            parameters: vec![eng_runtime::solver::SolverScalar::new(
+                "k",
+                "Dimensionless",
+                "1",
+                2.0,
+            )],
+        },
+        eng_runtime::solver::DynamicComponentOptions::default(),
+    )
+    .map_err(|failure| {
+        format!(
+            "dynamic component assembly smoke failed: {}",
+            failure.message
+        )
+    })?;
+    if dynamic_component.solver_result.diagnostics.status != "computed"
+        || dynamic_component.solver_result.plan.options.method
+            != "dynamic_component_assembly_semi_implicit_euler"
+        || dynamic_component.solver_result.output.state_trajectories[0].values != vec![1.0, 3.0]
+        || dynamic_component.algebraic_trajectories[0].values != vec![2.0, 0.0]
+    {
+        return Err(
+            "dynamic component assembly smoke did not solve the expected residual graph".to_owned(),
+        );
+    }
+
     let newton_options = eng_runtime::solver::NewtonOptions::default();
     let nonlinear = eng_runtime::solver::solve_newton(&[0.8, 2.1], &newton_options, |values| {
         let x = values[0];
@@ -3274,6 +3314,69 @@ fn solver_smoke_linear_residual_graph(
                     .map(|(_, variable, _)| ((*residual).to_owned(), (*variable).to_owned()))
             })
             .collect(),
+    }
+}
+
+fn solver_smoke_dynamic_component_assembly() -> eng_runtime::solver::assembly::EquationAssembly {
+    let x = solver_smoke_component_variable("x", "state");
+    let z = solver_smoke_component_variable("z", "algebraic");
+    let u = solver_smoke_component_variable("u", "input");
+    let k = solver_smoke_component_variable("k", "parameter");
+    eng_runtime::solver::assembly::EquationAssembly {
+        name: "component_graph".to_owned(),
+        generated_equations: vec![
+            eng_runtime::solver::assembly::GeneratedEquation {
+                name: "x_rhs".to_owned(),
+                kind: "dynamic_rhs".to_owned(),
+                domain: "Test".to_owned(),
+                expression: "der(x) eq z".to_owned(),
+                residual: "der_x - z".to_owned(),
+                rhs_value: None,
+                dependencies: vec!["der_x".to_owned(), "z".to_owned()],
+                source: "test".to_owned(),
+                reason: "solver smoke dynamic component derivative residual".to_owned(),
+                source_line: Some(1),
+                status: "generated".to_owned(),
+            },
+            eng_runtime::solver::assembly::GeneratedEquation {
+                name: "z_balance".to_owned(),
+                kind: "dynamic_algebraic".to_owned(),
+                domain: "Test".to_owned(),
+                expression: "z + x + k eq u".to_owned(),
+                residual: "z + x + k - u".to_owned(),
+                rhs_value: None,
+                dependencies: vec![
+                    "z".to_owned(),
+                    "x".to_owned(),
+                    "k".to_owned(),
+                    "u".to_owned(),
+                ],
+                source: "test".to_owned(),
+                reason: "solver smoke dynamic component algebraic residual".to_owned(),
+                source_line: Some(2),
+                status: "generated".to_owned(),
+            },
+        ],
+        unknowns: vec![x.clone(), z.clone()],
+        states: vec![x],
+        algebraic_variables: vec![z],
+        inputs: vec![u],
+        parameters: vec![k],
+        ..eng_runtime::solver::assembly::EquationAssembly::default()
+    }
+}
+
+fn solver_smoke_component_variable(
+    name: &str,
+    role: &str,
+) -> eng_runtime::solver::assembly::UnknownVariable {
+    eng_runtime::solver::assembly::UnknownVariable {
+        name: name.to_owned(),
+        role: role.to_owned(),
+        quantity_kind: "Dimensionless".to_owned(),
+        unit: "1".to_owned(),
+        source: format!("Test.{name}"),
+        status: "classified".to_owned(),
     }
 }
 

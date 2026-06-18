@@ -48,8 +48,9 @@ pub use algorithms::dae::{
     DaeVariable,
 };
 pub use algorithms::dynamic_component::{
-    solve_explicit_euler_with_algebraic, solve_residual_graph_explicit_euler,
-    solve_residual_graph_semi_implicit_euler, AlgebraicStepInput, DynamicComponentOptions,
+    solve_dynamic_component_assembly, solve_explicit_euler_with_algebraic,
+    solve_residual_graph_explicit_euler, solve_residual_graph_semi_implicit_euler,
+    AlgebraicStepInput, DynamicComponentAssemblySolveInput, DynamicComponentOptions,
     DynamicComponentResult, DynamicComponentStepDiagnostic, DynamicStepInput,
     ResidualGraphRhsEvaluator,
 };

@@ -349,6 +349,12 @@ Current coverage:
   algebraic variables with the dense linear solver at each timestep, reuses the
   same fixed-step state update loop, and reports algebraic solve failures through
   `SolverResult` diagnostics and step diagnostics.
+- Runtime exposes an internal `EquationAssembly` to dynamic-component bridge:
+  it validates the state/algebraic/input/parameter split, builds a dynamic
+  residual graph with state-derivative/input/parameter roles, drives the
+  residual-graph explicit/semi-implicit entrypoints, preserves equation/unknown
+  counts in component solver artifacts, and is covered by runtime and
+  `eng test examples` solver-API smoke checks.
 
 Definition of Done:
 
@@ -517,8 +523,10 @@ Current coverage:
   `small_loop` and `nonconvergence` cases are runtime algorithm tests in
   `crates/eng_runtime/src/solver/algorithms/fixed_point.rs` until a
   language-level algebraic-loop fixture surface is added.
-- Runtime has an internal dynamic-component solver seed, but component graph
-  assembly is not yet lowered into that numeric path.
+- Runtime has an internal dynamic-component assembly bridge that lowers
+  `EquationAssembly` layouts and simple linear derivative/algebraic residuals
+  into the dynamic-component numeric seed. This remains an internal solver API
+  fixture path, not a production language-level component graph workflow.
 - Component connection/assembly diagnostics use checklist canonical codes for
   domain mismatch, medium mismatch, unknown port, unconnected port,
   underdetermined/overdetermined assembly, and algebraic-loop warnings.

@@ -234,8 +234,9 @@ normalized residuals, the top normalized residuals under `largest_residuals`,
 convergence status, nullable `failure_code`/`failure_reason` aliases, solved
 linear variables when a square system is available, zero-seed variables for
 skipped non-square graphs, dynamic trajectory and timestep diagnostic adapters,
-and failure/limitation artifacts. Runtime `report_spec.json` mirrors the same
-details under
+an internal simple-linear dynamic component assembly bridge used by solver API
+fixtures, and failure/limitation artifacts. Runtime `report_spec.json` mirrors
+the same details under
 `assembly_summary[].solver_result`.
 Residual status is evaluated against the solver-supplied residual tolerance.
 Current component assembly runs use the default tolerance and unit/quantity

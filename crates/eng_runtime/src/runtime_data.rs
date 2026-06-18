@@ -1190,6 +1190,18 @@ impl RuntimeComponentSolution {
         solution
     }
 
+    pub fn from_dynamic_component_assembly_result(
+        assembly: &EquationAssembly,
+        dynamic_result: &DynamicComponentResult,
+        reason: &str,
+    ) -> Self {
+        let mut solution =
+            Self::from_dynamic_component_result(&assembly.name, dynamic_result, reason);
+        solution.equation_count = assembly.equation_count();
+        solution.unknown_count = assembly.unknown_count();
+        solution
+    }
+
     pub fn from_dynamic_solver_result(
         assembly_name: &str,
         solver_result: &SolverResult,
@@ -6112,6 +6124,53 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
     }
 
     #[test]
+    fn adapts_dynamic_component_assembly_result_with_counts() {
+        let assembly = dynamic_component_test_assembly("component_graph");
+        let dynamic = crate::solver::solve_dynamic_component_assembly(
+            &assembly,
+            crate::solver::DynamicComponentAssemblySolveInput {
+                duration_s: 1.0,
+                timestep_s: 1.0,
+                initial_state: vec![1.0],
+                initial_algebraic: vec![0.0],
+                inputs: vec![SolverScalar::new("u", "Dimensionless", "1", 5.0)],
+                parameters: vec![SolverScalar::new("k", "Dimensionless", "1", 2.0)],
+            },
+            crate::solver::DynamicComponentOptions::default(),
+        )
+        .unwrap();
+
+        let solution = RuntimeComponentSolution::from_dynamic_component_assembly_result(
+            &assembly,
+            &dynamic,
+            "dynamic component assembly bridge artifact adapter test",
+        );
+
+        assert_eq!(solution.status, "computed");
+        assert_eq!(
+            solution.method,
+            "dynamic_component_assembly_semi_implicit_euler"
+        );
+        assert_eq!(solution.equation_count, 2);
+        assert_eq!(solution.unknown_count, 2);
+        assert_eq!(solution.trajectories.len(), 2);
+        assert!(solution
+            .variables
+            .iter()
+            .any(|variable| variable.name == "x"
+                && variable.role == "state"
+                && variable.value == 3.0));
+        assert!(solution
+            .variables
+            .iter()
+            .any(|variable| variable.name == "z"
+                && variable.role == "algebraic"
+                && variable.value == 0.0));
+        assert_eq!(solution.step_diagnostics.len(), 2);
+        assert!(solution.failure_artifact.is_none());
+    }
+
+    #[test]
     fn adapts_dynamic_component_nonconvergence_failure_artifact() {
         use crate::solver::algorithms::dynamic_component::{
             solve_explicit_euler_with_algebraic, DynamicComponentOptions,
@@ -6778,6 +6837,66 @@ with {
             unknowns: vec![x.clone(), y.clone()],
             algebraic_variables: vec![x, y],
             ..EquationAssembly::default()
+        }
+    }
+
+    fn dynamic_component_test_assembly(name: &str) -> EquationAssembly {
+        let x = component_test_variable("x", "state");
+        let z = component_test_variable("z", "algebraic");
+        let u = component_test_variable("u", "input");
+        let k = component_test_variable("k", "parameter");
+        EquationAssembly {
+            name: name.to_owned(),
+            generated_equations: vec![
+                GeneratedEquation {
+                    name: "x_rhs".to_owned(),
+                    kind: "dynamic_rhs".to_owned(),
+                    domain: "Test".to_owned(),
+                    expression: "der(x) eq z".to_owned(),
+                    residual: "der_x - z".to_owned(),
+                    rhs_value: None,
+                    dependencies: vec!["der_x".to_owned(), "z".to_owned()],
+                    source: "test".to_owned(),
+                    reason: "test dynamic component derivative residual".to_owned(),
+                    source_line: Some(1),
+                    status: "generated".to_owned(),
+                },
+                GeneratedEquation {
+                    name: "z_balance".to_owned(),
+                    kind: "dynamic_algebraic".to_owned(),
+                    domain: "Test".to_owned(),
+                    expression: "z + x + k eq u".to_owned(),
+                    residual: "z + x + k - u".to_owned(),
+                    rhs_value: None,
+                    dependencies: vec![
+                        "z".to_owned(),
+                        "x".to_owned(),
+                        "k".to_owned(),
+                        "u".to_owned(),
+                    ],
+                    source: "test".to_owned(),
+                    reason: "test dynamic component algebraic residual".to_owned(),
+                    source_line: Some(2),
+                    status: "generated".to_owned(),
+                },
+            ],
+            unknowns: vec![x.clone(), z.clone()],
+            states: vec![x],
+            algebraic_variables: vec![z],
+            inputs: vec![u],
+            parameters: vec![k],
+            ..EquationAssembly::default()
+        }
+    }
+
+    fn component_test_variable(name: &str, role: &str) -> UnknownVariable {
+        UnknownVariable {
+            name: name.to_owned(),
+            role: role.to_owned(),
+            quantity_kind: "Dimensionless".to_owned(),
+            unit: "1".to_owned(),
+            source: format!("Test.{name}"),
+            status: "classified".to_owned(),
         }
     }
 

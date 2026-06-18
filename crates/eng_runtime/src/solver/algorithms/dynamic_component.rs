@@ -2,9 +2,11 @@ use std::collections::{HashMap, HashSet};
 
 use crate::solver::algorithms::fixed_point::{solve_fixed_point, FixedPointOptions};
 use crate::solver::algorithms::linear::solve_dense_linear_system;
+use crate::solver::assembly::EquationAssembly;
 use crate::solver::{
-    ResidualGraph, SolverDiagnostics, SolverFailure, SolverInput, SolverOutput, SolverResult,
-    SolverScalar, StateLayout, StateTrajectory,
+    OutputLayout, ResidualGraph, SimulationPlan, SolverDiagnostics, SolverFailure, SolverInput,
+    SolverOptions, SolverOutput, SolverPlan, SolverResult, SolverScalar, StateLayout,
+    StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -28,6 +30,16 @@ pub struct DynamicComponentResult {
     pub algebraic_layout: StateLayout,
     pub algebraic_trajectories: Vec<StateTrajectory>,
     pub step_diagnostics: Vec<DynamicComponentStepDiagnostic>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct DynamicComponentAssemblySolveInput {
+    pub duration_s: f64,
+    pub timestep_s: f64,
+    pub initial_state: Vec<f64>,
+    pub initial_algebraic: Vec<f64>,
+    pub inputs: Vec<SolverScalar>,
+    pub parameters: Vec<SolverScalar>,
 }
 
 pub struct AlgebraicStepInput<'a> {
@@ -947,6 +959,64 @@ pub fn solve_residual_graph_semi_implicit_euler(
     )
 }
 
+pub fn solve_dynamic_component_assembly(
+    assembly: &EquationAssembly,
+    solve_input: DynamicComponentAssemblySolveInput,
+    options: DynamicComponentOptions,
+) -> Result<DynamicComponentResult, SolverFailure> {
+    let split = assembly.dynamic_component_split()?;
+    let graph = ResidualGraph::from_dynamic_component_assembly(assembly)?;
+    let method = if split.algebraic_layout.is_empty() {
+        "dynamic_component_assembly_explicit_euler"
+    } else {
+        "dynamic_component_assembly_semi_implicit_euler"
+    };
+    let solver_input = SolverInput {
+        plan: SolverPlan::new(
+            assembly.name.clone(),
+            SimulationPlan {
+                inputs: layout_names(&split.input_layout.entries),
+                outputs: layout_names(&split.state_layout.entries),
+                states: layout_names(&split.state_layout.entries),
+                parameters: layout_names(&split.parameter_layout.entries),
+            },
+            SolverOptions::fixed_step(method, solve_input.timestep_s),
+        ),
+        time_grid: TimeGrid::fixed_step(solve_input.duration_s, solve_input.timestep_s)?,
+        state_layout: split.state_layout.clone(),
+        input_layout: split.input_layout.clone(),
+        parameter_layout: split.parameter_layout.clone(),
+        output_layout: OutputLayout {
+            entries: split.state_layout.entries.clone(),
+        },
+        initial_state: solve_input.initial_state,
+        inputs: solve_input.inputs,
+        parameters: solve_input.parameters,
+    };
+
+    if split.algebraic_layout.is_empty() {
+        if !solve_input.initial_algebraic.is_empty() {
+            return Err(SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-ASSEMBLY-LAYOUT",
+                "dynamic component assembly explicit solve received algebraic initial values but the assembly has no algebraic layout",
+            ));
+        }
+        solve_residual_graph_explicit_euler(&solver_input, &graph, options)
+    } else {
+        solve_residual_graph_semi_implicit_euler(
+            &solver_input,
+            &graph,
+            split.algebraic_layout,
+            solve_input.initial_algebraic,
+            options,
+        )
+    }
+}
+
+fn layout_names(entries: &[crate::solver::LayoutEntry]) -> Vec<String> {
+    entries.iter().map(|entry| entry.name.clone()).collect()
+}
+
 fn validate_residual_graph_algebraic_layout(
     input: &SolverInput,
     algebraic_layout: &StateLayout,
@@ -1162,6 +1232,7 @@ fn ensure_finite_scalars(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::solver::assembly::{EquationAssembly, GeneratedEquation, UnknownVariable};
     use crate::solver::{
         InputLayout, LayoutEntry, OutputLayout, ParameterLayout, ResidualEquation,
         ResidualExpression, ResidualScale, ResidualSource, ResidualTerm, ResidualUnit,
@@ -1961,6 +2032,40 @@ mod tests {
         );
     }
 
+    #[test]
+    fn dynamic_component_assembly_entrypoint_solves_semi_implicit_residual_graph() {
+        let assembly = dynamic_component_assembly_fixture();
+
+        let result = solve_dynamic_component_assembly(
+            &assembly,
+            DynamicComponentAssemblySolveInput {
+                duration_s: 1.0,
+                timestep_s: 1.0,
+                initial_state: vec![1.0],
+                initial_algebraic: vec![0.0],
+                inputs: vec![SolverScalar::new("u", "Dimensionless", "1", 5.0)],
+                parameters: vec![SolverScalar::new("k", "Dimensionless", "1", 2.0)],
+            },
+            DynamicComponentOptions::default(),
+        )
+        .unwrap();
+
+        assert_eq!(result.solver_result.diagnostics.status, "computed");
+        assert_eq!(
+            result.solver_result.plan.options.method,
+            "dynamic_component_assembly_semi_implicit_euler"
+        );
+        assert_eq!(
+            result.solver_result.output.state_trajectories[0].values,
+            vec![1.0, 3.0]
+        );
+        assert_eq!(result.algebraic_trajectories[0].values, vec![2.0, 0.0]);
+        assert!(result
+            .step_diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.convergence_status == "linear_algebraic_converged"));
+    }
+
     fn residual_rhs_graph() -> ResidualGraph {
         ResidualGraph {
             name: "component.rhs".to_owned(),
@@ -2045,6 +2150,66 @@ mod tests {
             ],
             parameters: Vec::new(),
             dependencies: Vec::new(),
+        }
+    }
+
+    fn dynamic_component_assembly_fixture() -> EquationAssembly {
+        let x = assembly_variable("x", "state");
+        let z = assembly_variable("z", "algebraic");
+        let u = assembly_variable("u", "input");
+        let k = assembly_variable("k", "parameter");
+        EquationAssembly {
+            name: "component_graph".to_owned(),
+            generated_equations: vec![
+                GeneratedEquation {
+                    name: "x_rhs".to_owned(),
+                    kind: "dynamic_rhs".to_owned(),
+                    domain: "Test".to_owned(),
+                    expression: "der(x) eq z".to_owned(),
+                    residual: "der_x - z".to_owned(),
+                    rhs_value: None,
+                    dependencies: vec!["der_x".to_owned(), "z".to_owned()],
+                    source: "test".to_owned(),
+                    reason: "test dynamic assembly derivative residual".to_owned(),
+                    source_line: Some(1),
+                    status: "generated".to_owned(),
+                },
+                GeneratedEquation {
+                    name: "z_balance".to_owned(),
+                    kind: "dynamic_algebraic".to_owned(),
+                    domain: "Test".to_owned(),
+                    expression: "z + x + k eq u".to_owned(),
+                    residual: "z + x + k - u".to_owned(),
+                    rhs_value: None,
+                    dependencies: vec![
+                        "z".to_owned(),
+                        "x".to_owned(),
+                        "k".to_owned(),
+                        "u".to_owned(),
+                    ],
+                    source: "test".to_owned(),
+                    reason: "test dynamic assembly algebraic residual".to_owned(),
+                    source_line: Some(2),
+                    status: "generated".to_owned(),
+                },
+            ],
+            unknowns: vec![x.clone(), z.clone()],
+            states: vec![x],
+            algebraic_variables: vec![z],
+            inputs: vec![u],
+            parameters: vec![k],
+            ..EquationAssembly::default()
+        }
+    }
+
+    fn assembly_variable(name: &str, role: &str) -> UnknownVariable {
+        UnknownVariable {
+            name: name.to_owned(),
+            role: role.to_owned(),
+            quantity_kind: "Dimensionless".to_owned(),
+            unit: "1".to_owned(),
+            source: format!("Test.{name}"),
+            status: "classified".to_owned(),
         }
     }
 

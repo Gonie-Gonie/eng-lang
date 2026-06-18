@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::{assembly::EquationAssembly, euclidean_norm, SolverFailure};
 
@@ -113,6 +113,167 @@ impl ResidualGraph {
         }
     }
 
+    pub fn from_dynamic_component_assembly(
+        assembly: &EquationAssembly,
+    ) -> Result<Self, SolverFailure> {
+        assembly.dynamic_component_split()?;
+
+        let mut variables = Vec::new();
+        let mut variable_aliases = HashMap::new();
+        let mut variable_units = HashMap::new();
+
+        for variable in &assembly.states {
+            push_dynamic_residual_variable(
+                &mut variables,
+                &mut variable_aliases,
+                &mut variable_units,
+                &variable.name,
+                "state",
+                &variable.quantity_kind,
+                &variable.unit,
+                &[variable.name.as_str()],
+            );
+        }
+        for variable in &assembly.algebraic_variables {
+            push_dynamic_residual_variable(
+                &mut variables,
+                &mut variable_aliases,
+                &mut variable_units,
+                &variable.name,
+                "algebraic",
+                &variable.quantity_kind,
+                &variable.unit,
+                &[variable.name.as_str()],
+            );
+        }
+        for variable in &assembly.inputs {
+            push_dynamic_residual_variable(
+                &mut variables,
+                &mut variable_aliases,
+                &mut variable_units,
+                &variable.name,
+                "input",
+                &variable.quantity_kind,
+                &variable.unit,
+                &[variable.name.as_str()],
+            );
+        }
+        for variable in &assembly.parameters {
+            push_dynamic_residual_variable(
+                &mut variables,
+                &mut variable_aliases,
+                &mut variable_units,
+                &variable.name,
+                "parameter",
+                &variable.quantity_kind,
+                &variable.unit,
+                &[variable.name.as_str()],
+            );
+        }
+        for state in &assembly.states {
+            let derivative_name = dynamic_state_derivative_name(&state.name);
+            let der_call_alias = format!("der({})", state.name);
+            let differential_alias = format!("d{}", state.name);
+            push_dynamic_residual_variable(
+                &mut variables,
+                &mut variable_aliases,
+                &mut variable_units,
+                &derivative_name,
+                "state_derivative",
+                &state.quantity_kind,
+                &dynamic_derivative_unit(&state.unit),
+                &[
+                    derivative_name.as_str(),
+                    der_call_alias.as_str(),
+                    differential_alias.as_str(),
+                ],
+            );
+        }
+
+        let parameters = assembly
+            .parameters
+            .iter()
+            .enumerate()
+            .map(|(index, parameter)| ResidualParameterRef {
+                index,
+                name: parameter.name.clone(),
+                role: parameter.role.clone(),
+                unit: parameter.unit.clone(),
+            })
+            .collect::<Vec<_>>();
+        let residuals = assembly
+            .generated_equations
+            .iter()
+            .map(|equation| {
+                let parsed = parse_dynamic_linear_residual_terms(
+                    &equation.residual,
+                    &equation.dependencies,
+                    &variable_aliases,
+                    &variables,
+                )?;
+                let rhs_value = dynamic_residual_rhs_value(equation, parsed.constant)?;
+                let (unit, quantity_kind) = dynamic_residual_unit(
+                    equation
+                        .dependencies
+                        .first()
+                        .map(String::as_str)
+                        .unwrap_or_default(),
+                    &variable_aliases,
+                    &variables,
+                    &variable_units,
+                );
+                let scale = ResidualScale::from_quantity_unit(&quantity_kind, &unit);
+
+                Ok(ResidualEquation {
+                    name: equation.name.clone(),
+                    expression: ResidualExpression {
+                        text: equation.residual.clone(),
+                    },
+                    rhs_value,
+                    unit: ResidualUnit {
+                        unit,
+                        quantity_kind,
+                    },
+                    scale,
+                    source: ResidualSource {
+                        line: equation.source_line,
+                        generated_reason: Some(equation.reason.clone()),
+                    },
+                    variable_indices: parsed
+                        .terms
+                        .iter()
+                        .map(|term| term.variable_index)
+                        .collect(),
+                    terms: parsed.terms,
+                })
+            })
+            .collect::<Result<Vec<_>, SolverFailure>>()?;
+        let dependencies = assembly
+            .generated_equations
+            .iter()
+            .flat_map(|equation| {
+                equation
+                    .dependencies
+                    .iter()
+                    .filter_map(|dependency| {
+                        variable_aliases
+                            .get(dependency)
+                            .and_then(|index| variables.get(*index))
+                            .map(|variable| (equation.name.clone(), variable.name.clone()))
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
+        Ok(Self {
+            name: format!("{}.dynamic_component_residual_graph", assembly.name),
+            residuals,
+            variables,
+            parameters,
+            dependencies,
+        })
+    }
+
     pub fn assemble_linear_system(&self) -> Result<LinearResidualSystem, SolverFailure> {
         let equation_count = self.residuals.len();
         let unknown_count = self.variables.len();
@@ -175,6 +336,281 @@ impl ResidualGraph {
                 .collect(),
         })
     }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+struct ParsedDynamicResidual {
+    terms: Vec<ResidualTerm>,
+    constant: f64,
+}
+
+fn push_dynamic_residual_variable(
+    variables: &mut Vec<ResidualVariableRef>,
+    variable_aliases: &mut HashMap<String, usize>,
+    variable_units: &mut HashMap<String, (String, String)>,
+    name: &str,
+    role: &str,
+    quantity_kind: &str,
+    unit: &str,
+    aliases: &[&str],
+) {
+    let index = variables.len();
+    variables.push(ResidualVariableRef {
+        index,
+        name: name.to_owned(),
+        role: role.to_owned(),
+        unit: unit.to_owned(),
+    });
+    variable_units.insert(name.to_owned(), (unit.to_owned(), quantity_kind.to_owned()));
+    for alias in aliases {
+        variable_aliases.insert((*alias).to_owned(), index);
+    }
+}
+
+fn dynamic_state_derivative_name(state_name: &str) -> String {
+    format!("der_{state_name}")
+}
+
+fn dynamic_derivative_unit(unit: &str) -> String {
+    let unit = unit.trim();
+    if unit.is_empty() || unit == "1" {
+        "1/s".to_owned()
+    } else {
+        format!("{unit}/s")
+    }
+}
+
+fn dynamic_residual_unit(
+    dependency: &str,
+    variable_aliases: &HashMap<String, usize>,
+    variables: &[ResidualVariableRef],
+    variable_units: &HashMap<String, (String, String)>,
+) -> (String, String) {
+    variable_aliases
+        .get(dependency)
+        .and_then(|index| variables.get(*index))
+        .and_then(|variable| variable_units.get(&variable.name))
+        .cloned()
+        .unwrap_or_else(|| ("1".to_owned(), "unknown".to_owned()))
+}
+
+fn dynamic_residual_rhs_value(
+    equation: &super::assembly::GeneratedEquation,
+    constant: f64,
+) -> Result<f64, SolverFailure> {
+    if !constant.is_finite() {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
+            format!(
+                "dynamic component assembly residual `{}` has a non-finite constant",
+                equation.name
+            ),
+        ));
+    }
+    let inferred_rhs = -constant;
+    if let Some(rhs_value) = equation.rhs_value {
+        if !rhs_value.is_finite() {
+            return Err(SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
+                format!(
+                    "dynamic component assembly residual `{}` has a non-finite RHS value",
+                    equation.name
+                ),
+            ));
+        }
+        if constant.abs() > 1e-12 && (rhs_value - inferred_rhs).abs() > 1e-9 {
+            return Err(SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
+                format!(
+                    "dynamic component assembly residual `{}` has inconsistent literal RHS metadata",
+                    equation.name
+                ),
+            ));
+        }
+        Ok(rhs_value)
+    } else {
+        Ok(inferred_rhs)
+    }
+}
+
+fn parse_dynamic_linear_residual_terms(
+    expression: &str,
+    dependencies: &[String],
+    variable_aliases: &HashMap<String, usize>,
+    variables: &[ResidualVariableRef],
+) -> Result<ParsedDynamicResidual, SolverFailure> {
+    let dependency_indices = dependencies
+        .iter()
+        .filter_map(|dependency| variable_aliases.get(dependency).copied())
+        .collect::<HashSet<_>>();
+    if dependency_indices.is_empty() {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
+            format!("dynamic component residual `{expression}` has no solver dependencies"),
+        ));
+    }
+
+    let mut parsed = ParsedDynamicResidual::default();
+    let mut sign = 1.0;
+    let mut tokens = expression.split_whitespace().peekable();
+    while let Some(token) = tokens.next() {
+        match token {
+            "+" => {
+                sign = 1.0;
+                continue;
+            }
+            "-" => {
+                sign = -1.0;
+                continue;
+            }
+            _ => {}
+        }
+
+        let mut parts = vec![token];
+        while let Some(next) = tokens.peek().copied() {
+            if next == "+" || next == "-" {
+                break;
+            }
+            parts.push(tokens.next().unwrap());
+        }
+        parse_dynamic_linear_term(
+            &parts.join(" "),
+            sign,
+            &dependency_indices,
+            variable_aliases,
+            variables,
+            &mut parsed,
+        )?;
+        sign = 1.0;
+    }
+
+    if parsed.terms.is_empty() {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
+            format!("dynamic component residual `{expression}` has no linear variable terms"),
+        ));
+    }
+    Ok(parsed)
+}
+
+fn parse_dynamic_linear_term(
+    raw: &str,
+    sign: f64,
+    dependency_indices: &HashSet<usize>,
+    variable_aliases: &HashMap<String, usize>,
+    variables: &[ResidualVariableRef],
+    parsed: &mut ParsedDynamicResidual,
+) -> Result<(), SolverFailure> {
+    let term = raw.trim();
+    if term.is_empty() {
+        return Ok(());
+    }
+    if let Some(index) = variable_aliases.get(term).copied() {
+        push_dynamic_linear_term(term, index, sign, dependency_indices, variables, parsed)?;
+        return Ok(());
+    }
+    if let Ok(value) = term.parse::<f64>() {
+        parsed.constant += sign * value;
+        return Ok(());
+    }
+
+    let factors = term
+        .split('*')
+        .map(str::trim)
+        .filter(|factor| !factor.is_empty())
+        .collect::<Vec<_>>();
+    if factors.len() > 1 {
+        let mut coefficient = sign;
+        let mut variable_index = None;
+        let mut variable_label = "";
+        for factor in factors {
+            if let Ok(value) = factor.parse::<f64>() {
+                coefficient *= value;
+            } else if let Some(index) = variable_aliases.get(factor).copied() {
+                if variable_index.is_some() {
+                    return Err(unsupported_dynamic_linear_term(term));
+                }
+                variable_index = Some(index);
+                variable_label = factor;
+            } else {
+                return Err(unsupported_dynamic_linear_term(term));
+            }
+        }
+        let Some(index) = variable_index else {
+            parsed.constant += coefficient;
+            return Ok(());
+        };
+        push_dynamic_linear_term(
+            variable_label,
+            index,
+            coefficient,
+            dependency_indices,
+            variables,
+            parsed,
+        )?;
+        return Ok(());
+    }
+
+    let pieces = term.split_whitespace().collect::<Vec<_>>();
+    if pieces.len() == 2 {
+        if let (Ok(coefficient), Some(index)) = (
+            pieces[0].parse::<f64>(),
+            variable_aliases.get(pieces[1]).copied(),
+        ) {
+            push_dynamic_linear_term(
+                pieces[1],
+                index,
+                sign * coefficient,
+                dependency_indices,
+                variables,
+                parsed,
+            )?;
+            return Ok(());
+        }
+    }
+
+    Err(unsupported_dynamic_linear_term(term))
+}
+
+fn push_dynamic_linear_term(
+    label: &str,
+    index: usize,
+    coefficient: f64,
+    dependency_indices: &HashSet<usize>,
+    variables: &[ResidualVariableRef],
+    parsed: &mut ParsedDynamicResidual,
+) -> Result<(), SolverFailure> {
+    if !dependency_indices.contains(&index) {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
+            format!("dynamic component residual term `{label}` is not listed as a dependency"),
+        ));
+    }
+    if !coefficient.is_finite() {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
+            format!("dynamic component residual term `{label}` has a non-finite coefficient"),
+        ));
+    }
+    let Some(variable) = variables.get(index) else {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
+            format!("dynamic component residual term `{label}` references an unknown variable"),
+        ));
+    };
+    parsed.terms.push(ResidualTerm {
+        variable_index: index,
+        variable: variable.name.clone(),
+        coefficient,
+    });
+    Ok(())
+}
+
+fn unsupported_dynamic_linear_term(term: &str) -> SolverFailure {
+    SolverFailure::new(
+        "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
+        format!("dynamic component assembly supports only simple linear residual terms; unsupported term `{term}`"),
+    )
 }
 
 fn residual_terms_for_generated_equation(
@@ -588,7 +1024,7 @@ pub struct ResidualSource {
 
 #[cfg(test)]
 mod tests {
-    use super::super::assembly::UnknownVariable;
+    use super::super::assembly::{EquationAssembly, GeneratedEquation, UnknownVariable};
     use super::*;
 
     #[test]
@@ -1019,6 +1455,74 @@ mod tests {
         assert_eq!(graph.parameters[0].unit, "K/kW");
     }
 
+    #[test]
+    fn dynamic_component_residual_graph_from_assembly_preserves_solver_roles() {
+        let assembly = dynamic_component_test_assembly("component_graph");
+
+        let graph = ResidualGraph::from_dynamic_component_assembly(&assembly).unwrap();
+
+        assert_eq!(
+            graph.name,
+            "component_graph.dynamic_component_residual_graph"
+        );
+        assert_eq!(
+            graph
+                .variables
+                .iter()
+                .map(|variable| (variable.name.as_str(), variable.role.as_str()))
+                .collect::<Vec<_>>(),
+            vec![
+                ("x", "state"),
+                ("z", "algebraic"),
+                ("u", "input"),
+                ("k", "parameter"),
+                ("der_x", "state_derivative"),
+            ]
+        );
+        assert_eq!(graph.parameters[0].name, "k");
+        let rhs = graph
+            .residuals
+            .iter()
+            .find(|residual| residual.name == "x_rhs")
+            .unwrap();
+        assert_eq!(rhs.rhs_value, 0.0);
+        assert_eq!(
+            rhs.terms
+                .iter()
+                .map(|term| (term.variable.as_str(), term.coefficient))
+                .collect::<Vec<_>>(),
+            vec![("der_x", 1.0), ("z", -1.0)]
+        );
+        let algebraic = graph
+            .residuals
+            .iter()
+            .find(|residual| residual.name == "z_balance")
+            .unwrap();
+        assert_eq!(
+            algebraic
+                .terms
+                .iter()
+                .map(|term| (term.variable.as_str(), term.coefficient))
+                .collect::<Vec<_>>(),
+            vec![("z", 1.0), ("x", 1.0), ("k", 1.0), ("u", -1.0)]
+        );
+        assert!(graph
+            .dependencies
+            .iter()
+            .any(|(residual, variable)| residual == "x_rhs" && variable == "der_x"));
+    }
+
+    #[test]
+    fn dynamic_component_residual_graph_rejects_unsupported_residual_terms() {
+        let mut assembly = dynamic_component_test_assembly("component_graph");
+        assembly.generated_equations[0].residual = "der_x / z".to_owned();
+
+        let failure = ResidualGraph::from_dynamic_component_assembly(&assembly).unwrap_err();
+
+        assert_eq!(failure.code, "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL");
+        assert!(failure.message.contains("unsupported term"));
+    }
+
     fn residual(name: &str, terms: &[(usize, &str, f64)]) -> ResidualEquation {
         residual_with_rhs(name, terms, 0.0)
     }
@@ -1049,6 +1553,66 @@ mod tests {
                     coefficient: *coefficient,
                 })
                 .collect(),
+        }
+    }
+
+    fn dynamic_component_test_assembly(name: &str) -> EquationAssembly {
+        let x = unknown("x", "state");
+        let z = unknown("z", "algebraic");
+        let u = unknown("u", "input");
+        let k = unknown("k", "parameter");
+        EquationAssembly {
+            name: name.to_owned(),
+            generated_equations: vec![
+                GeneratedEquation {
+                    name: "x_rhs".to_owned(),
+                    kind: "dynamic_rhs".to_owned(),
+                    domain: "Test".to_owned(),
+                    expression: "der(x) eq z".to_owned(),
+                    residual: "der_x - z".to_owned(),
+                    rhs_value: None,
+                    dependencies: vec!["der_x".to_owned(), "z".to_owned()],
+                    source: "test".to_owned(),
+                    reason: "test dynamic component derivative residual".to_owned(),
+                    source_line: Some(1),
+                    status: "generated".to_owned(),
+                },
+                GeneratedEquation {
+                    name: "z_balance".to_owned(),
+                    kind: "dynamic_algebraic".to_owned(),
+                    domain: "Test".to_owned(),
+                    expression: "z + x + k eq u".to_owned(),
+                    residual: "z + x + k - u".to_owned(),
+                    rhs_value: None,
+                    dependencies: vec![
+                        "z".to_owned(),
+                        "x".to_owned(),
+                        "k".to_owned(),
+                        "u".to_owned(),
+                    ],
+                    source: "test".to_owned(),
+                    reason: "test dynamic component algebraic residual".to_owned(),
+                    source_line: Some(2),
+                    status: "generated".to_owned(),
+                },
+            ],
+            unknowns: vec![x.clone(), z.clone()],
+            states: vec![x],
+            algebraic_variables: vec![z],
+            inputs: vec![u],
+            parameters: vec![k],
+            ..EquationAssembly::default()
+        }
+    }
+
+    fn unknown(name: &str, role: &str) -> UnknownVariable {
+        UnknownVariable {
+            name: name.to_owned(),
+            role: role.to_owned(),
+            quantity_kind: "Dimensionless".to_owned(),
+            unit: "1".to_owned(),
+            source: format!("Test.{name}"),
+            status: "classified".to_owned(),
         }
     }
 }

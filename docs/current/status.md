@@ -191,7 +191,11 @@ are not public stable workflows.
   updates from derivative-form `ResidualGraph` equations, including input and
   parameter terms, through a count/name-validated residual-graph explicit-Euler
   entrypoint, and derivative plus linear algebraic residual graphs through a
-  semi-implicit entrypoint with per-step dense linear algebraic solves.
+  semi-implicit entrypoint with per-step dense linear algebraic solves. An
+  internal `EquationAssembly` bridge now validates dynamic component
+  state/algebraic/input/parameter layouts, lowers simple linear derivative and
+  algebraic residuals into those residual-graph entrypoints, and preserves
+  equation/unknown counts in component solver artifacts.
   Fixed-step ODE and
   dynamic-component seeds use the actual
   `TimeGrid` interval length for the final partial step when duration is not an

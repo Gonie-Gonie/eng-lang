@@ -50,7 +50,7 @@ release naming still follows [version_plan.md](version_plan.md).
 | v1.3 state-space actual simulation | LinearOperator checks, discrete solve, continuous RHS | Implemented as internal state-space seed scope. |
 | v1.4 equation assembly | Component graph assembly, generated equations, residual graph | Implemented as internal domain/component assembly seed scope. |
 | v1.5 algebraic solver | Linear algebraic solve, fixed-point solve, diagnostics | Implemented as solver-API algorithm seeds and square residual graph solve path. |
-| v1.6 small dynamic component solver | Assembled dynamic component graph solves, state/algebraic TimeSeries outputs | Implemented as internal dynamic-component solver seed; not public-supported component graph solving. |
+| v1.6 small dynamic component solver | Assembled dynamic component graph solves, state/algebraic TimeSeries outputs | Implemented as internal dynamic-component solver seed plus simple-linear `EquationAssembly` bridge; not public-supported component graph solving. |
 | v1.7 nonlinear/delay/Predictor integration | Nonlinear seed, delay buffer, Predictor contract | Implemented as standalone/API seeds and report/IDE metadata; language-level integration remains planned. |
 | v2.0 multi-domain solver | Small multi-domain official example actually solves, report/IDE show equations, plan, residuals, results | Covered by `examples/official/22_multi_domain_boundary_solve` for a constrained Thermal/Fluid/MechanicalNode boundary solve; production multi-domain solving remains planned. |
 
