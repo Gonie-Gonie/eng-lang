@@ -60,6 +60,7 @@ The unpacked portable folder contains:
 eng.exe
 eng-ide.exe
 eng-lsp.exe
+WebView2Loader.dll
 examples/
 stdlib/
 docs/EngLang_User_Guide.pdf
@@ -67,6 +68,7 @@ docs/EngLang_Language_Grammar_Guide.pdf
 tools/vscode-englang/
 tools/englang-vscode-1.0.0.vsix
 README.txt
+PACKAGE_ASSETS.txt
 ```
 
 The package `docs\` folder is curated release documentation. It must not bundle
@@ -113,5 +115,6 @@ Before publishing:
 [ ] eng-lsp.exe --smoke passes from the extracted package
 [ ] official CSV, simple system, and integrated HVAC examples run
 [ ] package docs folder contains curated PDFs only
+[ ] PACKAGE_ASSETS.txt documents official, compatibility, internal, and diagnostic examples
 [ ] release assets match v1.0.0 public labels
 ```

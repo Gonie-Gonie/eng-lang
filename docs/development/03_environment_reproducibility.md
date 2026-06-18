@@ -137,16 +137,22 @@ The unpacked package contains:
 ```text
 eng.exe
 eng-ide.exe
+eng-lsp.exe
+WebView2Loader.dll
 examples/
 stdlib/
-docs/
+docs/EngLang_User_Guide.pdf
+docs/EngLang_Language_Grammar_Guide.pdf
 tools/
 README.txt
+PACKAGE_ASSETS.txt
 ```
 
 `docs/` in the package is curated release documentation, not a copy of the
 developer markdown tree. `README.txt` inside the package gives target-PC smoke
-commands.
+commands. `PACKAGE_ASSETS.txt` records the portable/installable asset inventory
+and separates official examples from compatibility, diagnostic, and internal
+smoke fixtures.
 
 ## Standalone Bundle
 
@@ -197,7 +203,8 @@ This command:
 11. builds a standalone bundle from the packaged eng.exe
 12. runs the standalone bundle's run.bat
 13. verifies the standalone bundle creates PlotSpec artifacts
-14. verifies packaged docs contain the curated PDF and no developer markdown
+14. verifies packaged docs contain curated PDFs and no developer markdown
+15. verifies PACKAGE_ASSETS.txt documents example support boundaries
 ```
 
 The smoke folder intentionally contains both a space and Korean characters. This

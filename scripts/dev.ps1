@@ -1790,7 +1790,7 @@ function New-UserGuidePdf {
         @{ Kind = "subtitle"; Text = "Portable Windows package v$Version" },
         @{ Kind = "body"; Text = "EngLang is a native engineering language for workflows where units, physical quantities, schemas, axes, statistics, plots, reports, and provenance are checked as part of the program. This PDF is the curated user-facing guide for the portable package; developer notes and master plans stay in the repository." },
         @{ Kind = "h1"; Text = "1. Package Contents" },
-        @{ Kind = "body"; Text = "The portable folder contains eng.exe for command-line execution, eng-ide.exe for Tauri/WebView GUI testing, eng-lsp.exe for experimental editor-service smoke checks, official examples, stdlib language seeds, tools for the optional VS Code extension, and this PDF. It intentionally does not ship the full developer documentation tree." },
+        @{ Kind = "body"; Text = "The portable folder contains eng.exe for command-line execution, eng-ide.exe for native IDE testing, eng-lsp.exe for editor-service smoke checks, WebView2Loader.dll for the IDE, official examples, compatibility and internal smoke fixtures, diagnostic fixtures, stdlib language seeds, optional VS Code extension tooling, curated PDF docs, README.txt, and PACKAGE_ASSETS.txt. It intentionally does not ship the full developer documentation tree." },
         @{ Kind = "h1"; Text = "2. First Smoke Test" },
         @{ Kind = "step"; Text = "Open a command prompt in the extracted folder." },
         @{ Kind = "step"; Text = "Run: eng.exe doctor" },
@@ -1805,7 +1805,7 @@ function New-UserGuidePdf {
         @{ Kind = "step"; Text = "Use Run to execute the current top-level file. The IDE updates the terminal, Problems tab, Variables table, and PlotSpec preview." },
         @{ Kind = "body"; Text = "The IDE uses the same compiler and runtime crates as eng.exe. Diagnostics, symbols, completions, run artifacts, and report generation therefore test the real core path rather than duplicated editor logic." },
         @{ Kind = "h1"; Text = "4. Integrated HVAC Example" },
-        @{ Kind = "body"; Text = "The integrated HVAC example is the recommended user test because one file exercises typed CSV promotion, DateTime parsing, missing-value interpolation, schema constraints, HeatRate calculation, TimeSeries statistics, trapezoidal integration, PlotSpec/SVG/report output, and the simple thermal system fixed-step ODE preview." },
+        @{ Kind = "body"; Text = "The integrated HVAC example is the recommended user test because one file exercises typed CSV promotion, DateTime parsing, missing-value interpolation, schema constraints, HeatRate calculation, TimeSeries statistics, trapezoidal integration, PlotSpec/SVG/report output, and focused one-state thermal solver metadata." },
         @{ Kind = "body"; Text = "From the command line, run: eng.exe run examples/official/03_integrated_hvac/main.eng --save-artifacts" },
         @{ Kind = "h1"; Text = "5. Expected Output" },
         @{ Kind = "body"; Text = "After a successful run, inspect build/result/report.html first. The result folder also contains result.engres, review.json, report_spec.json, plots/plot_spec.json, plots/plot_manifest.json, and plots/timeseries.svg." },
@@ -1819,7 +1819,7 @@ function New-UserGuidePdf {
         @{ Kind = "body"; Text = "If a run fails, check Problems first, then run eng.exe check <file.eng> from the same folder. Plot previews live in the right Plot inspector tab beside Variables; report and SVG artifacts can be opened on demand after a successful run." },
         @{ Kind = "body"; Text = "If a CSV path fails, keep relative paths anchored next to the source file, as in the official examples. If a report does not open, open build/result/report.html manually." },
         @{ Kind = "h1"; Text = "8. Current Boundaries" },
-        @{ Kind = "body"; Text = "This release supports the documented core workflows: CSV promote, unit-aware TimeSeries calculations, PlotSpec/SVG output, review/report artifacts, basic packaged execution, and the Tauri/WebView tester IDE. Uncertainty, ML, LSP, JIT/AOT, and domain/component work remain future or experimental tracks unless explicitly marked stable-supported." }
+        @{ Kind = "body"; Text = "This release supports the documented core workflows: CSV promote, unit-aware TimeSeries calculations, PlotSpec/SVG output, review/report artifacts, package smoke, official examples, focused one-state thermal workflows, and the native tester IDE. Internal examples remain bundled for smoke checks and inspection, but they are not public tutorials. General nonlinear solving, DAE solving, production multi-domain component graph solving, native JIT execution, broad uncertainty and ML workflows, and full editor platform guarantees remain future or internal tracks unless explicitly marked stable-supported." }
     )
 
     $pages = New-Object System.Collections.Generic.List[string]
@@ -1829,7 +1829,7 @@ function New-UserGuidePdf {
 
     function Add-PdfPage {
         if ($content.Count -gt 0) {
-            $content.Add("BT /F1 8 Tf 54 34 Td (EngLang v$Version user test guide - page $script:EngPdfPageNumber) Tj ET") | Out-Null
+            $content.Add("BT /F1 8 Tf 54 34 Td (EngLang v$Version user guide - page $script:EngPdfPageNumber) Tj ET") | Out-Null
             $pages.Add(($content -join "`n")) | Out-Null
             $content.Clear()
             $script:EngPdfY = 740
@@ -1927,6 +1927,53 @@ function New-UserGuidePdf {
     [System.IO.File]::WriteAllBytes($Path, [System.Text.Encoding]::ASCII.GetBytes($pdf.ToString()))
 }
 
+function New-PackageAssetManifest {
+    param(
+        [Parameter(Mandatory = $true)][string] $Path,
+        [Parameter(Mandatory = $true)][string] $PublicVersion
+    )
+
+    Set-Content -Path $Path -Encoding ascii -Value @"
+EngLang portable package assets
+
+public_version = $PublicVersion
+generated_by = dev.bat package
+
+Runtime binaries:
+  eng.exe                         command-line checker, runner, viewer, formatter, and packager
+  eng-ide.exe                     native Tauri/WebView IDE for local testing and inspection
+  eng-lsp.exe                     language-server binary used by editor tooling and smoke checks
+  WebView2Loader.dll              IDE runtime dependency that must stay next to eng-ide.exe
+
+Curated user documentation:
+  docs\$(Get-PackageUserGuideFileName)
+  docs\EngLang_Language_Grammar_Guide.pdf
+
+Examples:
+  examples\official\             release-facing examples and user tests
+  examples\compat\               compatibility regression fixtures
+  examples\internal\             internal smoke and inspection fixtures, not public support
+  examples\diagnostics\          diagnostic and data-quality fixtures
+
+Language support:
+  stdlib\                         packaged standard library source seeds
+
+Optional editor tooling:
+  tools\vscode-englang\           VS Code extension source
+  tools\$(Get-VsixFileName)       installable VS Code extension package
+
+Package start files:
+  README.txt                      short start page and smoke commands
+  PACKAGE_ASSETS.txt              this portable asset inventory
+
+Intentionally excluded:
+  developer markdown documentation tree
+  local .dev toolchain cache
+  target, build, and dist history
+  Rust, Python, Node, and Visual Studio Build Tools target dependencies
+"@
+}
+
 function Invoke-Package {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -1963,12 +2010,18 @@ function Invoke-Package {
     }
     Copy-Item -Force $PackageGuidePath $ReleaseGuidePath
     Invoke-IdePackage -PackageRoot $PackageRoot
+    New-PackageAssetManifest -Path (Join-Path $PackageRoot "PACKAGE_ASSETS.txt") -PublicVersion $PublicVersion
     Set-Content -Path (Join-Path $PackageRoot "README.txt") -Encoding ascii -Value @"
 EngLang portable package
 
 This folder is self-contained for EngLang execution. Rust and Python are not
 required on the target PC. WebView2Loader.dll is bundled next to eng-ide.exe
 for the Tauri/WebView IDE.
+
+Start here:
+  docs\$(Get-PackageUserGuideFileName)
+  docs\EngLang_Language_Grammar_Guide.pdf
+  PACKAGE_ASSETS.txt
 
 Recommended smoke commands:
   eng.exe doctor
@@ -1987,6 +2040,12 @@ VS Code IDE preview:
   code --install-extension tools\$(Get-VsixFileName)
   open a .eng file
   run "EngLang: Check Current File"
+
+Example folders:
+  examples\official      user-facing release examples
+  examples\compat        compatibility regression fixtures
+  examples\internal      internal smoke and inspection fixtures, not public support
+  examples\diagnostics   diagnostic and data-quality fixtures
 
 Generated artifacts are written under build\result in the current folder.
 The curated user guide is docs\$(Get-PackageUserGuideFileName). The language
@@ -2068,8 +2127,23 @@ function Invoke-PackageSmoke {
         if (-not (Test-Path $ExpectedUserGuide)) {
             throw "portable package did not include user guide PDF"
         }
-        if (-not (Test-Path (Join-Path $SmokeRoot "docs\EngLang_Language_Grammar_Guide.pdf"))) {
+        if ((Get-Item -LiteralPath $ExpectedUserGuide).Length -lt 20000) {
+            throw "portable package user guide PDF is unexpectedly small"
+        }
+        $ExpectedGrammarGuide = Join-Path $SmokeRoot "docs\EngLang_Language_Grammar_Guide.pdf"
+        if (-not (Test-Path $ExpectedGrammarGuide)) {
             throw "portable package did not include language grammar guide PDF"
+        }
+        if ((Get-Item -LiteralPath $ExpectedGrammarGuide).Length -lt 20000) {
+            throw "portable package language grammar guide PDF is unexpectedly small"
+        }
+        $ExpectedAssetManifest = Join-Path $SmokeRoot "PACKAGE_ASSETS.txt"
+        if (-not (Test-Path $ExpectedAssetManifest)) {
+            throw "portable package did not include PACKAGE_ASSETS.txt"
+        }
+        $AssetManifestText = Get-Content -LiteralPath $ExpectedAssetManifest -Raw -Encoding UTF8
+        if (-not $AssetManifestText.Contains("examples\official\") -or -not $AssetManifestText.Contains("examples\internal\") -or -not $AssetManifestText.Contains("not public support")) {
+            throw "portable package asset manifest does not document example support boundaries"
         }
         $BundledMarkdownDocs = @(Get-ChildItem -LiteralPath (Join-Path $SmokeRoot "docs") -Recurse -Filter "*.md" -ErrorAction SilentlyContinue)
         if ($BundledMarkdownDocs.Count -gt 0) {
