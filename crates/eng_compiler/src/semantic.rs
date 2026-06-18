@@ -2653,7 +2653,7 @@ pub fn validate_simulation_contracts(
             .unwrap_or(&[]);
 
         validate_simulation_timestep(declaration.line, options, &mut diagnostics);
-        validate_simulation_solver(declaration.line, options, &mut diagnostics);
+        validate_simulation_solver(declaration.line, system, options, &mut diagnostics);
 
         for variable in &system.variables {
             let Some(expected) = expected_dynamic_input(variable) else {
@@ -2793,6 +2793,7 @@ fn validate_simulation_timestep(
 
 fn validate_simulation_solver(
     owner_line: usize,
+    system: &SystemInfo,
     options: &[WithOptionInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
@@ -2805,8 +2806,9 @@ fn validate_simulation_solver(
         ));
         return;
     };
+    let solver_name = option.value.trim();
     if !matches!(
-        option.value.trim(),
+        solver_name,
         "fixed_step" | "explicit_euler" | "rk4" | "adaptive_heun"
     ) {
         diagnostics.push(Diagnostic::error(
@@ -2815,7 +2817,54 @@ fn validate_simulation_solver(
             &format!("Unsupported simulation solver `{}`.", option.value),
             Some("Use fixed-step Euler/RK4 or `adaptive_heun` for the one-state thermal workflow; general adaptive and nonlinear solvers are deferred."),
         ));
+    } else if solver_name == "adaptive_heun" && !supports_one_state_adaptive_heun(system) {
+        diagnostics.push(Diagnostic::error(
+            "E-SIM-SOLVER-UNSUPPORTED",
+            option.line,
+            "`adaptive_heun` is currently supported only for the one-state thermal workflow.",
+            Some("Use `fixed_step`/`explicit_euler`/`rk4` for other supported simulation shapes, or use a system with one AbsoluteTemperature state, HeatCapacity and Conductance parameters, and AbsoluteTemperature plus HeatRate inputs."),
+        ));
     }
+}
+
+fn supports_one_state_adaptive_heun(system: &SystemInfo) -> bool {
+    let states = system
+        .variables
+        .iter()
+        .filter(|variable| variable.role == "state")
+        .collect::<Vec<_>>();
+    if states.len() != 1 || simulation_value_quantity(states[0]) != "AbsoluteTemperature" {
+        return false;
+    }
+    let has_heat_capacity = system.variables.iter().any(|variable| {
+        variable.role == "parameter" && simulation_value_quantity(variable) == "HeatCapacity"
+    });
+    let has_conductance = system.variables.iter().any(|variable| {
+        variable.role == "parameter" && simulation_value_quantity(variable) == "Conductance"
+    });
+    let has_outdoor_temperature = system.variables.iter().any(|variable| {
+        variable.role == "input" && simulation_value_quantity(variable) == "AbsoluteTemperature"
+    });
+    let has_internal_heat = system.variables.iter().any(|variable| {
+        variable.role == "input" && simulation_value_quantity(variable) == "HeatRate"
+    });
+    let derivative = format!("der({})", states[0].name);
+    let has_derivative_equation = system
+        .equations
+        .iter()
+        .any(|equation| equation.left.contains(&derivative));
+
+    has_heat_capacity
+        && has_conductance
+        && has_outdoor_temperature
+        && has_internal_heat
+        && has_derivative_equation
+}
+
+fn simulation_value_quantity(variable: &SystemVariableInfo) -> String {
+    crate::stats::time_series_quantity(&variable.quantity_kind)
+        .map(|(_, quantity_kind)| quantity_kind)
+        .unwrap_or_else(|| variable.quantity_kind.clone())
 }
 
 fn accepted_option<'a>(options: &'a [WithOptionInfo], key: &str) -> Option<&'a WithOptionInfo> {

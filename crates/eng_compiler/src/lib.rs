@@ -6448,6 +6448,21 @@ mod tests {
     }
 
     #[test]
+    fn rejects_adaptive_heun_for_non_thermal_shape() {
+        let report = check_source(
+            "bad.eng",
+            "system Decay {\n    state x: Dimensionless = 1\n    equation {\n        der(x) eq 0\n    }\n}\n\nsim = simulate Decay\nwith {\n    timestep = 1 s\n    solver = adaptive_heun\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SIM-SOLVER-UNSUPPORTED"));
+    }
+
+    #[test]
     fn rejects_simulate_unsupported_solver() {
         let report = check_source(
             "bad.eng",
