@@ -2168,18 +2168,13 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
             let report_spec = std::fs::read_to_string(&output.report_spec_path).unwrap_or_default();
             let report_html = std::fs::read_to_string(&output.report_path).unwrap_or_default();
-            if !result.contains("\"method\": \"adaptive_heun\"")
-                || !result.contains("\"convergence_status\": \"adaptive_heun_completed\"")
-                || !result.contains("\"tolerance\": 0.0001")
-                || !result.contains("\"step_diagnostics\": [")
-                || !result.contains("\"status\": \"accepted\"")
-                || !review.contains("\"substep_count\"")
-                || !review.contains("\"accepted_substep_count\"")
-                || !report_spec.contains("\"adaptive_heun\"")
-                || !report_spec.contains("\"adaptive_heun_completed\"")
-                || !report_spec.contains("\"step_diagnostics\": [")
-                || !report_spec.contains("\"status\": \"accepted\"")
-                || !report_html.contains("adaptive_heun")
+            if !adaptive_solver_artifacts_are_structured(
+                &result,
+                &review,
+                &report_spec,
+                "RoomThermal",
+                Some("adaptive Heun"),
+            ) || !report_html.contains("adaptive_heun")
                 || !report_html.contains("substeps=")
             {
                 eprintln!(
@@ -2206,19 +2201,13 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
             let report_spec = std::fs::read_to_string(&output.report_spec_path).unwrap_or_default();
             let report_html = std::fs::read_to_string(&output.report_path).unwrap_or_default();
-            if !result.contains("\"method\": \"adaptive_heun\"")
-                || !result.contains("\"convergence_status\": \"adaptive_heun_completed\"")
-                || !result.contains("\"tolerance\": 0.0001")
-                || !result.contains("recognized continuous state-space A/B operators")
-                || !result.contains("\"step_diagnostics\": [")
-                || !result.contains("\"status\": \"accepted\"")
-                || !review.contains("\"substep_count\"")
-                || !review.contains("\"accepted_substep_count\"")
-                || !report_spec.contains("\"adaptive_heun\"")
-                || !report_spec.contains("\"adaptive_heun_completed\"")
-                || !report_spec.contains("\"step_diagnostics\": [")
-                || !report_spec.contains("\"status\": \"accepted\"")
-                || !report_html.contains("adaptive_heun")
+            if !adaptive_solver_artifacts_are_structured(
+                &result,
+                &review,
+                &report_spec,
+                "AdaptiveStateSpace",
+                Some("continuous state-space A/B operators"),
+            ) || !report_html.contains("adaptive_heun")
                 || !report_html.contains("substeps=")
             {
                 eprintln!(
@@ -4318,6 +4307,126 @@ fn jit_bench_has_executor_sample(bench_json: &str, candidate: &str, status: &str
                     && sample["backend"] == eng_jit::INTERPRETER_FALLBACK_BACKEND
             })
         })
+}
+
+fn adaptive_solver_artifacts_are_structured(
+    result_json: &str,
+    review_json: &str,
+    report_spec_json: &str,
+    expected_system: &str,
+    expected_reason_fragment: Option<&str>,
+) -> bool {
+    let Ok(result) = serde_json::from_str::<Value>(result_json) else {
+        return false;
+    };
+    let Ok(review) = serde_json::from_str::<Value>(review_json) else {
+        return false;
+    };
+    let Ok(report_spec) = serde_json::from_str::<Value>(report_spec_json) else {
+        return false;
+    };
+
+    let Some(result_solver) = result["typed_payload"]["systems"]
+        .as_array()
+        .and_then(|systems| {
+            systems
+                .iter()
+                .find(|system| system["name"] == expected_system)
+        })
+        .and_then(|system| system.get("solver_result"))
+    else {
+        return false;
+    };
+    if !adaptive_solver_result_is_complete(result_solver, expected_reason_fragment) {
+        return false;
+    }
+
+    let review_summary_ok = review["simulation_results"]
+        .as_array()
+        .and_then(|results| {
+            results.iter().find(|result| {
+                result["system"] == expected_system && result["status"] == "computed"
+            })
+        })
+        .and_then(|result| result.get("diagnostics"))
+        .is_some_and(adaptive_review_diagnostics_are_complete);
+    if !review_summary_ok {
+        return false;
+    }
+
+    report_spec["system_ir"]
+        .as_array()
+        .and_then(|systems| {
+            systems
+                .iter()
+                .find(|system| system["name"] == expected_system)
+        })
+        .and_then(|system| system["solver_results"].as_array())
+        .and_then(|solver_results| {
+            solver_results
+                .iter()
+                .find(|solver| adaptive_solver_result_is_complete(solver, expected_reason_fragment))
+        })
+        .is_some()
+}
+
+fn adaptive_solver_result_is_complete(
+    solver: &Value,
+    expected_reason_fragment: Option<&str>,
+) -> bool {
+    if solver["status"] != "computed"
+        || solver["method"] != "adaptive_heun"
+        || solver["convergence_status"] != "adaptive_heun_completed"
+        || !solver["failure_code"].is_null()
+        || !solver["failure_reason"].is_null()
+    {
+        return false;
+    }
+    if !solver["tolerance"]
+        .as_f64()
+        .is_some_and(|tolerance| (tolerance - 0.0001).abs() < 1e-12)
+    {
+        return false;
+    }
+    if !expected_reason_fragment.is_none_or(|fragment| {
+        solver["reason"]
+            .as_str()
+            .is_some_and(|reason| reason.contains(fragment))
+    }) {
+        return false;
+    }
+
+    let step_count = solver["step_count"].as_u64().unwrap_or(0);
+    let iteration_count = solver["iteration_count"].as_u64().unwrap_or(0);
+    let Some(step_diagnostics) = solver["step_diagnostics"].as_array() else {
+        return false;
+    };
+    step_count > 0
+        && iteration_count >= step_count
+        && !step_diagnostics.is_empty()
+        && step_diagnostics
+            .iter()
+            .any(|step| step["status"] == "accepted")
+        && step_diagnostics.iter().all(|step| {
+            step["output_index"]
+                .as_u64()
+                .is_some_and(|output_index| output_index <= step_count)
+                && step["dt_s"].as_f64().is_some_and(|dt| dt > 0.0)
+                && step["error_norm"]
+                    .as_f64()
+                    .is_some_and(|error_norm| error_norm.is_finite())
+        })
+}
+
+fn adaptive_review_diagnostics_are_complete(diagnostics: &Value) -> bool {
+    diagnostics["failure_code"].is_null()
+        && diagnostics["failure_reason"].is_null()
+        && diagnostics["substep_count"].as_u64().unwrap_or(0) > 0
+        && diagnostics["accepted_substep_count"].as_u64().unwrap_or(0) > 0
+        && diagnostics["rejected_substep_count"].as_u64().is_some()
+        && diagnostics["max_substep_error_norm"]
+            .as_f64()
+            .is_some_and(|error_norm| error_norm.is_finite())
 }
 
 fn jit_benchmark_targets(
