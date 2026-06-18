@@ -118,6 +118,9 @@ Current coverage:
 - IDE panels expose state-space solver result rows with state trajectories,
   input/output series metadata, timestep, tolerance, iteration count,
   convergence status, and failure reason from `report_spec.json`/`result.engres`.
+- IDE solver trajectory/system panels summarize adaptive system substeps from
+  `step_diagnostics`, and the IDE smoke path requires adaptive Heun substep
+  metadata in both system solver rows and TimeSeries integration metadata.
 - IDE TimeSeries inspector rows expose component solver state/algebraic
   trajectory metadata plus component solver failure code/reason when a failed
   internal dynamic-component result still carries trajectory points.

@@ -1174,6 +1174,18 @@ fn time_series_inspector(report: &Value, result: &Value) -> Value {
                     .unwrap_or_else(|| "system".to_owned());
                 let time_step = json_field_string(solver_result, "time_step")
                     .or_else(|| json_field_string(solver_result, "time_step_s"));
+                let step_diagnostics = solver_result
+                    .get("step_diagnostics")
+                    .and_then(Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
+                let accepted_substeps = step_diagnostics
+                    .iter()
+                    .filter(|diagnostic| {
+                        json_field_string(diagnostic, "status").as_deref() == Some("accepted")
+                    })
+                    .count();
+                let rejected_substeps = step_diagnostics.len().saturating_sub(accepted_substeps);
                 rows.push(json!({
                     "name": format!(
                         "{}.{}",
@@ -1196,6 +1208,9 @@ fn time_series_inspector(report: &Value, result: &Value) -> Value {
                     "integration_metadata": {
                         "method": json_field_string(solver_result, "method").unwrap_or_default(),
                         "step_count": json_field_usize(solver_result, "step_count").unwrap_or(0),
+                        "substep_count": step_diagnostics.len(),
+                        "accepted_substep_count": accepted_substeps,
+                        "rejected_substep_count": rejected_substeps,
                         "duration": json_field_string(solver_result, "duration").unwrap_or_default(),
                         "final_value": json_field_string(solver_result, "final_value").unwrap_or_default()
                     },
@@ -2447,6 +2462,57 @@ fn smoke() -> Result<(), String> {
             state_space_example.display()
         ));
     }
+    let adaptive_example = root.join("examples/internal/27_adaptive_heun_thermal/main.eng");
+    let adaptive_output = run_file(
+        &adaptive_example,
+        &root.join("build").join("ide-smoke-adaptive-heun"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let adaptive_cached = CachedRunOutput::from_output(adaptive_output);
+    let adaptive_inspectors = runtime_inspectors(&root, &adaptive_cached);
+    let has_adaptive_substeps = adaptive_inspectors.systems.as_array().is_some_and(|items| {
+        items.iter().any(|item| {
+            item.get("solver_results")
+                .and_then(Value::as_array)
+                .is_some_and(|solver_results| {
+                    solver_results.iter().any(|solver_result| {
+                        json_field_string(solver_result, "method").as_deref()
+                            == Some("adaptive_heun")
+                            && solver_result
+                                .get("step_diagnostics")
+                                .and_then(Value::as_array)
+                                .is_some_and(|diagnostics| {
+                                    !diagnostics.is_empty()
+                                        && diagnostics.iter().any(|diagnostic| {
+                                            json_field_string(diagnostic, "status").as_deref()
+                                                == Some("accepted")
+                                        })
+                                })
+                    })
+                })
+        })
+    });
+    let has_adaptive_timeseries_metadata =
+        adaptive_inspectors
+            .time_series
+            .as_array()
+            .is_some_and(|items| {
+                items.iter().any(|item| {
+                    json_field_string(item, "name").as_deref() == Some("sim.T_zone")
+                        && item
+                            .get("integration_metadata")
+                            .and_then(|metadata| json_field_usize(metadata, "substep_count"))
+                            .unwrap_or(0)
+                            > 0
+                })
+            });
+    if !has_adaptive_substeps || !has_adaptive_timeseries_metadata {
+        return Err(format!(
+            "{} did not produce IDE adaptive solver substep inspector metadata",
+            adaptive_example.display()
+        ));
+    }
     let jit_example = root.join("examples/official/01_csv_plot/main.eng");
     let jit_output = run_file(
         &jit_example,
@@ -2651,6 +2717,74 @@ mod tests {
             "hello"
         );
         assert!(terminal_summary("", &[], &[], "", &Value::Null).is_empty());
+    }
+
+    #[test]
+    fn time_series_inspector_includes_system_solver_substep_metadata() {
+        let result = json!({
+            "typed_payload": {
+                "systems": [
+                    {
+                        "name": "AdaptiveThermal",
+                        "solver_results": [
+                            {
+                                "status": "computed",
+                                "binding": "sim",
+                                "method": "adaptive_heun",
+                                "state": "T_zone",
+                                "display_unit": "degC",
+                                "canonical_unit": "K",
+                                "time_step": 1.0,
+                                "step_count": 2,
+                                "duration": 2.0,
+                                "final_value": 22.0,
+                                "points": [
+                                    { "x": 0.0, "y": 21.0 },
+                                    { "x": 1.0, "y": 21.5 },
+                                    { "x": 2.0, "y": 22.0 }
+                                ],
+                                "step_diagnostics": [
+                                    {
+                                        "output_index": 1,
+                                        "start_time_s": 0.0,
+                                        "end_time_s": 0.5,
+                                        "dt_s": 0.5,
+                                        "error_norm": 0.00001,
+                                        "status": "accepted"
+                                    },
+                                    {
+                                        "output_index": 1,
+                                        "start_time_s": 0.5,
+                                        "end_time_s": 0.5,
+                                        "dt_s": 0.5,
+                                        "error_norm": 0.01,
+                                        "status": "rejected_error_above_tolerance"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        });
+        let rows = time_series_inspector(&json!({}), &result);
+        let rows = rows.as_array().expect("time-series rows");
+
+        assert!(rows.iter().any(|row| {
+            json_field_string(row, "name").as_deref() == Some("sim.T_zone")
+                && row
+                    .get("integration_metadata")
+                    .and_then(|metadata| json_field_usize(metadata, "substep_count"))
+                    == Some(2)
+                && row
+                    .get("integration_metadata")
+                    .and_then(|metadata| json_field_usize(metadata, "accepted_substep_count"))
+                    == Some(1)
+                && row
+                    .get("integration_metadata")
+                    .and_then(|metadata| json_field_usize(metadata, "rejected_substep_count"))
+                    == Some(1)
+        }));
     }
 
     #[test]

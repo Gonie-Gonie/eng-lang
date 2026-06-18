@@ -1010,6 +1010,9 @@ function solverTrajectoryRows() {
     const states = stringList(result, "states", "states");
     const state = result.state || "-";
     const unit = result.display_unit || result.displayUnit || "";
+    const stepDiagnostics = systemStepDiagnostics(result);
+    const outputStep = result.time_step_s ?? result.timeStepS ?? result.time_step ?? result.timeStep ?? "-";
+    const substeps = systemStepSummary(stepDiagnostics);
     return {
       kind: "system",
       owner: system.name || "-",
@@ -1023,7 +1026,7 @@ function solverTrajectoryRows() {
       method: result.method || "-",
       convergence: result.convergence_status || result.convergenceStatus || "-",
       pointCount: Array.isArray(result.points) ? String(result.points.length) : "-",
-      step: result.time_step_s ?? result.timeStepS ?? result.time_step ?? result.timeStep ?? "-",
+      step: substeps === "-" ? outputStep : `${outputStep}; ${substeps}`,
       duration: result.duration_s ?? result.durationS ?? result.duration ?? "-",
       finalValue: metricCell(result.final_value ?? result.finalValue),
       failure: result.failure_reason ?? result.failureReason ?? "-"
@@ -1063,6 +1066,24 @@ function solverTrajectoryRows() {
     };
   });
   return [...systemRows, ...componentRows];
+}
+
+function systemStepDiagnostics(result) {
+  const diagnostics = result?.step_diagnostics ?? result?.stepDiagnostics;
+  return Array.isArray(diagnostics) ? diagnostics : [];
+}
+
+function systemStepSummary(stepDiagnostics) {
+  if (!Array.isArray(stepDiagnostics) || !stepDiagnostics.length) return "-";
+  const accepted = stepDiagnostics.filter((diagnostic) => {
+    return (diagnostic.status || "") === "accepted";
+  }).length;
+  const rejected = stepDiagnostics.length - accepted;
+  const maxError = stepDiagnostics.reduce((current, diagnostic) => {
+    const error = Number(diagnostic.error_norm ?? diagnostic.errorNorm ?? 0);
+    return Number.isFinite(error) ? Math.max(current, Math.abs(error)) : current;
+  }, 0);
+  return `substeps ${stepDiagnostics.length}, accepted ${accepted}, rejected ${rejected}, max error ${fmt(maxError)}`;
 }
 
 function systemSolverResults() {
@@ -1218,13 +1239,14 @@ function renderSystems() {
     const iterations = `${solver.iteration_count ?? solver.iterationCount ?? "-"} / ${solver.max_iterations ?? solver.maxIterations ?? "-"}`;
     const convergence = solver.convergence_status ?? solver.convergenceStatus ?? "-";
     const failure = solver.failure_reason ?? solver.failureReason ?? "-";
+    const substeps = systemStepSummary(systemStepDiagnostics(solver));
     return `
       <tr>
         <td><strong>${escapeHtml(system.name || "-")}</strong><div class="muted">L${escapeHtml(system.line || "-")}</div></td>
         <td>${escapeHtml(stateLabel)}<div class="muted">alg ${escapeHtml(joinOrDash(algebraicNames))}</div></td>
         <td>${escapeHtml(joinOrDash(inputNames))}<div class="muted">params ${escapeHtml(joinOrDash(parameterNames))}</div><div class="muted">outputs ${escapeHtml(joinOrDash(outputNames))}</div></td>
         <td>${escapeHtml(solver.status || "-")}<div class="muted">${escapeHtml(solver.method || "-")}</div></td>
-        <td>${escapeHtml(timeStep)}<div class="muted">steps ${escapeHtml(steps)}</div></td>
+        <td>${escapeHtml(timeStep)}<div class="muted">steps ${escapeHtml(steps)}</div><div class="muted">${escapeHtml(substeps)}</div></td>
         <td>${escapeHtml(tolerance)}<div class="muted">iter ${escapeHtml(iterations)}</div></td>
         <td>${escapeHtml(convergence)}<div class="muted">${escapeHtml(failure)}</div></td>
       </tr>
