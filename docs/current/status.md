@@ -282,9 +282,10 @@ are not public stable workflows.
 - General table formulas and arbitrary TimeSeries expression execution.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
-- General nonlinear, DAE, broad adaptive, and multi-state equation solving
-  outside the current one-state thermal adaptive path, internal fixed-step
-  state-space path, and standalone runtime algorithm seeds.
+- General nonlinear, DAE, broad adaptive, and general multi-state equation
+  solving outside the current one-state thermal adaptive path, internal
+  fixed-step/adaptive state-space paths, and standalone runtime algorithm
+  seeds.
 - Stable-supported state-space workflow boundaries beyond the current internal
   fixed-step vector simulation path.
 - Component graph solving with boundary conditions, component behavior
@@ -307,8 +308,9 @@ are not public stable workflows.
 - General quantity rules for all statistics are not complete.
 - Plot semantics beyond current PlotSpec paths need custom histogram bin
   counts, grouped/stacked bar hardening, and broader multi-axis semantics.
-- Multi-state, nonlinear, broad adaptive, or general equation-system solving is
-  deferred outside the one-state thermal `adaptive_heun` path.
+- General multi-state equation-system, nonlinear, broad adaptive, or general
+  equation-system solving is deferred outside the one-state thermal
+  `adaptive_heun` path and internal state-space seeds.
 - Production numeric component graph solving, physical multi-domain solving,
   and domain package registries are deferred.
 - Full Unicode unit spelling support beyond the supported `°C` alias is

@@ -148,6 +148,16 @@ internal/26_state_space_discrete
   Discrete two-state state-space execution with `next(x) eq A * x + B * u`,
   scalar input materialization, canonical operator matrices, named nonzero
   entries, and two emitted state trajectories.
+
+internal/27_adaptive_heun_thermal
+  One-state thermal `simulate` fixture for `solver = adaptive_heun`, fixed
+  report/output TimeGrid, explicit duration, tolerance, and adaptive internal
+  substep diagnostics.
+
+internal/28_adaptive_state_space
+  Continuous state-space `der(x) eq A * x + B * u` fixture for the internal
+  `solver = adaptive_heun` path, including TimeSeries input materialization,
+  fixed output TimeGrid, and adaptive internal substep diagnostics.
 ```
 
 ## Compatibility Regression Examples

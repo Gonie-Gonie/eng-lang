@@ -1259,11 +1259,12 @@ source state/input unit per second. Inverse-time display units are canonicalized
 to per-second numeric coefficients before runtime/JIT matrix use and report/IDE
 inspection. Unsupported coefficient units are diagnosed with
 `E-STATE-SPACE-OP-ENTRY-UNIT-001`.
-Runtime may materialize fixed-step state trajectories when shape-checked A/B
-operators are available, including multi-state continuous Euler/RK4 execution,
-discrete A/B execution, and TimeSeries materialization for bound input vector
-members. This internal track does not claim broad operator algebra, nonlinear,
-DAE, broad adaptive, or component-coupled state-space solving.
+Runtime may materialize state trajectories when shape-checked A/B operators are
+available, including multi-state continuous Euler/RK4 execution, continuous
+`adaptive_heun` execution with a fixed output TimeGrid, discrete A/B execution,
+and TimeSeries materialization for bound input vector members. This internal
+track does not claim broad operator algebra, nonlinear, DAE, discrete adaptive,
+broad adaptive, or component-coupled state-space solving.
 
 Domain/component shapes are documented separately in
 `docs/guide/domain_component.md`. They are useful for metadata, validation, and
@@ -1473,7 +1474,7 @@ The current guide intentionally does not promise:
 | Full process sandboxing | Explicit process records and profile basics exist; sandbox isolation is deferred |
 | Project-wide test discovery/runner | Local source-file test blocks exist; workspace discovery is deferred |
 | Full package/module system | File imports and metadata seeds only |
-| General nonlinear/DAE/broad adaptive solving | Deferred beyond supported one-state thermal fixed/adaptive path and internal fixed-step state-space path |
+| General nonlinear/DAE/broad adaptive solving | Deferred beyond supported one-state thermal fixed/adaptive path plus internal fixed-step and continuous `adaptive_heun` state-space paths |
 | Full artifact schema evolution policy | Stable-core schemas exist; broader future-track schemas may grow |
 
 ## Authoring Checklist

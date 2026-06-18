@@ -426,11 +426,11 @@ when the target derivative unit is exactly the source state/input unit per
 second; these display units are canonicalized to per-second numeric
 coefficients before runtime/JIT matrix use and report/IDE inspection.
 Unsupported unitful entries are diagnosed instead of being silently sent to the
-numeric runtime. Runtime can also materialize fixed-step state trajectories from
-shape-checked A/B
-operators, including multi-state Euler/RK4, discrete A/B execution, and
-TimeSeries materialization for bound input vector members. This remains an
-internal seed, not a general nonlinear, DAE, broad adaptive,
+numeric runtime. Runtime can also materialize state trajectories from
+shape-checked A/B operators, including multi-state Euler/RK4, continuous
+`adaptive_heun` execution with a fixed output TimeGrid, discrete A/B execution,
+and TimeSeries materialization for bound input vector members. This remains an
+internal seed, not a general nonlinear, DAE, discrete adaptive, broad adaptive,
 operator-algebra, or component-coupled simulation solver.
 
 ## Uncertainty Metadata
