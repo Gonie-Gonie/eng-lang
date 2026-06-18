@@ -945,6 +945,59 @@ impl RuntimeSystemSolution {
         })
     }
 
+    pub fn failed_from_solver_failure(
+        system: &eng_compiler::SystemInfo,
+        binding: Option<&str>,
+        state: &eng_compiler::SystemVariableInfo,
+        solver_input: &SolverInput,
+        failure: &SolverFailure,
+        reason: &str,
+    ) -> Option<Self> {
+        let canonical_initial_value = solver_input
+            .state_layout
+            .index_of(&state.name)
+            .and_then(|index| solver_input.initial_state.get(index).copied())
+            .or_else(|| canonical_variable_value(state))
+            .unwrap_or(0.0);
+        let initial_value = display_variable_value(canonical_initial_value, state);
+
+        Some(Self {
+            system: system.name.clone(),
+            binding: binding.map(str::to_owned),
+            status: "failed".to_owned(),
+            method: solver_input.plan.options.method.clone(),
+            reason: reason.to_owned(),
+            states: solver_input.plan.simulation.states.clone(),
+            algebraic_variables: system_variable_names_by_role(system, "algebraic"),
+            inputs: solver_input.plan.simulation.inputs.clone(),
+            parameters: solver_input.plan.simulation.parameters.clone(),
+            outputs: solver_input.plan.simulation.outputs.clone(),
+            state: state.name.clone(),
+            quantity_kind: state.quantity_kind.clone(),
+            display_unit: state.display_unit.clone(),
+            canonical_unit: state.canonical_unit.clone(),
+            time_unit: solver_input.time_grid.unit.clone(),
+            duration_s: solver_input.time_grid.duration_s,
+            time_step_s: solver_input.time_grid.timestep_s,
+            step_count: solver_input.time_grid.step_count,
+            tolerance: solver_input.plan.options.tolerance,
+            max_iterations: solver_input.plan.options.max_iterations,
+            iteration_count: 0,
+            convergence_status: "failed".to_owned(),
+            failure_code: Some(failure.code.clone()),
+            failure_reason: Some(failure.message.clone()),
+            initial_value,
+            final_value: initial_value,
+            canonical_initial_value,
+            canonical_final_value: canonical_initial_value,
+            step_diagnostics: Vec::new(),
+            points: vec![RuntimePoint {
+                x: solver_input.time_grid.start_s,
+                y: initial_value,
+            }],
+        })
+    }
+
     pub fn to_report_solution(&self) -> ReportSystemSolution {
         ReportSystemSolution {
             binding: self.binding.clone(),
@@ -3277,8 +3330,11 @@ fn materialize_state_space_solutions(
         parameters: Vec::new(),
     };
     if is_discrete_state_space {
-        let solver_result =
-            solve_discrete_state_space(&solver_input, &matrix_a, &matrix_b, |sample_time_s| {
+        let solver_result = match solve_discrete_state_space(
+            &solver_input,
+            &matrix_a,
+            &matrix_b,
+            |sample_time_s| {
                 inputs
                     .iter()
                     .zip(input_series.iter())
@@ -3290,8 +3346,21 @@ fn materialize_state_space_solutions(
                             "discrete state-space solver could not materialize one or more input values",
                         )
                     })
-            })
-            .ok()?;
+            },
+        ) {
+            Ok(result) => result,
+            Err(failure) => {
+                let reason = "recognized discrete-time state-space A/B operators, but solver evaluation failed";
+                return failed_state_space_runtime_solutions(
+                    system,
+                    binding,
+                    &states,
+                    &solver_input,
+                    &failure,
+                    reason,
+                );
+            }
+        };
         let reason = if input_series.iter().any(Option::is_some) {
             "recognized discrete-time state-space A/B operators and executed state update with TimeSeries input materialization"
         } else {
@@ -3300,7 +3369,7 @@ fn materialize_state_space_solutions(
         return state_space_runtime_solutions(system, binding, &states, &solver_result, reason);
     }
     if let Some(adaptive_options) = adaptive_options {
-        let adaptive_result = solve_adaptive_state_space(
+        let adaptive_result = match solve_adaptive_state_space(
             &solver_input,
             &matrix_a,
             &matrix_b,
@@ -3318,8 +3387,20 @@ fn materialize_state_space_solutions(
                         )
                     })
             },
-        )
-        .ok()?;
+        ) {
+            Ok(result) => result,
+            Err(failure) => {
+                let reason = "recognized continuous state-space A/B operators, but adaptive Heun solver evaluation failed";
+                return failed_state_space_runtime_solutions(
+                    system,
+                    binding,
+                    &states,
+                    &solver_input,
+                    &failure,
+                    reason,
+                );
+            }
+        };
         let reason = if input_series.iter().any(Option::is_some) {
             "recognized continuous state-space A/B operators and executed adaptive Heun trajectories with TimeSeries input materialization"
         } else {
@@ -3336,7 +3417,7 @@ fn materialize_state_space_solutions(
         attach_system_step_diagnostics(&mut solutions, &step_diagnostics);
         return Some(solutions);
     }
-    let solver_result = solve_continuous_state_space(
+    let solver_result = match solve_continuous_state_space(
         fixed_step_method,
         &solver_input,
         &matrix_a,
@@ -3354,8 +3435,20 @@ fn materialize_state_space_solutions(
                     )
                 })
         },
-    )
-    .ok()?;
+    ) {
+        Ok(result) => result,
+        Err(failure) => {
+            let reason = "recognized continuous state-space A/B operators, but fixed-step solver evaluation failed";
+            return failed_state_space_runtime_solutions(
+                system,
+                binding,
+                &states,
+                &solver_input,
+                &failure,
+                reason,
+            );
+        }
+    };
 
     let reason = if input_series.iter().any(Option::is_some) {
         "recognized multi-state state-space A/B operators and executed fixed-step trajectories with TimeSeries input materialization"
@@ -3372,10 +3465,20 @@ fn state_space_runtime_solutions(
     solver_result: &SolverResult,
     reason: &str,
 ) -> Option<Vec<RuntimeSystemSolution>> {
+    let output_names = solver_result
+        .output_layout
+        .entries
+        .iter()
+        .map(|entry| entry.name.as_str())
+        .collect::<Vec<_>>();
+    let include_all_states = output_names.is_empty();
     let solutions = solver_result
         .output
         .state_trajectories
         .iter()
+        .filter(|trajectory| {
+            include_all_states || output_names.iter().any(|name| *name == trajectory.name)
+        })
         .filter_map(|trajectory| {
             states
                 .iter()
@@ -3390,6 +3493,39 @@ fn state_space_runtime_solutions(
                         reason,
                     )
                 })
+        })
+        .collect::<Vec<_>>();
+
+    (!solutions.is_empty()).then_some(solutions)
+}
+
+fn failed_state_space_runtime_solutions(
+    system: &eng_compiler::SystemInfo,
+    binding: Option<&str>,
+    states: &[&eng_compiler::SystemVariableInfo],
+    solver_input: &SolverInput,
+    failure: &SolverFailure,
+    reason: &str,
+) -> Option<Vec<RuntimeSystemSolution>> {
+    let output_names = solver_input
+        .output_layout
+        .entries
+        .iter()
+        .map(|entry| entry.name.as_str())
+        .collect::<Vec<_>>();
+    let include_all_states = output_names.is_empty();
+    let solutions = states
+        .iter()
+        .filter(|state| include_all_states || output_names.iter().any(|name| *name == state.name))
+        .filter_map(|state| {
+            RuntimeSystemSolution::failed_from_solver_failure(
+                system,
+                binding,
+                state,
+                solver_input,
+                failure,
+                reason,
+            )
         })
         .collect::<Vec<_>>();
 
@@ -6743,6 +6879,110 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
             .time_series
             .iter()
             .any(|series| series.name == "sim.T_wall"));
+    }
+
+    #[test]
+    fn state_space_runtime_adapter_respects_output_layout() {
+        let source = r#"
+system OutputSubsetStateSpace {
+    state T_air: AbsoluteTemperature = 20 degC
+    state T_wall: AbsoluteTemperature = 20 degC
+    input Q_hvac: HeatRate = 1000 W
+
+    states x = [T_air, T_wall]
+    inputs u = [Q_hvac]
+    outputs y = [T_air]
+
+    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[1.0, 0.0]; [0.0, 1.0]]
+    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.001]; [0.002]]
+
+    equation {
+        next(x) eq A * x + B * u
+    }
+}
+
+sim = simulate OutputSubsetStateSpace
+with {
+    timestep = 10 min
+    solver = fixed_step
+}
+"#;
+        let report = check_source("output_subset.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let runtime = materialize_runtime_data(&report, source);
+
+        let sim_solutions = runtime
+            .system_solutions
+            .iter()
+            .filter(|solution| solution.binding.as_deref() == Some("sim"))
+            .collect::<Vec<_>>();
+        assert_eq!(sim_solutions.len(), 1);
+        assert_eq!(sim_solutions[0].state, "T_air");
+        assert_eq!(sim_solutions[0].outputs, vec!["T_air".to_owned()]);
+        assert!(runtime
+            .time_series
+            .iter()
+            .any(|series| series.name == "sim.T_air"));
+        assert!(!runtime
+            .time_series
+            .iter()
+            .any(|series| series.name == "sim.T_wall"));
+    }
+
+    #[test]
+    fn state_space_solver_failure_materializes_failed_solution() {
+        let overflowing_coefficient = format!("1{}", "0".repeat(306));
+        let source = format!(
+            r#"
+system FailingStateSpace {{
+    state T_air: AbsoluteTemperature = 20 degC
+    state T_wall: AbsoluteTemperature = 20 degC
+    input Q_hvac: HeatRate = 1000 W
+
+    states x = [T_air, T_wall]
+    inputs u = [Q_hvac]
+    outputs y = [T_air]
+
+    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[{overflowing_coefficient}, 0.0]; [0.0, 1.0]]
+    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.0]; [0.0]]
+
+    equation {{
+        next(x) eq A * x + B * u
+    }}
+}}
+
+sim = simulate FailingStateSpace
+with {{
+    timestep = 10 min
+    solver = fixed_step
+}}
+"#
+        );
+        let report = check_source("failing_state_space.eng", &source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let runtime = materialize_runtime_data(&report, &source);
+
+        let sim_solutions = runtime
+            .system_solutions
+            .iter()
+            .filter(|solution| solution.binding.as_deref() == Some("sim"))
+            .collect::<Vec<_>>();
+        assert_eq!(sim_solutions.len(), 1);
+        let solution = sim_solutions[0];
+        assert_eq!(solution.status, "failed");
+        assert_eq!(solution.state, "T_air");
+        assert_eq!(solution.outputs, vec!["T_air".to_owned()]);
+        assert_eq!(solution.failure_code.as_deref(), Some("E-RHS-STATE-FINITE"));
+        assert!(solution
+            .failure_reason
+            .as_deref()
+            .unwrap()
+            .contains("discrete state-space state"));
+        assert!(solution.reason.contains("solver evaluation failed"));
+        assert!(!runtime
+            .time_series
+            .iter()
+            .any(|series| series.name == "sim.T_air"));
     }
 
     #[test]
