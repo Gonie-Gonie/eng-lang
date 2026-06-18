@@ -963,7 +963,18 @@ pub struct ReportSystemSolution {
     pub final_value: f64,
     pub canonical_initial_value: f64,
     pub canonical_final_value: f64,
+    pub step_diagnostics: Vec<ReportSystemSolverStepDiagnostic>,
     pub points: Vec<ReportSystemSolutionPoint>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportSystemSolverStepDiagnostic {
+    pub output_index: usize,
+    pub start_time_s: f64,
+    pub end_time_s: f64,
+    pub dt_s: f64,
+    pub error_norm: f64,
+    pub status: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -5137,6 +5148,7 @@ fn push_report_system_solutions_json(
             "{indent}    \"canonical_final_value\": {},\n",
             solution.canonical_final_value
         ));
+        push_report_system_step_diagnostics_json(json, &solution.step_diagnostics, indent);
         json.push_str(&format!("{indent}    \"points\": [\n"));
         for (point_index, point) in solution.points.iter().enumerate() {
             if point_index > 0 {
@@ -5151,6 +5163,43 @@ fn push_report_system_solutions_json(
         json.push_str(&format!("{indent}  }}"));
     }
     json.push_str(&format!("\n{indent}]"));
+}
+
+fn push_report_system_step_diagnostics_json(
+    json: &mut String,
+    diagnostics: &[ReportSystemSolverStepDiagnostic],
+    indent: &str,
+) {
+    json.push_str(&format!("{indent}    \"step_diagnostics\": [\n"));
+    for (diagnostic_index, diagnostic) in diagnostics.iter().enumerate() {
+        if diagnostic_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}      {{\n"));
+        json.push_str(&format!(
+            "{indent}        \"output_index\": {},\n",
+            diagnostic.output_index
+        ));
+        json.push_str(&format!(
+            "{indent}        \"start_time_s\": {},\n",
+            diagnostic.start_time_s
+        ));
+        json.push_str(&format!(
+            "{indent}        \"end_time_s\": {},\n",
+            diagnostic.end_time_s
+        ));
+        json.push_str(&format!("{indent}        \"dt_s\": {},\n", diagnostic.dt_s));
+        json.push_str(&format!(
+            "{indent}        \"error_norm\": {},\n",
+            diagnostic.error_norm
+        ));
+        json.push_str(&format!(
+            "{indent}        \"status\": \"{}\"\n",
+            json_escape(&diagnostic.status)
+        ));
+        json.push_str(&format!("{indent}      }}"));
+    }
+    json.push_str(&format!("\n{indent}    ],\n"));
 }
 
 fn push_report_kernel_plan_json(json: &mut String, plan: &ReportKernelPlan) {
@@ -6463,12 +6512,14 @@ fn render_system_solver_section(spec: &ReportSpec) -> String {
                     html_escape(&join_or_dash(&solution.parameters)),
                     html_escape(&join_or_dash(&solution.outputs))
                 );
+                let step_diagnostics = format_system_solver_step_diagnostics_summary(solution);
                 let diagnostics = format!(
-                    "tol={} iter={}/{} convergence={} failure_code={} failure={}",
+                    "tol={} iter={}/{} convergence={} substeps={} failure_code={} failure={}",
                     format_solver_tolerance(solution.tolerance),
                     solution.iteration_count,
                     solution.max_iterations,
                     html_escape(&solution.convergence_status),
+                    html_escape(&step_diagnostics),
                     html_escape(solution.failure_code.as_deref().unwrap_or("-")),
                     html_escape(solution.failure_reason.as_deref().unwrap_or("-"))
                 );
@@ -6499,6 +6550,28 @@ fn render_system_solver_section(spec: &ReportSpec) -> String {
       <thead><tr><th>System</th><th>Binding</th><th>Trajectory</th><th>Variables</th><th>Status/Method</th><th>Diagnostics</th><th>Steps</th><th>Final</th><th>Step</th></tr></thead>
       <tbody>{rows}</tbody>
     </table>"#
+    )
+}
+
+fn format_system_solver_step_diagnostics_summary(solution: &ReportSystemSolution) -> String {
+    if solution.step_diagnostics.is_empty() {
+        return "-".to_owned();
+    }
+    let rejected = solution
+        .step_diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.status != "accepted")
+        .count();
+    let max_error = solution
+        .step_diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.error_norm.abs())
+        .fold(0.0, f64::max);
+    format!(
+        "{} total, {} rejected, max_error={}",
+        solution.step_diagnostics.len(),
+        rejected,
+        format_alignment_number(max_error)
     )
 }
 

@@ -1472,6 +1472,7 @@
         "final_value",
         "canonical_initial_value",
         "canonical_final_value",
+        "step_diagnostics",
         "points"
       ],
       "properties": {
@@ -1517,10 +1518,33 @@
         "final_value": { "type": "number" },
         "canonical_initial_value": { "type": "number" },
         "canonical_final_value": { "type": "number" },
+        "step_diagnostics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/systemSolverStepDiagnostic" }
+        },
         "points": {
           "type": "array",
           "items": { "$ref": "#/$defs/systemSolverPoint" }
         }
+      }
+    },
+    "systemSolverStepDiagnostic": {
+      "type": "object",
+      "required": [
+        "output_index",
+        "start_time_s",
+        "end_time_s",
+        "dt_s",
+        "error_norm",
+        "status"
+      ],
+      "properties": {
+        "output_index": { "type": "integer", "minimum": 0 },
+        "start_time_s": { "type": "number" },
+        "end_time_s": { "type": "number" },
+        "dt_s": { "type": "number" },
+        "error_norm": { "type": "number" },
+        "status": { "type": "string" }
       }
     },
     "systemSolverPoint": {

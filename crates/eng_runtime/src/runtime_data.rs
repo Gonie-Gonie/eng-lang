@@ -11,8 +11,8 @@ use eng_report::{
     ReportComputedMetric, ReportComputedStatisticValue, ReportComputedStatistics,
     ReportMlCoefficient, ReportMlInfo, ReportPolicyResult, ReportPolicyViolation,
     ReportSolverFailureArtifact, ReportSpec, ReportSystemSolution, ReportSystemSolutionPoint,
-    ReportTimeAlignment, ReportTimeAxis, ReportUncertaintyInfo, ReportUncertaintyPropagationTerm,
-    ReportValidationResult,
+    ReportSystemSolverStepDiagnostic, ReportTimeAlignment, ReportTimeAxis, ReportUncertaintyInfo,
+    ReportUncertaintyPropagationTerm, ReportValidationResult,
 };
 
 use crate::solver::{
@@ -22,10 +22,10 @@ use crate::solver::{
     },
     solve_adaptive_heun_ode, solve_adaptive_state_space, solve_continuous_state_space,
     solve_discrete_state_space, solve_first_order_thermal, solve_linear_residual_graph,
-    AdaptiveOdeOptions, DynamicComponentResult, FirstOrderThermalModel, FixedStepMethod,
-    InputLayout, LayoutEntry, OutputLayout, ParameterLayout, ResidualEvaluator, ResidualGraph,
-    ResidualInput, ResidualOutput, SimulationPlan, SolverFailure, SolverInput, SolverOptions,
-    SolverPlan, SolverResult, SolverScalar, StateLayout, StateTrajectory, TimeGrid,
+    AdaptiveOdeOptions, AdaptiveOdeStepReport, DynamicComponentResult, FirstOrderThermalModel,
+    FixedStepMethod, InputLayout, LayoutEntry, OutputLayout, ParameterLayout, ResidualEvaluator,
+    ResidualGraph, ResidualInput, ResidualOutput, SimulationPlan, SolverFailure, SolverInput,
+    SolverOptions, SolverPlan, SolverResult, SolverScalar, StateLayout, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -653,6 +653,16 @@ pub struct RuntimePoint {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeSystemStepDiagnostic {
+    pub output_index: usize,
+    pub start_time_s: f64,
+    pub end_time_s: f64,
+    pub dt_s: f64,
+    pub error_norm: f64,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct RuntimeStatistics {
     pub source: String,
     pub quantity_kind: String,
@@ -858,6 +868,7 @@ pub struct RuntimeSystemSolution {
     pub final_value: f64,
     pub canonical_initial_value: f64,
     pub canonical_final_value: f64,
+    pub step_diagnostics: Vec<RuntimeSystemStepDiagnostic>,
     pub points: Vec<RuntimePoint>,
 }
 
@@ -929,6 +940,7 @@ impl RuntimeSystemSolution {
             final_value: display_variable_value(canonical_final_value, state),
             canonical_initial_value,
             canonical_final_value,
+            step_diagnostics: Vec::new(),
             points,
         })
     }
@@ -962,6 +974,18 @@ impl RuntimeSystemSolution {
             final_value: self.final_value,
             canonical_initial_value: self.canonical_initial_value,
             canonical_final_value: self.canonical_final_value,
+            step_diagnostics: self
+                .step_diagnostics
+                .iter()
+                .map(|diagnostic| ReportSystemSolverStepDiagnostic {
+                    output_index: diagnostic.output_index,
+                    start_time_s: diagnostic.start_time_s,
+                    end_time_s: diagnostic.end_time_s,
+                    dt_s: diagnostic.dt_s,
+                    error_norm: diagnostic.error_norm,
+                    status: diagnostic.status.clone(),
+                })
+                .collect(),
             points: self
                 .points
                 .iter()
@@ -3301,13 +3325,16 @@ fn materialize_state_space_solutions(
         } else {
             "recognized continuous state-space A/B operators and executed adaptive Heun trajectories"
         };
-        return state_space_runtime_solutions(
+        let step_diagnostics = runtime_system_step_diagnostics(&adaptive_result.step_reports);
+        let mut solutions = state_space_runtime_solutions(
             system,
             binding,
             &states,
             &adaptive_result.solver_result,
             reason,
-        );
+        )?;
+        attach_system_step_diagnostics(&mut solutions, &step_diagnostics);
+        return Some(solutions);
     }
     let solver_result = solve_continuous_state_space(
         fixed_step_method,
@@ -3367,6 +3394,31 @@ fn state_space_runtime_solutions(
         .collect::<Vec<_>>();
 
     (!solutions.is_empty()).then_some(solutions)
+}
+
+fn runtime_system_step_diagnostics(
+    reports: &[AdaptiveOdeStepReport],
+) -> Vec<RuntimeSystemStepDiagnostic> {
+    reports
+        .iter()
+        .map(|report| RuntimeSystemStepDiagnostic {
+            output_index: report.output_index,
+            start_time_s: report.start_time_s,
+            end_time_s: report.end_time_s,
+            dt_s: report.dt_s,
+            error_norm: report.error_norm,
+            status: report.status.clone(),
+        })
+        .collect()
+}
+
+fn attach_system_step_diagnostics(
+    solutions: &mut [RuntimeSystemSolution],
+    diagnostics: &[RuntimeSystemStepDiagnostic],
+) {
+    for solution in solutions {
+        solution.step_diagnostics = diagnostics.to_vec();
+    }
 }
 
 fn state_space_input_value(
@@ -3574,8 +3626,8 @@ fn materialize_first_order_thermal_solution(
         ],
     };
 
-    let solver_result = if let Some(adaptive_options) = adaptive_options {
-        solve_adaptive_heun_ode(&solver_input, &adaptive_options, |sample| {
+    let (solver_result, step_diagnostics) = if let Some(adaptive_options) = adaptive_options {
+        let adaptive_result = solve_adaptive_heun_ode(&solver_input, &adaptive_options, |sample| {
             let temperature_k = sample.state[0];
             let outdoor_k = outdoor_series
                 .and_then(|series| interpolate_series_value(series, sample.time_s))
@@ -3601,25 +3653,31 @@ fn materialize_first_order_thermal_solution(
                 / thermal_model.heat_capacity_j_per_k;
             Ok(vec![derivative_k_per_s])
         })
-        .ok()?
-        .solver_result
+        .ok()?;
+        (
+            adaptive_result.solver_result,
+            runtime_system_step_diagnostics(&adaptive_result.step_reports),
+        )
     } else {
-        solve_first_order_thermal(fixed_step_method, &solver_input, thermal_model, |time_s| {
-            let outdoor_k = outdoor_series
-                .and_then(|series| interpolate_series_value(series, time_s))
-                .map(|value| {
-                    convert_to_canonical_unit(
-                        value,
-                        outdoor_series.map(|series| series.display_unit.as_str()),
-                        &outdoor_temperature.canonical_unit,
-                        &outdoor_quantity_kind,
-                    )
-                    .unwrap_or(outdoor_temperature_k)
-                })
-                .unwrap_or(outdoor_temperature_k);
-            Ok(outdoor_k)
-        })
-        .ok()?
+        (
+            solve_first_order_thermal(fixed_step_method, &solver_input, thermal_model, |time_s| {
+                let outdoor_k = outdoor_series
+                    .and_then(|series| interpolate_series_value(series, time_s))
+                    .map(|value| {
+                        convert_to_canonical_unit(
+                            value,
+                            outdoor_series.map(|series| series.display_unit.as_str()),
+                            &outdoor_temperature.canonical_unit,
+                            &outdoor_quantity_kind,
+                        )
+                        .unwrap_or(outdoor_temperature_k)
+                    })
+                    .unwrap_or(outdoor_temperature_k);
+                Ok(outdoor_k)
+            })
+            .ok()?,
+            Vec::new(),
+        )
     };
     let reason = if use_adaptive_heun {
         "recognized first-order thermal ODE and executed through SolverResult adaptive Heun one-state path"
@@ -3627,7 +3685,10 @@ fn materialize_first_order_thermal_solution(
         "recognized first-order thermal ODE and executed through SolverResult fixed-step one-state path"
     };
 
-    RuntimeSystemSolution::from_solver_result(system, binding, state, &solver_result, reason)
+    let mut solution =
+        RuntimeSystemSolution::from_solver_result(system, binding, state, &solver_result, reason)?;
+    solution.step_diagnostics = step_diagnostics;
+    Some(solution)
 }
 
 fn system_variable_matches_quantity(
@@ -3746,6 +3807,7 @@ fn skipped_system_solution(
         final_value: initial_value,
         canonical_initial_value,
         canonical_final_value: canonical_initial_value,
+        step_diagnostics: Vec::new(),
         points: Vec::new(),
     }
 }
@@ -6613,6 +6675,19 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
             .contains("continuous state-space A/B operators"));
         assert!(solution.reason.contains("adaptive Heun"));
         assert_eq!(solution.points.len(), solution.step_count + 1);
+        assert!(!solution.step_diagnostics.is_empty());
+        assert!(solution
+            .step_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.status == "accepted"));
+        assert!(solution
+            .step_diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.output_index <= solution.step_count));
+        assert_eq!(
+            solution.to_report_solution().step_diagnostics.len(),
+            solution.step_diagnostics.len()
+        );
         assert!(solution.final_value.is_finite());
         assert!(runtime
             .time_series
@@ -6939,6 +7014,19 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         assert_eq!(solution.states, vec!["T_zone".to_owned()]);
         assert_eq!(solution.outputs, vec!["T_zone".to_owned()]);
         assert_eq!(solution.points.len(), solution.step_count + 1);
+        assert!(!solution.step_diagnostics.is_empty());
+        assert!(solution
+            .step_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.status == "accepted"));
+        assert!(solution
+            .step_diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.output_index <= solution.step_count));
+        assert_eq!(
+            solution.to_report_solution().step_diagnostics.len(),
+            solution.step_diagnostics.len()
+        );
     }
 
     #[test]

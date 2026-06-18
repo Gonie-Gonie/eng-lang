@@ -223,7 +223,10 @@ System solver result entries in `result.engres` and `report_spec.json` carry
 the runtime-visible solver inspector fields: state/input/parameter/output
 names, currently empty algebraic-variable lists for non-DAE paths, timestep,
 method, tolerance, iteration count, convergence status, failure reason, and
-trajectory points. `review.json` runtime augmentation groups the same data under
+trajectory points. Adaptive thermal and continuous state-space solver paths also
+carry `step_diagnostics[]` entries for accepted/rejected internal substeps with
+output index, start/end time, timestep, error norm, and status. `review.json`
+runtime augmentation groups the same data under
 `simulation_results[]`, including per-state `solver_results[]` entries for
 IDE/reviewer panels. The official one-state thermal example is pinned by the
 artifact golden baseline so these solver fields remain present in review,

@@ -2166,9 +2166,14 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             if !result.contains("\"method\": \"adaptive_heun\"")
                 || !result.contains("\"convergence_status\": \"adaptive_heun_completed\"")
                 || !result.contains("\"tolerance\": 0.0001")
+                || !result.contains("\"step_diagnostics\": [")
+                || !result.contains("\"status\": \"accepted\"")
                 || !report_spec.contains("\"adaptive_heun\"")
                 || !report_spec.contains("\"adaptive_heun_completed\"")
+                || !report_spec.contains("\"step_diagnostics\": [")
+                || !report_spec.contains("\"status\": \"accepted\"")
                 || !report_html.contains("adaptive_heun")
+                || !report_html.contains("substeps=")
             {
                 eprintln!(
                     "expected adaptive Heun thermal fixture to produce adaptive solver artifacts"
@@ -2197,9 +2202,14 @@ fn command_test(_args: Vec<String>) -> ExitCode {
                 || !result.contains("\"convergence_status\": \"adaptive_heun_completed\"")
                 || !result.contains("\"tolerance\": 0.0001")
                 || !result.contains("recognized continuous state-space A/B operators")
+                || !result.contains("\"step_diagnostics\": [")
+                || !result.contains("\"status\": \"accepted\"")
                 || !report_spec.contains("\"adaptive_heun\"")
                 || !report_spec.contains("\"adaptive_heun_completed\"")
+                || !report_spec.contains("\"step_diagnostics\": [")
+                || !report_spec.contains("\"status\": \"accepted\"")
                 || !report_html.contains("adaptive_heun")
+                || !report_html.contains("substeps=")
             {
                 eprintln!(
                     "expected adaptive state-space fixture to produce adaptive solver artifacts"

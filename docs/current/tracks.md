@@ -106,7 +106,8 @@ Internal runtime seeds:
   final partial timestep handling, and non-finite RHS/update failure artifacts
 - solver-API adaptive Heun/Euler ODE seed with fixed output-grid trajectories,
   internal substep adaptation, accepted/rejected substep reports, and
-  step-limit/non-finite failure diagnostics
+  step-limit/non-finite failure diagnostics; adaptive system runtime/report
+  artifacts preserve those reports as `step_diagnostics`
 - one-state thermal `simulate` integration for `solver = adaptive_heun`,
   including optional numeric `tolerance`, explicit `duration`, fixed output
   TimeGrid artifacts, and internal fixture/CLI smoke coverage

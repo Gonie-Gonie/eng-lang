@@ -3970,10 +3970,48 @@ fn push_system_solution_json(
         "{indent}  \"canonical_final_value\": {},\n",
         solution.canonical_final_value
     ));
+    push_system_step_diagnostics_json(json, &solution.step_diagnostics, indent);
     json.push_str(&format!("{indent}  \"points\": ["));
     push_runtime_points(json, &solution.points);
     json.push_str("]\n");
     json.push_str(&format!("{indent}}}"));
+}
+
+fn push_system_step_diagnostics_json(
+    json: &mut String,
+    diagnostics: &[runtime_data::RuntimeSystemStepDiagnostic],
+    indent: &str,
+) {
+    json.push_str(&format!("{indent}  \"step_diagnostics\": [\n"));
+    for (diagnostic_index, diagnostic) in diagnostics.iter().enumerate() {
+        if diagnostic_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}    {{\n"));
+        json.push_str(&format!(
+            "{indent}      \"output_index\": {},\n",
+            diagnostic.output_index
+        ));
+        json.push_str(&format!(
+            "{indent}      \"start_time_s\": {},\n",
+            diagnostic.start_time_s
+        ));
+        json.push_str(&format!(
+            "{indent}      \"end_time_s\": {},\n",
+            diagnostic.end_time_s
+        ));
+        json.push_str(&format!("{indent}      \"dt_s\": {},\n", diagnostic.dt_s));
+        json.push_str(&format!(
+            "{indent}      \"error_norm\": {},\n",
+            diagnostic.error_norm
+        ));
+        json.push_str(&format!(
+            "{indent}      \"status\": \"{}\"\n",
+            json_escape(&diagnostic.status)
+        ));
+        json.push_str(&format!("{indent}    }}"));
+    }
+    json.push_str(&format!("\n{indent}  ],\n"));
 }
 
 fn runtime_review_json(base_review: &str, runtime_data: &RuntimeData) -> String {

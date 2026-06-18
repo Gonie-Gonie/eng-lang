@@ -209,6 +209,9 @@ Current coverage:
 - `RuntimeSystemSolution::from_solver_result` and `from_solver_trajectory`
   provide the explicit SolverResult-to-runtime artifact adapter used by
   one-state thermal and state-space materialization paths.
+- Adaptive one-state thermal and continuous state-space runtime artifacts
+  preserve accepted/rejected internal substep reports as system solver
+  `step_diagnostics` in result, review, and report-spec outputs.
 - `RuntimeComponentSolution::from_solver_assembly` and
   `from_dynamic_solver_result` provide explicit component assembly/SolverResult
   adapters for residual-graph and dynamic-component artifact materialization.
