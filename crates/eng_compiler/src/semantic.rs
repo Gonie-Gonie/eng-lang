@@ -2653,6 +2653,8 @@ pub fn validate_simulation_contracts(
             .unwrap_or(&[]);
 
         validate_simulation_timestep(declaration.line, options, &mut diagnostics);
+        validate_simulation_duration(options, &mut diagnostics);
+        validate_simulation_tolerance(options, &mut diagnostics);
         validate_simulation_solver(declaration.line, system, options, &mut diagnostics);
 
         for variable in &system.variables {
@@ -2787,6 +2789,44 @@ fn validate_simulation_timestep(
                 option.value
             ),
             Some("Use units such as `s`, `min`, or `h`, for example `10 min`."),
+        ));
+    }
+}
+
+fn validate_simulation_duration(options: &[WithOptionInfo], diagnostics: &mut Vec<Diagnostic>) {
+    let Some(option) = accepted_option(options, "duration") else {
+        return;
+    };
+    if parse_duration_option_seconds(&option.value).is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-SIM-DURATION-INVALID",
+            option.line,
+            &format!(
+                "`duration` expects a positive duration, got `{}`.",
+                option.value
+            ),
+            Some("Use units such as `s`, `min`, or `h`, for example `30 min`."),
+        ));
+    }
+}
+
+fn validate_simulation_tolerance(options: &[WithOptionInfo], diagnostics: &mut Vec<Diagnostic>) {
+    let Some(option) = accepted_option(options, "tolerance") else {
+        return;
+    };
+    let valid_tolerance = match option.value.trim().parse::<f64>() {
+        Ok(value) => value.is_finite() && value > 0.0,
+        Err(_) => false,
+    };
+    if !valid_tolerance {
+        diagnostics.push(Diagnostic::error(
+            "E-SIM-TOLERANCE-INVALID",
+            option.line,
+            &format!(
+                "`tolerance` expects a positive finite number, got `{}`.",
+                option.value
+            ),
+            Some("Use a dimensionless numeric tolerance such as `0.0001`."),
         ));
     }
 }

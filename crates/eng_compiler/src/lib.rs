@@ -6448,6 +6448,25 @@ mod tests {
     }
 
     #[test]
+    fn rejects_invalid_simulate_duration_and_tolerance() {
+        let report = check_source(
+            "bad.eng",
+            "T_out_signal: TimeSeries[Time] of AbsoluteTemperature [degC] = 8 degC\n\nsystem RoomThermal {\n    parameter C: HeatCapacity = 500 kJ/K\n    parameter UA: Conductance = 150 W/K\n    state T: AbsoluteTemperature = 24 degC\n    input T_out: TimeSeries[Time] of AbsoluteTemperature [degC]\n    input Q_internal: HeatRate = 500 W\n    equation {\n        C * der(T) eq UA * (T_out - T) + Q_internal\n    }\n}\n\nsim = simulate RoomThermal\nwith {\n    T_out = T_out_signal\n    timestep = 10 min\n    duration = forever\n    solver = adaptive_heun\n    tolerance = -0.1\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SIM-DURATION-INVALID"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SIM-TOLERANCE-INVALID"));
+    }
+
+    #[test]
     fn rejects_adaptive_heun_for_non_thermal_shape() {
         let report = check_source(
             "bad.eng",
