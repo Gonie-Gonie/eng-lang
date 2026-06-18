@@ -5,6 +5,20 @@ tracking terms. It is an internal planning map, not a public release contract.
 The `v1.1` through `v2.0` labels below are checklist ladder names only; public
 release naming still follows [version_plan.md](version_plan.md).
 
+## Regression Gate Evidence
+
+The checklist's "already done" items are guarded through the development gates
+below. The latest local `dev.bat release-check` run covered these paths end to
+end:
+
+| Checklist area | Gate evidence |
+| --- | --- |
+| Core execution and packaging | `eng run examples/official/01_csv_plot/main.eng --save-artifacts`, measured-vs-simulated repro run, standalone build, package smoke, extracted portable package smoke, path with spaces, and Korean path smoke. |
+| Data boundary, TimeSeries, and report | `artifacts-check` snapshots promoted source hashes, TimeSeries axes, HeatRate-to-Energy integration metadata, measured-vs-simulated two-series plot data, RMSE `TemperatureDelta` metadata, validation results, and report/review/result contracts. |
+| General scripting side effects | IDE and artifact smokes cover output manifests, run logs, process results, test results, profile diagnostics, and side-effect artifact panels. |
+| Solver baseline | `eng test examples`, runtime cargo tests, `artifacts-check`, `jit-check`, and `ide-check` exercise supported system solver artifacts, state-space seeds, component assembly/residual paths, adaptive substep diagnostics, and solver/report/IDE projection. |
+| Distribution readiness | `release-check` runs CI, docs, IDE, artifact, JIT, package, checksum, manifest, and portable package checks before preparing the release manifest. |
+
 ## Issue Map
 
 | ID | Scope | Repository disposition |
