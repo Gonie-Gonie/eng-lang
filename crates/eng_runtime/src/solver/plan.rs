@@ -63,6 +63,8 @@ pub struct SolverInput {
 
 impl SolverInput {
     pub fn validate_layouts(&self) -> Result<(), SolverFailure> {
+        validate_time_grid(&self.time_grid)?;
+        validate_solver_options(&self.plan.options, &self.time_grid)?;
         if self.initial_state.len() != self.state_layout.len() {
             return Err(SolverFailure::new(
                 "E-SOLVER-STATE-LAYOUT-MISMATCH",
@@ -83,6 +85,78 @@ impl SolverInput {
         )?;
         Ok(())
     }
+}
+
+fn validate_time_grid(time_grid: &TimeGrid) -> Result<(), SolverFailure> {
+    if !time_grid.duration_s.is_finite() || time_grid.duration_s <= 0.0 {
+        return Err(SolverFailure::new(
+            "E-SIM-DURATION-INVALID",
+            "simulation time grid duration must be a positive finite number of seconds",
+        ));
+    }
+    if !time_grid.timestep_s.is_finite() || time_grid.timestep_s <= 0.0 {
+        return Err(SolverFailure::new(
+            "E-SIM-TIMESTEP-INVALID",
+            "simulation time grid timestep must be a positive finite number of seconds",
+        ));
+    }
+    if time_grid.step_count == 0 {
+        return Err(SolverFailure::new(
+            "E-SOLVER-TIMEGRID-INVALID",
+            "simulation time grid must contain at least one step",
+        ));
+    }
+    if time_grid.unit.trim().is_empty() {
+        return Err(SolverFailure::new(
+            "E-SOLVER-TIMEGRID-INVALID",
+            "simulation time grid unit must be present",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_solver_options(
+    options: &SolverOptions,
+    time_grid: &TimeGrid,
+) -> Result<(), SolverFailure> {
+    if options.method.trim().is_empty() {
+        return Err(SolverFailure::new(
+            "E-SOLVER-METHOD-INVALID",
+            "solver method must be present",
+        ));
+    }
+    if !options.timestep_s.is_finite() || options.timestep_s <= 0.0 {
+        return Err(SolverFailure::new(
+            "E-SIM-TIMESTEP-INVALID",
+            "solver option timestep must be a positive finite number of seconds",
+        ));
+    }
+    let timestep_tolerance = options
+        .timestep_s
+        .abs()
+        .max(time_grid.timestep_s.abs())
+        .max(1.0)
+        * f64::EPSILON
+        * 16.0;
+    if (options.timestep_s - time_grid.timestep_s).abs() > timestep_tolerance {
+        return Err(SolverFailure::new(
+            "E-SOLVER-TIMESTEP-MISMATCH",
+            "solver option timestep does not match the simulation time grid timestep",
+        ));
+    }
+    if !options.tolerance.is_finite() || options.tolerance <= 0.0 {
+        return Err(SolverFailure::new(
+            "E-SOLVER-TOLERANCE-INVALID",
+            "solver tolerance must be a positive finite number",
+        ));
+    }
+    if options.max_iterations == 0 {
+        return Err(SolverFailure::new(
+            "E-SOLVER-MAX-ITERATIONS-INVALID",
+            "solver max_iterations must be greater than zero",
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -542,6 +616,51 @@ mod tests {
         let mut empty_output_layout = input.clone();
         empty_output_layout.output_layout = OutputLayout::default();
         empty_output_layout.validate_layouts().unwrap();
+
+        let mut invalid_method = input.clone();
+        invalid_method.plan.options.method = "  ".to_owned();
+        assert_eq!(
+            invalid_method.validate_layouts().unwrap_err().code,
+            "E-SOLVER-METHOD-INVALID"
+        );
+
+        let mut invalid_option_timestep = input.clone();
+        invalid_option_timestep.plan.options.timestep_s = f64::NAN;
+        assert_eq!(
+            invalid_option_timestep.validate_layouts().unwrap_err().code,
+            "E-SIM-TIMESTEP-INVALID"
+        );
+
+        let mut mismatched_option_timestep = input.clone();
+        mismatched_option_timestep.plan.options.timestep_s = 30.0;
+        assert_eq!(
+            mismatched_option_timestep
+                .validate_layouts()
+                .unwrap_err()
+                .code,
+            "E-SOLVER-TIMESTEP-MISMATCH"
+        );
+
+        let mut invalid_tolerance = input.clone();
+        invalid_tolerance.plan.options.tolerance = 0.0;
+        assert_eq!(
+            invalid_tolerance.validate_layouts().unwrap_err().code,
+            "E-SOLVER-TOLERANCE-INVALID"
+        );
+
+        let mut invalid_max_iterations = input.clone();
+        invalid_max_iterations.plan.options.max_iterations = 0;
+        assert_eq!(
+            invalid_max_iterations.validate_layouts().unwrap_err().code,
+            "E-SOLVER-MAX-ITERATIONS-INVALID"
+        );
+
+        let mut invalid_time_grid = input.clone();
+        invalid_time_grid.time_grid.step_count = 0;
+        assert_eq!(
+            invalid_time_grid.validate_layouts().unwrap_err().code,
+            "E-SOLVER-TIMEGRID-INVALID"
+        );
 
         let mut parameter_scalar_mismatch = input;
         parameter_scalar_mismatch.parameters[0].canonical_unit = "kW/K".to_owned();
