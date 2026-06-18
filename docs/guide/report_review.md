@@ -111,7 +111,8 @@ The `multi_domain_preview` value is a legacy-named Internal metadata label, not
 a supported multi-domain solve claim.
 Delay calls currently report a runtime-buffer seed status, Predictor calls
 report a contract-wrapper seed status, and external adapter expressions report
-an external-wrapper seed status. None of these is a full component-solver
+an external-wrapper seed status. Solver-API tests can chain those behavior
+nodes into RHS evaluation, but none of these is a full component-solver
 behavior graph integration.
 Runtime report specs and result artifacts also attach component solver residual
 evaluations with raw value, unit, normalized value, scale, and scale policy.

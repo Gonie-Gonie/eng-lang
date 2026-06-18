@@ -3476,6 +3476,7 @@ fn solver_behavior_smoke() -> Result<(), String> {
     delay_behavior_smoke()?;
     predictor_behavior_smoke()?;
     external_behavior_smoke()?;
+    behavior_graph_rhs_smoke()?;
     Ok(())
 }
 
@@ -3741,6 +3742,129 @@ fn external_behavior_smoke() -> Result<(), String> {
     if failure.code != "E-EXTERNAL-BEHAVIOR-FAILURE" || !failure.message.contains("E-ADAPTER-BOOM")
     {
         return Err("external adapter failure smoke did not wrap adapter failure".to_owned());
+    }
+
+    Ok(())
+}
+
+fn behavior_graph_rhs_smoke() -> Result<(), String> {
+    let delay = eng_runtime::solver::DelayBehaviorNode::new(
+        eng_runtime::solver::DelayBuffer::new(
+            "x",
+            "Dimensionless",
+            "1",
+            1.0,
+            eng_runtime::solver::DelayInterpolationPolicy::PreviousSample,
+            eng_runtime::solver::DelayInitialHistoryPolicy::HoldInitial,
+        )
+        .map_err(|failure| format!("behavior graph delay setup failed: {}", failure.message))?,
+    );
+    let predictor_contract = eng_runtime::solver::PredictorContract::new(
+        "graph_feedback_predictor",
+        vec![eng_runtime::solver::BehaviorSignalContract::new(
+            "x_delay",
+            "Dimensionless",
+            "1",
+        )],
+        vec![eng_runtime::solver::BehaviorSignalContract::new(
+            "x_feedback",
+            "Dimensionless",
+            "1",
+        )],
+        "sha256:graph-predictor-smoke",
+        eng_runtime::solver::PredictorDifferentiability::Differentiable,
+        eng_runtime::solver::PredictorSolverPolicy {
+            explicit_call_only: true,
+            finite_difference_allowed: true,
+            jacobian_policy: eng_runtime::solver::PredictorJacobianPolicy::FiniteDifferenceAllowed,
+        },
+    )
+    .map_err(|failure| {
+        format!(
+            "behavior graph predictor contract setup failed: {}",
+            failure.message
+        )
+    })?;
+    let external_contract = eng_runtime::solver::ExternalBehaviorContract::new(
+        "graph_feedback_adapter",
+        eng_runtime::solver::ExternalBehaviorKind::Function,
+        vec![eng_runtime::solver::BehaviorSignalContract::new(
+            "x_feedback",
+            "Dimensionless",
+            "1",
+        )],
+        vec![eng_runtime::solver::BehaviorSignalContract::new(
+            "x_adjusted_feedback",
+            "Dimensionless",
+            "1",
+        )],
+        "sha256:graph-external-smoke",
+        eng_runtime::solver::ExternalBehaviorDeterminism::Deterministic,
+        eng_runtime::solver::ExternalBehaviorProfilePolicy {
+            safe_allowed: true,
+            repro_allowed: true,
+        },
+    )
+    .map_err(|failure| {
+        format!(
+            "behavior graph external contract setup failed: {}",
+            failure.message
+        )
+    })?;
+    let mut graph = eng_runtime::solver::BehaviorGraphRhsAdapter::new(vec![
+        eng_runtime::solver::BehaviorRhsNode::delay(
+            "x_delay",
+            eng_runtime::solver::BehaviorSignalSource::State(0),
+            delay,
+        ),
+        eng_runtime::solver::BehaviorRhsNode::predictor(
+            "feedback_predictor",
+            vec![eng_runtime::solver::BehaviorSignalSource::BehaviorOutput {
+                node_index: 0,
+                output_index: 0,
+            }],
+            predictor_contract,
+            |inputs| Ok(vec![inputs[0] * 2.0]),
+        ),
+        eng_runtime::solver::BehaviorRhsNode::external(
+            "feedback_adapter",
+            eng_runtime::solver::BehaviorExecutionProfile::Repro,
+            vec![eng_runtime::solver::BehaviorSignalSource::BehaviorOutput {
+                node_index: 1,
+                output_index: 0,
+            }],
+            external_contract,
+            |inputs| Ok(vec![inputs[0] + 0.5]),
+        ),
+    ]);
+    let sample = eng_runtime::solver::BehaviorRhsSample::new(0.0, &[1.0], &[], &[]);
+    let evaluation = graph
+        .evaluate_rhs(&sample, |behavior| {
+            if behavior.status != "ok"
+                || behavior.nodes.len() != 3
+                || behavior.nodes[0].kind != "delay"
+                || behavior.nodes[1].kind != "predictor"
+                || behavior.nodes[2].kind != "external"
+            {
+                return Err(eng_runtime::solver::SolverFailure::new(
+                    "E-BEHAVIOR-GRAPH-SMOKE",
+                    "behavior graph smoke produced unexpected node metadata",
+                ));
+            }
+            Ok(vec![-behavior.output(2, 0).unwrap_or(f64::NAN)])
+        })
+        .map_err(|failure| format!("behavior graph RHS smoke failed: {}", failure.message))?;
+
+    if evaluation.status != "ok"
+        || evaluation.derivatives.len() != 1
+        || (evaluation.derivatives[0] + 2.5).abs() > 1e-9
+        || evaluation.behavior.nodes[0].delay_relationship.is_none()
+        || evaluation.behavior.nodes[1].predictor_contract.is_none()
+        || evaluation.behavior.nodes[2].external_contract.is_none()
+    {
+        return Err(
+            "behavior graph RHS smoke did not preserve derivatives and node artifacts".to_owned(),
+        );
     }
 
     Ok(())

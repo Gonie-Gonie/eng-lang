@@ -216,24 +216,21 @@ are not public stable workflows.
 - Behavior graph seeds: solver-API runtime delay buffer with linear and
   previous-sample interpolation policies, explicit initial-history policy,
   relationship artifact, solver-style behavior-node evaluation, delay-driven
-  fixed-step RHS adapter coverage, and
-  component-local
-  `delay(signal, duration)` diagnostics for unknown signals and invalid
+  fixed-step RHS adapter coverage, and an ordered `BehaviorGraphRhsAdapter`
+  that can evaluate delay, Predictor, and external nodes from
+  state/input/parameter/prior-node signals before passing the combined behavior
+  evaluation into a solver-API RHS closure. Component-local
+  `delay(signal, duration)` diagnostics cover unknown signals and invalid
   durations. Component-local behavior calls accept known `port.variable`
   signals and prior component-local expressions with resolved quantity/unit
   metadata, plus nested delay behavior expressions as typed signal inputs.
   Component-local Predictor calls and external behavior calls also validate
-  their seed syntax and known component signal before becoming
-  behavior-node metadata, with each component behavior diagnostic code covered
-  by the CLI example smoke gate. Runtime also has a solver-API Predictor
-  behavior contract wrapper with input/output quantity-unit metadata,
-  valid-range warnings, model hash, differentiability flag, and solver Jacobian
-  policy plus predictor-driven fixed-step RHS adapter coverage. Runtime also
-  has a solver-API external function/process behavior wrapper with typed
-  contracts, provenance hash, determinism metadata, safe/repro profile policy,
-  adapter failure propagation, and external-driven fixed-step RHS adapter
-  coverage. Component
-  artifacts distinguish delay/Predictor/external calls
+  their seed syntax and known component signal before becoming behavior-node
+  metadata, with each component behavior diagnostic code covered by the CLI
+  example smoke gate. Runtime also has solver-API Predictor and external
+  behavior wrappers with contracts, range warnings, provenance, profile policy,
+  adapter failure propagation, and graph-level invalid-source/non-finite-RHS
+  failure coverage. Component artifacts distinguish delay/Predictor/external calls
   as runtime seeds through component graph, report, and IDE behavior nodes with
   inferred contract fields and diagnostic channels, but behavior nodes are not
   wired into language-level behavior graph solving. The valid behavior-node

@@ -180,9 +180,10 @@ with resolved quantity/unit metadata. A nested delay expression such as
 still provide a positive time duration such as `5 s`.
 Component-local `predictor(signal)`/`predict(signal)` and
 `external(signal)`/`adapter(signal)` calls are also checked for a single known
-component signal or behavior expression. Full Predictor and external behavior
-contracts remain runtime-wrapper seeds until behavior graph solving is wired
-into supported solver paths.
+component signal or behavior expression. Runtime has a solver-API behavior graph
+RHS adapter for chaining delay/Predictor/external nodes, but component-language
+behavior expressions remain runtime-wrapper seeds until language-level behavior
+graph solving is wired into supported component solver paths.
 
 ## Artifact Surface
 

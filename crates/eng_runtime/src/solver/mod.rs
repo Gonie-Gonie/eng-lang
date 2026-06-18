@@ -63,8 +63,10 @@ pub use algorithms::nonlinear::{
     solve_newton, solve_newton_with_jacobian, NewtonLargestResidual, NewtonOptions, NewtonResult,
 };
 pub use behavior::{
-    BehaviorExecutionProfile, BehaviorSignalContract, BehaviorWarning, DelayBehaviorNode,
-    DelayBuffer, DelayEvaluation, DelayInitialHistoryPolicy, DelayInterpolationPolicy,
+    BehaviorExecutionProfile, BehaviorGraphEvaluation, BehaviorGraphRhsAdapter,
+    BehaviorGraphRhsEvaluation, BehaviorNodeEvaluation, BehaviorRhsNode, BehaviorRhsSample,
+    BehaviorSignalContract, BehaviorSignalSource, BehaviorWarning, DelayBehaviorNode, DelayBuffer,
+    DelayEvaluation, DelayInitialHistoryPolicy, DelayInterpolationPolicy,
     DelayRelationshipArtifact, DelayRhsEvaluation, ExternalBehaviorArtifact,
     ExternalBehaviorContract, ExternalBehaviorDeterminism, ExternalBehaviorEvaluation,
     ExternalBehaviorKind, ExternalBehaviorNode, ExternalBehaviorProfilePolicy,

@@ -418,6 +418,11 @@ Current coverage:
   profile policy, range warnings, adapter failure propagation, and tests.
 - `ExternalBehaviorNode::evaluate_rhs` can feed external behavior outputs into a
   fixed-step RHS closure while preserving profile checks and adapter failures.
+- Runtime exposes `BehaviorGraphRhsAdapter`, which evaluates ordered delay,
+  Predictor, and external behavior nodes from state/input/parameter/prior-node
+  signals, passes the combined behavior evaluation into an RHS closure, and
+  preserves node artifacts, range warnings, invalid-source failures, and
+  non-finite RHS failures in solver-API tests and CLI smoke coverage.
 - Component artifacts distinguish delay calls as
   `delay_call_runtime_buffer_seed_not_integrated` and Predictor calls as
   `predictor_call_contract_seed_not_integrated`; external behavior expressions
@@ -438,12 +443,10 @@ Definition of Done:
 
 - Expand `delay(x, tau)` type checking beyond component port variables into
   full behavior graph expressions.
-- Wire delay behavior nodes into RHS/residual evaluation for supported solver
-  paths.
-- Wire Predictor behavior nodes into supported solver paths and report/IDE
-  artifacts.
-- Wire external behavior wrappers into supported solver paths and report/IDE
-  artifacts.
+- Wire the solver-API behavior graph adapter into language-level RHS/residual
+  evaluation for supported component/system paths.
+- Wire behavior node evaluations into report/IDE artifacts for solved language
+  workflows rather than only solver-API tests.
 - Report and IDE should show full behavior contracts and invalid/extrapolated
   behavior warnings once behavior nodes are connected to runtime evaluation.
 

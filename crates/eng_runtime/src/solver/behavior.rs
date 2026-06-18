@@ -1,4 +1,4 @@
-use super::SolverFailure;
+use super::{SolverFailure, SolverScalar};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DelayInterpolationPolicy {
@@ -854,6 +854,309 @@ where
     }
 }
 
+type BoxedBehaviorEvaluator = Box<dyn Fn(&[f64]) -> Result<Vec<f64>, SolverFailure>>;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum BehaviorSignalSource {
+    State(usize),
+    Input(usize),
+    Parameter(usize),
+    BehaviorOutput {
+        node_index: usize,
+        output_index: usize,
+    },
+}
+
+pub struct BehaviorRhsSample<'a> {
+    pub time_s: f64,
+    pub state: &'a [f64],
+    pub inputs: &'a [SolverScalar],
+    pub parameters: &'a [SolverScalar],
+}
+
+impl<'a> BehaviorRhsSample<'a> {
+    pub fn new(
+        time_s: f64,
+        state: &'a [f64],
+        inputs: &'a [SolverScalar],
+        parameters: &'a [SolverScalar],
+    ) -> Self {
+        Self {
+            time_s,
+            state,
+            inputs,
+            parameters,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BehaviorNodeEvaluation {
+    pub name: String,
+    pub kind: String,
+    pub status: String,
+    pub outputs: Vec<f64>,
+    pub warnings: Vec<BehaviorWarning>,
+    pub delay_relationship: Option<DelayRelationshipArtifact>,
+    pub predictor_contract: Option<PredictorContractArtifact>,
+    pub external_contract: Option<ExternalBehaviorArtifact>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BehaviorGraphEvaluation {
+    pub status: String,
+    pub nodes: Vec<BehaviorNodeEvaluation>,
+}
+
+impl BehaviorGraphEvaluation {
+    pub fn output(&self, node_index: usize, output_index: usize) -> Option<f64> {
+        self.nodes
+            .get(node_index)
+            .and_then(|node| node.outputs.get(output_index))
+            .copied()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BehaviorGraphRhsEvaluation {
+    pub derivatives: Vec<f64>,
+    pub behavior: BehaviorGraphEvaluation,
+    pub status: String,
+}
+
+pub enum BehaviorRhsNode {
+    Delay {
+        name: String,
+        signal: BehaviorSignalSource,
+        node: DelayBehaviorNode,
+    },
+    Predictor {
+        name: String,
+        inputs: Vec<BehaviorSignalSource>,
+        node: PredictorBehaviorNode<BoxedBehaviorEvaluator>,
+    },
+    External {
+        name: String,
+        profile: BehaviorExecutionProfile,
+        inputs: Vec<BehaviorSignalSource>,
+        node: ExternalBehaviorNode<BoxedBehaviorEvaluator>,
+    },
+}
+
+impl BehaviorRhsNode {
+    pub fn delay(
+        name: impl Into<String>,
+        signal: BehaviorSignalSource,
+        node: DelayBehaviorNode,
+    ) -> Self {
+        Self::Delay {
+            name: name.into(),
+            signal,
+            node,
+        }
+    }
+
+    pub fn predictor<F>(
+        name: impl Into<String>,
+        inputs: Vec<BehaviorSignalSource>,
+        contract: PredictorContract,
+        evaluator: F,
+    ) -> Self
+    where
+        F: Fn(&[f64]) -> Result<Vec<f64>, SolverFailure> + 'static,
+    {
+        Self::Predictor {
+            name: name.into(),
+            inputs,
+            node: PredictorBehaviorNode::new(contract, Box::new(evaluator)),
+        }
+    }
+
+    pub fn external<F>(
+        name: impl Into<String>,
+        profile: BehaviorExecutionProfile,
+        inputs: Vec<BehaviorSignalSource>,
+        contract: ExternalBehaviorContract,
+        evaluator: F,
+    ) -> Self
+    where
+        F: Fn(&[f64]) -> Result<Vec<f64>, SolverFailure> + 'static,
+    {
+        Self::External {
+            name: name.into(),
+            profile,
+            inputs,
+            node: ExternalBehaviorNode::new(contract, Box::new(evaluator)),
+        }
+    }
+}
+
+pub struct BehaviorGraphRhsAdapter {
+    nodes: Vec<BehaviorRhsNode>,
+}
+
+impl BehaviorGraphRhsAdapter {
+    pub fn new(nodes: Vec<BehaviorRhsNode>) -> Self {
+        Self { nodes }
+    }
+
+    pub fn node_count(&self) -> usize {
+        self.nodes.len()
+    }
+
+    pub fn evaluate(
+        &mut self,
+        sample: &BehaviorRhsSample<'_>,
+    ) -> Result<BehaviorGraphEvaluation, SolverFailure> {
+        if !sample.time_s.is_finite() {
+            return Err(SolverFailure::new(
+                "E-BEHAVIOR-GRAPH-TIME",
+                "behavior graph RHS sample time must be finite",
+            ));
+        }
+
+        let mut node_outputs = Vec::with_capacity(self.nodes.len());
+        let mut evaluations = Vec::with_capacity(self.nodes.len());
+
+        for node in self.nodes.iter_mut() {
+            let evaluation = match node {
+                BehaviorRhsNode::Delay { name, signal, node } => {
+                    let current_value = resolve_behavior_signal(signal, sample, &node_outputs)?;
+                    let delay = node.evaluate(sample.time_s, current_value)?;
+                    BehaviorNodeEvaluation {
+                        name: name.clone(),
+                        kind: "delay".to_owned(),
+                        status: delay.status.clone(),
+                        outputs: vec![delay.value],
+                        warnings: Vec::new(),
+                        delay_relationship: Some(delay.relationship),
+                        predictor_contract: None,
+                        external_contract: None,
+                    }
+                }
+                BehaviorRhsNode::Predictor { name, inputs, node } => {
+                    let input_values = resolve_behavior_signals(inputs, sample, &node_outputs)?;
+                    let predictor = node.evaluate(&input_values)?;
+                    BehaviorNodeEvaluation {
+                        name: name.clone(),
+                        kind: "predictor".to_owned(),
+                        status: predictor.status.clone(),
+                        outputs: predictor.outputs,
+                        warnings: predictor.warnings,
+                        delay_relationship: None,
+                        predictor_contract: Some(predictor.contract),
+                        external_contract: None,
+                    }
+                }
+                BehaviorRhsNode::External {
+                    name,
+                    profile,
+                    inputs,
+                    node,
+                } => {
+                    let input_values = resolve_behavior_signals(inputs, sample, &node_outputs)?;
+                    let external = node.evaluate(profile.clone(), &input_values)?;
+                    BehaviorNodeEvaluation {
+                        name: name.clone(),
+                        kind: "external".to_owned(),
+                        status: external.status.clone(),
+                        outputs: external.outputs,
+                        warnings: external.warnings,
+                        delay_relationship: None,
+                        predictor_contract: None,
+                        external_contract: Some(external.contract),
+                    }
+                }
+            };
+            node_outputs.push(evaluation.outputs.clone());
+            evaluations.push(evaluation);
+        }
+
+        let status = if evaluations
+            .iter()
+            .any(|evaluation| !evaluation.warnings.is_empty())
+        {
+            "range_warning"
+        } else {
+            "ok"
+        };
+        Ok(BehaviorGraphEvaluation {
+            status: status.to_owned(),
+            nodes: evaluations,
+        })
+    }
+
+    pub fn evaluate_rhs<F>(
+        &mut self,
+        sample: &BehaviorRhsSample<'_>,
+        rhs: F,
+    ) -> Result<BehaviorGraphRhsEvaluation, SolverFailure>
+    where
+        F: FnOnce(&BehaviorGraphEvaluation) -> Result<Vec<f64>, SolverFailure>,
+    {
+        let behavior = self.evaluate(sample)?;
+        let derivatives = rhs(&behavior)?;
+        if derivatives.iter().any(|value| !value.is_finite()) {
+            return Err(SolverFailure::new(
+                "E-BEHAVIOR-GRAPH-RHS-FINITE",
+                "behavior graph RHS evaluation returned a non-finite derivative",
+            ));
+        }
+        Ok(BehaviorGraphRhsEvaluation {
+            status: behavior.status.clone(),
+            behavior,
+            derivatives,
+        })
+    }
+}
+
+fn resolve_behavior_signals(
+    sources: &[BehaviorSignalSource],
+    sample: &BehaviorRhsSample<'_>,
+    node_outputs: &[Vec<f64>],
+) -> Result<Vec<f64>, SolverFailure> {
+    sources
+        .iter()
+        .map(|source| resolve_behavior_signal(source, sample, node_outputs))
+        .collect()
+}
+
+fn resolve_behavior_signal(
+    source: &BehaviorSignalSource,
+    sample: &BehaviorRhsSample<'_>,
+    node_outputs: &[Vec<f64>],
+) -> Result<f64, SolverFailure> {
+    let value = match source {
+        BehaviorSignalSource::State(index) => sample.state.get(*index).copied(),
+        BehaviorSignalSource::Input(index) => sample.inputs.get(*index).map(|scalar| scalar.value),
+        BehaviorSignalSource::Parameter(index) => {
+            sample.parameters.get(*index).map(|scalar| scalar.value)
+        }
+        BehaviorSignalSource::BehaviorOutput {
+            node_index,
+            output_index,
+        } => node_outputs
+            .get(*node_index)
+            .and_then(|outputs| outputs.get(*output_index))
+            .copied(),
+    }
+    .ok_or_else(|| {
+        SolverFailure::new(
+            "E-BEHAVIOR-GRAPH-SIGNAL",
+            "behavior graph signal source does not match the available sample or prior node outputs",
+        )
+    })?;
+
+    if !value.is_finite() {
+        return Err(SolverFailure::new(
+            "E-BEHAVIOR-GRAPH-SIGNAL-FINITE",
+            "behavior graph signal source produced a non-finite value",
+        ));
+    }
+
+    Ok(value)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -872,6 +1175,35 @@ mod tests {
             DelayInitialHistoryPolicy::HoldInitial,
         )
         .unwrap()
+    }
+
+    fn one_state_solver_input(name: &str, duration_s: f64, timestep_s: f64) -> SolverInput {
+        SolverInput {
+            plan: SolverPlan::new(
+                name,
+                SimulationPlan {
+                    states: vec!["x".to_owned()],
+                    inputs: Vec::new(),
+                    outputs: vec!["x".to_owned()],
+                    parameters: Vec::new(),
+                },
+                SolverOptions::fixed_step("explicit_euler", timestep_s),
+            ),
+            time_grid: TimeGrid::fixed_step(duration_s, timestep_s).unwrap(),
+            state_layout: crate::solver::StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout::default(),
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![1.0],
+            inputs: Vec::new(),
+            parameters: Vec::new(),
+        }
     }
 
     #[test]
@@ -1275,6 +1607,180 @@ mod tests {
             vec![1.0, 0.0, 0.0]
         );
         assert_eq!(external_statuses, vec!["ok", "ok"]);
+    }
+
+    #[test]
+    fn behavior_graph_adapter_drives_fixed_step_rhs_with_chained_nodes() {
+        let input = one_state_solver_input("behavior_graph_rhs", 2.0, 1.0);
+        let delay = DelayBehaviorNode::new(
+            DelayBuffer::new(
+                "x",
+                "Dimensionless",
+                "1",
+                1.0,
+                DelayInterpolationPolicy::PreviousSample,
+                DelayInitialHistoryPolicy::HoldInitial,
+            )
+            .unwrap(),
+        );
+        let predictor_contract = PredictorContract::new(
+            "delayed_feedback_predictor",
+            vec![BehaviorSignalContract::new("x_delay", "Dimensionless", "1")],
+            vec![BehaviorSignalContract::new(
+                "x_feedback",
+                "Dimensionless",
+                "1",
+            )],
+            "sha256:behavior-graph-predictor",
+            PredictorDifferentiability::Differentiable,
+            PredictorSolverPolicy {
+                explicit_call_only: true,
+                finite_difference_allowed: true,
+                jacobian_policy: PredictorJacobianPolicy::FiniteDifferenceAllowed,
+            },
+        )
+        .unwrap();
+        let external_contract = ExternalBehaviorContract::new(
+            "legacy_feedback_adapter",
+            ExternalBehaviorKind::Function,
+            vec![BehaviorSignalContract::new(
+                "x_feedback",
+                "Dimensionless",
+                "1",
+            )],
+            vec![BehaviorSignalContract::new(
+                "x_adjusted_feedback",
+                "Dimensionless",
+                "1",
+            )],
+            "sha256:behavior-graph-external",
+            ExternalBehaviorDeterminism::Deterministic,
+            ExternalBehaviorProfilePolicy {
+                safe_allowed: true,
+                repro_allowed: true,
+            },
+        )
+        .unwrap();
+        let mut graph = BehaviorGraphRhsAdapter::new(vec![
+            BehaviorRhsNode::delay("x_delay", BehaviorSignalSource::State(0), delay),
+            BehaviorRhsNode::predictor(
+                "feedback_predictor",
+                vec![BehaviorSignalSource::BehaviorOutput {
+                    node_index: 0,
+                    output_index: 0,
+                }],
+                predictor_contract,
+                |inputs| Ok(vec![inputs[0] * 2.0]),
+            ),
+            BehaviorRhsNode::external(
+                "feedback_adapter",
+                BehaviorExecutionProfile::Repro,
+                vec![BehaviorSignalSource::BehaviorOutput {
+                    node_index: 1,
+                    output_index: 0,
+                }],
+                external_contract,
+                |inputs| Ok(vec![inputs[0] + 0.5]),
+            ),
+        ]);
+        let mut graph_statuses = Vec::new();
+        let mut final_outputs = Vec::new();
+
+        let result = solve_fixed_step_ode(FixedStepMethod::ExplicitEuler, &input, |sample| {
+            let evaluation = graph.evaluate_rhs(
+                &BehaviorRhsSample::new(
+                    sample.time_s,
+                    sample.state,
+                    sample.inputs,
+                    sample.parameters,
+                ),
+                |behavior| {
+                    graph_statuses.push(behavior.status.clone());
+                    assert_eq!(behavior.nodes[0].kind, "delay");
+                    assert_eq!(behavior.nodes[1].kind, "predictor");
+                    assert_eq!(behavior.nodes[2].kind, "external");
+                    let feedback = behavior.output(2, 0).unwrap();
+                    final_outputs.push(feedback);
+                    Ok(vec![-feedback])
+                },
+            )?;
+            Ok(evaluation.derivatives)
+        })
+        .unwrap();
+
+        assert_eq!(
+            result.output.state_trajectories[0].values,
+            vec![1.0, -1.5, -4.0]
+        );
+        assert_eq!(graph_statuses, vec!["ok", "ok"]);
+        assert_eq!(final_outputs, vec![2.5, 2.5]);
+    }
+
+    #[test]
+    fn behavior_graph_adapter_reports_warnings_and_invalid_sources() {
+        let predictor_contract = PredictorContract::new(
+            "range_checked_graph_predictor",
+            vec![BehaviorSignalContract::new("x", "Dimensionless", "1")
+                .with_valid_range(Some(0.0), Some(1.0))
+                .unwrap()],
+            vec![BehaviorSignalContract::new("y", "Dimensionless", "1")],
+            "sha256:behavior-graph-range",
+            PredictorDifferentiability::Unknown,
+            PredictorSolverPolicy::default(),
+        )
+        .unwrap();
+        let mut graph = BehaviorGraphRhsAdapter::new(vec![BehaviorRhsNode::predictor(
+            "range_predictor",
+            vec![BehaviorSignalSource::State(0)],
+            predictor_contract,
+            |inputs| Ok(vec![inputs[0]]),
+        )]);
+
+        let evaluation = graph
+            .evaluate(&BehaviorRhsSample::new(0.0, &[2.0], &[], &[]))
+            .unwrap();
+
+        assert_eq!(evaluation.status, "range_warning");
+        assert_eq!(evaluation.nodes[0].warnings[0].code, "W-BEHAVIOR-RANGE");
+
+        let mut invalid_graph = BehaviorGraphRhsAdapter::new(vec![BehaviorRhsNode::delay(
+            "missing_state_delay",
+            BehaviorSignalSource::State(3),
+            DelayBehaviorNode::new(linear_hold_buffer(1.0)),
+        )]);
+        let failure = invalid_graph
+            .evaluate(&BehaviorRhsSample::new(0.0, &[1.0], &[], &[]))
+            .unwrap_err();
+
+        assert_eq!(failure.code, "E-BEHAVIOR-GRAPH-SIGNAL");
+    }
+
+    #[test]
+    fn behavior_graph_adapter_rejects_nonfinite_rhs_derivatives() {
+        let predictor_contract = PredictorContract::new(
+            "finite_rhs_graph_predictor",
+            vec![BehaviorSignalContract::new("x", "Dimensionless", "1")],
+            vec![BehaviorSignalContract::new("y", "Dimensionless", "1")],
+            "sha256:behavior-graph-finite",
+            PredictorDifferentiability::Unknown,
+            PredictorSolverPolicy::default(),
+        )
+        .unwrap();
+        let mut graph = BehaviorGraphRhsAdapter::new(vec![BehaviorRhsNode::predictor(
+            "finite_predictor",
+            vec![BehaviorSignalSource::State(0)],
+            predictor_contract,
+            |inputs| Ok(vec![inputs[0]]),
+        )]);
+
+        let failure = graph
+            .evaluate_rhs(
+                &BehaviorRhsSample::new(0.0, &[1.0], &[], &[]),
+                |_behavior| Ok(vec![f64::INFINITY]),
+            )
+            .unwrap_err();
+
+        assert_eq!(failure.code, "E-BEHAVIOR-GRAPH-RHS-FINITE");
     }
 
     #[test]
