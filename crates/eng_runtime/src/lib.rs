@@ -326,7 +326,11 @@ pub fn doctor(repo_root: &Path) -> DoctorReport {
     checks.push(write_permission_check(repo_root));
     checks.push(file_check(
         "Example files",
-        &repo_root.join("examples").join("01_units").join("main.eng"),
+        &repo_root
+            .join("examples")
+            .join("official")
+            .join("01_csv_plot")
+            .join("main.eng"),
     ));
 
     DoctorReport { checks }

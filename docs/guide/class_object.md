@@ -142,7 +142,7 @@ review/report/IDE metadata consumers.
 | `E-CLASS-METHOD-CALL-003` | Method call passes arguments to a zero-argument method. |
 | `E-CLASS-COPY-001` | Copy-with references an unknown source object. |
 
-Diagnostic fixtures live under `examples/05_error_messages/`:
+Diagnostic fixtures live under `examples/diagnostics/error_messages/`:
 
 - `class_missing_field.eng`
 - `class_unknown_field.eng`

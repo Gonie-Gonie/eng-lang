@@ -2625,7 +2625,7 @@ fn smoke() -> Result<(), String> {
             test_example.display()
         ));
     }
-    let data_quality_example = root.join("examples/07_data_quality/bad_numeric_cell.eng");
+    let data_quality_example = root.join("examples/diagnostics/data_quality/bad_numeric_cell.eng");
     let data_quality_output = run_file(
         &data_quality_example,
         &root.join("build").join("ide-smoke-data-quality"),

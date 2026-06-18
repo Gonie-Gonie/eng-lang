@@ -123,7 +123,7 @@ Run:
 
 ```bat
 .\target\debug\eng.exe run examples\internal\04_uncertainty_core\main.eng --save-artifacts
-.\target\debug\eng.exe check examples\05_error_messages\invalid_uncertainty_arguments.eng --review
+.\target\debug\eng.exe check examples\diagnostics\error_messages\invalid_uncertainty_arguments.eng --review
 ```
 
 or open this file in the Tauri IDE:

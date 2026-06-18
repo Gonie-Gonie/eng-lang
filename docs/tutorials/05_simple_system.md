@@ -162,7 +162,7 @@ C * der(T) == UA * (T_out - T) + Q_internal
 Check:
 
 ```bat
-target\debug\eng.exe check examples\05_error_messages\eq_boolean.eng --review
+target\debug\eng.exe check examples\diagnostics\error_messages\eq_boolean.eng --review
 ```
 
 Expected diagnostic:
@@ -183,7 +183,7 @@ C * der(T) eq T_out
 Check:
 
 ```bat
-target\debug\eng.exe check examples\05_error_messages\equation_unit_mismatch.eng --review
+target\debug\eng.exe check examples\diagnostics\error_messages\equation_unit_mismatch.eng --review
 ```
 
 Expected diagnostic:

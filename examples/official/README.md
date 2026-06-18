@@ -79,9 +79,9 @@ paths before compatibility fixtures.
   authoring surface. This is not runtime object dispatch.
 ```
 
-Top-level numbered examples remain for compatibility and focused regression
-tests. Diagnostic and data-quality fixtures live in their own top-level
-folders; they are not the first user-facing examples.
+Compatibility regression examples live under `examples/compat`. Diagnostic and
+data-quality fixtures live under `examples/diagnostics`. They are not
+release-facing examples.
 
 Internal implementation fixtures that are not user-facing release workflows live
 under `examples/internal`, including uncertainty, data-driven modeling,

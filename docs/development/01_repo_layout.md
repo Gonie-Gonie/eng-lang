@@ -26,12 +26,9 @@ Current public release layout:
 |   `-- specs/          CLI and language policy
 |-- examples/
 |   |-- official/       release-facing examples and manual user-test paths
-|   |-- 01_units/
-|   |-- 02_csv_plot/
-|   |-- 04_plotting/
-|   |-- 05_error_messages/
-|   |-- 06_simple_system/
-|   `-- 07_data_quality/
+|   |-- internal/       implementation fixtures outside the public contract
+|   |-- compat/         older focused regression examples
+|   `-- diagnostics/    expected diagnostics and data-quality fixtures
 |-- scripts/
 |   `-- dev.ps1         the only PowerShell development entry
 |-- stdlib/             prelude and unit registry

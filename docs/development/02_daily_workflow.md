@@ -67,12 +67,11 @@ Without a flag, `eng fmt` prints formatted source to stdout. `--check` is the
 CI-friendly mode and returns exit code 2 when a file is not formatter-clean.
 `eng test examples` also checks the official examples with the same formatter.
 
-## 5. Keep Public Examples Current
+## 5. Keep Example Checks Current
 
-Current official examples:
+Current release-facing examples:
 
 ```text
-examples/01_units/main.eng              unit/quantity basics
 examples/official/01_csv_plot/main.eng  typed CSV, statistics, line PlotSpec, report
 examples/official/01_csv_plot/histogram.eng
                                            raw-value histogram PlotSpec bins
@@ -86,15 +85,25 @@ examples/official/17_measured_vs_simulated/main.eng
                                            measured data plus one-state simulation, RMSE, validation, multi-series plot
 ```
 
+Compatibility regression examples:
+
+```text
+examples/compat/01_units/main.eng       unit/quantity basics
+examples/compat/02_csv_plot/main.eng    historical CSV-to-plot smoke
+examples/compat/04_plotting/main.eng    focused PlotSpec/SVG smoke
+examples/compat/06_simple_system/main.eng
+                                        historical system/equation smoke
+```
+
 Current error examples:
 
 ```text
-examples/05_error_messages/unit_mismatch.eng
-examples/05_error_messages/ambiguous_power.eng
-examples/05_error_messages/heat_rate_sum.eng
-examples/05_error_messages/missing_csv_column.eng
-examples/05_error_messages/eq_boolean.eng
-examples/05_error_messages/equation_unit_mismatch.eng
+examples/diagnostics/error_messages/unit_mismatch.eng
+examples/diagnostics/error_messages/ambiguous_power.eng
+examples/diagnostics/error_messages/heat_rate_sum.eng
+examples/diagnostics/error_messages/missing_csv_column.eng
+examples/diagnostics/error_messages/eq_boolean.eng
+examples/diagnostics/error_messages/equation_unit_mismatch.eng
 ```
 
 Public behavior should have an example, a smoke test, or both.

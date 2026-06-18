@@ -13,7 +13,7 @@ Read this file first instead of opening every historical planning document.
 - Current feature maturity: [feature maturity matrix](../current/feature_maturity_matrix.md)
 - Current repository status: [status](../current/status.md)
 - Current side-effect policy: [side effect policy](../reference/side_effect_policy.md)
-- Historical long-form technical intent: [v9 master plan](EngLang_LongTerm_Development_Master_Plan_v9.md)
+- Historical v9 archive pointer: [v9 master plan](EngLang_LongTerm_Development_Master_Plan_v9.md)
 - Historical planning files are not kept as active docs. Use git history when
   an older plan or revision guide is needed.
 
@@ -30,6 +30,7 @@ decisions:
 6. [Side effect policy](../reference/side_effect_policy.md)
 7. [LLM load map](../llm/load_map.yml)
 
-Open the v9 master plan only when you need long-form rationale. Its old
-high-numbered labels are historical planning labels; the current-status layer
-describes what is Stable, Supported, Internal track work, or Planned on `main`.
+Use the v9 pointer only when you need to locate old long-form rationale in git
+history. Its old high-numbered labels are historical planning labels; the
+current-status layer describes what is Stable, Supported, Internal track work,
+or Planned on `main`.

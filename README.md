@@ -104,8 +104,8 @@ Python is optional documentation tooling. EngLang checking, running, plotting,
 report generation, and packaged execution do not depend on Python.
 
 For user testing and release validation, start with `examples/official`. The
-top-level numbered examples are compatibility regressions, while diagnostic and
-data-quality fixtures live in separate folders. See
+compatibility regressions live under `examples/compat`, while diagnostic and
+data-quality fixtures live under `examples/diagnostics`. See
 [examples/README.md](examples/README.md).
 
 ## Current Commands
@@ -115,8 +115,8 @@ target\debug\eng.exe doctor
 target\debug\eng-ide.exe --smoke
 target\debug\eng-lsp.exe --smoke
 target\debug\eng-ide.exe
-target\debug\eng.exe check examples\05_error_messages\unit_mismatch.eng --review
-target\debug\eng.exe check examples\05_error_messages\ambiguous_power.eng --review
+target\debug\eng.exe check examples\diagnostics\error_messages\unit_mismatch.eng --review
+target\debug\eng.exe check examples\diagnostics\error_messages\ambiguous_power.eng --review
 target\debug\eng.exe entries examples\official\01_csv_plot\main.eng
 target\debug\eng.exe run examples\official\01_csv_plot\main.eng
 target\debug\eng.exe run examples\official\02_simple_system\main.eng --save-artifacts

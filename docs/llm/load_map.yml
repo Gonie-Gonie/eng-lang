@@ -108,7 +108,7 @@ task_types:
     - docs/current/tracks.md
     - docs/guide/uncertainty.md
     - examples/internal/04_uncertainty_core/
-    - examples/05_error_messages/invalid_uncertainty_arguments.eng
+    - examples/diagnostics/error_messages/invalid_uncertainty_arguments.eng
     - crates/eng_compiler/src/uncertainty.rs
     - crates/eng_runtime/src/runtime_data.rs
 
@@ -154,15 +154,15 @@ task_types:
     - docs/current/tracks.md
     - docs/guide/domain_component.md
     - examples/internal/06_domain_port/
-    - examples/05_error_messages/port_domain_mismatch.eng
-    - examples/05_error_messages/medium_mismatch.eng
-    - examples/05_error_messages/frame_mismatch.eng
-    - examples/05_error_messages/axis_mismatch.eng
-    - examples/05_error_messages/generic_domain_arity.eng
-    - examples/05_error_messages/domain_missing_across.eng
-    - examples/05_error_messages/domain_missing_through.eng
-    - examples/05_error_messages/domain_missing_conservation.eng
-    - examples/05_error_messages/domain_unknown_quantity.eng
+    - examples/diagnostics/error_messages/port_domain_mismatch.eng
+    - examples/diagnostics/error_messages/medium_mismatch.eng
+    - examples/diagnostics/error_messages/frame_mismatch.eng
+    - examples/diagnostics/error_messages/axis_mismatch.eng
+    - examples/diagnostics/error_messages/generic_domain_arity.eng
+    - examples/diagnostics/error_messages/domain_missing_across.eng
+    - examples/diagnostics/error_messages/domain_missing_through.eng
+    - examples/diagnostics/error_messages/domain_missing_conservation.eng
+    - examples/diagnostics/error_messages/domain_unknown_quantity.eng
     - crates/eng_compiler/src/parser.rs
     - crates/eng_compiler/src/semantic.rs
     - crates/eng_compiler/src/lib.rs
@@ -175,13 +175,13 @@ task_types:
     - docs/current/feature_maturity_matrix.md
     - docs/guide/class_object.md
     - examples/official/19_class_object/
-    - examples/05_error_messages/class_missing_field.eng
-    - examples/05_error_messages/class_unknown_field.eng
-    - examples/05_error_messages/class_field_type_mismatch.eng
-    - examples/05_error_messages/class_validation_fail.eng
-    - examples/05_error_messages/class_method_return_mismatch.eng
-    - examples/05_error_messages/class_method_unknown.eng
-    - examples/05_error_messages/class_copy_unknown_source.eng
+    - examples/diagnostics/error_messages/class_missing_field.eng
+    - examples/diagnostics/error_messages/class_unknown_field.eng
+    - examples/diagnostics/error_messages/class_field_type_mismatch.eng
+    - examples/diagnostics/error_messages/class_validation_fail.eng
+    - examples/diagnostics/error_messages/class_method_return_mismatch.eng
+    - examples/diagnostics/error_messages/class_method_unknown.eng
+    - examples/diagnostics/error_messages/class_copy_unknown_source.eng
     - crates/eng_compiler/src/parser.rs
     - crates/eng_compiler/src/semantic.rs
     - crates/eng_compiler/src/lib.rs

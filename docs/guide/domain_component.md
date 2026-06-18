@@ -262,19 +262,19 @@ re-parsing source files.
   residual graph, dense linear solve status, solved variables, and residual
   values plus `largest_residuals` without claiming a production multi-domain
   component solver.
-- `examples/05_error_messages/port_domain_mismatch.eng`
+- `examples/diagnostics/error_messages/port_domain_mismatch.eng`
   intentionally connects a Thermal port to a Fluid port and should report
   `E-CONNECT-DOMAIN-MISMATCH` with a non-zero check exit.
-- `examples/05_error_messages/medium_mismatch.eng`,
+- `examples/diagnostics/error_messages/medium_mismatch.eng`,
   `frame_mismatch.eng`, and `axis_mismatch.eng`
   intentionally connect generic domain ports with incompatible metadata
   arguments.
-- `examples/05_error_messages/duplicate_connection.eng`
+- `examples/diagnostics/error_messages/duplicate_connection.eng`
   intentionally repeats the same connection edge in reverse order and should
   report `E-CONNECT-DUPLICATE-001`.
-- `examples/05_error_messages/generic_domain_arity.eng`
+- `examples/diagnostics/error_messages/generic_domain_arity.eng`
   intentionally omits the required generic domain argument.
-- `examples/05_error_messages/domain_missing_across.eng`,
+- `examples/diagnostics/error_messages/domain_missing_across.eng`,
   `domain_missing_through.eng`, `domain_missing_conservation.eng`, and
   `domain_unknown_quantity.eng`
   intentionally violate user-defined domain contract rules.

@@ -143,9 +143,9 @@ def build_document(version: str) -> Document:
             ),
             paragraph(
                 "For internal-track smoke testing, open ",
-                code("examples/official/04_uncertainty_core/main.eng"),
+                code("examples/internal/04_uncertainty_core/main.eng"),
                 " and verify the in-IDE Runtime uncertainty summary plus the histogram view. For data-driven modeling smoke testing, open ",
-                code("examples/official/05_data_driven_modeling/main.eng"),
+                code("examples/internal/05_data_driven_modeling/main.eng"),
                 " and verify the in-IDE ML metrics, coefficients, loss history, and parity plot.",
             ),
         ),

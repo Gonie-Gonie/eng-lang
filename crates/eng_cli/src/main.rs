@@ -632,10 +632,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         (
             "compatibility regression",
             &[
-                "examples/01_units/main.eng",
-                "examples/02_csv_plot/main.eng",
-                "examples/04_plotting/main.eng",
-                "examples/06_simple_system/main.eng",
+                "examples/compat/01_units/main.eng",
+                "examples/compat/02_csv_plot/main.eng",
+                "examples/compat/04_plotting/main.eng",
+                "examples/compat/06_simple_system/main.eng",
             ],
         ),
     ];
@@ -1230,7 +1230,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     );
 
     let bad = match check_file(
-        "examples/05_error_messages/unit_mismatch.eng",
+        "examples/diagnostics/error_messages/unit_mismatch.eng",
         &CheckOptions::default(),
     ) {
         Ok(report) => report,
@@ -1243,10 +1243,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         eprintln!("expected unit_mismatch.eng to fail");
         return ExitCode::from(2);
     }
-    println!("ok: examples/05_error_messages/unit_mismatch.eng produced diagnostics");
+    println!("ok: examples/diagnostics/error_messages/unit_mismatch.eng produced diagnostics");
 
     let ambiguous = match check_file(
-        "examples/05_error_messages/ambiguous_power.eng",
+        "examples/diagnostics/error_messages/ambiguous_power.eng",
         &CheckOptions::default(),
     ) {
         Ok(report) => report,
@@ -1259,10 +1259,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         eprintln!("expected ambiguous_power.eng to produce a warning");
         return ExitCode::from(2);
     }
-    println!("ok: examples/05_error_messages/ambiguous_power.eng produced warning");
+    println!("ok: examples/diagnostics/error_messages/ambiguous_power.eng produced warning");
 
     let heat_rate_sum = match check_file(
-        "examples/05_error_messages/heat_rate_sum.eng",
+        "examples/diagnostics/error_messages/heat_rate_sum.eng",
         &CheckOptions::default(),
     ) {
         Ok(report) => report,
@@ -1279,10 +1279,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         eprintln!("expected heat_rate_sum.eng to produce W-STATS-SUM-001");
         return ExitCode::from(2);
     }
-    println!("ok: examples/05_error_messages/heat_rate_sum.eng produced warning");
+    println!("ok: examples/diagnostics/error_messages/heat_rate_sum.eng produced warning");
 
     let missing_column = match check_file(
-        "examples/05_error_messages/missing_csv_column.eng",
+        "examples/diagnostics/error_messages/missing_csv_column.eng",
         &CheckOptions::default(),
     ) {
         Ok(report) => report,
@@ -1295,10 +1295,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         eprintln!("expected missing_csv_column.eng to fail");
         return ExitCode::from(2);
     }
-    println!("ok: examples/05_error_messages/missing_csv_column.eng produced diagnostics");
+    println!("ok: examples/diagnostics/error_messages/missing_csv_column.eng produced diagnostics");
 
     let eq_boolean = match check_file(
-        "examples/05_error_messages/eq_boolean.eng",
+        "examples/diagnostics/error_messages/eq_boolean.eng",
         &CheckOptions::default(),
     ) {
         Ok(report) => report,
@@ -1315,10 +1315,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         eprintln!("expected eq_boolean.eng to produce E-EQ-BOOL-001");
         return ExitCode::from(2);
     }
-    println!("ok: examples/05_error_messages/eq_boolean.eng produced diagnostics");
+    println!("ok: examples/diagnostics/error_messages/eq_boolean.eng produced diagnostics");
 
     let equation_unit_mismatch = match check_file(
-        "examples/05_error_messages/equation_unit_mismatch.eng",
+        "examples/diagnostics/error_messages/equation_unit_mismatch.eng",
         &CheckOptions::default(),
     ) {
         Ok(report) => report,
@@ -1335,10 +1335,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         eprintln!("expected equation_unit_mismatch.eng to produce E-EQ-UNIT-001");
         return ExitCode::from(2);
     }
-    println!("ok: examples/05_error_messages/equation_unit_mismatch.eng produced diagnostics");
+    println!("ok: examples/diagnostics/error_messages/equation_unit_mismatch.eng produced diagnostics");
 
     let port_domain_mismatch = match check_file(
-        "examples/05_error_messages/port_domain_mismatch.eng",
+        "examples/diagnostics/error_messages/port_domain_mismatch.eng",
         &CheckOptions::default(),
     ) {
         Ok(report) => report,
@@ -1355,183 +1355,183 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         eprintln!("expected port_domain_mismatch.eng to produce E-CONNECT-DOMAIN-MISMATCH");
         return ExitCode::from(2);
     }
-    println!("ok: examples/05_error_messages/port_domain_mismatch.eng produced diagnostics");
+    println!("ok: examples/diagnostics/error_messages/port_domain_mismatch.eng produced diagnostics");
 
     for (fixture, expected_code) in [
         (
-            "examples/05_error_messages/medium_mismatch.eng",
+            "examples/diagnostics/error_messages/medium_mismatch.eng",
             "E-CONNECT-MEDIUM-MISMATCH",
         ),
         (
-            "examples/05_error_messages/frame_mismatch.eng",
+            "examples/diagnostics/error_messages/frame_mismatch.eng",
             "E-CONNECT-FRAME-001",
         ),
         (
-            "examples/05_error_messages/axis_mismatch.eng",
+            "examples/diagnostics/error_messages/axis_mismatch.eng",
             "E-CONNECT-AXIS-001",
         ),
         (
-            "examples/05_error_messages/duplicate_connection.eng",
+            "examples/diagnostics/error_messages/duplicate_connection.eng",
             "E-CONNECT-DUPLICATE-001",
         ),
         (
-            "examples/05_error_messages/connect_unknown_port.eng",
+            "examples/diagnostics/error_messages/connect_unknown_port.eng",
             "E-CONNECT-UNKNOWN-PORT",
         ),
         (
-            "examples/05_error_messages/connect_bad_endpoint.eng",
+            "examples/diagnostics/error_messages/connect_bad_endpoint.eng",
             "E-CONNECT-ENDPOINT-001",
         ),
         (
-            "examples/05_error_messages/unconnected_port.eng",
+            "examples/diagnostics/error_messages/unconnected_port.eng",
             "W-CONNECT-UNCONNECTED-PORT",
         ),
         (
-            "examples/05_error_messages/generic_domain_arity.eng",
+            "examples/diagnostics/error_messages/generic_domain_arity.eng",
             "E-PORT-DOMAIN-002",
         ),
         (
-            "examples/05_error_messages/domain_missing_across.eng",
+            "examples/diagnostics/error_messages/domain_missing_across.eng",
             "E-DOMAIN-CONTRACT-001",
         ),
         (
-            "examples/05_error_messages/domain_missing_through.eng",
+            "examples/diagnostics/error_messages/domain_missing_through.eng",
             "E-DOMAIN-CONTRACT-002",
         ),
         (
-            "examples/05_error_messages/domain_missing_conservation.eng",
+            "examples/diagnostics/error_messages/domain_missing_conservation.eng",
             "E-DOMAIN-CONTRACT-003",
         ),
         (
-            "examples/05_error_messages/domain_unknown_quantity.eng",
+            "examples/diagnostics/error_messages/domain_unknown_quantity.eng",
             "E-DOMAIN-VAR-001",
         ),
         (
-            "examples/05_error_messages/class_missing_field.eng",
+            "examples/diagnostics/error_messages/class_missing_field.eng",
             "E-CLASS-FIELD-MISSING-001",
         ),
         (
-            "examples/05_error_messages/class_unknown_field.eng",
+            "examples/diagnostics/error_messages/class_unknown_field.eng",
             "E-CLASS-FIELD-UNKNOWN-001",
         ),
         (
-            "examples/05_error_messages/class_field_type_mismatch.eng",
+            "examples/diagnostics/error_messages/class_field_type_mismatch.eng",
             "E-CLASS-FIELD-TYPE-001",
         ),
         (
-            "examples/05_error_messages/class_validation_fail.eng",
+            "examples/diagnostics/error_messages/class_validation_fail.eng",
             "E-CLASS-VALIDATION-002",
         ),
         (
-            "examples/05_error_messages/class_method_return_mismatch.eng",
+            "examples/diagnostics/error_messages/class_method_return_mismatch.eng",
             "E-CLASS-METHOD-RETURN-001",
         ),
         (
-            "examples/05_error_messages/class_method_unknown.eng",
+            "examples/diagnostics/error_messages/class_method_unknown.eng",
             "E-CLASS-METHOD-CALL-002",
         ),
         (
-            "examples/05_error_messages/class_copy_unknown_source.eng",
+            "examples/diagnostics/error_messages/class_copy_unknown_source.eng",
             "E-CLASS-COPY-001",
         ),
         (
-            "examples/05_error_messages/component_delay_bad_call.eng",
+            "examples/diagnostics/error_messages/component_delay_bad_call.eng",
             "E-DELAY-CALL-001",
         ),
         (
-            "examples/05_error_messages/component_delay_bad_duration.eng",
+            "examples/diagnostics/error_messages/component_delay_bad_duration.eng",
             "E-DELAY-DURATION-001",
         ),
         (
-            "examples/05_error_messages/component_delay_unknown_signal.eng",
+            "examples/diagnostics/error_messages/component_delay_unknown_signal.eng",
             "E-DELAY-SIGNAL-001",
         ),
         (
-            "examples/05_error_messages/component_predictor_bad_call.eng",
+            "examples/diagnostics/error_messages/component_predictor_bad_call.eng",
             "E-PREDICTOR-CALL-001",
         ),
         (
-            "examples/05_error_messages/component_predictor_unknown_signal.eng",
+            "examples/diagnostics/error_messages/component_predictor_unknown_signal.eng",
             "E-PREDICTOR-SIGNAL-001",
         ),
         (
-            "examples/05_error_messages/component_external_bad_call.eng",
+            "examples/diagnostics/error_messages/component_external_bad_call.eng",
             "E-EXTERNAL-BEHAVIOR-CALL-001",
         ),
         (
-            "examples/05_error_messages/component_external_unknown_signal.eng",
+            "examples/diagnostics/error_messages/component_external_unknown_signal.eng",
             "E-EXTERNAL-BEHAVIOR-SIGNAL-001",
         ),
         (
-            "examples/05_error_messages/component_boundary_unknown_signal.eng",
+            "examples/diagnostics/error_messages/component_boundary_unknown_signal.eng",
             "E-ASSEMBLY-BOUNDARY-SIGNAL-001",
         ),
         (
-            "examples/05_error_messages/component_boundary_bad_rhs.eng",
+            "examples/diagnostics/error_messages/component_boundary_bad_rhs.eng",
             "E-ASSEMBLY-BOUNDARY-RHS-001",
         ),
         (
-            "examples/05_error_messages/component_boundary_unit_mismatch.eng",
+            "examples/diagnostics/error_messages/component_boundary_unit_mismatch.eng",
             "E-ASSEMBLY-BOUNDARY-UNIT-001",
         ),
         (
-            "examples/05_error_messages/simulate_unknown_system.eng",
+            "examples/diagnostics/error_messages/simulate_unknown_system.eng",
             "E-SIM-SYSTEM-001",
         ),
         (
-            "examples/05_error_messages/simulate_missing_input.eng",
+            "examples/diagnostics/error_messages/simulate_missing_input.eng",
             "E-SIM-MISSING-INPUT",
         ),
         (
-            "examples/05_error_messages/simulate_input_not_timeseries.eng",
+            "examples/diagnostics/error_messages/simulate_input_not_timeseries.eng",
             "E-SIM-INPUT-AXIS-MISMATCH",
         ),
         (
-            "examples/05_error_messages/simulate_input_axis_mismatch.eng",
+            "examples/diagnostics/error_messages/simulate_input_axis_mismatch.eng",
             "E-SIM-INPUT-AXIS-MISMATCH",
         ),
         (
-            "examples/05_error_messages/simulate_input_quantity_mismatch.eng",
+            "examples/diagnostics/error_messages/simulate_input_quantity_mismatch.eng",
             "E-SIM-INPUT-QTY-MISMATCH",
         ),
         (
-            "examples/05_error_messages/simulate_missing_timestep.eng",
+            "examples/diagnostics/error_messages/simulate_missing_timestep.eng",
             "E-SIM-TIMESTEP-INVALID",
         ),
         (
-            "examples/05_error_messages/simulate_bad_timestep.eng",
+            "examples/diagnostics/error_messages/simulate_bad_timestep.eng",
             "E-SIM-TIMESTEP-INVALID",
         ),
         (
-            "examples/05_error_messages/simulate_bad_tolerance.eng",
+            "examples/diagnostics/error_messages/simulate_bad_tolerance.eng",
             "E-SIM-TOLERANCE-INVALID",
         ),
         (
-            "examples/05_error_messages/simulate_missing_solver.eng",
+            "examples/diagnostics/error_messages/simulate_missing_solver.eng",
             "E-SIM-SOLVER-UNSUPPORTED",
         ),
         (
-            "examples/05_error_messages/simulate_unsupported_solver.eng",
+            "examples/diagnostics/error_messages/simulate_unsupported_solver.eng",
             "E-SIM-SOLVER-UNSUPPORTED",
         ),
         (
-            "examples/05_error_messages/simulate_unsupported_system_shape.eng",
+            "examples/diagnostics/error_messages/simulate_unsupported_system_shape.eng",
             "E-SIM-SYSTEM-SHAPE-UNSUPPORTED",
         ),
         (
-            "examples/05_error_messages/simulate_adaptive_discrete_state_space.eng",
+            "examples/diagnostics/error_messages/simulate_adaptive_discrete_state_space.eng",
             "E-SIM-SYSTEM-SHAPE-UNSUPPORTED",
         ),
         (
-            "examples/05_error_messages/state_space_missing_operator_entry.eng",
+            "examples/diagnostics/error_messages/state_space_missing_operator_entry.eng",
             "E-STATE-SPACE-OP-SHAPE-001",
         ),
         (
-            "examples/05_error_messages/state_space_operator_unit_mismatch.eng",
+            "examples/diagnostics/error_messages/state_space_operator_unit_mismatch.eng",
             "E-STATE-SPACE-OP-ENTRY-UNIT-001",
         ),
         (
-            "examples/05_error_messages/state_space_operator_bad_coefficient.eng",
+            "examples/diagnostics/error_messages/state_space_operator_bad_coefficient.eng",
             "E-STATE-SPACE-OP-ENTRY-VALUE-001",
         ),
     ] {
@@ -1554,7 +1554,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     }
 
     let missing_uncertainty_source = match check_file(
-        "examples/05_error_messages/missing_uncertainty_source.eng",
+        "examples/diagnostics/error_messages/missing_uncertainty_source.eng",
         &CheckOptions::default(),
     ) {
         Ok(report) => report,
@@ -1571,10 +1571,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         eprintln!("expected missing_uncertainty_source.eng to produce E-UNC-SOURCE-001");
         return ExitCode::from(2);
     }
-    println!("ok: examples/05_error_messages/missing_uncertainty_source.eng produced diagnostics");
+    println!("ok: examples/diagnostics/error_messages/missing_uncertainty_source.eng produced diagnostics");
 
     let invalid_uncertainty_arguments = match check_file(
-        "examples/05_error_messages/invalid_uncertainty_arguments.eng",
+        "examples/diagnostics/error_messages/invalid_uncertainty_arguments.eng",
         &CheckOptions::default(),
     ) {
         Ok(report) => report,
@@ -1594,11 +1594,11 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     println!(
-        "ok: examples/05_error_messages/invalid_uncertainty_arguments.eng produced diagnostics"
+        "ok: examples/diagnostics/error_messages/invalid_uncertainty_arguments.eng produced diagnostics"
     );
 
     let missing_ml_source = match check_file(
-        "examples/05_error_messages/missing_ml_source.eng",
+        "examples/diagnostics/error_messages/missing_ml_source.eng",
         &CheckOptions::default(),
     ) {
         Ok(report) => report,
@@ -1615,10 +1615,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         eprintln!("expected missing_ml_source.eng to produce E-ML-SOURCE-001");
         return ExitCode::from(2);
     }
-    println!("ok: examples/05_error_messages/missing_ml_source.eng produced diagnostics");
+    println!("ok: examples/diagnostics/error_messages/missing_ml_source.eng produced diagnostics");
 
     let invalid_ml_arguments = match check_file(
-        "examples/05_error_messages/invalid_ml_arguments.eng",
+        "examples/diagnostics/error_messages/invalid_ml_arguments.eng",
         &CheckOptions::default(),
     ) {
         Ok(report) => report,
@@ -1635,7 +1635,7 @@ fn command_test(_args: Vec<String>) -> ExitCode {
         eprintln!("expected invalid_ml_arguments.eng to produce E-ML-ARGS-001");
         return ExitCode::from(2);
     }
-    println!("ok: examples/05_error_messages/invalid_ml_arguments.eng produced diagnostics");
+    println!("ok: examples/diagnostics/error_messages/invalid_ml_arguments.eng produced diagnostics");
 
     match run_file(
         Path::new("examples/official/01_csv_plot/main.eng"),
@@ -2612,33 +2612,33 @@ fn command_test(_args: Vec<String>) -> ExitCode {
     }
 
     if !data_quality_fixture_records_parse_failure(
-        "examples/07_data_quality/bad_datetime_cell.eng",
+        "examples/diagnostics/data_quality/bad_datetime_cell.eng",
         "build/test-bad-datetime",
         "expected UTC DateTime",
     ) {
         return ExitCode::from(2);
     }
     if !data_quality_fixture_records_parse_failure(
-        "examples/07_data_quality/bad_numeric_cell.eng",
+        "examples/diagnostics/data_quality/bad_numeric_cell.eng",
         "build/test-bad-numeric",
         "expected finite numeric cell",
     ) {
         return ExitCode::from(2);
     }
     if !data_quality_fixture_records_interpolation(
-        "examples/07_data_quality/interpolate_missing.eng",
+        "examples/diagnostics/data_quality/interpolate_missing.eng",
         "build/test-interpolate-missing",
     ) {
         return ExitCode::from(2);
     }
     if !data_quality_fixture_records_constraint_violation(
-        "examples/07_data_quality/constraint_violation.eng",
+        "examples/diagnostics/data_quality/constraint_violation.eng",
         "build/test-constraint-violation",
     ) {
         return ExitCode::from(2);
     }
     if !data_quality_fixture_records_conversion_failure(
-        "examples/07_data_quality/unsupported_unit_conversion.eng",
+        "examples/diagnostics/data_quality/unsupported_unit_conversion.eng",
         "build/test-unit-conversion-failure",
     ) {
         return ExitCode::from(2);

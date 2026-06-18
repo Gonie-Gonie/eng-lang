@@ -163,27 +163,29 @@ internal/28_adaptive_state_space
 
 ## Compatibility Regression Examples
 
-The top-level numbered examples keep older paths alive and provide focused
-regression coverage. They are intentionally not the first user-facing namespace.
+`examples/compat` keeps older focused examples alive as regression coverage.
+They are intentionally not the first user-facing namespace and are not copied
+as release-facing examples.
 
 ```text
-01_units
-02_csv_plot
-04_plotting
-06_simple_system
+compat/01_units
+compat/02_csv_plot
+compat/04_plotting
+compat/06_simple_system
 ```
 
 ## Diagnostic Fixtures
 
-`05_error_messages` contains examples that are expected to produce specific
-diagnostics or warnings. Use them when changing parser, semantic, unit, workflow,
-equation, domain, port, or connection diagnostics.
+`examples/diagnostics/error_messages` contains examples that are expected to
+produce specific diagnostics or warnings. Use them when changing parser,
+semantic, unit, workflow, equation, domain, port, or connection diagnostics.
 
 ## Data-Quality Fixtures
 
-`07_data_quality` contains CSV policy and runtime data-quality fixtures. Some
-files intentionally record parse failures, interpolation, constraint
-violations, or unsupported conversion failures in generated artifacts.
+`examples/diagnostics/data_quality` contains CSV policy and runtime
+data-quality fixtures. Some files intentionally record parse failures,
+interpolation, constraint violations, or unsupported conversion failures in
+generated artifacts.
 
 ## Scratch Files
 

@@ -15,6 +15,17 @@ The schemas also exercise the runtime data-quality surface:
 - artifact output records metric sample counts and TimeSeries alignment status
 ```
 
+What to inspect after `Run`:
+
+```text
+- sim.T_zone in result.engres as the actual emitted one-state trajectory
+- rmse_T with TemperatureDelta/K units
+- validation status for the RMSE threshold
+- time-alignment metadata for measured_data.T_zone vs sim.T_zone
+- measured/simulated two-series PlotSpec and SVG output
+- solver method, timestep, step count, final state, and solver-boundary fields
+```
+
 Regression fixtures:
 
 ```text

@@ -18,6 +18,23 @@ It exercises the supported workflow in one file:
 - simple thermal system metadata and fixed-step one-state ODE result
 ```
 
+What to inspect after `Run`:
+
+```text
+- review.json: schema constraints, missing-value policy, TimeSeries axis,
+  integration provenance, and system equation metadata
+- report.html: summary statistics, integrated energy, and plotted heat-rate
+  series
+- plots/timeseries.svg: generated SVG line chart for Q_coil over Time
+- result.engres: runtime object records for the promoted table, computed
+  HeatRate series, Energy integration, and solver-boundary metadata
+```
+
+This example is intentionally broad, but still within the stable-core boundary:
+it demonstrates an integrated data-to-report workflow plus a narrow
+system/equation surface. It does not claim a general nonlinear, DAE,
+multi-state, or production component-graph solver.
+
 Run from the repository root:
 
 ```bat
