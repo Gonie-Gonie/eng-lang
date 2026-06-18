@@ -5929,7 +5929,7 @@ report {
 }
 "#;
         let report = eng_compiler::check_source("ok.eng", source, &CheckOptions::default());
-        let runtime = materialize_runtime_data(&report, &source);
+        let runtime = materialize_runtime_data(&report, source);
         let mut plot_spec = eng_report::plot_spec_from_report(&report);
         runtime.apply_plot_spec(&report, &mut plot_spec);
 
@@ -5981,7 +5981,7 @@ report {
 Q_unc = propagate(Q_missing, method=linear, samples=8)
 "#;
         let report = eng_compiler::check_source("bad.eng", source, &CheckOptions::default());
-        let runtime = materialize_runtime_data(&report, &source);
+        let runtime = materialize_runtime_data(&report, source);
 
         assert!(report.has_errors());
         assert_eq!(runtime.uncertainties.len(), 1);
@@ -6326,7 +6326,8 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
                 |diagnostic| diagnostic.convergence_status == "fixed_point_converged"
                     && diagnostic.failure_artifact.is_none()
             ));
-        let component_series = materialize_component_solution_series(&[solution.clone()]);
+        let component_series =
+            materialize_component_solution_series(std::slice::from_ref(&solution));
         assert!(component_series
             .iter()
             .any(|series| series.name == "component_graph.x"

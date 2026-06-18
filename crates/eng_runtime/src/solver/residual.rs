@@ -127,11 +127,13 @@ impl ResidualGraph {
                 &mut variables,
                 &mut variable_aliases,
                 &mut variable_units,
-                &variable.name,
-                "state",
-                &variable.quantity_kind,
-                &variable.unit,
-                &[variable.name.as_str()],
+                DynamicResidualVariableSpec {
+                    name: &variable.name,
+                    role: "state",
+                    quantity_kind: &variable.quantity_kind,
+                    unit: &variable.unit,
+                    aliases: &[variable.name.as_str()],
+                },
             );
         }
         for variable in &assembly.algebraic_variables {
@@ -139,11 +141,13 @@ impl ResidualGraph {
                 &mut variables,
                 &mut variable_aliases,
                 &mut variable_units,
-                &variable.name,
-                "algebraic",
-                &variable.quantity_kind,
-                &variable.unit,
-                &[variable.name.as_str()],
+                DynamicResidualVariableSpec {
+                    name: &variable.name,
+                    role: "algebraic",
+                    quantity_kind: &variable.quantity_kind,
+                    unit: &variable.unit,
+                    aliases: &[variable.name.as_str()],
+                },
             );
         }
         for variable in &assembly.inputs {
@@ -151,11 +155,13 @@ impl ResidualGraph {
                 &mut variables,
                 &mut variable_aliases,
                 &mut variable_units,
-                &variable.name,
-                "input",
-                &variable.quantity_kind,
-                &variable.unit,
-                &[variable.name.as_str()],
+                DynamicResidualVariableSpec {
+                    name: &variable.name,
+                    role: "input",
+                    quantity_kind: &variable.quantity_kind,
+                    unit: &variable.unit,
+                    aliases: &[variable.name.as_str()],
+                },
             );
         }
         for variable in &assembly.parameters {
@@ -163,11 +169,13 @@ impl ResidualGraph {
                 &mut variables,
                 &mut variable_aliases,
                 &mut variable_units,
-                &variable.name,
-                "parameter",
-                &variable.quantity_kind,
-                &variable.unit,
-                &[variable.name.as_str()],
+                DynamicResidualVariableSpec {
+                    name: &variable.name,
+                    role: "parameter",
+                    quantity_kind: &variable.quantity_kind,
+                    unit: &variable.unit,
+                    aliases: &[variable.name.as_str()],
+                },
             );
         }
         for state in &assembly.states {
@@ -178,15 +186,17 @@ impl ResidualGraph {
                 &mut variables,
                 &mut variable_aliases,
                 &mut variable_units,
-                &derivative_name,
-                "state_derivative",
-                &state.quantity_kind,
-                &dynamic_derivative_unit(&state.unit),
-                &[
-                    derivative_name.as_str(),
-                    der_call_alias.as_str(),
-                    differential_alias.as_str(),
-                ],
+                DynamicResidualVariableSpec {
+                    name: &derivative_name,
+                    role: "state_derivative",
+                    quantity_kind: &state.quantity_kind,
+                    unit: &dynamic_derivative_unit(&state.unit),
+                    aliases: &[
+                        derivative_name.as_str(),
+                        der_call_alias.as_str(),
+                        differential_alias.as_str(),
+                    ],
+                },
             );
         }
 
@@ -344,25 +354,32 @@ struct ParsedDynamicResidual {
     constant: f64,
 }
 
+struct DynamicResidualVariableSpec<'a> {
+    name: &'a str,
+    role: &'a str,
+    quantity_kind: &'a str,
+    unit: &'a str,
+    aliases: &'a [&'a str],
+}
+
 fn push_dynamic_residual_variable(
     variables: &mut Vec<ResidualVariableRef>,
     variable_aliases: &mut HashMap<String, usize>,
     variable_units: &mut HashMap<String, (String, String)>,
-    name: &str,
-    role: &str,
-    quantity_kind: &str,
-    unit: &str,
-    aliases: &[&str],
+    spec: DynamicResidualVariableSpec<'_>,
 ) {
     let index = variables.len();
     variables.push(ResidualVariableRef {
         index,
-        name: name.to_owned(),
-        role: role.to_owned(),
-        unit: unit.to_owned(),
+        name: spec.name.to_owned(),
+        role: spec.role.to_owned(),
+        unit: spec.unit.to_owned(),
     });
-    variable_units.insert(name.to_owned(), (unit.to_owned(), quantity_kind.to_owned()));
-    for alias in aliases {
+    variable_units.insert(
+        spec.name.to_owned(),
+        (spec.unit.to_owned(), spec.quantity_kind.to_owned()),
+    );
+    for alias in spec.aliases {
         variable_aliases.insert((*alias).to_owned(), index);
     }
 }

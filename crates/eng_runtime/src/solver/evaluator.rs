@@ -213,6 +213,15 @@ where
     }
 }
 
+impl<F> ResidualEvaluator for ClosureResidualEvaluator<F>
+where
+    F: Fn(&ResidualInput) -> Result<ResidualOutput, SolverFailure>,
+{
+    fn evaluate(&self, input: &ResidualInput) -> Result<ResidualOutput, SolverFailure> {
+        (self.evaluator)(input)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -330,14 +339,5 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(failure.code, "E-RHS-DERIVATIVE-FINITE");
-    }
-}
-
-impl<F> ResidualEvaluator for ClosureResidualEvaluator<F>
-where
-    F: Fn(&ResidualInput) -> Result<ResidualOutput, SolverFailure>,
-{
-    fn evaluate(&self, input: &ResidualInput) -> Result<ResidualOutput, SolverFailure> {
-        (self.evaluator)(input)
     }
 }
