@@ -15,6 +15,11 @@ Historical tags may remain for traceability; current public release line starts
 from `v1.0.0`. Current docs and release assets should not ask users to
 understand old high-numbered labels.
 
+Publication status is tracked separately in
+[release-state.md](../release/release-state.md). In particular, `v0.1.0` was
+not a public release. The first public prerelease was `v0.1-preview`, using
+workspace version `0.1.0-preview`.
+
 Public sequence:
 
 ```text
@@ -29,6 +34,10 @@ v0.8-preview  external process and ProcessResult policy seed
 v0.9-preview  test/assert/golden support
 v1.0.0        stable core
 ```
+
+Release notes and local checklists may describe historical readiness slices.
+Treat a slice as published only when [release-state.md](../release/release-state.md)
+records a GitHub Release page for the exact tag.
 
 ## Cargo Version
 

@@ -2,6 +2,25 @@
 
 This document defines the repeatable EngLang release process.
 
+For the current observed publication state, including which tags are only
+historical/readiness tags and why `v0.1.0` was not a public release, see
+[release-state.md](release-state.md).
+
+## Publication Terms
+
+Use these terms precisely:
+
+```text
+Release-ready: release-check passed and assets can be produced locally.
+Tagged:        a git tag exists locally and on origin.
+Published:     a GitHub Release page exists for the exact tag and the release
+               assets are attached or intentionally documented as omitted.
+```
+
+Do not call a tag-only state a published release. Do not describe
+`0.1.0-preview` as `v0.1.0`; it was the workspace version behind the
+`v0.1-preview` public prerelease.
+
 ## Version Policy
 
 Current public release line:
@@ -99,6 +118,11 @@ dist\englang-v1.0.0-windows-x64.zip.sha256
 dist\englang-user-guide-v1.0.0.pdf
 dist\release-manifest.txt
 ```
+
+After publication, update [release-state.md](release-state.md) with the exact
+tag, GitHub Release URL, prerelease/stable flag, published timestamp, and any
+asset omissions. If only a tag was pushed, record it as tagged but not
+published.
 
 ## Manual Verification
 

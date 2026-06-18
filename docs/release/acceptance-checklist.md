@@ -3,6 +3,12 @@
 Every development or release slice should answer these questions before commit
 and release.
 
+This checklist records local readiness gates. It does not by itself prove that
+a GitHub Release page was published. For the observed publication state, see
+[release-state.md](release-state.md). The first public prerelease was
+`v0.1-preview` with workspace version `0.1.0-preview`; there was no public
+`v0.1.0` release.
+
 ## General Slice Checklist
 
 ```text

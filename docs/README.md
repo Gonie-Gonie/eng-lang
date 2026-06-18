@@ -68,6 +68,7 @@ long-form planning documents.
 - [Current planning pointer](master-plan/current.md)
 - [Release acceptance checklist](release/acceptance-checklist.md)
 - [Release workflow](release/release-workflow.md)
+- [Release state audit](release/release-state.md)
 - [v0.1-preview release notes](release/v0.1-preview.md)
 - [v0.2-preview release notes](release/v0.2-preview.md)
 - [v0.3-preview release notes](release/v0.3-preview.md)
