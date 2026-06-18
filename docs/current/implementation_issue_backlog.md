@@ -447,7 +447,9 @@ Current coverage:
   adapter/profile failures.
 - Runtime component solver artifacts now add an explicit reason/failure note
   when behavior graph nodes are present but not yet integrated into numeric
-  residual evaluation.
+  residual evaluation; if a square residual graph would otherwise solve while
+  ignoring behavior seeds, runtime marks it
+  `not_solved_behavior_not_integrated` with `E-BEHAVIOR-NOT-INTEGRATED`.
 - `examples/internal/25_component_behavior_nodes` exercises valid delay,
   Predictor, and external adapter behavior-node artifacts, including prior
   component-local signal contract resolution, in the CLI example smoke path.

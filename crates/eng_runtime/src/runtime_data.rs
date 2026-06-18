@@ -2756,6 +2756,7 @@ fn materialize_component_solutions(report: &CheckReport) -> Vec<RuntimeComponent
 }
 
 const COMPONENT_LINEAR_SOLVER_TOLERANCE: f64 = 1e-9;
+const COMPONENT_BEHAVIOR_NOT_INTEGRATED_CODE: &str = "E-BEHAVIOR-NOT-INTEGRATED";
 const COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE: &str =
     "behavior graph nodes are present but not yet integrated into numeric residual evaluation";
 
@@ -2767,7 +2768,19 @@ fn annotate_component_behavior_solution(
         return;
     }
     append_component_solution_reason(solution, COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE);
-    if let Some(failure) = &mut solution.failure_artifact {
+    if solution.failure_artifact.is_none() {
+        solution.status = "not_solved_behavior_not_integrated".to_owned();
+        solution.convergence_status = "behavior_graph_not_integrated".to_owned();
+        for variable in &mut solution.variables {
+            if variable.status == "solved_linear" {
+                variable.status = "behavior_not_integrated".to_owned();
+            }
+        }
+        solution.failure_artifact = Some(RuntimeSolverFailureArtifact {
+            code: COMPONENT_BEHAVIOR_NOT_INTEGRATED_CODE.to_owned(),
+            message: COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE.to_owned(),
+        });
+    } else if let Some(failure) = &mut solution.failure_artifact {
         if !failure
             .message
             .contains(COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE)
@@ -6065,6 +6078,55 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
             .residuals
             .iter()
             .all(|residual| residual.status == "satisfied"));
+    }
+
+    #[test]
+    fn behavior_seed_prevents_claiming_linear_component_solve() {
+        let behavior_report = check_source(
+            "behavior.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n    temperature_signal = out.T\n    delayed_temperature = delay(temperature_signal, 5 s)\n}\n\ncomponent Sink {\n    port inlet: Thermal\n}\n\nconnect Source.out -> Sink.inlet\n",
+            &CheckOptions::default(),
+        );
+        let behavior_assembly = &behavior_report.semantic_program.component_assemblies[0];
+        let square_assembly = square_linear_test_assembly("component_graph");
+        let mut solution =
+            RuntimeComponentSolution::from_solver_assembly("component_graph", &square_assembly);
+
+        assert_eq!(solution.status, "solved_linear");
+        assert!(solution.failure_artifact.is_none());
+
+        annotate_component_behavior_solution(&mut solution, behavior_assembly);
+
+        assert_eq!(solution.status, "not_solved_behavior_not_integrated");
+        assert_eq!(solution.convergence_status, "behavior_graph_not_integrated");
+        assert!(solution
+            .variables
+            .iter()
+            .all(|variable| variable.status == "behavior_not_integrated"));
+        assert_eq!(
+            solution
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some(COMPONENT_BEHAVIOR_NOT_INTEGRATED_CODE)
+        );
+        assert!(solution
+            .reason
+            .contains(COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE));
+
+        let mut spec = eng_report::report_spec_from_report(
+            &behavior_report,
+            "plots/plot_manifest.json",
+            "abc123",
+        );
+        RuntimeData {
+            component_solutions: vec![solution],
+            ..RuntimeData::default()
+        }
+        .apply_component_solutions(&mut spec);
+        let json = eng_report::report_spec_json(&spec);
+        assert!(json.contains("\"status\": \"not_solved_behavior_not_integrated\""));
+        assert!(json.contains("\"failure_code\": \"E-BEHAVIOR-NOT-INTEGRATED\""));
     }
 
     #[test]
