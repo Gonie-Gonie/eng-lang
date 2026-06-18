@@ -32,7 +32,7 @@ printing, CSV export, and report plotting.
 For the integrated data plus simulation workflow, open:
 
 ```text
-examples/official/17_measured_vs_simulated/main.eng
+examples/internal/17_measured_vs_simulated/main.eng
 ```
 
 That example promotes measured and weather CSV files, runs a minimal thermal
@@ -75,7 +75,7 @@ Use these commands from the repository or portable package:
 ```text
 eng.exe check examples/official/09_command_where_with/main.eng --review
 eng.exe run examples/official/09_command_where_with/main.eng --save-artifacts
-eng.exe run examples/official/17_measured_vs_simulated/main.eng --profile repro --save-artifacts
+eng.exe run examples/internal/17_measured_vs_simulated/main.eng --profile repro --save-artifacts
 eng.exe view build/result/result.engres
 ```
 

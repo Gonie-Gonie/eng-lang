@@ -1,5 +1,5 @@
 args {
-    weather: CsvFile = file("../../official/17_measured_vs_simulated/data/weather.csv")
+    weather: CsvFile = file("../17_measured_vs_simulated/data/weather.csv")
 }
 
 schema WeatherData {

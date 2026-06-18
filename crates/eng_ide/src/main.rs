@@ -1808,7 +1808,7 @@ fn is_workspace_root(path: &Path) -> bool {
 }
 
 fn default_file(root: &Path) -> PathBuf {
-    let preferred = root.join("examples/official/03_integrated_hvac/main.eng");
+    let preferred = root.join("examples/internal/03_integrated_hvac/main.eng");
     if preferred.exists() {
         return preferred;
     }
@@ -2357,7 +2357,7 @@ fn smoke() -> Result<(), String> {
             multi_domain_example.display()
         ));
     }
-    let measured_example = root.join("examples/official/17_measured_vs_simulated/main.eng");
+    let measured_example = root.join("examples/internal/17_measured_vs_simulated/main.eng");
     let measured_output = run_file(
         &measured_example,
         &root.join("build").join("ide-smoke"),

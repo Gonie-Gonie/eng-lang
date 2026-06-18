@@ -16,7 +16,7 @@ Extract the zip, open a command prompt in the extracted folder, and run:
 eng.exe doctor
 eng-ide.exe --smoke
 eng-lsp.exe --smoke
-eng.exe run examples/official/03_integrated_hvac/main.eng ^
+eng.exe run examples/official/01_csv_plot/main.eng ^
   --save-artifacts
 ```
 
@@ -57,7 +57,7 @@ Documentation and tooling:
 - `docs/EngLang_User_Guide.pdf`: this guide.
 - `docs/EngLang_Language_Grammar_Guide.pdf`: grammar and command policy.
 - `tools/vscode-englang/`: optional VS Code extension source.
-- `tools/englang-vscode-1.0.0.vsix`: optional installable VS Code extension
+- `tools/englang-vscode-0.1.0.vsix`: optional installable VS Code extension
   package.
 - `README.txt`: short package start page.
 - `PACKAGE_ASSETS.txt`: portable asset inventory and support boundary.
@@ -70,11 +70,6 @@ or Node development dependencies.
 
 Use the official examples for user testing and demos. Start with these:
 
-- `examples/official/03_integrated_hvac/main.eng`: integrated HVAC workflow with
-  typed CSV promotion, interpolation, constraints, statistics, integration,
-  plot, report, and solver metadata.
-- `examples/official/17_measured_vs_simulated/main.eng`: measured-vs-simulated
-  one-state thermal workflow with `sim.T_zone` and RMSE.
 - `examples/official/01_csv_plot/main.eng`: typed CSV import, HeatRate
   calculation, TimeSeries statistics, line PlotSpec, and report output.
 - `examples/official/09_command_where_with/main.eng`: command policy, `where`,
@@ -89,15 +84,8 @@ local test-result records, and histogram PlotSpec output.
 Recommended first user test:
 
 ```bat
-eng.exe run examples/official/03_integrated_hvac/main.eng ^
+eng.exe run examples/official/01_csv_plot/main.eng ^
   --save-artifacts
-```
-
-Recommended measured-vs-simulated test:
-
-```bat
-eng.exe run examples/official/17_measured_vs_simulated/main.eng ^
-  --profile repro --save-artifacts
 ```
 
 ## Native IDE Workflow
@@ -108,7 +96,7 @@ Run:
 eng-ide.exe
 ```
 
-Open `examples/official/03_integrated_hvac/main.eng` from the Explorer, or
+Open `examples/official/01_csv_plot/main.eng` from the Explorer, or
 create a scratch `.eng` file. Use `Check` for compiler diagnostics and `Run` to
 execute the current file. Successful runs update the terminal, Problems tab,
 Variables table, PlotSpec preview, Runtime summary, and generated artifact
@@ -119,8 +107,8 @@ symbols, completions, run artifacts, and report generation therefore exercise
 the real core path instead of duplicated editor-only logic.
 
 The Runtime tab summarizes result metadata from `result.engres`, including
-policy execution, statistics, solver metadata, generated plots, and package
-smoke-oriented inspection data when present.
+policy execution, statistics, generated plots, and package smoke-oriented
+inspection data when present.
 
 ## Command-Line Workflow
 
@@ -176,10 +164,8 @@ A successful run can create:
 - `build/result/test_results.json`: local test-result records when used.
 - `build/result/output_manifest.json`: declared output files when used.
 
-For the integrated HVAC example, the result should include policy execution,
-computed statistics, integration provenance, plot hashes, and thermal solver
-metadata. For the measured-vs-simulated example, the result should include
-`sim.T_zone`, time-alignment metadata, RMSE, and a multi-series PlotSpec.
+For the CSV/plot example, the result should include typed CSV provenance,
+computed statistics, integration provenance, plot hashes, and report metadata.
 
 ## Standalone Bundle
 
@@ -203,7 +189,7 @@ metadata, source snapshot, and required source data. It writes normal
 
 ## Current Boundaries
 
-The stable-core user contract is intentionally narrow:
+The public user contract is intentionally narrow:
 
 - Documented syntax and command policy in the language grammar guide.
 - Official examples under `examples/official`.
@@ -211,12 +197,11 @@ The stable-core user contract is intentionally narrow:
   records, process records, structured runtime logs, PlotSpec/SVG/report
   generation, and portable package smoke.
 - Native IDE check/run/inspect workflow for the packaged examples.
-- Focused one-state thermal workflows documented by the official examples,
-  including the measured-vs-simulated `sim.T_zone` case.
 
 These areas are present only as internal or future-facing seeds unless later
 documentation marks them stable:
 
+- Public solver support.
 - General nonlinear solving.
 - General DAE solving.
 - Production multi-domain component graph solving.
@@ -224,9 +209,10 @@ documentation marks them stable:
 - Broad uncertainty and ML public workflows.
 - Full editor platform guarantees beyond the packaged smoke path.
 
-Internal examples remain in the portable package because `eng-ide.exe --smoke`,
-`eng-lsp.exe --smoke`, diagnostics, and regression checks use them. Treat those
-files as inspection fixtures, not as supported user tutorials.
+Internal examples, including system/solver examples, remain in the portable
+package because `eng-ide.exe --smoke`, `eng-lsp.exe --smoke`, diagnostics, and
+regression checks use them. Treat those files as inspection fixtures, not as
+supported user tutorials.
 
 ## Troubleshooting
 

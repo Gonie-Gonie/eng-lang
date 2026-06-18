@@ -95,7 +95,7 @@ plot manifest outlines inspectable.
 Recommended release user-test example:
 
 ```text
-examples/official/03_integrated_hvac/main.eng
+examples/internal/03_integrated_hvac/main.eng
 ```
 
 See [Integrated HVAC user test](../tutorials/06_integrated_hvac.md) for the

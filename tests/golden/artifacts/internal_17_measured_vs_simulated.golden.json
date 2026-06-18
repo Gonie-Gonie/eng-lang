@@ -1,6 +1,6 @@
 {
-  "name": "official_17_measured_vs_simulated",
-  "source": "examples\\official\\17_measured_vs_simulated\\main.eng",
+  "name": "internal_17_measured_vs_simulated",
+  "source": "examples\\internal\\17_measured_vs_simulated\\main.eng",
   "profile": "repro",
   "review": {
     "format": "eng-review-preview-1",

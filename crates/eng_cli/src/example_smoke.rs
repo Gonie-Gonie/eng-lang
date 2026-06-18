@@ -19,8 +19,6 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             "official",
             &[
                 "examples/official/01_csv_plot/main.eng",
-                "examples/official/02_simple_system/main.eng",
-                "examples/official/03_integrated_hvac/main.eng",
                 "examples/official/07_functions_imports/main.eng",
                 "examples/official/08_print_export_summary/main.eng",
                 "examples/official/09_command_where_with/main.eng",
@@ -31,16 +29,18 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/14_run_log/main.eng",
                 "examples/official/15_process_result/main.eng",
                 "examples/official/16_test_assert_golden/main.eng",
-                "examples/official/17_measured_vs_simulated/main.eng",
                 "examples/official/19_class_object/main.eng",
             ],
         ),
         (
             "internal",
             &[
+                "examples/internal/02_simple_system/main.eng",
+                "examples/internal/03_integrated_hvac/main.eng",
                 "examples/internal/04_uncertainty_core/main.eng",
                 "examples/internal/05_data_driven_modeling/main.eng",
                 "examples/internal/06_domain_port/main.eng",
+                "examples/internal/17_measured_vs_simulated/main.eng",
                 "examples/internal/18_state_space_metadata/main.eng",
                 "examples/internal/20_multi_state_thermal/main.eng",
                 "examples/internal/21_unsupported_system_shape/main.eng",
@@ -1407,7 +1407,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/official/17_measured_vs_simulated/main.eng"),
+        Path::new("examples/internal/17_measured_vs_simulated/main.eng"),
         Path::new("build/test-measured-vs-simulated"),
         &artifact_run_options(),
     ) {
@@ -1476,7 +1476,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/17_measured_vs_simulated/main.eng produced measured-vs-simulated artifacts"
+                "ok: examples/internal/17_measured_vs_simulated/main.eng produced measured-vs-simulated artifacts"
             );
         }
         Err(error) => {
@@ -1485,7 +1485,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/official/17_measured_vs_simulated/main.eng"),
+        Path::new("examples/internal/17_measured_vs_simulated/main.eng"),
         Path::new("build/test-measured-vs-simulated-repro"),
         &RunOptions {
             save_artifacts: true,
@@ -1510,7 +1510,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/17_measured_vs_simulated/main.eng produced repro-profile artifacts"
+                "ok: examples/internal/17_measured_vs_simulated/main.eng produced repro-profile artifacts"
             );
         }
         Err(error) => {
@@ -1519,14 +1519,14 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     if !measured_fixture_records_time_overlap(
-        "examples/official/17_measured_vs_simulated/main.eng",
+        "examples/internal/17_measured_vs_simulated/main.eng",
         "build/test-measured-vs-simulated-time-mismatch",
         "data/measured_zone_time_mismatch.csv",
     ) {
         return ExitCode::from(2);
     }
     if !measured_fixture_records_missing_policy(
-        "examples/official/17_measured_vs_simulated/main.eng",
+        "examples/internal/17_measured_vs_simulated/main.eng",
         "build/test-measured-vs-simulated-missing",
         "data/measured_zone_missing.csv",
     ) {
@@ -1873,7 +1873,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
     println!("ok: invalid typed Args values produced diagnostics");
 
     match run_file(
-        Path::new("examples/official/02_simple_system/main.eng"),
+        Path::new("examples/internal/02_simple_system/main.eng"),
         Path::new("build/test-system"),
         &artifact_run_options(),
     ) {
@@ -1888,7 +1888,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/02_simple_system/main.eng produced system report artifacts"
+                "ok: examples/internal/02_simple_system/main.eng produced system report artifacts"
             );
         }
         Err(error) => {
@@ -1897,7 +1897,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/official/03_integrated_hvac/main.eng"),
+        Path::new("examples/internal/03_integrated_hvac/main.eng"),
         Path::new("build/test-integrated-hvac"),
         &RunOptions {
             open_report: false,
@@ -1919,7 +1919,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/03_integrated_hvac/main.eng produced integrated user-test artifacts"
+                "ok: examples/internal/03_integrated_hvac/main.eng produced integrated user-test artifacts"
             );
         }
         Err(error) => {
@@ -2196,7 +2196,7 @@ report {
         }
     }
     match build_standalone(
-        Path::new("examples/official/17_measured_vs_simulated/main.eng"),
+        Path::new("examples/internal/17_measured_vs_simulated/main.eng"),
         Path::new("build/test-standalone-measured-vs-simulated"),
         &BuildOptions { args: Vec::new() },
     ) {

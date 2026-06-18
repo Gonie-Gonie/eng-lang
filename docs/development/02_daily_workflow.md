@@ -75,13 +75,13 @@ Current release-facing examples:
 examples/official/01_csv_plot/main.eng  typed CSV, statistics, line PlotSpec, report
 examples/official/01_csv_plot/histogram.eng
                                            raw-value histogram PlotSpec bins
-examples/official/02_simple_system/main.eng
+examples/internal/02_simple_system/main.eng
                                            minimal system/equation report
 examples/official/09_command_where_with/main.eng
                                            command-style verbs, where/with, print/export/report
 examples/official/16_test_assert_golden/main.eng
                                            local test/assert/golden workflow checks
-examples/official/17_measured_vs_simulated/main.eng
+examples/internal/17_measured_vs_simulated/main.eng
                                            measured data plus one-state simulation, RMSE, validation, multi-series plot
 ```
 

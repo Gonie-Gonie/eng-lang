@@ -8,14 +8,14 @@ first-class parts of engineering code.
 
 ## Status
 
-Current public line: `v1.0.0`
+Current public line: `v0.1.0`
 
-Active target: `v1.0.x` - stable core maintenance and scoped additions
+Active target: `v0.1.x` - release cleanup and scoped additions
 
-EngLang `1.0.0` is a stable-core release. The documented data-to-report
+EngLang `0.1.0` is a clean initial portable release. The documented data-to-report
 workflow, artifact family, packaged runner, and native tester path are the
-stable contract. Internal implementation seeds remain outside that contract.
-EngLang 1.0.0 is not a complete engineering simulation solver.
+public contract. Internal implementation seeds remain outside that contract.
+EngLang 0.1.0 is not an engineering solver release.
 
 Start from these short status documents:
 
@@ -69,15 +69,10 @@ claims:
 - Class/domain-object
 - General programming/side-effect policy
 
-The minimal system/equation path still means one-state thermal workflow
-support, plus solver metadata and solver-plan artifacts for that narrow scope;
-`adaptive_heun` is available only for that one-state thermal path. A separate
-internal state-space track now covers multi-state fixed-step Euler/RK4 thermal
-simulations with report and IDE artifacts. General nonlinear solvers, DAE,
-broad adaptive solving, and production numeric component-graph solving remain
-future tracks. Domain package registries also remain future work. Historical
-tags may remain for traceability; current public
-release line starts from v1.0.0.
+System/equation and solver examples are internal fixtures, not public release
+claims. General nonlinear solvers, DAE, broad adaptive solving, state-space
+simulation, and production numeric component-graph solving remain future or
+internal tracks. Domain package registries also remain future work.
 
 ## Quick Start
 
@@ -119,9 +114,8 @@ target\debug\eng.exe check examples\diagnostics\error_messages\unit_mismatch.eng
 target\debug\eng.exe check examples\diagnostics\error_messages\ambiguous_power.eng --review
 target\debug\eng.exe entries examples\official\01_csv_plot\main.eng
 target\debug\eng.exe run examples\official\01_csv_plot\main.eng
-target\debug\eng.exe run examples\official\02_simple_system\main.eng --save-artifacts
-target\debug\eng.exe run examples\official\03_integrated_hvac\main.eng --save-artifacts
-target\debug\eng.exe run examples\official\17_measured_vs_simulated\main.eng --profile repro --save-artifacts
+target\debug\eng.exe run examples\official\09_command_where_with\main.eng --save-artifacts
+target\debug\eng.exe run examples\official\16_test_assert_golden\main.eng --save-artifacts
 target\debug\eng.exe build examples\official\01_csv_plot\main.eng --standalone --profile repro
 dist\main-standalone\run.bat
 target\debug\eng.exe view build\result\result.engres
@@ -207,14 +201,14 @@ eng-ide.exe --smoke
 eng-lsp.exe --smoke
 eng-ide.exe
 eng.exe run examples\official\01_csv_plot\main.eng --save-artifacts
-eng.exe run examples\official\02_simple_system\main.eng --save-artifacts
-eng.exe run examples\official\03_integrated_hvac\main.eng --save-artifacts
+eng.exe run examples\official\09_command_where_with\main.eng --save-artifacts
+eng.exe run examples\official\16_test_assert_golden\main.eng --save-artifacts
 eng.exe build examples\official\01_csv_plot\main.eng --standalone --profile repro
 dist\main-standalone\run.bat
 popd
 ```
 
-`package` writes `dist\englang-v1.0.0-windows-x64.zip`, a
+`package` writes `dist\englang-v0.1.0-windows-x64.zip`, a
 matching `.sha256` file, and a curated PDF user guide. The portable package
 does not copy the full developer markdown documentation tree. `package-smoke`
 extracts that zip into a path with spaces and Korean characters, then runs the

@@ -1,9 +1,9 @@
-# Official Example 03: Integrated HVAC
+# Internal Integrated HVAC Fixture
 
-This example is the release user-test scenario for the native tester IDE and
-portable release package.
+This example is an internal integration fixture for the native tester IDE and
+portable package smoke coverage.
 
-It exercises the supported workflow in one file:
+It exercises several implemented paths in one file:
 
 ```text
 - Args default CSV path
@@ -30,24 +30,23 @@ What to inspect after `Run`:
   HeatRate series, Energy integration, and solver-boundary metadata
 ```
 
-This example is intentionally broad, but still within the stable-core boundary:
-it demonstrates an integrated data-to-report workflow plus a narrow
-system/equation surface. It does not claim a general nonlinear, DAE,
-multi-state, or production component-graph solver.
+This example is intentionally broad. It is not a public release tutorial and it
+does not claim public solver support, general nonlinear solving, DAE solving,
+multi-state solving, or production component-graph solving.
 
 Run from the repository root:
 
 ```bat
-target\debug\eng.exe run examples\official\03_integrated_hvac\main.eng
+target\debug\eng.exe run examples\internal\03_integrated_hvac\main.eng
 ```
 
 From a portable package:
 
 ```bat
-eng.exe run examples\official\03_integrated_hvac\main.eng
+eng.exe run examples\internal\03_integrated_hvac\main.eng
 eng-ide.exe
 ```
 
 In the native tester IDE, open
-`examples/official/03_integrated_hvac/main.eng`, use `Check`, inspect
+`examples/internal/03_integrated_hvac/main.eng`, use `Check`, inspect
 diagnostics/symbols/completions, then use `Run` and `Open Report`.

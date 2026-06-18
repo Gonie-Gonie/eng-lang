@@ -1335,8 +1335,8 @@ function Invoke-ArtifactsCheck {
     Assert-SchemaFilesPresent
     $goldenRoot = Join-Path $RepoRoot "tests\golden\artifacts"
     $csvGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_01_csv_plot.golden.json")
-    $systemGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_02_simple_system.golden.json")
-    $measuredGolden = Read-ArtifactJson (Join-Path $goldenRoot "official_17_measured_vs_simulated.golden.json")
+    $systemGolden = Read-ArtifactJson (Join-Path $goldenRoot "internal_02_simple_system.golden.json")
+    $measuredGolden = Read-ArtifactJson (Join-Path $goldenRoot "internal_17_measured_vs_simulated.golden.json")
     $multiStateGolden = Read-ArtifactJson (Join-Path $goldenRoot "internal_20_multi_state_thermal.golden.json")
     $thermalAssemblyGolden = Read-ArtifactJson (Join-Path $goldenRoot "internal_21_thermal_component_assembly.golden.json")
     $multiDomainGolden = Read-ArtifactJson (Join-Path $goldenRoot "internal_22_multi_domain_boundary_solve.golden.json")
@@ -1350,7 +1350,7 @@ function Invoke-ArtifactsCheck {
     Assert-ComponentSolverGolden $multiDomainGolden $Eng
     Assert-BehaviorNodesGolden $behaviorNodesGolden $Eng
 
-    Write-Host "Artifact check passed. Validated schema files and solver-centered golden artifacts."
+    Write-Host "Artifact check passed. Validated schema files and internal system artifact fixtures."
 }
 
 function Invoke-RunExample {
@@ -1799,17 +1799,17 @@ function New-UserGuidePdf {
         @{ Kind = "body"; Text = "All three commands should exit successfully. The doctor command verifies runtime, standard library, unit registry, plot renderer, report generator, write permission, and example files. The IDE smoke command verifies that examples and compiler completion metadata are discoverable. The LSP smoke command verifies the experimental editor-service diagnostics, completion, and hover metadata path." },
         @{ Kind = "h1"; Text = "3. Tauri IDE Workflow" },
         @{ Kind = "step"; Text = "Run: eng-ide.exe" },
-        @{ Kind = "step"; Text = "Use Explorer to open examples/official/03_integrated_hvac/main.eng or create a scratch .eng file." },
+        @{ Kind = "step"; Text = "Use Explorer to open examples/official/01_csv_plot/main.eng or create a scratch .eng file." },
         @{ Kind = "step"; Text = "Use Check for lint diagnostics. Error and warning counts are visible in the toolbar and details are listed in Problems." },
         @{ Kind = "step"; Text = "Use Ctrl+Space in the editor to open caret completions, then insert symbols, keywords, quantity kinds, units, or snippets." },
         @{ Kind = "step"; Text = "Use Run to execute the current top-level file. The IDE updates the terminal, Problems tab, Variables table, and PlotSpec preview." },
         @{ Kind = "body"; Text = "The IDE uses the same compiler and runtime crates as eng.exe. Diagnostics, symbols, completions, run artifacts, and report generation therefore test the real core path rather than duplicated editor logic." },
-        @{ Kind = "h1"; Text = "4. Integrated HVAC Example" },
-        @{ Kind = "body"; Text = "The integrated HVAC example is the recommended user test because one file exercises typed CSV promotion, DateTime parsing, missing-value interpolation, schema constraints, HeatRate calculation, TimeSeries statistics, trapezoidal integration, PlotSpec/SVG/report output, and focused one-state thermal solver metadata." },
-        @{ Kind = "body"; Text = "From the command line, run: eng.exe run examples/official/03_integrated_hvac/main.eng --save-artifacts" },
+        @{ Kind = "h1"; Text = "4. CSV Plot Example" },
+        @{ Kind = "body"; Text = "The CSV plot example is the recommended user test because one file exercises typed CSV promotion, unit-aware HeatRate calculations, TimeSeries statistics, integration metadata, PlotSpec/SVG output, report output, and standalone packaging without presenting solver support as a public release claim." },
+        @{ Kind = "body"; Text = "From the command line, run: eng.exe run examples/official/01_csv_plot/main.eng --save-artifacts" },
         @{ Kind = "h1"; Text = "5. Expected Output" },
         @{ Kind = "body"; Text = "After a successful run, inspect build/result/report.html first. The result folder also contains result.engres, review.json, report_spec.json, plots/plot_spec.json, plots/plot_manifest.json, and plots/timeseries.svg." },
-        @{ Kind = "body"; Text = "The result should record policy_results with interpolation executed, statistics including median/std/p90/p95/duration_above, an integration result for E_coil, and systems[0].solver_result.status = computed." },
+        @{ Kind = "body"; Text = "The result should record typed CSV provenance, computed statistics, an integration result, PlotSpec/SVG metadata, and report artifacts." },
         @{ Kind = "h1"; Text = "6. Useful User Edits" },
         @{ Kind = "step"; Text = "Change the plot title and run again to verify report regeneration." },
         @{ Kind = "step"; Text = "Change duration_above(5 kW) to duration_above(4.5 kW) and compare computed statistics." },
@@ -1819,7 +1819,7 @@ function New-UserGuidePdf {
         @{ Kind = "body"; Text = "If a run fails, check Problems first, then run eng.exe check <file.eng> from the same folder. Plot previews live in the right Plot inspector tab beside Variables; report and SVG artifacts can be opened on demand after a successful run." },
         @{ Kind = "body"; Text = "If a CSV path fails, keep relative paths anchored next to the source file, as in the official examples. If a report does not open, open build/result/report.html manually." },
         @{ Kind = "h1"; Text = "8. Current Boundaries" },
-        @{ Kind = "body"; Text = "This release supports the documented core workflows: CSV promote, unit-aware TimeSeries calculations, PlotSpec/SVG output, review/report artifacts, package smoke, official examples, focused one-state thermal workflows, and the native tester IDE. Internal examples remain bundled for smoke checks and inspection, but they are not public tutorials. General nonlinear solving, DAE solving, production multi-domain component graph solving, native JIT execution, broad uncertainty and ML workflows, and full editor platform guarantees remain future or internal tracks unless explicitly marked stable-supported." }
+        @{ Kind = "body"; Text = "This release supports the documented core workflows: CSV promote, unit-aware TimeSeries calculations, PlotSpec/SVG output, review/report artifacts, package smoke, official examples, standalone packaging, and the native tester IDE smoke path. Internal examples remain bundled for smoke checks and inspection, but they are not public tutorials. Public solver support, general nonlinear solving, DAE solving, production multi-domain component graph solving, native JIT execution, broad uncertainty and ML workflows, and full editor platform guarantees remain future or internal tracks unless explicitly marked stable-supported." }
     )
 
     $pages = New-Object System.Collections.Generic.List[string]
@@ -2029,8 +2029,8 @@ Recommended smoke commands:
   eng-lsp.exe --smoke
   eng-ide.exe
   eng.exe run examples\official\01_csv_plot\main.eng --save-artifacts
-  eng.exe run examples\official\02_simple_system\main.eng --save-artifacts
-  eng.exe run examples\official\03_integrated_hvac\main.eng --save-artifacts
+  eng.exe run examples\official\09_command_where_with\main.eng --save-artifacts
+  eng.exe run examples\official\16_test_assert_golden\main.eng --save-artifacts
   eng.exe build examples\official\01_csv_plot\main.eng --standalone --profile repro
   dist\main-standalone\run.bat --help
   dist\main-standalone\run.bat
@@ -2084,15 +2084,18 @@ function Invoke-PackageSmoke {
         Invoke-Native $Lsp "--smoke"
         Invoke-Native $Eng "run" "examples\official\01_csv_plot\main.eng" "--save-artifacts"
         Invoke-Native $Eng "view" "build\result\result.engres"
-        Invoke-Native $Eng "run" "examples\official\02_simple_system\main.eng" "--save-artifacts"
+        Invoke-Native $Eng "run" "examples\official\09_command_where_with\main.eng" "--save-artifacts"
         if (-not (Test-Path (Join-Path $SmokeRoot "build\result\report_spec.json"))) {
             throw "portable smoke did not create build\result\report_spec.json"
         }
-        Invoke-Native $Eng "run" "examples\official\03_integrated_hvac\main.eng" "--save-artifacts"
-        $IntegratedResult = Get-Content -LiteralPath (Join-Path $SmokeRoot "build\result\result.engres") -Raw
-        $IntegratedPlotSpec = Get-Content -LiteralPath (Join-Path $SmokeRoot "build\result\plots\plot_spec.json") -Raw
-        if (-not $IntegratedResult.Contains('"policy_results"') -or -not $IntegratedResult.Contains('"solver_result"') -or -not $IntegratedPlotSpec.Contains("Integrated HVAC coil heat rate")) {
-            throw "portable smoke integrated HVAC example did not produce expected policy, solver, and plot artifacts"
+        Invoke-Native $Eng "run" "examples\official\16_test_assert_golden\main.eng" "--save-artifacts"
+        $ReleaseTestResultsPath = Join-Path $SmokeRoot "build\result\test_results.json"
+        if (-not (Test-Path $ReleaseTestResultsPath)) {
+            throw "portable smoke official examples did not create test_results.json"
+        }
+        $ReleaseSmokeTests = Get-Content -LiteralPath $ReleaseTestResultsPath -Raw
+        if (-not $ReleaseSmokeTests.Contains('"status"')) {
+            throw "portable smoke official examples did not produce expected release artifacts"
         }
         Invoke-Native $Eng "build" "examples\official\01_csv_plot\main.eng" "--standalone" "--profile" "repro"
         $StandaloneRunner = Join-Path $SmokeRoot "dist\main-standalone\run.bat"

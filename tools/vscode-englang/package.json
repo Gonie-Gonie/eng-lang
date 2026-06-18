@@ -2,7 +2,7 @@
   "name": "englang",
   "displayName": "EngLang",
   "description": "EngLang editor tooling with diagnostics, hover, completion, and run commands.",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "publisher": "englang",
   "license": "MIT",
   "engines": {

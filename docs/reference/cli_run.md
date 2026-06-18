@@ -374,7 +374,7 @@ The recorded values are `enabled=true`, `count=12`, `gain=1.25`, and
 ## Simple System Example
 
 ```bat
-target\debug\eng.exe run examples\official\02_simple_system\main.eng
+target\debug\eng.exe run examples\internal\02_simple_system\main.eng
 ```
 
 This produces system/equation/residual metadata, system IR, solver_plan

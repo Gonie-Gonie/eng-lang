@@ -12,7 +12,7 @@ yet.
 Open:
 
 ```text
-examples/official/02_simple_system/main.eng
+examples/internal/02_simple_system/main.eng
 ```
 
 The supported shape is:
@@ -40,7 +40,7 @@ report {
 Run it:
 
 ```bat
-target\debug\eng.exe run examples\official\02_simple_system\main.eng
+target\debug\eng.exe run examples\internal\02_simple_system\main.eng
 ```
 
 Generated files include:

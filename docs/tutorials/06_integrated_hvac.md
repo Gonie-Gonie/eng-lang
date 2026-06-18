@@ -31,7 +31,7 @@ eng-ide.exe
 Open:
 
 ```text
-examples/official/03_integrated_hvac/main.eng
+examples/internal/03_integrated_hvac/main.eng
 ```
 
 In the IDE:
@@ -50,7 +50,7 @@ For a command-line smoke of the same package:
 
 ```bat
 eng-ide.exe --smoke
-eng.exe run examples\official\03_integrated_hvac\main.eng
+eng.exe run examples\internal\03_integrated_hvac\main.eng
 ```
 
 ## Source Shape

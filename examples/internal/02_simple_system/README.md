@@ -1,6 +1,6 @@
-# Official Simple System Example
+# Internal Simple System Fixture
 
-This is the primary supported physical-system example. It covers:
+This is an internal physical-system fixture. It covers:
 
 ```text
 - system block
@@ -16,12 +16,12 @@ Limitations:
 ```text
 - one-state thermal system only
 - fixed-step one-state ODE runner only
-- solver metadata and solver plan are review artifacts, not a general solver
+- solver metadata and solver plan are review artifacts, not public solver support
 - no DAE, adaptive, nonlinear, or multi-state solving claim
 ```
 
 Run from the repository root:
 
 ```bat
-target\debug\eng.exe run examples\official\02_simple_system\main.eng
+target\debug\eng.exe run examples\internal\02_simple_system\main.eng
 ```

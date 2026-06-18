@@ -10,14 +10,6 @@ paths before compatibility fixtures.
   integrate metadata, line and histogram PlotSpec/SVG output, report, and
   standalone packaging smoke.
 
-02_simple_system
-  Minimal physical system/equation surface with residual metadata, solver-plan
-  metadata, and one-state fixed-step output.
-
-03_integrated_hvac
-  Combined user-test path for Args, CSV policies, missing interpolation,
-  statistics, integrate, PlotSpec/report, and simple system metadata.
-
 07_functions_imports
   Top-level execution, static file import, importable const values,
   function-local bindings, unit-checked parameters, dimension-checked return
@@ -65,13 +57,6 @@ paths before compatibility fixtures.
   `assert` statements, golden artifact comparison, and generated
   `test_results.json` artifacts.
 
-17_measured_vs_simulated
-  Integrated typed data plus simulation workflow with weather/measured CSV
-  promotion, explicit TimeSeries thermal input binding, fixed-step one-state
-  thermal simulation output as `sim.T_zone`, RMSE calculation, threshold
-  validation, time-alignment metadata, and a measured/simulated multi-series
-  PlotSpec.
-
 19_class_object
   Typed class declarations, object literals, nested object references, simple
   class validation blocks, metadata methods, immutable copy-with, field access
@@ -84,5 +69,5 @@ data-quality fixtures live under `examples/diagnostics`. They are not
 release-facing examples.
 
 Internal implementation fixtures that are not user-facing release workflows live
-under `examples/internal`, including uncertainty, data-driven modeling,
-domain/component, state-space, adaptive, and component-solver seeds.
+under `examples/internal`, including solver/system, uncertainty, data-driven
+modeling, domain/component, state-space, adaptive, and component-solver seeds.

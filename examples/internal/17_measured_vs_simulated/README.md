@@ -1,8 +1,9 @@
 # Measured vs Simulated
 
-This official example closes the v3 roadmap fusion path: typed measured data
-and typed simulation output meet as TimeSeries, then produce an RMSE metric, a
-validation result, a multi-series PlotSpec, and reviewable artifacts.
+This internal fixture exercises a typed measured-vs-simulated path: typed
+measured data and typed simulation output meet as TimeSeries, then produce an
+RMSE metric, a validation result, a multi-series PlotSpec, and reviewable
+artifacts.
 
 The schemas also exercise the runtime data-quality surface:
 
@@ -11,7 +12,7 @@ The schemas also exercise the runtime data-quality surface:
 - both CSV inputs require monotonic DateTime indexes
 - RoomThermal declares `T_out` as `TimeSeries[Time] of AbsoluteTemperature`
 - simulate with-options are checked for TimeSeries input quantity, Time axis,
-  duration timestep, and supported solver metadata
+  duration timestep, and internal solver metadata
 - artifact output records metric sample counts and TimeSeries alignment status
 ```
 
@@ -42,6 +43,7 @@ Current limitation:
 - one-state thermal system
 - fixed-step one-state ODE runner
 - measured/weather CSV TimeSeries inputs only
+- not public solver support
 - not a general solver, calibration engine, DAE solver, adaptive solver, or
   multi-state simulation framework
 ```

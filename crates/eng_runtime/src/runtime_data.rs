@@ -6930,7 +6930,7 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
     fn materializes_rmse_metric_alignment_reference() {
         let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
-            .join("examples/official/17_measured_vs_simulated/main.eng");
+            .join("examples/internal/17_measured_vs_simulated/main.eng");
         let source = std::fs::read_to_string(&source_path).unwrap();
         let report = check_file(&source_path, &CheckOptions::default()).unwrap();
         let runtime = materialize_runtime_data(&report, &source);

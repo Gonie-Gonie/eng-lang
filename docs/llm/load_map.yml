@@ -87,8 +87,8 @@ task_types:
     - docs/tutorials/05_simple_system.md
     - docs/reference/timeseries_expression_kernel.md
     - docs/current/solver_centered_plan.md
-    - examples/official/02_simple_system/
-    - examples/official/03_integrated_hvac/
+    - examples/internal/02_simple_system/
+    - examples/internal/03_integrated_hvac/
     - crates/eng_compiler/src/semantic.rs
     - crates/eng_runtime/
 
@@ -97,7 +97,7 @@ task_types:
     - docs/current/implementation_issue_backlog.md
     - docs/current/tracks.md
     - docs/architecture/01_runtime_artifacts.md
-    - examples/official/17_measured_vs_simulated/
+    - examples/internal/17_measured_vs_simulated/
     - examples/internal/20_multi_state_thermal/
     - examples/internal/21_thermal_component_assembly/
     - crates/eng_runtime/src/solver/

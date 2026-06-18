@@ -14,14 +14,6 @@ official/01_csv_plot
   Supported CSV promote, HeatRate statistics, integration, PlotSpec, SVG,
   report, raw-value histogram variant, and standalone packaging path.
 
-official/02_simple_system
-  Supported physical system/equation metadata and one-state fixed-step output.
-
-official/03_integrated_hvac
-  Recommended integration user test. Combines Args, CSV policies, missing-value
-  interpolation, statistics, integration, plotting, reports, and system
-  metadata.
-
 official/07_functions_imports
   Top-level execution, importable const, function-local binding,
   relative file imports, function-call inference, CLI print, and summary CSV
@@ -66,11 +58,6 @@ official/16_test_assert_golden
   `assert` statements, golden artifact comparison, and generated
   `test_results.json` artifacts.
 
-official/17_measured_vs_simulated
-  Stable measured-vs-simulated workflow with weather/measured CSV promotion,
-  explicit TimeSeries input binding, one-state fixed-step simulation output,
-  RMSE, validation, time alignment, and multi-series PlotSpec.
-
 official/19_class_object
   Supported class/domain-object authoring fixture with typed fields, defaults,
   object literals, validation, field access metadata, immutable copy-with, and
@@ -83,6 +70,16 @@ official/19_class_object
 development smoke path but are not user-facing release workflows.
 
 ```text
+internal/02_simple_system
+  Minimal physical system/equation surface with residual metadata, solver-plan
+  metadata, and one-state fixed-step output. This is an internal solver fixture,
+  not a public release claim.
+
+internal/03_integrated_hvac
+  Combined integration path for Args, CSV policies, missing-value interpolation,
+  statistics, integration, PlotSpec/report, and simple system metadata. This is
+  an internal integration fixture, not the recommended release smoke path.
+
 internal/04_uncertainty_core
   Internal uncertainty-track path for deterministic uncertainty summaries,
   propagation metadata/source terms, source and argument diagnostics, and
@@ -99,6 +96,13 @@ internal/06_domain_port
   across/through variables, conservation metadata, components, ports, and
   domain-compatible connection review. It includes structured generic
   parameters such as Fluid[Medium M] and MechanicalNode[Frame F, Axis DOF].
+
+internal/17_measured_vs_simulated
+  Typed data plus simulation workflow with weather/measured CSV promotion,
+  explicit TimeSeries thermal input binding, one-state fixed-step simulation
+  output as sim.T_zone, RMSE calculation, threshold validation, time-alignment
+  metadata, and a measured/simulated multi-series PlotSpec. It is not a public
+  general solver claim.
 
 internal/18_state_space_metadata
   StateVector/InputVector/OutputVector and LinearOperator metadata with a
