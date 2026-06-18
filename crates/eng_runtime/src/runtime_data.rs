@@ -3633,10 +3633,6 @@ fn materialize_first_order_thermal_solution(
     let internal_heat_w = canonical_variable_value(internal_heat)?;
     let initial_temperature_k = canonical_variable_value(state)?;
 
-    let thermal_model =
-        FirstOrderThermalModel::new(heat_capacity_j_per_k, conductance_w_per_k, internal_heat_w)
-            .ok()?;
-
     let time_step_s = option_value(options, "timestep")
         .and_then(parse_duration_seconds)
         .unwrap_or(300.0);
@@ -3762,43 +3758,32 @@ fn materialize_first_order_thermal_solution(
         ],
     };
 
+    let thermal_model = match FirstOrderThermalModel::new(
+        heat_capacity_j_per_k,
+        conductance_w_per_k,
+        internal_heat_w,
+    ) {
+        Ok(model) => model,
+        Err(failure) => {
+            return RuntimeSystemSolution::failed_from_solver_failure(
+                system,
+                binding,
+                state,
+                &solver_input,
+                &failure,
+                "recognized first-order thermal ODE, but thermal model validation failed",
+            );
+        }
+    };
+
     let (solver_result, step_diagnostics) = if let Some(adaptive_options) = adaptive_options {
-        let adaptive_result = solve_adaptive_heun_ode(&solver_input, &adaptive_options, |sample| {
-            let temperature_k = sample.state[0];
-            let outdoor_k = outdoor_series
-                .and_then(|series| interpolate_series_value(series, sample.time_s))
-                .map(|value| {
-                    convert_to_canonical_unit(
-                        value,
-                        outdoor_series.map(|series| series.display_unit.as_str()),
-                        &outdoor_temperature.canonical_unit,
-                        &outdoor_quantity_kind,
-                    )
-                    .unwrap_or(outdoor_temperature_k)
-                })
-                .unwrap_or(outdoor_temperature_k);
-            if !outdoor_k.is_finite() {
-                return Err(SolverFailure::new(
-                    "E-SOLVER-THERMAL-INPUT-INVALID",
-                    "first-order thermal solver requires finite outdoor temperature input",
-                ));
-            }
-            let derivative_k_per_s = (thermal_model.conductance_w_per_k
-                * (outdoor_k - temperature_k)
-                + thermal_model.internal_heat_w)
-                / thermal_model.heat_capacity_j_per_k;
-            Ok(vec![derivative_k_per_s])
-        })
-        .ok()?;
-        (
-            adaptive_result.solver_result,
-            runtime_system_step_diagnostics(&adaptive_result.step_reports),
-        )
-    } else {
-        (
-            solve_first_order_thermal(fixed_step_method, &solver_input, thermal_model, |time_s| {
+        let adaptive_result = match solve_adaptive_heun_ode(
+            &solver_input,
+            &adaptive_options,
+            |sample| {
+                let temperature_k = sample.state[0];
                 let outdoor_k = outdoor_series
-                    .and_then(|series| interpolate_series_value(series, time_s))
+                    .and_then(|series| interpolate_series_value(series, sample.time_s))
                     .map(|value| {
                         convert_to_canonical_unit(
                             value,
@@ -3809,9 +3794,69 @@ fn materialize_first_order_thermal_solution(
                         .unwrap_or(outdoor_temperature_k)
                     })
                     .unwrap_or(outdoor_temperature_k);
-                Ok(outdoor_k)
-            })
-            .ok()?,
+                if !outdoor_k.is_finite() {
+                    return Err(SolverFailure::new(
+                        "E-SOLVER-THERMAL-INPUT-INVALID",
+                        "first-order thermal solver requires finite outdoor temperature input",
+                    ));
+                }
+                let derivative_k_per_s = (thermal_model.conductance_w_per_k
+                    * (outdoor_k - temperature_k)
+                    + thermal_model.internal_heat_w)
+                    / thermal_model.heat_capacity_j_per_k;
+                Ok(vec![derivative_k_per_s])
+            },
+        ) {
+            Ok(result) => result,
+            Err(failure) => {
+                return RuntimeSystemSolution::failed_from_solver_failure(
+                    system,
+                    binding,
+                    state,
+                    &solver_input,
+                    &failure,
+                    "recognized first-order thermal ODE, but adaptive Heun solver evaluation failed",
+                );
+            }
+        };
+        (
+            adaptive_result.solver_result,
+            runtime_system_step_diagnostics(&adaptive_result.step_reports),
+        )
+    } else {
+        (
+            match solve_first_order_thermal(
+                fixed_step_method,
+                &solver_input,
+                thermal_model,
+                |time_s| {
+                    let outdoor_k = outdoor_series
+                        .and_then(|series| interpolate_series_value(series, time_s))
+                        .map(|value| {
+                            convert_to_canonical_unit(
+                                value,
+                                outdoor_series.map(|series| series.display_unit.as_str()),
+                                &outdoor_temperature.canonical_unit,
+                                &outdoor_quantity_kind,
+                            )
+                            .unwrap_or(outdoor_temperature_k)
+                        })
+                        .unwrap_or(outdoor_temperature_k);
+                    Ok(outdoor_k)
+                },
+            ) {
+                Ok(result) => result,
+                Err(failure) => {
+                    return RuntimeSystemSolution::failed_from_solver_failure(
+                        system,
+                        binding,
+                        state,
+                        &solver_input,
+                        &failure,
+                        "recognized first-order thermal ODE, but fixed-step solver evaluation failed",
+                    );
+                }
+            },
             Vec::new(),
         )
     };
@@ -7268,6 +7313,50 @@ with {{
             solution.to_report_solution().step_diagnostics.len(),
             solution.step_diagnostics.len()
         );
+    }
+
+    #[test]
+    fn first_order_thermal_model_failure_materializes_failed_solution() {
+        let source = r#"
+system BadRoomThermal {
+    parameter C: HeatCapacity = 0 J/K
+    parameter UA: Conductance = 150 W/K
+
+    state T: AbsoluteTemperature = 24 degC
+
+    input T_out: AbsoluteTemperature = 10 degC
+    input Q_internal: HeatRate = 500 W
+
+    equation {
+        C * der(T) eq UA * (T_out - T) + Q_internal
+    }
+}
+"#;
+        let report = eng_compiler::check_source("bad_room.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.system_solutions.len(), 1);
+        let solution = &runtime.system_solutions[0];
+        assert_eq!(solution.status, "failed");
+        assert_eq!(solution.binding.as_deref(), None);
+        assert_eq!(solution.method, "explicit_euler_fixed_step");
+        assert_eq!(solution.state, "T");
+        assert_eq!(
+            solution.failure_code.as_deref(),
+            Some("E-SOLVER-THERMAL-CAPACITY-INVALID")
+        );
+        assert!(solution
+            .failure_reason
+            .as_deref()
+            .unwrap()
+            .contains("positive finite heat capacity"));
+        assert!(solution.reason.contains("thermal model validation failed"));
+        assert_eq!(solution.points.len(), 1);
+        assert!(runtime
+            .time_series
+            .iter()
+            .all(|series| series.name != "BadRoomThermal.T"));
     }
 
     #[test]
