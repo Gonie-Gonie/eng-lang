@@ -1210,7 +1210,8 @@ TimeSeries-binding form for narrow compatibility, such as
 
 The compiler reports diagnostics for missing dynamic inputs, wrong TimeSeries
 quantity, wrong axis, missing `timestep`/`solver`, unsupported solver values,
-and `timestep` values without duration units.
+invalid numeric `tolerance` values, and `timestep` values without duration
+units.
 
 Runtime materializes `sim.T_zone` as a typed TimeSeries. The RMSE result appears
 in `computed_metrics`, the validation appears in `validations`, and pairwise

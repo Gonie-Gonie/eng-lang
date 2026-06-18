@@ -167,8 +167,8 @@ are not public stable workflows.
   They are not a supported general nonlinear, DAE, adaptive, broad
   operator-algebra, or component-coupled state-space simulation workflow.
 - System simulate diagnostics for missing inputs, non-TimeSeries bindings,
-  axis/quantity mismatches, timestep options, solver options, and unknown
-  systems are covered by the CLI example smoke gate.
+  axis/quantity mismatches, timestep/tolerance options, solver options, and
+  unknown systems are covered by the CLI example smoke gate.
 - Unsupported simulated system shapes are covered by an internal example smoke
   that requires an explicit `skipped_unsupported_shape` artifact instead of a
   fabricated trajectory.

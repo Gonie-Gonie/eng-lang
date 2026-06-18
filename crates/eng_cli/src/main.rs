@@ -1501,6 +1501,10 @@ fn command_test(_args: Vec<String>) -> ExitCode {
             "E-SIM-TIMESTEP-INVALID",
         ),
         (
+            "examples/05_error_messages/simulate_bad_tolerance.eng",
+            "E-SIM-TOLERANCE-INVALID",
+        ),
+        (
             "examples/05_error_messages/simulate_missing_solver.eng",
             "E-SIM-SOLVER-UNSUPPORTED",
         ),
