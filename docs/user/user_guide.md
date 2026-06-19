@@ -93,6 +93,12 @@ Use the official examples for user testing and demos. Start with these:
   fixed-point algebraic source solve using `solve component_graph` with
   `solver = fixed_point` and numeric tolerance/max-iteration/relaxation
   options.
+- `examples/official/26_dynamic_component_room/main.eng`: supported narrow
+  dynamic component source solve using `solve component_graph` with
+  `solver = dynamic_component_semi_implicit_euler`, generated Thermal
+  connection equations, a `der(port.T)` component-local equation, trajectories,
+  and per-step algebraic diagnostics. This is a simple-linear component solve,
+  not a nonlinear wall-conductance or production multi-domain simulator.
 
 The remaining official examples cover functions/imports, read-only IO, write
 output manifests, file policy, structured runtime logs, process-result records,

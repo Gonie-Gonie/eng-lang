@@ -74,10 +74,11 @@ one-state thermal workflow, a two-state source-equation fixed-step ODE
 workflow, and typed-block discrete/continuous state-space fixed-step
 workflows. Official component examples cover constrained Thermal component
 boundary graphs with system-local instances, square dense linear residual
-solves, and a narrow explicit fixed-point source solve over a linear
-ResidualGraph. General nonlinear solvers, DAE, broad adaptive solving, broad
-state-space operator algebra, general component behavior equations, and
-production multi-domain component-graph solving remain future or internal
+solves, a narrow fixed-point source solve over a linear ResidualGraph, and a
+simple-linear dynamic component source solve with trajectories. General
+nonlinear solvers, DAE, broad adaptive solving, broad state-space operator
+algebra, general component behavior equations, adaptive component timestepping,
+and production multi-domain component-graph solving remain future or internal
 tracks. Domain package registries also remain future work.
 
 ## Quick Start

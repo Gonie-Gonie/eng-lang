@@ -36,6 +36,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/23_thermal_component_assembly/main.eng",
                 "examples/official/24_linear_algebraic_thermal_node/main.eng",
                 "examples/official/25_fixed_point_loop/main.eng",
+                "examples/official/26_dynamic_component_room/main.eng",
             ],
         ),
         (
@@ -508,6 +509,46 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("examples/official/26_dynamic_component_room/main.eng"),
+        Path::new("build/test-official-dynamic-component-room"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_semi_implicit_euler\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dynamic_component_fixed_step_completed\"")
+                || !output.result_json.contains("\"name\": \"zone.wall.T\"")
+                || !output.result_json.contains("\"role\": \"state\"")
+                || !output.result_json.contains("\"role\": \"algebraic\"")
+                || !output.result_json.contains("\"step_diagnostics\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"linear_algebraic_converged\"")
+                || !output
+                    .report_spec_json
+                    .contains("source solve binding `dynamic_room_result`")
+                || !output.report_html.contains("Trajectories")
+                || !output.report_html.contains("Step Diagnostics")
+            {
+                eprintln!(
+                    "expected official dynamic component room example to solve assembled residual graph trajectories"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/26_dynamic_component_room/main.eng solved dynamic component source residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("official dynamic component room example failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/linear_algebraic_solve_from_source.eng"),
         Path::new("build/test-runtime-linear-algebraic-source"),
         &artifact_run_options(),
@@ -565,6 +606,73 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("fixed-point source runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/runtime/dynamic_component_explicit.eng"),
+        Path::new("build/test-runtime-dynamic-component-explicit"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_explicit_euler\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"algebraic_not_required\"")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"role\": \"state\"")
+                || !output
+                    .report_html
+                    .contains("dynamic_component_assembly_explicit_euler")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_explicit.eng to solve through explicit dynamic component source path"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_explicit.eng solved explicit dynamic component source graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("dynamic component explicit runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/runtime/dynamic_component_semi_implicit.eng"),
+        Path::new("build/test-runtime-dynamic-component-semi-implicit"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_semi_implicit_euler\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"linear_algebraic_converged\"")
+                || !output.result_json.contains("\"name\": \"zone.heat.T\"")
+                || !output.result_json.contains("\"name\": \"zone.heat.Q\"")
+                || !output.result_json.contains("\"step_diagnostics\"")
+                || !output
+                    .report_html
+                    .contains("dynamic_component_assembly_semi_implicit_euler")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_semi_implicit.eng to solve through semi-implicit dynamic component source path"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_semi_implicit.eng solved semi-implicit dynamic component source graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("dynamic component semi-implicit runtime fixture failed: {error}");
             return ExitCode::from(1);
         }
     }
@@ -831,6 +939,41 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("fixed-point nonconvergence diagnostics fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/diagnostics/dynamic_component_nonconvergence.eng"),
+        Path::new("build/test-diagnostics-dynamic-component-nonconvergence"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_semi_implicit_euler\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"algebraic_solve_failed\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-LINEAR-SINGULAR\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"linear_algebraic_solve_failed\"")
+                || !output.report_html.contains("E-LINEAR-SINGULAR")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/dynamic_component_nonconvergence.eng to report a dynamic component algebraic failure artifact"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/dynamic_component_nonconvergence.eng reported dynamic component algebraic failure"
+            );
+        }
+        Err(error) => {
+            eprintln!("dynamic component diagnostics fixture failed: {error}");
             return ExitCode::from(1);
         }
     }

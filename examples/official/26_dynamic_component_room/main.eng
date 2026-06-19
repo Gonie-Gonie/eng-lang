@@ -1,0 +1,44 @@
+domain Thermal package "eng.std.domains.thermal" version "0.1.0" {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+component ZoneNode {
+    port wall: Thermal
+    1000 * der(wall.T) eq wall.Q
+}
+
+component ThermalWall {
+    port zone: Thermal
+    port outdoor: Thermal
+    zone.Q eq 1 kW
+}
+
+component OutdoorBoundary {
+    port surface: Thermal
+    surface.T eq 5 degC
+    surface.Q eq 0 kW
+}
+
+system DynamicComponentRoom {
+    zone = ZoneNode()
+    wall = ThermalWall()
+    outdoor = OutdoorBoundary()
+    connect zone.wall to wall.zone
+    connect wall.outdoor to outdoor.surface
+}
+
+dynamic_room_result = solve component_graph
+with {
+    solver = dynamic_component_semi_implicit_euler
+    timestep = 1 s
+    duration = 5 s
+    initial = 20 degC
+    tolerance = 0.000001
+    max_iter = 20
+}
+
+report {
+    show dynamic_room_result
+}

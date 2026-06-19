@@ -96,6 +96,12 @@ official/25_fixed_point_loop
   with `solver = fixed_point`, numeric tolerance/max-iteration/relaxation and
   initial-guess options, convergence metadata, named solved variables,
   residual norm, and largest-residual artifacts.
+
+official/26_dynamic_component_room
+  Supported source-to-solver dynamic component smoke using `solve
+  component_graph` with `solver = dynamic_component_semi_implicit_euler`,
+  generated Thermal connection equations, a `der(port.T)` component-local
+  equation, state/algebraic trajectories, and per-step algebraic diagnostics.
 ```
 
 ## Internal Implementation Fixtures

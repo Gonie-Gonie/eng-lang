@@ -21,13 +21,14 @@ use crate::solver::{
         GeneratedEquation, PortInstance, UnknownVariable,
     },
     solve_adaptive_heun_ode, solve_adaptive_state_space, solve_continuous_state_space,
-    solve_discrete_state_space, solve_first_order_thermal, solve_fixed_point, solve_fixed_step_ode,
-    solve_linear_residual_graph, AdaptiveOdeOptions, AdaptiveOdeStepReport, DynamicComponentResult,
-    FirstOrderThermalModel, FixedPointOptions, FixedStepMethod, InputLayout, LayoutEntry,
-    OutputLayout, ParameterLayout, ResidualEvaluator, ResidualGraph, ResidualInput, ResidualOutput,
-    RhsEvaluator, RhsInput, RhsStateInfo, SimulationPlan, SolverFailure, SolverInput,
-    SolverOptions, SolverPlan, SolverResult, SolverScalar, SourceRhsEquation, SourceRhsEvaluator,
-    StateLayout, StateTrajectory, TimeGrid,
+    solve_discrete_state_space, solve_dynamic_component_assembly, solve_first_order_thermal,
+    solve_fixed_point, solve_fixed_step_ode, solve_linear_residual_graph, AdaptiveOdeOptions,
+    AdaptiveOdeStepReport, DynamicComponentAssemblySolveInput, DynamicComponentOptions,
+    DynamicComponentResult, FirstOrderThermalModel, FixedPointOptions, FixedStepMethod,
+    InputLayout, LayoutEntry, OutputLayout, ParameterLayout, ResidualEvaluator, ResidualGraph,
+    ResidualInput, ResidualOutput, RhsEvaluator, RhsInput, RhsStateInfo, SimulationPlan,
+    SolverFailure, SolverInput, SolverOptions, SolverPlan, SolverResult, SolverScalar,
+    SourceRhsEquation, SourceRhsEvaluator, StateLayout, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -2982,7 +2983,7 @@ fn materialize_component_solutions(report: &CheckReport) -> Vec<RuntimeComponent
     let mut solutions = Vec::new();
     for assembly in &report.semantic_program.component_assemblies {
         let solver_assembly = solver_equation_assembly_from_component_info(report, assembly);
-        let requests = algebraic_solve_requests(report, &assembly.name);
+        let requests = component_solve_requests(report, &assembly.name);
         if requests.is_empty() {
             let mut solution =
                 RuntimeComponentSolution::from_solver_assembly(&assembly.name, &solver_assembly);
@@ -2992,16 +2993,22 @@ fn materialize_component_solutions(report: &CheckReport) -> Vec<RuntimeComponent
         }
         for request in requests {
             let solver = option_value(&request.options, "solver").unwrap_or("dense_linear");
-            let mut solution = if solver.trim() == "fixed_point" {
-                let options = fixed_point_options_from_solve_request(&request.options);
-                RuntimeComponentSolution::from_fixed_point_solver_assembly(
-                    &assembly.name,
-                    &solver_assembly,
-                    options,
-                    fixed_point_initial_value_from_solve_request(&request.options),
-                )
-            } else {
-                RuntimeComponentSolution::from_solver_assembly(&assembly.name, &solver_assembly)
+            let mut solution = match solver.trim() {
+                "fixed_point" => {
+                    let options = fixed_point_options_from_solve_request(&request.options);
+                    RuntimeComponentSolution::from_fixed_point_solver_assembly(
+                        &assembly.name,
+                        &solver_assembly,
+                        options,
+                        fixed_point_initial_value_from_solve_request(&request.options),
+                    )
+                }
+                "dynamic_component_explicit_euler" | "dynamic_component_semi_implicit_euler" => {
+                    dynamic_component_solution_from_solve_request(&solver_assembly, &request)
+                }
+                _ => {
+                    RuntimeComponentSolution::from_solver_assembly(&assembly.name, &solver_assembly)
+                }
             };
             append_component_solution_reason(
                 &mut solution,
@@ -3020,15 +3027,15 @@ const COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE: &str =
     "behavior graph nodes are present but not yet integrated into numeric residual evaluation";
 
 #[derive(Clone, Debug, PartialEq)]
-struct AlgebraicSolveRequest {
+struct ComponentSolveRequest {
     binding: String,
     options: Vec<eng_compiler::WithOptionInfo>,
 }
 
-fn algebraic_solve_requests(
+fn component_solve_requests(
     report: &CheckReport,
     assembly_name: &str,
-) -> Vec<AlgebraicSolveRequest> {
+) -> Vec<ComponentSolveRequest> {
     report
         .inferred_declarations
         .iter()
@@ -3044,12 +3051,255 @@ fn algebraic_solve_requests(
                 .find(|block| block.owner_line == Some(declaration.line))
                 .map(|block| block.options.clone())
                 .unwrap_or_default();
-            Some(AlgebraicSolveRequest {
+            Some(ComponentSolveRequest {
                 binding: declaration.name.clone(),
                 options,
             })
         })
         .collect()
+}
+
+fn dynamic_component_solution_from_solve_request(
+    solver_assembly: &EquationAssembly,
+    request: &ComponentSolveRequest,
+) -> RuntimeComponentSolution {
+    let solver = option_value(&request.options, "solver")
+        .map(str::trim)
+        .unwrap_or("dynamic_component_semi_implicit_euler");
+    let options = DynamicComponentOptions {
+        algebraic: fixed_point_options_from_solve_request(&request.options),
+    };
+    let explicit_assembly = if solver == "dynamic_component_explicit_euler" {
+        match explicit_dynamic_component_source_assembly(solver_assembly) {
+            Ok(assembly) => Some(assembly),
+            Err(failure) => {
+                return failed_dynamic_component_source_solution(
+                    solver_assembly,
+                    solver,
+                    &options,
+                    &failure,
+                    "dynamic component explicit source solve could not isolate derivative residuals",
+                );
+            }
+        }
+    } else {
+        None
+    };
+    let dynamic_assembly = explicit_assembly.as_ref().unwrap_or(solver_assembly);
+    let split = match dynamic_assembly.dynamic_component_split() {
+        Ok(split) => split,
+        Err(failure) => {
+            return failed_dynamic_component_source_solution(
+                dynamic_assembly,
+                solver,
+                &options,
+                &failure,
+                "dynamic component source solve could not split the component assembly",
+            );
+        }
+    };
+    let solve_input = match dynamic_component_solve_input_from_request(
+        dynamic_assembly,
+        &split,
+        &request.options,
+    ) {
+        Ok(input) => input,
+        Err(failure) => {
+            return failed_dynamic_component_source_solution(
+                dynamic_assembly,
+                solver,
+                &options,
+                &failure,
+                "dynamic component source solve options could not be materialized",
+            );
+        }
+    };
+
+    match solve_dynamic_component_assembly(dynamic_assembly, solve_input, options.clone()) {
+        Ok(dynamic_result) => RuntimeComponentSolution::from_dynamic_component_assembly_result(
+            dynamic_assembly,
+            &dynamic_result,
+            "dynamic component source solve executed assembled residual graph",
+        ),
+        Err(failure) => failed_dynamic_component_source_solution(
+            dynamic_assembly,
+            solver,
+            &options,
+            &failure,
+            "dynamic component source solve failed before timestep execution",
+        ),
+    }
+}
+
+fn explicit_dynamic_component_source_assembly(
+    assembly: &EquationAssembly,
+) -> Result<EquationAssembly, SolverFailure> {
+    let generated_equations = assembly
+        .generated_equations
+        .iter()
+        .filter(|equation| {
+            equation
+                .dependencies
+                .iter()
+                .any(|dependency| dependency.trim().starts_with("der("))
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    if generated_equations.is_empty() {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-EXPLICIT-SHAPE",
+            "explicit dynamic component source solve requires at least one derivative residual",
+        ));
+    }
+    if assembly.states.is_empty() {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-EXPLICIT-SHAPE",
+            "explicit dynamic component source solve requires at least one state variable",
+        ));
+    }
+    let mut explicit = assembly.clone();
+    explicit.generated_equations = generated_equations;
+    explicit.algebraic_variables.clear();
+    explicit.unknowns = explicit.states.clone();
+    Ok(explicit)
+}
+
+fn dynamic_component_solve_input_from_request(
+    assembly: &EquationAssembly,
+    split: &crate::solver::assembly::DynamicComponentAssemblySplit,
+    options: &[eng_compiler::WithOptionInfo],
+) -> Result<DynamicComponentAssemblySolveInput, SolverFailure> {
+    let timestep_s = option_value(options, "timestep")
+        .and_then(parse_duration_seconds)
+        .ok_or_else(|| {
+            SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-SOURCE-TIMESTEP",
+                "dynamic component source solve requires a positive timestep duration",
+            )
+        })?;
+    let duration_s = option_value(options, "duration")
+        .and_then(parse_duration_seconds)
+        .ok_or_else(|| {
+            SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-SOURCE-DURATION",
+                "dynamic component source solve requires a positive duration",
+            )
+        })?;
+    let initial_state = assembly
+        .states
+        .iter()
+        .map(|state| component_initial_value_from_options(options, "initial", state, 0.0))
+        .collect::<Result<Vec<_>, _>>()?;
+    let initial_algebraic_value = option_value(options, "initial_algebraic")
+        .and_then(|value| value.trim().parse::<f64>().ok())
+        .filter(|value| value.is_finite())
+        .unwrap_or(0.0);
+    let initial_algebraic = vec![initial_algebraic_value; split.algebraic_layout.len()];
+    let inputs = assembly
+        .inputs
+        .iter()
+        .map(|input| {
+            Ok(SolverScalar::new(
+                input.name.clone(),
+                input.quantity_kind.clone(),
+                input.unit.clone(),
+                0.0,
+            ))
+        })
+        .collect::<Result<Vec<_>, SolverFailure>>()?;
+    let parameters = assembly
+        .parameters
+        .iter()
+        .map(|parameter| {
+            Ok(SolverScalar::new(
+                parameter.name.clone(),
+                parameter.quantity_kind.clone(),
+                parameter.unit.clone(),
+                0.0,
+            ))
+        })
+        .collect::<Result<Vec<_>, SolverFailure>>()?;
+
+    Ok(DynamicComponentAssemblySolveInput {
+        duration_s,
+        timestep_s,
+        initial_state,
+        initial_algebraic,
+        inputs,
+        parameters,
+    })
+}
+
+fn component_initial_value_from_options(
+    options: &[eng_compiler::WithOptionInfo],
+    key: &str,
+    variable: &UnknownVariable,
+    default_value: f64,
+) -> Result<f64, SolverFailure> {
+    let Some(value) = option_value(options, key) else {
+        return Ok(default_value);
+    };
+    let Some((raw_value, unit)) = parse_numeric_value_with_optional_unit(value) else {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-SOURCE-INITIAL",
+            format!("dynamic component source option `{key}` is not a finite numeric literal"),
+        ));
+    };
+    if !raw_value.is_finite() {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-SOURCE-INITIAL",
+            format!("dynamic component source option `{key}` is not finite"),
+        ));
+    }
+    let source_unit = unit.as_deref().unwrap_or(variable.unit.as_str());
+    Ok(convert_display_value(
+        raw_value,
+        source_unit,
+        &variable.unit,
+    ))
+}
+
+fn failed_dynamic_component_source_solution(
+    assembly: &EquationAssembly,
+    method: &str,
+    options: &DynamicComponentOptions,
+    failure: &SolverFailure,
+    reason: &str,
+) -> RuntimeComponentSolution {
+    let variables = assembly
+        .states
+        .iter()
+        .chain(assembly.algebraic_variables.iter())
+        .map(|variable| RuntimeComponentVariableSolution {
+            name: variable.name.clone(),
+            role: variable.role.clone(),
+            value: 0.0,
+            unit: variable.unit.clone(),
+            status: "trajectory_failed".to_owned(),
+        })
+        .collect::<Vec<_>>();
+    RuntimeComponentSolution {
+        assembly: assembly.name.clone(),
+        status: "failed".to_owned(),
+        method: method.to_owned(),
+        reason: reason.to_owned(),
+        equation_count: assembly.equation_count(),
+        unknown_count: assembly.unknown_count(),
+        residual_norm: f64::INFINITY,
+        tolerance: options.algebraic.tolerance,
+        max_iterations: options.algebraic.max_iterations,
+        iteration_count: 0,
+        convergence_status: "dynamic_component_source_failed".to_owned(),
+        variables,
+        trajectories: Vec::new(),
+        step_diagnostics: Vec::new(),
+        residuals: Vec::new(),
+        largest_residuals: Vec::new(),
+        failure_artifact: Some(RuntimeSolverFailureArtifact {
+            code: failure.code.clone(),
+            message: failure.message.clone(),
+        }),
+    }
 }
 
 fn fixed_point_options_from_solve_request(
@@ -7096,6 +7346,203 @@ with {
         let json = eng_report::report_spec_json(&spec);
         assert!(json.contains("\"method\": \"fixed_point_residual_graph\""));
         assert!(json.contains("\"convergence_status\": \"fixed_point_converged\""));
+    }
+
+    #[test]
+    fn materializes_dynamic_component_explicit_source_solve_request() {
+        let source = r#"
+domain ScalarState {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component DecayNode {
+    port node: ScalarState
+    der(node.x) eq -0.5 * node.x
+}
+
+system DynamicExplicit {
+    node = DecayNode()
+    connect node.node to node.node
+}
+
+explicit_result = solve component_graph
+with {
+    solver = dynamic_component_explicit_euler
+    timestep = 1 s
+    duration = 3 s
+    initial = 4
+}
+"#;
+        let report = check_source("dynamic_explicit.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.status, "computed");
+        assert_eq!(solution.method, "dynamic_component_assembly_explicit_euler");
+        assert_eq!(
+            solution.convergence_status,
+            "dynamic_component_fixed_step_completed"
+        );
+        assert_eq!(solution.step_diagnostics.len(), 4);
+        assert!(solution
+            .step_diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.convergence_status == "algebraic_not_required"));
+        assert_eq!(solution.trajectories.len(), 1);
+        assert_eq!(solution.trajectories[0].name, "node.node.x");
+        assert_eq!(solution.trajectories[0].point_count, 4);
+        assert_eq!(solution.trajectories[0].points[0].y, 4.0);
+        assert_eq!(solution.trajectories[0].points[3].y, 0.5);
+        assert!(solution.failure_artifact.is_none());
+        assert!(solution
+            .reason
+            .contains("source solve binding `explicit_result`"));
+    }
+
+    #[test]
+    fn materializes_dynamic_component_semi_implicit_source_solve_request() {
+        let source = r#"
+domain Thermal {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+component ZoneNode {
+    port heat: Thermal
+    1000 * der(heat.T) eq heat.Q
+}
+
+component HeatBoundary {
+    port heat: Thermal
+    heat.Q eq 1 kW
+}
+
+system DynamicSemiImplicit {
+    zone = ZoneNode()
+    boundary = HeatBoundary()
+    connect zone.heat to boundary.heat
+}
+
+semi_result = solve component_graph
+with {
+    solver = dynamic_component_semi_implicit_euler
+    timestep = 1 s
+    duration = 3 s
+    initial = 20 degC
+    tolerance = 0.000001
+    max_iter = 20
+}
+"#;
+        let report = check_source("dynamic_semi.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.status, "computed");
+        assert_eq!(
+            solution.method,
+            "dynamic_component_assembly_semi_implicit_euler"
+        );
+        assert_eq!(solution.tolerance, 0.000001);
+        assert_eq!(solution.max_iterations, 20);
+        assert_eq!(solution.step_diagnostics.len(), 4);
+        assert!(solution
+            .step_diagnostics
+            .iter()
+            .all(|diagnostic| { diagnostic.convergence_status == "linear_algebraic_converged" }));
+        assert!(solution
+            .trajectories
+            .iter()
+            .any(|trajectory| trajectory.name == "zone.heat.T"
+                && trajectory.role == "state"
+                && trajectory.point_count == 4
+                && (trajectory.final_value - 19.997).abs() < 1e-9));
+        assert!(solution
+            .trajectories
+            .iter()
+            .any(|trajectory| trajectory.name == "zone.heat.Q"
+                && trajectory.role == "algebraic"
+                && trajectory.point_count == 4));
+        assert!(solution.failure_artifact.is_none());
+        assert!(solution
+            .reason
+            .contains("source solve binding `semi_result`"));
+    }
+
+    #[test]
+    fn materializes_dynamic_component_source_failure_artifact() {
+        let source = r#"
+domain SingularState {
+    across x: DimensionlessNumber [1]
+    across z: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component SingularNode {
+    port node: SingularState
+    der(node.x) eq node.z
+    0 * node.z eq 0
+}
+
+system DynamicSingular {
+    node = SingularNode()
+    connect node.node to node.node
+}
+
+singular_result = solve component_graph
+with {
+    solver = dynamic_component_semi_implicit_euler
+    timestep = 1 s
+    duration = 2 s
+    initial = 1
+    tolerance = 0.000001
+    max_iter = 3
+}
+"#;
+        let report = check_source("dynamic_failure.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.status, "failed");
+        assert_eq!(
+            solution.method,
+            "dynamic_component_assembly_semi_implicit_euler"
+        );
+        assert_eq!(solution.convergence_status, "algebraic_solve_failed");
+        assert_eq!(
+            solution
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-LINEAR-SINGULAR")
+        );
+        assert_eq!(solution.step_diagnostics.len(), 1);
+        assert_eq!(
+            solution.step_diagnostics[0].convergence_status,
+            "linear_algebraic_solve_failed"
+        );
+        assert_eq!(
+            solution.step_diagnostics[0]
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-LINEAR-SINGULAR")
+        );
+        assert!(solution
+            .reason
+            .contains("source solve binding `singular_result`"));
     }
 
     #[test]

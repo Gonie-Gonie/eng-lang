@@ -305,6 +305,12 @@ re-parsing source files.
   `solver = fixed_point`, tolerance/max-iteration/relaxation/initial options,
   convergence metadata, residual norm, and SolverFailure artifacts for the
   companion nonconvergence diagnostic fixture.
+- `examples/official/26_dynamic_component_room/main.eng`
+  shows the narrow dynamic component path with `solver =
+  dynamic_component_semi_implicit_euler`, generated Thermal connection
+  equations, a `der(port.T)` component-local equation, state/algebraic
+  trajectories, and per-step algebraic diagnostics. The wall heat flow is a
+  fixed simple-linear boundary seed rather than a general conductance model.
 - `examples/internal/06_domain_port/main.eng`
   shows compatible Thermal, `Fluid[Water]`, and
   `MechanicalNode[World, X]` domain connections with package/version metadata

@@ -152,10 +152,13 @@ by the stable breaking-change policy.
   `examples/official/23_thermal_component_assembly` and the source-to-solver
   `examples/official/24_linear_algebraic_thermal_node`, and a narrow explicit
   fixed-point source solve over linear ResidualGraph equations in
-  `examples/official/25_fixed_point_loop`. Constructor arguments, nonlinear or
+  `examples/official/25_fixed_point_loop`, and a simple-linear dynamic
+  component source solve in `examples/official/26_dynamic_component_room`.
+  Constructor arguments, nonlinear or
   unit-parameterized component-local equations, broad fixed-point/nonlinear
-  source solving, behavior-node solving, nonlinear/DAE coupling, dynamic
-  components, and production multi-domain solving remain planned or internal.
+  source solving, behavior-node solving, nonlinear/DAE coupling, adaptive
+  component timestepping, and production multi-domain solving remain planned or
+  internal.
 - Class/domain object authoring for typed fields/defaults, object literals,
   nested object references, field access metadata, simple validation blocks,
   zero-argument metadata methods, immutable copy-with metadata, diagnostics,
@@ -219,11 +222,15 @@ are not public stable workflows.
   updates from derivative-form `ResidualGraph` equations, including input and
   parameter terms, through a count/name-validated residual-graph explicit-Euler
   entrypoint, and derivative plus linear algebraic residual graphs through a
-  semi-implicit entrypoint with per-step dense linear algebraic solves. An
-  internal `EquationAssembly` bridge now validates dynamic component
+  semi-implicit entrypoint with per-step dense linear algebraic solves. A
+  source `EquationAssembly` bridge now validates dynamic component
   state/algebraic/input/parameter layouts, lowers simple linear derivative and
-  algebraic residuals into those residual-graph entrypoints, and preserves
-  equation/unknown counts in component solver artifacts. The solver API also
+  algebraic residuals into those residual-graph entrypoints, preserves
+  equation/unknown counts in component solver artifacts, and is covered by
+  `examples/official/26_dynamic_component_room`,
+  `tests/runtime/dynamic_component_explicit.eng`,
+  `tests/runtime/dynamic_component_semi_implicit.eng`, and
+  `tests/diagnostics/dynamic_component_nonconvergence.eng`. The solver API also
   has an internal adaptive Heun/Euler ODE seed that preserves fixed output-grid
   trajectories while adapting internal substeps and reporting accepted/rejected
   substep diagnostics through system result/report/review artifacts; the
@@ -240,11 +247,12 @@ are not public stable workflows.
   algebraic artifacts. Component solver result artifacts can carry
   state/algebraic trajectory summaries, trajectory points, RuntimeTimeSeries
   materialization, tolerance, max-iteration, timestep diagnostics, per-step
-  nonconvergence failure artifacts, and IDE TimeSeries/solver-inspector rows
-  from that internal `SolverResult` adapter. Newton/DAE/dynamic component seeds
-  and broad adaptive solving beyond the narrow thermal/state-space adaptive
-  paths are not wired into language-level nonlinear systems or production
-  component assembly workflows.
+  nonconvergence/failure artifacts, and IDE TimeSeries/solver-inspector rows
+  from that `SolverResult` adapter. Newton/DAE seeds and broad adaptive solving
+  beyond the narrow thermal/state-space adaptive paths are not wired into
+  language-level nonlinear systems; dynamic component source solving is limited
+  to simple-linear component residuals and is not a production multi-domain
+  component simulation workflow.
 - Behavior graph seeds: solver-API runtime delay buffer with linear and
   previous-sample interpolation policies, explicit initial-history policy,
   relationship artifact, solver-style behavior-node evaluation, delay-driven

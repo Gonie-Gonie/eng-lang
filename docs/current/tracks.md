@@ -163,7 +163,8 @@ Deferred:
 
 ```text
 - language-integrated nonlinear/DAE solving
-- language-integrated dynamic component graph solving
+- broad language-integrated dynamic component graph solving beyond the
+  simple-linear source path
 - language-integrated delay/Predictor/external behavior graph solving
 - broad adaptive solvers beyond the one-state thermal and internal continuous
   state-space `adaptive_heun` paths
@@ -293,6 +294,8 @@ Supported scoped slice:
   examples/official/24_linear_algebraic_thermal_node
 - source-to-solver fixed-point ResidualGraph loop in
   examples/official/25_fixed_point_loop
+- source-to-solver simple-linear dynamic component room in
+  examples/official/26_dynamic_component_room
 - system-local name = Component() instances
 - connect instance.port to instance.port
 - generated connection equations plus literal boundary seeds and simple
@@ -300,6 +303,9 @@ Supported scoped slice:
 - square dense linear residual solve artifact
 - explicit `solve component_graph` fixed-point artifact with tolerance,
   max-iteration, relaxation, initial-guess, convergence, and failure metadata
+- explicit/semi-implicit dynamic `solve component_graph` artifacts with
+  timestep, duration, initial state, trajectories, step diagnostics, and
+  algebraic failure metadata
 ```
 
 Implementation seeds on `main`:

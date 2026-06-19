@@ -1,0 +1,35 @@
+domain Thermal {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+component ZoneNode {
+    port heat: Thermal
+    1000 * der(heat.T) eq heat.Q
+}
+
+component HeatBoundary {
+    port heat: Thermal
+    heat.Q eq 1 kW
+}
+
+system DynamicSemiImplicit {
+    zone = ZoneNode()
+    boundary = HeatBoundary()
+    connect zone.heat to boundary.heat
+}
+
+semi_result = solve component_graph
+with {
+    solver = dynamic_component_semi_implicit_euler
+    timestep = 1 s
+    duration = 3 s
+    initial = 20 degC
+    tolerance = 0.000001
+    max_iter = 20
+}
+
+report {
+    show semi_result
+}

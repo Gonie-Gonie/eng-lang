@@ -5111,7 +5111,7 @@ mod tests {
         assert!(!report.has_errors(), "{:?}", report.diagnostics);
         assert!(report.inferred_declarations.iter().any(|declaration| {
             declaration.name == "fixed_point_result"
-                && declaration.quantity_kind == "AlgebraicSolveResult"
+                && declaration.quantity_kind == "ComponentSolveResult"
                 && declaration.expression == "solve component_graph"
         }));
         assert!(report
@@ -5137,6 +5137,52 @@ mod tests {
             "E-SOLVE-RELAXATION-INVALID",
             "E-SOLVE-INITIAL-INVALID",
             "E-SOLVE-ASSEMBLY-001",
+        ] {
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == code),
+                "missing {code}: {:?}",
+                report.diagnostics
+            );
+        }
+    }
+
+    #[test]
+    fn accepts_dynamic_component_solve_request() {
+        let report = check_source(
+            "ok.eng",
+            "domain ScalarState {\n    across x: DimensionlessNumber [1]\n    through balance: DimensionlessNumber [1]\n    conservation sum(balance) = 0\n}\n\ncomponent DecayNode {\n    port node: ScalarState\n    der(node.x) eq -0.5 * node.x\n}\n\nsystem DynamicExplicit {\n    node = DecayNode()\n    connect node.node to node.node\n}\n\nexplicit_result = solve component_graph\nwith {\n    solver = dynamic_component_explicit_euler\n    timestep = 1 s\n    duration = 3 s\n    initial = 4\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report.inferred_declarations.iter().any(|declaration| {
+            declaration.name == "explicit_result"
+                && declaration.quantity_kind == "ComponentSolveResult"
+                && declaration.expression == "solve component_graph"
+        }));
+        let assembly = &report.semantic_program.component_assemblies[0];
+        assert_eq!(assembly.boundary.state_count, 1);
+        assert!(assembly.equations.iter().any(|equation| equation
+            .dependencies
+            .contains(&"der(node.node.x)".to_owned())));
+    }
+
+    #[test]
+    fn rejects_invalid_dynamic_component_solve_request() {
+        let report = check_source(
+            "bad.eng",
+            "domain ScalarState {\n    across x: DimensionlessNumber [1]\n    through balance: DimensionlessNumber [1]\n    conservation sum(balance) = 0\n}\n\ncomponent DecayNode {\n    port node: ScalarState\n    der(node.x) eq -0.5 * node.x\n}\n\nsystem DynamicExplicit {\n    node = DecayNode()\n    connect node.node to node.node\n}\n\nexplicit_result = solve component_graph\nwith {\n    solver = dynamic_component_explicit_euler\n    timestep = never\n    initial = bad\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        for code in [
+            "E-SOLVE-TIMESTEP-INVALID",
+            "E-SOLVE-DURATION-INVALID",
+            "E-SOLVE-INITIAL-INVALID",
         ] {
             assert!(
                 report

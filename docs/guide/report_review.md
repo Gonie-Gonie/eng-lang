@@ -129,7 +129,9 @@ source-to-solver dense linear path. `examples/official/25_fixed_point_loop`
 covers the narrow `solve component_graph` fixed-point path for pivotable
 linear ResidualGraphs and records tolerance, max iterations, relaxation,
 initial guess, convergence status, residual norm, and SolverFailure artifacts
-on nonconvergence.
+on nonconvergence. `examples/official/26_dynamic_component_room` covers the
+simple-linear dynamic component source path and records state/algebraic
+trajectories plus per-step algebraic diagnostics.
 The runtime residual evaluator accepts solver-provided residual scale overrides
 and tolerance values; component artifacts currently use the default
 unit/quantity scale policy unless a solver path supplies explicit overrides.

@@ -1232,8 +1232,8 @@ missing count, and irregular-axis status per promoted table. RMSE metrics record
 their `alignment_reference`, `alignment_status`, and `alignment_step_status`
 when a corresponding TimeSeries alignment artifact exists.
 
-The supported algebraic component solve surface uses an explicit `solve`
-binding over the current component assembly artifact:
+The supported component solve surface uses an explicit `solve` binding over the
+current component assembly artifact:
 
 ```eng partial
 fixed_point_result = solve component_graph
@@ -1250,6 +1250,28 @@ This path is intentionally narrow. `solver = fixed_point` is supported for
 pivotable linear ResidualGraphs assembled from component connections and simple
 component-local equations. The options are plain numeric values; invalid
 `tolerance`, `max_iter`, `relaxation`, and `initial` values are diagnostics.
+
+Simple-linear dynamic component solves use the same binding with dynamic solver
+options:
+
+```eng partial
+dynamic_room_result = solve component_graph
+with {
+    solver = dynamic_component_semi_implicit_euler
+    timestep = 1 s
+    duration = 5 s
+    initial = 20 degC
+    tolerance = 0.000001
+    max_iter = 20
+}
+```
+
+`dynamic_component_explicit_euler` runs algebraic-free derivative residuals and
+`dynamic_component_semi_implicit_euler` solves linear algebraic residuals per
+timestep. Both paths emit component solver trajectories and step diagnostics.
+They currently require simple linear component-local residual terms; nonlinear,
+constructor-parameterized, adaptive, and production multi-domain component
+solves remain outside this source surface.
 
 The supported typed-block state-space surface starts with top-level state and
 input type blocks:

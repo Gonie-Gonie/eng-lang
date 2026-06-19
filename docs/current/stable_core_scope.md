@@ -72,8 +72,9 @@ preserved:
   mutation, and inheritance.
 - Production component graph numeric solving and physical multi-domain solving.
   The constrained Thermal component boundary assembly is a supported scoped
-  addition, and the narrow fixed-point ResidualGraph source path is a supported
-  scoped addition; neither is a stable-core claim.
+  addition, the narrow fixed-point ResidualGraph source path is a supported
+  scoped addition, and the simple-linear dynamic component source path is a
+  supported scoped addition; none of them are stable-core claims.
 - DAE, nonlinear, broad adaptive, or general multi-state equation solving. The
   one-state thermal `adaptive_heun` path, the supported two-state
   source-equation fixed-step path, and internal state-space seeds are outside

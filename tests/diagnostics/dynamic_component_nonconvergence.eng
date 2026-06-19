@@ -1,0 +1,31 @@
+domain SingularState {
+    across x: DimensionlessNumber [1]
+    across z: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component SingularNode {
+    port node: SingularState
+    der(node.x) eq node.z
+    0 * node.z eq 0
+}
+
+system DynamicSingular {
+    node = SingularNode()
+    connect node.node to node.node
+}
+
+singular_result = solve component_graph
+with {
+    solver = dynamic_component_semi_implicit_euler
+    timestep = 1 s
+    duration = 2 s
+    initial = 1
+    tolerance = 0.000001
+    max_iter = 3
+}
+
+report {
+    show singular_result
+}

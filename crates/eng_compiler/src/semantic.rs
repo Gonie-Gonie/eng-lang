@@ -1799,6 +1799,7 @@ fn known_with_option(key: &str) -> bool {
             | "max_iter"
             | "relaxation"
             | "initial"
+            | "initial_algebraic"
             | "seed"
             | "output"
             | "overwrite"
@@ -2852,25 +2853,27 @@ fn validate_algebraic_solve_contracts(
                 declaration.line,
                 "`solve` requires a supported solver in the attached `with` block.",
                 Some(
-                    "Use `solver = fixed_point` for the current algebraic fixed-point source path.",
+                    "Use `solver = dense_linear`, `fixed_point`, `dynamic_component_explicit_euler`, or `dynamic_component_semi_implicit_euler`.",
                 ),
             ));
             continue;
         };
         let solver = solver_option.value.trim();
-        if !matches!(solver, "fixed_point" | "dense_linear" | "linear") {
+        if !is_supported_component_solve_solver(solver) {
             diagnostics.push(Diagnostic::error(
                 "E-SOLVE-SOLVER-UNSUPPORTED",
                 solver_option.line,
-                &format!(
-                    "Unsupported algebraic solve solver `{}`.",
-                    solver_option.value
-                ),
+                &format!("Unsupported component solve solver `{}`.", solver_option.value),
                 Some(
-                    "Use `solver = fixed_point` or the default dense linear component solve path.",
+                    "Use `dense_linear`/`linear`, `fixed_point`, `dynamic_component_explicit_euler`, or `dynamic_component_semi_implicit_euler`.",
                 ),
             ));
             continue;
+        }
+        let dynamic_component_solver = is_dynamic_component_solve_solver(solver);
+        if dynamic_component_solver {
+            validate_component_solve_duration_options(declaration.line, options, diagnostics);
+            validate_component_solve_initial_option(options, diagnostics);
         }
         validate_algebraic_solve_numeric_option(
             options,
@@ -2888,12 +2891,22 @@ fn validate_algebraic_solve_contracts(
             "`relaxation` expects a finite number in the interval (0, 1].",
             diagnostics,
         );
+        if !dynamic_component_solver {
+            validate_algebraic_solve_numeric_option(
+                options,
+                "initial",
+                f64::is_finite,
+                "E-SOLVE-INITIAL-INVALID",
+                "`initial` expects a finite numeric initial guess.",
+                diagnostics,
+            );
+        }
         validate_algebraic_solve_numeric_option(
             options,
-            "initial",
+            "initial_algebraic",
             f64::is_finite,
             "E-SOLVE-INITIAL-INVALID",
-            "`initial` expects a finite numeric initial guess.",
+            "`initial_algebraic` expects a finite numeric initial guess.",
             diagnostics,
         );
         if let Some(option) = accepted_option(options, "max_iter") {
@@ -2914,6 +2927,91 @@ fn validate_algebraic_solve_contracts(
                 ));
             }
         }
+    }
+}
+
+fn is_supported_component_solve_solver(solver: &str) -> bool {
+    matches!(
+        solver,
+        "fixed_point"
+            | "dense_linear"
+            | "linear"
+            | "dynamic_component_explicit_euler"
+            | "dynamic_component_semi_implicit_euler"
+    )
+}
+
+fn is_dynamic_component_solve_solver(solver: &str) -> bool {
+    matches!(
+        solver,
+        "dynamic_component_explicit_euler" | "dynamic_component_semi_implicit_euler"
+    )
+}
+
+fn validate_component_solve_duration_options(
+    owner_line: usize,
+    options: &[WithOptionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(timestep) = accepted_option(options, "timestep") else {
+        diagnostics.push(Diagnostic::error(
+            "E-SOLVE-TIMESTEP-INVALID",
+            owner_line,
+            "Dynamic component `solve` requires `with { timestep = <duration> }`.",
+            Some("Use a positive duration such as `timestep = 1 s`."),
+        ));
+        return;
+    };
+    if parse_duration_option_seconds(&timestep.value).is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-SOLVE-TIMESTEP-INVALID",
+            timestep.line,
+            &format!(
+                "`timestep` expects a positive duration, got `{}`.",
+                timestep.value
+            ),
+            Some("Use units such as `s`, `min`, or `h`, for example `1 s`."),
+        ));
+    }
+    let Some(duration) = accepted_option(options, "duration") else {
+        diagnostics.push(Diagnostic::error(
+            "E-SOLVE-DURATION-INVALID",
+            owner_line,
+            "Dynamic component `solve` requires `with { duration = <duration> }`.",
+            Some("Use a positive duration such as `duration = 10 s`."),
+        ));
+        return;
+    };
+    if parse_duration_option_seconds(&duration.value).is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-SOLVE-DURATION-INVALID",
+            duration.line,
+            &format!(
+                "`duration` expects a positive duration, got `{}`.",
+                duration.value
+            ),
+            Some("Use units such as `s`, `min`, or `h`, for example `10 s`."),
+        ));
+    }
+}
+
+fn validate_component_solve_initial_option(
+    options: &[WithOptionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(option) = accepted_option(options, "initial") else {
+        return;
+    };
+    if numeric_literal_with_optional_unit(&option.value).is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-SOLVE-INITIAL-INVALID",
+            option.line,
+            &format!(
+                "`initial` expects a finite numeric literal with an optional unit, got `{}`.",
+                option.value
+            ),
+            Some("Use a literal such as `initial = 20 degC` or `initial = 1`."),
+        ));
     }
 }
 
@@ -5300,6 +5398,7 @@ fn build_component_assembly_graphs(
     let component_local_equations =
         component_local_equations(domains, components, &connection_sets, diagnostics);
     equations.extend(component_local_equations);
+    classify_dynamic_component_states(&mut variables, &equations);
 
     let algebraic_count = variables
         .iter()
@@ -6070,6 +6169,15 @@ fn component_local_equations(
                 .filter(|signal| connected_variables.contains(&signal.qualified))
                 .map(|signal| signal.qualified.clone())
                 .collect::<Vec<_>>();
+            dependencies.extend(signal_refs.iter().filter_map(|signal| {
+                if !expression_mentions_component_derivative(&local_expression, &signal.local) {
+                    return None;
+                }
+                if !connected_variables.contains(&signal.qualified) {
+                    return None;
+                }
+                Some(format!("der({})", signal.qualified))
+            }));
             dependencies.sort();
             dependencies.dedup();
             if dependencies.is_empty() {
@@ -6099,12 +6207,13 @@ fn component_local_equations(
                 }
                 continue;
             }
+            let is_dynamic_equation = local_expression.contains("der(");
             let dependency_kinds = signal_refs
                 .iter()
                 .filter(|signal| dependencies.contains(&signal.qualified))
                 .map(|signal| signal.quantity_kind.clone())
                 .collect::<HashSet<_>>();
-            if dependency_kinds.len() > 1 {
+            if !is_dynamic_equation && dependency_kinds.len() > 1 {
                 diagnostics.push(Diagnostic::error(
                     "E-COMPONENT-EQUATION-UNIT-001",
                     local.line,
@@ -6130,6 +6239,34 @@ fn component_local_equations(
         }
     }
     equations
+}
+
+fn classify_dynamic_component_states(
+    variables: &mut [ComponentAssemblyVariableInfo],
+    equations: &[ComponentAssemblyEquationInfo],
+) {
+    let states = equations
+        .iter()
+        .flat_map(|equation| equation.dependencies.iter())
+        .filter_map(|dependency| derivative_dependency_signal(dependency))
+        .collect::<HashSet<_>>();
+    if states.is_empty() {
+        return;
+    }
+    for variable in variables {
+        if states.contains(variable.name.as_str()) {
+            variable.role = "state".to_owned();
+        }
+    }
+}
+
+fn derivative_dependency_signal(dependency: &str) -> Option<&str> {
+    dependency
+        .trim()
+        .strip_prefix("der(")
+        .and_then(|value| value.strip_suffix(')'))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
 }
 
 fn connected_component_variables(
@@ -6317,6 +6454,10 @@ fn expression_mentions_component_signal(expression: &str, signal: &str) -> bool 
             !(character.is_ascii_alphanumeric() || character == '_' || character == '.')
         })
         .any(|token| token == signal)
+}
+
+fn expression_mentions_component_derivative(expression: &str, signal: &str) -> bool {
+    expression.contains(&format!("der({signal})"))
 }
 
 fn build_component_solver_preview(
@@ -8086,7 +8227,7 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
     }
 
     if lowered_expression.starts_with("solve ") {
-        return semantic_type("AlgebraicSolveResult", "object");
+        return semantic_type("ComponentSolveResult", "object");
     }
 
     if lowered_expression.starts_with("rmse ") && lowered_expression.contains(" vs ") {
