@@ -90,6 +90,12 @@ official/24_linear_algebraic_thermal_node
   Supported source-to-solver linear algebraic Thermal node example with
   system-local components, across/through boundary seeds, named solved
   variables, residual norm, and largest-residual artifacts.
+
+official/25_fixed_point_loop
+  Supported source-to-solver fixed-point loop using `solve component_graph`
+  with `solver = fixed_point`, numeric tolerance/max-iteration/relaxation and
+  initial-guess options, convergence metadata, named solved variables,
+  residual norm, and largest-residual artifacts.
 ```
 
 ## Internal Implementation Fixtures

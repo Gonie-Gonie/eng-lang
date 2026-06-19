@@ -123,8 +123,13 @@ Square component residual graphs are solved through the runtime
 `solve_linear_residual_graph` API, which converts the graph to a dense linear
 system, returns named solved variables, and preserves singular/ill-conditioned
 solver failures in the artifact surface. The supported official example is
-`examples/official/23_thermal_component_assembly`, which constrains this to one
-Thermal connection set with literal boundary seeds.
+`examples/official/23_thermal_component_assembly`, with
+`examples/official/24_linear_algebraic_thermal_node` covering the
+source-to-solver dense linear path. `examples/official/25_fixed_point_loop`
+covers the narrow `solve component_graph` fixed-point path for pivotable
+linear ResidualGraphs and records tolerance, max iterations, relaxation,
+initial guess, convergence status, residual norm, and SolverFailure artifacts
+on nonconvergence.
 The runtime residual evaluator accepts solver-provided residual scale overrides
 and tolerance values; component artifacts currently use the default
 unit/quantity scale policy unless a solver path supplies explicit overrides.

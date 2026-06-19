@@ -1,0 +1,30 @@
+domain Scalar package "eng.std.domains.scalar" version "0.1.0" {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component RelaxingLoop {
+    port source: Scalar
+    port target: Scalar
+    source.x eq 0.5 * target.x
+    source.balance eq 0
+}
+
+system FixedPointLoop {
+    relax = RelaxingLoop()
+    connect relax.source to relax.target
+}
+
+fixed_point_result = solve component_graph
+with {
+    solver = fixed_point
+    tolerance = 0.000001
+    max_iter = 60
+    relaxation = 1
+    initial = 4
+}
+
+report {
+    show fixed_point_result
+}

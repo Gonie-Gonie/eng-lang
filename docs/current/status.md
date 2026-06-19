@@ -147,11 +147,13 @@ by the stable breaking-change policy.
   system-local `name = Component()` instances, `connect instance.port to
   instance.port`, generated Thermal across/through equations,
   component-local `name = port.signal = literal` boundary seeds, direct
-  `port.signal eq literal` and simple linear port-signal equations, and square
+  `port.signal eq literal` and simple linear port-signal equations, square
   dense linear residual solve artifacts for
   `examples/official/23_thermal_component_assembly` and the source-to-solver
-  `examples/official/24_linear_algebraic_thermal_node`. Constructor arguments,
-  nonlinear or unit-parameterized component-local equations, fixed-point
+  `examples/official/24_linear_algebraic_thermal_node`, and a narrow explicit
+  fixed-point source solve over linear ResidualGraph equations in
+  `examples/official/25_fixed_point_loop`. Constructor arguments, nonlinear or
+  unit-parameterized component-local equations, broad fixed-point/nonlinear
   source solving, behavior-node solving, nonlinear/DAE coupling, dynamic
   components, and production multi-domain solving remain planned or internal.
 - Class/domain object authoring for typed fields/defaults, object literals,
@@ -196,7 +198,9 @@ are not public stable workflows.
   that requires an explicit `skipped_unsupported_shape` artifact instead of a
   fabricated trajectory.
 - Solver algorithm seeds: dense linear solve with finite matrix/RHS/tolerance
-  checks, solver-API fixed-point iteration with nonconvergence diagnostics, and
+  checks, solver-API fixed-point iteration plus the narrow
+  `solve component_graph` fixed-point source path with nonconvergence
+  diagnostics, and
   solver-API standalone damped Newton solve with finite initial-guess checks,
   finite-difference fallback, supplied analytic/JIT Jacobian hook,
   residual history, largest-residual summary, shared scaled residual-norm

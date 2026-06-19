@@ -272,11 +272,12 @@ metadata without promoting it to the root runtime object store.
 The runtime result also includes `component_solutions` with residual values,
 normalized residuals, the top normalized residuals under `largest_residuals`,
 convergence status, nullable `failure_code`/`failure_reason` aliases, solved
-linear variables when a square system is available, zero-seed variables for
-skipped non-square graphs, dynamic trajectory and timestep diagnostic adapters,
-an internal simple-linear dynamic component assembly bridge used by solver API
-fixtures, and failure/limitation artifacts. Runtime `report_spec.json` mirrors
-the same details under
+linear variables when a square system is available, explicit fixed-point
+variables for `solve component_graph` requests over pivotable linear
+ResidualGraphs, zero-seed variables for skipped non-square graphs, dynamic
+trajectory and timestep diagnostic adapters, an internal simple-linear dynamic
+component assembly bridge used by solver API fixtures, and failure/limitation
+artifacts. Runtime `report_spec.json` mirrors the same details under
 `assembly_summary[].solver_result`.
 Residual status is evaluated against the solver-supplied residual tolerance.
 Current component assembly runs use the default tolerance and unit/quantity
@@ -296,6 +297,14 @@ re-parsing source files.
   instance.port`, generated connection equations, literal boundary seeds, a
   square dense linear residual solve, solved variables, residual values, and
   `largest_residuals`.
+- `examples/official/24_linear_algebraic_thermal_node/main.eng`
+  shows the source-to-solver dense linear ResidualGraph path with named
+  solution variables, residual norm, and `largest_residuals`.
+- `examples/official/25_fixed_point_loop/main.eng`
+  shows the narrow `solve component_graph` fixed-point path with
+  `solver = fixed_point`, tolerance/max-iteration/relaxation/initial options,
+  convergence metadata, residual norm, and SolverFailure artifacts for the
+  companion nonconvergence diagnostic fixture.
 - `examples/internal/06_domain_port/main.eng`
   shows compatible Thermal, `Fluid[Water]`, and
   `MechanicalNode[World, X]` domain connections with package/version metadata

@@ -95,8 +95,9 @@ Internal runtime seeds:
 ```text
 - standalone dense linear, solver-API fixed-point, and solver-API damped
   Newton algorithms, with CLI smoke coverage for linear residual graph
-  convergence/singular failure artifacts plus fixed-point convergence and
-  nonconvergence failure artifacts
+  convergence/singular failure artifacts plus solver-API and source
+  `solve component_graph` fixed-point convergence and nonconvergence failure
+  artifacts
 - SolverInput/SolverResult state, input, parameter, finite numeric value, and validated output layout contracts
 - dense linear solver seeds reject non-finite matrix/RHS values and invalid tolerances
 - Newton solver seeds reject non-finite initial guesses
@@ -290,11 +291,15 @@ Supported scoped slice:
   examples/official/23_thermal_component_assembly
 - source-to-solver linear Thermal algebraic graph in
   examples/official/24_linear_algebraic_thermal_node
+- source-to-solver fixed-point ResidualGraph loop in
+  examples/official/25_fixed_point_loop
 - system-local name = Component() instances
 - connect instance.port to instance.port
 - generated connection equations plus literal boundary seeds and simple
   component-local equations
 - square dense linear residual solve artifact
+- explicit `solve component_graph` fixed-point artifact with tolerance,
+  max-iteration, relaxation, initial-guess, convergence, and failure metadata
 ```
 
 Implementation seeds on `main`:

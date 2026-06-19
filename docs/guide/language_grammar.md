@@ -1232,6 +1232,25 @@ missing count, and irregular-axis status per promoted table. RMSE metrics record
 their `alignment_reference`, `alignment_status`, and `alignment_step_status`
 when a corresponding TimeSeries alignment artifact exists.
 
+The supported algebraic component solve surface uses an explicit `solve`
+binding over the current component assembly artifact:
+
+```eng partial
+fixed_point_result = solve component_graph
+with {
+    solver = fixed_point
+    tolerance = 0.000001
+    max_iter = 60
+    relaxation = 1
+    initial = 4
+}
+```
+
+This path is intentionally narrow. `solver = fixed_point` is supported for
+pivotable linear ResidualGraphs assembled from component connections and simple
+component-local equations. The options are plain numeric values; invalid
+`tolerance`, `max_iter`, `relaxation`, and `initial` values are diagnostics.
+
 The supported typed-block state-space surface starts with top-level state and
 input type blocks:
 

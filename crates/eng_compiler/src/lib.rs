@@ -5101,6 +5101,55 @@ mod tests {
     }
 
     #[test]
+    fn accepts_fixed_point_algebraic_solve_request() {
+        let report = check_source(
+            "ok.eng",
+            "domain Scalar {\n    across x: DimensionlessNumber [1]\n    through balance: DimensionlessNumber [1]\n    conservation sum(balance) = 0\n}\n\ncomponent LoopNode {\n    port source: Scalar\n    port target: Scalar\n    source.x eq 0.5 * target.x\n    source.balance eq 0\n}\n\nsystem FixedPointLoop {\n    loop_node = LoopNode()\n    connect loop_node.source to loop_node.target\n}\n\nfixed_point_result = solve component_graph\nwith {\n    solver = fixed_point\n    tolerance = 0.000001\n    max_iter = 60\n    relaxation = 0.5\n    initial = 4\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report.inferred_declarations.iter().any(|declaration| {
+            declaration.name == "fixed_point_result"
+                && declaration.quantity_kind == "AlgebraicSolveResult"
+                && declaration.expression == "solve component_graph"
+        }));
+        assert!(report
+            .semantic_program
+            .with_blocks
+            .iter()
+            .flat_map(|block| block.options.iter())
+            .any(|option| option.key == "relaxation" && option.status == "accepted"));
+    }
+
+    #[test]
+    fn rejects_invalid_fixed_point_algebraic_solve_request() {
+        let report = check_source(
+            "bad.eng",
+            "domain Scalar {\n    across x: DimensionlessNumber [1]\n    through balance: DimensionlessNumber [1]\n    conservation sum(balance) = 0\n}\n\ncomponent LoopNode {\n    port source: Scalar\n    port target: Scalar\n    source.x eq 0.5 * target.x\n    source.balance eq 0\n}\n\nsystem FixedPointLoop {\n    loop_node = LoopNode()\n    connect loop_node.source to loop_node.target\n}\n\nfixed_point_result = solve component_graph\nwith {\n    solver = fixed_point\n    tolerance = -1\n    max_iter = 0\n    relaxation = 2\n    initial = bad\n}\n\nmissing_result = solve missing_graph\nwith {\n    solver = fixed_point\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        for code in [
+            "E-SOLVE-TOLERANCE-INVALID",
+            "E-SOLVE-MAX-ITER-INVALID",
+            "E-SOLVE-RELAXATION-INVALID",
+            "E-SOLVE-INITIAL-INVALID",
+            "E-SOLVE-ASSEMBLY-001",
+        ] {
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == code),
+                "missing {code}: {:?}",
+                report.diagnostics
+            );
+        }
+    }
+
+    #[test]
     fn rejects_invalid_component_local_equations() {
         let unknown_signal = check_source(
             "bad.eng",

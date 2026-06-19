@@ -89,6 +89,10 @@ Use the official examples for user testing and demos. Start with these:
 - `examples/official/24_linear_algebraic_thermal_node/main.eng`: supported
   source-to-solver linear Thermal algebraic node with named solution variables,
   residual norm, and largest-residual artifacts.
+- `examples/official/25_fixed_point_loop/main.eng`: supported narrow
+  fixed-point algebraic source solve using `solve component_graph` with
+  `solver = fixed_point` and numeric tolerance/max-iteration/relaxation
+  options.
 
 The remaining official examples cover functions/imports, read-only IO, write
 output manifests, file policy, structured runtime logs, process-result records,

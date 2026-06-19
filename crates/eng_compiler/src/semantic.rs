@@ -1339,6 +1339,12 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         &mut diagnostics,
     );
     emit_component_assembly_boundary_warnings(&component_assemblies, &mut diagnostics);
+    validate_algebraic_solve_contracts(
+        &component_assemblies,
+        &inferred_declarations,
+        &with_blocks,
+        &mut diagnostics,
+    );
     SemanticOutput {
         diagnostics,
         inferred_declarations,
@@ -1791,6 +1797,8 @@ fn known_with_option(key: &str) -> bool {
             | "solar"
             | "tolerance"
             | "max_iter"
+            | "relaxation"
+            | "initial"
             | "seed"
             | "output"
             | "overwrite"
@@ -2804,6 +2812,131 @@ pub fn validate_simulation_contracts(
         }
     }
     diagnostics
+}
+
+fn validate_algebraic_solve_contracts(
+    assemblies: &[ComponentAssemblyInfo],
+    inferred_declarations: &[InferredDeclaration],
+    with_blocks: &[WithBlockInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for declaration in inferred_declarations {
+        let Some(assembly_name) = declaration
+            .expression
+            .trim()
+            .strip_prefix("solve ")
+            .map(str::trim)
+        else {
+            continue;
+        };
+        if !assemblies
+            .iter()
+            .any(|assembly| assembly.name == assembly_name)
+        {
+            diagnostics.push(Diagnostic::error(
+                "E-SOLVE-ASSEMBLY-001",
+                declaration.line,
+                &format!("Algebraic solve references unknown assembly `{assembly_name}`."),
+                Some("Use `solve component_graph` for the current component assembly artifact."),
+            ));
+            continue;
+        }
+        let options = with_blocks
+            .iter()
+            .find(|block| block.owner_line == Some(declaration.line))
+            .map(|block| block.options.as_slice())
+            .unwrap_or(&[]);
+        let Some(solver_option) = accepted_option(options, "solver") else {
+            diagnostics.push(Diagnostic::error(
+                "E-SOLVE-SOLVER-UNSUPPORTED",
+                declaration.line,
+                "`solve` requires a supported solver in the attached `with` block.",
+                Some(
+                    "Use `solver = fixed_point` for the current algebraic fixed-point source path.",
+                ),
+            ));
+            continue;
+        };
+        let solver = solver_option.value.trim();
+        if !matches!(solver, "fixed_point" | "dense_linear" | "linear") {
+            diagnostics.push(Diagnostic::error(
+                "E-SOLVE-SOLVER-UNSUPPORTED",
+                solver_option.line,
+                &format!(
+                    "Unsupported algebraic solve solver `{}`.",
+                    solver_option.value
+                ),
+                Some(
+                    "Use `solver = fixed_point` or the default dense linear component solve path.",
+                ),
+            ));
+            continue;
+        }
+        validate_algebraic_solve_numeric_option(
+            options,
+            "tolerance",
+            |value| value.is_finite() && value > 0.0,
+            "E-SOLVE-TOLERANCE-INVALID",
+            "`tolerance` expects a positive finite number.",
+            diagnostics,
+        );
+        validate_algebraic_solve_numeric_option(
+            options,
+            "relaxation",
+            |value| value.is_finite() && value > 0.0 && value <= 1.0,
+            "E-SOLVE-RELAXATION-INVALID",
+            "`relaxation` expects a finite number in the interval (0, 1].",
+            diagnostics,
+        );
+        validate_algebraic_solve_numeric_option(
+            options,
+            "initial",
+            f64::is_finite,
+            "E-SOLVE-INITIAL-INVALID",
+            "`initial` expects a finite numeric initial guess.",
+            diagnostics,
+        );
+        if let Some(option) = accepted_option(options, "max_iter") {
+            let valid = option
+                .value
+                .trim()
+                .parse::<usize>()
+                .is_ok_and(|value| value > 0);
+            if !valid {
+                diagnostics.push(Diagnostic::error(
+                    "E-SOLVE-MAX-ITER-INVALID",
+                    option.line,
+                    &format!(
+                        "`max_iter` expects a positive integer, got `{}`.",
+                        option.value
+                    ),
+                    Some("Use a positive integer such as `max_iter = 50`."),
+                ));
+            }
+        }
+    }
+}
+
+fn validate_algebraic_solve_numeric_option(
+    options: &[WithOptionInfo],
+    key: &str,
+    predicate: impl Fn(f64) -> bool,
+    code: &str,
+    message: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(option) = accepted_option(options, key) else {
+        return;
+    };
+    let valid = option.value.trim().parse::<f64>().is_ok_and(predicate);
+    if !valid {
+        diagnostics.push(Diagnostic::error(
+            code,
+            option.line,
+            &format!("{message} Got `{}`.", option.value),
+            Some("Use a plain dimensionless numeric option value."),
+        ));
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -7950,6 +8083,10 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
 
     if lowered_expression.starts_with("simulate ") {
         return semantic_type("SimulationResult", "object");
+    }
+
+    if lowered_expression.starts_with("solve ") {
+        return semantic_type("AlgebraicSolveResult", "object");
     }
 
     if lowered_expression.starts_with("rmse ") && lowered_expression.contains(" vs ") {

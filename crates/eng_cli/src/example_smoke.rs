@@ -35,6 +35,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/22_state_space_continuous/main.eng",
                 "examples/official/23_thermal_component_assembly/main.eng",
                 "examples/official/24_linear_algebraic_thermal_node/main.eng",
+                "examples/official/25_fixed_point_loop/main.eng",
             ],
         ),
         (
@@ -466,6 +467,107 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(1);
         }
     }
+    match run_file(
+        Path::new("examples/official/25_fixed_point_loop/main.eng"),
+        Path::new("build/test-official-fixed-point-loop"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"solved_fixed_point\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"fixed_point_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"fixed_point_converged\"")
+                || !output.report_spec_json.contains("\"tolerance\": 0.000001")
+                || !output.report_spec_json.contains("\"max_iterations\": 60")
+                || !output.result_json.contains("\"name\": \"relax.source.x\"")
+                || !output.result_json.contains("\"value\": 0.000000")
+                || !output
+                    .report_spec_json
+                    .contains("source solve binding `fixed_point_result`")
+                || !output.report_spec_json.contains("\"largest_residuals\"")
+                || !output.report_html.contains("solved_fixed_point")
+                || !output.report_html.contains("fixed_point_residual_graph")
+            {
+                eprintln!(
+                    "expected official fixed-point loop example to converge through source solve artifacts"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/25_fixed_point_loop/main.eng solved source fixed-point residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("official fixed-point loop example failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/runtime/linear_algebraic_solve_from_source.eng"),
+        Path::new("build/test-runtime-linear-algebraic-source"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"solved_linear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dense_linear_residual_graph\"")
+                || !output.result_json.contains("\"name\": \"room.heat.Q\"")
+                || !output.result_json.contains("\"value\": -2.00000000")
+                || !output.result_json.contains("\"largest_residuals\"")
+                || !output.report_html.contains("solved_linear")
+            {
+                eprintln!(
+                    "expected tests/runtime/linear_algebraic_solve_from_source.eng to solve through the dense linear source path"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/linear_algebraic_solve_from_source.eng solved dense linear source residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("linear algebraic source runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/runtime/fixed_point_solve_from_source.eng"),
+        Path::new("build/test-runtime-fixed-point-source"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"solved_fixed_point\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"fixed_point_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"fixed_point_converged\"")
+                || !output.report_spec_json.contains("\"max_iterations\": 60")
+                || !output.report_html.contains("solved_fixed_point")
+            {
+                eprintln!(
+                    "expected tests/runtime/fixed_point_solve_from_source.eng to solve through the fixed-point source path"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/fixed_point_solve_from_source.eng solved fixed-point source residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("fixed-point source runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
     let thermal_assembly_report = match check_file(
         "examples/internal/21_thermal_component_assembly/main.eng",
         &CheckOptions::default(),
@@ -630,6 +732,105 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("component boundary singular fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("examples/diagnostics/error_messages/fixed_point_nonconvergence.eng"),
+        Path::new("build/test-fixed-point-nonconvergence"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"fixed_point_not_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"fixed_point_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"fixed_point_not_converged\"")
+                || !output.result_json.contains("\"iteration_count\": 3")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-FIXED-POINT-NONCONVERGENCE\"")
+                || !output.report_spec_json.contains("\"failure_artifact\"")
+                || !output.report_html.contains("fixed_point_not_converged")
+                || !output.report_html.contains("E-FIXED-POINT-NONCONVERGENCE")
+            {
+                eprintln!(
+                    "expected fixed-point nonconvergence fixture to report a SolverFailure artifact"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/diagnostics/error_messages/fixed_point_nonconvergence.eng reported fixed-point nonconvergence"
+            );
+        }
+        Err(error) => {
+            eprintln!("fixed-point nonconvergence fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/diagnostics/algebraic_singular_system.eng"),
+        Path::new("build/test-diagnostics-algebraic-singular-system"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"linear_solve_failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dense_linear_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-LINEAR-SINGULAR\"")
+                || !output.report_html.contains("linear_solve_failed")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/algebraic_singular_system.eng to report a dense linear SolverFailure artifact"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/algebraic_singular_system.eng reported dense linear singular failure"
+            );
+        }
+        Err(error) => {
+            eprintln!("algebraic singular diagnostics fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/diagnostics/fixed_point_nonconvergence.eng"),
+        Path::new("build/test-diagnostics-fixed-point-nonconvergence"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"fixed_point_not_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"fixed_point_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-FIXED-POINT-NONCONVERGENCE\"")
+                || !output.report_html.contains("fixed_point_not_converged")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/fixed_point_nonconvergence.eng to report a fixed-point SolverFailure artifact"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/fixed_point_nonconvergence.eng reported fixed-point nonconvergence"
+            );
+        }
+        Err(error) => {
+            eprintln!("fixed-point nonconvergence diagnostics fixture failed: {error}");
             return ExitCode::from(1);
         }
     }
@@ -1071,6 +1272,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         (
             "examples/diagnostics/error_messages/state_space_operator_bad_coefficient.eng",
             "E-STATE-SPACE-OP-ENTRY-VALUE-001",
+        ),
+        (
+            "examples/diagnostics/error_messages/fixed_point_bad_options.eng",
+            "E-SOLVE-TOLERANCE-INVALID",
         ),
     ] {
         let report = match check_file(fixture, &CheckOptions::default()) {

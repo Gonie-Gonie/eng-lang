@@ -91,6 +91,12 @@ paths before compatibility fixtures.
   system-local components, across and through boundary seeds, generated
   connection equations, named solution variables, residual norm, and
   largest-residual dense linear solve artifacts.
+
+25_fixed_point_loop
+  Source-to-solver smoke for `solve component_graph` with
+  `solver = fixed_point`, tolerance/max-iteration/relaxation/initial options,
+  named solution variables, residual norm, largest-residual artifacts, and
+  fixed-point convergence metadata for a narrow linear ResidualGraph loop.
 ```
 
 Compatibility regression examples live under `examples/compat`. Diagnostic and
