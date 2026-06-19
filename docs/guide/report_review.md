@@ -232,7 +232,9 @@ error-norm fields. It groups the same per-state data under
 `simulation_results[]`, including per-state `solver_results[]` entries for
 IDE/reviewer panels. The official one-state thermal example is pinned by the
 artifact golden baseline so these solver fields remain present in review,
-report spec, and result artifacts.
+report spec, and result artifacts. `examples/official/20_multi_state_thermal`
+exercises the same solver result projection for the supported two-state
+source-equation fixed-step workflow.
 
 For the domain/component connection-constraint check, `result.engres` also records
 `typed_payload.component_solutions`. Each entry includes the assembly name,
@@ -390,11 +392,13 @@ system_ir
 ```
 
 For `eng run`, `report_spec.json` and `result.engres` can upgrade that runtime
-boundary to `computed` when the official one-state thermal ODE pattern is
-recognized. `result.engres` then includes `typed_payload.systems[].solver_result`
-with the fixed-step trajectory and final state value.
+boundary to `computed` when a supported one-state thermal ODE pattern or
+two-state source-equation fixed-step ODE pattern is recognized. `result.engres`
+then includes `typed_payload.systems[].solver_result` and/or
+`typed_payload.systems[].solver_results` with fixed-step trajectories and final
+state values.
 
-If a `simulate` command targets a system outside that supported runner shape,
+If a `simulate` command targets a system outside those supported runner shapes,
 runtime artifacts keep `solver_result.status = skipped_unsupported_shape` with
 a reason instead of materializing a `sim.<state>` TimeSeries.
 
@@ -565,5 +569,5 @@ Deferred beyond the current artifact contract:
 - interactive report viewer
 - rendered review cards
 - stable binary report package
-- broad adaptive or multi-equation numeric system solver
+- broad adaptive or general multi-equation numeric system solver
 ```

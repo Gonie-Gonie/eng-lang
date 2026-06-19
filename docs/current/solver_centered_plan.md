@@ -30,9 +30,9 @@ end:
 | SOLVER-005 | Add solver artifact snapshots | Covered by artifact and CLI smoke checks. |
 | SOLVER-101 | TimeSeries system input contract | Implemented for explicit supported TimeSeries thermal inputs. |
 | SOLVER-102 | Simulate command binding to SolverInput | Implemented for supported simulation workflows. |
-| SOLVER-103 | Multi-state RHS evaluator | Internal seed in fixed-step/state-space paths; general equation solving remains planned. |
-| SOLVER-104 | Explicit Euler multi-state solver | Internal seed for multi-state/state-space paths and covered by CLI smoke for two-state trajectories, interval-start RHS sampling, final partial steps, and failure artifacts. |
-| SOLVER-105 | RK4 multi-state solver | Internal seed for multi-state/state-space paths and covered by CLI smoke for two-state trajectories, final partial steps, and failure artifacts. |
+| SOLVER-103 | Multi-state RHS evaluator | Implemented for the supported two-state source-equation fixed-step ODE shape and for internal state-space paths; broad general equation solving remains planned. |
+| SOLVER-104 | Explicit Euler multi-state solver | Implemented for the supported two-state source-equation fixed-step ODE shape and internal state-space paths, with CLI/runtime coverage for two-state trajectories, interval-start RHS sampling, final partial steps, and failure artifacts. |
+| SOLVER-105 | RK4 multi-state solver | Implemented for the supported two-state source-equation fixed-step ODE shape and internal state-space paths, with CLI/runtime coverage for two-state trajectories, final partial steps, and failure artifacts. |
 | SOLVER-106 | Solver diagnostics and failure artifacts | Implemented across supported system/component solver artifacts. |
 | SOLVER-107 | Adaptive Heun simulation paths | Implemented for the one-state thermal `simulate` path and internal continuous state-space path as `solver = adaptive_heun`, preserving a fixed output TimeGrid while adapting internal substeps and exposing substep diagnostics in result/report/review/IDE artifacts. |
 | SOLVER-201 | StateVector/InputVector parser and semantic | Implemented for current state-space seed scope. |
@@ -61,7 +61,7 @@ end:
 | --- | --- | --- |
 | v1.0.1 cleanup | Correct solver wording, move metadata-only features to Internal, format examples | Covered by current status, maturity, stable-core, and release-note wording. |
 | v1.1 real dynamic system I/O | Solver module, one-state runner behind Solver API, real TimeSeries input/output | Implemented for the supported one-state thermal workflow. |
-| v1.2 multi-state explicit ODE | Multi-state RHS evaluator, Euler/RK4, trajectories | Implemented as internal fixed-step/state-space seeds; broad general equation solving remains planned. |
+| v1.2 multi-state explicit ODE | Multi-state RHS evaluator, Euler/RK4, trajectories | Implemented for the supported two-state source-equation fixed-step ODE shape and internal state-space seeds; broad general equation solving remains planned. |
 | v1.3 state-space actual simulation | LinearOperator checks, discrete solve, continuous RHS | Implemented as internal state-space seed scope. |
 | v1.4 equation assembly | Component graph assembly, generated equations, residual graph | Implemented as internal domain/component assembly seed scope. |
 | v1.5 algebraic solver | Linear algebraic solve, fixed-point solve, diagnostics | Implemented as solver-API algorithm seeds and square residual graph solve path. |
@@ -84,5 +84,5 @@ specific supported scope being claimed:
 | TimeSeries outputs are generated | Solver trajectories are converted into TimeSeries-style report/result/IDE rows. |
 | Report/review artifacts explain the solve | `report_spec.json`, `review.json`, `.engres`, and HTML report solver sections. |
 | IDE shows the solve | `dev.bat ide-check` smoke covers solver, residual, dependency, behavior, state-space, and kernel inspectors. |
-| Example or fixture exercises the solve | Official measured-vs-simulated covers the supported one-state thermal workflow. Internal fixtures cover multi-state thermal, thermal component assembly, and constrained multi-domain boundary solve seeds. |
+| Example or fixture exercises the solve | Official measured-vs-simulated covers the supported one-state thermal workflow; `examples/official/20_multi_state_thermal` covers the supported two-state source-equation fixed-step ODE workflow. Internal fixtures cover state-space thermal, thermal component assembly, and constrained multi-domain boundary solve seeds. |
 | Tests cover success and failure | `eng test examples`, cargo tests, `artifacts-check`, `jit-check`, and `ide-check`. |

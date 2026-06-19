@@ -83,6 +83,8 @@ Current supported scope:
 - der()
 - one-state thermal system metadata
 - explicit solver-boundary artifacts
+- two-state source-equation fixed-step ODE workflow with scalar or
+  Time-indexed TimeSeries inputs
 ```
 
 Internal runtime seeds:
@@ -161,7 +163,8 @@ Deferred:
 - language-integrated delay/Predictor/external behavior graph solving
 - broad adaptive solvers beyond the one-state thermal and internal continuous
   state-space `adaptive_heun` paths
-- general equation-system runtime
+- general equation-system runtime beyond the supported one-state thermal and
+  two-state source-equation fixed-step shapes
 ```
 
 ## T5 IDE / LSP

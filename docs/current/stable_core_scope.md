@@ -71,8 +71,9 @@ preserved:
   mutation, and inheritance.
 - Component graph numeric solving and physical multi-domain solving.
 - DAE, nonlinear, broad adaptive, or general multi-state equation solving. The
-  one-state thermal `adaptive_heun` path and internal state-space seeds are
-  outside the stable-core claim.
+  one-state thermal `adaptive_heun` path, the supported two-state
+  source-equation fixed-step path, and internal state-space seeds are outside
+  the stable-core claim.
 - LSP/VS Code as a stable persistent editor-service contract.
 - Native JIT/AOT execution or speedup claims.
 - Domain package registry or open component ecosystem.

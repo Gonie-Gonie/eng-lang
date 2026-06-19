@@ -180,7 +180,7 @@ The current top-level declaration families are:
 | Fast binding | `Q = 10 kW` | Inferred declaration |
 | Schema | `schema SensorData { ... }` | CSV/data boundary |
 | Function | `fn heat_loss(...) -> HeatRate [W] { ... }` | Typed scalar helper support |
-| System | `system Room { ... }` | Supported one-state system metadata/run support; internal state-space vector path |
+| System | `system Room { ... }` | Supported one-state thermal and two-state source-equation run support; internal state-space vector path |
 | Domain/component | `domain Fluid { ... }` | Internal metadata track |
 | Print | `print "Q = {Q: .2 kW}"` | Debug/CLI output |
 | Log | `log warn "Q is high"` | Structured runtime message |
@@ -1208,13 +1208,22 @@ The one-state thermal runner also keeps the earlier scalar input plus
 TimeSeries-binding form for narrow compatibility, such as
 `input T_out: AbsoluteTemperature` with `simulate ... with { T_out = weather_data.T_out }`.
 
+The supported source-equation fixed-step ODE workflow extends this surface to a
+two-state thermal shape. Each state must have exactly one linked
+`der(state)` equation, inputs may be scalar values or Time-indexed TimeSeries
+bindings, and `solver = fixed_step`, `solver = explicit_euler`, or
+`solver = rk4` runs through the common SolverInput/SolverResult path. The
+official example is `examples/official/20_multi_state_thermal`.
+
 The compiler reports diagnostics for missing dynamic inputs, wrong TimeSeries
 quantity, wrong axis, missing `timestep`/`solver`, unsupported solver values,
 invalid numeric `tolerance` values, and `timestep` values without duration
 units.
 
-Runtime materializes `sim.T_zone` as a typed TimeSeries. The RMSE result appears
-in `computed_metrics`, the validation appears in `validations`, and pairwise
+Runtime materializes simulated state values as typed TimeSeries such as
+`sim.T_zone` for the one-state workflow and `sim.T_air`/`sim.T_wall` for the
+two-state source-equation workflow. The RMSE result appears in
+`computed_metrics`, the validation appears in `validations`, and pairwise
 TimeSeries overlap/match status appears in `time_alignments`. Alignment artifacts
 also include nominal left/right time steps, irregular-axis flags, and a
 `step_status` of `matched`, `mismatch`, or `unavailable`. Runtime report specs
@@ -1475,7 +1484,7 @@ The current guide intentionally does not promise:
 | Full process sandboxing | Explicit process records and profile basics exist; sandbox isolation is deferred |
 | Project-wide test discovery/runner | Local source-file test blocks exist; workspace discovery is deferred |
 | Full package/module system | File imports and metadata seeds only |
-| General nonlinear/DAE/broad adaptive solving | Deferred beyond supported one-state thermal fixed/adaptive path plus internal fixed-step and continuous `adaptive_heun` state-space paths |
+| General nonlinear/DAE/broad adaptive solving | Deferred beyond supported one-state thermal fixed/adaptive path, supported two-state source-equation fixed-step path, and internal fixed-step/continuous `adaptive_heun` state-space paths |
 | Full artifact schema evolution policy | Stable-core schemas exist; broader future-track schemas may grow |
 
 ## Authoring Checklist

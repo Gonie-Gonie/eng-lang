@@ -76,6 +76,9 @@ Use the official examples for user testing and demos. Start with these:
   and `with` syntax.
 - `examples/official/19_class_object/main.eng`: class declarations, typed
   fields, object literals, and object summaries.
+- `examples/official/20_multi_state_thermal/main.eng`: supported two-state
+  source-equation fixed-step ODE simulation with TimeSeries input and
+  `sim.T_air`/`sim.T_wall` outputs.
 
 The remaining official examples cover functions/imports, read-only IO, write
 output manifests, file policy, structured runtime logs, process-result records,

@@ -128,9 +128,11 @@ by the stable breaking-change policy.
   multi-series histogram behavior remain planned.
 - Minimal `system`/`eq` support for parsing, semantic/unit diagnostics,
   parameter/state/input metadata, `der(...)`, one-state fixed-step thermal
-  execution, one-state `adaptive_heun` simulation, and `sim.T_zone`
-  materialization for the documented workflow. Multi-state, nonlinear, DAE,
-  broad adaptive, and component-coupled solving remain planned.
+  execution, one-state `adaptive_heun` simulation, two-state source-equation
+  fixed-step ODE execution with scalar or Time-indexed TimeSeries inputs, and
+  `sim.<state>` materialization for the documented workflows. General
+  multi-state equation solving beyond that source-equation shape, nonlinear,
+  DAE, broad adaptive, and component-coupled solving remain planned.
 - Class/domain object authoring for typed fields/defaults, object literals,
   nested object references, field access metadata, simple validation blocks,
   zero-argument metadata methods, immutable copy-with metadata, diagnostics,
