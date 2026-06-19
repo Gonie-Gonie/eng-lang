@@ -220,9 +220,11 @@ still provide a positive time duration such as `5 s`.
 Component-local `predictor(signal)`/`predict(signal)` and
 `external(signal)`/`adapter(signal)` calls are also checked for a single known
 component signal or behavior expression. Runtime has a solver-API behavior graph
-RHS adapter for chaining delay/Predictor/external nodes, but component-language
-behavior expressions remain runtime-wrapper seeds until language-level behavior
-graph solving is wired into supported component solver paths.
+RHS adapter for chaining delay/Predictor/external nodes. The supported narrow
+source integration evaluates delay, deterministic Predictor identity-wrapper,
+and deterministic external adapter identity-wrapper nodes during
+`solver = dynamic_component_explicit_euler` for algebraic-free dimensionless
+component state examples. Broader behavior graph solving remains planned.
 
 ## Artifact Surface
 
@@ -372,8 +374,8 @@ Current:
   component equations;
 - narrow source implicit-Euler DAE solves for small scalar component residual
   graphs with state/algebraic split;
-- component behavior-node graph artifacts for delay/Predictor/external
-  expressions;
+- narrow explicit-Euler source behavior RHS solves with integrated
+  delay/Predictor/external behavior-node graph artifacts;
 - multi-domain assembly metadata with domain plans, future nonlinear/
   DAE/delay/Predictor/adapter seed statuses, and explicit limitations;
 - review JSON output;

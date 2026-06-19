@@ -24,10 +24,15 @@ use crate::solver::{
     solve_continuous_state_space, solve_discrete_state_space, solve_dynamic_component_assembly,
     solve_first_order_thermal, solve_fixed_point, solve_fixed_step_ode, solve_implicit_euler_dae,
     solve_linear_residual_graph, solve_newton, solve_newton_with_jacobian, AdaptiveOdeOptions,
-    AdaptiveOdeStepReport, AlgebraicInitializationInput, DaeInput, DaeOptions, DaeSample,
-    DaeVariable, DynamicComponentAssemblySolveInput, DynamicComponentOptions,
-    DynamicComponentResult, FirstOrderThermalModel, FixedPointOptions, FixedStepMethod,
-    InputLayout, LayoutEntry, NewtonOptions, OutputLayout, ParameterLayout, ResidualEvaluator,
+    AdaptiveOdeStepReport, AlgebraicInitializationInput, BehaviorExecutionProfile,
+    BehaviorGraphRhsAdapter, BehaviorRhsNode, BehaviorRhsSample, BehaviorSignalContract,
+    BehaviorSignalSource, DaeInput, DaeOptions, DaeSample, DaeVariable, DelayBehaviorNode,
+    DelayBuffer, DelayInitialHistoryPolicy, DelayInterpolationPolicy,
+    DynamicComponentAssemblySolveInput, DynamicComponentOptions, DynamicComponentResult,
+    ExternalBehaviorContract, ExternalBehaviorDeterminism, ExternalBehaviorKind,
+    ExternalBehaviorProfilePolicy, FirstOrderThermalModel, FixedPointOptions, FixedStepMethod,
+    InputLayout, LayoutEntry, NewtonOptions, OutputLayout, ParameterLayout, PredictorContract,
+    PredictorDifferentiability, PredictorJacobianPolicy, PredictorSolverPolicy, ResidualEvaluator,
     ResidualGraph, ResidualInput, ResidualOutput, RhsEvaluator, RhsInput, RhsStateInfo,
     SimulationPlan, SolverDiagnostics, SolverFailure, SolverInput, SolverOptions, SolverPlan,
     SolverResult, SolverScalar, SourceRhsEquation, SourceRhsEvaluator, StateLayout,
@@ -547,6 +552,10 @@ impl RuntimeData {
     }
 
     pub fn apply_component_solutions(&self, spec: &mut ReportSpec) {
+        let behavior_graph_attempted = self
+            .component_solutions
+            .iter()
+            .any(|solution| solution.method.starts_with("behavior_graph_"));
         for solution in &self.component_solutions {
             let Some(assembly) = spec
                 .assemblies
@@ -564,7 +573,80 @@ impl RuntimeData {
                 assembly.boundary.diagnostic_code = Some(failure.code.clone());
             }
             assembly.solver_result = Some(solution.to_report_solver_result());
+            if solution.method.starts_with("behavior_graph_") {
+                if assembly.solver_preview.delay_history
+                    == "delay_call_runtime_buffer_seed_not_integrated"
+                {
+                    assembly.solver_preview.delay_history =
+                        "delay_call_runtime_buffer_integrated".to_owned();
+                }
+                if assembly.solver_preview.predictor
+                    == "predictor_call_contract_seed_not_integrated"
+                {
+                    assembly.solver_preview.predictor =
+                        "predictor_call_contract_integrated".to_owned();
+                }
+                if assembly.solver_preview.external_adapter
+                    == "external_behavior_wrapper_seed_not_integrated"
+                {
+                    assembly.solver_preview.external_adapter =
+                        "external_behavior_wrapper_integrated".to_owned();
+                }
+            }
         }
+        if behavior_graph_attempted {
+            mark_behavior_graph_report_integrated(spec);
+        }
+    }
+}
+
+fn mark_behavior_graph_report_integrated(spec: &mut ReportSpec) {
+    for node in &mut spec.component_graph.behavior_nodes {
+        match node.behavior_kind.as_str() {
+            "delay" => {
+                node.status = "delay_call_runtime_buffer_integrated".to_owned();
+                node.relationship_status = Some("delay_relationship_runtime_evaluated".to_owned());
+                node.runtime_warning_status =
+                    Some("evaluated_in_language_behavior_graph".to_owned());
+            }
+            "predictor" => {
+                node.status = "predictor_call_contract_integrated".to_owned();
+                node.jacobian_policy = Some("finite_difference_allowed".to_owned());
+                node.runtime_warning_status =
+                    Some("evaluated_in_language_behavior_graph".to_owned());
+                fill_behavior_output_contract_from_input(
+                    node,
+                    "predictor_output_typed_identity_seed",
+                );
+            }
+            "external" => {
+                node.status = "external_behavior_wrapper_integrated".to_owned();
+                node.runtime_warning_status =
+                    Some("evaluated_in_language_behavior_graph".to_owned());
+                fill_behavior_output_contract_from_input(
+                    node,
+                    "external_output_typed_identity_seed",
+                );
+            }
+            _ => {}
+        }
+    }
+}
+
+fn fill_behavior_output_contract_from_input(
+    node: &mut eng_report::ReportComponentGraphBehaviorNode,
+    status: &str,
+) {
+    let Some(input) = node.contract_inputs.first().cloned() else {
+        return;
+    };
+    for output in &mut node.contract_outputs {
+        if output.quantity_kind == "unspecified_by_seed" {
+            output.quantity_kind = input.quantity_kind.clone();
+            output.display_unit = input.display_unit.clone();
+            output.canonical_unit = input.canonical_unit.clone();
+        }
+        output.status = status.to_owned();
     }
 }
 
@@ -3013,7 +3095,12 @@ fn materialize_component_solutions(report: &CheckReport) -> Vec<RuntimeComponent
                     dae_component_solution_from_solve_request(&solver_assembly, &request)
                 }
                 "dynamic_component_explicit_euler" | "dynamic_component_semi_implicit_euler" => {
-                    dynamic_component_solution_from_solve_request(&solver_assembly, &request)
+                    dynamic_component_solution_from_solve_request(
+                        report,
+                        assembly,
+                        &solver_assembly,
+                        &request,
+                    )
                 }
                 _ => {
                     RuntimeComponentSolution::from_solver_assembly(&assembly.name, &solver_assembly)
@@ -3586,6 +3673,8 @@ fn dae_component_solution_from_solve_request(
 }
 
 fn dynamic_component_solution_from_solve_request(
+    report: &CheckReport,
+    component_info: &eng_compiler::ComponentAssemblyInfo,
     solver_assembly: &EquationAssembly,
     request: &ComponentSolveRequest,
 ) -> RuntimeComponentSolution {
@@ -3595,6 +3684,16 @@ fn dynamic_component_solution_from_solve_request(
     let options = DynamicComponentOptions {
         algebraic: fixed_point_options_from_solve_request(&request.options),
     };
+    if solver == "dynamic_component_explicit_euler"
+        && component_assembly_has_behavior_seed(component_info)
+    {
+        return behavior_dynamic_component_solution_from_solve_request(
+            report,
+            solver_assembly,
+            request,
+            &options,
+        );
+    }
     let explicit_assembly = if solver == "dynamic_component_explicit_euler" {
         match explicit_dynamic_component_source_assembly(solver_assembly) {
             Ok(assembly) => Some(assembly),
@@ -3655,6 +3754,604 @@ fn dynamic_component_solution_from_solve_request(
             "dynamic component source solve failed before timestep execution",
         ),
     }
+}
+
+fn behavior_dynamic_component_solution_from_solve_request(
+    report: &CheckReport,
+    solver_assembly: &EquationAssembly,
+    request: &ComponentSolveRequest,
+    options: &DynamicComponentOptions,
+) -> RuntimeComponentSolution {
+    let method = "behavior_graph_explicit_euler_source";
+    let dynamic_assembly = match explicit_dynamic_component_source_assembly(solver_assembly) {
+        Ok(assembly) => assembly,
+        Err(failure) => {
+            return failed_dynamic_component_source_solution(
+                solver_assembly,
+                method,
+                options,
+                &failure,
+                "behavior graph source solve could not isolate derivative residuals",
+            );
+        }
+    };
+    let split = match dynamic_assembly.dynamic_component_split() {
+        Ok(split) => split,
+        Err(failure) => {
+            return failed_dynamic_component_source_solution(
+                &dynamic_assembly,
+                method,
+                options,
+                &failure,
+                "behavior graph source solve could not split the component assembly",
+            );
+        }
+    };
+    let solve_input = match dynamic_component_solve_input_from_request(
+        &dynamic_assembly,
+        &split,
+        &request.options,
+    ) {
+        Ok(input) => input,
+        Err(failure) => {
+            return failed_dynamic_component_source_solution(
+                &dynamic_assembly,
+                method,
+                options,
+                &failure,
+                "behavior graph source solve options could not be materialized",
+            );
+        }
+    };
+    let (mut behavior_graph, behavior_output_symbols) =
+        match source_behavior_graph_from_report(report, &dynamic_assembly) {
+            Ok(graph) => graph,
+            Err(failure) => {
+                return failed_dynamic_component_source_solution(
+                    &dynamic_assembly,
+                    method,
+                    options,
+                    &failure,
+                    "behavior graph source solve could not materialize behavior nodes",
+                );
+            }
+        };
+    let time_grid = match TimeGrid::fixed_step(solve_input.duration_s, solve_input.timestep_s) {
+        Ok(grid) => grid,
+        Err(failure) => {
+            return failed_dynamic_component_source_solution(
+                &dynamic_assembly,
+                method,
+                options,
+                &failure,
+                "behavior graph source solve time grid could not be materialized",
+            );
+        }
+    };
+    let solver_input = SolverInput {
+        plan: SolverPlan::new(
+            dynamic_assembly.name.clone(),
+            SimulationPlan {
+                inputs: layout_names_from_unknowns(&dynamic_assembly.inputs),
+                outputs: layout_names_from_unknowns(&dynamic_assembly.states),
+                states: layout_names_from_unknowns(&dynamic_assembly.states),
+                parameters: layout_names_from_unknowns(&dynamic_assembly.parameters),
+            },
+            SolverOptions {
+                method: method.to_owned(),
+                timestep_s: solve_input.timestep_s,
+                tolerance: options.algebraic.tolerance,
+                max_iterations: 1,
+            },
+        ),
+        time_grid,
+        state_layout: split.state_layout.clone(),
+        input_layout: split.input_layout.clone(),
+        parameter_layout: split.parameter_layout.clone(),
+        output_layout: OutputLayout {
+            entries: split.state_layout.entries.clone(),
+        },
+        initial_state: solve_input.initial_state.clone(),
+        inputs: solve_input.inputs.clone(),
+        parameters: solve_input.parameters.clone(),
+    };
+    let mut step_diagnostics = Vec::new();
+    let solver_result =
+        solve_fixed_step_ode(FixedStepMethod::ExplicitEuler, &solver_input, |sample| {
+            let behavior_evaluation = behavior_graph.evaluate_rhs(
+                &BehaviorRhsSample::new(
+                    sample.time_s,
+                    sample.state,
+                    sample.inputs,
+                    sample.parameters,
+                ),
+                |behavior| {
+                    step_diagnostics.push(RuntimeComponentStepDiagnostic {
+                        step_index: step_diagnostics.len() + 1,
+                        time_s: sample.time_s,
+                        algebraic_iteration_count: 0,
+                        residual_norm: 0.0,
+                        convergence_status: format!("behavior_graph_{}", behavior.status),
+                        failure_artifact: None,
+                    });
+                    let symbols = source_behavior_symbols(
+                        &dynamic_assembly,
+                        sample.time_s,
+                        sample.state,
+                        sample.inputs,
+                        sample.parameters,
+                        behavior,
+                        &behavior_output_symbols,
+                    )?;
+                    source_behavior_derivatives(&dynamic_assembly, &symbols)
+                },
+            )?;
+            Ok(behavior_evaluation.derivatives)
+        });
+    match solver_result {
+        Ok(solver_result) => {
+            let mut solution = RuntimeComponentSolution::from_dynamic_solver_result(
+                &dynamic_assembly.name,
+                &solver_result,
+                "behavior graph source solve executed typed behavior nodes during explicit-Euler RHS evaluation",
+            );
+            solution.equation_count = dynamic_assembly.equation_count();
+            solution.unknown_count = dynamic_assembly.unknown_count();
+            solution.step_diagnostics = step_diagnostics;
+            solution.convergence_status = if solution
+                .step_diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.convergence_status.contains("range_warning"))
+            {
+                "behavior_graph_range_warning".to_owned()
+            } else {
+                "behavior_graph_integrated".to_owned()
+            };
+            solution
+        }
+        Err(failure) => failed_dynamic_component_source_solution(
+            &dynamic_assembly,
+            method,
+            options,
+            &failure,
+            "behavior graph source solve failed during RHS evaluation",
+        ),
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SourceBehaviorKind {
+    Delay,
+    Predictor,
+    External,
+}
+
+struct SourceBehaviorCall {
+    kind: SourceBehaviorKind,
+    signal: String,
+    delay_s: Option<f64>,
+}
+
+fn source_behavior_graph_from_report(
+    report: &CheckReport,
+    assembly: &EquationAssembly,
+) -> Result<(BehaviorGraphRhsAdapter, Vec<String>), SolverFailure> {
+    let assembly_components = assembly
+        .components
+        .iter()
+        .map(|component| component.name.as_str())
+        .collect::<HashSet<_>>();
+    let mut nodes = Vec::new();
+    let mut output_symbols = Vec::new();
+    let mut output_indices = HashMap::new();
+    for component in &report.semantic_program.components {
+        if !assembly_components.contains(component.name.as_str()) {
+            continue;
+        }
+        for local in &component.local_expressions {
+            let Some(call) = source_behavior_call(&local.expression)? else {
+                continue;
+            };
+            if output_indices.contains_key(&local.name) {
+                return Err(SolverFailure::new(
+                    "E-BEHAVIOR-SOURCE-DUPLICATE",
+                    format!(
+                        "behavior graph source solve found duplicate behavior output `{}`",
+                        local.name
+                    ),
+                ));
+            }
+            let (source, signal_name, quantity_kind, canonical_unit) =
+                source_behavior_signal_source(
+                    assembly,
+                    component,
+                    local.line,
+                    &call.signal,
+                    &output_indices,
+                )?;
+            let node = match call.kind {
+                SourceBehaviorKind::Delay => {
+                    let delay_s = call.delay_s.ok_or_else(|| {
+                        SolverFailure::new(
+                            "E-BEHAVIOR-SOURCE-DELAY",
+                            "source delay behavior node requires a finite delay duration",
+                        )
+                    })?;
+                    let buffer = DelayBuffer::new(
+                        signal_name,
+                        quantity_kind,
+                        canonical_unit,
+                        delay_s,
+                        DelayInterpolationPolicy::Linear,
+                        DelayInitialHistoryPolicy::HoldInitial,
+                    )?;
+                    BehaviorRhsNode::delay(
+                        local.name.clone(),
+                        source,
+                        DelayBehaviorNode::new(buffer),
+                    )
+                }
+                SourceBehaviorKind::Predictor => {
+                    let contract = PredictorContract::new(
+                        format!("source_predictor_{}", local.name),
+                        vec![BehaviorSignalContract::new(
+                            signal_name.clone(),
+                            quantity_kind.clone(),
+                            canonical_unit.clone(),
+                        )],
+                        vec![BehaviorSignalContract::new(
+                            local.name.clone(),
+                            quantity_kind,
+                            canonical_unit,
+                        )],
+                        format!("sha256:source-identity-predictor-{}", local.name),
+                        PredictorDifferentiability::Differentiable,
+                        PredictorSolverPolicy {
+                            explicit_call_only: true,
+                            finite_difference_allowed: true,
+                            jacobian_policy: PredictorJacobianPolicy::FiniteDifferenceAllowed,
+                        },
+                    )?;
+                    BehaviorRhsNode::predictor(
+                        local.name.clone(),
+                        vec![source],
+                        contract,
+                        |inputs| Ok(vec![inputs[0]]),
+                    )
+                }
+                SourceBehaviorKind::External => {
+                    let contract = ExternalBehaviorContract::new(
+                        format!("source_external_{}", local.name),
+                        ExternalBehaviorKind::Function,
+                        vec![BehaviorSignalContract::new(
+                            signal_name.clone(),
+                            quantity_kind.clone(),
+                            canonical_unit.clone(),
+                        )],
+                        vec![BehaviorSignalContract::new(
+                            local.name.clone(),
+                            quantity_kind,
+                            canonical_unit,
+                        )],
+                        format!("sha256:source-identity-external-{}", local.name),
+                        ExternalBehaviorDeterminism::Deterministic,
+                        ExternalBehaviorProfilePolicy {
+                            safe_allowed: true,
+                            repro_allowed: true,
+                        },
+                    )?;
+                    BehaviorRhsNode::external(
+                        local.name.clone(),
+                        BehaviorExecutionProfile::Repro,
+                        vec![source],
+                        contract,
+                        |inputs| Ok(vec![inputs[0]]),
+                    )
+                }
+            };
+            output_indices.insert(local.name.clone(), output_symbols.len());
+            output_symbols.push(local.name.clone());
+            nodes.push(node);
+        }
+    }
+    if nodes.is_empty() {
+        return Err(SolverFailure::new(
+            "E-BEHAVIOR-SOURCE-SHAPE",
+            "behavior graph source solve requires at least one behavior node",
+        ));
+    }
+    Ok((BehaviorGraphRhsAdapter::new(nodes), output_symbols))
+}
+
+fn source_behavior_call(expression: &str) -> Result<Option<SourceBehaviorCall>, SolverFailure> {
+    let trimmed = expression.trim();
+    if let Some(arguments) = behavior_call_arguments_expression(trimmed, "delay") {
+        let parts = split_behavior_arguments(&arguments);
+        if parts.len() != 2 {
+            return Err(SolverFailure::new(
+                "E-BEHAVIOR-SOURCE-DELAY",
+                "source delay behavior expression must use delay(signal, duration)",
+            ));
+        }
+        let delay_s = parse_duration_seconds(parts[1].trim()).ok_or_else(|| {
+            SolverFailure::new(
+                "E-BEHAVIOR-SOURCE-DELAY",
+                "source delay behavior expression requires a positive duration",
+            )
+        })?;
+        return Ok(Some(SourceBehaviorCall {
+            kind: SourceBehaviorKind::Delay,
+            signal: parts[0].trim().to_owned(),
+            delay_s: Some(delay_s),
+        }));
+    }
+    for (name, kind) in [
+        ("predictor", SourceBehaviorKind::Predictor),
+        ("predict", SourceBehaviorKind::Predictor),
+        ("external", SourceBehaviorKind::External),
+        ("adapter", SourceBehaviorKind::External),
+    ] {
+        if let Some(arguments) = behavior_call_arguments_expression(trimmed, name) {
+            let parts = split_behavior_arguments(&arguments);
+            if parts.len() != 1 {
+                return Err(SolverFailure::new(
+                    "E-BEHAVIOR-SOURCE-CALL",
+                    format!("source behavior expression `{name}` requires one signal argument"),
+                ));
+            }
+            return Ok(Some(SourceBehaviorCall {
+                kind,
+                signal: parts[0].trim().to_owned(),
+                delay_s: None,
+            }));
+        }
+    }
+    Ok(None)
+}
+
+fn behavior_call_arguments_expression(expression: &str, call_name: &str) -> Option<String> {
+    let trimmed = expression.trim();
+    let prefix = format!("{call_name}(");
+    if !trimmed
+        .to_ascii_lowercase()
+        .starts_with(&prefix.to_ascii_lowercase())
+        || !trimmed.ends_with(')')
+    {
+        return None;
+    }
+    let mut depth = 0usize;
+    for (index, character) in trimmed.char_indices() {
+        if character == '(' {
+            depth += 1;
+        } else if character == ')' {
+            depth = depth.checked_sub(1)?;
+            if depth == 0 && index + character.len_utf8() != trimmed.len() {
+                return None;
+            }
+        }
+    }
+    (depth == 0).then(|| trimmed[prefix.len()..trimmed.len() - 1].to_owned())
+}
+
+fn split_behavior_arguments(arguments: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut current = String::new();
+    let mut depth = 0usize;
+    for character in arguments.chars() {
+        match character {
+            '(' => {
+                depth += 1;
+                current.push(character);
+            }
+            ')' => {
+                depth = depth.saturating_sub(1);
+                current.push(character);
+            }
+            ',' if depth == 0 => {
+                parts.push(current.trim().to_owned());
+                current.clear();
+            }
+            _ => current.push(character),
+        }
+    }
+    if !current.trim().is_empty() || !arguments.trim().is_empty() {
+        parts.push(current.trim().to_owned());
+    }
+    parts
+}
+
+fn source_behavior_signal_source(
+    assembly: &EquationAssembly,
+    component: &eng_compiler::ComponentInfo,
+    current_line: usize,
+    signal: &str,
+    output_indices: &HashMap<String, usize>,
+) -> Result<(BehaviorSignalSource, String, String, String), SolverFailure> {
+    let signal = signal.trim();
+    if let Some(index) = output_indices.get(signal) {
+        return Ok((
+            BehaviorSignalSource::BehaviorOutput {
+                node_index: *index,
+                output_index: 0,
+            },
+            signal.to_owned(),
+            "DimensionlessNumber".to_owned(),
+            "1".to_owned(),
+        ));
+    }
+    if let Some(source) = source_behavior_variable_source(assembly, &component.name, signal) {
+        return Ok(source);
+    }
+    if let Some(prior) = component
+        .local_expressions
+        .iter()
+        .find(|local| local.name == signal && local.line < current_line)
+    {
+        return source_behavior_signal_source(
+            assembly,
+            component,
+            current_line,
+            &prior.expression,
+            output_indices,
+        );
+    }
+    Err(SolverFailure::new(
+        "E-BEHAVIOR-SOURCE-SIGNAL",
+        format!(
+            "source behavior signal `{signal}` is not available in the dynamic component layout"
+        ),
+    ))
+}
+
+fn source_behavior_variable_source(
+    assembly: &EquationAssembly,
+    component_name: &str,
+    signal: &str,
+) -> Option<(BehaviorSignalSource, String, String, String)> {
+    let candidates = if signal.contains('.') {
+        vec![signal.to_owned(), format!("{component_name}.{signal}")]
+    } else {
+        vec![signal.to_owned()]
+    };
+    for candidate in candidates {
+        if let Some((index, variable)) = assembly
+            .states
+            .iter()
+            .enumerate()
+            .find(|(_, variable)| variable.name == candidate)
+        {
+            return Some((
+                BehaviorSignalSource::State(index),
+                variable.name.clone(),
+                variable.quantity_kind.clone(),
+                variable.unit.clone(),
+            ));
+        }
+        if let Some((index, variable)) = assembly
+            .inputs
+            .iter()
+            .enumerate()
+            .find(|(_, variable)| variable.name == candidate)
+        {
+            return Some((
+                BehaviorSignalSource::Input(index),
+                variable.name.clone(),
+                variable.quantity_kind.clone(),
+                variable.unit.clone(),
+            ));
+        }
+        if let Some((index, variable)) = assembly
+            .parameters
+            .iter()
+            .enumerate()
+            .find(|(_, variable)| variable.name == candidate)
+        {
+            return Some((
+                BehaviorSignalSource::Parameter(index),
+                variable.name.clone(),
+                variable.quantity_kind.clone(),
+                variable.unit.clone(),
+            ));
+        }
+    }
+    None
+}
+
+fn source_behavior_symbols(
+    assembly: &EquationAssembly,
+    time_s: f64,
+    state: &[f64],
+    inputs: &[SolverScalar],
+    parameters: &[SolverScalar],
+    behavior: &crate::solver::BehaviorGraphEvaluation,
+    behavior_output_symbols: &[String],
+) -> Result<HashMap<String, f64>, SolverFailure> {
+    let mut symbols = HashMap::new();
+    symbols.insert("t".to_owned(), time_s);
+    symbols.insert("time".to_owned(), time_s);
+    for (variable, value) in assembly.states.iter().zip(state.iter().copied()) {
+        symbols.insert(variable.name.clone(), value);
+    }
+    for input in inputs {
+        symbols.insert(input.name.clone(), input.value);
+    }
+    for parameter in parameters {
+        symbols.insert(parameter.name.clone(), parameter.value);
+    }
+    for (index, symbol) in behavior_output_symbols.iter().enumerate() {
+        let value = behavior.output(index, 0).ok_or_else(|| {
+            SolverFailure::new(
+                "E-BEHAVIOR-SOURCE-OUTPUT",
+                format!("source behavior node `{symbol}` did not produce output 0"),
+            )
+        })?;
+        symbols.insert(symbol.clone(), value);
+    }
+    Ok(symbols)
+}
+
+fn source_behavior_derivatives(
+    assembly: &EquationAssembly,
+    symbols: &HashMap<String, f64>,
+) -> Result<Vec<f64>, SolverFailure> {
+    let mut derivatives = Vec::with_capacity(assembly.states.len());
+    let derivative_names = assembly
+        .states
+        .iter()
+        .map(|state| format!("der({})", state.name))
+        .collect::<Vec<_>>();
+    for (state_index, state) in assembly.states.iter().enumerate() {
+        let derivative_name = &derivative_names[state_index];
+        let equation = assembly
+            .generated_equations
+            .iter()
+            .find(|equation| {
+                equation
+                    .dependencies
+                    .iter()
+                    .any(|dependency| dependency == derivative_name)
+            })
+            .ok_or_else(|| {
+                SolverFailure::new(
+                    "E-BEHAVIOR-SOURCE-RHS-SHAPE",
+                    format!(
+                        "behavior graph source solve could not find derivative residual for `{}`",
+                        state.name
+                    ),
+                )
+            })?;
+        let mut base_symbols = symbols.clone();
+        for name in &derivative_names {
+            base_symbols.insert(name.clone(), 0.0);
+        }
+        let base = evaluate_source_arithmetic_expression(&equation.residual, &base_symbols)?;
+        let mut coefficient_symbols = base_symbols.clone();
+        coefficient_symbols.insert(derivative_name.clone(), 1.0);
+        let coefficient =
+            evaluate_source_arithmetic_expression(&equation.residual, &coefficient_symbols)? - base;
+        if !coefficient.is_finite() || coefficient.abs() <= f64::EPSILON {
+            return Err(SolverFailure::new(
+                "E-BEHAVIOR-SOURCE-RHS-SHAPE",
+                format!(
+                    "behavior graph source residual `{}` does not contain a solvable derivative coefficient",
+                    equation.name
+                ),
+            ));
+        }
+        let target = equation.rhs_value.unwrap_or(0.0);
+        let derivative = (target - base) / coefficient;
+        if !derivative.is_finite() {
+            return Err(SolverFailure::new(
+                "E-BEHAVIOR-SOURCE-RHS-FINITE",
+                format!(
+                    "behavior graph source residual `{}` produced a non-finite derivative",
+                    equation.name
+                ),
+            ));
+        }
+        derivatives.push(derivative);
+    }
+    Ok(derivatives)
 }
 
 fn explicit_dynamic_component_source_assembly(
@@ -4704,6 +5401,11 @@ fn annotate_component_behavior_solution(
     assembly: &eng_compiler::ComponentAssemblyInfo,
 ) {
     if !component_assembly_has_behavior_seed(assembly) {
+        return;
+    }
+    if solution.method.starts_with("behavior_graph_")
+        || solution.convergence_status.starts_with("behavior_graph_")
+    {
         return;
     }
     append_component_solution_reason(solution, COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE);

@@ -39,6 +39,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/26_dynamic_component_room/main.eng",
                 "examples/official/27_nonlinear_algebraic/main.eng",
                 "examples/official/28_small_dae/main.eng",
+                "examples/official/29_delay_component_solver/main.eng",
+                "examples/official/30_predictor_component_solver/main.eng",
+                "examples/official/31_external_behavior_solver/main.eng",
             ],
         ),
         (
@@ -629,6 +632,64 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(1);
         }
     }
+    for (source, build_dir, behavior_status, binding) in [
+        (
+            "examples/official/29_delay_component_solver/main.eng",
+            "build/test-official-delay-behavior",
+            "delay_call_runtime_buffer_integrated",
+            "delay_result",
+        ),
+        (
+            "examples/official/30_predictor_component_solver/main.eng",
+            "build/test-official-predictor-behavior",
+            "predictor_call_contract_integrated",
+            "predictor_result",
+        ),
+        (
+            "examples/official/31_external_behavior_solver/main.eng",
+            "build/test-official-external-behavior",
+            "external_behavior_wrapper_integrated",
+            "external_result",
+        ),
+    ] {
+        match run_file(
+            Path::new(source),
+            Path::new(build_dir),
+            &artifact_run_options(),
+        ) {
+            Ok(output) => {
+                if !output.result_json.contains("\"status\": \"computed\"")
+                    || !output
+                        .result_json
+                        .contains("\"method\": \"behavior_graph_explicit_euler_source\"")
+                    || !output
+                        .result_json
+                        .contains("\"convergence_status\": \"behavior_graph_integrated\"")
+                    || !output.result_json.contains("\"name\": \"node.node.x\"")
+                    || !output.result_json.contains("\"step_diagnostics\"")
+                    || !output
+                        .report_spec_json
+                        .contains(&format!("source solve binding `{binding}`"))
+                    || !output.report_spec_json.contains(behavior_status)
+                    || !output
+                        .report_spec_json
+                        .contains("evaluated_in_language_behavior_graph")
+                    || !output.report_html.contains(behavior_status)
+                    || !output.report_html.contains("behavior_graph_integrated")
+                {
+                    eprintln!(
+                        "expected {source} to solve through integrated source behavior graph"
+                    );
+                    return ExitCode::from(2);
+                }
+                println!("ok: {source} solved integrated source behavior graph");
+            }
+            Err(error) => {
+                eprintln!("official behavior graph example failed: {source}: {error}");
+                return ExitCode::from(1);
+            }
+        }
+    }
     match run_file(
         Path::new("tests/runtime/linear_algebraic_solve_from_source.eng"),
         Path::new("build/test-runtime-linear-algebraic-source"),
@@ -757,6 +818,58 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         Err(error) => {
             eprintln!("small DAE source runtime fixture failed: {error}");
             return ExitCode::from(1);
+        }
+    }
+    for (source, build_dir, behavior_status) in [
+        (
+            "tests/runtime/delay_behavior_from_source.eng",
+            "build/test-runtime-delay-behavior-source",
+            "delay_call_runtime_buffer_integrated",
+        ),
+        (
+            "tests/runtime/predictor_behavior_from_source.eng",
+            "build/test-runtime-predictor-behavior-source",
+            "predictor_call_contract_integrated",
+        ),
+        (
+            "tests/runtime/external_behavior_from_source.eng",
+            "build/test-runtime-external-behavior-source",
+            "external_behavior_wrapper_integrated",
+        ),
+    ] {
+        match run_file(
+            Path::new(source),
+            Path::new(build_dir),
+            &artifact_run_options(),
+        ) {
+            Ok(output) => {
+                if !output.result_json.contains("\"status\": \"computed\"")
+                    || !output
+                        .result_json
+                        .contains("\"method\": \"behavior_graph_explicit_euler_source\"")
+                    || !output
+                        .result_json
+                        .contains("\"convergence_status\": \"behavior_graph_integrated\"")
+                    || !output.result_json.contains("\"name\": \"node.node.x\"")
+                    || !output.result_json.contains("\"step_diagnostics\"")
+                    || !output.report_spec_json.contains(behavior_status)
+                    || !output
+                        .report_spec_json
+                        .contains("evaluated_in_language_behavior_graph")
+                    || !output.report_html.contains(behavior_status)
+                    || !output.report_html.contains("behavior_graph_integrated")
+                {
+                    eprintln!(
+                        "expected {source} to solve through integrated source behavior graph"
+                    );
+                    return ExitCode::from(2);
+                }
+                println!("ok: {source} solved integrated source behavior graph");
+            }
+            Err(error) => {
+                eprintln!("behavior graph source runtime fixture failed: {source}: {error}");
+                return ExitCode::from(1);
+            }
         }
     }
     match run_file(

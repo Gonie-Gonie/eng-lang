@@ -106,11 +106,22 @@ Use the official examples for user testing and demos. Start with these:
   implicit-Euler DAE solve using `solve component_graph` with
   `solver = implicit_euler_dae`, source-derived state/algebraic split, and
   state/algebraic trajectories.
+- `examples/official/29_delay_component_solver/main.eng`: supported narrow
+  source behavior solve using `solve component_graph` with
+  `solver = dynamic_component_explicit_euler`, a component-local
+  `delay(signal, duration)` expression, and integrated delay behavior artifacts.
+- `examples/official/30_predictor_component_solver/main.eng`: supported narrow
+  source behavior solve using a typed deterministic `predictor(signal)`
+  identity-wrapper seed during explicit-Euler RHS evaluation.
+- `examples/official/31_external_behavior_solver/main.eng`: supported narrow
+  source behavior solve using a typed deterministic `adapter(signal)`
+  identity-wrapper seed during explicit-Euler RHS evaluation.
 
 The remaining official examples cover functions/imports, read-only IO, write
 output manifests, file policy, structured runtime logs, process-result records,
 local test-result records, and histogram PlotSpec output. The Newton and DAE
-examples are scoped solver smokes, not broad nonlinear/DAE simulation support.
+examples are scoped solver smokes, and the behavior examples are scoped
+explicit-Euler RHS smokes, not broad nonlinear/DAE/behavior simulation support.
 
 Recommended first user test:
 

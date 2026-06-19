@@ -1,0 +1,28 @@
+domain BehaviorScalar package "eng.std.domains.scalar" version "0.1.0" {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component PredictorBehaviorNode {
+    port node: BehaviorScalar
+    predicted_x = predictor(node.x)
+    der(node.x) + predicted_x eq 0
+}
+
+system PredictorBehaviorSystem {
+    node = PredictorBehaviorNode()
+    connect node.node to node.node
+}
+
+predictor_result = solve component_graph
+with {
+    solver = dynamic_component_explicit_euler
+    timestep = 1 s
+    duration = 2 s
+    initial = 1
+}
+
+report {
+    show predictor_result
+}

@@ -116,6 +116,25 @@ paths before compatibility fixtures.
   `solver = implicit_euler_dae`, source-derived state/algebraic split,
   algebraic initialization, identity mass-matrix fallback, state/algebraic
   trajectories, and per-step Newton diagnostics for a small dimensionless DAE.
+
+29_delay_component_solver
+  Source-to-solver smoke for `solve component_graph` with
+  `solver = dynamic_component_explicit_euler`, a component-local
+  `delay(signal, duration)` behavior expression, typed behavior graph RHS
+  evaluation, state trajectory output, and integrated delay behavior artifacts.
+
+30_predictor_component_solver
+  Source-to-solver smoke for `solve component_graph` with
+  `solver = dynamic_component_explicit_euler`, a typed deterministic
+  `predictor(signal)` identity wrapper seed, behavior graph RHS evaluation,
+  state trajectory output, and integrated Predictor contract artifacts.
+
+31_external_behavior_solver
+  Source-to-solver smoke for `solve component_graph` with
+  `solver = dynamic_component_explicit_euler`, a typed deterministic
+  `adapter(signal)` identity function wrapper seed, behavior graph RHS
+  evaluation, state trajectory output, and integrated external behavior
+  contract/profile artifacts.
 ```
 
 Compatibility regression examples live under `examples/compat`. Diagnostic and

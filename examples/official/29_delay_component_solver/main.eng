@@ -1,0 +1,28 @@
+domain BehaviorScalar package "eng.std.domains.scalar" version "0.1.0" {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component DelayBehaviorNode {
+    port node: BehaviorScalar
+    delayed_x = delay(node.x, 1 s)
+    der(node.x) + delayed_x eq 0
+}
+
+system DelayBehaviorSystem {
+    node = DelayBehaviorNode()
+    connect node.node to node.node
+}
+
+delay_result = solve component_graph
+with {
+    solver = dynamic_component_explicit_euler
+    timestep = 1 s
+    duration = 2 s
+    initial = 1
+}
+
+report {
+    show delay_result
+}

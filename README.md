@@ -77,11 +77,13 @@ boundary graphs with system-local instances, square dense linear residual
 solves, a narrow fixed-point source solve over a linear ResidualGraph, and a
 simple-linear dynamic component source solve with trajectories. They also cover
 narrow dimensionless source residual solves through `solver = newton` and
-`solver = implicit_euler_dae` for scalar component equations. General
-nonlinear/DAE simulation, broad adaptive solving, broad state-space operator
-algebra, general component behavior equations, adaptive component timestepping,
-and production multi-domain component-graph solving remain future or internal
-tracks. Domain package registries also remain future work.
+`solver = implicit_euler_dae` for scalar component equations, plus narrow
+explicit-Euler source behavior RHS solves for delay, typed Predictor identity,
+and typed external adapter identity wrappers. General nonlinear/DAE simulation,
+broad behavior graph solving, broad adaptive solving, broad state-space
+operator algebra, adaptive component timestepping, and production multi-domain
+component-graph solving remain future or internal tracks. Domain package
+registries also remain future work.
 
 ## Quick Start
 

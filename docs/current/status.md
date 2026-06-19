@@ -156,7 +156,12 @@ by the stable breaking-change policy.
   component source solve in `examples/official/26_dynamic_component_room`.
   Narrow dimensionless source Newton and implicit-Euler DAE component residual
   smokes are covered by `examples/official/27_nonlinear_algebraic` and
-  `examples/official/28_small_dae`. Constructor arguments, broad nonlinear or
+  `examples/official/28_small_dae`. Narrow explicit-Euler source behavior RHS
+  smokes for delay, deterministic Predictor identity wrappers, and
+  deterministic external adapter identity wrappers are covered by
+  `examples/official/29_delay_component_solver`,
+  `examples/official/30_predictor_component_solver`, and
+  `examples/official/31_external_behavior_solver`. Constructor arguments, broad nonlinear or
   unit-parameterized component-local equations, broad fixed-point/nonlinear
   source solving, behavior-node solving, broad nonlinear/DAE coupling,
   adaptive component timestepping, and production multi-domain solving remain
@@ -284,11 +289,17 @@ are not public stable workflows.
   example smoke gate. Runtime also has solver-API Predictor and external
   behavior wrappers with contracts, range warnings, provenance, profile policy,
   adapter failure propagation, and graph-level invalid-source/non-finite-RHS
-  failure coverage. Component artifacts distinguish delay/Predictor/external calls
-  as runtime seeds through component graph, report, and IDE behavior nodes with
-  inferred contract fields and diagnostic channels, but behavior nodes are not
-  wired into language-level behavior graph solving. The valid behavior-node
-  fixture is covered by the CLI example smoke path.
+  failure coverage. A narrow source integration now evaluates component-local
+  `delay(signal, duration)`, typed deterministic `predictor(signal)`, and typed
+  deterministic `adapter(signal)` identity-wrapper behavior nodes during
+  `solver = dynamic_component_explicit_euler` RHS evaluation for algebraic-free
+  dimensionless component state examples. Runtime, report-spec, report HTML,
+  and IDE-visible component artifacts mark these nodes as integrated in
+  `examples/official/29_delay_component_solver`,
+  `examples/official/30_predictor_component_solver`, and
+  `examples/official/31_external_behavior_solver`. Broader behavior graph
+  solving, model loading, process backends, nonlinear/DAE behavior coupling,
+  and production co-simulation remain planned.
 - Domain/component assembly seeds beyond the supported Thermal boundary shape
   include internal multi-domain boundary solves, singular solve failure
   artifacts, and overdetermined limitation artifacts.

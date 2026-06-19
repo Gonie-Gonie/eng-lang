@@ -165,6 +165,10 @@ Internal runtime seeds:
 - solver-API external behavior adapter that feeds external outputs into fixed-step RHS evaluation
 - solver-API behavior graph RHS adapter that chains delay, Predictor, and external behavior nodes from state/input/parameter/prior-node signals
 - component graph/report/IDE behavior nodes for delay, Predictor, and external calls with inferred contract fields and diagnostic channels
+- narrow source `solve component_graph` integration for algebraic-free
+  dimensionless explicit-Euler component RHS evaluation with delay,
+  deterministic Predictor identity-wrapper, and deterministic external adapter
+  identity-wrapper behavior nodes
 ```
 
 Deferred:
@@ -174,7 +178,8 @@ Deferred:
   residual source smokes
 - broad language-integrated dynamic component graph solving beyond the
   simple-linear source path
-- language-integrated delay/Predictor/external behavior graph solving
+- broad language-integrated delay/Predictor/external behavior graph solving
+  beyond the narrow explicit-Euler source behavior RHS smokes
 - broad adaptive solvers beyond the one-state thermal and internal continuous
   state-space `adaptive_heun` paths
 - general equation-system runtime beyond the supported one-state thermal and
@@ -308,6 +313,10 @@ Supported scoped slice:
 - source-to-solver nonlinear scalar residual in
   examples/official/27_nonlinear_algebraic
 - source-to-solver small scalar DAE in examples/official/28_small_dae
+- source-to-solver delay/Predictor/external behavior RHS smokes in
+  examples/official/29_delay_component_solver,
+  examples/official/30_predictor_component_solver, and
+  examples/official/31_external_behavior_solver
 - system-local name = Component() instances
 - connect instance.port to instance.port
 - generated connection equations plus literal boundary seeds and simple
@@ -325,6 +334,9 @@ Supported scoped slice:
   state/algebraic split, algebraic initialization, identity mass-matrix
   fallback, state/algebraic trajectories, step diagnostics, and inconsistent
   initial-condition failure metadata
+- explicit-Euler behavior graph component artifacts with integrated behavior
+  node status, typed contracts, state trajectory, and per-step behavior graph
+  diagnostics
 ```
 
 Implementation seeds on `main`:

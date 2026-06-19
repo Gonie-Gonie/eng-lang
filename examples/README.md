@@ -114,6 +114,24 @@ official/28_small_dae
   component_graph` with `solver = implicit_euler_dae`, source-derived
   state/algebraic split, algebraic initialization, state/algebraic
   trajectories, per-step Newton diagnostics, and largest-residual artifacts.
+
+official/29_delay_component_solver
+  Supported narrow source behavior smoke using `solve component_graph` with
+  `solver = dynamic_component_explicit_euler`, a component-local
+  `delay(signal, duration)` expression, typed behavior graph RHS evaluation,
+  state trajectory output, and integrated delay behavior artifacts.
+
+official/30_predictor_component_solver
+  Supported narrow source behavior smoke using `solve component_graph` with
+  `solver = dynamic_component_explicit_euler`, a typed deterministic
+  `predictor(signal)` identity wrapper seed, behavior graph RHS evaluation,
+  state trajectory output, and integrated Predictor contract artifacts.
+
+official/31_external_behavior_solver
+  Supported narrow source behavior smoke using `solve component_graph` with
+  `solver = dynamic_component_explicit_euler`, a typed deterministic
+  `adapter(signal)` identity wrapper seed, behavior graph RHS evaluation,
+  state trajectory output, and integrated external behavior artifacts.
 ```
 
 ## Internal Implementation Fixtures

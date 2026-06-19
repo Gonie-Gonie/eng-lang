@@ -5598,8 +5598,11 @@ fn render_html_inner(
         component_summary.push_str("<tr><td colspan=\"5\">No component ports.</td></tr>");
     }
 
+    let behavior_nodes = spec
+        .map(|spec| spec.component_graph.behavior_nodes.clone())
+        .unwrap_or_else(|| report_component_behavior_nodes(report));
     let mut component_behavior = String::new();
-    for node in report_component_behavior_nodes(report) {
+    for node in behavior_nodes {
         let detail = report_behavior_node_detail(&node);
         component_behavior.push_str("<tr>");
         component_behavior.push_str(&format!(
@@ -5637,6 +5640,52 @@ fn render_html_inner(
 
     let mut assembly_summary = String::new();
     for assembly in &report.semantic_program.component_assemblies {
+        let spec_assembly = spec.and_then(|spec| {
+            spec.assemblies
+                .iter()
+                .find(|candidate| candidate.name == assembly.name)
+        });
+        let assembly_status = spec_assembly
+            .map(|assembly| assembly.status.as_str())
+            .unwrap_or(&assembly.status);
+        let (
+            preview_status,
+            preview_method,
+            preview_mixed,
+            preview_nonlinear,
+            preview_dae,
+            preview_delay,
+            preview_predictor,
+            preview_external,
+            preview_limitations,
+        ) = if let Some(spec_assembly) = spec_assembly {
+            (
+                spec_assembly.solver_preview.status.as_str(),
+                spec_assembly.solver_preview.method.as_str(),
+                spec_assembly
+                    .solver_preview
+                    .mixed_algebraic_dynamic
+                    .as_str(),
+                spec_assembly.solver_preview.nonlinear_residual.as_str(),
+                spec_assembly.solver_preview.dae_split.as_str(),
+                spec_assembly.solver_preview.delay_history.as_str(),
+                spec_assembly.solver_preview.predictor.as_str(),
+                spec_assembly.solver_preview.external_adapter.as_str(),
+                spec_assembly.solver_preview.limitations.join(", "),
+            )
+        } else {
+            (
+                assembly.solver_preview.status.as_str(),
+                assembly.solver_preview.method.as_str(),
+                assembly.solver_preview.mixed_algebraic_dynamic.as_str(),
+                assembly.solver_preview.nonlinear_residual.as_str(),
+                assembly.solver_preview.dae_split.as_str(),
+                assembly.solver_preview.delay_history.as_str(),
+                assembly.solver_preview.predictor.as_str(),
+                assembly.solver_preview.external_adapter.as_str(),
+                assembly.solver_preview.limitations.join(", "),
+            )
+        };
         assembly_summary.push_str("<tr>");
         assembly_summary.push_str(&format!(
             "<td>{}</td><td>graph</td><td>{}</td><td>components={}</td><td>ports={}, connections={}, domains={}, component equations={}, local expressions={}, operators={}, predictors={}</td><td>{}</td>",
@@ -5650,7 +5699,7 @@ fn render_html_inner(
             assembly.local_expression_count,
             assembly.operator_call_count,
             assembly.predictor_call_count,
-            html_escape(&assembly.status)
+            html_escape(assembly_status)
         ));
         assembly_summary.push_str("</tr>");
         assembly_summary.push_str("<tr>");
@@ -5692,15 +5741,15 @@ fn render_html_inner(
         assembly_summary.push_str(&format!(
             "<td>{}</td><td>constraint check</td><td>{}</td><td>{}</td><td>dynamic={}, nonlinear={}, dae={}, delay={}, predictor={}, adapter={}</td><td>{}</td>",
             assembly.line,
-            html_escape(&assembly.solver_preview.status),
-            html_escape(&assembly.solver_preview.method),
-            html_escape(&assembly.solver_preview.mixed_algebraic_dynamic),
-            html_escape(&assembly.solver_preview.nonlinear_residual),
-            html_escape(&assembly.solver_preview.dae_split),
-            html_escape(&assembly.solver_preview.delay_history),
-            html_escape(&assembly.solver_preview.predictor),
-            html_escape(&assembly.solver_preview.external_adapter),
-            html_escape(&assembly.solver_preview.limitations.join(", "))
+            html_escape(preview_status),
+            html_escape(preview_method),
+            html_escape(preview_mixed),
+            html_escape(preview_nonlinear),
+            html_escape(preview_dae),
+            html_escape(preview_delay),
+            html_escape(preview_predictor),
+            html_escape(preview_external),
+            html_escape(&preview_limitations)
         ));
         assembly_summary.push_str("</tr>");
         for connection_set in &assembly.connection_sets {

@@ -111,9 +111,10 @@ The `multi_domain_preview` value is a legacy-named Internal metadata label, not
 a supported multi-domain solve claim.
 Delay calls currently report a runtime-buffer seed status, Predictor calls
 report a contract-wrapper seed status, and external adapter expressions report
-an external-wrapper seed status. Solver-API tests can chain those behavior
-nodes into RHS evaluation, but none of these is a full component-solver
-behavior graph integration.
+an external-wrapper seed status. The narrow explicit-Euler source behavior RHS
+examples update those behavior-node rows to integrated statuses in
+report-spec/HTML after runtime evaluation. This is still not a full
+component-solver behavior graph integration.
 Runtime report specs and result artifacts also attach component solver residual
 evaluations with raw value, unit, normalized value, scale, and scale policy.
 They also expose `largest_residuals`, capped to the top normalized residuals,
@@ -137,7 +138,11 @@ and records residual history through component step diagnostics plus
 largest-residual artifacts. `examples/official/28_small_dae` covers the narrow
 source implicit-Euler DAE path and records state/algebraic trajectories,
 per-step Newton diagnostics, failure artifacts for inconsistent initial
-conditions, and largest-residual artifacts.
+conditions, and largest-residual artifacts. `examples/official/29_delay_component_solver`,
+`examples/official/30_predictor_component_solver`, and
+`examples/official/31_external_behavior_solver` cover the narrow source
+behavior RHS path and record integrated delay/Predictor/external behavior-node
+artifacts plus per-step behavior graph diagnostics.
 The runtime residual evaluator accepts solver-provided residual scale overrides
 and tolerance values; component artifacts currently use the default
 unit/quantity scale policy unless a solver path supplies explicit overrides.
