@@ -268,6 +268,12 @@ Example:
 eng.exe jit-bench examples\official\01_csv_plot\main.eng --iterations 1
 ```
 
+The repository benchmark catalog lives under `benchmarks/` (`B01_csv_heat_rate`
+through `B06_nonlinear_solver`). Each case has local input data, `main.eng`,
+and `expected.json`; `.\dev.bat jit-check` runs the catalog through
+`jit-bench --iterations 1` and verifies target coverage, measured interpreter
+timing, generated artifacts, and result correctness fragments.
+
 Exit code:
 
 ```text

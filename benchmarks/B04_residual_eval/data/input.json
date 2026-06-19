@@ -1,0 +1,4 @@
+{
+  "case": "B04_residual_eval",
+  "note": "Source-level literals define the Thermal boundary inputs; this file records the benchmark data boundary."
+}

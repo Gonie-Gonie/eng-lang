@@ -2357,6 +2357,169 @@ fn smoke() -> Result<(), String> {
             multi_domain_example.display()
         ));
     }
+    let official_multi_domain_example =
+        root.join("examples/official/32_small_thermal_fluid_loop/main.eng");
+    let official_multi_domain_output = run_file(
+        &official_multi_domain_example,
+        &root.join("build").join("ide-smoke-official-thermal-fluid"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let official_multi_domain_cached = CachedRunOutput::from_output(official_multi_domain_output);
+    let official_multi_domain_inspectors = runtime_inspectors(&root, &official_multi_domain_cached);
+    let has_official_multi_domain_component_graph = official_multi_domain_inspectors
+        .component_graph
+        .get("connections")
+        .and_then(Value::as_array)
+        .is_some_and(|connections| {
+            connections.iter().any(|connection| {
+                json_field_string(connection, "id").as_deref()
+                    == Some("pipe.outlet -> return_node.inlet")
+                    && connection.get("source_span").is_some()
+            })
+        });
+    let has_official_multi_domain_solver_result = official_multi_domain_inspectors
+        .assemblies
+        .as_array()
+        .is_some_and(|assemblies| {
+            assemblies.iter().any(|assembly| {
+                let Some(solver_result) = assembly.get("solver_result") else {
+                    return false;
+                };
+                let has_domain_plans = assembly
+                    .get("domain_plans")
+                    .and_then(Value::as_array)
+                    .is_some_and(|plans| {
+                        plans.iter().any(|plan| {
+                            json_field_string(plan, "domain").as_deref() == Some("Thermal")
+                                && json_field_usize(plan, "equation_count") == Some(4)
+                        }) && plans.iter().any(|plan| {
+                            json_field_string(plan, "domain").as_deref() == Some("Fluid[Water]")
+                                && json_field_usize(plan, "equation_count") == Some(8)
+                        })
+                    });
+                let has_equation_panel_shape = assembly
+                    .get("equations")
+                    .and_then(Value::as_array)
+                    .is_some_and(|equations| {
+                        equations.iter().any(|equation| {
+                            json_field_string(equation, "name").as_deref()
+                                == Some("connection_set_2.across_height_1")
+                                && json_field_string(equation, "kind").as_deref()
+                                    == Some("across_equality")
+                                && json_field_string(equation, "domain").as_deref()
+                                    == Some("Fluid[Water]")
+                                && json_field_usize(equation, "line") == Some(48)
+                                && equation
+                                    .get("dependencies")
+                                    .and_then(Value::as_array)
+                                    .is_some_and(|dependencies| {
+                                        dependencies.iter().any(|value| {
+                                            value.as_str() == Some("pump.supply.height")
+                                        }) && dependencies.iter().any(|value| {
+                                            value.as_str() == Some("pipe.inlet.height")
+                                        })
+                                    })
+                        }) && equations.iter().any(|equation| {
+                            json_field_string(equation, "name").as_deref()
+                                == Some("pipe.equation_1")
+                                && json_field_string(equation, "kind").as_deref()
+                                    == Some("component_equation")
+                                && json_field_string(equation, "domain").as_deref()
+                                    == Some("Fluid[Water]")
+                                && json_field_usize(equation, "line") == Some(32)
+                                && equation
+                                    .get("dependencies")
+                                    .and_then(Value::as_array)
+                                    .is_some_and(|dependencies| {
+                                        dependencies.iter().any(|value| {
+                                            value.as_str() == Some("pipe.inlet.height")
+                                        }) && dependencies.iter().any(|value| {
+                                            value.as_str() == Some("pipe.outlet.height")
+                                        })
+                                    })
+                        })
+                    });
+                let has_dependency_graph = assembly
+                    .get("residual_graph")
+                    .and_then(|graph| graph.get("dependencies"))
+                    .and_then(Value::as_array)
+                    .is_some_and(|dependencies| {
+                        dependencies.iter().any(|dependency| {
+                            json_field_string(dependency, "residual").as_deref()
+                                == Some("pipe.equation_1")
+                                && json_field_string(dependency, "variable").as_deref()
+                                    == Some("pipe.outlet.height")
+                        }) && dependencies.iter().any(|dependency| {
+                            json_field_string(dependency, "residual").as_deref()
+                                == Some("pipe.equation_2")
+                                && json_field_string(dependency, "variable").as_deref()
+                                    == Some("pipe.inlet.m_dot")
+                        })
+                    });
+                let has_residual_panel = solver_result
+                    .get("residuals")
+                    .and_then(Value::as_array)
+                    .is_some_and(|residuals| {
+                        residuals.iter().any(|residual| {
+                            json_field_string(residual, "name").as_deref()
+                                == Some("pipe.equation_1")
+                                && json_field_f64(residual, "value")
+                                    .is_some_and(|value| value.abs() <= 1e-12)
+                                && json_field_string(residual, "unit").as_deref() == Some("m")
+                                && json_field_f64(residual, "normalized_value")
+                                    .is_some_and(|value| value.abs() <= 1e-12)
+                                && json_field_string(residual, "scale_policy").is_some()
+                                && json_field_string(residual, "status").as_deref()
+                                    == Some("satisfied")
+                        })
+                    })
+                    && solver_result
+                        .get("largest_residuals")
+                        .and_then(Value::as_array)
+                        .is_some_and(|residuals| !residuals.is_empty());
+                let has_solved_variables = solver_result
+                    .get("variables")
+                    .and_then(Value::as_array)
+                    .is_some_and(|variables| {
+                        variables.iter().any(|variable| {
+                            json_field_string(variable, "name").as_deref()
+                                == Some("pump.supply.height")
+                                && json_field_f64(variable, "value")
+                                    .is_some_and(|value| (value - 12.0).abs() <= 1e-9)
+                        }) && variables.iter().any(|variable| {
+                            json_field_string(variable, "name").as_deref()
+                                == Some("pipe.outlet.m_dot")
+                                && json_field_f64(variable, "value")
+                                    .is_some_and(|value| (value - 0.2).abs() <= 1e-9)
+                        })
+                    });
+                json_field_usize(assembly, "domain_count") == Some(2)
+                    && json_field_usize(assembly, "component_count") == Some(5)
+                    && json_field_usize(assembly, "component_equation_count") == Some(6)
+                    && json_field_string(solver_result, "status").as_deref()
+                        == Some("solved_linear")
+                    && json_field_string(solver_result, "method").as_deref()
+                        == Some("dense_linear_residual_graph")
+                    && json_field_f64(solver_result, "tolerance")
+                        .is_some_and(|value| (value - 1e-9).abs() <= 1e-18)
+                    && json_field_usize(solver_result, "max_iterations") == Some(1)
+                    && json_field_usize(solver_result, "iteration_count") == Some(1)
+                    && json_field_string(solver_result, "convergence_status").as_deref()
+                        == Some("linear_converged")
+                    && has_domain_plans
+                    && has_equation_panel_shape
+                    && has_dependency_graph
+                    && has_residual_panel
+                    && has_solved_variables
+            })
+        });
+    if !has_official_multi_domain_component_graph || !has_official_multi_domain_solver_result {
+        return Err(format!(
+            "{} did not produce IDE official Thermal/Fluid solver, equation, residual, and graph inspector metadata",
+            official_multi_domain_example.display()
+        ));
+    }
     let measured_example = root.join("examples/internal/17_measured_vs_simulated/main.eng");
     let measured_output = run_file(
         &measured_example,
@@ -2651,7 +2814,7 @@ fn smoke() -> Result<(), String> {
         ));
     }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), residual dependency inspector, behavior graph inspector, measured workflow inspectors, solved thermal assembly inspector, multi-domain boundary solve inspector, state-space trajectory/operator inspector, kernel plan inspector, class object inspector, side-effect inspectors, schema failure inspector",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), residual dependency inspector, behavior graph inspector, measured workflow inspectors, solved thermal assembly inspector, multi-domain boundary solve inspector, official Thermal/Fluid solver inspector, state-space trajectory/operator inspector, kernel plan inspector, class object inspector, side-effect inspectors, schema failure inspector",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),

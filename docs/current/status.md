@@ -332,7 +332,8 @@ are not public stable workflows.
   RHS and explicit-Euler solver-step candidates, finite-difference Jacobian, and
   Newton-step kernels, per-candidate executor/fallback reasons, deterministic
   `jit-bench` interpreter-kernel sample executions across CSV, component, and
-  state-space smoke targets, and no native speedup claim.
+  state-space smoke targets, the `benchmarks/B01_*` through `B06_*` catalog
+  checked by `dev.bat jit-check`, and no native speedup claim.
 - LSP/VS Code track: smoke/snapshot tests, hover/completion metadata,
   conservative same-document go-to-definition, and packaged VS Code extension
   source. This is not a stable persistent editor-service contract.

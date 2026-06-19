@@ -98,6 +98,7 @@ the repository.
 .\dev.bat doctor
 .\dev.bat ci
 .\dev.bat docs-check
+.\dev.bat jit-check
 .\dev.bat ide --smoke
 .\dev.bat artifacts-check
 .\dev.bat run-example
@@ -166,6 +167,7 @@ build/
 - [Feature maturity matrix](docs/current/feature_maturity_matrix.md)
 - [Stable core scope](docs/current/stable_core_scope.md)
 - [Development tracks](docs/current/tracks.md)
+- [Solver benchmark catalog](benchmarks/README.md)
 - [Getting started](docs/development/00_getting_started.md)
 - [Repository layout](docs/development/01_repo_layout.md)
 - [Daily workflow](docs/development/02_daily_workflow.md)

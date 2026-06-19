@@ -268,6 +268,9 @@ Internal implementation seeds on `main`:
   interpreter-kernel sample executions for CSV, multi-statistics, residual,
   component, and state-space smoke targets, with dev-gate assertions for each
   checklist benchmark target family
+- benchmarks/B01_csv_heat_rate through B06_nonlinear_solver with local input
+  data, EngLang source, expected target metadata, timing policy, correctness
+  fragments, and no-speedup-claim comparison policy
 - interpreter baseline metadata
 - backend selection metadata
 - hot-kernel candidate estimates

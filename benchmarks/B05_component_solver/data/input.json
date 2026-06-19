@@ -1,0 +1,8 @@
+{
+  "case": "B05_component_solver",
+  "thermal_boundary_degC": 22,
+  "thermal_load_kW": 1,
+  "pump_head_m": 12,
+  "pump_flow_kg_per_s": 0.2,
+  "note": "The current EngLang source uses literals for this constrained head/flow solve; this file records the benchmark data boundary."
+}

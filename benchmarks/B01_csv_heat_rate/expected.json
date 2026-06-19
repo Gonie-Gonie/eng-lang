@@ -1,0 +1,22 @@
+{
+  "format": "eng-benchmark-case-v1",
+  "benchmark": "B01_csv_heat_rate",
+  "source": "main.eng",
+  "input_data": ["data/sensor.csv"],
+  "expected": {
+    "benchmark_targets": [
+      {
+        "name": "csv_heat_rate_workflow",
+        "status": "covered_by_current_source",
+        "candidate_contains": "timeseries_integrate:E_coil"
+      }
+    ],
+    "executor_samples": ["timeseries_integrate:E_coil"],
+    "result_contains": ["\"E_coil\"", "\"Q_coil\""]
+  },
+  "timing": {
+    "runtime_time": "measured by interpreter.runs[].elapsed_ms",
+    "artifact_generation_time": "included in jit-bench runs because save_artifacts=true; result/report artifact paths are verified"
+  },
+  "comparison_baseline": "none; comparison_policy must remain no-speedup-claim"
+}

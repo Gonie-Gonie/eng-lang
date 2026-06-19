@@ -1,0 +1,25 @@
+{
+  "format": "eng-benchmark-case-v1",
+  "benchmark": "B04_residual_eval",
+  "source": "main.eng",
+  "input_data": ["data/input.json"],
+  "expected": {
+    "benchmark_targets": [
+      {
+        "name": "residual_evaluation",
+        "status": "covered_by_current_source",
+        "candidate_contains": "component_residual_jacobian"
+      }
+    ],
+    "executor_samples": [
+      "component_residual_graph:component_graph:component_residual_graph",
+      "component_residual_jacobian:component_graph:component_residual_graph:jacobian"
+    ],
+    "result_contains": ["\"status\": \"solved_linear\"", "\"room.heat.T\""]
+  },
+  "timing": {
+    "runtime_time": "measured by interpreter.runs[].elapsed_ms",
+    "artifact_generation_time": "included in jit-bench runs because save_artifacts=true; result/report artifact paths are verified"
+  },
+  "comparison_baseline": "none; comparison_policy must remain no-speedup-claim"
+}

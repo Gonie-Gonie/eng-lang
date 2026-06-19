@@ -1,0 +1,25 @@
+schema SensorData {
+    time: DateTime index
+    T_supply: AbsoluteTemperature [degC]
+    T_return: AbsoluteTemperature [degC]
+    m_dot: MassFlowRate [kg/s]
+
+    constraints {
+        time is monotonic
+        T_supply between 0 degC and 60 degC
+        T_return between 0 degC and 80 degC
+        m_dot >= 0 kg/s
+    }
+}
+
+args {
+    input: CsvFile = file("data/sensor.csv")
+}
+
+sensor = promote csv args.input as SensorData
+cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+
+report {
+    summarize Q_coil by [mean, time_weighted_mean, max, median, std, p90, p95, duration_above(5 kW)]
+}

@@ -73,9 +73,15 @@ Current coverage:
   families were observed in the current source's kernel plan, and its
   `kernel_executor_samples` field records deterministic interpreter-kernel
   sample executions for lowerable candidates.
+- `benchmarks/B01_csv_heat_rate` through `benchmarks/B06_nonlinear_solver`
+  provide the checklist benchmark catalog with local input data, EngLang
+  source, expected target metadata, timing policy, correctness fragments, and
+  no-speedup-claim comparison policy.
 - `dev.bat jit-check` asserts benchmark smoke coverage for the CSV heat-rate,
-  multi-statistics fusion, residual evaluation, Thermal component assembly
-  Newton-step, and continuous state-space RHS/solver-step target families.
+  multi-statistics fusion, residual evaluation, Thermal/Fluid component
+  solver, nonlinear residual, and continuous state-space RHS/solver-step target
+  families, and verifies generated result/report/review artifacts for each
+  catalog case.
 
 Definition of Done:
 

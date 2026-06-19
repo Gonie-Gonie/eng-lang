@@ -1504,6 +1504,127 @@ function Invoke-JitBenchTargetCheck {
     }
 }
 
+function Invoke-JitBenchmarkCaseCheck {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Cargo,
+
+        [Parameter(Mandatory = $true)]
+        [string] $CaseDir
+    )
+
+    $caseRoot = Join-Path $RepoRoot $CaseDir
+    $expectedPath = Join-Path $caseRoot "expected.json"
+    if (-not (Test-Path -LiteralPath $expectedPath)) {
+        throw "benchmark case $CaseDir is missing expected.json"
+    }
+
+    $expected = Get-Content -LiteralPath $expectedPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($expected.format -ne "eng-benchmark-case-v1") {
+        throw "benchmark case $CaseDir has unsupported expected.json format $($expected.format)"
+    }
+    $source = Join-Path $CaseDir $expected.source
+    $sourcePath = Join-Path $RepoRoot $source
+    if (-not (Test-Path -LiteralPath $sourcePath)) {
+        throw "benchmark case $CaseDir is missing source $source"
+    }
+    foreach ($input in @($expected.input_data)) {
+        $inputPath = Join-Path $caseRoot $input
+        if (-not (Test-Path -LiteralPath $inputPath)) {
+            throw "benchmark case $CaseDir is missing input data $input"
+        }
+    }
+
+    $output = & $Cargo "run" "-p" "eng_cli" "--quiet" "--" "jit-bench" $source "--iterations" "1"
+    if ($LASTEXITCODE -ne 0) {
+        throw "jit-bench failed for benchmark case $CaseDir with exit code $LASTEXITCODE"
+    }
+    $jsonText = ($output | Out-String).Trim()
+    Write-Host $jsonText
+    $bench = $jsonText | ConvertFrom-Json
+    if ($bench.format -ne "eng-jit-bench-v1") {
+        throw "benchmark case $CaseDir did not emit eng-jit-bench-v1"
+    }
+    if ($bench.comparison_policy -ne "no-speedup-claim") {
+        throw "benchmark case $CaseDir changed comparison_policy to $($bench.comparison_policy)"
+    }
+    if ($bench.jit.status -ne "not_available") {
+        throw "benchmark case $CaseDir must not report native JIT timing"
+    }
+    if ($bench.interpreter.status -ne "measured") {
+        throw "benchmark case $CaseDir did not report measured interpreter timing"
+    }
+    $runs = @($bench.interpreter.runs)
+    if ($runs.Count -ne 1 -or $null -eq $runs[0].elapsed_ms -or $runs[0].elapsed_ms -lt 0) {
+        throw "benchmark case $CaseDir did not record one non-negative runtime timing"
+    }
+
+    $resultPath = Join-Path $RepoRoot $runs[0].result_path
+    if (-not (Test-Path -LiteralPath $resultPath)) {
+        throw "benchmark case $CaseDir did not generate result artifact $resultPath"
+    }
+    $artifactRoot = Split-Path -Parent $resultPath
+    foreach ($artifactName in @("report.html", "report_spec.json", "review.json")) {
+        $artifactPath = Join-Path $artifactRoot $artifactName
+        if (-not (Test-Path -LiteralPath $artifactPath)) {
+            throw "benchmark case $CaseDir did not generate artifact $artifactName"
+        }
+    }
+
+    foreach ($targetSpec in @($expected.expected.benchmark_targets)) {
+        $target = @($bench.benchmark_targets | Where-Object {
+            $_.name -eq $targetSpec.name -and $_.status -eq $targetSpec.status
+        }) | Select-Object -First 1
+        if ($null -eq $target) {
+            throw "benchmark case $CaseDir did not report $($targetSpec.name) as $($targetSpec.status)"
+        }
+        if ($null -ne $targetSpec.candidate_contains -and $targetSpec.candidate_contains -ne "") {
+            $candidate = @($target.candidates | Where-Object {
+                $_ -like "*$($targetSpec.candidate_contains)*"
+            }) | Select-Object -First 1
+            if ($null -eq $candidate) {
+                throw "benchmark case $CaseDir target $($targetSpec.name) did not include candidate containing $($targetSpec.candidate_contains)"
+            }
+        }
+    }
+
+    foreach ($sampleName in @($expected.expected.executor_samples)) {
+        $sample = @($bench.kernel_executor_samples | Where-Object {
+            $_.candidate -eq $sampleName -and $_.status -eq "executed" -and $_.backend -eq "interpreter-fallback"
+        }) | Select-Object -First 1
+        if ($null -eq $sample) {
+            throw "benchmark case $CaseDir did not execute kernel sample $sampleName"
+        }
+    }
+
+    $resultText = Get-Content -LiteralPath $resultPath -Raw -Encoding UTF8
+    foreach ($fragment in @($expected.expected.result_contains)) {
+        if (-not $resultText.Contains($fragment)) {
+            throw "benchmark case $CaseDir result artifact did not contain $fragment"
+        }
+    }
+
+    Write-Host "ok: benchmark case $CaseDir matched expected timing, artifact, target, and correctness checks"
+}
+
+function Invoke-JitBenchmarkCatalogCheck {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Cargo
+    )
+
+    foreach ($caseDir in @(
+        "benchmarks\B01_csv_heat_rate",
+        "benchmarks\B02_timeseries_fusion",
+        "benchmarks\B03_state_space",
+        "benchmarks\B04_residual_eval",
+        "benchmarks\B05_component_solver",
+        "benchmarks\B06_nonlinear_solver"
+    )) {
+        Invoke-JitBenchmarkCaseCheck $Cargo $caseDir
+    }
+}
+
 function Invoke-JitCheck {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -1519,6 +1640,7 @@ function Invoke-JitCheck {
     Invoke-JitBenchTargetCheck $cargo "examples\internal\21_thermal_component_assembly\main.eng" "residual_evaluation" "covered_by_current_source" "component_residual_jacobian"
     Invoke-JitBenchTargetCheck $cargo "examples\internal\21_thermal_component_assembly\main.eng" "component_graph_solver_small_case" "covered_by_current_source" "component_newton_step"
     Invoke-JitBenchTargetCheck $cargo "examples\internal\18_state_space_metadata\main.eng" "state_space_simulation" "covered_by_current_source" "state_space_solver_step"
+    Invoke-JitBenchmarkCatalogCheck $cargo
     Write-Host "JIT plan check passed."
 }
 

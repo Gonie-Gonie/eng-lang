@@ -1,0 +1,47 @@
+args {
+    weather: CsvFile = file("data/weather.csv")
+}
+
+schema WeatherData {
+    time: DateTime index
+    T_out: AbsoluteTemperature [degC]
+}
+
+weather_data = promote csv args.weather as WeatherData
+
+states RoomState {
+    T_air: AbsoluteTemperature [degC]
+    T_wall: AbsoluteTemperature [degC]
+}
+
+inputs RoomInput {
+    T_out: AbsoluteTemperature [degC]
+    Q_hvac: HeatRate [W]
+}
+
+system ContinuousRoomStateSpace {
+    state x: StateVector[RoomState] = [22 degC, 20 degC]
+    input u: InputVector[RoomInput] = [8 degC, 1800 W]
+
+    operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.021 1/min, 0.0072 1/min]; [0.0048 1/min, -0.0096 1/min]]
+    operator B: LinearOperator[RoomInput -> Derivative[RoomState]] = [[0.0138 1/min, 0.0000012]; [0.0048 1/min, 0.0]]
+
+    equation {
+        der(x) eq A * x + B * u
+    }
+}
+
+sim = simulate ContinuousRoomStateSpace
+with {
+    T_out = weather_data.T_out
+    timestep = 10 min
+    solver = rk4
+}
+
+report {
+    plot sim.T_air and sim.T_wall over Time
+    with {
+        unit y = degC
+        title = "Benchmark state-space room response"
+    }
+}

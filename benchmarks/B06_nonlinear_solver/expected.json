@@ -1,0 +1,35 @@
+{
+  "format": "eng-benchmark-case-v1",
+  "benchmark": "B06_nonlinear_solver",
+  "source": "main.eng",
+  "input_data": ["data/input.json"],
+  "expected": {
+    "benchmark_targets": [
+      {
+        "name": "residual_evaluation",
+        "status": "covered_by_current_source",
+        "candidate_contains": "component_residual_jacobian"
+      },
+      {
+        "name": "component_graph_solver_small_case",
+        "status": "covered_by_current_source",
+        "candidate_contains": "component_newton_step"
+      }
+    ],
+    "executor_samples": [
+      "component_newton_step:component_graph:component_residual_graph:newton_step",
+      "component_residual_graph:component_graph:component_residual_graph",
+      "component_residual_jacobian:component_graph:component_residual_graph:jacobian"
+    ],
+    "result_contains": [
+      "\"status\": \"solved_nonlinear\"",
+      "\"method\": \"newton_source_residual_graph\"",
+      "\"nonlinear_result\""
+    ]
+  },
+  "timing": {
+    "runtime_time": "measured by interpreter.runs[].elapsed_ms",
+    "artifact_generation_time": "included in jit-bench runs because save_artifacts=true; result/report artifact paths are verified"
+  },
+  "comparison_baseline": "none; comparison_policy must remain no-speedup-claim"
+}

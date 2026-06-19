@@ -81,6 +81,31 @@ For square component assemblies, `residual_evaluation` may list both
 `component_newton_step`. This records residual/Jacobian/single-step kernel
 coverage, not a production component-graph solver claim.
 
+## Benchmark Catalog
+
+The repository includes a lightweight benchmark catalog under `benchmarks/`:
+
+```text
+benchmarks/
+  B01_csv_heat_rate/
+  B02_timeseries_fusion/
+  B03_state_space/
+  B04_residual_eval/
+  B05_component_solver/
+  B06_nonlinear_solver/
+```
+
+Each case contains local input data, `main.eng`, `expected.json`, and a short
+README. `expected.json` records the expected benchmark target coverage,
+interpreter executor samples, correctness fragments in the generated
+`result.engres`, and the timing policy. `dev.bat jit-check` runs every catalog
+case with `--iterations 1`, verifies the expected coverage, checks that input
+data exists, and confirms `result.engres`, `report.html`, `report_spec.json`,
+and `review.json` were generated.
+
+The catalog is an optimization-track evidence set. It is not a native backend
+performance suite while `jit.status` is `not_available`.
+
 ## Kernel Executor Samples
 
 `kernel_executor_samples` records deterministic sample executions for

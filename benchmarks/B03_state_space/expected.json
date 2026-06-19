@@ -1,0 +1,25 @@
+{
+  "format": "eng-benchmark-case-v1",
+  "benchmark": "B03_state_space",
+  "source": "main.eng",
+  "input_data": ["data/weather.csv"],
+  "expected": {
+    "benchmark_targets": [
+      {
+        "name": "state_space_simulation",
+        "status": "covered_by_current_source",
+        "candidate_contains": "state_space_solver_step:ContinuousRoomStateSpace"
+      }
+    ],
+    "executor_samples": [
+      "state_space_rhs:ContinuousRoomStateSpace",
+      "state_space_solver_step:ContinuousRoomStateSpace"
+    ],
+    "result_contains": ["\"sim.T_air\"", "\"sim.T_wall\""]
+  },
+  "timing": {
+    "runtime_time": "measured by interpreter.runs[].elapsed_ms",
+    "artifact_generation_time": "included in jit-bench runs because save_artifacts=true; result/report artifact paths are verified"
+  },
+  "comparison_baseline": "none; comparison_policy must remain no-speedup-claim"
+}

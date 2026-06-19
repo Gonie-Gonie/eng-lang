@@ -1,0 +1,6 @@
+{
+  "case": "B06_nonlinear_solver",
+  "initial_guess": 1,
+  "expected_root": 1.4142135623730951,
+  "note": "The current EngLang source uses literals for the scalar nonlinear residual; this file records the benchmark data boundary."
+}

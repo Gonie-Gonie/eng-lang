@@ -1,0 +1,22 @@
+{
+  "format": "eng-benchmark-case-v1",
+  "benchmark": "B02_timeseries_fusion",
+  "source": "main.eng",
+  "input_data": ["data/sensor.csv"],
+  "expected": {
+    "benchmark_targets": [
+      {
+        "name": "multi_statistics_fusion",
+        "status": "covered_by_current_source",
+        "candidate_contains": "statistics_fusion:summary:Q_coil"
+      }
+    ],
+    "executor_samples": ["statistics_fusion:summary:Q_coil"],
+    "result_contains": ["\"Q_coil\""]
+  },
+  "timing": {
+    "runtime_time": "measured by interpreter.runs[].elapsed_ms",
+    "artifact_generation_time": "included in jit-bench runs because save_artifacts=true; result/report artifact paths are verified"
+  },
+  "comparison_baseline": "none; comparison_policy must remain no-speedup-claim"
+}
