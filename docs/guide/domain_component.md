@@ -311,6 +311,15 @@ re-parsing source files.
   equations, a `der(port.T)` component-local equation, state/algebraic
   trajectories, and per-step algebraic diagnostics. The wall heat flow is a
   fixed simple-linear boundary seed rather than a general conductance model.
+- `examples/official/27_nonlinear_algebraic/main.eng`
+  shows the narrow source Newton path with `solver = newton`, direct
+  source-residual expression evaluation, residual scaling, convergence
+  history, and largest-residual artifacts for a dimensionless scalar graph.
+- `examples/official/28_small_dae/main.eng`
+  shows the narrow source implicit-Euler DAE path with
+  `solver = implicit_euler_dae`, assembly-derived state/algebraic split,
+  algebraic initialization, identity mass-matrix fallback, trajectories, and
+  per-step Newton diagnostics.
 - `examples/internal/06_domain_port/main.eng`
   shows compatible Thermal, `Fluid[Water]`, and
   `MechanicalNode[World, X]` domain connections with package/version metadata
@@ -359,6 +368,10 @@ Current:
 - homogeneous connection-constraint residual evaluation artifact;
 - supported square Thermal boundary residual solve for literal boundary seeds
   and simple linear component-local equations;
+- narrow source Newton residual solves for dimensionless scalar nonlinear
+  component equations;
+- narrow source implicit-Euler DAE solves for small scalar component residual
+  graphs with state/algebraic split;
 - component behavior-node graph artifacts for delay/Predictor/external
   expressions;
 - multi-domain assembly metadata with domain plans, future nonlinear/
@@ -373,9 +386,9 @@ Current:
 Deferred:
 
 - constructor arguments and parameterized component instantiation;
-- nonlinear or unit-parameterized component-local equation solving;
-- physical component graph solving with component behavior equations and mixed
-  algebraic/dynamic variables;
+- broad nonlinear or unit-parameterized component-local equation solving;
+- physical component graph solving with component behavior equations, broad
+  nonlinear/DAE coupling, and adaptive component timestepping;
 - production multi-domain numerical solving;
 - package registries;
 - package dependency resolution;

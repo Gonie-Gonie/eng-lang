@@ -1800,6 +1800,13 @@ fn known_with_option(key: &str) -> bool {
             | "relaxation"
             | "initial"
             | "initial_algebraic"
+            | "initial_derivative"
+            | "finite_difference_step"
+            | "damping"
+            | "line_search_steps"
+            | "jacobian"
+            | "consistency_tolerance"
+            | "algebraic_initialization"
             | "seed"
             | "output"
             | "overwrite"
@@ -2853,7 +2860,7 @@ fn validate_algebraic_solve_contracts(
                 declaration.line,
                 "`solve` requires a supported solver in the attached `with` block.",
                 Some(
-                    "Use `solver = dense_linear`, `fixed_point`, `dynamic_component_explicit_euler`, or `dynamic_component_semi_implicit_euler`.",
+                    "Use `solver = dense_linear`, `fixed_point`, `newton`, `implicit_euler_dae`, `dynamic_component_explicit_euler`, or `dynamic_component_semi_implicit_euler`.",
                 ),
             ));
             continue;
@@ -2865,13 +2872,14 @@ fn validate_algebraic_solve_contracts(
                 solver_option.line,
                 &format!("Unsupported component solve solver `{}`.", solver_option.value),
                 Some(
-                    "Use `dense_linear`/`linear`, `fixed_point`, `dynamic_component_explicit_euler`, or `dynamic_component_semi_implicit_euler`.",
+                    "Use `dense_linear`/`linear`, `fixed_point`, `newton`, `implicit_euler_dae`, `dynamic_component_explicit_euler`, or `dynamic_component_semi_implicit_euler`.",
                 ),
             ));
             continue;
         }
         let dynamic_component_solver = is_dynamic_component_solve_solver(solver);
-        if dynamic_component_solver {
+        let dae_solver = is_dae_component_solve_solver(solver);
+        if dynamic_component_solver || dae_solver {
             validate_component_solve_duration_options(declaration.line, options, diagnostics);
             validate_component_solve_initial_option(options, diagnostics);
         }
@@ -2909,6 +2917,38 @@ fn validate_algebraic_solve_contracts(
             "`initial_algebraic` expects a finite numeric initial guess.",
             diagnostics,
         );
+        validate_algebraic_solve_numeric_option(
+            options,
+            "initial_derivative",
+            f64::is_finite,
+            "E-SOLVE-INITIAL-INVALID",
+            "`initial_derivative` expects a finite numeric initial derivative.",
+            diagnostics,
+        );
+        validate_algebraic_solve_numeric_option(
+            options,
+            "finite_difference_step",
+            |value| value.is_finite() && value > 0.0,
+            "E-SOLVE-FD-STEP-INVALID",
+            "`finite_difference_step` expects a positive finite number.",
+            diagnostics,
+        );
+        validate_algebraic_solve_numeric_option(
+            options,
+            "damping",
+            |value| value.is_finite() && value > 0.0 && value <= 1.0,
+            "E-SOLVE-DAMPING-INVALID",
+            "`damping` expects a finite number in the interval (0, 1].",
+            diagnostics,
+        );
+        validate_algebraic_solve_numeric_option(
+            options,
+            "consistency_tolerance",
+            |value| value.is_finite() && value > 0.0,
+            "E-SOLVE-CONSISTENCY-TOLERANCE-INVALID",
+            "`consistency_tolerance` expects a positive finite number.",
+            diagnostics,
+        );
         if let Some(option) = accepted_option(options, "max_iter") {
             let valid = option
                 .value
@@ -2927,6 +2967,55 @@ fn validate_algebraic_solve_contracts(
                 ));
             }
         }
+        if let Some(option) = accepted_option(options, "line_search_steps") {
+            let valid = option
+                .value
+                .trim()
+                .parse::<usize>()
+                .is_ok_and(|value| value > 0);
+            if !valid {
+                diagnostics.push(Diagnostic::error(
+                    "E-SOLVE-LINE-SEARCH-STEPS-INVALID",
+                    option.line,
+                    &format!(
+                        "`line_search_steps` expects a positive integer, got `{}`.",
+                        option.value
+                    ),
+                    Some("Use a positive integer such as `line_search_steps = 8`."),
+                ));
+            }
+        }
+        if let Some(option) = accepted_option(options, "jacobian") {
+            let valid = matches!(
+                option.value.trim(),
+                "finite_difference" | "source_linear_terms"
+            );
+            if !valid {
+                diagnostics.push(Diagnostic::error(
+                    "E-SOLVE-JACOBIAN-UNSUPPORTED",
+                    option.line,
+                    &format!(
+                        "Unsupported source solve Jacobian policy `{}`.",
+                        option.value
+                    ),
+                    Some("Use `jacobian = finite_difference` or `jacobian = source_linear_terms`."),
+                ));
+            }
+        }
+        if let Some(option) = accepted_option(options, "algebraic_initialization") {
+            let valid = matches!(option.value.trim(), "newton" | "none");
+            if !valid {
+                diagnostics.push(Diagnostic::error(
+                    "E-SOLVE-ALGEBRAIC-INITIALIZATION-UNSUPPORTED",
+                    option.line,
+                    &format!(
+                        "Unsupported algebraic initialization policy `{}`.",
+                        option.value
+                    ),
+                    Some("Use `algebraic_initialization = newton` or `algebraic_initialization = none`."),
+                ));
+            }
+        }
     }
 }
 
@@ -2936,6 +3025,10 @@ fn is_supported_component_solve_solver(solver: &str) -> bool {
         "fixed_point"
             | "dense_linear"
             | "linear"
+            | "newton"
+            | "nonlinear_newton"
+            | "implicit_euler_dae"
+            | "dae_implicit_euler"
             | "dynamic_component_explicit_euler"
             | "dynamic_component_semi_implicit_euler"
     )
@@ -2946,6 +3039,10 @@ fn is_dynamic_component_solve_solver(solver: &str) -> bool {
         solver,
         "dynamic_component_explicit_euler" | "dynamic_component_semi_implicit_euler"
     )
+}
+
+fn is_dae_component_solve_solver(solver: &str) -> bool {
+    matches!(solver, "implicit_euler_dae" | "dae_implicit_euler")
 }
 
 fn validate_component_solve_duration_options(

@@ -1,0 +1,27 @@
+domain NonlinearScalar package "eng.std.domains.scalar" version "0.1.0" {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component NonlinearNode {
+    port node: NonlinearScalar
+    node.x * node.x eq 2
+}
+
+system NonlinearAlgebraic {
+    node = NonlinearNode()
+    connect node.node to node.node
+}
+
+nonlinear_result = solve component_graph
+with {
+    solver = newton
+    initial = 1
+    tolerance = 0.000000001
+    max_iter = 30
+}
+
+report {
+    show nonlinear_result
+}

@@ -104,6 +104,18 @@ paths before compatibility fixtures.
   connection equations, a `der(port.T)` component-local equation, state and
   algebraic trajectories, and per-step algebraic diagnostics for a simple
   linear dynamic component assembly.
+
+27_nonlinear_algebraic
+  Source-to-solver smoke for `solve component_graph` with `solver = newton`,
+  finite-difference Jacobian by default, convergence history, named solved
+  variables, residual norm, and largest-residual artifacts for a dimensionless
+  nonlinear scalar residual.
+
+28_small_dae
+  Source-to-solver smoke for `solve component_graph` with
+  `solver = implicit_euler_dae`, source-derived state/algebraic split,
+  algebraic initialization, identity mass-matrix fallback, state/algebraic
+  trajectories, and per-step Newton diagnostics for a small dimensionless DAE.
 ```
 
 Compatibility regression examples live under `examples/compat`. Diagnostic and

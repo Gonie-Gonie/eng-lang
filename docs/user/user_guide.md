@@ -99,10 +99,18 @@ Use the official examples for user testing and demos. Start with these:
   connection equations, a `der(port.T)` component-local equation, trajectories,
   and per-step algebraic diagnostics. This is a simple-linear component solve,
   not a nonlinear wall-conductance or production multi-domain simulator.
+- `examples/official/27_nonlinear_algebraic/main.eng`: supported narrow
+  source Newton solve using `solve component_graph` with `solver = newton` for
+  a dimensionless scalar nonlinear residual.
+- `examples/official/28_small_dae/main.eng`: supported narrow source
+  implicit-Euler DAE solve using `solve component_graph` with
+  `solver = implicit_euler_dae`, source-derived state/algebraic split, and
+  state/algebraic trajectories.
 
 The remaining official examples cover functions/imports, read-only IO, write
 output manifests, file policy, structured runtime logs, process-result records,
-local test-result records, and histogram PlotSpec output.
+local test-result records, and histogram PlotSpec output. The Newton and DAE
+examples are scoped solver smokes, not broad nonlinear/DAE simulation support.
 
 Recommended first user test:
 
@@ -224,9 +232,11 @@ The public user contract is intentionally narrow:
 These areas are present only as internal or future-facing seeds unless later
 documentation marks them stable:
 
-- Public solver support.
-- General nonlinear solving.
-- General DAE solving.
+- Broad public solver support outside the official scoped examples.
+- General nonlinear solving beyond the narrow `solver = newton` component
+  residual smoke.
+- General DAE solving beyond the narrow `solver = implicit_euler_dae`
+  component residual smoke.
 - Production multi-domain component graph solving.
 - Native JIT execution or speedup claims.
 - Broad uncertainty and ML public workflows.

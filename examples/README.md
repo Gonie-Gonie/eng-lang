@@ -102,6 +102,18 @@ official/26_dynamic_component_room
   component_graph` with `solver = dynamic_component_semi_implicit_euler`,
   generated Thermal connection equations, a `der(port.T)` component-local
   equation, state/algebraic trajectories, and per-step algebraic diagnostics.
+
+official/27_nonlinear_algebraic
+  Supported source-to-solver Newton smoke using `solve component_graph` with
+  `solver = newton`, a dimensionless nonlinear scalar residual, convergence
+  history, named solved variables, residual norm, and largest-residual
+  artifacts.
+
+official/28_small_dae
+  Supported source-to-solver implicit-Euler DAE smoke using `solve
+  component_graph` with `solver = implicit_euler_dae`, source-derived
+  state/algebraic split, algebraic initialization, state/algebraic
+  trajectories, per-step Newton diagnostics, and largest-residual artifacts.
 ```
 
 ## Internal Implementation Fixtures

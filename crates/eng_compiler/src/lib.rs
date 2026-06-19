@@ -5196,6 +5196,55 @@ mod tests {
     }
 
     #[test]
+    fn accepts_newton_and_dae_component_solve_requests() {
+        let report = check_source(
+            "ok.eng",
+            "domain Scalar {\n    across x: DimensionlessNumber [1]\n    across z: DimensionlessNumber [1]\n    through balance: DimensionlessNumber [1]\n    conservation sum(balance) = 0\n}\n\ncomponent ResidualNode {\n    port node: Scalar\n    node.x * node.x eq 2\n    der(node.z) + node.x eq 0\n}\n\nsystem SourceSolves {\n    node = ResidualNode()\n    connect node.node to node.node\n}\n\nnewton_result = solve component_graph\nwith {\n    solver = newton\n    initial = 1\n    finite_difference_step = 0.000001\n    damping = 1\n    line_search_steps = 8\n    jacobian = finite_difference\n}\n\ndae_result = solve component_graph\nwith {\n    solver = implicit_euler_dae\n    timestep = 1 s\n    duration = 2 s\n    initial = 1\n    initial_derivative = -1\n    initial_algebraic = 0\n    consistency_tolerance = 0.000001\n    algebraic_initialization = newton\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        for name in ["newton_result", "dae_result"] {
+            assert!(report.inferred_declarations.iter().any(|declaration| {
+                declaration.name == name
+                    && declaration.quantity_kind == "ComponentSolveResult"
+                    && declaration.expression == "solve component_graph"
+            }));
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_newton_and_dae_component_solve_options() {
+        let report = check_source(
+            "bad.eng",
+            "domain Scalar {\n    across x: DimensionlessNumber [1]\n    through balance: DimensionlessNumber [1]\n    conservation sum(balance) = 0\n}\n\ncomponent ResidualNode {\n    port node: Scalar\n    node.x * node.x eq 2\n}\n\nsystem SourceSolves {\n    node = ResidualNode()\n    connect node.node to node.node\n}\n\nnewton_result = solve component_graph\nwith {\n    solver = newton\n    finite_difference_step = 0\n    damping = 2\n    line_search_steps = 0\n    jacobian = symbolic\n}\n\ndae_result = solve component_graph\nwith {\n    solver = implicit_euler_dae\n    timestep = never\n    duration = none\n    initial_derivative = bad\n    consistency_tolerance = 0\n    algebraic_initialization = maybe\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        for code in [
+            "E-SOLVE-FD-STEP-INVALID",
+            "E-SOLVE-DAMPING-INVALID",
+            "E-SOLVE-LINE-SEARCH-STEPS-INVALID",
+            "E-SOLVE-JACOBIAN-UNSUPPORTED",
+            "E-SOLVE-TIMESTEP-INVALID",
+            "E-SOLVE-DURATION-INVALID",
+            "E-SOLVE-INITIAL-INVALID",
+            "E-SOLVE-CONSISTENCY-TOLERANCE-INVALID",
+            "E-SOLVE-ALGEBRAIC-INITIALIZATION-UNSUPPORTED",
+        ] {
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == code),
+                "missing {code}: {:?}",
+                report.diagnostics
+            );
+        }
+    }
+
+    #[test]
     fn rejects_invalid_component_local_equations() {
         let unknown_signal = check_source(
             "bad.eng",

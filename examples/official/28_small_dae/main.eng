@@ -1,0 +1,33 @@
+domain DaePair package "eng.std.domains.scalar" version "0.1.0" {
+    across x: DimensionlessNumber [1]
+    across z: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component SmallDaeNode {
+    port node: DaePair
+    der(node.x) + node.z eq 0
+    node.z - 2 * node.x eq 0
+}
+
+system SmallDae {
+    node = SmallDaeNode()
+    connect node.node to node.node
+}
+
+dae_result = solve component_graph
+with {
+    solver = implicit_euler_dae
+    timestep = 1 s
+    duration = 2 s
+    initial = 1
+    initial_derivative = -2
+    initial_algebraic = 2
+    tolerance = 0.000000001
+    max_iter = 30
+}
+
+report {
+    show dae_result
+}

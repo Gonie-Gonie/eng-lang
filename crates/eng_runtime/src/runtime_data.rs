@@ -20,15 +20,18 @@ use crate::solver::{
         ComponentEquation, ComponentInstance, ConnectionEdge, ConnectionSet, EquationAssembly,
         GeneratedEquation, PortInstance, UnknownVariable,
     },
-    solve_adaptive_heun_ode, solve_adaptive_state_space, solve_continuous_state_space,
-    solve_discrete_state_space, solve_dynamic_component_assembly, solve_first_order_thermal,
-    solve_fixed_point, solve_fixed_step_ode, solve_linear_residual_graph, AdaptiveOdeOptions,
-    AdaptiveOdeStepReport, DynamicComponentAssemblySolveInput, DynamicComponentOptions,
+    initialize_algebraic_variables, solve_adaptive_heun_ode, solve_adaptive_state_space,
+    solve_continuous_state_space, solve_discrete_state_space, solve_dynamic_component_assembly,
+    solve_first_order_thermal, solve_fixed_point, solve_fixed_step_ode, solve_implicit_euler_dae,
+    solve_linear_residual_graph, solve_newton, solve_newton_with_jacobian, AdaptiveOdeOptions,
+    AdaptiveOdeStepReport, AlgebraicInitializationInput, DaeInput, DaeOptions, DaeSample,
+    DaeVariable, DynamicComponentAssemblySolveInput, DynamicComponentOptions,
     DynamicComponentResult, FirstOrderThermalModel, FixedPointOptions, FixedStepMethod,
-    InputLayout, LayoutEntry, OutputLayout, ParameterLayout, ResidualEvaluator, ResidualGraph,
-    ResidualInput, ResidualOutput, RhsEvaluator, RhsInput, RhsStateInfo, SimulationPlan,
-    SolverFailure, SolverInput, SolverOptions, SolverPlan, SolverResult, SolverScalar,
-    SourceRhsEquation, SourceRhsEvaluator, StateLayout, StateTrajectory, TimeGrid,
+    InputLayout, LayoutEntry, NewtonOptions, OutputLayout, ParameterLayout, ResidualEvaluator,
+    ResidualGraph, ResidualInput, ResidualOutput, RhsEvaluator, RhsInput, RhsStateInfo,
+    SimulationPlan, SolverDiagnostics, SolverFailure, SolverInput, SolverOptions, SolverPlan,
+    SolverResult, SolverScalar, SourceRhsEquation, SourceRhsEvaluator, StateLayout,
+    StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -3003,6 +3006,12 @@ fn materialize_component_solutions(report: &CheckReport) -> Vec<RuntimeComponent
                         fixed_point_initial_value_from_solve_request(&request.options),
                     )
                 }
+                "newton" | "nonlinear_newton" => {
+                    nonlinear_component_solution_from_solve_request(&solver_assembly, &request)
+                }
+                "implicit_euler_dae" | "dae_implicit_euler" => {
+                    dae_component_solution_from_solve_request(&solver_assembly, &request)
+                }
                 "dynamic_component_explicit_euler" | "dynamic_component_semi_implicit_euler" => {
                     dynamic_component_solution_from_solve_request(&solver_assembly, &request)
                 }
@@ -3057,6 +3066,523 @@ fn component_solve_requests(
             })
         })
         .collect()
+}
+
+fn nonlinear_component_solution_from_solve_request(
+    solver_assembly: &EquationAssembly,
+    request: &ComponentSolveRequest,
+) -> RuntimeComponentSolution {
+    let options = newton_options_from_solve_request(&request.options);
+    let tolerance = options.tolerance;
+
+    if !solver_assembly.states.is_empty() {
+        return failed_source_component_solution(
+            solver_assembly,
+            "newton_source_residual_graph",
+            "Newton source solve requires an algebraic-only component residual graph; use implicit_euler_dae for state derivatives",
+            &SolverFailure::new(
+                "E-NEWTON-SOURCE-SHAPE",
+                "source Newton solve cannot solve residual graphs with state derivatives",
+            ),
+            tolerance,
+            options.max_iterations,
+            "newton_source_failed",
+        );
+    }
+    if solver_assembly.generated_equations.is_empty()
+        || solver_assembly.unknowns.is_empty()
+        || solver_assembly.generated_equations.len() != solver_assembly.unknowns.len()
+    {
+        return failed_source_component_solution(
+            solver_assembly,
+            "newton_source_residual_graph",
+            "Newton source solve requires a non-empty square algebraic residual graph",
+            &SolverFailure::new(
+                "E-NEWTON-SOURCE-SHAPE",
+                format!(
+                    "source Newton solve expected a square graph, got {} residual(s) and {} unknown(s)",
+                    solver_assembly.generated_equations.len(),
+                    solver_assembly.unknowns.len()
+                ),
+            ),
+            tolerance,
+            options.max_iterations,
+            "newton_source_failed",
+        );
+    }
+
+    let residual_graph = ResidualGraph::from_assembly(solver_assembly);
+    let initial_values = solver_assembly
+        .unknowns
+        .iter()
+        .map(|variable| {
+            component_initial_value_from_options(&request.options, "initial", variable, 1.0)
+        })
+        .collect::<Result<Vec<_>, SolverFailure>>();
+    let initial_values = match initial_values {
+        Ok(values) => values,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                "newton_source_residual_graph",
+                "Newton source solve initial values could not be materialized",
+                &failure,
+                tolerance,
+                options.max_iterations,
+                "newton_source_failed",
+            );
+        }
+    };
+
+    let jacobian_policy = option_value(&request.options, "jacobian")
+        .map(str::trim)
+        .unwrap_or("finite_difference");
+    let solve_result = if jacobian_policy == "source_linear_terms" {
+        let scaled_jacobian = match source_linear_terms_jacobian(&residual_graph) {
+            Ok(jacobian) => jacobian,
+            Err(failure) => {
+                return failed_source_component_solution(
+                    solver_assembly,
+                    "newton_source_residual_graph_with_provided_jacobian",
+                    "Newton source solve could not materialize the requested source-linear Jacobian hook",
+                    &failure,
+                    tolerance,
+                    options.max_iterations,
+                    "newton_source_failed",
+                );
+            }
+        };
+        solve_newton_with_jacobian(
+            &initial_values,
+            &options,
+            |values| source_algebraic_residual_values(solver_assembly, &residual_graph, values),
+            |_values, _baseline| Ok(scaled_jacobian.clone()),
+        )
+    } else {
+        solve_newton(&initial_values, &options, |values| {
+            source_algebraic_residual_values(solver_assembly, &residual_graph, values)
+        })
+    };
+
+    let newton = match solve_result {
+        Ok(result) => result,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                "newton_source_residual_graph",
+                "Newton source solve failed before iteration",
+                &failure,
+                tolerance,
+                options.max_iterations,
+                "newton_source_failed",
+            );
+        }
+    };
+    let method_name = if jacobian_policy == "source_linear_terms" {
+        "newton_source_residual_graph_with_provided_jacobian"
+    } else {
+        "newton_source_residual_graph"
+    };
+    let evaluation = match source_residual_evaluation_for_unknowns(
+        solver_assembly,
+        &residual_graph,
+        &newton.values,
+        tolerance,
+    ) {
+        Ok(evaluation) => evaluation,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                method_name,
+                "Newton source solve residual evaluation failed after iteration",
+                &failure,
+                tolerance,
+                options.max_iterations,
+                "newton_source_failed",
+            );
+        }
+    };
+    let failed = newton.failure.clone();
+    let status = if failed.is_some() {
+        "newton_not_converged"
+    } else {
+        "solved_nonlinear"
+    };
+    let variable_status = if failed.is_some() {
+        "newton_not_converged"
+    } else {
+        "solved_newton"
+    };
+    let variables = solver_assembly
+        .unknowns
+        .iter()
+        .zip(newton.values.iter())
+        .map(|(variable, value)| RuntimeComponentVariableSolution {
+            name: variable.name.clone(),
+            role: variable.role.clone(),
+            value: *value,
+            unit: variable.unit.clone(),
+            status: variable_status.to_owned(),
+        })
+        .collect::<Vec<_>>();
+    let step_diagnostics = newton_residual_history_diagnostics(&newton, failed.as_ref());
+
+    RuntimeComponentSolution {
+        assembly: solver_assembly.name.clone(),
+        status: status.to_owned(),
+        method: method_name.to_owned(),
+        reason: if failed.is_some() {
+            "Newton source solve returned a failure artifact".to_owned()
+        } else {
+            "Newton source solve executed source-level residual graph".to_owned()
+        },
+        equation_count: solver_assembly.equation_count(),
+        unknown_count: solver_assembly.unknown_count(),
+        residual_norm: evaluation.residual_norm,
+        tolerance,
+        max_iterations: options.max_iterations,
+        iteration_count: newton.iteration_count,
+        convergence_status: newton.convergence_status,
+        variables,
+        trajectories: Vec::new(),
+        step_diagnostics,
+        largest_residuals: largest_component_residuals(&evaluation.residuals),
+        residuals: evaluation.residuals,
+        failure_artifact: failed.map(|failure| RuntimeSolverFailureArtifact {
+            code: failure.code,
+            message: failure.message,
+        }),
+    }
+}
+
+fn dae_component_solution_from_solve_request(
+    solver_assembly: &EquationAssembly,
+    request: &ComponentSolveRequest,
+) -> RuntimeComponentSolution {
+    let method = "implicit_euler_dae_source_residual_graph";
+    let newton_options = newton_options_from_solve_request(&request.options);
+    let tolerance = newton_options.tolerance;
+    let timestep_s =
+        match option_value(&request.options, "timestep").and_then(parse_duration_seconds) {
+            Some(value) => value,
+            None => {
+                return failed_source_component_solution(
+                    solver_assembly,
+                    method,
+                    "DAE source solve requires a positive timestep duration",
+                    &SolverFailure::new(
+                        "E-DAE-SOURCE-TIMESTEP",
+                        "DAE source solve requires a positive timestep duration",
+                    ),
+                    tolerance,
+                    newton_options.max_iterations,
+                    "dae_source_failed",
+                );
+            }
+        };
+    let duration_s =
+        match option_value(&request.options, "duration").and_then(parse_duration_seconds) {
+            Some(value) => value,
+            None => {
+                return failed_source_component_solution(
+                    solver_assembly,
+                    method,
+                    "DAE source solve requires a positive duration",
+                    &SolverFailure::new(
+                        "E-DAE-SOURCE-DURATION",
+                        "DAE source solve requires a positive duration",
+                    ),
+                    tolerance,
+                    newton_options.max_iterations,
+                    "dae_source_failed",
+                );
+            }
+        };
+    let time_grid = match TimeGrid::fixed_step(duration_s, timestep_s) {
+        Ok(grid) => grid,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                method,
+                "DAE source solve time grid could not be materialized",
+                &failure,
+                tolerance,
+                newton_options.max_iterations,
+                "dae_source_failed",
+            );
+        }
+    };
+    let split = match solver_assembly.dynamic_component_split() {
+        Ok(split) => split,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                method,
+                "DAE source solve could not split state and algebraic variables from assembly",
+                &failure,
+                tolerance,
+                newton_options.max_iterations,
+                "dae_source_failed",
+            );
+        }
+    };
+    let residual_graph = ResidualGraph::from_assembly(solver_assembly);
+    let initial_state = match solver_assembly
+        .states
+        .iter()
+        .map(|state| component_initial_value_from_options(&request.options, "initial", state, 0.0))
+        .collect::<Result<Vec<_>, SolverFailure>>()
+    {
+        Ok(values) => values,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                method,
+                "DAE source solve initial state could not be materialized",
+                &failure,
+                tolerance,
+                newton_options.max_iterations,
+                "dae_source_failed",
+            );
+        }
+    };
+    let initial_derivative = option_value(&request.options, "initial_derivative")
+        .and_then(|value| value.trim().parse::<f64>().ok())
+        .filter(|value| value.is_finite())
+        .unwrap_or(0.0);
+    let initial_state_derivatives = vec![initial_derivative; solver_assembly.states.len()];
+    let initial_algebraic_value = option_value(&request.options, "initial_algebraic")
+        .and_then(|value| value.trim().parse::<f64>().ok())
+        .filter(|value| value.is_finite())
+        .unwrap_or(0.0);
+    let mut initial_algebraic =
+        vec![initial_algebraic_value; solver_assembly.algebraic_variables.len()];
+    let algebraic_initialization = option_value(&request.options, "algebraic_initialization")
+        .map(str::trim)
+        .unwrap_or("newton");
+    if algebraic_initialization == "newton" && !initial_algebraic.is_empty() {
+        let initialized = initialize_algebraic_variables(
+            AlgebraicInitializationInput {
+                state: &initial_state,
+                state_derivative: &initial_state_derivatives,
+                algebraic_guess: &initial_algebraic,
+                inputs: &[],
+                parameters: &[],
+                time_s: 0.0,
+            },
+            &newton_options,
+            |sample| {
+                source_dae_residual_values(
+                    solver_assembly,
+                    &residual_graph,
+                    sample,
+                    SourceResidualSubset::AlgebraicOnly,
+                )
+            },
+        );
+        match initialized {
+            Ok(result) if result.failure.is_none() => {
+                initial_algebraic = result.values;
+            }
+            Ok(result) => {
+                let failure = result.failure.unwrap_or_else(|| {
+                    SolverFailure::new(
+                        "E-DAE-ALGEBRAIC-INITIALIZATION",
+                        "DAE algebraic initialization did not converge",
+                    )
+                });
+                return failed_source_component_solution(
+                    solver_assembly,
+                    method,
+                    "DAE source solve algebraic initialization failed",
+                    &failure,
+                    tolerance,
+                    newton_options.max_iterations,
+                    "dae_source_failed",
+                );
+            }
+            Err(failure) => {
+                return failed_source_component_solution(
+                    solver_assembly,
+                    method,
+                    "DAE source solve algebraic initialization could not be evaluated",
+                    &failure,
+                    tolerance,
+                    newton_options.max_iterations,
+                    "dae_source_failed",
+                );
+            }
+        }
+    }
+
+    let consistency_tolerance = option_value(&request.options, "consistency_tolerance")
+        .and_then(|value| value.trim().parse::<f64>().ok())
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .unwrap_or(tolerance);
+    let dae_input = DaeInput {
+        states: solver_assembly
+            .states
+            .iter()
+            .zip(initial_state.iter().copied())
+            .map(|(state, initial)| DaeVariable::new(state.name.clone(), initial))
+            .collect(),
+        initial_state_derivatives,
+        algebraic: solver_assembly
+            .algebraic_variables
+            .iter()
+            .zip(initial_algebraic.iter().copied())
+            .map(|(variable, initial)| DaeVariable::new(variable.name.clone(), initial))
+            .collect(),
+        inputs: Vec::new(),
+        parameters: Vec::new(),
+    };
+    let dae_options = DaeOptions {
+        timestep_s,
+        step_count: time_grid.step_count,
+        consistency_tolerance,
+        newton: newton_options.clone(),
+        mass_matrix: None,
+        ..DaeOptions::default()
+    };
+    let dae = solve_implicit_euler_dae(&dae_input, &dae_options, |sample| {
+        source_dae_residual_values(
+            solver_assembly,
+            &residual_graph,
+            sample,
+            SourceResidualSubset::All,
+        )
+    });
+    let dae = match dae {
+        Ok(result) => result,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                method,
+                "DAE source solve failed during initial consistency checks",
+                &failure,
+                tolerance,
+                newton_options.max_iterations,
+                "dae_source_failed",
+            );
+        }
+    };
+
+    let state_trajectories = dae
+        .state_trajectories
+        .iter()
+        .filter_map(|trajectory| {
+            solver_assembly
+                .states
+                .iter()
+                .find(|state| state.name == trajectory.name)
+                .map(|state| StateTrajectory {
+                    name: trajectory.name.clone(),
+                    quantity_kind: state.quantity_kind.clone(),
+                    canonical_unit: state.unit.clone(),
+                    values: trajectory.values.clone(),
+                })
+        })
+        .collect::<Vec<_>>();
+    let algebraic_trajectories = dae
+        .algebraic_trajectories
+        .iter()
+        .filter_map(|trajectory| {
+            solver_assembly
+                .algebraic_variables
+                .iter()
+                .find(|variable| variable.name == trajectory.name)
+                .map(|variable| StateTrajectory {
+                    name: trajectory.name.clone(),
+                    quantity_kind: variable.quantity_kind.clone(),
+                    canonical_unit: variable.unit.clone(),
+                    values: trajectory.values.clone(),
+                })
+        })
+        .collect::<Vec<_>>();
+    let diagnostics = SolverDiagnostics {
+        status: if dae.failure.is_some() {
+            "failed".to_owned()
+        } else {
+            "computed".to_owned()
+        },
+        convergence_status: dae.convergence_status.clone(),
+        failure: dae.failure.clone(),
+        iteration_count: dae
+            .step_reports
+            .iter()
+            .map(|report| report.newton.iteration_count)
+            .sum(),
+        tolerance,
+        max_iterations: newton_options.max_iterations,
+    };
+    let solver_result = SolverResult {
+        plan: SolverPlan::new(
+            solver_assembly.name.clone(),
+            SimulationPlan {
+                inputs: Vec::new(),
+                outputs: layout_names_from_unknowns(&solver_assembly.states),
+                states: layout_names_from_unknowns(&solver_assembly.states),
+                parameters: Vec::new(),
+            },
+            SolverOptions {
+                method: method.to_owned(),
+                timestep_s,
+                tolerance,
+                max_iterations: newton_options.max_iterations,
+            },
+        ),
+        time_grid: time_grid.clone(),
+        state_layout: split.state_layout.clone(),
+        output_layout: OutputLayout {
+            entries: split.state_layout.entries.clone(),
+        },
+        output: crate::solver::SolverOutput {
+            state_trajectories,
+            algebraic_trajectories,
+        },
+        diagnostics,
+    };
+    let mut solution = RuntimeComponentSolution::from_dynamic_solver_result(
+        &solver_assembly.name,
+        &solver_result,
+        "DAE source solve executed source-level residual graph with identity mass-matrix fallback",
+    );
+    solution.equation_count = solver_assembly.equation_count();
+    solution.unknown_count = solver_assembly.unknown_count();
+    solution.step_diagnostics = dae
+        .step_reports
+        .iter()
+        .map(|report| RuntimeComponentStepDiagnostic {
+            step_index: report.step_index,
+            time_s: report.time_s,
+            algebraic_iteration_count: report.newton.iteration_count,
+            residual_norm: report
+                .newton
+                .residual_history
+                .last()
+                .copied()
+                .unwrap_or(f64::INFINITY),
+            convergence_status: report.newton.convergence_status.clone(),
+            failure_artifact: report.newton.failure.as_ref().map(|failure| {
+                RuntimeSolverFailureArtifact {
+                    code: failure.code.clone(),
+                    message: failure.message.clone(),
+                }
+            }),
+        })
+        .collect();
+    if let Ok(evaluation) = source_residual_evaluation_for_dae_final(
+        solver_assembly,
+        &residual_graph,
+        &dae_input,
+        &solver_result,
+        tolerance,
+    ) {
+        solution.residual_norm = evaluation.residual_norm;
+        solution.residuals = evaluation.residuals;
+        solution.largest_residuals = largest_component_residuals(&solution.residuals);
+    }
+    solution
 }
 
 fn dynamic_component_solution_from_solve_request(
@@ -3299,6 +3825,707 @@ fn failed_dynamic_component_source_solution(
             code: failure.code.clone(),
             message: failure.message.clone(),
         }),
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SourceResidualSubset {
+    All,
+    AlgebraicOnly,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct SourceResidualEvaluation {
+    residuals: Vec<RuntimeComponentResidualEvaluation>,
+    normalized_values: Vec<f64>,
+    residual_norm: f64,
+}
+
+fn source_algebraic_residual_values(
+    assembly: &EquationAssembly,
+    graph: &ResidualGraph,
+    values: &[f64],
+) -> Result<Vec<f64>, SolverFailure> {
+    source_residual_evaluation_for_unknowns(assembly, graph, values, DEFAULT_NEWTON_TOLERANCE)
+        .map(|evaluation| evaluation.normalized_values)
+}
+
+const DEFAULT_NEWTON_TOLERANCE: f64 = 1e-9;
+
+fn source_residual_evaluation_for_unknowns(
+    assembly: &EquationAssembly,
+    graph: &ResidualGraph,
+    values: &[f64],
+    tolerance: f64,
+) -> Result<SourceResidualEvaluation, SolverFailure> {
+    if values.len() != assembly.unknowns.len() {
+        return Err(SolverFailure::new(
+            "E-SOURCE-RESIDUAL-LAYOUT",
+            "source residual value vector length does not match assembly unknown count",
+        ));
+    }
+    let symbols = assembly
+        .unknowns
+        .iter()
+        .zip(values.iter().copied())
+        .map(|(variable, value)| (variable.name.clone(), value))
+        .collect::<HashMap<_, _>>();
+    source_residual_evaluation_with_symbols(
+        assembly,
+        graph,
+        &symbols,
+        tolerance,
+        SourceResidualSubset::All,
+    )
+}
+
+fn source_dae_residual_values(
+    assembly: &EquationAssembly,
+    graph: &ResidualGraph,
+    sample: DaeSample<'_>,
+    subset: SourceResidualSubset,
+) -> Result<Vec<f64>, SolverFailure> {
+    source_residual_evaluation_for_dae_sample(
+        assembly,
+        graph,
+        sample,
+        DEFAULT_NEWTON_TOLERANCE,
+        subset,
+    )
+    .map(|evaluation| evaluation.normalized_values)
+}
+
+fn source_residual_evaluation_for_dae_sample(
+    assembly: &EquationAssembly,
+    graph: &ResidualGraph,
+    sample: DaeSample<'_>,
+    tolerance: f64,
+    subset: SourceResidualSubset,
+) -> Result<SourceResidualEvaluation, SolverFailure> {
+    if sample.state.len() != assembly.states.len()
+        || sample.state_derivative.len() != assembly.states.len()
+        || sample.algebraic.len() != assembly.algebraic_variables.len()
+    {
+        return Err(SolverFailure::new(
+            "E-SOURCE-RESIDUAL-LAYOUT",
+            "source DAE residual sample layout does not match assembly state/algebraic split",
+        ));
+    }
+    let mut symbols = HashMap::new();
+    symbols.insert("t".to_owned(), sample.time_s);
+    symbols.insert("time".to_owned(), sample.time_s);
+    for (state, value) in assembly.states.iter().zip(sample.state.iter().copied()) {
+        symbols.insert(state.name.clone(), value);
+    }
+    for (state, value) in assembly
+        .states
+        .iter()
+        .zip(sample.state_derivative.iter().copied())
+    {
+        symbols.insert(format!("der({})", state.name), value);
+    }
+    for (variable, value) in assembly
+        .algebraic_variables
+        .iter()
+        .zip(sample.algebraic.iter().copied())
+    {
+        symbols.insert(variable.name.clone(), value);
+    }
+    source_residual_evaluation_with_symbols(assembly, graph, &symbols, tolerance, subset)
+}
+
+fn source_residual_evaluation_for_dae_final(
+    assembly: &EquationAssembly,
+    graph: &ResidualGraph,
+    input: &DaeInput,
+    solver_result: &SolverResult,
+    tolerance: f64,
+) -> Result<SourceResidualEvaluation, SolverFailure> {
+    let state = solver_result
+        .output
+        .state_trajectories
+        .iter()
+        .map(|trajectory| trajectory.values.last().copied().unwrap_or(0.0))
+        .collect::<Vec<_>>();
+    let state_derivative = solver_result
+        .output
+        .state_trajectories
+        .iter()
+        .enumerate()
+        .map(|(index, trajectory)| {
+            if trajectory.values.len() >= 2 {
+                let last = trajectory.values[trajectory.values.len() - 1];
+                let previous = trajectory.values[trajectory.values.len() - 2];
+                (last - previous) / solver_result.time_grid.timestep_s
+            } else {
+                input
+                    .initial_state_derivatives
+                    .get(index)
+                    .copied()
+                    .unwrap_or(0.0)
+            }
+        })
+        .collect::<Vec<_>>();
+    let algebraic = solver_result
+        .output
+        .algebraic_trajectories
+        .iter()
+        .map(|trajectory| trajectory.values.last().copied().unwrap_or(0.0))
+        .collect::<Vec<_>>();
+    source_residual_evaluation_for_dae_sample(
+        assembly,
+        graph,
+        DaeSample {
+            time_s: solver_result.time_grid.duration_s,
+            state: &state,
+            state_derivative: &state_derivative,
+            mass_state_derivative: None,
+            algebraic: &algebraic,
+            inputs: &[],
+            parameters: &[],
+        },
+        tolerance,
+        SourceResidualSubset::All,
+    )
+}
+
+fn source_residual_evaluation_with_symbols(
+    assembly: &EquationAssembly,
+    graph: &ResidualGraph,
+    symbols: &HashMap<String, f64>,
+    tolerance: f64,
+    subset: SourceResidualSubset,
+) -> Result<SourceResidualEvaluation, SolverFailure> {
+    if !tolerance.is_finite() || tolerance <= 0.0 {
+        return Err(SolverFailure::new(
+            "E-SOURCE-RESIDUAL-TOLERANCE",
+            "source residual tolerance must be a positive finite number",
+        ));
+    }
+    let metadata = graph
+        .residuals
+        .iter()
+        .map(|residual| (residual.name.as_str(), residual))
+        .collect::<HashMap<_, _>>();
+    let mut residuals = Vec::new();
+    let mut normalized_values = Vec::new();
+    for equation in &assembly.generated_equations {
+        if subset == SourceResidualSubset::AlgebraicOnly
+            && equation
+                .dependencies
+                .iter()
+                .any(|dependency| dependency.trim().starts_with("der("))
+        {
+            continue;
+        }
+        let raw_expression_value =
+            evaluate_source_arithmetic_expression(&equation.residual, symbols).map_err(
+                |failure| {
+                    SolverFailure::new(
+                        failure.code,
+                        format!("{} in residual `{}`", failure.message, equation.name),
+                    )
+                },
+            )?;
+        let value = raw_expression_value - equation.rhs_value.unwrap_or(0.0);
+        if !value.is_finite() {
+            return Err(SolverFailure::new(
+                "E-SOURCE-RESIDUAL-FINITE",
+                format!(
+                    "source residual `{}` evaluated to a non-finite value",
+                    equation.name
+                ),
+            ));
+        }
+        let Some(residual_metadata) = metadata.get(equation.name.as_str()) else {
+            return Err(SolverFailure::new(
+                "E-SOURCE-RESIDUAL-METADATA",
+                format!(
+                    "source residual `{}` has no residual graph metadata",
+                    equation.name
+                ),
+            ));
+        };
+        let scale = residual_metadata.scale.value;
+        if !scale.is_finite() || scale <= 0.0 {
+            return Err(SolverFailure::new(
+                "E-SOURCE-RESIDUAL-SCALE",
+                format!("source residual `{}` has an invalid scale", equation.name),
+            ));
+        }
+        let normalized_value = value / scale.max(f64::EPSILON);
+        if !normalized_value.is_finite() {
+            return Err(SolverFailure::new(
+                "E-SOURCE-RESIDUAL-FINITE",
+                format!(
+                    "source residual `{}` normalized value is non-finite",
+                    equation.name
+                ),
+            ));
+        }
+        normalized_values.push(normalized_value);
+        residuals.push(RuntimeComponentResidualEvaluation {
+            name: equation.name.clone(),
+            expression: equation.residual.clone(),
+            value,
+            unit: residual_metadata.unit.unit.clone(),
+            normalized_value,
+            scale,
+            scale_policy: residual_metadata.scale.policy.clone(),
+            status: if normalized_value.abs() <= tolerance {
+                "satisfied".to_owned()
+            } else {
+                "unsatisfied".to_owned()
+            },
+        });
+    }
+    if residuals.is_empty() {
+        return Err(SolverFailure::new(
+            "E-SOURCE-RESIDUAL-SHAPE",
+            "source residual evaluation selected no residual equations",
+        ));
+    }
+    let residual_norm = crate::solver::euclidean_norm(&normalized_values);
+    if !residual_norm.is_finite() {
+        return Err(SolverFailure::new(
+            "E-SOURCE-RESIDUAL-FINITE",
+            "source residual norm is non-finite",
+        ));
+    }
+    Ok(SourceResidualEvaluation {
+        residuals,
+        normalized_values,
+        residual_norm,
+    })
+}
+
+fn source_linear_terms_jacobian(graph: &ResidualGraph) -> Result<Vec<Vec<f64>>, SolverFailure> {
+    let system = graph.assemble_linear_system()?;
+    Ok(system
+        .matrix
+        .iter()
+        .zip(graph.residuals.iter())
+        .map(|(row, residual)| {
+            row.iter()
+                .map(|value| value / residual.scale.value.max(f64::EPSILON))
+                .collect::<Vec<_>>()
+        })
+        .collect())
+}
+
+fn newton_options_from_solve_request(options: &[eng_compiler::WithOptionInfo]) -> NewtonOptions {
+    let mut newton = NewtonOptions::default();
+    if let Some(tolerance) = option_value(options, "tolerance")
+        .and_then(|value| value.trim().parse::<f64>().ok())
+        .filter(|value| value.is_finite() && *value > 0.0)
+    {
+        newton.tolerance = tolerance;
+    }
+    if let Some(max_iterations) = option_value(options, "max_iter")
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .filter(|value| *value > 0)
+    {
+        newton.max_iterations = max_iterations;
+    }
+    if let Some(step) = option_value(options, "finite_difference_step")
+        .and_then(|value| value.trim().parse::<f64>().ok())
+        .filter(|value| value.is_finite() && *value > 0.0)
+    {
+        newton.finite_difference_step = step;
+    }
+    if let Some(damping) = option_value(options, "damping")
+        .and_then(|value| value.trim().parse::<f64>().ok())
+        .filter(|value| value.is_finite() && *value > 0.0 && *value <= 1.0)
+    {
+        newton.damping = damping;
+    }
+    if let Some(steps) = option_value(options, "line_search_steps")
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .filter(|value| *value > 0)
+    {
+        newton.line_search_steps = steps;
+    }
+    newton
+}
+
+fn newton_residual_history_diagnostics(
+    newton: &crate::solver::NewtonResult,
+    failure: Option<&SolverFailure>,
+) -> Vec<RuntimeComponentStepDiagnostic> {
+    newton
+        .residual_history
+        .iter()
+        .enumerate()
+        .map(|(index, residual_norm)| RuntimeComponentStepDiagnostic {
+            step_index: index,
+            time_s: 0.0,
+            algebraic_iteration_count: index,
+            residual_norm: *residual_norm,
+            convergence_status: if index + 1 == newton.residual_history.len() {
+                newton.convergence_status.clone()
+            } else {
+                "newton_iteration".to_owned()
+            },
+            failure_artifact: (index + 1 == newton.residual_history.len())
+                .then(|| failure)
+                .flatten()
+                .map(|failure| RuntimeSolverFailureArtifact {
+                    code: failure.code.clone(),
+                    message: failure.message.clone(),
+                }),
+        })
+        .collect()
+}
+
+fn failed_source_component_solution(
+    assembly: &EquationAssembly,
+    method: &str,
+    reason: &str,
+    failure: &SolverFailure,
+    tolerance: f64,
+    max_iterations: usize,
+    convergence_status: &str,
+) -> RuntimeComponentSolution {
+    let variables = assembly
+        .unknowns
+        .iter()
+        .map(|variable| RuntimeComponentVariableSolution {
+            name: variable.name.clone(),
+            role: variable.role.clone(),
+            value: 0.0,
+            unit: variable.unit.clone(),
+            status: "source_solve_failed".to_owned(),
+        })
+        .collect::<Vec<_>>();
+    RuntimeComponentSolution {
+        assembly: assembly.name.clone(),
+        status: "failed".to_owned(),
+        method: method.to_owned(),
+        reason: reason.to_owned(),
+        equation_count: assembly.equation_count(),
+        unknown_count: assembly.unknown_count(),
+        residual_norm: f64::INFINITY,
+        tolerance,
+        max_iterations,
+        iteration_count: 0,
+        convergence_status: convergence_status.to_owned(),
+        variables,
+        trajectories: Vec::new(),
+        step_diagnostics: Vec::new(),
+        residuals: Vec::new(),
+        largest_residuals: Vec::new(),
+        failure_artifact: Some(RuntimeSolverFailureArtifact {
+            code: failure.code.clone(),
+            message: failure.message.clone(),
+        }),
+    }
+}
+
+fn layout_names_from_unknowns(variables: &[UnknownVariable]) -> Vec<String> {
+    variables
+        .iter()
+        .map(|variable| variable.name.clone())
+        .collect()
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum SourceExpressionToken {
+    Number(f64),
+    Identifier(String),
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    LeftParen,
+    RightParen,
+}
+
+fn evaluate_source_arithmetic_expression(
+    expression: &str,
+    symbols: &HashMap<String, f64>,
+) -> Result<f64, SolverFailure> {
+    let (rewritten, alias_values) = rewrite_derivative_symbols(expression, symbols);
+    let tokens = tokenize_source_expression(&rewritten)?;
+    let mut parser = SourceExpressionParser {
+        tokens,
+        position: 0,
+        symbols,
+        alias_values: &alias_values,
+    };
+    let value = parser.parse_expression()?;
+    if parser.position != parser.tokens.len() {
+        return Err(SolverFailure::new(
+            "E-SOURCE-EXPR-PARSE",
+            format!("unsupported source residual expression near `{expression}`"),
+        ));
+    }
+    if !value.is_finite() {
+        return Err(SolverFailure::new(
+            "E-SOURCE-EXPR-FINITE",
+            format!("source residual expression `{expression}` produced a non-finite value"),
+        ));
+    }
+    Ok(value)
+}
+
+fn rewrite_derivative_symbols(
+    expression: &str,
+    symbols: &HashMap<String, f64>,
+) -> (String, HashMap<String, f64>) {
+    let mut rewritten = expression.to_owned();
+    let mut alias_values = HashMap::new();
+    let mut derivative_symbols = symbols
+        .iter()
+        .filter(|(name, _)| name.starts_with("der(") && name.ends_with(')'))
+        .collect::<Vec<_>>();
+    derivative_symbols.sort_by_key(|(name, _)| std::cmp::Reverse(name.len()));
+    for (index, (name, value)) in derivative_symbols.into_iter().enumerate() {
+        let alias = format!("__derivative_{index}");
+        rewritten = rewritten.replace(name.as_str(), &alias);
+        alias_values.insert(alias, *value);
+    }
+    (rewritten, alias_values)
+}
+
+fn tokenize_source_expression(
+    expression: &str,
+) -> Result<Vec<SourceExpressionToken>, SolverFailure> {
+    let chars = expression.chars().collect::<Vec<_>>();
+    let mut tokens = Vec::new();
+    let mut index = 0;
+    while index < chars.len() {
+        let character = chars[index];
+        if character.is_ascii_whitespace() {
+            index += 1;
+            continue;
+        }
+        match character {
+            '+' => {
+                tokens.push(SourceExpressionToken::Plus);
+                index += 1;
+            }
+            '-' => {
+                tokens.push(SourceExpressionToken::Minus);
+                index += 1;
+            }
+            '*' => {
+                tokens.push(SourceExpressionToken::Star);
+                index += 1;
+            }
+            '/' => {
+                tokens.push(SourceExpressionToken::Slash);
+                index += 1;
+            }
+            '(' => {
+                tokens.push(SourceExpressionToken::LeftParen);
+                index += 1;
+            }
+            ')' => {
+                tokens.push(SourceExpressionToken::RightParen);
+                index += 1;
+            }
+            _ if character.is_ascii_digit()
+                || character == '.'
+                    && chars
+                        .get(index + 1)
+                        .is_some_and(|next| next.is_ascii_digit()) =>
+            {
+                let start = index;
+                index += 1;
+                while index < chars.len() {
+                    let current = chars[index];
+                    if current.is_ascii_digit() || current == '.' {
+                        index += 1;
+                    } else if matches!(current, 'e' | 'E') {
+                        index += 1;
+                        if chars
+                            .get(index)
+                            .is_some_and(|next| matches!(next, '+' | '-'))
+                        {
+                            index += 1;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                let literal = chars[start..index].iter().collect::<String>();
+                let value = literal.parse::<f64>().map_err(|_| {
+                    SolverFailure::new(
+                        "E-SOURCE-EXPR-PARSE",
+                        format!(
+                            "invalid numeric literal `{literal}` in source residual expression"
+                        ),
+                    )
+                })?;
+                tokens.push(SourceExpressionToken::Number(value));
+                index = consume_optional_source_unit_suffix(&chars, index);
+            }
+            _ if is_source_identifier_start(character) => {
+                let start = index;
+                index += 1;
+                while index < chars.len() && is_source_identifier_continue(chars[index]) {
+                    index += 1;
+                }
+                tokens.push(SourceExpressionToken::Identifier(
+                    chars[start..index].iter().collect(),
+                ));
+            }
+            _ => {
+                return Err(SolverFailure::new(
+                    "E-SOURCE-EXPR-PARSE",
+                    format!("unsupported character `{character}` in source residual expression"),
+                ));
+            }
+        }
+    }
+    Ok(tokens)
+}
+
+fn consume_optional_source_unit_suffix(chars: &[char], index: usize) -> usize {
+    let mut cursor = index;
+    let mut saw_whitespace = false;
+    while chars
+        .get(cursor)
+        .is_some_and(|character| character.is_ascii_whitespace())
+    {
+        saw_whitespace = true;
+        cursor += 1;
+    }
+    if !saw_whitespace {
+        return index;
+    }
+
+    let suffix_start = cursor;
+    while let Some(character) = chars.get(cursor) {
+        if character.is_ascii_whitespace() || matches!(character, '+' | '-' | '*' | '(' | ')') {
+            break;
+        }
+        if *character == '/' || character.is_ascii_alphanumeric() || *character == '°' {
+            cursor += 1;
+        } else {
+            break;
+        }
+    }
+    let suffix = chars[suffix_start..cursor].iter().collect::<String>();
+    if !suffix.is_empty()
+        && suffix
+            .chars()
+            .any(|character| character.is_ascii_alphabetic() || character == '°')
+    {
+        cursor
+    } else {
+        index
+    }
+}
+
+fn is_source_identifier_start(character: char) -> bool {
+    character.is_ascii_alphabetic() || character == '_'
+}
+
+fn is_source_identifier_continue(character: char) -> bool {
+    character.is_ascii_alphanumeric() || character == '_' || character == '.'
+}
+
+struct SourceExpressionParser<'a> {
+    tokens: Vec<SourceExpressionToken>,
+    position: usize,
+    symbols: &'a HashMap<String, f64>,
+    alias_values: &'a HashMap<String, f64>,
+}
+
+impl SourceExpressionParser<'_> {
+    fn parse_expression(&mut self) -> Result<f64, SolverFailure> {
+        let mut value = self.parse_term()?;
+        loop {
+            match self.peek() {
+                Some(SourceExpressionToken::Plus) => {
+                    self.position += 1;
+                    value += self.parse_term()?;
+                }
+                Some(SourceExpressionToken::Minus) => {
+                    self.position += 1;
+                    value -= self.parse_term()?;
+                }
+                _ => return Ok(value),
+            }
+        }
+    }
+
+    fn parse_term(&mut self) -> Result<f64, SolverFailure> {
+        let mut value = self.parse_factor()?;
+        loop {
+            match self.peek() {
+                Some(SourceExpressionToken::Star) => {
+                    self.position += 1;
+                    value *= self.parse_factor()?;
+                }
+                Some(SourceExpressionToken::Slash) => {
+                    self.position += 1;
+                    let divisor = self.parse_factor()?;
+                    if divisor.abs() <= f64::EPSILON {
+                        return Err(SolverFailure::new(
+                            "E-SOURCE-EXPR-DIVIDE-BY-ZERO",
+                            "source residual expression attempted division by zero",
+                        ));
+                    }
+                    value /= divisor;
+                }
+                _ => return Ok(value),
+            }
+        }
+    }
+
+    fn parse_factor(&mut self) -> Result<f64, SolverFailure> {
+        let Some(token) = self.next().cloned() else {
+            return Err(SolverFailure::new(
+                "E-SOURCE-EXPR-PARSE",
+                "source residual expression ended unexpectedly",
+            ));
+        };
+        match token {
+            SourceExpressionToken::Number(value) => Ok(value),
+            SourceExpressionToken::Identifier(name) => self.symbol_value(&name).ok_or_else(|| {
+                SolverFailure::new(
+                    "E-SOURCE-SYMBOL-UNRESOLVED",
+                    format!("source residual expression references unknown symbol `{name}`"),
+                )
+            }),
+            SourceExpressionToken::Minus => Ok(-self.parse_factor()?),
+            SourceExpressionToken::Plus => self.parse_factor(),
+            SourceExpressionToken::LeftParen => {
+                let value = self.parse_expression()?;
+                match self.next() {
+                    Some(SourceExpressionToken::RightParen) => Ok(value),
+                    _ => Err(SolverFailure::new(
+                        "E-SOURCE-EXPR-PARSE",
+                        "source residual expression has an unclosed parenthesis",
+                    )),
+                }
+            }
+            _ => Err(SolverFailure::new(
+                "E-SOURCE-EXPR-PARSE",
+                "source residual expression expected a value",
+            )),
+        }
+    }
+
+    fn symbol_value(&self, name: &str) -> Option<f64> {
+        self.alias_values
+            .get(name)
+            .copied()
+            .or_else(|| self.symbols.get(name).copied())
+    }
+
+    fn peek(&self) -> Option<&SourceExpressionToken> {
+        self.tokens.get(self.position)
+    }
+
+    fn next(&mut self) -> Option<&SourceExpressionToken> {
+        let token = self.tokens.get(self.position);
+        if token.is_some() {
+            self.position += 1;
+        }
+        token
     }
 }
 

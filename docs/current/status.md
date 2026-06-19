@@ -154,11 +154,13 @@ by the stable breaking-change policy.
   fixed-point source solve over linear ResidualGraph equations in
   `examples/official/25_fixed_point_loop`, and a simple-linear dynamic
   component source solve in `examples/official/26_dynamic_component_room`.
-  Constructor arguments, nonlinear or
+  Narrow dimensionless source Newton and implicit-Euler DAE component residual
+  smokes are covered by `examples/official/27_nonlinear_algebraic` and
+  `examples/official/28_small_dae`. Constructor arguments, broad nonlinear or
   unit-parameterized component-local equations, broad fixed-point/nonlinear
-  source solving, behavior-node solving, nonlinear/DAE coupling, adaptive
-  component timestepping, and production multi-domain solving remain planned or
-  internal.
+  source solving, behavior-node solving, broad nonlinear/DAE coupling,
+  adaptive component timestepping, and production multi-domain solving remain
+  planned or internal.
 - Class/domain object authoring for typed fields/defaults, object literals,
   nested object references, field access metadata, simple validation blocks,
   zero-argument metadata methods, immutable copy-with metadata, diagnostics,
@@ -230,7 +232,21 @@ are not public stable workflows.
   `examples/official/26_dynamic_component_room`,
   `tests/runtime/dynamic_component_explicit.eng`,
   `tests/runtime/dynamic_component_semi_implicit.eng`, and
-  `tests/diagnostics/dynamic_component_nonconvergence.eng`. The solver API also
+  `tests/diagnostics/dynamic_component_nonconvergence.eng`. The runtime also
+  has narrow source bridges from component `EquationAssembly` residuals to
+  Newton and implicit-Euler DAE solves. The Newton bridge evaluates source
+  residual expressions directly, scales residuals, uses finite-difference
+  Jacobian by default, supports the `source_linear_terms` Jacobian hook for
+  linear residual graphs, records residual history through step diagnostics,
+  and is covered by `examples/official/27_nonlinear_algebraic`,
+  `tests/runtime/nonlinear_residual_from_source.eng`, and
+  `tests/diagnostics/newton_nonconvergence.eng`. The DAE bridge derives the
+  state/algebraic split from assembly variables, builds `DaeInput`, applies
+  Newton algebraic initialization, uses identity mass-matrix fallback, records
+  state/algebraic trajectories and per-step Newton diagnostics, and is covered
+  by `examples/official/28_small_dae`,
+  `tests/runtime/small_dae_from_source.eng`, and
+  `tests/diagnostics/dae_inconsistent_initial.eng`. The solver API also
   has an internal adaptive Heun/Euler ODE seed that preserves fixed output-grid
   trajectories while adapting internal substeps and reporting accepted/rejected
   substep diagnostics through system result/report/review artifacts; the
@@ -248,11 +264,9 @@ are not public stable workflows.
   state/algebraic trajectory summaries, trajectory points, RuntimeTimeSeries
   materialization, tolerance, max-iteration, timestep diagnostics, per-step
   nonconvergence/failure artifacts, and IDE TimeSeries/solver-inspector rows
-  from that `SolverResult` adapter. Newton/DAE seeds and broad adaptive solving
-  beyond the narrow thermal/state-space adaptive paths are not wired into
-  language-level nonlinear systems; dynamic component source solving is limited
-  to simple-linear component residuals and is not a production multi-domain
-  component simulation workflow.
+  from that `SolverResult` adapter. Broad adaptive solving and production
+  nonlinear/DAE/component workflows beyond the narrow source residual smokes are
+  not supported.
 - Behavior graph seeds: solver-API runtime delay buffer with linear and
   previous-sample interpolation policies, explicit initial-history policy,
   relationship artifact, solver-style behavior-node evaluation, delay-driven
@@ -314,10 +328,11 @@ are not public stable workflows.
 - General table formulas and arbitrary TimeSeries expression execution.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
-- General nonlinear, DAE, broad adaptive, and general multi-state equation
-  solving outside the current one-state thermal adaptive path, internal
-  fixed-step/adaptive state-space paths, and standalone runtime algorithm
-  seeds.
+- General nonlinear/DAE simulation, broad adaptive, and general multi-state
+  equation solving outside the current one-state thermal adaptive path,
+  supported two-state source-equation path, narrow component residual
+  Newton/DAE smokes, internal fixed-step/adaptive state-space paths, and
+  standalone runtime algorithm seeds.
 - Stable-supported state-space workflow boundaries beyond the current internal
   fixed-step vector simulation path.
 - Component graph solving beyond the constrained Thermal boundary assembly:
@@ -341,9 +356,11 @@ are not public stable workflows.
 - General quantity rules for all statistics are not complete.
 - Plot semantics beyond current PlotSpec paths need custom histogram bin
   counts, grouped/stacked bar hardening, and broader multi-axis semantics.
-- General multi-state equation-system, nonlinear, broad adaptive, or general
-  equation-system solving is deferred outside the one-state thermal
-  `adaptive_heun` path and internal state-space seeds.
+- General multi-state equation-system, broad nonlinear/DAE simulation, broad
+  adaptive, or general equation-system solving is deferred outside the
+  one-state thermal `adaptive_heun` path, the two-state source-equation path,
+  the narrow component residual Newton/DAE smokes, and internal state-space
+  seeds.
 - Production numeric component graph solving beyond the constrained Thermal
   boundary assembly, physical multi-domain solving, and domain package
   registries are deferred.

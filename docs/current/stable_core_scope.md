@@ -73,12 +73,15 @@ preserved:
 - Production component graph numeric solving and physical multi-domain solving.
   The constrained Thermal component boundary assembly is a supported scoped
   addition, the narrow fixed-point ResidualGraph source path is a supported
-  scoped addition, and the simple-linear dynamic component source path is a
-  supported scoped addition; none of them are stable-core claims.
-- DAE, nonlinear, broad adaptive, or general multi-state equation solving. The
-  one-state thermal `adaptive_heun` path, the supported two-state
-  source-equation fixed-step path, and internal state-space seeds are outside
-  the stable-core claim.
+  scoped addition, the simple-linear dynamic component source path is a
+  supported scoped addition, and the narrow source Newton/implicit-Euler DAE
+  component residual smokes are supported scoped additions; none of them are
+  stable-core claims.
+- Broad nonlinear/DAE simulation, broad adaptive, or general multi-state
+  equation solving. The one-state thermal `adaptive_heun` path, the supported
+  two-state source-equation fixed-step path, the narrow source
+  Newton/implicit-Euler DAE component residual smokes, and internal
+  state-space seeds are outside the stable-core claim.
 - LSP/VS Code as a stable persistent editor-service contract.
 - Native JIT/AOT execution or speedup claims.
 - Domain package registry or open component ecosystem.

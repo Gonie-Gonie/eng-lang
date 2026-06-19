@@ -1,0 +1,27 @@
+domain NonlinearScalar {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component NonlinearNode {
+    port node: NonlinearScalar
+    node.x * node.x eq 2
+}
+
+system NewtonNonconvergence {
+    node = NonlinearNode()
+    connect node.node to node.node
+}
+
+nonlinear_result = solve component_graph
+with {
+    solver = newton
+    initial = 10
+    tolerance = 0.000000000000001
+    max_iter = 1
+}
+
+report {
+    show nonlinear_result
+}

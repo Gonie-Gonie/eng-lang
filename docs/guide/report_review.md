@@ -132,6 +132,12 @@ initial guess, convergence status, residual norm, and SolverFailure artifacts
 on nonconvergence. `examples/official/26_dynamic_component_room` covers the
 simple-linear dynamic component source path and records state/algebraic
 trajectories plus per-step algebraic diagnostics.
+`examples/official/27_nonlinear_algebraic` covers the narrow source Newton path
+and records residual history through component step diagnostics plus
+largest-residual artifacts. `examples/official/28_small_dae` covers the narrow
+source implicit-Euler DAE path and records state/algebraic trajectories,
+per-step Newton diagnostics, failure artifacts for inconsistent initial
+conditions, and largest-residual artifacts.
 The runtime residual evaluator accepts solver-provided residual scale overrides
 and tolerance values; component artifacts currently use the default
 unit/quantity scale policy unless a solver path supplies explicit overrides.
@@ -446,7 +452,7 @@ and continuous fixed-step RK4 with TimeSeries input materialization in
 `examples/official/22_state_space_continuous`. Legacy/internal fixtures also
 cover multi-state Euler/RK4, continuous `adaptive_heun` execution with a fixed
 output TimeGrid, discrete A/B execution, and additional failure paths. This is
-not a general nonlinear, DAE, discrete adaptive, broad adaptive,
+not a general nonlinear/DAE, discrete adaptive, broad adaptive,
 operator-algebra, or component-coupled simulation solver.
 
 ## Uncertainty Metadata

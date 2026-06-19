@@ -37,6 +37,8 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/24_linear_algebraic_thermal_node/main.eng",
                 "examples/official/25_fixed_point_loop/main.eng",
                 "examples/official/26_dynamic_component_room/main.eng",
+                "examples/official/27_nonlinear_algebraic/main.eng",
+                "examples/official/28_small_dae/main.eng",
             ],
         ),
         (
@@ -549,6 +551,85 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("examples/official/27_nonlinear_algebraic/main.eng"),
+        Path::new("build/test-official-nonlinear-algebraic"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"solved_nonlinear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"newton_source_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"step_diagnostics\"")
+                || !output.result_json.contains("\"largest_residuals\"")
+                || !output
+                    .report_spec_json
+                    .contains("source solve binding `nonlinear_result`")
+                || !output.report_html.contains("newton_source_residual_graph")
+                || !output.report_html.contains("Step Diagnostics")
+            {
+                eprintln!(
+                    "expected official nonlinear algebraic example to solve through source Newton residual graph"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/27_nonlinear_algebraic/main.eng solved source nonlinear residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("official nonlinear algebraic example failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("examples/official/28_small_dae/main.eng"),
+        Path::new("build/test-official-small-dae"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"implicit_euler_dae_source_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dae_converged\"")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"name\": \"node.node.z\"")
+                || !output.result_json.contains("\"role\": \"state\"")
+                || !output.result_json.contains("\"role\": \"algebraic\"")
+                || !output.result_json.contains("\"step_diagnostics\"")
+                || !output.result_json.contains("\"largest_residuals\"")
+                || !output
+                    .report_spec_json
+                    .contains("source solve binding `dae_result`")
+                || !output
+                    .report_html
+                    .contains("implicit_euler_dae_source_residual_graph")
+                || !output.report_html.contains("Trajectories")
+            {
+                eprintln!(
+                    "expected official small DAE example to solve through source DAE residual graph"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/28_small_dae/main.eng solved source DAE residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("official small DAE example failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/linear_algebraic_solve_from_source.eng"),
         Path::new("build/test-runtime-linear-algebraic-source"),
         &artifact_run_options(),
@@ -606,6 +687,75 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("fixed-point source runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/runtime/nonlinear_residual_from_source.eng"),
+        Path::new("build/test-runtime-nonlinear-source"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"solved_nonlinear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"newton_source_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"step_diagnostics\"")
+                || !output.result_json.contains("\"largest_residuals\"")
+                || !output.report_html.contains("newton_source_residual_graph")
+            {
+                eprintln!(
+                    "expected tests/runtime/nonlinear_residual_from_source.eng to solve through source Newton residual graph"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/nonlinear_residual_from_source.eng solved source nonlinear residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("nonlinear source runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/runtime/small_dae_from_source.eng"),
+        Path::new("build/test-runtime-small-dae-source"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"implicit_euler_dae_source_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dae_converged\"")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"name\": \"node.node.z\"")
+                || !output.result_json.contains("\"step_diagnostics\"")
+                || !output.result_json.contains("\"largest_residuals\"")
+                || !output
+                    .report_html
+                    .contains("implicit_euler_dae_source_residual_graph")
+            {
+                eprintln!(
+                    "expected tests/runtime/small_dae_from_source.eng to solve through source DAE residual graph"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/small_dae_from_source.eng solved source DAE residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("small DAE source runtime fixture failed: {error}");
             return ExitCode::from(1);
         }
     }
@@ -939,6 +1089,72 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("fixed-point nonconvergence diagnostics fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/diagnostics/newton_nonconvergence.eng"),
+        Path::new("build/test-diagnostics-newton-nonconvergence"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"newton_not_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"newton_source_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-NEWTON-NONCONVERGENCE\"")
+                || !output.result_json.contains("\"largest_residuals\"")
+                || !output.report_html.contains("E-NEWTON-NONCONVERGENCE")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/newton_nonconvergence.eng to report a Newton SolverFailure artifact"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/newton_nonconvergence.eng reported Newton nonconvergence"
+            );
+        }
+        Err(error) => {
+            eprintln!("Newton nonconvergence diagnostics fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/diagnostics/dae_inconsistent_initial.eng"),
+        Path::new("build/test-diagnostics-dae-inconsistent-initial"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"implicit_euler_dae_source_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dae_source_failed\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-DAE-INCONSISTENT-INITIAL-CONDITIONS\"")
+                || !output
+                    .report_html
+                    .contains("E-DAE-INCONSISTENT-INITIAL-CONDITIONS")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/dae_inconsistent_initial.eng to report a DAE consistency SolverFailure artifact"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/dae_inconsistent_initial.eng reported DAE inconsistent initial conditions"
+            );
+        }
+        Err(error) => {
+            eprintln!("DAE inconsistent initial diagnostics fixture failed: {error}");
             return ExitCode::from(1);
         }
     }

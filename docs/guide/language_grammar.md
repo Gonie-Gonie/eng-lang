@@ -1273,6 +1273,47 @@ They currently require simple linear component-local residual terms; nonlinear,
 constructor-parameterized, adaptive, and production multi-domain component
 solves remain outside this source surface.
 
+Nonlinear algebraic source residuals can use the same binding with Newton:
+
+```eng partial
+nonlinear_result = solve component_graph
+with {
+    solver = newton
+    initial = 1
+    tolerance = 0.000000001
+    max_iter = 30
+}
+```
+
+This path evaluates the source residual expressions directly, applies the
+component residual scaling policy, calls Newton with finite-difference Jacobian
+estimation by default, and records residual history plus largest-residual
+artifacts. `jacobian = source_linear_terms` is the only source-level provided
+Jacobian hook; it is valid for residual graphs whose linear terms can be
+assembled. Broad symbolic Jacobian declarations are not supported.
+
+Small DAE source residuals use `solver = implicit_euler_dae`:
+
+```eng partial
+dae_result = solve component_graph
+with {
+    solver = implicit_euler_dae
+    timestep = 1 s
+    duration = 2 s
+    initial = 1
+    initial_derivative = -2
+    initial_algebraic = 2
+    tolerance = 0.000000001
+    max_iter = 30
+}
+```
+
+The runtime derives state/algebraic variables from the component assembly,
+builds `DaeInput`, runs Newton algebraic initialization by default, uses an
+identity mass-matrix fallback, calls the implicit-Euler DAE solver, and records
+state/algebraic trajectories plus step diagnostics. This path is limited to
+small scalar component equations using arithmetic over source residuals.
+
 The supported typed-block state-space surface starts with top-level state and
 input type blocks:
 
@@ -1563,7 +1604,7 @@ The current guide intentionally does not promise:
 | Full process sandboxing | Explicit process records and profile basics exist; sandbox isolation is deferred |
 | Project-wide test discovery/runner | Local source-file test blocks exist; workspace discovery is deferred |
 | Full package/module system | File imports and metadata seeds only |
-| General nonlinear/DAE/broad adaptive solving | Deferred beyond supported one-state thermal fixed/adaptive path, supported two-state source-equation fixed-step path, and internal fixed-step/continuous `adaptive_heun` state-space paths |
+| General nonlinear/DAE/broad adaptive solving | Deferred beyond supported one-state thermal fixed/adaptive path, supported two-state source-equation fixed-step path, narrow component residual Newton/implicit-Euler DAE smokes, and internal fixed-step/continuous `adaptive_heun` state-space paths |
 | Full artifact schema evolution policy | Stable-core schemas exist; broader future-track schemas may grow |
 
 ## Authoring Checklist

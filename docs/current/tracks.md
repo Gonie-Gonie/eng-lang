@@ -134,6 +134,14 @@ Internal runtime seeds:
 - optional DAE mass matrix and initial consistency checks
 - explicit DAE method policy where BDF requests return
   E-DAE-METHOD-UNSUPPORTED until a real BDF implementation exists
+- narrow source `solve component_graph` Newton bridge for dimensionless scalar
+  nonlinear residuals, with finite-difference Jacobian by default,
+  `source_linear_terms` Jacobian hook, residual history, and largest-residual
+  artifacts
+- narrow source `solve component_graph` implicit-Euler DAE bridge with assembly
+  state/algebraic split, `DaeInput` generation, algebraic initialization,
+  identity mass-matrix fallback, trajectories, step diagnostics, and failure
+  artifacts
 - standalone dynamic-component explicit-Euler seed with algebraic-free state updates, algebraic solve per timestep, and common SolverResult state/algebraic trajectories
 - derivative-form ResidualGraph to dynamic-component RHS bridge for algebraic-free dynamic seeds
 - residual-graph explicit-Euler dynamic-component entrypoint with layout
@@ -162,7 +170,8 @@ Internal runtime seeds:
 Deferred:
 
 ```text
-- language-integrated nonlinear/DAE solving
+- broad language-integrated nonlinear/DAE solving beyond the narrow component
+  residual source smokes
 - broad language-integrated dynamic component graph solving beyond the
   simple-linear source path
 - language-integrated delay/Predictor/external behavior graph solving
@@ -296,6 +305,9 @@ Supported scoped slice:
   examples/official/25_fixed_point_loop
 - source-to-solver simple-linear dynamic component room in
   examples/official/26_dynamic_component_room
+- source-to-solver nonlinear scalar residual in
+  examples/official/27_nonlinear_algebraic
+- source-to-solver small scalar DAE in examples/official/28_small_dae
 - system-local name = Component() instances
 - connect instance.port to instance.port
 - generated connection equations plus literal boundary seeds and simple
@@ -306,6 +318,13 @@ Supported scoped slice:
 - explicit/semi-implicit dynamic `solve component_graph` artifacts with
   timestep, duration, initial state, trajectories, step diagnostics, and
   algebraic failure metadata
+- `solver = newton` component residual artifacts with residual history,
+  finite-difference Jacobian default, optional `source_linear_terms` Jacobian
+  hook, and nonconvergence failure metadata
+- `solver = implicit_euler_dae` component residual artifacts with
+  state/algebraic split, algebraic initialization, identity mass-matrix
+  fallback, state/algebraic trajectories, step diagnostics, and inconsistent
+  initial-condition failure metadata
 ```
 
 Implementation seeds on `main`:
@@ -335,8 +354,8 @@ Not yet public-supported:
 
 ```text
 - production numeric multi-domain simulation
-- constructor parameters and nonlinear/unit-parameterized component-local
-  equation solving
+- constructor parameters and broad nonlinear/unit-parameterized
+  component-local equation solving
 - general boundary-condition/component-behavior solving
 - domain package registry
 - open component ecosystem
