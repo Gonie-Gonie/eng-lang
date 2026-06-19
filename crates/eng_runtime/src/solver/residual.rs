@@ -1183,6 +1183,63 @@ mod tests {
     }
 
     #[test]
+    fn component_equations_from_assembly_preserve_linear_terms() {
+        let assembly = EquationAssembly {
+            name: "component_graph".to_owned(),
+            unknowns: vec![
+                UnknownVariable {
+                    name: "x".to_owned(),
+                    role: "algebraic".to_owned(),
+                    quantity_kind: "Dimensionless".to_owned(),
+                    unit: "1".to_owned(),
+                    source: "node.x".to_owned(),
+                    status: "classified".to_owned(),
+                },
+                UnknownVariable {
+                    name: "y".to_owned(),
+                    role: "algebraic".to_owned(),
+                    quantity_kind: "Dimensionless".to_owned(),
+                    unit: "1".to_owned(),
+                    source: "node.y".to_owned(),
+                    status: "classified".to_owned(),
+                },
+            ],
+            generated_equations: vec![
+                GeneratedEquation {
+                    name: "component.eq1".to_owned(),
+                    kind: "component_equation".to_owned(),
+                    residual: "x - 2 * y".to_owned(),
+                    rhs_value: Some(5.0),
+                    dependencies: vec!["x".to_owned(), "y".to_owned()],
+                    ..Default::default()
+                },
+                GeneratedEquation {
+                    name: "component.eq2".to_owned(),
+                    kind: "component_equation".to_owned(),
+                    residual: "y".to_owned(),
+                    rhs_value: Some(1.0),
+                    dependencies: vec!["y".to_owned()],
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+
+        let graph = ResidualGraph::from_assembly(&assembly);
+        let system = graph.assemble_linear_system().unwrap();
+
+        assert_eq!(system.matrix, vec![vec![1.0, -2.0], vec![0.0, 1.0]]);
+        assert_eq!(system.rhs, vec![5.0, 1.0]);
+
+        let output = <ResidualGraph as ResidualEvaluator>::evaluate(
+            &graph,
+            &ResidualInput::new(&[7.0, 1.0]),
+        )
+        .unwrap();
+        assert!(output.values.iter().all(|residual| residual.value == 0.0));
+    }
+
+    #[test]
     fn residual_scales_use_quantity_unit_defaults() {
         let heat_rate = ResidualScale::from_quantity_unit("HeatRate", "W");
         assert_eq!(heat_rate.value, 1000.0);
