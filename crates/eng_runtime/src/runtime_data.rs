@@ -21,11 +21,13 @@ use crate::solver::{
         GeneratedEquation, PortInstance, UnknownVariable,
     },
     solve_adaptive_heun_ode, solve_adaptive_state_space, solve_continuous_state_space,
-    solve_discrete_state_space, solve_first_order_thermal, solve_linear_residual_graph,
-    AdaptiveOdeOptions, AdaptiveOdeStepReport, DynamicComponentResult, FirstOrderThermalModel,
-    FixedStepMethod, InputLayout, LayoutEntry, OutputLayout, ParameterLayout, ResidualEvaluator,
-    ResidualGraph, ResidualInput, ResidualOutput, SimulationPlan, SolverFailure, SolverInput,
-    SolverOptions, SolverPlan, SolverResult, SolverScalar, StateLayout, StateTrajectory, TimeGrid,
+    solve_discrete_state_space, solve_first_order_thermal, solve_fixed_step_ode,
+    solve_linear_residual_graph, AdaptiveOdeOptions, AdaptiveOdeStepReport, DynamicComponentResult,
+    FirstOrderThermalModel, FixedStepMethod, InputLayout, LayoutEntry, OutputLayout,
+    ParameterLayout, ResidualEvaluator, ResidualGraph, ResidualInput, ResidualOutput, RhsEvaluator,
+    RhsInput, RhsStateInfo, SimulationPlan, SolverFailure, SolverInput, SolverOptions, SolverPlan,
+    SolverResult, SolverScalar, SourceRhsEquation, SourceRhsEvaluator, StateLayout,
+    StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -2786,6 +2788,10 @@ fn materialize_system_solutions(
                 materialize_first_order_thermal_solution(system, None, &[], series)
             {
                 solutions.push(solution);
+            } else if let Some(mut source_ode_solutions) =
+                materialize_source_ode_solutions(system, None, &[], series)
+            {
+                solutions.append(&mut source_ode_solutions);
             }
         } else {
             for request in requests {
@@ -2804,6 +2810,13 @@ fn materialize_system_solutions(
                     series,
                 ) {
                     solutions.push(solution);
+                } else if let Some(mut source_ode_solutions) = materialize_source_ode_solutions(
+                    system,
+                    Some(request.binding.as_str()),
+                    &request.options,
+                    series,
+                ) {
+                    solutions.append(&mut source_ode_solutions);
                 } else {
                     solutions.push(skipped_system_solution(
                         system,
@@ -3317,7 +3330,7 @@ fn materialize_state_space_solutions(
             .iter()
             .zip(input_series.iter())
             .map(|(input, series)| {
-                state_space_input_value(input, *series, 0.0).map(|value| {
+                dynamic_input_value(input, *series, 0.0).map(|value| {
                     SolverScalar::new(
                         input.name.clone(),
                         system_variable_value_quantity(input),
@@ -3338,7 +3351,7 @@ fn materialize_state_space_solutions(
                 inputs
                     .iter()
                     .zip(input_series.iter())
-                    .map(|(input, series)| state_space_input_value(input, *series, sample_time_s))
+                    .map(|(input, series)| dynamic_input_value(input, *series, sample_time_s))
                     .collect::<Option<Vec<_>>>()
                     .ok_or_else(|| {
                         SolverFailure::new(
@@ -3351,7 +3364,7 @@ fn materialize_state_space_solutions(
             Ok(result) => result,
             Err(failure) => {
                 let reason = "recognized discrete-time state-space A/B operators, but solver evaluation failed";
-                return failed_state_space_runtime_solutions(
+                return failed_system_runtime_solutions(
                     system,
                     binding,
                     &states,
@@ -3366,7 +3379,7 @@ fn materialize_state_space_solutions(
         } else {
             "recognized discrete-time state-space A/B operators and executed state update"
         };
-        return state_space_runtime_solutions(system, binding, &states, &solver_result, reason);
+        return system_runtime_solutions(system, binding, &states, &solver_result, reason);
     }
     if let Some(adaptive_options) = adaptive_options {
         let adaptive_result = match solve_adaptive_state_space(
@@ -3378,7 +3391,7 @@ fn materialize_state_space_solutions(
                 inputs
                     .iter()
                     .zip(input_series.iter())
-                    .map(|(input, series)| state_space_input_value(input, *series, sample_time_s))
+                    .map(|(input, series)| dynamic_input_value(input, *series, sample_time_s))
                     .collect::<Option<Vec<_>>>()
                     .ok_or_else(|| {
                         SolverFailure::new(
@@ -3391,7 +3404,7 @@ fn materialize_state_space_solutions(
             Ok(result) => result,
             Err(failure) => {
                 let reason = "recognized continuous state-space A/B operators, but adaptive Heun solver evaluation failed";
-                return failed_state_space_runtime_solutions(
+                return failed_system_runtime_solutions(
                     system,
                     binding,
                     &states,
@@ -3407,7 +3420,7 @@ fn materialize_state_space_solutions(
             "recognized continuous state-space A/B operators and executed adaptive Heun trajectories"
         };
         let step_diagnostics = runtime_system_step_diagnostics(&adaptive_result.step_reports);
-        let mut solutions = state_space_runtime_solutions(
+        let mut solutions = system_runtime_solutions(
             system,
             binding,
             &states,
@@ -3426,7 +3439,7 @@ fn materialize_state_space_solutions(
             inputs
                 .iter()
                 .zip(input_series.iter())
-                .map(|(input, series)| state_space_input_value(input, *series, sample_time_s))
+                .map(|(input, series)| dynamic_input_value(input, *series, sample_time_s))
                 .collect::<Option<Vec<_>>>()
                 .ok_or_else(|| {
                     SolverFailure::new(
@@ -3439,7 +3452,7 @@ fn materialize_state_space_solutions(
         Ok(result) => result,
         Err(failure) => {
             let reason = "recognized continuous state-space A/B operators, but fixed-step solver evaluation failed";
-            return failed_state_space_runtime_solutions(
+            return failed_system_runtime_solutions(
                 system,
                 binding,
                 &states,
@@ -3455,10 +3468,10 @@ fn materialize_state_space_solutions(
     } else {
         "recognized multi-state state-space A/B operators and executed fixed-step trajectories"
     };
-    state_space_runtime_solutions(system, binding, &states, &solver_result, reason)
+    system_runtime_solutions(system, binding, &states, &solver_result, reason)
 }
 
-fn state_space_runtime_solutions(
+fn system_runtime_solutions(
     system: &eng_compiler::SystemInfo,
     binding: Option<&str>,
     states: &[&eng_compiler::SystemVariableInfo],
@@ -3499,7 +3512,7 @@ fn state_space_runtime_solutions(
     (!solutions.is_empty()).then_some(solutions)
 }
 
-fn failed_state_space_runtime_solutions(
+fn failed_system_runtime_solutions(
     system: &eng_compiler::SystemInfo,
     binding: Option<&str>,
     states: &[&eng_compiler::SystemVariableInfo],
@@ -3557,7 +3570,7 @@ fn attach_system_step_diagnostics(
     }
 }
 
-fn state_space_input_value(
+fn dynamic_input_value(
     input: &eng_compiler::SystemVariableInfo,
     series: Option<&RuntimeTimeSeries>,
     time_s: f64,
@@ -3574,6 +3587,278 @@ fn state_space_input_value(
         .ok();
     }
     canonical_variable_value(input)
+}
+
+fn materialize_source_ode_solutions(
+    system: &eng_compiler::SystemInfo,
+    binding: Option<&str>,
+    options: &[eng_compiler::WithOptionInfo],
+    series: &[RuntimeTimeSeries],
+) -> Option<Vec<RuntimeSystemSolution>> {
+    let states = system
+        .variables
+        .iter()
+        .filter(|variable| variable.role == "state")
+        .collect::<Vec<_>>();
+    if states.is_empty() {
+        return None;
+    }
+    let equations = source_ode_equations_for_states(system, &states)?;
+    let solver_name = option_value(options, "solver")
+        .map(str::trim)
+        .unwrap_or("fixed_step");
+    if solver_name == "adaptive_heun" {
+        return None;
+    }
+    let fixed_step_method = FixedStepMethod::from_solver_name(Some(solver_name));
+    let time_step_s = option_value(options, "timestep")
+        .and_then(parse_duration_seconds)
+        .unwrap_or(300.0);
+    let inputs = system
+        .variables
+        .iter()
+        .filter(|variable| variable.role == "input")
+        .collect::<Vec<_>>();
+    let input_series = inputs
+        .iter()
+        .map(|input| {
+            option_value(options, &input.name)
+                .and_then(|name| series.iter().find(|series| series.name == name))
+        })
+        .collect::<Vec<_>>();
+    let series_duration_s = input_series
+        .iter()
+        .flatten()
+        .filter_map(|series| series.points.last().map(|point| point.x))
+        .filter(|duration| *duration > 0.0)
+        .reduce(f64::max);
+    let duration_s = option_value(options, "duration")
+        .and_then(parse_duration_seconds)
+        .or(series_duration_s)
+        .unwrap_or(3600.0);
+    let time_grid = TimeGrid::fixed_step(duration_s, time_step_s).ok()?;
+
+    let parameters = system
+        .variables
+        .iter()
+        .filter(|variable| variable.role == "parameter")
+        .collect::<Vec<_>>();
+    let initial_state = states
+        .iter()
+        .map(|state| canonical_variable_value(state))
+        .collect::<Option<Vec<_>>>()?;
+    let solver_inputs = inputs
+        .iter()
+        .zip(input_series.iter().copied())
+        .map(|(input, source)| {
+            dynamic_input_value(input, source, 0.0).map(|value| {
+                SolverScalar::new(
+                    input.name.clone(),
+                    system_variable_value_quantity(input),
+                    input.canonical_unit.clone(),
+                    value,
+                )
+            })
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let solver_parameters = parameters
+        .iter()
+        .map(|parameter| {
+            canonical_variable_value(parameter).map(|value| {
+                SolverScalar::new(
+                    parameter.name.clone(),
+                    parameter.quantity_kind.clone(),
+                    parameter.canonical_unit.clone(),
+                    value,
+                )
+            })
+        })
+        .collect::<Option<Vec<_>>>()?;
+
+    let solver_options = SolverOptions::fixed_step(fixed_step_method.method_name(""), time_step_s);
+    let solver_plan = SolverPlan::new(
+        system.name.clone(),
+        SimulationPlan {
+            inputs: inputs.iter().map(|input| input.name.clone()).collect(),
+            outputs: states.iter().map(|state| state.name.clone()).collect(),
+            states: states.iter().map(|state| state.name.clone()).collect(),
+            parameters: parameters
+                .iter()
+                .map(|parameter| parameter.name.clone())
+                .collect(),
+        },
+        solver_options,
+    );
+    let solver_input = SolverInput {
+        plan: solver_plan,
+        time_grid,
+        state_layout: StateLayout::new(
+            states
+                .iter()
+                .enumerate()
+                .map(|(index, state)| {
+                    LayoutEntry::new(
+                        index,
+                        state.name.clone(),
+                        state.quantity_kind.clone(),
+                        state.canonical_unit.clone(),
+                        state.display_unit.clone(),
+                    )
+                })
+                .collect(),
+        ),
+        input_layout: InputLayout::new(
+            inputs
+                .iter()
+                .enumerate()
+                .map(|(index, input)| {
+                    LayoutEntry::new(
+                        index,
+                        input.name.clone(),
+                        system_variable_value_quantity(input),
+                        input.canonical_unit.clone(),
+                        input.display_unit.clone(),
+                    )
+                })
+                .collect(),
+        ),
+        parameter_layout: ParameterLayout::new(
+            parameters
+                .iter()
+                .enumerate()
+                .map(|(index, parameter)| {
+                    LayoutEntry::new(
+                        index,
+                        parameter.name.clone(),
+                        parameter.quantity_kind.clone(),
+                        parameter.canonical_unit.clone(),
+                        parameter.display_unit.clone(),
+                    )
+                })
+                .collect(),
+        ),
+        output_layout: OutputLayout::new(
+            states
+                .iter()
+                .enumerate()
+                .map(|(index, state)| {
+                    LayoutEntry::new(
+                        index,
+                        state.name.clone(),
+                        state.quantity_kind.clone(),
+                        state.canonical_unit.clone(),
+                        state.display_unit.clone(),
+                    )
+                })
+                .collect(),
+        ),
+        initial_state,
+        inputs: solver_inputs,
+        parameters: solver_parameters,
+    };
+
+    let evaluator = match SourceRhsEvaluator::new(
+        states
+            .iter()
+            .map(|state| {
+                RhsStateInfo::new(
+                    state.name.clone(),
+                    state.quantity_kind.clone(),
+                    state.canonical_unit.clone(),
+                )
+            })
+            .collect(),
+        inputs.iter().map(|input| input.name.clone()).collect(),
+        parameters
+            .iter()
+            .map(|parameter| parameter.name.clone())
+            .collect(),
+        equations,
+    ) {
+        Ok(evaluator) => evaluator,
+        Err(failure) => {
+            return failed_system_runtime_solutions(
+                system,
+                binding,
+                &states,
+                &solver_input,
+                &failure,
+                "recognized source derivative equations, but RHS evaluator creation failed",
+            );
+        }
+    };
+    let parameter_values = solver_input
+        .parameters
+        .iter()
+        .map(|parameter| parameter.value)
+        .collect::<Vec<_>>();
+    let solver_result = match solve_fixed_step_ode(fixed_step_method, &solver_input, |sample| {
+        let input_values = inputs
+            .iter()
+            .zip(input_series.iter().copied())
+            .map(|(input, source)| {
+                dynamic_input_value(input, source, sample.time_s).ok_or_else(|| {
+                    SolverFailure::new(
+                        "E-RHS-INPUT-VALUE",
+                        format!(
+                            "source RHS input `{}` cannot be evaluated at t={} s",
+                            input.name, sample.time_s
+                        ),
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let output = evaluator.evaluate(&RhsInput {
+            t: sample.time_s,
+            x: sample.state.to_vec(),
+            u: input_values,
+            p: parameter_values.clone(),
+        })?;
+        Ok(output.derivatives)
+    }) {
+        Ok(result) => result,
+        Err(failure) => {
+            return failed_system_runtime_solutions(
+                system,
+                binding,
+                &states,
+                &solver_input,
+                &failure,
+                "recognized source derivative equations, but fixed-step solver evaluation failed",
+            );
+        }
+    };
+
+    let reason = if input_series.iter().any(Option::is_some) {
+        "recognized source derivative equations and executed fixed-step RHS with TimeSeries input materialization"
+    } else {
+        "recognized source derivative equations and executed fixed-step RHS"
+    };
+    system_runtime_solutions(system, binding, &states, &solver_result, reason)
+}
+
+fn source_ode_equations_for_states(
+    system: &eng_compiler::SystemInfo,
+    states: &[&eng_compiler::SystemVariableInfo],
+) -> Option<Vec<SourceRhsEquation>> {
+    let mut equations = Vec::new();
+    for state in states {
+        let derivative = format!("der({})", state.name);
+        let matches = system
+            .equations
+            .iter()
+            .filter(|equation| equation.left.contains(&derivative))
+            .collect::<Vec<_>>();
+        if matches.len() != 1 {
+            return None;
+        }
+        equations.push(SourceRhsEquation::new(
+            state.name.clone(),
+            matches[0].left.clone(),
+            matches[0].right.clone(),
+        ));
+    }
+    Some(equations)
 }
 
 fn materialize_first_order_thermal_solution(
@@ -3954,7 +4239,9 @@ fn skipped_system_solution(
         binding: binding.map(str::to_owned),
         status: "skipped_unsupported_shape".to_owned(),
         method: "explicit_euler_fixed_step".to_owned(),
-        reason: "system shape is outside the supported first-order thermal ODE runner".to_owned(),
+        reason:
+            "system shape is outside the supported state-space/source ODE/first-order thermal runners"
+                .to_owned(),
         states: system_variable_names_by_role(system, "state"),
         algebraic_variables: system_variable_names_by_role(system, "algebraic"),
         inputs: system_variable_names_by_role(system, "input"),
@@ -3982,7 +4269,8 @@ fn skipped_system_solution(
         convergence_status: "skipped_unsupported_shape".to_owned(),
         failure_code: Some("E-SIM-SYSTEM-SHAPE-UNSUPPORTED".to_owned()),
         failure_reason: Some(
-            "system shape is outside the supported first-order thermal ODE runner".to_owned(),
+            "system shape is outside the supported state-space/source ODE/first-order thermal runners"
+                .to_owned(),
         ),
         initial_value,
         final_value: initial_value,
@@ -7316,6 +7604,85 @@ with {{
     }
 
     #[test]
+    fn materializes_two_state_source_ode_fixed_step_solutions() {
+        for (solver_name, method_name) in [
+            ("explicit_euler", "explicit_euler_fixed_step"),
+            ("rk4", "rk4_fixed_step"),
+        ] {
+            let source = format!(
+                r#"
+system TwoStateSourceThermal {{
+    parameter C_air: HeatCapacity = 100 kJ/K
+    parameter C_wall: HeatCapacity = 200 kJ/K
+    parameter UA_aw: Conductance = 50 W/K
+    parameter UA_ao: Conductance = 100 W/K
+    parameter UA_wo: Conductance = 20 W/K
+    parameter T_out: AbsoluteTemperature = 12 degC
+    parameter Q_hvac: HeatRate = 1000 W
+
+    state T_air: AbsoluteTemperature = 22 degC
+    state T_wall: AbsoluteTemperature = 20 degC
+
+    equation {{
+        C_air * der(T_air) eq UA_aw * (T_wall - T_air) + UA_ao * (T_out - T_air) + Q_hvac
+        C_wall * der(T_wall) eq UA_aw * (T_air - T_wall) + UA_wo * (T_out - T_wall)
+    }}
+}}
+
+sim = simulate TwoStateSourceThermal
+with {{
+    timestep = 10 min
+    duration = 20 min
+    solver = {solver_name}
+}}
+"#
+            );
+            let report = eng_compiler::check_source(
+                "two_state_source.eng",
+                &source,
+                &CheckOptions::default(),
+            );
+            assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+            let runtime = materialize_runtime_data(&report, &source);
+            let solutions = runtime
+                .system_solutions
+                .iter()
+                .filter(|solution| solution.binding.as_deref() == Some("sim"))
+                .collect::<Vec<_>>();
+
+            assert_eq!(solutions.len(), 2);
+            assert!(solutions
+                .iter()
+                .all(|solution| solution.status == "computed"));
+            assert!(solutions
+                .iter()
+                .all(|solution| solution.method == method_name));
+            assert!(solutions
+                .iter()
+                .all(|solution| solution.reason.contains("source derivative equations")));
+            assert!(solutions.iter().all(|solution| {
+                solution.states == vec!["T_air".to_owned(), "T_wall".to_owned()]
+                    && solution.outputs == vec!["T_air".to_owned(), "T_wall".to_owned()]
+                    && solution.points.len() == 3
+            }));
+            let air = solutions
+                .iter()
+                .find(|solution| solution.state == "T_air")
+                .unwrap();
+            assert!(air.final_value < air.initial_value);
+            assert!(runtime
+                .time_series
+                .iter()
+                .any(|series| series.name == "sim.T_air"));
+            assert!(runtime
+                .time_series
+                .iter()
+                .any(|series| series.name == "sim.T_wall"));
+        }
+    }
+
+    #[test]
     fn first_order_thermal_model_failure_materializes_failed_solution() {
         let source = r#"
 system BadRoomThermal {
@@ -7363,11 +7730,7 @@ system BadRoomThermal {
     fn records_skipped_system_solution_for_unsupported_simulate_shape() {
         let source = r#"
 system UnsupportedThermal {
-    parameter C: HeatCapacity = 500 kJ/K
     state T: AbsoluteTemperature = 24 degC
-    equation {
-        C * der(T) eq 0 W
-    }
 }
 
 sim = simulate UnsupportedThermal
@@ -7395,7 +7758,7 @@ with {
         assert!(solution
             .failure_reason
             .as_deref()
-            .is_some_and(|reason| reason.contains("supported first-order thermal ODE")));
+            .is_some_and(|reason| reason.contains("supported state-space/source ODE")));
         assert_eq!(
             solution.to_report_solution().failure_code.as_deref(),
             Some("E-SIM-SYSTEM-SHAPE-UNSUPPORTED")

@@ -62,6 +62,12 @@ official/19_class_object
   Supported class/domain-object authoring fixture with typed fields, defaults,
   object literals, validation, field access metadata, immutable copy-with, and
   class/object artifacts.
+
+official/20_multi_state_thermal
+  Supported two-state source-equation thermal simulation with one
+  `der(state)` equation per state, promoted CSV TimeSeries input binding,
+  fixed-step RK4 execution, generated sim.T_air/sim.T_wall TimeSeries, and
+  report/plot artifacts.
 ```
 
 ## Internal Implementation Fixtures
@@ -113,8 +119,9 @@ internal/18_state_space_metadata
 internal/20_multi_state_thermal
   Multi-state state-space thermal simulation with two state trajectories,
   TimeSeries input binding, fixed-step RK4 execution, and plot/report artifacts
-  for sim.T_air and sim.T_wall. This is not a nonlinear, DAE, adaptive, or
-  production component-graph solver.
+  for sim.T_air and sim.T_wall. This remains an internal state-space fixture;
+  the release-facing source-equation two-state ODE example is
+  official/20_multi_state_thermal.
 
 internal/21_thermal_component_assembly
   Focused thermal component assembly with generated connection equations,

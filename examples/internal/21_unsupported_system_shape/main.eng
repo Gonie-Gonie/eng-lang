@@ -1,10 +1,5 @@
 system UnsupportedThermal {
-    parameter C: HeatCapacity = 500 kJ/K
     state T: AbsoluteTemperature = 24 degC
-
-    equation {
-        C * der(T) eq 0 W
-    }
 }
 
 sim = simulate UnsupportedThermal

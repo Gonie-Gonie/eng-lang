@@ -62,6 +62,12 @@ paths before compatibility fixtures.
   class validation blocks, metadata methods, immutable copy-with, field access
   metadata, and class/object report sections for the supported class object
   authoring surface. This is not runtime object dispatch.
+
+20_multi_state_thermal
+  Two-state source-equation thermal simulation with one `der(state)` equation
+  per state, promoted CSV TimeSeries input binding, fixed-step RK4 execution,
+  generated state TimeSeries, and report/plot artifacts. This is not a general
+  nonlinear, DAE, or component-graph solver.
 ```
 
 Compatibility regression examples live under `examples/compat`. Diagnostic and

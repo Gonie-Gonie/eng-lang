@@ -30,6 +30,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/15_process_result/main.eng",
                 "examples/official/16_test_assert_golden/main.eng",
                 "examples/official/19_class_object/main.eng",
+                "examples/official/20_multi_state_thermal/main.eng",
             ],
         ),
         (
@@ -784,6 +785,14 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
     );
 
     for (fixture, expected_code) in [
+        (
+            "examples/diagnostics/error_messages/missing_derivative_equation.eng",
+            "E-SYS-DER-MISSING",
+        ),
+        (
+            "examples/diagnostics/error_messages/duplicate_derivative_equation.eng",
+            "E-SYS-DER-DUPLICATE",
+        ),
         (
             "examples/diagnostics/error_messages/medium_mismatch.eng",
             "E-CONNECT-MEDIUM-MISMATCH",
@@ -1574,7 +1583,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             let report_spec = std::fs::read_to_string(&output.report_spec_path).unwrap_or_default();
             let report_html = std::fs::read_to_string(&output.report_path).unwrap_or_default();
             if !result.contains("\"status\": \"skipped_unsupported_shape\"")
-                || !result.contains("\"failure_reason\": \"system shape is outside the supported first-order thermal ODE runner\"")
+                || !result.contains("\"failure_reason\": \"system shape is outside the supported state-space/source ODE/first-order thermal runners\"")
                 || !report_spec.contains("\"convergence_status\": \"skipped_unsupported_shape\"")
                 || !report_html.contains("skipped_unsupported_shape")
             {

@@ -1,0 +1,47 @@
+args {
+    weather: CsvFile = file("data/weather.csv")
+}
+
+schema WeatherData {
+    time: DateTime index
+    T_out: AbsoluteTemperature [degC]
+}
+
+weather_data = promote csv args.weather as WeatherData
+
+system TwoStateThermal {
+    parameter C_air: HeatCapacity = 100 kJ/K
+    parameter C_wall: HeatCapacity = 200 kJ/K
+    parameter UA_aw: Conductance = 50 W/K
+    parameter UA_ao: Conductance = 100 W/K
+    parameter UA_wo: Conductance = 20 W/K
+
+    state T_air: AbsoluteTemperature = 22 degC
+    state T_wall: AbsoluteTemperature = 20 degC
+
+    input T_out: TimeSeries[Time] of AbsoluteTemperature [degC]
+    input Q_hvac: HeatRate = 1000 W
+
+    equation {
+        C_air * der(T_air) eq UA_aw * (T_wall - T_air) + UA_ao * (T_out - T_air) + Q_hvac
+        C_wall * der(T_wall) eq UA_aw * (T_air - T_wall) + UA_wo * (T_out - T_wall)
+    }
+}
+
+sim = simulate TwoStateThermal
+with {
+    T_out = weather_data.T_out
+    timestep = 10 min
+    duration = 60 min
+    solver = rk4
+}
+
+print "Two-state source-equation thermal simulation recorded"
+
+report {
+    plot sim.T_air and sim.T_wall over Time
+    with {
+        unit y = degC
+        title = "Two-state source-equation thermal simulation"
+    }
+}
