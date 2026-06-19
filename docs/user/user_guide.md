@@ -86,6 +86,9 @@ Use the official examples for user testing and demos. Start with these:
 - `examples/official/23_thermal_component_assembly/main.eng`: supported
   constrained Thermal component boundary assembly with system-local component
   instances and a square dense linear residual solve artifact.
+- `examples/official/24_linear_algebraic_thermal_node/main.eng`: supported
+  source-to-solver linear Thermal algebraic node with named solution variables,
+  residual norm, and largest-residual artifacts.
 
 The remaining official examples cover functions/imports, read-only IO, write
 output manifests, file policy, structured runtime logs, process-result records,

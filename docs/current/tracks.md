@@ -288,6 +288,8 @@ Supported scoped slice:
 ```text
 - constrained Thermal component boundary assembly in
   examples/official/23_thermal_component_assembly
+- source-to-solver linear Thermal algebraic graph in
+  examples/official/24_linear_algebraic_thermal_node
 - system-local name = Component() instances
 - connect instance.port to instance.port
 - generated connection equations plus literal boundary seeds and simple

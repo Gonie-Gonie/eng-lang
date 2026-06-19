@@ -85,6 +85,12 @@ paths before compatibility fixtures.
   connection equations, component-local boundary/equation seeds, and a square
   dense linear residual solve artifact. This is not a production nonlinear,
   dynamic, DAE, or broad multi-domain component solver.
+
+24_linear_algebraic_thermal_node
+  Source-to-solver smoke for a steady Thermal algebraic graph with
+  system-local components, across and through boundary seeds, generated
+  connection equations, named solution variables, residual norm, and
+  largest-residual dense linear solve artifacts.
 ```
 
 Compatibility regression examples live under `examples/compat`. Diagnostic and

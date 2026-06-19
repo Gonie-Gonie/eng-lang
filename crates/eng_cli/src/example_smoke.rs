@@ -34,6 +34,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/21_state_space_discrete/main.eng",
                 "examples/official/22_state_space_continuous/main.eng",
                 "examples/official/23_thermal_component_assembly/main.eng",
+                "examples/official/24_linear_algebraic_thermal_node/main.eng",
             ],
         ),
         (
@@ -416,6 +417,52 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("official thermal component assembly example failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("examples/official/24_linear_algebraic_thermal_node/main.eng"),
+        Path::new("build/test-official-linear-algebraic-thermal-node"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"solved_linear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dense_linear_residual_graph\"")
+                || !output.result_json.contains("\"name\": \"room.heat.T\"")
+                || !output.result_json.contains("\"value\": 21.00000000")
+                || !output.result_json.contains("\"name\": \"room.heat.Q\"")
+                || !output.result_json.contains("\"value\": -2.00000000")
+                || !output.result_json.contains("\"name\": \"load.heat.Q\"")
+                || !output.result_json.contains("\"value\": 2.00000000")
+                || !output
+                    .report_spec_json
+                    .contains("\"component_equation_count\": 2")
+                || !output
+                    .report_spec_json
+                    .contains("\"kind\": \"component_boundary\"")
+                || !output.report_spec_json.contains("\"rhs\": \"21 degC\"")
+                || !output.report_spec_json.contains("\"rhs\": \"2 kW\"")
+                || !output.report_spec_json.contains("\"left\": \"room.heat\"")
+                || !output.report_spec_json.contains("\"right\": \"load.heat\"")
+                || !output.report_spec_json.contains("\"residual_norm\"")
+                || !output.result_json.contains("\"largest_residuals\"")
+                || !output.report_spec_json.contains("\"largest_residuals\"")
+                || !output.report_html.contains("solved_linear")
+                || !output.report_html.contains("component_boundary")
+            {
+                eprintln!(
+                    "expected official linear algebraic thermal node example to solve a source residual graph"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/24_linear_algebraic_thermal_node/main.eng solved source linear algebraic residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("official linear algebraic thermal node example failed: {error}");
             return ExitCode::from(1);
         }
     }

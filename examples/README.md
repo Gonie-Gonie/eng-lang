@@ -85,6 +85,11 @@ official/23_thermal_component_assembly
   connection equations, one boundary seed, one direct component-local equation,
   and a square dense linear residual solve artifact for a constrained Thermal
   graph.
+
+official/24_linear_algebraic_thermal_node
+  Supported source-to-solver linear algebraic Thermal node example with
+  system-local components, across/through boundary seeds, named solved
+  variables, residual norm, and largest-residual artifacts.
 ```
 
 ## Internal Implementation Fixtures

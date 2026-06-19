@@ -41,7 +41,7 @@ end:
 | SOLVER-204 | Continuous state-space via RHS evaluator | Implemented for `examples/official/22_state_space_continuous` and internal runtime seeds. |
 | SOLVER-205 | State-space IDE/report panel | Implemented in report artifacts and IDE smoke. |
 | SOLVER-301 | Component instance and port graph collection | Implemented for top-level component fixtures and supported system-local `name = Component()` instances. |
-| SOLVER-302 | Thermal domain connection equations | Implemented for the supported `examples/official/23_thermal_component_assembly` boundary graph and internal fixtures. |
+| SOLVER-302 | Thermal domain connection equations | Implemented for the supported `examples/official/23_thermal_component_assembly` boundary graph, source-to-solver `examples/official/24_linear_algebraic_thermal_node`, and internal fixtures. |
 | SOLVER-303 | Equation/unknown classification | Implemented in assembly artifacts. |
 | SOLVER-304 | ResidualGraph artifact | Implemented with dependency and solver-plan metadata. |
 | SOLVER-305 | ResidualEvaluator interpreter | Implemented as structured residual evaluation and solver-kernel seed paths. |
@@ -84,5 +84,5 @@ specific supported scope being claimed:
 | TimeSeries outputs are generated | Solver trajectories are converted into TimeSeries-style report/result/IDE rows. |
 | Report/review artifacts explain the solve | `report_spec.json`, `review.json`, `.engres`, and HTML report solver sections. |
 | IDE shows the solve | `dev.bat ide-check` smoke covers solver, residual, dependency, behavior, state-space, and kernel inspectors. |
-| Example or fixture exercises the solve | Official measured-vs-simulated covers the supported one-state thermal workflow; `examples/official/20_multi_state_thermal` covers the supported two-state source-equation fixed-step ODE workflow; `examples/official/21_state_space_discrete` and `examples/official/22_state_space_continuous` cover supported typed-block state-space workflows; `examples/official/23_thermal_component_assembly` covers the supported constrained Thermal component boundary assembly. Internal fixtures cover state-space thermal and constrained multi-domain boundary solve seeds. |
+| Example or fixture exercises the solve | Official measured-vs-simulated covers the supported one-state thermal workflow; `examples/official/20_multi_state_thermal` covers the supported two-state source-equation fixed-step ODE workflow; `examples/official/21_state_space_discrete` and `examples/official/22_state_space_continuous` cover supported typed-block state-space workflows; `examples/official/23_thermal_component_assembly` covers the supported constrained Thermal component boundary assembly; `examples/official/24_linear_algebraic_thermal_node` covers the source-to-solver linear algebraic ResidualGraph solve. Internal fixtures cover state-space thermal and constrained multi-domain boundary solve seeds. |
 | Tests cover success and failure | `eng test examples`, cargo tests, `artifacts-check`, `jit-check`, and `ide-check`. |

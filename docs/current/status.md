@@ -149,10 +149,11 @@ by the stable breaking-change policy.
   component-local `name = port.signal = literal` boundary seeds, direct
   `port.signal eq literal` and simple linear port-signal equations, and square
   dense linear residual solve artifacts for
-  `examples/official/23_thermal_component_assembly`. Constructor arguments,
-  nonlinear or unit-parameterized component-local equations, behavior-node
-  solving, nonlinear/DAE coupling, dynamic components, and production
-  multi-domain solving remain planned or internal.
+  `examples/official/23_thermal_component_assembly` and the source-to-solver
+  `examples/official/24_linear_algebraic_thermal_node`. Constructor arguments,
+  nonlinear or unit-parameterized component-local equations, fixed-point
+  source solving, behavior-node solving, nonlinear/DAE coupling, dynamic
+  components, and production multi-domain solving remain planned or internal.
 - Class/domain object authoring for typed fields/defaults, object literals,
   nested object references, field access metadata, simple validation blocks,
   zero-argument metadata methods, immutable copy-with metadata, diagnostics,
