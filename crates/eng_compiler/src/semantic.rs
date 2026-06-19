@@ -4993,11 +4993,12 @@ fn analyze_component_equation(equation: &crate::ast::EquationDecl, component: &m
         .filter(|local| local.status == "component_equation_seed")
         .count()
         + 1;
+    let left = strip_component_equation_label(&equation.left);
     component
         .local_expressions
         .push(ComponentLocalExpressionInfo {
             name: format!("equation_{equation_index}"),
-            expression: format!("{} eq {}", equation.left, equation.right),
+            expression: format!("{} eq {}", left, equation.right),
             status: "component_equation_seed".to_owned(),
             quantity_kind: "unknown".to_owned(),
             display_unit: "unknown".to_owned(),
@@ -5005,6 +5006,18 @@ fn analyze_component_equation(equation: &crate::ast::EquationDecl, component: &m
             type_status: "component_equation_pending_assembly".to_owned(),
             line: equation.line,
         });
+}
+
+fn strip_component_equation_label(left: &str) -> &str {
+    let trimmed = left.trim();
+    let Some((label, expression)) = trimmed.split_once(':') else {
+        return trimmed;
+    };
+    if is_identifier(label.trim()) && !expression.trim().is_empty() {
+        expression.trim()
+    } else {
+        trimmed
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

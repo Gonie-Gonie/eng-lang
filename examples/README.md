@@ -132,6 +132,13 @@ official/31_external_behavior_solver
   `solver = dynamic_component_explicit_euler`, a typed deterministic
   `adapter(signal)` identity wrapper seed, behavior graph RHS evaluation,
   state trajectory output, and integrated external behavior artifacts.
+
+official/32_small_thermal_fluid_loop
+  Supported constrained Thermal/Fluid[Water] algebraic residual solve with
+  generated connection equations, component-local boundary seeds, simple pipe
+  head/flow equations, named solved variables, residual norm, and
+  largest-residual artifacts. The Fluid seed uses hydraulic head, not a
+  pressure quantity package.
 ```
 
 ## Internal Implementation Fixtures

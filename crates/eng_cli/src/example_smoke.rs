@@ -42,6 +42,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/29_delay_component_solver/main.eng",
                 "examples/official/30_predictor_component_solver/main.eng",
                 "examples/official/31_external_behavior_solver/main.eng",
+                "examples/official/32_small_thermal_fluid_loop/main.eng",
             ],
         ),
         (
@@ -474,6 +475,27 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("examples/official/32_small_thermal_fluid_loop/main.eng"),
+        Path::new("build/test-official-small-thermal-fluid-loop"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !small_thermal_fluid_solve_artifacts_are_structured(&output) {
+                eprintln!(
+                    "expected official small thermal/fluid loop to solve a square multi-domain residual graph"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/32_small_thermal_fluid_loop/main.eng solved a constrained Thermal/Fluid residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("official small thermal/fluid loop example failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("examples/official/25_fixed_point_loop/main.eng"),
         Path::new("build/test-official-fixed-point-loop"),
         &artifact_run_options(),
@@ -716,6 +738,27 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("linear algebraic source runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/runtime/multi_domain_thermal_fluid_from_source.eng"),
+        Path::new("build/test-runtime-multi-domain-thermal-fluid-source"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !small_thermal_fluid_solve_artifacts_are_structured(&output) {
+                eprintln!(
+                    "expected multi-domain thermal/fluid runtime fixture to solve a square residual graph"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/multi_domain_thermal_fluid_from_source.eng solved a constrained Thermal/Fluid residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("multi-domain thermal/fluid source runtime fixture failed: {error}");
             return ExitCode::from(1);
         }
     }
@@ -4222,6 +4265,52 @@ fn behavior_graph_rhs_smoke() -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn small_thermal_fluid_solve_artifacts_are_structured(output: &eng_runtime::RunOutput) -> bool {
+    output.result_json.contains("\"status\": \"solved_linear\"")
+        && output
+            .result_json
+            .contains("\"method\": \"dense_linear_residual_graph\"")
+        && output.result_json.contains("\"equation_count\": 12")
+        && output.result_json.contains("\"unknown_count\": 12")
+        && output.result_json.contains("\"residual_norm\": 0.00000000")
+        && output
+            .result_json
+            .contains("\"name\": \"pump.supply.m_dot\"")
+        && output.result_json.contains("\"value\": 0.20000000")
+        && output
+            .result_json
+            .contains("\"name\": \"pipe.inlet.m_dot\"")
+        && output.result_json.contains("\"value\": -0.20000000")
+        && output
+            .result_json
+            .contains("\"name\": \"pipe.outlet.height\"")
+        && output.result_json.contains("\"value\": 12.00000000")
+        && output
+            .result_json
+            .contains("\"name\": \"return_node.inlet.m_dot\"")
+        && output.result_json.contains("\"largest_residuals\"")
+        && output.report_spec_json.contains("\"domain_count\": 2")
+        && output.report_spec_json.contains("\"domain\": \"Thermal\"")
+        && output
+            .report_spec_json
+            .contains("\"domain\": \"Fluid[Water]\"")
+        && output
+            .report_spec_json
+            .contains("\"component_equation_count\": 6")
+        && output
+            .report_spec_json
+            .contains("\"solver_plan\": \"dense_linear_residual_graph\"")
+        && output.report_spec_json.contains("\"pipe.equation_1\"")
+        && output.report_spec_json.contains("\"pipe.equation_2\"")
+        && output
+            .report_spec_json
+            .contains("\"not_production_multi_domain\"")
+        && output.report_html.contains("dense_linear_residual_graph")
+        && output.report_html.contains("Fluid[Water]")
+        && output.report_html.contains("domain plan")
+        && output.report_html.contains("component_equation")
 }
 
 fn adaptive_solver_artifacts_are_structured(

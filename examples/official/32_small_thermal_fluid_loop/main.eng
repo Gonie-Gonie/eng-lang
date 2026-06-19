@@ -1,0 +1,56 @@
+domain Thermal package "eng.std.domains.thermal" version "0.1.0" {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+domain Fluid[Medium M] package "eng.std.domains.fluid" version "0.1.0" {
+    across height: Length [m]
+    through m_dot: MassFlowRate [kg/s]
+    conservation sum(m_dot) = 0
+}
+
+component ZoneBoundary {
+    port heat: Thermal
+    boundary_T = heat.T = 22 degC
+    boundary_Q = heat.Q = 1 kW
+}
+
+component AmbientBoundary {
+    port heat: Thermal
+}
+
+component PumpBoundary {
+    port supply: Fluid[Water]
+    supply_head = supply.height = 12 m
+    supply_flow = supply.m_dot = 0.2 kg/s
+}
+
+component PipeRun {
+    port inlet: Fluid[Water]
+    port outlet: Fluid[Water]
+    outlet.height eq inlet.height
+    outlet.m_dot + inlet.m_dot eq 0
+}
+
+component ReturnBoundary {
+    port inlet: Fluid[Water]
+}
+
+system ThermalFluidLoop {
+    zone = ZoneBoundary()
+    ambient = AmbientBoundary()
+    pump = PumpBoundary()
+    pipe = PipeRun()
+    return_node = ReturnBoundary()
+
+    connect zone.heat to ambient.heat
+    connect pump.supply to pipe.inlet
+    connect pipe.outlet to return_node.inlet
+}
+
+thermal_fluid_marker = 1
+
+report {
+    show thermal_fluid_marker
+}

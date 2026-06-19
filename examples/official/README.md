@@ -135,6 +135,13 @@ paths before compatibility fixtures.
   `adapter(signal)` identity function wrapper seed, behavior graph RHS
   evaluation, state trajectory output, and integrated external behavior
   contract/profile artifacts.
+
+32_small_thermal_fluid_loop
+  Source-to-solver smoke for a constrained Thermal/Fluid[Water] algebraic
+  residual graph. Generated connection equations, component-local boundary
+  seeds, and simple pipe head/flow equations form a square dense linear solve.
+  This is a head-based fluid seed, not a production pressure-drop package or
+  broad multi-domain solver.
 ```
 
 Compatibility regression examples live under `examples/compat`. Diagnostic and

@@ -1,18 +1,22 @@
 # Domain And Component Guide
 
 This guide documents the current domain/component surface. The supported
-release-facing slice is a constrained Thermal component boundary assembly: the
+release-facing slice is a constrained component boundary assembly: the
 compiler records domains, component templates, system-local instances, ports,
 and connections; it generates connection equations; and `eng run` solves a
 square dense linear residual graph when literal boundary seeds make the graph
-balanced. Broader component behavior equations, constructor arguments, dynamic
-components, nonlinear/DAE coupling, and physical multi-domain solving remain
-internal or planned.
+balanced. Official examples cover constrained Thermal graphs and a constrained
+Thermal/Fluid[Water] head/flow graph. Broader component behavior equations,
+constructor arguments, dynamic components, nonlinear/DAE coupling, pressure
+quantity packages, and physical multi-domain solving remain internal or
+planned.
 
 When multiple compatible domain families appear in the same component graph,
 artifacts use legacy field values such as
 `solver_preview.status = multi_domain_preview`; those are machine-readable
-Internal metadata labels, not a physical multi-domain component solve claim.
+Internal metadata labels. In the official Thermal/Fluid[Water] example they
+identify the constrained algebraic head/flow residual solve; they are still not
+a production physical multi-domain component solve claim.
 
 ## Domain Declaration
 
@@ -178,9 +182,11 @@ compiler records generated equation seeds:
 - `solver_preview.status` is the current artifact field for identifying when
   one assembly contains more than one domain plan.
 
-The supported official Thermal boundary example uses these generated equations
-plus literal boundary seeds to produce a square dense linear residual solve.
-General physical component graph solving is still planned.
+The supported official Thermal boundary examples and the official
+Thermal/Fluid[Water] head/flow example use these generated equations plus
+literal boundary seeds and simple component-local equations to produce square
+dense linear residual solves. General physical component graph solving is still
+planned.
 
 ## Connection Constraint Check
 
@@ -198,8 +204,9 @@ The runtime result artifact writes this to
 `report.html` also expose the updated assembly status and convergence metadata.
 This path is useful for linear residual assembly, dense solver plumbing,
 convergence/failure artifacts, and future solver integration. In the supported
-official Thermal boundary shape it is a real numeric solve for the constrained
-linear graph, but it is not a physical multi-domain solve.
+official Thermal boundary shape and constrained Thermal/Fluid[Water] head/flow
+shape it is a real numeric solve for the constrained linear graph, but it is
+not a pressure-drop package or production physical multi-domain solve.
 
 The artifact also records explicit future-solver seeds:
 
@@ -322,6 +329,12 @@ re-parsing source files.
   `solver = implicit_euler_dae`, assembly-derived state/algebraic split,
   algebraic initialization, identity mass-matrix fallback, trajectories, and
   per-step Newton diagnostics.
+- `examples/official/32_small_thermal_fluid_loop/main.eng`
+  shows the constrained Thermal/Fluid[Water] algebraic residual path with
+  Thermal and Fluid connection equations, pump boundary seeds, pipe head/flow
+  component equations, named solved variables, residual norm, and
+  `largest_residuals`. It uses hydraulic head (`height`) rather than public
+  `Pressure`/`Pa` quantity support.
 - `examples/internal/06_domain_port/main.eng`
   shows compatible Thermal, `Fluid[Water]`, and
   `MechanicalNode[World, X]` domain connections with package/version metadata
@@ -370,6 +383,8 @@ Current:
 - homogeneous connection-constraint residual evaluation artifact;
 - supported square Thermal boundary residual solve for literal boundary seeds
   and simple linear component-local equations;
+- supported constrained Thermal/Fluid[Water] head/flow residual solve for
+  literal boundary seeds and simple pipe component-local equations;
 - narrow source Newton residual solves for dimensionless scalar nonlinear
   component equations;
 - narrow source implicit-Euler DAE solves for small scalar component residual
@@ -392,6 +407,7 @@ Deferred:
 - physical component graph solving with component behavior equations, broad
   nonlinear/DAE coupling, and adaptive component timestepping;
 - production multi-domain numerical solving;
+- Pressure/Pa quantity support and pressure-drop packages;
 - package registries;
 - package dependency resolution;
 - numeric enforcement of conservation contracts.

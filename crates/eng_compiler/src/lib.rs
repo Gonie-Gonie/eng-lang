@@ -5078,7 +5078,7 @@ mod tests {
     fn lowers_component_local_equations_into_assembly_residuals() {
         let report = check_source(
             "ok.eng",
-            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n    boundary_T = heat.T = 22 degC\n    heat.Q eq 0 kW\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\nsystem Envelope {\n    room = RoomBoundary()\n    ambient = AmbientBoundary()\n    connect room.heat to ambient.heat\n}\n",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n    boundary_T = heat.T = 22 degC\n    balance_heat: heat.Q eq 0 kW\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\nsystem Envelope {\n    room = RoomBoundary()\n    ambient = AmbientBoundary()\n    connect room.heat to ambient.heat\n}\n",
             &CheckOptions::default(),
         );
 

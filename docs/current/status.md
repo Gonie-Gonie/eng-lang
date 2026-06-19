@@ -165,7 +165,11 @@ by the stable breaking-change policy.
   unit-parameterized component-local equations, broad fixed-point/nonlinear
   source solving, behavior-node solving, broad nonlinear/DAE coupling,
   adaptive component timestepping, and production multi-domain solving remain
-  planned or internal.
+  planned or internal. A constrained Thermal/Fluid[Water] square algebraic
+  residual graph solve is covered separately by
+  `examples/official/32_small_thermal_fluid_loop`; it uses hydraulic head as
+  the Fluid across variable and does not claim a pressure-drop package or broad
+  multi-domain simulator.
 - Class/domain object authoring for typed fields/defaults, object literals,
   nested object references, field access metadata, simple validation blocks,
   zero-argument metadata methods, immutable copy-with metadata, diagnostics,
@@ -300,9 +304,10 @@ are not public stable workflows.
   `examples/official/31_external_behavior_solver`. Broader behavior graph
   solving, model loading, process backends, nonlinear/DAE behavior coupling,
   and production co-simulation remain planned.
-- Domain/component assembly seeds beyond the supported Thermal boundary shape
-  include internal multi-domain boundary solves, singular solve failure
-  artifacts, and overdetermined limitation artifacts.
+- Domain/component assembly seeds beyond the supported Thermal and constrained
+  Thermal/Fluid[Water] head/flow shapes include internal multi-domain boundary
+  solves, singular solve failure artifacts, and overdetermined limitation
+  artifacts.
   `examples/internal/22_multi_domain_boundary_solve` exercises a constrained
   Thermal/Fluid/MechanicalNode boundary solve. These remain internal algebraic
   assembly seeds, not a production multi-domain component graph solver.
@@ -346,10 +351,11 @@ are not public stable workflows.
   standalone runtime algorithm seeds.
 - Stable-supported state-space workflow boundaries beyond the current internal
   fixed-step vector simulation path.
-- Component graph solving beyond the constrained Thermal boundary assembly:
+- Component graph solving beyond the constrained Thermal boundary assembly and
+  constrained Thermal/Fluid[Water] head/flow algebraic residual solve:
   constructor parameters, nonlinear or unit-parameterized component behavior
-  equations, mixed algebraic/dynamic variables, nonlinear/DAE coupling, and
-  physical multi-domain coupling.
+  equations, mixed algebraic/dynamic variables, nonlinear/DAE coupling,
+  Pressure/Pa pressure-drop packages, and physical multi-domain coupling.
 - Behavior graph integration for delay, Predictor, and external behavior
   wrappers.
 - Domain package registry and open component ecosystem.
@@ -373,8 +379,9 @@ are not public stable workflows.
   the narrow component residual Newton/DAE smokes, and internal state-space
   seeds.
 - Production numeric component graph solving beyond the constrained Thermal
-  boundary assembly, physical multi-domain solving, and domain package
-  registries are deferred.
+  boundary assembly and constrained Thermal/Fluid[Water] head/flow algebraic
+  residual solve, physical multi-domain solving, pressure-drop packages, and
+  domain package registries are deferred.
 - Full Unicode unit spelling support beyond the supported `°C` alias is
   deferred.
 - First-class Summary objects are not part of the current scope; the v0.2

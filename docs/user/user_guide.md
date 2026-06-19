@@ -116,12 +116,20 @@ Use the official examples for user testing and demos. Start with these:
 - `examples/official/31_external_behavior_solver/main.eng`: supported narrow
   source behavior solve using a typed deterministic `adapter(signal)`
   identity-wrapper seed during explicit-Euler RHS evaluation.
+- `examples/official/32_small_thermal_fluid_loop/main.eng`: supported
+  constrained Thermal/Fluid[Water] algebraic residual solve with generated
+  connection equations, pipe head/flow component equations, named solved
+  variables, residual norm, and largest-residual artifacts. The Fluid seed uses
+  hydraulic head because public `Pressure`/`Pa` quantity support is not present
+  yet.
 
 The remaining official examples cover functions/imports, read-only IO, write
 output manifests, file policy, structured runtime logs, process-result records,
 local test-result records, and histogram PlotSpec output. The Newton and DAE
 examples are scoped solver smokes, and the behavior examples are scoped
-explicit-Euler RHS smokes, not broad nonlinear/DAE/behavior simulation support.
+explicit-Euler RHS smokes. The Thermal/Fluid example is a scoped algebraic
+head/flow residual smoke, not broad nonlinear/DAE/behavior, pressure-drop, or
+production multi-domain simulation support.
 
 Recommended first user test:
 

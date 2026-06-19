@@ -76,8 +76,9 @@ preserved:
   scoped addition, the simple-linear dynamic component source path is a
   supported scoped addition, the narrow source Newton/implicit-Euler DAE
   component residual smokes are supported scoped additions, and the narrow
-  explicit-Euler source behavior RHS smokes are supported scoped additions;
-  none of them are stable-core claims.
+  explicit-Euler source behavior RHS smokes plus the constrained
+  Thermal/Fluid[Water] head/flow algebraic residual smoke are supported scoped
+  additions; none of them are stable-core claims.
 - Broad nonlinear/DAE simulation, broad behavior graph solving, broad adaptive,
   or general multi-state
   equation solving. The one-state thermal `adaptive_heun` path, the supported
