@@ -78,6 +78,12 @@ official/22_state_space_continuous
   Supported typed-block continuous state-space example with promoted CSV
   TimeSeries input binding, fixed-step RK4 execution, and generated
   sim.T_air/sim.T_wall TimeSeries.
+
+official/23_thermal_component_assembly
+  Supported system-local component instance example with
+  `name = Component()`, `connect instance.port to instance.port`, generated
+  connection equations, boundary seed equations, and a square dense linear
+  residual solve artifact for a constrained Thermal graph.
 ```
 
 ## Internal Implementation Fixtures

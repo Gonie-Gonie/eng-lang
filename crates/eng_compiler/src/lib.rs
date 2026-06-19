@@ -5006,6 +5006,75 @@ mod tests {
     }
 
     #[test]
+    fn lowers_system_component_instances_into_component_assembly() {
+        let report = check_source(
+            "ok.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n    boundary_T = heat.T = 22 degC\n    boundary_Q = heat.Q = 1 kW\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\nsystem Envelope {\n    room = RoomBoundary()\n    ambient = AmbientBoundary()\n    connect room.heat to ambient.heat\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(report.syntax_summary.components, 2);
+        assert_eq!(report.syntax_summary.connections, 1);
+        assert_eq!(
+            report
+                .semantic_program
+                .components
+                .iter()
+                .map(|component| component.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["room", "ambient"]
+        );
+        assert_eq!(
+            report.semantic_program.connections[0].status,
+            "domain_compatible"
+        );
+        assert_eq!(report.semantic_program.component_assemblies.len(), 1);
+        let assembly = &report.semantic_program.component_assemblies[0];
+        assert_eq!(assembly.component_count, 2);
+        assert_eq!(assembly.connection_count, 1);
+        assert_eq!(assembly.local_expression_count, 2);
+        assert_eq!(assembly.component_equation_count, 2);
+        assert_eq!(assembly.boundary.balance_status, "balanced_metadata_seed");
+        assert_eq!(assembly.boundary.equation_count, 4);
+        assert!(assembly
+            .equations
+            .iter()
+            .any(|equation| equation.kind == "component_boundary"
+                && equation.expression == "room.heat.T eq 22 degC"));
+
+        let review = review_json(&report);
+        assert!(review.contains("\"left\": \"room.heat\""));
+        assert!(review.contains("\"right\": \"ambient.heat\""));
+        assert!(review.contains("\"linear_residual_graph_candidate\""));
+    }
+
+    #[test]
+    fn rejects_unsupported_system_component_constructor_shapes() {
+        let unknown = check_source(
+            "bad.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\nsystem Envelope {\n    room = MissingComponent()\n}\n",
+            &CheckOptions::default(),
+        );
+        assert!(unknown.has_errors());
+        assert!(unknown
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-COMPONENT-INSTANCE-UNKNOWN"));
+
+        let with_args = check_source(
+            "bad.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n}\n\nsystem Envelope {\n    room = RoomBoundary(22 degC)\n}\n",
+            &CheckOptions::default(),
+        );
+        assert!(with_args.has_errors());
+        assert!(with_args
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-COMPONENT-INSTANCE-ARGS"));
+    }
+
+    #[test]
     fn rejects_invalid_component_delay_calls() {
         let missing_duration = check_source(
             "bad.eng",

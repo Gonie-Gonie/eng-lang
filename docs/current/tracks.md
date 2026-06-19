@@ -283,6 +283,17 @@ Not yet public-supported:
 
 ## T9 Domain / Component
 
+Supported scoped slice:
+
+```text
+- constrained Thermal component boundary assembly in
+  examples/official/23_thermal_component_assembly
+- system-local name = Component() instances
+- connect instance.port to instance.port
+- generated connection equations plus literal boundary seeds
+- square dense linear residual solve artifact
+```
+
 Implementation seeds on `main`:
 
 ```text
@@ -310,6 +321,7 @@ Not yet public-supported:
 
 ```text
 - production numeric multi-domain simulation
+- constructor parameters and general component-local equation solving
 - general boundary-condition/component-behavior solving
 - domain package registry
 - open component ecosystem

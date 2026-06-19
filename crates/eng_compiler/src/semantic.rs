@@ -770,6 +770,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut domains = Vec::new();
     let mut current_domain_index = None;
     let mut components = Vec::new();
+    let mut component_instances = Vec::new();
     let mut current_component_index = None;
     let mut raw_connections = Vec::new();
     let mut classes = Vec::new();
@@ -1092,6 +1093,21 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     }
                     continue;
                 }
+                if binding.context == ParseContext::System {
+                    match analyze_component_instance_binding(
+                        binding,
+                        &components,
+                        &component_instances,
+                        &mut diagnostics,
+                    ) {
+                        ComponentInstanceBindingAnalysis::Instance(instance) => {
+                            component_instances.push(instance);
+                            continue;
+                        }
+                        ComponentInstanceBindingAnalysis::HandledInvalid => continue,
+                        ComponentInstanceBindingAnalysis::NotComponentConstructor => {}
+                    }
+                }
                 if binding.context == ParseContext::Component {
                     if let Some(component_index) = current_component_index {
                         analyze_component_local_expression(
@@ -1299,14 +1315,23 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         &mut diagnostics,
     );
 
+    let mut assembly_components = if component_instances.is_empty() {
+        components.clone()
+    } else {
+        component_instances
+    };
     let connections = analyze_connections(
         &domains,
-        &mut components,
+        &mut assembly_components,
         &raw_connections,
         &mut diagnostics,
     );
-    let component_assemblies =
-        build_component_assembly_graphs(&domains, &components, &connections, &mut diagnostics);
+    let component_assemblies = build_component_assembly_graphs(
+        &domains,
+        &assembly_components,
+        &connections,
+        &mut diagnostics,
+    );
     emit_component_assembly_boundary_warnings(&component_assemblies, &mut diagnostics);
     SemanticOutput {
         diagnostics,
@@ -1332,7 +1357,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             state_space_vectors,
             linear_operators,
             domains,
-            components,
+            components: assembly_components,
             connections,
             component_assemblies,
             classes,
@@ -4625,6 +4650,89 @@ fn analyze_component_local_expression(
             type_status: signal_contract.status,
             line: binding.line,
         });
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum ComponentInstanceBindingAnalysis {
+    Instance(ComponentInfo),
+    HandledInvalid,
+    NotComponentConstructor,
+}
+
+fn analyze_component_instance_binding(
+    binding: &crate::ast::FastBinding,
+    templates: &[ComponentInfo],
+    existing_instances: &[ComponentInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> ComponentInstanceBindingAnalysis {
+    let Some((template_name, arguments)) = component_constructor_call(&binding.expression) else {
+        return ComponentInstanceBindingAnalysis::NotComponentConstructor;
+    };
+    if !arguments.is_empty() {
+        diagnostics.push(Diagnostic::error(
+            "E-COMPONENT-INSTANCE-ARGS",
+            binding.line,
+            &format!(
+                "Component instance `{}` calls `{template_name}` with arguments, which is not supported.",
+                binding.name
+            ),
+            Some("Use `name = Component()`; parameterized component constructors are not supported yet."),
+        ));
+        return ComponentInstanceBindingAnalysis::HandledInvalid;
+    }
+    if existing_instances
+        .iter()
+        .any(|instance| instance.name == binding.name)
+    {
+        diagnostics.push(Diagnostic::error(
+            "E-COMPONENT-INSTANCE-DUPLICATE",
+            binding.line,
+            &format!("Component instance `{}` is already declared.", binding.name),
+            Some("Use a unique system-local instance name."),
+        ));
+        return ComponentInstanceBindingAnalysis::HandledInvalid;
+    }
+    let Some(template) = templates
+        .iter()
+        .find(|component| component.name == template_name)
+    else {
+        diagnostics.push(Diagnostic::error(
+            "E-COMPONENT-INSTANCE-UNKNOWN",
+            binding.line,
+            &format!(
+                "Component instance `{}` references unknown component `{template_name}`.",
+                binding.name
+            ),
+            Some("Declare the component before instantiating it inside a system block."),
+        ));
+        return ComponentInstanceBindingAnalysis::HandledInvalid;
+    };
+
+    let mut instance = template.clone();
+    instance.name = binding.name.clone();
+    instance.line = binding.line;
+    ComponentInstanceBindingAnalysis::Instance(instance)
+}
+
+fn component_constructor_call(expression: &str) -> Option<(String, String)> {
+    let trimmed = expression.trim();
+    let open = trimmed.find('(')?;
+    if !trimmed.ends_with(')') {
+        return None;
+    }
+    let name = trimmed[..open].trim();
+    if !is_identifier(name) {
+        return None;
+    }
+    if !name
+        .chars()
+        .next()
+        .is_some_and(|character| character.is_ascii_uppercase())
+    {
+        return None;
+    }
+    let arguments = trimmed[open + 1..trimmed.len() - 1].trim();
+    Some((name.to_owned(), arguments.to_owned()))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

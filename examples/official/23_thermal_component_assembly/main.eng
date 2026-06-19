@@ -1,0 +1,27 @@
+domain Thermal package "eng.std.domains.thermal" version "0.1.0" {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+component RoomBoundary {
+    port heat: Thermal
+    boundary_T = heat.T = 22 degC
+    boundary_Q = heat.Q = 1 kW
+}
+
+component AmbientBoundary {
+    port heat: Thermal
+}
+
+system EnvelopeBoundary {
+    room = RoomBoundary()
+    ambient = AmbientBoundary()
+    connect room.heat to ambient.heat
+}
+
+assembly_marker = 1
+
+report {
+    show assembly_marker
+}

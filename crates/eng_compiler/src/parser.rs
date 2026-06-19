@@ -1610,7 +1610,7 @@ fn parse_connect_decl(tokens: &[Token], line_text: &str) -> Option<ConnectDecl> 
         .strip_prefix("connect")
         .unwrap_or(line_text.trim())
         .trim();
-    let (left, right) = raw.split_once("->")?;
+    let (left, right) = raw.split_once("->").or_else(|| raw.split_once(" to "))?;
     Some(ConnectDecl {
         left: left.trim().to_owned(),
         right: right.trim().to_owned(),

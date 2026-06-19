@@ -61,12 +61,12 @@ The current stable core supports:
 Implementation seeds for uncertainty, data-driven modeling, LSP, JIT/AOT,
 domain/component, state-space, and class/domain-object work may exist on
 `main`, but they are Internal unless the current status documents a narrow
-Supported scope. The domain/component seed includes reviewable assembly
-metadata, domain plans, and a connection constraint consistency check; it is
-not production multi-domain physical solving. The state-space seed includes
-multi-state fixed-step/adaptive trajectories with promoted TimeSeries input
-materialization, but it is not a supported general state-space simulation
-workflow.
+Supported scope. The domain/component surface has a supported constrained
+Thermal boundary assembly example with system-local instances and a square
+dense linear residual solve; broader domain/component seeds remain reviewable
+metadata and internal algebraic fixtures, not production multi-domain physical
+solving. The state-space surface has supported typed-block fixed-step examples,
+but it is not a supported general state-space simulation workflow.
 
 ## Core Invariants
 

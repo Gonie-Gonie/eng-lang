@@ -97,10 +97,10 @@ component_graph
 For the domain/component metadata track, each `domain_summary.type_parameters`
 entry is an object with `kind`, `name`, and `display` fields. For example,
 `Fluid[Medium M]` records `{ kind: "Medium", name: "M", display: "Medium M" }`.
-`assembly_summary` records Internal connection-set metadata, generated
-across/through connection equations, variable/equation counts, residual graph
-dependencies, algebraic-loop candidates, Jacobian sparsity placeholders, and a
-no-solve solver-plan placeholder. It also records `domain_count`,
+`assembly_summary` records connection-set metadata, generated across/through
+connection equations, variable/equation counts, residual graph dependencies,
+algebraic-loop candidates, Jacobian sparsity placeholders, and the current
+solver-plan metadata. It also records `domain_count`,
 `domain_plans`, component-local expression counts, and the legacy-named
 `solver_preview` field for domain/component graphs. A graph with
 Thermal, `Fluid[Water]`, and `MechanicalNode[World, X]` connection sets reports
@@ -122,7 +122,9 @@ different units do not dominate the diagnostic ordering by magnitude alone.
 Square component residual graphs are solved through the runtime
 `solve_linear_residual_graph` API, which converts the graph to a dense linear
 system, returns named solved variables, and preserves singular/ill-conditioned
-solver failures in the artifact surface.
+solver failures in the artifact surface. The supported official example is
+`examples/official/23_thermal_component_assembly`, which constrains this to one
+Thermal connection set with literal boundary seeds.
 The runtime residual evaluator accepts solver-provided residual scale overrides
 and tolerance values; component artifacts currently use the default
 unit/quantity scale policy unless a solver path supplies explicit overrides.

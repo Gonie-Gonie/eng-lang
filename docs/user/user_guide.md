@@ -83,6 +83,9 @@ Use the official examples for user testing and demos. Start with these:
   discrete state-space simulation.
 - `examples/official/22_state_space_continuous/main.eng`: supported
   typed-block continuous state-space simulation with CSV TimeSeries input.
+- `examples/official/23_thermal_component_assembly/main.eng`: supported
+  constrained Thermal component boundary assembly with system-local component
+  instances and a square dense linear residual solve artifact.
 
 The remaining official examples cover functions/imports, read-only IO, write
 output manifests, file policy, structured runtime logs, process-result records,

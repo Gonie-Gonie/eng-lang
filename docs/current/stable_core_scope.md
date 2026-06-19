@@ -70,7 +70,9 @@ preserved:
   fixed-step workflows are supported scoped additions, not stable-core claims.
 - Class runtime object dispatch, simulation lowering, method arguments,
   mutation, and inheritance.
-- Component graph numeric solving and physical multi-domain solving.
+- Production component graph numeric solving and physical multi-domain solving.
+  The constrained Thermal component boundary assembly is a supported scoped
+  addition, not a stable-core claim.
 - DAE, nonlinear, broad adaptive, or general multi-state equation solving. The
   one-state thermal `adaptive_heun` path, the supported two-state
   source-equation fixed-step path, and internal state-space seeds are outside

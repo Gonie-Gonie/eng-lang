@@ -33,6 +33,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/20_multi_state_thermal/main.eng",
                 "examples/official/21_state_space_discrete/main.eng",
                 "examples/official/22_state_space_continuous/main.eng",
+                "examples/official/23_thermal_component_assembly/main.eng",
             ],
         ),
         (
@@ -356,7 +357,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.report_html.contains("component_boundary")
             {
                 eprintln!(
-                    "expected official thermal component assembly example to solve a square linear residual graph"
+                    "expected internal thermal component assembly fixture to solve a square linear residual graph"
                 );
                 return ExitCode::from(2);
             }
@@ -366,6 +367,51 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("thermal component assembly example failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("examples/official/23_thermal_component_assembly/main.eng"),
+        Path::new("build/test-official-thermal-component-assembly"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"solved_linear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dense_linear_residual_graph\"")
+                || !output.result_json.contains("\"name\": \"room.heat.T\"")
+                || !output.result_json.contains("\"value\": 22.00000000")
+                || !output.result_json.contains("\"name\": \"ambient.heat.Q\"")
+                || !output.result_json.contains("\"value\": -1.00000000")
+                || !output
+                    .report_spec_json
+                    .contains("\"component_equation_count\": 2")
+                || !output
+                    .report_spec_json
+                    .contains("\"kind\": \"component_boundary\"")
+                || !output.report_spec_json.contains("\"rhs\": \"22 degC\"")
+                || !output.report_spec_json.contains("\"rhs\": \"1 kW\"")
+                || !output.report_spec_json.contains("\"left\": \"room.heat\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"right\": \"ambient.heat\"")
+                || !output.report_spec_json.contains("\"residual_norm\"")
+                || !output.result_json.contains("\"largest_residuals\"")
+                || !output.report_html.contains("solved_linear")
+                || !output.report_html.contains("component_boundary")
+            {
+                eprintln!(
+                    "expected official thermal component assembly example to solve a system-local instance residual graph"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/23_thermal_component_assembly/main.eng solved system-local component assembly residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("official thermal component assembly example failed: {error}");
             return ExitCode::from(1);
         }
     }
@@ -444,7 +490,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         )
     {
         eprintln!(
-            "expected official thermal component assembly example to expose lowerable component residual, Jacobian, Newton-step kernel candidates, and benchmark target coverage"
+            "expected internal thermal component assembly fixture to expose lowerable component residual, Jacobian, Newton-step kernel candidates, and benchmark target coverage"
         );
         return ExitCode::from(2);
     }
@@ -483,7 +529,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.report_html.contains("multi_domain_preview")
             {
                 eprintln!(
-                    "expected official multi-domain boundary fixture to solve a square residual graph across Thermal, Fluid, and MechanicalNode domains"
+                    "expected internal multi-domain boundary fixture to solve a square residual graph across Thermal, Fluid, and MechanicalNode domains"
                 );
                 return ExitCode::from(2);
             }

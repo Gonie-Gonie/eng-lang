@@ -143,6 +143,15 @@ by the stable breaking-change policy.
   `examples/official/22_state_space_continuous`. Broad operator algebra,
   nonlinear, DAE, discrete adaptive, broad adaptive, and component-coupled
   state-space solving remain planned or internal.
+- Thermal component boundary assembly: component templates with ports,
+  system-local `name = Component()` instances, `connect instance.port to
+  instance.port`, generated Thermal across/through equations,
+  component-local `name = port.signal = literal` boundary seeds, and square
+  dense linear residual solve artifacts for
+  `examples/official/23_thermal_component_assembly`. Constructor arguments,
+  general component-local equations, behavior-node solving, nonlinear/DAE
+  coupling, dynamic components, and production multi-domain solving remain
+  planned or internal.
 - Class/domain object authoring for typed fields/defaults, object literals,
   nested object references, field access metadata, simple validation blocks,
   zero-argument metadata methods, immutable copy-with metadata, diagnostics,
@@ -252,12 +261,9 @@ are not public stable workflows.
   inferred contract fields and diagnostic channels, but behavior nodes are not
   wired into language-level behavior graph solving. The valid behavior-node
   fixture is covered by the CLI example smoke path.
-- Domain/component assembly seeds include component-local boundary equations
-  for internal fixtures, dense linear residual solves when the residual graph is
-  square, explicit RHS values in report specs, solved variable/residual
-  artifacts, singular solve failure artifacts, and overdetermined limitation
-  artifacts. `examples/internal/21_thermal_component_assembly` exercises the
-  focused Thermal assembly path, and
+- Domain/component assembly seeds beyond the supported Thermal boundary shape
+  include internal multi-domain boundary solves, singular solve failure
+  artifacts, and overdetermined limitation artifacts.
   `examples/internal/22_multi_domain_boundary_solve` exercises a constrained
   Thermal/Fluid/MechanicalNode boundary solve. These remain internal algebraic
   assembly seeds, not a production multi-domain component graph solver.
@@ -300,9 +306,10 @@ are not public stable workflows.
   seeds.
 - Stable-supported state-space workflow boundaries beyond the current internal
   fixed-step vector simulation path.
-- Component graph solving with boundary conditions, component behavior
-  equations, mixed algebraic/dynamic variables, and physical multi-domain
-  coupling.
+- Component graph solving beyond the constrained Thermal boundary assembly:
+  constructor parameters, general component behavior equations, mixed
+  algebraic/dynamic variables, nonlinear/DAE coupling, and physical
+  multi-domain coupling.
 - Behavior graph integration for delay, Predictor, and external behavior
   wrappers.
 - Domain package registry and open component ecosystem.
@@ -323,8 +330,9 @@ are not public stable workflows.
 - General multi-state equation-system, nonlinear, broad adaptive, or general
   equation-system solving is deferred outside the one-state thermal
   `adaptive_heun` path and internal state-space seeds.
-- Production numeric component graph solving, physical multi-domain solving,
-  and domain package registries are deferred.
+- Production numeric component graph solving beyond the constrained Thermal
+  boundary assembly, physical multi-domain solving, and domain package
+  registries are deferred.
 - Full Unicode unit spelling support beyond the supported `°C` alias is
   deferred.
 - First-class Summary objects are not part of the current scope; the v0.2

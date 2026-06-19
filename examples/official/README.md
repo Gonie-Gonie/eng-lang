@@ -78,6 +78,13 @@ paths before compatibility fixtures.
   Continuous two-state state-space simulation using typed state/input blocks,
   operator declarations, promoted CSV TimeSeries input binding, fixed-step RK4
   execution, and generated state TimeSeries.
+
+23_thermal_component_assembly
+  Thermal component templates instantiated inside a system block with
+  `name = Component()`, `connect instance.port to instance.port`, generated
+  connection equations, component-local boundary seeds, and a square dense
+  linear residual solve artifact. This is not a production nonlinear,
+  dynamic, DAE, or broad multi-domain component solver.
 ```
 
 Compatibility regression examples live under `examples/compat`. Diagnostic and

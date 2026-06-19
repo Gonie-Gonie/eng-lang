@@ -1,13 +1,18 @@
 # Domain And Component Guide
 
-This guide documents the current domain/component metadata surface.
-It is an Internal solver-track surface: the compiler records domains, ports,
-and connections and checks domain compatibility. It also emits an
-equation/residual assembly seed for compatible connection sets. When multiple
-compatible domain families appear in the same component graph, artifacts use
-legacy field values such as `solver_preview.status = multi_domain_preview`;
-those are machine-readable Internal metadata labels, not a physical
-multi-domain component solve claim.
+This guide documents the current domain/component surface. The supported
+release-facing slice is a constrained Thermal component boundary assembly: the
+compiler records domains, component templates, system-local instances, ports,
+and connections; it generates connection equations; and `eng run` solves a
+square dense linear residual graph when literal boundary seeds make the graph
+balanced. Broader component behavior equations, constructor arguments, dynamic
+components, nonlinear/DAE coupling, and physical multi-domain solving remain
+internal or planned.
+
+When multiple compatible domain families appear in the same component graph,
+artifacts use legacy field values such as
+`solver_preview.status = multi_domain_preview`; those are machine-readable
+Internal metadata labels, not a physical multi-domain component solve claim.
 
 ## Domain Declaration
 
@@ -77,7 +82,10 @@ component SupplyPipe {
 Each `port` names a component boundary and references a declared domain. If the
 domain is missing, checking reports `E-PORT-DOMAIN-001`. A `name = expr` line
 inside a component is recorded as component-local expression metadata; it is not
-a top-level workflow binding and is not numerically solved.
+a top-level workflow binding. The supported numeric boundary seed shape is
+`name = port.signal = literal`, for example `boundary_T = heat.T = 22 degC`.
+Other component-local expressions remain metadata or behavior-node seeds until
+the broader component equation language is implemented.
 
 Generic domain ports must provide the expected number of type arguments. For
 example, `Fluid[Medium M]` expects `Fluid[Water]`, `Fluid[Air]`, or another
@@ -85,14 +93,38 @@ single argument at the port boundary. `MechanicalNode[Frame F, Axis DOF]`
 expects two arguments such as `MechanicalNode[World, X]`. Plain `Fluid` reports
 `E-PORT-DOMAIN-002`.
 
+## System-Local Instances
+
+```text
+system EnvelopeBoundary {
+    room = RoomBoundary()
+    ambient = AmbientBoundary()
+    connect room.heat to ambient.heat
+}
+```
+
+`name = Component()` inside a `system` creates a system-local component
+instance from a declared component template. Constructor arguments are not
+supported yet; `RoomBoundary(22 degC)` reports
+`E-COMPONENT-INSTANCE-ARGS`. Unknown component names report
+`E-COMPONENT-INSTANCE-UNKNOWN`. Duplicate instance names report
+`E-COMPONENT-INSTANCE-DUPLICATE`.
+
+If a source file contains system-local component instances, the component graph
+is assembled from those instances. Older top-level component fixtures without
+instances still assemble directly from top-level component names for
+compatibility coverage.
+
 ## Connections
 
 ```text
 connect RoomBoundary.heat -> AmbientBoundary.heat
+connect room.heat to ambient.heat
 ```
 
 Connections use source-order metadata. Both endpoints must be written as
-`Component.port`, and both ports must resolve to the same domain.
+`Component.port` or `instance.port`, and both ports must resolve to the same
+domain.
 
 | Diagnostic | Trigger |
 |---|---|
@@ -107,6 +139,9 @@ Connections use source-order metadata. Both endpoints must be written as
 | `E-CONNECT-FRAME-001` | Same generic domain, but `Frame` arguments differ. |
 | `E-CONNECT-AXIS-001` | Same generic domain, but `Axis` arguments differ. |
 | `E-CONNECT-DUPLICATE-001` | The same component-port pair is connected more than once, including reversed duplicates. |
+| `E-COMPONENT-INSTANCE-UNKNOWN` | A system-local `Name()` constructor does not reference a declared component template. |
+| `E-COMPONENT-INSTANCE-ARGS` | A system-local component constructor includes arguments, which are not supported yet. |
+| `E-COMPONENT-INSTANCE-DUPLICATE` | A system-local component instance name is repeated. |
 | `E-DELAY-CALL-001` | Component-local delay call is not `delay(signal, duration)`. |
 | `E-DELAY-SIGNAL-001` | Delay signal is not a known component signal. |
 | `E-DELAY-DURATION-001` | Delay duration is not a positive time value. |
@@ -122,7 +157,7 @@ topology because production physical graph solving is still deferred.
 ## Assembly Seed
 
 Compatible connections are grouped into connection sets. For each set, the
-compiler records Internal generated equation seeds:
+compiler records generated equation seeds:
 
 - across variables generate equality equations, such as
   `RoomBoundary.heat.T eq AmbientBoundary.heat.T`;
@@ -141,8 +176,9 @@ compiler records Internal generated equation seeds:
 - `solver_preview.status` is the current artifact field for identifying when
   one assembly contains more than one domain plan.
 
-This is not a physical component graph solver. The generated equations are
-review/report metadata for future assembly and solver work.
+The supported official Thermal boundary example uses these generated equations
+plus literal boundary seeds to produce a square dense linear residual solve.
+General physical component graph solving is still planned.
 
 ## Connection Constraint Check
 
@@ -159,8 +195,9 @@ The runtime result artifact writes this to
 `typed_payload.component_solutions`. Runtime `report_spec.json` and
 `report.html` also expose the updated assembly status and convergence metadata.
 This path is useful for linear residual assembly, dense solver plumbing,
-convergence/failure artifacts, and future solver integration, but it is not a
-physical multi-domain solve.
+convergence/failure artifacts, and future solver integration. In the supported
+official Thermal boundary shape it is a real numeric solve for the constrained
+linear graph, but it is not a physical multi-domain solve.
 
 The artifact also records explicit future-solver seeds:
 
@@ -251,6 +288,12 @@ re-parsing source files.
 
 ## Official Examples
 
+- `examples/official/23_thermal_component_assembly/main.eng`
+  shows the supported constrained Thermal boundary assembly with
+  system-local `name = Component()` instances, `connect instance.port to
+  instance.port`, generated connection equations, literal boundary seeds, a
+  square dense linear residual solve, solved variables, residual values, and
+  `largest_residuals`.
 - `examples/internal/06_domain_port/main.eng`
   shows compatible Thermal, `Fluid[Water]`, and
   `MechanicalNode[World, X]` domain connections with package/version metadata
@@ -286,15 +329,18 @@ Current:
 - parser and semantic metadata;
 - domain package/version metadata;
 - structured generic domain parameter and port argument metadata;
+- system-local `name = Component()` instances for zero-argument component
+  constructors;
 - domain contract diagnostics;
 - domain variable quantity/unit metadata;
 - port domain validation;
 - connection compatibility diagnostics;
 - duplicate connection diagnostics and unconnected port warnings;
 - medium/frame/axis metadata compatibility diagnostics;
-- Internal connection-set assembly metadata;
+- connection-set assembly metadata;
 - generated connection-equation and residual graph artifacts;
 - homogeneous connection-constraint residual evaluation artifact;
+- supported square Thermal boundary residual solve for literal boundary seeds;
 - component behavior-node graph artifacts for delay/Predictor/external
   expressions;
 - multi-domain assembly metadata with domain plans, future nonlinear/
@@ -308,8 +354,10 @@ Current:
 
 Deferred:
 
-- physical component graph solving with boundary conditions and component
-  behavior equations;
+- constructor arguments and parameterized component instantiation;
+- general component-local equation solving;
+- physical component graph solving with component behavior equations and mixed
+  algebraic/dynamic variables;
 - production multi-domain numerical solving;
 - package registries;
 - package dependency resolution;

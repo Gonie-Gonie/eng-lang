@@ -72,10 +72,12 @@ claims:
 System/equation solver support is scoped. Official examples cover the
 one-state thermal workflow, a two-state source-equation fixed-step ODE
 workflow, and typed-block discrete/continuous state-space fixed-step
-workflows; internal fixtures cover wider solver seeds. General nonlinear
-solvers, DAE, broad adaptive solving, broad state-space operator algebra, and
-production numeric component-graph solving remain future or internal tracks.
-Domain package registries also remain future work.
+workflows. The official component example covers a constrained Thermal
+component boundary graph with system-local instances and a square dense linear
+residual solve. General nonlinear solvers, DAE, broad adaptive solving, broad
+state-space operator algebra, general component behavior equations, and
+production multi-domain component-graph solving remain future or internal
+tracks. Domain package registries also remain future work.
 
 ## Quick Start
 
