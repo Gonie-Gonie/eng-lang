@@ -417,7 +417,7 @@ Non-goals:
 
 ## T11 General Programming / Side Effects
 
-Implemented seeds through `v1.0.0`:
+Implemented seeds in the current package scope:
 
 ```text
 - file/dir path defaults

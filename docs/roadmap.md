@@ -1,78 +1,51 @@
 # Roadmap
 
-This roadmap follows the simplified version policy:
+This roadmap follows the current release policy:
 
 ```text
-Public release versions describe packages.
+Public release labels describe packages.
 Long-term capabilities are managed as tracks.
-v1.0.0 is the stable-core line.
+Solver maturity is claimed only by implemented source, compiler, runtime,
+artifact, IDE, example, and test evidence.
 ```
 
 Use [current status](current/status.md),
-[version plan](current/version_plan.md), and the
+[version policy](current/version_plan.md), and the
 [feature maturity matrix](current/feature_maturity_matrix.md) as the
 authoritative state layer.
 
-## Public Release Sequence
+## Current Public Package
 
-```text
-v0.1-preview  first public preview
-v0.2-preview  IDE/documentation hardening and integrated philosophy
-v0.3-preview  syntax/dataflow unification and path-policy seed
-v0.4-preview  read-only I/O and multi-source data policy
-v0.5-preview  write/export hardening and output manifest
-v0.6-preview  explicit copy/move/delete side-effect policy
-v0.7-preview  structured log levels and run log artifacts
-v0.8-preview  external process and ProcessResult policy seed
-v0.9-preview  test/assert/golden support
-v1.0.0        stable core
-```
+`v0.1.0` is the current published portable package line. It packages the
+documented CLI/data/report workflow and curated user docs. It is not a general
+solver release, and it does not include every newer solver-centered change on
+`main`.
 
-`v0.x-preview` did not mean every implemented feature was stable. `v1.0.0`
-stabilizes a narrow documented core while keeping broader tracks Internal or
-Planned unless their supported scope is explicitly documented.
-
-## Current Public Line
-
-`v1.0.0` packages the stable-core workflow:
+Public package scope:
 
 ```text
 - eng.exe doctor/check/run/build/view
-- top-level execution, args, const, fn, and file-import policy
-- command-style built-in workflow verbs with where/with policy
 - typed CSV promote
-- unit-aware TimeSeries calculation
-- TimeSeries statistics and integration metadata
-- measured-vs-simulated one-state thermal workflow with RMSE, validation,
-  time-alignment metadata, and multi-series PlotSpec
-- unit-aware print and explicit summary CSV export
-- typed path helpers and provenance-visible `exists`
-- read-only UTF-8 `read text/json/toml` with source hash provenance
-- explicit `write text/json`, CSV overwrite hardening, and output manifest
-- explicit `copy/move/delete` file operation seed with confirmation metadata
-- `print` plus `log debug/info/warn/error` runtime messages with `run_log.json`
-- explicit `run command` process execution with `ProcessResult` and
-  `process_results.json`
-- named `test` blocks with checked assertions, golden artifact comparisons, and
-  `test_results.json`
-- `eng run --profile safe|normal|repro` basics
+- unit-aware HeatRate calculations
+- TimeSeries statistics and integration metadata on the documented path
 - PlotSpec/SVG output
-- review/report artifacts
-- basic packaged execution
-- Tauri tester IDE smoke path
-- curated user PDF
-- language grammar PDF
+- result/review/report artifacts
+- explicit print/log/export/process/test/file-operation artifacts where covered
+  by official examples
+- standalone packaging for the official CSV workflow
+- native tester IDE smoke path
+- packaged eng-lsp.exe smoke/snapshot tooling
+- curated user PDF and language grammar PDF
 ```
 
-Known stable-core boundary:
+Known public-package boundary:
 
 ```text
-- uncertainty and ML examples are internal-track smoke paths
-- LSP/VS Code is a secondary internal path
-- JIT/AOT has planning metadata only, no speedup claim
-- domain/component work is metadata-first, no numeric multi-domain solver
-- broad filesystem/network side effects, full process sandboxing, and
-  workspace-wide test discovery are outside the stable scope
+- solver/system examples are scoped supported or internal fixtures unless their
+  docs say otherwise
+- no production nonlinear, DAE, adaptive, or broad multi-domain solver claim
+- no native JIT/AOT speedup claim
+- no stable persistent editor-service claim for LSP/VS Code
 ```
 
 ## Integrated Direction
@@ -102,13 +75,15 @@ policy source.
 
 ## Active Target
 
-`v1.0.x` focuses on stable-core maintenance:
+Current `main` is focused on solver-centered implementation hardening:
 
 ```text
-- patch fixes without changing the stable contract
-- compatible docs, diagnostics, and artifact additions
-- explicit deprecation warnings before stable removals
-- continued Stable/Supported/Internal/Planned track separation
+- keep public claims aligned with implemented scope
+- keep official examples separate from internal fixtures
+- add source-level solver examples only when they actually solve
+- expose residual/RHS/failure artifacts in report/review/IDE surfaces
+- keep native JIT work behind no-speedup-claim benchmark evidence
+- keep release assets and tag state explicit
 ```
 
 ## Development Tracks
@@ -129,12 +104,12 @@ T10 Class / Domain Object
 T11 General Programming / Side Effects
 ```
 
-A future release may include early work from any track, but the track name
-should remain separate from the release version and maturity status.
+A future public package may include early work from any track, but the track
+name should remain separate from the release label and maturity status.
 
 ## IDE Direction
 
-The tester IDE is now a Tauri/WebView shell with a Rust backend and static
+The tester IDE is a Tauri/WebView shell with a Rust backend and static
 HTML/CSS/JS frontend:
 
 ```text
@@ -145,36 +120,21 @@ HTML/CSS/JS frontend:
   not require Node on the target PC.
 - Parser/check/run requests should be debounced and incremental enough for
   editor responsiveness.
-- The packaged workflow should keep `eng-ide.exe --smoke`, `dev.bat ide-check`,
-  and `dev.bat dev-current` as the user-visible validation path.
+- The packaged workflow should keep eng-ide.exe --smoke and dev.bat ide-check
+  as user-visible validation paths.
 ```
 
-This is a T5 IDE/LSP development-track item. It supports the stable-core user
-test workflow but is still not a full editor platform or LSP replacement.
-
-## v1.0.0 Stable Core Gate
-
-`v1.0.0` is valid when the following are true:
-
-```text
-[x] syntax and core semantics have a documented breaking-change policy
-[x] supported features are promoted, documented as Internal, or explicitly deferred
-[x] official examples pass on clean Windows package smoke
-[x] current status and maturity docs match implementation
-[x] portable zip works cleanly without Rust/Python on the target PC
-[x] tester IDE or CLI+report workflow is stable enough for users
-[x] bytecode/result/report/PlotSpec/package format headers are documented
-[x] release notes state exact stable scope and limitations
-```
+This is a T5 IDE/LSP development-track item. It supports package smoke and
+inspection workflows, but it is still not a full editor platform.
 
 ## Working Rule
 
 Before claiming public support:
 
 ```text
-1. Pick the stable-core scope or development track.
+1. Pick the public package scope or development track.
 2. Add examples and diagnostics.
 3. Add runtime/report/IDE metadata where relevant.
 4. Update status, maturity, and user docs.
-5. Pass release-check.
+5. Pass the appropriate local gate.
 ```

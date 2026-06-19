@@ -1,6 +1,6 @@
 # Artifact Schemas
 
-These schema files document the current stable-core artifact contracts used by
+These schema files document the current public package artifact contracts used by
 the release gate. Supported and internal tracks may add optional fields, but
 stable required fields are covered by the breaking-change policy.
 

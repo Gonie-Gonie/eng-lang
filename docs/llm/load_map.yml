@@ -128,8 +128,7 @@ task_types:
     - docs/reference/breaking_change_policy.md
     - docs/release/release-workflow.md
     - docs/release/acceptance-checklist.md
-    - docs/release/v1.0.0.md
-    - docs/release/v1.0.1.md
+    - docs/release/v0.1.0.md
     - scripts/dev.ps1
 
   side_effects:

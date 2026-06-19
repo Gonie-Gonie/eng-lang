@@ -9,7 +9,7 @@ executable. Native `model.exe` generation is reserved for a later backend gate.
 
 ## Support Boundary
 
-| Area | Supported in v1.0.0 | Not Claimed |
+| Area | Supported in the current package scope | Not Claimed |
 |---|---|---|
 | Runner | `run.bat` invokes bundled `eng.exe run --save-artifacts` | Optimized native execution |
 | Runtime | Current `eng.exe` is copied into the bundle | Separate single-model runtime binary |
@@ -100,8 +100,8 @@ packaged-runner behavior.
 
 | Field | Example | Meaning |
 |---|---|---|
-| `runtime_version` | `1.0.0` | Runtime version embedded in the bundled CLI. |
-| `compiler_version` | `1.0.0` | Compiler/build version used to create the package. |
+| `runtime_version` | `0.1.0` | Runtime version embedded in the bundled CLI. |
+| `compiler_version` | `0.1.0` | Compiler/build version used to create the package. |
 | `package_format_version` | `1` | Package format used by `.engpkg`. |
 | `runtime_abi` | `eng-runtime-cli-v1` | CLI ABI expected by the runner. |
 | `bytecode_version` | `1` | Bytecode format version. |

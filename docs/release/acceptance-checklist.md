@@ -243,19 +243,19 @@ Before publishing `v0.9-preview`:
 [x] release-check passes
 ```
 
-Before publishing `v1.0.0`:
+Before publishing `v0.1.0`:
 
 ```text
-[x] workspace package version is updated to 1.0.0
-[x] public package label is v1.0.0
-[x] stable core scope is documented
+[x] workspace package version is updated to 0.1.0
+[x] public package label is v0.1.0
+[x] public package scope is documented
 [x] breaking-change policy is documented
-[x] current status, maturity matrix, tracks, roadmap, README, and release workflow agree on the v1.0.0 scope
-[x] preview/experimental tracks remain explicitly outside the stable contract
+[x] current status, maturity matrix, tracks, roadmap, README, and release workflow agree on the v0.1.0 scope
+[x] experimental tracks remain explicitly outside the public package contract
 [x] internal/17_measured_vs_simulated integrated workflow fixture is present
 [x] RMSE metrics, validations, time alignments, and multi-series PlotSpec are schema/documented
 [x] `eng run --profile safe|normal|repro` basics are implemented and documented
-[x] package assets use stable names without preview labels
+[x] package assets use v0.1.0 names without preview labels
 [x] official examples and compatibility fixtures pass
 [x] docs-check passes
 [x] artifacts-check passes

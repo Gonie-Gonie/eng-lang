@@ -8,16 +8,18 @@ features, internal implementation seeds, and planned tracks.
 
 | Field | Value |
 |---|---|
-| Current public line | `v1.0.0` |
-| Active target | `v1.0.x` stable core maintenance and scoped additions |
-| Workspace package version | `1.0.0` |
-| Release channel | `stable-core` |
+| Current public line | `v0.1.0` |
+| Active target | solver-centered implementation hardening on `main` |
+| Workspace package version | `0.1.0` |
+| Release channel | initial portable package plus unreleased main-track work |
 
-EngLang `1.0.0` is a stable-core release. The documented data-to-report
-workflow, artifact family, packaged runner, and native tester path are stable.
-Internal implementation seeds remain outside that contract. EngLang 1.0.0 is
-not a complete engineering simulation solver. Earlier high-numbered release
-names are not part of the current public version line.
+EngLang `v0.1.0` is the current published portable release. The GitHub Release
+page and attached assets are audited in
+[release-state.md](../release/release-state.md). Newer solver-centered work on
+`main` may be implemented and tested without being part of those published
+release assets. EngLang is not a complete engineering simulation solver.
+Earlier high-numbered release names are historical planning labels, not the
+current public version line.
 
 The active language philosophy is recorded in
 [Integrated Language Philosophy](philosophy.md):
@@ -47,10 +49,10 @@ without being part of the public release contract.
 - Public features need examples, tests, diagnostics or metadata where relevant,
   and reviewable artifacts.
 
-## Stable Features
+## Public Package Features
 
-Stable behavior is documented, tested, usable through the package workflow, and
-covered by the breaking-change policy.
+Public package behavior is documented, tested, usable through the package
+workflow, and covered by the breaking-change policy.
 
 - Top-level file execution, root `args { ... }`, importable top-level `const`,
   pure scalar `fn` definitions, checked return dimensions, relative file

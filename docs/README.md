@@ -10,7 +10,7 @@ long-form planning documents.
 2. [Integrated language philosophy](current/philosophy.md)
 3. [Version plan](current/version_plan.md)
 4. [Feature maturity matrix](current/feature_maturity_matrix.md)
-5. [Stable core scope](current/stable_core_scope.md)
+5. [Public package scope](current/stable_core_scope.md)
 6. [Development tracks](current/tracks.md)
 7. [Standalone package reference](reference/standalone_package.md)
 8. [Implementation issue backlog](current/implementation_issue_backlog.md)
@@ -79,8 +79,6 @@ long-form planning documents.
 - [v0.7-preview release notes](release/v0.7-preview.md)
 - [v0.8-preview release notes](release/v0.8-preview.md)
 - [v0.9-preview release notes](release/v0.9-preview.md)
-- [v1.0.0 release notes](release/v1.0.0.md)
-- [v1.0.1 release notes](release/v1.0.1.md)
 - Long-form v9 plan is linked from the planning pointer only as historical
   technical intent; do not use its old milestone labels as release names.
 
@@ -93,4 +91,4 @@ long-form planning documents.
 - Core path changes must not add Python or interpreter dependencies.
 - Portable release packages should ship curated user PDFs, not the full
   developer markdown tree.
-- Public release versions and future development tracks must remain separate.
+- Public release labels and future development tracks must remain separate.

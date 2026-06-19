@@ -1,6 +1,6 @@
 # Bytecode VM and Result v1
 
-The current stable core has an executable EngLang runtime path with
+The current package scope has an executable EngLang runtime path with
 TimeSeries/statistics metadata, PlotSpec/SVG/manifest output, explicit
 write/export outputs, constrained file operation records, output manifest
 metadata, structured run-log messages, explicit process-result records, system
@@ -39,7 +39,7 @@ Header:
 ENGBYTECODE 1
 format = engbc-v1
 bytecode_version = 1
-compiler_version = 1.0.0
+compiler_version = 0.1.0
 source_hash = ...
 source_bytes = ...
 source_lines = ...

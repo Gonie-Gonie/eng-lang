@@ -1,7 +1,7 @@
 # Official 13 - File Operations
 
-This example exercises the filesystem mutation seed that was introduced before
-v1.0.0 and is now part of the supported side-effect surface.
+This example exercises the filesystem mutation seed that is now part of the
+supported side-effect surface.
 
 It demonstrates:
 

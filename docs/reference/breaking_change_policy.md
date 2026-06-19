@@ -1,7 +1,7 @@
 # Breaking Change Policy
 
-EngLang `1.0.0` stabilizes a narrow core. A change is breaking when it changes
-documented stable-core behavior in a way that can make an existing supported
+EngLang publishes a narrow package scope. A change is breaking when it changes
+documented public package behavior in a way that can make an existing supported
 workflow fail, produce different artifact contracts, or require source edits.
 
 ## Breaking Changes
@@ -25,12 +25,12 @@ workflow fail, produce different artifact contracts, or require source edits.
 - Adding new units, quantities, examples, snippets, docs, IDE panels, or
   internal-track metadata.
 - Improving report/IDE presentation without changing stable artifact contracts.
-- Changing supported/internal/planned tracks when the stable-core workflow remains
+- Changing supported/internal/planned tracks when the public package workflow remains
   compatible and release notes call out the change.
 
 ## Deprecation Rule
 
-For stable-core behavior, prefer a deprecation warning for at least one minor
+For public package behavior, prefer a deprecation warning for at least one minor
 release before removal. Immediate breaking changes should be reserved for
 security, data-loss, or severe correctness issues and must be called out in the
 release notes.
@@ -40,8 +40,8 @@ release notes.
 ```text
 1.0.x  patch fixes without stable contract changes
 1.x.0  compatible additions and deprecations
-2.0.0  intentional breaking changes to stable-core behavior
+future major  intentional breaking changes to public package behavior
 ```
 
-Supported, internal, and planned tracks can evolve faster than the stable core,
+Supported, internal, and planned tracks can evolve faster than the public package scope,
 but their release notes must keep the boundary visible.

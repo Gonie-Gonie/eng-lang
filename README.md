@@ -30,7 +30,7 @@ Start from these short status documents:
 - [LLM context](LLM_CONTEXT.md)
 - [LLM load map](docs/llm/load_map.yml)
 
-## Stable Core Workflows
+## Public Package Workflows
 
 - Typed CSV promote through official examples
 - Unit-aware TimeSeries calculations

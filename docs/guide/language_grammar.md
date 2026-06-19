@@ -1,12 +1,12 @@
 # EngLang Language Grammar Guide
 
-This guide is the practical grammar reference for the current EngLang stable core.
+This guide is the practical grammar reference for the current EngLang package scope.
 It is written for someone who wants to open an `.eng` file, understand the
 shape of the language, and write a small engineering workflow without reading
 the compiler source.
 
-EngLang 1.0.0 stabilizes the documented data-to-report workflow. Sections
-outside that stable core mark themselves as Supported, Internal, or Planned.
+The current public package documents the data-to-report workflow. Sections
+outside that package scope mark themselves as Supported, Internal, or Planned.
 
 ## What To Read First
 

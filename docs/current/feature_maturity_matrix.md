@@ -69,7 +69,7 @@ Use these labels consistently in public docs:
 
 | Status | Meaning |
 |---|---|
-| Stable | Public behavior covered by the 1.0.0 stable-core scope and breaking-change policy. |
+| Stable | Public behavior covered by the current published package scope and breaking-change policy. |
 | Supported | Usable, documented, tested, and visible through diagnostics or artifacts for the stated scope, but not covered by stable breaking-change policy. |
 | Internal | May have code, tests, examples, or artifacts on `main`, but is not a public-supported release feature. |
 | Planned | Intended future work with no supported implementation contract yet. |
