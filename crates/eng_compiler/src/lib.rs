@@ -5075,6 +5075,57 @@ mod tests {
     }
 
     #[test]
+    fn lowers_component_local_equations_into_assembly_residuals() {
+        let report = check_source(
+            "ok.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n    boundary_T = heat.T = 22 degC\n    heat.Q eq 0 kW\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\nsystem Envelope {\n    room = RoomBoundary()\n    ambient = AmbientBoundary()\n    connect room.heat to ambient.heat\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        let assembly = &report.semantic_program.component_assemblies[0];
+        assert_eq!(assembly.boundary.balance_status, "balanced_metadata_seed");
+        assert_eq!(assembly.boundary.equation_count, 4);
+        assert_eq!(assembly.component_equation_count, 2);
+        assert!(assembly
+            .equations
+            .iter()
+            .any(|equation| equation.kind == "component_equation"
+                && equation.expression == "room.heat.Q eq 0 kW"
+                && equation.residual == "room.heat.Q"
+                && equation.rhs.as_deref() == Some("0 kW")));
+        assert_eq!(
+            assembly.residual_graph.status,
+            "linear_residual_graph_candidate"
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_component_local_equations() {
+        let unknown_signal = check_source(
+            "bad.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port heat: Thermal\n    heat.unknown eq 0 kW\n}\n\ncomponent Sink {\n    port heat: Thermal\n}\n\nconnect Source.heat -> Sink.heat\n",
+            &CheckOptions::default(),
+        );
+        assert!(unknown_signal.has_errors());
+        assert!(unknown_signal
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-COMPONENT-EQUATION-SIGNAL-001"));
+
+        let bad_unit = check_source(
+            "bad.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port heat: Thermal\n    heat.Q eq 1 m\n}\n\ncomponent Sink {\n    port heat: Thermal\n}\n\nconnect Source.heat -> Sink.heat\n",
+            &CheckOptions::default(),
+        );
+        assert!(bad_unit.has_errors());
+        assert!(bad_unit
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-COMPONENT-EQUATION-UNIT-001"));
+    }
+
+    #[test]
     fn rejects_invalid_component_delay_calls() {
         let missing_duration = check_source(
             "bad.eng",

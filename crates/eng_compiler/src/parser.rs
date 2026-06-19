@@ -1753,7 +1753,7 @@ fn parse_equation_decl(
     line_text: &str,
     context: ParseContext,
 ) -> Option<EquationDecl> {
-    if context != ParseContext::Equation {
+    if !matches!(context, ParseContext::Equation | ParseContext::Component) {
         return None;
     }
     let first = tokens.first()?;
@@ -1773,6 +1773,7 @@ fn parse_equation_decl(
         right: right.trim().to_owned(),
         line: eq_token.span.line,
         span: eq_token.span,
+        context,
     })
 }
 

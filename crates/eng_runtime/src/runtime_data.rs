@@ -2980,6 +2980,8 @@ fn solver_equation_assembly_from_component_info(
             dependencies: equation.dependencies.clone(),
             source: if equation.kind == "component_boundary" {
                 "component_local_expression".to_owned()
+            } else if equation.kind == "component_equation" {
+                "component_local_equation".to_owned()
             } else {
                 "component_connection".to_owned()
             },

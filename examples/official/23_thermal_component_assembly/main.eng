@@ -7,7 +7,7 @@ domain Thermal package "eng.std.domains.thermal" version "0.1.0" {
 component RoomBoundary {
     port heat: Thermal
     boundary_T = heat.T = 22 degC
-    boundary_Q = heat.Q = 1 kW
+    heat.Q eq 0 kW
 }
 
 component AmbientBoundary {

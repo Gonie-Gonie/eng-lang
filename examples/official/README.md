@@ -82,8 +82,8 @@ paths before compatibility fixtures.
 23_thermal_component_assembly
   Thermal component templates instantiated inside a system block with
   `name = Component()`, `connect instance.port to instance.port`, generated
-  connection equations, component-local boundary seeds, and a square dense
-  linear residual solve artifact. This is not a production nonlinear,
+  connection equations, component-local boundary/equation seeds, and a square
+  dense linear residual solve artifact. This is not a production nonlinear,
   dynamic, DAE, or broad multi-domain component solver.
 ```
 

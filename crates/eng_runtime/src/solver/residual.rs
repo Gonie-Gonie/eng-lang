@@ -55,16 +55,31 @@ impl ResidualGraph {
             .generated_equations
             .iter()
             .map(|equation| {
-                let indices = equation
-                    .dependencies
+                let parsed_component_equation = if equation.kind == "component_equation" {
+                    parse_dynamic_linear_residual_terms(
+                        &equation.residual,
+                        &equation.dependencies,
+                        &variable_indices,
+                        &variables,
+                    )
+                    .ok()
+                } else {
+                    None
+                };
+                let terms = parsed_component_equation
+                    .as_ref()
+                    .map(|parsed| parsed.terms.clone())
+                    .unwrap_or_else(|| {
+                        residual_terms_for_generated_equation(
+                            &equation.kind,
+                            &equation.dependencies,
+                            &variable_indices,
+                        )
+                    });
+                let indices = terms
                     .iter()
-                    .filter_map(|dependency| variable_indices.get(dependency).copied())
+                    .map(|term| term.variable_index)
                     .collect::<Vec<_>>();
-                let terms = residual_terms_for_generated_equation(
-                    &equation.kind,
-                    &equation.dependencies,
-                    &variable_indices,
-                );
                 let (unit, quantity_kind) = equation
                     .dependencies
                     .first()
@@ -77,7 +92,10 @@ impl ResidualGraph {
                     expression: ResidualExpression {
                         text: equation.residual.clone(),
                     },
-                    rhs_value: equation.rhs_value.unwrap_or(0.0),
+                    rhs_value: parsed_component_equation
+                        .as_ref()
+                        .map(|parsed| equation.rhs_value.unwrap_or(-parsed.constant))
+                        .unwrap_or_else(|| equation.rhs_value.unwrap_or(0.0)),
                     unit: ResidualUnit {
                         unit,
                         quantity_kind,

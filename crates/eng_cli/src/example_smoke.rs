@@ -383,15 +383,18 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"name\": \"room.heat.T\"")
                 || !output.result_json.contains("\"value\": 22.00000000")
                 || !output.result_json.contains("\"name\": \"ambient.heat.Q\"")
-                || !output.result_json.contains("\"value\": -1.00000000")
+                || !output.result_json.contains("\"value\": -0.00000000")
                 || !output
                     .report_spec_json
                     .contains("\"component_equation_count\": 2")
                 || !output
                     .report_spec_json
                     .contains("\"kind\": \"component_boundary\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"kind\": \"component_equation\"")
                 || !output.report_spec_json.contains("\"rhs\": \"22 degC\"")
-                || !output.report_spec_json.contains("\"rhs\": \"1 kW\"")
+                || !output.report_spec_json.contains("\"rhs\": \"0 kW\"")
                 || !output.report_spec_json.contains("\"left\": \"room.heat\"")
                 || !output
                     .report_spec_json
@@ -400,6 +403,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"largest_residuals\"")
                 || !output.report_html.contains("solved_linear")
                 || !output.report_html.contains("component_boundary")
+                || !output.report_html.contains("component_equation")
             {
                 eprintln!(
                     "expected official thermal component assembly example to solve a system-local instance residual graph"

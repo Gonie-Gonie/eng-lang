@@ -146,12 +146,13 @@ by the stable breaking-change policy.
 - Thermal component boundary assembly: component templates with ports,
   system-local `name = Component()` instances, `connect instance.port to
   instance.port`, generated Thermal across/through equations,
-  component-local `name = port.signal = literal` boundary seeds, and square
+  component-local `name = port.signal = literal` boundary seeds, direct
+  `port.signal eq literal` and simple linear port-signal equations, and square
   dense linear residual solve artifacts for
   `examples/official/23_thermal_component_assembly`. Constructor arguments,
-  general component-local equations, behavior-node solving, nonlinear/DAE
-  coupling, dynamic components, and production multi-domain solving remain
-  planned or internal.
+  nonlinear or unit-parameterized component-local equations, behavior-node
+  solving, nonlinear/DAE coupling, dynamic components, and production
+  multi-domain solving remain planned or internal.
 - Class/domain object authoring for typed fields/defaults, object literals,
   nested object references, field access metadata, simple validation blocks,
   zero-argument metadata methods, immutable copy-with metadata, diagnostics,
@@ -307,9 +308,9 @@ are not public stable workflows.
 - Stable-supported state-space workflow boundaries beyond the current internal
   fixed-step vector simulation path.
 - Component graph solving beyond the constrained Thermal boundary assembly:
-  constructor parameters, general component behavior equations, mixed
-  algebraic/dynamic variables, nonlinear/DAE coupling, and physical
-  multi-domain coupling.
+  constructor parameters, nonlinear or unit-parameterized component behavior
+  equations, mixed algebraic/dynamic variables, nonlinear/DAE coupling, and
+  physical multi-domain coupling.
 - Behavior graph integration for delay, Predictor, and external behavior
   wrappers.
 - Domain package registry and open component ecosystem.

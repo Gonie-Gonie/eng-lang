@@ -84,8 +84,10 @@ domain is missing, checking reports `E-PORT-DOMAIN-001`. A `name = expr` line
 inside a component is recorded as component-local expression metadata; it is not
 a top-level workflow binding. The supported numeric boundary seed shape is
 `name = port.signal = literal`, for example `boundary_T = heat.T = 22 degC`.
-Other component-local expressions remain metadata or behavior-node seeds until
-the broader component equation language is implemented.
+Direct component equations can use `port.signal eq literal` or a simple linear
+port-signal expression such as `inlet.Q eq -1 * outlet.Q`. Other
+component-local expressions remain metadata or behavior-node seeds until the
+broader component equation language is implemented.
 
 Generic domain ports must provide the expected number of type arguments. For
 example, `Fluid[Medium M]` expects `Fluid[Water]`, `Fluid[Air]`, or another
@@ -340,7 +342,8 @@ Current:
 - connection-set assembly metadata;
 - generated connection-equation and residual graph artifacts;
 - homogeneous connection-constraint residual evaluation artifact;
-- supported square Thermal boundary residual solve for literal boundary seeds;
+- supported square Thermal boundary residual solve for literal boundary seeds
+  and simple linear component-local equations;
 - component behavior-node graph artifacts for delay/Predictor/external
   expressions;
 - multi-domain assembly metadata with domain plans, future nonlinear/
@@ -355,7 +358,7 @@ Current:
 Deferred:
 
 - constructor arguments and parameterized component instantiation;
-- general component-local equation solving;
+- nonlinear or unit-parameterized component-local equation solving;
 - physical component graph solving with component behavior equations and mixed
   algebraic/dynamic variables;
 - production multi-domain numerical solving;

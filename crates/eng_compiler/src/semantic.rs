@@ -1036,6 +1036,12 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 }
             }
             AstItem::Equation(equation) => {
+                if equation.context == ParseContext::Component {
+                    if let Some(component_index) = current_component_index {
+                        analyze_component_equation(equation, &mut components[component_index]);
+                    }
+                    continue;
+                }
                 if let Some(system_index) = current_system_index {
                     analyze_equation(equation, &mut systems[system_index], &mut diagnostics);
                 }
@@ -4652,6 +4658,27 @@ fn analyze_component_local_expression(
         });
 }
 
+fn analyze_component_equation(equation: &crate::ast::EquationDecl, component: &mut ComponentInfo) {
+    let equation_index = component
+        .local_expressions
+        .iter()
+        .filter(|local| local.status == "component_equation_seed")
+        .count()
+        + 1;
+    component
+        .local_expressions
+        .push(ComponentLocalExpressionInfo {
+            name: format!("equation_{equation_index}"),
+            expression: format!("{} eq {}", equation.left, equation.right),
+            status: "component_equation_seed".to_owned(),
+            quantity_kind: "unknown".to_owned(),
+            display_unit: "unknown".to_owned(),
+            canonical_unit: "unknown".to_owned(),
+            type_status: "component_equation_pending_assembly".to_owned(),
+            line: equation.line,
+        });
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum ComponentInstanceBindingAnalysis {
     Instance(ComponentInfo),
@@ -5137,6 +5164,9 @@ fn build_component_assembly_graphs(
     let component_boundary_equations =
         component_boundary_equations(domains, components, &connection_sets, diagnostics);
     equations.extend(component_boundary_equations);
+    let component_local_equations =
+        component_local_equations(domains, components, &connection_sets, diagnostics);
+    equations.extend(component_local_equations);
 
     let algebraic_count = variables
         .iter()
@@ -5163,7 +5193,9 @@ fn build_component_assembly_graphs(
     };
     let component_equation_count = equations
         .iter()
-        .filter(|equation| equation.kind == "component_boundary")
+        .filter(|equation| {
+            equation.kind == "component_boundary" || equation.kind == "component_equation"
+        })
         .count();
     let local_expression_count = components
         .iter()
@@ -5852,6 +5884,306 @@ fn component_boundary_equations(
         }
     }
     equations
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ComponentSignalRef {
+    local: String,
+    qualified: String,
+    domain: String,
+    quantity_kind: String,
+}
+
+fn component_local_equations(
+    domains: &[DomainInfo],
+    components: &[ComponentInfo],
+    connection_sets: &[ComponentConnectionSetInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Vec<ComponentAssemblyEquationInfo> {
+    let connected_variables = connected_component_variables(domains, connection_sets);
+    let mut equations = Vec::new();
+    for component in components {
+        let signal_refs = component_signal_refs(domains, component);
+        for local in &component.local_expressions {
+            if local.status != "component_equation_seed" {
+                continue;
+            }
+            let Some((left, right)) = local.expression.split_once(" eq ") else {
+                continue;
+            };
+            let left = left.trim();
+            let right = right.trim();
+            let expression = format!("{left} eq {right}");
+            let local_expression = format!("{left} {right}");
+            let unknown_signals =
+                unknown_component_equation_signals(&local_expression, &signal_refs);
+            if !unknown_signals.is_empty() {
+                diagnostics.push(Diagnostic::error(
+                    "E-COMPONENT-EQUATION-SIGNAL-001",
+                    local.line,
+                    &format!(
+                        "Component equation `{expression}` references unknown signal(s): {}.",
+                        unknown_signals.join(", ")
+                    ),
+                    Some("Use declared component port signals such as `heat.T` or `heat.Q`."),
+                ));
+                continue;
+            }
+            let mut dependencies = signal_refs
+                .iter()
+                .filter(|signal| {
+                    expression_mentions_component_signal(&local_expression, &signal.local)
+                })
+                .filter(|signal| connected_variables.contains(&signal.qualified))
+                .map(|signal| signal.qualified.clone())
+                .collect::<Vec<_>>();
+            dependencies.sort();
+            dependencies.dedup();
+            if dependencies.is_empty() {
+                diagnostics.push(Diagnostic::error(
+                    "E-COMPONENT-EQUATION-SIGNAL-001",
+                    local.line,
+                    &format!("Component equation `{expression}` has no connected port signal."),
+                    Some(
+                        "Reference a signal from a port that participates in the component graph.",
+                    ),
+                ));
+                continue;
+            }
+            if numeric_literal_with_optional_unit(right).is_some()
+                && signal_refs.iter().any(|signal| signal.local == left)
+            {
+                if let Some(rhs_equation) = component_equation_literal_rhs(
+                    component,
+                    local,
+                    left,
+                    right,
+                    &signal_refs,
+                    &connected_variables,
+                    diagnostics,
+                ) {
+                    equations.push(rhs_equation);
+                }
+                continue;
+            }
+            let dependency_kinds = signal_refs
+                .iter()
+                .filter(|signal| dependencies.contains(&signal.qualified))
+                .map(|signal| signal.quantity_kind.clone())
+                .collect::<HashSet<_>>();
+            if dependency_kinds.len() > 1 {
+                diagnostics.push(Diagnostic::error(
+                    "E-COMPONENT-EQUATION-UNIT-001",
+                    local.line,
+                    &format!("Component equation `{expression}` mixes incompatible signal quantities."),
+                    Some("Keep the current component equation seed linear over one signal quantity kind."),
+                ));
+                continue;
+            }
+            let qualified_left = qualify_component_equation_expression(left, &signal_refs);
+            let qualified_right = qualify_component_equation_expression(right, &signal_refs);
+            equations.push(ComponentAssemblyEquationInfo {
+                name: format!("{}.{}", component.name, local.name),
+                kind: "component_equation".to_owned(),
+                domain: component_equation_domain(&dependencies, &signal_refs),
+                expression: format!("{qualified_left} eq {qualified_right}"),
+                residual: format!("{qualified_left} - {qualified_right}"),
+                rhs: None,
+                reason: "component-local equation seed".to_owned(),
+                dependencies,
+                status: "component_equation_seed".to_owned(),
+                line: local.line,
+            });
+        }
+    }
+    equations
+}
+
+fn connected_component_variables(
+    domains: &[DomainInfo],
+    connection_sets: &[ComponentConnectionSetInfo],
+) -> HashSet<String> {
+    connection_sets
+        .iter()
+        .flat_map(|connection_set| {
+            connection_set
+                .ports
+                .iter()
+                .flat_map(|port| {
+                    domains
+                        .iter()
+                        .find(|domain| connection_set.domain.starts_with(domain.name.as_str()))
+                        .map(|domain| {
+                            domain
+                                .variables
+                                .iter()
+                                .map(|variable| format!("{port}.{}", variable.name))
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default()
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+fn component_signal_refs(
+    domains: &[DomainInfo],
+    component: &ComponentInfo,
+) -> Vec<ComponentSignalRef> {
+    component
+        .ports
+        .iter()
+        .filter_map(|port| {
+            domains
+                .iter()
+                .find(|domain| domain.name == port.domain_name)
+                .map(|domain| {
+                    domain
+                        .variables
+                        .iter()
+                        .map(|variable| ComponentSignalRef {
+                            local: format!("{}.{}", port.name, variable.name),
+                            qualified: format!(
+                                "{}.{}.{}",
+                                component.name, port.name, variable.name
+                            ),
+                            domain: port.domain.clone(),
+                            quantity_kind: variable.quantity_kind.clone(),
+                        })
+                        .collect::<Vec<_>>()
+                })
+        })
+        .flatten()
+        .collect()
+}
+
+fn component_equation_literal_rhs(
+    component: &ComponentInfo,
+    local: &ComponentLocalExpressionInfo,
+    left: &str,
+    right: &str,
+    signal_refs: &[ComponentSignalRef],
+    connected_variables: &HashSet<String>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<ComponentAssemblyEquationInfo> {
+    let signal = signal_refs
+        .iter()
+        .find(|signal| signal.local == left.trim())?;
+    if !connected_variables.contains(&signal.qualified) {
+        diagnostics.push(Diagnostic::error(
+            "E-COMPONENT-EQUATION-SIGNAL-001",
+            local.line,
+            &format!(
+                "Component equation `{}` references unconnected signal `{}`.",
+                local.expression, left
+            ),
+            Some("Connect the port before solving a component-local equation over that signal."),
+        ));
+        return None;
+    }
+    let Some((_value, unit)) = numeric_literal_with_optional_unit(right) else {
+        return None;
+    };
+    if let Some(unit) = unit {
+        if !unit_compatible_with_quantity(&signal.quantity_kind, &unit) {
+            diagnostics.push(Diagnostic::error(
+                "E-COMPONENT-EQUATION-UNIT-001",
+                local.line,
+                &format!(
+                    "Component equation RHS unit `{unit}` is not compatible with `{}`.",
+                    signal.quantity_kind
+                ),
+                Some("Use a unit compatible with the connected port signal quantity."),
+            ));
+            return None;
+        }
+    }
+    Some(ComponentAssemblyEquationInfo {
+        name: format!("{}.{}", component.name, local.name),
+        kind: "component_equation".to_owned(),
+        domain: signal.domain.clone(),
+        expression: format!("{} eq {right}", signal.qualified),
+        residual: signal.qualified.clone(),
+        rhs: Some(right.to_owned()),
+        reason: "component-local equation seed".to_owned(),
+        dependencies: vec![signal.qualified.clone()],
+        status: "component_equation_seed".to_owned(),
+        line: local.line,
+    })
+}
+
+fn component_equation_domain(
+    dependencies: &[String],
+    signal_refs: &[ComponentSignalRef],
+) -> String {
+    dependencies
+        .first()
+        .and_then(|dependency| {
+            signal_refs
+                .iter()
+                .find(|signal| &signal.qualified == dependency)
+        })
+        .map(|signal| signal.domain.clone())
+        .unwrap_or_else(|| "unknown".to_owned())
+}
+
+fn qualify_component_equation_expression(
+    expression: &str,
+    signal_refs: &[ComponentSignalRef],
+) -> String {
+    let mut output = String::new();
+    let mut token = String::new();
+    let flush_token = |token: &mut String, output: &mut String| {
+        if token.is_empty() {
+            return;
+        }
+        if let Some(signal) = signal_refs.iter().find(|signal| signal.local == *token) {
+            output.push_str(&signal.qualified);
+        } else {
+            output.push_str(token);
+        }
+        token.clear();
+    };
+    for character in expression.chars() {
+        if character.is_ascii_alphanumeric() || character == '_' || character == '.' {
+            token.push(character);
+        } else {
+            flush_token(&mut token, &mut output);
+            output.push(character);
+        }
+    }
+    flush_token(&mut token, &mut output);
+    output
+}
+
+fn unknown_component_equation_signals(
+    expression: &str,
+    signal_refs: &[ComponentSignalRef],
+) -> Vec<String> {
+    expression
+        .split(|character: char| {
+            !(character.is_ascii_alphanumeric() || character == '_' || character == '.')
+        })
+        .filter(|token| token.contains('.'))
+        .filter(|token| {
+            token
+                .chars()
+                .any(|character| character.is_ascii_alphabetic())
+        })
+        .filter(|token| !signal_refs.iter().any(|signal| signal.local == *token))
+        .map(str::to_owned)
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn expression_mentions_component_signal(expression: &str, signal: &str) -> bool {
+    expression
+        .split(|character: char| {
+            !(character.is_ascii_alphanumeric() || character == '_' || character == '.')
+        })
+        .any(|token| token == signal)
 }
 
 fn build_component_solver_preview(

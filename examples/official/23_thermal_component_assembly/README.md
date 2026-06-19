@@ -10,7 +10,8 @@ It exercises:
 - component templates with `port` declarations;
 - system-local component instances using `name = Component()`;
 - `connect instance.port to instance.port` component graph assembly syntax;
-- component-local boundary seeds written as `name = port.signal = literal`;
+- a component-local boundary seed written as `name = port.signal = literal`;
+- a component-local equation seed written as `port.signal eq literal`;
 - generated across equality and through conservation equations;
 - a square four-equation/four-unknown linear residual graph solved by the
   runtime artifact path.
@@ -18,7 +19,7 @@ It exercises:
 Current support boundary:
 
 - this is a real numeric solve for a constrained linear boundary graph;
-- constructor arguments, general component-local equations, nonlinear
+- constructor arguments, general non-linear component-local equations, nonlinear
   iteration, DAE coupling, adaptive component dynamics, and production
   multi-domain solving are outside this official example.
 

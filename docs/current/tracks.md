@@ -290,7 +290,8 @@ Supported scoped slice:
   examples/official/23_thermal_component_assembly
 - system-local name = Component() instances
 - connect instance.port to instance.port
-- generated connection equations plus literal boundary seeds
+- generated connection equations plus literal boundary seeds and simple
+  component-local equations
 - square dense linear residual solve artifact
 ```
 
@@ -321,7 +322,8 @@ Not yet public-supported:
 
 ```text
 - production numeric multi-domain simulation
-- constructor parameters and general component-local equation solving
+- constructor parameters and nonlinear/unit-parameterized component-local
+  equation solving
 - general boundary-condition/component-behavior solving
 - domain package registry
 - open component ecosystem
