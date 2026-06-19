@@ -68,6 +68,16 @@ paths before compatibility fixtures.
   per state, promoted CSV TimeSeries input binding, fixed-step RK4 execution,
   generated state TimeSeries, and report/plot artifacts. This is not a general
   nonlinear, DAE, or component-graph solver.
+
+21_state_space_discrete
+  Discrete two-state state-space simulation using top-level typed state/input
+  blocks, `StateVector[...]`, `InputVector[...]`, operator declarations, and
+  `next(x) eq A * x + B * u` lowering to generated state TimeSeries.
+
+22_state_space_continuous
+  Continuous two-state state-space simulation using typed state/input blocks,
+  operator declarations, promoted CSV TimeSeries input binding, fixed-step RK4
+  execution, and generated state TimeSeries.
 ```
 
 Compatibility regression examples live under `examples/compat`. Diagnostic and

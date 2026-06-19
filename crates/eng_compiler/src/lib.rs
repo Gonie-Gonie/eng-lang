@@ -28,9 +28,9 @@ pub use ast::{
     CommandClauseDecl, CommandStyleDecl, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl,
     CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainVariableDecl, EquationDecl, ExplicitDecl,
     FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl,
-    PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StructDecl, SystemDecl,
-    SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl,
-    WriteDecl,
+    PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StateSpaceTypeBlockDecl,
+    StateSpaceTypeMemberDecl, StructDecl, SystemDecl, SystemVariableDecl, TestDecl,
+    WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -58,8 +58,9 @@ pub use semantic::{
     EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo, FunctionLocalInfo,
     FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo, LinearOperatorEntryInfo,
     OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo, SemanticProgram, SemanticType,
-    SolverPlanInfo, SystemInfo, SystemVariableInfo, TestInfo, TimeSeriesKernelInfo, TypedBinding,
-    WhereBindingInfo, WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
+    SolverPlanInfo, StateSpaceVectorInfo, SystemInfo, SystemVariableInfo, TestInfo,
+    TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo, WhereBlockInfo, WithBlockInfo,
+    WithOptionInfo, WriteInfo,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -357,6 +358,8 @@ fn importable_definition_item(item: &AstItem) -> bool {
         | AstItem::Constraint(_)
         | AstItem::MissingPolicy(_)
         | AstItem::System(_)
+        | AstItem::StateSpaceTypeBlock(_)
+        | AstItem::StateSpaceTypeMember(_)
         | AstItem::SystemVariable(_)
         | AstItem::Equation(_)
         | AstItem::Domain(_)
@@ -6236,6 +6239,58 @@ mod tests {
         assert!(json.contains("\"canonical_entries\""));
         assert!(json.contains("\"column_member\": \"Q_internal\""));
         assert!(json.contains("\"row_quantity_kinds\""));
+    }
+
+    #[test]
+    fn lowers_typed_state_space_blocks_to_solver_layouts() {
+        let report = check_source(
+            "ok.eng",
+            "states ZoneState {\n    T_air: AbsoluteTemperature [degC]\n    T_wall: AbsoluteTemperature [degC]\n}\n\ninputs ZoneInput {\n    T_out: AbsoluteTemperature [degC]\n    Q_hvac: HeatRate [W]\n}\n\nsystem ZoneSS {\n    state x: StateVector[ZoneState] = [20 degC, 19 degC]\n    input u: InputVector[ZoneInput] = [8 degC, 1000 W]\n\n    operator A: LinearOperator[ZoneState -> Derivative[ZoneState]] = [[-0.01 1/min, 0.01 1/min]; [0.02 1/min, -0.02 1/min]]\n    operator B: LinearOperator[ZoneInput -> Derivative[ZoneState]] = [[0.01 1/min, 0.000001]; [0.0 1/min, 0.0]]\n\n    equation {\n        der(x) eq A * x + B * u\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let system = &report.semantic_program.systems[0];
+        assert!(system
+            .variables
+            .iter()
+            .any(|variable| variable.role == "state" && variable.name == "T_air"));
+        assert!(system
+            .variables
+            .iter()
+            .any(|variable| variable.role == "input" && variable.name == "Q_hvac"));
+        assert_eq!(report.semantic_program.state_space_vectors.len(), 2);
+        assert_eq!(
+            report.semantic_program.state_space_vectors[0].members,
+            vec!["T_air".to_owned(), "T_wall".to_owned()]
+        );
+        assert_eq!(report.semantic_program.linear_operators.len(), 2);
+        assert_eq!(
+            report.semantic_program.linear_operators[0].from,
+            "StateVector"
+        );
+        assert_eq!(
+            report.semantic_program.linear_operators[0].to,
+            "Derivative[StateVector]"
+        );
+        assert_eq!(
+            report.semantic_program.linear_operators[1].from,
+            "InputVector"
+        );
+        assert_eq!(
+            report.semantic_program.linear_operators[1].column_members,
+            vec!["T_out".to_owned(), "Q_hvac".to_owned()]
+        );
+        assert_eq!(
+            system
+                .variables
+                .iter()
+                .find(|variable| variable.name == "T_wall")
+                .unwrap()
+                .initial_value
+                .as_deref(),
+            Some("19 degC")
+        );
     }
 
     #[test]

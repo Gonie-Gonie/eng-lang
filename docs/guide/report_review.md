@@ -431,10 +431,13 @@ second; these display units are canonicalized to per-second numeric
 coefficients before runtime/JIT matrix use and report/IDE inspection.
 Unsupported unitful entries are diagnosed instead of being silently sent to the
 numeric runtime. Runtime can also materialize state trajectories from
-shape-checked A/B operators, including multi-state Euler/RK4, continuous
-`adaptive_heun` execution with a fixed output TimeGrid, discrete A/B execution,
-and TimeSeries materialization for bound input vector members. This remains an
-internal seed, not a general nonlinear, DAE, discrete adaptive, broad adaptive,
+shape-checked A/B operators. The supported typed-block examples cover
+discrete fixed-step execution in `examples/official/21_state_space_discrete`
+and continuous fixed-step RK4 with TimeSeries input materialization in
+`examples/official/22_state_space_continuous`. Legacy/internal fixtures also
+cover multi-state Euler/RK4, continuous `adaptive_heun` execution with a fixed
+output TimeGrid, discrete A/B execution, and additional failure paths. This is
+not a general nonlinear, DAE, discrete adaptive, broad adaptive,
 operator-algebra, or component-coupled simulation solver.
 
 ## Uncertainty Metadata

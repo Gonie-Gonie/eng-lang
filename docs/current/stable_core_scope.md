@@ -66,7 +66,8 @@ The package may contain supported features or internal implementation seeds.
 They may change in `1.x` releases as long as the stable-core contract above is
 preserved:
 
-- State-space matrix simulation.
+- State-space matrix simulation. The supported typed-block discrete/continuous
+  fixed-step workflows are supported scoped additions, not stable-core claims.
 - Class runtime object dispatch, simulation lowering, method arguments,
   mutation, and inheritance.
 - Component graph numeric solving and physical multi-domain solving.

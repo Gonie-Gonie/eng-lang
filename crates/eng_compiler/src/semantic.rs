@@ -3,8 +3,9 @@ use crate::ast::{
     ClassObjectDecl, ClassObjectFieldDecl, ClassValidationDecl, CommandStyleDecl, ConnectDecl,
     ConstDecl, CsvExportDecl, CsvExportFieldDecl, DomainTypeParameterDecl, DomainVariableDecl,
     ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl,
-    ImportDecl, PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl, StateSpaceVectorDecl,
-    SystemVariableDecl, TestDecl, WhereBindingDecl, WithOptionDecl, WriteDecl,
+    ImportDecl, PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl, StateSpaceTypeBlockDecl,
+    StateSpaceTypeMemberDecl, StateSpaceVectorDecl, SystemVariableDecl, TestDecl, WhereBindingDecl,
+    WithOptionDecl, WriteDecl,
 };
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
@@ -202,6 +203,22 @@ pub struct StateSpaceVectorInfo {
     pub members: Vec<String>,
     pub status: String,
     pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct StateSpaceTypeBlockInfo {
+    role: String,
+    name: String,
+    members: Vec<StateSpaceTypeMemberInfo>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct StateSpaceTypeMemberInfo {
+    name: String,
+    type_name: String,
+    unit: Option<String>,
+    line: usize,
+    span: crate::source::SourceSpan,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -731,6 +748,7 @@ pub struct SemanticOutput {
 pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut diagnostics = Vec::new();
     let mut inferred_declarations = Vec::new();
+    let state_space_type_blocks = collect_state_space_type_blocks(program);
     let mut imports = Vec::new();
     let mut consts = Vec::new();
     let mut functions = Vec::new();
@@ -746,6 +764,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut ml_infos = Vec::new();
     let mut systems = Vec::new();
     let mut state_space_vectors = Vec::new();
+    let mut state_space_type_aliases: HashMap<(String, String), String> = HashMap::new();
     let mut linear_operators = Vec::new();
     let mut current_system_index = None;
     let mut domains = Vec::new();
@@ -838,6 +857,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 });
                 current_system_index = Some(systems.len() - 1);
             }
+            AstItem::StateSpaceTypeBlock(_) | AstItem::StateSpaceTypeMember(_) => {}
             AstItem::Domain(domain) => {
                 domains.push(DomainInfo {
                     name: domain.name.clone(),
@@ -971,15 +991,35 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             }
             AstItem::SystemVariable(variable) => {
                 if let Some(system_index) = current_system_index {
-                    analyze_system_variable(
-                        variable,
-                        &mut systems[system_index],
-                        &mut expected_types,
-                        &mut hover_hints,
-                        &mut typed_bindings,
-                        &mut type_infos,
-                        &mut unit_derivations,
-                    );
+                    if let Some((vector_role, type_name)) =
+                        state_space_vector_type_parameter(&variable.type_name)
+                    {
+                        analyze_typed_state_space_vector_variable(
+                            variable,
+                            vector_role,
+                            type_name,
+                            &state_space_type_blocks,
+                            &mut systems[system_index],
+                            &mut state_space_vectors,
+                            &mut state_space_type_aliases,
+                            &mut diagnostics,
+                            &mut expected_types,
+                            &mut hover_hints,
+                            &mut typed_bindings,
+                            &mut type_infos,
+                            &mut unit_derivations,
+                        );
+                    } else {
+                        analyze_system_variable(
+                            variable,
+                            &mut systems[system_index],
+                            &mut expected_types,
+                            &mut hover_hints,
+                            &mut typed_bindings,
+                            &mut type_infos,
+                            &mut unit_derivations,
+                        );
+                    }
                 }
             }
             AstItem::StateSpaceVector(vector) => {
@@ -1010,9 +1050,11 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             AstItem::ExplicitDecl(declaration) => {
                 if declaration.context != ParseContext::Function {
                     if let Some(system_index) = current_system_index {
-                        if let Some(operator) =
-                            analyze_linear_operator_decl(declaration, &systems[system_index].name)
-                        {
+                        if let Some(operator) = analyze_linear_operator_decl(
+                            declaration,
+                            &systems[system_index].name,
+                            &state_space_type_aliases,
+                        ) {
                             linear_operators.push(operator);
                         }
                     }
@@ -5826,6 +5868,46 @@ fn domain_signature(name: &str, arguments: &[String]) -> String {
     }
 }
 
+fn collect_state_space_type_blocks(program: &ParsedProgram) -> Vec<StateSpaceTypeBlockInfo> {
+    let mut blocks = Vec::new();
+    let mut current_block_index = None;
+    for item in &program.items {
+        match item {
+            AstItem::StateSpaceTypeBlock(block) => {
+                blocks.push(state_space_type_block_info(block));
+                current_block_index = Some(blocks.len() - 1);
+            }
+            AstItem::StateSpaceTypeMember(member) => {
+                if let Some(index) = current_block_index {
+                    blocks[index]
+                        .members
+                        .push(state_space_type_member_info(member));
+                }
+            }
+            _ => {}
+        }
+    }
+    blocks
+}
+
+fn state_space_type_block_info(block: &StateSpaceTypeBlockDecl) -> StateSpaceTypeBlockInfo {
+    StateSpaceTypeBlockInfo {
+        role: block.role.clone(),
+        name: block.name.clone(),
+        members: Vec::new(),
+    }
+}
+
+fn state_space_type_member_info(member: &StateSpaceTypeMemberDecl) -> StateSpaceTypeMemberInfo {
+    StateSpaceTypeMemberInfo {
+        name: member.name.clone(),
+        type_name: member.type_name.clone(),
+        unit: member.unit.clone(),
+        line: member.line,
+        span: member.span,
+    }
+}
+
 fn resolved_port<'a>(
     components: &'a [ComponentInfo],
     component_name: &str,
@@ -6133,6 +6215,176 @@ fn analyze_system_variable(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
+fn analyze_typed_state_space_vector_variable(
+    declaration: &SystemVariableDecl,
+    vector_role: &str,
+    type_name: &str,
+    type_blocks: &[StateSpaceTypeBlockInfo],
+    system: &mut SystemInfo,
+    state_space_vectors: &mut Vec<StateSpaceVectorInfo>,
+    type_aliases: &mut HashMap<(String, String), String>,
+    diagnostics: &mut Vec<Diagnostic>,
+    expected_types: &mut Vec<ExpectedType>,
+    hover_hints: &mut Vec<HoverHint>,
+    typed_bindings: &mut Vec<TypedBinding>,
+    type_infos: &mut Vec<TypeInfo>,
+    unit_derivations: &mut Vec<UnitDerivation>,
+) {
+    let Some(type_block) = type_blocks
+        .iter()
+        .find(|block| block.role == vector_role && block.name == type_name)
+    else {
+        diagnostics.push(Diagnostic::error(
+            "E-STATE-SPACE-VECTOR-TYPE-001",
+            declaration.line,
+            &format!(
+                "State-space vector `{}` references undeclared {} type `{}`.",
+                declaration.name, vector_role, type_name
+            ),
+            Some("Declare a matching top-level `states Name { ... }` or `inputs Name { ... }` block before the system."),
+        ));
+        return;
+    };
+
+    let vector_type = state_space_vector_type(vector_role);
+    type_aliases.insert(
+        (system.name.clone(), type_name.to_owned()),
+        vector_type.to_owned(),
+    );
+    let initial_values = vector_literal_values(declaration.expression.as_deref());
+    if !initial_values.is_empty() && initial_values.len() != type_block.members.len() {
+        diagnostics.push(Diagnostic::error(
+            "E-STATE-SPACE-VECTOR-INIT-001",
+            declaration.line,
+            &format!(
+                "State-space vector `{}` has {} initial value(s), expected {} for `{}`.",
+                declaration.name,
+                initial_values.len(),
+                type_block.members.len(),
+                type_name
+            ),
+            Some("Provide one initial value per member, for example `[20 degC, 19 degC]`."),
+        ));
+    }
+
+    if let Some(scalar_role) = scalar_role_for_state_space_vector(vector_role) {
+        for (index, member) in type_block.members.iter().enumerate() {
+            let generated = SystemVariableDecl {
+                role: scalar_role.to_owned(),
+                name: member.name.clone(),
+                type_name: member.type_name.clone(),
+                unit: member.unit.clone(),
+                expression: initial_values.get(index).cloned(),
+                line: member.line,
+                span: member.span,
+            };
+            analyze_system_variable(
+                &generated,
+                system,
+                expected_types,
+                hover_hints,
+                typed_bindings,
+                type_infos,
+                unit_derivations,
+            );
+        }
+    }
+
+    let vector_decl = StateSpaceVectorDecl {
+        role: vector_role.to_owned(),
+        name: declaration.name.clone(),
+        members: type_block
+            .members
+            .iter()
+            .map(|member| member.name.clone())
+            .collect(),
+        line: declaration.line,
+        span: declaration.span,
+        context: ParseContext::System,
+    };
+    analyze_state_space_vector_decl(
+        &vector_decl,
+        &system.name,
+        state_space_vectors,
+        typed_bindings,
+        hover_hints,
+        type_infos,
+    );
+}
+
+fn scalar_role_for_state_space_vector(vector_role: &str) -> Option<&'static str> {
+    match vector_role {
+        "states" => Some("state"),
+        "inputs" => Some("input"),
+        _ => None,
+    }
+}
+
+fn state_space_vector_type_parameter(type_name: &str) -> Option<(&'static str, &str)> {
+    let trimmed = type_name.trim();
+    for (prefix, role) in [
+        ("StateVector[", "states"),
+        ("InputVector[", "inputs"),
+        ("OutputVector[", "outputs"),
+    ] {
+        if let Some(inner) = trimmed
+            .strip_prefix(prefix)
+            .and_then(|rest| rest.strip_suffix(']'))
+        {
+            let inner = inner.trim();
+            if !inner.is_empty() {
+                return Some((role, inner));
+            }
+        }
+    }
+    None
+}
+
+fn vector_literal_values(expression: Option<&str>) -> Vec<String> {
+    let Some(expression) = expression else {
+        return Vec::new();
+    };
+    let trimmed = expression.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+    let inner = trimmed
+        .strip_prefix('[')
+        .and_then(|rest| rest.strip_suffix(']'))
+        .unwrap_or(trimmed)
+        .trim();
+    if inner.is_empty() {
+        return Vec::new();
+    }
+    split_vector_literal_items(inner)
+}
+
+fn split_vector_literal_items(text: &str) -> Vec<String> {
+    let mut items = Vec::new();
+    let mut start = 0usize;
+    let mut depth = 0i32;
+    for (index, character) in text.char_indices() {
+        match character {
+            '[' | '(' | '{' => depth += 1,
+            ']' | ')' | '}' => depth -= 1,
+            ',' if depth == 0 => {
+                let item = text[start..index].trim();
+                if !item.is_empty() {
+                    items.push(item.to_owned());
+                }
+                start = index + character.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    let item = text[start..].trim();
+    if !item.is_empty() {
+        items.push(item.to_owned());
+    }
+    items
+}
+
 fn analyze_state_space_vector_decl(
     declaration: &StateSpaceVectorDecl,
     system_name: &str,
@@ -6194,8 +6446,11 @@ fn state_space_vector_type(role: &str) -> &'static str {
 fn analyze_linear_operator_decl(
     declaration: &ExplicitDecl,
     system_name: &str,
+    type_aliases: &HashMap<(String, String), String>,
 ) -> Option<LinearOperatorInfo> {
     let (from, to) = parse_linear_operator_type(&declaration.type_name)?;
+    let from = normalize_linear_operator_endpoint(&from, system_name, type_aliases);
+    let to = normalize_linear_operator_endpoint(&to, system_name, type_aliases);
     let (row_count, column_count) = declaration
         .expression
         .as_deref()
@@ -6230,6 +6485,25 @@ fn parse_linear_operator_type(type_name: &str) -> Option<(String, String)> {
         .strip_suffix(']')?;
     let (from, to) = rest.split_once("->")?;
     Some((from.trim().to_owned(), to.trim().to_owned()))
+}
+
+fn normalize_linear_operator_endpoint(
+    endpoint: &str,
+    system_name: &str,
+    type_aliases: &HashMap<(String, String), String>,
+) -> String {
+    let trimmed = endpoint.trim();
+    if let Some(inner) = trimmed
+        .strip_prefix("Derivative[")
+        .and_then(|rest| rest.strip_suffix(']'))
+    {
+        let normalized = normalize_linear_operator_endpoint(inner, system_name, type_aliases);
+        return format!("Derivative[{normalized}]");
+    }
+    type_aliases
+        .get(&(system_name.to_owned(), trimmed.to_owned()))
+        .cloned()
+        .unwrap_or_else(|| trimmed.to_owned())
 }
 
 fn matrix_shape(expression: &str) -> (usize, usize) {

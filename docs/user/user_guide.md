@@ -79,6 +79,10 @@ Use the official examples for user testing and demos. Start with these:
 - `examples/official/20_multi_state_thermal/main.eng`: supported two-state
   source-equation fixed-step ODE simulation with TimeSeries input and
   `sim.T_air`/`sim.T_wall` outputs.
+- `examples/official/21_state_space_discrete/main.eng`: supported typed-block
+  discrete state-space simulation.
+- `examples/official/22_state_space_continuous/main.eng`: supported
+  typed-block continuous state-space simulation with CSV TimeSeries input.
 
 The remaining official examples cover functions/imports, read-only IO, write
 output manifests, file policy, structured runtime logs, process-result records,

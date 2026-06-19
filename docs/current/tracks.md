@@ -85,6 +85,9 @@ Current supported scope:
 - explicit solver-boundary artifacts
 - two-state source-equation fixed-step ODE workflow with scalar or
   Time-indexed TimeSeries inputs
+- typed-block discrete and continuous state-space fixed-step workflows with
+  `states`/`inputs` blocks, `StateVector[...]`, `InputVector[...]`, and
+  operator declarations
 ```
 
 Internal runtime seeds:
@@ -165,6 +168,8 @@ Deferred:
   state-space `adaptive_heun` paths
 - general equation-system runtime beyond the supported one-state thermal and
   two-state source-equation fixed-step shapes
+- broad state-space operator algebra, nonlinear/DAE state-space coupling,
+  discrete adaptive state-space, and component-coupled state-space solving
 ```
 
 ## T5 IDE / LSP

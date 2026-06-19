@@ -133,6 +133,16 @@ by the stable breaking-change policy.
   `sim.<state>` materialization for the documented workflows. General
   multi-state equation solving beyond that source-equation shape, nonlinear,
   DAE, broad adaptive, and component-coupled solving remain planned.
+- Typed-block state-space workflows: top-level `states`/`inputs` blocks,
+  `StateVector[...]` and `InputVector[...]` declarations, `operator A:` and
+  `operator B:` declarations, shape/unit-checked A/B matrices, discrete
+  `next(x) eq A * x + B * u`, continuous `der(x) eq A * x + B * u`,
+  fixed-step explicit-Euler/RK4 execution, scalar or Time-indexed TimeSeries
+  input materialization, and generated `sim.<state>` TimeSeries for
+  `examples/official/21_state_space_discrete` and
+  `examples/official/22_state_space_continuous`. Broad operator algebra,
+  nonlinear, DAE, discrete adaptive, broad adaptive, and component-coupled
+  state-space solving remain planned or internal.
 - Class/domain object authoring for typed fields/defaults, object literals,
   nested object references, field access metadata, simple validation blocks,
   zero-argument metadata methods, immutable copy-with metadata, diagnostics,
@@ -147,7 +157,7 @@ by the stable breaking-change policy.
 Internal seeds may have code, tests, examples, or artifacts on `main`, but they
 are not public stable workflows.
 
-- State-space metadata and runtime seeds: typed vector/operator declarations,
+- Legacy/internal state-space metadata and runtime seeds: typed vector/operator declarations,
   vector-member diagnostics, operator quantity/unit summaries, review metadata,
   non-rectangular matrix diagnostics, non-numeric/non-finite matrix-entry
   diagnostics, unsupported unitful matrix-entry diagnostics, inverse-time

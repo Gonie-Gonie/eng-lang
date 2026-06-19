@@ -31,6 +31,8 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/16_test_assert_golden/main.eng",
                 "examples/official/19_class_object/main.eng",
                 "examples/official/20_multi_state_thermal/main.eng",
+                "examples/official/21_state_space_discrete/main.eng",
+                "examples/official/22_state_space_continuous/main.eng",
             ],
         ),
         (
@@ -1757,6 +1759,61 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         Err(error) => {
             eprintln!("multi-state thermal example failed: {error}");
             return ExitCode::from(2);
+        }
+    }
+    for (example, build_dir, expected_method, expected_reason) in [
+        (
+            "examples/official/21_state_space_discrete/main.eng",
+            "build/test-official-state-space-discrete",
+            "state_space_discrete_fixed_step",
+            "discrete-time state-space",
+        ),
+        (
+            "examples/official/22_state_space_continuous/main.eng",
+            "build/test-official-state-space-continuous",
+            "state_space_rk4_fixed_step",
+            "multi-state state-space",
+        ),
+    ] {
+        match run_file(
+            Path::new(example),
+            Path::new(build_dir),
+            &artifact_run_options(),
+        ) {
+            Ok(output) => {
+                let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
+                let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
+                let plot_spec = std::fs::read_to_string(&output.plot_spec_path).unwrap_or_default();
+                let report_spec =
+                    std::fs::read_to_string(&output.report_spec_path).unwrap_or_default();
+                let report_html = std::fs::read_to_string(&output.report_path).unwrap_or_default();
+                if !review.contains("\"state_space_vectors\"")
+                    || !review.contains("\"linear_operators\"")
+                    || !review.contains("\"canonical_matrix\"")
+                    || !result.contains("\"binding\": \"sim\"")
+                    || !result.contains("\"state\": \"T_air\"")
+                    || !result.contains("\"state\": \"T_wall\"")
+                    || !result.contains(expected_method)
+                    || !result.contains(expected_reason)
+                    || !plot_spec.contains("\"name\": \"sim.T_air\"")
+                    || !plot_spec.contains("\"name\": \"sim.T_wall\"")
+                    || !report_spec.contains("\"solver_results\"")
+                    || !report_spec.contains("\"state_space_vectors\"")
+                    || !report_spec.contains("\"linear_operators\"")
+                    || !report_html.contains("State-Space Metadata")
+                    || !report_html.contains(expected_method)
+                {
+                    eprintln!(
+                        "expected {example} to produce typed-block state-space solver artifacts"
+                    );
+                    return ExitCode::from(2);
+                }
+                println!("ok: {example} produced typed-block state-space solver artifacts");
+            }
+            Err(error) => {
+                eprintln!("official state-space example {example} failed: {error}");
+                return ExitCode::from(2);
+            }
         }
     }
     match run_file(

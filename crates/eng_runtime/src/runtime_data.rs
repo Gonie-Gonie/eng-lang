@@ -7215,6 +7215,72 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
     }
 
     #[test]
+    fn materializes_typed_block_state_space_solution() {
+        let source = r#"
+states ZoneState {
+    T_air: AbsoluteTemperature [degC]
+    T_wall: AbsoluteTemperature [degC]
+}
+
+inputs ZoneInput {
+    Q_hvac: HeatRate [W]
+}
+
+system ZoneSS {
+    state x: StateVector[ZoneState] = [20 degC, 19 degC]
+    input u: InputVector[ZoneInput] = [1000 W]
+
+    operator A: LinearOperator[ZoneState -> Derivative[ZoneState]] = [[-0.01 1/min, 0.01 1/min]; [0.02 1/min, -0.02 1/min]]
+    operator B: LinearOperator[ZoneInput -> Derivative[ZoneState]] = [[0.000001]; [0.0]]
+
+    equation {
+        der(x) eq A * x + B * u
+    }
+}
+
+sim = simulate ZoneSS
+with {
+    timestep = 10 min
+    duration = 30 min
+    solver = rk4
+}
+"#;
+        let report = check_source("typed_state_space.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let runtime = materialize_runtime_data(&report, source);
+
+        let sim_solutions = runtime
+            .system_solutions
+            .iter()
+            .filter(|solution| solution.binding.as_deref() == Some("sim"))
+            .collect::<Vec<_>>();
+        assert_eq!(sim_solutions.len(), 2);
+        assert!(sim_solutions
+            .iter()
+            .all(|solution| solution.method == "state_space_rk4_fixed_step"));
+        assert!(sim_solutions
+            .iter()
+            .all(|solution| solution.status == "computed"));
+        assert!(sim_solutions
+            .iter()
+            .all(|solution| solution.states == vec!["T_air".to_owned(), "T_wall".to_owned()]));
+        assert!(sim_solutions
+            .iter()
+            .any(|solution| solution.state == "T_air" && solution.final_value.is_finite()));
+        assert!(sim_solutions
+            .iter()
+            .any(|solution| solution.state == "T_wall" && solution.final_value.is_finite()));
+        assert!(runtime
+            .time_series
+            .iter()
+            .any(|series| series.name == "sim.T_air"));
+        assert!(runtime
+            .time_series
+            .iter()
+            .any(|series| series.name == "sim.T_wall"));
+    }
+
+    #[test]
     fn state_space_runtime_adapter_respects_output_layout() {
         let source = r#"
 system OutputSubsetStateSpace {

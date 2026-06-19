@@ -68,6 +68,16 @@ official/20_multi_state_thermal
   `der(state)` equation per state, promoted CSV TimeSeries input binding,
   fixed-step RK4 execution, generated sim.T_air/sim.T_wall TimeSeries, and
   report/plot artifacts.
+
+official/21_state_space_discrete
+  Supported typed-block discrete state-space example with `StateVector[...]`,
+  `InputVector[...]`, operator declarations, `next(x) eq A * x + B * u`, and
+  generated sim.T_air/sim.T_wall TimeSeries.
+
+official/22_state_space_continuous
+  Supported typed-block continuous state-space example with promoted CSV
+  TimeSeries input binding, fixed-step RK4 execution, and generated
+  sim.T_air/sim.T_wall TimeSeries.
 ```
 
 ## Internal Implementation Fixtures

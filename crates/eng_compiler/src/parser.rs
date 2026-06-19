@@ -5,9 +5,10 @@ use crate::ast::{
     ConstraintDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainTypeParameterDecl,
     DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl,
     FunctionParamDecl, GoldenDecl, ImportDecl, MissingPolicyDecl, PortDecl, PrintDecl,
-    ProcessRunDecl, ReturnDecl, SchemaDecl, ScriptDecl, StateSpaceVectorDecl, StructDecl,
-    SummaryDecl, SystemDecl, SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl,
-    WithBlockDecl, WithOptionDecl, WriteDecl,
+    ProcessRunDecl, ReturnDecl, SchemaDecl, ScriptDecl, StateSpaceTypeBlockDecl,
+    StateSpaceTypeMemberDecl, StateSpaceVectorDecl, StructDecl, SummaryDecl, SystemDecl,
+    SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl,
+    WriteDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -21,6 +22,7 @@ pub enum ParseContext {
     Script,
     Function,
     Args,
+    StateSpaceTypeBlock,
     Struct,
     Class,
     ClassValidation,
@@ -147,6 +149,8 @@ impl ParsedProgram {
                 AstItem::WithBlock(_) => with_blocks += 1,
                 AstItem::Test(_) => tests += 1,
                 AstItem::SystemVariable(_)
+                | AstItem::StateSpaceTypeBlock(_)
+                | AstItem::StateSpaceTypeMember(_)
                 | AstItem::StateSpaceVector(_)
                 | AstItem::Return(_)
                 | AstItem::Conservation(_)
@@ -212,6 +216,7 @@ pub fn parse_source(source: &str) -> ParsedProgram {
     let mut script_depth = 0i32;
     let mut function_depth = 0i32;
     let mut args_depth = 0i32;
+    let mut state_space_type_block_depth = 0i32;
     let mut struct_depth = 0i32;
     let mut class_depth = 0i32;
     let mut class_validation_depth = 0i32;
@@ -253,6 +258,8 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             ParseContext::Function
         } else if args_depth > 0 {
             ParseContext::Args
+        } else if state_space_type_block_depth > 0 {
+            ParseContext::StateSpaceTypeBlock
         } else if struct_depth > 0 {
             ParseContext::Struct
         } else if class_validation_depth > 0 {
@@ -355,6 +362,18 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             args_depth += brace_delta(&tokens);
             if args_depth <= 0 {
                 args_depth = 0;
+            }
+        }
+
+        if context == ParseContext::TopLevel && starts_state_space_type_block(&tokens) {
+            state_space_type_block_depth += brace_delta(&tokens);
+            if state_space_type_block_depth == 0 {
+                state_space_type_block_depth = 1;
+            }
+        } else if state_space_type_block_depth > 0 {
+            state_space_type_block_depth += brace_delta(&tokens);
+            if state_space_type_block_depth <= 0 {
+                state_space_type_block_depth = 0;
             }
         }
 
@@ -595,6 +614,12 @@ fn parse_line_items(
     if let Some(system) = parse_system_decl(tokens) {
         items.push(AstItem::System(system));
     }
+    if let Some(block) = parse_state_space_type_block_decl(tokens, context) {
+        items.push(AstItem::StateSpaceTypeBlock(block));
+    }
+    if let Some(member) = parse_state_space_type_member_decl(tokens, line_text, context) {
+        items.push(AstItem::StateSpaceTypeMember(member));
+    }
     if let Some(domain) = parse_domain_decl(tokens) {
         items.push(AstItem::Domain(domain));
     }
@@ -618,6 +643,9 @@ fn parse_line_items(
     }
     if let Some(vector) = parse_state_space_vector_decl(tokens, line_text, context) {
         items.push(AstItem::StateSpaceVector(vector));
+    }
+    if let Some(operator) = parse_operator_decl(tokens, line_text, context) {
+        items.push(AstItem::ExplicitDecl(operator));
     }
     if let Some(equation) = parse_equation_decl(tokens, line_text, context) {
         items.push(AstItem::Equation(equation));
@@ -659,6 +687,7 @@ fn parse_line_items(
         context,
         ParseContext::Args
             | ParseContext::Struct
+            | ParseContext::StateSpaceTypeBlock
             | ParseContext::Class
             | ParseContext::ClassValidation
             | ParseContext::Object
@@ -763,6 +792,71 @@ fn parse_system_decl(tokens: &[Token]) -> Option<SystemDecl> {
     };
     Some(SystemDecl {
         name: name.clone(),
+        span: first.span,
+    })
+}
+
+fn parse_state_space_type_block_decl(
+    tokens: &[Token],
+    context: ParseContext,
+) -> Option<StateSpaceTypeBlockDecl> {
+    if context != ParseContext::TopLevel {
+        return None;
+    }
+    let [first, second, ..] = tokens else {
+        return None;
+    };
+    let role = state_space_type_block_role(first)?;
+    let TokenKind::Identifier(name) = &second.kind else {
+        return None;
+    };
+    if !tokens
+        .iter()
+        .any(|token| matches!(token.kind, TokenKind::Symbol(Symbol::LBrace)))
+    {
+        return None;
+    }
+    Some(StateSpaceTypeBlockDecl {
+        role: role.to_owned(),
+        name: name.clone(),
+        line: first.span.line,
+        span: first.span,
+    })
+}
+
+fn parse_state_space_type_member_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<StateSpaceTypeMemberDecl> {
+    if context != ParseContext::StateSpaceTypeBlock {
+        return None;
+    }
+    let [first, second, ..] = tokens else {
+        return None;
+    };
+    if matches!(
+        &first.kind,
+        TokenKind::Symbol(Symbol::LBrace | Symbol::RBrace)
+    ) {
+        return None;
+    }
+    let TokenKind::Identifier(name) = &first.kind else {
+        return None;
+    };
+    if !matches!(second.kind, TokenKind::Symbol(Symbol::Colon)) {
+        return None;
+    }
+    let raw_after_colon = line_text.split_once(':')?.1.trim().trim_end_matches(',');
+    let (type_name, unit) = split_type_and_unit(raw_after_colon);
+    if type_name.is_empty() {
+        return None;
+    }
+    Some(StateSpaceTypeMemberDecl {
+        name: name.clone(),
+        type_name,
+        unit,
+        line: first.span.line,
         span: first.span,
     })
 }
@@ -1411,6 +1505,17 @@ fn token_field_name(token: &Token) -> Option<String> {
     }
 }
 
+fn state_space_type_block_role(token: &Token) -> Option<&str> {
+    match &token.kind {
+        TokenKind::Identifier(value)
+            if matches!(value.as_str(), "states" | "inputs" | "outputs") =>
+        {
+            Some(value.as_str())
+        }
+        _ => None,
+    }
+}
+
 fn parse_domain_variable_decl(
     tokens: &[Token],
     line_text: &str,
@@ -1604,6 +1709,43 @@ fn vector_members(text: &str) -> Vec<String> {
         .filter(|member| !member.is_empty())
         .map(str::to_owned)
         .collect()
+}
+
+fn parse_operator_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<ExplicitDecl> {
+    if context != ParseContext::System {
+        return None;
+    }
+    let [first, second, third, ..] = tokens else {
+        return None;
+    };
+    if !token_is_identifier(first, "operator") {
+        return None;
+    }
+    let TokenKind::Identifier(name) = &second.kind else {
+        return None;
+    };
+    if !matches!(third.kind, TokenKind::Symbol(Symbol::Colon)) {
+        return None;
+    }
+    let raw_after_colon = line_text.split_once(':')?.1.trim();
+    let (type_part, expression) = raw_after_colon
+        .split_once('=')
+        .map(|(left, right)| (left.trim(), Some(right.trim().to_owned())))
+        .unwrap_or((raw_after_colon, None));
+    let (type_name, unit) = split_type_and_unit(type_part);
+    Some(ExplicitDecl {
+        name: name.clone(),
+        type_name,
+        unit,
+        expression,
+        line: first.span.line,
+        span: first.span,
+        context,
+    })
 }
 
 fn parse_equation_decl(
@@ -2711,6 +2853,18 @@ fn starts_with_identifier(tokens: &[Token], expected: &str) -> bool {
     tokens.first().is_some_and(
         |token| matches!(&token.kind, TokenKind::Identifier(found) if found == expected),
     )
+}
+
+fn starts_state_space_type_block(tokens: &[Token]) -> bool {
+    let Some(first) = tokens.first() else {
+        return false;
+    };
+    if state_space_type_block_role(first).is_none() {
+        return false;
+    }
+    tokens
+        .iter()
+        .any(|token| matches!(token.kind, TokenKind::Symbol(Symbol::LBrace)))
 }
 
 fn starts_object_literal(tokens: &[Token]) -> bool {

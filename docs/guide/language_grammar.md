@@ -1232,7 +1232,44 @@ missing count, and irregular-axis status per promoted table. RMSE metrics record
 their `alignment_reference`, `alignment_status`, and `alignment_step_status`
 when a corresponding TimeSeries alignment artifact exists.
 
-The state-space track is internal and metadata-first:
+The supported typed-block state-space surface starts with top-level state and
+input type blocks:
+
+```eng partial
+states RoomState {
+    T_air: AbsoluteTemperature [degC]
+    T_wall: AbsoluteTemperature [degC]
+}
+
+inputs RoomInput {
+    T_out: AbsoluteTemperature [degC]
+    Q_hvac: HeatRate [W]
+}
+```
+
+System declarations can then bind those types to solver vectors and operators:
+
+```eng partial
+system ContinuousRoomStateSpace {
+    state x: StateVector[RoomState] = [22 degC, 20 degC]
+    input u: InputVector[RoomInput] = [8 degC, 1800 W]
+
+    operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.021 1/min, 0.0072 1/min]; [0.0048 1/min, -0.0096 1/min]]
+    operator B: LinearOperator[RoomInput -> Derivative[RoomState]] = [[0.0138 1/min, 0.0000012]; [0.0048 1/min, 0.0]]
+
+    equation {
+        der(x) eq A * x + B * u
+    }
+}
+```
+
+`examples/official/21_state_space_discrete` uses `next(x) eq A * x + B * u`
+for the discrete path. `examples/official/22_state_space_continuous` uses
+`der(x) eq A * x + B * u` with a CSV-backed TimeSeries input and fixed-step
+RK4. Both produce `sim.<state>` TimeSeries through the common
+SolverInput/SolverResult path.
+
+The legacy state-space metadata syntax remains available for internal fixtures:
 
 ```eng partial
 system ThermalStateSpaceMetadata {
@@ -1270,11 +1307,12 @@ to per-second numeric coefficients before runtime/JIT matrix use and report/IDE
 inspection. Unsupported coefficient units are diagnosed with
 `E-STATE-SPACE-OP-ENTRY-UNIT-001`.
 Runtime may materialize state trajectories when shape-checked A/B operators are
-available, including multi-state continuous Euler/RK4 execution, continuous
-`adaptive_heun` execution with a fixed output TimeGrid, discrete A/B execution,
-and TimeSeries materialization for bound input vector members. This internal
-track does not claim broad operator algebra, nonlinear, DAE, discrete adaptive,
-broad adaptive, or component-coupled state-space solving.
+available, including supported typed-block discrete/continuous fixed-step
+execution, legacy/internal multi-state continuous Euler/RK4 execution,
+continuous `adaptive_heun` execution with a fixed output TimeGrid, discrete A/B
+execution, and TimeSeries materialization for bound input vector members. This
+does not claim broad operator algebra, nonlinear, DAE, discrete adaptive, broad
+adaptive, or component-coupled state-space solving.
 
 Domain/component shapes are documented separately in
 `docs/guide/domain_component.md`. They are useful for metadata, validation, and

@@ -147,6 +147,23 @@ pub struct SystemDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StateSpaceTypeBlockDecl {
+    pub role: String,
+    pub name: String,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StateSpaceTypeMemberDecl {
+    pub name: String,
+    pub type_name: String,
+    pub unit: Option<String>,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DomainDecl {
     pub name: String,
     pub type_parameters: Vec<DomainTypeParameterDecl>,
@@ -427,6 +444,8 @@ pub enum AstItem {
     ClassObjectField(ClassObjectFieldDecl),
     ArgsField(ArgsFieldDecl),
     System(SystemDecl),
+    StateSpaceTypeBlock(StateSpaceTypeBlockDecl),
+    StateSpaceTypeMember(StateSpaceTypeMemberDecl),
     Domain(DomainDecl),
     DomainVariable(DomainVariableDecl),
     Conservation(ConservationDecl),

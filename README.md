@@ -70,11 +70,12 @@ claims:
 - General programming/side-effect policy
 
 System/equation solver support is scoped. Official examples cover the
-one-state thermal workflow and a two-state source-equation fixed-step ODE
-workflow; internal fixtures cover wider solver seeds. General nonlinear
-solvers, DAE, broad adaptive solving, state-space simulation, and production
-numeric component-graph solving remain future or internal tracks. Domain
-package registries also remain future work.
+one-state thermal workflow, a two-state source-equation fixed-step ODE
+workflow, and typed-block discrete/continuous state-space fixed-step
+workflows; internal fixtures cover wider solver seeds. General nonlinear
+solvers, DAE, broad adaptive solving, broad state-space operator algebra, and
+production numeric component-graph solving remain future or internal tracks.
+Domain package registries also remain future work.
 
 ## Quick Start
 
