@@ -1,0 +1,3 @@
+system BadState {
+    state T_history: TimeSeries[Time] of AbsoluteTemperature [degC] = 22 degC
+}

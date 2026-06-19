@@ -1248,6 +1248,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     validate_class_contracts(&classes, &mut class_objects, &mut diagnostics);
     validate_function_returns(&mut functions, &consts, &mut diagnostics);
     validate_state_space_vector_members(&systems, &mut state_space_vectors, &mut diagnostics);
+    validate_system_state_declarations(&systems, &mut diagnostics);
     validate_system_derivative_equations(&systems, &mut diagnostics);
     validate_linear_operator_shapes(
         &systems,
@@ -6291,6 +6292,54 @@ fn validate_state_space_vector_members(
             ));
         }
     }
+}
+
+fn validate_system_state_declarations(systems: &[SystemInfo], diagnostics: &mut Vec<Diagnostic>) {
+    for system in systems {
+        for state in system
+            .variables
+            .iter()
+            .filter(|variable| variable.role == "state")
+        {
+            if !unsupported_state_quantity(&state.quantity_kind) {
+                continue;
+            }
+            diagnostics.push(Diagnostic::error(
+                "E-SYS-STATE-UNSUPPORTED",
+                state.line,
+                &format!(
+                    "State `{}` in system `{}` uses unsupported state type `{}`.",
+                    state.name, system.name, state.quantity_kind
+                ),
+                Some("Use a numeric scalar quantity as a state, a TimeSeries as an input, or a `states x = [...]` vector declaration for the state-space path."),
+            ));
+        }
+    }
+}
+
+fn unsupported_state_quantity(quantity_kind: &str) -> bool {
+    let trimmed = quantity_kind.trim();
+    crate::stats::time_series_quantity(trimmed).is_some()
+        || state_space_vector_type_name(trimmed)
+        || derivative_type_name(trimmed)
+        || linear_operator_type_name(trimmed)
+        || object_type_name_kind(trimmed)
+        || matches!(
+            trimmed.to_ascii_lowercase().as_str(),
+            "string"
+                | "path"
+                | "filepath"
+                | "csvfile"
+                | "jsonfile"
+                | "tomlfile"
+                | "textfile"
+                | "reportfile"
+                | "plotfile"
+                | "directorypath"
+                | "bool"
+                | "boolean"
+                | "processresult"
+        )
 }
 
 fn validate_system_derivative_equations(systems: &[SystemInfo], diagnostics: &mut Vec<Diagnostic>) {

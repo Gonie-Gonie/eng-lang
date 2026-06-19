@@ -6269,6 +6269,21 @@ mod tests {
     }
 
     #[test]
+    fn rejects_unsupported_state_quantity() {
+        let report = check_source(
+            "bad.eng",
+            "system BadState {\n    state T_history: TimeSeries[Time] of AbsoluteTemperature [degC] = 22 degC\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SYS-STATE-UNSUPPORTED"));
+    }
+
+    #[test]
     fn accepts_state_space_vector_derivative_without_scalar_derivatives() {
         let report = check_source(
             "ok.eng",

@@ -794,6 +794,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             "E-SYS-DER-DUPLICATE",
         ),
         (
+            "examples/diagnostics/error_messages/unsupported_state_quantity.eng",
+            "E-SYS-STATE-UNSUPPORTED",
+        ),
+        (
             "examples/diagnostics/error_messages/medium_mismatch.eng",
             "E-CONNECT-MEDIUM-MISMATCH",
         ),
