@@ -6239,6 +6239,50 @@ mod tests {
     }
 
     #[test]
+    fn rejects_missing_state_derivative_equation() {
+        let report = check_source(
+            "bad.eng",
+            "system TwoStateThermal {\n    parameter C_air: HeatCapacity = 500 kJ/K\n    state T_air: AbsoluteTemperature = 22 degC\n    state T_wall: AbsoluteTemperature = 20 degC\n    input Q_zone: HeatRate = 0 W\n    equation {\n        C_air * der(T_air) eq Q_zone\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SYS-DER-MISSING"));
+    }
+
+    #[test]
+    fn rejects_duplicate_state_derivative_equation() {
+        let report = check_source(
+            "bad.eng",
+            "system DuplicateThermal {\n    parameter C: HeatCapacity = 500 kJ/K\n    state T: AbsoluteTemperature = 22 degC\n    input Q_a: HeatRate = 0 W\n    input Q_b: HeatRate = 0 W\n    equation {\n        C * der(T) eq Q_a\n        C * der(T) eq Q_b\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SYS-DER-DUPLICATE"));
+    }
+
+    #[test]
+    fn accepts_state_space_vector_derivative_without_scalar_derivatives() {
+        let report = check_source(
+            "ok.eng",
+            "system ThermalStateSpace {\n    state T_air: AbsoluteTemperature = 22 degC\n    state T_wall: AbsoluteTemperature = 20 degC\n    input T_out: AbsoluteTemperature = 8 degC\n    states x = [T_air, T_wall]\n    inputs u = [T_out]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.01 1/min, 0.01 1/min]; [0.02 1/min, -0.02 1/min]]\n    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.01 1/min]; [0.0 1/min]]\n    equation {\n        der(x) eq A * x + B * u\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert!(report.diagnostics.iter().all(|diagnostic| {
+            diagnostic.code != "E-SYS-DER-MISSING" && diagnostic.code != "E-SYS-DER-DUPLICATE"
+        }));
+    }
+
+    #[test]
     fn rejects_state_space_operator_shape_mismatch() {
         let report = check_source(
             "bad.eng",

@@ -1248,6 +1248,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     validate_class_contracts(&classes, &mut class_objects, &mut diagnostics);
     validate_function_returns(&mut functions, &consts, &mut diagnostics);
     validate_state_space_vector_members(&systems, &mut state_space_vectors, &mut diagnostics);
+    validate_system_derivative_equations(&systems, &mut diagnostics);
     validate_linear_operator_shapes(
         &systems,
         &state_space_vectors,
@@ -6290,6 +6291,74 @@ fn validate_state_space_vector_members(
             ));
         }
     }
+}
+
+fn validate_system_derivative_equations(systems: &[SystemInfo], diagnostics: &mut Vec<Diagnostic>) {
+    for system in systems {
+        let states = system
+            .variables
+            .iter()
+            .filter(|variable| variable.role == "state")
+            .collect::<Vec<_>>();
+        if states.is_empty() {
+            continue;
+        }
+
+        let state_equations = states
+            .iter()
+            .map(|state| {
+                let equations = system
+                    .equations
+                    .iter()
+                    .filter(|equation| scalar_derivative_on_lhs(&equation.left, &state.name))
+                    .collect::<Vec<_>>();
+                (*state, equations)
+            })
+            .collect::<Vec<_>>();
+
+        if state_equations
+            .iter()
+            .all(|(_state, equations)| equations.is_empty())
+        {
+            continue;
+        }
+
+        for (state, equations) in state_equations {
+            if equations.is_empty() {
+                diagnostics.push(Diagnostic::error(
+                    "E-SYS-DER-MISSING",
+                    state.line,
+                    &format!(
+                        "State `{}` in system `{}` has no derivative equation.",
+                        state.name, system.name
+                    ),
+                    Some(&format!(
+                        "Add exactly one equation with `der({})` on the left-hand side, or use a checked state-space vector equation.",
+                        state.name
+                    )),
+                ));
+                continue;
+            }
+            for duplicate in equations.iter().skip(1) {
+                diagnostics.push(Diagnostic::error(
+                    "E-SYS-DER-DUPLICATE",
+                    duplicate.line,
+                    &format!(
+                        "State `{}` in system `{}` has multiple derivative equations.",
+                        state.name, system.name
+                    ),
+                    Some(&format!(
+                        "Keep one RHS equation for `der({})` and combine sources on the right-hand side.",
+                        state.name
+                    )),
+                ));
+            }
+        }
+    }
+}
+
+fn scalar_derivative_on_lhs(left: &str, state_name: &str) -> bool {
+    left.contains(&format!("der({state_name})"))
 }
 
 fn validate_linear_operator_shapes(

@@ -1,0 +1,11 @@
+system DuplicateThermal {
+    parameter C: HeatCapacity = 500 kJ/K
+    state T: AbsoluteTemperature = 22 degC
+    input Q_a: HeatRate = 0 W
+    input Q_b: HeatRate = 0 W
+
+    equation {
+        C * der(T) eq Q_a
+        C * der(T) eq Q_b
+    }
+}
