@@ -79,6 +79,7 @@ Immediate execution order is evidence-driven:
 
 ## Progress Ledger
 
+- 2026-06-21: `dynamic_component_semi_implicit_euler` now has a selected algebraic output trajectory fixture. The runtime fixture proves `node.y eq cos(node.x)` is solved through the semi-implicit Newton algebraic fallback, materializes `node.node.y` and connected algebraic trajectories, and exposes residual/step diagnostics in report artifacts without claiming broad shared-IR output lowering or adaptive component timestepping.
 - 2026-06-21: `dynamic_component_semi_implicit_euler` parsed derivative RHS coverage now includes constructor-overridden component parameters. The runtime fixture proves `node.k * sin(node.node.x)` dependencies, constructor provenance, dense linear algebraic step diagnostics, state/algebraic trajectories, and report artifacts are preserved in the semi-implicit path without claiming broad nonlinear algebraic component solving or adaptive component timestepping.
 - 2026-06-21: `dynamic_component_semi_implicit_euler` source solves now have a dedicated nonlinear algebraic Newton nonconvergence fixture. The diagnostics smoke proves the per-step Newton fallback surfaces `E-NEWTON-NONCONVERGENCE`, top-level `algebraic_solve_failed`, step-level `newton_not_converged`, normalized residual vectors, and report HTML evidence without claiming broad nonlinear algebraic component solving.
 - 2026-06-21: `dynamic_component_semi_implicit_euler` source solves now materialize `with { inputs = TimeSeriesName }` component inputs by sampling RuntimeTimeSeries values through the residual-graph algebraic and RHS evaluators. The runtime fixture proves `heat_data.Q_drive` feeds `boundary.q`, dense linear algebraic step diagnostics, state/algebraic trajectories, report artifacts, and TimeSeries alignment evidence without claiming adaptive component timestepping or broad component-coupled TimeSeries input solving.
@@ -211,7 +212,7 @@ Tasks:
 - Generate RHS evaluators from derivative equations, residual equations, and behavior nodes.
 - Support fixed-step Euler/RK4 and adaptive Heun over multi-state component-coupled systems.
 - Add TimeSeries interpolation policy, final partial-step handling, event hooks, and deterministic replay metadata.
-- Emit RuntimeTimeSeries for every named state and selected algebraic output. Source-equation and typed-block state-space scalar outputs are implemented; a selected explicit dynamic-component algebraic output fixture is implemented; broad shared-IR/component-coupled outputs remain.
+- Emit RuntimeTimeSeries for every named state and selected algebraic output. Source-equation and typed-block state-space scalar outputs are implemented; selected explicit and semi-implicit dynamic-component algebraic output fixtures are implemented; broad shared-IR/component-coupled outputs remain.
 
 Evidence gate:
 

@@ -1,0 +1,38 @@
+domain ScalarSignal {
+    across x: DimensionlessNumber [1]
+    across y: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component FunctionOutputNode {
+    port node: ScalarSignal
+    der(node.x) + sin(node.x) eq node.balance
+    node.y eq cos(node.x)
+}
+
+component BalanceBoundary {
+    port node: ScalarSignal
+    node.balance eq 0
+}
+
+system DynamicFunctionOutputSemiImplicit {
+    node = FunctionOutputNode()
+    boundary = BalanceBoundary()
+    connect node.node to boundary.node
+}
+
+function_output_semi_result = solve component_graph
+with {
+    solver = dynamic_component_semi_implicit_euler
+    timestep = 0.25 s
+    duration = 1 s
+    initial = 0.5
+    initial_algebraic = [0, 0, 0, 0, 0]
+    tolerance = 0.000001
+    max_iter = 20
+}
+
+report {
+    show function_output_semi_result
+}

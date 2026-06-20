@@ -1810,6 +1810,51 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/dynamic_component_algebraic_output_semi_implicit.eng"),
+        Path::new("build/test-runtime-dynamic-component-algebraic-output-semi-implicit"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_semi_implicit_euler\"")
+                || !output
+                    .result_json
+                    .contains("semi-implicit Newton algebraic residuals")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dynamic_component_fixed_step_completed\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output.result_json.contains("\"name\": \"node.node.y\"")
+                || !output.result_json.contains("\"final_value\": 0.98677539")
+                || !output
+                    .report_spec_json
+                    .contains("node.node.y eq cos(node.node.x)")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\"")
+                || !output.report_html.contains("node.node.y=0.986775")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_algebraic_output_semi_implicit.eng to solve a semi-implicit algebraic output trajectory"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_algebraic_output_semi_implicit.eng solved semi-implicit algebraic output trajectory"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component algebraic output semi-implicit runtime fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/dynamic_component_parameterized_function_semi_implicit.eng"),
         Path::new("build/test-runtime-dynamic-component-parameterized-function-semi-implicit"),
         &artifact_run_options(),
