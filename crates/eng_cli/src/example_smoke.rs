@@ -587,6 +587,16 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"convergence_status\": \"fixed_point_converged\"")
                 || !output.report_spec_json.contains("\"tolerance\": 0.000001")
                 || !output.report_spec_json.contains("\"max_iterations\": 80")
+                || !output.report_spec_json.contains(
+                    "\"variable_scale_policy\": \"unit_default_from_fixed_point_unknowns\"",
+                )
+                || !output.result_json.contains("\"residual_values\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"largest_residual_name\":")
                 || !output.result_json.contains("\"name\": \"relax.source.q\"")
                 || !output.result_json.contains("\"value\": -1.999")
                 || !output
@@ -3549,6 +3559,8 @@ fn solver_algorithm_smoke() -> Result<(), String> {
     if fixed_point.convergence_status != "fixed_point_converged"
         || fixed_point.failure.is_some()
         || fixed_point.residual_history.is_empty()
+        || fixed_point.residual_value_history.len() != fixed_point.residual_history.len()
+        || fixed_point.residual_value_history[0].len() != 1
         || (fixed_point.values[0] - 2.0).abs() > 1e-6
     {
         return Err(
@@ -3574,6 +3586,7 @@ fn solver_algorithm_smoke() -> Result<(), String> {
     if fixed_point_nonconverged.convergence_status != "fixed_point_not_converged"
         || fixed_point_nonconverged.iteration_count != 3
         || fixed_point_nonconverged.residual_history.len() != 3
+        || fixed_point_nonconverged.residual_value_history.len() != 3
         || fixed_point_nonconverged
             .failure
             .as_ref()

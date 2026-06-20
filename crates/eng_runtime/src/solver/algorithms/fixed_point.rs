@@ -21,6 +21,7 @@ impl Default for FixedPointOptions {
 pub struct FixedPointResult {
     pub values: Vec<f64>,
     pub residual_history: Vec<f64>,
+    pub residual_value_history: Vec<Vec<f64>>,
     pub iteration_count: usize,
     pub convergence_status: String,
     pub failure: Option<SolverFailure>,
@@ -63,6 +64,7 @@ where
 
     let mut values = initial.to_vec();
     let mut residual_history = Vec::new();
+    let mut residual_value_history = Vec::new();
     for iteration in 1..=options.max_iterations {
         let next = update(&values)?;
         if next.len() != values.len() {
@@ -83,10 +85,12 @@ where
         ensure_finite_values("E-FIXED-POINT-VALUE", "fixed-point relaxed", &values)?;
         let residual_norm = euclidean_norm(&residuals);
         residual_history.push(residual_norm);
+        residual_value_history.push(residuals);
         if residual_norm <= options.tolerance {
             return Ok(FixedPointResult {
                 values,
                 residual_history,
+                residual_value_history,
                 iteration_count: iteration,
                 convergence_status: "fixed_point_converged".to_owned(),
                 failure: None,
@@ -98,6 +102,7 @@ where
     Ok(FixedPointResult {
         values,
         residual_history,
+        residual_value_history,
         iteration_count: options.max_iterations,
         convergence_status: "fixed_point_not_converged".to_owned(),
         failure: Some(SolverFailure::new(
@@ -149,6 +154,7 @@ mod tests {
 
         assert_eq!(result.values, vec![1.0]);
         assert_eq!(result.residual_history, vec![1.0]);
+        assert_eq!(result.residual_value_history, vec![vec![1.0]]);
         assert_eq!(result.convergence_status, "fixed_point_not_converged");
     }
 
@@ -165,6 +171,8 @@ mod tests {
         assert_eq!(result.convergence_status, "fixed_point_not_converged");
         assert_eq!(result.iteration_count, 3);
         assert_eq!(result.residual_history.len(), 3);
+        assert_eq!(result.residual_value_history.len(), 3);
+        assert_eq!(result.residual_value_history[0], vec![1.0]);
         assert_eq!(
             result.failure.as_ref().map(|failure| failure.code.as_str()),
             Some("E-FIXED-POINT-NONCONVERGENCE")

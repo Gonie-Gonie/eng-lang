@@ -1390,6 +1390,7 @@ impl RuntimeComponentSolution {
         let mut convergence_status: String;
         let mut iteration_count = 0;
         let mut fixed_point_residual_history = Vec::new();
+        let mut fixed_point_residual_value_history = Vec::new();
 
         match fixed_point_update_plan(&residual_graph) {
             Ok(update_plan) => {
@@ -1399,6 +1400,7 @@ impl RuntimeComponentSolution {
                     Ok(fixed_point) => {
                         let failed = fixed_point.failure.clone();
                         fixed_point_residual_history = fixed_point.residual_history;
+                        fixed_point_residual_value_history = fixed_point.residual_value_history;
                         variable_values = fixed_point.values;
                         variable_status = if failed.is_none() {
                             "solved_fixed_point".to_owned()
@@ -1488,8 +1490,19 @@ impl RuntimeComponentSolution {
         let residuals =
             component_residual_evaluations_from_graph(&residual_graph, Some(&residual_output));
         let largest_residuals = largest_component_residuals(&residuals);
+        let variable_names = residual_graph
+            .variables
+            .iter()
+            .map(|variable| variable.name.clone())
+            .collect::<Vec<_>>();
+        let variable_scales = variable_scales_from_unknowns(&solver_assembly.unknowns);
+        let variable_scale_policy = "unit_default_from_fixed_point_unknowns";
         let step_diagnostics = fixed_point_residual_history_diagnostics(
             &fixed_point_residual_history,
+            &fixed_point_residual_value_history,
+            Some(&variable_names),
+            Some(&variable_scales),
+            Some(variable_scale_policy),
             &convergence_status,
             failure_artifact.as_ref(),
         );
@@ -1505,9 +1518,9 @@ impl RuntimeComponentSolution {
             linear_condition_estimate: None,
             linear_minimum_pivot_abs: None,
             linear_maximum_pivot_abs: None,
-            variable_scale_policy: "not_applicable".to_owned(),
-            variable_scale_min: None,
-            variable_scale_max: None,
+            variable_scale_policy: variable_scale_policy.to_owned(),
+            variable_scale_min: finite_minimum(&variable_scales),
+            variable_scale_max: finite_maximum(&variable_scales),
             tolerance: options.tolerance,
             max_iterations: options.max_iterations,
             iteration_count,
@@ -5729,17 +5742,21 @@ fn source_linear_terms_jacobian(graph: &ResidualGraph) -> Result<Vec<Vec<f64>>, 
         .collect())
 }
 
+fn variable_scales_from_unknowns(unknowns: &[UnknownVariable]) -> Vec<f64> {
+    unknowns
+        .iter()
+        .map(|unknown| {
+            ResidualScale::from_quantity_unit(&unknown.quantity_kind, &unknown.unit).value
+        })
+        .collect()
+}
+
 fn apply_newton_variable_scales_from_unknowns(
     options: &mut NewtonOptions,
     unknowns: &[UnknownVariable],
     policy: &str,
 ) {
-    options.variable_scales = unknowns
-        .iter()
-        .map(|unknown| {
-            ResidualScale::from_quantity_unit(&unknown.quantity_kind, &unknown.unit).value
-        })
-        .collect();
+    options.variable_scales = variable_scales_from_unknowns(unknowns);
     options.variable_scale_policy = policy.to_owned();
 }
 
@@ -5960,38 +5977,58 @@ fn newton_residual_history_diagnostics(
 }
 fn fixed_point_residual_history_diagnostics(
     residual_history: &[f64],
+    residual_value_history: &[Vec<f64>],
+    residual_names: Option<&[String]>,
+    residual_scales: Option<&[f64]>,
+    variable_scale_policy: Option<&str>,
     convergence_status: &str,
     failure_artifact: Option<&RuntimeSolverFailureArtifact>,
 ) -> Vec<RuntimeComponentStepDiagnostic> {
     residual_history
         .iter()
         .enumerate()
-        .map(|(index, residual_norm)| RuntimeComponentStepDiagnostic {
-            step_index: index,
-            time_s: 0.0,
-            algebraic_iteration_count: index + 1,
-            residual_norm: *residual_norm,
-            residual_values: Vec::new(),
-            normalized_residual_values: Vec::new(),
-            line_search_scale: None,
-            line_search_trial_count: None,
-            jacobian_policy: None,
-            variable_scale_policy: None,
-            linear_condition_estimate: None,
-            linear_minimum_pivot_abs: None,
-            linear_maximum_pivot_abs: None,
-            largest_residual_index: None,
-            largest_residual_name: None,
-            largest_residual_value: None,
-            largest_residual_abs_value: None,
-            convergence_status: if index + 1 == residual_history.len() {
-                convergence_status.to_owned()
-            } else {
-                "fixed_point_iteration".to_owned()
-            },
-            failure_artifact: (index + 1 == residual_history.len())
-                .then(|| failure_artifact.cloned())
-                .flatten(),
+        .map(|(index, residual_norm)| {
+            let residual_values = residual_value_history
+                .get(index)
+                .cloned()
+                .unwrap_or_default();
+            let normalized_residual_values =
+                normalized_newton_residual_values(&residual_values, residual_scales);
+            let largest_residual = largest_newton_residual_diagnostic(
+                Some(residual_values.as_slice()),
+                residual_names,
+            );
+            RuntimeComponentStepDiagnostic {
+                step_index: index,
+                time_s: 0.0,
+                algebraic_iteration_count: index + 1,
+                residual_norm: *residual_norm,
+                residual_values,
+                normalized_residual_values,
+                line_search_scale: None,
+                line_search_trial_count: None,
+                jacobian_policy: None,
+                variable_scale_policy: variable_scale_policy.map(str::to_owned),
+                linear_condition_estimate: None,
+                linear_minimum_pivot_abs: None,
+                linear_maximum_pivot_abs: None,
+                largest_residual_index: largest_residual.as_ref().map(|residual| residual.index),
+                largest_residual_name: largest_residual
+                    .as_ref()
+                    .and_then(|residual| residual.name.clone()),
+                largest_residual_value: largest_residual.as_ref().map(|residual| residual.value),
+                largest_residual_abs_value: largest_residual
+                    .as_ref()
+                    .map(|residual| residual.abs_value),
+                convergence_status: if index + 1 == residual_history.len() {
+                    convergence_status.to_owned()
+                } else {
+                    "fixed_point_iteration".to_owned()
+                },
+                failure_artifact: (index + 1 == residual_history.len())
+                    .then(|| failure_artifact.cloned())
+                    .flatten(),
+            }
         })
         .collect()
 }
@@ -10682,12 +10719,29 @@ with {
         assert_eq!(solution.convergence_status, "fixed_point_converged");
         assert_eq!(solution.tolerance, 0.000001);
         assert_eq!(solution.max_iterations, 80);
+        assert_eq!(
+            solution.variable_scale_policy,
+            "unit_default_from_fixed_point_unknowns"
+        );
+        assert_eq!(solution.variable_scale_min, Some(1.0));
+        assert_eq!(solution.variable_scale_max, Some(1.0));
         assert!(solution.iteration_count > 1);
         assert_eq!(solution.step_diagnostics.len(), solution.iteration_count);
         assert!(solution
             .step_diagnostics
             .iter()
             .all(|diagnostic| diagnostic.residual_norm.is_finite()));
+        assert!(solution.step_diagnostics.iter().all(|diagnostic| {
+            diagnostic.residual_values.len() == solution.unknown_count
+                && diagnostic.normalized_residual_values.len() == solution.unknown_count
+        }));
+        assert_eq!(
+            solution.step_diagnostics[0]
+                .variable_scale_policy
+                .as_deref(),
+            Some("unit_default_from_fixed_point_unknowns")
+        );
+        assert!(solution.step_diagnostics[0].largest_residual_name.is_some());
         assert!(solution
             .step_diagnostics
             .iter()
@@ -10715,7 +10769,12 @@ with {
         let json = eng_report::report_spec_json(&spec);
         assert!(json.contains("\"method\": \"fixed_point_residual_graph\""));
         assert!(json.contains("\"convergence_status\": \"fixed_point_converged\""));
+        assert!(
+            json.contains("\"variable_scale_policy\": \"unit_default_from_fixed_point_unknowns\"")
+        );
         assert!(json.contains("\"step_diagnostics\""));
+        assert!(json.contains("\"residual_values\""));
+        assert!(json.contains("\"normalized_residual_values\""));
         assert!(json.contains("fixed_point_iteration"));
         assert!(json.contains("relax.source.q - 0.5 * relax.target.q + 1 kW"));
     }
@@ -11226,6 +11285,17 @@ with {
             .step_diagnostics
             .iter()
             .all(|diagnostic| diagnostic.residual_norm.is_finite()));
+        assert!(solution.step_diagnostics.iter().all(|diagnostic| {
+            diagnostic.residual_values.len() == solution.unknown_count
+                && diagnostic.normalized_residual_values.len() == solution.unknown_count
+        }));
+        assert_eq!(
+            solution.step_diagnostics[0]
+                .variable_scale_policy
+                .as_deref(),
+            Some("unit_default_from_fixed_point_unknowns")
+        );
+        assert!(solution.step_diagnostics[0].largest_residual_name.is_some());
         let final_diagnostic = solution.step_diagnostics.last().unwrap();
         assert_eq!(
             final_diagnostic.convergence_status,

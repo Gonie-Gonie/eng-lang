@@ -233,8 +233,8 @@ are not public stable workflows.
 - Solver algorithm seeds: dense linear solve with finite matrix/RHS/tolerance
   checks, exact zero-pivot singular failures, tolerance-level ill-conditioned
   pivot failures, and successful-solve pivot condition estimates exposed through
-  component solver report artifacts, solver-API fixed-point iteration plus the narrow
-  `solve component_graph` fixed-point source path with nonconvergence
+  component solver report artifacts, solver-API fixed-point iteration with per-iteration update residual-vector history plus the narrow
+  `solve component_graph` fixed-point source path with raw/normalized variable-update step diagnostics and nonconvergence
   diagnostics, and
   solver-API standalone damped Newton solve with finite initial-guess checks,
   finite-difference fallback, supplied analytic/JIT Jacobian hook, Jacobian policy labels, variable-scale policy, per-iteration Newton linear-step condition diagnostics,
