@@ -97,6 +97,11 @@ enum ArithmeticExpressionNode {
         right: Box<ArithmeticExpressionNode>,
         unit: Option<ArithmeticUnitMetadata>,
     },
+    Function {
+        function: ArithmeticExpressionFunction,
+        argument: Box<ArithmeticExpressionNode>,
+        unit: Option<ArithmeticUnitMetadata>,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -105,6 +110,15 @@ enum ArithmeticExpressionBinaryOperator {
     Subtract,
     Multiply,
     Divide,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ArithmeticExpressionFunction {
+    Sqrt,
+    Exp,
+    Ln,
+    Sin,
+    Cos,
 }
 
 impl ParsedArithmeticExpression {
@@ -172,6 +186,48 @@ impl ArithmeticExpressionNode {
                     }
                 }
             }
+            Self::Function {
+                function, argument, ..
+            } => {
+                let argument = argument.evaluate(source, symbols, alias_symbols, profile)?;
+                let value = match function {
+                    ArithmeticExpressionFunction::Sqrt => {
+                        if argument < 0.0 {
+                            return Err(SolverFailure::new(
+                                profile.finite_code,
+                                format!(
+                                    "{} `{source}` attempted sqrt of a negative value",
+                                    profile.label
+                                ),
+                            ));
+                        }
+                        argument.sqrt()
+                    }
+                    ArithmeticExpressionFunction::Exp => argument.exp(),
+                    ArithmeticExpressionFunction::Ln => {
+                        if argument <= 0.0 {
+                            return Err(SolverFailure::new(
+                                profile.finite_code,
+                                format!(
+                                    "{} `{source}` attempted ln of a non-positive value",
+                                    profile.label
+                                ),
+                            ));
+                        }
+                        argument.ln()
+                    }
+                    ArithmeticExpressionFunction::Sin => argument.sin(),
+                    ArithmeticExpressionFunction::Cos => argument.cos(),
+                };
+                if value.is_finite() {
+                    Ok(value)
+                } else {
+                    Err(SolverFailure::new(
+                        profile.finite_code,
+                        format!("{} `{source}` produced a non-finite value", profile.label),
+                    ))
+                }
+            }
         }
     }
 
@@ -186,6 +242,7 @@ impl ArithmeticExpressionNode {
                 left.collect_unit_literals(units);
                 right.collect_unit_literals(units);
             }
+            Self::Function { argument, .. } => argument.collect_unit_literals(units),
         }
     }
 
@@ -194,7 +251,8 @@ impl ArithmeticExpressionNode {
             Self::Number { unit, .. }
             | Self::Symbol { unit, .. }
             | Self::UnaryMinus { unit, .. }
-            | Self::Binary { unit, .. } => unit.as_ref(),
+            | Self::Binary { unit, .. }
+            | Self::Function { unit, .. } => unit.as_ref(),
         }
     }
 }
@@ -980,10 +1038,48 @@ impl ArithmeticExpressionParser<'_> {
             ArithmeticExpressionToken::Number { value, unit } => {
                 Ok(ArithmeticExpressionNode::Number { value, unit })
             }
-            ArithmeticExpressionToken::Identifier(name) => Ok(ArithmeticExpressionNode::Symbol {
-                unit: self.symbol_units.get(&name).cloned(),
-                name,
-            }),
+            ArithmeticExpressionToken::Identifier(name) => {
+                if matches!(self.peek(), Some(ArithmeticExpressionToken::LeftParen)) {
+                    self.position += 1;
+                    let function = parse_arithmetic_function(&name, self.profile)?;
+                    let argument = self.parse_expression()?;
+                    match self.next() {
+                        Some(ArithmeticExpressionToken::RightParen) => {}
+                        _ => {
+                            return Err(SolverFailure::new(
+                                self.profile.parse_code,
+                                format!(
+                                    "{} function `{name}` has an unclosed argument list",
+                                    self.profile.label
+                                ),
+                            ));
+                        }
+                    }
+                    if let Some(unit) = argument.unit_metadata() {
+                        if !is_dimensionless(unit) {
+                            return Err(SolverFailure::new(
+                                self.profile.parse_code,
+                                format!(
+                                    "{} function `{name}` requires a dimensionless argument, but got `{}` ({})",
+                                    self.profile.label,
+                                    unit.display_unit,
+                                    unit.quantity_kind
+                                ),
+                            ));
+                        }
+                    }
+                    Ok(ArithmeticExpressionNode::Function {
+                        function,
+                        argument: Box::new(argument),
+                        unit: Some(dimensionless_function_unit()),
+                    })
+                } else {
+                    Ok(ArithmeticExpressionNode::Symbol {
+                        unit: self.symbol_units.get(&name).cloned(),
+                        name,
+                    })
+                }
+            }
             ArithmeticExpressionToken::Minus => {
                 let value = self.parse_factor()?;
                 let unit = value.unit_metadata().cloned();
@@ -1022,6 +1118,28 @@ impl ArithmeticExpressionParser<'_> {
         token
     }
 }
+
+fn parse_arithmetic_function(
+    name: &str,
+    profile: ArithmeticExpressionProfile,
+) -> Result<ArithmeticExpressionFunction, SolverFailure> {
+    match name {
+        "sqrt" => Ok(ArithmeticExpressionFunction::Sqrt),
+        "exp" => Ok(ArithmeticExpressionFunction::Exp),
+        "ln" => Ok(ArithmeticExpressionFunction::Ln),
+        "sin" => Ok(ArithmeticExpressionFunction::Sin),
+        "cos" => Ok(ArithmeticExpressionFunction::Cos),
+        _ => Err(SolverFailure::new(
+            profile.parse_code,
+            format!("unsupported {} function `{name}`", profile.label),
+        )),
+    }
+}
+
+fn dimensionless_function_unit() -> ArithmeticUnitMetadata {
+    arithmetic_metadata_for_unit("1", Some("DimensionlessNumber"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1092,6 +1210,75 @@ mod tests {
 
         assert_eq!(parsed.evaluate(&symbols).unwrap(), 19.0);
     }
+
+    #[test]
+    fn evaluates_dimensionless_math_functions() {
+        let symbols = HashMap::from([("x".to_owned(), 4.0), ("theta".to_owned(), 0.0)]);
+        let symbol_units = HashMap::from([
+            ("x".to_owned(), test_dimensionless_unit()),
+            ("theta".to_owned(), test_dimensionless_unit()),
+        ]);
+        let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
+
+        let parsed = parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
+            "sqrt(x) + exp(0) + ln(x) + sin(theta) + cos(theta)",
+            &symbols,
+            &symbol_units,
+            &mut ignore_units,
+            ArithmeticExpressionProfile::SOURCE_RESIDUAL,
+        )
+        .unwrap();
+
+        let expected = 2.0 + 1.0 + 4.0_f64.ln() + 0.0 + 1.0;
+        assert!((parsed.evaluate(&symbols).unwrap() - expected).abs() < 1e-12);
+        assert_eq!(parsed.root_unit, Some(test_dimensionless_unit()));
+    }
+
+    #[test]
+    fn rejects_unitful_math_function_argument() {
+        let symbols = HashMap::from([("q".to_owned(), 4.0)]);
+        let symbol_units = HashMap::from([(
+            "q".to_owned(),
+            ArithmeticUnitMetadata {
+                display_unit: "kW".to_owned(),
+                canonical_unit: "W".to_owned(),
+                quantity_kind: "Power".to_owned(),
+            },
+        )]);
+        let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
+
+        let failure = parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
+            "sqrt(q)",
+            &symbols,
+            &symbol_units,
+            &mut ignore_units,
+            ArithmeticExpressionProfile::SOURCE_RESIDUAL,
+        )
+        .unwrap_err();
+
+        assert_eq!(failure.code, "E-SOURCE-EXPR-PARSE");
+        assert!(failure.message.contains("sqrt"));
+        assert!(failure.message.contains("dimensionless"));
+    }
+
+    #[test]
+    fn rejects_unsupported_math_function() {
+        let symbols = HashMap::from([("x".to_owned(), 4.0)]);
+        let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
+
+        let failure = parse_arithmetic_expression_with_unit_converter(
+            "tan(x)",
+            &symbols,
+            &mut ignore_units,
+            ArithmeticExpressionProfile::SOURCE_RESIDUAL,
+        )
+        .unwrap_err();
+
+        assert_eq!(failure.code, "E-SOURCE-EXPR-PARSE");
+        assert!(failure.message.contains("unsupported"));
+        assert!(failure.message.contains("tan"));
+    }
+
     #[test]
     fn parsed_expression_propagates_symbol_unary_and_binary_unit_metadata() {
         let symbols = HashMap::from([
@@ -1264,5 +1451,33 @@ mod tests {
 
         assert_eq!(failure.code, "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL");
         assert!(failure.message.contains("not linear"));
+    }
+
+    #[test]
+    fn rejects_function_based_nonlinear_linearization() {
+        let variable_symbols = vec!["x".to_owned()];
+        let constants = HashMap::new();
+        let mut convert = |value: f64, _unit: Option<&str>| Ok(value);
+
+        let failure = linearize_arithmetic_expression_with_unit_converter(
+            "exp(x)",
+            &variable_symbols,
+            &constants,
+            &mut convert,
+            ArithmeticExpressionProfile::DYNAMIC_COMPONENT_RESIDUAL,
+            1e-9,
+        )
+        .unwrap_err();
+
+        assert_eq!(failure.code, "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL");
+        assert!(failure.message.contains("not linear"));
+    }
+
+    fn test_dimensionless_unit() -> ArithmeticUnitMetadata {
+        ArithmeticUnitMetadata {
+            display_unit: "1".to_owned(),
+            canonical_unit: "1".to_owned(),
+            quantity_kind: "DimensionlessNumber".to_owned(),
+        }
     }
 }

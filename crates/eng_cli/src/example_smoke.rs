@@ -1097,6 +1097,45 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/newton_dimensionless_function_residual.eng"),
+        Path::new("build/test-runtime-newton-dimensionless-function-residual"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"solved_nonlinear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"newton_source_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"value\": 4.000")
+                || !output.result_json.contains("sqrt(node.node.x) - 2")
+                || !output.result_json.contains("\"source_expression\"")
+                || !output.result_json.contains("\"source_line\":")
+                || !output.report_spec_json.contains("\"source_expression\"")
+                || !output.report_spec_json.contains("\"source_line\":")
+                || !output.report_html.contains("newton_source_residual_graph")
+                || !output.report_html.contains("source_line=")
+            {
+                eprintln!(
+                    "expected tests/runtime/newton_dimensionless_function_residual.eng to solve a dimensionless source Newton residual with sqrt()"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/newton_dimensionless_function_residual.eng solved dimensionless source Newton function residual"
+            );
+        }
+        Err(error) => {
+            eprintln!("dimensionless function Newton source runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/small_dae_from_source.eng"),
         Path::new("build/test-runtime-small-dae-source"),
         &artifact_run_options(),
