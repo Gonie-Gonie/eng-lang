@@ -1,0 +1,30 @@
+domain ScalarState {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component CoupledFunctionNode {
+    port left: ScalarState
+    port right: ScalarState
+    der(left.x) + sin(right.x) eq 0
+    der(right.x) - cos(left.x) / 4 eq 0
+}
+
+system DynamicMultistateFunctionExplicit {
+    node = CoupledFunctionNode()
+    connect node.left to node.left
+    connect node.right to node.right
+}
+
+multistate_function_explicit_result = solve component_graph
+with {
+    solver = dynamic_component_explicit_euler
+    timestep = 0.25 s
+    duration = 1 s
+    initial = [0.5, 0.25]
+}
+
+report {
+    show multistate_function_explicit_result
+}

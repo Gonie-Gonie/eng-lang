@@ -1460,6 +1460,49 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/dynamic_component_multistate_function_explicit.eng"),
+        Path::new("build/test-runtime-dynamic-component-multistate-function-explicit"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_explicit_euler\"")
+                || !output.result_json.contains("\"equation_count\": 2")
+                || !output.result_json.contains("\"unknown_count\": 2")
+                || !output.result_json.contains("\"name\": \"node.left.x\"")
+                || !output.result_json.contains("\"name\": \"node.right.x\"")
+                || !output.result_json.contains("\"final_value\": 0.17279477")
+                || !output.result_json.contains("\"final_value\": 0.48002640")
+                || !output
+                    .report_spec_json
+                    .contains("der(node.left.x) + sin(node.right.x) eq 0")
+                || !output
+                    .report_spec_json
+                    .contains("der(node.right.x) - cos(node.left.x) / 4 eq 0")
+                || !output.report_spec_json.contains("\"state_count\": 2")
+                || !output.report_spec_json.contains("\"step_diagnostics\"")
+                || !output.report_html.contains("node.left.x=0.172795")
+                || !output.report_html.contains("node.right.x=0.480026")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_multistate_function_explicit.eng to solve coupled multi-state function RHS through the parsed explicit dynamic component path"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_multistate_function_explicit.eng solved coupled multi-state explicit dynamic component function RHS"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component multistate function explicit runtime fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/dynamic_component_semi_implicit.eng"),
         Path::new("build/test-runtime-dynamic-component-semi-implicit"),
         &artifact_run_options(),
