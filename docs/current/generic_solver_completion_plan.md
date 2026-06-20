@@ -213,21 +213,18 @@ Evidence gate:
 
 ## Active Implementation Queue
 
-1. Finish W3 unit-parameterized linear component equations across display units.
-   - Compiler: dimension-aware component equation checks.
-   - Runtime: coefficient-unit conversion for residual numerator units such as `W/K -> kW per K`.
-   - Tests: compiler acceptance, residual coefficient conversion, source-to-runtime solve.
-   - Docs: status/matrix/plan wording must state this is a real linear slice, not broad equation support.
-2. Promote this slice into an official or compatibility example only after the full example smoke passes.
-3. Start W2 typed expression lowering by extracting the current arithmetic linearizer into a typed node pipeline with unit metadata.
-4. Move static residual graph and dynamic component residual graph construction onto the same expression-lowering API.
-5. Use that shared expression API to broaden nonlinear and DAE source residuals without adding one-off string parsing.
+1. Start W2 typed expression lowering by extracting the current arithmetic linearizer into a typed node pipeline with unit metadata.
+2. Move static residual graph and dynamic component residual graph construction onto the same expression-lowering API.
+3. Use that shared expression API to broaden nonlinear and DAE source residuals without adding one-off string parsing.
+4. Generalize component-local parameterized dynamic equations and derivative terms through the shared expression tree.
+5. Revisit fixed-point, Newton, DAE, and behavior graph source bridges after they consume the shared expression API instead of shape-specific parsing.
 
 ## Completed Slices Within This Plan
 
 - Pressure/Pa and kPa quantity/unit support for the constrained Thermal/Fluid pressure-flow example.
 - Component parameter constructors for numeric literal, importable const, positional/named override, and pure arithmetic expression values.
 - Parameter values preserved into dense linear, fixed-point, Newton, and DAE residual paths for supported shapes.
+- Unit-parameterized linear component equations such as `Q eq UA * (T1 - T2)` across compatible display units, with compiler dimension checks, runtime coefficient conversion, source-to-runtime tests, docs, and `examples/official/33_unit_parameterized_wall` example-smoke coverage.
 
 ## Done Criteria
 

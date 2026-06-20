@@ -138,6 +138,13 @@ official/32_small_thermal_fluid_loop
   generated connection equations, component-local boundary seeds, simple pipe
   pressure/flow equations, named solved variables, residual norm, and
   largest-residual artifacts. The Fluid seed uses `Pressure [Pa]` with a fixed pipe pressure-drop seed.
+
+official/33_unit_parameterized_wall
+  Supported source-to-solver unit-parameterized Thermal wall example with a
+  `Conductance [W/K]` component parameter, `HeatRate = Conductance *
+  TemperatureDelta` equation checking, coefficient conversion into a `kW`
+  residual graph, named solved variables, residual norm, and largest-residual
+  artifacts.
 ```
 
 ## Internal Implementation Fixtures

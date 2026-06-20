@@ -182,7 +182,12 @@ by the stable breaking-change policy.
   `Pressure [Pa]` quantity plus declared pump/pipe component parameters with
   numeric/importable-const/pure-arithmetic defaults plus named or
   declaration-order positional constructor overrides, but does not claim a broad
-  or production multi-domain simulator.
+  or production multi-domain simulator. The source-to-solver
+  unit-parameterized wall path is covered by
+  `examples/official/33_unit_parameterized_wall`; it validates a Conductance
+  [W/K] component parameter against a HeatRate residual and converts the
+  coefficient into compatible residual display units without claiming broad
+  nonlinear or general compound-unit component equations.
 - Class/domain object authoring for typed fields/defaults, object literals,
   nested object references, field access metadata, simple validation blocks,
   zero-argument metadata methods, immutable copy-with metadata, diagnostics,

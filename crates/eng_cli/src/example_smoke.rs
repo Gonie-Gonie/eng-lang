@@ -43,6 +43,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/30_predictor_component_solver/main.eng",
                 "examples/official/31_external_behavior_solver/main.eng",
                 "examples/official/32_small_thermal_fluid_loop/main.eng",
+                "examples/official/33_unit_parameterized_wall/main.eng",
             ],
         ),
         (
@@ -492,6 +493,52 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("official small thermal/fluid loop example failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("examples/official/33_unit_parameterized_wall/main.eng"),
+        Path::new("build/test-official-unit-parameterized-wall"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"solved_linear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dense_linear_residual_graph\"")
+                || !output.result_json.contains("\"name\": \"wall.inside.Q\"")
+                || !output.result_json.contains("\"value\": 5.00000000")
+                || !output.result_json.contains("\"name\": \"wall.outside.Q\"")
+                || !output.result_json.contains("\"value\": -5.00000000")
+                || !output
+                    .result_json
+                    .contains("wall.UA * (wall.inside.T - wall.outside.T)")
+                || !output
+                    .report_spec_json
+                    .contains("\"quantity_kind\": \"Conductance\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"display_unit\": \"W/K\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"kind\": \"component_equation\"")
+                || !output.report_spec_json.contains("\"wall.equation_1\"")
+                || !output.report_spec_json.contains("\"residual_norm\"")
+                || !output.result_json.contains("\"largest_residuals\"")
+                || !output.report_html.contains("solved_linear")
+                || !output.report_html.contains("wall.inside.Q=5 kW")
+            {
+                eprintln!(
+                    "expected official unit-parameterized wall example to solve a conductance residual graph"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/official/33_unit_parameterized_wall/main.eng solved unit-parameterized wall residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("official unit-parameterized wall example failed: {error}");
             return ExitCode::from(1);
         }
     }

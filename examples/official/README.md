@@ -141,6 +141,12 @@ paths before compatibility fixtures.
   residual graph. Generated connection equations, component-local boundary
   seeds, and simple pipe pressure/flow equations form a square dense linear solve.
   This is a pressure-based fluid seed, not a production hydraulic network package or broad multi-domain solver.
+
+33_unit_parameterized_wall
+  Source-to-solver smoke for a constrained Thermal wall with a `Conductance
+  [W/K]` component parameter, dimension-checked `HeatRate = Conductance *
+  TemperatureDelta`, coefficient conversion into a `kW` residual graph, and
+  named dense-linear solve artifacts.
 ```
 
 Compatibility regression examples live under `examples/compat`. Diagnostic and

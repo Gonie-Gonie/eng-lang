@@ -1,0 +1,37 @@
+domain Thermal package "eng.std.domains.thermal" version "0.1.0" {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+component ZoneBoundary {
+    port heat: Thermal
+    boundary_T = heat.T = 22 degC
+}
+
+component OutdoorBoundary {
+    port heat: Thermal
+    boundary_T = heat.T = 12 degC
+}
+
+component WallConductance {
+    port inside: Thermal
+    port outside: Thermal
+    parameter UA: Conductance [W/K] = 500 W/K
+    inside.Q eq UA * (inside.T - outside.T)
+    outside.Q + inside.Q eq 0 kW
+}
+
+system UnitParameterizedWall {
+    zone = ZoneBoundary()
+    outdoor = OutdoorBoundary()
+    wall = WallConductance()
+    connect zone.heat to wall.inside
+    connect wall.outside to outdoor.heat
+}
+
+wall_conductance_marker = 1
+
+report {
+    show wall_conductance_marker
+}

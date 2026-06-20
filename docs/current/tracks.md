@@ -324,6 +324,9 @@ Supported scoped slice:
   examples/official/32_small_thermal_fluid_loop with generated connection
   equations, component-local boundary seeds, pipe pressure/flow equations, dense
   linear residual solve artifacts, and largest-residual reporting
+- source-to-solver unit-parameterized Thermal wall residual solve in
+  examples/official/33_unit_parameterized_wall with Conductance [W/K]
+  parameters converted into compatible HeatRate residual display units
 - system-local name = Component(...) instances with empty constructors or declared numeric parameter defaults/overrides
 - connect instance.port to instance.port
 - generated connection equations plus literal boundary seeds, simple
