@@ -405,9 +405,17 @@ pub struct ReportDomainConservation {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ReportComponentSummary {
     pub name: String,
+    pub template_name: Option<String>,
+    pub constructor_arguments: Vec<ReportComponentConstructorArgument>,
     pub ports: Vec<ReportPort>,
     pub local_expressions: Vec<ReportComponentLocalExpression>,
     pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComponentConstructorArgument {
+    pub name: String,
+    pub value: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1307,6 +1315,15 @@ pub fn report_spec_from_report(
         .iter()
         .map(|component| ReportComponentSummary {
             name: component.name.clone(),
+            template_name: component.template_name.clone(),
+            constructor_arguments: component
+                .constructor_arguments
+                .iter()
+                .map(|argument| ReportComponentConstructorArgument {
+                    name: argument.name.clone(),
+                    value: argument.value.clone(),
+                })
+                .collect(),
             ports: component
                 .ports
                 .iter()
@@ -3386,6 +3403,29 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             "      \"name\": \"{}\",\n",
             json_escape(&component.name)
         ));
+        push_optional_json_string(
+            &mut json,
+            "template_name",
+            component.template_name.as_deref(),
+            6,
+        );
+        json.push_str("      \"constructor_arguments\": [\n");
+        for (argument_index, argument) in component.constructor_arguments.iter().enumerate() {
+            if argument_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&argument.name)
+            ));
+            json.push_str(&format!(
+                "          \"value\": \"{}\"\n",
+                json_escape(&argument.value)
+            ));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
         json.push_str(&format!("      \"line\": {},\n", component.line));
         json.push_str(&format!(
             "      \"port_count\": {},\n",
@@ -7901,6 +7941,31 @@ mod tests {
         assert!(html.contains("StateVector"));
         assert!(html.contains("InputVector"));
         assert!(html.contains("Derivative[StateVector]"));
+    }
+
+    #[test]
+    fn report_spec_includes_component_constructor_provenance() {
+        let report = check_source(
+            "ok.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n    boundary_T = heat.T = T_room\n    boundary_Q = heat.Q = Q_room\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\nsystem Envelope {\n    room = RoomBoundary(T_room=22 degC, Q_room=1 kW)\n    ambient = AmbientBoundary()\n    connect room.heat to ambient.heat\n}\n",
+            &CheckOptions::default(),
+        );
+
+        let spec = report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        let json = report_spec_json(&spec);
+        let room = spec
+            .components
+            .iter()
+            .find(|component| component.name == "room")
+            .expect("room component");
+
+        assert_eq!(room.template_name.as_deref(), Some("RoomBoundary"));
+        assert_eq!(room.constructor_arguments.len(), 2);
+        assert_eq!(room.constructor_arguments[0].name, "T_room");
+        assert_eq!(room.constructor_arguments[0].value, "22 degC");
+        assert!(json.contains("\"template_name\": \"RoomBoundary\""));
+        assert!(json.contains("\"constructor_arguments\""));
+        assert!(json.contains("\"value\": \"1 kW\""));
     }
 
     #[test]

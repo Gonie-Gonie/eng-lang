@@ -147,8 +147,9 @@ by the stable breaking-change policy.
   state-space solving remain planned or internal.
 - Thermal component boundary assembly: component templates with ports,
   system-local `name = Component(...)` instances with empty constructors or
-  named literal arguments for boundary/equation seeds, `connect instance.port to
-  instance.port`, generated Thermal across/through equations,
+  named literal arguments for boundary/equation seeds, machine-readable
+  constructor provenance, `connect instance.port to instance.port`, generated
+  Thermal across/through equations,
   component-local `name = port.signal = literal` boundary seeds, direct
   `port.signal eq literal` and simple linear port-signal equations, square
   dense linear residual solve artifacts for

@@ -50,15 +50,15 @@ pub use semantic::{
     ClassMethodInfo, ClassObjectFieldInfo, ClassObjectInfo, ClassObjectValidationInfo,
     ClassValidationInfo, CommandClauseInfo, CommandStyleInfo, ComponentAssemblyBoundaryInfo,
     ComponentAssemblyEquationInfo, ComponentAssemblyInfo, ComponentAssemblyVariableInfo,
-    ComponentConnectionSetInfo, ComponentDomainPlanInfo, ComponentInfo,
-    ComponentJacobianSparsityInfo, ComponentLocalExpressionInfo, ComponentResidualDependencyInfo,
-    ComponentResidualGraphInfo, ComponentSolverPreviewInfo, ConnectionInfo, ConservationInfo,
-    ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo, DomainTypeParameterInfo,
-    DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo, EquationInfo,
-    EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo, FunctionLocalInfo,
-    FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo, LinearOperatorEntryInfo,
-    OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo, SemanticProgram, SemanticType,
-    SolverPlanInfo, StateSpaceVectorInfo, SystemInfo, SystemVariableInfo, TestInfo,
+    ComponentConnectionSetInfo, ComponentConstructorArgumentInfo, ComponentDomainPlanInfo,
+    ComponentInfo, ComponentJacobianSparsityInfo, ComponentLocalExpressionInfo,
+    ComponentResidualDependencyInfo, ComponentResidualGraphInfo, ComponentSolverPreviewInfo,
+    ConnectionInfo, ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo,
+    DomainTypeParameterInfo, DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo,
+    EquationInfo, EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo,
+    FunctionLocalInfo, FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo,
+    LinearOperatorEntryInfo, OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo, SemanticProgram,
+    SemanticType, SolverPlanInfo, StateSpaceVectorInfo, SystemInfo, SystemVariableInfo, TestInfo,
     TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo, WhereBlockInfo, WithBlockInfo,
     WithOptionInfo, WriteInfo,
 };
@@ -2619,6 +2619,29 @@ pub fn review_json(report: &CheckReport) -> String {
             "      \"name\": \"{}\",\n",
             json_escape(&component.name)
         ));
+        push_optional_json_string(
+            &mut json,
+            "template_name",
+            component.template_name.as_deref(),
+            6,
+        );
+        json.push_str("      \"constructor_arguments\": [\n");
+        for (argument_index, argument) in component.constructor_arguments.iter().enumerate() {
+            if argument_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&argument.name)
+            ));
+            json.push_str(&format!(
+                "          \"value\": \"{}\"\n",
+                json_escape(&argument.value)
+            ));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
         json.push_str(&format!("      \"line\": {},\n", component.line));
         json.push_str(&format!(
             "      \"port_count\": {},\n",
@@ -5065,6 +5088,20 @@ mod tests {
         assert!(assembly.equations.iter().any(|equation| {
             equation.kind == "component_boundary" && equation.expression == "room.heat.Q eq 1 kW"
         }));
+        let room = report
+            .semantic_program
+            .components
+            .iter()
+            .find(|component| component.name == "room")
+            .expect("room instance");
+        assert_eq!(room.template_name.as_deref(), Some("RoomBoundary"));
+        assert_eq!(room.constructor_arguments.len(), 2);
+        assert_eq!(room.constructor_arguments[0].name, "T_room");
+        assert_eq!(room.constructor_arguments[0].value, "22 degC");
+        let review = review_json(&report);
+        assert!(review.contains("\"template_name\": \"RoomBoundary\""));
+        assert!(review.contains("\"constructor_arguments\""));
+        assert!(review.contains("\"value\": \"1 kW\""));
     }
 
     #[test]

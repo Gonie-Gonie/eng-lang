@@ -281,8 +281,16 @@ pub struct PortInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComponentConstructorArgumentInfo {
+    pub name: String,
+    pub value: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ComponentInfo {
     pub name: String,
+    pub template_name: Option<String>,
+    pub constructor_arguments: Vec<ComponentConstructorArgumentInfo>,
     pub ports: Vec<PortInfo>,
     pub local_expressions: Vec<ComponentLocalExpressionInfo>,
     pub line: usize,
@@ -894,6 +902,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             AstItem::Component(component) => {
                 components.push(ComponentInfo {
                     name: component.name.clone(),
+                    template_name: None,
+                    constructor_arguments: Vec::new(),
                     ports: Vec::new(),
                     local_expressions: Vec::new(),
                     line: component.span.line,
@@ -5080,19 +5090,13 @@ fn analyze_component_instance_binding(
     ComponentInstanceBindingAnalysis::Instance(instance)
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct ComponentConstructorArgument {
-    name: String,
-    value: String,
-}
-
 fn parse_component_constructor_arguments(
     instance_name: &str,
     template_name: &str,
     arguments: &str,
     line: usize,
     diagnostics: &mut Vec<Diagnostic>,
-) -> Option<Vec<ComponentConstructorArgument>> {
+) -> Option<Vec<ComponentConstructorArgumentInfo>> {
     let arguments = arguments.trim();
     if arguments.is_empty() {
         return Some(Vec::new());
@@ -5135,7 +5139,7 @@ fn parse_component_constructor_arguments(
             ));
             return None;
         }
-        parsed.push(ComponentConstructorArgument {
+        parsed.push(ComponentConstructorArgumentInfo {
             name: name.to_owned(),
             value: value.to_owned(),
         });
@@ -5154,11 +5158,13 @@ fn split_component_constructor_arguments(arguments: &str) -> Vec<&str> {
 fn instantiate_component_template(
     template: &ComponentInfo,
     binding: &crate::ast::FastBinding,
-    arguments: &[ComponentConstructorArgument],
+    arguments: &[ComponentConstructorArgumentInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<ComponentInfo> {
     let mut instance = template.clone();
     instance.name = binding.name.clone();
+    instance.template_name = Some(template.name.clone());
+    instance.constructor_arguments = arguments.to_vec();
     instance.line = binding.line;
     if arguments.is_empty() {
         return Some(instance);
@@ -5195,7 +5201,7 @@ fn instantiate_component_template(
 
 fn substitute_component_constructor_arguments(
     expression: &str,
-    arguments: &[ComponentConstructorArgument],
+    arguments: &[ComponentConstructorArgumentInfo],
     used_arguments: &mut HashSet<String>,
 ) -> String {
     let mut output = String::with_capacity(expression.len());
