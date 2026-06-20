@@ -411,6 +411,16 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"right\": \"ambient.heat\"")
                 || !output.report_spec_json.contains("\"residual_norm\"")
                 || !output.result_json.contains("\"largest_residuals\"")
+                || !output.result_json.contains("\"expression_unit\": \"W\"")
+                || !output
+                    .result_json
+                    .contains("\"expression_quantity_kind\": \"HeatRate\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"expression_unit\": \"W\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"expression_quantity_kind\": \"HeatRate\"")
                 || !output.report_html.contains("solved_linear")
                 || !output.report_html.contains("component_boundary")
                 || !output.report_html.contains("component_equation")
@@ -525,6 +535,16 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.report_spec_json.contains("\"wall.equation_1\"")
                 || !output.report_spec_json.contains("\"residual_norm\"")
                 || !output.result_json.contains("\"largest_residuals\"")
+                || !output.result_json.contains("\"expression_unit\": \"W\"")
+                || !output
+                    .result_json
+                    .contains("\"expression_quantity_kind\": \"HeatRate\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"expression_unit\": \"W\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"expression_quantity_kind\": \"HeatRate\"")
                 || !output.report_html.contains("solved_linear")
                 || !output.report_html.contains("wall.inside.Q=5 kW")
             {
@@ -657,6 +677,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"value\": 2.000")
                 || !output.result_json.contains("\"step_diagnostics\"")
                 || !output.result_json.contains("\"largest_residuals\"")
+                || !output.result_json.contains("\"expression_unit\": \"kW\"")
+                || !output
+                    .result_json
+                    .contains("\"expression_quantity_kind\": \"HeatRate\"")
                 || !output
                     .report_spec_json
                     .contains("source solve binding `nonlinear_result`")
@@ -804,6 +828,16 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"name\": \"room.heat.Q\"")
                 || !output.result_json.contains("\"value\": -2.00000000")
                 || !output.result_json.contains("\"largest_residuals\"")
+                || !output.result_json.contains("\"expression_unit\": \"kW\"")
+                || !output
+                    .result_json
+                    .contains("\"expression_quantity_kind\": \"HeatRate\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"expression_unit\": \"kW\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"expression_quantity_kind\": \"HeatRate\"")
                 || !output.report_html.contains("solved_linear")
             {
                 eprintln!(

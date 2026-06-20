@@ -37,10 +37,10 @@ use crate::solver::{
     ExternalBehaviorContract, ExternalBehaviorDeterminism, ExternalBehaviorKind,
     ExternalBehaviorProfilePolicy, FirstOrderThermalModel, FixedPointOptions, FixedStepMethod,
     InputLayout, LayoutEntry, NewtonOptions, OutputLayout, ParameterLayout, PredictorContract,
-    PredictorDifferentiability, PredictorJacobianPolicy, PredictorSolverPolicy, ResidualEvaluator,
-    ResidualGraph, ResidualInput, ResidualOutput, RhsEvaluator, RhsInput, RhsStateInfo,
-    SimulationPlan, SolverDiagnostics, SolverFailure, SolverInput, SolverOptions, SolverPlan,
-    SolverResult, SolverScalar, SourceRhsEquation, SourceRhsEvaluator, StateLayout,
+    PredictorDifferentiability, PredictorJacobianPolicy, PredictorSolverPolicy, ResidualEquation,
+    ResidualEvaluator, ResidualGraph, ResidualInput, ResidualOutput, RhsEvaluator, RhsInput,
+    RhsStateInfo, SimulationPlan, SolverDiagnostics, SolverFailure, SolverInput, SolverOptions,
+    SolverPlan, SolverResult, SolverScalar, SourceRhsEquation, SourceRhsEvaluator, StateLayout,
     StateTrajectory, TimeGrid,
 };
 
@@ -1305,6 +1305,8 @@ impl RuntimeComponentSolution {
                 expression: residual.expression.text.clone(),
                 value: value.value,
                 unit: residual.unit.unit.clone(),
+                expression_unit: residual_expression_unit(residual),
+                expression_quantity_kind: residual_expression_quantity_kind(residual),
                 normalized_value: value.normalized_value,
                 scale: residual.scale.value,
                 scale_policy: residual.scale.policy.clone(),
@@ -1453,6 +1455,8 @@ impl RuntimeComponentSolution {
                 expression: residual.expression.text.clone(),
                 value: value.value,
                 unit: residual.unit.unit.clone(),
+                expression_unit: residual_expression_unit(residual),
+                expression_quantity_kind: residual_expression_quantity_kind(residual),
                 normalized_value: value.normalized_value,
                 scale: residual.scale.value,
                 scale_policy: residual.scale.policy.clone(),
@@ -1661,6 +1665,8 @@ impl RuntimeComponentSolution {
                     expression: residual.expression.clone(),
                     value: residual.value,
                     unit: residual.unit.clone(),
+                    expression_unit: residual.expression_unit.clone(),
+                    expression_quantity_kind: residual.expression_quantity_kind.clone(),
                     normalized_value: residual.normalized_value,
                     scale: residual.scale,
                     scale_policy: residual.scale_policy.clone(),
@@ -1675,6 +1681,8 @@ impl RuntimeComponentSolution {
                     expression: residual.expression.clone(),
                     value: residual.value,
                     unit: residual.unit.clone(),
+                    expression_unit: residual.expression_unit.clone(),
+                    expression_quantity_kind: residual.expression_quantity_kind.clone(),
                     normalized_value: residual.normalized_value,
                     scale: residual.scale,
                     scale_policy: residual.scale_policy.clone(),
@@ -1704,6 +1712,24 @@ fn largest_component_residuals(
     });
     largest.truncate(3);
     largest
+}
+
+fn residual_expression_unit(residual: &ResidualEquation) -> String {
+    residual
+        .expression
+        .inferred_unit
+        .as_ref()
+        .map(|unit| unit.unit.clone())
+        .unwrap_or_else(|| residual.unit.unit.clone())
+}
+
+fn residual_expression_quantity_kind(residual: &ResidualEquation) -> String {
+    residual
+        .expression
+        .inferred_unit
+        .as_ref()
+        .map(|unit| unit.quantity_kind.clone())
+        .unwrap_or_else(|| residual.unit.quantity_kind.clone())
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1743,6 +1769,8 @@ pub struct RuntimeComponentResidualEvaluation {
     pub expression: String,
     pub value: f64,
     pub unit: String,
+    pub expression_unit: String,
+    pub expression_quantity_kind: String,
     pub normalized_value: f64,
     pub scale: f64,
     pub scale_policy: String,
@@ -5175,6 +5203,18 @@ fn source_residual_evaluation_with_symbols(
             expression: equation.residual.clone(),
             value,
             unit: residual_metadata.unit.unit.clone(),
+            expression_unit: parsed
+                .expression
+                .root_unit
+                .as_ref()
+                .map(|unit| unit.canonical_unit.clone())
+                .unwrap_or_else(|| residual_metadata.unit.unit.clone()),
+            expression_quantity_kind: parsed
+                .expression
+                .root_unit
+                .as_ref()
+                .map(|unit| unit.quantity_kind.clone())
+                .unwrap_or_else(|| residual_metadata.unit.quantity_kind.clone()),
             normalized_value,
             scale,
             scale_policy: residual_metadata.scale.policy.clone(),
@@ -9334,7 +9374,9 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         assert!(solver_result.residuals.iter().any(|residual| residual.name
             == "connection_set_1.through_Q_conservation"
             && residual.normalized_value == 0.0
-            && residual.scale_policy == "unit_default:HeatRate[kW]"));
+            && residual.scale_policy == "unit_default:HeatRate[kW]"
+            && residual.expression_unit == "kW"
+            && residual.expression_quantity_kind == "HeatRate"));
         assert_eq!(solver_result.largest_residuals.len(), 3);
         assert!(solver_result
             .largest_residuals
@@ -11065,7 +11107,10 @@ system Envelope {
             variable.name == "wall.inside.Q" && (variable.value - 5.0).abs() <= 1e-6
         }));
         assert!(solution.residuals.iter().any(|residual| {
-            residual.name == "wall.equation_1" && residual.value.abs() <= 1e-6
+            residual.name == "wall.equation_1"
+                && residual.value.abs() <= 1e-6
+                && residual.expression_unit == "W"
+                && residual.expression_quantity_kind == "HeatRate"
         }));
     }
     #[test]
@@ -11188,6 +11233,11 @@ system Envelope {
 
         assert_eq!(evaluation.residuals.len(), 1);
         assert_eq!(evaluation.residuals[0].value, 0.0);
+        assert_eq!(evaluation.residuals[0].expression_unit, "1");
+        assert_eq!(
+            evaluation.residuals[0].expression_quantity_kind,
+            "Dimensionless"
+        );
         assert_eq!(evaluation.normalized_values[0], 0.0);
     }
     fn square_linear_test_assembly(name: &str) -> EquationAssembly {

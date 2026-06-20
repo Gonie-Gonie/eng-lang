@@ -652,6 +652,8 @@ pub struct ReportComponentSolverResidual {
     pub expression: String,
     pub value: f64,
     pub unit: String,
+    pub expression_unit: String,
+    pub expression_quantity_kind: String,
     pub normalized_value: f64,
     pub scale: f64,
     pub scale_policy: String,
@@ -5072,6 +5074,14 @@ fn push_report_component_solver_result_json(
             json_escape(&residual.unit)
         ));
         json.push_str(&format!(
+            "{indent}      \"expression_unit\": \"{}\",\n",
+            json_escape(&residual.expression_unit)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"expression_quantity_kind\": \"{}\",\n",
+            json_escape(&residual.expression_quantity_kind)
+        ));
+        json.push_str(&format!(
             "{indent}      \"normalized_value\": {},\n",
             residual.normalized_value
         ));
@@ -5105,6 +5115,14 @@ fn push_report_component_solver_result_json(
         json.push_str(&format!(
             "{indent}      \"unit\": \"{}\",\n",
             json_escape(&residual.unit)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"expression_unit\": \"{}\",\n",
+            json_escape(&residual.expression_unit)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"expression_quantity_kind\": \"{}\",\n",
+            json_escape(&residual.expression_quantity_kind)
         ));
         json.push_str(&format!(
             "{indent}      \"normalized_value\": {},\n",

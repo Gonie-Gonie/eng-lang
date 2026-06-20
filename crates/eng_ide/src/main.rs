@@ -2467,6 +2467,8 @@ fn smoke() -> Result<(), String> {
                                 && json_field_f64(residual, "value")
                                     .is_some_and(|value| value.abs() <= 1e-12)
                                 && json_field_string(residual, "unit").as_deref() == Some("m")
+                                && json_field_string(residual, "expression_unit").is_some()
+                                && json_field_string(residual, "expression_quantity_kind").is_some()
                                 && json_field_f64(residual, "normalized_value")
                                     .is_some_and(|value| value.abs() <= 1e-12)
                                 && json_field_string(residual, "scale_policy").is_some()

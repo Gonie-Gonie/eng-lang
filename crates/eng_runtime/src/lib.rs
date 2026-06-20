@@ -4484,6 +4484,14 @@ fn push_component_residual_evaluations_json(
             json_escape(&residual.unit)
         ));
         json.push_str(&format!(
+            "{item_indent}  \"expression_unit\": \"{}\",\n",
+            json_escape(&residual.expression_unit)
+        ));
+        json.push_str(&format!(
+            "{item_indent}  \"expression_quantity_kind\": \"{}\",\n",
+            json_escape(&residual.expression_quantity_kind)
+        ));
+        json.push_str(&format!(
             "{item_indent}  \"normalized_value\": {},\n",
             format_number_with_precision(residual.normalized_value, Some(8))
         ));
