@@ -1663,6 +1663,53 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/dynamic_component_nonlinear_derivative_explicit.eng"),
+        Path::new("build/test-runtime-dynamic-component-nonlinear-derivative-explicit"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_explicit_euler\"")
+                || !output
+                    .result_json
+                    .contains("parsed nonlinear derivative residual Newton solves")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dynamic_component_fixed_step_completed\"")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"role\": \"state\"")
+                || !output.result_json.contains("\"final_value\": 1.49999900")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"largest_residual_name\": \"node.equation_1\"")
+                || !output
+                    .report_spec_json
+                    .contains("der(node.node.x) * der(node.node.x) + der(node.node.x) eq 2")
+                || !output.report_spec_json.contains("newton_converged")
+                || !output.report_html.contains("node.node.x=1.499999")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_nonlinear_derivative_explicit.eng to solve fixed-step explicit nonlinear derivative residuals through Newton"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_nonlinear_derivative_explicit.eng solved fixed-step explicit nonlinear derivative residuals"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component nonlinear derivative explicit runtime fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/dynamic_component_adaptive_explicit.eng"),
         Path::new("build/test-runtime-dynamic-component-adaptive-explicit"),
         &artifact_run_options(),
@@ -2277,6 +2324,58 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("dynamic component function semi-implicit runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/runtime/dynamic_component_nonlinear_derivative_semi_implicit.eng"),
+        Path::new("build/test-runtime-dynamic-component-nonlinear-derivative-semi-implicit"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_semi_implicit_euler\"")
+                || !output.result_json.contains(
+                    "semi-implicit algebraic residual graph with parsed nonlinear derivative residual Newton solves",
+                )
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dynamic_component_fixed_step_completed\"")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"name\": \"node.node.balance\"")
+                || !output.result_json.contains("\"final_value\": 1.49999900")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"linear_algebraic_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"largest_residual_name\": \"node.equation_1\"")
+                || !output
+                    .report_spec_json
+                    .contains("der(node.node.x) * der(node.node.x) + der(node.node.x) eq node.node.balance + 2")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\"")
+                || !output.report_html.contains("node.node.x=1.499999")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_nonlinear_derivative_semi_implicit.eng to solve semi-implicit nonlinear derivative residuals through Newton"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_nonlinear_derivative_semi_implicit.eng solved semi-implicit nonlinear derivative residuals"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component nonlinear derivative semi-implicit runtime fixture failed: {error}"
+            );
             return ExitCode::from(1);
         }
     }
@@ -2909,6 +3008,50 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("dynamic component diagnostics fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/diagnostics/dynamic_component_nonlinear_derivative_nonconvergence.eng"),
+        Path::new("build/test-diagnostics-dynamic-component-nonlinear-derivative-nonconvergence"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_explicit_euler\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-NEWTON-NONCONVERGENCE\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_not_converged\"")
+                || !output.result_json.contains("\"step_diagnostics\"")
+                || !output.result_json.contains("\"failure_artifact\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"diagnostic_code\": \"E-NEWTON-NONCONVERGENCE\"")
+                || !output
+                    .report_spec_json
+                    .contains("der(node.node.x) * der(node.node.x) + der(node.node.x) eq 2")
+                || !output
+                    .report_html
+                    .contains("steps=2 failed@2 E-NEWTON-NONCONVERGENCE")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/dynamic_component_nonlinear_derivative_nonconvergence.eng to report fixed-step component Newton derivative nonconvergence"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/dynamic_component_nonlinear_derivative_nonconvergence.eng reported fixed-step component Newton derivative nonconvergence"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component nonlinear derivative nonconvergence diagnostics fixture failed: {error}"
+            );
             return ExitCode::from(1);
         }
     }

@@ -4510,6 +4510,9 @@ fn expression_dynamic_component_semi_implicit_solution_from_solve_request(
     let parsed_residuals = parse_source_residual_expressions(assembly, &parse_symbols)?;
     let linear_static_inputs = solve_input.inputs.clone();
     let linear_input_series = input_series.clone();
+    let split_for_derivatives = assembly.dynamic_component_split()?;
+    let mut linear_rhs_derivative_guess = vec![0.0; split_for_derivatives.state_layout.len()];
+    let mut linear_derivative_step_diagnostics = Vec::new();
     let linear_result = solve_dynamic_component_assembly_with_rhs_and_input_sampler(
         &algebraic_assembly,
         solve_input.clone(),
@@ -4532,23 +4535,61 @@ fn expression_dynamic_component_semi_implicit_solution_from_solve_request(
                 sample.inputs,
                 sample.parameters,
             );
-            source_residual_derivatives_from_affine_derivative_terms(
+            let derivatives = source_residual_derivatives_from_terms_or_newton(
                 assembly,
                 &parsed_residuals,
                 &symbols,
+                &linear_rhs_derivative_guess,
                 "dynamic component semi-implicit source",
-            )
+                &options,
+            )?;
+            let failure = derivatives.failure.clone();
+            record_source_derivative_solve_diagnostics(
+                assembly,
+                &derivatives,
+                sample.time_s,
+                &mut linear_derivative_step_diagnostics,
+            );
+            if let Some(failure) = failure {
+                return Err(failure);
+            }
+            if !derivatives.values.is_empty() {
+                linear_rhs_derivative_guess.clone_from(&derivatives.values);
+            }
+            Ok(derivatives.values)
         },
     );
-    let (dynamic_result, reason) = match linear_result {
-        Ok(dynamic_result) => (
-            dynamic_result,
-            if uses_time_series_inputs {
-                "dynamic component source solve executed semi-implicit algebraic residual graph with parsed derivative residual expressions and TimeSeries input materialization"
-            } else {
-                "dynamic component source solve executed semi-implicit algebraic residual graph with parsed derivative residual expressions"
-            },
-        ),
+    let (dynamic_result, reason, derivative_step_diagnostics) = match linear_result {
+        Ok(dynamic_result) => {
+            let uses_derivative_newton = !linear_derivative_step_diagnostics.is_empty();
+            (
+                dynamic_result,
+                if uses_derivative_newton && uses_time_series_inputs {
+                    "dynamic component source solve executed semi-implicit algebraic residual graph with parsed nonlinear derivative residual Newton solves and TimeSeries input materialization"
+                } else if uses_derivative_newton {
+                    "dynamic component source solve executed semi-implicit algebraic residual graph with parsed nonlinear derivative residual Newton solves"
+                } else if uses_time_series_inputs {
+                    "dynamic component source solve executed semi-implicit algebraic residual graph with parsed derivative residual expressions and TimeSeries input materialization"
+                } else {
+                    "dynamic component source solve executed semi-implicit algebraic residual graph with parsed derivative residual expressions"
+                },
+                linear_derivative_step_diagnostics,
+            )
+        }
+        Err(failure) if !linear_derivative_step_diagnostics.is_empty() => {
+            let mut solution = failed_dynamic_component_source_solution(
+                assembly,
+                "dynamic_component_semi_implicit_euler",
+                &options,
+                &failure,
+                "dynamic component semi-implicit source solve failed during parsed residual RHS evaluation",
+            );
+            append_source_derivative_step_diagnostics(
+                &mut solution,
+                linear_derivative_step_diagnostics,
+            );
+            return Ok(solution);
+        }
         Err(failure) if should_fallback_to_newton_algebraic(&failure) => {
             let split = assembly.dynamic_component_split()?;
             let solver_input = SolverInput {
@@ -4578,11 +4619,13 @@ fn expression_dynamic_component_semi_implicit_solution_from_solve_request(
             };
             let newton_static_inputs = solve_input.inputs.clone();
             let newton_input_series = input_series.clone();
-            let dynamic_result = solve_explicit_euler_with_newton_algebraic_and_input_sampler(
+            let mut newton_rhs_derivative_guess = vec![0.0; split.state_layout.len()];
+            let mut newton_derivative_step_diagnostics = Vec::new();
+            let dynamic_result = match solve_explicit_euler_with_newton_algebraic_and_input_sampler(
                 &solver_input,
                 split.algebraic_layout,
                 solve_input.initial_algebraic,
-                options,
+                options.clone(),
                 |sample| {
                     let symbols = source_dynamic_component_symbols(
                         assembly,
@@ -4608,12 +4651,28 @@ fn expression_dynamic_component_semi_implicit_solution_from_solve_request(
                         sample.inputs,
                         sample.parameters,
                     );
-                    source_residual_derivatives_from_affine_derivative_terms(
+                    let derivatives = source_residual_derivatives_from_terms_or_newton(
                         assembly,
                         &parsed_residuals,
                         &symbols,
+                        &newton_rhs_derivative_guess,
                         "dynamic component semi-implicit source",
-                    )
+                        &options,
+                    )?;
+                    let failure = derivatives.failure.clone();
+                    record_source_derivative_solve_diagnostics(
+                        assembly,
+                        &derivatives,
+                        sample.time_s,
+                        &mut newton_derivative_step_diagnostics,
+                    );
+                    if let Some(failure) = failure {
+                        return Err(failure);
+                    }
+                    if !derivatives.values.is_empty() {
+                        newton_rhs_derivative_guess.clone_from(&derivatives.values);
+                    }
+                    Ok(derivatives.values)
                 },
                 move |time_s| {
                     sampled_dynamic_component_inputs(
@@ -4624,14 +4683,36 @@ fn expression_dynamic_component_semi_implicit_solution_from_solve_request(
                         time_s,
                     )
                 },
-            )?;
+            ) {
+                Ok(result) => result,
+                Err(failure) => {
+                    let mut solution = failed_dynamic_component_source_solution(
+                        assembly,
+                        "dynamic_component_semi_implicit_euler",
+                        &options,
+                        &failure,
+                        "dynamic component semi-implicit source solve failed during parsed residual RHS evaluation",
+                    );
+                    append_source_derivative_step_diagnostics(
+                        &mut solution,
+                        newton_derivative_step_diagnostics,
+                    );
+                    return Ok(solution);
+                }
+            };
+            let uses_derivative_newton = !newton_derivative_step_diagnostics.is_empty();
             (
                 dynamic_result,
-                if uses_time_series_inputs {
+                if uses_derivative_newton && uses_time_series_inputs {
+                    "dynamic component source solve executed semi-implicit Newton algebraic residuals with parsed nonlinear derivative residual Newton solves and TimeSeries input materialization"
+                } else if uses_derivative_newton {
+                    "dynamic component source solve executed semi-implicit Newton algebraic residuals with parsed nonlinear derivative residual Newton solves"
+                } else if uses_time_series_inputs {
                     "dynamic component source solve executed semi-implicit Newton algebraic residuals with parsed derivative residual expressions and TimeSeries input materialization"
                 } else {
                     "dynamic component source solve executed semi-implicit Newton algebraic residuals with parsed derivative residual expressions"
                 },
+                newton_derivative_step_diagnostics,
             )
         }
         Err(failure) => return Err(failure),
@@ -4643,6 +4724,7 @@ fn expression_dynamic_component_semi_implicit_solution_from_solve_request(
     );
     solution.equation_count = assembly.equation_count();
     solution.unknown_count = assembly.unknown_count();
+    append_source_derivative_step_diagnostics(&mut solution, derivative_step_diagnostics);
     Ok(solution)
 }
 
@@ -4685,11 +4767,13 @@ fn expression_dynamic_component_solution_from_solve_request(
         inputs: solve_input.inputs.clone(),
         parameters: solve_input.parameters.clone(),
     };
-    let dynamic_result = solve_explicit_euler_with_algebraic(
+    let mut rhs_derivative_guess = vec![0.0; split.state_layout.len()];
+    let mut derivative_step_diagnostics = Vec::new();
+    let dynamic_result = match solve_explicit_euler_with_algebraic(
         &solver_input,
         split.algebraic_layout.clone(),
         solve_input.initial_algebraic,
-        options,
+        options.clone(),
         |sample| {
             let inputs = sampled_dynamic_component_inputs(
                 &solve_input.inputs,
@@ -4730,18 +4814,52 @@ fn expression_dynamic_component_solution_from_solve_request(
                 &inputs,
                 sample.parameters,
             );
-            source_residual_derivatives_from_affine_derivative_terms(
+            let derivatives = source_residual_derivatives_from_terms_or_newton(
                 assembly,
                 &parsed_residuals,
                 &symbols,
+                &rhs_derivative_guess,
                 "dynamic component source",
-            )
+                &options,
+            )?;
+            let failure = derivatives.failure.clone();
+            record_source_derivative_solve_diagnostics(
+                assembly,
+                &derivatives,
+                sample.time_s,
+                &mut derivative_step_diagnostics,
+            );
+            if let Some(failure) = failure {
+                return Err(failure);
+            }
+            if !derivatives.values.is_empty() {
+                rhs_derivative_guess.clone_from(&derivatives.values);
+            }
+            Ok(derivatives.values)
         },
-    )?;
+    ) {
+        Ok(result) => result,
+        Err(failure) => {
+            let mut solution = failed_dynamic_component_source_solution(
+                assembly,
+                "dynamic_component_explicit_euler",
+                &options,
+                &failure,
+                "dynamic component explicit source solve failed during parsed residual RHS evaluation",
+            );
+            append_source_derivative_step_diagnostics(&mut solution, derivative_step_diagnostics);
+            return Ok(solution);
+        }
+    };
+    let uses_derivative_newton = !derivative_step_diagnostics.is_empty();
     let mut solution = RuntimeComponentSolution::from_dynamic_component_assembly_result(
         assembly,
         &dynamic_result,
-        if uses_time_series_inputs {
+        if uses_derivative_newton && uses_time_series_inputs {
+            "dynamic component source solve executed parsed nonlinear derivative residual Newton solves with TimeSeries input materialization"
+        } else if uses_derivative_newton {
+            "dynamic component source solve executed parsed nonlinear derivative residual Newton solves"
+        } else if uses_time_series_inputs {
             "dynamic component source solve executed parsed derivative residual expressions with TimeSeries input materialization"
         } else {
             "dynamic component source solve executed parsed derivative residual expressions"
@@ -4749,6 +4867,7 @@ fn expression_dynamic_component_solution_from_solve_request(
     );
     solution.equation_count = assembly.equation_count();
     solution.unknown_count = assembly.unknown_count();
+    append_source_derivative_step_diagnostics(&mut solution, derivative_step_diagnostics);
     Ok(solution)
 }
 
@@ -4841,19 +4960,12 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
                 &options,
             )?;
             let failure = derivatives.failure.clone();
-            if let Some(newton) = &derivatives.newton {
-                let residual_names = source_residual_derivative_residual_names(assembly);
-                let mut diagnostics = newton_residual_history_diagnostics(
-                    newton,
-                    failure.as_ref(),
-                    Some(&residual_names),
-                    None,
-                );
-                for diagnostic in &mut diagnostics {
-                    diagnostic.time_s = sample.time_s;
-                }
-                derivative_step_diagnostics.extend(diagnostics);
-            }
+            record_source_derivative_solve_diagnostics(
+                assembly,
+                &derivatives,
+                sample.time_s,
+                &mut derivative_step_diagnostics,
+            );
             if let Some(failure) = failure {
                 return Err(failure);
             }
@@ -4872,10 +4984,7 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
                 &failure,
                 "dynamic component adaptive source solve failed during parsed residual RHS evaluation",
             );
-            for (index, diagnostic) in derivative_step_diagnostics.iter_mut().enumerate() {
-                diagnostic.step_index = index + 1;
-            }
-            solution.step_diagnostics = derivative_step_diagnostics;
+            append_source_derivative_step_diagnostics(&mut solution, derivative_step_diagnostics);
             return Ok(solution);
         }
     };
@@ -4940,6 +5049,38 @@ struct SourceDerivativeSolve {
     values: Vec<f64>,
     newton: Option<NewtonResult>,
     failure: Option<SolverFailure>,
+}
+
+fn record_source_derivative_solve_diagnostics(
+    assembly: &EquationAssembly,
+    solve: &SourceDerivativeSolve,
+    time_s: f64,
+    diagnostics: &mut Vec<RuntimeComponentStepDiagnostic>,
+) {
+    if let Some(newton) = &solve.newton {
+        let residual_names = source_residual_derivative_residual_names(assembly);
+        let mut step_diagnostics = newton_residual_history_diagnostics(
+            newton,
+            solve.failure.as_ref(),
+            Some(&residual_names),
+            None,
+        );
+        for diagnostic in &mut step_diagnostics {
+            diagnostic.time_s = time_s;
+        }
+        diagnostics.extend(step_diagnostics);
+    }
+}
+
+fn append_source_derivative_step_diagnostics(
+    solution: &mut RuntimeComponentSolution,
+    mut diagnostics: Vec<RuntimeComponentStepDiagnostic>,
+) {
+    let step_offset = solution.step_diagnostics.len();
+    for (index, diagnostic) in diagnostics.iter_mut().enumerate() {
+        diagnostic.step_index = step_offset + index + 1;
+    }
+    solution.step_diagnostics.extend(diagnostics);
 }
 
 fn adaptive_dynamic_component_algebraic_values(

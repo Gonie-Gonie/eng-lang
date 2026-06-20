@@ -1,0 +1,36 @@
+domain ScalarState {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component ImplicitDerivativeNode {
+    port node: ScalarState
+    der(node.x) * der(node.x) + der(node.x) eq node.balance + 2
+}
+
+component BalanceBoundary {
+    port node: ScalarState
+    node.balance eq 0
+}
+
+system DynamicImplicitDerivativeSemiImplicit {
+    node = ImplicitDerivativeNode()
+    boundary = BalanceBoundary()
+    connect node.node to boundary.node
+}
+
+semi_result = solve component_graph
+with {
+    solver = dynamic_component_semi_implicit_euler
+    timestep = 0.25 s
+    duration = 1 s
+    initial = 0.5
+    initial_algebraic = [0, 0, 0]
+    tolerance = 0.0001
+    max_iter = 10000
+}
+
+report {
+    show semi_result
+}

@@ -133,6 +133,12 @@ Internal runtime seeds:
   systems, with fixed output TimeGrid trajectories and adaptive internal
   substeps
 - narrow `solve component_graph` integration for
+  `solver = dynamic_component_explicit_euler` and
+  `solver = dynamic_component_semi_implicit_euler`, using parsed derivative
+  residual expressions, selected nonlinear derivative residual Newton fallback,
+  state/algebraic trajectories, and explicit `E-NEWTON-NONCONVERGENCE`
+  artifacts for Newton derivative nonconvergence
+- narrow `solve component_graph` integration for
   `solver = dynamic_component_adaptive_heun`, using parsed derivative residual
   expressions, scalar or fixed-step TimeSeries component inputs, fixed
   output-grid component trajectories, selected nonlinear derivative residual
@@ -202,7 +208,7 @@ Deferred:
 - broad language-integrated nonlinear/DAE solving beyond the narrow component
   residual source smokes
 - broad language-integrated dynamic component graph solving beyond the
-  simple-linear source path
+  simple-linear plus selected derivative-Newton source paths
 - broad language-integrated delay/Predictor/external behavior graph solving
   beyond the narrow unitful temperature explicit-Euler source behavior RHS smokes
   and narrow Predictor/external DAE residual samples
