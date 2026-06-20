@@ -2149,6 +2149,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             "E-COMPONENT-EQUATION-UNIT-001",
         ),
         (
+            "examples/diagnostics/error_messages/component_math_function_unit_mismatch.eng",
+            "E-COMPONENT-EQUATION-UNIT-001",
+        ),
+        (
             "examples/diagnostics/error_messages/component_parameter_unit_mismatch.eng",
             "E-COMPONENT-PARAM-UNIT-001",
         ),

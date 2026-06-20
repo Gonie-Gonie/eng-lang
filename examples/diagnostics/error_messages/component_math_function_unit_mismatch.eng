@@ -1,0 +1,15 @@
+domain PowerScalar package "eng.std.domains.scalar" version "0.1.0" {
+    across q: HeatRate [kW]
+    through balance: HeatRate [kW]
+    conservation sum(balance) = 0
+}
+
+component BadFunctionResidual {
+    port source: PowerScalar
+    sqrt(source.q) eq 2
+}
+
+system BadMathFunctionUnit {
+    node = BadFunctionResidual()
+    connect node.source to node.source
+}

@@ -7492,6 +7492,24 @@ fn component_local_equations(
             if !is_dynamic_equation {
                 let dimension_symbols =
                     component_equation_dimension_symbols(&signal_refs, &parameter_refs);
+                if let Some(function_error) =
+                    dimensionless_math_function_dimension_error(left, &dimension_symbols).or_else(
+                        || dimensionless_math_function_dimension_error(right, &dimension_symbols),
+                    )
+                {
+                    diagnostics.push(Diagnostic::error(
+                        "E-COMPONENT-EQUATION-UNIT-001",
+                        local.line,
+                        &format!(
+                            "Component equation `{expression}` calls `{}` with non-dimensionless argument `{}` ({}).",
+                            function_error.function,
+                            function_error.argument,
+                            function_error.argument_dimension
+                        ),
+                        Some("Use sqrt, exp, ln, sin, and cos only with DimensionlessNumber expressions, or nondimensionalize the argument explicitly."),
+                    ));
+                    continue;
+                }
                 let left_dimension = expression_dimension_with_symbols(left, &dimension_symbols);
                 let right_dimension = expression_dimension_with_symbols(right, &dimension_symbols);
                 if let (Some(left_dimension), Some(right_dimension)) =
@@ -10050,6 +10068,14 @@ fn expression_dimension_with_symbols(
         return Some(symbol.dimension.clone());
     }
 
+    if let Some((_function, argument)) = dimensionless_math_function_call(expression) {
+        let argument_dimension = expression_dimension_with_symbols(argument, symbols)?;
+        if dimensions_compatible(&argument_dimension, "Dimensionless") {
+            return Some("Dimensionless".to_owned());
+        }
+        return Some("mismatch".to_owned());
+    }
+
     let additive_terms = split_top_level(expression, &['+', '-']);
     if additive_terms.len() > 1 {
         let mut dimensions = Vec::new();
@@ -10101,6 +10127,115 @@ fn expression_dimension_with_symbols(
         }
     }
 
+    None
+}
+
+const DIMENSIONLESS_MATH_FUNCTIONS: [&str; 5] = ["sqrt", "exp", "ln", "sin", "cos"];
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct MathFunctionDimensionError {
+    function: &'static str,
+    argument: String,
+    argument_dimension: String,
+}
+
+fn dimensionless_math_function_dimension_error(
+    expression: &str,
+    symbols: &[DimensionSymbol],
+) -> Option<MathFunctionDimensionError> {
+    let expression = strip_outer_parens(expression.trim());
+    if expression.is_empty() {
+        return None;
+    }
+    if let Some(rest) = expression
+        .strip_prefix('-')
+        .or_else(|| expression.strip_prefix('+'))
+    {
+        return dimensionless_math_function_dimension_error(rest.trim(), symbols);
+    }
+    if let Some((function, argument)) = dimensionless_math_function_call(expression) {
+        if let Some(error) = dimensionless_math_function_dimension_error(argument, symbols) {
+            return Some(error);
+        }
+        let argument_dimension = expression_dimension_with_symbols(argument, symbols)?;
+        if !dimensions_compatible(&argument_dimension, "Dimensionless") {
+            return Some(MathFunctionDimensionError {
+                function,
+                argument: argument.trim().to_owned(),
+                argument_dimension,
+            });
+        }
+        return None;
+    }
+
+    let additive_terms = split_top_level(expression, &['+', '-']);
+    if additive_terms.len() > 1 {
+        for term in additive_terms {
+            if let Some(error) = dimensionless_math_function_dimension_error(&term, symbols) {
+                return Some(error);
+            }
+        }
+        return None;
+    }
+
+    let factors = split_top_level_with_operators(expression, &['*', '/']);
+    if factors.len() > 1 {
+        for (_operator, factor) in factors {
+            if let Some(error) = dimensionless_math_function_dimension_error(&factor, symbols) {
+                return Some(error);
+            }
+        }
+        return None;
+    }
+
+    if let Some(inner) = expression
+        .strip_prefix("der(")
+        .and_then(|value| value.strip_suffix(')'))
+    {
+        return dimensionless_math_function_dimension_error(inner, symbols);
+    }
+
+    None
+}
+
+fn dimensionless_math_function_call<'a>(expression: &'a str) -> Option<(&'static str, &'a str)> {
+    let expression = strip_outer_parens(expression.trim());
+    for function in DIMENSIONLESS_MATH_FUNCTIONS {
+        let Some(rest) = expression.strip_prefix(function) else {
+            continue;
+        };
+        let rest = rest.trim_start();
+        if !rest.starts_with('(') {
+            continue;
+        }
+        let Some(close_index) = matching_closing_paren_end(rest) else {
+            continue;
+        };
+        if close_index != rest.len() {
+            continue;
+        }
+        return Some((function, rest[1..rest.len() - 1].trim()));
+    }
+    None
+}
+
+fn matching_closing_paren_end(expression: &str) -> Option<usize> {
+    let mut depth = 0i32;
+    for (index, character) in expression.char_indices() {
+        match character {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(index + character.len_utf8());
+                }
+                if depth < 0 {
+                    return None;
+                }
+            }
+            _ => {}
+        }
+    }
     None
 }
 
