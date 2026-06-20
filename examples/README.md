@@ -105,7 +105,7 @@ official/26_dynamic_component_room
 
 official/27_nonlinear_algebraic
   Supported source-to-solver Newton smoke using `solve component_graph` with
-  `solver = newton`, a dimensionless nonlinear scalar residual, convergence
+  `solver = newton`, a unitful HeatRate nonlinear scalar residual, convergence
   history, named solved variables, residual norm, and largest-residual
   artifacts.
 

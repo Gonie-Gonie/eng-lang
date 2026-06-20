@@ -76,16 +76,16 @@ workflows. Official component examples cover constrained Thermal component
 boundary graphs with system-local instances, square dense linear residual
 solves, a narrow fixed-point source solve over a linear ResidualGraph, and a
 simple-linear dynamic component source solve with trajectories. They also cover
-narrow dimensionless source residual solves through `solver = newton` and
-`solver = implicit_euler_dae` for scalar component equations, plus narrow
-explicit-Euler source behavior RHS solves for delay, typed Predictor identity,
-and typed external adapter identity wrappers, plus a constrained
-Thermal/Fluid[Water] pressure/flow algebraic residual solve with a fixed pipe pressure-drop seed. General
-nonlinear/DAE simulation, broad behavior graph solving, broad adaptive solving,
-broad state-space operator algebra, adaptive component timestepping,
-production pressure-drop packages, and production multi-domain component-graph
-solving remain future or internal tracks. Domain package registries also remain
-future work.
+narrow unitful scalar source residual solves through `solver = newton`, narrow
+dimensionless implicit-Euler DAE solves through `solver = implicit_euler_dae`,
+and narrow explicit-Euler source behavior RHS solves for delay, typed Predictor
+identity, and typed external adapter identity wrappers, plus a constrained
+Thermal/Fluid[Water] pressure/flow algebraic residual solve with a fixed pipe
+pressure-drop seed. General nonlinear/DAE simulation, broad behavior graph
+solving, broad adaptive solving, broad state-space operator algebra, adaptive
+component timestepping, production pressure-drop packages, and production
+multi-domain component-graph solving remain future or internal tracks. Domain
+package registries also remain future work.
 
 ## Quick Start
 

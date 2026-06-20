@@ -590,7 +590,12 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"convergence_status\": \"newton_converged\"")
-                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"name\": \"node.node.q\"")
+                || !output.result_json.contains("\"unit\": \"kW\"")
+                || !output
+                    .result_json
+                    .contains("node.node.q * node.node.q / 1 kW - 4 kW")
+                || !output.result_json.contains("\"value\": 2.000")
                 || !output.result_json.contains("\"step_diagnostics\"")
                 || !output.result_json.contains("\"largest_residuals\"")
                 || !output
@@ -600,7 +605,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.report_html.contains("Step Diagnostics")
             {
                 eprintln!(
-                    "expected official nonlinear algebraic example to solve through source Newton residual graph"
+                    "expected official nonlinear algebraic example to solve a unitful source Newton residual graph"
                 );
                 return ExitCode::from(2);
             }
@@ -809,13 +814,18 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"convergence_status\": \"newton_converged\"")
-                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"name\": \"node.node.q\"")
+                || !output.result_json.contains("\"unit\": \"kW\"")
+                || !output
+                    .result_json
+                    .contains("node.node.q * node.node.q / 1 kW - 4 kW")
+                || !output.result_json.contains("\"value\": 2.000")
                 || !output.result_json.contains("\"step_diagnostics\"")
                 || !output.result_json.contains("\"largest_residuals\"")
                 || !output.report_html.contains("newton_source_residual_graph")
             {
                 eprintln!(
-                    "expected tests/runtime/nonlinear_residual_from_source.eng to solve through source Newton residual graph"
+                    "expected tests/runtime/nonlinear_residual_from_source.eng to solve a unitful source Newton residual graph"
                 );
                 return ExitCode::from(2);
             }

@@ -325,9 +325,9 @@ re-parsing source files.
   trajectories, and per-step algebraic diagnostics. The wall heat flow is a
   fixed simple-linear boundary seed rather than a general conductance model.
 - `examples/official/27_nonlinear_algebraic/main.eng`
-  shows the narrow source Newton path with `solver = newton`, direct
+  shows the narrow unitful source Newton path with `solver = newton`, direct
   source-residual expression evaluation, residual scaling, convergence
-  history, and largest-residual artifacts for a dimensionless scalar graph.
+  history, and largest-residual artifacts for a unitful HeatRate scalar graph.
 - `examples/official/28_small_dae/main.eng`
   shows the narrow source implicit-Euler DAE path with
   `solver = implicit_euler_dae`, assembly-derived state/algebraic split,
@@ -388,7 +388,7 @@ Current:
   and simple linear component-local equations;
 - supported constrained Thermal/Fluid[Water] pressure/flow residual solve for
   literal boundary seeds and simple pipe component-local equations;
-- narrow source Newton residual solves for dimensionless scalar nonlinear
+- narrow source Newton residual solves for unitful scalar nonlinear
   component equations;
 - narrow source implicit-Euler DAE solves for small scalar component residual
   graphs with state/algebraic split;

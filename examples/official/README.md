@@ -106,10 +106,10 @@ paths before compatibility fixtures.
   linear dynamic component assembly.
 
 27_nonlinear_algebraic
-  Source-to-solver smoke for `solve component_graph` with `solver = newton`,
-  finite-difference Jacobian by default, convergence history, named solved
-  variables, residual norm, and largest-residual artifacts for a dimensionless
-  nonlinear scalar residual.
+  Source-to-solver smoke for `solve component_graph` with `solver = newton`, a
+  unitful HeatRate scalar nonlinear residual, finite-difference Jacobian by
+  default, convergence history, named solved variables, residual norm, and
+  largest-residual artifacts.
 
 28_small_dae
   Source-to-solver smoke for `solve component_graph` with

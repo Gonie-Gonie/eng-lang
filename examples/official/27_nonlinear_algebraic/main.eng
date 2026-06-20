@@ -1,16 +1,16 @@
-domain NonlinearScalar package "eng.std.domains.scalar" version "0.1.0" {
-    across x: DimensionlessNumber [1]
-    through balance: DimensionlessNumber [1]
+domain NonlinearPower package "eng.std.domains.scalar" version "0.1.0" {
+    across q: HeatRate [kW]
+    through balance: HeatRate [kW]
     conservation sum(balance) = 0
 }
 
-component NonlinearNode {
-    port node: NonlinearScalar
-    node.x * node.x eq 2
+component NonlinearHeatNode {
+    port node: NonlinearPower
+    node.q * node.q / 1 kW eq 4 kW
 }
 
 system NonlinearAlgebraic {
-    node = NonlinearNode()
+    node = NonlinearHeatNode()
     connect node.node to node.node
 }
 
@@ -19,7 +19,7 @@ with {
     solver = newton
     initial = 1
     tolerance = 0.000000001
-    max_iter = 30
+    max_iter = 40
 }
 
 report {

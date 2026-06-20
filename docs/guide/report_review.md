@@ -133,7 +133,7 @@ initial guess, convergence status, residual norm, and SolverFailure artifacts
 on nonconvergence. `examples/official/26_dynamic_component_room` covers the
 simple-linear dynamic component source path and records state/algebraic
 trajectories plus per-step algebraic diagnostics.
-`examples/official/27_nonlinear_algebraic` covers the narrow source Newton path
+`examples/official/27_nonlinear_algebraic` covers the narrow unitful source Newton path
 and records residual history through component step diagnostics plus
 largest-residual artifacts. `examples/official/28_small_dae` covers the narrow
 source implicit-Euler DAE path and records state/algebraic trajectories,
