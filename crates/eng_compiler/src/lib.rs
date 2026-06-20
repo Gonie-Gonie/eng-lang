@@ -5257,6 +5257,39 @@ mod tests {
         assert!(review.contains("\"status\": \"constructor_override\""));
         assert!(review.contains("\"status\": \"defaulted\""));
     }
+
+    #[test]
+    fn accepts_component_input_declarations_in_assembly() {
+        let report = check_source(
+            "ok.eng",
+            "domain ScalarInputState {\n    across x: DimensionlessNumber [1]\n    through balance: DimensionlessNumber [1]\n    conservation sum(balance) = 0\n}\n\ncomponent DrivenNode {\n    port node: ScalarInputState\n    input drive: DimensionlessNumber [1] = 0.25\n    der(node.x) + sin(node.x) - drive eq 0\n}\n\nsystem DrivenSystem {\n    node = DrivenNode()\n    connect node.node to node.node\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let node = report
+            .semantic_program
+            .components
+            .iter()
+            .find(|component| component.name == "node")
+            .expect("node instance");
+        assert_eq!(node.inputs.len(), 1);
+        assert_eq!(node.inputs[0].name, "drive");
+        assert_eq!(node.inputs[0].value.as_deref(), Some("0.25"));
+        assert_eq!(node.inputs[0].status, "defaulted");
+        let assembly = &report.semantic_program.component_assemblies[0];
+        assert_eq!(assembly.boundary.input_count, 1);
+        assert!(assembly.variables.iter().any(|variable| {
+            variable.name == "node.drive"
+                && variable.role == "input"
+                && variable.source == "component_input.DimensionlessNumber"
+        }));
+        assert!(assembly.equations.iter().any(|equation| {
+            equation.expression == "der(node.node.x) + sin(node.node.x) - node.drive eq 0"
+                && equation.dependencies.contains(&"node.drive".to_owned())
+        }));
+    }
+
     #[test]
     fn accepts_const_component_parameter_defaults_and_constructor_overrides() {
         let report = check_source(

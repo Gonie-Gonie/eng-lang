@@ -306,6 +306,7 @@ pub struct ComponentInfo {
     pub template_name: Option<String>,
     pub constructor_arguments: Vec<ComponentConstructorArgumentInfo>,
     pub parameters: Vec<ComponentParameterInfo>,
+    pub inputs: Vec<ComponentParameterInfo>,
     pub ports: Vec<PortInfo>,
     pub local_expressions: Vec<ComponentLocalExpressionInfo>,
     pub line: usize,
@@ -934,6 +935,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     template_name: None,
                     constructor_arguments: Vec::new(),
                     parameters: Vec::new(),
+                    inputs: Vec::new(),
                     ports: Vec::new(),
                     local_expressions: Vec::new(),
                     line: component.span.line,
@@ -1066,12 +1068,21 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 }
                 ParseContext::Component => {
                     if let Some(component_index) = current_component_index {
-                        analyze_component_parameter(
-                            variable,
-                            &mut components[component_index],
-                            &consts,
-                            &mut diagnostics,
-                        );
+                        if variable.role == "input" {
+                            analyze_component_input(
+                                variable,
+                                &mut components[component_index],
+                                &consts,
+                                &mut diagnostics,
+                            );
+                        } else {
+                            analyze_component_parameter(
+                                variable,
+                                &mut components[component_index],
+                                &consts,
+                                &mut diagnostics,
+                            );
+                        }
                     }
                 }
                 _ => {}
@@ -1855,6 +1866,7 @@ fn known_with_option(key: &str) -> bool {
             | "initial"
             | "initial_algebraic"
             | "initial_derivative"
+            | "inputs"
             | "mass_matrix"
             | "finite_difference_step"
             | "damping"
@@ -5173,6 +5185,42 @@ fn analyze_component_parameter(
     consts: &[ConstInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
+    let parameter = analyze_component_scalar_declaration(
+        declaration,
+        &component.name,
+        consts,
+        diagnostics,
+        "parameter",
+        "E-COMPONENT-PARAM-001",
+    );
+    component.parameters.push(parameter);
+}
+
+fn analyze_component_input(
+    declaration: &SystemVariableDecl,
+    component: &mut ComponentInfo,
+    consts: &[ConstInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let input = analyze_component_scalar_declaration(
+        declaration,
+        &component.name,
+        consts,
+        diagnostics,
+        "input",
+        "E-COMPONENT-INPUT-001",
+    );
+    component.inputs.push(input);
+}
+
+fn analyze_component_scalar_declaration(
+    declaration: &SystemVariableDecl,
+    component_name: &str,
+    consts: &[ConstInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+    declaration_kind: &str,
+    diagnostic_code: &'static str,
+) -> ComponentParameterInfo {
     let display_unit = declaration
         .unit
         .clone()
@@ -5188,11 +5236,11 @@ fn analyze_component_parameter(
     let mut resolved_value = declaration.expression.clone();
     let status = if dimension == "unknown" {
         diagnostics.push(Diagnostic::error(
-            "E-COMPONENT-PARAM-001",
+            diagnostic_code,
             declaration.line,
             &format!(
-                "Component parameter `{}` on `{}` uses unknown quantity kind `{}`.",
-                declaration.name, component.name, declaration.type_name
+                "Component {declaration_kind} `{}` on `{component_name}` uses unknown quantity kind `{}`.",
+                declaration.name, declaration.type_name
             ),
             Some("Use a known quantity kind from the EngLang quantity registry."),
         ));
@@ -5215,7 +5263,7 @@ fn analyze_component_parameter(
         "required"
     };
 
-    component.parameters.push(ComponentParameterInfo {
+    ComponentParameterInfo {
         name: declaration.name.clone(),
         quantity_kind: declaration.type_name.clone(),
         display_unit,
@@ -5230,7 +5278,7 @@ fn analyze_component_parameter(
         },
         status: status.to_owned(),
         line: declaration.line,
-    });
+    }
 }
 
 fn resolve_component_parameter_value(
@@ -6611,6 +6659,18 @@ fn build_component_assembly_graphs(
                 });
             }
         }
+        for input in &component.inputs {
+            let input_name = format!("{}.{}", component.name, input.name);
+            if seen_variables.insert(input_name.clone()) {
+                variables.push(ComponentAssemblyVariableInfo {
+                    name: input_name,
+                    role: "input".to_owned(),
+                    domain: "component_input".to_owned(),
+                    source: format!("component_input.{}", input.quantity_kind),
+                    status: input.status.clone(),
+                });
+            }
+        }
     }
     classify_dynamic_component_states(&mut variables, &equations);
 
@@ -6625,6 +6685,10 @@ fn build_component_assembly_graphs(
     let parameter_count = variables
         .iter()
         .filter(|variable| variable.role == "parameter")
+        .count();
+    let input_count = variables
+        .iter()
+        .filter(|variable| variable.role == "input")
         .count();
     let unknown_count = algebraic_count + state_count;
     let equation_count = equations.len();
@@ -6759,7 +6823,7 @@ fn build_component_assembly_graphs(
         boundary: ComponentAssemblyBoundaryInfo {
             state_count,
             algebraic_count,
-            input_count: 0,
+            input_count,
             output_count: 0,
             parameter_count,
             equation_count,
@@ -7685,6 +7749,7 @@ fn component_parameter_refs(component: &ComponentInfo) -> Vec<ComponentParameter
     component
         .parameters
         .iter()
+        .chain(component.inputs.iter())
         .map(|parameter| ComponentParameterRef {
             local: parameter.name.clone(),
             qualified: format!("{}.{}", component.name, parameter.name),

@@ -1636,6 +1636,7 @@ fn parse_system_variable_decl(
         (TokenKind::Keyword(Keyword::Input), ParseContext::System) => "input",
         (TokenKind::Keyword(Keyword::Output), ParseContext::System) => "output",
         (TokenKind::Keyword(Keyword::Parameter), ParseContext::Component) => "parameter",
+        (TokenKind::Keyword(Keyword::Input), ParseContext::Component) => "input",
         _ => return None,
     };
     let TokenKind::Identifier(name) = &second.kind else {

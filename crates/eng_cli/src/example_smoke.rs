@@ -1515,6 +1515,45 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/dynamic_component_input_explicit.eng"),
+        Path::new("build/test-runtime-dynamic-component-input-explicit"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_explicit_euler\"")
+                || !output.result_json.contains(
+                    "dynamic component source solve executed parsed derivative residual expressions",
+                )
+                || !output.result_json.contains("\"final_value\": 0.69648787")
+                || !output
+                    .report_spec_json
+                    .contains("der(node.node.x) + sin(node.node.x) - node.drive eq 0")
+                || !output.report_spec_json.contains("\"name\": \"node.drive\"")
+                || !output.report_spec_json.contains("\"role\": \"input\"")
+                || !output.report_spec_json.contains("\"input_count\": 1")
+                || !output.report_spec_json.contains(
+                    "\"dependencies\": [\"der(node.node.x)\", \"node.node.x\", \"node.drive\"]",
+                )
+                || !output.report_html.contains("node.drive")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_input_explicit.eng to solve an explicit dynamic component RHS with a declared component input"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_input_explicit.eng solved explicit dynamic component input RHS"
+            );
+        }
+        Err(error) => {
+            eprintln!("dynamic component input explicit runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/dynamic_component_multistate_function_explicit.eng"),
         Path::new("build/test-runtime-dynamic-component-multistate-function-explicit"),
         &artifact_run_options(),

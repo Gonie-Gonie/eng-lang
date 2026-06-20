@@ -5350,15 +5350,17 @@ fn dynamic_component_solve_input_from_request(
             ),
         ));
     }
+    let input_values = component_input_values_from_options(options, &assembly.inputs)?;
     let inputs = assembly
         .inputs
         .iter()
-        .map(|input| {
+        .zip(input_values)
+        .map(|(input, value)| {
             Ok(SolverScalar::new(
                 input.name.clone(),
                 input.quantity_kind.clone(),
                 input.unit.clone(),
-                0.0,
+                value,
             ))
         })
         .collect::<Result<Vec<_>, SolverFailure>>()?;
@@ -5614,6 +5616,57 @@ fn component_initial_values_from_options(
                 return Err(SolverFailure::new(
                     "E-DYNAMIC-COMPONENT-SOURCE-INITIAL",
                     format!("dynamic component source option `{key}` is not finite"),
+                ));
+            }
+            let source_unit = unit.as_deref().unwrap_or(variable.unit.as_str());
+            Ok(convert_display_value(
+                raw_value,
+                source_unit,
+                &variable.unit,
+            ))
+        })
+        .collect()
+}
+
+fn component_input_values_from_options(
+    options: &[eng_compiler::WithOptionInfo],
+    variables: &[UnknownVariable],
+) -> Result<Vec<f64>, SolverFailure> {
+    let parsed_inputs = if let Some(value) = option_value(options, "inputs") {
+        Some(parse_component_initial_option(value).ok_or_else(|| {
+            SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-SOURCE-INPUT",
+                "dynamic component source option `inputs` is not a finite numeric literal or bracketed list",
+            )
+        })?)
+    } else {
+        None
+    };
+    if let Some((true, values)) = &parsed_inputs {
+        if values.len() != variables.len() {
+            return Err(SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-SOURCE-INPUT-LAYOUT",
+                format!(
+                    "dynamic component source option `inputs` provided {} value(s) for {} input variable(s)",
+                    values.len(),
+                    variables.len()
+                ),
+            ));
+        }
+    }
+    variables
+        .iter()
+        .enumerate()
+        .map(|(index, variable)| {
+            let (raw_value, unit) = match &parsed_inputs {
+                Some((true, values)) => values[index].clone(),
+                Some((false, values)) => values[0].clone(),
+                None => (variable.value.unwrap_or(0.0), None),
+            };
+            if !raw_value.is_finite() {
+                return Err(SolverFailure::new(
+                    "E-DYNAMIC-COMPONENT-SOURCE-INPUT",
+                    "dynamic component source option `inputs` is not finite",
                 ));
             }
             let source_unit = unit.as_deref().unwrap_or(variable.unit.as_str());
@@ -7099,22 +7152,29 @@ fn assembly_variable_value(
     variable: &eng_compiler::ComponentAssemblyVariableInfo,
     display_unit: &str,
 ) -> Option<f64> {
-    if variable.role != "parameter" {
+    if variable.role != "parameter" && variable.role != "input" {
         return None;
     }
-    let (component_name, parameter_name) = variable.name.split_once('.')?;
-    let parameter = report
+    let (component_name, local_name) = variable.name.split_once('.')?;
+    let value = report
         .semantic_program
         .components
         .iter()
         .find(|component| component.name == component_name)
-        .and_then(|component| {
-            component
+        .and_then(|component| match variable.role.as_str() {
+            "parameter" => component
                 .parameters
                 .iter()
-                .find(|parameter| parameter.name == parameter_name)
+                .find(|parameter| parameter.name == local_name)
+                .and_then(|parameter| parameter.value.as_deref()),
+            "input" => component
+                .inputs
+                .iter()
+                .find(|input| input.name == local_name)
+                .and_then(|input| input.value.as_deref()),
+            _ => None,
         })?;
-    let (value, unit) = parse_numeric_value_with_optional_unit(parameter.value.as_deref()?)?;
+    let (value, unit) = parse_numeric_value_with_optional_unit(value)?;
     let source_unit = unit.as_deref().unwrap_or(display_unit);
     Some(convert_display_value(value, source_unit, display_unit))
 }
@@ -7123,18 +7183,23 @@ fn assembly_variable_quantity_unit(
     report: &CheckReport,
     variable: &eng_compiler::ComponentAssemblyVariableInfo,
 ) -> (String, String) {
-    if variable.role == "parameter" {
-        if let Some((component_name, parameter_name)) = variable.name.split_once('.') {
+    if variable.role == "parameter" || variable.role == "input" {
+        if let Some((component_name, local_name)) = variable.name.split_once('.') {
             if let Some(parameter) = report
                 .semantic_program
                 .components
                 .iter()
                 .find(|component| component.name == component_name)
-                .and_then(|component| {
-                    component
+                .and_then(|component| match variable.role.as_str() {
+                    "parameter" => component
                         .parameters
                         .iter()
-                        .find(|parameter| parameter.name == parameter_name)
+                        .find(|parameter| parameter.name == local_name),
+                    "input" => component
+                        .inputs
+                        .iter()
+                        .find(|input| input.name == local_name),
+                    _ => None,
                 })
             {
                 return (
