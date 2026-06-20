@@ -257,6 +257,7 @@ Evidence gate:
 - Component residual graphs now carry per-residual metadata entries from compiler IR into report-spec JSON, including source expression, residual expression, dependencies, source line, and runtime-enriched unit, expression unit, quantity-kind, scale policy, and status fields.
 - Static component residual graph and dynamic component residual graph construction now call the same profile-based linear residual expression lowering entrypoint, with separate failure profiles for static component and dynamic component contexts.
 - Source implicit-Euler DAE residual solves now materialize assembly parameter values into DaeInput, algebraic initialization, final residual samples, solver-plan metadata, and report-spec artifacts, with regression coverage for parameterized DAE residuals and explicit sample parameter override.
+- Source Newton residual solves now materialize assembly parameter values once, pass explicit parameter vectors through parse/evaluation closures, reject parameter-vector layout mismatches, and cover explicit algebraic parameter override in regression tests.
 
 ## Done Criteria
 

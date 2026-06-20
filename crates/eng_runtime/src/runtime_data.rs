@@ -3278,7 +3278,21 @@ fn nonlinear_component_solution_from_solve_request(
         }
     };
 
-    let parse_symbols = match source_algebraic_parse_symbols(solver_assembly) {
+    let parameter_values = match source_assembly_parameter_values(solver_assembly) {
+        Ok(values) => values,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                "newton_source_residual_graph",
+                "Newton source solve parameters could not be materialized",
+                &failure,
+                tolerance,
+                options.max_iterations,
+                "newton_source_failed",
+            );
+        }
+    };
+    let parse_symbols = match source_algebraic_parse_symbols(solver_assembly, &parameter_values) {
         Ok(symbols) => symbols,
         Err(failure) => {
             return failed_source_component_solution(
@@ -3335,6 +3349,7 @@ fn nonlinear_component_solution_from_solve_request(
                     &residual_graph,
                     &parsed_residuals,
                     values,
+                    &parameter_values,
                 )
             },
             |_values, _baseline| Ok(scaled_jacobian.clone()),
@@ -3346,6 +3361,7 @@ fn nonlinear_component_solution_from_solve_request(
                 &residual_graph,
                 &parsed_residuals,
                 values,
+                &parameter_values,
             )
         })
     };
@@ -3374,6 +3390,7 @@ fn nonlinear_component_solution_from_solve_request(
         &residual_graph,
         &parsed_residuals,
         &newton.values,
+        &parameter_values,
         tolerance,
     ) {
         Ok(evaluation) => evaluation,
@@ -3514,7 +3531,21 @@ fn dae_component_solution_from_solve_request(
         }
     };
     let residual_graph = ResidualGraph::from_assembly(solver_assembly);
-    let parse_symbols = match source_dae_parse_symbols(solver_assembly) {
+    let parameter_values = match source_assembly_parameter_values(solver_assembly) {
+        Ok(values) => values,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                method,
+                "DAE source solve parameters could not be materialized",
+                &failure,
+                tolerance,
+                newton_options.max_iterations,
+                "dae_source_failed",
+            );
+        }
+    };
+    let parse_symbols = match source_dae_parse_symbols(solver_assembly, &parameter_values) {
         Ok(symbols) => symbols,
         Err(failure) => {
             return failed_source_component_solution(
@@ -3604,20 +3635,6 @@ fn dae_component_solution_from_solve_request(
     let algebraic_initialization = option_value(&request.options, "algebraic_initialization")
         .map(str::trim)
         .unwrap_or("newton");
-    let parameter_values = match source_assembly_parameter_values(solver_assembly) {
-        Ok(values) => values,
-        Err(failure) => {
-            return failed_source_component_solution(
-                solver_assembly,
-                method,
-                "DAE source solve parameters could not be materialized",
-                &failure,
-                tolerance,
-                newton_options.max_iterations,
-                "dae_source_failed",
-            );
-        }
-    };
     if algebraic_initialization == "newton" && !initial_algebraic.is_empty() {
         let initialized = initialize_algebraic_variables(
             AlgebraicInitializationInput {
@@ -4925,18 +4942,20 @@ fn derivative_display_unit(unit: &str) -> String {
 }
 fn source_algebraic_parse_symbols(
     assembly: &EquationAssembly,
+    parameter_values: &[f64],
 ) -> Result<HashMap<String, f64>, SolverFailure> {
     let mut symbols = assembly
         .unknowns
         .iter()
         .map(|variable| (variable.name.clone(), 0.0))
         .collect::<HashMap<_, _>>();
-    insert_assembly_parameter_symbols(assembly, &mut symbols, None)?;
+    insert_assembly_parameter_symbols(assembly, &mut symbols, Some(parameter_values))?;
     Ok(symbols)
 }
 
 fn source_dae_parse_symbols(
     assembly: &EquationAssembly,
+    parameter_values: &[f64],
 ) -> Result<HashMap<String, f64>, SolverFailure> {
     let mut symbols = HashMap::from([("t".to_owned(), 0.0), ("time".to_owned(), 0.0)]);
     for state in &assembly.states {
@@ -4946,7 +4965,7 @@ fn source_dae_parse_symbols(
     for variable in &assembly.algebraic_variables {
         symbols.insert(variable.name.clone(), 0.0);
     }
-    insert_assembly_parameter_symbols(assembly, &mut symbols, None)?;
+    insert_assembly_parameter_symbols(assembly, &mut symbols, Some(parameter_values))?;
     Ok(symbols)
 }
 
@@ -4955,12 +4974,14 @@ fn source_algebraic_residual_values(
     graph: &ResidualGraph,
     parsed_residuals: &[ParsedSourceResidual],
     values: &[f64],
+    parameter_values: &[f64],
 ) -> Result<Vec<f64>, SolverFailure> {
     source_residual_evaluation_for_unknowns(
         assembly,
         graph,
         parsed_residuals,
         values,
+        parameter_values,
         DEFAULT_NEWTON_TOLERANCE,
     )
     .map(|evaluation| evaluation.normalized_values)
@@ -4973,6 +4994,7 @@ fn source_residual_evaluation_for_unknowns(
     graph: &ResidualGraph,
     parsed_residuals: &[ParsedSourceResidual],
     values: &[f64],
+    parameter_values: &[f64],
     tolerance: f64,
 ) -> Result<SourceResidualEvaluation, SolverFailure> {
     if values.len() != assembly.unknowns.len() {
@@ -4987,7 +5009,7 @@ fn source_residual_evaluation_for_unknowns(
         .zip(values.iter().copied())
         .map(|(variable, value)| (variable.name.clone(), value))
         .collect::<HashMap<_, _>>();
-    insert_assembly_parameter_symbols(assembly, &mut symbols, None)?;
+    insert_assembly_parameter_symbols(assembly, &mut symbols, Some(parameter_values))?;
     source_residual_evaluation_with_symbols(
         assembly,
         graph,
@@ -5090,6 +5112,18 @@ fn insert_assembly_parameter_symbols(
     symbols: &mut HashMap<String, f64>,
     sample_values: Option<&[f64]>,
 ) -> Result<(), SolverFailure> {
+    if let Some(values) = sample_values {
+        if values.len() != assembly.parameters.len() {
+            return Err(SolverFailure::new(
+                "E-SOURCE-RESIDUAL-PARAMETER-LAYOUT",
+                format!(
+                    "source residual parameter vector length {} does not match assembly parameter count {}",
+                    values.len(),
+                    assembly.parameters.len()
+                ),
+            ));
+        }
+    }
     for (index, parameter) in assembly.parameters.iter().enumerate() {
         let value = sample_values
             .and_then(|values| values.get(index).copied())
@@ -11313,7 +11347,8 @@ system Envelope {
             ..EquationAssembly::default()
         };
 
-        let parse_symbols = source_algebraic_parse_symbols(&assembly).unwrap();
+        let parameter_values = source_assembly_parameter_values(&assembly).unwrap();
+        let parse_symbols = source_algebraic_parse_symbols(&assembly, &parameter_values).unwrap();
         let parsed_residuals =
             parse_source_residual_expressions(&assembly, &parse_symbols).unwrap();
 
@@ -11383,7 +11418,8 @@ system Envelope {
             ..EquationAssembly::default()
         };
         let graph = ResidualGraph::from_assembly(&assembly);
-        let parse_symbols = source_dae_parse_symbols(&assembly).unwrap();
+        let parameter_values = source_assembly_parameter_values(&assembly).unwrap();
+        let parse_symbols = source_dae_parse_symbols(&assembly, &parameter_values).unwrap();
         let parsed_residuals =
             parse_source_residual_expressions(&assembly, &parse_symbols).unwrap();
 
@@ -11452,7 +11488,8 @@ system Envelope {
         };
         let graph = ResidualGraph::from_assembly(&assembly);
 
-        let parse_symbols = source_algebraic_parse_symbols(&assembly).unwrap();
+        let parameter_values = source_assembly_parameter_values(&assembly).unwrap();
+        let parse_symbols = source_algebraic_parse_symbols(&assembly, &parameter_values).unwrap();
         let parsed_residuals =
             parse_source_residual_expressions(&assembly, &parse_symbols).unwrap();
         let evaluation = source_residual_evaluation_for_unknowns(
@@ -11460,6 +11497,7 @@ system Envelope {
             &graph,
             &parsed_residuals,
             &[2.0],
+            &parameter_values,
             1e-9,
         )
         .unwrap();
@@ -11473,6 +11511,67 @@ system Envelope {
         );
         assert_eq!(evaluation.normalized_values[0], 0.0);
     }
+    #[test]
+    fn source_algebraic_residual_sample_uses_explicit_parameter_values() {
+        let x = UnknownVariable {
+            name: "x".to_owned(),
+            role: "algebraic".to_owned(),
+            quantity_kind: "Dimensionless".to_owned(),
+            unit: "1".to_owned(),
+            source: "Test.x".to_owned(),
+            status: "unknown".to_owned(),
+            value: None,
+        };
+        let k = UnknownVariable {
+            name: "k".to_owned(),
+            role: "parameter".to_owned(),
+            quantity_kind: "Dimensionless".to_owned(),
+            unit: "1".to_owned(),
+            source: "component_parameter.Dimensionless".to_owned(),
+            status: "defaulted".to_owned(),
+            value: Some(2.0),
+        };
+        let assembly = EquationAssembly {
+            name: "explicit_parametric_source".to_owned(),
+            generated_equations: vec![GeneratedEquation {
+                name: "r1".to_owned(),
+                kind: "component_equation".to_owned(),
+                domain: "Test".to_owned(),
+                expression: "x eq k".to_owned(),
+                residual: "x - k".to_owned(),
+                rhs_value: None,
+                dependencies: vec!["x".to_owned(), "k".to_owned()],
+                source: "test".to_owned(),
+                reason: "test explicit parameterized source residual".to_owned(),
+                source_line: Some(1),
+                status: "generated".to_owned(),
+            }],
+            unknowns: vec![x.clone()],
+            algebraic_variables: vec![x],
+            parameters: vec![k],
+            ..EquationAssembly::default()
+        };
+        let graph = ResidualGraph::from_assembly(&assembly);
+        let parse_parameter_values = source_assembly_parameter_values(&assembly).unwrap();
+        let parse_symbols =
+            source_algebraic_parse_symbols(&assembly, &parse_parameter_values).unwrap();
+        let parsed_residuals =
+            parse_source_residual_expressions(&assembly, &parse_symbols).unwrap();
+        let evaluation = source_residual_evaluation_for_unknowns(
+            &assembly,
+            &graph,
+            &parsed_residuals,
+            &[4.0],
+            &[4.0],
+            1e-9,
+        )
+        .unwrap();
+
+        assert_eq!(evaluation.residuals.len(), 1);
+        assert_eq!(evaluation.residuals[0].value, 0.0);
+        assert_eq!(evaluation.normalized_values[0], 0.0);
+    }
+
     fn square_linear_test_assembly(name: &str) -> EquationAssembly {
         let x = UnknownVariable {
             name: "x".to_owned(),
