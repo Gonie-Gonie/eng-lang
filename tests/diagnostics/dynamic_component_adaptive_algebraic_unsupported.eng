@@ -1,0 +1,32 @@
+domain ScalarSignal {
+    across x: DimensionlessNumber [1]
+    across y: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component AdaptiveAlgebraicNode {
+    port node: ScalarSignal
+    der(node.x) + sin(node.x) eq 0
+    node.y eq cos(node.x)
+}
+
+system DynamicAdaptiveAlgebraic {
+    node = AdaptiveAlgebraicNode()
+    connect node.node to node.node
+}
+
+adaptive_result = solve component_graph
+with {
+    solver = dynamic_component_adaptive_heun
+    timestep = 0.25 s
+    duration = 1 s
+    initial = 0.5
+    initial_algebraic = 0
+    tolerance = 0.0001
+    max_iter = 10000
+}
+
+report {
+    show adaptive_result
+}

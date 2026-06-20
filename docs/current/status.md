@@ -173,7 +173,10 @@ by the stable breaking-change policy.
   semi-implicit path, selected dimensionless nonlinear algebraic residuals
   through per-step Newton in the semi-implicit path, coupled two-state trajectories through
   parsed derivative residual expressions, and selected algebraic output
-  trajectories such as `node.y eq cos(node.x)`.
+  trajectories such as `node.y eq cos(node.x)`. Algebraic-free
+  `dynamic_component_adaptive_heun` source solves now emit adaptive Heun
+  component trajectories and accepted-substep diagnostics; dynamic component
+  graphs with algebraic variables remain explicit unsupported artifacts.
   Narrow coupled multi-variable
   unitful source Newton and multi-state unitful temperature implicit-Euler DAE
   component residual smokes are covered by
@@ -187,7 +190,7 @@ by the stable breaking-change policy.
   constructor bindings, broad nonlinear, derivative-rich, affine display-unit,
   or general compound-unit component-local equations, broad fixed-point/nonlinear
   source solving, behavior-node solving, broad nonlinear/DAE coupling, adaptive
-  component timestepping, and production multi-domain solving remain planned or
+  component timestepping beyond the algebraic-free source path, and production multi-domain solving remain planned or
   internal. A constrained Thermal/Fluid[Water] square algebraic residual graph
   solve is covered separately by
   `examples/official/32_small_thermal_fluid_loop`; it uses the public

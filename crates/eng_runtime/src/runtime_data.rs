@@ -3347,7 +3347,9 @@ fn materialize_component_solutions(
                         series,
                     )
                 }
-                "dynamic_component_explicit_euler" | "dynamic_component_semi_implicit_euler" => {
+                "dynamic_component_explicit_euler"
+                | "dynamic_component_semi_implicit_euler"
+                | "dynamic_component_adaptive_heun" => {
                     dynamic_component_solution_from_solve_request(
                         report,
                         assembly,
@@ -4378,7 +4380,9 @@ fn dynamic_component_solution_from_solve_request(
             &options,
         );
     }
-    let explicit_assembly = if solver == "dynamic_component_explicit_euler" {
+    let explicit_assembly = if solver == "dynamic_component_explicit_euler"
+        || solver == "dynamic_component_adaptive_heun"
+    {
         match explicit_dynamic_component_source_assembly(solver_assembly) {
             Ok(assembly) => Some(assembly),
             Err(failure) => {
@@ -4440,6 +4444,28 @@ fn dynamic_component_solution_from_solve_request(
                 &options,
                 &failure,
                 "dynamic component explicit source solve failed during parsed residual RHS evaluation",
+            ),
+        };
+    }
+    if solver == "dynamic_component_adaptive_heun" {
+        let adaptive_options = adaptive_heun_options_from_simulation(
+            &request.options,
+            solve_input.solve_input.timestep_s,
+        );
+        return match expression_dynamic_component_adaptive_solution_from_solve_request(
+            dynamic_assembly,
+            &split,
+            solve_input,
+            series,
+            adaptive_options,
+        ) {
+            Ok(solution) => solution,
+            Err(failure) => failed_dynamic_component_source_solution(
+                dynamic_assembly,
+                solver,
+                &options,
+                &failure,
+                "dynamic component adaptive source solve failed during parsed residual RHS evaluation",
             ),
         };
     }
@@ -4723,6 +4749,122 @@ fn expression_dynamic_component_solution_from_solve_request(
     solution.equation_count = assembly.equation_count();
     solution.unknown_count = assembly.unknown_count();
     Ok(solution)
+}
+
+fn expression_dynamic_component_adaptive_solution_from_solve_request(
+    assembly: &EquationAssembly,
+    split: &crate::solver::assembly::DynamicComponentAssemblySplit,
+    source_input: DynamicComponentSourceSolveInput,
+    series: &[RuntimeTimeSeries],
+    adaptive_options: AdaptiveOdeOptions,
+) -> Result<RuntimeComponentSolution, SolverFailure> {
+    if !split.algebraic_layout.is_empty() {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-ADAPTIVE-ALGEBRAIC",
+            "dynamic component adaptive Heun source solve currently requires an algebraic-free dynamic component graph",
+        ));
+    }
+    let DynamicComponentSourceSolveInput {
+        solve_input,
+        input_series,
+    } = source_input;
+    let uses_time_series_inputs = input_series.iter().any(Option::is_some);
+    let parse_symbols = source_dynamic_component_parse_symbols(assembly, &solve_input.parameters)?;
+    let parsed_residuals = parse_source_residual_expressions(assembly, &parse_symbols)?;
+    let time_grid = TimeGrid::fixed_step(solve_input.duration_s, solve_input.timestep_s)?;
+    let solver_input = SolverInput {
+        plan: SolverPlan::new(
+            assembly.name.clone(),
+            SimulationPlan {
+                inputs: layout_names_from_unknowns(&assembly.inputs),
+                outputs: layout_names_from_unknowns(&assembly.states),
+                states: layout_names_from_unknowns(&assembly.states),
+                parameters: layout_names_from_unknowns(&assembly.parameters),
+            },
+            SolverOptions {
+                method: "dynamic_component_adaptive_heun_source".to_owned(),
+                timestep_s: solve_input.timestep_s,
+                tolerance: adaptive_options.tolerance,
+                max_iterations: adaptive_options.max_steps,
+            },
+        ),
+        time_grid,
+        state_layout: split.state_layout.clone(),
+        input_layout: split.input_layout.clone(),
+        parameter_layout: split.parameter_layout.clone(),
+        output_layout: OutputLayout {
+            entries: split.state_layout.entries.clone(),
+        },
+        initial_state: solve_input.initial_state.clone(),
+        inputs: solve_input.inputs.clone(),
+        parameters: solve_input.parameters.clone(),
+    };
+    let adaptive_result = solve_adaptive_heun_ode(&solver_input, &adaptive_options, |sample| {
+        let inputs = sampled_dynamic_component_inputs(
+            &solve_input.inputs,
+            &input_series,
+            series,
+            assembly,
+            sample.time_s,
+        )?;
+        let symbols = source_dynamic_component_symbols(
+            assembly,
+            sample.time_s,
+            sample.state,
+            &[],
+            &inputs,
+            sample.parameters,
+        );
+        source_residual_derivatives_from_affine_derivative_terms(
+            assembly,
+            &parsed_residuals,
+            &symbols,
+            "dynamic component adaptive source",
+        )
+    })?;
+    let mut solution = RuntimeComponentSolution::from_dynamic_solver_result(
+        &assembly.name,
+        &adaptive_result.solver_result,
+        if uses_time_series_inputs {
+            "dynamic component source solve executed adaptive Heun parsed derivative residual expressions with TimeSeries input materialization"
+        } else {
+            "dynamic component source solve executed adaptive Heun parsed derivative residual expressions"
+        },
+    );
+    solution.equation_count = assembly.equation_count();
+    solution.unknown_count = assembly.unknown_count();
+    solution.step_diagnostics = adaptive_component_step_diagnostics(&adaptive_result.step_reports);
+    Ok(solution)
+}
+
+fn adaptive_component_step_diagnostics(
+    reports: &[AdaptiveOdeStepReport],
+) -> Vec<RuntimeComponentStepDiagnostic> {
+    reports
+        .iter()
+        .enumerate()
+        .map(|(index, report)| RuntimeComponentStepDiagnostic {
+            step_index: index + 1,
+            time_s: report.end_time_s,
+            algebraic_iteration_count: 0,
+            residual_norm: report.error_norm,
+            residual_values: vec![report.error_norm],
+            normalized_residual_values: vec![report.error_norm],
+            line_search_scale: None,
+            line_search_trial_count: None,
+            jacobian_policy: None,
+            variable_scale_policy: None,
+            linear_condition_estimate: None,
+            linear_minimum_pivot_abs: None,
+            linear_maximum_pivot_abs: None,
+            largest_residual_index: Some(0),
+            largest_residual_name: Some("adaptive_error_norm".to_owned()),
+            largest_residual_value: Some(report.error_norm),
+            largest_residual_abs_value: Some(report.error_norm.abs()),
+            convergence_status: format!("adaptive_heun_{}", report.status),
+            failure_artifact: None,
+        })
+        .collect()
 }
 
 fn behavior_dynamic_component_solution_from_solve_request(
@@ -9834,6 +9976,12 @@ fn adaptive_heun_options_from_simulation(
         .max_step_s
         .min(output_timestep_s)
         .max(adaptive.min_step_s);
+    if let Some(max_steps) = option_value(options, "max_iter")
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .filter(|value| *value > 0)
+    {
+        adaptive.max_steps = max_steps;
+    }
     adaptive
 }
 

@@ -1663,6 +1663,51 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/dynamic_component_adaptive_explicit.eng"),
+        Path::new("build/test-runtime-dynamic-component-adaptive-explicit"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_adaptive_heun_source\"")
+                || !output.result_json.contains(
+                    "dynamic component source solve executed adaptive Heun parsed derivative residual expressions",
+                )
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"adaptive_heun_completed\"")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"role\": \"state\"")
+                || !output.result_json.contains("\"final_value\": 0.18733663")
+                || !output
+                    .result_json
+                    .contains("\"largest_residual_name\": \"adaptive_error_norm\"")
+                || !output
+                    .report_spec_json
+                    .contains("der(node.node.x) + sin(node.node.x) eq 0")
+                || !output.report_spec_json.contains("adaptive_heun_accepted")
+                || !output.report_spec_json.contains("adaptive_error_norm")
+                || !output
+                    .report_html
+                    .contains("dynamic_component_adaptive_heun_source")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_adaptive_explicit.eng to solve an algebraic-free dynamic component graph with adaptive Heun"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_adaptive_explicit.eng solved algebraic-free adaptive dynamic component RHS"
+            );
+        }
+        Err(error) => {
+            eprintln!("dynamic component adaptive explicit runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/dynamic_component_parameterized_function_explicit.eng"),
         Path::new("build/test-runtime-dynamic-component-parameterized-function-explicit"),
         &artifact_run_options(),
@@ -2666,6 +2711,45 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("dynamic component nonlinear algebraic diagnostics fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/diagnostics/dynamic_component_adaptive_algebraic_unsupported.eng"),
+        Path::new("build/test-diagnostics-dynamic-component-adaptive-algebraic-unsupported"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_adaptive_heun\"")
+                || !output.result_json.contains(
+                    "\"failure_code\": \"E-DYNAMIC-COMPONENT-ADAPTIVE-ALGEBRAIC\"",
+                )
+                || !output.result_json.contains(
+                    "dynamic component adaptive Heun source solve currently requires an algebraic-free dynamic component graph",
+                )
+                || !output.report_spec_json.contains(
+                    "\"diagnostic_code\": \"E-DYNAMIC-COMPONENT-ADAPTIVE-ALGEBRAIC\"",
+                )
+                || !output
+                    .report_html
+                    .contains("E-DYNAMIC-COMPONENT-ADAPTIVE-ALGEBRAIC")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/dynamic_component_adaptive_algebraic_unsupported.eng to report the adaptive component algebraic limitation"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/dynamic_component_adaptive_algebraic_unsupported.eng reported adaptive component algebraic limitation"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component adaptive algebraic unsupported diagnostics fixture failed: {error}"
+            );
             return ExitCode::from(1);
         }
     }

@@ -2927,7 +2927,7 @@ fn validate_algebraic_solve_contracts(
                 declaration.line,
                 "`solve` requires a supported solver in the attached `with` block.",
                 Some(
-                    "Use `solver = dense_linear`, `fixed_point`, `newton`, `implicit_euler_dae`, `dynamic_component_explicit_euler`, or `dynamic_component_semi_implicit_euler`.",
+                    "Use `solver = dense_linear`, `fixed_point`, `newton`, `implicit_euler_dae`, `dynamic_component_explicit_euler`, `dynamic_component_semi_implicit_euler`, or `dynamic_component_adaptive_heun`.",
                 ),
             ));
             continue;
@@ -2939,7 +2939,7 @@ fn validate_algebraic_solve_contracts(
                 solver_option.line,
                 &format!("Unsupported component solve solver `{}`.", solver_option.value),
                 Some(
-                    "Use `dense_linear`/`linear`, `fixed_point`, `newton`, `implicit_euler_dae`, `dynamic_component_explicit_euler`, or `dynamic_component_semi_implicit_euler`.",
+                    "Use `dense_linear`/`linear`, `fixed_point`, `newton`, `implicit_euler_dae`, `dynamic_component_explicit_euler`, `dynamic_component_semi_implicit_euler`, or `dynamic_component_adaptive_heun`.",
                 ),
             ));
             continue;
@@ -3090,13 +3090,16 @@ fn is_supported_component_solve_solver(solver: &str) -> bool {
             | "dae_implicit_euler"
             | "dynamic_component_explicit_euler"
             | "dynamic_component_semi_implicit_euler"
+            | "dynamic_component_adaptive_heun"
     )
 }
 
 fn is_dynamic_component_solve_solver(solver: &str) -> bool {
     matches!(
         solver,
-        "dynamic_component_explicit_euler" | "dynamic_component_semi_implicit_euler"
+        "dynamic_component_explicit_euler"
+            | "dynamic_component_semi_implicit_euler"
+            | "dynamic_component_adaptive_heun"
     )
 }
 
