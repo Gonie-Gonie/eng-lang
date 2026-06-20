@@ -10,7 +10,8 @@ It exercises:
 - `operator A:` and `operator B:` source declarations;
 - `der(x) eq A * x + B * u` lowering to the continuous state-space runtime path;
 - CSV-backed `T_out` TimeSeries input materialization;
-- fixed-step RK4 output as `sim.T_air` and `sim.T_wall`.
+- scalar `output Q_total` evaluation after each RK4 output sample;
+- fixed-step RK4 output as `sim.T_air`, `sim.T_wall`, and `sim.Q_total`.
 
 This is a scoped state-space workflow. It is not a nonlinear, DAE, broad
 adaptive, or component-coupled solver claim.

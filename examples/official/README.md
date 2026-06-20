@@ -71,13 +71,15 @@ paths before compatibility fixtures.
 
 21_state_space_discrete
   Discrete two-state state-space simulation using top-level typed state/input
-  blocks, `StateVector[...]`, `InputVector[...]`, operator declarations, and
-  `next(x) eq A * x + B * u` lowering to generated state TimeSeries.
+  blocks, `StateVector[...]`, `InputVector[...]`, operator declarations,
+  scalar output evaluation, and `next(x) eq A * x + B * u` lowering to
+  generated sim.T_air/sim.T_wall/sim.Q_total TimeSeries.
 
 22_state_space_continuous
   Continuous two-state state-space simulation using typed state/input blocks,
   operator declarations, promoted CSV TimeSeries input binding, fixed-step RK4
-  execution, and generated state TimeSeries.
+  execution, scalar output evaluation, and generated
+  sim.T_air/sim.T_wall/sim.Q_total TimeSeries.
 
 23_thermal_component_assembly
   Thermal component templates instantiated inside a system block with

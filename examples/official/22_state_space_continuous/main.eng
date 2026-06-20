@@ -22,12 +22,16 @@ inputs RoomInput {
 system ContinuousRoomStateSpace {
     state x: StateVector[RoomState] = [22 degC, 20 degC]
     input u: InputVector[RoomInput] = [8 degC, 1800 W]
+    output Q_total: HeatRate [kW]
+
+    outputs y = [T_air, T_wall, Q_total]
 
     operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.021 1/min, 0.0072 1/min]; [0.0048 1/min, -0.0096 1/min]]
     operator B: LinearOperator[RoomInput -> Derivative[RoomState]] = [[0.0138 1/min, 0.0000012]; [0.0048 1/min, 0.0]]
 
     equation {
         der(x) eq A * x + B * u
+        Q_total eq Q_hvac + 0.5 kW
     }
 }
 

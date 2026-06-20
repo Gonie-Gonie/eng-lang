@@ -2806,6 +2806,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     || !result.contains("\"binding\": \"sim\"")
                     || !result.contains("\"state\": \"T_air\"")
                     || !result.contains("\"state\": \"T_wall\"")
+                    || !result.contains("\"state\": \"Q_total\"")
                     || !result.contains(expected_method)
                     || !result.contains(expected_reason)
                     || !plot_spec.contains("\"name\": \"sim.T_air\"")
