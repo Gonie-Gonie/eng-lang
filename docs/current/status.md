@@ -166,10 +166,11 @@ by the stable breaking-change policy.
   `examples/official/25_fixed_point_loop`; and a simple-linear dynamic
   component source solve is covered by
   `examples/official/26_dynamic_component_room`, with additional runtime
-  fixture coverage for algebraic-free dimensionless function RHS evaluation and
-  constructor-parameter and scalar component-input dependencies plus coupled
-  two-state trajectories through parsed derivative residual expressions, and
-  selected algebraic output trajectories such as `node.y eq cos(node.x)`.
+  fixture coverage for algebraic-free dimensionless function RHS evaluation,
+  constructor-parameter and scalar or TimeSeries component-input dependencies
+  in the parsed explicit dynamic path, coupled two-state trajectories through
+  parsed derivative residual expressions, and selected algebraic output
+  trajectories such as `node.y eq cos(node.x)`.
   Narrow coupled multi-variable
   unitful source Newton and multi-state unitful temperature implicit-Euler DAE
   component residual smokes are covered by

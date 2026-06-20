@@ -2035,7 +2035,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.time_axes = materialize_time_axes(&data.tables);
     data.time_series = materialize_time_series(report, &data.tables);
     data.system_solutions = materialize_system_solutions(report, &data.time_series);
-    data.component_solutions = materialize_component_solutions(report);
+    data.component_solutions = materialize_component_solutions(report, &data.time_series);
     data.time_series
         .extend(materialize_system_solution_series(&data.system_solutions));
     data.time_series
@@ -3284,7 +3284,10 @@ fn materialize_system_solutions(
     solutions
 }
 
-fn materialize_component_solutions(report: &CheckReport) -> Vec<RuntimeComponentSolution> {
+fn materialize_component_solutions(
+    report: &CheckReport,
+    series: &[RuntimeTimeSeries],
+) -> Vec<RuntimeComponentSolution> {
     let mut solutions = Vec::new();
     for assembly in &report.semantic_program.component_assemblies {
         let solver_assembly = solver_equation_assembly_from_component_info(report, assembly);
@@ -3336,6 +3339,7 @@ fn materialize_component_solutions(report: &CheckReport) -> Vec<RuntimeComponent
                         assembly,
                         &solver_assembly,
                         &request,
+                        series,
                     )
                 }
                 _ => {
@@ -4216,6 +4220,7 @@ fn dynamic_component_solution_from_solve_request(
     component_info: &eng_compiler::ComponentAssemblyInfo,
     solver_assembly: &EquationAssembly,
     request: &ComponentSolveRequest,
+    series: &[RuntimeTimeSeries],
 ) -> RuntimeComponentSolution {
     let solver = option_value(&request.options, "solver")
         .map(str::trim)
@@ -4230,6 +4235,7 @@ fn dynamic_component_solution_from_solve_request(
             report,
             solver_assembly,
             request,
+            series,
             &options,
         );
     }
@@ -4266,6 +4272,7 @@ fn dynamic_component_solution_from_solve_request(
         dynamic_assembly,
         &split,
         &request.options,
+        series,
     ) {
         Ok(input) => input,
         Err(failure) => {
@@ -4284,6 +4291,7 @@ fn dynamic_component_solution_from_solve_request(
             dynamic_assembly,
             &split,
             solve_input,
+            series,
             options.clone(),
         ) {
             Ok(solution) => solution,
@@ -4297,7 +4305,25 @@ fn dynamic_component_solution_from_solve_request(
         };
     }
 
-    match solve_dynamic_component_assembly(dynamic_assembly, solve_input, options.clone()) {
+    if solve_input.uses_time_series_inputs() {
+        let failure = SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-SOURCE-INPUT-TIMESERIES-UNSUPPORTED",
+            "TimeSeries component inputs currently require `solver = dynamic_component_explicit_euler` with parsed source residual evaluation",
+        );
+        return failed_dynamic_component_source_solution(
+            dynamic_assembly,
+            solver,
+            &options,
+            &failure,
+            "dynamic component source solve options could not be materialized for the selected solver",
+        );
+    }
+
+    match solve_dynamic_component_assembly(
+        dynamic_assembly,
+        solve_input.solve_input,
+        options.clone(),
+    ) {
         Ok(dynamic_result) => RuntimeComponentSolution::from_dynamic_component_assembly_result(
             dynamic_assembly,
             &dynamic_result,
@@ -4313,12 +4339,30 @@ fn dynamic_component_solution_from_solve_request(
     }
 }
 
+#[derive(Clone, Debug)]
+struct DynamicComponentSourceSolveInput {
+    solve_input: DynamicComponentAssemblySolveInput,
+    input_series: Vec<Option<usize>>,
+}
+
+impl DynamicComponentSourceSolveInput {
+    fn uses_time_series_inputs(&self) -> bool {
+        self.input_series.iter().any(Option::is_some)
+    }
+}
+
 fn expression_dynamic_component_solution_from_solve_request(
     assembly: &EquationAssembly,
     split: &crate::solver::assembly::DynamicComponentAssemblySplit,
-    solve_input: DynamicComponentAssemblySolveInput,
+    source_input: DynamicComponentSourceSolveInput,
+    series: &[RuntimeTimeSeries],
     options: DynamicComponentOptions,
 ) -> Result<RuntimeComponentSolution, SolverFailure> {
+    let DynamicComponentSourceSolveInput {
+        solve_input,
+        input_series,
+    } = source_input;
+    let uses_time_series_inputs = input_series.iter().any(Option::is_some);
     let parse_symbols = source_dynamic_component_parse_symbols(assembly, &solve_input.parameters)?;
     let parsed_residuals = parse_source_residual_expressions(assembly, &parse_symbols)?;
     let solver_input = SolverInput {
@@ -4342,9 +4386,9 @@ fn expression_dynamic_component_solution_from_solve_request(
         output_layout: OutputLayout {
             entries: split.state_layout.entries.clone(),
         },
-        initial_state: solve_input.initial_state,
-        inputs: solve_input.inputs,
-        parameters: solve_input.parameters,
+        initial_state: solve_input.initial_state.clone(),
+        inputs: solve_input.inputs.clone(),
+        parameters: solve_input.parameters.clone(),
     };
     let dynamic_result = solve_explicit_euler_with_algebraic(
         &solver_input,
@@ -4352,12 +4396,19 @@ fn expression_dynamic_component_solution_from_solve_request(
         solve_input.initial_algebraic,
         options,
         |sample| {
+            let inputs = sampled_dynamic_component_inputs(
+                &solve_input.inputs,
+                &input_series,
+                series,
+                assembly,
+                sample.time_s,
+            )?;
             let symbols = source_dynamic_component_symbols(
                 assembly,
                 sample.time_s,
                 sample.state,
                 sample.algebraic,
-                sample.inputs,
+                &inputs,
                 sample.parameters,
             );
             source_residual_algebraic_values_from_affine_terms(
@@ -4369,12 +4420,19 @@ fn expression_dynamic_component_solution_from_solve_request(
             )
         },
         |sample| {
+            let inputs = sampled_dynamic_component_inputs(
+                &solve_input.inputs,
+                &input_series,
+                series,
+                assembly,
+                sample.time_s,
+            )?;
             let symbols = source_dynamic_component_symbols(
                 assembly,
                 sample.time_s,
                 sample.state,
                 sample.algebraic,
-                sample.inputs,
+                &inputs,
                 sample.parameters,
             );
             source_residual_derivatives_from_affine_derivative_terms(
@@ -4388,7 +4446,11 @@ fn expression_dynamic_component_solution_from_solve_request(
     let mut solution = RuntimeComponentSolution::from_dynamic_component_assembly_result(
         assembly,
         &dynamic_result,
-        "dynamic component source solve executed parsed derivative residual expressions",
+        if uses_time_series_inputs {
+            "dynamic component source solve executed parsed derivative residual expressions with TimeSeries input materialization"
+        } else {
+            "dynamic component source solve executed parsed derivative residual expressions"
+        },
     );
     solution.equation_count = assembly.equation_count();
     solution.unknown_count = assembly.unknown_count();
@@ -4399,6 +4461,7 @@ fn behavior_dynamic_component_solution_from_solve_request(
     report: &CheckReport,
     solver_assembly: &EquationAssembly,
     request: &ComponentSolveRequest,
+    series: &[RuntimeTimeSeries],
     options: &DynamicComponentOptions,
 ) -> RuntimeComponentSolution {
     let method = "behavior_graph_explicit_euler_source";
@@ -4430,6 +4493,7 @@ fn behavior_dynamic_component_solution_from_solve_request(
         &dynamic_assembly,
         &split,
         &request.options,
+        series,
     ) {
         Ok(input) => input,
         Err(failure) => {
@@ -4442,6 +4506,10 @@ fn behavior_dynamic_component_solution_from_solve_request(
             );
         }
     };
+    let DynamicComponentSourceSolveInput {
+        solve_input,
+        input_series,
+    } = solve_input;
     let (mut behavior_graph, behavior_output_symbols) =
         match source_behavior_graph_from_report(report, &dynamic_assembly) {
             Ok(graph) => graph,
@@ -4529,13 +4597,15 @@ fn behavior_dynamic_component_solution_from_solve_request(
     let mut step_diagnostics = Vec::new();
     let solver_result =
         solve_fixed_step_ode(FixedStepMethod::ExplicitEuler, &solver_input, |sample| {
+            let inputs = sampled_dynamic_component_inputs(
+                &solve_input.inputs,
+                &input_series,
+                series,
+                &dynamic_assembly,
+                sample.time_s,
+            )?;
             let behavior_evaluation = behavior_graph.evaluate_rhs(
-                &BehaviorRhsSample::new(
-                    sample.time_s,
-                    sample.state,
-                    sample.inputs,
-                    sample.parameters,
-                ),
+                &BehaviorRhsSample::new(sample.time_s, sample.state, &inputs, sample.parameters),
                 |behavior| {
                     step_diagnostics.push(RuntimeComponentStepDiagnostic {
                         step_index: step_diagnostics.len() + 1,
@@ -4562,7 +4632,7 @@ fn behavior_dynamic_component_solution_from_solve_request(
                         &dynamic_assembly,
                         sample.time_s,
                         sample.state,
-                        sample.inputs,
+                        &inputs,
                         sample.parameters,
                         behavior,
                         &behavior_output_symbols,
@@ -5315,7 +5385,8 @@ fn dynamic_component_solve_input_from_request(
     assembly: &EquationAssembly,
     split: &crate::solver::assembly::DynamicComponentAssemblySplit,
     options: &[eng_compiler::WithOptionInfo],
-) -> Result<DynamicComponentAssemblySolveInput, SolverFailure> {
+    series: &[RuntimeTimeSeries],
+) -> Result<DynamicComponentSourceSolveInput, SolverFailure> {
     let timestep_s = option_value(options, "timestep")
         .and_then(parse_duration_seconds)
         .ok_or_else(|| {
@@ -5350,11 +5421,12 @@ fn dynamic_component_solve_input_from_request(
             ),
         ));
     }
-    let input_values = component_input_values_from_options(options, &assembly.inputs)?;
+    let input_materialization =
+        component_input_values_from_options(options, &assembly.inputs, series)?;
     let inputs = assembly
         .inputs
         .iter()
-        .zip(input_values)
+        .zip(input_materialization.values)
         .map(|(input, value)| {
             Ok(SolverScalar::new(
                 input.name.clone(),
@@ -5377,13 +5449,16 @@ fn dynamic_component_solve_input_from_request(
         })
         .collect::<Result<Vec<_>, SolverFailure>>()?;
 
-    Ok(DynamicComponentAssemblySolveInput {
-        duration_s,
-        timestep_s,
-        initial_state,
-        initial_algebraic,
-        inputs,
-        parameters,
+    Ok(DynamicComponentSourceSolveInput {
+        solve_input: DynamicComponentAssemblySolveInput {
+            duration_s,
+            timestep_s,
+            initial_state,
+            initial_algebraic,
+            inputs,
+            parameters,
+        },
+        input_series: input_materialization.series_indices,
     })
 }
 
@@ -5628,15 +5703,28 @@ fn component_initial_values_from_options(
         .collect()
 }
 
+#[derive(Clone, Debug)]
+struct ComponentInputMaterialization {
+    values: Vec<f64>,
+    series_indices: Vec<Option<usize>>,
+}
+
+#[derive(Clone, Debug)]
+enum ComponentInputOptionValue {
+    Numeric(f64, Option<String>),
+    TimeSeries(usize),
+}
+
 fn component_input_values_from_options(
     options: &[eng_compiler::WithOptionInfo],
     variables: &[UnknownVariable],
-) -> Result<Vec<f64>, SolverFailure> {
+    series: &[RuntimeTimeSeries],
+) -> Result<ComponentInputMaterialization, SolverFailure> {
     let parsed_inputs = if let Some(value) = option_value(options, "inputs") {
-        Some(parse_component_initial_option(value).ok_or_else(|| {
+        Some(parse_component_input_option(value, series).ok_or_else(|| {
             SolverFailure::new(
                 "E-DYNAMIC-COMPONENT-SOURCE-INPUT",
-                "dynamic component source option `inputs` is not a finite numeric literal or bracketed list",
+                "dynamic component source option `inputs` is not a finite numeric literal, bracketed list, or known TimeSeries name",
             )
         })?)
     } else {
@@ -5654,29 +5742,160 @@ fn component_input_values_from_options(
             ));
         }
     }
-    variables
+    let mut input_series = Vec::with_capacity(variables.len());
+    let values = variables
         .iter()
         .enumerate()
         .map(|(index, variable)| {
-            let (raw_value, unit) = match &parsed_inputs {
-                Some((true, values)) => values[index].clone(),
-                Some((false, values)) => values[0].clone(),
-                None => (variable.value.unwrap_or(0.0), None),
+            let item = match &parsed_inputs {
+                Some((true, values)) => Some(&values[index]),
+                Some((false, values)) => values.first(),
+                None => None,
             };
-            if !raw_value.is_finite() {
-                return Err(SolverFailure::new(
-                    "E-DYNAMIC-COMPONENT-SOURCE-INPUT",
-                    "dynamic component source option `inputs` is not finite",
-                ));
+            match item {
+                Some(ComponentInputOptionValue::Numeric(raw_value, unit)) => {
+                    if !raw_value.is_finite() {
+                        return Err(SolverFailure::new(
+                            "E-DYNAMIC-COMPONENT-SOURCE-INPUT",
+                            "dynamic component source option `inputs` is not finite",
+                        ));
+                    }
+                    input_series.push(None);
+                    let source_unit = unit.as_deref().unwrap_or(variable.unit.as_str());
+                    Ok(convert_display_value(
+                        *raw_value,
+                        source_unit,
+                        &variable.unit,
+                    ))
+                }
+                Some(ComponentInputOptionValue::TimeSeries(series_index)) => {
+                    input_series.push(Some(*series_index));
+                    component_input_series_value(variable, &series[*series_index], 0.0)
+                }
+                None => {
+                    input_series.push(None);
+                    Ok(variable.value.unwrap_or(0.0))
+                }
             }
-            let source_unit = unit.as_deref().unwrap_or(variable.unit.as_str());
-            Ok(convert_display_value(
-                raw_value,
-                source_unit,
-                &variable.unit,
-            ))
+        })
+        .collect::<Result<Vec<_>, SolverFailure>>()?;
+    Ok(ComponentInputMaterialization {
+        values,
+        series_indices: input_series,
+    })
+}
+
+fn parse_component_input_option(
+    value: &str,
+    series: &[RuntimeTimeSeries],
+) -> Option<(bool, Vec<ComponentInputOptionValue>)> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if let Some(inner) = trimmed
+        .strip_prefix('[')
+        .and_then(|rest| rest.strip_suffix(']'))
+    {
+        let values = split_component_initial_items(inner)
+            .into_iter()
+            .map(|item| parse_component_input_option_item(&item, series))
+            .collect::<Option<Vec<_>>>()?;
+        if values.is_empty() {
+            return None;
+        }
+        return Some((true, values));
+    }
+    parse_component_input_option_item(trimmed, series).map(|value| (false, vec![value]))
+}
+
+fn parse_component_input_option_item(
+    item: &str,
+    series: &[RuntimeTimeSeries],
+) -> Option<ComponentInputOptionValue> {
+    if let Some((value, unit)) = parse_numeric_value_with_optional_unit(item) {
+        return Some(ComponentInputOptionValue::Numeric(value, unit));
+    }
+    let name = item.trim().trim_matches('"').trim_matches('\'');
+    let series_index = series.iter().position(|candidate| candidate.name == name)?;
+    Some(ComponentInputOptionValue::TimeSeries(series_index))
+}
+
+fn sampled_dynamic_component_inputs(
+    static_inputs: &[SolverScalar],
+    input_series: &[Option<usize>],
+    series: &[RuntimeTimeSeries],
+    assembly: &EquationAssembly,
+    time_s: f64,
+) -> Result<Vec<SolverScalar>, SolverFailure> {
+    if input_series.iter().all(Option::is_none) {
+        return Ok(static_inputs.to_vec());
+    }
+    if static_inputs.len() != input_series.len() || static_inputs.len() != assembly.inputs.len() {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-SOURCE-INPUT-LAYOUT",
+            "dynamic component input TimeSeries layout does not match the assembly input layout",
+        ));
+    }
+    static_inputs
+        .iter()
+        .zip(input_series.iter())
+        .zip(assembly.inputs.iter())
+        .map(|((input, series_index), variable)| {
+            let Some(series_index) = series_index else {
+                return Ok(input.clone());
+            };
+            let series = series.get(*series_index).ok_or_else(|| {
+                SolverFailure::new(
+                    "E-DYNAMIC-COMPONENT-SOURCE-INPUT-LAYOUT",
+                    "dynamic component input TimeSeries index is outside the runtime series table",
+                )
+            })?;
+            let mut sampled = input.clone();
+            sampled.value = component_input_series_value(variable, series, time_s)?;
+            Ok(sampled)
         })
         .collect()
+}
+
+fn component_input_series_value(
+    variable: &UnknownVariable,
+    series: &RuntimeTimeSeries,
+    time_s: f64,
+) -> Result<f64, SolverFailure> {
+    if series.quantity_kind != variable.quantity_kind {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-SOURCE-INPUT-QTY",
+            format!(
+                "dynamic component input `{}` expects {}, but TimeSeries `{}` is {}",
+                variable.name, variable.quantity_kind, series.name, series.quantity_kind
+            ),
+        ));
+    }
+    let value = interpolate_series_value(series, time_s).ok_or_else(|| {
+        SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-SOURCE-INPUT-SAMPLE",
+            format!(
+                "dynamic component input TimeSeries `{}` has no sample at t={time_s}",
+                series.name
+            ),
+        )
+    })?;
+    convert_to_canonical_unit(
+        value,
+        Some(&series.display_unit),
+        &variable.unit,
+        &variable.quantity_kind,
+    )
+    .map_err(|message| {
+        SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-SOURCE-INPUT-UNIT",
+            format!(
+                "dynamic component input `{}` could not convert TimeSeries `{}`: {message}",
+                variable.name, series.name
+            ),
+        )
+    })
 }
 
 fn source_initial_values_from_options(
