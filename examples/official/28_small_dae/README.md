@@ -1,24 +1,27 @@
-# Official 28: Small DAE
+# Official 28: Multi-State DAE
 
 This example connects a source-level component residual graph to the existing
-implicit-Euler DAE solver. The assembly split classifies `node.T` as state
-because it appears inside `der(node.T)`, and `node.T_ref` remains algebraic.
+implicit-Euler DAE solver. The assembly split classifies `hot.T` and `cold.T`
+as states because they appear inside `der(...)`, while each reference
+temperature and generated balance variable remains algebraic.
 
-The runtime builds `DaeInput`, applies Newton algebraic initialization by
-default, uses an identity mass-matrix fallback, then records state/algebraic
-trajectories, step diagnostics, and residual metadata for a unitful temperature
-DAE residual:
+The runtime builds `DaeInput`, accepts bracketed unitful initial vectors for
+state values, state derivatives, and algebraic guesses, applies Newton
+algebraic initialization by default, uses an identity mass-matrix fallback, then
+records state/algebraic trajectories, step diagnostics, and residual metadata
+for coupled unitful temperature DAE residuals:
 
 ```text
-der(node.T) + (node.T - node.T_ref) / 1 s eq 0 K/s
-node.T_ref eq 300 K
+der(hot.T) + (hot.T - hot.T_ref) / 1 s eq 0 K/s
+der(cold.T) + (cold.T - cold.T_ref) / 2 s eq 0 K/s
+hot.T_ref eq 300 K
+cold.T_ref eq 295 K
 ```
 
 Scope limits:
 
 - fixed-step implicit Euler only;
-- scalar component equations using `+`, `-`, `*`, `/`, and parentheses;
-- one initial state value, derivative value, and algebraic value are broadcast
-  across their respective layouts;
-- this is a small unitful DAE smoke, not a broad physical DAE model or
+- multi-state component equations using `+`, `-`, `*`, `/`, and parentheses;
+- bracketed initial vectors must match the generated state/algebraic layouts;
+- this is a compact unitful DAE smoke, not a broad physical DAE model or
   production multi-domain simulation claim.

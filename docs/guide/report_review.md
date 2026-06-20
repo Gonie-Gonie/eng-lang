@@ -136,7 +136,7 @@ trajectories plus per-step algebraic diagnostics.
 `examples/official/27_nonlinear_algebraic` covers the narrow unitful source Newton path
 and records residual history through component step diagnostics plus
 largest-residual artifacts. `examples/official/28_small_dae` covers the narrow
-source unitful implicit-Euler DAE path and records state/algebraic trajectories,
+source multi-state unitful implicit-Euler DAE path and records state/algebraic trajectories,
 per-step Newton diagnostics, failure artifacts for inconsistent initial
 conditions, and largest-residual artifacts. `examples/official/29_delay_component_solver`,
 `examples/official/30_predictor_component_solver`, and

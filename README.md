@@ -77,7 +77,7 @@ boundary graphs with system-local instances, square dense linear residual
 solves, a narrow fixed-point source solve over a linear ResidualGraph, and a
 simple-linear dynamic component source solve with trajectories. They also cover
 narrow coupled multi-variable unitful source residual solves through `solver = newton`, narrow
-unitful temperature implicit-Euler DAE solves through `solver = implicit_euler_dae`,
+multi-state unitful temperature implicit-Euler DAE solves through `solver = implicit_euler_dae`,
 and narrow unitful temperature explicit-Euler source behavior RHS solves for delay, typed Predictor
 identity, and typed external adapter identity wrappers, plus a constrained
 Thermal/Fluid[Water] pressure/flow algebraic residual solve with a fixed pipe

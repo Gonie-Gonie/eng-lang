@@ -2912,20 +2912,16 @@ fn validate_algebraic_solve_contracts(
         if !dynamic_component_solver && !dae_solver {
             validate_component_solve_initial_option(options, diagnostics);
         }
-        validate_algebraic_solve_numeric_option(
+        validate_component_solve_initial_list_option(
             options,
             "initial_algebraic",
-            f64::is_finite,
-            "E-SOLVE-INITIAL-INVALID",
-            "`initial_algebraic` expects a finite numeric initial guess.",
+            "`initial_algebraic` expects a finite numeric initial guess or bracketed list.",
             diagnostics,
         );
-        validate_algebraic_solve_numeric_option(
+        validate_component_solve_initial_list_option(
             options,
             "initial_derivative",
-            f64::is_finite,
-            "E-SOLVE-INITIAL-INVALID",
-            "`initial_derivative` expects a finite numeric initial derivative.",
+            "`initial_derivative` expects a finite numeric initial derivative or bracketed list.",
             diagnostics,
         );
         validate_algebraic_solve_numeric_option(
@@ -3115,6 +3111,33 @@ fn validate_component_solve_initial_option(
     }
 }
 
+fn validate_component_solve_initial_list_option(
+    options: &[WithOptionInfo],
+    key: &str,
+    message: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(option) = accepted_option(options, key) else {
+        return;
+    };
+    if initial_literal_values(&option.value).is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-SOLVE-INITIAL-INVALID",
+            option.line,
+            &format!("{message} Got `{}`.", option.value),
+            Some("Use a literal such as `1`, `20 degC`, or a bracketed list such as `[1, 3]`."),
+        ));
+    }
+}
+fn initial_numeric_literal_with_optional_unit(expression: &str) -> Option<(f64, Option<String>)> {
+    let mut parts = expression.split_whitespace();
+    let value = parts.next()?.parse::<f64>().ok()?;
+    let unit = parts.next().map(str::to_owned);
+    if parts.next().is_some() {
+        return None;
+    }
+    Some((value, unit))
+}
 fn initial_literal_values(expression: &str) -> Option<Vec<(f64, Option<String>)>> {
     let trimmed = expression.trim();
     if trimmed.is_empty() {
@@ -3130,10 +3153,10 @@ fn initial_literal_values(expression: &str) -> Option<Vec<(f64, Option<String>)>
         }
         items
             .iter()
-            .map(|item| numeric_literal_with_optional_unit(item))
+            .map(|item| initial_numeric_literal_with_optional_unit(item))
             .collect::<Option<Vec<_>>>()?
     } else {
-        vec![numeric_literal_with_optional_unit(trimmed)?]
+        vec![initial_numeric_literal_with_optional_unit(trimmed)?]
     };
     if values.iter().all(|(value, _unit)| value.is_finite()) {
         Some(values)

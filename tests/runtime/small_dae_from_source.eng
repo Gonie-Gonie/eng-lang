@@ -5,15 +5,19 @@ domain DaeTemperature package "eng.std.domains.scalar" version "0.1.0" {
     conservation sum(balance) = 0
 }
 
-component ThermalDaeNode {
-    port node: DaeTemperature
-    der(node.T) + (node.T - node.T_ref) / 1 s eq 0 K/s
-    node.T_ref eq 300 K
+component CoupledThermalDaeNode {
+    port hot: DaeTemperature
+    port cold: DaeTemperature
+    der(hot.T) + (hot.T - hot.T_ref) / 1 s eq 0 K/s
+    der(cold.T) + (cold.T - cold.T_ref) / 2 s eq 0 K/s
+    hot.T_ref eq 300 K
+    cold.T_ref eq 295 K
 }
 
 system SmallDaeSource {
-    node = ThermalDaeNode()
-    connect node.node to node.node
+    node = CoupledThermalDaeNode()
+    connect node.hot to node.hot
+    connect node.cold to node.cold
 }
 
 dae_result = solve component_graph
@@ -21,11 +25,11 @@ with {
     solver = implicit_euler_dae
     timestep = 1 s
     duration = 2 s
-    initial = 310
-    initial_derivative = -10
-    initial_algebraic = 300
+    initial = [310 K, 305 K]
+    initial_derivative = [-10 K/s, -5 K/s]
+    initial_algebraic = [300 K, 0 K, 295 K, 0 K]
     tolerance = 0.000000001
-    max_iter = 30
+    max_iter = 40
 }
 
 report {

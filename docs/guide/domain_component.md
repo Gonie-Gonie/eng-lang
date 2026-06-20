@@ -327,9 +327,9 @@ re-parsing source files.
 - `examples/official/27_nonlinear_algebraic/main.eng`
   shows the narrow unitful source Newton path with `solver = newton`, direct
   source-residual expression evaluation, residual scaling, convergence
-  history, and largest-residual artifacts for a a coupled unitful HeatRate residual graph.
+  history, and largest-residual artifacts for a coupled unitful HeatRate residual graph.
 - `examples/official/28_small_dae/main.eng`
-  shows the narrow source unitful implicit-Euler DAE path with
+  shows the narrow source multi-state unitful implicit-Euler DAE path with
   `solver = implicit_euler_dae`, assembly-derived state/algebraic split,
   algebraic initialization, identity mass-matrix fallback, trajectories, and
   per-step Newton diagnostics.

@@ -1293,7 +1293,7 @@ artifacts. `jacobian = source_linear_terms` is the only source-level provided
 Jacobian hook; it is valid for residual graphs whose linear terms can be
 assembled. Broad symbolic Jacobian declarations are not supported.
 
-Small DAE source residuals use `solver = implicit_euler_dae`:
+Multi-state DAE source residuals use `solver = implicit_euler_dae`:
 
 ```eng partial
 dae_result = solve component_graph

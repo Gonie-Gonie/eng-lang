@@ -3432,17 +3432,45 @@ fn dae_component_solution_from_solve_request(
             );
         }
     };
-    let initial_derivative = option_value(&request.options, "initial_derivative")
-        .and_then(|value| value.trim().parse::<f64>().ok())
-        .filter(|value| value.is_finite())
-        .unwrap_or(0.0);
-    let initial_state_derivatives = vec![initial_derivative; solver_assembly.states.len()];
-    let initial_algebraic_value = option_value(&request.options, "initial_algebraic")
-        .and_then(|value| value.trim().parse::<f64>().ok())
-        .filter(|value| value.is_finite())
-        .unwrap_or(0.0);
-    let mut initial_algebraic =
-        vec![initial_algebraic_value; solver_assembly.algebraic_variables.len()];
+    let derivative_variables = derivative_variables_for_states(&solver_assembly.states);
+    let initial_state_derivatives = match component_initial_values_from_options(
+        &request.options,
+        "initial_derivative",
+        &derivative_variables,
+        0.0,
+    ) {
+        Ok(values) => values,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                method,
+                "DAE source solve initial state derivatives could not be materialized",
+                &failure,
+                tolerance,
+                newton_options.max_iterations,
+                "dae_source_failed",
+            );
+        }
+    };
+    let mut initial_algebraic = match component_initial_values_from_options(
+        &request.options,
+        "initial_algebraic",
+        &solver_assembly.algebraic_variables,
+        0.0,
+    ) {
+        Ok(values) => values,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                method,
+                "DAE source solve initial algebraic values could not be materialized",
+                &failure,
+                tolerance,
+                newton_options.max_iterations,
+                "dae_source_failed",
+            );
+        }
+    };
     let algebraic_initialization = option_value(&request.options, "algebraic_initialization")
         .map(str::trim)
         .unwrap_or("newton");
@@ -4409,11 +4437,22 @@ fn dynamic_component_solve_input_from_request(
         })?;
     let initial_state =
         component_initial_values_from_options(options, "initial", &assembly.states, 0.0)?;
-    let initial_algebraic_value = option_value(options, "initial_algebraic")
-        .and_then(|value| value.trim().parse::<f64>().ok())
-        .filter(|value| value.is_finite())
-        .unwrap_or(0.0);
-    let initial_algebraic = vec![initial_algebraic_value; split.algebraic_layout.len()];
+    let initial_algebraic = component_initial_values_from_options(
+        options,
+        "initial_algebraic",
+        &assembly.algebraic_variables,
+        0.0,
+    )?;
+    if initial_algebraic.len() != split.algebraic_layout.len() {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-SOURCE-INITIAL-LAYOUT",
+            format!(
+                "dynamic component source option `initial_algebraic` materialized {} value(s) for {} algebraic variable(s)",
+                initial_algebraic.len(),
+                split.algebraic_layout.len()
+            ),
+        ));
+    }
     let inputs = assembly
         .inputs
         .iter()
@@ -4449,6 +4488,28 @@ fn dynamic_component_solve_input_from_request(
     })
 }
 
+fn derivative_variables_for_states(states: &[UnknownVariable]) -> Vec<UnknownVariable> {
+    states
+        .iter()
+        .map(|state| UnknownVariable {
+            name: format!("der({})", state.name),
+            role: "state_derivative".to_owned(),
+            quantity_kind: state.quantity_kind.clone(),
+            unit: derivative_unit_for_state_unit(&state.unit),
+            source: state.source.clone(),
+            status: state.status.clone(),
+        })
+        .collect()
+}
+
+fn derivative_unit_for_state_unit(unit: &str) -> String {
+    let unit = unit.trim();
+    if unit.is_empty() || unit == "1" {
+        "1/s".to_owned()
+    } else {
+        format!("{unit}/s")
+    }
+}
 fn component_initial_values_from_options(
     options: &[eng_compiler::WithOptionInfo],
     key: &str,
