@@ -4799,58 +4799,86 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
     let mut rhs_algebraic_guess = solve_input.initial_algebraic.clone();
     let mut rhs_derivative_guess = vec![0.0; split.state_layout.len()];
     let mut derivative_step_diagnostics = Vec::new();
-    let adaptive_result = solve_adaptive_heun_ode(&solver_input, &adaptive_options, |sample| {
-        let inputs = sampled_dynamic_component_inputs(
-            &solve_input.inputs,
-            &input_series,
-            series,
-            assembly,
-            sample.time_s,
-        )?;
-        let algebraic = adaptive_dynamic_component_algebraic_values(
-            assembly,
-            &split.algebraic_layout,
-            &parsed_residuals,
-            sample.time_s,
-            sample.state,
-            &inputs,
-            sample.parameters,
-            &rhs_algebraic_guess,
-            &options,
-        )?;
-        if !algebraic.values.is_empty() {
-            rhs_algebraic_guess.clone_from(&algebraic.values);
-        }
-        let symbols = source_dynamic_component_symbols(
-            assembly,
-            sample.time_s,
-            sample.state,
-            &algebraic.values,
-            &inputs,
-            sample.parameters,
-        );
-        let derivatives = source_residual_derivatives_from_terms_or_newton(
-            assembly,
-            &parsed_residuals,
-            &symbols,
-            &rhs_derivative_guess,
-            "dynamic component adaptive source",
-            &options,
-        )?;
-        if !derivatives.values.is_empty() {
-            rhs_derivative_guess.clone_from(&derivatives.values);
-        }
-        if let Some(newton) = &derivatives.newton {
-            let residual_names = source_residual_derivative_residual_names(assembly);
-            let mut diagnostics =
-                newton_residual_history_diagnostics(newton, None, Some(&residual_names), None);
-            for diagnostic in &mut diagnostics {
-                diagnostic.time_s = sample.time_s;
+    let adaptive_result = match solve_adaptive_heun_ode(
+        &solver_input,
+        &adaptive_options,
+        |sample| {
+            let inputs = sampled_dynamic_component_inputs(
+                &solve_input.inputs,
+                &input_series,
+                series,
+                assembly,
+                sample.time_s,
+            )?;
+            let algebraic = adaptive_dynamic_component_algebraic_values(
+                assembly,
+                &split.algebraic_layout,
+                &parsed_residuals,
+                sample.time_s,
+                sample.state,
+                &inputs,
+                sample.parameters,
+                &rhs_algebraic_guess,
+                &options,
+            )?;
+            if !algebraic.values.is_empty() {
+                rhs_algebraic_guess.clone_from(&algebraic.values);
             }
-            derivative_step_diagnostics.extend(diagnostics);
+            let symbols = source_dynamic_component_symbols(
+                assembly,
+                sample.time_s,
+                sample.state,
+                &algebraic.values,
+                &inputs,
+                sample.parameters,
+            );
+            let derivatives = source_residual_derivatives_from_terms_or_newton(
+                assembly,
+                &parsed_residuals,
+                &symbols,
+                &rhs_derivative_guess,
+                "dynamic component adaptive source",
+                &options,
+            )?;
+            let failure = derivatives.failure.clone();
+            if let Some(newton) = &derivatives.newton {
+                let residual_names = source_residual_derivative_residual_names(assembly);
+                let mut diagnostics = newton_residual_history_diagnostics(
+                    newton,
+                    failure.as_ref(),
+                    Some(&residual_names),
+                    None,
+                );
+                for diagnostic in &mut diagnostics {
+                    diagnostic.time_s = sample.time_s;
+                }
+                derivative_step_diagnostics.extend(diagnostics);
+            }
+            if let Some(failure) = failure {
+                return Err(failure);
+            }
+            if !derivatives.values.is_empty() {
+                rhs_derivative_guess.clone_from(&derivatives.values);
+            }
+            Ok(derivatives.values)
+        },
+    ) {
+        Ok(result) => result,
+        Err(failure) => {
+            let mut solution = failed_dynamic_component_source_solution(
+                assembly,
+                "dynamic_component_adaptive_heun",
+                &options,
+                &failure,
+                "dynamic component adaptive source solve failed during parsed residual RHS evaluation",
+            );
+            for (index, diagnostic) in derivative_step_diagnostics.iter_mut().enumerate() {
+                diagnostic.step_index = index + 1;
+            }
+            solution.step_diagnostics = derivative_step_diagnostics;
+            return Ok(solution);
         }
-        Ok(derivatives.values)
-    })?;
+    };
     let mut solver_result = adaptive_result.solver_result;
     let (algebraic_trajectories, mut algebraic_step_diagnostics) =
         adaptive_dynamic_component_algebraic_trajectories(
@@ -4911,6 +4939,7 @@ struct AdaptiveDynamicComponentAlgebraicSolve {
 struct SourceDerivativeSolve {
     values: Vec<f64>,
     newton: Option<NewtonResult>,
+    failure: Option<SolverFailure>,
 }
 
 fn adaptive_dynamic_component_algebraic_values(
@@ -5085,6 +5114,7 @@ fn source_residual_derivatives_from_terms_or_newton(
         Ok(values) => Ok(SourceDerivativeSolve {
             values,
             newton: None,
+            failure: None,
         }),
         Err(failure) if should_fallback_to_newton_derivatives(&failure) => {
             let derivative_names = source_residual_derivative_names(assembly);
@@ -5115,12 +5145,11 @@ fn source_residual_derivatives_from_terms_or_newton(
                     context,
                 )
             })?;
-            if let Some(failure) = newton.failure.clone() {
-                return Err(failure);
-            }
+            let failure = newton.failure.clone();
             Ok(SourceDerivativeSolve {
                 values: newton.values.clone(),
                 newton: Some(newton),
+                failure,
             })
         }
         Err(failure) => Err(failure),

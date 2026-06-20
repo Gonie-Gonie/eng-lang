@@ -3008,14 +3008,24 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"failure_code\": \"E-NEWTON-NONCONVERGENCE\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_not_converged\"")
+                || !output.result_json.contains("\"step_diagnostics\"")
+                || !output.result_json.contains("\"failure_artifact\"")
                 || !output.result_json.contains("final residual norm")
                 || !output
                     .report_spec_json
                     .contains("\"diagnostic_code\": \"E-NEWTON-NONCONVERGENCE\"")
                 || !output
                     .report_spec_json
+                    .contains("\"convergence_status\": \"newton_not_converged\"")
+                || !output
+                    .report_spec_json
                     .contains("der(node.node.x) * der(node.node.x) + der(node.node.x) eq 2")
-                || !output.report_html.contains("E-NEWTON-NONCONVERGENCE")
+                || !output
+                    .report_html
+                    .contains("steps=2 failed@2 E-NEWTON-NONCONVERGENCE")
             {
                 eprintln!(
                     "expected tests/diagnostics/dynamic_component_adaptive_nonlinear_derivative_nonconvergence.eng to report adaptive component Newton derivative nonconvergence"
