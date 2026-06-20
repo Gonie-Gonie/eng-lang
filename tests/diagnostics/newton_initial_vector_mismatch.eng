@@ -11,7 +11,7 @@ component CoupledHeatNode {
     target.q * target.q / 1 kW + source.q eq 6 kW
 }
 
-system NonlinearResidualSource {
+system NonlinearInitialVectorMismatch {
     node = CoupledHeatNode()
     connect node.source to node.source
     connect node.target to node.target
@@ -20,7 +20,7 @@ system NonlinearResidualSource {
 nonlinear_result = solve component_graph
 with {
     solver = newton
-    initial = [1 kW, 0 kW, 3 kW, 0 kW]
+    initial = [1 kW, 3 kW]
     tolerance = 0.000000001
     max_iter = 60
 }

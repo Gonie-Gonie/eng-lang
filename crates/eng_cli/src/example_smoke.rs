@@ -1317,6 +1317,43 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/diagnostics/newton_initial_vector_mismatch.eng"),
+        Path::new("build/test-diagnostics-newton-initial-vector-mismatch"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"newton_source_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_source_failed\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-DYNAMIC-COMPONENT-SOURCE-INITIAL-LAYOUT\"")
+                || !output
+                    .result_json
+                    .contains("provided 2 initial value(s) for 4 variable(s)")
+                || !output
+                    .report_html
+                    .contains("E-DYNAMIC-COMPONENT-SOURCE-INITIAL-LAYOUT")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/newton_initial_vector_mismatch.eng to report an initial-vector SolverFailure artifact"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/newton_initial_vector_mismatch.eng reported Newton initial vector mismatch"
+            );
+        }
+        Err(error) => {
+            eprintln!("Newton initial vector mismatch diagnostics fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/diagnostics/dae_inconsistent_initial.eng"),
         Path::new("build/test-diagnostics-dae-inconsistent-initial"),
         &artifact_run_options(),

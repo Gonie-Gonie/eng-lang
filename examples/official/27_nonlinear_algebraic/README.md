@@ -18,6 +18,6 @@ artifact has multiple unknowns and residual rows rather than a scalar-only smoke
 Scope limits:
 
 - coupled multi-variable nonlinear component equations over unitful HeatRate signals;
-- one numeric initial guess value is applied to all unknowns in their display units;
+- a unitful bracketed initial vector assigns one initial guess per generated unknown;
 - source-provided Jacobian support is limited to `jacobian = source_linear_terms` for linear residual graphs;
 - this is not a broad physical nonlinear component simulator.

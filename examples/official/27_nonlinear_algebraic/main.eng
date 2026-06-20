@@ -20,7 +20,7 @@ system NonlinearAlgebraic {
 nonlinear_result = solve component_graph
 with {
     solver = newton
-    initial = 1
+    initial = [1 kW, 0 kW, 3 kW, 0 kW]
     tolerance = 0.000000001
     max_iter = 60
 }

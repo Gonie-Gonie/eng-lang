@@ -2909,15 +2909,8 @@ fn validate_algebraic_solve_contracts(
             "`relaxation` expects a finite number in the interval (0, 1].",
             diagnostics,
         );
-        if !dynamic_component_solver {
-            validate_algebraic_solve_numeric_option(
-                options,
-                "initial",
-                f64::is_finite,
-                "E-SOLVE-INITIAL-INVALID",
-                "`initial` expects a finite numeric initial guess.",
-                diagnostics,
-            );
+        if !dynamic_component_solver && !dae_solver {
+            validate_component_solve_initial_option(options, diagnostics);
         }
         validate_algebraic_solve_numeric_option(
             options,
@@ -3109,16 +3102,43 @@ fn validate_component_solve_initial_option(
     let Some(option) = accepted_option(options, "initial") else {
         return;
     };
-    if numeric_literal_with_optional_unit(&option.value).is_none() {
+    if initial_literal_values(&option.value).is_none() {
         diagnostics.push(Diagnostic::error(
             "E-SOLVE-INITIAL-INVALID",
             option.line,
             &format!(
-                "`initial` expects a finite numeric literal with an optional unit, got `{}`.",
+                "`initial` expects a finite numeric literal or bracketed list with optional units, got `{}`.",
                 option.value
             ),
-            Some("Use a literal such as `initial = 20 degC` or `initial = 1`."),
+            Some("Use a literal such as `initial = 20 degC`, `initial = 1`, or `initial = [1, 3]`."),
         ));
+    }
+}
+
+fn initial_literal_values(expression: &str) -> Option<Vec<(f64, Option<String>)>> {
+    let trimmed = expression.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let values = if let Some(inner) = trimmed
+        .strip_prefix('[')
+        .and_then(|rest| rest.strip_suffix(']'))
+    {
+        let items = split_vector_literal_items(inner);
+        if items.is_empty() {
+            return None;
+        }
+        items
+            .iter()
+            .map(|item| numeric_literal_with_optional_unit(item))
+            .collect::<Option<Vec<_>>>()?
+    } else {
+        vec![numeric_literal_with_optional_unit(trimmed)?]
+    };
+    if values.iter().all(|(value, _unit)| value.is_finite()) {
+        Some(values)
+    } else {
+        None
     }
 }
 

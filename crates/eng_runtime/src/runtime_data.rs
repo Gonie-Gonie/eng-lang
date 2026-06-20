@@ -3199,13 +3199,12 @@ fn nonlinear_component_solution_from_solve_request(
     }
 
     let residual_graph = ResidualGraph::from_assembly(solver_assembly);
-    let initial_values = solver_assembly
-        .unknowns
-        .iter()
-        .map(|variable| {
-            component_initial_value_from_options(&request.options, "initial", variable, 1.0)
-        })
-        .collect::<Result<Vec<_>, SolverFailure>>();
+    let initial_values = component_initial_values_from_options(
+        &request.options,
+        "initial",
+        &solver_assembly.unknowns,
+        1.0,
+    );
     let initial_values = match initial_values {
         Ok(values) => values,
         Err(failure) => {
@@ -3414,12 +3413,12 @@ fn dae_component_solution_from_solve_request(
         }
     };
     let residual_graph = ResidualGraph::from_assembly(solver_assembly);
-    let initial_state = match solver_assembly
-        .states
-        .iter()
-        .map(|state| component_initial_value_from_options(&request.options, "initial", state, 0.0))
-        .collect::<Result<Vec<_>, SolverFailure>>()
-    {
+    let initial_state = match component_initial_values_from_options(
+        &request.options,
+        "initial",
+        &solver_assembly.states,
+        0.0,
+    ) {
         Ok(values) => values,
         Err(failure) => {
             return failed_source_component_solution(
@@ -4408,11 +4407,8 @@ fn dynamic_component_solve_input_from_request(
                 "dynamic component source solve requires a positive duration",
             )
         })?;
-    let initial_state = assembly
-        .states
-        .iter()
-        .map(|state| component_initial_value_from_options(options, "initial", state, 0.0))
-        .collect::<Result<Vec<_>, _>>()?;
+    let initial_state =
+        component_initial_values_from_options(options, "initial", &assembly.states, 0.0)?;
     let initial_algebraic_value = option_value(options, "initial_algebraic")
         .and_then(|value| value.trim().parse::<f64>().ok())
         .filter(|value| value.is_finite())
@@ -4453,33 +4449,102 @@ fn dynamic_component_solve_input_from_request(
     })
 }
 
-fn component_initial_value_from_options(
+fn component_initial_values_from_options(
     options: &[eng_compiler::WithOptionInfo],
     key: &str,
-    variable: &UnknownVariable,
+    variables: &[UnknownVariable],
     default_value: f64,
-) -> Result<f64, SolverFailure> {
+) -> Result<Vec<f64>, SolverFailure> {
     let Some(value) = option_value(options, key) else {
-        return Ok(default_value);
+        return Ok(vec![default_value; variables.len()]);
     };
-    let Some((raw_value, unit)) = parse_numeric_value_with_optional_unit(value) else {
+    let Some((is_vector, values)) = parse_component_initial_option(value) else {
         return Err(SolverFailure::new(
             "E-DYNAMIC-COMPONENT-SOURCE-INITIAL",
-            format!("dynamic component source option `{key}` is not a finite numeric literal"),
+            format!(
+                "dynamic component source option `{key}` is not a finite numeric literal or bracketed list"
+            ),
         ));
     };
-    if !raw_value.is_finite() {
+    if is_vector && values.len() != variables.len() {
         return Err(SolverFailure::new(
-            "E-DYNAMIC-COMPONENT-SOURCE-INITIAL",
-            format!("dynamic component source option `{key}` is not finite"),
+            "E-DYNAMIC-COMPONENT-SOURCE-INITIAL-LAYOUT",
+            format!(
+                "dynamic component source option `{key}` provided {} initial value(s) for {} variable(s)",
+                values.len(),
+                variables.len()
+            ),
         ));
     }
-    let source_unit = unit.as_deref().unwrap_or(variable.unit.as_str());
-    Ok(convert_display_value(
-        raw_value,
-        source_unit,
-        &variable.unit,
-    ))
+    variables
+        .iter()
+        .enumerate()
+        .map(|(index, variable)| {
+            let (raw_value, unit) = if is_vector {
+                values[index].clone()
+            } else {
+                values[0].clone()
+            };
+            if !raw_value.is_finite() {
+                return Err(SolverFailure::new(
+                    "E-DYNAMIC-COMPONENT-SOURCE-INITIAL",
+                    format!("dynamic component source option `{key}` is not finite"),
+                ));
+            }
+            let source_unit = unit.as_deref().unwrap_or(variable.unit.as_str());
+            Ok(convert_display_value(
+                raw_value,
+                source_unit,
+                &variable.unit,
+            ))
+        })
+        .collect()
+}
+
+fn parse_component_initial_option(value: &str) -> Option<(bool, Vec<(f64, Option<String>)>)> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if let Some(inner) = trimmed
+        .strip_prefix('[')
+        .and_then(|rest| rest.strip_suffix(']'))
+    {
+        let values = split_component_initial_items(inner)
+            .into_iter()
+            .map(|item| parse_numeric_value_with_optional_unit(&item))
+            .collect::<Option<Vec<_>>>()?;
+        if values.is_empty() {
+            return None;
+        }
+        return Some((true, values));
+    }
+    parse_numeric_value_with_optional_unit(trimmed).map(|value| (false, vec![value]))
+}
+
+fn split_component_initial_items(text: &str) -> Vec<String> {
+    let mut items = Vec::new();
+    let mut start = 0usize;
+    let mut depth = 0i32;
+    for (index, character) in text.char_indices() {
+        match character {
+            '[' | '(' | '{' => depth += 1,
+            ']' | ')' | '}' => depth -= 1,
+            ',' if depth == 0 => {
+                let item = text[start..index].trim();
+                if !item.is_empty() {
+                    items.push(item.to_owned());
+                }
+                start = index + character.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    let item = text[start..].trim();
+    if !item.is_empty() {
+        items.push(item.to_owned());
+    }
+    items
 }
 
 fn failed_dynamic_component_source_solution(
