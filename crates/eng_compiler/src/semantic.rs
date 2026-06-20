@@ -7646,7 +7646,7 @@ fn component_local_equations(
                 kind: "component_equation".to_owned(),
                 domain: component_equation_domain(&dependencies, &signal_refs),
                 expression: format!("{qualified_left} eq {qualified_right}"),
-                residual: format!("{qualified_left} - {qualified_right}"),
+                residual: format!("{qualified_left} - ({qualified_right})"),
                 rhs: None,
                 reason: "component-local equation seed".to_owned(),
                 dependencies,

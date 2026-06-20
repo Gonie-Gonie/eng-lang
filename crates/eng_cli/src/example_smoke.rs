@@ -598,7 +598,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .report_spec_json
                     .contains("\"largest_residual_name\":")
                 || !output.result_json.contains("\"name\": \"relax.source.q\"")
-                || !output.result_json.contains("\"value\": -1.999")
+                || !output.result_json.contains("\"value\": 1.999")
                 || !output
                     .report_spec_json
                     .contains("source solve binding `fixed_point_result`")
@@ -694,10 +694,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .report_spec_json
                     .contains("\"status\": \"constructor_override\"")
                 || !output.result_json.contains(
-                    "node.source.q * node.source.q / 1 kW + node.target.q - node.target_load",
+                    "node.source.q * node.source.q / 1 kW + node.target.q - (node.target_load)",
                 )
                 || !output.result_json.contains(
-                    "node.target.q * node.target.q / 1 kW + node.source.q - node.target_load",
+                    "node.target.q * node.target.q / 1 kW + node.source.q - (node.target_load)",
                 )
                 || !output.result_json.contains("\"value\": 2.000")
                 || !output.result_json.contains("\"step_diagnostics\"")
@@ -773,10 +773,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"unit\": \"K\"")
                 || !output
                     .result_json
-                    .contains("der(node.hot.T) + (node.hot.T - node.hot.T_ref) / 1 s - 0 K/s")
+                    .contains("der(node.hot.T) + (node.hot.T - node.hot.T_ref) / 1 s - (0 K/s)")
                 || !output
                     .result_json
-                    .contains("der(node.cold.T) + (node.cold.T - node.cold.T_ref) / 2 s - 0 K/s")
+                    .contains("der(node.cold.T) + (node.cold.T - node.cold.T_ref) / 2 s - (0 K/s)")
                 || !output.result_json.contains("\"value\": 302.500")
                 || !output.result_json.contains("\"value\": 299.444")
                 || !output.result_json.contains("\"role\": \"state\"")
@@ -1003,10 +1003,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"unit\": \"kW\"")
                 || !output
                     .result_json
-                    .contains("node.source.q * node.source.q / 1 kW + node.target.q - 6 kW")
+                    .contains("node.source.q * node.source.q / 1 kW + node.target.q - (6 kW)")
                 || !output
                     .result_json
-                    .contains("node.target.q * node.target.q / 1 kW + node.source.q - 6 kW")
+                    .contains("node.target.q * node.target.q / 1 kW + node.source.q - (6 kW)")
                 || !output.result_json.contains("\"value\": 2.000")
                 || !output.result_json.contains("\"step_diagnostics\"")
                 || !output.result_json.contains("\"residual_values\"")
@@ -1113,7 +1113,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"convergence_status\": \"newton_converged\"")
                 || !output.result_json.contains("\"name\": \"node.node.x\"")
                 || !output.result_json.contains("\"value\": 4.000")
-                || !output.result_json.contains("sqrt(node.node.x) - 2")
+                || !output.result_json.contains("sqrt(node.node.x) - (2)")
                 || !output.result_json.contains("\"source_expression\"")
                 || !output.result_json.contains("\"source_line\":")
                 || !output.report_spec_json.contains("\"source_expression\"")
@@ -1246,10 +1246,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"name\": \"node.node.z\"")
                 || !output
                     .result_json
-                    .contains("der(node.node.x) + sin(node.node.x) - 0")
+                    .contains("der(node.node.x) + sin(node.node.x) - (0)")
                 || !output
                     .result_json
-                    .contains("node.node.z - cos(node.node.x) - 0")
+                    .contains("node.node.z - cos(node.node.x) - (0)")
                 || !output
                     .result_json
                     .contains("\"normalized_residual_values\"")
@@ -1307,10 +1307,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"unit\": \"K\"")
                 || !output
                     .result_json
-                    .contains("der(node.hot.T) + (node.hot.T - node.hot.T_ref) / 1 s - 0 K/s")
+                    .contains("der(node.hot.T) + (node.hot.T - node.hot.T_ref) / 1 s - (0 K/s)")
                 || !output
                     .result_json
-                    .contains("der(node.cold.T) + (node.cold.T - node.cold.T_ref) / 2 s - 0 K/s")
+                    .contains("der(node.cold.T) + (node.cold.T - node.cold.T_ref) / 2 s - (0 K/s)")
                 || !output.result_json.contains("\"value\": 302.500")
                 || !output.result_json.contains("\"value\": 299.444")
                 || !output.result_json.contains("\"step_diagnostics\"")
@@ -1748,7 +1748,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"normalized_residual_values\"")
-                || !output.report_spec_json.contains("boundary.heat.Q - boundary.q")
+                || !output
+                    .report_spec_json
+                    .contains("boundary.heat.Q - (boundary.q)")
                 || !output.report_html.contains("zone.heat.T=19.994")
             {
                 eprintln!(
@@ -1942,6 +1944,63 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         Err(error) => {
             eprintln!(
                 "dynamic component nonlinear algebraic semi-implicit runtime fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new(
+            "tests/runtime/dynamic_component_nonlinear_algebraic_timeseries_input_semi_implicit.eng",
+        ),
+        Path::new(
+            "build/test-runtime-dynamic-component-nonlinear-algebraic-timeseries-input-semi-implicit",
+        ),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_semi_implicit_euler\"")
+                || !output.result_json.contains(
+                    "semi-implicit Newton algebraic residuals with parsed derivative residual expressions and TimeSeries input materialization",
+                )
+                || !output.result_json.contains("drive_data.drive")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dynamic_component_fixed_step_completed\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output
+                    .result_json
+                    .contains("\"name\": \"boundary.node.balance\"")
+                || !output.result_json.contains("\"final_value\": 7.23836070")
+                || !output.result_json.contains("\"final_value\": 2.85278125")
+                || !output
+                    .report_spec_json
+                    .contains("boundary.node.balance * boundary.node.balance - (boundary.node.x + boundary.drive)")
+                || !output
+                    .report_spec_json
+                    .contains("\"dependencies\": [\"boundary.node.balance\", \"boundary.node.x\", \"boundary.drive\"]")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\"")
+                || !output.report_html.contains("node.node.x=7.238361")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_nonlinear_algebraic_timeseries_input_semi_implicit.eng to solve a semi-implicit dynamic component graph with TimeSeries inputs and Newton algebraic residuals"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_nonlinear_algebraic_timeseries_input_semi_implicit.eng solved semi-implicit TimeSeries-input Newton algebraic residuals"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component nonlinear algebraic TimeSeries-input semi-implicit runtime fixture failed: {error}"
             );
             return ExitCode::from(1);
         }

@@ -5586,11 +5586,38 @@ system Envelope {
             equation.kind == "component_equation"
                 && equation.expression
                     == "wall.inside.Q eq wall.UA * (wall.inside.T - wall.outside.T)"
-                && equation.residual == "wall.inside.Q - wall.UA * (wall.inside.T - wall.outside.T)"
+                && equation.residual
+                    == "wall.inside.Q - (wall.UA * (wall.inside.T - wall.outside.T))"
                 && equation.dependencies.first().map(String::as_str) == Some("wall.inside.Q")
                 && equation.dependencies.contains(&"wall.UA".to_owned())
         }));
     }
+
+    #[test]
+    fn parenthesizes_compound_component_equation_rhs_in_residuals() {
+        let report = check_source(
+            "ok.eng",
+            "domain ScalarState {\n    across x: DimensionlessNumber [1]\n    through balance: DimensionlessNumber [1]\n    conservation sum(balance) = 0\n}\n\ncomponent DynamicNode {\n    port node: ScalarState\n    der(node.x) + node.balance eq 0\n}\n\ncomponent DrivenBoundary {\n    port node: ScalarState\n    input drive: DimensionlessNumber [1] = 0.25\n    node.balance * node.balance eq node.x + drive\n}\n\nsystem DrivenSystem {\n    node = DynamicNode()\n    boundary = DrivenBoundary()\n    connect node.node to boundary.node\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let assembly = &report.semantic_program.component_assemblies[0];
+        let equation = assembly
+            .equations
+            .iter()
+            .find(|equation| {
+                equation.expression
+                    == "boundary.node.balance * boundary.node.balance eq boundary.node.x + boundary.drive"
+            })
+            .expect("compound RHS component equation");
+        assert_eq!(
+            equation.residual,
+            "boundary.node.balance * boundary.node.balance - (boundary.node.x + boundary.drive)"
+        );
+        assert!(equation.dependencies.contains(&"boundary.drive".to_owned()));
+    }
+
     #[test]
     fn rejects_incompatible_unitful_component_equation_constants() {
         let report = check_source(

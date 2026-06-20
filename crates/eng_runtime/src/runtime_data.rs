@@ -11903,7 +11903,7 @@ with {
         assert!(json.contains("\"residual_values\""));
         assert!(json.contains("\"normalized_residual_values\""));
         assert!(json.contains("fixed_point_iteration"));
-        assert!(json.contains("relax.source.q - 0.5 * relax.target.q + 1 kW"));
+        assert!(json.contains("relax.source.q - (0.5 * relax.target.q + 1 kW)"));
     }
 
     #[test]

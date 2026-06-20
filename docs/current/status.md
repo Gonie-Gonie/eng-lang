@@ -275,7 +275,9 @@ are not public stable workflows.
   those residual-graph entrypoints, and can pair the semi-implicit algebraic
   residual graph or per-step Newton algebraic residual solving with parsed
   derivative residual RHS expressions, including constructor-parameter
-  dependencies, provenance, and selected algebraic output trajectories, preserving
+  dependencies, fixed-step TimeSeries component-input materialization,
+  compound RHS residual parenthesization for supported parsed component
+  equations, provenance, and selected algebraic output trajectories, preserving
   equation/unknown counts in component solver artifacts, and is covered by
   `examples/official/26_dynamic_component_room`,
   `tests/runtime/dynamic_component_explicit.eng`,
@@ -283,6 +285,7 @@ are not public stable workflows.
   `tests/runtime/dynamic_component_function_semi_implicit.eng`,
   `tests/runtime/dynamic_component_parameterized_function_semi_implicit.eng`,
   `tests/runtime/dynamic_component_nonlinear_algebraic_semi_implicit.eng`,
+  `tests/runtime/dynamic_component_nonlinear_algebraic_timeseries_input_semi_implicit.eng`,
   `tests/runtime/dynamic_component_semi_implicit.eng`, and
   `tests/diagnostics/dynamic_component_nonconvergence.eng`, plus
   `tests/diagnostics/dynamic_component_nonlinear_algebraic_nonconvergence.eng`
