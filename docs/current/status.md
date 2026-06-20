@@ -275,7 +275,9 @@ are not public stable workflows.
   `tests/runtime/nonlinear_residual_from_source.eng`, and
   `tests/diagnostics/newton_nonconvergence.eng`. The DAE bridge derives the
   state/algebraic split from assembly variables, builds `DaeInput`, applies
-  Newton algebraic initialization, uses identity mass-matrix fallback, records
+  Newton algebraic initialization, uses identity mass-matrix fallback unless a
+  dimensionless scalar, diagonal vector, or dense square `mass_matrix` option is
+  supplied, records
   state/algebraic trajectories, variable-scale policy, and per-step Newton diagnostics, and is covered
   by `examples/official/28_small_dae`,
   `tests/runtime/small_dae_from_source.eng`, and

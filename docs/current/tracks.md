@@ -150,7 +150,9 @@ Internal runtime seeds:
   artifacts
 - narrow source `solve component_graph` implicit-Euler DAE bridge with assembly
   state/algebraic split, `DaeInput` generation, algebraic initialization,
-  identity mass-matrix fallback, trajectories, step diagnostics, and failure
+  identity mass-matrix fallback unless a dimensionless scalar, diagonal vector, or
+  dense square `mass_matrix` option is supplied, trajectories, step diagnostics,
+  and failure
   artifacts
 - standalone dynamic-component explicit-Euler seed with algebraic-free state updates, algebraic solve per timestep, and common SolverResult state/algebraic trajectories
 - derivative-form ResidualGraph to dynamic-component RHS bridge for algebraic-free dynamic seeds

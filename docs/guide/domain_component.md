@@ -325,7 +325,9 @@ re-parsing source files.
 - `examples/official/28_small_dae/main.eng`
   shows the narrow source multi-state unitful implicit-Euler DAE path with
   `solver = implicit_euler_dae`, assembly-derived state/algebraic split,
-  algebraic initialization, identity mass-matrix fallback, trajectories, and
+  algebraic initialization, identity mass-matrix fallback unless a dimensionless
+  scalar, diagonal vector, or dense square `mass_matrix` option is supplied,
+  trajectories, and
   per-step Newton diagnostics.
 - `examples/official/32_small_thermal_fluid_loop/main.eng`
   shows the constrained Thermal/Fluid[Water] algebraic residual path with

@@ -1311,9 +1311,16 @@ with {
 
 The runtime derives state/algebraic variables from the component assembly,
 builds `DaeInput`, runs Newton algebraic initialization by default, uses an
-identity mass-matrix fallback, calls the implicit-Euler DAE solver, and records
-state/algebraic trajectories plus step diagnostics. This path is limited to
-small scalar component equations using arithmetic over source residuals.
+identity mass-matrix fallback unless a dimensionless scalar, diagonal vector, or
+dense square `mass_matrix` option is supplied, calls the implicit-Euler DAE
+solver, and records state/algebraic trajectories plus step diagnostics. This
+path is limited to small scalar component equations using arithmetic over source
+residuals.
+
+`mass_matrix = identity` keeps the default. `mass_matrix = 2` broadcasts a
+scalar diagonal coefficient, `mass_matrix = [2, 1]` supplies a diagonal vector,
+and `mass_matrix = [[2, 0], [0, 1]]` supplies a dense square state mass matrix.
+Mass-matrix coefficients are currently dimensionless.
 
 The supported typed-block state-space surface starts with top-level state and
 input type blocks:

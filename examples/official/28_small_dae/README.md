@@ -7,7 +7,9 @@ temperature and generated balance variable remains algebraic.
 
 The runtime builds `DaeInput`, accepts bracketed unitful initial vectors for
 state values, state derivatives, and algebraic guesses, applies Newton
-algebraic initialization by default, uses an identity mass-matrix fallback, then
+algebraic initialization by default, uses an identity mass-matrix fallback
+unless a dimensionless scalar, diagonal vector, or dense square `mass_matrix`
+option is supplied, then
 records state/algebraic trajectories, step diagnostics, and residual metadata
 for coupled unitful temperature DAE residuals:
 
@@ -23,5 +25,7 @@ Scope limits:
 - fixed-step implicit Euler only;
 - multi-state component equations using `+`, `-`, `*`, `/`, and parentheses;
 - bracketed initial vectors must match the generated state/algebraic layouts;
+- optional `mass_matrix` coefficients may be scalar, diagonal-vector, or dense
+  square dimensionless values matching the generated state layout;
 - this is a compact unitful DAE smoke, not a broad physical DAE model or
   production multi-domain simulation claim.

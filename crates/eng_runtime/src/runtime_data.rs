@@ -33,7 +33,7 @@ use crate::solver::{
     solve_linear_residual_graph, solve_newton, solve_newton_with_jacobian, AdaptiveOdeOptions,
     AdaptiveOdeStepReport, AlgebraicInitializationInput, BehaviorExecutionProfile,
     BehaviorGraphRhsAdapter, BehaviorRhsNode, BehaviorRhsSample, BehaviorSignalContract,
-    BehaviorSignalSource, DaeInput, DaeMethod, DaeOptions, DaeSample, DaeVariable,
+    BehaviorSignalSource, DaeInput, DaeMassMatrix, DaeMethod, DaeOptions, DaeSample, DaeVariable,
     DelayBehaviorNode, DelayBuffer, DelayInitialHistoryPolicy, DelayInterpolationPolicy,
     DynamicComponentAssemblySolveInput, DynamicComponentOptions, DynamicComponentResult,
     ExternalBehaviorContract, ExternalBehaviorDeterminism, ExternalBehaviorKind,
@@ -3725,6 +3725,21 @@ fn dae_component_solution_from_solve_request(
             );
         }
     };
+    let mass_matrix =
+        match dae_mass_matrix_from_solve_request(&request.options, solver_assembly.states.len()) {
+            Ok(matrix) => matrix,
+            Err(failure) => {
+                return failed_source_component_solution(
+                    solver_assembly,
+                    method,
+                    "DAE source solve mass matrix could not be materialized",
+                    &failure,
+                    tolerance,
+                    newton_options.max_iterations,
+                    "dae_source_failed",
+                );
+            }
+        };
     let residual_graph = ResidualGraph::from_assembly(solver_assembly);
     let parameter_values = match source_assembly_parameter_values(solver_assembly) {
         Ok(values) => values,
@@ -3927,7 +3942,7 @@ fn dae_component_solution_from_solve_request(
         step_count: time_grid.step_count,
         consistency_tolerance,
         newton: newton_options.clone(),
-        mass_matrix: None,
+        mass_matrix: mass_matrix.clone(),
         ..DaeOptions::default()
     };
     let dae = solve_implicit_euler_dae(&dae_input, &dae_options, |sample| {
@@ -4034,10 +4049,17 @@ fn dae_component_solution_from_solve_request(
         },
         diagnostics,
     };
+    let mass_matrix_reason = if mass_matrix.is_some() {
+        "configured source mass matrix"
+    } else {
+        "identity mass-matrix fallback"
+    };
+    let dae_reason =
+        format!("DAE source solve executed source-level residual graph with {mass_matrix_reason}");
     let mut solution = RuntimeComponentSolution::from_dynamic_solver_result(
         &solver_assembly.name,
         &solver_result,
-        "DAE source solve executed source-level residual graph with identity mass-matrix fallback",
+        &dae_reason,
     );
     solution.equation_count = solver_assembly.equation_count();
     solution.unknown_count = solver_assembly.unknown_count();
@@ -4140,6 +4162,7 @@ fn dae_component_solution_from_solve_request(
         &residual_graph,
         &parsed_residuals,
         &dae_input,
+        dae_options.mass_matrix.as_ref(),
         &solver_result,
         tolerance,
     ) {
@@ -5063,6 +5086,172 @@ fn derivative_unit_for_state_unit(unit: &str) -> String {
         format!("{unit}/s")
     }
 }
+
+fn dae_mass_matrix_from_solve_request(
+    options: &[eng_compiler::WithOptionInfo],
+    state_count: usize,
+) -> Result<Option<DaeMassMatrix>, SolverFailure> {
+    let Some(value) = option_value(options, "mass_matrix") else {
+        return Ok(None);
+    };
+    let trimmed = value.trim();
+    if trimmed.eq_ignore_ascii_case("identity") {
+        return Ok(None);
+    }
+    if state_count == 0 {
+        return Err(SolverFailure::new(
+            "E-DAE-MASS-MATRIX-LAYOUT",
+            "DAE source option `mass_matrix` requires at least one state variable",
+        ));
+    }
+    if let Some(rows) = parse_dae_mass_matrix_rows(trimmed) {
+        validate_dae_mass_matrix_rows(&rows, state_count)?;
+        return Ok(Some(DaeMassMatrix::new(rows)));
+    }
+    let Some((is_vector, values)) = parse_component_initial_option(trimmed) else {
+        return Err(SolverFailure::new(
+            "E-DAE-MASS-MATRIX",
+            "DAE source option `mass_matrix` expects `identity`, a finite scalar, a finite vector of diagonal coefficients, or a finite square matrix with no units",
+        ));
+    };
+    let mut coefficients = Vec::with_capacity(values.len());
+    for (coefficient, unit) in values {
+        if unit.is_some() || !coefficient.is_finite() {
+            return Err(SolverFailure::new(
+                "E-DAE-MASS-MATRIX",
+                "DAE source option `mass_matrix` coefficients must be finite dimensionless numbers",
+            ));
+        }
+        coefficients.push(coefficient);
+    }
+    if is_vector {
+        if coefficients.len() != state_count {
+            return Err(SolverFailure::new(
+                "E-DAE-MASS-MATRIX-LAYOUT",
+                format!(
+                    "DAE source option `mass_matrix` provided {} diagonal coefficient(s) for {} state variable(s)",
+                    coefficients.len(), state_count
+                ),
+            ));
+        }
+        return Ok(Some(DaeMassMatrix::new(diagonal_mass_matrix(coefficients))));
+    }
+    Ok(Some(DaeMassMatrix::new(diagonal_mass_matrix(vec![
+        coefficients[0];
+        state_count
+    ]))))
+}
+
+fn parse_dae_mass_matrix_rows(value: &str) -> Option<Vec<Vec<f64>>> {
+    let inner = value.strip_prefix('[')?.strip_suffix(']')?;
+    let row_items = split_component_initial_items(inner);
+    if row_items.is_empty() {
+        return None;
+    }
+    let mut rows = Vec::with_capacity(row_items.len());
+    for row_item in row_items {
+        let row_inner = row_item.trim().strip_prefix('[')?.strip_suffix(']')?;
+        let coefficients = split_component_initial_items(row_inner)
+            .into_iter()
+            .map(|item| parse_unitless_finite_number(&item))
+            .collect::<Option<Vec<_>>>()?;
+        if coefficients.is_empty() {
+            return None;
+        }
+        rows.push(coefficients);
+    }
+    Some(rows)
+}
+
+fn parse_unitless_finite_number(value: &str) -> Option<f64> {
+    let (number, unit) = parse_numeric_value_with_optional_unit(value)?;
+    if unit.is_some() || !number.is_finite() {
+        return None;
+    }
+    Some(number)
+}
+
+fn validate_dae_mass_matrix_rows(
+    rows: &[Vec<f64>],
+    state_count: usize,
+) -> Result<(), SolverFailure> {
+    if rows.len() != state_count || rows.iter().any(|row| row.len() != state_count) {
+        return Err(SolverFailure::new(
+            "E-DAE-MASS-MATRIX-LAYOUT",
+            format!(
+                "DAE source option `mass_matrix` must be a {state_count}x{state_count} square matrix for the DAE state layout"
+            ),
+        ));
+    }
+    if rows
+        .iter()
+        .flatten()
+        .any(|coefficient| !coefficient.is_finite())
+    {
+        return Err(SolverFailure::new(
+            "E-DAE-MASS-MATRIX",
+            "DAE source option `mass_matrix` coefficients must be finite dimensionless numbers",
+        ));
+    }
+    Ok(())
+}
+
+fn diagonal_mass_matrix(coefficients: Vec<f64>) -> Vec<Vec<f64>> {
+    let size = coefficients.len();
+    let mut rows = vec![vec![0.0; size]; size];
+    for (index, coefficient) in coefficients.into_iter().enumerate() {
+        rows[index][index] = coefficient;
+    }
+    rows
+}
+
+fn dae_mass_state_derivative_values(
+    mass_matrix: Option<&DaeMassMatrix>,
+    state_derivative: &[f64],
+) -> Result<Option<Vec<f64>>, SolverFailure> {
+    let Some(mass_matrix) = mass_matrix else {
+        return Ok(None);
+    };
+    if mass_matrix.rows.len() != state_derivative.len()
+        || mass_matrix
+            .rows
+            .iter()
+            .any(|row| row.len() != state_derivative.len())
+    {
+        return Err(SolverFailure::new(
+            "E-DAE-MASS-MATRIX-LAYOUT",
+            "DAE source mass matrix must be square and match the state derivative length",
+        ));
+    }
+    if mass_matrix
+        .rows
+        .iter()
+        .flatten()
+        .any(|value| !value.is_finite())
+    {
+        return Err(SolverFailure::new(
+            "E-DAE-MASS-MATRIX",
+            "DAE source mass matrix contains a non-finite value",
+        ));
+    }
+    let values = mass_matrix
+        .rows
+        .iter()
+        .map(|row| {
+            row.iter()
+                .zip(state_derivative.iter())
+                .map(|(coefficient, derivative)| coefficient * derivative)
+                .sum::<f64>()
+        })
+        .collect::<Vec<_>>();
+    if values.iter().any(|value| !value.is_finite()) {
+        return Err(SolverFailure::new(
+            "E-DAE-MASS-MATRIX",
+            "DAE source mass matrix application produced a non-finite derivative value",
+        ));
+    }
+    Ok(Some(values))
+}
 fn component_initial_values_from_options(
     options: &[eng_compiler::WithOptionInfo],
     key: &str,
@@ -5469,6 +5658,9 @@ fn source_residual_evaluation_for_dae_sample(
 ) -> Result<SourceResidualEvaluation, SolverFailure> {
     if sample.state.len() != assembly.states.len()
         || sample.state_derivative.len() != assembly.states.len()
+        || sample
+            .mass_state_derivative
+            .map_or(false, |values| values.len() != assembly.states.len())
         || sample.algebraic.len() != assembly.algebraic_variables.len()
         || (!sample.parameters.is_empty() && sample.parameters.len() != assembly.parameters.len())
     {
@@ -5483,10 +5675,13 @@ fn source_residual_evaluation_for_dae_sample(
     for (state, value) in assembly.states.iter().zip(sample.state.iter().copied()) {
         symbols.insert(state.name.clone(), value);
     }
+    let derivative_values = sample
+        .mass_state_derivative
+        .unwrap_or(sample.state_derivative);
     for (state, value) in assembly
         .states
         .iter()
-        .zip(sample.state_derivative.iter().copied())
+        .zip(derivative_values.iter().copied())
     {
         symbols.insert(format!("der({})", state.name), value);
     }
@@ -5568,6 +5763,7 @@ fn source_residual_evaluation_for_dae_final(
     graph: &ResidualGraph,
     parsed_residuals: &[ParsedSourceResidual],
     input: &DaeInput,
+    mass_matrix: Option<&DaeMassMatrix>,
     solver_result: &SolverResult,
     tolerance: f64,
 ) -> Result<SourceResidualEvaluation, SolverFailure> {
@@ -5602,6 +5798,7 @@ fn source_residual_evaluation_for_dae_final(
         .iter()
         .map(|trajectory| trajectory.values.last().copied().unwrap_or(0.0))
         .collect::<Vec<_>>();
+    let mass_state_derivative = dae_mass_state_derivative_values(mass_matrix, &state_derivative)?;
     source_residual_evaluation_for_dae_sample(
         assembly,
         graph,
@@ -5610,7 +5807,7 @@ fn source_residual_evaluation_for_dae_final(
             time_s: solver_result.time_grid.duration_s,
             state: &state,
             state_derivative: &state_derivative,
-            mass_state_derivative: None,
+            mass_state_derivative: mass_state_derivative.as_deref(),
             algebraic: &algebraic,
             inputs: &[],
             parameters: &input.parameters,
@@ -9825,7 +10022,7 @@ fn train_mlp_model(
                     hidden_weights[hidden_index][feature_index] * output_weight * target_scale
                         / standardization.scales[feature_index]
                 })
-                .sum(),
+                .sum::<f64>(),
         })
         .collect::<Vec<_>>();
     let intercept = target_mean + output_bias * target_scale;
@@ -11011,6 +11208,174 @@ with {
         assert!(json.contains("\"node.setpoint\""));
     }
 
+    #[test]
+    fn materializes_dae_source_solve_request_with_configured_mass_matrix() {
+        let source = r#"
+domain DaeTemperature {
+    across T: AbsoluteTemperature [K]
+    across T_ref: AbsoluteTemperature [K]
+    through balance: TemperatureDelta [K]
+    conservation sum(balance) = 0
+}
+
+component MassMatrixDaeNode {
+    port hot: DaeTemperature
+    der(hot.T) + (hot.T - hot.T_ref) / 2 s eq 0 K/s
+    hot.T_ref eq 300 K
+}
+
+system MassMatrixDae {
+    node = MassMatrixDaeNode()
+    connect node.hot to node.hot
+}
+
+dae_result = solve component_graph
+with {
+    solver = implicit_euler_dae
+    timestep = 1 s
+    duration = 2 s
+    initial = [310 K]
+    initial_derivative = [-2.5 K/s]
+    initial_algebraic = [300 K, 0 K]
+    mass_matrix = [[2]]
+    tolerance = 0.000000001
+    max_iter = 40
+}
+"#;
+        let report = check_source("dae_mass_matrix.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.status, "computed");
+        assert_eq!(solution.method, "implicit_euler_dae_source_residual_graph");
+        assert_eq!(solution.convergence_status, "dae_converged");
+        assert!(solution.failure_artifact.is_none());
+        assert!(solution.reason.contains("configured source mass matrix"));
+        let state = solution
+            .trajectories
+            .iter()
+            .find(|trajectory| trajectory.name == "node.hot.T" && trajectory.role == "state")
+            .expect("state trajectory");
+        assert_eq!(state.point_count, 3);
+        assert!(state.final_value > 306.0, "{:?}", state.final_value);
+        assert!(state.final_value < 310.0, "{:?}", state.final_value);
+        assert!(solution
+            .residuals
+            .iter()
+            .all(|residual| residual.status == "satisfied"));
+
+        let mut spec =
+            eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        runtime.apply_component_solutions(&mut spec);
+        let json = eng_report::report_spec_json(&spec);
+        assert!(json.contains("configured source mass matrix"));
+        assert!(json.contains("\"convergence_status\": \"dae_converged\""));
+    }
+
+    #[test]
+    fn reports_dae_source_mass_matrix_layout_mismatch() {
+        let source = r#"
+domain DaeTemperature {
+    across T: AbsoluteTemperature [K]
+    across T_ref: AbsoluteTemperature [K]
+    through balance: TemperatureDelta [K]
+    conservation sum(balance) = 0
+}
+
+component MassMatrixDaeNode {
+    port hot: DaeTemperature
+    der(hot.T) + (hot.T - hot.T_ref) / 2 s eq 0 K/s
+    hot.T_ref eq 300 K
+}
+
+system MassMatrixDae {
+    node = MassMatrixDaeNode()
+    connect node.hot to node.hot
+}
+
+dae_result = solve component_graph
+with {
+    solver = implicit_euler_dae
+    timestep = 1 s
+    duration = 1 s
+    initial = [310 K]
+    initial_derivative = [-2.5 K/s]
+    initial_algebraic = [300 K, 0 K]
+    mass_matrix = [1, 1]
+    tolerance = 0.000000001
+    max_iter = 20
+}
+"#;
+        let report = check_source(
+            "dae_mass_matrix_layout_mismatch.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+        let solution = &runtime.component_solutions[0];
+
+        assert_eq!(solution.status, "failed");
+        assert_eq!(solution.method, "implicit_euler_dae_source_residual_graph");
+        assert_eq!(solution.convergence_status, "dae_source_failed");
+        assert_eq!(
+            solution
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-DAE-MASS-MATRIX-LAYOUT")
+        );
+        assert!(solution.reason.contains("mass matrix"));
+    }
+
+    #[test]
+    fn reports_dae_source_mass_matrix_value_diagnostic() {
+        let source = r#"
+domain DaeTemperature {
+    across T: AbsoluteTemperature [K]
+    across T_ref: AbsoluteTemperature [K]
+    through balance: TemperatureDelta [K]
+    conservation sum(balance) = 0
+}
+
+component MassMatrixDaeNode {
+    port hot: DaeTemperature
+    der(hot.T) + (hot.T - hot.T_ref) / 2 s eq 0 K/s
+    hot.T_ref eq 300 K
+}
+
+system MassMatrixDae {
+    node = MassMatrixDaeNode()
+    connect node.hot to node.hot
+}
+
+dae_result = solve component_graph
+with {
+    solver = implicit_euler_dae
+    timestep = 1 s
+    duration = 1 s
+    initial = [310 K]
+    initial_derivative = [-2.5 K/s]
+    initial_algebraic = [300 K, 0 K]
+    mass_matrix = [1 kg]
+}
+"#;
+        let report = check_source(
+            "dae_mass_matrix_unitful.eng",
+            source,
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SOLVE-MASS-MATRIX-INVALID"));
+    }
     #[test]
     fn materializes_dae_unsupported_bdf_method_from_source() {
         let source = r#"

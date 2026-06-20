@@ -104,7 +104,8 @@ Use the official examples for user testing and demos. Start with these:
   coupled unitful HeatRate nonlinear residuals.
 - `examples/official/28_small_dae/main.eng`: supported narrow source
   implicit-Euler DAE solve using `solve component_graph` with
-  `solver = implicit_euler_dae`, source-derived multi-state/algebraic split, vector initial values, and
+  `solver = implicit_euler_dae`, source-derived multi-state/algebraic split,
+  vector initial values, optional dimensionless `mass_matrix` coefficients, and
   state/algebraic trajectories.
 - `examples/official/29_delay_component_solver/main.eng`: supported narrow
   source behavior solve using `solve component_graph` with

@@ -1855,6 +1855,7 @@ fn known_with_option(key: &str) -> bool {
             | "initial"
             | "initial_algebraic"
             | "initial_derivative"
+            | "mass_matrix"
             | "finite_difference_step"
             | "damping"
             | "line_search_steps"
@@ -3045,6 +3046,9 @@ fn validate_algebraic_solve_contracts(
                 ));
             }
         }
+        if dae_solver {
+            validate_component_solve_mass_matrix_option(options, diagnostics);
+        }
         if let Some(option) = accepted_option(options, "algebraic_initialization") {
             let valid = matches!(option.value.trim(), "newton" | "none");
             if !valid {
@@ -3173,6 +3177,79 @@ fn validate_component_solve_initial_list_option(
         ));
     }
 }
+fn validate_component_solve_mass_matrix_option(
+    options: &[WithOptionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(option) = accepted_option(options, "mass_matrix") else {
+        return;
+    };
+    if !mass_matrix_literal_values(&option.value) {
+        diagnostics.push(Diagnostic::error(
+            "E-SOLVE-MASS-MATRIX-INVALID",
+            option.line,
+            &format!(
+                "`mass_matrix` expects `identity`, a finite scalar, a finite vector of diagonal coefficients, or a finite square matrix with no units. Got `{}`.",
+                option.value
+            ),
+            Some("Use `mass_matrix = identity`, `mass_matrix = 1`, `mass_matrix = [1, 1]`, or `mass_matrix = [[1, 0], [0, 1]]`."),
+        ));
+    }
+}
+
+fn mass_matrix_literal_values(expression: &str) -> bool {
+    let trimmed = expression.trim();
+    if trimmed.eq_ignore_ascii_case("identity") {
+        return true;
+    }
+    if unitless_numeric_literal(trimmed).is_some() {
+        return true;
+    }
+    if mass_matrix_row_literal_values(trimmed).is_some() {
+        return true;
+    }
+    let Some(inner) = trimmed
+        .strip_prefix('[')
+        .and_then(|rest| rest.strip_suffix(']'))
+    else {
+        return false;
+    };
+    let items = split_vector_literal_items(inner);
+    !items.is_empty()
+        && items
+            .iter()
+            .all(|item| unitless_numeric_literal(item).is_some())
+}
+
+fn mass_matrix_row_literal_values(expression: &str) -> Option<Vec<Vec<f64>>> {
+    let inner = expression.strip_prefix('[')?.strip_suffix(']')?;
+    let rows = split_vector_literal_items(inner);
+    if rows.is_empty() {
+        return None;
+    }
+    rows.iter()
+        .map(|row| {
+            let row_inner = row.trim().strip_prefix('[')?.strip_suffix(']')?;
+            let entries = split_vector_literal_items(row_inner);
+            if entries.is_empty() {
+                return None;
+            }
+            entries
+                .iter()
+                .map(|entry| unitless_numeric_literal(entry))
+                .collect::<Option<Vec<_>>>()
+        })
+        .collect::<Option<Vec<_>>>()
+}
+
+fn unitless_numeric_literal(expression: &str) -> Option<f64> {
+    let (value, unit) = initial_numeric_literal_with_optional_unit(expression)?;
+    if unit.is_some() || !value.is_finite() {
+        return None;
+    }
+    Some(value)
+}
+
 fn initial_numeric_literal_with_optional_unit(expression: &str) -> Option<(f64, Option<String>)> {
     let mut parts = expression.split_whitespace();
     let value = parts.next()?.parse::<f64>().ok()?;
