@@ -10198,7 +10198,9 @@ fn expression_dimension_with_symbols(
     None
 }
 
-const DIMENSIONLESS_MATH_FUNCTIONS: [&str; 5] = ["sqrt", "exp", "ln", "sin", "cos"];
+const DIMENSIONLESS_MATH_FUNCTIONS: [&str; 9] = [
+    "sqrt", "exp", "ln", "sin", "cos", "tan", "asin", "acos", "atan",
+];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct MathFunctionDimensionError {

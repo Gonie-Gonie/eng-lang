@@ -4,7 +4,7 @@ system DimensionlessFunctionRhs {
 
     equation {
         der(x) eq -sin(x) / 1 s
-        damping eq cos(x)
+        damping eq cos(x) + atan(x) + tan(x) / 10
     }
 }
 

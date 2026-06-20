@@ -331,7 +331,10 @@ are not public stable workflows.
   shared `SourceRhsEvaluator`; its derivative coefficient and RHS expressions
   are pre-parsed through the shared arithmetic expression parser with
   unit-literal metadata, typed input symbols, typed parameter symbols, and
-  known-unit literal conversion to canonical solver values. The internal
+  known-unit literal conversion to canonical solver values, including the
+  dimensionless one-argument function subset `sqrt`, `exp`, `ln`, `sin`,
+  `cos`, `tan`, `asin`, `acos`, and `atan` across source RHS, source Newton,
+  and source DAE fixtures. The internal
   continuous state-space path now
   reuses the same adaptive seed for shape-checked `der(x) eq A * x + B * u`
   systems.

@@ -1151,6 +1151,46 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/newton_dimensionless_trig_residual.eng"),
+        Path::new("build/test-runtime-newton-dimensionless-trig-residual"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"solved_nonlinear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"newton_source_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"value\": 0.785")
+                || !output.result_json.contains("tan(node.node.x) - (1)")
+                || !output
+                    .result_json
+                    .contains("\"largest_residual_source_expression\": \"tan(node.node.x) eq 1\"")
+                || !output.report_spec_json.contains("tan(node.node.x) eq 1")
+                || !output.report_spec_json.contains("\"source_line\":")
+                || !output.report_html.contains("newton_source_residual_graph")
+                || !output.report_html.contains("source_line=")
+            {
+                eprintln!(
+                    "expected tests/runtime/newton_dimensionless_trig_residual.eng to solve a dimensionless source Newton residual with tan()"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/newton_dimensionless_trig_residual.eng solved dimensionless source Newton trig residual"
+            );
+        }
+        Err(error) => {
+            eprintln!("dimensionless trig Newton source runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/source_rhs_dimensionless_functions.eng"),
         Path::new("build/test-runtime-source-rhs-dimensionless-functions"),
         &artifact_run_options(),
@@ -1167,21 +1207,25 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"state\": \"x\"")
                 || !output.result_json.contains("\"state\": \"damping\"")
                 || !output.result_json.contains("der(x) - (-sin(x) / 1 s)")
-                || !output.result_json.contains("damping - (cos(x))")
+                || !output
+                    .result_json
+                    .contains("damping - (cos(x) + atan(x) + tan(x) / 10)")
                 || !output.report_spec_json.contains("\"solver_results\"")
                 || !output.report_spec_json.contains("\"state\": \"damping\"")
-                || !output.report_spec_json.contains("damping - (cos(x))")
+                || !output
+                    .report_spec_json
+                    .contains("damping - (cos(x) + atan(x) + tan(x) / 10)")
                 || !plot_spec.contains("\"name\": \"sim.x\"")
                 || !output.report_html.contains("System Solver Results")
                 || !output.report_html.contains("rk4_fixed_step")
             {
                 eprintln!(
-                    "expected tests/runtime/source_rhs_dimensionless_functions.eng to simulate a source RHS using dimensionless sin/cos functions"
+                    "expected tests/runtime/source_rhs_dimensionless_functions.eng to simulate a source RHS using dimensionless trig functions"
                 );
                 return ExitCode::from(2);
             }
             println!(
-                "ok: tests/runtime/source_rhs_dimensionless_functions.eng simulated dimensionless source RHS functions"
+                "ok: tests/runtime/source_rhs_dimensionless_functions.eng simulated dimensionless source RHS trig functions"
             );
         }
         Err(error) => {
@@ -1264,7 +1308,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("der(node.node.x) + sin(node.node.x) - (0)")
                 || !output
                     .result_json
-                    .contains("node.node.z - cos(node.node.x) - (0)")
+                    .contains("node.node.z - atan(node.node.x) - (0)")
                 || !output
                     .result_json
                     .contains("\"normalized_residual_values\"")
@@ -1279,7 +1323,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("der(node.node.x) + sin(node.node.x) eq 0")
                 || !output
                     .report_spec_json
-                    .contains("node.node.z - cos(node.node.x) eq 0")
+                    .contains("node.node.z - atan(node.node.x) eq 0")
                 || !output.report_spec_json.contains("\"source_line\":")
                 || !output
                     .report_html
@@ -1287,7 +1331,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.report_html.contains("source_line=")
             {
                 eprintln!(
-                    "expected tests/runtime/dae_dimensionless_function_residual.eng to solve a dimensionless DAE residual graph using sin/cos functions"
+                    "expected tests/runtime/dae_dimensionless_function_residual.eng to solve a dimensionless DAE residual graph using trig functions"
                 );
                 return ExitCode::from(2);
             }

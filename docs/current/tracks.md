@@ -127,6 +127,10 @@ Internal runtime seeds:
 - source-equation RHS evaluation pre-parses derivative coefficients and RHS
   expressions through the shared arithmetic expression parser while preserving
   unit-literal metadata
+- the shared arithmetic expression parser covers the dimensionless
+  one-argument function subset `sqrt`, `exp`, `ln`, `sin`, `cos`, `tan`,
+  `asin`, `acos`, and `atan` across source RHS, source Newton, and source DAE
+  fixture paths
 - source-equation RHS parser construction receives typed state/input/parameter
   symbol metadata from runtime layouts
 - source-equation RHS numeric literals with known built-in units are converted

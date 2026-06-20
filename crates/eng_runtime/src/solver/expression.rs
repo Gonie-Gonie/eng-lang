@@ -119,6 +119,10 @@ enum ArithmeticExpressionFunction {
     Ln,
     Sin,
     Cos,
+    Tan,
+    Asin,
+    Acos,
+    Atan,
 }
 
 impl ParsedArithmeticExpression {
@@ -218,6 +222,43 @@ impl ArithmeticExpressionNode {
                     }
                     ArithmeticExpressionFunction::Sin => argument.sin(),
                     ArithmeticExpressionFunction::Cos => argument.cos(),
+                    ArithmeticExpressionFunction::Tan => {
+                        if argument.cos().abs() <= f64::EPSILON {
+                            return Err(SolverFailure::new(
+                                profile.finite_code,
+                                format!(
+                                    "{} `{source}` attempted tan at a singular point",
+                                    profile.label
+                                ),
+                            ));
+                        }
+                        argument.tan()
+                    }
+                    ArithmeticExpressionFunction::Asin => {
+                        if !(-1.0..=1.0).contains(&argument) {
+                            return Err(SolverFailure::new(
+                                profile.finite_code,
+                                format!(
+                                    "{} `{source}` attempted asin outside [-1, 1]",
+                                    profile.label
+                                ),
+                            ));
+                        }
+                        argument.asin()
+                    }
+                    ArithmeticExpressionFunction::Acos => {
+                        if !(-1.0..=1.0).contains(&argument) {
+                            return Err(SolverFailure::new(
+                                profile.finite_code,
+                                format!(
+                                    "{} `{source}` attempted acos outside [-1, 1]",
+                                    profile.label
+                                ),
+                            ));
+                        }
+                        argument.acos()
+                    }
+                    ArithmeticExpressionFunction::Atan => argument.atan(),
                 };
                 if value.is_finite() {
                     Ok(value)
@@ -1129,6 +1170,10 @@ fn parse_arithmetic_function(
         "ln" => Ok(ArithmeticExpressionFunction::Ln),
         "sin" => Ok(ArithmeticExpressionFunction::Sin),
         "cos" => Ok(ArithmeticExpressionFunction::Cos),
+        "tan" => Ok(ArithmeticExpressionFunction::Tan),
+        "asin" => Ok(ArithmeticExpressionFunction::Asin),
+        "acos" => Ok(ArithmeticExpressionFunction::Acos),
+        "atan" => Ok(ArithmeticExpressionFunction::Atan),
         _ => Err(SolverFailure::new(
             profile.parse_code,
             format!("unsupported {} function `{name}`", profile.label),
@@ -1213,15 +1258,20 @@ mod tests {
 
     #[test]
     fn evaluates_dimensionless_math_functions() {
-        let symbols = HashMap::from([("x".to_owned(), 4.0), ("theta".to_owned(), 0.0)]);
+        let symbols = HashMap::from([
+            ("x".to_owned(), 4.0),
+            ("theta".to_owned(), 0.25),
+            ("ratio".to_owned(), 0.5),
+        ]);
         let symbol_units = HashMap::from([
             ("x".to_owned(), test_dimensionless_unit()),
             ("theta".to_owned(), test_dimensionless_unit()),
+            ("ratio".to_owned(), test_dimensionless_unit()),
         ]);
         let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
 
         let parsed = parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
-            "sqrt(x) + exp(0) + ln(x) + sin(theta) + cos(theta)",
+            "sqrt(x) + exp(0) + ln(x) + sin(theta) + cos(theta) + tan(theta) + asin(ratio) + acos(ratio) + atan(x)",
             &symbols,
             &symbol_units,
             &mut ignore_units,
@@ -1229,9 +1279,38 @@ mod tests {
         )
         .unwrap();
 
-        let expected = 2.0 + 1.0 + 4.0_f64.ln() + 0.0 + 1.0;
+        let expected = 2.0
+            + 1.0
+            + 4.0_f64.ln()
+            + 0.25_f64.sin()
+            + 0.25_f64.cos()
+            + 0.25_f64.tan()
+            + 0.5_f64.asin()
+            + 0.5_f64.acos()
+            + 4.0_f64.atan();
         assert!((parsed.evaluate(&symbols).unwrap() - expected).abs() < 1e-12);
         assert_eq!(parsed.root_unit, Some(test_dimensionless_unit()));
+    }
+
+    #[test]
+    fn rejects_inverse_trig_domain_errors() {
+        let symbols = HashMap::from([("x".to_owned(), 2.0)]);
+        let symbol_units = HashMap::from([("x".to_owned(), test_dimensionless_unit())]);
+        let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
+
+        let parsed = parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
+            "asin(x)",
+            &symbols,
+            &symbol_units,
+            &mut ignore_units,
+            ArithmeticExpressionProfile::SOURCE_RESIDUAL,
+        )
+        .unwrap();
+        let failure = parsed.evaluate(&symbols).unwrap_err();
+
+        assert_eq!(failure.code, "E-SOURCE-EXPR-FINITE");
+        assert!(failure.message.contains("asin"));
+        assert!(failure.message.contains("[-1, 1]"));
     }
 
     #[test]
@@ -1267,7 +1346,7 @@ mod tests {
         let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
 
         let failure = parse_arithmetic_expression_with_unit_converter(
-            "tan(x)",
+            "sinh(x)",
             &symbols,
             &mut ignore_units,
             ArithmeticExpressionProfile::SOURCE_RESIDUAL,
@@ -1276,7 +1355,7 @@ mod tests {
 
         assert_eq!(failure.code, "E-SOURCE-EXPR-PARSE");
         assert!(failure.message.contains("unsupported"));
-        assert!(failure.message.contains("tan"));
+        assert!(failure.message.contains("sinh"));
     }
 
     #[test]

@@ -8,7 +8,7 @@ domain DaeFunctionPair package "eng.std.domains.scalar" version "0.1.0" {
 component FunctionDaeNode {
     port node: DaeFunctionPair
     der(node.x) + sin(node.x) eq 0
-    node.z - cos(node.x) eq 0
+    node.z - atan(node.x) eq 0
 }
 
 system DaeDimensionlessFunctionResidual {
@@ -23,7 +23,7 @@ with {
     duration = 0.5 s
     initial = 0.5
     initial_derivative = -0.4794255386
-    initial_algebraic = [0.877582562, 0]
+    initial_algebraic = [0.463647609, 0]
     tolerance = 0.000000001
     max_iter = 40
 }
