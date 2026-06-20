@@ -10,12 +10,17 @@ inputs RoomInput {
 system DiscreteRoomStateSpace {
     state x: StateVector[RoomState] = [20 degC, 19 degC]
     input u: InputVector[RoomInput] = [1200 W]
+    output Q_total: HeatRate [kW]
+
+    states x = [T_air, T_wall]
+    outputs y = [T_air, T_wall, Q_total]
 
     operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[1.0, 0.0]; [0.0, 1.0]]
     operator B: LinearOperator[RoomInput -> Derivative[RoomState]] = [[0.001]; [0.0004]]
 
     equation {
         next(x) eq A * x + B * u
+        Q_total eq Q_hvac + 0.8 kW
     }
 }
 

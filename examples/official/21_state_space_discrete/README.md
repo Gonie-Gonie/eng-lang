@@ -9,7 +9,8 @@ It exercises:
 - `StateVector[RoomState]` and `InputVector[RoomInput]` system declarations;
 - `operator A:` and `operator B:` source declarations;
 - `next(x) eq A * x + B * u` lowering to the discrete state-space runtime path;
-- `sim.T_air` and `sim.T_wall` TimeSeries materialization.
+- scalar `output Q_total` evaluation after each state update;
+- `sim.T_air`, `sim.T_wall`, and `sim.Q_total` TimeSeries materialization.
 
 This is a scoped state-space workflow. It is not a nonlinear, DAE, broad
 adaptive, or component-coupled solver claim.

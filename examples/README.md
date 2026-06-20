@@ -72,7 +72,7 @@ official/20_multi_state_thermal
 official/21_state_space_discrete
   Supported typed-block discrete state-space example with `StateVector[...]`,
   `InputVector[...]`, operator declarations, `next(x) eq A * x + B * u`, and
-  generated sim.T_air/sim.T_wall TimeSeries.
+  generated sim.T_air/sim.T_wall/sim.Q_total TimeSeries.
 
 official/22_state_space_continuous
   Supported typed-block continuous state-space example with promoted CSV
