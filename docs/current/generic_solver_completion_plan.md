@@ -213,7 +213,7 @@ Evidence gate:
 
 ## Active Implementation Queue
 
-1. Attach dimension, display-unit, and canonical-unit metadata to the reusable arithmetic expression tree.
+1. Propagate dimension/display/canonical metadata from literal nodes through symbol, unary, and binary expression nodes.
 2. Move static residual graph and dynamic component residual graph construction onto the same expression-lowering API.
 3. Use that shared expression API to broaden nonlinear and DAE source residuals without adding one-off string parsing.
 4. Generalize component-local parameterized dynamic equations and derivative terms through the shared expression tree.
@@ -226,6 +226,7 @@ Evidence gate:
 - Parameter values preserved into dense linear, fixed-point, Newton, and DAE residual paths for supported shapes.
 - Unit-parameterized linear component equations such as `Q eq UA * (T1 - T2)` across compatible display units, with compiler dimension checks, runtime coefficient conversion, source-to-runtime tests, docs, and `examples/official/33_unit_parameterized_wall` example-smoke coverage.
 - Runtime arithmetic residual expressions now lower once into a reusable AST used by both evaluation and finite-difference linearization, including derivative-symbol alias reuse across updated symbol values.
+- Numeric unit literals in the reusable arithmetic expression tree preserve display unit, canonical unit, and quantity-kind metadata from the existing unit registry without changing existing evaluator conversion behavior.
 
 ## Done Criteria
 

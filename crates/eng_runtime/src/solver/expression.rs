@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
+use eng_compiler::{all_unit_infos, normalize_unit};
+
 use super::SolverFailure;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -47,11 +49,22 @@ pub(crate) struct ParsedArithmeticExpression {
     root: ArithmeticExpressionNode,
     alias_symbols: HashMap<String, String>,
     profile: ArithmeticExpressionProfile,
+    pub(crate) unit_literals: Vec<ArithmeticUnitMetadata>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ArithmeticUnitMetadata {
+    pub(crate) display_unit: String,
+    pub(crate) canonical_unit: String,
+    pub(crate) quantity_kind: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 enum ArithmeticExpressionNode {
-    Number(f64),
+    Number {
+        value: f64,
+        unit: Option<ArithmeticUnitMetadata>,
+    },
     Symbol(String),
     UnaryMinus(Box<ArithmeticExpressionNode>),
     Binary {
@@ -96,7 +109,7 @@ impl ArithmeticExpressionNode {
         profile: ArithmeticExpressionProfile,
     ) -> Result<f64, SolverFailure> {
         match self {
-            Self::Number(value) => Ok(*value),
+            Self::Number { value, .. } => Ok(*value),
             Self::Symbol(name) => alias_symbols
                 .get(name)
                 .and_then(|original| symbols.get(original))
@@ -135,11 +148,28 @@ impl ArithmeticExpressionNode {
             }
         }
     }
+
+    fn collect_unit_literals(&self, units: &mut Vec<ArithmeticUnitMetadata>) {
+        match self {
+            Self::Number {
+                unit: Some(unit), ..
+            } => units.push(unit.clone()),
+            Self::Number { unit: None, .. } | Self::Symbol(_) => {}
+            Self::UnaryMinus(value) => value.collect_unit_literals(units),
+            Self::Binary { left, right, .. } => {
+                left.collect_unit_literals(units);
+                right.collect_unit_literals(units);
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 enum ArithmeticExpressionToken {
-    Number(f64),
+    Number {
+        value: f64,
+        unit: Option<ArithmeticUnitMetadata>,
+    },
     Identifier(String),
     Plus,
     Minus,
@@ -179,6 +209,8 @@ where
         profile,
     };
     let root = parser.parse_expression()?;
+    let mut unit_literals = Vec::new();
+    root.collect_unit_literals(&mut unit_literals);
     if parser.position != parser.tokens.len() {
         return Err(SolverFailure::new(
             profile.parse_code,
@@ -190,6 +222,7 @@ where
         root,
         alias_symbols,
         profile,
+        unit_literals,
     })
 }
 
@@ -414,8 +447,12 @@ where
                     )
                 })?;
                 let (next_index, unit) = consume_optional_unit_suffix(&chars, index);
+                let unit_metadata = arithmetic_unit_metadata(unit.as_deref());
                 let value = convert_number(value, unit.as_deref())?;
-                tokens.push(ArithmeticExpressionToken::Number(value));
+                tokens.push(ArithmeticExpressionToken::Number {
+                    value,
+                    unit: unit_metadata,
+                });
                 index = next_index;
             }
             _ if is_identifier_start(character) => {
@@ -437,6 +474,26 @@ where
         }
     }
     Ok(tokens)
+}
+
+fn arithmetic_unit_metadata(unit: Option<&str>) -> Option<ArithmeticUnitMetadata> {
+    let display_unit = unit?.trim();
+    if display_unit.is_empty() {
+        return None;
+    }
+    let normalized = normalize_unit(display_unit);
+    let info = all_unit_infos()
+        .iter()
+        .find(|info| normalize_unit(info.symbol) == normalized);
+    Some(ArithmeticUnitMetadata {
+        display_unit: display_unit.to_owned(),
+        canonical_unit: info
+            .map(|info| info.canonical_unit.to_owned())
+            .unwrap_or_else(|| display_unit.to_owned()),
+        quantity_kind: info
+            .map(|info| info.quantity_hint.to_owned())
+            .unwrap_or_else(|| "unknown".to_owned()),
+    })
 }
 
 fn consume_optional_unit_suffix(chars: &[char], index: usize) -> (usize, Option<String>) {
@@ -549,7 +606,9 @@ impl ArithmeticExpressionParser {
             ));
         };
         match token {
-            ArithmeticExpressionToken::Number(value) => Ok(ArithmeticExpressionNode::Number(value)),
+            ArithmeticExpressionToken::Number { value, unit } => {
+                Ok(ArithmeticExpressionNode::Number { value, unit })
+            }
             ArithmeticExpressionToken::Identifier(name) => {
                 Ok(ArithmeticExpressionNode::Symbol(name))
             }
@@ -604,6 +663,35 @@ mod tests {
         assert_eq!(value, 10.0);
     }
 
+    #[test]
+    fn parsed_expression_preserves_unit_literal_metadata() {
+        let symbols = HashMap::from([("x".to_owned(), 2.0)]);
+        let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
+        let parsed = parse_arithmetic_expression_with_unit_converter(
+            "x + 3 kW + 4 W/K",
+            &symbols,
+            &mut ignore_units,
+            ArithmeticExpressionProfile::SOURCE_RESIDUAL,
+        )
+        .unwrap();
+
+        assert_eq!(parsed.evaluate(&symbols).unwrap(), 9.0);
+        assert_eq!(
+            parsed.unit_literals,
+            vec![
+                ArithmeticUnitMetadata {
+                    display_unit: "kW".to_owned(),
+                    canonical_unit: "W".to_owned(),
+                    quantity_kind: "Power".to_owned(),
+                },
+                ArithmeticUnitMetadata {
+                    display_unit: "W/K".to_owned(),
+                    canonical_unit: "W/K".to_owned(),
+                    quantity_kind: "Conductance".to_owned(),
+                },
+            ]
+        );
+    }
     #[test]
     fn parsed_expression_reuses_tree_for_updated_symbols() {
         let mut symbols = HashMap::from([
