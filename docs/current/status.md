@@ -175,8 +175,9 @@ by the stable breaking-change policy.
   parsed derivative residual expressions, and selected algebraic output
   trajectories such as `node.y eq cos(node.x)`. Algebraic-free
   `dynamic_component_adaptive_heun` source solves now emit adaptive Heun
-  component trajectories and accepted-substep diagnostics; dynamic component
-  graphs with algebraic variables remain explicit unsupported artifacts.
+  component trajectories, scalar or fixed-step TimeSeries input
+  materialization, and accepted-substep diagnostics; dynamic component graphs
+  with algebraic variables remain explicit unsupported artifacts.
   Narrow coupled multi-variable
   unitful source Newton and multi-state unitful temperature implicit-Euler DAE
   component residual smokes are covered by

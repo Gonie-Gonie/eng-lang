@@ -134,9 +134,10 @@ Internal runtime seeds:
   substeps
 - narrow algebraic-free `solve component_graph` integration for
   `solver = dynamic_component_adaptive_heun`, using parsed derivative residual
-  expressions, fixed output-grid component trajectories, accepted-substep
-  diagnostics, and explicit `E-DYNAMIC-COMPONENT-ADAPTIVE-ALGEBRAIC` artifacts
-  for algebraic dynamic component graphs
+  expressions, scalar or fixed-step TimeSeries component inputs, fixed
+  output-grid component trajectories, accepted-substep diagnostics, and
+  explicit `E-DYNAMIC-COMPONENT-ADAPTIVE-ALGEBRAIC` artifacts for algebraic
+  dynamic component graphs
 - fixed-step ODE and dynamic-component updates use the actual final partial TimeGrid interval
 - explicit Euler samples RHS values at the start of each fixed-step interval
 - fixed-step ODE, fixed-point, and dynamic-component seeds reject non-finite RHS/update values
