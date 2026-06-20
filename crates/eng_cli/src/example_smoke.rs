@@ -1836,6 +1836,55 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new(
+            "tests/runtime/dynamic_component_adaptive_nonlinear_algebraic_timeseries_input.eng",
+        ),
+        Path::new(
+            "build/test-runtime-dynamic-component-adaptive-nonlinear-algebraic-timeseries-input",
+        ),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_adaptive_heun_source\"")
+                || !output.result_json.contains(
+                    "algebraic residual materialization and TimeSeries input materialization",
+                )
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"adaptive_heun_completed\"")
+                || !output.result_json.contains("\"name\": \"node.node.y\"")
+                || !output.result_json.contains("\"role\": \"algebraic\"")
+                || !output.result_json.contains("\"final_value\": 1.24106612")
+                || !output.result_json.contains("drive_data.drive")
+                || !output
+                    .report_spec_json
+                    .contains("node.node.y * node.node.y eq cos(node.node.x) + node.drive")
+                || !output.report_spec_json.contains("\"name\": \"node.drive\"")
+                || !output.report_spec_json.contains("\"input_count\": 1")
+                || !output.report_spec_json.contains("drive_data.drive")
+                || !output.report_spec_json.contains("adaptive_heun_accepted")
+                || !output.report_html.contains("node.node.y=1.241066")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_adaptive_nonlinear_algebraic_timeseries_input.eng to solve adaptive TimeSeries-driven Newton algebraic output"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_adaptive_nonlinear_algebraic_timeseries_input.eng solved adaptive TimeSeries-driven Newton algebraic output"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component adaptive TimeSeries Newton algebraic runtime fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/dynamic_component_parameterized_function_explicit.eng"),
         Path::new("build/test-runtime-dynamic-component-parameterized-function-explicit"),
         &artifact_run_options(),
