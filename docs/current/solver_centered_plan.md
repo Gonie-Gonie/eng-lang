@@ -43,7 +43,7 @@ end:
 | SOLVER-203 | Discrete state-space runtime | Implemented for `examples/official/21_state_space_discrete` and internal runtime seeds. |
 | SOLVER-204 | Continuous state-space via RHS evaluator | Implemented for `examples/official/22_state_space_continuous` and internal runtime seeds. |
 | SOLVER-205 | State-space IDE/report panel | Implemented in report artifacts and IDE smoke. |
-| SOLVER-301 | Component instance and port graph collection | Implemented for top-level component fixtures and supported system-local `name = Component(...)` instances with empty constructors or declared numeric parameter defaults/overrides. |
+| SOLVER-301 | Component instance and port graph collection | Implemented for top-level component fixtures and supported system-local `name = Component(...)` instances with empty constructors or declared numeric/importable-const/pure-arithmetic parameter defaults/overrides. |
 | SOLVER-302 | Thermal domain connection equations | Implemented for the supported `examples/official/23_thermal_component_assembly` boundary graph, source-to-solver `examples/official/24_linear_algebraic_thermal_node`, and internal fixtures. |
 | SOLVER-303 | Equation/unknown classification | Implemented in assembly artifacts. |
 | SOLVER-304 | ResidualGraph artifact | Implemented with dependency and solver-plan metadata. |

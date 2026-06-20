@@ -5157,27 +5157,42 @@ fn resolve_component_parameter_value(
             )
             .then(|| resolved.to_owned());
         }
-        diagnostics.push(Diagnostic::error(
-            "E-COMPONENT-PARAM-002",
-            line,
-            &format!(
-                "Component parameter `{parameter_name}` const `{}` does not resolve to a finite numeric literal.",
-                const_info.name
-            ),
-            Some("Use an importable const whose expression is a finite numeric literal with an optional compatible unit."),
-        ));
-        return None;
     }
 
-    diagnostics.push(Diagnostic::error(
-        "E-COMPONENT-PARAM-002",
-        line,
-        &format!(
-            "Component parameter `{parameter_name}` expects a numeric literal or importable const default/override, got `{value}`."
-        ),
-        Some("Use a finite numeric literal, such as `20000 Pa`, or a top-level const with a compatible quantity."),
-    ));
-    None
+    match evaluate_component_parameter_expression(value, consts) {
+        Ok(evaluated) => {
+            let expected_dimension = dimension_for_quantity(quantity_kind);
+            if dimensions_compatible(&expected_dimension, &evaluated.dimension) {
+                Some(format_number_with_unit(
+                    evaluated.value,
+                    &default_unit_for_quantity(quantity_kind),
+                ))
+            } else {
+                diagnostics.push(Diagnostic::error(
+                    "E-COMPONENT-PARAM-UNIT-001",
+                    line,
+                    &format!(
+                        "Component parameter `{parameter_name}` expects `{quantity_kind}`, but expression `{value}` has dimension `{}`.",
+                        evaluated.dimension
+                    ),
+                    Some("Use a constructor/default expression whose units reduce to the declared parameter quantity."),
+                ));
+                None
+            }
+        }
+        Err(error) => {
+            diagnostics.push(Diagnostic::error(
+                error.code,
+                line,
+                &format!(
+                    "Component parameter `{parameter_name}` expects a numeric literal, importable const, or pure arithmetic expression, got `{value}`: {}.",
+                    error.message
+                ),
+                Some(error.help),
+            ));
+            None
+        }
+    }
 }
 
 fn component_parameter_literal_compatible(
@@ -5205,6 +5220,481 @@ fn component_parameter_literal_compatible(
             Some("Use a constructor/default value with a unit compatible with the declared parameter quantity."),
         ));
         false
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct ComponentParameterExpressionValue {
+    value: f64,
+    dimension: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ComponentParameterExpressionError {
+    code: &'static str,
+    message: String,
+    help: &'static str,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum ComponentParameterExpressionToken {
+    Number(ComponentParameterExpressionValue),
+    Identifier(String),
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    LeftParen,
+    RightParen,
+}
+
+fn evaluate_component_parameter_expression(
+    expression: &str,
+    consts: &[ConstInfo],
+) -> Result<ComponentParameterExpressionValue, ComponentParameterExpressionError> {
+    evaluate_component_parameter_expression_inner(expression, consts, 0)
+}
+
+fn evaluate_component_parameter_expression_inner(
+    expression: &str,
+    consts: &[ConstInfo],
+    depth: usize,
+) -> Result<ComponentParameterExpressionValue, ComponentParameterExpressionError> {
+    if depth > 16 {
+        return Err(component_parameter_expression_error(
+            "E-COMPONENT-PARAM-002",
+            "const expression expansion exceeded the supported depth",
+            "Reduce nested const references in the component parameter expression.",
+        ));
+    }
+    let tokens = tokenize_component_parameter_expression(expression, consts, depth)?;
+    if tokens.is_empty() {
+        return Err(component_parameter_expression_error(
+            "E-COMPONENT-PARAM-002",
+            "expression is empty",
+            "Use a finite numeric literal, importable const, or pure arithmetic expression.",
+        ));
+    }
+    let mut parser = ComponentParameterExpressionParser {
+        tokens,
+        position: 0,
+    };
+    let value = parser.parse_expression()?;
+    if parser.position != parser.tokens.len() {
+        return Err(component_parameter_expression_error(
+            "E-COMPONENT-PARAM-002",
+            "expression has trailing unsupported tokens",
+            "Use only numeric literals, importable consts, parentheses, and +, -, *, /.",
+        ));
+    }
+    if !value.value.is_finite() {
+        return Err(component_parameter_expression_error(
+            "E-COMPONENT-PARAM-002",
+            "expression produced a non-finite value",
+            "Use finite numeric values and avoid overflow or division by zero.",
+        ));
+    }
+    Ok(value)
+}
+
+fn tokenize_component_parameter_expression(
+    expression: &str,
+    consts: &[ConstInfo],
+    depth: usize,
+) -> Result<Vec<ComponentParameterExpressionToken>, ComponentParameterExpressionError> {
+    let chars = expression.chars().collect::<Vec<_>>();
+    let mut tokens = Vec::new();
+    let mut index = 0usize;
+    while index < chars.len() {
+        let character = chars[index];
+        if character.is_ascii_whitespace() {
+            index += 1;
+            continue;
+        }
+        match character {
+            '+' => {
+                tokens.push(ComponentParameterExpressionToken::Plus);
+                index += 1;
+            }
+            '-' => {
+                tokens.push(ComponentParameterExpressionToken::Minus);
+                index += 1;
+            }
+            '*' => {
+                tokens.push(ComponentParameterExpressionToken::Star);
+                index += 1;
+            }
+            '/' => {
+                tokens.push(ComponentParameterExpressionToken::Slash);
+                index += 1;
+            }
+            '(' => {
+                tokens.push(ComponentParameterExpressionToken::LeftParen);
+                index += 1;
+            }
+            ')' => {
+                tokens.push(ComponentParameterExpressionToken::RightParen);
+                index += 1;
+            }
+            _ if character.is_ascii_digit()
+                || character == '.'
+                    && chars
+                        .get(index + 1)
+                        .is_some_and(|next| next.is_ascii_digit()) =>
+            {
+                let start = index;
+                index += 1;
+                while index < chars.len() {
+                    let current = chars[index];
+                    if current.is_ascii_digit() || current == '.' {
+                        index += 1;
+                    } else if matches!(current, 'e' | 'E') {
+                        index += 1;
+                        if chars
+                            .get(index)
+                            .is_some_and(|next| matches!(next, '+' | '-'))
+                        {
+                            index += 1;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                let literal = chars[start..index].iter().collect::<String>();
+                let amount = literal.parse::<f64>().map_err(|_| {
+                    component_parameter_expression_error(
+                        "E-COMPONENT-PARAM-002",
+                        format!("invalid numeric literal `{literal}`"),
+                        "Use finite decimal numeric literals in component parameter expressions.",
+                    )
+                })?;
+                let (next_index, unit) = consume_component_parameter_unit_suffix(&chars, index);
+                tokens.push(ComponentParameterExpressionToken::Number(
+                    component_parameter_number_value(amount, unit.as_deref())?,
+                ));
+                index = next_index;
+            }
+            _ if is_identifier_start_character(character) => {
+                let start = index;
+                index += 1;
+                while index < chars.len() && is_identifier_continue_character(chars[index]) {
+                    index += 1;
+                }
+                let name = chars[start..index].iter().collect::<String>();
+                if let Some(const_info) = consts
+                    .iter()
+                    .find(|const_info| const_info.importable && const_info.name == name)
+                {
+                    tokens.push(ComponentParameterExpressionToken::Number(
+                        component_parameter_const_value(const_info, consts, depth + 1)?,
+                    ));
+                } else {
+                    tokens.push(ComponentParameterExpressionToken::Identifier(name));
+                }
+            }
+            _ => {
+                return Err(component_parameter_expression_error(
+                    "E-COMPONENT-PARAM-002",
+                    format!("unsupported character `{character}`"),
+                    "Use only numeric literals, importable consts, parentheses, and +, -, *, /.",
+                ));
+            }
+        }
+    }
+    Ok(tokens)
+}
+
+fn consume_component_parameter_unit_suffix(
+    chars: &[char],
+    index: usize,
+) -> (usize, Option<String>) {
+    let mut cursor = index;
+    let mut saw_whitespace = false;
+    while chars
+        .get(cursor)
+        .is_some_and(|character| character.is_ascii_whitespace())
+    {
+        saw_whitespace = true;
+        cursor += 1;
+    }
+    if !saw_whitespace {
+        return (index, None);
+    }
+
+    let suffix_start = cursor;
+    while let Some(character) = chars.get(cursor) {
+        if character.is_ascii_whitespace() || matches!(character, '+' | '-' | '*' | '(' | ')') {
+            break;
+        }
+        if *character == '/'
+            || *character == '^'
+            || character.is_ascii_alphanumeric()
+            || *character == '\u{00b0}'
+        {
+            cursor += 1;
+        } else {
+            break;
+        }
+    }
+    let suffix = chars[suffix_start..cursor].iter().collect::<String>();
+    if !suffix.is_empty()
+        && suffix
+            .chars()
+            .any(|character| character.is_ascii_alphabetic() || character == '\u{00b0}')
+    {
+        (cursor, Some(suffix))
+    } else {
+        (index, None)
+    }
+}
+
+fn component_parameter_number_value(
+    amount: f64,
+    unit: Option<&str>,
+) -> Result<ComponentParameterExpressionValue, ComponentParameterExpressionError> {
+    let Some(unit) = unit else {
+        return Ok(ComponentParameterExpressionValue {
+            value: amount,
+            dimension: "Dimensionless".to_owned(),
+        });
+    };
+    component_parameter_unit_value(amount, unit)
+}
+
+fn component_parameter_const_value(
+    const_info: &ConstInfo,
+    consts: &[ConstInfo],
+    depth: usize,
+) -> Result<ComponentParameterExpressionValue, ComponentParameterExpressionError> {
+    if let Some((amount, unit)) = numeric_literal_with_optional_unit(&const_info.expression) {
+        let unit = unit.as_deref().unwrap_or(&const_info.display_unit);
+        let value = component_parameter_unit_value(amount, unit)?;
+        if dimensions_compatible(&const_info.dimension, &value.dimension) {
+            return Ok(ComponentParameterExpressionValue {
+                value: value.value,
+                dimension: const_info.dimension.clone(),
+            });
+        }
+        return Err(component_parameter_expression_error(
+            "E-COMPONENT-PARAM-UNIT-001",
+            format!(
+                "const `{}` has declared dimension `{}` but literal dimension `{}`",
+                const_info.name, const_info.dimension, value.dimension
+            ),
+            "Make imported const annotations and unit literals compatible.",
+        ));
+    }
+
+    let value =
+        evaluate_component_parameter_expression_inner(&const_info.expression, consts, depth)?;
+    if dimensions_compatible(&const_info.dimension, &value.dimension) {
+        Ok(ComponentParameterExpressionValue {
+            value: value.value,
+            dimension: const_info.dimension.clone(),
+        })
+    } else {
+        Err(component_parameter_expression_error(
+            "E-COMPONENT-PARAM-UNIT-001",
+            format!(
+                "const `{}` has declared dimension `{}` but expression dimension `{}`",
+                const_info.name, const_info.dimension, value.dimension
+            ),
+            "Make imported const annotations and arithmetic expression units compatible.",
+        ))
+    }
+}
+
+fn component_parameter_unit_value(
+    amount: f64,
+    unit: &str,
+) -> Result<ComponentParameterExpressionValue, ComponentParameterExpressionError> {
+    if normalize_unit(unit) == "1" {
+        return Ok(ComponentParameterExpressionValue {
+            value: amount,
+            dimension: "Dimensionless".to_owned(),
+        });
+    }
+    let Some(unit_info) = unit_info_for_symbol(unit) else {
+        return Err(component_parameter_expression_error(
+            "E-COMPONENT-PARAM-UNIT-001",
+            format!("unit `{unit}` is not supported"),
+            "Use units from the built-in unit registry in component parameter expressions.",
+        ));
+    };
+    let scale = unit_info.scale_to_canonical.parse::<f64>().map_err(|_| {
+        component_parameter_expression_error(
+            "E-COMPONENT-PARAM-002",
+            format!("unit `{unit}` has an invalid scale seed"),
+            "Use units with finite conversion metadata.",
+        )
+    })?;
+    let offset = unit_info
+        .affine_offset
+        .and_then(|offset| offset.parse::<f64>().ok())
+        .unwrap_or(0.0);
+    Ok(ComponentParameterExpressionValue {
+        value: amount * scale + offset,
+        dimension: unit_info.dimension.to_owned(),
+    })
+}
+
+struct ComponentParameterExpressionParser {
+    tokens: Vec<ComponentParameterExpressionToken>,
+    position: usize,
+}
+
+impl ComponentParameterExpressionParser {
+    fn parse_expression(
+        &mut self,
+    ) -> Result<ComponentParameterExpressionValue, ComponentParameterExpressionError> {
+        let mut value = self.parse_term()?;
+        loop {
+            match self.peek() {
+                Some(ComponentParameterExpressionToken::Plus) => {
+                    self.position += 1;
+                    let right = self.parse_term()?;
+                    value = add_component_parameter_values(value, right, 1.0)?;
+                }
+                Some(ComponentParameterExpressionToken::Minus) => {
+                    self.position += 1;
+                    let right = self.parse_term()?;
+                    value = add_component_parameter_values(value, right, -1.0)?;
+                }
+                _ => return Ok(value),
+            }
+        }
+    }
+
+    fn parse_term(
+        &mut self,
+    ) -> Result<ComponentParameterExpressionValue, ComponentParameterExpressionError> {
+        let mut value = self.parse_factor()?;
+        loop {
+            match self.peek() {
+                Some(ComponentParameterExpressionToken::Star) => {
+                    self.position += 1;
+                    let right = self.parse_factor()?;
+                    value = ComponentParameterExpressionValue {
+                        value: value.value * right.value,
+                        dimension: multiply_dimensions(&value.dimension, &right.dimension),
+                    };
+                }
+                Some(ComponentParameterExpressionToken::Slash) => {
+                    self.position += 1;
+                    let right = self.parse_factor()?;
+                    if right.value.abs() <= f64::EPSILON {
+                        return Err(component_parameter_expression_error(
+                            "E-COMPONENT-PARAM-002",
+                            "expression attempted division by zero",
+                            "Avoid division by zero in component parameter expressions.",
+                        ));
+                    }
+                    value = ComponentParameterExpressionValue {
+                        value: value.value / right.value,
+                        dimension: divide_dimensions(&value.dimension, &right.dimension),
+                    };
+                }
+                _ => return Ok(value),
+            }
+        }
+    }
+
+    fn parse_factor(
+        &mut self,
+    ) -> Result<ComponentParameterExpressionValue, ComponentParameterExpressionError> {
+        let Some(token) = self.next().cloned() else {
+            return Err(component_parameter_expression_error(
+                "E-COMPONENT-PARAM-002",
+                "expression ended unexpectedly",
+                "Use complete numeric literals, const references, or parenthesized expressions.",
+            ));
+        };
+        match token {
+            ComponentParameterExpressionToken::Number(value) => Ok(value),
+            ComponentParameterExpressionToken::Identifier(name) => {
+                Err(component_parameter_expression_error(
+                    "E-COMPONENT-PARAM-002",
+                    format!("unknown symbol `{name}`"),
+                    "Reference only importable top-level consts from component parameter expressions.",
+                ))
+            }
+            ComponentParameterExpressionToken::Minus => {
+                let mut value = self.parse_factor()?;
+                value.value = -value.value;
+                Ok(value)
+            }
+            ComponentParameterExpressionToken::Plus => self.parse_factor(),
+            ComponentParameterExpressionToken::LeftParen => {
+                let value = self.parse_expression()?;
+                match self.next() {
+                    Some(ComponentParameterExpressionToken::RightParen) => Ok(value),
+                    _ => Err(component_parameter_expression_error(
+                        "E-COMPONENT-PARAM-002",
+                        "expression has an unclosed parenthesis",
+                        "Close parenthesized component parameter expressions.",
+                    )),
+                }
+            }
+            _ => Err(component_parameter_expression_error(
+                "E-COMPONENT-PARAM-002",
+                "expression expected a value",
+                "Use complete numeric literals, const references, or parenthesized expressions.",
+            )),
+        }
+    }
+
+    fn peek(&self) -> Option<&ComponentParameterExpressionToken> {
+        self.tokens.get(self.position)
+    }
+
+    fn next(&mut self) -> Option<&ComponentParameterExpressionToken> {
+        let token = self.tokens.get(self.position);
+        if token.is_some() {
+            self.position += 1;
+        }
+        token
+    }
+}
+
+fn add_component_parameter_values(
+    left: ComponentParameterExpressionValue,
+    right: ComponentParameterExpressionValue,
+    right_sign: f64,
+) -> Result<ComponentParameterExpressionValue, ComponentParameterExpressionError> {
+    if !dimensions_compatible(&left.dimension, &right.dimension) {
+        return Err(component_parameter_expression_error(
+            "E-COMPONENT-PARAM-UNIT-001",
+            format!(
+                "cannot add dimensions `{}` and `{}`",
+                left.dimension, right.dimension
+            ),
+            "Add or subtract only component parameter terms with compatible units.",
+        ));
+    }
+    Ok(ComponentParameterExpressionValue {
+        value: left.value + right_sign * right.value,
+        dimension: left.dimension,
+    })
+}
+
+fn divide_dimensions(left: &str, right: &str) -> String {
+    match (left, right) {
+        (left, "Dimensionless") => left.to_owned(),
+        ("Dimensionless", right) => format!("1/{right}"),
+        (left, right) if left == right => "Dimensionless".to_owned(),
+        (left, right) => format!("{left}/{right}"),
+    }
+}
+
+fn component_parameter_expression_error(
+    code: &'static str,
+    message: impl Into<String>,
+    help: &'static str,
+) -> ComponentParameterExpressionError {
+    ComponentParameterExpressionError {
+        code,
+        message: message.into(),
+        help,
     }
 }
 fn analyze_component_local_expression(

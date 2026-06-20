@@ -5220,6 +5220,91 @@ mod tests {
         assert!(review.contains("\"value\": \"ROOM_Q\""));
     }
     #[test]
+    fn accepts_arithmetic_component_parameter_defaults_and_constructor_overrides() {
+        let source = r#"const BASE_T: AbsoluteTemperature [degC] = 20 degC
+const DT_ROOM: TemperatureDelta [K] = 2 K
+const BASE_Q: HeatRate [kW] = 1 kW
+
+domain Thermal {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+component RoomBoundary {
+    port heat: Thermal
+    parameter T_room: AbsoluteTemperature [degC] = BASE_T + DT_ROOM
+    parameter Q_room: HeatRate [W] = BASE_Q * 2 + 500 W
+    boundary_T = heat.T = T_room
+    boundary_Q = heat.Q = Q_room
+}
+
+component AmbientBoundary {
+    port heat: Thermal
+}
+
+system Envelope {
+    room = RoomBoundary(Q_room=(BASE_Q * 3) / 2)
+    ambient = AmbientBoundary()
+    connect room.heat to ambient.heat
+}
+"#;
+        let report = check_source("ok.eng", source, &CheckOptions::default());
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let room = report
+            .semantic_program
+            .components
+            .iter()
+            .find(|component| component.name == "room")
+            .expect("room instance");
+        assert_eq!(room.constructor_arguments[0].name, "Q_room");
+        assert_eq!(room.constructor_arguments[0].value, "(BASE_Q * 3) / 2");
+        assert_eq!(
+            room.parameters[0].default_value.as_deref(),
+            Some("BASE_T + DT_ROOM")
+        );
+        assert_eq!(room.parameters[0].value.as_deref(), Some("295.15 K"));
+        assert_eq!(room.parameters[0].status, "defaulted");
+        assert_eq!(room.parameters[1].value.as_deref(), Some("1500 W"));
+        assert_eq!(room.parameters[1].status, "constructor_override");
+
+        let review = review_json(&report);
+        assert!(review.contains("\"default_value\": \"BASE_T + DT_ROOM\""));
+        assert!(review.contains("\"value\": \"295.15 K\""));
+        assert!(review.contains("\"value\": \"(BASE_Q * 3) / 2\""));
+    }
+
+    #[test]
+    fn rejects_incompatible_component_parameter_expressions() {
+        let source = r#"const BASE_Q: HeatRate [kW] = 2 kW
+
+domain Fluid[Medium M] {
+    across p: Pressure [Pa]
+    through m_dot: MassFlowRate [kg/s]
+    conservation sum(m_dot) = 0
+}
+
+component PumpBoundary {
+    port supply: Fluid[Water]
+    parameter p_supply: Pressure [Pa]
+    supply_pressure = supply.p = p_supply
+}
+
+system Loop {
+    pump = PumpBoundary(BASE_Q + 1 kW)
+}
+"#;
+        let report = check_source("bad.eng", source, &CheckOptions::default());
+
+        assert!(report.has_errors());
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-COMPONENT-PARAM-UNIT-001"
+                && diagnostic.message.contains("p_supply")
+                && diagnostic.message.contains("Power")
+        }));
+    }
+    #[test]
     fn rejects_incompatible_const_component_parameter_values() {
         let report = check_source(
             "bad.eng",
