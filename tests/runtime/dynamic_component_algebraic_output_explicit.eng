@@ -1,0 +1,30 @@
+domain ScalarSignal {
+    across x: DimensionlessNumber [1]
+    across y: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component FunctionOutputNode {
+    port node: ScalarSignal
+    der(node.x) + sin(node.x) eq 0
+    node.y eq cos(node.x)
+}
+
+system DynamicFunctionOutputExplicit {
+    node = FunctionOutputNode()
+    connect node.node to node.node
+}
+
+function_output_result = solve component_graph
+with {
+    solver = dynamic_component_explicit_euler
+    timestep = 0.25 s
+    duration = 1 s
+    initial = 0.5
+    initial_algebraic = 0
+}
+
+report {
+    show function_output_result
+}

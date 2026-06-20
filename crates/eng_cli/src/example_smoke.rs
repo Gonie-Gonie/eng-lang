@@ -1503,6 +1503,51 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/dynamic_component_algebraic_output_explicit.eng"),
+        Path::new("build/test-runtime-dynamic-component-algebraic-output-explicit"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_explicit_euler\"")
+                || !output.result_json.contains(
+                    "dynamic component source solve executed parsed derivative residual expressions",
+                )
+                || !output.result_json.contains("\"equation_count\": 2")
+                || !output.result_json.contains("\"unknown_count\": 2")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"role\": \"state\"")
+                || !output.result_json.contains("\"final_value\": 0.16281192")
+                || !output.result_json.contains("\"name\": \"node.node.y\"")
+                || !output.result_json.contains("\"role\": \"algebraic\"")
+                || !output.result_json.contains("\"final_value\": 0.98677539")
+                || !output.result_json.contains("\"largest_residual_name\": \"node.node.y\"")
+                || !output
+                    .report_spec_json
+                    .contains("node.node.y eq cos(node.node.x)")
+                || !output.report_spec_json.contains("\"state_count\": 1")
+                || !output.report_spec_json.contains("\"step_diagnostics\"")
+                || !output.report_html.contains("node.node.y=0.986775")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_algebraic_output_explicit.eng to solve an explicit dynamic component RHS with a selected algebraic output trajectory"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_algebraic_output_explicit.eng solved explicit dynamic component algebraic output trajectory"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component algebraic-output explicit runtime fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/dynamic_component_semi_implicit.eng"),
         Path::new("build/test-runtime-dynamic-component-semi-implicit"),
         &artifact_run_options(),

@@ -79,6 +79,7 @@ Immediate execution order is evidence-driven:
 
 ## Progress Ledger
 
+- 2026-06-21: `dynamic_component_explicit_euler` parsed derivative residual coverage now includes a selected algebraic output trajectory fixture, proving `node.y eq cos(node.x)` is carried into runtime/report artifacts alongside the state trajectory and per-step residual evidence. This advances W5 output materialization without claiming general nonlinear algebraic coupling or adaptive component timestepping.
 - 2026-06-21: Algebraic-free `dynamic_component_explicit_euler` function RHS coverage now includes a coupled two-state dimensionless `sin`/`cos` residual fixture, proving parsed derivative residual expressions are not limited to one state and that multi-state trajectories, equation counts, dependency metadata, and report artifacts stay aligned.
 - 2026-06-21: Algebraic-free `dynamic_component_explicit_euler` function RHS coverage now includes constructor-overridden component parameters in parsed residual expressions, proving `node.k * sin(node.node.x)` dependencies, parameter provenance, trajectory output, and report artifacts are preserved through the explicit dynamic component evaluator.
 - 2026-06-21: Algebraic-free `dynamic_component_explicit_euler` source solves now route derivative residuals through parsed arithmetic residual expressions, including a dimensionless `sin()` RHS fixture with runtime, report-spec, report HTML, trajectory, and step-diagnostic smoke coverage. This advances W5 without claiming nonlinear algebraic coupling, adaptive component timestepping, or broad unitful function support.
@@ -202,7 +203,7 @@ Tasks:
 - Generate RHS evaluators from derivative equations, residual equations, and behavior nodes.
 - Support fixed-step Euler/RK4 and adaptive Heun over multi-state component-coupled systems.
 - Add TimeSeries interpolation policy, final partial-step handling, event hooks, and deterministic replay metadata.
-- Emit RuntimeTimeSeries for every named state and selected algebraic output. Source-equation and typed-block state-space scalar outputs are implemented; shared-IR/component-coupled outputs remain.
+- Emit RuntimeTimeSeries for every named state and selected algebraic output. Source-equation and typed-block state-space scalar outputs are implemented; a selected explicit dynamic-component algebraic output fixture is implemented; broad shared-IR/component-coupled outputs remain.
 
 Evidence gate:
 

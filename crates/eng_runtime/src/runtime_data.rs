@@ -4279,7 +4279,7 @@ fn dynamic_component_solution_from_solve_request(
         }
     };
 
-    if solver == "dynamic_component_explicit_euler" && split.algebraic_layout.is_empty() {
+    if solver == "dynamic_component_explicit_euler" {
         return match expression_dynamic_component_solution_from_solve_request(
             dynamic_assembly,
             &split,
@@ -4319,12 +4319,6 @@ fn expression_dynamic_component_solution_from_solve_request(
     solve_input: DynamicComponentAssemblySolveInput,
     options: DynamicComponentOptions,
 ) -> Result<RuntimeComponentSolution, SolverFailure> {
-    if !solve_input.initial_algebraic.is_empty() {
-        return Err(SolverFailure::new(
-            "E-DYNAMIC-COMPONENT-ASSEMBLY-LAYOUT",
-            "dynamic component assembly explicit solve received algebraic initial values but the assembly has no algebraic layout",
-        ));
-    }
     let parse_symbols = source_dynamic_component_parse_symbols(assembly, &solve_input.parameters)?;
     let parsed_residuals = parse_source_residual_expressions(assembly, &parse_symbols)?;
     let solver_input = SolverInput {
@@ -4354,15 +4348,32 @@ fn expression_dynamic_component_solution_from_solve_request(
     };
     let dynamic_result = solve_explicit_euler_with_algebraic(
         &solver_input,
-        StateLayout::default(),
-        Vec::new(),
+        split.algebraic_layout.clone(),
+        solve_input.initial_algebraic,
         options,
-        |_| Ok(Vec::new()),
         |sample| {
             let symbols = source_dynamic_component_symbols(
                 assembly,
                 sample.time_s,
                 sample.state,
+                sample.algebraic,
+                sample.inputs,
+                sample.parameters,
+            );
+            source_residual_algebraic_values_from_affine_terms(
+                assembly,
+                &split.algebraic_layout,
+                &parsed_residuals,
+                &symbols,
+                "dynamic component source",
+            )
+        },
+        |sample| {
+            let symbols = source_dynamic_component_symbols(
+                assembly,
+                sample.time_s,
+                sample.state,
+                sample.algebraic,
                 sample.inputs,
                 sample.parameters,
             );
@@ -4985,6 +4996,9 @@ fn source_residual_parse_symbols(
         symbols.insert(state.name.clone(), 0.0);
         symbols.insert(format!("der({})", state.name), 0.0);
     }
+    for algebraic in &assembly.algebraic_variables {
+        symbols.insert(algebraic.name.clone(), 0.0);
+    }
     for input in &assembly.inputs {
         symbols.insert(input.name.clone(), 0.0);
     }
@@ -5050,6 +5064,7 @@ fn source_dynamic_component_symbols(
     assembly: &EquationAssembly,
     time_s: f64,
     state: &[f64],
+    algebraic: &[f64],
     inputs: &[SolverScalar],
     parameters: &[SolverScalar],
 ) -> HashMap<String, f64> {
@@ -5059,6 +5074,13 @@ fn source_dynamic_component_symbols(
     for (variable, value) in assembly.states.iter().zip(state.iter().copied()) {
         symbols.insert(variable.name.clone(), value);
     }
+    for (variable, value) in assembly
+        .algebraic_variables
+        .iter()
+        .zip(algebraic.iter().copied())
+    {
+        symbols.insert(variable.name.clone(), value);
+    }
     for input in inputs {
         symbols.insert(input.name.clone(), input.value);
     }
@@ -5066,6 +5088,91 @@ fn source_dynamic_component_symbols(
         symbols.insert(parameter.name.clone(), parameter.value);
     }
     symbols
+}
+
+fn source_residual_algebraic_values_from_affine_terms(
+    assembly: &EquationAssembly,
+    algebraic_layout: &StateLayout,
+    parsed_residuals: &[ParsedSourceResidual],
+    symbols: &HashMap<String, f64>,
+    context: &str,
+) -> Result<Vec<f64>, SolverFailure> {
+    if parsed_residuals.len() != assembly.generated_equations.len() {
+        return Err(SolverFailure::new(
+            "E-SOURCE-ALGEBRAIC-PARSE-LAYOUT",
+            format!("{context} parsed residual count does not match generated equation count"),
+        ));
+    }
+    let algebraic_names = algebraic_layout
+        .entries
+        .iter()
+        .map(|entry| entry.name.as_str())
+        .collect::<Vec<_>>();
+    let derivative_names = assembly
+        .states
+        .iter()
+        .map(|state| format!("der({})", state.name))
+        .collect::<Vec<_>>();
+    let mut values = Vec::with_capacity(algebraic_names.len());
+    for variable_name in algebraic_names {
+        let (equation, parsed) = assembly
+            .generated_equations
+            .iter()
+            .zip(parsed_residuals.iter())
+            .find(|(equation, _parsed)| {
+                !equation_has_derivative_dependency(equation)
+                    && equation
+                        .dependencies
+                        .iter()
+                        .any(|dependency| dependency == variable_name)
+            })
+            .ok_or_else(|| {
+                SolverFailure::new(
+                    "E-SOURCE-ALGEBRAIC-SHAPE",
+                    format!(
+                        "{context} solve could not find algebraic residual for `{variable_name}`"
+                    ),
+                )
+            })?;
+        let mut base_symbols = symbols.clone();
+        for name in &derivative_names {
+            base_symbols.insert(name.clone(), 0.0);
+        }
+        base_symbols.insert(variable_name.to_owned(), 0.0);
+        let base = parsed.expression.evaluate(&base_symbols)?;
+        let mut one_symbols = base_symbols.clone();
+        one_symbols.insert(variable_name.to_owned(), 1.0);
+        let coefficient = parsed.expression.evaluate(&one_symbols)? - base;
+        let mut two_symbols = base_symbols;
+        two_symbols.insert(variable_name.to_owned(), 2.0);
+        let second_delta = parsed.expression.evaluate(&two_symbols)? - base;
+        if !coefficient.is_finite()
+            || coefficient.abs() <= f64::EPSILON
+            || !second_delta.is_finite()
+            || (second_delta - 2.0 * coefficient).abs() > 1e-9
+        {
+            return Err(SolverFailure::new(
+                "E-SOURCE-ALGEBRAIC-SHAPE",
+                format!(
+                    "{context} residual `{}` does not contain a solvable affine algebraic coefficient for `{variable_name}`",
+                    equation.name
+                ),
+            ));
+        }
+        let target = equation.rhs_value.unwrap_or(0.0);
+        let value = (target - base) / coefficient;
+        if !value.is_finite() {
+            return Err(SolverFailure::new(
+                "E-SOURCE-ALGEBRAIC-FINITE",
+                format!(
+                    "{context} residual `{}` produced a non-finite algebraic value",
+                    equation.name
+                ),
+            ));
+        }
+        values.push(value);
+    }
+    Ok(values)
 }
 
 fn source_residual_derivatives_from_affine_derivative_terms(
@@ -5140,17 +5247,31 @@ fn source_residual_derivatives_from_affine_derivative_terms(
     Ok(derivatives)
 }
 
+fn equation_has_derivative_dependency(equation: &GeneratedEquation) -> bool {
+    equation
+        .dependencies
+        .iter()
+        .any(|dependency| dependency.trim().starts_with("der("))
+}
+
 fn explicit_dynamic_component_source_assembly(
     assembly: &EquationAssembly,
 ) -> Result<EquationAssembly, SolverFailure> {
+    let algebraic_names = assembly
+        .algebraic_variables
+        .iter()
+        .map(|variable| variable.name.as_str())
+        .collect::<std::collections::HashSet<_>>();
     let generated_equations = assembly
         .generated_equations
         .iter()
         .filter(|equation| {
-            equation
-                .dependencies
-                .iter()
-                .any(|dependency| dependency.trim().starts_with("der("))
+            equation_has_derivative_dependency(equation)
+                || (equation.kind == "component_equation"
+                    && equation
+                        .dependencies
+                        .iter()
+                        .any(|dependency| algebraic_names.contains(dependency.as_str())))
         })
         .cloned()
         .collect::<Vec<_>>();
@@ -5168,8 +5289,25 @@ fn explicit_dynamic_component_source_assembly(
     }
     let mut explicit = assembly.clone();
     explicit.generated_equations = generated_equations;
-    explicit.algebraic_variables.clear();
-    explicit.unknowns = explicit.states.clone();
+    let selected_algebraic_names = explicit
+        .generated_equations
+        .iter()
+        .filter(|equation| !equation_has_derivative_dependency(equation))
+        .flat_map(|equation| equation.dependencies.iter())
+        .filter(|dependency| algebraic_names.contains(dependency.as_str()))
+        .cloned()
+        .collect::<std::collections::HashSet<_>>();
+    explicit.algebraic_variables = explicit
+        .algebraic_variables
+        .into_iter()
+        .filter(|variable| selected_algebraic_names.contains(variable.name.as_str()))
+        .collect();
+    explicit.unknowns = explicit
+        .states
+        .iter()
+        .chain(explicit.algebraic_variables.iter())
+        .cloned()
+        .collect();
     Ok(explicit)
 }
 
