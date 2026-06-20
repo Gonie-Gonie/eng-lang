@@ -1180,6 +1180,9 @@ pub struct RuntimeComponentSolution {
     pub equation_count: usize,
     pub unknown_count: usize,
     pub residual_norm: f64,
+    pub linear_condition_estimate: Option<f64>,
+    pub linear_minimum_pivot_abs: Option<f64>,
+    pub linear_maximum_pivot_abs: Option<f64>,
     pub tolerance: f64,
     pub max_iterations: usize,
     pub iteration_count: usize,
@@ -1202,6 +1205,9 @@ impl RuntimeComponentSolution {
         let mut variable_status = "homogeneous_zero_seed".to_owned();
         let mut method = "linear_residual_graph_shape_check".to_owned();
         let mut iteration_count = usize::from(equation_count > 0 && unknown_count > 0);
+        let mut linear_condition_estimate = None;
+        let mut linear_minimum_pivot_abs = None;
+        let mut linear_maximum_pivot_abs = None;
 
         let (mut status, mut reason, mut failure_artifact, mut convergence_status) =
             if equation_count == 0 {
@@ -1261,6 +1267,12 @@ impl RuntimeComponentSolution {
                             .collect();
                         variable_status = "solved_linear".to_owned();
                         iteration_count = linear_solution.iteration_count;
+                        linear_condition_estimate =
+                            Some(linear_solution.linear_diagnostics.pivot_condition_estimate);
+                        linear_minimum_pivot_abs =
+                            Some(linear_solution.linear_diagnostics.minimum_pivot_abs);
+                        linear_maximum_pivot_abs =
+                            Some(linear_solution.linear_diagnostics.maximum_pivot_abs);
                         let converged = linear_solution.status == "converged";
                         (
                         if converged {
@@ -1350,6 +1362,9 @@ impl RuntimeComponentSolution {
             equation_count,
             unknown_count,
             residual_norm: residual_output.residual_norm,
+            linear_condition_estimate,
+            linear_minimum_pivot_abs,
+            linear_maximum_pivot_abs,
             tolerance: COMPONENT_LINEAR_SOLVER_TOLERANCE,
             max_iterations: 1,
             iteration_count,
@@ -1508,6 +1523,9 @@ impl RuntimeComponentSolution {
             equation_count,
             unknown_count,
             residual_norm: residual_output.residual_norm,
+            linear_condition_estimate: None,
+            linear_minimum_pivot_abs: None,
+            linear_maximum_pivot_abs: None,
             tolerance: options.tolerance,
             max_iterations: options.max_iterations,
             iteration_count,
@@ -1617,6 +1635,9 @@ impl RuntimeComponentSolution {
             equation_count: 0,
             unknown_count: variables.len(),
             residual_norm: 0.0,
+            linear_condition_estimate: None,
+            linear_minimum_pivot_abs: None,
+            linear_maximum_pivot_abs: None,
             tolerance: solver_result.diagnostics.tolerance,
             max_iterations: solver_result.diagnostics.max_iterations,
             iteration_count: solver_result.diagnostics.iteration_count,
@@ -1641,6 +1662,9 @@ impl RuntimeComponentSolution {
             method: self.method.clone(),
             reason: self.reason.clone(),
             residual_norm: self.residual_norm,
+            linear_condition_estimate: self.linear_condition_estimate,
+            linear_minimum_pivot_abs: self.linear_minimum_pivot_abs,
+            linear_maximum_pivot_abs: self.linear_maximum_pivot_abs,
             tolerance: self.tolerance,
             max_iterations: self.max_iterations,
             iteration_count: self.iteration_count,
@@ -3459,6 +3483,9 @@ fn nonlinear_component_solution_from_solve_request(
         equation_count: solver_assembly.equation_count(),
         unknown_count: solver_assembly.unknown_count(),
         residual_norm: evaluation.residual_norm,
+        linear_condition_estimate: None,
+        linear_minimum_pivot_abs: None,
+        linear_maximum_pivot_abs: None,
         tolerance,
         max_iterations: options.max_iterations,
         iteration_count: newton.iteration_count,
@@ -4936,6 +4963,9 @@ fn failed_dynamic_component_source_solution(
         equation_count: assembly.equation_count(),
         unknown_count: assembly.unknown_count(),
         residual_norm: f64::INFINITY,
+        linear_condition_estimate: None,
+        linear_minimum_pivot_abs: None,
+        linear_maximum_pivot_abs: None,
         tolerance: options.algebraic.tolerance,
         max_iterations: options.algebraic.max_iterations,
         iteration_count: 0,
@@ -5687,6 +5717,9 @@ fn failed_source_component_solution(
         equation_count: assembly.equation_count(),
         unknown_count: assembly.unknown_count(),
         residual_norm: f64::INFINITY,
+        linear_condition_estimate: None,
+        linear_minimum_pivot_abs: None,
+        linear_maximum_pivot_abs: None,
         tolerance,
         max_iterations,
         iteration_count: 0,
@@ -10267,7 +10300,26 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         assert_eq!(solution.tolerance, COMPONENT_LINEAR_SOLVER_TOLERANCE);
         assert_eq!(solution.max_iterations, 1);
         assert_eq!(solution.residual_norm, 0.0);
+        assert!(solution.linear_condition_estimate.unwrap() >= 1.0);
+        assert!(solution.linear_minimum_pivot_abs.unwrap() > 0.0);
+        assert!(
+            solution.linear_maximum_pivot_abs.unwrap()
+                >= solution.linear_minimum_pivot_abs.unwrap()
+        );
         assert!(solution.failure_artifact.is_none());
+        let report_solution = solution.to_report_solver_result();
+        assert_eq!(
+            report_solution.linear_condition_estimate,
+            solution.linear_condition_estimate
+        );
+        assert_eq!(
+            report_solution.linear_minimum_pivot_abs,
+            solution.linear_minimum_pivot_abs
+        );
+        assert_eq!(
+            report_solution.linear_maximum_pivot_abs,
+            solution.linear_maximum_pivot_abs
+        );
         assert!(solution
             .variables
             .iter()
@@ -10719,6 +10771,9 @@ with {
             equation_count: 1,
             unknown_count: 1,
             residual_norm: 0.5,
+            linear_condition_estimate: None,
+            linear_minimum_pivot_abs: None,
+            linear_maximum_pivot_abs: None,
             tolerance: 1e-9,
             max_iterations: 1,
             iteration_count: 1,

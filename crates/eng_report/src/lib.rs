@@ -603,6 +603,9 @@ pub struct ReportComponentSolverResult {
     pub method: String,
     pub reason: String,
     pub residual_norm: f64,
+    pub linear_condition_estimate: Option<f64>,
+    pub linear_minimum_pivot_abs: Option<f64>,
+    pub linear_maximum_pivot_abs: Option<f64>,
     pub tolerance: f64,
     pub max_iterations: usize,
     pub iteration_count: usize,
@@ -4993,6 +4996,24 @@ fn push_report_component_solver_result_json(
         "{indent}  \"residual_norm\": {},\n",
         result.residual_norm
     ));
+    push_optional_json_f64(
+        json,
+        "linear_condition_estimate",
+        result.linear_condition_estimate,
+        indent.len() + 2,
+    );
+    push_optional_json_f64(
+        json,
+        "linear_minimum_pivot_abs",
+        result.linear_minimum_pivot_abs,
+        indent.len() + 2,
+    );
+    push_optional_json_f64(
+        json,
+        "linear_maximum_pivot_abs",
+        result.linear_maximum_pivot_abs,
+        indent.len() + 2,
+    );
     json.push_str(&format!("{indent}  \"tolerance\": {},\n", result.tolerance));
     json.push_str(&format!(
         "{indent}  \"max_iterations\": {},\n",
@@ -6973,6 +6994,9 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
             let tolerance = solver_result
                 .map(|result| format_solver_tolerance(result.tolerance))
                 .unwrap_or_else(|| "-".to_owned());
+            let conditioning = solver_result
+                .map(format_component_solver_conditioning_summary)
+                .unwrap_or_else(|| "-".to_owned());
             let variables = solver_result
                 .map(format_component_solver_variables_summary)
                 .unwrap_or_else(|| "-".to_owned());
@@ -6990,7 +7014,7 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
                 .map(|failure| failure.code.clone())
                 .unwrap_or_else(|| "-".to_owned());
             format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
                 assembly.line,
                 html_escape(&assembly.name),
                 html_escape(&assembly.status),
@@ -6999,6 +7023,7 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
                 html_escape(&assembly.residual_graph.status),
                 html_escape(&assembly.residual_graph.solver_plan),
                 html_escape(&residual_norm),
+                html_escape(&conditioning),
                 html_escape(&tolerance),
                 html_escape(&iteration_count),
                 html_escape(&variables),
@@ -7013,9 +7038,29 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
     format!(
         r#"<h2>Connection Constraint Check</h2>
     <table>
-      <thead><tr><th>Line</th><th>Assembly</th><th>Status</th><th>Eq/Unknowns</th><th>Convergence</th><th>Method</th><th>Residual Norm</th><th>Tolerance</th><th>Iterations</th><th>Variables</th><th>Trajectories</th><th>Step Diagnostics</th><th>Largest Residual</th><th>Failure</th></tr></thead>
+      <thead><tr><th>Line</th><th>Assembly</th><th>Status</th><th>Eq/Unknowns</th><th>Convergence</th><th>Method</th><th>Residual Norm</th><th>Linear Conditioning</th><th>Tolerance</th><th>Iterations</th><th>Variables</th><th>Trajectories</th><th>Step Diagnostics</th><th>Largest Residual</th><th>Failure</th></tr></thead>
       <tbody>{rows}</tbody>
     </table>"#
+    )
+}
+
+fn format_component_solver_conditioning_summary(result: &ReportComponentSolverResult) -> String {
+    let Some(condition_estimate) = result.linear_condition_estimate else {
+        return "-".to_owned();
+    };
+    let min_pivot = result
+        .linear_minimum_pivot_abs
+        .map(format_alignment_number)
+        .unwrap_or_else(|| "-".to_owned());
+    let max_pivot = result
+        .linear_maximum_pivot_abs
+        .map(format_alignment_number)
+        .unwrap_or_else(|| "-".to_owned());
+    format!(
+        "pivot_ratio={} min={} max={}",
+        format_alignment_number(condition_estimate),
+        min_pivot,
+        max_pivot
     )
 }
 

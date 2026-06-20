@@ -231,7 +231,9 @@ are not public stable workflows.
   that requires an explicit `skipped_unsupported_shape` artifact instead of a
   fabricated trajectory.
 - Solver algorithm seeds: dense linear solve with finite matrix/RHS/tolerance
-  checks, solver-API fixed-point iteration plus the narrow
+  checks, exact zero-pivot singular failures, tolerance-level ill-conditioned
+  pivot failures, and successful-solve pivot condition estimates exposed through
+  component solver report artifacts, solver-API fixed-point iteration plus the narrow
   `solve component_graph` fixed-point source path with nonconvergence
   diagnostics, and
   solver-API standalone damped Newton solve with finite initial-guess checks,

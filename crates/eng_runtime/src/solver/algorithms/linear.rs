@@ -5,6 +5,14 @@ pub struct LinearSolveResult {
     pub values: Vec<f64>,
     pub residual_norm: f64,
     pub status: String,
+    pub diagnostics: LinearSolveDiagnostics,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LinearSolveDiagnostics {
+    pub minimum_pivot_abs: f64,
+    pub maximum_pivot_abs: f64,
+    pub pivot_condition_estimate: f64,
 }
 
 pub fn solve_dense_linear_system(
@@ -39,6 +47,8 @@ pub fn solve_dense_linear_system(
 
     let mut a = matrix.to_vec();
     let mut b = rhs.to_vec();
+    let mut minimum_pivot_abs = f64::INFINITY;
+    let mut maximum_pivot_abs: f64 = 0.0;
     for pivot_index in 0..n {
         let mut best_row = pivot_index;
         let mut best_abs = a[pivot_index][pivot_index].abs();
@@ -49,12 +59,24 @@ pub fn solve_dense_linear_system(
                 best_abs = value_abs;
             }
         }
-        if best_abs <= tolerance {
+        if best_abs == 0.0 {
             return Err(SolverFailure::new(
                 "E-LINEAR-SINGULAR",
-                "linear system is singular or ill-conditioned at the requested tolerance",
+                format!(
+                    "linear system is singular at pivot {pivot_index}; pivot magnitude is zero"
+                ),
             ));
         }
+        if best_abs <= tolerance {
+            return Err(SolverFailure::new(
+                "E-LINEAR-ILL-CONDITIONED",
+                format!(
+                    "linear system is ill-conditioned at pivot {pivot_index}; pivot magnitude {best_abs} is at or below tolerance {tolerance}"
+                ),
+            ));
+        }
+        minimum_pivot_abs = minimum_pivot_abs.min(best_abs);
+        maximum_pivot_abs = maximum_pivot_abs.max(best_abs);
         if best_row != pivot_index {
             a.swap(best_row, pivot_index);
             b.swap(best_row, pivot_index);
@@ -109,7 +131,23 @@ pub fn solve_dense_linear_system(
         } else {
             "residual_above_tolerance".to_owned()
         },
+        diagnostics: linear_solve_diagnostics(minimum_pivot_abs, maximum_pivot_abs),
     })
+}
+
+fn linear_solve_diagnostics(
+    minimum_pivot_abs: f64,
+    maximum_pivot_abs: f64,
+) -> LinearSolveDiagnostics {
+    LinearSolveDiagnostics {
+        minimum_pivot_abs,
+        maximum_pivot_abs,
+        pivot_condition_estimate: if minimum_pivot_abs > 0.0 {
+            maximum_pivot_abs / minimum_pivot_abs
+        } else {
+            f64::INFINITY
+        },
+    }
 }
 
 fn ensure_finite_values(label: &str, values: &[f64]) -> Result<(), SolverFailure> {
@@ -136,6 +174,9 @@ mod tests {
         assert!((result.values[0] - 2.0).abs() <= 1e-9);
         assert!((result.values[1] - 1.0).abs() <= 1e-9);
         assert_eq!(result.status, "converged");
+        assert!(result.diagnostics.minimum_pivot_abs > 0.0);
+        assert!(result.diagnostics.maximum_pivot_abs >= result.diagnostics.minimum_pivot_abs);
+        assert!(result.diagnostics.pivot_condition_estimate >= 1.0);
     }
 
     #[test]
@@ -145,6 +186,21 @@ mod tests {
                 .unwrap_err();
 
         assert_eq!(failure.code, "E-LINEAR-SINGULAR");
+        assert!(failure.message.contains("pivot 1"));
+    }
+
+    #[test]
+    fn reports_ill_conditioned_system() {
+        let failure = solve_dense_linear_system(
+            &[vec![1.0, 1.0], vec![1.0, 1.0 + 1e-12]],
+            &[2.0, 2.0 + 1e-12],
+            1e-9,
+        )
+        .unwrap_err();
+
+        assert_eq!(failure.code, "E-LINEAR-ILL-CONDITIONED");
+        assert!(failure.message.contains("pivot 1"));
+        assert!(failure.message.contains("tolerance"));
     }
 
     #[test]

@@ -60,6 +60,9 @@ pub use algorithms::dynamic_component::{
 };
 pub use algorithms::fixed_point::{solve_fixed_point, FixedPointOptions, FixedPointResult};
 pub use algorithms::fixed_step::{solve_fixed_step_ode, FixedStepMethod, RhsSample};
+pub use algorithms::linear::{
+    solve_dense_linear_system, LinearSolveDiagnostics, LinearSolveResult,
+};
 pub use algorithms::nonlinear::{
     solve_newton, solve_newton_with_jacobian, NewtonLargestResidual, NewtonLineSearchStep,
     NewtonOptions, NewtonResult,

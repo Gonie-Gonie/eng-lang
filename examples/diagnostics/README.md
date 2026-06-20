@@ -1,7 +1,7 @@
 # Diagnostic Fixtures
 
 This folder contains examples whose primary purpose is to exercise diagnostics,
-warnings, and runtime data-quality failure artifacts.
+warnings, solver failure artifacts, and runtime data-quality failure artifacts.
 
 ```text
 error_messages/

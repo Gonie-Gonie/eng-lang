@@ -1365,6 +1365,40 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/diagnostics/algebraic_ill_conditioned_system.eng"),
+        Path::new("build/test-diagnostics-algebraic-ill-conditioned-system"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"linear_solve_failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dense_linear_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-LINEAR-ILL-CONDITIONED\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"failure_reason\": \"linear system is ill-conditioned")
+                || !output.report_html.contains("E-LINEAR-ILL-CONDITIONED")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/algebraic_ill_conditioned_system.eng to report a dense linear ill-conditioned SolverFailure artifact"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/algebraic_ill_conditioned_system.eng reported dense linear ill-conditioned failure"
+            );
+        }
+        Err(error) => {
+            eprintln!("algebraic ill-conditioned diagnostics fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/diagnostics/fixed_point_nonconvergence.eng"),
         Path::new("build/test-diagnostics-fixed-point-nonconvergence"),
         &artifact_run_options(),

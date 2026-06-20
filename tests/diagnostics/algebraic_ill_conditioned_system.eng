@@ -1,0 +1,24 @@
+domain Scalar {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component NearlyDuplicateConstraints {
+    port source: Scalar
+    port target: Scalar
+    source.x + target.x eq 2
+    source.x + 1.000000000001 * target.x eq 2.000000000001
+}
+
+system IllConditionedLinearSystem {
+    node = NearlyDuplicateConstraints()
+    connect node.source to node.source
+    connect node.target to node.target
+}
+
+ill_conditioned_marker = 1
+
+report {
+    show ill_conditioned_marker
+}

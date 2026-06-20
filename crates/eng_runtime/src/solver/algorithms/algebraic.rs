@@ -1,6 +1,6 @@
 use crate::solver::{
-    algorithms::linear::solve_dense_linear_system, NamedResidualValue, ResidualEvaluator,
-    ResidualGraph, ResidualInput, SolverFailure,
+    algorithms::linear::{solve_dense_linear_system, LinearSolveDiagnostics},
+    NamedResidualValue, ResidualEvaluator, ResidualGraph, ResidualInput, SolverFailure,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -10,6 +10,7 @@ pub struct LinearResidualGraphSolution {
     pub residual_norm: f64,
     pub status: String,
     pub iteration_count: usize,
+    pub linear_diagnostics: LinearSolveDiagnostics,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -53,6 +54,7 @@ pub fn solve_linear_residual_graph(
             "residual_above_tolerance".to_owned()
         },
         iteration_count: 1,
+        linear_diagnostics: linear_result.diagnostics,
     })
 }
 
@@ -81,6 +83,7 @@ mod tests {
 
         assert_eq!(solution.status, "converged");
         assert_eq!(solution.iteration_count, 1);
+        assert!(solution.linear_diagnostics.pivot_condition_estimate >= 1.0);
         assert!((solution.variables[0].value - 2.0).abs() <= 1e-9);
         assert!((solution.variables[1].value - 1.0).abs() <= 1e-9);
         assert!(solution.residual_norm <= 1e-9);
@@ -103,6 +106,25 @@ mod tests {
         let failure = solve_linear_residual_graph(&graph, 1e-9).unwrap_err();
 
         assert_eq!(failure.code, "E-LINEAR-SINGULAR");
+    }
+
+    #[test]
+    fn reports_ill_conditioned_linear_residual_graph_failure() {
+        let graph = ResidualGraph {
+            name: "ill_conditioned.residual_graph".to_owned(),
+            variables: vec![variable(0, "x"), variable(1, "y")],
+            residuals: vec![
+                residual("r1", &[(0, "x", 1.0), (1, "y", 1.0)], 2.0),
+                residual("r2", &[(0, "x", 1.0), (1, "y", 1.0 + 1e-12)], 2.0 + 1e-12),
+            ],
+            parameters: Vec::new(),
+            dependencies: Vec::new(),
+        };
+
+        let failure = solve_linear_residual_graph(&graph, 1e-9).unwrap_err();
+
+        assert_eq!(failure.code, "E-LINEAR-ILL-CONDITIONED");
+        assert!(failure.message.contains("pivot 1"));
     }
 
     fn variable(index: usize, name: &str) -> ResidualVariableRef {
