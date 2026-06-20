@@ -58,7 +58,7 @@ The checklist items map to the current ledger as follows:
 | Component graph assembly | W1, W2, W3 | Component instances, ports, connections, generated equations, parameters, source spans, and domain constraints are canonical shared IR entries. |
 | ResidualGraph, ResidualEvaluator, residual scaling | W2, W4, W9 | Every algebraic/nonlinear/DAE path exposes raw residuals, normalized residuals, scales, largest residual evidence, and failure source context. |
 | Algebraic, fixed-point, Newton, and DAE integration | W4, W6 | Solvers consume shared residual IR, not narrow shape-specific bridges, and success/failure fixtures cover broad variable/unit layouts. |
-| Dynamic component solve | W5, W6 | Dynamic component layouts come from shared IR, support selected algebraic variables, and expose trajectory plus per-step failure evidence. |
+| Dynamic component solve | W5, W6 | Dynamic component layouts come from shared IR, support selected algebraic variables and algebraic-free nonlinear RHS expressions, and expose trajectory plus per-step failure evidence. |
 | Delay, Predictor, and external behavior | W7 | Behavior calls become typed solver graph nodes with replay/provenance/profile policy and dynamic/DAE coupling. |
 | Production multi-domain packages | W8 | Thermal/Fluid examples move from constrained pressure-flow smokes to checked domain packages with topology, medium, pressure-drop, and energy-coupling evidence. |
 | IDE/report solver inspection | W9 | A user can inspect equations, residuals, scales, dependencies, trajectories, behavior nodes, and failures without reading raw JSON. |
@@ -79,6 +79,7 @@ Immediate execution order is evidence-driven:
 
 ## Progress Ledger
 
+- 2026-06-21: Algebraic-free `dynamic_component_explicit_euler` source solves now route derivative residuals through parsed arithmetic residual expressions, including a dimensionless `sin()` RHS fixture with runtime, report-spec, report HTML, trajectory, and step-diagnostic smoke coverage. This advances W5 without claiming nonlinear algebraic coupling, adaptive component timestepping, or broad unitful function support.
 - 2026-06-20: Source implicit-Euler DAE residual solving now has dimensionless `sin`/`cos` fixture and example-smoke coverage, proving the shared arithmetic function subset is exercised in DAE residual evaluation, step diagnostics, report-spec, and report HTML artifacts.
 - 2026-06-20: Source-equation fixed-step RHS simulation now has runtime fixture and example-smoke coverage for dimensionless `sin`/`cos` calls in derivative and algebraic output equations, proving the shared arithmetic function subset is exercised outside Newton residual solves as well.
 - 2026-06-20: Component equation semantic checks now understand the supported dimensionless math-function subset and reject unitful `sqrt`/`exp`/`ln`/`sin`/`cos` arguments before runtime residual solving, with diagnostics smoke coverage. This tightens W2 source diagnostics for the newly supported runtime function subset.

@@ -29,21 +29,22 @@ use crate::solver::{
     },
     initialize_algebraic_variables, solve_adaptive_heun_ode, solve_adaptive_state_space,
     solve_continuous_state_space, solve_discrete_state_space, solve_dynamic_component_assembly,
-    solve_first_order_thermal, solve_fixed_point, solve_fixed_step_ode, solve_implicit_euler_dae,
-    solve_linear_residual_graph, solve_newton, solve_newton_with_jacobian, AdaptiveOdeOptions,
-    AdaptiveOdeStepReport, AlgebraicInitializationInput, BehaviorExecutionProfile,
-    BehaviorGraphRhsAdapter, BehaviorRhsNode, BehaviorRhsSample, BehaviorSignalContract,
-    BehaviorSignalSource, DaeInput, DaeMassMatrix, DaeMethod, DaeOptions, DaeSample, DaeVariable,
-    DelayBehaviorNode, DelayBuffer, DelayInitialHistoryPolicy, DelayInterpolationPolicy,
-    DynamicComponentAssemblySolveInput, DynamicComponentOptions, DynamicComponentResult,
-    ExternalBehaviorContract, ExternalBehaviorDeterminism, ExternalBehaviorKind,
-    ExternalBehaviorProfilePolicy, FirstOrderThermalModel, FixedPointOptions, FixedStepMethod,
-    InputLayout, LayoutEntry, NewtonOptions, OutputLayout, ParameterLayout, PredictorContract,
-    PredictorDifferentiability, PredictorJacobianPolicy, PredictorSolverPolicy, ResidualEquation,
-    ResidualEvaluator, ResidualGraph, ResidualInput, ResidualOutput, ResidualScale, RhsEvaluator,
-    RhsInput, RhsStateInfo, RhsSymbolInfo, SimulationPlan, SolverDiagnostics, SolverFailure,
-    SolverInput, SolverOptions, SolverPlan, SolverResult, SolverScalar, SourceRhsEquation,
-    SourceRhsEvaluator, StateLayout, StateTrajectory, TimeGrid,
+    solve_explicit_euler_with_algebraic, solve_first_order_thermal, solve_fixed_point,
+    solve_fixed_step_ode, solve_implicit_euler_dae, solve_linear_residual_graph, solve_newton,
+    solve_newton_with_jacobian, AdaptiveOdeOptions, AdaptiveOdeStepReport,
+    AlgebraicInitializationInput, BehaviorExecutionProfile, BehaviorGraphRhsAdapter,
+    BehaviorRhsNode, BehaviorRhsSample, BehaviorSignalContract, BehaviorSignalSource, DaeInput,
+    DaeMassMatrix, DaeMethod, DaeOptions, DaeSample, DaeVariable, DelayBehaviorNode, DelayBuffer,
+    DelayInitialHistoryPolicy, DelayInterpolationPolicy, DynamicComponentAssemblySolveInput,
+    DynamicComponentOptions, DynamicComponentResult, ExternalBehaviorContract,
+    ExternalBehaviorDeterminism, ExternalBehaviorKind, ExternalBehaviorProfilePolicy,
+    FirstOrderThermalModel, FixedPointOptions, FixedStepMethod, InputLayout, LayoutEntry,
+    NewtonOptions, OutputLayout, ParameterLayout, PredictorContract, PredictorDifferentiability,
+    PredictorJacobianPolicy, PredictorSolverPolicy, ResidualEquation, ResidualEvaluator,
+    ResidualGraph, ResidualInput, ResidualOutput, ResidualScale, RhsEvaluator, RhsInput,
+    RhsStateInfo, RhsSymbolInfo, SimulationPlan, SolverDiagnostics, SolverFailure, SolverInput,
+    SolverOptions, SolverPlan, SolverResult, SolverScalar, SourceRhsEquation, SourceRhsEvaluator,
+    StateLayout, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -4278,6 +4279,24 @@ fn dynamic_component_solution_from_solve_request(
         }
     };
 
+    if solver == "dynamic_component_explicit_euler" && split.algebraic_layout.is_empty() {
+        return match expression_dynamic_component_solution_from_solve_request(
+            dynamic_assembly,
+            &split,
+            solve_input,
+            options.clone(),
+        ) {
+            Ok(solution) => solution,
+            Err(failure) => failed_dynamic_component_source_solution(
+                dynamic_assembly,
+                solver,
+                &options,
+                &failure,
+                "dynamic component explicit source solve failed during parsed residual RHS evaluation",
+            ),
+        };
+    }
+
     match solve_dynamic_component_assembly(dynamic_assembly, solve_input, options.clone()) {
         Ok(dynamic_result) => RuntimeComponentSolution::from_dynamic_component_assembly_result(
             dynamic_assembly,
@@ -4292,6 +4311,77 @@ fn dynamic_component_solution_from_solve_request(
             "dynamic component source solve failed before timestep execution",
         ),
     }
+}
+
+fn expression_dynamic_component_solution_from_solve_request(
+    assembly: &EquationAssembly,
+    split: &crate::solver::assembly::DynamicComponentAssemblySplit,
+    solve_input: DynamicComponentAssemblySolveInput,
+    options: DynamicComponentOptions,
+) -> Result<RuntimeComponentSolution, SolverFailure> {
+    if !solve_input.initial_algebraic.is_empty() {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-ASSEMBLY-LAYOUT",
+            "dynamic component assembly explicit solve received algebraic initial values but the assembly has no algebraic layout",
+        ));
+    }
+    let parse_symbols = source_dynamic_component_parse_symbols(assembly, &solve_input.parameters)?;
+    let parsed_residuals = parse_source_residual_expressions(assembly, &parse_symbols)?;
+    let solver_input = SolverInput {
+        plan: SolverPlan::new(
+            assembly.name.clone(),
+            SimulationPlan {
+                inputs: layout_names_from_unknowns(&assembly.inputs),
+                outputs: layout_names_from_unknowns(&assembly.states),
+                states: layout_names_from_unknowns(&assembly.states),
+                parameters: layout_names_from_unknowns(&assembly.parameters),
+            },
+            SolverOptions::fixed_step(
+                "dynamic_component_assembly_explicit_euler",
+                solve_input.timestep_s,
+            ),
+        ),
+        time_grid: TimeGrid::fixed_step(solve_input.duration_s, solve_input.timestep_s)?,
+        state_layout: split.state_layout.clone(),
+        input_layout: split.input_layout.clone(),
+        parameter_layout: split.parameter_layout.clone(),
+        output_layout: OutputLayout {
+            entries: split.state_layout.entries.clone(),
+        },
+        initial_state: solve_input.initial_state,
+        inputs: solve_input.inputs,
+        parameters: solve_input.parameters,
+    };
+    let dynamic_result = solve_explicit_euler_with_algebraic(
+        &solver_input,
+        StateLayout::default(),
+        Vec::new(),
+        options,
+        |_| Ok(Vec::new()),
+        |sample| {
+            let symbols = source_dynamic_component_symbols(
+                assembly,
+                sample.time_s,
+                sample.state,
+                sample.inputs,
+                sample.parameters,
+            );
+            source_residual_derivatives_from_affine_derivative_terms(
+                assembly,
+                &parsed_residuals,
+                &symbols,
+                "dynamic component source",
+            )
+        },
+    )?;
+    let mut solution = RuntimeComponentSolution::from_dynamic_component_assembly_result(
+        assembly,
+        &dynamic_result,
+        "dynamic component source solve executed parsed derivative residual expressions",
+    );
+    solution.equation_count = assembly.equation_count();
+    solution.unknown_count = assembly.unknown_count();
+    Ok(solution)
 }
 
 fn behavior_dynamic_component_solution_from_solve_request(
@@ -4466,7 +4556,12 @@ fn behavior_dynamic_component_solution_from_solve_request(
                         behavior,
                         &behavior_output_symbols,
                     )?;
-                    source_behavior_derivatives(&dynamic_assembly, &parsed_residuals, &symbols)
+                    source_residual_derivatives_from_affine_derivative_terms(
+                        &dynamic_assembly,
+                        &parsed_residuals,
+                        &symbols,
+                        "behavior graph source",
+                    )
                 },
             )?;
             Ok(behavior_evaluation.derivatives)
@@ -4886,6 +4981,13 @@ fn source_behavior_parse_symbols(
     Ok(symbols)
 }
 
+fn source_dynamic_component_parse_symbols(
+    assembly: &EquationAssembly,
+    parameters: &[SolverScalar],
+) -> Result<HashMap<String, f64>, SolverFailure> {
+    source_behavior_parse_symbols(assembly, parameters, &[])
+}
+
 fn source_behavior_symbols(
     assembly: &EquationAssembly,
     time_s: f64,
@@ -4922,15 +5024,38 @@ fn source_behavior_symbols(
     Ok(symbols)
 }
 
-fn source_behavior_derivatives(
+fn source_dynamic_component_symbols(
+    assembly: &EquationAssembly,
+    time_s: f64,
+    state: &[f64],
+    inputs: &[SolverScalar],
+    parameters: &[SolverScalar],
+) -> HashMap<String, f64> {
+    let mut symbols = HashMap::new();
+    symbols.insert("t".to_owned(), time_s);
+    symbols.insert("time".to_owned(), time_s);
+    for (variable, value) in assembly.states.iter().zip(state.iter().copied()) {
+        symbols.insert(variable.name.clone(), value);
+    }
+    for input in inputs {
+        symbols.insert(input.name.clone(), input.value);
+    }
+    for parameter in parameters {
+        symbols.insert(parameter.name.clone(), parameter.value);
+    }
+    symbols
+}
+
+fn source_residual_derivatives_from_affine_derivative_terms(
     assembly: &EquationAssembly,
     parsed_residuals: &[ParsedSourceResidual],
     symbols: &HashMap<String, f64>,
+    context: &str,
 ) -> Result<Vec<f64>, SolverFailure> {
     if parsed_residuals.len() != assembly.generated_equations.len() {
         return Err(SolverFailure::new(
-            "E-BEHAVIOR-SOURCE-RHS-PARSE-LAYOUT",
-            "behavior graph source parsed residual count does not match generated equation count",
+            "E-SOURCE-RHS-PARSE-LAYOUT",
+            format!("{context} parsed residual count does not match generated equation count"),
         ));
     }
     let mut derivatives = Vec::with_capacity(assembly.states.len());
@@ -4953,9 +5078,9 @@ fn source_behavior_derivatives(
             })
             .ok_or_else(|| {
                 SolverFailure::new(
-                    "E-BEHAVIOR-SOURCE-RHS-SHAPE",
+                    "E-SOURCE-RHS-SHAPE",
                     format!(
-                        "behavior graph source solve could not find derivative residual for `{}`",
+                        "{context} solve could not find derivative residual for `{}`",
                         state.name
                     ),
                 )
@@ -4970,9 +5095,9 @@ fn source_behavior_derivatives(
         let coefficient = parsed.expression.evaluate(&coefficient_symbols)? - base;
         if !coefficient.is_finite() || coefficient.abs() <= f64::EPSILON {
             return Err(SolverFailure::new(
-                "E-BEHAVIOR-SOURCE-RHS-SHAPE",
+                "E-SOURCE-RHS-SHAPE",
                 format!(
-                    "behavior graph source residual `{}` does not contain a solvable derivative coefficient",
+                    "{context} residual `{}` does not contain a solvable derivative coefficient",
                     equation.name
                 ),
             ));
@@ -4981,9 +5106,9 @@ fn source_behavior_derivatives(
         let derivative = (target - base) / coefficient;
         if !derivative.is_finite() {
             return Err(SolverFailure::new(
-                "E-BEHAVIOR-SOURCE-RHS-FINITE",
+                "E-SOURCE-RHS-FINITE",
                 format!(
-                    "behavior graph source residual `{}` produced a non-finite derivative",
+                    "{context} residual `{}` produced a non-finite derivative",
                     equation.name
                 ),
             ));
@@ -14065,8 +14190,13 @@ system Envelope {
             ("delayed".to_owned(), 8.0),
         ]);
 
-        let derivatives =
-            source_behavior_derivatives(&assembly, &parsed_residuals, &symbols).unwrap();
+        let derivatives = source_residual_derivatives_from_affine_derivative_terms(
+            &assembly,
+            &parsed_residuals,
+            &symbols,
+            "behavior graph source",
+        )
+        .unwrap();
 
         assert_eq!(derivatives, vec![-2.0]);
         assert_eq!(

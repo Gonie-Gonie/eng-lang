@@ -1382,6 +1382,47 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/dynamic_component_function_explicit.eng"),
+        Path::new("build/test-runtime-dynamic-component-function-explicit"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_explicit_euler\"")
+                || !output.result_json.contains(
+                    "dynamic component source solve executed parsed derivative residual expressions",
+                )
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"algebraic_not_required\"")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"role\": \"state\"")
+                || !output.result_json.contains("\"final_value\": 0.16281192")
+                || !output
+                    .report_spec_json
+                    .contains("der(node.node.x) + sin(node.node.x) eq 0")
+                || !output.report_spec_json.contains("step_diagnostics")
+                || !output
+                    .report_html
+                    .contains("dynamic_component_assembly_explicit_euler")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_function_explicit.eng to solve a function RHS through the parsed explicit dynamic component path"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_function_explicit.eng solved explicit dynamic component function RHS"
+            );
+        }
+        Err(error) => {
+            eprintln!("dynamic component function explicit runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/dynamic_component_semi_implicit.eng"),
         Path::new("build/test-runtime-dynamic-component-semi-implicit"),
         &artifact_run_options(),

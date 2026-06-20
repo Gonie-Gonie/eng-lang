@@ -163,7 +163,9 @@ by the stable breaking-change policy.
   fixed-point source solve over linear ResidualGraph equations is covered by
   `examples/official/25_fixed_point_loop`; and a simple-linear dynamic
   component source solve is covered by
-  `examples/official/26_dynamic_component_room`. Narrow coupled multi-variable
+  `examples/official/26_dynamic_component_room`, with additional runtime
+  fixture coverage for algebraic-free dimensionless function RHS evaluation
+  through parsed derivative residual expressions. Narrow coupled multi-variable
   unitful source Newton and multi-state unitful temperature implicit-Euler DAE
   component residual smokes are covered by
   `examples/official/27_nonlinear_algebraic` and
