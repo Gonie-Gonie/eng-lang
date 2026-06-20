@@ -130,11 +130,11 @@ by the stable breaking-change policy.
   multi-series histogram behavior remain planned.
 - Minimal `system`/`eq` support for parsing, semantic/unit diagnostics,
   parameter/state/input metadata, `der(...)`, one-state fixed-step thermal
-  execution, one-state `adaptive_heun` simulation, two-state source-equation
-  fixed-step ODE execution with scalar or Time-indexed TimeSeries inputs, and
-  `sim.<state>` materialization for the documented workflows. General
-  multi-state equation solving beyond that source-equation shape, nonlinear,
-  DAE, broad adaptive, and component-coupled solving remain planned.
+  execution, one-state `adaptive_heun` simulation, source-equation fixed-step
+  and adaptive Heun ODE execution with scalar or Time-indexed TimeSeries inputs,
+  and `sim.<state>` materialization for the documented workflows. General
+  equation solving beyond that source-equation shape, nonlinear, DAE, broad
+  adaptive, and component-coupled solving remain planned.
 - Typed-block state-space workflows: top-level `states`/`inputs` blocks,
   `StateVector[...]` and `InputVector[...]` declarations, `operator A:` and
   `operator B:` declarations, shape/unit-checked A/B matrices, discrete
@@ -278,9 +278,11 @@ are not public stable workflows.
   trajectories while adapting internal substeps and reporting accepted/rejected
   substep diagnostics through system result/report/review artifacts; the
   one-state thermal `simulate` path wires
-  `solver = adaptive_heun` to that seed and emits SolverResult artifacts, and
-  the internal continuous state-space path now reuses the same adaptive seed for
-  shape-checked `der(x) eq A * x + B * u` systems.
+  `solver = adaptive_heun` to that seed and emits SolverResult artifacts, the
+  source-equation `simulate` path now reuses the same adaptive seed through the
+  shared `SourceRhsEvaluator`, and the internal continuous state-space path now
+  reuses the same adaptive seed for shape-checked `der(x) eq A * x + B * u`
+  systems.
   Fixed-step ODE and
   dynamic-component seeds use the actual
   `TimeGrid` interval length for the final partial step when duration is not an
@@ -291,9 +293,10 @@ are not public stable workflows.
   state/algebraic trajectory summaries, trajectory points, RuntimeTimeSeries
   materialization, tolerance, max-iteration, timestep diagnostics, per-step
   nonconvergence/failure artifacts, and IDE TimeSeries/solver-inspector rows
-  from that `SolverResult` adapter. Broad adaptive solving and production
-  nonlinear/DAE/component workflows beyond the narrow source residual smokes are
-  not supported.
+  from that `SolverResult` adapter. Broad adaptive solving beyond
+  source-equation and state-space adaptive seeds, plus production
+  nonlinear/DAE/component workflows beyond the narrow source residual smokes,
+  are not supported.
 - Behavior graph seeds: solver-API runtime delay buffer with linear and
   previous-sample interpolation policies, explicit initial-history policy,
   relationship artifact, solver-style behavior-node evaluation, delay-driven
@@ -394,7 +397,7 @@ are not public stable workflows.
   counts, grouped/stacked bar hardening, and broader multi-axis semantics.
 - General multi-state equation-system, broad nonlinear/DAE simulation, broad
   adaptive, or general equation-system solving is deferred outside the
-  one-state thermal `adaptive_heun` path, the two-state source-equation path,
+  source-equation fixed-step/adaptive path, the one-state thermal `adaptive_heun` path,
   the narrow component residual Newton/DAE smokes, and internal state-space
   seeds.
 - Production numeric component graph solving beyond the constrained Thermal

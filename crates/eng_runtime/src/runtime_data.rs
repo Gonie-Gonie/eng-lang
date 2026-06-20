@@ -6659,13 +6659,13 @@ fn materialize_source_ode_solutions(
     let solver_name = option_value(options, "solver")
         .map(str::trim)
         .unwrap_or("fixed_step");
-    if solver_name == "adaptive_heun" {
-        return None;
-    }
+    let use_adaptive_heun = solver_name == "adaptive_heun";
     let fixed_step_method = FixedStepMethod::from_solver_name(Some(solver_name));
     let time_step_s = option_value(options, "timestep")
         .and_then(parse_duration_seconds)
         .unwrap_or(300.0);
+    let adaptive_options =
+        use_adaptive_heun.then(|| adaptive_heun_options_from_simulation(options, time_step_s));
     let inputs = system
         .variables
         .iter()
@@ -6727,7 +6727,17 @@ fn materialize_source_ode_solutions(
         })
         .collect::<Option<Vec<_>>>()?;
 
-    let solver_options = SolverOptions::fixed_step(fixed_step_method.method_name(""), time_step_s);
+    let solver_options = adaptive_options
+        .as_ref()
+        .map(|options| SolverOptions {
+            method: "adaptive_heun".to_owned(),
+            timestep_s: time_step_s,
+            tolerance: options.tolerance,
+            max_iterations: options.max_steps,
+        })
+        .unwrap_or_else(|| {
+            SolverOptions::fixed_step(fixed_step_method.method_name(""), time_step_s)
+        });
     let solver_plan = SolverPlan::new(
         system.name.clone(),
         SimulationPlan {
@@ -6844,7 +6854,7 @@ fn materialize_source_ode_solutions(
         .iter()
         .map(|parameter| parameter.value)
         .collect::<Vec<_>>();
-    let solver_result = match solve_fixed_step_ode(fixed_step_method, &solver_input, |sample| {
+    let mut rhs = |sample: crate::solver::RhsSample<'_>| {
         let input_values = inputs
             .iter()
             .zip(input_series.iter().copied())
@@ -6867,26 +6877,63 @@ fn materialize_source_ode_solutions(
             p: parameter_values.clone(),
         })?;
         Ok(output.derivatives)
-    }) {
-        Ok(result) => result,
-        Err(failure) => {
-            return failed_system_runtime_solutions(
-                system,
-                binding,
-                &states,
-                &solver_input,
-                &failure,
-                "recognized source derivative equations, but fixed-step solver evaluation failed",
-            );
-        }
     };
 
-    let reason = if input_series.iter().any(Option::is_some) {
+    let (solver_result, step_diagnostics) = if let Some(adaptive_options) = adaptive_options {
+        let adaptive_result = match solve_adaptive_heun_ode(
+            &solver_input,
+            &adaptive_options,
+            &mut rhs,
+        ) {
+            Ok(result) => result,
+            Err(failure) => {
+                return failed_system_runtime_solutions(
+                    system,
+                    binding,
+                    &states,
+                    &solver_input,
+                    &failure,
+                    "recognized source derivative equations, but adaptive Heun solver evaluation failed",
+                );
+            }
+        };
+        (
+            adaptive_result.solver_result,
+            runtime_system_step_diagnostics(&adaptive_result.step_reports),
+        )
+    } else {
+        let solver_result = match solve_fixed_step_ode(fixed_step_method, &solver_input, &mut rhs) {
+            Ok(result) => result,
+            Err(failure) => {
+                return failed_system_runtime_solutions(
+                    system,
+                    binding,
+                    &states,
+                    &solver_input,
+                    &failure,
+                    "recognized source derivative equations, but fixed-step solver evaluation failed",
+                );
+            }
+        };
+        (solver_result, Vec::new())
+    };
+
+    let reason = if use_adaptive_heun {
+        if input_series.iter().any(Option::is_some) {
+            "recognized source derivative equations and executed adaptive Heun RHS with TimeSeries input materialization"
+        } else {
+            "recognized source derivative equations and executed adaptive Heun RHS"
+        }
+    } else if input_series.iter().any(Option::is_some) {
         "recognized source derivative equations and executed fixed-step RHS with TimeSeries input materialization"
     } else {
         "recognized source derivative equations and executed fixed-step RHS"
     };
-    system_runtime_solutions(system, binding, &states, &solver_result, reason)
+    let mut solutions = system_runtime_solutions(system, binding, &states, &solver_result, reason)?;
+    if use_adaptive_heun {
+        attach_system_step_diagnostics(&mut solutions, &step_diagnostics);
+    }
+    Some(solutions)
 }
 
 fn source_ode_equations_for_states(
@@ -11313,6 +11360,81 @@ with {{
                 .iter()
                 .any(|series| series.name == "sim.T_wall"));
         }
+    }
+
+    #[test]
+    fn materializes_two_state_source_ode_adaptive_heun_solutions() {
+        let source = r#"
+system TwoStateSourceThermal {
+    parameter C_air: HeatCapacity = 100 kJ/K
+    parameter C_wall: HeatCapacity = 200 kJ/K
+    parameter UA_aw: Conductance = 50 W/K
+    parameter UA_ao: Conductance = 100 W/K
+    parameter UA_wo: Conductance = 20 W/K
+    parameter T_out: AbsoluteTemperature = 12 degC
+    parameter Q_hvac: HeatRate = 1000 W
+
+    state T_air: AbsoluteTemperature = 22 degC
+    state T_wall: AbsoluteTemperature = 20 degC
+
+    equation {
+        C_air * der(T_air) eq UA_aw * (T_wall - T_air) + UA_ao * (T_out - T_air) + Q_hvac
+        C_wall * der(T_wall) eq UA_aw * (T_air - T_wall) + UA_wo * (T_out - T_wall)
+    }
+}
+
+sim = simulate TwoStateSourceThermal
+with {
+    timestep = 10 min
+    duration = 20 min
+    solver = adaptive_heun
+    tolerance = 0.0001
+}
+"#;
+        let report = eng_compiler::check_source(
+            "two_state_source_adaptive.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+        let solutions = runtime
+            .system_solutions
+            .iter()
+            .filter(|solution| solution.binding.as_deref() == Some("sim"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(solutions.len(), 2);
+        assert!(solutions
+            .iter()
+            .all(|solution| solution.status == "computed"));
+        assert!(solutions
+            .iter()
+            .all(|solution| solution.method == "adaptive_heun"));
+        assert!(solutions.iter().all(|solution| {
+            solution.convergence_status == "adaptive_heun_completed"
+                && solution.reason.contains("adaptive Heun RHS")
+                && solution.points.len() == 3
+                && !solution.step_diagnostics.is_empty()
+                && solution
+                    .step_diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.status == "accepted")
+        }));
+        let air = solutions
+            .iter()
+            .find(|solution| solution.state == "T_air")
+            .unwrap();
+        assert!(air.final_value < air.initial_value);
+        assert!(runtime
+            .time_series
+            .iter()
+            .any(|series| series.name == "sim.T_air"));
+        assert!(runtime
+            .time_series
+            .iter()
+            .any(|series| series.name == "sim.T_wall"));
     }
 
     #[test]

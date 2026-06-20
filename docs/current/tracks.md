@@ -83,7 +83,7 @@ Current supported scope:
 - der()
 - one-state thermal system metadata
 - explicit solver-boundary artifacts
-- two-state source-equation fixed-step ODE workflow with scalar or
+- source-equation fixed-step and adaptive Heun ODE workflows with scalar or
   Time-indexed TimeSeries inputs
 - typed-block discrete and continuous state-space fixed-step workflows with
   `states`/`inputs` blocks, `StateVector[...]`, `InputVector[...]`, and
@@ -118,6 +118,9 @@ Internal runtime seeds:
 - one-state thermal `simulate` integration for `solver = adaptive_heun`,
   including optional numeric `tolerance`, explicit `duration`, fixed output
   TimeGrid artifacts, and internal fixture/CLI smoke coverage
+- source-equation `simulate` integration for `solver = adaptive_heun` through
+  the shared `SourceRhsEvaluator`, with fixed output-grid trajectories,
+  adaptive internal substeps, scalar inputs, and TimeSeries input materialization
 - internal continuous state-space `simulate` integration for
   `solver = adaptive_heun` on shape-checked `der(x) eq A * x + B * u`
   systems, with fixed output TimeGrid trajectories and adaptive internal
@@ -180,10 +183,10 @@ Deferred:
   simple-linear source path
 - broad language-integrated delay/Predictor/external behavior graph solving
   beyond the narrow unitful temperature explicit-Euler source behavior RHS smokes
-- broad adaptive solvers beyond the one-state thermal and internal continuous
-  state-space `adaptive_heun` paths
+- broad adaptive solvers beyond the source-equation, one-state thermal, and
+  internal continuous state-space `adaptive_heun` paths
 - general equation-system runtime beyond the supported one-state thermal and
-  two-state source-equation fixed-step shapes
+  source-equation fixed-step/adaptive shapes
 - broad state-space operator algebra, nonlinear/DAE state-space coupling,
   discrete adaptive state-space, and component-coupled state-space solving
 ```

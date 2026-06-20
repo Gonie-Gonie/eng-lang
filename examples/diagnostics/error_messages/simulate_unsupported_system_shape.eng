@@ -1,12 +1,12 @@
-system Decay {
+system AlgebraicOnly {
     state x: Dimensionless = 1
 
     equation {
-        der(x) eq 0
+        x eq 0
     }
 }
 
-sim = simulate Decay
+sim = simulate AlgebraicOnly
 with {
     timestep = 1 s
     solver = adaptive_heun

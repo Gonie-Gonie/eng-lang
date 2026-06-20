@@ -7346,18 +7346,18 @@ system Envelope {
     }
 
     #[test]
-    fn rejects_adaptive_heun_for_non_thermal_shape() {
+    fn accepts_source_ode_adaptive_heun_for_non_thermal_shape() {
         let report = check_source(
-            "bad.eng",
-            "system Decay {\n    state x: Dimensionless = 1\n    equation {\n        der(x) eq 0\n    }\n}\n\nsim = simulate Decay\nwith {\n    timestep = 1 s\n    solver = adaptive_heun\n}\n",
+            "source_adaptive.eng",
+            "system Cooling {\n    state T: AbsoluteTemperature = 300 K\n    equation {\n        der(T) eq 0 K/s\n    }\n}\n\nsim = simulate Cooling\nwith {\n    timestep = 1 s\n    solver = adaptive_heun\n}\n",
             &CheckOptions::default(),
         );
 
-        assert!(report.has_errors());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
         assert!(report
             .diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.code == "E-SIM-SYSTEM-SHAPE-UNSUPPORTED"));
+            .all(|diagnostic| diagnostic.code != "E-SIM-SYSTEM-SHAPE-UNSUPPORTED"));
     }
 
     #[test]

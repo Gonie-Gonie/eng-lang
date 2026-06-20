@@ -3363,8 +3363,8 @@ fn validate_simulation_solver(
         diagnostics.push(Diagnostic::error(
             "E-SIM-SYSTEM-SHAPE-UNSUPPORTED",
             option.line,
-            "`adaptive_heun` is currently supported only for one-state thermal and continuous state-space workflows.",
-            Some("Use `fixed_step`/`explicit_euler`/`rk4` for other supported simulation shapes, or use a one-state thermal system or a continuous state-space system with shape-checked A/B operators."),
+            "`adaptive_heun` requires source derivative equations or a continuous state-space workflow.",
+            Some("Use one `der(state)` equation per state, or use a continuous state-space system with shape-checked A/B operators."),
         ));
     }
 }
@@ -3372,6 +3372,38 @@ fn validate_simulation_solver(
 fn supports_adaptive_heun_simulation(program: &SemanticProgram, system: &SystemInfo) -> bool {
     supports_one_state_adaptive_heun(system)
         || supports_continuous_state_space_adaptive_heun(program, system)
+        || supports_source_ode_adaptive_heun(system)
+}
+
+fn supports_source_ode_adaptive_heun(system: &SystemInfo) -> bool {
+    let states = system
+        .variables
+        .iter()
+        .filter(|variable| variable.role == "state")
+        .collect::<Vec<_>>();
+    if states.is_empty()
+        || states
+            .iter()
+            .any(|state| unsupported_state_quantity(&state.quantity_kind))
+    {
+        return false;
+    }
+    if system
+        .equations
+        .iter()
+        .any(|equation| equation.left.trim().starts_with("next("))
+    {
+        return false;
+    }
+    states.iter().all(|state| {
+        let derivative = format!("der({})", state.name);
+        system
+            .equations
+            .iter()
+            .filter(|equation| equation.left.contains(&derivative))
+            .count()
+            == 1
+    })
 }
 
 fn supports_one_state_adaptive_heun(system: &SystemInfo) -> bool {
