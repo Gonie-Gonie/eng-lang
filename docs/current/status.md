@@ -164,8 +164,9 @@ by the stable breaking-change policy.
   `examples/official/25_fixed_point_loop`; and a simple-linear dynamic
   component source solve is covered by
   `examples/official/26_dynamic_component_room`, with additional runtime
-  fixture coverage for algebraic-free dimensionless function RHS evaluation
-  through parsed derivative residual expressions. Narrow coupled multi-variable
+  fixture coverage for algebraic-free dimensionless function RHS evaluation and
+  constructor-parameter dependencies through parsed derivative residual
+  expressions. Narrow coupled multi-variable
   unitful source Newton and multi-state unitful temperature implicit-Euler DAE
   component residual smokes are covered by
   `examples/official/27_nonlinear_algebraic` and

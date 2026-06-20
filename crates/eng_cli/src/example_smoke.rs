@@ -1423,6 +1423,43 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/dynamic_component_parameterized_function_explicit.eng"),
+        Path::new("build/test-runtime-dynamic-component-parameterized-function-explicit"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_explicit_euler\"")
+                || !output.result_json.contains(
+                    "dynamic component source solve executed parsed derivative residual expressions",
+                )
+                || !output.result_json.contains("\"final_value\": 0.29801899")
+                || !output
+                    .report_spec_json
+                    .contains("der(node.node.x) + node.k * sin(node.node.x) eq 0")
+                || !output.report_spec_json.contains("\"dependencies\": [\"der(node.node.x)\", \"node.node.x\", \"node.k\"]")
+                || !output.report_spec_json.contains("\"status\": \"constructor_override\"")
+                || !output.report_html.contains("node.k * sin(node.node.x)")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_parameterized_function_explicit.eng to solve a parameterized function RHS through the parsed explicit dynamic component path"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_parameterized_function_explicit.eng solved parameterized explicit dynamic component function RHS"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component parameterized function explicit runtime fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/dynamic_component_semi_implicit.eng"),
         Path::new("build/test-runtime-dynamic-component-semi-implicit"),
         &artifact_run_options(),

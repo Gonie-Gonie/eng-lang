@@ -79,6 +79,7 @@ Immediate execution order is evidence-driven:
 
 ## Progress Ledger
 
+- 2026-06-21: Algebraic-free `dynamic_component_explicit_euler` function RHS coverage now includes constructor-overridden component parameters in parsed residual expressions, proving `node.k * sin(node.node.x)` dependencies, parameter provenance, trajectory output, and report artifacts are preserved through the explicit dynamic component evaluator.
 - 2026-06-21: Algebraic-free `dynamic_component_explicit_euler` source solves now route derivative residuals through parsed arithmetic residual expressions, including a dimensionless `sin()` RHS fixture with runtime, report-spec, report HTML, trajectory, and step-diagnostic smoke coverage. This advances W5 without claiming nonlinear algebraic coupling, adaptive component timestepping, or broad unitful function support.
 - 2026-06-20: Source implicit-Euler DAE residual solving now has dimensionless `sin`/`cos` fixture and example-smoke coverage, proving the shared arithmetic function subset is exercised in DAE residual evaluation, step diagnostics, report-spec, and report HTML artifacts.
 - 2026-06-20: Source-equation fixed-step RHS simulation now has runtime fixture and example-smoke coverage for dimensionless `sin`/`cos` calls in derivative and algebraic output equations, proving the shared arithmetic function subset is exercised outside Newton residual solves as well.

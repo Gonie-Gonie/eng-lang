@@ -4952,11 +4952,27 @@ fn source_behavior_parse_symbols(
     parameters: &[SolverScalar],
     behavior_output_symbols: &[SourceBehaviorOutputSymbol],
 ) -> Result<HashMap<String, f64>, SolverFailure> {
+    source_residual_parse_symbols(
+        assembly,
+        parameters,
+        behavior_output_symbols,
+        "E-BEHAVIOR-SOURCE-PARAMETER-LAYOUT",
+        "behavior graph source",
+    )
+}
+
+fn source_residual_parse_symbols(
+    assembly: &EquationAssembly,
+    parameters: &[SolverScalar],
+    behavior_output_symbols: &[SourceBehaviorOutputSymbol],
+    parameter_layout_code: &str,
+    context: &str,
+) -> Result<HashMap<String, f64>, SolverFailure> {
     if parameters.len() != assembly.parameters.len() {
         return Err(SolverFailure::new(
-            "E-BEHAVIOR-SOURCE-PARAMETER-LAYOUT",
+            parameter_layout_code,
             format!(
-                "behavior graph source parameter vector length {} does not match assembly parameter count {}",
+                "{context} parameter vector length {} does not match assembly parameter count {}",
                 parameters.len(),
                 assembly.parameters.len()
             ),
@@ -4985,7 +5001,13 @@ fn source_dynamic_component_parse_symbols(
     assembly: &EquationAssembly,
     parameters: &[SolverScalar],
 ) -> Result<HashMap<String, f64>, SolverFailure> {
-    source_behavior_parse_symbols(assembly, parameters, &[])
+    source_residual_parse_symbols(
+        assembly,
+        parameters,
+        &[],
+        "E-DYNAMIC-COMPONENT-SOURCE-PARAMETER-LAYOUT",
+        "dynamic component source",
+    )
 }
 
 fn source_behavior_symbols(
