@@ -15,13 +15,14 @@ long-form planning documents.
 7. [Standalone package reference](reference/standalone_package.md)
 8. [Implementation issue backlog](current/implementation_issue_backlog.md)
 9. [Solver-centered plan](current/solver_centered_plan.md)
-10. [LLM load map](llm/load_map.yml)
-11. [Getting started](development/00_getting_started.md)
-12. [Repository layout](development/01_repo_layout.md)
-13. [Daily workflow](development/02_daily_workflow.md)
-14. [Reproducible environment policy](development/03_environment_reproducibility.md)
-15. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
-16. [Curated user documentation source](user/README.md)
+10. [Generic solver completion plan](current/generic_solver_completion_plan.md)
+11. [LLM load map](llm/load_map.yml)
+12. [Getting started](development/00_getting_started.md)
+13. [Repository layout](development/01_repo_layout.md)
+14. [Daily workflow](development/02_daily_workflow.md)
+15. [Reproducible environment policy](development/03_environment_reproducibility.md)
+16. [Version roadmap workflow](development/04_version_roadmap_workflow.md)
+17. [Curated user documentation source](user/README.md)
 
 ## Architecture
 

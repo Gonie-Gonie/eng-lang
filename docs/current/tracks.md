@@ -320,9 +320,9 @@ Supported scoped slice:
   examples/official/29_delay_component_solver,
   examples/official/30_predictor_component_solver, and
   examples/official/31_external_behavior_solver
-- constrained Thermal/Fluid[Water] head/flow algebraic residual solve in
+- constrained Thermal/Fluid[Water] pressure/flow algebraic residual solve in
   examples/official/32_small_thermal_fluid_loop with generated connection
-  equations, component-local boundary seeds, pipe head/flow equations, dense
+  equations, component-local boundary seeds, pipe pressure/flow equations, dense
   linear residual solve artifacts, and largest-residual reporting
 - system-local name = Component() instances
 - connect instance.port to instance.port
@@ -361,7 +361,7 @@ Implementation seeds on `main`:
 - generated-equation reasons and normalized residual evaluation artifacts
 - domain-plan based multi-domain metadata
 - constrained Thermal/Fluid/MechanicalNode boundary solve fixture
-- constrained official Thermal/Fluid[Water] head/flow solve fixture
+- constrained official Thermal/Fluid[Water] pressure/flow solve fixture
 - connection constraint consistency artifacts
 - IDE Domain Graph inspection
 - IDE assembly equation/residual inspection
@@ -374,7 +374,7 @@ Not yet public-supported:
 
 ```text
 - production numeric multi-domain simulation
-- Pressure/Pa quantity support and pressure-drop packages
+- production pressure-drop packages
 - constructor parameters and broad nonlinear/unit-parameterized
   component-local equation solving
 - general boundary-condition/component-behavior solving

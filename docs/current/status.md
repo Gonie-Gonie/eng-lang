@@ -169,9 +169,7 @@ by the stable breaking-change policy.
   adaptive component timestepping, and production multi-domain solving remain
   planned or internal. A constrained Thermal/Fluid[Water] square algebraic
   residual graph solve is covered separately by
-  `examples/official/32_small_thermal_fluid_loop`; it uses hydraulic head as
-  the Fluid across variable and does not claim a pressure-drop package or broad
-  multi-domain simulator.
+  `examples/official/32_small_thermal_fluid_loop`; it uses the public `Pressure [Pa]` quantity and a fixed pipe pressure-drop seed, but does not claim a broad or production multi-domain simulator.
 - Class/domain object authoring for typed fields/defaults, object literals,
   nested object references, field access metadata, simple validation blocks,
   zero-argument metadata methods, immutable copy-with metadata, diagnostics,
@@ -307,7 +305,7 @@ are not public stable workflows.
   solving, model loading, process backends, nonlinear/DAE behavior coupling,
   and production co-simulation remain planned.
 - Domain/component assembly seeds beyond the supported Thermal and constrained
-  Thermal/Fluid[Water] head/flow shapes include internal multi-domain boundary
+  Thermal/Fluid[Water] pressure/flow shapes include internal multi-domain boundary
   solves, singular solve failure artifacts, and overdetermined limitation
   artifacts.
   `examples/internal/22_multi_domain_boundary_solve` exercises a constrained
@@ -355,10 +353,10 @@ are not public stable workflows.
 - Stable-supported state-space workflow boundaries beyond the current internal
   fixed-step vector simulation path.
 - Component graph solving beyond the constrained Thermal boundary assembly and
-  constrained Thermal/Fluid[Water] head/flow algebraic residual solve:
+  constrained Thermal/Fluid[Water] pressure/flow algebraic residual solve:
   constructor parameters, nonlinear or unit-parameterized component behavior
   equations, mixed algebraic/dynamic variables, nonlinear/DAE coupling,
-  Pressure/Pa pressure-drop packages, and physical multi-domain coupling.
+  production pressure-drop packages, and physical multi-domain coupling.
 - Behavior graph integration for delay, Predictor, and external behavior
   wrappers.
 - Domain package registry and open component ecosystem.
@@ -382,7 +380,7 @@ are not public stable workflows.
   the narrow component residual Newton/DAE smokes, and internal state-space
   seeds.
 - Production numeric component graph solving beyond the constrained Thermal
-  boundary assembly and constrained Thermal/Fluid[Water] head/flow algebraic
+  boundary assembly and constrained Thermal/Fluid[Water] pressure/flow algebraic
   residual solve, physical multi-domain solving, pressure-drop packages, and
   domain package registries are deferred.
 - Full Unicode unit spelling support beyond the supported `°C` alias is

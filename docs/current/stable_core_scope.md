@@ -62,7 +62,7 @@ on `main` that are newer than the published `v0.1.0` assets:
 - General nonlinear/DAE simulation, broad behavior graph solving, broad
   adaptive solving, and general multi-state equation solving.
 - Production component graph numeric solving and physical multi-domain solving.
-- Pressure/Pa pressure-drop packages and a domain package registry.
+- production pressure-drop packages and a domain package registry.
 - Native JIT/AOT execution or speedup claims.
 - LSP/VS Code as a stable persistent editor-service contract.
 - Uncertainty and data-driven modeling engines as stable features.

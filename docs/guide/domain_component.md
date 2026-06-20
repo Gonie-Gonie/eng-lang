@@ -6,7 +6,7 @@ compiler records domains, component templates, system-local instances, ports,
 and connections; it generates connection equations; and `eng run` solves a
 square dense linear residual graph when literal boundary seeds make the graph
 balanced. Official examples cover constrained Thermal graphs and a constrained
-Thermal/Fluid[Water] head/flow graph. Broader component behavior equations,
+Thermal/Fluid[Water] pressure/flow graph. Broader component behavior equations,
 constructor arguments, dynamic components, nonlinear/DAE coupling, pressure
 quantity packages, and physical multi-domain solving remain internal or
 planned.
@@ -15,7 +15,7 @@ When multiple compatible domain families appear in the same component graph,
 artifacts use legacy field values such as
 `solver_preview.status = multi_domain_preview`; those are machine-readable
 Internal metadata labels. In the official Thermal/Fluid[Water] example they
-identify the constrained algebraic head/flow residual solve; they are still not
+identify the constrained algebraic pressure/flow residual solve; they are still not
 a production physical multi-domain component solve claim.
 
 ## Domain Declaration
@@ -183,7 +183,7 @@ compiler records generated equation seeds:
   one assembly contains more than one domain plan.
 
 The supported official Thermal boundary examples and the official
-Thermal/Fluid[Water] head/flow example use these generated equations plus
+Thermal/Fluid[Water] pressure/flow example use these generated equations plus
 literal boundary seeds and simple component-local equations to produce square
 dense linear residual solves. General physical component graph solving is still
 planned.
@@ -204,9 +204,9 @@ The runtime result artifact writes this to
 `report.html` also expose the updated assembly status and convergence metadata.
 This path is useful for linear residual assembly, dense solver plumbing,
 convergence/failure artifacts, and future solver integration. In the supported
-official Thermal boundary shape and constrained Thermal/Fluid[Water] head/flow
+official Thermal boundary shape and constrained Thermal/Fluid[Water] pressure/flow
 shape it is a real numeric solve for the constrained linear graph, but it is
-not a pressure-drop package or production physical multi-domain solve.
+not a production physical multi-domain solve.
 
 The artifact also records explicit future-solver seeds:
 
@@ -331,10 +331,9 @@ re-parsing source files.
   per-step Newton diagnostics.
 - `examples/official/32_small_thermal_fluid_loop/main.eng`
   shows the constrained Thermal/Fluid[Water] algebraic residual path with
-  Thermal and Fluid connection equations, pump boundary seeds, pipe head/flow
+  Thermal and Fluid connection equations, pump boundary seeds, pipe pressure/flow
   component equations, named solved variables, residual norm, and
-  `largest_residuals`. It uses hydraulic head (`height`) rather than public
-  `Pressure`/`Pa` quantity support.
+  `largest_residuals`. It uses the public `Pressure [Pa]` quantity and a fixed pipe pressure-drop seed.
 - `examples/internal/06_domain_port/main.eng`
   shows compatible Thermal, `Fluid[Water]`, and
   `MechanicalNode[World, X]` domain connections with package/version metadata
@@ -383,7 +382,7 @@ Current:
 - homogeneous connection-constraint residual evaluation artifact;
 - supported square Thermal boundary residual solve for literal boundary seeds
   and simple linear component-local equations;
-- supported constrained Thermal/Fluid[Water] head/flow residual solve for
+- supported constrained Thermal/Fluid[Water] pressure/flow residual solve for
   literal boundary seeds and simple pipe component-local equations;
 - narrow source Newton residual solves for dimensionless scalar nonlinear
   component equations;
@@ -407,7 +406,7 @@ Deferred:
 - physical component graph solving with component behavior equations, broad
   nonlinear/DAE coupling, and adaptive component timestepping;
 - production multi-domain numerical solving;
-- Pressure/Pa quantity support and pressure-drop packages;
+- production pressure-drop packages;
 - package registries;
 - package dependency resolution;
 - numeric enforcement of conservation contracts.

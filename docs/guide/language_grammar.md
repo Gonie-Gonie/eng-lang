@@ -1270,9 +1270,8 @@ with {
 `dynamic_component_semi_implicit_euler` solves linear algebraic residuals per
 timestep. Both paths emit component solver trajectories and step diagnostics.
 They currently require simple linear component-local residual terms; nonlinear,
-constructor-parameterized, adaptive, pressure-package, and production
-multi-domain component solves remain outside this source surface. A constrained
-Thermal/Fluid[Water] head/flow algebraic residual graph is available as a
+constructor-parameterized, adaptive, and production multi-domain component solves remain outside this source surface. A constrained
+Thermal/Fluid[Water] pressure/flow algebraic residual graph is available as a
 dense linear solve in `examples/official/32_small_thermal_fluid_loop`.
 
 Nonlinear algebraic source residuals can use the same binding with Newton:
@@ -1606,7 +1605,7 @@ The current guide intentionally does not promise:
 | Full process sandboxing | Explicit process records and profile basics exist; sandbox isolation is deferred |
 | Project-wide test discovery/runner | Local source-file test blocks exist; workspace discovery is deferred |
 | Full package/module system | File imports and metadata seeds only |
-| General nonlinear/DAE/behavior/broad adaptive/multi-domain solving | Deferred beyond supported one-state thermal fixed/adaptive path, supported two-state source-equation fixed-step path, narrow component residual Newton/implicit-Euler DAE smokes, narrow explicit-Euler source behavior RHS smokes, constrained Thermal/Fluid[Water] head/flow algebraic residual smoke, and internal fixed-step/continuous `adaptive_heun` state-space paths |
+| General nonlinear/DAE/behavior/broad adaptive/multi-domain solving | Deferred beyond supported one-state thermal fixed/adaptive path, supported two-state source-equation fixed-step path, narrow component residual Newton/implicit-Euler DAE smokes, narrow explicit-Euler source behavior RHS smokes, constrained Thermal/Fluid[Water] pressure/flow algebraic residual smoke, and internal fixed-step/continuous `adaptive_heun` state-space paths |
 | Full artifact schema evolution policy | Stable-core schemas exist; broader future-track schemas may grow |
 
 ## Authoring Checklist

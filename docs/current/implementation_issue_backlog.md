@@ -563,7 +563,7 @@ Current coverage:
   dense linear solver artifacts while preserving the non-production
   multi-domain limitation.
 - `examples/official/32_small_thermal_fluid_loop` exercises a constrained
-  Thermal/Fluid[Water] head/flow algebraic residual path with generated
+  Thermal/Fluid[Water] pressure/flow algebraic residual path with generated
   connection equations, component-boundary RHS equations, pipe component
   equations, a square residual graph, dense linear solver artifacts, and the
   same non-production multi-domain limitation.
@@ -652,7 +652,7 @@ Current coverage:
   `largest_residuals` for solved, singular, underdetermined, and overdetermined
   paths.
 - Official/internal fixtures cover the focused Thermal square solve,
-  constrained Thermal/Fluid[Water] head/flow square solve, constrained
+  constrained Thermal/Fluid[Water] pressure/flow square solve, constrained
   multi-domain boundary solve, singular dense solve failure, and overdetermined
   limitation artifact while keeping production multi-domain solving out of the
   public claim.

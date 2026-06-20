@@ -4283,10 +4283,8 @@ fn small_thermal_fluid_solve_artifacts_are_structured(output: &eng_runtime::RunO
             .result_json
             .contains("\"name\": \"pipe.inlet.m_dot\"")
         && output.result_json.contains("\"value\": -0.20000000")
-        && output
-            .result_json
-            .contains("\"name\": \"pipe.outlet.height\"")
-        && output.result_json.contains("\"value\": 12.00000000")
+        && output.result_json.contains("\"name\": \"pipe.outlet.p\"")
+        && output.result_json.contains("\"value\": 200000.00000000")
         && output
             .result_json
             .contains("\"name\": \"return_node.inlet.m_dot\"")
@@ -4307,6 +4305,7 @@ fn small_thermal_fluid_solve_artifacts_are_structured(output: &eng_runtime::RunO
         && output
             .report_spec_json
             .contains("\"not_production_multi_domain\"")
+        && output.report_spec_json.contains("20000 Pa")
         && output.report_html.contains("dense_linear_residual_graph")
         && output.report_html.contains("Fluid[Water]")
         && output.report_html.contains("domain plan")

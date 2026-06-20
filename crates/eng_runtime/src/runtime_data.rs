@@ -7790,6 +7790,8 @@ fn convert_display_value(value: f64, from_unit: &str, to_unit: &str) -> f64 {
     match (from_unit.as_str(), to_unit.as_str()) {
         ("w", "kw") => value / 1000.0,
         ("kw", "w") => value * 1000.0,
+        ("pa", "kpa") => value / 1000.0,
+        ("kpa", "pa") => value * 1000.0,
         ("degc", "degc") => value,
         ("k", "degc") => value - 273.15,
         ("degc", "k") => value + 273.15,
@@ -8670,6 +8672,7 @@ fn convert_from_canonical_unit(
     ) {
         ("k", "degc", "AbsoluteTemperature") => value - 273.15,
         ("w", "kw", "HeatRate" | "ElectricPower" | "MechanicalPower") => value / 1000.0,
+        ("pa", "kpa", "Pressure") => value / 1000.0,
         ("j/k", "kj/k", "HeatCapacity") => value / 1000.0,
         _ => value,
     }

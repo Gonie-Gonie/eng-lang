@@ -139,9 +139,8 @@ paths before compatibility fixtures.
 32_small_thermal_fluid_loop
   Source-to-solver smoke for a constrained Thermal/Fluid[Water] algebraic
   residual graph. Generated connection equations, component-local boundary
-  seeds, and simple pipe head/flow equations form a square dense linear solve.
-  This is a head-based fluid seed, not a production pressure-drop package or
-  broad multi-domain solver.
+  seeds, and simple pipe pressure/flow equations form a square dense linear solve.
+  This is a pressure-based fluid seed, not a production hydraulic network package or broad multi-domain solver.
 ```
 
 Compatibility regression examples live under `examples/compat`. Diagnostic and

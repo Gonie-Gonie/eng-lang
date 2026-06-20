@@ -7206,6 +7206,24 @@ mod tests {
     }
 
     #[test]
+    fn records_pressure_quantity_and_unit_derivation() {
+        let report = check_source("ok.eng", "p_supply = 220 kPa", &CheckOptions::default());
+
+        assert!(!report.has_errors());
+        assert_eq!(report.inferred_declarations[0].quantity_kind, "Pressure");
+        assert_eq!(report.inferred_declarations[0].display_unit, "Pa");
+        assert_eq!(
+            report.semantic_program.unit_derivations[0]
+                .source_unit
+                .as_deref(),
+            Some("kPa")
+        );
+        assert_eq!(
+            report.semantic_program.unit_derivations[0].canonical_unit,
+            "Pa"
+        );
+    }
+    #[test]
     fn accepts_celsius_symbol_alias_for_absolute_temperature() {
         let report = check_source(
             "ok.eng",

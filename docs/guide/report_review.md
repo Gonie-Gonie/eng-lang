@@ -144,11 +144,9 @@ conditions, and largest-residual artifacts. `examples/official/29_delay_componen
 behavior RHS path and record integrated delay/Predictor/external behavior-node
 artifacts plus per-step behavior graph diagnostics.
 `examples/official/32_small_thermal_fluid_loop` covers the constrained
-Thermal/Fluid[Water] head/flow algebraic residual path and records generated
+Thermal/Fluid[Water] pressure/flow algebraic residual path and records generated
 Thermal and Fluid connection equations, pipe component equations, solved
-head/flow variables, residual norm, and largest-residual artifacts. It uses
-hydraulic head because public `Pressure`/`Pa` quantity support is not present
-yet.
+pressure/flow variables, residual norm, and largest-residual artifacts. It uses the public `Pressure [Pa]` quantity with a fixed pipe pressure-drop seed.
 The runtime residual evaluator accepts solver-provided residual scale overrides
 and tolerance values; component artifacts currently use the default
 unit/quantity scale policy unless a solver path supplies explicit overrides.
@@ -276,8 +274,7 @@ beside the runtime-updated `assembly_summary[].solver_result` detail. Tooling
 should treat `multi_domain_preview` as a reviewable plan plus homogeneous
 constraint residual check, not as a production multi-domain physical solve. The
 official Thermal/Fluid[Water] example is a constrained square algebraic
-head/flow solve; it is still not a pressure-drop package or production
-hydraulic network simulator.
+pressure/flow solve with a fixed pressure-drop seed; it is still not a production hydraulic network simulator.
 
 ## `output_manifest.json`
 

@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
+use eng_compiler::{all_unit_infos, normalize_unit, UnitInfo};
+
 use super::{assembly::EquationAssembly, euclidean_norm, SolverFailure};
 
 pub const DEFAULT_RESIDUAL_TOLERANCE: f64 = 1e-9;
@@ -55,12 +57,19 @@ impl ResidualGraph {
             .generated_equations
             .iter()
             .map(|equation| {
+                let (unit, quantity_kind) = equation
+                    .dependencies
+                    .first()
+                    .and_then(|dependency| variable_units.get(dependency))
+                    .cloned()
+                    .unwrap_or_else(|| ("1".to_owned(), "unknown".to_owned()));
                 let parsed_component_equation = if equation.kind == "component_equation" {
                     parse_dynamic_linear_residual_terms(
                         &equation.residual,
                         &equation.dependencies,
                         &variable_indices,
                         &variables,
+                        Some((&unit, &quantity_kind)),
                     )
                     .ok()
                 } else {
@@ -80,12 +89,6 @@ impl ResidualGraph {
                     .iter()
                     .map(|term| term.variable_index)
                     .collect::<Vec<_>>();
-                let (unit, quantity_kind) = equation
-                    .dependencies
-                    .first()
-                    .and_then(|dependency| variable_units.get(dependency))
-                    .cloned()
-                    .unwrap_or_else(|| ("1".to_owned(), "unknown".to_owned()));
                 let scale = ResidualScale::from_quantity_unit(&quantity_kind, &unit);
                 ResidualEquation {
                     name: equation.name.clone(),
@@ -233,13 +236,6 @@ impl ResidualGraph {
             .generated_equations
             .iter()
             .map(|equation| {
-                let parsed = parse_dynamic_linear_residual_terms(
-                    &equation.residual,
-                    &equation.dependencies,
-                    &variable_aliases,
-                    &variables,
-                )?;
-                let rhs_value = dynamic_residual_rhs_value(equation, parsed.constant)?;
                 let (unit, quantity_kind) = dynamic_residual_unit(
                     equation
                         .dependencies
@@ -250,6 +246,14 @@ impl ResidualGraph {
                     &variables,
                     &variable_units,
                 );
+                let parsed = parse_dynamic_linear_residual_terms(
+                    &equation.residual,
+                    &equation.dependencies,
+                    &variable_aliases,
+                    &variables,
+                    Some((&unit, &quantity_kind)),
+                )?;
+                let rhs_value = dynamic_residual_rhs_value(equation, parsed.constant)?;
                 let scale = ResidualScale::from_quantity_unit(&quantity_kind, &unit);
 
                 Ok(ResidualEquation {
@@ -473,6 +477,7 @@ fn parse_dynamic_linear_residual_terms(
     dependencies: &[String],
     variable_aliases: &HashMap<String, usize>,
     variables: &[ResidualVariableRef],
+    residual_unit: Option<(&str, &str)>,
 ) -> Result<ParsedDynamicResidual, SolverFailure> {
     let dependency_indices = dependencies
         .iter()
@@ -514,6 +519,7 @@ fn parse_dynamic_linear_residual_terms(
             &dependency_indices,
             variable_aliases,
             variables,
+            residual_unit,
             &mut parsed,
         )?;
         sign = 1.0;
@@ -534,6 +540,7 @@ fn parse_dynamic_linear_term(
     dependency_indices: &HashSet<usize>,
     variable_aliases: &HashMap<String, usize>,
     variables: &[ResidualVariableRef],
+    residual_unit: Option<(&str, &str)>,
     parsed: &mut ParsedDynamicResidual,
 ) -> Result<(), SolverFailure> {
     let term = raw.trim();
@@ -602,9 +609,70 @@ fn parse_dynamic_linear_term(
             )?;
             return Ok(());
         }
+        if let Ok(value) = pieces[0].parse::<f64>() {
+            let value = convert_residual_constant(value, pieces[1], residual_unit)?;
+            parsed.constant += sign * value;
+            return Ok(());
+        }
     }
 
     Err(unsupported_dynamic_linear_term(term))
+}
+
+fn residual_unit_info(unit: &str) -> Option<UnitInfo> {
+    let normalized = normalize_unit(unit);
+    all_unit_infos()
+        .iter()
+        .find(|info| normalize_unit(info.symbol) == normalized)
+        .copied()
+}
+
+fn convert_residual_constant(
+    value: f64,
+    source_unit: &str,
+    residual_unit: Option<(&str, &str)>,
+) -> Result<f64, SolverFailure> {
+    let Some((target_unit, _quantity_kind)) = residual_unit else {
+        return Ok(value);
+    };
+    let normalized_source = normalize_unit(source_unit);
+    let normalized_target = normalize_unit(target_unit);
+    if normalized_source == normalized_target {
+        return Ok(value);
+    }
+    let Some(source_info) = residual_unit_info(source_unit) else {
+        return Err(unsupported_dynamic_linear_term(&format!(
+            "{value} {source_unit}"
+        )));
+    };
+    let Some(target_info) = residual_unit_info(target_unit) else {
+        return Err(unsupported_dynamic_linear_term(&format!(
+            "{value} {source_unit}"
+        )));
+    };
+    if source_info.affine_offset.is_some() || target_info.affine_offset.is_some() {
+        return Err(unsupported_dynamic_linear_term(&format!(
+            "{value} {source_unit}"
+        )));
+    }
+    if normalize_unit(source_info.canonical_unit) != normalize_unit(target_info.canonical_unit) {
+        return Err(unsupported_dynamic_linear_term(&format!(
+            "{value} {source_unit}"
+        )));
+    }
+    let source_scale = source_info.scale_to_canonical.parse::<f64>().map_err(|_| {
+        SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
+            format!("unit `{source_unit}` has an invalid residual conversion scale"),
+        )
+    })?;
+    let target_scale = target_info.scale_to_canonical.parse::<f64>().map_err(|_| {
+        SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
+            format!("unit `{target_unit}` has an invalid residual conversion scale"),
+        )
+    })?;
+    Ok(value * source_scale / target_scale)
 }
 
 fn push_dynamic_linear_term(
@@ -1239,6 +1307,49 @@ mod tests {
         assert!(output.values.iter().all(|residual| residual.value == 0.0));
     }
 
+    #[test]
+    fn component_equation_constants_convert_to_residual_unit() {
+        let assembly = EquationAssembly {
+            name: "component_graph".to_owned(),
+            unknowns: vec![
+                UnknownVariable {
+                    name: "pipe.outlet.p".to_owned(),
+                    role: "algebraic".to_owned(),
+                    quantity_kind: "Pressure".to_owned(),
+                    unit: "Pa".to_owned(),
+                    source: "Fluid.p".to_owned(),
+                    status: "classified".to_owned(),
+                },
+                UnknownVariable {
+                    name: "pipe.inlet.p".to_owned(),
+                    role: "algebraic".to_owned(),
+                    quantity_kind: "Pressure".to_owned(),
+                    unit: "Pa".to_owned(),
+                    source: "Fluid.p".to_owned(),
+                    status: "classified".to_owned(),
+                },
+            ],
+            generated_equations: vec![GeneratedEquation {
+                name: "pipe.pressure_drop".to_owned(),
+                kind: "component_equation".to_owned(),
+                residual: "pipe.outlet.p + 20 kPa - pipe.inlet.p".to_owned(),
+                dependencies: vec!["pipe.outlet.p".to_owned(), "pipe.inlet.p".to_owned()],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let graph = ResidualGraph::from_assembly(&assembly);
+        let residual = &graph.residuals[0];
+
+        assert_eq!(residual.terms[0].coefficient, 1.0);
+        assert_eq!(residual.terms[0].variable, "pipe.outlet.p");
+        assert_eq!(residual.terms[1].coefficient, -1.0);
+        assert_eq!(residual.terms[1].variable, "pipe.inlet.p");
+        assert_eq!(residual.rhs_value, -20000.0);
+        assert_eq!(residual.scale.value, 1000.0);
+        assert_eq!(residual.scale.policy, "unit_default:Pressure[Pa]");
+    }
     #[test]
     fn residual_scales_use_quantity_unit_defaults() {
         let heat_rate = ResidualScale::from_quantity_unit("HeatRate", "W");

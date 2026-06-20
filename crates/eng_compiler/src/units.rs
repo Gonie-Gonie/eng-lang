@@ -152,6 +152,22 @@ pub const UNIT_INFOS: &[UnitInfo] = &[
         affine_offset: None,
     },
     UnitInfo {
+        symbol: "Pa",
+        canonical_unit: "Pa",
+        quantity_hint: "Pressure",
+        dimension: "Pressure",
+        scale_to_canonical: "1",
+        affine_offset: None,
+    },
+    UnitInfo {
+        symbol: "kPa",
+        canonical_unit: "Pa",
+        quantity_hint: "Pressure",
+        dimension: "Pressure",
+        scale_to_canonical: "1000",
+        affine_offset: None,
+    },
+    UnitInfo {
         symbol: "kg/s",
         canonical_unit: "kg/s",
         quantity_hint: "MassFlowRate",

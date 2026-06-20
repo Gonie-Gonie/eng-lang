@@ -5,7 +5,7 @@ domain Thermal {
 }
 
 domain Fluid[Medium M] {
-    across height: Length [m]
+    across p: Pressure [Pa]
     through m_dot: MassFlowRate [kg/s]
     conservation sum(m_dot) = 0
 }
@@ -22,14 +22,14 @@ component AmbientBoundary {
 
 component PumpBoundary {
     port supply: Fluid[Water]
-    supply_head = supply.height = 12 m
+    supply_pressure = supply.p = 220000 Pa
     supply_flow = supply.m_dot = 0.2 kg/s
 }
 
 component PipeRun {
     port inlet: Fluid[Water]
     port outlet: Fluid[Water]
-    outlet.height eq inlet.height
+    outlet.p + 20000 Pa eq inlet.p
     outlet.m_dot + inlet.m_dot eq 0
 }
 
