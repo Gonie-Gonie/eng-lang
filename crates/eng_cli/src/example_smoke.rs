@@ -1729,6 +1729,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             "E-ASSEMBLY-BOUNDARY-UNIT-001",
         ),
         (
+            "examples/diagnostics/error_messages/component_equation_unit_mismatch.eng",
+            "E-COMPONENT-EQUATION-UNIT-001",
+        ),
+        (
             "examples/diagnostics/error_messages/simulate_unknown_system.eng",
             "E-SIM-SYSTEM-001",
         ),

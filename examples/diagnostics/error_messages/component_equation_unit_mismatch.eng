@@ -1,0 +1,28 @@
+domain Fluid[Medium M] {
+    across p: Pressure [Pa]
+    through m_dot: MassFlowRate [kg/s]
+    conservation sum(m_dot) = 0
+}
+
+component Source {
+    port outlet: Fluid[Water]
+}
+
+component Sink {
+    port inlet: Fluid[Water]
+}
+
+component PipeRun {
+    port inlet: Fluid[Water]
+    port outlet: Fluid[Water]
+    outlet.p + 2 kg/s eq inlet.p
+    outlet.m_dot + inlet.m_dot eq 0
+}
+
+system Loop {
+    source = Source()
+    sink = Sink()
+    pipe = PipeRun()
+    connect source.outlet to pipe.inlet
+    connect pipe.outlet to sink.inlet
+}
