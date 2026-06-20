@@ -7229,6 +7229,34 @@ system Envelope {
     }
 
     #[test]
+    fn rejects_state_space_vector_member_role_mismatch() {
+        let report = check_source(
+            "bad.eng",
+            "system BadStateSpaceRoles {\n    state T_zone: AbsoluteTemperature = 22 degC\n    input Q_internal: HeatRate = 500 W\n    output Q_total: HeatRate\n    states x = [T_zone, Q_internal]\n    inputs u = [T_zone]\n    outputs y = [Q_internal, Q_total]\n    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[0.1, 0.0]; [0.0, 0.1]]\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-STATE-SPACE-VECTOR-MEMBER-ROLE"));
+        assert_eq!(
+            report
+                .semantic_program
+                .state_space_vectors
+                .iter()
+                .filter(|vector| vector.status == "member_role_mismatch")
+                .count(),
+            3
+        );
+        assert_eq!(
+            report.semantic_program.linear_operators[0].compatibility_status,
+            "member_role_mismatch"
+        );
+    }
+
+    #[test]
     fn rejects_simulate_missing_required_options() {
         let report = check_source(
             "bad.eng",

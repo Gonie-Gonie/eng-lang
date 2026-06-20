@@ -203,7 +203,7 @@ Internal seeds may have code, tests, examples, or artifacts on `main`, but they
 are not public stable workflows.
 
 - Legacy/internal state-space metadata and runtime seeds: typed vector/operator declarations,
-  vector-member diagnostics, operator quantity/unit summaries, review metadata,
+  vector-member existence/role diagnostics, operator quantity/unit summaries, review metadata,
   non-rectangular matrix diagnostics, non-numeric/non-finite matrix-entry
   diagnostics, unsupported unitful matrix-entry diagnostics, inverse-time
   coefficient checks and per-second canonicalization where source and

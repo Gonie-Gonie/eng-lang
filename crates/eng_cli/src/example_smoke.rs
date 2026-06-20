@@ -1969,6 +1969,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             "E-SIM-SYSTEM-SHAPE-UNSUPPORTED",
         ),
         (
+            "examples/diagnostics/error_messages/state_space_vector_member_role.eng",
+            "E-STATE-SPACE-VECTOR-MEMBER-ROLE",
+        ),
+        (
             "examples/diagnostics/error_messages/state_space_missing_operator_entry.eng",
             "E-STATE-SPACE-OP-SHAPE-001",
         ),

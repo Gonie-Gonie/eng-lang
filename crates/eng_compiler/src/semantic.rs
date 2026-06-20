@@ -8643,9 +8643,7 @@ fn validate_state_space_vector_members(
             .filter(|member| system_variable(systems, &vector.system, member).is_none())
             .cloned()
             .collect::<Vec<_>>();
-        if missing_members.is_empty() {
-            vector.status = "members_checked".to_owned();
-        } else {
+        if !missing_members.is_empty() {
             vector.status = "member_unresolved".to_owned();
             diagnostics.push(Diagnostic::error(
                 "E-STATE-SPACE-VECTOR-MEMBER-001",
@@ -8657,7 +8655,51 @@ fn validate_state_space_vector_members(
                 ),
                 Some("List only state/input/output names declared in the same system."),
             ));
+            continue;
         }
+
+        let role_mismatches = vector
+            .members
+            .iter()
+            .filter_map(|member| {
+                let variable = system_variable(systems, &vector.system, member)?;
+                (!state_space_vector_member_role_allowed(&vector.role, &variable.role))
+                    .then(|| format!("{} ({})", member, variable.role))
+            })
+            .collect::<Vec<_>>();
+        if role_mismatches.is_empty() {
+            vector.status = "members_checked".to_owned();
+        } else {
+            vector.status = "member_role_mismatch".to_owned();
+            diagnostics.push(Diagnostic::error(
+                "E-STATE-SPACE-VECTOR-MEMBER-ROLE",
+                vector.line,
+                &format!(
+                    "State-space vector `{}` has member(s) with incompatible role(s): {}.",
+                    vector.name,
+                    role_mismatches.join(", ")
+                ),
+                Some(state_space_vector_member_role_help(&vector.role)),
+            ));
+        }
+    }
+}
+
+fn state_space_vector_member_role_allowed(vector_role: &str, member_role: &str) -> bool {
+    match vector_role {
+        "states" => member_role == "state",
+        "inputs" => member_role == "input",
+        "outputs" => matches!(member_role, "state" | "output"),
+        _ => true,
+    }
+}
+
+fn state_space_vector_member_role_help(vector_role: &str) -> &'static str {
+    match vector_role {
+        "states" => "List only `state` variables in a `states` vector.",
+        "inputs" => "List only `input` variables in an `inputs` vector.",
+        "outputs" => "List only `state` or `output` variables in an `outputs` vector.",
+        _ => "List only variables with roles compatible with the vector declaration.",
     }
 }
 
@@ -8805,6 +8847,15 @@ fn validate_linear_operator_shapes(
             ));
             continue;
         };
+        if [operator.to.as_str(), operator.from.as_str()]
+            .iter()
+            .filter_map(|type_name| state_space_vector_status(vectors, &operator.system, type_name))
+            .any(|status| status == "member_role_mismatch")
+        {
+            operator.status = "member_role_mismatch".to_owned();
+            operator.compatibility_status = "member_role_mismatch".to_owned();
+            continue;
+        }
         if operator.row_count != expected_rows || operator.column_count != expected_columns {
             operator.status = "shape_mismatch".to_owned();
             operator.compatibility_status = "shape_mismatch".to_owned();
@@ -9140,6 +9191,24 @@ fn state_space_vector_members(
         .iter()
         .find(|vector| vector.system == system && vector.vector_type == trimmed)
         .map(|vector| vector.members.clone())
+}
+
+fn state_space_vector_status<'a>(
+    vectors: &'a [StateSpaceVectorInfo],
+    system: &str,
+    type_name: &str,
+) -> Option<&'a str> {
+    let trimmed = type_name.trim();
+    if let Some(inner) = trimmed
+        .strip_prefix("Derivative[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return state_space_vector_status(vectors, system, inner);
+    }
+    vectors
+        .iter()
+        .find(|vector| vector.system == system && vector.vector_type == trimmed)
+        .map(|vector| vector.status.as_str())
 }
 
 fn system_variable<'a>(

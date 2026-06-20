@@ -44,6 +44,7 @@ Every row above must eventually satisfy these requirements:
 
 - 2026-06-20: Source-equation ODE simulation accepts scalar `output` system variables, evaluates their algebraic expressions from each simulated state/input/parameter sample, stores them as solver algebraic trajectories, and materializes `RuntimeTimeSeries` such as `sim.Q_load`. This closes the state-only output limitation for the supported source-equation ODE path; shared-IR, component-coupled, DAE, and behavior output lowering remain in the generic workstreams.
 - 2026-06-20: Typed-block state-space simulation now allows `outputs y = [...]` to include scalar `output` variables, evaluates those output equations from state/input/parameter samples after discrete, fixed-step continuous, or adaptive state-space solves, and materializes named output TimeSeries.
+- 2026-06-20: State-space vector semantic checks now reject role-incompatible members (`states` require state variables, `inputs` require input variables, and `outputs` require state/output variables), propagate mismatch status into dependent LinearOperator metadata, and cover the diagnostic through compiler and example-smoke tests.
 
 ## Narrow/Not Claim Closure Matrix
 
@@ -270,6 +271,7 @@ Evidence gate:
 - Source ODE RHS evaluation now pre-parses derivative coefficients and RHS expressions through the shared arithmetic expression parser, preserving unit-literal metadata and removing per-sample RHS string parsing for fixed-step and adaptive source simulations.
 - Source ODE RHS parser construction now receives typed input and parameter symbol metadata from runtime layouts, so source derivative expressions preserve state/input/parameter units instead of name-only RHS symbols.
 - Source ODE RHS numeric literals with known built-in units now convert to canonical solver values during shared expression parsing while preserving unknown compound suffix compatibility.
+- State-space vector declarations now validate member roles before operator compatibility checks, preventing role-incompatible state/input/output vectors from being treated as shape-compatible solver inputs.
 
 ## Done Criteria
 

@@ -1,0 +1,11 @@
+system BadStateSpaceRoles {
+    state T_zone: AbsoluteTemperature = 22 degC
+    input Q_internal: HeatRate = 500 W
+    output Q_total: HeatRate
+
+    states x = [T_zone, Q_internal]
+    inputs u = [T_zone]
+    outputs y = [Q_internal, Q_total]
+
+    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[0.1, 0.0]; [0.0, 0.1]]
+}
