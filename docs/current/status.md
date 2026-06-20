@@ -281,7 +281,9 @@ are not public stable workflows.
   `tests/runtime/dynamic_component_function_semi_implicit.eng`,
   `tests/runtime/dynamic_component_nonlinear_algebraic_semi_implicit.eng`,
   `tests/runtime/dynamic_component_semi_implicit.eng`, and
-  `tests/diagnostics/dynamic_component_nonconvergence.eng`. The runtime also
+  `tests/diagnostics/dynamic_component_nonconvergence.eng`, plus
+  `tests/diagnostics/dynamic_component_nonlinear_algebraic_nonconvergence.eng`
+  for Newton algebraic nonconvergence artifacts. The runtime also
   has narrow source bridges from component `EquationAssembly` residuals to
   Newton and implicit-Euler DAE solves. The Newton bridge evaluates source
   residual expressions directly, scales residuals, uses finite-difference

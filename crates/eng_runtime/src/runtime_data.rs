@@ -12592,6 +12592,90 @@ with {
     }
 
     #[test]
+    fn materializes_dynamic_component_newton_algebraic_nonconvergence_artifact() {
+        let source = r#"
+domain ScalarState {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component DynamicNode {
+    port node: ScalarState
+    der(node.x) + node.balance eq 0
+}
+
+component NonlinearBoundary {
+    port node: ScalarState
+    node.balance * node.balance eq node.x
+}
+
+system DynamicNonlinearAlgebraicFailure {
+    node = DynamicNode()
+    boundary = NonlinearBoundary()
+    connect node.node to boundary.node
+}
+
+nonlinear_failure = solve component_graph
+with {
+    solver = dynamic_component_semi_implicit_euler
+    timestep = 0.25 s
+    duration = 1 s
+    initial = 0.5
+    initial_algebraic = [0.1, 0.5, 0.1]
+    tolerance = 0.000000000001
+    max_iter = 1
+}
+"#;
+        let report = check_source(
+            "dynamic_newton_algebraic_failure.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.status, "failed");
+        assert_eq!(
+            solution.method,
+            "dynamic_component_assembly_semi_implicit_euler"
+        );
+        assert!(solution
+            .reason
+            .contains("semi-implicit Newton algebraic residuals"));
+        assert_eq!(solution.convergence_status, "algebraic_solve_failed");
+        assert_eq!(
+            solution
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-NEWTON-NONCONVERGENCE")
+        );
+        assert_eq!(solution.step_diagnostics.len(), 1);
+        assert_eq!(
+            solution.step_diagnostics[0].convergence_status,
+            "newton_not_converged"
+        );
+        assert_eq!(
+            solution.step_diagnostics[0]
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-NEWTON-NONCONVERGENCE")
+        );
+        assert!(!solution.step_diagnostics[0].residual_values.is_empty());
+        assert_eq!(
+            solution.step_diagnostics[0].residual_values.len(),
+            solution.step_diagnostics[0]
+                .normalized_residual_values
+                .len()
+        );
+    }
+
+    #[test]
     fn newton_step_diagnostics_include_line_search_metadata() {
         let newton = crate::solver::NewtonResult {
             values: vec![1.0],

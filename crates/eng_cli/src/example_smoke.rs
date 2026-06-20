@@ -2297,6 +2297,47 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/diagnostics/dynamic_component_nonlinear_algebraic_nonconvergence.eng"),
+        Path::new("build/test-diagnostics-dynamic-component-nonlinear-algebraic-nonconvergence"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_semi_implicit_euler\"")
+                || !output
+                    .result_json
+                    .contains("semi-implicit Newton algebraic residuals")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"algebraic_solve_failed\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_not_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-NEWTON-NONCONVERGENCE\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\"")
+                || !output.report_html.contains("E-NEWTON-NONCONVERGENCE")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/dynamic_component_nonlinear_algebraic_nonconvergence.eng to report a semi-implicit Newton algebraic failure artifact"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/dynamic_component_nonlinear_algebraic_nonconvergence.eng reported semi-implicit Newton algebraic nonconvergence"
+            );
+        }
+        Err(error) => {
+            eprintln!("dynamic component nonlinear algebraic diagnostics fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("examples/internal/24_component_boundary_overdetermined/main.eng"),
         Path::new("build/test-component-boundary-overdetermined"),
         &artifact_run_options(),
