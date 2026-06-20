@@ -1333,6 +1333,144 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/dae_predictor_behavior_from_source.eng"),
+        Path::new("build/test-runtime-dae-predictor-behavior-source"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"behavior_graph_implicit_euler_dae_source\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dae_converged\"")
+                || !output
+                    .result_json
+                    .contains("behavior graph residual evaluation")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"final_value\": 0.75000000")
+                || !output.result_json.contains("\"name\": \"node.node.z\"")
+                || !output
+                    .result_json
+                    .contains("der(node.node.x) + predicted - 1 - (0)")
+                || !output.result_json.contains("node.node.z - predicted - (0)")
+                || !output
+                    .report_spec_json
+                    .contains("predictor_call_contract_integrated")
+                || !output
+                    .report_spec_json
+                    .contains("evaluated_in_language_behavior_graph")
+                || !output
+                    .report_html
+                    .contains("behavior_graph_implicit_euler_dae_source")
+            {
+                eprintln!(
+                    "expected tests/runtime/dae_predictor_behavior_from_source.eng to solve DAE residuals with Predictor behavior output symbols"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dae_predictor_behavior_from_source.eng solved source DAE residual graph with Predictor behavior"
+            );
+        }
+        Err(error) => {
+            eprintln!("DAE Predictor behavior source runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/runtime/dae_external_behavior_from_source.eng"),
+        Path::new("build/test-runtime-dae-external-behavior-source"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"behavior_graph_implicit_euler_dae_source\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dae_converged\"")
+                || !output
+                    .result_json
+                    .contains("behavior graph residual evaluation")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"final_value\": 0.75000000")
+                || !output.result_json.contains("\"name\": \"node.node.z\"")
+                || !output
+                    .result_json
+                    .contains("der(node.node.x) + adapted - 1 - (0)")
+                || !output.result_json.contains("node.node.z - adapted - (0)")
+                || !output
+                    .report_spec_json
+                    .contains("external_behavior_wrapper_integrated")
+                || !output
+                    .report_spec_json
+                    .contains("evaluated_in_language_behavior_graph")
+                || !output
+                    .report_html
+                    .contains("behavior_graph_implicit_euler_dae_source")
+            {
+                eprintln!(
+                    "expected tests/runtime/dae_external_behavior_from_source.eng to solve DAE residuals with external behavior output symbols"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dae_external_behavior_from_source.eng solved source DAE residual graph with external behavior"
+            );
+        }
+        Err(error) => {
+            eprintln!("DAE external behavior source runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/diagnostics/dae_delay_behavior_unsupported.eng"),
+        Path::new("build/test-diagnostic-dae-delay-behavior-unsupported"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"behavior_graph_implicit_euler_dae_source\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dae_source_failed\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-BEHAVIOR-SOURCE-DAE-DELAY\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"diagnostic_code\": \"E-BEHAVIOR-SOURCE-DAE-DELAY\"")
+                || !output
+                    .report_spec_json
+                    .contains("delay_call_runtime_buffer_seed_not_integrated")
+                || !output
+                    .report_spec_json
+                    .contains("not_evaluated_in_language_behavior_graph")
+                || output.report_spec_json.contains(
+                    "\"runtime_warning_status\": \"evaluated_in_language_behavior_graph\"",
+                )
+                || !output.report_html.contains("E-BEHAVIOR-SOURCE-DAE-DELAY")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/dae_delay_behavior_unsupported.eng to report explicit unsupported DAE delay behavior"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/dae_delay_behavior_unsupported.eng reported unsupported DAE delay behavior"
+            );
+        }
+        Err(error) => {
+            eprintln!("DAE delay behavior unsupported diagnostic fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/small_dae_from_source.eng"),
         Path::new("build/test-runtime-small-dae-source"),
         &artifact_run_options(),

@@ -181,6 +181,10 @@ Internal runtime seeds:
   unitful temperature explicit-Euler component RHS evaluation with delay,
   deterministic Predictor identity-wrapper, and deterministic external adapter
   identity-wrapper behavior nodes
+- narrow source `solve component_graph` integration for implicit-Euler DAE
+  residual evaluation with deterministic Predictor and external adapter
+  identity-wrapper behavior outputs; DAE delay returns explicit unsupported
+  artifacts until replay-safe delay history exists
 ```
 
 Deferred:
@@ -192,6 +196,7 @@ Deferred:
   simple-linear source path
 - broad language-integrated delay/Predictor/external behavior graph solving
   beyond the narrow unitful temperature explicit-Euler source behavior RHS smokes
+  and narrow Predictor/external DAE residual samples
 - broad adaptive solvers beyond the source-equation, one-state thermal, and
   internal continuous state-space `adaptive_heun` paths
 - general equation-system runtime beyond the supported one-state thermal and

@@ -1,0 +1,34 @@
+domain DaeBehaviorScalar {
+    across x: DimensionlessNumber [1]
+    across z: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component DelayDaeNode {
+    port node: DaeBehaviorScalar
+    delayed = delay(node.x, 1 s)
+    der(node.x) + delayed - 1 eq 0
+    node.z - delayed eq 0
+}
+
+system DaeDelayBehaviorSource {
+    node = DelayDaeNode()
+    connect node.node to node.node
+}
+
+dae_delay_result = solve component_graph
+with {
+    solver = implicit_euler_dae
+    timestep = 1 s
+    duration = 1 s
+    initial = 0
+    initial_derivative = 1
+    initial_algebraic = [0, 0]
+    tolerance = 0.000000001
+    max_iter = 20
+}
+
+report {
+    show dae_delay_result
+}

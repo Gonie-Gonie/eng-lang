@@ -363,9 +363,14 @@ are not public stable workflows.
   and IDE-visible component artifacts mark these nodes as integrated in
   `examples/official/29_delay_component_solver`,
   `examples/official/30_predictor_component_solver`, and
-  `examples/official/31_external_behavior_solver`. Broader behavior graph
-  solving, model loading, process backends, nonlinear/DAE behavior coupling,
-  and production co-simulation remain planned.
+  `examples/official/31_external_behavior_solver`. The narrow source
+  implicit-Euler DAE residual path also evaluates typed deterministic
+  `predictor(signal)` and `adapter(signal)` identity-wrapper outputs inside
+  residual samples, while `delay(...)` in DAE returns explicit
+  `E-BEHAVIOR-SOURCE-DAE-DELAY` failure artifacts until a replay-safe delay
+  history policy exists. Broader behavior graph solving, model loading, process
+  backends, generic nonlinear/DAE behavior coupling, and production
+  co-simulation remain planned.
 - Domain/component assembly seeds beyond the supported Thermal and constrained
   Thermal/Fluid[Water] pressure/flow shapes include internal multi-domain boundary
   solves, singular solve failure artifacts, and overdetermined limitation

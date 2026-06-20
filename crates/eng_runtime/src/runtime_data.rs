@@ -562,10 +562,10 @@ impl RuntimeData {
     }
 
     pub fn apply_component_solutions(&self, spec: &mut ReportSpec) {
-        let behavior_graph_attempted = self
+        let behavior_graph_integrated = self
             .component_solutions
             .iter()
-            .any(|solution| solution.method.starts_with("behavior_graph_"));
+            .any(behavior_graph_solution_integrated);
         for solution in &self.component_solutions {
             let Some(assembly) = spec
                 .assemblies
@@ -584,7 +584,7 @@ impl RuntimeData {
             }
             apply_residual_graph_solution_metadata(assembly, solution);
             assembly.solver_result = Some(solution.to_report_solver_result());
-            if solution.method.starts_with("behavior_graph_") {
+            if behavior_graph_solution_integrated(solution) {
                 if assembly.solver_preview.delay_history
                     == "delay_call_runtime_buffer_seed_not_integrated"
                 {
@@ -605,10 +605,16 @@ impl RuntimeData {
                 }
             }
         }
-        if behavior_graph_attempted {
+        if behavior_graph_integrated {
             mark_behavior_graph_report_integrated(spec);
         }
     }
+}
+
+fn behavior_graph_solution_integrated(solution: &RuntimeComponentSolution) -> bool {
+    solution.method.starts_with("behavior_graph_")
+        && solution.status == "computed"
+        && solution.failure_artifact.is_none()
 }
 
 fn apply_residual_graph_solution_metadata(
@@ -3333,7 +3339,13 @@ fn materialize_component_solutions(
                     nonlinear_component_solution_from_solve_request(&solver_assembly, &request)
                 }
                 "implicit_euler_dae" | "dae_implicit_euler" => {
-                    dae_component_solution_from_solve_request(&solver_assembly, &request, series)
+                    dae_component_solution_from_solve_request(
+                        report,
+                        assembly,
+                        &solver_assembly,
+                        &request,
+                        series,
+                    )
                 }
                 "dynamic_component_explicit_euler" | "dynamic_component_semi_implicit_euler" => {
                     dynamic_component_solution_from_solve_request(
@@ -3676,11 +3688,18 @@ fn nonlinear_component_solution_from_solve_request(
 }
 
 fn dae_component_solution_from_solve_request(
+    report: &CheckReport,
+    component_info: &eng_compiler::ComponentAssemblyInfo,
     solver_assembly: &EquationAssembly,
     request: &ComponentSolveRequest,
     series: &[RuntimeTimeSeries],
 ) -> RuntimeComponentSolution {
-    let method = "implicit_euler_dae_source_residual_graph";
+    let has_behavior_seed = component_assembly_has_behavior_seed(component_info);
+    let method = if has_behavior_seed {
+        "behavior_graph_implicit_euler_dae_source"
+    } else {
+        "implicit_euler_dae_source_residual_graph"
+    };
     let mut newton_options = newton_options_from_solve_request(&request.options);
     let tolerance = newton_options.tolerance;
     let dae_method = match dae_method_from_solve_request(&request.options) {
@@ -3810,7 +3829,29 @@ fn dae_component_solution_from_solve_request(
             );
         }
     };
-    let parse_symbols = match source_dae_parse_symbols(solver_assembly, &parameter_values) {
+    let (mut behavior_graph, behavior_output_symbols) = if has_behavior_seed {
+        match source_behavior_graph_from_report(
+            report,
+            solver_assembly,
+            SourceBehaviorGraphMode::DaeImplicitEuler,
+        ) {
+            Ok(graph) => (Some(graph.0), graph.1),
+            Err(failure) => {
+                return failed_source_component_solution(
+                    solver_assembly,
+                    method,
+                    "DAE behavior graph source solve could not materialize behavior nodes",
+                    &failure,
+                    tolerance,
+                    newton_options.max_iterations,
+                    "dae_source_failed",
+                );
+            }
+        }
+    } else {
+        (None, Vec::new())
+    };
+    let mut parse_symbols = match source_dae_parse_symbols(solver_assembly, &parameter_values) {
         Ok(symbols) => symbols,
         Err(failure) => {
             return failed_source_component_solution(
@@ -3824,8 +3865,14 @@ fn dae_component_solution_from_solve_request(
             );
         }
     };
-    let parsed_residuals = match parse_source_residual_expressions(solver_assembly, &parse_symbols)
-    {
+    for output in &behavior_output_symbols {
+        parse_symbols.insert(output.name.clone(), 0.0);
+    }
+    let parsed_residuals = match parse_source_residual_expressions_with_extra_symbol_metadata(
+        solver_assembly,
+        &parse_symbols,
+        &source_behavior_output_symbol_metadata(&behavior_output_symbols),
+    ) {
         Ok(expressions) => expressions,
         Err(failure) => {
             return failed_source_component_solution(
@@ -3927,13 +3974,25 @@ fn dae_component_solution_from_solve_request(
             },
             &algebraic_newton_options,
             |sample| {
-                source_dae_residual_values(
-                    solver_assembly,
-                    &residual_graph,
-                    &parsed_residuals,
-                    sample,
-                    SourceResidualSubset::AlgebraicOnly,
-                )
+                if let Some(graph) = behavior_graph.as_mut() {
+                    source_dae_residual_values_with_behavior(
+                        solver_assembly,
+                        &residual_graph,
+                        &parsed_residuals,
+                        graph,
+                        &behavior_output_symbols,
+                        sample,
+                        SourceResidualSubset::AlgebraicOnly,
+                    )
+                } else {
+                    source_dae_residual_values(
+                        solver_assembly,
+                        &residual_graph,
+                        &parsed_residuals,
+                        sample,
+                        SourceResidualSubset::AlgebraicOnly,
+                    )
+                }
             },
         );
         match initialized {
@@ -4018,21 +4077,34 @@ fn dae_component_solution_from_solve_request(
             sample.time_s,
             DAE_SOURCE_INPUT_PROFILE,
         )?;
-        source_dae_residual_values(
-            solver_assembly,
-            &residual_graph,
-            &parsed_residuals,
-            DaeSample {
-                time_s: sample.time_s,
-                state: sample.state,
-                state_derivative: sample.state_derivative,
-                mass_state_derivative: sample.mass_state_derivative,
-                algebraic: sample.algebraic,
-                inputs: &sampled_inputs,
-                parameters: sample.parameters,
-            },
-            SourceResidualSubset::All,
-        )
+        let dae_sample = DaeSample {
+            time_s: sample.time_s,
+            state: sample.state,
+            state_derivative: sample.state_derivative,
+            mass_state_derivative: sample.mass_state_derivative,
+            algebraic: sample.algebraic,
+            inputs: &sampled_inputs,
+            parameters: sample.parameters,
+        };
+        if let Some(graph) = behavior_graph.as_mut() {
+            source_dae_residual_values_with_behavior(
+                solver_assembly,
+                &residual_graph,
+                &parsed_residuals,
+                graph,
+                &behavior_output_symbols,
+                dae_sample,
+                SourceResidualSubset::All,
+            )
+        } else {
+            source_dae_residual_values(
+                solver_assembly,
+                &residual_graph,
+                &parsed_residuals,
+                dae_sample,
+                SourceResidualSubset::All,
+            )
+        }
     });
     let dae = match dae {
         Ok(result) => result,
@@ -4145,8 +4217,13 @@ fn dae_component_solution_from_solve_request(
     } else {
         " and source input materialization"
     };
+    let behavior_reason = if has_behavior_seed {
+        " and behavior graph residual evaluation"
+    } else {
+        ""
+    };
     let dae_reason = format!(
-        "DAE source solve executed source-level residual graph with {mass_matrix_reason}{input_reason}"
+        "DAE source solve executed source-level residual graph with {mass_matrix_reason}{input_reason}{behavior_reason}"
     );
     let mut solution = RuntimeComponentSolution::from_dynamic_solver_result(
         &solver_assembly.name,
@@ -4261,6 +4338,8 @@ fn dae_component_solution_from_solve_request(
             solver_assembly,
             &residual_graph,
             &parsed_residuals,
+            behavior_graph.as_mut(),
+            &behavior_output_symbols,
             &dae_input,
             dae_options.mass_matrix.as_ref(),
             &solver_result,
@@ -4699,19 +4778,22 @@ fn behavior_dynamic_component_solution_from_solve_request(
         solve_input,
         input_series,
     } = solve_input;
-    let (mut behavior_graph, behavior_output_symbols) =
-        match source_behavior_graph_from_report(report, &dynamic_assembly) {
-            Ok(graph) => graph,
-            Err(failure) => {
-                return failed_dynamic_component_source_solution(
-                    &dynamic_assembly,
-                    method,
-                    options,
-                    &failure,
-                    "behavior graph source solve could not materialize behavior nodes",
-                );
-            }
-        };
+    let (mut behavior_graph, behavior_output_symbols) = match source_behavior_graph_from_report(
+        report,
+        &dynamic_assembly,
+        SourceBehaviorGraphMode::ExplicitRhs,
+    ) {
+        Ok(graph) => graph,
+        Err(failure) => {
+            return failed_dynamic_component_source_solution(
+                &dynamic_assembly,
+                method,
+                options,
+                &failure,
+                "behavior graph source solve could not materialize behavior nodes",
+            );
+        }
+    };
     let parse_symbols = match source_behavior_parse_symbols(
         &dynamic_assembly,
         &solve_input.parameters,
@@ -4887,9 +4969,22 @@ struct SourceBehaviorOutputSymbol {
     unit: String,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SourceBehaviorGraphMode {
+    ExplicitRhs,
+    DaeImplicitEuler,
+}
+
+impl SourceBehaviorGraphMode {
+    fn allows_delay(self) -> bool {
+        matches!(self, Self::ExplicitRhs)
+    }
+}
+
 fn source_behavior_graph_from_report(
     report: &CheckReport,
     assembly: &EquationAssembly,
+    mode: SourceBehaviorGraphMode,
 ) -> Result<(BehaviorGraphRhsAdapter, Vec<SourceBehaviorOutputSymbol>), SolverFailure> {
     let assembly_components = assembly
         .components
@@ -4931,6 +5026,12 @@ fn source_behavior_graph_from_report(
             };
             let node = match call.kind {
                 SourceBehaviorKind::Delay => {
+                    if !mode.allows_delay() {
+                        return Err(SolverFailure::new(
+                            "E-BEHAVIOR-SOURCE-DAE-DELAY",
+                            "delay behavior nodes are not yet integrated into implicit-Euler DAE residual evaluation because delay history mutation during Newton iteration needs a dedicated replay policy",
+                        ));
+                    }
                     let delay_s = call.delay_s.ok_or_else(|| {
                         SolverFailure::new(
                             "E-BEHAVIOR-SOURCE-DELAY",
@@ -6685,6 +6786,33 @@ fn source_dae_residual_values(
     .map(|evaluation| evaluation.normalized_values)
 }
 
+fn source_dae_residual_values_with_behavior(
+    assembly: &EquationAssembly,
+    graph: &ResidualGraph,
+    parsed_residuals: &[ParsedSourceResidual],
+    behavior_graph: &mut BehaviorGraphRhsAdapter,
+    behavior_output_symbols: &[SourceBehaviorOutputSymbol],
+    sample: DaeSample<'_>,
+    subset: SourceResidualSubset,
+) -> Result<Vec<f64>, SolverFailure> {
+    let behavior_symbols = source_dae_behavior_symbols(
+        assembly,
+        sample.clone(),
+        behavior_graph,
+        behavior_output_symbols,
+    )?;
+    source_residual_evaluation_for_dae_sample_with_extra_symbols(
+        assembly,
+        graph,
+        parsed_residuals,
+        sample,
+        DEFAULT_NEWTON_TOLERANCE,
+        subset,
+        Some(&behavior_symbols),
+    )
+    .map(|evaluation| evaluation.normalized_values)
+}
+
 fn source_residual_evaluation_for_dae_sample(
     assembly: &EquationAssembly,
     graph: &ResidualGraph,
@@ -6692,6 +6820,26 @@ fn source_residual_evaluation_for_dae_sample(
     sample: DaeSample<'_>,
     tolerance: f64,
     subset: SourceResidualSubset,
+) -> Result<SourceResidualEvaluation, SolverFailure> {
+    source_residual_evaluation_for_dae_sample_with_extra_symbols(
+        assembly,
+        graph,
+        parsed_residuals,
+        sample,
+        tolerance,
+        subset,
+        None,
+    )
+}
+
+fn source_residual_evaluation_for_dae_sample_with_extra_symbols(
+    assembly: &EquationAssembly,
+    graph: &ResidualGraph,
+    parsed_residuals: &[ParsedSourceResidual],
+    sample: DaeSample<'_>,
+    tolerance: f64,
+    subset: SourceResidualSubset,
+    extra_symbols: Option<&HashMap<String, f64>>,
 ) -> Result<SourceResidualEvaluation, SolverFailure> {
     if sample.state.len() != assembly.states.len()
         || sample.state_derivative.len() != assembly.states.len()
@@ -6734,6 +6882,11 @@ fn source_residual_evaluation_for_dae_sample(
         symbols.insert(variable.name.clone(), value);
     }
     insert_assembly_parameter_symbols(assembly, &mut symbols, Some(sample.parameters))?;
+    if let Some(extra_symbols) = extra_symbols {
+        for (name, value) in extra_symbols {
+            symbols.insert(name.clone(), *value);
+        }
+    }
     source_residual_evaluation_with_symbols(
         assembly,
         graph,
@@ -6742,6 +6895,82 @@ fn source_residual_evaluation_for_dae_sample(
         tolerance,
         subset,
     )
+}
+
+fn source_dae_behavior_symbols(
+    assembly: &EquationAssembly,
+    sample: DaeSample<'_>,
+    behavior_graph: &mut BehaviorGraphRhsAdapter,
+    behavior_output_symbols: &[SourceBehaviorOutputSymbol],
+) -> Result<HashMap<String, f64>, SolverFailure> {
+    let inputs = solver_scalars_from_unknown_values(
+        &assembly.inputs,
+        sample.inputs,
+        "E-BEHAVIOR-SOURCE-DAE-INPUT-LAYOUT",
+        "DAE behavior source input",
+    )?;
+    let parameters = solver_scalars_from_unknown_values(
+        &assembly.parameters,
+        sample.parameters,
+        "E-BEHAVIOR-SOURCE-DAE-PARAMETER-LAYOUT",
+        "DAE behavior source parameter",
+    )?;
+    let behavior = behavior_graph.evaluate(&BehaviorRhsSample::new(
+        sample.time_s,
+        sample.state,
+        &inputs,
+        &parameters,
+    ))?;
+    let mut symbols = HashMap::new();
+    for (index, symbol) in behavior_output_symbols.iter().enumerate() {
+        let value = behavior.output(index, 0).ok_or_else(|| {
+            SolverFailure::new(
+                "E-BEHAVIOR-SOURCE-DAE-OUTPUT",
+                format!(
+                    "DAE behavior source node `{}` did not produce output 0",
+                    symbol.name
+                ),
+            )
+        })?;
+        symbols.insert(symbol.name.clone(), value);
+    }
+    Ok(symbols)
+}
+
+fn solver_scalars_from_unknown_values(
+    variables: &[UnknownVariable],
+    values: &[f64],
+    layout_code: &'static str,
+    context: &str,
+) -> Result<Vec<SolverScalar>, SolverFailure> {
+    if values.len() != variables.len() {
+        return Err(SolverFailure::new(
+            layout_code,
+            format!(
+                "{context} value vector length {} does not match layout count {}",
+                values.len(),
+                variables.len()
+            ),
+        ));
+    }
+    variables
+        .iter()
+        .zip(values.iter().copied())
+        .map(|(variable, value)| {
+            if !value.is_finite() {
+                return Err(SolverFailure::new(
+                    "E-BEHAVIOR-SOURCE-DAE-FINITE",
+                    format!("{context} `{}` must be finite", variable.name),
+                ));
+            }
+            Ok(SolverScalar::new(
+                variable.name.clone(),
+                variable.quantity_kind.clone(),
+                variable.unit.clone(),
+                value,
+            ))
+        })
+        .collect()
 }
 
 fn source_assembly_parameter_values(
@@ -6803,6 +7032,8 @@ fn source_residual_evaluation_for_dae_final(
     assembly: &EquationAssembly,
     graph: &ResidualGraph,
     parsed_residuals: &[ParsedSourceResidual],
+    behavior_graph: Option<&mut BehaviorGraphRhsAdapter>,
+    behavior_output_symbols: &[SourceBehaviorOutputSymbol],
     input: &DaeInput,
     mass_matrix: Option<&DaeMassMatrix>,
     solver_result: &SolverResult,
@@ -6841,21 +7072,33 @@ fn source_residual_evaluation_for_dae_final(
         .map(|trajectory| trajectory.values.last().copied().unwrap_or(0.0))
         .collect::<Vec<_>>();
     let mass_state_derivative = dae_mass_state_derivative_values(mass_matrix, &state_derivative)?;
-    source_residual_evaluation_for_dae_sample(
+    let sample = DaeSample {
+        time_s: solver_result.time_grid.duration_s,
+        state: &state,
+        state_derivative: &state_derivative,
+        mass_state_derivative: mass_state_derivative.as_deref(),
+        algebraic: &algebraic,
+        inputs,
+        parameters: &input.parameters,
+    };
+    let behavior_symbols = if let Some(graph) = behavior_graph {
+        Some(source_dae_behavior_symbols(
+            assembly,
+            sample.clone(),
+            graph,
+            behavior_output_symbols,
+        )?)
+    } else {
+        None
+    };
+    source_residual_evaluation_for_dae_sample_with_extra_symbols(
         assembly,
         graph,
         parsed_residuals,
-        DaeSample {
-            time_s: solver_result.time_grid.duration_s,
-            state: &state,
-            state_derivative: &state_derivative,
-            mass_state_derivative: mass_state_derivative.as_deref(),
-            algebraic: &algebraic,
-            inputs,
-            parameters: &input.parameters,
-        },
+        sample,
         tolerance,
         SourceResidualSubset::All,
+        behavior_symbols.as_ref(),
     )
 }
 
