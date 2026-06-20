@@ -634,12 +634,59 @@
     },
     "componentSolverStepDiagnostic": {
       "type": "object",
-      "required": ["step_index", "time_s", "algebraic_iteration_count", "residual_norm", "convergence_status", "failure_code", "failure_reason", "failure_artifact"],
+      "required": [
+        "step_index",
+        "time_s",
+        "algebraic_iteration_count",
+        "residual_norm",
+        "residual_values",
+        "normalized_residual_values",
+        "line_search_scale",
+        "line_search_trial_count",
+        "jacobian_policy",
+        "variable_scale_policy",
+        "linear_condition_estimate",
+        "linear_minimum_pivot_abs",
+        "linear_maximum_pivot_abs",
+        "largest_residual_index",
+        "largest_residual_name",
+        "largest_residual_value",
+        "largest_residual_abs_value",
+        "convergence_status",
+        "failure_code",
+        "failure_reason",
+        "failure_artifact"
+      ],
       "properties": {
         "step_index": { "type": "integer", "minimum": 0 },
         "time_s": { "type": "number" },
         "algebraic_iteration_count": { "type": "integer", "minimum": 0 },
         "residual_norm": { "type": "number" },
+        "residual_values": {
+          "type": "array",
+          "items": { "type": "number" }
+        },
+        "normalized_residual_values": {
+          "type": "array",
+          "items": { "type": "number" }
+        },
+        "line_search_scale": { "type": ["number", "null"] },
+        "line_search_trial_count": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "jacobian_policy": { "type": ["string", "null"] },
+        "variable_scale_policy": { "type": ["string", "null"] },
+        "linear_condition_estimate": { "type": ["number", "null"] },
+        "linear_minimum_pivot_abs": { "type": ["number", "null"] },
+        "linear_maximum_pivot_abs": { "type": ["number", "null"] },
+        "largest_residual_index": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "largest_residual_name": { "type": ["string", "null"] },
+        "largest_residual_value": { "type": ["number", "null"] },
+        "largest_residual_abs_value": { "type": ["number", "null"] },
         "convergence_status": { "type": "string" },
         "failure_code": { "type": ["string", "null"] },
         "failure_reason": { "type": ["string", "null"] },

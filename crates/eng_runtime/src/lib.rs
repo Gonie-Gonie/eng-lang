@@ -4409,16 +4409,76 @@ fn component_solutions_json(runtime_data: &RuntimeData) -> String {
             json.push_str("            \"normalized_residual_values\": [");
             push_json_f64_array(&mut json, &diagnostic.normalized_residual_values);
             json.push_str("],\n");
-            json.push_str(&format!(
-                "            \"convergence_status\": \"{}\",\n",
-                json_escape(&diagnostic.convergence_status)
-            ));
+            push_optional_json_f64(
+                &mut json,
+                "line_search_scale",
+                diagnostic.line_search_scale,
+                12,
+            );
+            push_optional_json_usize(
+                &mut json,
+                "line_search_trial_count",
+                diagnostic.line_search_trial_count,
+                12,
+            );
+            push_optional_json_string(
+                &mut json,
+                "jacobian_policy",
+                diagnostic.jacobian_policy.as_deref(),
+                12,
+            );
             push_optional_json_string(
                 &mut json,
                 "variable_scale_policy",
                 diagnostic.variable_scale_policy.as_deref(),
                 12,
             );
+            push_optional_json_f64(
+                &mut json,
+                "linear_condition_estimate",
+                diagnostic.linear_condition_estimate,
+                12,
+            );
+            push_optional_json_f64(
+                &mut json,
+                "linear_minimum_pivot_abs",
+                diagnostic.linear_minimum_pivot_abs,
+                12,
+            );
+            push_optional_json_f64(
+                &mut json,
+                "linear_maximum_pivot_abs",
+                diagnostic.linear_maximum_pivot_abs,
+                12,
+            );
+            push_optional_json_usize(
+                &mut json,
+                "largest_residual_index",
+                diagnostic.largest_residual_index,
+                12,
+            );
+            push_optional_json_string(
+                &mut json,
+                "largest_residual_name",
+                diagnostic.largest_residual_name.as_deref(),
+                12,
+            );
+            push_optional_json_f64(
+                &mut json,
+                "largest_residual_value",
+                diagnostic.largest_residual_value,
+                12,
+            );
+            push_optional_json_f64(
+                &mut json,
+                "largest_residual_abs_value",
+                diagnostic.largest_residual_abs_value,
+                12,
+            );
+            json.push_str(&format!(
+                "            \"convergence_status\": \"{}\",\n",
+                json_escape(&diagnostic.convergence_status)
+            ));
             push_optional_json_string(
                 &mut json,
                 "failure_code",

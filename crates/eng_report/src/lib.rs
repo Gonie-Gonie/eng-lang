@@ -7269,20 +7269,28 @@ fn format_component_solver_step_diagnostics_summary(
     if result.step_diagnostics.is_empty() {
         return "-".to_owned();
     }
+    let jacobian_policy = result
+        .step_diagnostics
+        .iter()
+        .find_map(|diagnostic| diagnostic.jacobian_policy.as_deref());
+    let jacobian_summary = jacobian_policy
+        .map(|policy| format!(" jacobian={policy}"))
+        .unwrap_or_default();
     let failed = result
         .step_diagnostics
         .iter()
         .find(|diagnostic| diagnostic.failure_artifact.is_some());
     if let Some(diagnostic) = failed {
         return format!(
-            "steps={} failed@{} {}",
+            "steps={} failed@{} {}{}",
             result.step_diagnostics.len(),
             diagnostic.step_index,
             diagnostic
                 .failure_artifact
                 .as_ref()
                 .map(|failure| failure.code.as_str())
-                .unwrap_or("-")
+                .unwrap_or("-"),
+            jacobian_summary
         );
     }
     let max_residual = result
@@ -7304,18 +7312,20 @@ fn format_component_solver_step_diagnostics_summary(
         .max_by(|left, right| left.3.total_cmp(&right.3));
     if let Some((step_index, name, value, _abs_value)) = largest_step_residual {
         return format!(
-            "steps={} max_residual={} largest_step_residual={}@{}={}",
+            "steps={} max_residual={} largest_step_residual={}@{}={}{}",
             result.step_diagnostics.len(),
             format_alignment_number(max_residual),
             name,
             step_index,
-            format_alignment_number(value)
+            format_alignment_number(value),
+            jacobian_summary
         );
     }
     format!(
-        "steps={} max_residual={}",
+        "steps={} max_residual={}{}",
         result.step_diagnostics.len(),
-        format_alignment_number(max_residual)
+        format_alignment_number(max_residual),
+        jacobian_summary
     )
 }
 

@@ -1031,6 +1031,56 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/newton_source_linear_jacobian.eng"),
+        Path::new("build/test-runtime-newton-source-linear-jacobian"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"solved_nonlinear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"newton_source_residual_graph_with_provided_jacobian\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"jacobian_policy\": \"source_linear_terms\"")
+                || !output.result_json.contains("\"equation_count\": 4")
+                || !output.result_json.contains("\"unknown_count\": 4")
+                || !output.result_json.contains("\"name\": \"node.source.q\"")
+                || !output.result_json.contains("\"name\": \"node.target.q\"")
+                || !output.result_json.contains("\"value\": 3.000")
+                || !output.result_json.contains("\"value\": 2.000")
+                || !output.result_json.contains("\"residual_values\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"jacobian_policy\": \"source_linear_terms\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"linear_condition_estimate\":")
+                || !output.report_html.contains("source_linear_terms")
+            {
+                eprintln!(
+                    "expected tests/runtime/newton_source_linear_jacobian.eng to solve a linear source Newton residual graph with the source-linear Jacobian hook"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/newton_source_linear_jacobian.eng solved source Newton residual graph with source-linear Jacobian"
+            );
+        }
+        Err(error) => {
+            eprintln!("source-linear Newton Jacobian runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/small_dae_from_source.eng"),
         Path::new("build/test-runtime-small-dae-source"),
         &artifact_run_options(),

@@ -273,7 +273,8 @@ are not public stable workflows.
   Jacobian by default, supports the `source_linear_terms` Jacobian hook for
   linear residual graphs, records residual history, raw/normalized residual-vector step diagnostics, plus variable-scale policy through step diagnostics,
   and is covered by `examples/official/27_nonlinear_algebraic`,
-  `tests/runtime/nonlinear_residual_from_source.eng`, and
+  `tests/runtime/nonlinear_residual_from_source.eng`,
+  `tests/runtime/newton_source_linear_jacobian.eng`, and
   `tests/diagnostics/newton_nonconvergence.eng`. The DAE bridge derives the
   state/algebraic split from assembly variables, builds `DaeInput`, applies
   Newton algebraic initialization, uses identity mass-matrix fallback unless a
