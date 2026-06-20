@@ -237,7 +237,7 @@ are not public stable workflows.
   `solve component_graph` fixed-point source path with nonconvergence
   diagnostics, and
   solver-API standalone damped Newton solve with finite initial-guess checks,
-  finite-difference fallback, supplied analytic/JIT Jacobian hook, Jacobian policy labels, per-iteration Newton linear-step condition diagnostics,
+  finite-difference fallback, supplied analytic/JIT Jacobian hook, Jacobian policy labels, variable-scale policy, per-iteration Newton linear-step condition diagnostics,
   residual-vector history, per-step largest residual identity diagnostics,
   residual history, accepted line-search scale/trial diagnostics,
   largest-residual summary, shared scaled residual-norm diagnostics,
@@ -269,13 +269,13 @@ are not public stable workflows.
   Newton and implicit-Euler DAE solves. The Newton bridge evaluates source
   residual expressions directly, scales residuals, uses finite-difference
   Jacobian by default, supports the `source_linear_terms` Jacobian hook for
-  linear residual graphs, records residual history through step diagnostics,
+  linear residual graphs, records residual history plus variable-scale policy through step diagnostics,
   and is covered by `examples/official/27_nonlinear_algebraic`,
   `tests/runtime/nonlinear_residual_from_source.eng`, and
   `tests/diagnostics/newton_nonconvergence.eng`. The DAE bridge derives the
   state/algebraic split from assembly variables, builds `DaeInput`, applies
   Newton algebraic initialization, uses identity mass-matrix fallback, records
-  state/algebraic trajectories and per-step Newton diagnostics, and is covered
+  state/algebraic trajectories, variable-scale policy, and per-step Newton diagnostics, and is covered
   by `examples/official/28_small_dae`,
   `tests/runtime/small_dae_from_source.eng`, and
   `tests/diagnostics/dae_inconsistent_initial.eng`. The solver API also

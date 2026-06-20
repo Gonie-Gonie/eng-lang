@@ -7,6 +7,8 @@ pub struct NewtonOptions {
     pub finite_difference_step: f64,
     pub damping: f64,
     pub line_search_steps: usize,
+    pub variable_scales: Vec<f64>,
+    pub variable_scale_policy: String,
 }
 
 impl Default for NewtonOptions {
@@ -17,6 +19,8 @@ impl Default for NewtonOptions {
             finite_difference_step: 1e-6,
             damping: 1.0,
             line_search_steps: 8,
+            variable_scales: Vec::new(),
+            variable_scale_policy: "unscaled".to_owned(),
         }
     }
 }
@@ -29,6 +33,8 @@ pub struct NewtonResult {
     pub line_search_history: Vec<NewtonLineSearchStep>,
     pub linear_step_history: Vec<NewtonLinearStep>,
     pub jacobian_policy: String,
+    pub variable_scale_policy: String,
+    pub variable_scales: Vec<f64>,
     pub largest_residual: Option<NewtonLargestResidual>,
     pub iteration_count: usize,
     pub convergence_status: String,
@@ -73,8 +79,14 @@ where
         options,
         residual,
         "finite_difference",
-        |values, baseline_residuals, options, residual| {
-            finite_difference_jacobian(values, baseline_residuals, options, residual)
+        |values, baseline_residuals, options, variable_scales, residual| {
+            finite_difference_jacobian(
+                values,
+                baseline_residuals,
+                options,
+                variable_scales,
+                residual,
+            )
         },
     )
 }
@@ -94,7 +106,9 @@ where
         options,
         residual,
         "provided",
-        |values, baseline_residuals, _options, _residual| jacobian(values, baseline_residuals),
+        |values, baseline_residuals, _options, _variable_scales, _residual| {
+            jacobian(values, baseline_residuals)
+        },
     )
 }
 
@@ -107,9 +121,17 @@ fn solve_newton_core<F, J>(
 ) -> Result<NewtonResult, SolverFailure>
 where
     F: FnMut(&[f64]) -> Result<Vec<f64>, SolverFailure>,
-    J: FnMut(&[f64], &[f64], &NewtonOptions, &mut F) -> Result<Vec<Vec<f64>>, SolverFailure>,
+    J: FnMut(
+        &[f64],
+        &[f64],
+        &NewtonOptions,
+        &[f64],
+        &mut F,
+    ) -> Result<Vec<Vec<f64>>, SolverFailure>,
 {
     validate_newton_options(initial, options)?;
+    let variable_scales = newton_variable_scales(initial, options);
+    let variable_scale_policy = newton_variable_scale_policy(options);
 
     let mut values = initial.to_vec();
     let mut residual_values = residual(&values)?;
@@ -127,6 +149,8 @@ where
             line_search_history,
             linear_step_history,
             jacobian_policy,
+            &variable_scale_policy,
+            &variable_scales,
             0,
             "newton_converged",
             None,
@@ -135,13 +159,20 @@ where
     }
 
     for iteration in 1..=options.max_iterations {
-        let jacobian = jacobian(&values, &residual_values, options, &mut residual)?;
+        let jacobian = jacobian(
+            &values,
+            &residual_values,
+            options,
+            &variable_scales,
+            &mut residual,
+        )?;
         validate_jacobian_layout(values.len(), &jacobian)?;
+        let scaled_jacobian = scale_newton_jacobian_columns(&jacobian, &variable_scales)?;
         let rhs = residual_values
             .iter()
             .map(|value| -value)
             .collect::<Vec<_>>();
-        let linear = match solve_dense_linear_system(&jacobian, &rhs, options.tolerance) {
+        let linear = match solve_dense_linear_system(&scaled_jacobian, &rhs, options.tolerance) {
             Ok(linear) => linear,
             Err(failure) => {
                 return Ok(build_newton_result(
@@ -151,6 +182,8 @@ where
                     line_search_history.clone(),
                     linear_step_history.clone(),
                     jacobian_policy,
+                    &variable_scale_policy,
+                    &variable_scales,
                     iteration,
                     "newton_linear_solve_failed",
                     Some(failure),
@@ -166,7 +199,7 @@ where
             linear_minimum_pivot_abs: linear.diagnostics.minimum_pivot_abs,
             linear_maximum_pivot_abs: linear.diagnostics.maximum_pivot_abs,
         });
-        let step = linear.values;
+        let step = unscale_newton_step(&linear.values, &variable_scales)?;
         let accepted = match damped_step(&values, &step, residual_norm, options, &mut residual) {
             Ok(accepted) => accepted,
             Err(failure) => {
@@ -177,6 +210,8 @@ where
                     line_search_history.clone(),
                     linear_step_history.clone(),
                     jacobian_policy,
+                    &variable_scale_policy,
+                    &variable_scales,
                     iteration,
                     "newton_line_search_failed",
                     Some(failure),
@@ -204,6 +239,8 @@ where
                 line_search_history.clone(),
                 linear_step_history.clone(),
                 jacobian_policy,
+                &variable_scale_policy,
+                &variable_scales,
                 iteration,
                 "newton_converged",
                 None,
@@ -219,6 +256,8 @@ where
         line_search_history,
         linear_step_history,
         jacobian_policy,
+        &variable_scale_policy,
+        &variable_scales,
         options.max_iterations,
         "newton_not_converged",
         Some(SolverFailure::new(
@@ -239,6 +278,8 @@ fn build_newton_result(
     line_search_history: Vec<NewtonLineSearchStep>,
     linear_step_history: Vec<NewtonLinearStep>,
     jacobian_policy: &str,
+    variable_scale_policy: &str,
+    variable_scales: &[f64],
     iteration_count: usize,
     convergence_status: &str,
     failure: Option<SolverFailure>,
@@ -251,6 +292,8 @@ fn build_newton_result(
         line_search_history,
         linear_step_history,
         jacobian_policy: jacobian_policy.to_owned(),
+        variable_scale_policy: variable_scale_policy.to_owned(),
+        variable_scales: variable_scales.to_vec(),
         largest_residual: largest_residual(residual_values),
         iteration_count,
         convergence_status: convergence_status.to_owned(),
@@ -300,7 +343,85 @@ fn validate_newton_options(initial: &[f64], options: &NewtonOptions) -> Result<(
             "Newton solver line_search_steps must be greater than zero",
         ));
     }
+    if !options.variable_scales.is_empty() {
+        if options.variable_scales.len() != initial.len() {
+            return Err(SolverFailure::new(
+                "E-NEWTON-VARIABLE-SCALE-LAYOUT",
+                format!(
+                    "Newton variable scale count {} does not match variable count {}",
+                    options.variable_scales.len(),
+                    initial.len()
+                ),
+            ));
+        }
+        if options
+            .variable_scales
+            .iter()
+            .any(|value| !value.is_finite() || *value <= 0.0)
+        {
+            return Err(SolverFailure::new(
+                "E-NEWTON-VARIABLE-SCALE",
+                "Newton variable scales must be positive finite values",
+            ));
+        }
+    }
     Ok(())
+}
+
+fn newton_variable_scales(initial: &[f64], options: &NewtonOptions) -> Vec<f64> {
+    if options.variable_scales.is_empty() {
+        vec![1.0; initial.len()]
+    } else {
+        options.variable_scales.clone()
+    }
+}
+
+fn newton_variable_scale_policy(options: &NewtonOptions) -> String {
+    if options.variable_scales.is_empty() {
+        "unscaled".to_owned()
+    } else {
+        let policy = options.variable_scale_policy.trim();
+        if policy.is_empty() || policy == "unscaled" {
+            "user_provided_variable_scales".to_owned()
+        } else {
+            policy.to_owned()
+        }
+    }
+}
+
+fn scale_newton_jacobian_columns(
+    jacobian: &[Vec<f64>],
+    variable_scales: &[f64],
+) -> Result<Vec<Vec<f64>>, SolverFailure> {
+    let scaled = jacobian
+        .iter()
+        .map(|row| {
+            row.iter()
+                .zip(variable_scales.iter())
+                .map(|(value, scale)| value * scale)
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    if scaled.iter().flatten().any(|value| !value.is_finite()) {
+        return Err(SolverFailure::new(
+            "E-NEWTON-SCALED-JACOBIAN-FINITE",
+            "Newton variable scaling produced a non-finite Jacobian entry",
+        ));
+    }
+    Ok(scaled)
+}
+
+fn unscale_newton_step(
+    scaled_step: &[f64],
+    variable_scales: &[f64],
+) -> Result<Vec<f64>, SolverFailure> {
+    let step = scaled_step
+        .iter()
+        .zip(variable_scales.iter())
+        .map(|(value, scale)| value * scale)
+        .collect::<Vec<_>>();
+    ensure_finite_values("E-NEWTON-STEP-FINITE", "Newton scaled step", &step)?;
+    Ok(step)
 }
 
 fn validate_residual_layout(expected: usize, residuals: &[f64]) -> Result<(), SolverFailure> {
@@ -360,6 +481,7 @@ fn finite_difference_jacobian<F>(
     values: &[f64],
     baseline_residuals: &[f64],
     options: &NewtonOptions,
+    variable_scales: &[f64],
     residual: &mut F,
 ) -> Result<Vec<Vec<f64>>, SolverFailure>
 where
@@ -369,7 +491,12 @@ where
     let mut jacobian = vec![vec![0.0; n]; n];
     for column in 0..n {
         let mut perturbed = values.to_vec();
-        let step = options.finite_difference_step * values[column].abs().max(1.0);
+        let step_scale = if options.variable_scales.is_empty() {
+            values[column].abs().max(1.0)
+        } else {
+            variable_scales[column]
+        };
+        let step = options.finite_difference_step * step_scale;
         if !step.is_finite() {
             return Err(SolverFailure::new(
                 "E-NEWTON-FD-CANDIDATE-FINITE",
@@ -619,6 +746,7 @@ mod tests {
             finite_difference_step: 1e-6,
             damping: 1.0,
             line_search_steps: 1,
+            ..Default::default()
         };
         let result = solve_newton(&[10.0], &options, |values| {
             Ok(vec![values[0] * values[0] - 2.0])
@@ -681,6 +809,40 @@ mod tests {
         );
     }
 
+    #[test]
+    fn records_variable_scale_policy_and_scales() {
+        let options = NewtonOptions {
+            variable_scales: vec![1000.0],
+            variable_scale_policy: "unit_default:Pressure[Pa]".to_owned(),
+            ..Default::default()
+        };
+        let result = solve_newton(&[0.0], &options, |values| {
+            Ok(vec![values[0] / 1000.0 - 1.0])
+        })
+        .unwrap();
+
+        assert_eq!(result.convergence_status, "newton_converged");
+        assert_eq!(result.variable_scale_policy, "unit_default:Pressure[Pa]");
+        assert_eq!(result.variable_scales, vec![1000.0]);
+        assert!((result.values[0] - 1000.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn rejects_invalid_variable_scales() {
+        let options = NewtonOptions {
+            variable_scales: vec![1.0, 2.0],
+            ..Default::default()
+        };
+        let failure = solve_newton(&[1.0], &options, |values| Ok(values.to_vec())).unwrap_err();
+        assert_eq!(failure.code, "E-NEWTON-VARIABLE-SCALE-LAYOUT");
+
+        let options = NewtonOptions {
+            variable_scales: vec![0.0],
+            ..Default::default()
+        };
+        let failure = solve_newton(&[1.0], &options, |values| Ok(values.to_vec())).unwrap_err();
+        assert_eq!(failure.code, "E-NEWTON-VARIABLE-SCALE");
+    }
     #[test]
     fn rejects_invalid_newton_options() {
         let options = NewtonOptions {

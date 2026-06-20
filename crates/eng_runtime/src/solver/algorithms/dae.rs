@@ -625,6 +625,7 @@ mod tests {
                 finite_difference_step: 1e-6,
                 damping: 1.0,
                 line_search_steps: 1,
+                ..Default::default()
             },
             ..Default::default()
         };

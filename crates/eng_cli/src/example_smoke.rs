@@ -689,6 +689,11 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"jacobian_policy\": \"finite_difference\"")
                 || !output
                     .report_spec_json
+                    .contains("\"variable_scale_policy\": \"unit_default_from_assembly_unknowns\"")
+                || !output.report_spec_json.contains("\"variable_scale_min\":")
+                || !output.report_spec_json.contains("\"variable_scale_max\":")
+                || !output
+                    .report_spec_json
                     .contains("\"linear_condition_estimate\":")
                 || !output
                     .report_spec_json
@@ -759,6 +764,11 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"jacobian_policy\": \"finite_difference\"")
+                || !output.report_spec_json.contains(
+                    "\"variable_scale_policy\": \"unit_default_from_dae_state_algebraic_layout\"",
+                )
+                || !output.report_spec_json.contains("\"variable_scale_min\":")
+                || !output.report_spec_json.contains("\"variable_scale_max\":")
                 || !output
                     .report_spec_json
                     .contains("\"linear_condition_estimate\":")
@@ -3797,6 +3807,7 @@ fn solver_algorithm_smoke() -> Result<(), String> {
             finite_difference_step: 1e-6,
             damping: 1.0,
             line_search_steps: 1,
+            ..Default::default()
         },
         |values| Ok(vec![values[0] * values[0] - 2.0]),
     )
@@ -3917,6 +3928,7 @@ fn solver_algorithm_smoke() -> Result<(), String> {
                 finite_difference_step: 1e-6,
                 damping: 1.0,
                 line_search_steps: 1,
+                ..Default::default()
             },
             ..Default::default()
         },

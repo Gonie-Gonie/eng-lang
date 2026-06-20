@@ -40,10 +40,10 @@ use crate::solver::{
     ExternalBehaviorProfilePolicy, FirstOrderThermalModel, FixedPointOptions, FixedStepMethod,
     InputLayout, LayoutEntry, NewtonOptions, OutputLayout, ParameterLayout, PredictorContract,
     PredictorDifferentiability, PredictorJacobianPolicy, PredictorSolverPolicy, ResidualEquation,
-    ResidualEvaluator, ResidualGraph, ResidualInput, ResidualOutput, RhsEvaluator, RhsInput,
-    RhsStateInfo, RhsSymbolInfo, SimulationPlan, SolverDiagnostics, SolverFailure, SolverInput,
-    SolverOptions, SolverPlan, SolverResult, SolverScalar, SourceRhsEquation, SourceRhsEvaluator,
-    StateLayout, StateTrajectory, TimeGrid,
+    ResidualEvaluator, ResidualGraph, ResidualInput, ResidualOutput, ResidualScale, RhsEvaluator,
+    RhsInput, RhsStateInfo, RhsSymbolInfo, SimulationPlan, SolverDiagnostics, SolverFailure,
+    SolverInput, SolverOptions, SolverPlan, SolverResult, SolverScalar, SourceRhsEquation,
+    SourceRhsEvaluator, StateLayout, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -1186,6 +1186,9 @@ pub struct RuntimeComponentSolution {
     pub linear_condition_estimate: Option<f64>,
     pub linear_minimum_pivot_abs: Option<f64>,
     pub linear_maximum_pivot_abs: Option<f64>,
+    pub variable_scale_policy: String,
+    pub variable_scale_min: Option<f64>,
+    pub variable_scale_max: Option<f64>,
     pub tolerance: f64,
     pub max_iterations: usize,
     pub iteration_count: usize,
@@ -1353,6 +1356,9 @@ impl RuntimeComponentSolution {
             linear_condition_estimate,
             linear_minimum_pivot_abs,
             linear_maximum_pivot_abs,
+            variable_scale_policy: "not_applicable".to_owned(),
+            variable_scale_min: None,
+            variable_scale_max: None,
             tolerance: COMPONENT_LINEAR_SOLVER_TOLERANCE,
             max_iterations: 1,
             iteration_count,
@@ -1499,6 +1505,9 @@ impl RuntimeComponentSolution {
             linear_condition_estimate: None,
             linear_minimum_pivot_abs: None,
             linear_maximum_pivot_abs: None,
+            variable_scale_policy: "not_applicable".to_owned(),
+            variable_scale_min: None,
+            variable_scale_max: None,
             tolerance: options.tolerance,
             max_iterations: options.max_iterations,
             iteration_count,
@@ -1530,6 +1539,7 @@ impl RuntimeComponentSolution {
                 line_search_scale: None,
                 line_search_trial_count: None,
                 jacobian_policy: None,
+                variable_scale_policy: None,
                 linear_condition_estimate: None,
                 linear_minimum_pivot_abs: None,
                 linear_maximum_pivot_abs: None,
@@ -1619,6 +1629,9 @@ impl RuntimeComponentSolution {
             linear_condition_estimate: None,
             linear_minimum_pivot_abs: None,
             linear_maximum_pivot_abs: None,
+            variable_scale_policy: "not_applicable".to_owned(),
+            variable_scale_min: None,
+            variable_scale_max: None,
             tolerance: solver_result.diagnostics.tolerance,
             max_iterations: solver_result.diagnostics.max_iterations,
             iteration_count: solver_result.diagnostics.iteration_count,
@@ -1646,6 +1659,9 @@ impl RuntimeComponentSolution {
             linear_condition_estimate: self.linear_condition_estimate,
             linear_minimum_pivot_abs: self.linear_minimum_pivot_abs,
             linear_maximum_pivot_abs: self.linear_maximum_pivot_abs,
+            variable_scale_policy: self.variable_scale_policy.clone(),
+            variable_scale_min: self.variable_scale_min,
+            variable_scale_max: self.variable_scale_max,
             tolerance: self.tolerance,
             max_iterations: self.max_iterations,
             iteration_count: self.iteration_count,
@@ -1693,6 +1709,7 @@ impl RuntimeComponentSolution {
                     line_search_scale: diagnostic.line_search_scale,
                     line_search_trial_count: diagnostic.line_search_trial_count,
                     jacobian_policy: diagnostic.jacobian_policy.clone(),
+                    variable_scale_policy: diagnostic.variable_scale_policy.clone(),
                     linear_condition_estimate: diagnostic.linear_condition_estimate,
                     linear_minimum_pivot_abs: diagnostic.linear_minimum_pivot_abs,
                     linear_maximum_pivot_abs: diagnostic.linear_maximum_pivot_abs,
@@ -1855,6 +1872,7 @@ pub struct RuntimeComponentStepDiagnostic {
     pub line_search_scale: Option<f64>,
     pub line_search_trial_count: Option<usize>,
     pub jacobian_policy: Option<String>,
+    pub variable_scale_policy: Option<String>,
     pub linear_condition_estimate: Option<f64>,
     pub linear_minimum_pivot_abs: Option<f64>,
     pub linear_maximum_pivot_abs: Option<f64>,
@@ -3298,7 +3316,12 @@ fn nonlinear_component_solution_from_solve_request(
     solver_assembly: &EquationAssembly,
     request: &ComponentSolveRequest,
 ) -> RuntimeComponentSolution {
-    let options = newton_options_from_solve_request(&request.options);
+    let mut options = newton_options_from_solve_request(&request.options);
+    apply_newton_variable_scales_from_unknowns(
+        &mut options,
+        &solver_assembly.unknowns,
+        "unit_default_from_assembly_unknowns",
+    );
     let tolerance = options.tolerance;
 
     if !solver_assembly.states.is_empty() {
@@ -3536,6 +3559,9 @@ fn nonlinear_component_solution_from_solve_request(
         linear_condition_estimate: None,
         linear_minimum_pivot_abs: None,
         linear_maximum_pivot_abs: None,
+        variable_scale_policy: newton.variable_scale_policy.clone(),
+        variable_scale_min: finite_minimum(&newton.variable_scales),
+        variable_scale_max: finite_maximum(&newton.variable_scales),
         tolerance,
         max_iterations: options.max_iterations,
         iteration_count: newton.iteration_count,
@@ -3557,7 +3583,7 @@ fn dae_component_solution_from_solve_request(
     request: &ComponentSolveRequest,
 ) -> RuntimeComponentSolution {
     let method = "implicit_euler_dae_source_residual_graph";
-    let newton_options = newton_options_from_solve_request(&request.options);
+    let mut newton_options = newton_options_from_solve_request(&request.options);
     let tolerance = newton_options.tolerance;
     let dae_method = match dae_method_from_solve_request(&request.options) {
         Ok(method) => method,
@@ -3743,6 +3769,12 @@ fn dae_component_solution_from_solve_request(
         .map(str::trim)
         .unwrap_or("newton");
     if algebraic_initialization == "newton" && !initial_algebraic.is_empty() {
+        let mut algebraic_newton_options = newton_options.clone();
+        apply_newton_variable_scales_from_unknowns(
+            &mut algebraic_newton_options,
+            &solver_assembly.algebraic_variables,
+            "unit_default_from_dae_algebraic_layout",
+        );
         let initialized = initialize_algebraic_variables(
             AlgebraicInitializationInput {
                 state: &initial_state,
@@ -3752,7 +3784,7 @@ fn dae_component_solution_from_solve_request(
                 parameters: &parameter_values,
                 time_s: 0.0,
             },
-            &newton_options,
+            &algebraic_newton_options,
             |sample| {
                 source_dae_residual_values(
                     solver_assembly,
@@ -3802,6 +3834,14 @@ fn dae_component_solution_from_solve_request(
         .and_then(|value| value.trim().parse::<f64>().ok())
         .filter(|value| value.is_finite() && *value > 0.0)
         .unwrap_or(tolerance);
+    let mut dae_unknowns = solver_assembly.states.clone();
+    dae_unknowns.extend(solver_assembly.algebraic_variables.clone());
+    apply_newton_variable_scales_from_unknowns(
+        &mut newton_options,
+        &dae_unknowns,
+        "unit_default_from_dae_state_algebraic_layout",
+    );
+
     let dae_input = DaeInput {
         states: solver_assembly
             .states
@@ -3939,6 +3979,11 @@ fn dae_component_solution_from_solve_request(
     );
     solution.equation_count = solver_assembly.equation_count();
     solution.unknown_count = solver_assembly.unknown_count();
+    if let Some(report) = dae.step_reports.last() {
+        solution.variable_scale_policy = report.newton.variable_scale_policy.clone();
+        solution.variable_scale_min = finite_minimum(&report.newton.variable_scales);
+        solution.variable_scale_max = finite_maximum(&report.newton.variable_scales);
+    }
     let residual_names = residual_graph
         .residuals
         .iter()
@@ -3978,6 +4023,8 @@ fn dae_component_solution_from_solve_request(
                     .map(|step| step.trial_count),
                 jacobian_policy: (report.newton.iteration_count > 0)
                     .then(|| report.newton.jacobian_policy.clone()),
+                variable_scale_policy: (report.newton.iteration_count > 0)
+                    .then(|| report.newton.variable_scale_policy.clone()),
                 linear_condition_estimate: report
                     .newton
                     .linear_step_history
@@ -4260,6 +4307,7 @@ fn behavior_dynamic_component_solution_from_solve_request(
                         line_search_scale: None,
                         line_search_trial_count: None,
                         jacobian_policy: None,
+                        variable_scale_policy: None,
                         linear_condition_estimate: None,
                         linear_minimum_pivot_abs: None,
                         linear_maximum_pivot_abs: None,
@@ -5064,6 +5112,9 @@ fn failed_dynamic_component_source_solution(
         linear_condition_estimate: None,
         linear_minimum_pivot_abs: None,
         linear_maximum_pivot_abs: None,
+        variable_scale_policy: "not_applicable".to_owned(),
+        variable_scale_min: None,
+        variable_scale_max: None,
         tolerance: options.algebraic.tolerance,
         max_iterations: options.algebraic.max_iterations,
         iteration_count: 0,
@@ -5646,6 +5697,35 @@ fn source_linear_terms_jacobian(graph: &ResidualGraph) -> Result<Vec<Vec<f64>>, 
         .collect())
 }
 
+fn apply_newton_variable_scales_from_unknowns(
+    options: &mut NewtonOptions,
+    unknowns: &[UnknownVariable],
+    policy: &str,
+) {
+    options.variable_scales = unknowns
+        .iter()
+        .map(|unknown| {
+            ResidualScale::from_quantity_unit(&unknown.quantity_kind, &unknown.unit).value
+        })
+        .collect();
+    options.variable_scale_policy = policy.to_owned();
+}
+
+fn finite_minimum(values: &[f64]) -> Option<f64> {
+    values
+        .iter()
+        .copied()
+        .filter(|value| value.is_finite())
+        .reduce(f64::min)
+}
+
+fn finite_maximum(values: &[f64]) -> Option<f64> {
+    values
+        .iter()
+        .copied()
+        .filter(|value| value.is_finite())
+        .reduce(f64::max)
+}
 fn newton_options_from_solve_request(options: &[eng_compiler::WithOptionInfo]) -> NewtonOptions {
     let mut newton = NewtonOptions::default();
     if let Some(tolerance) = option_value(options, "tolerance")
@@ -5781,6 +5861,7 @@ fn newton_residual_history_diagnostics(
                     .find(|step| step.iteration == index)
                     .map(|step| step.trial_count),
                 jacobian_policy: (index > 0).then(|| newton.jacobian_policy.clone()),
+                variable_scale_policy: (index > 0).then(|| newton.variable_scale_policy.clone()),
                 linear_condition_estimate: newton
                     .linear_step_history
                     .iter()
@@ -5836,6 +5917,7 @@ fn fixed_point_residual_history_diagnostics(
             line_search_scale: None,
             line_search_trial_count: None,
             jacobian_policy: None,
+            variable_scale_policy: None,
             linear_condition_estimate: None,
             linear_minimum_pivot_abs: None,
             linear_maximum_pivot_abs: None,
@@ -5886,6 +5968,9 @@ fn failed_source_component_solution(
         linear_condition_estimate: None,
         linear_minimum_pivot_abs: None,
         linear_maximum_pivot_abs: None,
+        variable_scale_policy: "not_applicable".to_owned(),
+        variable_scale_min: None,
+        variable_scale_max: None,
         tolerance,
         max_iterations,
         iteration_count: 0,
@@ -10621,6 +10706,12 @@ with {
         assert_eq!(solution.status, "computed");
         assert_eq!(solution.method, "implicit_euler_dae_source_residual_graph");
         assert_eq!(solution.convergence_status, "dae_converged");
+        assert_eq!(
+            solution.variable_scale_policy,
+            "unit_default_from_dae_state_algebraic_layout"
+        );
+        assert_eq!(solution.variable_scale_min, Some(1.0));
+        assert_eq!(solution.variable_scale_max, Some(1.0));
         assert!(solution.failure_artifact.is_none());
         assert!(solution
             .reason
@@ -10643,6 +10734,11 @@ with {
         runtime.apply_component_solutions(&mut spec);
         let json = eng_report::report_spec_json(&spec);
         assert!(json.contains("\"method\": \"implicit_euler_dae_source_residual_graph\""));
+        assert!(json.contains(
+            "\"variable_scale_policy\": \"unit_default_from_dae_state_algebraic_layout\""
+        ));
+        assert!(json.contains("\"variable_scale_min\": 1"));
+        assert!(json.contains("\"variable_scale_max\": 1"));
         assert!(json.contains("node.tau_factor"));
         assert!(json.contains("\"node.setpoint\""));
     }
@@ -10926,6 +11022,8 @@ with {
                 linear_maximum_pivot_abs: 3.0,
             }],
             jacobian_policy: "provided".to_owned(),
+            variable_scale_policy: "unit_default:HeatRate[kW]".to_owned(),
+            variable_scales: vec![1.0],
             largest_residual: None,
             iteration_count: 1,
             convergence_status: "newton_not_converged".to_owned(),
@@ -10962,6 +11060,9 @@ with {
             linear_condition_estimate: None,
             linear_minimum_pivot_abs: None,
             linear_maximum_pivot_abs: None,
+            variable_scale_policy: "unit_default:HeatRate[kW]".to_owned(),
+            variable_scale_min: Some(1.0),
+            variable_scale_max: Some(1.0),
             tolerance: 1e-9,
             max_iterations: 1,
             iteration_count: 1,

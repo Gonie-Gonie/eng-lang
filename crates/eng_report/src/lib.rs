@@ -606,6 +606,9 @@ pub struct ReportComponentSolverResult {
     pub linear_condition_estimate: Option<f64>,
     pub linear_minimum_pivot_abs: Option<f64>,
     pub linear_maximum_pivot_abs: Option<f64>,
+    pub variable_scale_policy: String,
+    pub variable_scale_min: Option<f64>,
+    pub variable_scale_max: Option<f64>,
     pub tolerance: f64,
     pub max_iterations: usize,
     pub iteration_count: usize,
@@ -648,6 +651,7 @@ pub struct ReportComponentSolverStepDiagnostic {
     pub line_search_scale: Option<f64>,
     pub line_search_trial_count: Option<usize>,
     pub jacobian_policy: Option<String>,
+    pub variable_scale_policy: Option<String>,
     pub linear_condition_estimate: Option<f64>,
     pub linear_minimum_pivot_abs: Option<f64>,
     pub linear_maximum_pivot_abs: Option<f64>,
@@ -5047,6 +5051,22 @@ fn push_report_component_solver_result_json(
         result.linear_maximum_pivot_abs,
         indent.len() + 2,
     );
+    json.push_str(&format!(
+        "{indent}  \"variable_scale_policy\": \"{}\",\n",
+        json_escape(&result.variable_scale_policy)
+    ));
+    push_optional_json_f64(
+        json,
+        "variable_scale_min",
+        result.variable_scale_min,
+        indent.len() + 2,
+    );
+    push_optional_json_f64(
+        json,
+        "variable_scale_max",
+        result.variable_scale_max,
+        indent.len() + 2,
+    );
     json.push_str(&format!("{indent}  \"tolerance\": {},\n", result.tolerance));
     json.push_str(&format!(
         "{indent}  \"max_iterations\": {},\n",
@@ -5194,6 +5214,12 @@ fn push_report_component_solver_result_json(
             json,
             "jacobian_policy",
             diagnostic.jacobian_policy.as_deref(),
+            indent.len() + 6,
+        );
+        push_optional_json_string(
+            json,
+            "variable_scale_policy",
+            diagnostic.variable_scale_policy.as_deref(),
             indent.len() + 6,
         );
         push_optional_json_f64(

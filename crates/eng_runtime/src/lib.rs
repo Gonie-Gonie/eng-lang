@@ -4257,6 +4257,22 @@ fn component_solutions_json(runtime_data: &RuntimeData) -> String {
             format_number_with_precision(solution.residual_norm, Some(8))
         ));
         json.push_str(&format!(
+            "        \"variable_scale_policy\": \"{}\",\n",
+            json_escape(&solution.variable_scale_policy)
+        ));
+        push_optional_json_f64(
+            &mut json,
+            "variable_scale_min",
+            solution.variable_scale_min,
+            8,
+        );
+        push_optional_json_f64(
+            &mut json,
+            "variable_scale_max",
+            solution.variable_scale_max,
+            8,
+        );
+        json.push_str(&format!(
             "        \"iteration_count\": {},\n",
             solution.iteration_count
         ));
@@ -4393,6 +4409,12 @@ fn component_solutions_json(runtime_data: &RuntimeData) -> String {
             ));
             push_optional_json_string(
                 &mut json,
+                "variable_scale_policy",
+                diagnostic.variable_scale_policy.as_deref(),
+                12,
+            );
+            push_optional_json_string(
+                &mut json,
                 "failure_code",
                 diagnostic
                     .failure_artifact
@@ -4503,6 +4525,22 @@ fn push_component_residual_evaluations_json(
             "{item_indent}  \"scale_policy\": \"{}\",\n",
             json_escape(&residual.scale_policy)
         ));
+        json.push_str(&format!(
+            "{item_indent}  \"lowering_status\": \"{}\",\n",
+            json_escape(&residual.lowering_status)
+        ));
+        push_optional_json_string(
+            json,
+            "lowering_failure_code",
+            residual.lowering_failure_code.as_deref(),
+            item_indent.len() + 2,
+        );
+        push_optional_json_string(
+            json,
+            "lowering_failure_reason",
+            residual.lowering_failure_reason.as_deref(),
+            item_indent.len() + 2,
+        );
         json.push_str(&format!(
             "{item_indent}  \"status\": \"{}\"\n",
             json_escape(&residual.status)
@@ -4935,6 +4973,16 @@ fn push_optional_json_number(json: &mut String, key: &str, value: Option<f64>, i
     }
 }
 
+fn push_optional_json_f64(json: &mut String, key: &str, value: Option<f64>, indent: usize) {
+    let spaces = " ".repeat(indent);
+    match value {
+        Some(value) => json.push_str(&format!(
+            "{spaces}\"{key}\": {},\n",
+            format_number_with_precision(value, Some(8))
+        )),
+        None => json.push_str(&format!("{spaces}\"{key}\": null,\n")),
+    }
+}
 fn push_optional_json_usize(json: &mut String, key: &str, value: Option<usize>, indent: usize) {
     let spaces = " ".repeat(indent);
     match value {
