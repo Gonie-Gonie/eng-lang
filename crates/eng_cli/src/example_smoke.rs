@@ -1766,12 +1766,12 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"convergence_status\": \"adaptive_heun_completed\"")
                 || !output.result_json.contains("\"name\": \"node.node.y\"")
                 || !output.result_json.contains("\"role\": \"algebraic\"")
-                || !output.result_json.contains("\"final_value\": 0.99121331")
+                || !output.result_json.contains("\"final_value\": 0.99122926")
                 || !output
                     .report_spec_json
                     .contains("node.node.y * node.node.y eq cos(node.node.x)")
                 || !output.report_spec_json.contains("adaptive_heun_accepted")
-                || !output.report_html.contains("node.node.y=0.991213")
+                || !output.report_html.contains("node.node.y=0.991229")
             {
                 eprintln!(
                     "expected tests/runtime/dynamic_component_adaptive_nonlinear_algebraic.eng to solve an adaptive dynamic component RHS with a Newton algebraic output"
@@ -1857,7 +1857,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"convergence_status\": \"adaptive_heun_completed\"")
                 || !output.result_json.contains("\"name\": \"node.node.y\"")
                 || !output.result_json.contains("\"role\": \"algebraic\"")
-                || !output.result_json.contains("\"final_value\": 1.24106612")
+                || !output.result_json.contains("\"final_value\": 1.24107213")
                 || !output.result_json.contains("drive_data.drive")
                 || !output
                     .report_spec_json
@@ -1866,7 +1866,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.report_spec_json.contains("\"input_count\": 1")
                 || !output.report_spec_json.contains("drive_data.drive")
                 || !output.report_spec_json.contains("adaptive_heun_accepted")
-                || !output.report_html.contains("node.node.y=1.241066")
+                || !output.report_html.contains("node.node.y=1.241072")
             {
                 eprintln!(
                     "expected tests/runtime/dynamic_component_adaptive_nonlinear_algebraic_timeseries_input.eng to solve adaptive TimeSeries-driven Newton algebraic output"

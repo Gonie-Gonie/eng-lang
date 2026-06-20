@@ -4796,6 +4796,7 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
         inputs: solve_input.inputs.clone(),
         parameters: solve_input.parameters.clone(),
     };
+    let mut rhs_algebraic_guess = solve_input.initial_algebraic.clone();
     let adaptive_result = solve_adaptive_heun_ode(&solver_input, &adaptive_options, |sample| {
         let inputs = sampled_dynamic_component_inputs(
             &solve_input.inputs,
@@ -4812,9 +4813,12 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
             sample.state,
             &inputs,
             sample.parameters,
-            &solve_input.initial_algebraic,
+            &rhs_algebraic_guess,
             &options,
         )?;
+        if !algebraic.is_empty() {
+            rhs_algebraic_guess.clone_from(&algebraic);
+        }
         let symbols = source_dynamic_component_symbols(
             assembly,
             sample.time_s,
@@ -4869,7 +4873,7 @@ fn adaptive_dynamic_component_algebraic_values(
     state: &[f64],
     inputs: &[SolverScalar],
     parameters: &[SolverScalar],
-    initial_algebraic: &[f64],
+    algebraic_guess: &[f64],
     options: &DynamicComponentOptions,
 ) -> Result<Vec<f64>, SolverFailure> {
     if algebraic_layout.is_empty() {
@@ -4889,10 +4893,10 @@ fn adaptive_dynamic_component_algebraic_values(
             if failure.code == "E-SOURCE-ALGEBRAIC-SHAPE"
                 || should_fallback_to_newton_algebraic(&failure) =>
         {
-            if initial_algebraic.len() != algebraic_layout.len() {
+            if algebraic_guess.len() != algebraic_layout.len() {
                 return Err(SolverFailure::new(
                     "E-DYNAMIC-COMPONENT-ADAPTIVE-ALGEBRAIC-LAYOUT",
-                    "adaptive dynamic component Newton algebraic initial vector length does not match the algebraic layout",
+                    "adaptive dynamic component Newton algebraic guess length does not match the algebraic layout",
                 ));
             }
             let mut newton_options = NewtonOptions {
@@ -4902,7 +4906,7 @@ fn adaptive_dynamic_component_algebraic_values(
             };
             newton_options.variable_scales = residual_scales_from_layout(algebraic_layout);
             newton_options.variable_scale_policy = "algebraic_layout_quantity_unit".to_owned();
-            let newton = solve_newton(initial_algebraic, &newton_options, |guess| {
+            let newton = solve_newton(algebraic_guess, &newton_options, |guess| {
                 let symbols = source_dynamic_component_symbols(
                     assembly, time_s, state, guess, inputs, parameters,
                 );
@@ -4937,6 +4941,7 @@ fn adaptive_dynamic_component_algebraic_trajectories(
     }
     let mut algebraic_values_by_variable =
         vec![Vec::with_capacity(solver_result.time_grid.step_count + 1); algebraic_layout.len()];
+    let mut algebraic_guess = solve_input.initial_algebraic.clone();
     for output_index in 0..=solver_result.time_grid.step_count {
         let time_s = solver_result.time_grid.step_time_s(output_index);
         let state = solver_result
@@ -4967,9 +4972,12 @@ fn adaptive_dynamic_component_algebraic_trajectories(
             &state,
             &inputs,
             &solve_input.parameters,
-            &solve_input.initial_algebraic,
+            &algebraic_guess,
             options,
         )?;
+        if !algebraic.is_empty() {
+            algebraic_guess.clone_from(&algebraic);
+        }
         for (index, value) in algebraic.iter().copied().enumerate() {
             algebraic_values_by_variable[index].push(value);
         }
