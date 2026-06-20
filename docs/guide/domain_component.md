@@ -7,7 +7,7 @@ and connections; it generates connection equations; and `eng run` solves a
 square dense linear residual graph when literal boundary seeds make the graph
 balanced. Official examples cover constrained Thermal graphs and a constrained
 Thermal/Fluid[Water] pressure/flow graph. Broader component behavior equations,
-broad non-literal constructor bindings and broad arity/default policy, dynamic components, nonlinear/DAE coupling, pressure
+broad non-literal constructor bindings, dynamic components, nonlinear/DAE coupling, pressure
 quantity packages, and physical multi-domain solving remain internal or
 planned.
 
@@ -110,10 +110,7 @@ system EnvelopeBoundary {
 }
 ```
 
-`name = Component(...)` inside a `system` creates a system-local component instance from a declared component template. Empty constructors are allowed, declared component parameters can provide defaults, and named constructor overrides such as `PumpBoundary(p_supply=220000 Pa)` are type/unit checked and preserved as qualified component-parameter references in generated boundary/equation residuals; the instantiated component records constructor and parameter provenance in review/report-spec artifacts. Positional arguments such as
-`RoomBoundary(22 degC)` report `E-COMPONENT-INSTANCE-ARGS`. Unknown component
-names report `E-COMPONENT-INSTANCE-UNKNOWN`. Duplicate instance names report
-`E-COMPONENT-INSTANCE-DUPLICATE`.
+`name = Component(...)` inside a `system` creates a system-local component instance from a declared component template. Empty constructors are allowed, declared component parameters can provide defaults, and named constructor overrides such as `PumpBoundary(p_supply=220000 Pa)` and declaration-order positional overrides such as `PumpBoundary(220000 Pa)` are type/unit checked and preserved as qualified component-parameter references in generated boundary/equation residuals; the instantiated component records constructor and parameter provenance in review/report-spec artifacts. For templates with declared parameters, positional arguments are matched to parameter declaration order before any named arguments; templates without declared parameters keep the legacy named substitution constructor path. Unknown component names report `E-COMPONENT-INSTANCE-UNKNOWN`. Duplicate instance names report `E-COMPONENT-INSTANCE-DUPLICATE`.
 
 If a source file contains system-local component instances, the component graph
 is assembled from those instances. Older top-level component fixtures without

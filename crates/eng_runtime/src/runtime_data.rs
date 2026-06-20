@@ -10704,7 +10704,7 @@ component ReturnBoundary {
 }
 
 system FluidLoop {
-    pump = PumpBoundary(p_supply=220000 Pa)
+    pump = PumpBoundary(220000 Pa)
     pipe = PipeRun()
     return_node = ReturnBoundary()
     connect pump.supply to pipe.inlet
@@ -10716,6 +10716,15 @@ system FluidLoop {
             source,
             &CheckOptions::default(),
         );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let pump = report
+            .semantic_program
+            .components
+            .iter()
+            .find(|component| component.name == "pump")
+            .unwrap();
+        assert_eq!(pump.constructor_arguments[0].name, "p_supply");
+        assert_eq!(pump.constructor_arguments[0].value, "220000 Pa");
         let assembly = report
             .semantic_program
             .component_assemblies

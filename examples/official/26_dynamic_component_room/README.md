@@ -17,7 +17,7 @@ Current support boundary:
   component port signals;
 - the wall heat flow is a fixed linear boundary seed in this example, not a
   unit-parameterized conductance model;
-- nonlinear component equations, broad non-literal constructor bindings and broad arity/default policy, broad input/parameter
+- nonlinear component equations, broad non-literal constructor bindings, broad input/parameter
   materialization, adaptive component timestepping, and full DAE solving remain
   outside this official example.
 

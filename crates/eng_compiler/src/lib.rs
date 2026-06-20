@@ -5189,6 +5189,35 @@ mod tests {
         assert!(review.contains("\"status\": \"defaulted\""));
     }
     #[test]
+    fn accepts_positional_component_constructor_arguments_for_declared_parameters() {
+        let report = check_source(
+            "ok.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n    parameter T_room: AbsoluteTemperature [degC]\n    parameter Q_room: HeatRate [kW] = 1 kW\n    boundary_T = heat.T = T_room\n    boundary_Q = heat.Q = Q_room\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\nsystem Envelope {\n    room = RoomBoundary(22 degC, Q_room=2 kW)\n    ambient = AmbientBoundary()\n    connect room.heat to ambient.heat\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let room = report
+            .semantic_program
+            .components
+            .iter()
+            .find(|component| component.name == "room")
+            .expect("room instance");
+        assert_eq!(room.constructor_arguments.len(), 2);
+        assert_eq!(room.constructor_arguments[0].name, "T_room");
+        assert_eq!(room.constructor_arguments[0].value, "22 degC");
+        assert_eq!(room.constructor_arguments[1].name, "Q_room");
+        assert_eq!(room.constructor_arguments[1].value, "2 kW");
+        assert_eq!(room.parameters[0].value.as_deref(), Some("22 degC"));
+        assert_eq!(room.parameters[0].status, "constructor_override");
+        assert_eq!(room.parameters[1].value.as_deref(), Some("2 kW"));
+        assert_eq!(room.parameters[1].status, "constructor_override");
+
+        let review = review_json(&report);
+        assert!(review.contains("\"name\": \"T_room\""));
+        assert!(review.contains("\"value\": \"22 degC\""));
+    }
+    #[test]
     fn rejects_unsupported_system_component_constructor_shapes() {
         let unknown = check_source(
             "bad.eng",
@@ -5233,6 +5262,28 @@ mod tests {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-COMPONENT-INSTANCE-ARGS"));
+
+        let positional_after_named = check_source(
+            "bad.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n    parameter T_room: AbsoluteTemperature [degC]\n    parameter Q_room: HeatRate [kW]\n}\n\nsystem Envelope {\n    room = RoomBoundary(T_room=22 degC, 1 kW)\n}\n",
+            &CheckOptions::default(),
+        );
+        assert!(positional_after_named.has_errors());
+        assert!(positional_after_named.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-COMPONENT-INSTANCE-ARGS"
+                && diagnostic.message.contains("after named")
+        }));
+
+        let too_many_positional = check_source(
+            "bad.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n    parameter T_room: AbsoluteTemperature [degC]\n}\n\nsystem Envelope {\n    room = RoomBoundary(22 degC, 1 kW)\n}\n",
+            &CheckOptions::default(),
+        );
+        assert!(too_many_positional.has_errors());
+        assert!(too_many_positional.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-COMPONENT-INSTANCE-ARGS"
+                && diagnostic.message.contains("too many positional")
+        }));
     }
 
     #[test]

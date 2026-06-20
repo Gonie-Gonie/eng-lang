@@ -43,7 +43,7 @@ component ReturnBoundary {
 system ThermalFluidLoop {
     zone = ZoneBoundary()
     ambient = AmbientBoundary()
-    pump = PumpBoundary(p_supply=220000 Pa, m_dot_supply=0.2 kg/s)
+    pump = PumpBoundary(220000 Pa, 0.2 kg/s)
     pipe = PipeRun()
     return_node = ReturnBoundary()
 

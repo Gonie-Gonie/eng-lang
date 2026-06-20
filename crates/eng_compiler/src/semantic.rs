@@ -5244,7 +5244,7 @@ fn analyze_component_instance_binding(
 
     let Some(arguments) = parse_component_constructor_arguments(
         &binding.name,
-        &template_name,
+        template,
         &arguments,
         binding.line,
         diagnostics,
@@ -5260,7 +5260,7 @@ fn analyze_component_instance_binding(
 
 fn parse_component_constructor_arguments(
     instance_name: &str,
-    template_name: &str,
+    template: &ComponentInfo,
     arguments: &str,
     line: usize,
     diagnostics: &mut Vec<Diagnostic>,
@@ -5271,21 +5271,52 @@ fn parse_component_constructor_arguments(
     }
     let mut parsed = Vec::new();
     let mut seen = HashSet::new();
+    let mut positional_index = 0usize;
+    let mut saw_named = false;
     for raw_argument in split_component_constructor_arguments(arguments) {
-        let Some((name, value)) = raw_argument.split_once('=') else {
-            diagnostics.push(Diagnostic::error(
-                "E-COMPONENT-INSTANCE-ARGS",
-                line,
-                &format!(
-                    "Component instance `{instance_name}` calls `{template_name}` with positional arguments, which are not supported."
-                ),
-                Some("Use named arguments for declared component parameters, such as `pipe = PipeRun(dp=20000 Pa)`."),
-            ));
-            return None;
+        let (name, value) = if let Some((name, value)) = raw_argument.split_once('=') {
+            saw_named = true;
+            (name.trim().to_owned(), value.trim().to_owned())
+        } else {
+            if template.parameters.is_empty() {
+                diagnostics.push(Diagnostic::error(
+                    "E-COMPONENT-INSTANCE-ARGS",
+                    line,
+                    &format!(
+                        "Component instance `{instance_name}` calls `{}` with positional arguments, but `{}` has no declared component parameters.",
+                        template.name, template.name
+                    ),
+                    Some("Declare component parameters or use named arguments that are referenced by component-local boundary/equation seeds."),
+                ));
+                return None;
+            }
+            if saw_named {
+                diagnostics.push(Diagnostic::error(
+                    "E-COMPONENT-INSTANCE-ARGS",
+                    line,
+                    &format!(
+                        "Component instance `{instance_name}` passes positional argument `{raw_argument}` after named constructor arguments."
+                    ),
+                    Some("Place positional component constructor arguments before named arguments."),
+                ));
+                return None;
+            }
+            let Some(parameter) = template.parameters.get(positional_index) else {
+                diagnostics.push(Diagnostic::error(
+                    "E-COMPONENT-INSTANCE-ARGS",
+                    line,
+                    &format!(
+                        "Component instance `{instance_name}` passes too many positional constructor arguments to `{}`.",
+                        template.name
+                    ),
+                    Some("Pass at most one positional argument per declared component parameter, or use named arguments."),
+                ));
+                return None;
+            };
+            positional_index += 1;
+            (parameter.name.clone(), raw_argument.trim().to_owned())
         };
-        let name = name.trim();
-        let value = value.trim();
-        if !is_identifier(name) || value.is_empty() {
+        if !is_identifier(&name) || value.is_empty() {
             diagnostics.push(Diagnostic::error(
                 "E-COMPONENT-INSTANCE-ARGS",
                 line,
@@ -5296,7 +5327,7 @@ fn parse_component_constructor_arguments(
             ));
             return None;
         }
-        if !seen.insert(name.to_owned()) {
+        if !seen.insert(name.clone()) {
             diagnostics.push(Diagnostic::error(
                 "E-COMPONENT-INSTANCE-ARGS",
                 line,
@@ -5307,20 +5338,13 @@ fn parse_component_constructor_arguments(
             ));
             return None;
         }
-        parsed.push(ComponentConstructorArgumentInfo {
-            name: name.to_owned(),
-            value: value.to_owned(),
-        });
+        parsed.push(ComponentConstructorArgumentInfo { name, value });
     }
     Some(parsed)
 }
 
-fn split_component_constructor_arguments(arguments: &str) -> Vec<&str> {
-    arguments
-        .split(',')
-        .map(str::trim)
-        .filter(|argument| !argument.is_empty())
-        .collect()
+fn split_component_constructor_arguments(arguments: &str) -> Vec<String> {
+    split_top_level(arguments, &[','])
 }
 
 fn instantiate_component_template(
