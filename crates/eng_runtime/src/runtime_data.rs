@@ -10703,8 +10703,10 @@ component ReturnBoundary {
     port inlet: Fluid[Water]
 }
 
+const P_SUPPLY: Pressure [Pa] = 220000 Pa
+
 system FluidLoop {
-    pump = PumpBoundary(220000 Pa)
+    pump = PumpBoundary(P_SUPPLY)
     pipe = PipeRun()
     return_node = ReturnBoundary()
     connect pump.supply to pipe.inlet
@@ -10724,7 +10726,7 @@ system FluidLoop {
             .find(|component| component.name == "pump")
             .unwrap();
         assert_eq!(pump.constructor_arguments[0].name, "p_supply");
-        assert_eq!(pump.constructor_arguments[0].value, "220000 Pa");
+        assert_eq!(pump.constructor_arguments[0].value, "P_SUPPLY");
         let assembly = report
             .semantic_program
             .component_assemblies

@@ -7,7 +7,7 @@ and connections; it generates connection equations; and `eng run` solves a
 square dense linear residual graph when literal boundary seeds make the graph
 balanced. Official examples cover constrained Thermal graphs and a constrained
 Thermal/Fluid[Water] pressure/flow graph. Broader component behavior equations,
-broad non-literal constructor bindings, dynamic components, nonlinear/DAE coupling, pressure
+broad expression/args/object constructor bindings, dynamic components, nonlinear/DAE coupling, pressure
 quantity packages, and physical multi-domain solving remain internal or
 planned.
 
@@ -399,7 +399,7 @@ Current:
 
 Deferred:
 
-- broad non-literal constructor bindings and residual-preserved parameter references beyond numeric default/override substitution;
+- broad expression/args/object constructor bindings beyond numeric/importable-const substitution;
 - broad nonlinear or unit-parameterized component-local equation solving;
 - physical component graph solving with component behavior equations, broad
   nonlinear/DAE coupling, and adaptive component timestepping;

@@ -1055,6 +1055,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                         analyze_component_parameter(
                             variable,
                             &mut components[component_index],
+                            &consts,
                             &mut diagnostics,
                         );
                     }
@@ -1142,6 +1143,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                         binding,
                         &components,
                         &component_instances,
+                        &consts,
                         &mut diagnostics,
                     ) {
                         ComponentInstanceBindingAnalysis::Instance(instance) => {
@@ -5045,6 +5047,7 @@ fn analyze_port(declaration: &PortDecl, component: &mut ComponentInfo) {
 fn analyze_component_parameter(
     declaration: &SystemVariableDecl,
     component: &mut ComponentInfo,
+    consts: &[ConstInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let display_unit = declaration
@@ -5059,6 +5062,7 @@ fn analyze_component_parameter(
         .unwrap_or_else(|| default_unit_for_quantity(&declaration.type_name));
     let canonical_unit = default_unit_for_quantity(&declaration.type_name);
     let dimension = dimension_for_quantity(&declaration.type_name);
+    let mut resolved_value = declaration.expression.clone();
     let status = if dimension == "unknown" {
         diagnostics.push(Diagnostic::error(
             "E-COMPONENT-PARAM-001",
@@ -5071,13 +5075,15 @@ fn analyze_component_parameter(
         ));
         "unknown_quantity"
     } else if let Some(default_value) = &declaration.expression {
-        if component_parameter_value_compatible(
+        if let Some(value) = resolve_component_parameter_value(
             &declaration.name,
             default_value,
             &declaration.type_name,
             declaration.line,
+            consts,
             diagnostics,
         ) {
+            resolved_value = Some(value);
             "defaulted"
         } else {
             "default_type_mismatch"
@@ -5093,7 +5099,7 @@ fn analyze_component_parameter(
         canonical_unit,
         dimension,
         default_value: declaration.expression.clone(),
-        value: declaration.expression.clone(),
+        value: resolved_value,
         source: if declaration.expression.is_some() {
             "default".to_owned()
         } else {
@@ -5104,7 +5110,77 @@ fn analyze_component_parameter(
     });
 }
 
-fn component_parameter_value_compatible(
+fn resolve_component_parameter_value(
+    parameter_name: &str,
+    value: &str,
+    quantity_kind: &str,
+    line: usize,
+    consts: &[ConstInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<String> {
+    let value = value.trim();
+    if numeric_literal_with_optional_unit(value).is_some() {
+        return component_parameter_literal_compatible(
+            parameter_name,
+            value,
+            quantity_kind,
+            line,
+            diagnostics,
+        )
+        .then(|| value.to_owned());
+    }
+    if let Some(const_info) = consts
+        .iter()
+        .find(|const_info| const_info.importable && const_info.name == value)
+    {
+        let expected_dimension = dimension_for_quantity(quantity_kind);
+        if !dimensions_compatible(&expected_dimension, &const_info.dimension) {
+            diagnostics.push(Diagnostic::error(
+                "E-COMPONENT-PARAM-UNIT-001",
+                line,
+                &format!(
+                    "Component parameter `{parameter_name}` expects `{quantity_kind}`, but const `{}` has quantity `{}`.",
+                    const_info.name, const_info.quantity_kind
+                ),
+                Some("Use a constructor/default const with a compatible quantity."),
+            ));
+            return None;
+        }
+        let resolved = const_info.expression.trim();
+        if numeric_literal_with_optional_unit(resolved).is_some() {
+            return component_parameter_literal_compatible(
+                parameter_name,
+                resolved,
+                quantity_kind,
+                const_info.line,
+                diagnostics,
+            )
+            .then(|| resolved.to_owned());
+        }
+        diagnostics.push(Diagnostic::error(
+            "E-COMPONENT-PARAM-002",
+            line,
+            &format!(
+                "Component parameter `{parameter_name}` const `{}` does not resolve to a finite numeric literal.",
+                const_info.name
+            ),
+            Some("Use an importable const whose expression is a finite numeric literal with an optional compatible unit."),
+        ));
+        return None;
+    }
+
+    diagnostics.push(Diagnostic::error(
+        "E-COMPONENT-PARAM-002",
+        line,
+        &format!(
+            "Component parameter `{parameter_name}` expects a numeric literal or importable const default/override, got `{value}`."
+        ),
+        Some("Use a finite numeric literal, such as `20000 Pa`, or a top-level const with a compatible quantity."),
+    ));
+    None
+}
+
+fn component_parameter_literal_compatible(
     parameter_name: &str,
     value: &str,
     quantity_kind: &str,
@@ -5112,14 +5188,6 @@ fn component_parameter_value_compatible(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> bool {
     let Some((_amount, unit)) = numeric_literal_with_optional_unit(value) else {
-        diagnostics.push(Diagnostic::error(
-            "E-COMPONENT-PARAM-002",
-            line,
-            &format!(
-                "Component parameter `{parameter_name}` expects a numeric literal default or override, got `{value}`."
-            ),
-            Some("Use a finite numeric literal with an optional compatible unit, such as `20000 Pa`."),
-        ));
         return false;
     };
     let Some(unit) = unit else {
@@ -5209,6 +5277,7 @@ fn analyze_component_instance_binding(
     binding: &crate::ast::FastBinding,
     templates: &[ComponentInfo],
     existing_instances: &[ComponentInfo],
+    consts: &[ConstInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) -> ComponentInstanceBindingAnalysis {
     let Some((template_name, arguments)) = component_constructor_call(&binding.expression) else {
@@ -5251,7 +5320,8 @@ fn analyze_component_instance_binding(
     ) else {
         return ComponentInstanceBindingAnalysis::HandledInvalid;
     };
-    let Some(instance) = instantiate_component_template(template, binding, &arguments, diagnostics)
+    let Some(instance) =
+        instantiate_component_template(template, binding, &arguments, consts, diagnostics)
     else {
         return ComponentInstanceBindingAnalysis::HandledInvalid;
     };
@@ -5351,6 +5421,7 @@ fn instantiate_component_template(
     template: &ComponentInfo,
     binding: &crate::ast::FastBinding,
     arguments: &[ComponentConstructorArgumentInfo],
+    consts: &[ConstInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<ComponentInfo> {
     let mut instance = template.clone();
@@ -5394,7 +5465,7 @@ fn instantiate_component_template(
 
     let mut parameter_values = HashMap::new();
     for parameter in &template.parameters {
-        if let Some(default_value) = &parameter.default_value {
+        if let Some(default_value) = &parameter.value {
             parameter_values.insert(parameter.name.clone(), (default_value.clone(), "default"));
         }
     }
@@ -5416,19 +5487,17 @@ fn instantiate_component_template(
             ));
             return None;
         };
-        if !component_parameter_value_compatible(
+        let Some(resolved_argument) = resolve_component_parameter_value(
             &argument.name,
             &argument.value,
             &parameter.quantity_kind,
             binding.line,
+            consts,
             diagnostics,
-        ) {
+        ) else {
             return None;
-        }
-        parameter_values.insert(
-            argument.name.clone(),
-            (argument.value.clone(), "constructor"),
-        );
+        };
+        parameter_values.insert(argument.name.clone(), (resolved_argument, "constructor"));
     }
 
     for parameter in &mut instance.parameters {

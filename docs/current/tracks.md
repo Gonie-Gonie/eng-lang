@@ -375,7 +375,7 @@ Not yet public-supported:
 ```text
 - production numeric multi-domain simulation
 - production pressure-drop packages
-- broad non-literal constructor bindings and nonlinear/unit-parameterized
+- broad expression/args/object constructor bindings and nonlinear/unit-parameterized
   component-local equation solving
 - general boundary-condition/component-behavior solving
 - domain package registry

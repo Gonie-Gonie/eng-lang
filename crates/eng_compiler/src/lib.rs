@@ -5189,6 +5189,51 @@ mod tests {
         assert!(review.contains("\"status\": \"defaulted\""));
     }
     #[test]
+    fn accepts_const_component_parameter_defaults_and_constructor_overrides() {
+        let report = check_source(
+            "ok.eng",
+            "const DEFAULT_T: AbsoluteTemperature [degC] = 21 degC\nconst ROOM_Q: HeatRate [kW] = 2 kW\n\ndomain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n    parameter T_room: AbsoluteTemperature [degC] = DEFAULT_T\n    parameter Q_room: HeatRate [kW] = 1 kW\n    boundary_T = heat.T = T_room\n    boundary_Q = heat.Q = Q_room\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\nsystem Envelope {\n    room = RoomBoundary(Q_room=ROOM_Q)\n    ambient = AmbientBoundary()\n    connect room.heat to ambient.heat\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let room = report
+            .semantic_program
+            .components
+            .iter()
+            .find(|component| component.name == "room")
+            .expect("room instance");
+        assert_eq!(room.constructor_arguments[0].name, "Q_room");
+        assert_eq!(room.constructor_arguments[0].value, "ROOM_Q");
+        assert_eq!(
+            room.parameters[0].default_value.as_deref(),
+            Some("DEFAULT_T")
+        );
+        assert_eq!(room.parameters[0].value.as_deref(), Some("21 degC"));
+        assert_eq!(room.parameters[0].status, "defaulted");
+        assert_eq!(room.parameters[1].value.as_deref(), Some("2 kW"));
+        assert_eq!(room.parameters[1].status, "constructor_override");
+
+        let review = review_json(&report);
+        assert!(review.contains("\"default_value\": \"DEFAULT_T\""));
+        assert!(review.contains("\"value\": \"21 degC\""));
+        assert!(review.contains("\"value\": \"ROOM_Q\""));
+    }
+    #[test]
+    fn rejects_incompatible_const_component_parameter_values() {
+        let report = check_source(
+            "bad.eng",
+            "const WRONG_Q: HeatRate [kW] = 2 kW\n\ndomain Fluid[Medium M] {\n    across p: Pressure [Pa]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent PumpBoundary {\n    port supply: Fluid[Water]\n    parameter p_supply: Pressure [Pa]\n    supply_pressure = supply.p = p_supply\n}\n\nsystem Loop {\n    pump = PumpBoundary(WRONG_Q)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-COMPONENT-PARAM-UNIT-001"
+                && diagnostic.message.contains("WRONG_Q")
+        }));
+    }
+    #[test]
     fn accepts_positional_component_constructor_arguments_for_declared_parameters() {
         let report = check_source(
             "ok.eng",

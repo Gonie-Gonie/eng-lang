@@ -40,10 +40,13 @@ component ReturnBoundary {
     port inlet: Fluid[Water]
 }
 
+const P_SUPPLY: Pressure [Pa] = 220000 Pa
+const M_DOT_SUPPLY: MassFlowRate [kg/s] = 0.2 kg/s
+
 system ThermalFluidLoop {
     zone = ZoneBoundary()
     ambient = AmbientBoundary()
-    pump = PumpBoundary(220000 Pa, 0.2 kg/s)
+    pump = PumpBoundary(P_SUPPLY, M_DOT_SUPPLY)
     pipe = PipeRun()
     return_node = ReturnBoundary()
 
