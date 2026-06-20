@@ -264,6 +264,7 @@ Evidence gate:
 - Source DAE solve requests now pass explicit DAE method policy into `DaeOptions`, so unsupported BDF requests surface the solver API `E-DAE-METHOD-UNSUPPORTED` failure through component solution and report-spec artifacts.
 - Source-equation ODE simulations now route `solver = adaptive_heun` through the shared `SourceRhsEvaluator` path for generic numeric state layouts, preserving fixed output-grid trajectories and adaptive substep diagnostics.
 - Source ODE RHS evaluation now pre-parses derivative coefficients and RHS expressions through the shared arithmetic expression parser, preserving unit-literal metadata and removing per-sample RHS string parsing for fixed-step and adaptive source simulations.
+- Source ODE RHS parser construction now receives typed input and parameter symbol metadata from runtime layouts, so source derivative expressions preserve state/input/parameter units instead of name-only RHS symbols.
 
 ## Done Criteria
 

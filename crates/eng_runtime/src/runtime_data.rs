@@ -38,9 +38,9 @@ use crate::solver::{
     InputLayout, LayoutEntry, NewtonOptions, OutputLayout, ParameterLayout, PredictorContract,
     PredictorDifferentiability, PredictorJacobianPolicy, PredictorSolverPolicy, ResidualEquation,
     ResidualEvaluator, ResidualGraph, ResidualInput, ResidualOutput, RhsEvaluator, RhsInput,
-    RhsStateInfo, SimulationPlan, SolverDiagnostics, SolverFailure, SolverInput, SolverOptions,
-    SolverPlan, SolverResult, SolverScalar, SourceRhsEquation, SourceRhsEvaluator, StateLayout,
-    StateTrajectory, TimeGrid,
+    RhsStateInfo, RhsSymbolInfo, SimulationPlan, SolverDiagnostics, SolverFailure, SolverInput,
+    SolverOptions, SolverPlan, SolverResult, SolverScalar, SourceRhsEquation, SourceRhsEvaluator,
+    StateLayout, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -6819,7 +6819,7 @@ fn materialize_source_ode_solutions(
         parameters: solver_parameters,
     };
 
-    let evaluator = match SourceRhsEvaluator::new(
+    let evaluator = match SourceRhsEvaluator::new_with_symbols(
         states
             .iter()
             .map(|state| {
@@ -6830,10 +6830,25 @@ fn materialize_source_ode_solutions(
                 )
             })
             .collect(),
-        inputs.iter().map(|input| input.name.clone()).collect(),
+        inputs
+            .iter()
+            .map(|input| {
+                RhsSymbolInfo::new(
+                    input.name.clone(),
+                    system_variable_value_quantity(input),
+                    input.canonical_unit.clone(),
+                )
+            })
+            .collect(),
         parameters
             .iter()
-            .map(|parameter| parameter.name.clone())
+            .map(|parameter| {
+                RhsSymbolInfo::new(
+                    parameter.name.clone(),
+                    parameter.quantity_kind.clone(),
+                    parameter.canonical_unit.clone(),
+                )
+            })
             .collect(),
         equations,
     ) {

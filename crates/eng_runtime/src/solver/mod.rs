@@ -77,8 +77,8 @@ pub use behavior::{
 };
 pub use diagnostics::{SolverDiagnostics, SolverFailure};
 pub use evaluator::{
-    NamedDerivative, RhsEvaluator, RhsInput, RhsOutput, RhsStateInfo, SourceRhsEquation,
-    SourceRhsEvaluator, StateSpaceRhsEvaluator,
+    NamedDerivative, RhsEvaluator, RhsInput, RhsOutput, RhsStateInfo, RhsSymbolInfo,
+    SourceRhsEquation, SourceRhsEvaluator, StateSpaceRhsEvaluator,
 };
 pub use plan::{
     InputLayout, LayoutEntry, OutputLayout, ParameterLayout, SimulationPlan, SolverInput,

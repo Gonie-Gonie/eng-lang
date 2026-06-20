@@ -29,6 +29,27 @@ impl RhsStateInfo {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct RhsSymbolInfo {
+    pub name: String,
+    pub quantity_kind: String,
+    pub canonical_unit: String,
+}
+
+impl RhsSymbolInfo {
+    pub fn new(
+        name: impl Into<String>,
+        quantity_kind: impl Into<String>,
+        canonical_unit: impl Into<String>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            quantity_kind: quantity_kind.into(),
+            canonical_unit: canonical_unit.into(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RhsInput {
     pub t: f64,
@@ -79,8 +100,8 @@ impl SourceRhsEquation {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SourceRhsEvaluator {
     states: Vec<RhsStateInfo>,
-    input_names: Vec<String>,
-    parameter_names: Vec<String>,
+    input_symbols: Vec<RhsSymbolInfo>,
+    parameter_symbols: Vec<RhsSymbolInfo>,
     equations: Vec<ParsedSourceRhsEquation>,
 }
 
@@ -98,6 +119,23 @@ impl SourceRhsEvaluator {
         states: Vec<RhsStateInfo>,
         input_names: Vec<String>,
         parameter_names: Vec<String>,
+        equations: Vec<SourceRhsEquation>,
+    ) -> Result<Self, SolverFailure> {
+        let input_symbols = input_names
+            .into_iter()
+            .map(|name| RhsSymbolInfo::new(name, "unknown", "1"))
+            .collect();
+        let parameter_symbols = parameter_names
+            .into_iter()
+            .map(|name| RhsSymbolInfo::new(name, "unknown", "1"))
+            .collect();
+        Self::new_with_symbols(states, input_symbols, parameter_symbols, equations)
+    }
+
+    pub fn new_with_symbols(
+        states: Vec<RhsStateInfo>,
+        input_symbols: Vec<RhsSymbolInfo>,
+        parameter_symbols: Vec<RhsSymbolInfo>,
         equations: Vec<SourceRhsEquation>,
     ) -> Result<Self, SolverFailure> {
         if states.is_empty() {
@@ -127,8 +165,8 @@ impl SourceRhsEvaluator {
                 ));
             }
         }
-        let symbols = source_rhs_parse_symbols(&states, &input_names, &parameter_names);
-        let symbol_units = source_rhs_symbol_metadata(&states);
+        let symbols = source_rhs_parse_symbols(&states, &input_symbols, &parameter_symbols);
+        let symbol_units = source_rhs_symbol_metadata(&states, &input_symbols, &parameter_symbols);
         let equations = equations
             .into_iter()
             .map(|equation| {
@@ -167,12 +205,11 @@ impl SourceRhsEvaluator {
 
         Ok(Self {
             states,
-            input_names,
-            parameter_names,
+            input_symbols,
+            parameter_symbols,
             equations,
         })
     }
-
     fn evaluation_symbols(&self, input: &RhsInput) -> HashMap<String, f64> {
         let mut symbols = HashMap::new();
         symbols.insert("t".to_owned(), input.t);
@@ -180,11 +217,11 @@ impl SourceRhsEvaluator {
         for (state, value) in self.states.iter().zip(input.x.iter().copied()) {
             symbols.insert(state.name.clone(), value);
         }
-        for (name, value) in self.input_names.iter().zip(input.u.iter().copied()) {
-            symbols.insert(name.clone(), value);
+        for (symbol, value) in self.input_symbols.iter().zip(input.u.iter().copied()) {
+            symbols.insert(symbol.name.clone(), value);
         }
-        for (name, value) in self.parameter_names.iter().zip(input.p.iter().copied()) {
-            symbols.insert(name.clone(), value);
+        for (symbol, value) in self.parameter_symbols.iter().zip(input.p.iter().copied()) {
+            symbols.insert(symbol.name.clone(), value);
         }
         symbols
     }
@@ -198,13 +235,13 @@ impl RhsEvaluator for SourceRhsEvaluator {
                 "RHS input state vector length does not match state metadata",
             ));
         }
-        if input.u.len() != self.input_names.len() {
+        if input.u.len() != self.input_symbols.len() {
             return Err(SolverFailure::new(
                 "E-RHS-INPUT-LAYOUT",
                 "RHS input vector length does not match input metadata",
             ));
         }
-        if input.p.len() != self.parameter_names.len() {
+        if input.p.len() != self.parameter_symbols.len() {
             return Err(SolverFailure::new(
                 "E-RHS-PARAMETER-LAYOUT",
                 "RHS parameter vector length does not match parameter metadata",
@@ -285,8 +322,8 @@ impl RhsEvaluator for SourceRhsEvaluator {
 
 fn source_rhs_parse_symbols(
     states: &[RhsStateInfo],
-    input_names: &[String],
-    parameter_names: &[String],
+    input_symbols: &[RhsSymbolInfo],
+    parameter_symbols: &[RhsSymbolInfo],
 ) -> HashMap<String, f64> {
     let mut symbols = HashMap::new();
     symbols.insert("t".to_owned(), 0.0);
@@ -294,16 +331,20 @@ fn source_rhs_parse_symbols(
     for state in states {
         symbols.insert(state.name.clone(), 0.0);
     }
-    for name in input_names {
-        symbols.insert(name.clone(), 0.0);
+    for symbol in input_symbols {
+        symbols.insert(symbol.name.clone(), 0.0);
     }
-    for name in parameter_names {
-        symbols.insert(name.clone(), 0.0);
+    for symbol in parameter_symbols {
+        symbols.insert(symbol.name.clone(), 0.0);
     }
     symbols
 }
 
-fn source_rhs_symbol_metadata(states: &[RhsStateInfo]) -> HashMap<String, ArithmeticUnitMetadata> {
+fn source_rhs_symbol_metadata(
+    states: &[RhsStateInfo],
+    input_symbols: &[RhsSymbolInfo],
+    parameter_symbols: &[RhsSymbolInfo],
+) -> HashMap<String, ArithmeticUnitMetadata> {
     let mut metadata = HashMap::new();
     metadata.insert(
         "t".to_owned(),
@@ -331,9 +372,22 @@ fn source_rhs_symbol_metadata(states: &[RhsStateInfo]) -> HashMap<String, Arithm
             },
         );
     }
+    for symbol in input_symbols.iter().chain(parameter_symbols.iter()) {
+        metadata.insert(
+            symbol.name.clone(),
+            arithmetic_metadata_for_rhs_symbol(symbol),
+        );
+    }
     metadata
 }
 
+fn arithmetic_metadata_for_rhs_symbol(symbol: &RhsSymbolInfo) -> ArithmeticUnitMetadata {
+    ArithmeticUnitMetadata {
+        display_unit: symbol.canonical_unit.clone(),
+        canonical_unit: symbol.canonical_unit.clone(),
+        quantity_kind: symbol.quantity_kind.clone(),
+    }
+}
 fn parse_source_rhs_expression(
     expression: &str,
     symbols: &HashMap<String, f64>,
@@ -629,29 +683,30 @@ mod tests {
 
     #[test]
     fn source_rhs_preserves_shared_expression_unit_metadata() {
-        let evaluator = SourceRhsEvaluator::new(
+        let evaluator = SourceRhsEvaluator::new_with_symbols(
             vec![RhsStateInfo::new("T", "AbsoluteTemperature", "K")],
-            Vec::new(),
-            vec!["C".to_owned()],
-            vec![SourceRhsEquation::new("T", "C * der(T)", "1 W")],
+            vec![RhsSymbolInfo::new("Q_hvac", "HeatRate", "W")],
+            vec![RhsSymbolInfo::new("C", "HeatCapacity", "J/K")],
+            vec![SourceRhsEquation::new("T", "C * der(T)", "Q_hvac + 1 W")],
         )
         .unwrap();
 
         let rhs_unit = evaluator.equations[0].rhs.root_unit.as_ref().unwrap();
         assert_eq!(rhs_unit.display_unit, "W");
         assert_eq!(rhs_unit.canonical_unit, "W");
-        assert_eq!(rhs_unit.quantity_kind, "Power");
+        assert_eq!(rhs_unit.quantity_kind, "HeatRate");
 
         let output = evaluator
             .evaluate(&RhsInput {
                 t: 0.0,
                 x: vec![295.0],
-                u: Vec::new(),
+                u: vec![3.0],
                 p: vec![2.0],
             })
             .unwrap();
-        assert_eq!(output.derivatives, vec![0.5]);
+        assert_eq!(output.derivatives, vec![2.0]);
     }
+
     #[test]
     fn state_space_rhs_evaluates_named_derivatives() {
         let evaluator = StateSpaceRhsEvaluator::new(
