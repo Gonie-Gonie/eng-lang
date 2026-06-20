@@ -1376,12 +1376,11 @@ impl RuntimeComponentSolution {
         assembly_name: &str,
         solver_assembly: &EquationAssembly,
         options: FixedPointOptions,
-        initial_value: f64,
+        initial_values: Vec<f64>,
     ) -> Self {
         let residual_graph = ResidualGraph::from_assembly(solver_assembly);
         let equation_count = solver_assembly.equation_count();
         let unknown_count = solver_assembly.unknown_count();
-        let initial_values = vec![initial_value; unknown_count];
         let mut variable_values = initial_values.clone();
         let mut variable_status = "fixed_point_not_attempted".to_owned();
         let mut status: String;
@@ -3276,12 +3275,28 @@ fn materialize_component_solutions(report: &CheckReport) -> Vec<RuntimeComponent
             let mut solution = match solver.trim() {
                 "fixed_point" => {
                     let options = fixed_point_options_from_solve_request(&request.options);
-                    RuntimeComponentSolution::from_fixed_point_solver_assembly(
-                        &assembly.name,
-                        &solver_assembly,
-                        options,
-                        fixed_point_initial_value_from_solve_request(&request.options),
-                    )
+                    match fixed_point_initial_values_from_solve_request(
+                        &request.options,
+                        &solver_assembly.unknowns,
+                    ) {
+                        Ok(initial_values) => {
+                            RuntimeComponentSolution::from_fixed_point_solver_assembly(
+                                &assembly.name,
+                                &solver_assembly,
+                                options,
+                                initial_values,
+                            )
+                        }
+                        Err(failure) => failed_source_component_solution(
+                            &solver_assembly,
+                            "fixed_point_residual_graph",
+                            "fixed-point source solve initial values could not be materialized",
+                            &failure,
+                            options.tolerance,
+                            options.max_iterations,
+                            "fixed_point_source_failed",
+                        ),
+                    }
                 }
                 "newton" | "nonlinear_newton" => {
                     nonlinear_component_solution_from_solve_request(&solver_assembly, &request)
@@ -6134,11 +6149,25 @@ fn fixed_point_options_from_solve_request(
     fixed_point
 }
 
-fn fixed_point_initial_value_from_solve_request(options: &[eng_compiler::WithOptionInfo]) -> f64 {
-    option_value(options, "initial")
-        .and_then(|value| value.trim().parse::<f64>().ok())
-        .filter(|value| value.is_finite())
-        .unwrap_or(0.0)
+fn fixed_point_initial_values_from_solve_request(
+    options: &[eng_compiler::WithOptionInfo],
+    variables: &[UnknownVariable],
+) -> Result<Vec<f64>, SolverFailure> {
+    component_initial_values_from_options(options, "initial", variables, 0.0).map_err(|failure| {
+        SolverFailure::new(
+            fixed_point_initial_failure_code(&failure.code),
+            failure
+                .message
+                .replace("dynamic component source", "fixed-point source"),
+        )
+    })
+}
+
+fn fixed_point_initial_failure_code(code: &str) -> &'static str {
+    match code {
+        "E-DYNAMIC-COMPONENT-SOURCE-INITIAL-LAYOUT" => "E-FIXED-POINT-SOURCE-INITIAL-LAYOUT",
+        _ => "E-FIXED-POINT-SOURCE-INITIAL",
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -10798,6 +10827,108 @@ with {
         assert!(json.contains("relax.source.q - 0.5 * relax.target.q + 1 kW"));
     }
 
+    #[test]
+    fn materializes_fixed_point_source_solve_request_with_vector_initial() {
+        let source = r#"
+domain PowerScalar {
+    across q: HeatRate [kW]
+    through balance: HeatRate [kW]
+    conservation sum(balance) = 0
+}
+
+component RelaxingLoop {
+    port source: PowerScalar
+    port target: PowerScalar
+    source.q eq 0.5 * target.q + 1 kW
+    source.balance eq 0 kW
+}
+
+system FixedPointLoop {
+    relax = RelaxingLoop()
+    connect relax.source to relax.target
+}
+
+fixed_point_result = solve component_graph
+with {
+    solver = fixed_point
+    tolerance = 0.000001
+    max_iter = 80
+    relaxation = 1
+    initial = [0 kW, 0 kW, 1 kW, 0 kW]
+}
+"#;
+        let report = check_source(
+            "fixed_point_vector_initial.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+        let solution = &runtime.component_solutions[0];
+
+        assert_eq!(solution.status, "solved_fixed_point");
+        assert_eq!(solution.unknown_count, 4);
+        assert_eq!(solution.step_diagnostics.len(), solution.iteration_count);
+        assert!(solution.step_diagnostics.iter().all(|diagnostic| {
+            diagnostic.residual_values.len() == 4
+                && diagnostic.normalized_residual_values.len() == 4
+                && diagnostic.largest_residual_name.is_some()
+        }));
+        assert!(solution.failure_artifact.is_none());
+    }
+
+    #[test]
+    fn reports_fixed_point_source_vector_initial_layout_mismatch() {
+        let source = r#"
+domain PowerScalar {
+    across q: HeatRate [kW]
+    through balance: HeatRate [kW]
+    conservation sum(balance) = 0
+}
+
+component RelaxingLoop {
+    port source: PowerScalar
+    port target: PowerScalar
+    source.q eq 0.5 * target.q + 1 kW
+    source.balance eq 0 kW
+}
+
+system FixedPointLoop {
+    relax = RelaxingLoop()
+    connect relax.source to relax.target
+}
+
+fixed_point_result = solve component_graph
+with {
+    solver = fixed_point
+    tolerance = 0.000001
+    max_iter = 80
+    relaxation = 1
+    initial = [0 kW]
+}
+"#;
+        let report = check_source(
+            "fixed_point_vector_initial_mismatch.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+        let solution = &runtime.component_solutions[0];
+
+        assert_eq!(solution.status, "failed");
+        assert_eq!(solution.method, "fixed_point_residual_graph");
+        assert_eq!(solution.convergence_status, "fixed_point_source_failed");
+        assert_eq!(
+            solution
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-FIXED-POINT-SOURCE-INITIAL-LAYOUT")
+        );
+    }
     #[test]
     fn materializes_parameterized_dae_source_solve_request() {
         let source = r#"

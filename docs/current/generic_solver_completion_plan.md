@@ -318,6 +318,7 @@ Evidence gate:
 - Newton variable scaling is now part of `NewtonOptions`, finite-difference perturbation, scaled dense Newton-step solves, source Newton bridge metadata, source DAE implicit-step Newton options, runtime `.engres`, and report-spec artifacts; source bridges derive default scales from assembly unknown quantity/unit metadata.
 - Source Newton and implicit-Euler DAE step diagnostics now expose full raw and normalized residual vectors in runtime `.engres` and report-spec artifacts, so narrow nonlinear/DAE smokes retain per-iteration residual evidence instead of only the largest residual summary.
 - Fixed-point solver results now retain per-iteration update residual vectors, and source fixed-point component artifacts expose raw/normalized variable-update vectors, variable-scale policy, and largest update identity in runtime `.engres` and report-spec step diagnostics.
+- Source fixed-point solve requests now accept scalar or per-unknown vector `initial` values with unit conversion, and vector layout mismatches produce fixed-point-specific failure artifacts instead of silently broadcasting a scalar-only guess.
 - Dynamic component algebraic step diagnostics now preserve raw and normalized residual vectors plus largest residual identity for fixed-point and semi-implicit linear algebraic substeps in runtime `.engres` and report-spec artifacts.
 
 ## Done Criteria
