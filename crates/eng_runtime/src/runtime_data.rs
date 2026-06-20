@@ -1743,31 +1743,41 @@ impl RuntimeComponentSolution {
             step_diagnostics: self
                 .step_diagnostics
                 .iter()
-                .map(|diagnostic| ReportComponentSolverStepDiagnostic {
-                    step_index: diagnostic.step_index,
-                    time_s: diagnostic.time_s,
-                    algebraic_iteration_count: diagnostic.algebraic_iteration_count,
-                    residual_norm: diagnostic.residual_norm,
-                    residual_values: diagnostic.residual_values.clone(),
-                    normalized_residual_values: diagnostic.normalized_residual_values.clone(),
-                    line_search_scale: diagnostic.line_search_scale,
-                    line_search_trial_count: diagnostic.line_search_trial_count,
-                    jacobian_policy: diagnostic.jacobian_policy.clone(),
-                    variable_scale_policy: diagnostic.variable_scale_policy.clone(),
-                    linear_condition_estimate: diagnostic.linear_condition_estimate,
-                    linear_minimum_pivot_abs: diagnostic.linear_minimum_pivot_abs,
-                    linear_maximum_pivot_abs: diagnostic.linear_maximum_pivot_abs,
-                    largest_residual_index: diagnostic.largest_residual_index,
-                    largest_residual_name: diagnostic.largest_residual_name.clone(),
-                    largest_residual_value: diagnostic.largest_residual_value,
-                    largest_residual_abs_value: diagnostic.largest_residual_abs_value,
-                    convergence_status: diagnostic.convergence_status.clone(),
-                    failure_artifact: diagnostic.failure_artifact.as_ref().map(|failure| {
-                        ReportSolverFailureArtifact {
-                            code: failure.code.clone(),
-                            message: failure.message.clone(),
-                        }
-                    }),
+                .map(|diagnostic| {
+                    let source_context =
+                        largest_residual_source_context(diagnostic, &self.residuals);
+                    ReportComponentSolverStepDiagnostic {
+                        step_index: diagnostic.step_index,
+                        time_s: diagnostic.time_s,
+                        algebraic_iteration_count: diagnostic.algebraic_iteration_count,
+                        residual_norm: diagnostic.residual_norm,
+                        residual_values: diagnostic.residual_values.clone(),
+                        normalized_residual_values: diagnostic.normalized_residual_values.clone(),
+                        line_search_scale: diagnostic.line_search_scale,
+                        line_search_trial_count: diagnostic.line_search_trial_count,
+                        jacobian_policy: diagnostic.jacobian_policy.clone(),
+                        variable_scale_policy: diagnostic.variable_scale_policy.clone(),
+                        linear_condition_estimate: diagnostic.linear_condition_estimate,
+                        linear_minimum_pivot_abs: diagnostic.linear_minimum_pivot_abs,
+                        linear_maximum_pivot_abs: diagnostic.linear_maximum_pivot_abs,
+                        largest_residual_index: diagnostic.largest_residual_index,
+                        largest_residual_name: diagnostic.largest_residual_name.clone(),
+                        largest_residual_source_expression: source_context
+                            .map(|residual| residual.source_expression.clone()),
+                        largest_residual_source_line: source_context
+                            .and_then(|residual| residual.source_line),
+                        largest_residual_source_reason: source_context
+                            .and_then(|residual| residual.source_reason.clone()),
+                        largest_residual_value: diagnostic.largest_residual_value,
+                        largest_residual_abs_value: diagnostic.largest_residual_abs_value,
+                        convergence_status: diagnostic.convergence_status.clone(),
+                        failure_artifact: diagnostic.failure_artifact.as_ref().map(|failure| {
+                            ReportSolverFailureArtifact {
+                                code: failure.code.clone(),
+                                message: failure.message.clone(),
+                            }
+                        }),
+                    }
                 })
                 .collect(),
             residuals: self
@@ -1824,6 +1834,14 @@ impl RuntimeComponentSolution {
             }),
         }
     }
+}
+
+fn largest_residual_source_context<'a>(
+    diagnostic: &RuntimeComponentStepDiagnostic,
+    residuals: &'a [RuntimeComponentResidualEvaluation],
+) -> Option<&'a RuntimeComponentResidualEvaluation> {
+    let name = diagnostic.largest_residual_name.as_deref()?;
+    residuals.iter().find(|residual| residual.name == name)
 }
 
 fn largest_component_residuals(

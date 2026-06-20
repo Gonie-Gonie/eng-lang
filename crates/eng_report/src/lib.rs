@@ -659,6 +659,9 @@ pub struct ReportComponentSolverStepDiagnostic {
     pub linear_maximum_pivot_abs: Option<f64>,
     pub largest_residual_index: Option<usize>,
     pub largest_residual_name: Option<String>,
+    pub largest_residual_source_expression: Option<String>,
+    pub largest_residual_source_line: Option<usize>,
+    pub largest_residual_source_reason: Option<String>,
     pub largest_residual_value: Option<f64>,
     pub largest_residual_abs_value: Option<f64>,
     pub convergence_status: String,
@@ -5262,6 +5265,24 @@ fn push_report_component_solver_result_json(
             json,
             "largest_residual_name",
             diagnostic.largest_residual_name.as_deref(),
+            indent.len() + 6,
+        );
+        push_optional_json_string(
+            json,
+            "largest_residual_source_expression",
+            diagnostic.largest_residual_source_expression.as_deref(),
+            indent.len() + 6,
+        );
+        push_optional_json_usize(
+            json,
+            "largest_residual_source_line",
+            diagnostic.largest_residual_source_line,
+            indent.len() + 6,
+        );
+        push_optional_json_string(
+            json,
+            "largest_residual_source_reason",
+            diagnostic.largest_residual_source_reason.as_deref(),
             indent.len() + 6,
         );
         push_optional_json_f64(

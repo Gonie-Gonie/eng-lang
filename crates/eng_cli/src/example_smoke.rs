@@ -1116,8 +1116,23 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("sqrt(node.node.x) - (2)")
                 || !output.result_json.contains("\"source_expression\"")
                 || !output.result_json.contains("\"source_line\":")
+                || !output
+                    .result_json
+                    .contains("\"largest_residual_source_expression\": \"sqrt(node.node.x) eq 2\"")
+                || !output
+                    .result_json
+                    .contains("\"largest_residual_source_line\": 9")
+                || !output.result_json.contains(
+                    "\"largest_residual_source_reason\": \"component-local equation seed\"",
+                )
                 || !output.report_spec_json.contains("\"source_expression\"")
                 || !output.report_spec_json.contains("\"source_line\":")
+                || !output
+                    .report_spec_json
+                    .contains("\"largest_residual_source_expression\": \"sqrt(node.node.x) eq 2\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"largest_residual_source_line\": 9")
                 || !output.report_html.contains("newton_source_residual_graph")
                 || !output.report_html.contains("source_line=")
             {

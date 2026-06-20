@@ -4486,6 +4486,28 @@ fn component_solutions_json(runtime_data: &RuntimeData) -> String {
                 diagnostic.largest_residual_name.as_deref(),
                 12,
             );
+            let largest_residual_source = component_largest_residual_source_context(
+                diagnostic.largest_residual_name.as_deref(),
+                &solution.residuals,
+            );
+            push_optional_json_string(
+                &mut json,
+                "largest_residual_source_expression",
+                largest_residual_source.map(|residual| residual.source_expression.as_str()),
+                12,
+            );
+            push_optional_json_usize(
+                &mut json,
+                "largest_residual_source_line",
+                largest_residual_source.and_then(|residual| residual.source_line),
+                12,
+            );
+            push_optional_json_string(
+                &mut json,
+                "largest_residual_source_reason",
+                largest_residual_source.and_then(|residual| residual.source_reason.as_deref()),
+                12,
+            );
             push_optional_json_f64(
                 &mut json,
                 "largest_residual_value",
@@ -4566,6 +4588,14 @@ fn component_solutions_json(runtime_data: &RuntimeData) -> String {
         json.push_str("      }");
     }
     json
+}
+
+fn component_largest_residual_source_context<'a>(
+    name: Option<&str>,
+    residuals: &'a [RuntimeComponentResidualEvaluation],
+) -> Option<&'a RuntimeComponentResidualEvaluation> {
+    let name = name?;
+    residuals.iter().find(|residual| residual.name == name)
 }
 
 fn push_component_residual_evaluations_json(

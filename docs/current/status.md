@@ -305,7 +305,7 @@ are not public stable workflows.
   Newton and implicit-Euler DAE solves. The Newton bridge evaluates source
   residual expressions directly, scales residuals, uses finite-difference
   Jacobian by default, supports the `source_linear_terms` Jacobian hook for
-  linear residual graphs, records residual history, raw/normalized residual-vector step diagnostics, plus variable-scale policy through step diagnostics,
+  linear residual graphs, records residual history, raw/normalized residual-vector step diagnostics, step-level largest-residual source context, plus variable-scale policy through step diagnostics,
   and is covered by `examples/official/27_nonlinear_algebraic`,
   `tests/runtime/nonlinear_residual_from_source.eng`,
   `tests/runtime/newton_source_linear_jacobian.eng`, and
