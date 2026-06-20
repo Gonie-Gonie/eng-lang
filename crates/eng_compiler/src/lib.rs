@@ -5178,6 +5178,21 @@ mod tests {
     }
 
     #[test]
+    fn rejects_incompatible_unitful_component_equation_constants() {
+        let report = check_source(
+            "bad.eng",
+            "domain Fluid[Medium M] {\n    across p: Pressure [Pa]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent Source {\n    port outlet: Fluid[Water]\n}\n\ncomponent Sink {\n    port inlet: Fluid[Water]\n}\n\ncomponent PipeRun {\n    port inlet: Fluid[Water]\n    port outlet: Fluid[Water]\n    outlet.p + 2 kg/s eq inlet.p\n    outlet.m_dot + inlet.m_dot eq 0\n}\n\nsystem Loop {\n    source = Source()\n    sink = Sink()\n    pipe = PipeRun()\n    connect source.outlet to pipe.inlet\n    connect pipe.outlet to sink.inlet\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-COMPONENT-EQUATION-UNIT-001"));
+    }
+
+    #[test]
     fn accepts_fixed_point_algebraic_solve_request() {
         let report = check_source(
             "ok.eng",

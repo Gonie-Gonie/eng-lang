@@ -89,9 +89,10 @@ inside a component is recorded as component-local expression metadata; it is not
 a top-level workflow binding. The supported numeric boundary seed shape is
 `name = port.signal = literal`, for example `boundary_T = heat.T = 22 degC`.
 Direct component equations can use `port.signal eq literal` or a simple linear
-port-signal expression such as `inlet.Q eq -1 * outlet.Q`. Other
-component-local expressions remain metadata or behavior-node seeds until the
-broader component equation language is implemented.
+port-signal expression such as `inlet.Q eq -1 * outlet.Q`. Unitful numeric
+constants in simple linear component equations are checked against the referenced
+port signal quantity. Other component-local expressions remain metadata or
+behavior-node seeds until the broader component equation language is implemented.
 
 Generic domain ports must provide the expected number of type arguments. For
 example, `Fluid[Medium M]` expects `Fluid[Water]`, `Fluid[Air]`, or another
@@ -150,6 +151,7 @@ domain.
 | `E-COMPONENT-INSTANCE-UNKNOWN` | A system-local `Name()` constructor does not reference a declared component template. |
 | `E-COMPONENT-INSTANCE-ARGS` | A system-local component constructor uses positional, invalid, duplicate, or unused arguments. |
 | `E-COMPONENT-INSTANCE-DUPLICATE` | A system-local component instance name is repeated. |
+| `E-COMPONENT-EQUATION-UNIT-001` | A component-local equation mixes incompatible signal quantities or uses a unitful constant incompatible with the referenced signal quantity. |
 | `E-DELAY-CALL-001` | Component-local delay call is not `delay(signal, duration)`. |
 | `E-DELAY-SIGNAL-001` | Delay signal is not a known component signal. |
 | `E-DELAY-DURATION-001` | Delay duration is not a positive time value. |

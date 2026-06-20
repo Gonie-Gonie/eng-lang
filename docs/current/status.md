@@ -151,7 +151,8 @@ by the stable breaking-change policy.
   constructor provenance, `connect instance.port to instance.port`, generated
   Thermal across/through equations,
   component-local `name = port.signal = literal` boundary seeds, direct
-  `port.signal eq literal` and simple linear port-signal equations, square
+  `port.signal eq literal` and simple linear port-signal equations with compiler
+  diagnostics for incompatible unitful constants, square
   dense linear residual solve artifacts for
   `examples/official/23_thermal_component_assembly` and the source-to-solver
   `examples/official/24_linear_algebraic_thermal_node`, and a narrow explicit

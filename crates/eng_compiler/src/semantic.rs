@@ -6488,6 +6488,27 @@ fn component_local_equations(
                 ));
                 continue;
             }
+            if !is_dynamic_equation {
+                if let Some(quantity_kind) = dependency_kinds.iter().next() {
+                    let incompatible_units =
+                        numeric_units_in_component_expression(&local_expression)
+                            .into_iter()
+                            .filter(|unit| !unit_compatible_with_quantity(quantity_kind, unit))
+                            .collect::<Vec<_>>();
+                    if !incompatible_units.is_empty() {
+                        diagnostics.push(Diagnostic::error(
+                            "E-COMPONENT-EQUATION-UNIT-001",
+                            local.line,
+                            &format!(
+                                "Component equation `{expression}` uses unit(s) incompatible with `{quantity_kind}`: {}.",
+                                incompatible_units.join(", ")
+                            ),
+                            Some("Use numeric constants with units compatible with the referenced port signal quantity."),
+                        ));
+                        continue;
+                    }
+                }
+            }
             let qualified_left = qualify_component_equation_expression(left, &signal_refs);
             let qualified_right = qualify_component_equation_expression(right, &signal_refs);
             equations.push(ComponentAssemblyEquationInfo {
@@ -6712,6 +6733,42 @@ fn unknown_component_equation_signals(
         .collect::<HashSet<_>>()
         .into_iter()
         .collect()
+}
+
+fn numeric_units_in_component_expression(expression: &str) -> Vec<String> {
+    let normalized = expression
+        .chars()
+        .map(|character| match character {
+            '(' | ')' | ',' | ';' | '[' | ']' | '{' | '}' | '"' | '\'' | '=' | '+' | '-' | '*'
+            | ':' => ' ',
+            other => other,
+        })
+        .collect::<String>();
+    let words = normalized
+        .split_whitespace()
+        .map(trim_component_expression_punctuation)
+        .collect::<Vec<_>>();
+    let mut units = Vec::new();
+    for pair in words.windows(2) {
+        let [number, unit] = pair else {
+            continue;
+        };
+        if is_number_literal(number) && unit_is_supported(unit) {
+            units.push((*unit).to_owned());
+        }
+    }
+    units.sort();
+    units.dedup();
+    units
+}
+
+fn trim_component_expression_punctuation(value: &str) -> &str {
+    value.trim_matches(|character: char| {
+        matches!(
+            character,
+            ',' | ';' | ')' | '(' | ']' | '[' | '{' | '}' | '"' | '\''
+        )
+    })
 }
 
 fn expression_mentions_component_signal(expression: &str, signal: &str) -> bool {
