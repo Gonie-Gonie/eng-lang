@@ -1048,6 +1048,14 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"jacobian_policy\": \"source_linear_terms\"")
+                || !output
+                    .result_json
+                    .contains("\"variable_scale_policy\": \"unit_default_from_assembly_unknowns\"")
+                || !output.result_json.contains("\"tolerance\": 0.000000001")
+                || !output.result_json.contains("\"max_iterations\": 20")
+                || !output
+                    .result_json
+                    .contains("\"linear_condition_estimate\":")
                 || !output.result_json.contains("\"equation_count\": 4")
                 || !output.result_json.contains("\"unknown_count\": 4")
                 || !output.result_json.contains("\"name\": \"node.source.q\"")

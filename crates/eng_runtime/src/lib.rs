@@ -4256,6 +4256,24 @@ fn component_solutions_json(runtime_data: &RuntimeData) -> String {
             "        \"residual_norm\": {},\n",
             format_number_with_precision(solution.residual_norm, Some(8))
         ));
+        push_optional_json_f64(
+            &mut json,
+            "linear_condition_estimate",
+            solution.linear_condition_estimate,
+            8,
+        );
+        push_optional_json_f64(
+            &mut json,
+            "linear_minimum_pivot_abs",
+            solution.linear_minimum_pivot_abs,
+            8,
+        );
+        push_optional_json_f64(
+            &mut json,
+            "linear_maximum_pivot_abs",
+            solution.linear_maximum_pivot_abs,
+            8,
+        );
         json.push_str(&format!(
             "        \"variable_scale_policy\": \"{}\",\n",
             json_escape(&solution.variable_scale_policy)
@@ -4272,6 +4290,11 @@ fn component_solutions_json(runtime_data: &RuntimeData) -> String {
             solution.variable_scale_max,
             8,
         );
+        json.push_str(&format!("        \"tolerance\": {},\n", solution.tolerance));
+        json.push_str(&format!(
+            "        \"max_iterations\": {},\n",
+            solution.max_iterations
+        ));
         json.push_str(&format!(
             "        \"iteration_count\": {},\n",
             solution.iteration_count
