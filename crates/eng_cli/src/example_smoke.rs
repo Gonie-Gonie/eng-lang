@@ -1569,13 +1569,13 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"convergence_status\": \"newton_source_failed\"")
                 || !output
                     .result_json
-                    .contains("\"failure_code\": \"E-DYNAMIC-COMPONENT-SOURCE-INITIAL-LAYOUT\"")
+                    .contains("\"failure_code\": \"E-NEWTON-SOURCE-INITIAL-LAYOUT\"")
                 || !output
                     .result_json
                     .contains("provided 2 initial value(s) for 4 variable(s)")
                 || !output
                     .report_html
-                    .contains("E-DYNAMIC-COMPONENT-SOURCE-INITIAL-LAYOUT")
+                    .contains("E-NEWTON-SOURCE-INITIAL-LAYOUT")
             {
                 eprintln!(
                     "expected tests/diagnostics/newton_initial_vector_mismatch.eng to report an initial-vector SolverFailure artifact"

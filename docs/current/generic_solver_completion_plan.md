@@ -83,6 +83,7 @@ Immediate execution order is evidence-driven:
 - 2026-06-20: Source-equation ODE simulation accepts scalar `output` system variables, evaluates their algebraic expressions from each simulated state/input/parameter sample, stores them as solver algebraic trajectories, and materializes `RuntimeTimeSeries` such as `sim.Q_load`. This closes the state-only output limitation for the supported source-equation ODE path; shared-IR, component-coupled, DAE, and behavior output lowering remain in the generic workstreams.
 - 2026-06-20: Typed-block state-space simulation now allows `outputs y = [...]` to include scalar `output` variables, evaluates those output equations from state/input/parameter samples after discrete, fixed-step continuous, or adaptive state-space solves, and materializes named output TimeSeries.
 - 2026-06-20: State-space vector semantic checks now reject role-incompatible members (`states` require state variables, `inputs` require input variables, and `outputs` require state/output variables), propagate mismatch status into dependent LinearOperator metadata, and cover the diagnostic through compiler and example-smoke tests.
+- 2026-06-20: Source Newton and implicit-Euler DAE initial-option failures now surface solver-specific failure codes instead of leaking generic dynamic-component source codes. DAE state, derivative, and algebraic initial layout failures are distinguished in runtime tests, and the Newton diagnostic smoke expects `E-NEWTON-SOURCE-INITIAL-LAYOUT`.
 
 ## Narrow/Not Claim Closure Matrix
 
@@ -320,6 +321,7 @@ Evidence gate:
 - Source Newton and implicit-Euler DAE step diagnostics now expose full raw and normalized residual vectors in runtime `.engres` and report-spec artifacts, so narrow nonlinear/DAE smokes retain per-iteration residual evidence instead of only the largest residual summary.
 - Fixed-point solver results now retain per-iteration update residual vectors, and source fixed-point component artifacts expose raw/normalized variable-update vectors, variable-scale policy, and largest update identity in runtime `.engres` and report-spec step diagnostics.
 - Source fixed-point solve requests now accept scalar or per-unknown vector `initial` values with unit conversion, and vector layout mismatches produce fixed-point-specific failure artifacts instead of silently broadcasting a scalar-only guess.
+- Source Newton and implicit-Euler DAE solve requests now remap shared initial-option parser failures into solver-specific failure artifacts, including distinct DAE state, derivative, and algebraic layout codes.
 - Dynamic component algebraic step diagnostics now preserve raw and normalized residual vectors plus largest residual identity for fixed-point and semi-implicit linear algebraic substeps in runtime `.engres` and report-spec artifacts.
 - Dynamic component residual lowering now folds materialized component parameters into linear derivative coefficients, so source examples such as `C * der(port.T) eq port.Q` solve through the residual-graph semi-implicit path instead of requiring literal derivative coefficients.
 

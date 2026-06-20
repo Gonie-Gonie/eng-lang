@@ -3414,11 +3414,14 @@ fn nonlinear_component_solution_from_solve_request(
     }
 
     let residual_graph = ResidualGraph::from_assembly(solver_assembly);
-    let initial_values = component_initial_values_from_options(
+    let initial_values = source_initial_values_from_options(
         &request.options,
         "initial",
         &solver_assembly.unknowns,
         1.0,
+        "Newton source",
+        "E-NEWTON-SOURCE-INITIAL",
+        "E-NEWTON-SOURCE-INITIAL-LAYOUT",
     );
     let initial_values = match initial_values {
         Ok(values) => values,
@@ -3784,11 +3787,14 @@ fn dae_component_solution_from_solve_request(
             );
         }
     };
-    let initial_state = match component_initial_values_from_options(
+    let initial_state = match source_initial_values_from_options(
         &request.options,
         "initial",
         &solver_assembly.states,
         0.0,
+        "DAE source",
+        "E-DAE-SOURCE-INITIAL",
+        "E-DAE-SOURCE-INITIAL-LAYOUT",
     ) {
         Ok(values) => values,
         Err(failure) => {
@@ -3804,11 +3810,14 @@ fn dae_component_solution_from_solve_request(
         }
     };
     let derivative_variables = derivative_variables_for_states(&solver_assembly.states);
-    let initial_state_derivatives = match component_initial_values_from_options(
+    let initial_state_derivatives = match source_initial_values_from_options(
         &request.options,
         "initial_derivative",
         &derivative_variables,
         0.0,
+        "DAE source",
+        "E-DAE-SOURCE-INITIAL-DERIVATIVE",
+        "E-DAE-SOURCE-INITIAL-DERIVATIVE-LAYOUT",
     ) {
         Ok(values) => values,
         Err(failure) => {
@@ -3823,11 +3832,14 @@ fn dae_component_solution_from_solve_request(
             );
         }
     };
-    let mut initial_algebraic = match component_initial_values_from_options(
+    let mut initial_algebraic = match source_initial_values_from_options(
         &request.options,
         "initial_algebraic",
         &solver_assembly.algebraic_variables,
         0.0,
+        "DAE source",
+        "E-DAE-SOURCE-INITIAL-ALGEBRAIC",
+        "E-DAE-SOURCE-INITIAL-ALGEBRAIC-LAYOUT",
     ) {
         Ok(values) => values,
         Err(failure) => {
@@ -5304,6 +5316,38 @@ fn component_initial_values_from_options(
         .collect()
 }
 
+fn source_initial_values_from_options(
+    options: &[eng_compiler::WithOptionInfo],
+    key: &str,
+    variables: &[UnknownVariable],
+    default_value: f64,
+    source_label: &str,
+    invalid_code: &'static str,
+    layout_code: &'static str,
+) -> Result<Vec<f64>, SolverFailure> {
+    component_initial_values_from_options(options, key, variables, default_value).map_err(
+        |failure| remap_source_initial_failure(failure, source_label, invalid_code, layout_code),
+    )
+}
+
+fn remap_source_initial_failure(
+    failure: SolverFailure,
+    source_label: &str,
+    invalid_code: &'static str,
+    layout_code: &'static str,
+) -> SolverFailure {
+    let code = match failure.code.as_str() {
+        "E-DYNAMIC-COMPONENT-SOURCE-INITIAL-LAYOUT" => layout_code,
+        _ => invalid_code,
+    };
+    SolverFailure::new(
+        code,
+        failure
+            .message
+            .replace("dynamic component source", source_label),
+    )
+}
+
 fn parse_component_initial_option(value: &str) -> Option<(bool, Vec<(f64, Option<String>)>)> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
@@ -6350,21 +6394,15 @@ fn fixed_point_initial_values_from_solve_request(
     options: &[eng_compiler::WithOptionInfo],
     variables: &[UnknownVariable],
 ) -> Result<Vec<f64>, SolverFailure> {
-    component_initial_values_from_options(options, "initial", variables, 0.0).map_err(|failure| {
-        SolverFailure::new(
-            fixed_point_initial_failure_code(&failure.code),
-            failure
-                .message
-                .replace("dynamic component source", "fixed-point source"),
-        )
-    })
-}
-
-fn fixed_point_initial_failure_code(code: &str) -> &'static str {
-    match code {
-        "E-DYNAMIC-COMPONENT-SOURCE-INITIAL-LAYOUT" => "E-FIXED-POINT-SOURCE-INITIAL-LAYOUT",
-        _ => "E-FIXED-POINT-SOURCE-INITIAL",
-    }
+    source_initial_values_from_options(
+        options,
+        "initial",
+        variables,
+        0.0,
+        "fixed-point source",
+        "E-FIXED-POINT-SOURCE-INITIAL",
+        "E-FIXED-POINT-SOURCE-INITIAL-LAYOUT",
+    )
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -11206,6 +11244,81 @@ with {
         assert!(json.contains("\"variable_scale_max\": 1"));
         assert!(json.contains("node.tau_factor"));
         assert!(json.contains("\"node.setpoint\""));
+    }
+
+    #[test]
+    fn remaps_dae_source_initial_option_failures() {
+        let cases = [
+            (
+                "dae_initial_state_mismatch.eng",
+                "    initial = [310 K, 305 K]\n    initial_derivative = [-5 K/s]\n    initial_algebraic = [300 K, 0 K]",
+                "E-DAE-SOURCE-INITIAL-LAYOUT",
+            ),
+            (
+                "dae_initial_derivative_mismatch.eng",
+                "    initial = [310 K]\n    initial_derivative = [-5 K/s, -4 K/s]\n    initial_algebraic = [300 K, 0 K]",
+                "E-DAE-SOURCE-INITIAL-DERIVATIVE-LAYOUT",
+            ),
+            (
+                "dae_initial_algebraic_mismatch.eng",
+                "    initial = [310 K]\n    initial_derivative = [-5 K/s]\n    initial_algebraic = [300 K]",
+                "E-DAE-SOURCE-INITIAL-ALGEBRAIC-LAYOUT",
+            ),
+        ];
+
+        for (filename, options, expected_code) in cases {
+            let source = r#"
+domain DaeTemperature {
+    across T: AbsoluteTemperature [K]
+    across T_ref: AbsoluteTemperature [K]
+    through balance: TemperatureDelta [K]
+    conservation sum(balance) = 0
+}
+
+component InitialFailureDaeNode {
+    port hot: DaeTemperature
+    der(hot.T) + (hot.T - hot.T_ref) / 2 s eq 0 K/s
+    hot.T_ref eq 300 K
+}
+
+system InitialFailureDae {
+    node = InitialFailureDaeNode()
+    connect node.hot to node.hot
+}
+
+dae_result = solve component_graph
+with {
+    solver = implicit_euler_dae
+    timestep = 1 s
+    duration = 2 s
+$OPTIONS
+    tolerance = 0.000000001
+    max_iter = 40
+}
+"#
+            .replace("$OPTIONS", options);
+            let report = check_source(filename, &source, &CheckOptions::default());
+            assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+            let runtime = materialize_runtime_data(&report, &source);
+
+            assert_eq!(runtime.component_solutions.len(), 1);
+            let solution = &runtime.component_solutions[0];
+            assert_eq!(solution.status, "failed");
+            assert_eq!(solution.method, "implicit_euler_dae_source_residual_graph");
+            assert_eq!(solution.convergence_status, "dae_source_failed");
+            assert_eq!(
+                solution
+                    .failure_artifact
+                    .as_ref()
+                    .map(|failure| failure.code.as_str()),
+                Some(expected_code)
+            );
+            assert!(solution
+                .failure_artifact
+                .as_ref()
+                .is_some_and(|failure| failure.message.contains("DAE source option")));
+        }
     }
 
     #[test]
