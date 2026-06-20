@@ -7,12 +7,13 @@ domain NonlinearPower package "eng.std.domains.scalar" version "0.1.0" {
 component CoupledHeatNode {
     port source: NonlinearPower
     port target: NonlinearPower
-    source.q * source.q / 1 kW + target.q eq 6 kW
-    target.q * target.q / 1 kW + source.q eq 6 kW
+    parameter target_load: HeatRate [kW] = 6 kW
+    source.q * source.q / 1 kW + target.q eq target_load
+    target.q * target.q / 1 kW + source.q eq target_load
 }
 
 system NonlinearAlgebraic {
-    node = CoupledHeatNode()
+    node = CoupledHeatNode(target_load=6 kW)
     connect node.source to node.source
     connect node.target to node.target
 }

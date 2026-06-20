@@ -596,11 +596,17 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"name\": \"node.target.q\"")
                 || !output.result_json.contains("\"unit\": \"kW\"")
                 || !output
-                    .result_json
-                    .contains("node.source.q * node.source.q / 1 kW + node.target.q - 6 kW")
+                    .report_spec_json
+                    .contains("\"name\": \"target_load\"")
                 || !output
-                    .result_json
-                    .contains("node.target.q * node.target.q / 1 kW + node.source.q - 6 kW")
+                    .report_spec_json
+                    .contains("\"status\": \"constructor_override\"")
+                || !output.result_json.contains(
+                    "node.source.q * node.source.q / 1 kW + node.target.q - node.target_load",
+                )
+                || !output.result_json.contains(
+                    "node.target.q * node.target.q / 1 kW + node.source.q - node.target_load",
+                )
                 || !output.result_json.contains("\"value\": 2.000")
                 || !output.result_json.contains("\"step_diagnostics\"")
                 || !output.result_json.contains("\"largest_residuals\"")

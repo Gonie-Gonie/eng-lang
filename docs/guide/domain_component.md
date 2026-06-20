@@ -323,7 +323,7 @@ re-parsing source files.
   fixed simple-linear boundary seed rather than a general conductance model.
 - `examples/official/27_nonlinear_algebraic/main.eng`
   shows the narrow unitful source Newton path with `solver = newton`, direct
-  source-residual expression evaluation, residual scaling, convergence
+  source-residual expression evaluation, a constructor-provided component parameter, residual scaling, convergence
   history, and largest-residual artifacts for a coupled unitful HeatRate residual graph.
 - `examples/official/28_small_dae/main.eng`
   shows the narrow source multi-state unitful implicit-Euler DAE path with

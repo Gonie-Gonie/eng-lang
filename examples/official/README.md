@@ -106,8 +106,8 @@ paths before compatibility fixtures.
   linear dynamic component assembly.
 
 27_nonlinear_algebraic
-  Source-to-solver smoke for `solve component_graph` with `solver = newton`, a
-  coupled unitful HeatRate nonlinear residuals, finite-difference Jacobian by
+  Source-to-solver smoke for `solve component_graph` with `solver = newton`,
+  coupled unitful HeatRate nonlinear residuals with a constructor-provided component parameter, finite-difference Jacobian by
   default, convergence history, named solved variables, residual norm, and
   largest-residual artifacts.
 
