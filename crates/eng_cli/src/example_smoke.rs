@@ -1710,6 +1710,56 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new(
+            "tests/runtime/dynamic_component_nonlinear_derivative_timeseries_input_explicit.eng",
+        ),
+        Path::new(
+            "build/test-runtime-dynamic-component-nonlinear-derivative-timeseries-input-explicit",
+        ),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_explicit_euler\"")
+                || !output.result_json.contains(
+                    "parsed nonlinear derivative residual Newton solves with TimeSeries input materialization",
+                )
+                || !output.result_json.contains("\"final_value\": 4.01123078")
+                || !output.result_json.contains("drive_data.drive")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"largest_residual_name\": \"node.equation_1\"")
+                || !output.report_spec_json.contains(
+                    "der(node.node.x) * der(node.node.x) + der(node.node.x) eq node.drive + 1",
+                )
+                || !output.report_spec_json.contains("\"name\": \"node.drive\"")
+                || !output.report_spec_json.contains("\"role\": \"input\"")
+                || !output.report_spec_json.contains("\"input_count\": 1")
+                || !output.report_spec_json.contains("drive_data.drive")
+                || !output.report_html.contains("node.node.x=4.011231")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_nonlinear_derivative_timeseries_input_explicit.eng to solve fixed-step explicit nonlinear derivative residuals with a TimeSeries component input"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_nonlinear_derivative_timeseries_input_explicit.eng solved explicit TimeSeries-driven nonlinear derivative residuals"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component nonlinear derivative TimeSeries input explicit runtime fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/dynamic_component_adaptive_explicit.eng"),
         Path::new("build/test-runtime-dynamic-component-adaptive-explicit"),
         &artifact_run_options(),
@@ -2375,6 +2425,59 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         Err(error) => {
             eprintln!(
                 "dynamic component nonlinear derivative semi-implicit runtime fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new(
+            "tests/runtime/dynamic_component_nonlinear_derivative_timeseries_input_semi_implicit.eng",
+        ),
+        Path::new(
+            "build/test-runtime-dynamic-component-nonlinear-derivative-timeseries-input-semi-implicit",
+        ),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_semi_implicit_euler\"")
+                || !output.result_json.contains(
+                    "semi-implicit algebraic residual graph with parsed nonlinear derivative residual Newton solves and TimeSeries input materialization",
+                )
+                || !output.result_json.contains("\"final_value\": 4.01123078")
+                || !output.result_json.contains("drive_data.drive")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"linear_algebraic_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"largest_residual_name\": \"node.equation_1\"")
+                || !output.report_spec_json.contains(
+                    "der(node.node.x) * der(node.node.x) + der(node.node.x) eq node.node.balance + node.drive + 1",
+                )
+                || !output.report_spec_json.contains("\"name\": \"node.drive\"")
+                || !output.report_spec_json.contains("\"role\": \"input\"")
+                || !output.report_spec_json.contains("\"input_count\": 1")
+                || !output.report_spec_json.contains("drive_data.drive")
+                || !output.report_html.contains("node.node.x=4.011231")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_nonlinear_derivative_timeseries_input_semi_implicit.eng to solve semi-implicit nonlinear derivative residuals with a TimeSeries component input"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_nonlinear_derivative_timeseries_input_semi_implicit.eng solved semi-implicit TimeSeries-driven nonlinear derivative residuals"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component nonlinear derivative TimeSeries input semi-implicit runtime fixture failed: {error}"
             );
             return ExitCode::from(1);
         }

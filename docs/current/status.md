@@ -169,7 +169,8 @@ by the stable breaking-change policy.
   fixture coverage for algebraic-free dimensionless function RHS evaluation,
   constructor-parameter and scalar or TimeSeries component-input dependencies
   in the parsed explicit dynamic path plus selected fixed-step nonlinear
-  derivative residual Newton fallback, fixed-step TimeSeries component inputs
+  derivative residual Newton fallback, including explicit/semi-implicit
+  TimeSeries component-input fixtures, fixed-step TimeSeries component inputs
   and parsed derivative function RHS evaluation in the residual-graph
   semi-implicit path, selected dimensionless nonlinear algebraic residuals
   through per-step Newton in the semi-implicit path, coupled two-state trajectories through

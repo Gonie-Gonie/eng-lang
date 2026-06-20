@@ -1,0 +1,49 @@
+args {
+    drive_csv: CsvFile = file("data/dynamic_component_drive.csv")
+}
+
+schema DriveData {
+    time: DateTime index
+    drive: DimensionlessNumber [1]
+}
+
+drive_data = promote csv args.drive_csv as DriveData
+
+domain ScalarInputState {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component DrivenImplicitDerivativeNode {
+    port node: ScalarInputState
+    input drive: DimensionlessNumber [1] = 0.25
+    der(node.x) * der(node.x) + der(node.x) eq node.balance + drive + 1
+}
+
+component BalanceBoundary {
+    port node: ScalarInputState
+    node.balance eq 0
+}
+
+system DynamicImplicitDerivativeTimeSeriesInputSemiImplicit {
+    node = DrivenImplicitDerivativeNode()
+    boundary = BalanceBoundary()
+    connect node.node to boundary.node
+}
+
+driven_result = solve component_graph
+with {
+    solver = dynamic_component_semi_implicit_euler
+    timestep = 1 s
+    duration = 4 s
+    initial = 0.5
+    initial_algebraic = [0, 0, 0]
+    inputs = drive_data.drive
+    tolerance = 0.0001
+    max_iter = 10000
+}
+
+report {
+    show driven_result
+}

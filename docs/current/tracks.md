@@ -136,7 +136,8 @@ Internal runtime seeds:
   `solver = dynamic_component_explicit_euler` and
   `solver = dynamic_component_semi_implicit_euler`, using parsed derivative
   residual expressions, selected nonlinear derivative residual Newton fallback,
-  state/algebraic trajectories, and explicit `E-NEWTON-NONCONVERGENCE`
+  scalar or fixed-step TimeSeries component-input materialization for covered
+  fixtures, state/algebraic trajectories, and explicit `E-NEWTON-NONCONVERGENCE`
   artifacts for Newton derivative nonconvergence
 - narrow `solve component_graph` integration for
   `solver = dynamic_component_adaptive_heun`, using parsed derivative residual
