@@ -16,7 +16,6 @@ use eng_report::{
 };
 
 use crate::solver::expression::{
-    evaluate_source_arithmetic_expression,
     parse_arithmetic_expression_with_symbol_metadata_and_unit_converter,
     ArithmeticExpressionProfile, ArithmeticUnitMetadata, ParsedArithmeticExpression,
 };
@@ -4007,6 +4006,35 @@ fn behavior_dynamic_component_solution_from_solve_request(
                 );
             }
         };
+    let parse_symbols = match source_behavior_parse_symbols(
+        &dynamic_assembly,
+        &solve_input.parameters,
+        &behavior_output_symbols,
+    ) {
+        Ok(symbols) => symbols,
+        Err(failure) => {
+            return failed_dynamic_component_source_solution(
+                &dynamic_assembly,
+                method,
+                options,
+                &failure,
+                "behavior graph source solve could not materialize residual parse symbols",
+            );
+        }
+    };
+    let parsed_residuals =
+        match parse_source_residual_expressions(&dynamic_assembly, &parse_symbols) {
+            Ok(expressions) => expressions,
+            Err(failure) => {
+                return failed_dynamic_component_source_solution(
+                    &dynamic_assembly,
+                    method,
+                    options,
+                    &failure,
+                    "behavior graph source solve could not parse derivative residuals",
+                );
+            }
+        };
     let time_grid = match TimeGrid::fixed_step(solve_input.duration_s, solve_input.timestep_s) {
         Ok(grid) => grid,
         Err(failure) => {
@@ -4074,7 +4102,7 @@ fn behavior_dynamic_component_solution_from_solve_request(
                         behavior,
                         &behavior_output_symbols,
                     )?;
-                    source_behavior_derivatives(&dynamic_assembly, &symbols)
+                    source_behavior_derivatives(&dynamic_assembly, &parsed_residuals, &symbols)
                 },
             )?;
             Ok(behavior_evaluation.derivatives)
@@ -4448,6 +4476,40 @@ fn source_behavior_variable_source(
     None
 }
 
+fn source_behavior_parse_symbols(
+    assembly: &EquationAssembly,
+    parameters: &[SolverScalar],
+    behavior_output_symbols: &[String],
+) -> Result<HashMap<String, f64>, SolverFailure> {
+    if parameters.len() != assembly.parameters.len() {
+        return Err(SolverFailure::new(
+            "E-BEHAVIOR-SOURCE-PARAMETER-LAYOUT",
+            format!(
+                "behavior graph source parameter vector length {} does not match assembly parameter count {}",
+                parameters.len(),
+                assembly.parameters.len()
+            ),
+        ));
+    }
+    let mut symbols = HashMap::new();
+    symbols.insert("t".to_owned(), 0.0);
+    symbols.insert("time".to_owned(), 0.0);
+    for state in &assembly.states {
+        symbols.insert(state.name.clone(), 0.0);
+        symbols.insert(format!("der({})", state.name), 0.0);
+    }
+    for input in &assembly.inputs {
+        symbols.insert(input.name.clone(), 0.0);
+    }
+    for parameter in parameters {
+        symbols.insert(parameter.name.clone(), parameter.value);
+    }
+    for symbol in behavior_output_symbols {
+        symbols.insert(symbol.clone(), 0.0);
+    }
+    Ok(symbols)
+}
+
 fn source_behavior_symbols(
     assembly: &EquationAssembly,
     time_s: f64,
@@ -4483,8 +4545,15 @@ fn source_behavior_symbols(
 
 fn source_behavior_derivatives(
     assembly: &EquationAssembly,
+    parsed_residuals: &[ParsedSourceResidual],
     symbols: &HashMap<String, f64>,
 ) -> Result<Vec<f64>, SolverFailure> {
+    if parsed_residuals.len() != assembly.generated_equations.len() {
+        return Err(SolverFailure::new(
+            "E-BEHAVIOR-SOURCE-RHS-PARSE-LAYOUT",
+            "behavior graph source parsed residual count does not match generated equation count",
+        ));
+    }
     let mut derivatives = Vec::with_capacity(assembly.states.len());
     let derivative_names = assembly
         .states
@@ -4493,10 +4562,11 @@ fn source_behavior_derivatives(
         .collect::<Vec<_>>();
     for (state_index, state) in assembly.states.iter().enumerate() {
         let derivative_name = &derivative_names[state_index];
-        let equation = assembly
+        let (equation, parsed) = assembly
             .generated_equations
             .iter()
-            .find(|equation| {
+            .zip(parsed_residuals.iter())
+            .find(|(equation, _parsed)| {
                 equation
                     .dependencies
                     .iter()
@@ -4515,11 +4585,10 @@ fn source_behavior_derivatives(
         for name in &derivative_names {
             base_symbols.insert(name.clone(), 0.0);
         }
-        let base = evaluate_source_arithmetic_expression(&equation.residual, &base_symbols)?;
+        let base = parsed.expression.evaluate(&base_symbols)?;
         let mut coefficient_symbols = base_symbols.clone();
         coefficient_symbols.insert(derivative_name.clone(), 1.0);
-        let coefficient =
-            evaluate_source_arithmetic_expression(&equation.residual, &coefficient_symbols)? - base;
+        let coefficient = parsed.expression.evaluate(&coefficient_symbols)? - base;
         if !coefficient.is_finite() || coefficient.abs() <= f64::EPSILON {
             return Err(SolverFailure::new(
                 "E-BEHAVIOR-SOURCE-RHS-SHAPE",
@@ -11570,6 +11639,66 @@ system Envelope {
         assert_eq!(evaluation.residuals.len(), 1);
         assert_eq!(evaluation.residuals[0].value, 0.0);
         assert_eq!(evaluation.normalized_values[0], 0.0);
+    }
+
+    #[test]
+    fn source_behavior_derivatives_use_parsed_outputs_and_parameters() {
+        let x = UnknownVariable {
+            name: "x".to_owned(),
+            role: "state".to_owned(),
+            quantity_kind: "Dimensionless".to_owned(),
+            unit: "1".to_owned(),
+            source: "Test.x".to_owned(),
+            status: "unknown".to_owned(),
+            value: None,
+        };
+        let k = UnknownVariable {
+            name: "k".to_owned(),
+            role: "parameter".to_owned(),
+            quantity_kind: "Dimensionless".to_owned(),
+            unit: "1".to_owned(),
+            source: "component_parameter.Dimensionless".to_owned(),
+            status: "defaulted".to_owned(),
+            value: Some(2.0),
+        };
+        let assembly = EquationAssembly {
+            name: "behavior_parametric_source".to_owned(),
+            generated_equations: vec![GeneratedEquation {
+                name: "x_behavior_rhs".to_owned(),
+                kind: "dynamic_rhs".to_owned(),
+                domain: "Test".to_owned(),
+                expression: "der(x) + delayed / k eq 0".to_owned(),
+                residual: "der(x) + delayed / k".to_owned(),
+                rhs_value: None,
+                dependencies: vec!["der(x)".to_owned(), "delayed".to_owned(), "k".to_owned()],
+                source: "test".to_owned(),
+                reason: "test parsed behavior source residual".to_owned(),
+                source_line: Some(1),
+                status: "generated".to_owned(),
+            }],
+            unknowns: vec![x.clone()],
+            states: vec![x],
+            parameters: vec![k],
+            ..EquationAssembly::default()
+        };
+        let parameter_values = vec![SolverScalar::new("k", "Dimensionless", "1", 2.0)];
+        let behavior_outputs = vec!["delayed".to_owned()];
+        let parse_symbols =
+            source_behavior_parse_symbols(&assembly, &parameter_values, &behavior_outputs).unwrap();
+        let parsed_residuals =
+            parse_source_residual_expressions(&assembly, &parse_symbols).unwrap();
+        let symbols = HashMap::from([
+            ("t".to_owned(), 0.0),
+            ("time".to_owned(), 0.0),
+            ("x".to_owned(), 0.0),
+            ("k".to_owned(), 4.0),
+            ("delayed".to_owned(), 8.0),
+        ]);
+
+        let derivatives =
+            source_behavior_derivatives(&assembly, &parsed_residuals, &symbols).unwrap();
+
+        assert_eq!(derivatives, vec![-2.0]);
     }
 
     fn square_linear_test_assembly(name: &str) -> EquationAssembly {

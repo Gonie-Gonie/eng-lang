@@ -206,6 +206,7 @@ enum ArithmeticExpressionToken {
     RightParen,
 }
 
+#[cfg(test)]
 pub(crate) fn evaluate_source_arithmetic_expression(
     expression: &str,
     symbols: &HashMap<String, f64>,
@@ -219,6 +220,7 @@ pub(crate) fn evaluate_source_arithmetic_expression(
     )
 }
 
+#[cfg(test)]
 pub(crate) fn parse_arithmetic_expression_with_unit_converter<F>(
     expression: &str,
     symbols: &HashMap<String, f64>,
@@ -276,6 +278,7 @@ where
     })
 }
 
+#[cfg(test)]
 pub(crate) fn evaluate_arithmetic_expression_with_unit_converter<F>(
     expression: &str,
     symbols: &HashMap<String, f64>,

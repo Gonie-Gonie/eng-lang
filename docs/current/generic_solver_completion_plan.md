@@ -258,6 +258,7 @@ Evidence gate:
 - Static component residual graph and dynamic component residual graph construction now call the same profile-based linear residual expression lowering entrypoint, with separate failure profiles for static component and dynamic component contexts.
 - Source implicit-Euler DAE residual solves now materialize assembly parameter values into DaeInput, algebraic initialization, final residual samples, solver-plan metadata, and report-spec artifacts, with regression coverage for parameterized DAE residuals and explicit sample parameter override.
 - Source Newton residual solves now materialize assembly parameter values once, pass explicit parameter vectors through parse/evaluation closures, reject parameter-vector layout mismatches, and cover explicit algebraic parameter override in regression tests.
+- Behavior graph explicit-Euler source RHS now pre-parses derivative residual expressions once with state, derivative, input, parameter, and behavior-output symbols, then reuses parsed expressions during timestep evaluation with regression coverage for behavior outputs plus explicit parameter values.
 
 ## Done Criteria
 
