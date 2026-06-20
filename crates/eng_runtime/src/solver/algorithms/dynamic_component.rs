@@ -782,12 +782,38 @@ fn solve_explicit_euler_with_algebraic_solver<S, R>(
     algebraic_layout: StateLayout,
     initial_algebraic: Vec<f64>,
     options: DynamicComponentOptions,
-    mut algebraic_solve: S,
-    mut rhs: R,
+    algebraic_solve: S,
+    rhs: R,
 ) -> Result<DynamicComponentResult, SolverFailure>
 where
     S: FnMut(AlgebraicStepInput<'_>) -> Result<AlgebraicStepSolveResult, SolverFailure>,
     R: FnMut(DynamicStepInput<'_>) -> Result<Vec<f64>, SolverFailure>,
+{
+    let static_inputs = input.inputs.clone();
+    solve_explicit_euler_with_algebraic_solver_with_input_sampler(
+        input,
+        algebraic_layout,
+        initial_algebraic,
+        options,
+        algebraic_solve,
+        rhs,
+        move |_| Ok(static_inputs.clone()),
+    )
+}
+
+fn solve_explicit_euler_with_algebraic_solver_with_input_sampler<S, R, I>(
+    input: &SolverInput,
+    algebraic_layout: StateLayout,
+    initial_algebraic: Vec<f64>,
+    options: DynamicComponentOptions,
+    mut algebraic_solve: S,
+    mut rhs: R,
+    mut input_values_at: I,
+) -> Result<DynamicComponentResult, SolverFailure>
+where
+    S: FnMut(AlgebraicStepInput<'_>) -> Result<AlgebraicStepSolveResult, SolverFailure>,
+    R: FnMut(DynamicStepInput<'_>) -> Result<Vec<f64>, SolverFailure>,
+    I: FnMut(f64) -> Result<Vec<SolverScalar>, SolverFailure>,
 {
     if input.state_layout.is_empty() {
         return Err(SolverFailure::new(
@@ -829,6 +855,8 @@ where
 
     for step_index in 0..=input.time_grid.step_count {
         let time_s = input.time_grid.step_time_s(step_index);
+        let sampled_inputs = input_values_at(time_s)?;
+        validate_dynamic_component_input_sample(input, &sampled_inputs)?;
         let (
             algebraic_iteration_count,
             residual_norm,
@@ -851,7 +879,7 @@ where
                 step_index,
                 state: &state,
                 algebraic: &algebraic,
-                inputs: &input.inputs,
+                inputs: &sampled_inputs,
                 parameters: &input.parameters,
             })?;
             if solve.values.len() != algebraic.len() {
@@ -918,7 +946,7 @@ where
             step_index,
             state: &state,
             algebraic: &algebraic,
-            inputs: &input.inputs,
+            inputs: &sampled_inputs,
             parameters: &input.parameters,
         })?;
         if derivative.len() != state.len() {
@@ -960,6 +988,42 @@ where
             max_iterations: options.algebraic.max_iterations,
         },
     ))
+}
+
+fn validate_dynamic_component_input_sample(
+    input: &SolverInput,
+    sampled_inputs: &[SolverScalar],
+) -> Result<(), SolverFailure> {
+    if sampled_inputs.len() != input.input_layout.len() {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-INPUT-LAYOUT",
+            "dynamic component sampled input count does not match the input layout",
+        ));
+    }
+    for (entry, sampled) in input.input_layout.entries.iter().zip(sampled_inputs.iter()) {
+        if entry.name != sampled.name
+            || entry.quantity_kind != sampled.quantity_kind
+            || entry.canonical_unit != sampled.canonical_unit
+        {
+            return Err(SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-INPUT-LAYOUT",
+                format!(
+                    "dynamic component sampled input `{}` does not match layout entry `{}`",
+                    sampled.name, entry.name
+                ),
+            ));
+        }
+        if !sampled.value.is_finite() {
+            return Err(SolverFailure::new(
+                "E-DYNAMIC-COMPONENT-INPUT-VALUE",
+                format!(
+                    "dynamic component sampled input `{}` must be finite",
+                    sampled.name
+                ),
+            ));
+        }
+    }
+    Ok(())
 }
 
 pub fn solve_residual_graph_explicit_euler(
@@ -1006,6 +1070,35 @@ pub fn solve_residual_graph_semi_implicit_euler(
         options,
         |sample| algebraic_evaluator.solve(&sample, tolerance),
         |sample| rhs_evaluator.evaluate(&sample),
+    )
+}
+
+pub fn solve_residual_graph_semi_implicit_euler_with_input_sampler<I>(
+    input: &SolverInput,
+    graph: &ResidualGraph,
+    algebraic_layout: StateLayout,
+    initial_algebraic: Vec<f64>,
+    options: DynamicComponentOptions,
+    input_values_at: I,
+) -> Result<DynamicComponentResult, SolverFailure>
+where
+    I: FnMut(f64) -> Result<Vec<SolverScalar>, SolverFailure>,
+{
+    let derivative_graph = residual_graph_with_derivative_residuals(graph)?;
+    let rhs_evaluator = ResidualGraphRhsEvaluator::new(&derivative_graph)?;
+    let algebraic_evaluator = ResidualGraphAlgebraicLinearEvaluator::new(graph)?;
+    validate_residual_graph_solver_layout(input, &algebraic_layout, &rhs_evaluator)?;
+    validate_residual_graph_algebraic_layout(input, &algebraic_layout, &algebraic_evaluator)?;
+
+    let tolerance = options.algebraic.tolerance;
+    solve_explicit_euler_with_algebraic_solver_with_input_sampler(
+        input,
+        algebraic_layout,
+        initial_algebraic,
+        options,
+        |sample| algebraic_evaluator.solve(&sample, tolerance),
+        |sample| rhs_evaluator.evaluate(&sample),
+        input_values_at,
     )
 }
 
@@ -1061,6 +1154,59 @@ pub fn solve_dynamic_component_assembly(
             options,
         )
     }
+}
+
+pub fn solve_dynamic_component_assembly_with_input_sampler<I>(
+    assembly: &EquationAssembly,
+    solve_input: DynamicComponentAssemblySolveInput,
+    options: DynamicComponentOptions,
+    input_values_at: I,
+) -> Result<DynamicComponentResult, SolverFailure>
+where
+    I: FnMut(f64) -> Result<Vec<SolverScalar>, SolverFailure>,
+{
+    let split = assembly.dynamic_component_split()?;
+    let graph = ResidualGraph::from_dynamic_component_assembly(assembly)?;
+    let solver_input = SolverInput {
+        plan: SolverPlan::new(
+            assembly.name.clone(),
+            SimulationPlan {
+                inputs: layout_names(&split.input_layout.entries),
+                outputs: layout_names(&split.state_layout.entries),
+                states: layout_names(&split.state_layout.entries),
+                parameters: layout_names(&split.parameter_layout.entries),
+            },
+            SolverOptions::fixed_step(
+                "dynamic_component_assembly_semi_implicit_euler",
+                solve_input.timestep_s,
+            ),
+        ),
+        time_grid: TimeGrid::fixed_step(solve_input.duration_s, solve_input.timestep_s)?,
+        state_layout: split.state_layout.clone(),
+        input_layout: split.input_layout.clone(),
+        parameter_layout: split.parameter_layout.clone(),
+        output_layout: OutputLayout {
+            entries: split.state_layout.entries.clone(),
+        },
+        initial_state: solve_input.initial_state,
+        inputs: solve_input.inputs,
+        parameters: solve_input.parameters,
+    };
+
+    if split.algebraic_layout.is_empty() {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-ASSEMBLY-LAYOUT",
+            "dynamic component assembly input-sampled solve requires a semi-implicit algebraic layout",
+        ));
+    }
+    solve_residual_graph_semi_implicit_euler_with_input_sampler(
+        &solver_input,
+        &graph,
+        split.algebraic_layout,
+        solve_input.initial_algebraic,
+        options,
+        input_values_at,
+    )
 }
 
 fn normalize_residual_values(values: &[f64], scales: &[f64]) -> Vec<f64> {
@@ -1808,6 +1954,59 @@ mod tests {
                 && diagnostic.normalized_residual_values.len() == 1
                 && diagnostic.failure.is_none()
         }));
+    }
+
+    #[test]
+    fn residual_graph_semi_implicit_entrypoint_samples_inputs_per_step() {
+        let graph = semi_implicit_residual_graph();
+        let input = SolverInput {
+            plan: SolverPlan::new(
+                "ComponentGraph",
+                SimulationPlan::default(),
+                SolverOptions::fixed_step("dynamic_component_residual_graph_semi_implicit", 1.0),
+            ),
+            time_grid: TimeGrid::fixed_step(2.0, 1.0).unwrap(),
+            state_layout: StateLayout::new(vec![LayoutEntry::new(
+                0,
+                "x",
+                "Dimensionless",
+                "1",
+                "1",
+            )]),
+            input_layout: InputLayout {
+                entries: vec![LayoutEntry::new(0, "u", "Dimensionless", "1", "1")],
+            },
+            parameter_layout: ParameterLayout::default(),
+            output_layout: OutputLayout::default(),
+            initial_state: vec![1.0],
+            inputs: vec![SolverScalar::new("u", "Dimensionless", "1", 3.0)],
+            parameters: Vec::new(),
+        };
+        let algebraic_layout =
+            StateLayout::new(vec![LayoutEntry::new(0, "z", "Dimensionless", "1", "1")]);
+
+        let result = solve_residual_graph_semi_implicit_euler_with_input_sampler(
+            &input,
+            &graph,
+            algebraic_layout,
+            vec![0.0],
+            DynamicComponentOptions::default(),
+            |time_s| {
+                Ok(vec![SolverScalar::new(
+                    "u",
+                    "Dimensionless",
+                    "1",
+                    3.0 + 2.0 * time_s,
+                )])
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            result.solver_result.output.state_trajectories[0].values,
+            vec![1.0, 3.0, 5.0]
+        );
+        assert_eq!(result.algebraic_trajectories[0].values, vec![2.0, 2.0, 2.0]);
     }
 
     #[test]

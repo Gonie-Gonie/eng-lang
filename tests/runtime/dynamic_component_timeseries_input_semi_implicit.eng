@@ -1,0 +1,49 @@
+args {
+    heat_csv: CsvFile = file("data/dynamic_component_heat_input.csv")
+}
+
+schema HeatInputData {
+    time: DateTime index
+    Q_drive: HeatRate [kW]
+}
+
+heat_data = promote csv args.heat_csv as HeatInputData
+
+domain Thermal {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+component ZoneNode {
+    port heat: Thermal
+    1000 * der(heat.T) eq heat.Q
+}
+
+component HeatBoundary {
+    port heat: Thermal
+    input q: HeatRate [kW] = 1 kW
+    heat.Q eq q
+}
+
+system DynamicSemiImplicitTimeSeriesInput {
+    zone = ZoneNode()
+    boundary = HeatBoundary()
+    connect zone.heat to boundary.heat
+}
+
+semi_ts_result = solve component_graph
+with {
+    solver = dynamic_component_semi_implicit_euler
+    timestep = 1 s
+    duration = 3 s
+    initial = 20 degC
+    initial_algebraic = 0 kW
+    inputs = heat_data.Q_drive
+    tolerance = 0.000001
+    max_iter = 20
+}
+
+report {
+    show semi_ts_result
+}

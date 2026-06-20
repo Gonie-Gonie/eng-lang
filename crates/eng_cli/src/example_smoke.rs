@@ -1722,6 +1722,51 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(1);
         }
     }
+    match run_file(
+        Path::new("tests/runtime/dynamic_component_timeseries_input_semi_implicit.eng"),
+        Path::new("build/test-runtime-dynamic-component-timeseries-input-semi-implicit"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_semi_implicit_euler\"")
+                || !output.result_json.contains(
+                    "dynamic component source solve executed assembled residual graph with TimeSeries input materialization",
+                )
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dynamic_component_fixed_step_completed\"")
+                || !output.result_json.contains("\"name\": \"zone.heat.T\"")
+                || !output.result_json.contains("\"name\": \"zone.heat.Q\"")
+                || !output.report_spec_json.contains("\"name\": \"boundary.q\"")
+                || !output.result_json.contains("\"final_value\": 19.99400000")
+                || !output.result_json.contains("\"final_value\": -4.00000000")
+                || !output.result_json.contains("heat_data.Q_drive")
+                || !output.report_spec_json.contains("\"input_count\": 1")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\"")
+                || !output.report_spec_json.contains("boundary.heat.Q - boundary.q")
+                || !output.report_html.contains("zone.heat.T=19.994")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_timeseries_input_semi_implicit.eng to solve a semi-implicit dynamic component graph with a TimeSeries component input"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_timeseries_input_semi_implicit.eng solved semi-implicit dynamic component TimeSeries input graph"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component TimeSeries input semi-implicit runtime fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
     let thermal_assembly_report = match check_file(
         "examples/internal/21_thermal_component_assembly/main.eng",
         &CheckOptions::default(),

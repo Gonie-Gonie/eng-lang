@@ -29,22 +29,22 @@ use crate::solver::{
     },
     initialize_algebraic_variables, solve_adaptive_heun_ode, solve_adaptive_state_space,
     solve_continuous_state_space, solve_discrete_state_space, solve_dynamic_component_assembly,
-    solve_explicit_euler_with_algebraic, solve_first_order_thermal, solve_fixed_point,
-    solve_fixed_step_ode, solve_implicit_euler_dae, solve_linear_residual_graph, solve_newton,
-    solve_newton_with_jacobian, AdaptiveOdeOptions, AdaptiveOdeStepReport,
-    AlgebraicInitializationInput, BehaviorExecutionProfile, BehaviorGraphRhsAdapter,
-    BehaviorRhsNode, BehaviorRhsSample, BehaviorSignalContract, BehaviorSignalSource, DaeInput,
-    DaeMassMatrix, DaeMethod, DaeOptions, DaeSample, DaeVariable, DelayBehaviorNode, DelayBuffer,
-    DelayInitialHistoryPolicy, DelayInterpolationPolicy, DynamicComponentAssemblySolveInput,
-    DynamicComponentOptions, DynamicComponentResult, ExternalBehaviorContract,
-    ExternalBehaviorDeterminism, ExternalBehaviorKind, ExternalBehaviorProfilePolicy,
-    FirstOrderThermalModel, FixedPointOptions, FixedStepMethod, InputLayout, LayoutEntry,
-    NewtonOptions, OutputLayout, ParameterLayout, PredictorContract, PredictorDifferentiability,
-    PredictorJacobianPolicy, PredictorSolverPolicy, ResidualEquation, ResidualEvaluator,
-    ResidualGraph, ResidualInput, ResidualOutput, ResidualScale, RhsEvaluator, RhsInput,
-    RhsStateInfo, RhsSymbolInfo, SimulationPlan, SolverDiagnostics, SolverFailure, SolverInput,
-    SolverOptions, SolverPlan, SolverResult, SolverScalar, SourceRhsEquation, SourceRhsEvaluator,
-    StateLayout, StateTrajectory, TimeGrid,
+    solve_dynamic_component_assembly_with_input_sampler, solve_explicit_euler_with_algebraic,
+    solve_first_order_thermal, solve_fixed_point, solve_fixed_step_ode, solve_implicit_euler_dae,
+    solve_linear_residual_graph, solve_newton, solve_newton_with_jacobian, AdaptiveOdeOptions,
+    AdaptiveOdeStepReport, AlgebraicInitializationInput, BehaviorExecutionProfile,
+    BehaviorGraphRhsAdapter, BehaviorRhsNode, BehaviorRhsSample, BehaviorSignalContract,
+    BehaviorSignalSource, DaeInput, DaeMassMatrix, DaeMethod, DaeOptions, DaeSample, DaeVariable,
+    DelayBehaviorNode, DelayBuffer, DelayInitialHistoryPolicy, DelayInterpolationPolicy,
+    DynamicComponentAssemblySolveInput, DynamicComponentOptions, DynamicComponentResult,
+    ExternalBehaviorContract, ExternalBehaviorDeterminism, ExternalBehaviorKind,
+    ExternalBehaviorProfilePolicy, FirstOrderThermalModel, FixedPointOptions, FixedStepMethod,
+    InputLayout, LayoutEntry, NewtonOptions, OutputLayout, ParameterLayout, PredictorContract,
+    PredictorDifferentiability, PredictorJacobianPolicy, PredictorSolverPolicy, ResidualEquation,
+    ResidualEvaluator, ResidualGraph, ResidualInput, ResidualOutput, ResidualScale, RhsEvaluator,
+    RhsInput, RhsStateInfo, RhsSymbolInfo, SimulationPlan, SolverDiagnostics, SolverFailure,
+    SolverInput, SolverOptions, SolverPlan, SolverResult, SolverScalar, SourceRhsEquation,
+    SourceRhsEvaluator, StateLayout, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -4306,17 +4306,37 @@ fn dynamic_component_solution_from_solve_request(
     }
 
     if solve_input.uses_time_series_inputs() {
-        let failure = SolverFailure::new(
-            "E-DYNAMIC-COMPONENT-SOURCE-INPUT-TIMESERIES-UNSUPPORTED",
-            "TimeSeries component inputs currently require `solver = dynamic_component_explicit_euler` with parsed source residual evaluation",
-        );
-        return failed_dynamic_component_source_solution(
+        let static_inputs = solve_input.solve_input.inputs.clone();
+        let input_series = solve_input.input_series.clone();
+        return match solve_dynamic_component_assembly_with_input_sampler(
             dynamic_assembly,
-            solver,
-            &options,
-            &failure,
-            "dynamic component source solve options could not be materialized for the selected solver",
-        );
+            solve_input.solve_input,
+            options.clone(),
+            |time_s| {
+                sampled_dynamic_component_inputs(
+                    &static_inputs,
+                    &input_series,
+                    series,
+                    dynamic_assembly,
+                    time_s,
+                )
+            },
+        ) {
+            Ok(dynamic_result) => {
+                RuntimeComponentSolution::from_dynamic_component_assembly_result(
+                    dynamic_assembly,
+                    &dynamic_result,
+                    "dynamic component source solve executed assembled residual graph with TimeSeries input materialization",
+                )
+            }
+            Err(failure) => failed_dynamic_component_source_solution(
+                dynamic_assembly,
+                solver,
+                &options,
+                &failure,
+                "dynamic component source solve failed before timestep execution",
+            ),
+        };
     }
 
     match solve_dynamic_component_assembly(
