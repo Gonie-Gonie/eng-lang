@@ -246,7 +246,8 @@ internal/27_adaptive_heun_thermal
 internal/28_adaptive_state_space
   Continuous state-space `der(x) eq A * x + B * u` fixture for the internal
   `solver = adaptive_heun` path, including TimeSeries input materialization,
-  fixed output TimeGrid, and adaptive internal substep diagnostics.
+  scalar output materialization, fixed output TimeGrid, and adaptive internal
+  substep diagnostics.
 ```
 
 ## Compatibility Regression Examples

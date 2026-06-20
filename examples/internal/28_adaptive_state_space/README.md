@@ -6,6 +6,7 @@ seed:
 - `der(x) eq A * x + B * u`
 - promoted `TimeSeries[Time]` input materialization
 - `solver = adaptive_heun` with a fixed output TimeGrid
+- scalar `output Q_total` materialization as `sim.Q_total`
 - adaptive Heun/Euler internal substep diagnostics in runtime/report artifacts
 
 It is not a supported general state-space workflow, discrete adaptive solver,

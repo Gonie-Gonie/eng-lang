@@ -2669,7 +2669,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 &report_spec,
                 "AdaptiveStateSpace",
                 Some("continuous state-space A/B operators"),
-            ) || !report_html.contains("adaptive_heun")
+            ) || !result.contains("\"state\": \"Q_total\"")
+                || !report_spec.contains("sim.Q_total")
+                || !report_html.contains("adaptive_heun")
                 || !report_html.contains("substeps=")
             {
                 eprintln!(

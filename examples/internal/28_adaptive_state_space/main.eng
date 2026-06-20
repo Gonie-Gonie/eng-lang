@@ -13,16 +13,18 @@ system AdaptiveStateSpace {
     state T_zone: AbsoluteTemperature = 22 degC
     input T_out: TimeSeries[Time] of AbsoluteTemperature [degC]
     input Q_internal: HeatRate = 500 W
+    output Q_total: HeatRate [kW]
 
     states x = [T_zone]
     inputs u = [T_out, Q_internal]
-    outputs y = [T_zone]
+    outputs y = [T_zone, Q_total]
 
     A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.012 1/min]]
     B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.012 1/min, 0.001]]
 
     equation {
         der(x) eq A * x + B * u
+        Q_total eq Q_internal + 0.25 kW
     }
 }
 
