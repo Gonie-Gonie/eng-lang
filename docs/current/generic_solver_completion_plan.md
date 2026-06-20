@@ -227,6 +227,7 @@ Evidence gate:
 - Unit-parameterized linear component equations such as `Q eq UA * (T1 - T2)` across compatible display units, with compiler dimension checks, runtime coefficient conversion, source-to-runtime tests, docs, and `examples/official/33_unit_parameterized_wall` example-smoke coverage.
 - Runtime arithmetic residual expressions now lower once into a reusable AST used by both evaluation and finite-difference linearization, including derivative-symbol alias reuse across updated symbol values.
 - Numeric unit literals in the reusable arithmetic expression tree preserve display unit, canonical unit, and quantity-kind metadata from the existing unit registry without changing existing evaluator conversion behavior.
+- Source Newton and implicit-Euler DAE residual loops pre-parse assembly residual expressions into reusable arithmetic ASTs instead of reparsing residual strings on every iteration/sample evaluation.
 
 ## Done Criteria
 

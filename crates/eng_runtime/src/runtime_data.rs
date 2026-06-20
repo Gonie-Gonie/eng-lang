@@ -15,7 +15,10 @@ use eng_report::{
     ReportUncertaintyPropagationTerm, ReportValidationResult,
 };
 
-use crate::solver::expression::evaluate_source_arithmetic_expression;
+use crate::solver::expression::{
+    evaluate_source_arithmetic_expression, parse_arithmetic_expression_with_unit_converter,
+    ArithmeticExpressionProfile, ParsedArithmeticExpression,
+};
 use crate::solver::{
     assembly::{
         ComponentEquation, ComponentInstance, ConnectionEdge, ConnectionSet, EquationAssembly,
@@ -3221,6 +3224,36 @@ fn nonlinear_component_solution_from_solve_request(
         }
     };
 
+    let parse_symbols = match source_algebraic_parse_symbols(solver_assembly) {
+        Ok(symbols) => symbols,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                "newton_source_residual_graph",
+                "Newton source solve could not materialize residual parse symbols",
+                &failure,
+                tolerance,
+                options.max_iterations,
+                "newton_source_failed",
+            );
+        }
+    };
+    let parsed_residuals = match parse_source_residual_expressions(solver_assembly, &parse_symbols)
+    {
+        Ok(expressions) => expressions,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                "newton_source_residual_graph",
+                "Newton source solve could not parse residual expressions",
+                &failure,
+                tolerance,
+                options.max_iterations,
+                "newton_source_failed",
+            );
+        }
+    };
+
     let jacobian_policy = option_value(&request.options, "jacobian")
         .map(str::trim)
         .unwrap_or("finite_difference");
@@ -3242,12 +3275,24 @@ fn nonlinear_component_solution_from_solve_request(
         solve_newton_with_jacobian(
             &initial_values,
             &options,
-            |values| source_algebraic_residual_values(solver_assembly, &residual_graph, values),
+            |values| {
+                source_algebraic_residual_values(
+                    solver_assembly,
+                    &residual_graph,
+                    &parsed_residuals,
+                    values,
+                )
+            },
             |_values, _baseline| Ok(scaled_jacobian.clone()),
         )
     } else {
         solve_newton(&initial_values, &options, |values| {
-            source_algebraic_residual_values(solver_assembly, &residual_graph, values)
+            source_algebraic_residual_values(
+                solver_assembly,
+                &residual_graph,
+                &parsed_residuals,
+                values,
+            )
         })
     };
 
@@ -3273,6 +3318,7 @@ fn nonlinear_component_solution_from_solve_request(
     let evaluation = match source_residual_evaluation_for_unknowns(
         solver_assembly,
         &residual_graph,
+        &parsed_residuals,
         &newton.values,
         tolerance,
     ) {
@@ -3414,6 +3460,35 @@ fn dae_component_solution_from_solve_request(
         }
     };
     let residual_graph = ResidualGraph::from_assembly(solver_assembly);
+    let parse_symbols = match source_dae_parse_symbols(solver_assembly) {
+        Ok(symbols) => symbols,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                method,
+                "DAE source solve could not materialize residual parse symbols",
+                &failure,
+                tolerance,
+                newton_options.max_iterations,
+                "dae_source_failed",
+            );
+        }
+    };
+    let parsed_residuals = match parse_source_residual_expressions(solver_assembly, &parse_symbols)
+    {
+        Ok(expressions) => expressions,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                method,
+                "DAE source solve could not parse residual expressions",
+                &failure,
+                tolerance,
+                newton_options.max_iterations,
+                "dae_source_failed",
+            );
+        }
+    };
     let initial_state = match component_initial_values_from_options(
         &request.options,
         "initial",
@@ -3490,6 +3565,7 @@ fn dae_component_solution_from_solve_request(
                 source_dae_residual_values(
                     solver_assembly,
                     &residual_graph,
+                    &parsed_residuals,
                     sample,
                     SourceResidualSubset::AlgebraicOnly,
                 )
@@ -3563,6 +3639,7 @@ fn dae_component_solution_from_solve_request(
         source_dae_residual_values(
             solver_assembly,
             &residual_graph,
+            &parsed_residuals,
             sample,
             SourceResidualSubset::All,
         )
@@ -3689,6 +3766,7 @@ fn dae_component_solution_from_solve_request(
     if let Ok(evaluation) = source_residual_evaluation_for_dae_final(
         solver_assembly,
         &residual_graph,
+        &parsed_residuals,
         &dae_input,
         &solver_result,
         tolerance,
@@ -4666,13 +4744,85 @@ struct SourceResidualEvaluation {
     residual_norm: f64,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+struct ParsedSourceResidual {
+    name: String,
+    expression: ParsedArithmeticExpression,
+}
+
+fn parse_source_residual_expressions(
+    assembly: &EquationAssembly,
+    symbols: &HashMap<String, f64>,
+) -> Result<Vec<ParsedSourceResidual>, SolverFailure> {
+    assembly
+        .generated_equations
+        .iter()
+        .map(|equation| {
+            let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
+            let expression = parse_arithmetic_expression_with_unit_converter(
+                &equation.residual,
+                symbols,
+                &mut ignore_units,
+                ArithmeticExpressionProfile::SOURCE_RESIDUAL,
+            )
+            .map_err(|failure| {
+                SolverFailure::new(
+                    failure.code,
+                    format!(
+                        "{} while parsing residual `{}`",
+                        failure.message, equation.name
+                    ),
+                )
+            })?;
+            Ok(ParsedSourceResidual {
+                name: equation.name.clone(),
+                expression,
+            })
+        })
+        .collect()
+}
+
+fn source_algebraic_parse_symbols(
+    assembly: &EquationAssembly,
+) -> Result<HashMap<String, f64>, SolverFailure> {
+    let mut symbols = assembly
+        .unknowns
+        .iter()
+        .map(|variable| (variable.name.clone(), 0.0))
+        .collect::<HashMap<_, _>>();
+    insert_assembly_parameter_symbols(assembly, &mut symbols, None)?;
+    Ok(symbols)
+}
+
+fn source_dae_parse_symbols(
+    assembly: &EquationAssembly,
+) -> Result<HashMap<String, f64>, SolverFailure> {
+    let mut symbols = HashMap::from([("t".to_owned(), 0.0), ("time".to_owned(), 0.0)]);
+    for state in &assembly.states {
+        symbols.insert(state.name.clone(), 0.0);
+        symbols.insert(format!("der({})", state.name), 0.0);
+    }
+    for variable in &assembly.algebraic_variables {
+        symbols.insert(variable.name.clone(), 0.0);
+    }
+    insert_assembly_parameter_symbols(assembly, &mut symbols, None)?;
+    Ok(symbols)
+}
+
 fn source_algebraic_residual_values(
     assembly: &EquationAssembly,
     graph: &ResidualGraph,
+    parsed_residuals: &[ParsedSourceResidual],
     values: &[f64],
 ) -> Result<Vec<f64>, SolverFailure> {
-    source_residual_evaluation_for_unknowns(assembly, graph, values, DEFAULT_NEWTON_TOLERANCE)
-        .map(|evaluation| evaluation.normalized_values)
+    source_residual_evaluation_for_unknowns(
+        assembly,
+        graph,
+        parsed_residuals,
+        values,
+        DEFAULT_NEWTON_TOLERANCE,
+    )
+    .map(|evaluation| evaluation.normalized_values)
 }
 
 const DEFAULT_NEWTON_TOLERANCE: f64 = 1e-9;
@@ -4680,6 +4830,7 @@ const DEFAULT_NEWTON_TOLERANCE: f64 = 1e-9;
 fn source_residual_evaluation_for_unknowns(
     assembly: &EquationAssembly,
     graph: &ResidualGraph,
+    parsed_residuals: &[ParsedSourceResidual],
     values: &[f64],
     tolerance: f64,
 ) -> Result<SourceResidualEvaluation, SolverFailure> {
@@ -4699,6 +4850,7 @@ fn source_residual_evaluation_for_unknowns(
     source_residual_evaluation_with_symbols(
         assembly,
         graph,
+        parsed_residuals,
         &symbols,
         tolerance,
         SourceResidualSubset::All,
@@ -4708,12 +4860,14 @@ fn source_residual_evaluation_for_unknowns(
 fn source_dae_residual_values(
     assembly: &EquationAssembly,
     graph: &ResidualGraph,
+    parsed_residuals: &[ParsedSourceResidual],
     sample: DaeSample<'_>,
     subset: SourceResidualSubset,
 ) -> Result<Vec<f64>, SolverFailure> {
     source_residual_evaluation_for_dae_sample(
         assembly,
         graph,
+        parsed_residuals,
         sample,
         DEFAULT_NEWTON_TOLERANCE,
         subset,
@@ -4724,6 +4878,7 @@ fn source_dae_residual_values(
 fn source_residual_evaluation_for_dae_sample(
     assembly: &EquationAssembly,
     graph: &ResidualGraph,
+    parsed_residuals: &[ParsedSourceResidual],
     sample: DaeSample<'_>,
     tolerance: f64,
     subset: SourceResidualSubset,
@@ -4759,7 +4914,14 @@ fn source_residual_evaluation_for_dae_sample(
         symbols.insert(variable.name.clone(), value);
     }
     insert_assembly_parameter_symbols(assembly, &mut symbols, Some(sample.parameters))?;
-    source_residual_evaluation_with_symbols(assembly, graph, &symbols, tolerance, subset)
+    source_residual_evaluation_with_symbols(
+        assembly,
+        graph,
+        parsed_residuals,
+        &symbols,
+        tolerance,
+        subset,
+    )
 }
 
 fn insert_assembly_parameter_symbols(
@@ -4788,6 +4950,7 @@ fn insert_assembly_parameter_symbols(
 fn source_residual_evaluation_for_dae_final(
     assembly: &EquationAssembly,
     graph: &ResidualGraph,
+    parsed_residuals: &[ParsedSourceResidual],
     input: &DaeInput,
     solver_result: &SolverResult,
     tolerance: f64,
@@ -4826,6 +4989,7 @@ fn source_residual_evaluation_for_dae_final(
     source_residual_evaluation_for_dae_sample(
         assembly,
         graph,
+        parsed_residuals,
         DaeSample {
             time_s: solver_result.time_grid.duration_s,
             state: &state,
@@ -4843,6 +5007,7 @@ fn source_residual_evaluation_for_dae_final(
 fn source_residual_evaluation_with_symbols(
     assembly: &EquationAssembly,
     graph: &ResidualGraph,
+    parsed_residuals: &[ParsedSourceResidual],
     symbols: &HashMap<String, f64>,
     tolerance: f64,
     subset: SourceResidualSubset,
@@ -4858,9 +5023,19 @@ fn source_residual_evaluation_with_symbols(
         .iter()
         .map(|residual| (residual.name.as_str(), residual))
         .collect::<HashMap<_, _>>();
+    if parsed_residuals.len() != assembly.generated_equations.len() {
+        return Err(SolverFailure::new(
+            "E-SOURCE-RESIDUAL-PARSE-LAYOUT",
+            "source residual parsed expression count does not match generated equation count",
+        ));
+    }
     let mut residuals = Vec::new();
     let mut normalized_values = Vec::new();
-    for equation in &assembly.generated_equations {
+    for (equation, parsed) in assembly
+        .generated_equations
+        .iter()
+        .zip(parsed_residuals.iter())
+    {
         if subset == SourceResidualSubset::AlgebraicOnly
             && equation
                 .dependencies
@@ -4869,15 +5044,21 @@ fn source_residual_evaluation_with_symbols(
         {
             continue;
         }
-        let raw_expression_value =
-            evaluate_source_arithmetic_expression(&equation.residual, symbols).map_err(
-                |failure| {
-                    SolverFailure::new(
-                        failure.code,
-                        format!("{} in residual `{}`", failure.message, equation.name),
-                    )
-                },
-            )?;
+        if parsed.name != equation.name {
+            return Err(SolverFailure::new(
+                "E-SOURCE-RESIDUAL-PARSE-LAYOUT",
+                format!(
+                    "parsed source residual `{}` does not match equation `{}`",
+                    parsed.name, equation.name
+                ),
+            ));
+        }
+        let raw_expression_value = parsed.expression.evaluate(symbols).map_err(|failure| {
+            SolverFailure::new(
+                failure.code,
+                format!("{} in residual `{}`", failure.message, equation.name),
+            )
+        })?;
         let value = raw_expression_value - equation.rhs_value.unwrap_or(0.0);
         if !value.is_finite() {
             return Err(SolverFailure::new(
@@ -10855,8 +11036,17 @@ system Envelope {
         };
         let graph = ResidualGraph::from_assembly(&assembly);
 
-        let evaluation =
-            source_residual_evaluation_for_unknowns(&assembly, &graph, &[2.0], 1e-9).unwrap();
+        let parse_symbols = source_algebraic_parse_symbols(&assembly).unwrap();
+        let parsed_residuals =
+            parse_source_residual_expressions(&assembly, &parse_symbols).unwrap();
+        let evaluation = source_residual_evaluation_for_unknowns(
+            &assembly,
+            &graph,
+            &parsed_residuals,
+            &[2.0],
+            1e-9,
+        )
+        .unwrap();
 
         assert_eq!(evaluation.residuals.len(), 1);
         assert_eq!(evaluation.residuals[0].value, 0.0);
