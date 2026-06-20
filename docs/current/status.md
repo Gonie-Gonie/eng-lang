@@ -178,8 +178,9 @@ by the stable breaking-change policy.
   component trajectories, scalar or fixed-step TimeSeries input
   materialization, selected affine/Newton algebraic output trajectories,
   combined TimeSeries-driven Newton algebraic materialization,
-  accepted-substep diagnostics, and Newton nonconvergence artifacts; broad
-  nonlinear algebraic graphs remain unsupported.
+  accepted-substep diagnostics, output-grid Newton residual diagnostics, and
+  Newton nonconvergence artifacts; broad nonlinear algebraic graphs remain
+  unsupported.
   Narrow coupled multi-variable
   unitful source Newton and multi-state unitful temperature implicit-Euler DAE
   component residual smokes are covered by

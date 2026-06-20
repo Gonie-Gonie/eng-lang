@@ -1768,9 +1768,16 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"role\": \"algebraic\"")
                 || !output.result_json.contains("\"final_value\": 0.99122926")
                 || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"largest_residual_name\": \"node.equation_2\"")
+                || !output
                     .report_spec_json
                     .contains("node.node.y * node.node.y eq cos(node.node.x)")
                 || !output.report_spec_json.contains("adaptive_heun_accepted")
+                || !output.report_spec_json.contains("newton_converged")
                 || !output.report_html.contains("node.node.y=0.991229")
             {
                 eprintln!(
@@ -1860,12 +1867,19 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"final_value\": 1.24107213")
                 || !output.result_json.contains("drive_data.drive")
                 || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"largest_residual_name\": \"node.equation_2\"")
+                || !output
                     .report_spec_json
                     .contains("node.node.y * node.node.y eq cos(node.node.x) + node.drive")
                 || !output.report_spec_json.contains("\"name\": \"node.drive\"")
                 || !output.report_spec_json.contains("\"input_count\": 1")
                 || !output.report_spec_json.contains("drive_data.drive")
                 || !output.report_spec_json.contains("adaptive_heun_accepted")
+                || !output.report_spec_json.contains("newton_converged")
                 || !output.report_html.contains("node.node.y=1.241072")
             {
                 eprintln!(

@@ -137,7 +137,7 @@ Internal runtime seeds:
   expressions, scalar or fixed-step TimeSeries component inputs, fixed
   output-grid component trajectories, selected affine/Newton algebraic output
   materialization including a combined TimeSeries-driven Newton fixture,
-  accepted-substep diagnostics, and explicit
+  accepted-substep diagnostics, output-grid Newton residual diagnostics, and explicit
   `E-NEWTON-NONCONVERGENCE` artifacts for Newton algebraic nonconvergence
 - fixed-step ODE and dynamic-component updates use the actual final partial TimeGrid interval
 - explicit Euler samples RHS values at the start of each fixed-step interval

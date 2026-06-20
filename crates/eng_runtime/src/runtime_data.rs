@@ -41,12 +41,12 @@ use crate::solver::{
     DynamicComponentOptions, DynamicComponentResult, ExternalBehaviorContract,
     ExternalBehaviorDeterminism, ExternalBehaviorKind, ExternalBehaviorProfilePolicy,
     FirstOrderThermalModel, FixedPointOptions, FixedStepMethod, InputLayout, LayoutEntry,
-    NewtonOptions, OutputLayout, ParameterLayout, PredictorContract, PredictorDifferentiability,
-    PredictorJacobianPolicy, PredictorSolverPolicy, ResidualEquation, ResidualEvaluator,
-    ResidualGraph, ResidualInput, ResidualOutput, ResidualScale, RhsEvaluator, RhsInput,
-    RhsStateInfo, RhsSymbolInfo, SimulationPlan, SolverDiagnostics, SolverFailure, SolverInput,
-    SolverOptions, SolverPlan, SolverResult, SolverScalar, SourceRhsEquation, SourceRhsEvaluator,
-    StateLayout, StateTrajectory, TimeGrid,
+    NewtonOptions, NewtonResult, OutputLayout, ParameterLayout, PredictorContract,
+    PredictorDifferentiability, PredictorJacobianPolicy, PredictorSolverPolicy, ResidualEquation,
+    ResidualEvaluator, ResidualGraph, ResidualInput, ResidualOutput, ResidualScale, RhsEvaluator,
+    RhsInput, RhsStateInfo, RhsSymbolInfo, SimulationPlan, SolverDiagnostics, SolverFailure,
+    SolverInput, SolverOptions, SolverPlan, SolverResult, SolverScalar, SourceRhsEquation,
+    SourceRhsEvaluator, StateLayout, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -4816,14 +4816,14 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
             &rhs_algebraic_guess,
             &options,
         )?;
-        if !algebraic.is_empty() {
-            rhs_algebraic_guess.clone_from(&algebraic);
+        if !algebraic.values.is_empty() {
+            rhs_algebraic_guess.clone_from(&algebraic.values);
         }
         let symbols = source_dynamic_component_symbols(
             assembly,
             sample.time_s,
             sample.state,
-            &algebraic,
+            &algebraic.values,
             &inputs,
             sample.parameters,
         );
@@ -4835,7 +4835,7 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
         )
     })?;
     let mut solver_result = adaptive_result.solver_result;
-    solver_result.output.algebraic_trajectories =
+    let (algebraic_trajectories, mut algebraic_step_diagnostics) =
         adaptive_dynamic_component_algebraic_trajectories(
             assembly,
             &split.algebraic_layout,
@@ -4846,6 +4846,7 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
             &solver_result,
             &options,
         )?;
+    solver_result.output.algebraic_trajectories = algebraic_trajectories;
     let mut solution = RuntimeComponentSolution::from_dynamic_solver_result(
         &assembly.name,
         &solver_result,
@@ -4861,8 +4862,19 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
     );
     solution.equation_count = assembly.equation_count();
     solution.unknown_count = assembly.unknown_count();
-    solution.step_diagnostics = adaptive_component_step_diagnostics(&adaptive_result.step_reports);
+    let mut step_diagnostics = adaptive_component_step_diagnostics(&adaptive_result.step_reports);
+    let step_offset = step_diagnostics.len();
+    for (index, diagnostic) in algebraic_step_diagnostics.iter_mut().enumerate() {
+        diagnostic.step_index = step_offset + index + 1;
+    }
+    step_diagnostics.extend(algebraic_step_diagnostics);
+    solution.step_diagnostics = step_diagnostics;
     Ok(solution)
+}
+
+struct AdaptiveDynamicComponentAlgebraicSolve {
+    values: Vec<f64>,
+    newton: Option<NewtonResult>,
 }
 
 fn adaptive_dynamic_component_algebraic_values(
@@ -4875,9 +4887,12 @@ fn adaptive_dynamic_component_algebraic_values(
     parameters: &[SolverScalar],
     algebraic_guess: &[f64],
     options: &DynamicComponentOptions,
-) -> Result<Vec<f64>, SolverFailure> {
+) -> Result<AdaptiveDynamicComponentAlgebraicSolve, SolverFailure> {
     if algebraic_layout.is_empty() {
-        return Ok(Vec::new());
+        return Ok(AdaptiveDynamicComponentAlgebraicSolve {
+            values: Vec::new(),
+            newton: None,
+        });
     }
     let symbols =
         source_dynamic_component_symbols(assembly, time_s, state, &[], inputs, parameters);
@@ -4888,7 +4903,10 @@ fn adaptive_dynamic_component_algebraic_values(
         &symbols,
         "dynamic component adaptive source",
     ) {
-        Ok(values) => Ok(values),
+        Ok(values) => Ok(AdaptiveDynamicComponentAlgebraicSolve {
+            values,
+            newton: None,
+        }),
         Err(failure)
             if failure.code == "E-SOURCE-ALGEBRAIC-SHAPE"
                 || should_fallback_to_newton_algebraic(&failure) =>
@@ -4920,7 +4938,10 @@ fn adaptive_dynamic_component_algebraic_values(
             if let Some(failure) = newton.failure {
                 return Err(failure);
             }
-            Ok(newton.values)
+            Ok(AdaptiveDynamicComponentAlgebraicSolve {
+                values: newton.values.clone(),
+                newton: Some(newton),
+            })
         }
         Err(failure) => Err(failure),
     }
@@ -4935,13 +4956,16 @@ fn adaptive_dynamic_component_algebraic_trajectories(
     series: &[RuntimeTimeSeries],
     solver_result: &SolverResult,
     options: &DynamicComponentOptions,
-) -> Result<Vec<StateTrajectory>, SolverFailure> {
+) -> Result<(Vec<StateTrajectory>, Vec<RuntimeComponentStepDiagnostic>), SolverFailure> {
     if algebraic_layout.is_empty() {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), Vec::new()));
     }
     let mut algebraic_values_by_variable =
         vec![Vec::with_capacity(solver_result.time_grid.step_count + 1); algebraic_layout.len()];
     let mut algebraic_guess = solve_input.initial_algebraic.clone();
+    let residual_names = source_residual_algebraic_residual_names(assembly);
+    let residual_scales = residual_scales_from_layout(algebraic_layout);
+    let mut algebraic_step_diagnostics = Vec::new();
     for output_index in 0..=solver_result.time_grid.step_count {
         let time_s = solver_result.time_grid.step_time_s(output_index);
         let state = solver_result
@@ -4975,14 +4999,26 @@ fn adaptive_dynamic_component_algebraic_trajectories(
             &algebraic_guess,
             options,
         )?;
-        if !algebraic.is_empty() {
-            algebraic_guess.clone_from(&algebraic);
+        if !algebraic.values.is_empty() {
+            algebraic_guess.clone_from(&algebraic.values);
         }
-        for (index, value) in algebraic.iter().copied().enumerate() {
+        if let Some(newton) = &algebraic.newton {
+            let mut diagnostics = newton_residual_history_diagnostics(
+                newton,
+                None,
+                Some(&residual_names),
+                Some(&residual_scales),
+            );
+            for diagnostic in &mut diagnostics {
+                diagnostic.time_s = time_s;
+            }
+            algebraic_step_diagnostics.extend(diagnostics);
+        }
+        for (index, value) in algebraic.values.iter().copied().enumerate() {
             algebraic_values_by_variable[index].push(value);
         }
     }
-    Ok(algebraic_layout
+    let trajectories = algebraic_layout
         .entries
         .iter()
         .zip(algebraic_values_by_variable)
@@ -4992,7 +5028,28 @@ fn adaptive_dynamic_component_algebraic_trajectories(
             canonical_unit: entry.canonical_unit.clone(),
             values,
         })
-        .collect())
+        .collect();
+    Ok((trajectories, algebraic_step_diagnostics))
+}
+
+fn source_residual_algebraic_residual_names(assembly: &EquationAssembly) -> Vec<String> {
+    let algebraic_names = assembly
+        .algebraic_variables
+        .iter()
+        .map(|variable| variable.name.as_str())
+        .collect::<HashSet<_>>();
+    assembly
+        .generated_equations
+        .iter()
+        .filter(|equation| {
+            !equation_has_derivative_dependency(equation)
+                && equation
+                    .dependencies
+                    .iter()
+                    .any(|dependency| algebraic_names.contains(dependency.as_str()))
+        })
+        .map(|equation| equation.name.clone())
+        .collect()
 }
 
 fn residual_scales_from_layout(layout: &StateLayout) -> Vec<f64> {
