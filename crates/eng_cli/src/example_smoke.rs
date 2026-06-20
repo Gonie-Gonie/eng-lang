@@ -1286,6 +1286,53 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/dae_timeseries_input_from_source.eng"),
+        Path::new("build/test-runtime-dae-timeseries-input-source"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"implicit_euler_dae_source_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dae_converged\"")
+                || !output
+                    .result_json
+                    .contains("TimeSeries input materialization")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"value\": 0.806")
+                || !output.result_json.contains("\"name\": \"node.node.z\"")
+                || !output.result_json.contains("\"value\": 0.900")
+                || !output
+                    .result_json
+                    .contains("der(node.node.x) + node.node.x - node.drive - (0)")
+                || !output
+                    .result_json
+                    .contains("node.node.z - node.drive - (0)")
+                || !output.report_spec_json.contains("\"step_diagnostics\"")
+                || !output.report_spec_json.contains("\"name\": \"node.drive\"")
+                || !output.report_spec_json.contains("\"node.drive\"")
+                || !output
+                    .report_html
+                    .contains("implicit_euler_dae_source_residual_graph")
+            {
+                eprintln!(
+                    "expected tests/runtime/dae_timeseries_input_from_source.eng to solve a source DAE residual graph with TimeSeries input materialization"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dae_timeseries_input_from_source.eng solved source DAE residual graph with TimeSeries inputs"
+            );
+        }
+        Err(error) => {
+            eprintln!("DAE TimeSeries-input source runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/small_dae_from_source.eng"),
         Path::new("build/test-runtime-small-dae-source"),
         &artifact_run_options(),

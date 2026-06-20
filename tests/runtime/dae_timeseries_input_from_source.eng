@@ -1,0 +1,46 @@
+args {
+    drive_csv: CsvFile = file("data/dynamic_component_drive.csv")
+}
+
+schema DriveData {
+    time: DateTime index
+    drive: DimensionlessNumber [1]
+}
+
+drive_data = promote csv args.drive_csv as DriveData
+
+domain DaeDrivenScalar {
+    across x: DimensionlessNumber [1]
+    across z: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component DrivenDaeNode {
+    port node: DaeDrivenScalar
+    input drive: DimensionlessNumber [1] = 0
+    der(node.x) + node.x - drive eq 0
+    node.z - drive eq 0
+}
+
+system DaeTimeSeriesInputSource {
+    node = DrivenDaeNode()
+    connect node.node to node.node
+}
+
+dae_input_result = solve component_graph
+with {
+    solver = implicit_euler_dae
+    timestep = 1 s
+    duration = 4 s
+    initial = 0.5
+    initial_derivative = 0
+    initial_algebraic = [0.5, 0]
+    inputs = drive_data.drive
+    tolerance = 0.000000001
+    max_iter = 40
+}
+
+report {
+    show dae_input_result
+}

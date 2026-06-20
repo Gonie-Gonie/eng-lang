@@ -305,8 +305,12 @@ are not public stable workflows.
   supplied, records
   state/algebraic trajectories, variable-scale policy, and per-step Newton diagnostics, and is covered
   by `examples/official/28_small_dae`,
-  `tests/runtime/small_dae_from_source.eng`, and
-  `tests/diagnostics/dae_inconsistent_initial.eng`. The solver API also
+  `tests/runtime/small_dae_from_source.eng`,
+  `tests/runtime/dae_timeseries_input_from_source.eng`, and
+  `tests/diagnostics/dae_inconsistent_initial.eng`. The DAE bridge also
+  materializes scalar and fixed-step TimeSeries component inputs into algebraic
+  initialization, implicit-step Newton residual samples, and final residual
+  evaluation for the covered source residual shape. The solver API also
   has an internal adaptive Heun/Euler ODE seed that preserves fixed output-grid
   trajectories while adapting internal substeps and reporting accepted/rejected
   substep diagnostics through system result/report/review artifacts; the

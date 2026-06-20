@@ -3333,7 +3333,7 @@ fn materialize_component_solutions(
                     nonlinear_component_solution_from_solve_request(&solver_assembly, &request)
                 }
                 "implicit_euler_dae" | "dae_implicit_euler" => {
-                    dae_component_solution_from_solve_request(&solver_assembly, &request)
+                    dae_component_solution_from_solve_request(&solver_assembly, &request, series)
                 }
                 "dynamic_component_explicit_euler" | "dynamic_component_semi_implicit_euler" => {
                     dynamic_component_solution_from_solve_request(
@@ -3678,6 +3678,7 @@ fn nonlinear_component_solution_from_solve_request(
 fn dae_component_solution_from_solve_request(
     solver_assembly: &EquationAssembly,
     request: &ComponentSolveRequest,
+    series: &[RuntimeTimeSeries],
 ) -> RuntimeComponentSolution {
     let method = "implicit_euler_dae_source_residual_graph";
     let mut newton_options = newton_options_from_solve_request(&request.options);
@@ -3783,6 +3784,25 @@ fn dae_component_solution_from_solve_request(
                 solver_assembly,
                 method,
                 "DAE source solve parameters could not be materialized",
+                &failure,
+                tolerance,
+                newton_options.max_iterations,
+                "dae_source_failed",
+            );
+        }
+    };
+    let input_materialization = match source_input_values_from_options(
+        &request.options,
+        &solver_assembly.inputs,
+        series,
+        DAE_SOURCE_INPUT_PROFILE,
+    ) {
+        Ok(values) => values,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                method,
+                "DAE source solve inputs could not be materialized",
                 &failure,
                 tolerance,
                 newton_options.max_iterations,
@@ -3901,7 +3921,7 @@ fn dae_component_solution_from_solve_request(
                 state: &initial_state,
                 state_derivative: &initial_state_derivatives,
                 algebraic_guess: &initial_algebraic,
-                inputs: &[],
+                inputs: &input_materialization.values,
                 parameters: &parameter_values,
                 time_s: 0.0,
             },
@@ -3977,7 +3997,7 @@ fn dae_component_solution_from_solve_request(
             .zip(initial_algebraic.iter().copied())
             .map(|(variable, initial)| DaeVariable::new(variable.name.clone(), initial))
             .collect(),
-        inputs: Vec::new(),
+        inputs: input_materialization.values.clone(),
         parameters: parameter_values.clone(),
     };
     let dae_options = DaeOptions {
@@ -3990,11 +4010,27 @@ fn dae_component_solution_from_solve_request(
         ..DaeOptions::default()
     };
     let dae = solve_implicit_euler_dae(&dae_input, &dae_options, |sample| {
+        let sampled_inputs = sampled_source_input_values(
+            &input_materialization.values,
+            &input_materialization.series_indices,
+            series,
+            &solver_assembly.inputs,
+            sample.time_s,
+            DAE_SOURCE_INPUT_PROFILE,
+        )?;
         source_dae_residual_values(
             solver_assembly,
             &residual_graph,
             &parsed_residuals,
-            sample,
+            DaeSample {
+                time_s: sample.time_s,
+                state: sample.state,
+                state_derivative: sample.state_derivative,
+                mass_state_derivative: sample.mass_state_derivative,
+                algebraic: sample.algebraic,
+                inputs: &sampled_inputs,
+                parameters: sample.parameters,
+            },
             SourceResidualSubset::All,
         )
     });
@@ -4070,7 +4106,7 @@ fn dae_component_solution_from_solve_request(
         plan: SolverPlan::new(
             solver_assembly.name.clone(),
             SimulationPlan {
-                inputs: Vec::new(),
+                inputs: layout_names_from_unknowns(&solver_assembly.inputs),
                 outputs: layout_names_from_unknowns(&solver_assembly.states),
                 states: layout_names_from_unknowns(&solver_assembly.states),
                 parameters: layout_names_from_unknowns(&solver_assembly.parameters),
@@ -4098,8 +4134,20 @@ fn dae_component_solution_from_solve_request(
     } else {
         "identity mass-matrix fallback"
     };
-    let dae_reason =
-        format!("DAE source solve executed source-level residual graph with {mass_matrix_reason}");
+    let input_reason = if input_materialization
+        .series_indices
+        .iter()
+        .any(Option::is_some)
+    {
+        " and TimeSeries input materialization"
+    } else if solver_assembly.inputs.is_empty() {
+        ""
+    } else {
+        " and source input materialization"
+    };
+    let dae_reason = format!(
+        "DAE source solve executed source-level residual graph with {mass_matrix_reason}{input_reason}"
+    );
     let mut solution = RuntimeComponentSolution::from_dynamic_solver_result(
         &solver_assembly.name,
         &solver_result,
@@ -4201,18 +4249,28 @@ fn dae_component_solution_from_solve_request(
             }
         })
         .collect();
-    if let Ok(evaluation) = source_residual_evaluation_for_dae_final(
-        solver_assembly,
-        &residual_graph,
-        &parsed_residuals,
-        &dae_input,
-        dae_options.mass_matrix.as_ref(),
-        &solver_result,
-        tolerance,
+    if let Ok(final_inputs) = sampled_source_input_values(
+        &input_materialization.values,
+        &input_materialization.series_indices,
+        series,
+        &solver_assembly.inputs,
+        time_grid.duration_s,
+        DAE_SOURCE_INPUT_PROFILE,
     ) {
-        solution.residual_norm = evaluation.residual_norm;
-        solution.residuals = evaluation.residuals;
-        solution.largest_residuals = largest_component_residuals(&solution.residuals);
+        if let Ok(evaluation) = source_residual_evaluation_for_dae_final(
+            solver_assembly,
+            &residual_graph,
+            &parsed_residuals,
+            &dae_input,
+            dae_options.mass_matrix.as_ref(),
+            &solver_result,
+            &final_inputs,
+            tolerance,
+        ) {
+            solution.residual_norm = evaluation.residual_norm;
+            solution.residuals = evaluation.residuals;
+            solution.largest_residuals = largest_component_residuals(&solution.residuals);
+        }
     }
     solution
 }
@@ -5946,6 +6004,35 @@ struct ComponentInputMaterialization {
     series_indices: Vec<Option<usize>>,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct SourceInputDiagnosticProfile {
+    label: &'static str,
+    invalid_code: &'static str,
+    layout_code: &'static str,
+    quantity_code: &'static str,
+    sample_code: &'static str,
+    unit_code: &'static str,
+}
+
+const DYNAMIC_COMPONENT_INPUT_PROFILE: SourceInputDiagnosticProfile =
+    SourceInputDiagnosticProfile {
+        label: "dynamic component",
+        invalid_code: "E-DYNAMIC-COMPONENT-SOURCE-INPUT",
+        layout_code: "E-DYNAMIC-COMPONENT-SOURCE-INPUT-LAYOUT",
+        quantity_code: "E-DYNAMIC-COMPONENT-SOURCE-INPUT-QTY",
+        sample_code: "E-DYNAMIC-COMPONENT-SOURCE-INPUT-SAMPLE",
+        unit_code: "E-DYNAMIC-COMPONENT-SOURCE-INPUT-UNIT",
+    };
+
+const DAE_SOURCE_INPUT_PROFILE: SourceInputDiagnosticProfile = SourceInputDiagnosticProfile {
+    label: "DAE",
+    invalid_code: "E-DAE-SOURCE-INPUT",
+    layout_code: "E-DAE-SOURCE-INPUT-LAYOUT",
+    quantity_code: "E-DAE-SOURCE-INPUT-QTY",
+    sample_code: "E-DAE-SOURCE-INPUT-SAMPLE",
+    unit_code: "E-DAE-SOURCE-INPUT-UNIT",
+};
+
 #[derive(Clone, Debug)]
 enum ComponentInputOptionValue {
     Numeric(f64, Option<String>),
@@ -5957,11 +6044,23 @@ fn component_input_values_from_options(
     variables: &[UnknownVariable],
     series: &[RuntimeTimeSeries],
 ) -> Result<ComponentInputMaterialization, SolverFailure> {
+    source_input_values_from_options(options, variables, series, DYNAMIC_COMPONENT_INPUT_PROFILE)
+}
+
+fn source_input_values_from_options(
+    options: &[eng_compiler::WithOptionInfo],
+    variables: &[UnknownVariable],
+    series: &[RuntimeTimeSeries],
+    profile: SourceInputDiagnosticProfile,
+) -> Result<ComponentInputMaterialization, SolverFailure> {
     let parsed_inputs = if let Some(value) = option_value(options, "inputs") {
         Some(parse_component_input_option(value, series).ok_or_else(|| {
             SolverFailure::new(
-                "E-DYNAMIC-COMPONENT-SOURCE-INPUT",
-                "dynamic component source option `inputs` is not a finite numeric literal, bracketed list, or known TimeSeries name",
+                profile.invalid_code,
+                format!(
+                    "{} source option `inputs` is not a finite numeric literal, bracketed list, or known TimeSeries name",
+                    profile.label
+                ),
             )
         })?)
     } else {
@@ -5970,9 +6069,10 @@ fn component_input_values_from_options(
     if let Some((true, values)) = &parsed_inputs {
         if values.len() != variables.len() {
             return Err(SolverFailure::new(
-                "E-DYNAMIC-COMPONENT-SOURCE-INPUT-LAYOUT",
+                profile.layout_code,
                 format!(
-                    "dynamic component source option `inputs` provided {} value(s) for {} input variable(s)",
+                    "{} source option `inputs` provided {} value(s) for {} input variable(s)",
+                    profile.label,
                     values.len(),
                     variables.len()
                 ),
@@ -5993,8 +6093,8 @@ fn component_input_values_from_options(
                 Some(ComponentInputOptionValue::Numeric(raw_value, unit)) => {
                     if !raw_value.is_finite() {
                         return Err(SolverFailure::new(
-                            "E-DYNAMIC-COMPONENT-SOURCE-INPUT",
-                            "dynamic component source option `inputs` is not finite",
+                            profile.invalid_code,
+                            format!("{} source option `inputs` is not finite", profile.label),
                         ));
                     }
                     input_series.push(None);
@@ -6007,7 +6107,7 @@ fn component_input_values_from_options(
                 }
                 Some(ComponentInputOptionValue::TimeSeries(series_index)) => {
                     input_series.push(Some(*series_index));
-                    component_input_series_value(variable, &series[*series_index], 0.0)
+                    source_input_series_value(variable, &series[*series_index], 0.0, profile)
                 }
                 None => {
                     input_series.push(None);
@@ -6065,56 +6165,127 @@ fn sampled_dynamic_component_inputs(
     assembly: &EquationAssembly,
     time_s: f64,
 ) -> Result<Vec<SolverScalar>, SolverFailure> {
+    sampled_dynamic_component_inputs_for_variables(
+        static_inputs,
+        input_series,
+        series,
+        &assembly.inputs,
+        time_s,
+        DYNAMIC_COMPONENT_INPUT_PROFILE,
+    )
+}
+
+fn sampled_dynamic_component_inputs_for_variables(
+    static_inputs: &[SolverScalar],
+    input_series: &[Option<usize>],
+    series: &[RuntimeTimeSeries],
+    variables: &[UnknownVariable],
+    time_s: f64,
+    profile: SourceInputDiagnosticProfile,
+) -> Result<Vec<SolverScalar>, SolverFailure> {
     if input_series.iter().all(Option::is_none) {
         return Ok(static_inputs.to_vec());
     }
-    if static_inputs.len() != input_series.len() || static_inputs.len() != assembly.inputs.len() {
+    if static_inputs.len() != input_series.len() || static_inputs.len() != variables.len() {
         return Err(SolverFailure::new(
-            "E-DYNAMIC-COMPONENT-SOURCE-INPUT-LAYOUT",
-            "dynamic component input TimeSeries layout does not match the assembly input layout",
+            profile.layout_code,
+            format!(
+                "{} input TimeSeries layout does not match the assembly input layout",
+                profile.label
+            ),
         ));
     }
     static_inputs
         .iter()
         .zip(input_series.iter())
-        .zip(assembly.inputs.iter())
+        .zip(variables.iter())
         .map(|((input, series_index), variable)| {
             let Some(series_index) = series_index else {
                 return Ok(input.clone());
             };
             let series = series.get(*series_index).ok_or_else(|| {
                 SolverFailure::new(
-                    "E-DYNAMIC-COMPONENT-SOURCE-INPUT-LAYOUT",
-                    "dynamic component input TimeSeries index is outside the runtime series table",
+                    profile.layout_code,
+                    format!(
+                        "{} input TimeSeries index is outside the runtime series table",
+                        profile.label
+                    ),
                 )
             })?;
             let mut sampled = input.clone();
-            sampled.value = component_input_series_value(variable, series, time_s)?;
+            sampled.value = source_input_series_value(variable, series, time_s, profile)?;
             Ok(sampled)
         })
         .collect()
 }
 
-fn component_input_series_value(
+fn sampled_source_input_values(
+    static_inputs: &[f64],
+    input_series: &[Option<usize>],
+    series: &[RuntimeTimeSeries],
+    variables: &[UnknownVariable],
+    time_s: f64,
+    profile: SourceInputDiagnosticProfile,
+) -> Result<Vec<f64>, SolverFailure> {
+    if input_series.iter().all(Option::is_none) {
+        return Ok(static_inputs.to_vec());
+    }
+    if static_inputs.len() != input_series.len() || static_inputs.len() != variables.len() {
+        return Err(SolverFailure::new(
+            profile.layout_code,
+            format!(
+                "{} input TimeSeries layout does not match the assembly input layout",
+                profile.label
+            ),
+        ));
+    }
+    static_inputs
+        .iter()
+        .zip(input_series.iter())
+        .zip(variables.iter())
+        .map(|((input, series_index), variable)| {
+            let Some(series_index) = series_index else {
+                return Ok(*input);
+            };
+            let series = series.get(*series_index).ok_or_else(|| {
+                SolverFailure::new(
+                    profile.layout_code,
+                    format!(
+                        "{} input TimeSeries index is outside the runtime series table",
+                        profile.label
+                    ),
+                )
+            })?;
+            source_input_series_value(variable, series, time_s, profile)
+        })
+        .collect()
+}
+
+fn source_input_series_value(
     variable: &UnknownVariable,
     series: &RuntimeTimeSeries,
     time_s: f64,
+    profile: SourceInputDiagnosticProfile,
 ) -> Result<f64, SolverFailure> {
     if series.quantity_kind != variable.quantity_kind {
         return Err(SolverFailure::new(
-            "E-DYNAMIC-COMPONENT-SOURCE-INPUT-QTY",
+            profile.quantity_code,
             format!(
-                "dynamic component input `{}` expects {}, but TimeSeries `{}` is {}",
-                variable.name, variable.quantity_kind, series.name, series.quantity_kind
+                "{} input `{}` expects {}, but TimeSeries `{}` is {}",
+                profile.label,
+                variable.name,
+                variable.quantity_kind,
+                series.name,
+                series.quantity_kind
             ),
         ));
     }
     let value = interpolate_series_value(series, time_s).ok_or_else(|| {
         SolverFailure::new(
-            "E-DYNAMIC-COMPONENT-SOURCE-INPUT-SAMPLE",
+            profile.sample_code,
             format!(
-                "dynamic component input TimeSeries `{}` has no sample at t={time_s}",
-                series.name
+                "{} input TimeSeries `{}` has no sample at t={time_s}",
+                profile.label, series.name
             ),
         )
     })?;
@@ -6126,10 +6297,10 @@ fn component_input_series_value(
     )
     .map_err(|message| {
         SolverFailure::new(
-            "E-DYNAMIC-COMPONENT-SOURCE-INPUT-UNIT",
+            profile.unit_code,
             format!(
-                "dynamic component input `{}` could not convert TimeSeries `{}`: {message}",
-                variable.name, series.name
+                "{} input `{}` could not convert TimeSeries `{}`: {message}",
+                profile.label, variable.name, series.name
             ),
         )
     })
@@ -6438,6 +6609,9 @@ fn source_dae_parse_symbols(
     for variable in &assembly.algebraic_variables {
         symbols.insert(variable.name.clone(), 0.0);
     }
+    for variable in &assembly.inputs {
+        symbols.insert(variable.name.clone(), 0.0);
+    }
     insert_assembly_parameter_symbols(assembly, &mut symbols, Some(parameter_values))?;
     Ok(symbols)
 }
@@ -6525,6 +6699,7 @@ fn source_residual_evaluation_for_dae_sample(
             .mass_state_derivative
             .map_or(false, |values| values.len() != assembly.states.len())
         || sample.algebraic.len() != assembly.algebraic_variables.len()
+        || sample.inputs.len() != assembly.inputs.len()
         || (!sample.parameters.is_empty() && sample.parameters.len() != assembly.parameters.len())
     {
         return Err(SolverFailure::new(
@@ -6553,6 +6728,9 @@ fn source_residual_evaluation_for_dae_sample(
         .iter()
         .zip(sample.algebraic.iter().copied())
     {
+        symbols.insert(variable.name.clone(), value);
+    }
+    for (variable, value) in assembly.inputs.iter().zip(sample.inputs.iter().copied()) {
         symbols.insert(variable.name.clone(), value);
     }
     insert_assembly_parameter_symbols(assembly, &mut symbols, Some(sample.parameters))?;
@@ -6628,6 +6806,7 @@ fn source_residual_evaluation_for_dae_final(
     input: &DaeInput,
     mass_matrix: Option<&DaeMassMatrix>,
     solver_result: &SolverResult,
+    inputs: &[f64],
     tolerance: f64,
 ) -> Result<SourceResidualEvaluation, SolverFailure> {
     let state = solver_result
@@ -6672,7 +6851,7 @@ fn source_residual_evaluation_for_dae_final(
             state_derivative: &state_derivative,
             mass_state_derivative: mass_state_derivative.as_deref(),
             algebraic: &algebraic,
-            inputs: &[],
+            inputs,
             parameters: &input.parameters,
         },
         tolerance,
@@ -12230,6 +12409,72 @@ with {
         let json = eng_report::report_spec_json(&spec);
         assert!(json.contains("configured source mass matrix"));
         assert!(json.contains("\"convergence_status\": \"dae_converged\""));
+    }
+
+    #[test]
+    fn materializes_dae_source_solve_request_with_scalar_input() {
+        let source = r#"
+domain DaeDrivenScalar {
+    across x: DimensionlessNumber [1]
+    across z: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component DrivenDaeNode {
+    port node: DaeDrivenScalar
+    input drive: DimensionlessNumber [1] = 0
+    der(node.x) + node.x - drive eq 0
+    node.z - drive eq 0
+}
+
+system DaeInputSource {
+    node = DrivenDaeNode()
+    connect node.node to node.node
+}
+
+dae_result = solve component_graph
+with {
+    solver = implicit_euler_dae
+    timestep = 1 s
+    duration = 1 s
+    initial = 0.6
+    initial_derivative = 0
+    initial_algebraic = [0.6, 0]
+    inputs = 0.6
+    tolerance = 0.000000001
+    max_iter = 40
+}
+"#;
+        let report = check_source("dae_scalar_input.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.status, "computed");
+        assert_eq!(solution.method, "implicit_euler_dae_source_residual_graph");
+        assert_eq!(solution.convergence_status, "dae_converged");
+        assert!(solution.reason.contains("source input materialization"));
+        assert!(
+            solution
+                .variables
+                .iter()
+                .any(|variable| variable.name == "node.node.x"
+                    && (variable.value - 0.6).abs() <= 1e-9)
+        );
+        assert!(
+            solution
+                .variables
+                .iter()
+                .any(|variable| variable.name == "node.node.z"
+                    && (variable.value - 0.6).abs() <= 1e-9)
+        );
+        assert!(solution
+            .residuals
+            .iter()
+            .any(|residual| residual.expression.contains("node.drive")));
     }
 
     #[test]
