@@ -19,7 +19,7 @@ It exercises:
 Current support boundary:
 
 - this is a real numeric solve for a constrained linear Thermal graph;
-- nonlinear algebraic loops, fixed-point iteration, constructor arguments,
+- nonlinear algebraic loops, fixed-point iteration, broad typed constructor declarations/defaults,
   behavior-node solving, DAE coupling, dynamic components, and production
   multi-domain solving are outside this official example.
 

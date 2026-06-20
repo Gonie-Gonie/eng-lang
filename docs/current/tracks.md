@@ -324,7 +324,7 @@ Supported scoped slice:
   examples/official/32_small_thermal_fluid_loop with generated connection
   equations, component-local boundary seeds, pipe pressure/flow equations, dense
   linear residual solve artifacts, and largest-residual reporting
-- system-local name = Component() instances
+- system-local name = Component(...) instances with empty constructors or named literal arguments
 - connect instance.port to instance.port
 - generated connection equations plus literal boundary seeds and simple
   component-local equations
@@ -375,7 +375,7 @@ Not yet public-supported:
 ```text
 - production numeric multi-domain simulation
 - production pressure-drop packages
-- constructor parameters and broad nonlinear/unit-parameterized
+- broad typed constructor declarations/defaults and nonlinear/unit-parameterized
   component-local equation solving
 - general boundary-condition/component-behavior solving
 - domain package registry

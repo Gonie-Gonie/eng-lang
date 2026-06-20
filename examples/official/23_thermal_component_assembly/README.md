@@ -19,7 +19,7 @@ It exercises:
 Current support boundary:
 
 - this is a real numeric solve for a constrained linear boundary graph;
-- constructor arguments, general non-linear component-local equations, nonlinear
+- broad typed constructor declarations/defaults, general non-linear component-local equations, nonlinear
   iteration, DAE coupling, adaptive component dynamics, and production
   multi-domain solving are outside this official example.
 

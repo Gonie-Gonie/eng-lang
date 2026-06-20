@@ -5036,18 +5036,6 @@ fn analyze_component_instance_binding(
     let Some((template_name, arguments)) = component_constructor_call(&binding.expression) else {
         return ComponentInstanceBindingAnalysis::NotComponentConstructor;
     };
-    if !arguments.is_empty() {
-        diagnostics.push(Diagnostic::error(
-            "E-COMPONENT-INSTANCE-ARGS",
-            binding.line,
-            &format!(
-                "Component instance `{}` calls `{template_name}` with arguments, which is not supported.",
-                binding.name
-            ),
-            Some("Use `name = Component()`; parameterized component constructors are not supported yet."),
-        ));
-        return ComponentInstanceBindingAnalysis::HandledInvalid;
-    }
     if existing_instances
         .iter()
         .any(|instance| instance.name == binding.name)
@@ -5076,10 +5064,172 @@ fn analyze_component_instance_binding(
         return ComponentInstanceBindingAnalysis::HandledInvalid;
     };
 
+    let Some(arguments) = parse_component_constructor_arguments(
+        &binding.name,
+        &template_name,
+        &arguments,
+        binding.line,
+        diagnostics,
+    ) else {
+        return ComponentInstanceBindingAnalysis::HandledInvalid;
+    };
+    let Some(instance) = instantiate_component_template(template, binding, &arguments, diagnostics)
+    else {
+        return ComponentInstanceBindingAnalysis::HandledInvalid;
+    };
+    ComponentInstanceBindingAnalysis::Instance(instance)
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ComponentConstructorArgument {
+    name: String,
+    value: String,
+}
+
+fn parse_component_constructor_arguments(
+    instance_name: &str,
+    template_name: &str,
+    arguments: &str,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<Vec<ComponentConstructorArgument>> {
+    let arguments = arguments.trim();
+    if arguments.is_empty() {
+        return Some(Vec::new());
+    }
+    let mut parsed = Vec::new();
+    let mut seen = HashSet::new();
+    for raw_argument in split_component_constructor_arguments(arguments) {
+        let Some((name, value)) = raw_argument.split_once('=') else {
+            diagnostics.push(Diagnostic::error(
+                "E-COMPONENT-INSTANCE-ARGS",
+                line,
+                &format!(
+                    "Component instance `{instance_name}` calls `{template_name}` with positional arguments, which are not supported."
+                ),
+                Some("Use named literal arguments such as `drop = PipeRun(dp=20000 Pa)`."),
+            ));
+            return None;
+        };
+        let name = name.trim();
+        let value = value.trim();
+        if !is_identifier(name) || value.is_empty() {
+            diagnostics.push(Diagnostic::error(
+                "E-COMPONENT-INSTANCE-ARGS",
+                line,
+                &format!(
+                    "Component instance `{instance_name}` has invalid constructor argument `{raw_argument}`."
+                ),
+                Some("Use `name=value` arguments with identifier names and non-empty values."),
+            ));
+            return None;
+        }
+        if !seen.insert(name.to_owned()) {
+            diagnostics.push(Diagnostic::error(
+                "E-COMPONENT-INSTANCE-ARGS",
+                line,
+                &format!(
+                    "Component instance `{instance_name}` repeats constructor argument `{name}`."
+                ),
+                Some("Pass each named component constructor argument at most once."),
+            ));
+            return None;
+        }
+        parsed.push(ComponentConstructorArgument {
+            name: name.to_owned(),
+            value: value.to_owned(),
+        });
+    }
+    Some(parsed)
+}
+
+fn split_component_constructor_arguments(arguments: &str) -> Vec<&str> {
+    arguments
+        .split(',')
+        .map(str::trim)
+        .filter(|argument| !argument.is_empty())
+        .collect()
+}
+
+fn instantiate_component_template(
+    template: &ComponentInfo,
+    binding: &crate::ast::FastBinding,
+    arguments: &[ComponentConstructorArgument],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<ComponentInfo> {
     let mut instance = template.clone();
     instance.name = binding.name.clone();
     instance.line = binding.line;
-    ComponentInstanceBindingAnalysis::Instance(instance)
+    if arguments.is_empty() {
+        return Some(instance);
+    }
+
+    let mut used_arguments = HashSet::new();
+    for local in &mut instance.local_expressions {
+        local.expression = substitute_component_constructor_arguments(
+            &local.expression,
+            arguments,
+            &mut used_arguments,
+        );
+    }
+    let unused_arguments = arguments
+        .iter()
+        .filter(|argument| !used_arguments.contains(argument.name.as_str()))
+        .map(|argument| argument.name.as_str())
+        .collect::<Vec<_>>();
+    if !unused_arguments.is_empty() {
+        diagnostics.push(Diagnostic::error(
+            "E-COMPONENT-INSTANCE-ARGS",
+            binding.line,
+            &format!(
+                "Component instance `{}` passes unused constructor argument(s): {}.",
+                binding.name,
+                unused_arguments.join(", ")
+            ),
+            Some("Pass only argument names referenced by component-local boundary or equation seeds."),
+        ));
+        return None;
+    }
+    Some(instance)
+}
+
+fn substitute_component_constructor_arguments(
+    expression: &str,
+    arguments: &[ComponentConstructorArgument],
+    used_arguments: &mut HashSet<String>,
+) -> String {
+    let mut output = String::with_capacity(expression.len());
+    let mut chars = expression.char_indices().peekable();
+    while let Some((start, character)) = chars.next() {
+        if !is_identifier_start_character(character) {
+            output.push(character);
+            continue;
+        }
+        let mut end = start + character.len_utf8();
+        while let Some((next_index, next_character)) = chars.peek().copied() {
+            if !is_identifier_continue_character(next_character) {
+                break;
+            }
+            chars.next();
+            end = next_index + next_character.len_utf8();
+        }
+        let token = &expression[start..end];
+        if let Some(argument) = arguments.iter().find(|argument| argument.name == token) {
+            output.push_str(&argument.value);
+            used_arguments.insert(argument.name.clone());
+        } else {
+            output.push_str(token);
+        }
+    }
+    output
+}
+
+fn is_identifier_start_character(character: char) -> bool {
+    character.is_ascii_alphabetic() || character == '_'
+}
+
+fn is_identifier_continue_character(character: char) -> bool {
+    character.is_ascii_alphanumeric() || character == '_'
 }
 
 fn component_constructor_call(expression: &str) -> Option<(String, String)> {

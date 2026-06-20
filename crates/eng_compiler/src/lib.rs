@@ -5050,6 +5050,24 @@ mod tests {
     }
 
     #[test]
+    fn accepts_named_component_constructor_arguments() {
+        let report = check_source(
+            "ok.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n    boundary_T = heat.T = T_room\n    boundary_Q = heat.Q = Q_room\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\nsystem Envelope {\n    room = RoomBoundary(T_room=22 degC, Q_room=1 kW)\n    ambient = AmbientBoundary()\n    connect room.heat to ambient.heat\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let assembly = &report.semantic_program.component_assemblies[0];
+        assert!(assembly.equations.iter().any(|equation| {
+            equation.kind == "component_boundary" && equation.expression == "room.heat.T eq 22 degC"
+        }));
+        assert!(assembly.equations.iter().any(|equation| {
+            equation.kind == "component_boundary" && equation.expression == "room.heat.Q eq 1 kW"
+        }));
+    }
+
+    #[test]
     fn rejects_unsupported_system_component_constructor_shapes() {
         let unknown = check_source(
             "bad.eng",
@@ -5069,6 +5087,28 @@ mod tests {
         );
         assert!(with_args.has_errors());
         assert!(with_args
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-COMPONENT-INSTANCE-ARGS"));
+
+        let unused_arg = check_source(
+            "bad.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n    boundary_T = heat.T = 22 degC\n}\n\nsystem Envelope {\n    room = RoomBoundary(unused=1 kW)\n}\n",
+            &CheckOptions::default(),
+        );
+        assert!(unused_arg.has_errors());
+        assert!(unused_arg
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-COMPONENT-INSTANCE-ARGS"));
+
+        let duplicate_arg = check_source(
+            "bad.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n    boundary_T = heat.T = T_room\n}\n\nsystem Envelope {\n    room = RoomBoundary(T_room=22 degC, T_room=23 degC)\n}\n",
+            &CheckOptions::default(),
+        );
+        assert!(duplicate_arg.has_errors());
+        assert!(duplicate_arg
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-COMPONENT-INSTANCE-ARGS"));

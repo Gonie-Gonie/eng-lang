@@ -81,7 +81,7 @@ official/22_state_space_continuous
 
 official/23_thermal_component_assembly
   Supported system-local component instance example with
-  `name = Component()`, `connect instance.port to instance.port`, generated
+  `name = Component(...)`, `connect instance.port to instance.port`, generated
   connection equations, one boundary seed, one direct component-local equation,
   and a square dense linear residual solve artifact for a constrained Thermal
   graph.

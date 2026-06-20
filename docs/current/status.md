@@ -146,7 +146,8 @@ by the stable breaking-change policy.
   nonlinear, DAE, discrete adaptive, broad adaptive, and component-coupled
   state-space solving remain planned or internal.
 - Thermal component boundary assembly: component templates with ports,
-  system-local `name = Component()` instances, `connect instance.port to
+  system-local `name = Component(...)` instances with empty constructors or
+  named literal arguments for boundary/equation seeds, `connect instance.port to
   instance.port`, generated Thermal across/through equations,
   component-local `name = port.signal = literal` boundary seeds, direct
   `port.signal eq literal` and simple linear port-signal equations, square
@@ -163,13 +164,16 @@ by the stable breaking-change policy.
   deterministic external adapter identity wrappers are covered by
   `examples/official/29_delay_component_solver`,
   `examples/official/30_predictor_component_solver`, and
-  `examples/official/31_external_behavior_solver`. Constructor arguments, broad nonlinear or
+  `examples/official/31_external_behavior_solver`. Broad typed constructor
+  declarations/defaults, broad nonlinear or
   unit-parameterized component-local equations, broad fixed-point/nonlinear
   source solving, behavior-node solving, broad nonlinear/DAE coupling,
   adaptive component timestepping, and production multi-domain solving remain
   planned or internal. A constrained Thermal/Fluid[Water] square algebraic
   residual graph solve is covered separately by
-  `examples/official/32_small_thermal_fluid_loop`; it uses the public `Pressure [Pa]` quantity and a fixed pipe pressure-drop seed, but does not claim a broad or production multi-domain simulator.
+  `examples/official/32_small_thermal_fluid_loop`; it uses the public `Pressure [Pa]` quantity and named literal constructor arguments
+  for pump and pipe seeds, but does not claim a broad or production
+  multi-domain simulator.
 - Class/domain object authoring for typed fields/defaults, object literals,
   nested object references, field access metadata, simple validation blocks,
   zero-argument metadata methods, immutable copy-with metadata, diagnostics,
@@ -354,7 +358,7 @@ are not public stable workflows.
   fixed-step vector simulation path.
 - Component graph solving beyond the constrained Thermal boundary assembly and
   constrained Thermal/Fluid[Water] pressure/flow algebraic residual solve:
-  constructor parameters, nonlinear or unit-parameterized component behavior
+  broad typed constructor declarations/defaults, nonlinear or unit-parameterized component behavior
   equations, mixed algebraic/dynamic variables, nonlinear/DAE coupling,
   production pressure-drop packages, and physical multi-domain coupling.
 - Behavior graph integration for delay, Predictor, and external behavior
