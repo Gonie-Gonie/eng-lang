@@ -26,6 +26,8 @@ pub struct NewtonResult {
     pub values: Vec<f64>,
     pub residual_history: Vec<f64>,
     pub line_search_history: Vec<NewtonLineSearchStep>,
+    pub linear_step_history: Vec<NewtonLinearStep>,
+    pub jacobian_policy: String,
     pub largest_residual: Option<NewtonLargestResidual>,
     pub iteration_count: usize,
     pub convergence_status: String,
@@ -47,6 +49,16 @@ pub struct NewtonLineSearchStep {
     pub residual_norm: f64,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct NewtonLinearStep {
+    pub iteration: usize,
+    pub residual_norm: f64,
+    pub status: String,
+    pub linear_condition_estimate: f64,
+    pub linear_minimum_pivot_abs: f64,
+    pub linear_maximum_pivot_abs: f64,
+}
+
 pub fn solve_newton<F>(
     initial: &[f64],
     options: &NewtonOptions,
@@ -59,6 +71,7 @@ where
         initial,
         options,
         residual,
+        "finite_difference",
         |values, baseline_residuals, options, residual| {
             finite_difference_jacobian(values, baseline_residuals, options, residual)
         },
@@ -79,6 +92,7 @@ where
         initial,
         options,
         residual,
+        "provided",
         |values, baseline_residuals, _options, _residual| jacobian(values, baseline_residuals),
     )
 }
@@ -87,6 +101,7 @@ fn solve_newton_core<F, J>(
     initial: &[f64],
     options: &NewtonOptions,
     mut residual: F,
+    jacobian_policy: &str,
     mut jacobian: J,
 ) -> Result<NewtonResult, SolverFailure>
 where
@@ -101,11 +116,14 @@ where
     let mut residual_norm = norm(&residual_values);
     let mut residual_history = vec![residual_norm];
     let mut line_search_history = Vec::new();
+    let mut linear_step_history = Vec::new();
     if residual_norm <= options.tolerance {
         return Ok(build_newton_result(
             values,
             residual_history,
             line_search_history,
+            linear_step_history,
+            jacobian_policy,
             0,
             "newton_converged",
             None,
@@ -120,13 +138,15 @@ where
             .iter()
             .map(|value| -value)
             .collect::<Vec<_>>();
-        let step = match solve_dense_linear_system(&jacobian, &rhs, options.tolerance) {
-            Ok(linear) => linear.values,
+        let linear = match solve_dense_linear_system(&jacobian, &rhs, options.tolerance) {
+            Ok(linear) => linear,
             Err(failure) => {
                 return Ok(build_newton_result(
                     values,
                     residual_history.clone(),
                     line_search_history.clone(),
+                    linear_step_history.clone(),
+                    jacobian_policy,
                     iteration,
                     "newton_linear_solve_failed",
                     Some(failure),
@@ -134,6 +154,15 @@ where
                 ));
             }
         };
+        linear_step_history.push(NewtonLinearStep {
+            iteration,
+            residual_norm: linear.residual_norm,
+            status: linear.status.clone(),
+            linear_condition_estimate: linear.diagnostics.pivot_condition_estimate,
+            linear_minimum_pivot_abs: linear.diagnostics.minimum_pivot_abs,
+            linear_maximum_pivot_abs: linear.diagnostics.maximum_pivot_abs,
+        });
+        let step = linear.values;
         let accepted = match damped_step(&values, &step, residual_norm, options, &mut residual) {
             Ok(accepted) => accepted,
             Err(failure) => {
@@ -141,6 +170,8 @@ where
                     values,
                     residual_history.clone(),
                     line_search_history.clone(),
+                    linear_step_history.clone(),
+                    jacobian_policy,
                     iteration,
                     "newton_line_search_failed",
                     Some(failure),
@@ -164,6 +195,8 @@ where
                 values,
                 residual_history,
                 line_search_history.clone(),
+                linear_step_history.clone(),
+                jacobian_policy,
                 iteration,
                 "newton_converged",
                 None,
@@ -176,6 +209,8 @@ where
         values,
         residual_history,
         line_search_history,
+        linear_step_history,
+        jacobian_policy,
         options.max_iterations,
         "newton_not_converged",
         Some(SolverFailure::new(
@@ -193,6 +228,8 @@ fn build_newton_result(
     values: Vec<f64>,
     residual_history: Vec<f64>,
     line_search_history: Vec<NewtonLineSearchStep>,
+    linear_step_history: Vec<NewtonLinearStep>,
+    jacobian_policy: &str,
     iteration_count: usize,
     convergence_status: &str,
     failure: Option<SolverFailure>,
@@ -202,6 +239,8 @@ fn build_newton_result(
         values,
         residual_history,
         line_search_history,
+        linear_step_history,
+        jacobian_policy: jacobian_policy.to_owned(),
         largest_residual: largest_residual(residual_values),
         iteration_count,
         convergence_status: convergence_status.to_owned(),
@@ -456,6 +495,9 @@ mod tests {
         .unwrap();
 
         assert_eq!(result.convergence_status, "newton_converged");
+        assert_eq!(result.jacobian_policy, "finite_difference");
+        assert!(!result.linear_step_history.is_empty());
+        assert!(result.linear_step_history[0].linear_condition_estimate >= 1.0);
         assert!(result.failure.is_none());
         assert!((result.values[0] - 2.0_f64.sqrt()).abs() < 1e-7);
         assert!(result.residual_history.last().copied().unwrap() <= 1e-9);
@@ -515,6 +557,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(result.convergence_status, "newton_converged");
+        assert_eq!(result.jacobian_policy, "provided");
         assert!(jacobian_calls > 0);
         assert!((result.values[0] - 2.0_f64.sqrt()).abs() < 1e-7);
     }

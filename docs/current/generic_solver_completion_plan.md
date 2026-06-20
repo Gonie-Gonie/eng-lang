@@ -132,7 +132,7 @@ Tasks:
 
 - Detect linear, fixed-point-capable, and nonlinear residual graph shapes from shared IR.
 - Add variable scale policy, residual scale overrides, and largest-normalized-residual summaries.
-- Route supplied analytic/source-linear Jacobian, finite-difference Jacobian, and future JIT Jacobian through one policy.
+- Route supplied analytic/source-linear Jacobian, finite-difference Jacobian, and future JIT Jacobian through one policy; finite-difference/source-linear policy labels and dense linear Newton-step diagnostics are now carried through solver/runtime/report artifacts, while future JIT Jacobian selection remains planned.
 - Keep line-search controls and diagnostics wired through solver/runtime/report artifacts; keep singular/ill-conditioned dense-linear pivot diagnostics visible in solver/runtime/report artifacts; add trust-region controls and broader nonconvergence artifacts.
 - Support coupled unitful variables beyond the current HeatRate smoke.
 
@@ -274,6 +274,7 @@ Evidence gate:
 - State-space vector declarations now validate member roles before operator compatibility checks, preventing role-incompatible state/input/output vectors from being treated as shape-compatible solver inputs.
 - Newton solver results now retain accepted line-search scale and trial-count diagnostics per iteration, and runtime/report component solver step diagnostics expose that metadata for source Newton and DAE implicit-step Newton solves.
 - Dense linear solves now distinguish exact zero-pivot singular failures from tolerance-level ill-conditioned pivot failures, retain min/max pivot magnitudes plus a pivot-condition estimate on successful solves, and expose those diagnostics through linear residual graph and component solver report artifacts.
+- Newton results now retain the Jacobian policy label and per-iteration dense-linear step diagnostics, and source Newton/implicit-Euler DAE component step diagnostics expose those fields in report-spec artifacts.
 
 ## Done Criteria
 

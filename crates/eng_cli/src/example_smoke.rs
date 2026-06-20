@@ -684,6 +684,15 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 )
                 || !output.result_json.contains("\"value\": 2.000")
                 || !output.result_json.contains("\"step_diagnostics\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"jacobian_policy\": \"finite_difference\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"linear_condition_estimate\":")
+                || !output
+                    .report_spec_json
+                    .contains("\"linear_minimum_pivot_abs\":")
                 || !output.result_json.contains("\"largest_residuals\"")
                 || !output.result_json.contains("\"expression_unit\": \"kW\"")
                 || !output
@@ -740,6 +749,12 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"role\": \"state\"")
                 || !output.result_json.contains("\"role\": \"algebraic\"")
                 || !output.result_json.contains("\"step_diagnostics\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"jacobian_policy\": \"finite_difference\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"linear_condition_estimate\":")
                 || !output.result_json.contains("\"largest_residuals\"")
                 || !output
                     .report_spec_json
@@ -989,6 +1004,12 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"value\": 302.500")
                 || !output.result_json.contains("\"value\": 299.444")
                 || !output.result_json.contains("\"step_diagnostics\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"jacobian_policy\": \"finite_difference\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"linear_condition_estimate\":")
                 || !output.result_json.contains("\"largest_residuals\"")
                 || !output
                     .report_html

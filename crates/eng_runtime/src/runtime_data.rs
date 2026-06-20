@@ -1556,6 +1556,10 @@ impl RuntimeComponentSolution {
                 residual_norm: diagnostic.residual_norm,
                 line_search_scale: None,
                 line_search_trial_count: None,
+                jacobian_policy: None,
+                linear_condition_estimate: None,
+                linear_minimum_pivot_abs: None,
+                linear_maximum_pivot_abs: None,
                 convergence_status: diagnostic.convergence_status.clone(),
                 failure_artifact: diagnostic.failure.as_ref().map(|failure| {
                     RuntimeSolverFailureArtifact {
@@ -1711,6 +1715,10 @@ impl RuntimeComponentSolution {
                     residual_norm: diagnostic.residual_norm,
                     line_search_scale: diagnostic.line_search_scale,
                     line_search_trial_count: diagnostic.line_search_trial_count,
+                    jacobian_policy: diagnostic.jacobian_policy.clone(),
+                    linear_condition_estimate: diagnostic.linear_condition_estimate,
+                    linear_minimum_pivot_abs: diagnostic.linear_minimum_pivot_abs,
+                    linear_maximum_pivot_abs: diagnostic.linear_maximum_pivot_abs,
                     convergence_status: diagnostic.convergence_status.clone(),
                     failure_artifact: diagnostic.failure_artifact.as_ref().map(|failure| {
                         ReportSolverFailureArtifact {
@@ -1824,6 +1832,10 @@ pub struct RuntimeComponentStepDiagnostic {
     pub residual_norm: f64,
     pub line_search_scale: Option<f64>,
     pub line_search_trial_count: Option<usize>,
+    pub jacobian_policy: Option<String>,
+    pub linear_condition_estimate: Option<f64>,
+    pub linear_minimum_pivot_abs: Option<f64>,
+    pub linear_maximum_pivot_abs: Option<f64>,
     pub convergence_status: String,
     pub failure_artifact: Option<RuntimeSolverFailureArtifact>,
 }
@@ -3406,7 +3418,7 @@ fn nonlinear_component_solution_from_solve_request(
         })
     };
 
-    let newton = match solve_result {
+    let mut newton = match solve_result {
         Ok(result) => result,
         Err(failure) => {
             return failed_source_component_solution(
@@ -3420,6 +3432,9 @@ fn nonlinear_component_solution_from_solve_request(
             );
         }
     };
+    if jacobian_policy == "source_linear_terms" {
+        newton.jacobian_policy = jacobian_policy.to_owned();
+    }
     let method_name = if jacobian_policy == "source_linear_terms" {
         "newton_source_residual_graph_with_provided_jacobian"
     } else {
@@ -3912,6 +3927,23 @@ fn dae_component_solution_from_solve_request(
                 .line_search_history
                 .last()
                 .map(|step| step.trial_count),
+            jacobian_policy: (report.newton.iteration_count > 0)
+                .then(|| report.newton.jacobian_policy.clone()),
+            linear_condition_estimate: report
+                .newton
+                .linear_step_history
+                .last()
+                .map(|step| step.linear_condition_estimate),
+            linear_minimum_pivot_abs: report
+                .newton
+                .linear_step_history
+                .last()
+                .map(|step| step.linear_minimum_pivot_abs),
+            linear_maximum_pivot_abs: report
+                .newton
+                .linear_step_history
+                .last()
+                .map(|step| step.linear_maximum_pivot_abs),
             convergence_status: report.newton.convergence_status.clone(),
             failure_artifact: report.newton.failure.as_ref().map(|failure| {
                 RuntimeSolverFailureArtifact {
@@ -4169,6 +4201,10 @@ fn behavior_dynamic_component_solution_from_solve_request(
                         residual_norm: 0.0,
                         line_search_scale: None,
                         line_search_trial_count: None,
+                        jacobian_policy: None,
+                        linear_condition_estimate: None,
+                        linear_minimum_pivot_abs: None,
+                        linear_maximum_pivot_abs: None,
                         convergence_status: format!("behavior_graph_{}", behavior.status),
                         failure_artifact: None,
                     });
@@ -5646,6 +5682,22 @@ fn newton_residual_history_diagnostics(
                 .iter()
                 .find(|step| step.iteration == index)
                 .map(|step| step.trial_count),
+            jacobian_policy: (index > 0).then(|| newton.jacobian_policy.clone()),
+            linear_condition_estimate: newton
+                .linear_step_history
+                .iter()
+                .find(|step| step.iteration == index)
+                .map(|step| step.linear_condition_estimate),
+            linear_minimum_pivot_abs: newton
+                .linear_step_history
+                .iter()
+                .find(|step| step.iteration == index)
+                .map(|step| step.linear_minimum_pivot_abs),
+            linear_maximum_pivot_abs: newton
+                .linear_step_history
+                .iter()
+                .find(|step| step.iteration == index)
+                .map(|step| step.linear_maximum_pivot_abs),
             convergence_status: if index + 1 == newton.residual_history.len() {
                 newton.convergence_status.clone()
             } else {
@@ -5677,6 +5729,10 @@ fn fixed_point_residual_history_diagnostics(
             residual_norm: *residual_norm,
             line_search_scale: None,
             line_search_trial_count: None,
+            jacobian_policy: None,
+            linear_condition_estimate: None,
+            linear_minimum_pivot_abs: None,
+            linear_maximum_pivot_abs: None,
             convergence_status: if index + 1 == residual_history.len() {
                 convergence_status.to_owned()
             } else {
@@ -10750,6 +10806,15 @@ with {
                 trial_count: 3,
                 residual_norm: 0.5,
             }],
+            linear_step_history: vec![crate::solver::NewtonLinearStep {
+                iteration: 1,
+                residual_norm: 0.0,
+                status: "converged".to_owned(),
+                linear_condition_estimate: 1.5,
+                linear_minimum_pivot_abs: 2.0,
+                linear_maximum_pivot_abs: 3.0,
+            }],
+            jacobian_policy: "provided".to_owned(),
             largest_residual: None,
             iteration_count: 1,
             convergence_status: "newton_not_converged".to_owned(),
@@ -10762,6 +10827,10 @@ with {
         assert_eq!(diagnostics[0].line_search_scale, None);
         assert_eq!(diagnostics[1].line_search_scale, Some(0.25));
         assert_eq!(diagnostics[1].line_search_trial_count, Some(3));
+        assert_eq!(diagnostics[1].jacobian_policy.as_deref(), Some("provided"));
+        assert_eq!(diagnostics[1].linear_condition_estimate, Some(1.5));
+        assert_eq!(diagnostics[1].linear_minimum_pivot_abs, Some(2.0));
+        assert_eq!(diagnostics[1].linear_maximum_pivot_abs, Some(3.0));
 
         let report_solution = RuntimeComponentSolution {
             assembly: "component_graph".to_owned(),
@@ -10794,6 +10863,16 @@ with {
         assert_eq!(
             report_solution.step_diagnostics[1].line_search_trial_count,
             Some(3)
+        );
+        assert_eq!(
+            report_solution.step_diagnostics[1]
+                .jacobian_policy
+                .as_deref(),
+            Some("provided")
+        );
+        assert_eq!(
+            report_solution.step_diagnostics[1].linear_condition_estimate,
+            Some(1.5)
         );
     }
     #[test]

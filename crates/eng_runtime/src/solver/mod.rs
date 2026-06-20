@@ -65,7 +65,7 @@ pub use algorithms::linear::{
 };
 pub use algorithms::nonlinear::{
     solve_newton, solve_newton_with_jacobian, NewtonLargestResidual, NewtonLineSearchStep,
-    NewtonOptions, NewtonResult,
+    NewtonLinearStep, NewtonOptions, NewtonResult,
 };
 pub use behavior::{
     BehaviorExecutionProfile, BehaviorGraphEvaluation, BehaviorGraphRhsAdapter,

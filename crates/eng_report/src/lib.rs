@@ -647,6 +647,10 @@ pub struct ReportComponentSolverStepDiagnostic {
     pub residual_norm: f64,
     pub line_search_scale: Option<f64>,
     pub line_search_trial_count: Option<usize>,
+    pub jacobian_policy: Option<String>,
+    pub linear_condition_estimate: Option<f64>,
+    pub linear_minimum_pivot_abs: Option<f64>,
+    pub linear_maximum_pivot_abs: Option<f64>,
     pub convergence_status: String,
     pub failure_artifact: Option<ReportSolverFailureArtifact>,
 }
@@ -5157,6 +5161,30 @@ fn push_report_component_solver_result_json(
                 "{indent}      \"line_search_trial_count\": null,\n"
             )),
         }
+        push_optional_json_string(
+            json,
+            "jacobian_policy",
+            diagnostic.jacobian_policy.as_deref(),
+            indent.len() + 6,
+        );
+        push_optional_json_f64(
+            json,
+            "linear_condition_estimate",
+            diagnostic.linear_condition_estimate,
+            indent.len() + 6,
+        );
+        push_optional_json_f64(
+            json,
+            "linear_minimum_pivot_abs",
+            diagnostic.linear_minimum_pivot_abs,
+            indent.len() + 6,
+        );
+        push_optional_json_f64(
+            json,
+            "linear_maximum_pivot_abs",
+            diagnostic.linear_maximum_pivot_abs,
+            indent.len() + 6,
+        );
         json.push_str(&format!(
             "{indent}      \"convergence_status\": \"{}\",\n",
             json_escape(&diagnostic.convergence_status)
