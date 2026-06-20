@@ -146,32 +146,43 @@ by the stable breaking-change policy.
   nonlinear, DAE, discrete adaptive, broad adaptive, and component-coupled
   state-space solving remain planned or internal.
 - Thermal component boundary assembly: component templates with ports,
-  system-local `name = Component(...)` instances with empty constructors or declared numeric/importable-const/pure-arithmetic component parameter defaults plus named or declaration-order positional constructor overrides for boundary/equation seeds, machine-readable constructor and parameter provenance, `connect instance.port to instance.port`, generated
-  Thermal across/through equations,
-  component-local `name = port.signal = literal` boundary seeds, direct
-  `port.signal eq literal` and simple linear port-signal equations with compiler
-  diagnostics for incompatible unitful constants, square
-  dense linear residual solve artifacts for
+  system-local `name = Component(...)` instances with empty constructors or
+  declared numeric/importable-const/pure-arithmetic component parameter defaults
+  plus named or declaration-order positional constructor overrides for
+  boundary/equation seeds, machine-readable constructor and parameter
+  provenance, `connect instance.port to instance.port`, generated Thermal
+  across/through equations, component-local `name = port.signal = literal`
+  boundary seeds, direct `port.signal eq literal`, and simple linear
+  port-signal equations including unit-parameterized linear coefficient forms
+  such as Conductance * TemperatureDelta across compatible residual display
+  units, with compiler diagnostics for incompatible unitful constants. Square
+  dense linear residual solve artifacts are covered by
   `examples/official/23_thermal_component_assembly` and the source-to-solver
-  `examples/official/24_linear_algebraic_thermal_node`, and a narrow explicit
-  fixed-point source solve over linear ResidualGraph equations in
-  `examples/official/25_fixed_point_loop`, and a simple-linear dynamic
-  component source solve in `examples/official/26_dynamic_component_room`.
-  Narrow coupled multi-variable unitful source Newton and multi-state unitful temperature implicit-Euler DAE component residual
-  smokes are covered by `examples/official/27_nonlinear_algebraic` and
-  `examples/official/28_small_dae`. Narrow unitful temperature explicit-Euler source behavior RHS
-  smokes for delay, deterministic Predictor identity wrappers, and
-  deterministic external adapter identity wrappers are covered by
+  `examples/official/24_linear_algebraic_thermal_node`; a narrow explicit
+  fixed-point source solve over linear ResidualGraph equations is covered by
+  `examples/official/25_fixed_point_loop`; and a simple-linear dynamic
+  component source solve is covered by
+  `examples/official/26_dynamic_component_room`. Narrow coupled multi-variable
+  unitful source Newton and multi-state unitful temperature implicit-Euler DAE
+  component residual smokes are covered by
+  `examples/official/27_nonlinear_algebraic` and
+  `examples/official/28_small_dae`. Narrow unitful temperature explicit-Euler
+  source behavior RHS smokes for delay, deterministic Predictor identity
+  wrappers, and deterministic external adapter identity wrappers are covered by
   `examples/official/29_delay_component_solver`,
   `examples/official/30_predictor_component_solver`, and
-  `examples/official/31_external_behavior_solver`. Broad args/object/non-arithmetic constructor bindings, broad nonlinear or
-  unit-parameterized component-local equations, broad fixed-point/nonlinear
-  source solving, behavior-node solving, broad nonlinear/DAE coupling,
-  adaptive component timestepping, and production multi-domain solving remain
-  planned or internal. A constrained Thermal/Fluid[Water] square algebraic
-  residual graph solve is covered separately by
-  `examples/official/32_small_thermal_fluid_loop`; it uses the public `Pressure [Pa]` quantity plus declared pump/pipe component parameters with numeric/importable-const/pure-arithmetic defaults plus named or declaration-order positional constructor overrides, but does not claim a broad or production
-  multi-domain simulator.
+  `examples/official/31_external_behavior_solver`. Broad args/object/non-arithmetic
+  constructor bindings, broad nonlinear, derivative-rich, affine display-unit,
+  or general compound-unit component-local equations, broad fixed-point/nonlinear
+  source solving, behavior-node solving, broad nonlinear/DAE coupling, adaptive
+  component timestepping, and production multi-domain solving remain planned or
+  internal. A constrained Thermal/Fluid[Water] square algebraic residual graph
+  solve is covered separately by
+  `examples/official/32_small_thermal_fluid_loop`; it uses the public
+  `Pressure [Pa]` quantity plus declared pump/pipe component parameters with
+  numeric/importable-const/pure-arithmetic defaults plus named or
+  declaration-order positional constructor overrides, but does not claim a broad
+  or production multi-domain simulator.
 - Class/domain object authoring for typed fields/defaults, object literals,
   nested object references, field access metadata, simple validation blocks,
   zero-argument metadata methods, immutable copy-with metadata, diagnostics,
@@ -356,7 +367,7 @@ are not public stable workflows.
   fixed-step vector simulation path.
 - Component graph solving beyond the constrained Thermal boundary assembly and
   constrained Thermal/Fluid[Water] pressure/flow algebraic residual solve:
-  broad args/object/non-arithmetic constructor bindings, nonlinear or unit-parameterized component behavior
+  broad args/object/non-arithmetic constructor bindings, nonlinear, derivative-rich, affine display-unit, or general compound-unit component behavior
   equations, mixed algebraic/dynamic variables, nonlinear/DAE coupling,
   production pressure-drop packages, and physical multi-domain coupling.
 - Behavior graph integration for delay, Predictor, and external behavior

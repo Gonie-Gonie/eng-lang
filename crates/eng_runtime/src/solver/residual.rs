@@ -588,13 +588,66 @@ fn dynamic_constant_symbols(
             }
             symbols.insert(
                 name.clone(),
-                convert_residual_constant(alias.value, &alias.unit, residual_unit)?,
+                convert_residual_parameter_constant(alias.value, &alias.unit, residual_unit)?,
             );
         }
     }
     Ok(symbols)
 }
 
+fn convert_residual_parameter_constant(
+    value: f64,
+    source_unit: &str,
+    residual_unit: Option<(&str, &str)>,
+) -> Result<f64, SolverFailure> {
+    let Some((target_unit, _quantity_kind)) = residual_unit else {
+        return Ok(value);
+    };
+    let Some(source_info) = residual_unit_info(source_unit) else {
+        return Err(unsupported_dynamic_linear_term(&format!(
+            "{value} {source_unit}"
+        )));
+    };
+    let Some(target_info) = residual_unit_info(target_unit) else {
+        return Err(unsupported_dynamic_linear_term(&format!(
+            "{value} {source_unit}"
+        )));
+    };
+    if normalize_unit(source_info.canonical_unit) == normalize_unit(target_info.canonical_unit) {
+        return convert_residual_constant(value, source_unit, residual_unit);
+    }
+    if let Some(converted) =
+        convert_residual_compound_parameter_numerator(value, source_info, target_unit, target_info)?
+    {
+        return Ok(converted);
+    }
+    Ok(value)
+}
+
+fn convert_residual_compound_parameter_numerator(
+    value: f64,
+    source_info: UnitInfo,
+    target_unit: &str,
+    target_info: UnitInfo,
+) -> Result<Option<f64>, SolverFailure> {
+    let Some((source_numerator, _source_denominator)) = source_info.symbol.split_once('/') else {
+        return Ok(None);
+    };
+    let Some(source_numerator_info) = residual_unit_info(source_numerator.trim()) else {
+        return Ok(None);
+    };
+    if normalize_unit(source_numerator_info.canonical_unit)
+        != normalize_unit(target_info.canonical_unit)
+    {
+        return Ok(None);
+    }
+    convert_residual_constant(
+        value,
+        source_numerator_info.symbol,
+        Some((target_unit, target_info.quantity_hint)),
+    )
+    .map(Some)
+}
 fn expression_mentions_symbol(expression: &str, symbol: &str) -> bool {
     expression
         .split(|character: char| {
@@ -1482,6 +1535,81 @@ mod tests {
         assert_eq!(residual.terms[1].variable, "pipe.inlet.p");
         assert_eq!(residual.terms[1].coefficient, -1.0);
         assert_eq!(residual.rhs_value, -20000.0);
+    }
+    #[test]
+    fn component_equation_conductance_parameter_converts_numerator_to_residual_unit() {
+        let assembly = EquationAssembly {
+            name: "component_graph".to_owned(),
+            unknowns: vec![
+                UnknownVariable {
+                    name: "wall.inside.Q".to_owned(),
+                    role: "algebraic".to_owned(),
+                    quantity_kind: "HeatRate".to_owned(),
+                    unit: "kW".to_owned(),
+                    source: "Thermal.Q".to_owned(),
+                    status: "classified".to_owned(),
+                    value: None,
+                },
+                UnknownVariable {
+                    name: "wall.inside.T".to_owned(),
+                    role: "algebraic".to_owned(),
+                    quantity_kind: "AbsoluteTemperature".to_owned(),
+                    unit: "degC".to_owned(),
+                    source: "Thermal.T".to_owned(),
+                    status: "classified".to_owned(),
+                    value: None,
+                },
+                UnknownVariable {
+                    name: "wall.outside.T".to_owned(),
+                    role: "algebraic".to_owned(),
+                    quantity_kind: "AbsoluteTemperature".to_owned(),
+                    unit: "degC".to_owned(),
+                    source: "Thermal.T".to_owned(),
+                    status: "classified".to_owned(),
+                    value: None,
+                },
+            ],
+            parameters: vec![UnknownVariable {
+                name: "wall.UA".to_owned(),
+                role: "parameter".to_owned(),
+                quantity_kind: "Conductance".to_owned(),
+                unit: "W/K".to_owned(),
+                source: "component_parameter.Conductance".to_owned(),
+                status: "defaulted".to_owned(),
+                value: Some(500.0),
+            }],
+            generated_equations: vec![GeneratedEquation {
+                name: "wall.conductance".to_owned(),
+                kind: "component_equation".to_owned(),
+                residual: "wall.inside.Q - wall.UA * (wall.inside.T - wall.outside.T)".to_owned(),
+                dependencies: vec![
+                    "wall.inside.Q".to_owned(),
+                    "wall.inside.T".to_owned(),
+                    "wall.outside.T".to_owned(),
+                    "wall.UA".to_owned(),
+                ],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let graph = ResidualGraph::from_assembly(&assembly);
+        let residual = &graph.residuals[0];
+
+        assert_eq!(residual.terms.len(), 3);
+        assert_eq!(residual.terms[0].variable, "wall.inside.Q");
+        assert_eq!(residual.terms[0].coefficient, 1.0);
+        assert_eq!(residual.terms[1].variable, "wall.inside.T");
+        assert!((residual.terms[1].coefficient + 0.5).abs() <= 1e-12);
+        assert_eq!(residual.terms[2].variable, "wall.outside.T");
+        assert!((residual.terms[2].coefficient - 0.5).abs() <= 1e-12);
+
+        let output = <ResidualGraph as ResidualEvaluator>::evaluate(
+            &graph,
+            &ResidualInput::new(&[5.0, 22.0, 12.0]),
+        )
+        .unwrap();
+        assert!(output.values[0].value.abs() <= 1e-12);
     }
     #[test]
     fn residual_scales_use_quantity_unit_defaults() {

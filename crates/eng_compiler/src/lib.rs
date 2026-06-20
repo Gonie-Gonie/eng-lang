@@ -5443,6 +5443,53 @@ system Loop {
     }
 
     #[test]
+    fn accepts_unit_parameterized_component_equations() {
+        let source = r#"domain Thermal {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+component ZoneBoundary {
+    port heat: Thermal
+    boundary_T = heat.T = 22 degC
+}
+
+component OutdoorBoundary {
+    port heat: Thermal
+    boundary_T = heat.T = 12 degC
+}
+
+component WallConductance {
+    port inside: Thermal
+    port outside: Thermal
+    parameter UA: Conductance [W/K] = 500 W/K
+    inside.Q eq UA * (inside.T - outside.T)
+    outside.Q + inside.Q eq 0 kW
+}
+
+system Envelope {
+    zone = ZoneBoundary()
+    outdoor = OutdoorBoundary()
+    wall = WallConductance()
+    connect zone.heat to wall.inside
+    connect wall.outside to outdoor.heat
+}
+"#;
+        let report = check_source("ok.eng", source, &CheckOptions::default());
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let assembly = &report.semantic_program.component_assemblies[0];
+        assert!(assembly.equations.iter().any(|equation| {
+            equation.kind == "component_equation"
+                && equation.expression
+                    == "wall.inside.Q eq wall.UA * (wall.inside.T - wall.outside.T)"
+                && equation.residual == "wall.inside.Q - wall.UA * (wall.inside.T - wall.outside.T)"
+                && equation.dependencies.first().map(String::as_str) == Some("wall.inside.Q")
+                && equation.dependencies.contains(&"wall.UA".to_owned())
+        }));
+    }
+    #[test]
     fn rejects_incompatible_unitful_component_equation_constants() {
         let report = check_source(
             "bad.eng",

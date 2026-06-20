@@ -10762,6 +10762,58 @@ system FluidLoop {
         assert_eq!(pressure_drop.rhs_value, -20000.0);
     }
     #[test]
+    fn solves_unit_parameterized_component_equation_from_source() {
+        let source = r#"
+domain Thermal {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+component ZoneBoundary {
+    port heat: Thermal
+    boundary_T = heat.T = 22 degC
+}
+
+component OutdoorBoundary {
+    port heat: Thermal
+    boundary_T = heat.T = 12 degC
+}
+
+component WallConductance {
+    port inside: Thermal
+    port outside: Thermal
+    parameter UA: Conductance [W/K] = 500 W/K
+    inside.Q eq UA * (inside.T - outside.T)
+    outside.Q + inside.Q eq 0 kW
+}
+
+system Envelope {
+    zone = ZoneBoundary()
+    outdoor = OutdoorBoundary()
+    wall = WallConductance()
+    connect zone.heat to wall.inside
+    connect wall.outside to outdoor.heat
+}
+"#;
+        let report = check_source("wall_conductance.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let runtime = materialize_runtime_data(&report, source);
+        let solution = runtime
+            .component_solutions
+            .iter()
+            .find(|solution| solution.assembly == "component_graph")
+            .unwrap();
+
+        assert_eq!(solution.status, "solved_linear");
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "wall.inside.Q" && (variable.value - 5.0).abs() <= 1e-6
+        }));
+        assert!(solution.residuals.iter().any(|residual| {
+            residual.name == "wall.equation_1" && residual.value.abs() <= 1e-6
+        }));
+    }
+    #[test]
     fn source_residual_evaluation_uses_component_parameter_values() {
         let x = UnknownVariable {
             name: "x".to_owned(),

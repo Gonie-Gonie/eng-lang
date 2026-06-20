@@ -5678,12 +5678,7 @@ fn add_component_parameter_values(
 }
 
 fn divide_dimensions(left: &str, right: &str) -> String {
-    match (left, right) {
-        (left, "Dimensionless") => left.to_owned(),
-        ("Dimensionless", right) => format!("1/{right}"),
-        (left, right) if left == right => "Dimensionless".to_owned(),
-        (left, right) => format!("{left}/{right}"),
-    }
+    combine_dimensions(left, right, DimensionOperator::Divide)
 }
 
 fn component_parameter_expression_error(
@@ -7328,8 +7323,7 @@ fn component_local_equations(
                     None
                 }
             }));
-            dependencies.sort();
-            dependencies.dedup();
+            sort_component_equation_dependencies(&mut dependencies, &parameter_refs);
             if dependencies.is_empty() {
                 diagnostics.push(Diagnostic::error(
                     "E-COMPONENT-EQUATION-SIGNAL-001",
@@ -7358,44 +7352,69 @@ fn component_local_equations(
                 continue;
             }
             let is_dynamic_equation = local_expression.contains("der(");
-            let mut dependency_kinds = signal_refs
-                .iter()
-                .filter(|signal| dependencies.contains(&signal.qualified))
-                .map(|signal| signal.quantity_kind.clone())
-                .collect::<HashSet<_>>();
-            dependency_kinds.extend(
-                parameter_refs
-                    .iter()
-                    .filter(|parameter| dependencies.contains(&parameter.qualified))
-                    .map(|parameter| parameter.quantity_kind.clone()),
-            );
-            if !is_dynamic_equation && dependency_kinds.len() > 1 {
-                diagnostics.push(Diagnostic::error(
-                    "E-COMPONENT-EQUATION-UNIT-001",
-                    local.line,
-                    &format!("Component equation `{expression}` mixes incompatible signal quantities."),
-                    Some("Keep the current component equation seed linear over one signal quantity kind."),
-                ));
-                continue;
-            }
             if !is_dynamic_equation {
-                if let Some(quantity_kind) = dependency_kinds.iter().next() {
-                    let incompatible_units =
-                        numeric_units_in_component_expression(&local_expression)
-                            .into_iter()
-                            .filter(|unit| !unit_compatible_with_quantity(quantity_kind, unit))
-                            .collect::<Vec<_>>();
-                    if !incompatible_units.is_empty() {
+                let dimension_symbols =
+                    component_equation_dimension_symbols(&signal_refs, &parameter_refs);
+                let left_dimension = expression_dimension_with_symbols(left, &dimension_symbols);
+                let right_dimension = expression_dimension_with_symbols(right, &dimension_symbols);
+                if let (Some(left_dimension), Some(right_dimension)) =
+                    (left_dimension.as_deref(), right_dimension.as_deref())
+                {
+                    if !component_equation_dimensions_compatible(
+                        left_dimension,
+                        right_dimension,
+                        left,
+                        right,
+                    ) {
                         diagnostics.push(Diagnostic::error(
                             "E-COMPONENT-EQUATION-UNIT-001",
                             local.line,
                             &format!(
-                                "Component equation `{expression}` uses unit(s) incompatible with `{quantity_kind}`: {}.",
-                                incompatible_units.join(", ")
+                                "Component equation `{expression}` has incompatible dimensions `{left_dimension}` and `{right_dimension}`."
                             ),
-                            Some("Use numeric constants with units compatible with the referenced port signal quantity."),
+                            Some("Make both sides reduce to compatible units, such as HeatRate = Conductance * TemperatureDelta."),
                         ));
                         continue;
+                    }
+                } else {
+                    let mut dependency_kinds = signal_refs
+                        .iter()
+                        .filter(|signal| dependencies.contains(&signal.qualified))
+                        .map(|signal| signal.quantity_kind.clone())
+                        .collect::<HashSet<_>>();
+                    dependency_kinds.extend(
+                        parameter_refs
+                            .iter()
+                            .filter(|parameter| dependencies.contains(&parameter.qualified))
+                            .map(|parameter| parameter.quantity_kind.clone()),
+                    );
+                    if dependency_kinds.len() > 1 {
+                        diagnostics.push(Diagnostic::error(
+                            "E-COMPONENT-EQUATION-UNIT-001",
+                            local.line,
+                            &format!("Component equation `{expression}` mixes incompatible signal quantities."),
+                            Some("Use unit-compatible arithmetic, or keep unsupported expressions to one signal quantity kind."),
+                        ));
+                        continue;
+                    }
+                    if let Some(quantity_kind) = dependency_kinds.iter().next() {
+                        let incompatible_units =
+                            numeric_units_in_component_expression(&local_expression)
+                                .into_iter()
+                                .filter(|unit| !unit_compatible_with_quantity(quantity_kind, unit))
+                                .collect::<Vec<_>>();
+                        if !incompatible_units.is_empty() {
+                            diagnostics.push(Diagnostic::error(
+                                "E-COMPONENT-EQUATION-UNIT-001",
+                                local.line,
+                                &format!(
+                                    "Component equation `{expression}` uses unit(s) incompatible with `{quantity_kind}`: {}.",
+                                    incompatible_units.join(", ")
+                                ),
+                                Some("Use numeric constants with units compatible with the referenced port signal quantity."),
+                            ));
+                            continue;
+                        }
                     }
                 }
             }
@@ -7528,6 +7547,55 @@ fn component_parameter_compatible_with_quantity(
         || parameter.dimension == dimension_for_quantity(quantity_kind)
 }
 
+fn sort_component_equation_dependencies(
+    dependencies: &mut Vec<String>,
+    parameter_refs: &[ComponentParameterRef],
+) {
+    dependencies.sort_by(|left, right| {
+        let left_is_parameter = parameter_refs
+            .iter()
+            .any(|parameter| parameter.qualified == *left);
+        let right_is_parameter = parameter_refs
+            .iter()
+            .any(|parameter| parameter.qualified == *right);
+        left_is_parameter
+            .cmp(&right_is_parameter)
+            .then(left.cmp(right))
+    });
+    dependencies.dedup();
+}
+fn component_equation_dimension_symbols(
+    signal_refs: &[ComponentSignalRef],
+    parameter_refs: &[ComponentParameterRef],
+) -> Vec<DimensionSymbol> {
+    signal_refs
+        .iter()
+        .map(|signal| DimensionSymbol {
+            name: signal.local.clone(),
+            dimension: dimension_for_quantity(&signal.quantity_kind),
+        })
+        .chain(parameter_refs.iter().map(|parameter| DimensionSymbol {
+            name: parameter.local.clone(),
+            dimension: parameter.dimension.clone(),
+        }))
+        .collect()
+}
+
+fn component_equation_dimensions_compatible(
+    left_dimension: &str,
+    right_dimension: &str,
+    left_expression: &str,
+    right_expression: &str,
+) -> bool {
+    dimensions_compatible(left_dimension, right_dimension)
+        || left_dimension == "Dimensionless" && unitless_zero_literal(left_expression)
+        || right_dimension == "Dimensionless" && unitless_zero_literal(right_expression)
+}
+
+fn unitless_zero_literal(expression: &str) -> bool {
+    numeric_literal_with_optional_unit(strip_outer_parens(expression.trim()))
+        .is_some_and(|(value, unit)| unit.is_none() && value.abs() <= f64::EPSILON)
+}
 fn component_equation_literal_rhs(
     component: &ComponentInfo,
     local: &ComponentLocalExpressionInfo,
@@ -9760,6 +9828,22 @@ fn expression_dimension_with_symbols(
         return None;
     }
 
+    if let Some((_value, unit)) = numeric_literal_with_optional_unit(expression) {
+        let Some(unit) = unit else {
+            return Some("Dimensionless".to_owned());
+        };
+        if normalize_unit(&unit) == "1" {
+            return Some("Dimensionless".to_owned());
+        }
+        if let Some(quantity) = candidates_for_unit(&unit).first() {
+            return Some(quantity.dimension.to_owned());
+        }
+    }
+
+    if let Some(symbol) = symbols.iter().find(|symbol| symbol.name == expression) {
+        return Some(symbol.dimension.clone());
+    }
+
     let additive_terms = split_top_level(expression, &['+', '-']);
     if additive_terms.len() > 1 {
         let mut dimensions = Vec::new();
@@ -9776,12 +9860,16 @@ fn expression_dimension_with_symbols(
         return Some("mismatch".to_owned());
     }
 
-    let factors = split_top_level(expression, &['*']);
+    let factors = split_top_level_with_operators(expression, &['*', '/']);
     if factors.len() > 1 {
-        let mut dimension = expression_dimension_with_symbols(&factors[0], symbols)?;
-        for factor in factors.iter().skip(1) {
+        let mut dimension = expression_dimension_with_symbols(&factors[0].1, symbols)?;
+        for (operator, factor) in factors.iter().skip(1) {
             let factor_dimension = expression_dimension_with_symbols(factor, symbols)?;
-            dimension = multiply_dimensions(&dimension, &factor_dimension);
+            dimension = match operator {
+                Some('*') => multiply_dimensions(&dimension, &factor_dimension),
+                Some('/') => divide_dimensions(&dimension, &factor_dimension),
+                _ => dimension,
+            };
         }
         return Some(dimension);
     }
@@ -9871,6 +9959,40 @@ fn split_top_level(expression: &str, operators: &[char]) -> Vec<String> {
     parts
 }
 
+fn split_top_level_with_operators(
+    expression: &str,
+    operators: &[char],
+) -> Vec<(Option<char>, String)> {
+    let mut parts = Vec::new();
+    let mut depth = 0i32;
+    let mut start = 0usize;
+    let mut pending_operator = None;
+
+    for (index, character) in expression.char_indices() {
+        match character {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            other if depth == 0 && operators.contains(&other) => {
+                if index == 0 {
+                    continue;
+                }
+                let part = expression[start..index].trim();
+                if !part.is_empty() {
+                    parts.push((pending_operator, part.to_owned()));
+                    pending_operator = Some(other);
+                }
+                start = index + other.len_utf8();
+            }
+            _ => {}
+        }
+    }
+
+    let tail = expression[start..].trim();
+    if !tail.is_empty() {
+        parts.push((pending_operator, tail.to_owned()));
+    }
+    parts
+}
 fn derivative_dimension(dimension: &str) -> String {
     if dimension == "Dimensionless" {
         "1/Time".to_owned()
@@ -9880,14 +10002,84 @@ fn derivative_dimension(dimension: &str) -> String {
 }
 
 fn multiply_dimensions(left: &str, right: &str) -> String {
-    match (left, right) {
-        ("Dimensionless", other) | (other, "Dimensionless") => other.to_owned(),
-        ("Energy/Temperature", "Temperature/Time")
-        | ("Temperature/Time", "Energy/Temperature")
-        | ("Power/Temperature", "Temperature")
-        | ("Temperature", "Power/Temperature") => "Power".to_owned(),
-        _ => format!("{left}*{right}"),
+    combine_dimensions(left, right, DimensionOperator::Multiply)
+}
+
+#[derive(Clone, Copy)]
+enum DimensionOperator {
+    Multiply,
+    Divide,
+}
+
+fn combine_dimensions(left: &str, right: &str, operator: DimensionOperator) -> String {
+    let (mut numerator, mut denominator) = dimension_factors(left);
+    let (right_numerator, right_denominator) = dimension_factors(right);
+    match operator {
+        DimensionOperator::Multiply => {
+            numerator.extend(right_numerator);
+            denominator.extend(right_denominator);
+        }
+        DimensionOperator::Divide => {
+            numerator.extend(right_denominator);
+            denominator.extend(right_numerator);
+        }
     }
+    canonical_dimension(numerator, denominator)
+}
+
+fn dimension_factors(dimension: &str) -> (Vec<String>, Vec<String>) {
+    if dimension == "Dimensionless" || dimension.trim().is_empty() {
+        return (Vec::new(), Vec::new());
+    }
+    let mut pieces = dimension.split('/');
+    let numerator = pieces
+        .next()
+        .unwrap_or_default()
+        .split('*')
+        .filter_map(dimension_factor)
+        .collect::<Vec<_>>();
+    let denominator = pieces
+        .flat_map(|piece| piece.split('*'))
+        .filter_map(dimension_factor)
+        .collect::<Vec<_>>();
+    (numerator, denominator)
+}
+
+fn dimension_factor(factor: &str) -> Option<String> {
+    let factor = factor.trim();
+    if factor.is_empty() || factor == "1" || factor == "Dimensionless" {
+        None
+    } else {
+        Some(factor.to_owned())
+    }
+}
+
+fn canonical_dimension(mut numerator: Vec<String>, mut denominator: Vec<String>) -> String {
+    let mut index = 0;
+    while index < numerator.len() {
+        if let Some(denominator_index) = denominator
+            .iter()
+            .position(|factor| factor == &numerator[index])
+        {
+            numerator.remove(index);
+            denominator.remove(denominator_index);
+        } else {
+            index += 1;
+        }
+    }
+    if numerator.len() == 1 && numerator[0] == "Energy" && denominator == ["Time"] {
+        return "Power".to_owned();
+    }
+    if numerator.is_empty() && denominator.is_empty() {
+        return "Dimensionless".to_owned();
+    }
+    if numerator.is_empty() {
+        return format!("1/{}", denominator.join("/"));
+    }
+    if denominator.is_empty() {
+        return numerator.join("*");
+    }
+    format!("{}/{}", numerator.join("*"), denominator.join("/"))
 }
 
 fn dimensions_compatible(left: &str, right: &str) -> bool {

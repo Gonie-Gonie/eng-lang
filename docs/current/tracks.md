@@ -326,8 +326,9 @@ Supported scoped slice:
   linear residual solve artifacts, and largest-residual reporting
 - system-local name = Component(...) instances with empty constructors or declared numeric parameter defaults/overrides
 - connect instance.port to instance.port
-- generated connection equations plus literal boundary seeds and simple
-  component-local equations
+- generated connection equations plus literal boundary seeds, simple
+  component-local equations, and unit-parameterized linear coefficient equations
+  such as Conductance * TemperatureDelta across compatible residual display units
 - square dense linear residual solve artifact
 - explicit `solve component_graph` fixed-point artifact with tolerance,
   max-iteration, relaxation, initial-guess, convergence, and failure metadata
@@ -375,7 +376,7 @@ Not yet public-supported:
 ```text
 - production numeric multi-domain simulation
 - production pressure-drop packages
-- broad args/object/non-arithmetic constructor bindings and nonlinear/unit-parameterized
+- broad args/object/non-arithmetic constructor bindings and nonlinear/general compound-unit
   component-local equation solving
 - general boundary-condition/component-behavior solving
 - domain package registry
