@@ -11467,6 +11467,67 @@ with {
         assert_eq!(load_series.points.len(), 3);
     }
     #[test]
+    fn adaptive_state_space_runtime_materializes_scalar_output_series() {
+        let source = r#"
+system AdaptiveOutputStateSpace {
+    parameter base_load: HeatRate [kW] = 0.5 kW
+    state T_zone: AbsoluteTemperature = 22 degC
+    input Q_internal: HeatRate = 500 W
+    output Q_total: HeatRate [kW]
+
+    states x = [T_zone]
+    inputs u = [Q_internal]
+    outputs y = [T_zone, Q_total]
+
+    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[-0.012 1/min]]
+    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.001]]
+
+    equation {
+        der(x) eq A * x + B * u
+        Q_total eq Q_internal + base_load
+    }
+}
+
+sim = simulate AdaptiveOutputStateSpace
+with {
+    timestep = 10 min
+    duration = 20 min
+    solver = adaptive_heun
+    tolerance = 0.0001
+}
+"#;
+        let report = check_source(
+            "adaptive_state_space_output.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let runtime = materialize_runtime_data(&report, source);
+
+        let sim_solutions = runtime
+            .system_solutions
+            .iter()
+            .filter(|solution| solution.binding.as_deref() == Some("sim"))
+            .collect::<Vec<_>>();
+        assert_eq!(sim_solutions.len(), 2);
+        assert!(sim_solutions
+            .iter()
+            .all(|solution| solution.method == "adaptive_heun"));
+        let load = sim_solutions
+            .iter()
+            .find(|solution| solution.state == "Q_total")
+            .unwrap();
+        assert_eq!(load.quantity_kind, "HeatRate");
+        assert_eq!(load.display_unit, "kW");
+        assert_eq!(load.points.len(), 3);
+        assert!(load.points.iter().all(|point| (point.y - 1.0).abs() < 1e-9));
+        assert!(!load.step_diagnostics.is_empty());
+        assert!(runtime
+            .time_series
+            .iter()
+            .any(|series| series.name == "sim.Q_total"));
+    }
+    #[test]
     fn state_space_solver_failure_materializes_failed_solution() {
         let overflowing_coefficient = format!("1{}", "0".repeat(306));
         let source = format!(
@@ -11963,10 +12024,12 @@ system TwoStateSourceThermal {
 
     state T_air: AbsoluteTemperature = 22 degC
     state T_wall: AbsoluteTemperature = 20 degC
+    output Q_load: HeatRate [kW]
 
     equation {
         C_air * der(T_air) eq UA_aw * (T_wall - T_air) + UA_ao * (T_out - T_air) + Q_hvac
         C_wall * der(T_wall) eq UA_aw * (T_air - T_wall) + UA_wo * (T_out - T_wall)
+        Q_load eq Q_hvac + UA_ao * (T_out - T_air)
     }
 }
 
@@ -11992,7 +12055,7 @@ with {
             .filter(|solution| solution.binding.as_deref() == Some("sim"))
             .collect::<Vec<_>>();
 
-        assert_eq!(solutions.len(), 2);
+        assert_eq!(solutions.len(), 3);
         assert!(solutions
             .iter()
             .all(|solution| solution.status == "computed"));
@@ -12014,6 +12077,17 @@ with {
             .find(|solution| solution.state == "T_air")
             .unwrap();
         assert!(air.final_value < air.initial_value);
+        let load = solutions
+            .iter()
+            .find(|solution| solution.state == "Q_load")
+            .unwrap();
+        assert_eq!(load.quantity_kind, "HeatRate");
+        assert_eq!(load.display_unit, "kW");
+        assert_eq!(load.points.len(), 3);
+        assert!(load
+            .step_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.status == "accepted"));
         assert!(runtime
             .time_series
             .iter()
@@ -12022,6 +12096,10 @@ with {
             .time_series
             .iter()
             .any(|series| series.name == "sim.T_wall"));
+        assert!(runtime
+            .time_series
+            .iter()
+            .any(|series| series.name == "sim.Q_load"));
     }
 
     #[test]
