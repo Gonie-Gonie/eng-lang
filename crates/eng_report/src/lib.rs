@@ -7381,13 +7381,30 @@ fn format_component_largest_residual_summary(
                 .total_cmp(&right.normalized_value.abs())
         })
     })?;
+    let source_line = residual
+        .source_line
+        .map(|line| line.to_string())
+        .unwrap_or_else(|| "-".to_owned());
+    let dependencies = if residual.dependencies.is_empty() {
+        "-".to_owned()
+    } else {
+        residual
+            .dependencies
+            .iter()
+            .take(3)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
     Some(format!(
-        "{}={} {}, normalized={} ({})",
+        "{}={} {}, normalized={} ({}), source_line={}, deps=[{}]",
         residual.name,
         format_alignment_number(residual.value),
         residual.unit,
         format_alignment_number(residual.normalized_value),
-        residual.status
+        residual.status,
+        source_line,
+        dependencies
     ))
 }
 

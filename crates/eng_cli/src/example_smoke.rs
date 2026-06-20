@@ -1079,6 +1079,8 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.report_spec_json.contains("\"source_line\":")
                 || !output.report_spec_json.contains("\"dependencies\": [")
                 || !output.report_html.contains("source_linear_terms")
+                || !output.report_html.contains("source_line=")
+                || !output.report_html.contains("deps=[")
             {
                 eprintln!(
                     "expected tests/runtime/newton_source_linear_jacobian.eng to solve a linear source Newton residual graph with the source-linear Jacobian hook"

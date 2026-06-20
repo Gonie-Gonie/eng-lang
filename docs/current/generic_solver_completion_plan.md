@@ -87,6 +87,7 @@ Immediate execution order is evidence-driven:
 - 2026-06-20: The source Newton `jacobian = source_linear_terms` hook now has a source-level runtime fixture and example-smoke coverage proving the provided-Jacobian method label, `source_linear_terms` step diagnostics, solved variables, residual vectors, and `.engres`/report-spec/report-HTML linear-step diagnostics.
 - 2026-06-20: Component solver result-level tolerance, max-iteration, variable-scale, and dense-linear condition metadata are now aligned between runtime `.engres`, report-spec JSON, and their schemas, with the source-linear Newton smoke checking the fields.
 - 2026-06-20: Component solver residual evaluations now carry source expression, source line, source reason, and dependency metadata through runtime `.engres`, report-spec solver-result residuals, and schemas, tightening W4/W9 residual traceability.
+- 2026-06-20: Component solver report HTML largest-residual summaries now include source-line and dependency evidence, so narrow solver success/failure inspection does not require opening raw JSON for the first trace hop.
 
 ## Narrow/Not Claim Closure Matrix
 
@@ -321,6 +322,7 @@ Evidence gate:
 - Source Newton provided-Jacobian coverage now includes `tests/runtime/newton_source_linear_jacobian.eng`, which solves a linear source residual graph with `jacobian = source_linear_terms` and verifies method/policy artifacts in `.engres`, report-spec JSON, and report HTML through `eng test examples`.
 - Component solver result-level metadata now records tolerance, max iterations, variable-scale policy/range, and dense-linear pivot condition fields in runtime `.engres` with matching result/report-spec schema entries.
 - Component solver residual evaluation artifacts now include source expression, source line, source reason, and dependency lists in runtime `.engres` and report-spec solver-result residual entries, so residual values can be traced without relying only on assembly-summary metadata.
+- Component solver report HTML now includes source-line and dependency summaries for largest residuals.
 - Newton residual vector history now feeds source Newton and implicit-Euler DAE component step diagnostics with largest residual index/name/value evidence in report-spec artifacts.
 - Static component residual graph construction now preserves unsupported linearization status, failure code, and failure reason instead of silently dropping unsupported component-equation terms; dense linear, evaluator, runtime, and report artifacts retain those residuals as `unsupported_linearization`.
 - Newton variable scaling is now part of `NewtonOptions`, finite-difference perturbation, scaled dense Newton-step solves, source Newton bridge metadata, source DAE implicit-step Newton options, runtime `.engres`, and report-spec artifacts; source bridges derive default scales from assembly unknown quantity/unit metadata.
