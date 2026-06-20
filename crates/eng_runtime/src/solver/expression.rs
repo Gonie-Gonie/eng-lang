@@ -335,7 +335,10 @@ pub(crate) fn linearize_arithmetic_expression_with_symbol_metadata_and_unit_conv
 where
     F: FnMut(f64, Option<&str>) -> Result<f64, SolverFailure>,
 {
-    let variable_symbols = unique_symbols(variable_symbols);
+    let variable_symbols = unique_symbols(variable_symbols)
+        .into_iter()
+        .filter(|symbol| !constant_symbols.contains_key(symbol))
+        .collect::<Vec<_>>();
     let mut symbols = constant_symbols.clone();
     for symbol in &variable_symbols {
         symbols.insert(symbol.clone(), 0.0);

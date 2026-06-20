@@ -260,7 +260,8 @@ are not public stable workflows.
   and normalized residual-vector and largest-residual diagnostic artifacts. A
   source `EquationAssembly` bridge now validates dynamic component
   state/algebraic/input/parameter layouts, lowers arithmetic-linear derivative and
-  algebraic residuals into those residual-graph entrypoints, preserves
+  algebraic residuals with materialized component-parameter coefficients into
+  those residual-graph entrypoints, preserves
   equation/unknown counts in component solver artifacts, and is covered by
   `examples/official/26_dynamic_component_room`,
   `tests/runtime/dynamic_component_explicit.eng`,

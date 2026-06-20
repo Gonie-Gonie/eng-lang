@@ -103,9 +103,9 @@ paths before compatibility fixtures.
 26_dynamic_component_room
   Source-to-solver smoke for `solve component_graph` with
   `solver = dynamic_component_semi_implicit_euler`, generated Thermal
-  connection equations, a `der(port.T)` component-local equation, state and
-  algebraic trajectories, and per-step algebraic diagnostics for a simple
-  linear dynamic component assembly.
+  connection equations, a parameterized `C * der(port.T)` component-local
+  equation, state and algebraic trajectories, and per-step algebraic diagnostics
+  for a simple linear dynamic component assembly.
 
 27_nonlinear_algebraic
   Source-to-solver smoke for `solve component_graph` with `solver = newton`,

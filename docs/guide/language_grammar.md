@@ -1269,8 +1269,10 @@ with {
 `dynamic_component_explicit_euler` runs algebraic-free derivative residuals and
 `dynamic_component_semi_implicit_euler` solves linear algebraic residuals per
 timestep. Both paths emit component solver trajectories and step diagnostics.
-They currently require simple linear component-local residual terms; nonlinear,
-constructor-parameterized, adaptive, and production multi-domain component solves remain outside this source surface. A constrained
+They currently require simple linear component-local residual terms;
+materialized component parameters may appear as linear coefficients. Nonlinear,
+broad constructor-parameterized, adaptive, and production multi-domain component
+solves remain outside this source surface. A constrained
 Thermal/Fluid[Water] pressure/flow algebraic residual graph is available as a
 dense linear solve in `examples/official/32_small_thermal_fluid_loop`.
 

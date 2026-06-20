@@ -291,6 +291,21 @@ impl ResidualGraph {
                 unit: parameter.unit.clone(),
             })
             .collect::<Vec<_>>();
+        let parameter_values = assembly
+            .parameters
+            .iter()
+            .filter_map(|parameter| {
+                parameter.value.map(|value| {
+                    (
+                        parameter.name.clone(),
+                        ResidualConstantAlias {
+                            value,
+                            unit: parameter.unit.clone(),
+                        },
+                    )
+                })
+            })
+            .collect::<HashMap<_, _>>();
         let residuals = assembly
             .generated_equations
             .iter()
@@ -312,7 +327,7 @@ impl ResidualGraph {
                     &variables,
                     &variable_units,
                     Some((&unit, &quantity_kind)),
-                    None,
+                    Some(&parameter_values),
                     DYNAMIC_COMPONENT_RESIDUAL_LOWERING,
                 )?;
                 let rhs_value = dynamic_residual_rhs_value(equation, parsed.constant)?;
@@ -768,6 +783,9 @@ fn convert_residual_parameter_constant(
     let Some((target_unit, _quantity_kind)) = residual_unit else {
         return Ok(value);
     };
+    if normalize_unit(source_unit) == "1" {
+        return Ok(value);
+    }
     let Some(source_info) = residual_unit_info(source_unit) else {
         return Err(unsupported_linear_residual_term(
             &format!("{value} {source_unit}"),
@@ -2393,6 +2411,32 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![("z", 1.0), ("x", 2.0), ("k", 1.0), ("u", -2.0)]
         );
+    }
+    #[test]
+    fn dynamic_component_residual_graph_folds_parameterized_derivative_coefficient() {
+        let mut assembly = dynamic_component_test_assembly("component_graph");
+        assembly.parameters[0].value = Some(2.0);
+        assembly.generated_equations[0].expression = "k * der(x) eq z".to_owned();
+        assembly.generated_equations[0].residual = "k * der_x - z".to_owned();
+        assembly.generated_equations[0].dependencies =
+            vec!["k".to_owned(), "der_x".to_owned(), "z".to_owned()];
+
+        let graph = ResidualGraph::from_dynamic_component_assembly(&assembly).unwrap();
+
+        let rhs = graph
+            .residuals
+            .iter()
+            .find(|residual| residual.name == "x_rhs")
+            .unwrap();
+        assert_eq!(rhs.rhs_value, 0.0);
+        assert_eq!(
+            rhs.terms
+                .iter()
+                .map(|term| (term.variable.as_str(), term.coefficient))
+                .collect::<Vec<_>>(),
+            vec![("der_x", 2.0), ("z", -1.0)]
+        );
+        assert!(!rhs.terms.iter().any(|term| term.variable == "k"));
     }
     #[test]
     fn dynamic_component_residual_graph_rejects_unsupported_residual_terms() {

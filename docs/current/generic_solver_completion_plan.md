@@ -321,6 +321,7 @@ Evidence gate:
 - Fixed-point solver results now retain per-iteration update residual vectors, and source fixed-point component artifacts expose raw/normalized variable-update vectors, variable-scale policy, and largest update identity in runtime `.engres` and report-spec step diagnostics.
 - Source fixed-point solve requests now accept scalar or per-unknown vector `initial` values with unit conversion, and vector layout mismatches produce fixed-point-specific failure artifacts instead of silently broadcasting a scalar-only guess.
 - Dynamic component algebraic step diagnostics now preserve raw and normalized residual vectors plus largest residual identity for fixed-point and semi-implicit linear algebraic substeps in runtime `.engres` and report-spec artifacts.
+- Dynamic component residual lowering now folds materialized component parameters into linear derivative coefficients, so source examples such as `C * der(port.T) eq port.Q` solve through the residual-graph semi-implicit path instead of requiring literal derivative coefficients.
 
 ## Done Criteria
 

@@ -315,8 +315,8 @@ re-parsing source files.
 - `examples/official/26_dynamic_component_room/main.eng`
   shows the narrow dynamic component path with `solver =
   dynamic_component_semi_implicit_euler`, generated Thermal connection
-  equations, a `der(port.T)` component-local equation, state/algebraic
-  trajectories, and per-step algebraic diagnostics. The wall heat flow is a
+  equations, a parameterized `C * der(port.T)` component-local equation,
+  state/algebraic trajectories, and per-step algebraic diagnostics. The wall heat flow is a
   fixed simple-linear boundary seed rather than a general conductance model.
 - `examples/official/27_nonlinear_algebraic/main.eng`
   shows the narrow unitful source Newton path with `solver = newton`, direct

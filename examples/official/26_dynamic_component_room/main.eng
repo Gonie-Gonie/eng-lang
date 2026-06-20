@@ -6,7 +6,8 @@ domain Thermal package "eng.std.domains.thermal" version "0.1.0" {
 
 component ZoneNode {
     port wall: Thermal
-    1000 * der(wall.T) eq wall.Q
+    parameter C: DimensionlessNumber [1] = 1000
+    C * der(wall.T) eq wall.Q
 }
 
 component ThermalWall {
