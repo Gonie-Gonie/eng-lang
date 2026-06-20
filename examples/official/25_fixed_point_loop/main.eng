@@ -1,14 +1,14 @@
-domain Scalar package "eng.std.domains.scalar" version "0.1.0" {
-    across x: DimensionlessNumber [1]
-    through balance: DimensionlessNumber [1]
+domain PowerScalar package "eng.std.domains.scalar" version "0.1.0" {
+    across q: HeatRate [kW]
+    through balance: HeatRate [kW]
     conservation sum(balance) = 0
 }
 
 component RelaxingLoop {
-    port source: Scalar
-    port target: Scalar
-    source.x eq 0.5 * target.x
-    source.balance eq 0
+    port source: PowerScalar
+    port target: PowerScalar
+    source.q eq 0.5 * target.q + 1 kW
+    source.balance eq 0 kW
 }
 
 system FixedPointLoop {
@@ -20,9 +20,9 @@ fixed_point_result = solve component_graph
 with {
     solver = fixed_point
     tolerance = 0.000001
-    max_iter = 60
+    max_iter = 80
     relaxation = 1
-    initial = 4
+    initial = 0
 }
 
 report {

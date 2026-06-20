@@ -511,9 +511,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .result_json
                     .contains("\"convergence_status\": \"fixed_point_converged\"")
                 || !output.report_spec_json.contains("\"tolerance\": 0.000001")
-                || !output.report_spec_json.contains("\"max_iterations\": 60")
-                || !output.result_json.contains("\"name\": \"relax.source.x\"")
-                || !output.result_json.contains("\"value\": 0.000000")
+                || !output.report_spec_json.contains("\"max_iterations\": 80")
+                || !output.result_json.contains("\"name\": \"relax.source.q\"")
+                || !output.result_json.contains("\"value\": -1.999")
                 || !output
                     .report_spec_json
                     .contains("source solve binding `fixed_point_result`")
@@ -522,7 +522,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.report_html.contains("fixed_point_residual_graph")
             {
                 eprintln!(
-                    "expected official fixed-point loop example to converge through source solve artifacts"
+                    "expected official fixed-point loop example to converge through unitful affine source solve artifacts"
                 );
                 return ExitCode::from(2);
             }
@@ -777,7 +777,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"convergence_status\": \"fixed_point_converged\"")
-                || !output.report_spec_json.contains("\"max_iterations\": 60")
+                || !output.report_spec_json.contains("\"max_iterations\": 80")
                 || !output.report_html.contains("solved_fixed_point")
             {
                 eprintln!(

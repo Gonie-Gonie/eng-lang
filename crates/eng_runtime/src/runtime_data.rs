@@ -9223,17 +9223,17 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
     #[test]
     fn materializes_fixed_point_source_solve_request() {
         let source = r#"
-domain Scalar {
-    across x: DimensionlessNumber [1]
-    through balance: DimensionlessNumber [1]
+domain PowerScalar {
+    across q: HeatRate [kW]
+    through balance: HeatRate [kW]
     conservation sum(balance) = 0
 }
 
 component RelaxingLoop {
-    port source: Scalar
-    port target: Scalar
-    source.x eq 0.5 * target.x
-    source.balance eq 0
+    port source: PowerScalar
+    port target: PowerScalar
+    source.q eq 0.5 * target.q + 1 kW
+    source.balance eq 0 kW
 }
 
 system FixedPointLoop {
@@ -9245,9 +9245,9 @@ fixed_point_result = solve component_graph
 with {
     solver = fixed_point
     tolerance = 0.000001
-    max_iter = 60
+    max_iter = 80
     relaxation = 1
-    initial = 4
+    initial = 0
 }
 "#;
         let report = check_source("fixed_point.eng", source, &CheckOptions::default());
@@ -9261,7 +9261,7 @@ with {
         assert_eq!(solution.method, "fixed_point_residual_graph");
         assert_eq!(solution.convergence_status, "fixed_point_converged");
         assert_eq!(solution.tolerance, 0.000001);
-        assert_eq!(solution.max_iterations, 60);
+        assert_eq!(solution.max_iterations, 80);
         assert!(solution.iteration_count > 1);
         assert!(solution.failure_artifact.is_none());
         assert!(solution.residual_norm <= solution.tolerance);
@@ -9269,7 +9269,7 @@ with {
             .reason
             .contains("source solve binding `fixed_point_result`"));
         assert!(solution.variables.iter().any(|variable| {
-            variable.name == "relax.source.x" && variable.status == "solved_fixed_point"
+            variable.name == "relax.source.q" && variable.status == "solved_fixed_point"
         }));
 
         let mut spec =
@@ -9278,6 +9278,7 @@ with {
         let json = eng_report::report_spec_json(&spec);
         assert!(json.contains("\"method\": \"fixed_point_residual_graph\""));
         assert!(json.contains("\"convergence_status\": \"fixed_point_converged\""));
+        assert!(json.contains("relax.source.q - 0.5 * relax.target.q + 1 kW"));
     }
 
     #[test]

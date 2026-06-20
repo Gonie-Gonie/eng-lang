@@ -5,8 +5,8 @@ iteration over a small algebraic component residual graph.
 
 It exercises:
 
-- a dimensionless component graph with generated connection equations;
-- component-local linear equations that can be rearranged into `g(x)`;
+- a unitful HeatRate component graph with generated connection equations;
+- component-local linear equations with a unitful affine constant that can be rearranged into `g(x)`;
 - `result = solve component_graph` with `solver = fixed_point`;
 - source options for tolerance, max iterations, relaxation, and initial guess;
 - runtime fixed-point convergence, named variables, residual norm, and
@@ -14,11 +14,11 @@ It exercises:
 
 Current support boundary:
 
-- this is a narrow fixed-point source path for linear residual graphs whose
+- this is a scoped fixed-point source path for linear residual graphs whose
   equations can each be assigned to one variable update;
-- nonlinear expressions, unitful affine constants inside component equations,
-  broad solver selection, and production nonlinear algebraic loops remain
-  outside this official example.
+- unitful affine constants are covered for simple linear component equations;
+- nonlinear expressions, broad solver selection, and production nonlinear
+  algebraic loops remain outside this official example.
 
 Useful commands:
 
