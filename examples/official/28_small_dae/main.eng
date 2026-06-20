@@ -1,18 +1,18 @@
-domain DaePair package "eng.std.domains.scalar" version "0.1.0" {
-    across x: DimensionlessNumber [1]
-    across z: DimensionlessNumber [1]
-    through balance: DimensionlessNumber [1]
+domain DaeTemperature package "eng.std.domains.scalar" version "0.1.0" {
+    across T: AbsoluteTemperature [K]
+    across T_ref: AbsoluteTemperature [K]
+    through balance: TemperatureDelta [K]
     conservation sum(balance) = 0
 }
 
-component SmallDaeNode {
-    port node: DaePair
-    der(node.x) + node.z eq 0
-    node.z - 2 * node.x eq 0
+component ThermalDaeNode {
+    port node: DaeTemperature
+    der(node.T) + (node.T - node.T_ref) / 1 s eq 0 K/s
+    node.T_ref eq 300 K
 }
 
 system SmallDae {
-    node = SmallDaeNode()
+    node = ThermalDaeNode()
     connect node.node to node.node
 }
 
@@ -21,9 +21,9 @@ with {
     solver = implicit_euler_dae
     timestep = 1 s
     duration = 2 s
-    initial = 1
-    initial_derivative = -2
-    initial_algebraic = 2
+    initial = 310
+    initial_derivative = -10
+    initial_algebraic = 300
     tolerance = 0.000000001
     max_iter = 30
 }

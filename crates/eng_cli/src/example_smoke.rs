@@ -631,8 +631,13 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"convergence_status\": \"dae_converged\"")
-                || !output.result_json.contains("\"name\": \"node.node.x\"")
-                || !output.result_json.contains("\"name\": \"node.node.z\"")
+                || !output.result_json.contains("\"name\": \"node.node.T\"")
+                || !output.result_json.contains("\"name\": \"node.node.T_ref\"")
+                || !output.result_json.contains("\"unit\": \"K\"")
+                || !output
+                    .result_json
+                    .contains("der(node.node.T) + (node.node.T - node.node.T_ref) / 1 s - 0 K/s")
+                || !output.result_json.contains("\"value\": 302.500")
                 || !output.result_json.contains("\"role\": \"state\"")
                 || !output.result_json.contains("\"role\": \"algebraic\"")
                 || !output.result_json.contains("\"step_diagnostics\"")
@@ -646,7 +651,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.report_html.contains("Trajectories")
             {
                 eprintln!(
-                    "expected official small DAE example to solve through source DAE residual graph"
+                    "expected official small DAE example to solve a unitful source DAE residual graph"
                 );
                 return ExitCode::from(2);
             }
@@ -851,8 +856,13 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"convergence_status\": \"dae_converged\"")
-                || !output.result_json.contains("\"name\": \"node.node.x\"")
-                || !output.result_json.contains("\"name\": \"node.node.z\"")
+                || !output.result_json.contains("\"name\": \"node.node.T\"")
+                || !output.result_json.contains("\"name\": \"node.node.T_ref\"")
+                || !output.result_json.contains("\"unit\": \"K\"")
+                || !output
+                    .result_json
+                    .contains("der(node.node.T) + (node.node.T - node.node.T_ref) / 1 s - 0 K/s")
+                || !output.result_json.contains("\"value\": 302.500")
                 || !output.result_json.contains("\"step_diagnostics\"")
                 || !output.result_json.contains("\"largest_residuals\"")
                 || !output
@@ -860,7 +870,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("implicit_euler_dae_source_residual_graph")
             {
                 eprintln!(
-                    "expected tests/runtime/small_dae_from_source.eng to solve through source DAE residual graph"
+                    "expected tests/runtime/small_dae_from_source.eng to solve a unitful source DAE residual graph"
                 );
                 return ExitCode::from(2);
             }

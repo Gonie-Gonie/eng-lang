@@ -315,7 +315,7 @@ Supported scoped slice:
   examples/official/26_dynamic_component_room
 - source-to-solver nonlinear scalar residual in
   examples/official/27_nonlinear_algebraic
-- source-to-solver small scalar DAE in examples/official/28_small_dae
+- source-to-solver small unitful temperature DAE in examples/official/28_small_dae
 - source-to-solver delay/Predictor/external behavior RHS smokes in
   examples/official/29_delay_component_solver,
   examples/official/30_predictor_component_solver, and

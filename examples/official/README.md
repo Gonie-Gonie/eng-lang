@@ -115,7 +115,7 @@ paths before compatibility fixtures.
   Source-to-solver smoke for `solve component_graph` with
   `solver = implicit_euler_dae`, source-derived state/algebraic split,
   algebraic initialization, identity mass-matrix fallback, state/algebraic
-  trajectories, and per-step Newton diagnostics for a small dimensionless DAE.
+  trajectories, and per-step Newton diagnostics for a small unitful temperature DAE.
 
 29_delay_component_solver
   Source-to-solver smoke for `solve component_graph` with
