@@ -1560,6 +1560,10 @@ impl RuntimeComponentSolution {
                 linear_condition_estimate: None,
                 linear_minimum_pivot_abs: None,
                 linear_maximum_pivot_abs: None,
+                largest_residual_index: None,
+                largest_residual_name: None,
+                largest_residual_value: None,
+                largest_residual_abs_value: None,
                 convergence_status: diagnostic.convergence_status.clone(),
                 failure_artifact: diagnostic.failure.as_ref().map(|failure| {
                     RuntimeSolverFailureArtifact {
@@ -1719,6 +1723,10 @@ impl RuntimeComponentSolution {
                     linear_condition_estimate: diagnostic.linear_condition_estimate,
                     linear_minimum_pivot_abs: diagnostic.linear_minimum_pivot_abs,
                     linear_maximum_pivot_abs: diagnostic.linear_maximum_pivot_abs,
+                    largest_residual_index: diagnostic.largest_residual_index,
+                    largest_residual_name: diagnostic.largest_residual_name.clone(),
+                    largest_residual_value: diagnostic.largest_residual_value,
+                    largest_residual_abs_value: diagnostic.largest_residual_abs_value,
                     convergence_status: diagnostic.convergence_status.clone(),
                     failure_artifact: diagnostic.failure_artifact.as_ref().map(|failure| {
                         ReportSolverFailureArtifact {
@@ -1836,6 +1844,10 @@ pub struct RuntimeComponentStepDiagnostic {
     pub linear_condition_estimate: Option<f64>,
     pub linear_minimum_pivot_abs: Option<f64>,
     pub linear_maximum_pivot_abs: Option<f64>,
+    pub largest_residual_index: Option<usize>,
+    pub largest_residual_name: Option<String>,
+    pub largest_residual_value: Option<f64>,
+    pub largest_residual_abs_value: Option<f64>,
     pub convergence_status: String,
     pub failure_artifact: Option<RuntimeSolverFailureArtifact>,
 }
@@ -3484,7 +3496,13 @@ fn nonlinear_component_solution_from_solve_request(
             status: variable_status.to_owned(),
         })
         .collect::<Vec<_>>();
-    let step_diagnostics = newton_residual_history_diagnostics(&newton, failed.as_ref());
+    let residual_names = residual_graph
+        .residuals
+        .iter()
+        .map(|residual| residual.name.clone())
+        .collect::<Vec<_>>();
+    let step_diagnostics =
+        newton_residual_history_diagnostics(&newton, failed.as_ref(), Some(&residual_names));
 
     RuntimeComponentSolution {
         assembly: solver_assembly.name.clone(),
@@ -3904,53 +3922,76 @@ fn dae_component_solution_from_solve_request(
     );
     solution.equation_count = solver_assembly.equation_count();
     solution.unknown_count = solver_assembly.unknown_count();
+    let residual_names = residual_graph
+        .residuals
+        .iter()
+        .map(|residual| residual.name.clone())
+        .collect::<Vec<_>>();
     solution.step_diagnostics = dae
         .step_reports
         .iter()
-        .map(|report| RuntimeComponentStepDiagnostic {
-            step_index: report.step_index,
-            time_s: report.time_s,
-            algebraic_iteration_count: report.newton.iteration_count,
-            residual_norm: report
-                .newton
-                .residual_history
-                .last()
-                .copied()
-                .unwrap_or(f64::INFINITY),
-            line_search_scale: report
-                .newton
-                .line_search_history
-                .last()
-                .map(|step| step.scale),
-            line_search_trial_count: report
-                .newton
-                .line_search_history
-                .last()
-                .map(|step| step.trial_count),
-            jacobian_policy: (report.newton.iteration_count > 0)
-                .then(|| report.newton.jacobian_policy.clone()),
-            linear_condition_estimate: report
-                .newton
-                .linear_step_history
-                .last()
-                .map(|step| step.linear_condition_estimate),
-            linear_minimum_pivot_abs: report
-                .newton
-                .linear_step_history
-                .last()
-                .map(|step| step.linear_minimum_pivot_abs),
-            linear_maximum_pivot_abs: report
-                .newton
-                .linear_step_history
-                .last()
-                .map(|step| step.linear_maximum_pivot_abs),
-            convergence_status: report.newton.convergence_status.clone(),
-            failure_artifact: report.newton.failure.as_ref().map(|failure| {
-                RuntimeSolverFailureArtifact {
-                    code: failure.code.clone(),
-                    message: failure.message.clone(),
-                }
-            }),
+        .map(|report| {
+            let largest_residual = largest_newton_residual_diagnostic(
+                report
+                    .newton
+                    .residual_value_history
+                    .last()
+                    .map(Vec::as_slice),
+                Some(&residual_names),
+            );
+            RuntimeComponentStepDiagnostic {
+                step_index: report.step_index,
+                time_s: report.time_s,
+                algebraic_iteration_count: report.newton.iteration_count,
+                residual_norm: report
+                    .newton
+                    .residual_history
+                    .last()
+                    .copied()
+                    .unwrap_or(f64::INFINITY),
+                line_search_scale: report
+                    .newton
+                    .line_search_history
+                    .last()
+                    .map(|step| step.scale),
+                line_search_trial_count: report
+                    .newton
+                    .line_search_history
+                    .last()
+                    .map(|step| step.trial_count),
+                jacobian_policy: (report.newton.iteration_count > 0)
+                    .then(|| report.newton.jacobian_policy.clone()),
+                linear_condition_estimate: report
+                    .newton
+                    .linear_step_history
+                    .last()
+                    .map(|step| step.linear_condition_estimate),
+                linear_minimum_pivot_abs: report
+                    .newton
+                    .linear_step_history
+                    .last()
+                    .map(|step| step.linear_minimum_pivot_abs),
+                linear_maximum_pivot_abs: report
+                    .newton
+                    .linear_step_history
+                    .last()
+                    .map(|step| step.linear_maximum_pivot_abs),
+                largest_residual_index: largest_residual.as_ref().map(|residual| residual.index),
+                largest_residual_name: largest_residual
+                    .as_ref()
+                    .and_then(|residual| residual.name.clone()),
+                largest_residual_value: largest_residual.as_ref().map(|residual| residual.value),
+                largest_residual_abs_value: largest_residual
+                    .as_ref()
+                    .map(|residual| residual.abs_value),
+                convergence_status: report.newton.convergence_status.clone(),
+                failure_artifact: report.newton.failure.as_ref().map(|failure| {
+                    RuntimeSolverFailureArtifact {
+                        code: failure.code.clone(),
+                        message: failure.message.clone(),
+                    }
+                }),
+            }
         })
         .collect();
     if let Ok(evaluation) = source_residual_evaluation_for_dae_final(
@@ -4205,6 +4246,10 @@ fn behavior_dynamic_component_solution_from_solve_request(
                         linear_condition_estimate: None,
                         linear_minimum_pivot_abs: None,
                         linear_maximum_pivot_abs: None,
+                        largest_residual_index: None,
+                        largest_residual_name: None,
+                        largest_residual_value: None,
+                        largest_residual_abs_value: None,
                         convergence_status: format!("behavior_graph_{}", behavior.status),
                         failure_artifact: None,
                     });
@@ -5659,61 +5704,102 @@ fn dae_bdf_order_from_options(options: &[eng_compiler::WithOptionInfo]) -> Optio
         .filter(|order| *order > 0)
 }
 
+#[derive(Clone, Debug, PartialEq)]
+struct NewtonStepLargestResidual {
+    index: usize,
+    name: Option<String>,
+    value: f64,
+    abs_value: f64,
+}
+
+fn largest_newton_residual_diagnostic(
+    values: Option<&[f64]>,
+    residual_names: Option<&[String]>,
+) -> Option<NewtonStepLargestResidual> {
+    let values = values?;
+    values
+        .iter()
+        .copied()
+        .enumerate()
+        .filter(|(_, value)| value.is_finite())
+        .map(|(index, value)| NewtonStepLargestResidual {
+            index,
+            name: residual_names.and_then(|names| names.get(index).cloned()),
+            value,
+            abs_value: value.abs(),
+        })
+        .max_by(|left, right| left.abs_value.total_cmp(&right.abs_value))
+}
+
 fn newton_residual_history_diagnostics(
     newton: &crate::solver::NewtonResult,
     failure: Option<&SolverFailure>,
+    residual_names: Option<&[String]>,
 ) -> Vec<RuntimeComponentStepDiagnostic> {
     newton
         .residual_history
         .iter()
         .enumerate()
-        .map(|(index, residual_norm)| RuntimeComponentStepDiagnostic {
-            step_index: index,
-            time_s: 0.0,
-            algebraic_iteration_count: index,
-            residual_norm: *residual_norm,
-            line_search_scale: newton
-                .line_search_history
-                .iter()
-                .find(|step| step.iteration == index)
-                .map(|step| step.scale),
-            line_search_trial_count: newton
-                .line_search_history
-                .iter()
-                .find(|step| step.iteration == index)
-                .map(|step| step.trial_count),
-            jacobian_policy: (index > 0).then(|| newton.jacobian_policy.clone()),
-            linear_condition_estimate: newton
-                .linear_step_history
-                .iter()
-                .find(|step| step.iteration == index)
-                .map(|step| step.linear_condition_estimate),
-            linear_minimum_pivot_abs: newton
-                .linear_step_history
-                .iter()
-                .find(|step| step.iteration == index)
-                .map(|step| step.linear_minimum_pivot_abs),
-            linear_maximum_pivot_abs: newton
-                .linear_step_history
-                .iter()
-                .find(|step| step.iteration == index)
-                .map(|step| step.linear_maximum_pivot_abs),
-            convergence_status: if index + 1 == newton.residual_history.len() {
-                newton.convergence_status.clone()
-            } else {
-                "newton_iteration".to_owned()
-            },
-            failure_artifact: (index + 1 == newton.residual_history.len())
-                .then(|| failure)
-                .flatten()
-                .map(|failure| RuntimeSolverFailureArtifact {
-                    code: failure.code.clone(),
-                    message: failure.message.clone(),
-                }),
+        .map(|(index, residual_norm)| {
+            let largest_residual = largest_newton_residual_diagnostic(
+                newton.residual_value_history.get(index).map(Vec::as_slice),
+                residual_names,
+            );
+            RuntimeComponentStepDiagnostic {
+                step_index: index,
+                time_s: 0.0,
+                algebraic_iteration_count: index,
+                residual_norm: *residual_norm,
+                line_search_scale: newton
+                    .line_search_history
+                    .iter()
+                    .find(|step| step.iteration == index)
+                    .map(|step| step.scale),
+                line_search_trial_count: newton
+                    .line_search_history
+                    .iter()
+                    .find(|step| step.iteration == index)
+                    .map(|step| step.trial_count),
+                jacobian_policy: (index > 0).then(|| newton.jacobian_policy.clone()),
+                linear_condition_estimate: newton
+                    .linear_step_history
+                    .iter()
+                    .find(|step| step.iteration == index)
+                    .map(|step| step.linear_condition_estimate),
+                linear_minimum_pivot_abs: newton
+                    .linear_step_history
+                    .iter()
+                    .find(|step| step.iteration == index)
+                    .map(|step| step.linear_minimum_pivot_abs),
+                linear_maximum_pivot_abs: newton
+                    .linear_step_history
+                    .iter()
+                    .find(|step| step.iteration == index)
+                    .map(|step| step.linear_maximum_pivot_abs),
+                largest_residual_index: largest_residual.as_ref().map(|residual| residual.index),
+                largest_residual_name: largest_residual
+                    .as_ref()
+                    .and_then(|residual| residual.name.clone()),
+                largest_residual_value: largest_residual.as_ref().map(|residual| residual.value),
+                largest_residual_abs_value: largest_residual
+                    .as_ref()
+                    .map(|residual| residual.abs_value),
+                convergence_status: if index + 1 == newton.residual_history.len() {
+                    newton.convergence_status.clone()
+                } else {
+                    "newton_iteration".to_owned()
+                },
+                failure_artifact: (index + 1 == newton.residual_history.len())
+                    .then(|| failure)
+                    .flatten()
+                    .map(|failure| RuntimeSolverFailureArtifact {
+                        code: failure.code.clone(),
+                        message: failure.message.clone(),
+                    }),
+            }
         })
         .collect()
 }
-
 fn fixed_point_residual_history_diagnostics(
     residual_history: &[f64],
     convergence_status: &str,
@@ -5733,6 +5819,10 @@ fn fixed_point_residual_history_diagnostics(
             linear_condition_estimate: None,
             linear_minimum_pivot_abs: None,
             linear_maximum_pivot_abs: None,
+            largest_residual_index: None,
+            largest_residual_name: None,
+            largest_residual_value: None,
+            largest_residual_abs_value: None,
             convergence_status: if index + 1 == residual_history.len() {
                 convergence_status.to_owned()
             } else {
@@ -10800,6 +10890,7 @@ with {
         let newton = crate::solver::NewtonResult {
             values: vec![1.0],
             residual_history: vec![2.0, 0.5],
+            residual_value_history: vec![vec![1.0, -2.0], vec![0.5, -0.25]],
             line_search_history: vec![crate::solver::NewtonLineSearchStep {
                 iteration: 1,
                 scale: 0.25,
@@ -10821,7 +10912,8 @@ with {
             failure: None,
         };
 
-        let diagnostics = newton_residual_history_diagnostics(&newton, None);
+        let residual_names = vec!["r_hot".to_owned(), "r_cold".to_owned()];
+        let diagnostics = newton_residual_history_diagnostics(&newton, None, Some(&residual_names));
 
         assert_eq!(diagnostics.len(), 2);
         assert_eq!(diagnostics[0].line_search_scale, None);
@@ -10831,6 +10923,13 @@ with {
         assert_eq!(diagnostics[1].linear_condition_estimate, Some(1.5));
         assert_eq!(diagnostics[1].linear_minimum_pivot_abs, Some(2.0));
         assert_eq!(diagnostics[1].linear_maximum_pivot_abs, Some(3.0));
+        assert_eq!(diagnostics[0].largest_residual_index, Some(1));
+        assert_eq!(
+            diagnostics[0].largest_residual_name.as_deref(),
+            Some("r_cold")
+        );
+        assert_eq!(diagnostics[0].largest_residual_value, Some(-2.0));
+        assert_eq!(diagnostics[0].largest_residual_abs_value, Some(2.0));
 
         let report_solution = RuntimeComponentSolution {
             assembly: "component_graph".to_owned(),
@@ -10873,6 +10972,12 @@ with {
         assert_eq!(
             report_solution.step_diagnostics[1].linear_condition_estimate,
             Some(1.5)
+        );
+        assert_eq!(
+            report_solution.step_diagnostics[0]
+                .largest_residual_name
+                .as_deref(),
+            Some("r_cold")
         );
     }
     #[test]

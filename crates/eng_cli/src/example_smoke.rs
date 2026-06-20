@@ -693,6 +693,12 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"linear_minimum_pivot_abs\":")
+                || !output
+                    .report_spec_json
+                    .contains("\"largest_residual_name\":")
+                || !output
+                    .report_spec_json
+                    .contains("\"largest_residual_abs_value\":")
                 || !output.result_json.contains("\"largest_residuals\"")
                 || !output.result_json.contains("\"expression_unit\": \"kW\"")
                 || !output
@@ -703,6 +709,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("source solve binding `nonlinear_result`")
                 || !output.report_html.contains("newton_source_residual_graph")
                 || !output.report_html.contains("Step Diagnostics")
+                || !output.report_html.contains("largest_step_residual")
             {
                 eprintln!(
                     "expected official nonlinear algebraic example to solve a coupled multi-variable unitful source Newton residual graph"
@@ -755,6 +762,12 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"linear_condition_estimate\":")
+                || !output
+                    .report_spec_json
+                    .contains("\"largest_residual_name\":")
+                || !output
+                    .report_spec_json
+                    .contains("\"largest_residual_abs_value\":")
                 || !output.result_json.contains("\"largest_residuals\"")
                 || !output
                     .report_spec_json
@@ -1010,6 +1023,12 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"linear_condition_estimate\":")
+                || !output
+                    .report_spec_json
+                    .contains("\"largest_residual_name\":")
+                || !output
+                    .report_spec_json
+                    .contains("\"largest_residual_abs_value\":")
                 || !output.result_json.contains("\"largest_residuals\"")
                 || !output
                     .report_html

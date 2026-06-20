@@ -25,6 +25,7 @@ impl Default for NewtonOptions {
 pub struct NewtonResult {
     pub values: Vec<f64>,
     pub residual_history: Vec<f64>,
+    pub residual_value_history: Vec<Vec<f64>>,
     pub line_search_history: Vec<NewtonLineSearchStep>,
     pub linear_step_history: Vec<NewtonLinearStep>,
     pub jacobian_policy: String,
@@ -115,12 +116,14 @@ where
     validate_residual_layout(values.len(), &residual_values)?;
     let mut residual_norm = norm(&residual_values);
     let mut residual_history = vec![residual_norm];
+    let mut residual_value_history = vec![residual_values.clone()];
     let mut line_search_history = Vec::new();
     let mut linear_step_history = Vec::new();
     if residual_norm <= options.tolerance {
         return Ok(build_newton_result(
             values,
             residual_history,
+            residual_value_history,
             line_search_history,
             linear_step_history,
             jacobian_policy,
@@ -144,6 +147,7 @@ where
                 return Ok(build_newton_result(
                     values,
                     residual_history.clone(),
+                    residual_value_history.clone(),
                     line_search_history.clone(),
                     linear_step_history.clone(),
                     jacobian_policy,
@@ -169,6 +173,7 @@ where
                 return Ok(build_newton_result(
                     values,
                     residual_history.clone(),
+                    residual_value_history.clone(),
                     line_search_history.clone(),
                     linear_step_history.clone(),
                     jacobian_policy,
@@ -189,11 +194,13 @@ where
         residual_values = accepted.residuals;
         residual_norm = accepted.residual_norm;
         residual_history.push(residual_norm);
+        residual_value_history.push(residual_values.clone());
 
         if residual_norm <= options.tolerance {
             return Ok(build_newton_result(
                 values,
                 residual_history,
+                residual_value_history,
                 line_search_history.clone(),
                 linear_step_history.clone(),
                 jacobian_policy,
@@ -208,6 +215,7 @@ where
     Ok(build_newton_result(
         values,
         residual_history,
+        residual_value_history,
         line_search_history,
         linear_step_history,
         jacobian_policy,
@@ -227,6 +235,7 @@ where
 fn build_newton_result(
     values: Vec<f64>,
     residual_history: Vec<f64>,
+    residual_value_history: Vec<Vec<f64>>,
     line_search_history: Vec<NewtonLineSearchStep>,
     linear_step_history: Vec<NewtonLinearStep>,
     jacobian_policy: &str,
@@ -238,6 +247,7 @@ fn build_newton_result(
     NewtonResult {
         values,
         residual_history,
+        residual_value_history,
         line_search_history,
         linear_step_history,
         jacobian_policy: jacobian_policy.to_owned(),
@@ -247,7 +257,6 @@ fn build_newton_result(
         failure,
     }
 }
-
 fn validate_newton_options(initial: &[f64], options: &NewtonOptions) -> Result<(), SolverFailure> {
     if initial.is_empty() {
         return Err(SolverFailure::new(
@@ -497,6 +506,14 @@ mod tests {
         assert_eq!(result.convergence_status, "newton_converged");
         assert_eq!(result.jacobian_policy, "finite_difference");
         assert!(!result.linear_step_history.is_empty());
+        assert_eq!(
+            result.residual_value_history.len(),
+            result.residual_history.len()
+        );
+        assert!(
+            result.residual_value_history[0][0].abs()
+                > result.residual_value_history.last().unwrap()[0].abs()
+        );
         assert!(result.linear_step_history[0].linear_condition_estimate >= 1.0);
         assert!(result.failure.is_none());
         assert!((result.values[0] - 2.0_f64.sqrt()).abs() < 1e-7);

@@ -40,8 +40,46 @@ Every row above must eventually satisfy these requirements:
 9. `eng test examples`, crate tests, and targeted artifact checks prove the stated scope.
 10. Public docs use `Stable`, `Supported`, `Internal`, and `Planned` consistently and do not call narrow smokes generic.
 
+
+## Checklist Reconciliation Against Current Main
+
+The two external solver checklists are treated as implementation roadmaps, not
+current release claims. Their old `v1.x` ladder language is intentionally not
+used as current versioning evidence; the authoritative public line remains
+`v0.1.0`, and the active target is solver hardening on `main`.
+
+The checklist items map to the current ledger as follows:
+
+| Checklist theme | Current ledger home | Completion rule |
+| --- | --- | --- |
+| Solver API, SolverInput, SolverResult, and RuntimeData path | W1, W5, W9 | Every source/system/component solve produces a real `SolverResult` or component solution, and no supported solver output is fabricated outside the solver path. |
+| Multi-state source ODE and TimeSeries input/output | W1, W5 | Source equations lower to shared dynamic IR, all named states and outputs materialize as RuntimeTimeSeries, and fixed/adaptive diagnostics are inspectable. |
+| State-space actual simulation | W1, W5 | State-space blocks lower into the shared dynamic/residual artifact model instead of remaining a separate typed-block path. |
+| Component graph assembly | W1, W2, W3 | Component instances, ports, connections, generated equations, parameters, source spans, and domain constraints are canonical shared IR entries. |
+| ResidualGraph, ResidualEvaluator, residual scaling | W2, W4, W9 | Every algebraic/nonlinear/DAE path exposes raw residuals, normalized residuals, scales, largest residual evidence, and failure source context. |
+| Algebraic, fixed-point, Newton, and DAE integration | W4, W6 | Solvers consume shared residual IR, not narrow shape-specific bridges, and success/failure fixtures cover broad variable/unit layouts. |
+| Dynamic component solve | W5, W6 | Dynamic component layouts come from shared IR, support selected algebraic variables, and expose trajectory plus per-step failure evidence. |
+| Delay, Predictor, and external behavior | W7 | Behavior calls become typed solver graph nodes with replay/provenance/profile policy and dynamic/DAE coupling. |
+| Production multi-domain packages | W8 | Thermal/Fluid examples move from constrained pressure-flow smokes to checked domain packages with topology, medium, pressure-drop, and energy-coupling evidence. |
+| IDE/report solver inspection | W9 | A user can inspect equations, residuals, scales, dependencies, trajectories, behavior nodes, and failures without reading raw JSON. |
+| JIT/native optimization | W10 | Native claims require parity tests, benchmark evidence, backend metadata, and fallback reason artifacts. |
+
+Immediate execution order is evidence-driven:
+
+1. Close residual evidence gaps first: per-step largest residual identity,
+   normalized residual values, scales, and source equation names in runtime,
+   report, review, and IDE artifacts.
+2. Move remaining source/component residual evaluators onto the shared typed
+   expression tree and remove shape-specific string parsing.
+3. Generalize dynamic and DAE layout construction from the same shared IR.
+4. Promote behavior nodes from identity-wrapper RHS smokes into typed dynamic and
+   DAE evaluator inputs.
+5. Only after correctness and artifacts are broad enough, expand multi-domain
+   packages and JIT execution.
+
 ## Progress Ledger
 
+- 2026-06-20: Newton results now preserve per-iteration residual vectors, and source Newton/DAE component step diagnostics expose the largest residual index/name/value for each iteration or implicit step in report-spec artifacts. This strengthens W4/W9 residual evidence without claiming that broad nonlinear or DAE solving is complete.
 - 2026-06-20: Source-equation ODE simulation accepts scalar `output` system variables, evaluates their algebraic expressions from each simulated state/input/parameter sample, stores them as solver algebraic trajectories, and materializes `RuntimeTimeSeries` such as `sim.Q_load`. This closes the state-only output limitation for the supported source-equation ODE path; shared-IR, component-coupled, DAE, and behavior output lowering remain in the generic workstreams.
 - 2026-06-20: Typed-block state-space simulation now allows `outputs y = [...]` to include scalar `output` variables, evaluates those output equations from state/input/parameter samples after discrete, fixed-step continuous, or adaptive state-space solves, and materializes named output TimeSeries.
 - 2026-06-20: State-space vector semantic checks now reject role-incompatible members (`states` require state variables, `inputs` require input variables, and `outputs` require state/output variables), propagate mismatch status into dependent LinearOperator metadata, and cover the diagnostic through compiler and example-smoke tests.
@@ -275,6 +313,7 @@ Evidence gate:
 - Newton solver results now retain accepted line-search scale and trial-count diagnostics per iteration, and runtime/report component solver step diagnostics expose that metadata for source Newton and DAE implicit-step Newton solves.
 - Dense linear solves now distinguish exact zero-pivot singular failures from tolerance-level ill-conditioned pivot failures, retain min/max pivot magnitudes plus a pivot-condition estimate on successful solves, and expose those diagnostics through linear residual graph and component solver report artifacts.
 - Newton results now retain the Jacobian policy label and per-iteration dense-linear step diagnostics, and source Newton/implicit-Euler DAE component step diagnostics expose those fields in report-spec artifacts.
+- Newton residual vector history now feeds source Newton and implicit-Euler DAE component step diagnostics with largest residual index/name/value evidence in report-spec artifacts.
 
 ## Done Criteria
 

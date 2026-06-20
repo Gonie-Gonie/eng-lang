@@ -651,6 +651,10 @@ pub struct ReportComponentSolverStepDiagnostic {
     pub linear_condition_estimate: Option<f64>,
     pub linear_minimum_pivot_abs: Option<f64>,
     pub linear_maximum_pivot_abs: Option<f64>,
+    pub largest_residual_index: Option<usize>,
+    pub largest_residual_name: Option<String>,
+    pub largest_residual_value: Option<f64>,
+    pub largest_residual_abs_value: Option<f64>,
     pub convergence_status: String,
     pub failure_artifact: Option<ReportSolverFailureArtifact>,
 }
@@ -5185,6 +5189,30 @@ fn push_report_component_solver_result_json(
             diagnostic.linear_maximum_pivot_abs,
             indent.len() + 6,
         );
+        push_optional_json_usize(
+            json,
+            "largest_residual_index",
+            diagnostic.largest_residual_index,
+            indent.len() + 6,
+        );
+        push_optional_json_string(
+            json,
+            "largest_residual_name",
+            diagnostic.largest_residual_name.as_deref(),
+            indent.len() + 6,
+        );
+        push_optional_json_f64(
+            json,
+            "largest_residual_value",
+            diagnostic.largest_residual_value,
+            indent.len() + 6,
+        );
+        push_optional_json_f64(
+            json,
+            "largest_residual_abs_value",
+            diagnostic.largest_residual_abs_value,
+            indent.len() + 6,
+        );
         json.push_str(&format!(
             "{indent}      \"convergence_status\": \"{}\",\n",
             json_escape(&diagnostic.convergence_status)
@@ -7171,6 +7199,28 @@ fn format_component_solver_step_diagnostics_summary(
         .iter()
         .map(|diagnostic| diagnostic.residual_norm.abs())
         .fold(0.0, f64::max);
+    let largest_step_residual = result
+        .step_diagnostics
+        .iter()
+        .filter_map(|diagnostic| {
+            Some((
+                diagnostic.step_index,
+                diagnostic.largest_residual_name.as_deref()?,
+                diagnostic.largest_residual_value?,
+                diagnostic.largest_residual_abs_value?,
+            ))
+        })
+        .max_by(|left, right| left.3.total_cmp(&right.3));
+    if let Some((step_index, name, value, _abs_value)) = largest_step_residual {
+        return format!(
+            "steps={} max_residual={} largest_step_residual={}@{}={}",
+            result.step_diagnostics.len(),
+            format_alignment_number(max_residual),
+            name,
+            step_index,
+            format_alignment_number(value)
+        );
+    }
     format!(
         "steps={} max_residual={}",
         result.step_diagnostics.len(),

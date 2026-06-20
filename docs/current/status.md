@@ -238,6 +238,7 @@ are not public stable workflows.
   diagnostics, and
   solver-API standalone damped Newton solve with finite initial-guess checks,
   finite-difference fallback, supplied analytic/JIT Jacobian hook, Jacobian policy labels, per-iteration Newton linear-step condition diagnostics,
+  residual-vector history, per-step largest residual identity diagnostics,
   residual history, accepted line-search scale/trial diagnostics,
   largest-residual summary, shared scaled residual-norm diagnostics,
   residual-assembly/evaluation finite-value checks, intermediate overflow
