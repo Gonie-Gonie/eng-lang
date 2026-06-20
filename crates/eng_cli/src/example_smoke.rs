@@ -642,6 +642,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .report_spec_json
                     .contains("\"normalized_residual_values\"")
                 || !output
+                    .report_spec_json
+                    .contains("\"largest_residual_name\":")
+                || !output
                     .result_json
                     .contains("\"convergence_status\": \"linear_algebraic_converged\"")
                 || !output
@@ -1195,6 +1198,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"normalized_residual_values\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"largest_residual_name\":")
                 || !output
                     .report_html
                     .contains("dynamic_component_assembly_semi_implicit_euler")

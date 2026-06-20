@@ -256,7 +256,8 @@ are not public stable workflows.
   updates from derivative-form `ResidualGraph` equations, including input and
   parameter terms, through a count/name-validated residual-graph explicit-Euler
   entrypoint, and derivative plus linear algebraic residual graphs through a
-  semi-implicit entrypoint with per-step dense linear algebraic solves. A
+  semi-implicit entrypoint with per-step dense linear algebraic solves plus raw
+  and normalized residual-vector and largest-residual diagnostic artifacts. A
   source `EquationAssembly` bridge now validates dynamic component
   state/algebraic/input/parameter layouts, lowers arithmetic-linear derivative and
   algebraic residuals into those residual-graph entrypoints, preserves

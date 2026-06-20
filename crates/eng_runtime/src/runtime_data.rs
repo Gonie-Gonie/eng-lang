@@ -1541,39 +1541,58 @@ impl RuntimeComponentSolution {
     ) -> Self {
         let mut solution =
             Self::from_dynamic_solver_result(assembly_name, &dynamic_result.solver_result, reason);
+        let algebraic_names = dynamic_result
+            .algebraic_layout
+            .entries
+            .iter()
+            .map(|entry| entry.name.clone())
+            .collect::<Vec<_>>();
         solution.step_diagnostics = dynamic_result
             .step_diagnostics
             .iter()
-            .map(|diagnostic| RuntimeComponentStepDiagnostic {
-                step_index: diagnostic.step_index,
-                time_s: diagnostic.time_s,
-                algebraic_iteration_count: diagnostic.algebraic_iteration_count,
-                residual_norm: diagnostic.residual_norm,
-                residual_values: Vec::new(),
-                normalized_residual_values: Vec::new(),
-                line_search_scale: None,
-                line_search_trial_count: None,
-                jacobian_policy: None,
-                variable_scale_policy: None,
-                linear_condition_estimate: None,
-                linear_minimum_pivot_abs: None,
-                linear_maximum_pivot_abs: None,
-                largest_residual_index: None,
-                largest_residual_name: None,
-                largest_residual_value: None,
-                largest_residual_abs_value: None,
-                convergence_status: diagnostic.convergence_status.clone(),
-                failure_artifact: diagnostic.failure.as_ref().map(|failure| {
-                    RuntimeSolverFailureArtifact {
-                        code: failure.code.clone(),
-                        message: failure.message.clone(),
-                    }
-                }),
+            .map(|diagnostic| {
+                let largest_residual = largest_newton_residual_diagnostic(
+                    Some(diagnostic.residual_values.as_slice()),
+                    Some(&algebraic_names),
+                );
+                RuntimeComponentStepDiagnostic {
+                    step_index: diagnostic.step_index,
+                    time_s: diagnostic.time_s,
+                    algebraic_iteration_count: diagnostic.algebraic_iteration_count,
+                    residual_norm: diagnostic.residual_norm,
+                    residual_values: diagnostic.residual_values.clone(),
+                    normalized_residual_values: diagnostic.normalized_residual_values.clone(),
+                    line_search_scale: None,
+                    line_search_trial_count: None,
+                    jacobian_policy: None,
+                    variable_scale_policy: None,
+                    linear_condition_estimate: None,
+                    linear_minimum_pivot_abs: None,
+                    linear_maximum_pivot_abs: None,
+                    largest_residual_index: largest_residual
+                        .as_ref()
+                        .map(|residual| residual.index),
+                    largest_residual_name: largest_residual
+                        .as_ref()
+                        .and_then(|residual| residual.name.clone()),
+                    largest_residual_value: largest_residual
+                        .as_ref()
+                        .map(|residual| residual.value),
+                    largest_residual_abs_value: largest_residual
+                        .as_ref()
+                        .map(|residual| residual.abs_value),
+                    convergence_status: diagnostic.convergence_status.clone(),
+                    failure_artifact: diagnostic.failure.as_ref().map(|failure| {
+                        RuntimeSolverFailureArtifact {
+                            code: failure.code.clone(),
+                            message: failure.message.clone(),
+                        }
+                    }),
+                }
             })
             .collect();
         solution
     }
-
     pub fn from_dynamic_component_assembly_result(
         assembly: &EquationAssembly,
         dynamic_result: &DynamicComponentResult,
@@ -11548,6 +11567,11 @@ with {
                 && variable.role == "algebraic"
                 && variable.value == 0.0));
         assert_eq!(solution.step_diagnostics.len(), 2);
+        assert!(solution.step_diagnostics.iter().all(|diagnostic| {
+            diagnostic.residual_values.len() == 1
+                && diagnostic.normalized_residual_values.len() == 1
+                && diagnostic.largest_residual_name.as_deref() == Some("z")
+        }));
         assert!(solution.failure_artifact.is_none());
     }
 

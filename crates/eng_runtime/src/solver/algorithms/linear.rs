@@ -4,6 +4,7 @@ use crate::solver::{euclidean_norm, SolverFailure};
 pub struct LinearSolveResult {
     pub values: Vec<f64>,
     pub residual_norm: f64,
+    pub residual_values: Vec<f64>,
     pub status: String,
     pub diagnostics: LinearSolveDiagnostics,
 }
@@ -126,6 +127,7 @@ pub fn solve_dense_linear_system(
     Ok(LinearSolveResult {
         values: b,
         residual_norm,
+        residual_values: residuals,
         status: if residual_norm <= tolerance {
             "converged".to_owned()
         } else {
@@ -174,6 +176,7 @@ mod tests {
         assert!((result.values[0] - 2.0).abs() <= 1e-9);
         assert!((result.values[1] - 1.0).abs() <= 1e-9);
         assert_eq!(result.status, "converged");
+        assert_eq!(result.residual_values.len(), 2);
         assert!(result.diagnostics.minimum_pivot_abs > 0.0);
         assert!(result.diagnostics.maximum_pivot_abs >= result.diagnostics.minimum_pivot_abs);
         assert!(result.diagnostics.pivot_condition_estimate >= 1.0);

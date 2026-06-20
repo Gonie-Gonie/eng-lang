@@ -4,8 +4,8 @@ use crate::solver::algorithms::fixed_point::{solve_fixed_point, FixedPointOption
 use crate::solver::algorithms::linear::solve_dense_linear_system;
 use crate::solver::assembly::EquationAssembly;
 use crate::solver::{
-    OutputLayout, ResidualGraph, SimulationPlan, SolverDiagnostics, SolverFailure, SolverInput,
-    SolverOptions, SolverOutput, SolverPlan, SolverResult, SolverScalar, StateLayout,
+    OutputLayout, ResidualGraph, ResidualScale, SimulationPlan, SolverDiagnostics, SolverFailure,
+    SolverInput, SolverOptions, SolverOutput, SolverPlan, SolverResult, SolverScalar, StateLayout,
     StateTrajectory, TimeGrid,
 };
 
@@ -20,6 +20,8 @@ pub struct DynamicComponentStepDiagnostic {
     pub time_s: f64,
     pub algebraic_iteration_count: usize,
     pub residual_norm: f64,
+    pub residual_values: Vec<f64>,
+    pub normalized_residual_values: Vec<f64>,
     pub convergence_status: String,
     pub failure: Option<SolverFailure>,
 }
@@ -106,6 +108,7 @@ struct ResidualGraphAlgebraicLinearEvaluator {
 struct ResidualAlgebraicEquation {
     residual_name: String,
     rhs_value: f64,
+    scale_value: f64,
     terms: Vec<ResidualRhsTerm>,
 }
 
@@ -114,6 +117,8 @@ struct AlgebraicStepSolveResult {
     values: Vec<f64>,
     iteration_count: usize,
     residual_norm: f64,
+    residual_values: Vec<f64>,
+    normalized_residual_values: Vec<f64>,
     convergence_status: String,
     failure: Option<SolverFailure>,
 }
@@ -495,6 +500,7 @@ impl ResidualGraphAlgebraicLinearEvaluator {
             equations.push(ResidualAlgebraicEquation {
                 residual_name: residual.name.clone(),
                 rhs_value: residual.rhs_value,
+                scale_value: residual.scale.value,
                 terms,
             });
         }
@@ -622,6 +628,11 @@ impl ResidualGraphAlgebraicLinearEvaluator {
                     values: solution.values,
                     iteration_count: 1,
                     residual_norm: solution.residual_norm,
+                    residual_values: solution.residual_values.clone(),
+                    normalized_residual_values: normalize_residual_values(
+                        &solution.residual_values,
+                        &self.residual_scales(),
+                    ),
                     convergence_status: if failure.is_none() {
                         "linear_algebraic_converged".to_owned()
                     } else {
@@ -634,10 +645,19 @@ impl ResidualGraphAlgebraicLinearEvaluator {
                 values: sample.algebraic.to_vec(),
                 iteration_count: 1,
                 residual_norm: 0.0,
+                residual_values: Vec::new(),
+                normalized_residual_values: Vec::new(),
                 convergence_status: "linear_algebraic_solve_failed".to_owned(),
                 failure: Some(failure),
             }),
         }
+    }
+
+    fn residual_scales(&self) -> Vec<f64> {
+        self.equations
+            .iter()
+            .map(|equation| equation.scale_value)
+            .collect()
     }
 }
 
@@ -715,6 +735,7 @@ where
     R: FnMut(DynamicStepInput<'_>) -> Result<Vec<f64>, SolverFailure>,
 {
     let fixed_point_options = options.algebraic.clone();
+    let algebraic_residual_scales = layout_residual_scales(&algebraic_layout);
     solve_explicit_euler_with_algebraic_solver(
         input,
         algebraic_layout,
@@ -735,6 +756,19 @@ where
                 values: fixed_point.values,
                 iteration_count: fixed_point.iteration_count,
                 residual_norm: fixed_point.residual_history.last().copied().unwrap_or(0.0),
+                residual_values: fixed_point
+                    .residual_value_history
+                    .last()
+                    .cloned()
+                    .unwrap_or_default(),
+                normalized_residual_values: normalize_residual_values(
+                    fixed_point
+                        .residual_value_history
+                        .last()
+                        .map(Vec::as_slice)
+                        .unwrap_or(&[]),
+                    &algebraic_residual_scales,
+                ),
                 convergence_status: fixed_point.convergence_status,
                 failure: fixed_point.failure,
             })
@@ -795,10 +829,22 @@ where
 
     for step_index in 0..=input.time_grid.step_count {
         let time_s = input.time_grid.step_time_s(step_index);
-        let (algebraic_iteration_count, residual_norm, convergence_status, failure) = if algebraic
-            .is_empty()
-        {
-            (0, 0.0, "algebraic_not_required".to_owned(), None)
+        let (
+            algebraic_iteration_count,
+            residual_norm,
+            residual_values,
+            normalized_residual_values,
+            convergence_status,
+            failure,
+        ) = if algebraic.is_empty() {
+            (
+                0,
+                0.0,
+                Vec::new(),
+                Vec::new(),
+                "algebraic_not_required".to_owned(),
+                None,
+            )
         } else {
             let solve = algebraic_solve(AlgebraicStepInput {
                 time_s,
@@ -824,6 +870,8 @@ where
             (
                 solve.iteration_count,
                 solve.residual_norm,
+                solve.residual_values,
+                solve.normalized_residual_values,
                 solve.convergence_status,
                 solve.failure,
             )
@@ -837,6 +885,8 @@ where
             time_s,
             algebraic_iteration_count,
             residual_norm,
+            residual_values,
+            normalized_residual_values,
             convergence_status,
             failure: failure.clone(),
         });
@@ -1013,6 +1063,30 @@ pub fn solve_dynamic_component_assembly(
     }
 }
 
+fn normalize_residual_values(values: &[f64], scales: &[f64]) -> Vec<f64> {
+    values
+        .iter()
+        .enumerate()
+        .map(|(index, value)| {
+            scales
+                .get(index)
+                .copied()
+                .filter(|scale| scale.is_finite() && *scale > 0.0)
+                .map(|scale| *value / scale)
+                .unwrap_or(*value)
+        })
+        .collect()
+}
+
+fn layout_residual_scales(layout: &StateLayout) -> Vec<f64> {
+    layout
+        .entries
+        .iter()
+        .map(|entry| {
+            ResidualScale::from_quantity_unit(&entry.quantity_kind, &entry.canonical_unit).value
+        })
+        .collect()
+}
 fn layout_names(entries: &[crate::solver::LayoutEntry]) -> Vec<String> {
     entries.iter().map(|entry| entry.name.clone()).collect()
 }
@@ -1727,14 +1801,13 @@ mod tests {
             result.solver_result.output.algebraic_trajectories[0].values,
             vec![2.0, 0.0]
         );
-        assert!(result
-            .step_diagnostics
-            .iter()
-            .all(
-                |diagnostic| diagnostic.convergence_status == "linear_algebraic_converged"
-                    && diagnostic.algebraic_iteration_count == 1
-                    && diagnostic.failure.is_none()
-            ));
+        assert!(result.step_diagnostics.iter().all(|diagnostic| {
+            diagnostic.convergence_status == "linear_algebraic_converged"
+                && diagnostic.algebraic_iteration_count == 1
+                && diagnostic.residual_values.len() == 1
+                && diagnostic.normalized_residual_values.len() == 1
+                && diagnostic.failure.is_none()
+        }));
     }
 
     #[test]
