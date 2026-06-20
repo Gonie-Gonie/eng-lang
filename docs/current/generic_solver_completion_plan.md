@@ -43,6 +43,7 @@ Every row above must eventually satisfy these requirements:
 ## Progress Ledger
 
 - 2026-06-20: Source-equation ODE simulation accepts scalar `output` system variables, evaluates their algebraic expressions from each simulated state/input/parameter sample, stores them as solver algebraic trajectories, and materializes `RuntimeTimeSeries` such as `sim.Q_load`. This closes the state-only output limitation for the supported source-equation ODE path; shared-IR, component-coupled, DAE, and behavior output lowering remain in the generic workstreams.
+- 2026-06-20: Typed-block state-space simulation now allows `outputs y = [...]` to include scalar `output` variables, evaluates those output equations from state/input/parameter samples after discrete, fixed-step continuous, or adaptive state-space solves, and materializes named output TimeSeries.
 
 ## Narrow/Not Claim Closure Matrix
 
@@ -150,7 +151,7 @@ Tasks:
 - Generate RHS evaluators from derivative equations, residual equations, and behavior nodes.
 - Support fixed-step Euler/RK4 and adaptive Heun over multi-state component-coupled systems.
 - Add TimeSeries interpolation policy, final partial-step handling, event hooks, and deterministic replay metadata.
-- Emit RuntimeTimeSeries for every named state and selected algebraic output. Source-equation scalar outputs are implemented; shared-IR/component-coupled outputs remain.
+- Emit RuntimeTimeSeries for every named state and selected algebraic output. Source-equation and typed-block state-space scalar outputs are implemented; shared-IR/component-coupled outputs remain.
 
 Evidence gate:
 

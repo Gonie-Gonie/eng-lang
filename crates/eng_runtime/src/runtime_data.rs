@@ -6316,13 +6316,68 @@ fn materialize_state_space_solutions(
     let output_members = output_vector
         .map(|vector| vector.members.clone())
         .unwrap_or_else(|| state_vector.members.clone());
+    let output_variables = output_members
+        .iter()
+        .map(|member| {
+            system.variables.iter().find(|variable| {
+                variable.name == *member && matches!(variable.role.as_str(), "state" | "output")
+            })
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let outputs = output_variables
+        .iter()
+        .copied()
+        .filter(|variable| variable.role == "output")
+        .collect::<Vec<_>>();
+    let parameters = if outputs.is_empty() {
+        Vec::new()
+    } else {
+        system
+            .variables
+            .iter()
+            .filter(|variable| variable.role == "parameter")
+            .collect::<Vec<_>>()
+    };
+    let state_symbols = states
+        .iter()
+        .map(|state| {
+            RhsStateInfo::new(
+                state.name.clone(),
+                state.quantity_kind.clone(),
+                state.canonical_unit.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let input_symbols = inputs
+        .iter()
+        .map(|input| {
+            RhsSymbolInfo::new(
+                input.name.clone(),
+                system_variable_value_quantity(input),
+                input.canonical_unit.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let parameter_symbols = parameters
+        .iter()
+        .map(|parameter| {
+            RhsSymbolInfo::new(
+                parameter.name.clone(),
+                parameter.quantity_kind.clone(),
+                parameter.canonical_unit.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
     let solver_plan = SolverPlan::new(
         system.name.clone(),
         SimulationPlan {
             inputs: input_vector.members.clone(),
             outputs: output_members.clone(),
             states: state_vector.members.clone(),
-            parameters: Vec::new(),
+            parameters: parameters
+                .iter()
+                .map(|parameter| parameter.name.clone())
+                .collect(),
         },
         solver_options,
     );
@@ -6359,24 +6414,33 @@ fn materialize_state_space_solutions(
                 })
                 .collect(),
         },
-        parameter_layout: ParameterLayout::default(),
-        output_layout: OutputLayout {
-            entries: output_members
+        parameter_layout: ParameterLayout::new(
+            parameters
                 .iter()
                 .enumerate()
-                .filter_map(|(index, member)| {
-                    states
-                        .iter()
-                        .find(|state| state.name == *member)
-                        .map(|state| {
-                            LayoutEntry::new(
-                                index,
-                                state.name.clone(),
-                                state.quantity_kind.clone(),
-                                state.canonical_unit.clone(),
-                                state.display_unit.clone(),
-                            )
-                        })
+                .map(|(index, parameter)| {
+                    LayoutEntry::new(
+                        index,
+                        parameter.name.clone(),
+                        parameter.quantity_kind.clone(),
+                        parameter.canonical_unit.clone(),
+                        parameter.display_unit.clone(),
+                    )
+                })
+                .collect(),
+        ),
+        output_layout: OutputLayout {
+            entries: output_variables
+                .iter()
+                .enumerate()
+                .map(|(index, variable)| {
+                    LayoutEntry::new(
+                        index,
+                        variable.name.clone(),
+                        system_variable_value_quantity(variable),
+                        variable.canonical_unit.clone(),
+                        variable.display_unit.clone(),
+                    )
                 })
                 .collect(),
         },
@@ -6395,10 +6459,46 @@ fn materialize_state_space_solutions(
                 })
             })
             .collect::<Option<Vec<_>>>()?,
-        parameters: Vec::new(),
+        parameters: parameters
+            .iter()
+            .map(|parameter| {
+                canonical_variable_value(parameter).map(|value| {
+                    SolverScalar::new(
+                        parameter.name.clone(),
+                        parameter.quantity_kind.clone(),
+                        parameter.canonical_unit.clone(),
+                        value,
+                    )
+                })
+            })
+            .collect::<Option<Vec<_>>>()?,
     };
+    let output_expressions = match system_output_expressions(
+        system,
+        &outputs,
+        &state_symbols,
+        &input_symbols,
+        &parameter_symbols,
+    ) {
+        Ok(expressions) => expressions,
+        Err(failure) => {
+            return failed_system_runtime_solutions(
+                system,
+                binding,
+                &states,
+                &solver_input,
+                &failure,
+                "recognized state-space output declarations, but output evaluator creation failed",
+            );
+        }
+    };
+    let parameter_values = solver_input
+        .parameters
+        .iter()
+        .map(|parameter| parameter.value)
+        .collect::<Vec<_>>();
     if is_discrete_state_space {
-        let solver_result = match solve_discrete_state_space(
+        let mut solver_result = match solve_discrete_state_space(
             &solver_input,
             &matrix_a,
             &matrix_b,
@@ -6429,12 +6529,37 @@ fn materialize_state_space_solutions(
                 );
             }
         };
+        if let Err(failure) = append_system_output_trajectories(
+            &mut solver_result,
+            &output_expressions,
+            &inputs,
+            &input_series,
+            &parameters,
+            &parameter_values,
+        ) {
+            let reason =
+                "recognized discrete-time state-space A/B operators, but output evaluation failed";
+            return failed_system_runtime_solutions(
+                system,
+                binding,
+                &states,
+                &solver_input,
+                &failure,
+                reason,
+            );
+        }
         let reason = if input_series.iter().any(Option::is_some) {
             "recognized discrete-time state-space A/B operators and executed state update with TimeSeries input materialization"
         } else {
             "recognized discrete-time state-space A/B operators and executed state update"
         };
-        return system_runtime_solutions(system, binding, &states, &solver_result, reason);
+        return system_runtime_solutions(
+            system,
+            binding,
+            &output_variables,
+            &solver_result,
+            reason,
+        );
     }
     if let Some(adaptive_options) = adaptive_options {
         let adaptive_result = match solve_adaptive_state_space(
@@ -6475,17 +6600,32 @@ fn materialize_state_space_solutions(
             "recognized continuous state-space A/B operators and executed adaptive Heun trajectories"
         };
         let step_diagnostics = runtime_system_step_diagnostics(&adaptive_result.step_reports);
-        let mut solutions = system_runtime_solutions(
-            system,
-            binding,
-            &states,
-            &adaptive_result.solver_result,
-            reason,
-        )?;
+        let mut solver_result = adaptive_result.solver_result;
+        if let Err(failure) = append_system_output_trajectories(
+            &mut solver_result,
+            &output_expressions,
+            &inputs,
+            &input_series,
+            &parameters,
+            &parameter_values,
+        ) {
+            let reason =
+                "recognized continuous state-space A/B operators, but output evaluation failed";
+            return failed_system_runtime_solutions(
+                system,
+                binding,
+                &states,
+                &solver_input,
+                &failure,
+                reason,
+            );
+        }
+        let mut solutions =
+            system_runtime_solutions(system, binding, &output_variables, &solver_result, reason)?;
         attach_system_step_diagnostics(&mut solutions, &step_diagnostics);
         return Some(solutions);
     }
-    let solver_result = match solve_continuous_state_space(
+    let mut solver_result = match solve_continuous_state_space(
         fixed_step_method,
         &solver_input,
         &matrix_a,
@@ -6518,12 +6658,31 @@ fn materialize_state_space_solutions(
         }
     };
 
+    if let Err(failure) = append_system_output_trajectories(
+        &mut solver_result,
+        &output_expressions,
+        &inputs,
+        &input_series,
+        &parameters,
+        &parameter_values,
+    ) {
+        let reason =
+            "recognized continuous state-space A/B operators, but output evaluation failed";
+        return failed_system_runtime_solutions(
+            system,
+            binding,
+            &states,
+            &solver_input,
+            &failure,
+            reason,
+        );
+    }
     let reason = if input_series.iter().any(Option::is_some) {
         "recognized multi-state state-space A/B operators and executed fixed-step trajectories with TimeSeries input materialization"
     } else {
         "recognized multi-state state-space A/B operators and executed fixed-step trajectories"
     };
-    system_runtime_solutions(system, binding, &states, &solver_result, reason)
+    system_runtime_solutions(system, binding, &output_variables, &solver_result, reason)
 }
 
 fn system_runtime_solutions(
@@ -6866,7 +7025,7 @@ fn materialize_source_ode_solutions(
         parameters: solver_parameters,
     };
 
-    let output_expressions = match source_ode_output_expressions(
+    let output_expressions = match system_output_expressions(
         system,
         &outputs,
         &state_symbols,
@@ -6881,7 +7040,7 @@ fn materialize_source_ode_solutions(
                 &states,
                 &solver_input,
                 &failure,
-                "recognized source output declarations, but output evaluator creation failed",
+                "recognized system output declarations, but output evaluator creation failed",
             );
         }
     };
@@ -6973,30 +7132,22 @@ fn materialize_source_ode_solutions(
         (solver_result, Vec::new())
     };
 
-    if !output_expressions.is_empty() {
-        match source_ode_output_trajectories(
-            &solver_result,
-            &output_expressions,
-            &inputs,
-            &input_series,
-            &parameters,
-            &parameter_values,
-        ) {
-            Ok(mut trajectories) => solver_result
-                .output
-                .algebraic_trajectories
-                .append(&mut trajectories),
-            Err(failure) => {
-                return failed_system_runtime_solutions(
-                    system,
-                    binding,
-                    &states,
-                    &solver_input,
-                    &failure,
-                    "recognized source output declarations, but output evaluation failed",
-                );
-            }
-        }
+    if let Err(failure) = append_system_output_trajectories(
+        &mut solver_result,
+        &output_expressions,
+        &inputs,
+        &input_series,
+        &parameters,
+        &parameter_values,
+    ) {
+        return failed_system_runtime_solutions(
+            system,
+            binding,
+            &states,
+            &solver_input,
+            &failure,
+            "recognized system output declarations, but output evaluation failed",
+        );
     }
 
     let reason = if use_adaptive_heun {
@@ -7043,7 +7194,7 @@ fn source_ode_equations_for_states(
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct ParsedSourceOutputExpression {
+struct ParsedSystemOutputExpression {
     name: String,
     quantity_kind: String,
     canonical_unit: String,
@@ -7051,13 +7202,13 @@ struct ParsedSourceOutputExpression {
     expression: ParsedArithmeticExpression,
 }
 
-fn source_ode_output_expressions(
+fn system_output_expressions(
     system: &eng_compiler::SystemInfo,
     outputs: &[&eng_compiler::SystemVariableInfo],
     states: &[RhsStateInfo],
     inputs: &[RhsSymbolInfo],
     parameters: &[RhsSymbolInfo],
-) -> Result<Vec<ParsedSourceOutputExpression>, SolverFailure> {
+) -> Result<Vec<ParsedSystemOutputExpression>, SolverFailure> {
     if outputs.is_empty() {
         return Ok(Vec::new());
     }
@@ -7067,18 +7218,18 @@ fn source_ode_output_expressions(
     outputs
         .iter()
         .map(|output| {
-            let source = source_ode_output_expression_source(system, output)?;
+            let source = system_output_expression_source(system, output)?;
             let expression = parse_source_rhs_expression(&source, &symbols, &symbol_metadata)
                 .map_err(|failure| {
                     SolverFailure::new(
                         failure.code,
                         format!(
-                            "{} while parsing source output `{}`",
+                            "{} while parsing system output `{}`",
                             failure.message, output.name
                         ),
                     )
                 })?;
-            Ok(ParsedSourceOutputExpression {
+            Ok(ParsedSystemOutputExpression {
                 name: output.name.clone(),
                 quantity_kind: system_variable_value_quantity(output),
                 canonical_unit: output.canonical_unit.clone(),
@@ -7089,7 +7240,7 @@ fn source_ode_output_expressions(
         .collect()
 }
 
-fn source_ode_output_expression_source(
+fn system_output_expression_source(
     system: &eng_compiler::SystemInfo,
     output: &eng_compiler::SystemVariableInfo,
 ) -> Result<String, SolverFailure> {
@@ -7102,7 +7253,7 @@ fn source_ode_output_expression_source(
         return Err(SolverFailure::new(
             "E-RHS-OUTPUT-EXPRESSION",
             format!(
-                "source output `{}` has multiple algebraic equations",
+                "system output `{}` has multiple algebraic equations",
                 output.name
             ),
         ));
@@ -7114,16 +7265,41 @@ fn source_ode_output_expression_source(
         SolverFailure::new(
             "E-RHS-OUTPUT-EXPRESSION",
             format!(
-                "source output `{}` requires either `output ... = expression` or an equation `{} eq expression`",
+                "system output `{}` requires either `output ... = expression` or an equation `{} eq expression`",
                 output.name, output.name
             ),
         )
     })
 }
 
-fn source_ode_output_trajectories(
+fn append_system_output_trajectories(
+    solver_result: &mut SolverResult,
+    outputs: &[ParsedSystemOutputExpression],
+    inputs: &[&eng_compiler::SystemVariableInfo],
+    input_series: &[Option<&RuntimeTimeSeries>],
+    parameters: &[&eng_compiler::SystemVariableInfo],
+    parameter_values: &[f64],
+) -> Result<(), SolverFailure> {
+    if outputs.is_empty() {
+        return Ok(());
+    }
+    let mut trajectories = system_output_trajectories(
+        solver_result,
+        outputs,
+        inputs,
+        input_series,
+        parameters,
+        parameter_values,
+    )?;
+    solver_result
+        .output
+        .algebraic_trajectories
+        .append(&mut trajectories);
+    Ok(())
+}
+fn system_output_trajectories(
     solver_result: &SolverResult,
-    outputs: &[ParsedSourceOutputExpression],
+    outputs: &[ParsedSystemOutputExpression],
     inputs: &[&eng_compiler::SystemVariableInfo],
     input_series: &[Option<&RuntimeTimeSeries>],
     parameters: &[&eng_compiler::SystemVariableInfo],
@@ -7135,13 +7311,13 @@ fn source_ode_output_trajectories(
     if inputs.len() != input_series.len() {
         return Err(SolverFailure::new(
             "E-RHS-OUTPUT-INPUT-LAYOUT",
-            "source output input layout does not match input series layout",
+            "system output input layout does not match input series layout",
         ));
     }
     if parameters.len() != parameter_values.len() {
         return Err(SolverFailure::new(
             "E-RHS-OUTPUT-PARAMETER-LAYOUT",
-            "source output parameter layout does not match parameter values",
+            "system output parameter layout does not match parameter values",
         ));
     }
     let sample_count = solver_result
@@ -7155,7 +7331,7 @@ fn source_ode_output_trajectories(
         .map(|output| {
             let mut values = Vec::with_capacity(sample_count);
             for sample_index in 0..sample_count {
-                let symbols = source_ode_output_sample_symbols(
+                let symbols = system_output_sample_symbols(
                     solver_result,
                     inputs,
                     input_series,
@@ -7167,7 +7343,7 @@ fn source_ode_output_trajectories(
                     SolverFailure::new(
                         failure.code,
                         format!(
-                            "{} while evaluating source output `{}` expression `{}`",
+                            "{} while evaluating system output `{}` expression `{}`",
                             failure.message, output.name, output.source
                         ),
                     )
@@ -7176,7 +7352,7 @@ fn source_ode_output_trajectories(
                     return Err(SolverFailure::new(
                         "E-RHS-OUTPUT-FINITE",
                         format!(
-                            "source output `{}` must evaluate to a finite value",
+                            "system output `{}` must evaluate to a finite value",
                             output.name
                         ),
                     ));
@@ -7193,7 +7369,7 @@ fn source_ode_output_trajectories(
         .collect()
 }
 
-fn source_ode_output_sample_symbols(
+fn system_output_sample_symbols(
     solver_result: &SolverResult,
     inputs: &[&eng_compiler::SystemVariableInfo],
     input_series: &[Option<&RuntimeTimeSeries>],
@@ -7214,7 +7390,7 @@ fn source_ode_output_sample_symbols(
                 SolverFailure::new(
                     "E-RHS-OUTPUT-STATE-SAMPLE",
                     format!(
-                        "source output sample {} is missing state `{}`",
+                        "system output sample {} is missing state `{}`",
                         sample_index, trajectory.name
                     ),
                 )
@@ -7226,7 +7402,7 @@ fn source_ode_output_sample_symbols(
             SolverFailure::new(
                 "E-RHS-OUTPUT-INPUT-VALUE",
                 format!(
-                    "source output input `{}` cannot be evaluated at t={} s",
+                    "system output input `{}` cannot be evaluated at t={} s",
                     input.name, time_s
                 ),
             )
@@ -11226,6 +11402,70 @@ with {
             .any(|series| series.name == "sim.T_wall"));
     }
 
+    #[test]
+    fn state_space_runtime_materializes_scalar_output_series() {
+        let source = r#"
+system OutputAlgebraicStateSpace {
+    parameter base_load: HeatRate [kW] = 1 kW
+    state T_air: AbsoluteTemperature = 20 degC
+    state T_wall: AbsoluteTemperature = 20 degC
+    input Q_hvac: HeatRate = 1000 W
+    output Q_total: HeatRate [kW]
+
+    states x = [T_air, T_wall]
+    inputs u = [Q_hvac]
+    outputs y = [T_air, Q_total]
+
+    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[1.0, 0.0]; [0.0, 1.0]]
+    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0.001]; [0.002]]
+
+    equation {
+        next(x) eq A * x + B * u
+        Q_total eq Q_hvac + base_load
+    }
+}
+
+sim = simulate OutputAlgebraicStateSpace
+with {
+    timestep = 10 min
+    duration = 20 min
+    solver = fixed_step
+}
+"#;
+        let report = check_source("state_space_output.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let runtime = materialize_runtime_data(&report, source);
+
+        let sim_solutions = runtime
+            .system_solutions
+            .iter()
+            .filter(|solution| solution.binding.as_deref() == Some("sim"))
+            .collect::<Vec<_>>();
+        assert_eq!(sim_solutions.len(), 2);
+        assert!(sim_solutions.iter().all(|solution| {
+            solution.outputs == vec!["T_air".to_owned(), "Q_total".to_owned()]
+                && solution.parameters == vec!["base_load".to_owned()]
+        }));
+        assert!(sim_solutions
+            .iter()
+            .any(|solution| solution.state == "T_air"));
+        let load = sim_solutions
+            .iter()
+            .find(|solution| solution.state == "Q_total")
+            .unwrap();
+        assert_eq!(load.quantity_kind, "HeatRate");
+        assert_eq!(load.display_unit, "kW");
+        assert_eq!(load.points.len(), 3);
+        assert!(load.points.iter().all(|point| (point.y - 2.0).abs() < 1e-9));
+        let load_series = runtime
+            .time_series
+            .iter()
+            .find(|series| series.name == "sim.Q_total")
+            .unwrap();
+        assert_eq!(load_series.quantity_kind, "HeatRate");
+        assert_eq!(load_series.display_unit, "kW");
+        assert_eq!(load_series.points.len(), 3);
+    }
     #[test]
     fn state_space_solver_failure_materializes_failed_solution() {
         let overflowing_coefficient = format!("1{}", "0".repeat(306));
