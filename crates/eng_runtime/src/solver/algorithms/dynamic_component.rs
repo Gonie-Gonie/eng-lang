@@ -1058,18 +1058,66 @@ pub fn solve_residual_graph_semi_implicit_euler(
 ) -> Result<DynamicComponentResult, SolverFailure> {
     let derivative_graph = residual_graph_with_derivative_residuals(graph)?;
     let rhs_evaluator = ResidualGraphRhsEvaluator::new(&derivative_graph)?;
-    let algebraic_evaluator = ResidualGraphAlgebraicLinearEvaluator::new(graph)?;
     validate_residual_graph_solver_layout(input, &algebraic_layout, &rhs_evaluator)?;
+
+    solve_residual_graph_semi_implicit_euler_with_rhs(
+        input,
+        graph,
+        algebraic_layout,
+        initial_algebraic,
+        options,
+        |sample| rhs_evaluator.evaluate(&sample),
+    )
+}
+
+pub fn solve_residual_graph_semi_implicit_euler_with_rhs<R>(
+    input: &SolverInput,
+    graph: &ResidualGraph,
+    algebraic_layout: StateLayout,
+    initial_algebraic: Vec<f64>,
+    options: DynamicComponentOptions,
+    rhs: R,
+) -> Result<DynamicComponentResult, SolverFailure>
+where
+    R: FnMut(DynamicStepInput<'_>) -> Result<Vec<f64>, SolverFailure>,
+{
+    let static_inputs = input.inputs.clone();
+    solve_residual_graph_semi_implicit_euler_with_rhs_and_input_sampler(
+        input,
+        graph,
+        algebraic_layout,
+        initial_algebraic,
+        options,
+        move |_| Ok(static_inputs.clone()),
+        rhs,
+    )
+}
+
+pub fn solve_residual_graph_semi_implicit_euler_with_rhs_and_input_sampler<R, I>(
+    input: &SolverInput,
+    graph: &ResidualGraph,
+    algebraic_layout: StateLayout,
+    initial_algebraic: Vec<f64>,
+    options: DynamicComponentOptions,
+    input_values_at: I,
+    rhs: R,
+) -> Result<DynamicComponentResult, SolverFailure>
+where
+    R: FnMut(DynamicStepInput<'_>) -> Result<Vec<f64>, SolverFailure>,
+    I: FnMut(f64) -> Result<Vec<SolverScalar>, SolverFailure>,
+{
+    let algebraic_evaluator = ResidualGraphAlgebraicLinearEvaluator::new(graph)?;
     validate_residual_graph_algebraic_layout(input, &algebraic_layout, &algebraic_evaluator)?;
 
     let tolerance = options.algebraic.tolerance;
-    solve_explicit_euler_with_algebraic_solver(
+    solve_explicit_euler_with_algebraic_solver_with_input_sampler(
         input,
         algebraic_layout,
         initial_algebraic,
         options,
         |sample| algebraic_evaluator.solve(&sample, tolerance),
-        |sample| rhs_evaluator.evaluate(&sample),
+        rhs,
+        input_values_at,
     )
 }
 
@@ -1086,19 +1134,16 @@ where
 {
     let derivative_graph = residual_graph_with_derivative_residuals(graph)?;
     let rhs_evaluator = ResidualGraphRhsEvaluator::new(&derivative_graph)?;
-    let algebraic_evaluator = ResidualGraphAlgebraicLinearEvaluator::new(graph)?;
     validate_residual_graph_solver_layout(input, &algebraic_layout, &rhs_evaluator)?;
-    validate_residual_graph_algebraic_layout(input, &algebraic_layout, &algebraic_evaluator)?;
 
-    let tolerance = options.algebraic.tolerance;
-    solve_explicit_euler_with_algebraic_solver_with_input_sampler(
+    solve_residual_graph_semi_implicit_euler_with_rhs_and_input_sampler(
         input,
+        graph,
         algebraic_layout,
         initial_algebraic,
         options,
-        |sample| algebraic_evaluator.solve(&sample, tolerance),
-        |sample| rhs_evaluator.evaluate(&sample),
         input_values_at,
+        |sample| rhs_evaluator.evaluate(&sample),
     )
 }
 
@@ -1206,6 +1251,62 @@ where
         solve_input.initial_algebraic,
         options,
         input_values_at,
+    )
+}
+
+pub fn solve_dynamic_component_assembly_with_rhs_and_input_sampler<R, I>(
+    assembly: &EquationAssembly,
+    solve_input: DynamicComponentAssemblySolveInput,
+    options: DynamicComponentOptions,
+    input_values_at: I,
+    rhs: R,
+) -> Result<DynamicComponentResult, SolverFailure>
+where
+    R: FnMut(DynamicStepInput<'_>) -> Result<Vec<f64>, SolverFailure>,
+    I: FnMut(f64) -> Result<Vec<SolverScalar>, SolverFailure>,
+{
+    let split = assembly.dynamic_component_split()?;
+    let graph = ResidualGraph::from_dynamic_component_assembly(assembly)?;
+    let solver_input = SolverInput {
+        plan: SolverPlan::new(
+            assembly.name.clone(),
+            SimulationPlan {
+                inputs: layout_names(&split.input_layout.entries),
+                outputs: layout_names(&split.state_layout.entries),
+                states: layout_names(&split.state_layout.entries),
+                parameters: layout_names(&split.parameter_layout.entries),
+            },
+            SolverOptions::fixed_step(
+                "dynamic_component_assembly_semi_implicit_euler",
+                solve_input.timestep_s,
+            ),
+        ),
+        time_grid: TimeGrid::fixed_step(solve_input.duration_s, solve_input.timestep_s)?,
+        state_layout: split.state_layout.clone(),
+        input_layout: split.input_layout.clone(),
+        parameter_layout: split.parameter_layout.clone(),
+        output_layout: OutputLayout {
+            entries: split.state_layout.entries.clone(),
+        },
+        initial_state: solve_input.initial_state,
+        inputs: solve_input.inputs,
+        parameters: solve_input.parameters,
+    };
+
+    if split.algebraic_layout.is_empty() {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-ASSEMBLY-LAYOUT",
+            "dynamic component assembly custom-RHS solve requires a semi-implicit algebraic layout",
+        ));
+    }
+    solve_residual_graph_semi_implicit_euler_with_rhs_and_input_sampler(
+        &solver_input,
+        &graph,
+        split.algebraic_layout,
+        solve_input.initial_algebraic,
+        options,
+        input_values_at,
+        rhs,
     )
 }
 

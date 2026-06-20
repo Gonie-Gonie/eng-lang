@@ -1733,7 +1733,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .result_json
                     .contains("\"method\": \"dynamic_component_assembly_semi_implicit_euler\"")
                 || !output.result_json.contains(
-                    "dynamic component source solve executed assembled residual graph with TimeSeries input materialization",
+                    "semi-implicit algebraic residual graph with parsed derivative residual expressions and TimeSeries input materialization",
                 )
                 || !output
                     .result_json
@@ -1764,6 +1764,48 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             eprintln!(
                 "dynamic component TimeSeries input semi-implicit runtime fixture failed: {error}"
             );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/runtime/dynamic_component_function_semi_implicit.eng"),
+        Path::new("build/test-runtime-dynamic-component-function-semi-implicit"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_semi_implicit_euler\"")
+                || !output.result_json.contains(
+                    "semi-implicit algebraic residual graph with parsed derivative residual expressions",
+                )
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dynamic_component_fixed_step_completed\"")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"name\": \"node.node.balance\"")
+                || !output.result_json.contains("\"final_value\": 0.16281192")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"linear_algebraic_converged\"")
+                || !output.report_spec_json.contains("sin(node.node.x)")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\"")
+                || !output.report_html.contains("node.node.x=0.162812")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_function_semi_implicit.eng to solve a semi-implicit dynamic component graph with parsed function RHS"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_function_semi_implicit.eng solved semi-implicit dynamic component function RHS"
+            );
+        }
+        Err(error) => {
+            eprintln!("dynamic component function semi-implicit runtime fixture failed: {error}");
             return ExitCode::from(1);
         }
     }

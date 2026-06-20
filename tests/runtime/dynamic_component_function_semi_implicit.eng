@@ -1,0 +1,36 @@
+domain ScalarState {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component FunctionNode {
+    port node: ScalarState
+    der(node.x) + sin(node.x) eq node.balance
+}
+
+component BalanceBoundary {
+    port node: ScalarState
+    node.balance eq 0
+}
+
+system DynamicFunctionSemiImplicit {
+    node = FunctionNode()
+    boundary = BalanceBoundary()
+    connect node.node to boundary.node
+}
+
+function_semi_result = solve component_graph
+with {
+    solver = dynamic_component_semi_implicit_euler
+    timestep = 0.25 s
+    duration = 1 s
+    initial = 0.5
+    initial_algebraic = [0, 0, 0]
+    tolerance = 0.000001
+    max_iter = 20
+}
+
+report {
+    show function_semi_result
+}

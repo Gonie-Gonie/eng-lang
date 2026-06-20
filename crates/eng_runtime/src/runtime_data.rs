@@ -28,23 +28,24 @@ use crate::solver::{
         GeneratedEquation, PortInstance, UnknownVariable,
     },
     initialize_algebraic_variables, solve_adaptive_heun_ode, solve_adaptive_state_space,
-    solve_continuous_state_space, solve_discrete_state_space, solve_dynamic_component_assembly,
-    solve_dynamic_component_assembly_with_input_sampler, solve_explicit_euler_with_algebraic,
-    solve_first_order_thermal, solve_fixed_point, solve_fixed_step_ode, solve_implicit_euler_dae,
-    solve_linear_residual_graph, solve_newton, solve_newton_with_jacobian, AdaptiveOdeOptions,
-    AdaptiveOdeStepReport, AlgebraicInitializationInput, BehaviorExecutionProfile,
-    BehaviorGraphRhsAdapter, BehaviorRhsNode, BehaviorRhsSample, BehaviorSignalContract,
-    BehaviorSignalSource, DaeInput, DaeMassMatrix, DaeMethod, DaeOptions, DaeSample, DaeVariable,
-    DelayBehaviorNode, DelayBuffer, DelayInitialHistoryPolicy, DelayInterpolationPolicy,
-    DynamicComponentAssemblySolveInput, DynamicComponentOptions, DynamicComponentResult,
-    ExternalBehaviorContract, ExternalBehaviorDeterminism, ExternalBehaviorKind,
-    ExternalBehaviorProfilePolicy, FirstOrderThermalModel, FixedPointOptions, FixedStepMethod,
-    InputLayout, LayoutEntry, NewtonOptions, OutputLayout, ParameterLayout, PredictorContract,
-    PredictorDifferentiability, PredictorJacobianPolicy, PredictorSolverPolicy, ResidualEquation,
-    ResidualEvaluator, ResidualGraph, ResidualInput, ResidualOutput, ResidualScale, RhsEvaluator,
-    RhsInput, RhsStateInfo, RhsSymbolInfo, SimulationPlan, SolverDiagnostics, SolverFailure,
-    SolverInput, SolverOptions, SolverPlan, SolverResult, SolverScalar, SourceRhsEquation,
-    SourceRhsEvaluator, StateLayout, StateTrajectory, TimeGrid,
+    solve_continuous_state_space, solve_discrete_state_space,
+    solve_dynamic_component_assembly_with_rhs_and_input_sampler,
+    solve_explicit_euler_with_algebraic, solve_first_order_thermal, solve_fixed_point,
+    solve_fixed_step_ode, solve_implicit_euler_dae, solve_linear_residual_graph, solve_newton,
+    solve_newton_with_jacobian, AdaptiveOdeOptions, AdaptiveOdeStepReport,
+    AlgebraicInitializationInput, BehaviorExecutionProfile, BehaviorGraphRhsAdapter,
+    BehaviorRhsNode, BehaviorRhsSample, BehaviorSignalContract, BehaviorSignalSource, DaeInput,
+    DaeMassMatrix, DaeMethod, DaeOptions, DaeSample, DaeVariable, DelayBehaviorNode, DelayBuffer,
+    DelayInitialHistoryPolicy, DelayInterpolationPolicy, DynamicComponentAssemblySolveInput,
+    DynamicComponentOptions, DynamicComponentResult, ExternalBehaviorContract,
+    ExternalBehaviorDeterminism, ExternalBehaviorKind, ExternalBehaviorProfilePolicy,
+    FirstOrderThermalModel, FixedPointOptions, FixedStepMethod, InputLayout, LayoutEntry,
+    NewtonOptions, OutputLayout, ParameterLayout, PredictorContract, PredictorDifferentiability,
+    PredictorJacobianPolicy, PredictorSolverPolicy, ResidualEquation, ResidualEvaluator,
+    ResidualGraph, ResidualInput, ResidualOutput, ResidualScale, RhsEvaluator, RhsInput,
+    RhsStateInfo, RhsSymbolInfo, SimulationPlan, SolverDiagnostics, SolverFailure, SolverInput,
+    SolverOptions, SolverPlan, SolverResult, SolverScalar, SourceRhsEquation, SourceRhsEvaluator,
+    StateLayout, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -4305,56 +4306,19 @@ fn dynamic_component_solution_from_solve_request(
         };
     }
 
-    if solve_input.uses_time_series_inputs() {
-        let static_inputs = solve_input.solve_input.inputs.clone();
-        let input_series = solve_input.input_series.clone();
-        return match solve_dynamic_component_assembly_with_input_sampler(
-            dynamic_assembly,
-            solve_input.solve_input,
-            options.clone(),
-            |time_s| {
-                sampled_dynamic_component_inputs(
-                    &static_inputs,
-                    &input_series,
-                    series,
-                    dynamic_assembly,
-                    time_s,
-                )
-            },
-        ) {
-            Ok(dynamic_result) => {
-                RuntimeComponentSolution::from_dynamic_component_assembly_result(
-                    dynamic_assembly,
-                    &dynamic_result,
-                    "dynamic component source solve executed assembled residual graph with TimeSeries input materialization",
-                )
-            }
-            Err(failure) => failed_dynamic_component_source_solution(
-                dynamic_assembly,
-                solver,
-                &options,
-                &failure,
-                "dynamic component source solve failed before timestep execution",
-            ),
-        };
-    }
-
-    match solve_dynamic_component_assembly(
+    match expression_dynamic_component_semi_implicit_solution_from_solve_request(
         dynamic_assembly,
-        solve_input.solve_input,
+        solve_input,
+        series,
         options.clone(),
     ) {
-        Ok(dynamic_result) => RuntimeComponentSolution::from_dynamic_component_assembly_result(
-            dynamic_assembly,
-            &dynamic_result,
-            "dynamic component source solve executed assembled residual graph",
-        ),
+        Ok(solution) => solution,
         Err(failure) => failed_dynamic_component_source_solution(
             dynamic_assembly,
             solver,
             &options,
             &failure,
-            "dynamic component source solve failed before timestep execution",
+            "dynamic component semi-implicit source solve failed during parsed residual RHS evaluation",
         ),
     }
 }
@@ -4365,10 +4329,64 @@ struct DynamicComponentSourceSolveInput {
     input_series: Vec<Option<usize>>,
 }
 
-impl DynamicComponentSourceSolveInput {
-    fn uses_time_series_inputs(&self) -> bool {
-        self.input_series.iter().any(Option::is_some)
-    }
+fn expression_dynamic_component_semi_implicit_solution_from_solve_request(
+    assembly: &EquationAssembly,
+    source_input: DynamicComponentSourceSolveInput,
+    series: &[RuntimeTimeSeries],
+    options: DynamicComponentOptions,
+) -> Result<RuntimeComponentSolution, SolverFailure> {
+    let DynamicComponentSourceSolveInput {
+        solve_input,
+        input_series,
+    } = source_input;
+    let uses_time_series_inputs = input_series.iter().any(Option::is_some);
+    let algebraic_assembly = semi_implicit_algebraic_dynamic_component_source_assembly(assembly)?;
+    let parse_symbols = source_dynamic_component_parse_symbols(assembly, &solve_input.parameters)?;
+    let parsed_residuals = parse_source_residual_expressions(assembly, &parse_symbols)?;
+    let static_inputs = solve_input.inputs.clone();
+
+    let dynamic_result = solve_dynamic_component_assembly_with_rhs_and_input_sampler(
+        &algebraic_assembly,
+        solve_input,
+        options,
+        |time_s| {
+            sampled_dynamic_component_inputs(
+                &static_inputs,
+                &input_series,
+                series,
+                assembly,
+                time_s,
+            )
+        },
+        |sample| {
+            let symbols = source_dynamic_component_symbols(
+                assembly,
+                sample.time_s,
+                sample.state,
+                sample.algebraic,
+                sample.inputs,
+                sample.parameters,
+            );
+            source_residual_derivatives_from_affine_derivative_terms(
+                assembly,
+                &parsed_residuals,
+                &symbols,
+                "dynamic component semi-implicit source",
+            )
+        },
+    )?;
+    let mut solution = RuntimeComponentSolution::from_dynamic_component_assembly_result(
+        assembly,
+        &dynamic_result,
+        if uses_time_series_inputs {
+            "dynamic component source solve executed semi-implicit algebraic residual graph with parsed derivative residual expressions and TimeSeries input materialization"
+        } else {
+            "dynamic component source solve executed semi-implicit algebraic residual graph with parsed derivative residual expressions"
+        },
+    );
+    solution.equation_count = assembly.equation_count();
+    solution.unknown_count = assembly.unknown_count();
+    Ok(solution)
 }
 
 fn expression_dynamic_component_solution_from_solve_request(
@@ -5399,6 +5417,32 @@ fn explicit_dynamic_component_source_assembly(
         .cloned()
         .collect();
     Ok(explicit)
+}
+
+fn semi_implicit_algebraic_dynamic_component_source_assembly(
+    assembly: &EquationAssembly,
+) -> Result<EquationAssembly, SolverFailure> {
+    if assembly.algebraic_variables.is_empty() {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-SEMI-IMPLICIT-SHAPE",
+            "semi-implicit dynamic component source solve requires at least one algebraic variable",
+        ));
+    }
+    let generated_equations = assembly
+        .generated_equations
+        .iter()
+        .filter(|equation| !equation_has_derivative_dependency(equation))
+        .cloned()
+        .collect::<Vec<_>>();
+    if generated_equations.is_empty() {
+        return Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-SEMI-IMPLICIT-SHAPE",
+            "semi-implicit dynamic component source solve requires algebraic residual equations",
+        ));
+    }
+    let mut algebraic = assembly.clone();
+    algebraic.generated_equations = generated_equations;
+    Ok(algebraic)
 }
 
 fn dynamic_component_solve_input_from_request(

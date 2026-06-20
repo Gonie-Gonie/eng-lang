@@ -169,7 +169,8 @@ by the stable breaking-change policy.
   fixture coverage for algebraic-free dimensionless function RHS evaluation,
   constructor-parameter and scalar or TimeSeries component-input dependencies
   in the parsed explicit dynamic path plus fixed-step TimeSeries component inputs
-  in the residual-graph semi-implicit path, coupled two-state trajectories through
+  and parsed derivative function RHS evaluation in the residual-graph
+  semi-implicit path, coupled two-state trajectories through
   parsed derivative residual expressions, and selected algebraic output
   trajectories such as `node.y eq cos(node.x)`.
   Narrow coupled multi-variable
@@ -270,10 +271,12 @@ are not public stable workflows.
   source `EquationAssembly` bridge now validates dynamic component
   state/algebraic/input/parameter layouts, lowers arithmetic-linear derivative and
   algebraic residuals with materialized component-parameter coefficients into
-  those residual-graph entrypoints, preserves
+  those residual-graph entrypoints, and can pair the semi-implicit algebraic
+  residual graph with parsed derivative residual RHS expressions, preserving
   equation/unknown counts in component solver artifacts, and is covered by
   `examples/official/26_dynamic_component_room`,
   `tests/runtime/dynamic_component_explicit.eng`,
+  `tests/runtime/dynamic_component_function_semi_implicit.eng`,
   `tests/runtime/dynamic_component_semi_implicit.eng`, and
   `tests/diagnostics/dynamic_component_nonconvergence.eng`. The runtime also
   has narrow source bridges from component `EquationAssembly` residuals to
