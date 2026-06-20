@@ -164,6 +164,7 @@ impl ResidualGraph {
                     },
                     scale,
                     source: ResidualSource {
+                        expression: equation.expression.clone(),
                         line: equation.source_line,
                         generated_reason: Some(equation.reason.clone()),
                     },
@@ -357,6 +358,7 @@ impl ResidualGraph {
                     },
                     scale,
                     source: ResidualSource {
+                        expression: equation.expression.clone(),
                         line: equation.source_line,
                         generated_reason: Some(equation.reason.clone()),
                     },
@@ -1438,6 +1440,7 @@ pub struct ResidualUnit {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ResidualSource {
+    pub expression: String,
     pub line: Option<usize>,
     pub generated_reason: Option<String>,
 }

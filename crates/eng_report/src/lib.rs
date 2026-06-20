@@ -669,6 +669,10 @@ pub struct ReportComponentSolverStepDiagnostic {
 pub struct ReportComponentSolverResidual {
     pub name: String,
     pub expression: String,
+    pub source_expression: String,
+    pub source_line: Option<usize>,
+    pub source_reason: Option<String>,
+    pub dependencies: Vec<String>,
     pub value: f64,
     pub unit: String,
     pub expression_unit: String,
@@ -5326,6 +5330,25 @@ fn push_report_component_solver_result_json(
             "{indent}      \"expression\": \"{}\",\n",
             json_escape(&residual.expression)
         ));
+        json.push_str(&format!(
+            "{indent}      \"source_expression\": \"{}\",\n",
+            json_escape(&residual.source_expression)
+        ));
+        push_optional_json_usize(json, "source_line", residual.source_line, indent.len() + 6);
+        push_optional_json_string(
+            json,
+            "source_reason",
+            residual.source_reason.as_deref(),
+            indent.len() + 6,
+        );
+        json.push_str(&format!("{indent}      \"dependencies\": ["));
+        for (dependency_index, dependency) in residual.dependencies.iter().enumerate() {
+            if dependency_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(dependency)));
+        }
+        json.push_str("],\n");
         json.push_str(&format!("{indent}      \"value\": {},\n", residual.value));
         json.push_str(&format!(
             "{indent}      \"unit\": \"{}\",\n",
@@ -5385,6 +5408,25 @@ fn push_report_component_solver_result_json(
             "{indent}      \"expression\": \"{}\",\n",
             json_escape(&residual.expression)
         ));
+        json.push_str(&format!(
+            "{indent}      \"source_expression\": \"{}\",\n",
+            json_escape(&residual.source_expression)
+        ));
+        push_optional_json_usize(json, "source_line", residual.source_line, indent.len() + 6);
+        push_optional_json_string(
+            json,
+            "source_reason",
+            residual.source_reason.as_deref(),
+            indent.len() + 6,
+        );
+        json.push_str(&format!("{indent}      \"dependencies\": ["));
+        for (dependency_index, dependency) in residual.dependencies.iter().enumerate() {
+            if dependency_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(dependency)));
+        }
+        json.push_str("],\n");
         json.push_str(&format!("{indent}      \"value\": {},\n", residual.value));
         json.push_str(&format!(
             "{indent}      \"unit\": \"{}\",\n",

@@ -1767,6 +1767,10 @@ impl RuntimeComponentSolution {
                 .map(|residual| ReportComponentSolverResidual {
                     name: residual.name.clone(),
                     expression: residual.expression.clone(),
+                    source_expression: residual.source_expression.clone(),
+                    source_line: residual.source_line,
+                    source_reason: residual.source_reason.clone(),
+                    dependencies: residual.dependencies.clone(),
                     value: residual.value,
                     unit: residual.unit.clone(),
                     expression_unit: residual.expression_unit.clone(),
@@ -1786,6 +1790,10 @@ impl RuntimeComponentSolution {
                 .map(|residual| ReportComponentSolverResidual {
                     name: residual.name.clone(),
                     expression: residual.expression.clone(),
+                    source_expression: residual.source_expression.clone(),
+                    source_line: residual.source_line,
+                    source_reason: residual.source_reason.clone(),
+                    dependencies: residual.dependencies.clone(),
                     value: residual.value,
                     unit: residual.unit.clone(),
                     expression_unit: residual.expression_unit.clone(),
@@ -1855,6 +1863,19 @@ fn component_residual_evaluations_from_graph(
             RuntimeComponentResidualEvaluation {
                 name: residual.name.clone(),
                 expression: residual.expression.text.clone(),
+                source_expression: if residual.source.expression.is_empty() {
+                    residual.expression.text.clone()
+                } else {
+                    residual.source.expression.clone()
+                },
+                source_line: residual.source.line,
+                source_reason: residual.source.generated_reason.clone(),
+                dependencies: residual
+                    .variable_indices
+                    .iter()
+                    .filter_map(|index| graph.variables.get(*index))
+                    .map(|variable| variable.name.clone())
+                    .collect(),
                 value: value.map(|value| value.value).unwrap_or(0.0),
                 unit: residual.unit.unit.clone(),
                 expression_unit: residual_expression_unit(residual),
@@ -1925,6 +1946,10 @@ pub struct RuntimeComponentStepDiagnostic {
 pub struct RuntimeComponentResidualEvaluation {
     pub name: String,
     pub expression: String,
+    pub source_expression: String,
+    pub source_line: Option<usize>,
+    pub source_reason: Option<String>,
+    pub dependencies: Vec<String>,
     pub value: f64,
     pub unit: String,
     pub expression_unit: String,
@@ -5956,6 +5981,19 @@ fn source_residual_evaluation_with_symbols(
         residuals.push(RuntimeComponentResidualEvaluation {
             name: equation.name.clone(),
             expression: equation.residual.clone(),
+            source_expression: if residual_metadata.source.expression.is_empty() {
+                equation.expression.clone()
+            } else {
+                residual_metadata.source.expression.clone()
+            },
+            source_line: residual_metadata.source.line,
+            source_reason: residual_metadata.source.generated_reason.clone(),
+            dependencies: residual_metadata
+                .variable_indices
+                .iter()
+                .filter_map(|index| graph.variables.get(*index))
+                .map(|variable| variable.name.clone())
+                .collect(),
             value,
             unit: residual_metadata.unit.unit.clone(),
             expression_unit: parsed

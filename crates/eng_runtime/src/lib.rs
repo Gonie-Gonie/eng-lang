@@ -4587,6 +4587,30 @@ fn push_component_residual_evaluations_json(
             json_escape(&residual.expression)
         ));
         json.push_str(&format!(
+            "{item_indent}  \"source_expression\": \"{}\",\n",
+            json_escape(&residual.source_expression)
+        ));
+        push_optional_json_usize(
+            json,
+            "source_line",
+            residual.source_line,
+            item_indent.len() + 2,
+        );
+        push_optional_json_string(
+            json,
+            "source_reason",
+            residual.source_reason.as_deref(),
+            item_indent.len() + 2,
+        );
+        json.push_str(&format!("{item_indent}  \"dependencies\": ["));
+        for (dependency_index, dependency) in residual.dependencies.iter().enumerate() {
+            if dependency_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(dependency)));
+        }
+        json.push_str("],\n");
+        json.push_str(&format!(
             "{item_indent}  \"value\": {},\n",
             format_number_with_precision(residual.value, Some(8))
         ));

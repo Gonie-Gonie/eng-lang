@@ -430,21 +430,45 @@
       "required": [
         "name",
         "expression",
+        "source_expression",
+        "source_line",
+        "source_reason",
+        "dependencies",
         "value",
         "unit",
+        "expression_unit",
+        "expression_quantity_kind",
         "normalized_value",
         "scale",
         "scale_policy",
+        "lowering_status",
+        "lowering_failure_code",
+        "lowering_failure_reason",
         "status"
       ],
       "properties": {
         "name": { "type": "string" },
         "expression": { "type": "string" },
+        "source_expression": { "type": "string" },
+        "source_line": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "source_reason": { "type": ["string", "null"] },
+        "dependencies": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "value": { "type": "number" },
         "unit": { "type": "string" },
+        "expression_unit": { "type": "string" },
+        "expression_quantity_kind": { "type": "string" },
         "normalized_value": { "type": "number" },
         "scale": { "type": "number" },
         "scale_policy": { "type": "string" },
+        "lowering_status": { "type": "string" },
+        "lowering_failure_code": { "type": ["string", "null"] },
+        "lowering_failure_reason": { "type": ["string", "null"] },
         "status": { "type": "string" }
       }
     },

@@ -1063,6 +1063,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"value\": 3.000")
                 || !output.result_json.contains("\"value\": 2.000")
                 || !output.result_json.contains("\"residual_values\"")
+                || !output.result_json.contains("\"source_expression\"")
+                || !output.result_json.contains("\"source_line\":")
+                || !output.result_json.contains("\"dependencies\": [")
                 || !output
                     .report_spec_json
                     .contains("\"normalized_residual_values\"")
@@ -1072,6 +1075,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"linear_condition_estimate\":")
+                || !output.report_spec_json.contains("\"source_expression\"")
+                || !output.report_spec_json.contains("\"source_line\":")
+                || !output.report_spec_json.contains("\"dependencies\": [")
                 || !output.report_html.contains("source_linear_terms")
             {
                 eprintln!(
