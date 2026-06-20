@@ -1,0 +1,37 @@
+domain ScalarState {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component ParameterizedFunctionNode {
+    port node: ScalarState
+    parameter k: DimensionlessNumber [1] = 0.25
+    der(node.x) + k * sin(node.x) eq node.balance
+}
+
+component BalanceBoundary {
+    port node: ScalarState
+    node.balance eq 0
+}
+
+system DynamicParameterizedFunctionSemiImplicit {
+    node = ParameterizedFunctionNode(k=0.5)
+    boundary = BalanceBoundary()
+    connect node.node to boundary.node
+}
+
+parameterized_function_semi_result = solve component_graph
+with {
+    solver = dynamic_component_semi_implicit_euler
+    timestep = 0.25 s
+    duration = 1 s
+    initial = 0.5
+    initial_algebraic = [0, 0, 0]
+    tolerance = 0.000001
+    max_iter = 20
+}
+
+report {
+    show parameterized_function_semi_result
+}

@@ -274,11 +274,13 @@ are not public stable workflows.
   algebraic residuals with materialized component-parameter coefficients into
   those residual-graph entrypoints, and can pair the semi-implicit algebraic
   residual graph or per-step Newton algebraic residual solving with parsed
-  derivative residual RHS expressions, preserving
+  derivative residual RHS expressions, including constructor-parameter
+  dependencies and provenance, preserving
   equation/unknown counts in component solver artifacts, and is covered by
   `examples/official/26_dynamic_component_room`,
   `tests/runtime/dynamic_component_explicit.eng`,
   `tests/runtime/dynamic_component_function_semi_implicit.eng`,
+  `tests/runtime/dynamic_component_parameterized_function_semi_implicit.eng`,
   `tests/runtime/dynamic_component_nonlinear_algebraic_semi_implicit.eng`,
   `tests/runtime/dynamic_component_semi_implicit.eng`, and
   `tests/diagnostics/dynamic_component_nonconvergence.eng`, plus
