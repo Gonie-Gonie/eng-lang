@@ -4403,6 +4403,12 @@ fn component_solutions_json(runtime_data: &RuntimeData) -> String {
                 "            \"residual_norm\": {},\n",
                 format_number_with_precision(diagnostic.residual_norm, Some(8))
             ));
+            json.push_str("            \"residual_values\": [");
+            push_json_f64_array(&mut json, &diagnostic.residual_values);
+            json.push_str("],\n");
+            json.push_str("            \"normalized_residual_values\": [");
+            push_json_f64_array(&mut json, &diagnostic.normalized_residual_values);
+            json.push_str("],\n");
             json.push_str(&format!(
                 "            \"convergence_status\": \"{}\",\n",
                 json_escape(&diagnostic.convergence_status)
@@ -4996,6 +5002,15 @@ fn push_optional_json_string(json: &mut String, key: &str, value: Option<&str>, 
     match value {
         Some(value) => json.push_str(&format!("{spaces}\"{key}\": \"{}\",\n", json_escape(value))),
         None => json.push_str(&format!("{spaces}\"{key}\": null,\n")),
+    }
+}
+
+fn push_json_f64_array(json: &mut String, values: &[f64]) {
+    for (index, value) in values.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str(&format_number_with_precision(*value, Some(8)));
     }
 }
 

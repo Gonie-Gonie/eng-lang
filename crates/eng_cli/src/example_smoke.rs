@@ -627,6 +627,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"role\": \"state\"")
                 || !output.result_json.contains("\"role\": \"algebraic\"")
                 || !output.result_json.contains("\"step_diagnostics\"")
+                || !output.result_json.contains("\"residual_values\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\"")
                 || !output
                     .result_json
                     .contains("\"convergence_status\": \"linear_algebraic_converged\"")
@@ -684,6 +688,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 )
                 || !output.result_json.contains("\"value\": 2.000")
                 || !output.result_json.contains("\"step_diagnostics\"")
+                || !output.result_json.contains("\"residual_values\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\"")
                 || !output
                     .report_spec_json
                     .contains("\"jacobian_policy\": \"finite_difference\"")
@@ -761,6 +769,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"role\": \"state\"")
                 || !output.result_json.contains("\"role\": \"algebraic\"")
                 || !output.result_json.contains("\"step_diagnostics\"")
+                || !output.result_json.contains("\"residual_values\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\"")
                 || !output
                     .report_spec_json
                     .contains("\"jacobian_policy\": \"finite_difference\"")
@@ -981,6 +993,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("node.target.q * node.target.q / 1 kW + node.source.q - 6 kW")
                 || !output.result_json.contains("\"value\": 2.000")
                 || !output.result_json.contains("\"step_diagnostics\"")
+                || !output.result_json.contains("\"residual_values\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\"")
                 || !output.result_json.contains("\"largest_residuals\"")
                 || !output.report_html.contains("newton_source_residual_graph")
             {
@@ -1027,6 +1043,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"value\": 302.500")
                 || !output.result_json.contains("\"value\": 299.444")
                 || !output.result_json.contains("\"step_diagnostics\"")
+                || !output.result_json.contains("\"residual_values\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\"")
                 || !output
                     .report_spec_json
                     .contains("\"jacobian_policy\": \"finite_difference\"")
@@ -1161,6 +1181,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"name\": \"zone.heat.T\"")
                 || !output.result_json.contains("\"name\": \"zone.heat.Q\"")
                 || !output.result_json.contains("\"step_diagnostics\"")
+                || !output.result_json.contains("\"residual_values\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\"")
                 || !output
                     .report_html
                     .contains("dynamic_component_assembly_semi_implicit_euler")

@@ -648,6 +648,8 @@ pub struct ReportComponentSolverStepDiagnostic {
     pub time_s: f64,
     pub algebraic_iteration_count: usize,
     pub residual_norm: f64,
+    pub residual_values: Vec<f64>,
+    pub normalized_residual_values: Vec<f64>,
     pub line_search_scale: Option<f64>,
     pub line_search_trial_count: Option<usize>,
     pub jacobian_policy: Option<String>,
@@ -5194,6 +5196,12 @@ fn push_report_component_solver_result_json(
             "{indent}      \"residual_norm\": {},\n",
             diagnostic.residual_norm
         ));
+        json.push_str(&format!("{indent}      \"residual_values\": ["));
+        push_json_f64_array(json, &diagnostic.residual_values);
+        json.push_str("],\n");
+        json.push_str(&format!("{indent}      \"normalized_residual_values\": ["));
+        push_json_f64_array(json, &diagnostic.normalized_residual_values);
+        json.push_str("],\n");
         match diagnostic.line_search_scale {
             Some(scale) => json.push_str(&format!(
                 "{indent}      \"line_search_scale\": {},\n",
@@ -7814,6 +7822,15 @@ fn push_linear_operator_entries_json(
         json.push_str(&format!("{spaces}  }}"));
     }
     json.push_str(&format!("\n{spaces}],\n"));
+}
+
+fn push_json_f64_array(json: &mut String, values: &[f64]) {
+    for (index, value) in values.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str(&value.to_string());
+    }
 }
 
 fn push_json_string_array(json: &mut String, values: &[String]) {

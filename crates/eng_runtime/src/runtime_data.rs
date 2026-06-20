@@ -1536,6 +1536,8 @@ impl RuntimeComponentSolution {
                 time_s: diagnostic.time_s,
                 algebraic_iteration_count: diagnostic.algebraic_iteration_count,
                 residual_norm: diagnostic.residual_norm,
+                residual_values: Vec::new(),
+                normalized_residual_values: Vec::new(),
                 line_search_scale: None,
                 line_search_trial_count: None,
                 jacobian_policy: None,
@@ -1706,6 +1708,8 @@ impl RuntimeComponentSolution {
                     time_s: diagnostic.time_s,
                     algebraic_iteration_count: diagnostic.algebraic_iteration_count,
                     residual_norm: diagnostic.residual_norm,
+                    residual_values: diagnostic.residual_values.clone(),
+                    normalized_residual_values: diagnostic.normalized_residual_values.clone(),
                     line_search_scale: diagnostic.line_search_scale,
                     line_search_trial_count: diagnostic.line_search_trial_count,
                     jacobian_policy: diagnostic.jacobian_policy.clone(),
@@ -1869,6 +1873,8 @@ pub struct RuntimeComponentStepDiagnostic {
     pub time_s: f64,
     pub algebraic_iteration_count: usize,
     pub residual_norm: f64,
+    pub residual_values: Vec<f64>,
+    pub normalized_residual_values: Vec<f64>,
     pub line_search_scale: Option<f64>,
     pub line_search_trial_count: Option<usize>,
     pub jacobian_policy: Option<String>,
@@ -3541,8 +3547,17 @@ fn nonlinear_component_solution_from_solve_request(
         .iter()
         .map(|residual| residual.name.clone())
         .collect::<Vec<_>>();
-    let step_diagnostics =
-        newton_residual_history_diagnostics(&newton, failed.as_ref(), Some(&residual_names));
+    let residual_scales = evaluation
+        .residuals
+        .iter()
+        .map(|residual| residual.scale)
+        .collect::<Vec<_>>();
+    let step_diagnostics = newton_residual_history_diagnostics(
+        &newton,
+        failed.as_ref(),
+        Some(&residual_names),
+        Some(&residual_scales),
+    );
 
     RuntimeComponentSolution {
         assembly: solver_assembly.name.clone(),
@@ -3989,10 +4004,23 @@ fn dae_component_solution_from_solve_request(
         .iter()
         .map(|residual| residual.name.clone())
         .collect::<Vec<_>>();
+    let residual_scales = residual_graph
+        .residuals
+        .iter()
+        .map(|residual| residual.scale.value)
+        .collect::<Vec<_>>();
     solution.step_diagnostics = dae
         .step_reports
         .iter()
         .map(|report| {
+            let residual_values = report
+                .newton
+                .residual_value_history
+                .last()
+                .cloned()
+                .unwrap_or_default();
+            let normalized_residual_values =
+                normalized_newton_residual_values(&residual_values, Some(&residual_scales));
             let largest_residual = largest_newton_residual_diagnostic(
                 report
                     .newton
@@ -4011,6 +4039,8 @@ fn dae_component_solution_from_solve_request(
                     .last()
                     .copied()
                     .unwrap_or(f64::INFINITY),
+                residual_values,
+                normalized_residual_values,
                 line_search_scale: report
                     .newton
                     .line_search_history
@@ -4304,6 +4334,8 @@ fn behavior_dynamic_component_solution_from_solve_request(
                         time_s: sample.time_s,
                         algebraic_iteration_count: 0,
                         residual_norm: 0.0,
+                        residual_values: Vec::new(),
+                        normalized_residual_values: Vec::new(),
                         line_search_scale: None,
                         line_search_trial_count: None,
                         jacobian_policy: None,
@@ -5831,18 +5863,41 @@ fn largest_newton_residual_diagnostic(
         .max_by(|left, right| left.abs_value.total_cmp(&right.abs_value))
 }
 
+fn normalized_newton_residual_values(values: &[f64], residual_scales: Option<&[f64]>) -> Vec<f64> {
+    values
+        .iter()
+        .enumerate()
+        .map(|(index, value)| {
+            residual_scales
+                .and_then(|scales| scales.get(index))
+                .copied()
+                .filter(|scale| scale.is_finite() && *scale > 0.0)
+                .map(|scale| *value / scale)
+                .unwrap_or(*value)
+        })
+        .collect()
+}
+
 fn newton_residual_history_diagnostics(
     newton: &crate::solver::NewtonResult,
     failure: Option<&SolverFailure>,
     residual_names: Option<&[String]>,
+    residual_scales: Option<&[f64]>,
 ) -> Vec<RuntimeComponentStepDiagnostic> {
     newton
         .residual_history
         .iter()
         .enumerate()
         .map(|(index, residual_norm)| {
+            let residual_values = newton
+                .residual_value_history
+                .get(index)
+                .cloned()
+                .unwrap_or_default();
+            let normalized_residual_values =
+                normalized_newton_residual_values(&residual_values, residual_scales);
             let largest_residual = largest_newton_residual_diagnostic(
-                newton.residual_value_history.get(index).map(Vec::as_slice),
+                Some(residual_values.as_slice()),
                 residual_names,
             );
             RuntimeComponentStepDiagnostic {
@@ -5850,6 +5905,8 @@ fn newton_residual_history_diagnostics(
                 time_s: 0.0,
                 algebraic_iteration_count: index,
                 residual_norm: *residual_norm,
+                residual_values,
+                normalized_residual_values,
                 line_search_scale: newton
                     .line_search_history
                     .iter()
@@ -5914,6 +5971,8 @@ fn fixed_point_residual_history_diagnostics(
             time_s: 0.0,
             algebraic_iteration_count: index + 1,
             residual_norm: *residual_norm,
+            residual_values: Vec::new(),
+            normalized_residual_values: Vec::new(),
             line_search_scale: None,
             line_search_trial_count: None,
             jacobian_policy: None,
@@ -11031,12 +11090,20 @@ with {
         };
 
         let residual_names = vec!["r_hot".to_owned(), "r_cold".to_owned()];
-        let diagnostics = newton_residual_history_diagnostics(&newton, None, Some(&residual_names));
+        let residual_scales = vec![2.0, 4.0];
+        let diagnostics = newton_residual_history_diagnostics(
+            &newton,
+            None,
+            Some(&residual_names),
+            Some(&residual_scales),
+        );
 
         assert_eq!(diagnostics.len(), 2);
         assert_eq!(diagnostics[0].line_search_scale, None);
         assert_eq!(diagnostics[1].line_search_scale, Some(0.25));
         assert_eq!(diagnostics[1].line_search_trial_count, Some(3));
+        assert_eq!(diagnostics[0].residual_values, vec![1.0, -2.0]);
+        assert_eq!(diagnostics[0].normalized_residual_values, vec![0.5, -0.5]);
         assert_eq!(diagnostics[1].jacobian_policy.as_deref(), Some("provided"));
         assert_eq!(diagnostics[1].linear_condition_estimate, Some(1.5));
         assert_eq!(diagnostics[1].linear_minimum_pivot_abs, Some(2.0));
@@ -11099,6 +11166,14 @@ with {
                 .largest_residual_name
                 .as_deref(),
             Some("r_cold")
+        );
+        assert_eq!(
+            report_solution.step_diagnostics[0].residual_values,
+            vec![1.0, -2.0]
+        );
+        assert_eq!(
+            report_solution.step_diagnostics[0].normalized_residual_values,
+            vec![0.5, -0.5]
         );
     }
     #[test]

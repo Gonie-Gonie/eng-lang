@@ -316,6 +316,7 @@ Evidence gate:
 - Newton residual vector history now feeds source Newton and implicit-Euler DAE component step diagnostics with largest residual index/name/value evidence in report-spec artifacts.
 - Static component residual graph construction now preserves unsupported linearization status, failure code, and failure reason instead of silently dropping unsupported component-equation terms; dense linear, evaluator, runtime, and report artifacts retain those residuals as `unsupported_linearization`.
 - Newton variable scaling is now part of `NewtonOptions`, finite-difference perturbation, scaled dense Newton-step solves, source Newton bridge metadata, source DAE implicit-step Newton options, runtime `.engres`, and report-spec artifacts; source bridges derive default scales from assembly unknown quantity/unit metadata.
+- Source Newton and implicit-Euler DAE step diagnostics now expose full raw and normalized residual vectors in runtime `.engres` and report-spec artifacts, so narrow nonlinear/DAE smokes retain per-iteration residual evidence instead of only the largest residual summary.
 
 ## Done Criteria
 
