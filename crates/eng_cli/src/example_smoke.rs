@@ -1175,6 +1175,61 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/source_ode_two_state_adaptive.eng"),
+        Path::new("build/test-runtime-source-ode-two-state-adaptive"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let plot_spec = std::fs::read_to_string(&output.plot_spec_path).unwrap_or_default();
+            if !output.result_json.contains("\"binding\": \"sim\"")
+                || !output.result_json.contains("\"method\": \"adaptive_heun\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"adaptive_heun_completed\"")
+                || !output.result_json.contains(
+                    "recognized source derivative equations and executed adaptive Heun RHS",
+                )
+                || !output.result_json.contains("\"state_count\": 2")
+                || !output
+                    .result_json
+                    .contains("\"outputs\": [\"T_air\", \"T_wall\", \"Q_load\"]")
+                || !output.result_json.contains("\"state\": \"T_air\"")
+                || !output.result_json.contains("\"state\": \"T_wall\"")
+                || !output.result_json.contains("\"state\": \"Q_load\"")
+                || !output
+                    .result_json
+                    .contains("\"final_value\": 21.373435452969773")
+                || !output
+                    .result_json
+                    .contains("\"final_value\": 19.606950814289405")
+                || !output
+                    .result_json
+                    .contains("\"final_value\": 0.06265645470302275")
+                || !output.result_json.contains("\"status\": \"accepted\"")
+                || !output.report_spec_json.contains("\"step_diagnostics\"")
+                || !output
+                    .report_spec_json
+                    .contains("Q_load - (Q_hvac + UA_ao * (T_out - T_air))")
+                || !plot_spec.contains("\"name\": \"sim.T_air\"")
+                || !plot_spec.contains("\"name\": \"sim.T_wall\"")
+                || !output.report_html.contains("adaptive_heun")
+                || !output.report_html.contains("Q_load")
+            {
+                eprintln!(
+                    "expected tests/runtime/source_ode_two_state_adaptive.eng to solve a two-state source ODE with adaptive Heun substep diagnostics and scalar output"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/source_ode_two_state_adaptive.eng solved two-state source ODE with adaptive Heun"
+            );
+        }
+        Err(error) => {
+            eprintln!("two-state adaptive source ODE runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/dae_dimensionless_function_residual.eng"),
         Path::new("build/test-runtime-dae-dimensionless-function-residual"),
         &artifact_run_options(),

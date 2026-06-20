@@ -1,0 +1,35 @@
+system TwoStateSourceAdaptive {
+    parameter C_air: HeatCapacity = 100 kJ/K
+    parameter C_wall: HeatCapacity = 200 kJ/K
+    parameter UA_aw: Conductance = 50 W/K
+    parameter UA_ao: Conductance = 100 W/K
+    parameter UA_wo: Conductance = 20 W/K
+    parameter T_out: AbsoluteTemperature = 12 degC
+    parameter Q_hvac: HeatRate = 1000 W
+
+    state T_air: AbsoluteTemperature = 22 degC
+    state T_wall: AbsoluteTemperature = 20 degC
+    output Q_load: HeatRate [kW]
+
+    equation {
+        C_air * der(T_air) eq UA_aw * (T_wall - T_air) + UA_ao * (T_out - T_air) + Q_hvac
+        C_wall * der(T_wall) eq UA_aw * (T_air - T_wall) + UA_wo * (T_out - T_wall)
+        Q_load eq Q_hvac + UA_ao * (T_out - T_air)
+    }
+}
+
+sim = simulate TwoStateSourceAdaptive
+with {
+    timestep = 10 min
+    duration = 20 min
+    solver = adaptive_heun
+    tolerance = 0.0001
+}
+
+report {
+    plot sim.T_air and sim.T_wall over Time
+    with {
+        unit y = degC
+        title = "Two-state adaptive source solve"
+    }
+}
