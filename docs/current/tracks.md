@@ -132,12 +132,12 @@ Internal runtime seeds:
   `solver = adaptive_heun` on shape-checked `der(x) eq A * x + B * u`
   systems, with fixed output TimeGrid trajectories and adaptive internal
   substeps
-- narrow algebraic-free `solve component_graph` integration for
+- narrow `solve component_graph` integration for
   `solver = dynamic_component_adaptive_heun`, using parsed derivative residual
   expressions, scalar or fixed-step TimeSeries component inputs, fixed
-  output-grid component trajectories, accepted-substep diagnostics, and
-  explicit `E-DYNAMIC-COMPONENT-ADAPTIVE-ALGEBRAIC` artifacts for algebraic
-  dynamic component graphs
+  output-grid component trajectories, affine algebraic output materialization,
+  accepted-substep diagnostics, and explicit `E-SOURCE-ALGEBRAIC-SHAPE`
+  artifacts for non-affine algebraic dynamic component graphs
 - fixed-step ODE and dynamic-component updates use the actual final partial TimeGrid interval
 - explicit Euler samples RHS values at the start of each fixed-step interval
 - fixed-step ODE, fixed-point, and dynamic-component seeds reject non-finite RHS/update values
@@ -204,8 +204,8 @@ Deferred:
   beyond the narrow unitful temperature explicit-Euler source behavior RHS smokes
   and narrow Predictor/external DAE residual samples
 - broad adaptive solvers beyond the source-equation, one-state thermal,
-  internal continuous state-space `adaptive_heun`, and algebraic-free dynamic
-  component source paths
+  internal continuous state-space `adaptive_heun`, and affine dynamic component
+  source paths
 - general equation-system runtime beyond the supported one-state thermal and
   source-equation fixed-step/adaptive shapes
 - broad state-space operator algebra, nonlinear/DAE state-space coupling,

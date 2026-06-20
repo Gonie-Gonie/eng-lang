@@ -4758,17 +4758,12 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
     series: &[RuntimeTimeSeries],
     adaptive_options: AdaptiveOdeOptions,
 ) -> Result<RuntimeComponentSolution, SolverFailure> {
-    if !split.algebraic_layout.is_empty() {
-        return Err(SolverFailure::new(
-            "E-DYNAMIC-COMPONENT-ADAPTIVE-ALGEBRAIC",
-            "dynamic component adaptive Heun source solve currently requires an algebraic-free dynamic component graph",
-        ));
-    }
     let DynamicComponentSourceSolveInput {
         solve_input,
         input_series,
     } = source_input;
     let uses_time_series_inputs = input_series.iter().any(Option::is_some);
+    let uses_algebraic_residuals = !split.algebraic_layout.is_empty();
     let parse_symbols = source_dynamic_component_parse_symbols(assembly, &solve_input.parameters)?;
     let parsed_residuals = parse_source_residual_expressions(assembly, &parse_symbols)?;
     let time_grid = TimeGrid::fixed_step(solve_input.duration_s, solve_input.timestep_s)?;
@@ -4807,11 +4802,20 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
             assembly,
             sample.time_s,
         )?;
+        let algebraic = adaptive_dynamic_component_algebraic_values(
+            assembly,
+            &split.algebraic_layout,
+            &parsed_residuals,
+            sample.time_s,
+            sample.state,
+            &inputs,
+            sample.parameters,
+        )?;
         let symbols = source_dynamic_component_symbols(
             assembly,
             sample.time_s,
             sample.state,
-            &[],
+            &algebraic,
             &inputs,
             sample.parameters,
         );
@@ -4822,11 +4826,26 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
             "dynamic component adaptive source",
         )
     })?;
+    let mut solver_result = adaptive_result.solver_result;
+    solver_result.output.algebraic_trajectories =
+        adaptive_dynamic_component_algebraic_trajectories(
+            assembly,
+            &split.algebraic_layout,
+            &parsed_residuals,
+            &solve_input,
+            &input_series,
+            series,
+            &solver_result,
+        )?;
     let mut solution = RuntimeComponentSolution::from_dynamic_solver_result(
         &assembly.name,
-        &adaptive_result.solver_result,
-        if uses_time_series_inputs {
+        &solver_result,
+        if uses_time_series_inputs && uses_algebraic_residuals {
+            "dynamic component source solve executed adaptive Heun parsed derivative residual expressions with affine algebraic residual materialization and TimeSeries input materialization"
+        } else if uses_time_series_inputs {
             "dynamic component source solve executed adaptive Heun parsed derivative residual expressions with TimeSeries input materialization"
+        } else if uses_algebraic_residuals {
+            "dynamic component source solve executed adaptive Heun parsed derivative residual expressions with affine algebraic residual materialization"
         } else {
             "dynamic component source solve executed adaptive Heun parsed derivative residual expressions"
         },
@@ -4835,6 +4854,91 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
     solution.unknown_count = assembly.unknown_count();
     solution.step_diagnostics = adaptive_component_step_diagnostics(&adaptive_result.step_reports);
     Ok(solution)
+}
+
+fn adaptive_dynamic_component_algebraic_values(
+    assembly: &EquationAssembly,
+    algebraic_layout: &StateLayout,
+    parsed_residuals: &[ParsedSourceResidual],
+    time_s: f64,
+    state: &[f64],
+    inputs: &[SolverScalar],
+    parameters: &[SolverScalar],
+) -> Result<Vec<f64>, SolverFailure> {
+    if algebraic_layout.is_empty() {
+        return Ok(Vec::new());
+    }
+    let symbols =
+        source_dynamic_component_symbols(assembly, time_s, state, &[], inputs, parameters);
+    source_residual_algebraic_values_from_affine_terms(
+        assembly,
+        algebraic_layout,
+        parsed_residuals,
+        &symbols,
+        "dynamic component adaptive source",
+    )
+}
+
+fn adaptive_dynamic_component_algebraic_trajectories(
+    assembly: &EquationAssembly,
+    algebraic_layout: &StateLayout,
+    parsed_residuals: &[ParsedSourceResidual],
+    solve_input: &DynamicComponentAssemblySolveInput,
+    input_series: &[Option<usize>],
+    series: &[RuntimeTimeSeries],
+    solver_result: &SolverResult,
+) -> Result<Vec<StateTrajectory>, SolverFailure> {
+    if algebraic_layout.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut algebraic_values_by_variable =
+        vec![Vec::with_capacity(solver_result.time_grid.step_count + 1); algebraic_layout.len()];
+    for output_index in 0..=solver_result.time_grid.step_count {
+        let time_s = solver_result.time_grid.step_time_s(output_index);
+        let state = solver_result
+            .output
+            .state_trajectories
+            .iter()
+            .map(|trajectory| {
+                trajectory.values.get(output_index).copied().ok_or_else(|| {
+                    SolverFailure::new(
+                        "E-DYNAMIC-COMPONENT-ADAPTIVE-TRAJECTORY",
+                        "adaptive dynamic component state trajectory length did not match the output time grid",
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let inputs = sampled_dynamic_component_inputs(
+            &solve_input.inputs,
+            input_series,
+            series,
+            assembly,
+            time_s,
+        )?;
+        let algebraic = adaptive_dynamic_component_algebraic_values(
+            assembly,
+            algebraic_layout,
+            parsed_residuals,
+            time_s,
+            &state,
+            &inputs,
+            &solve_input.parameters,
+        )?;
+        for (index, value) in algebraic.iter().copied().enumerate() {
+            algebraic_values_by_variable[index].push(value);
+        }
+    }
+    Ok(algebraic_layout
+        .entries
+        .iter()
+        .zip(algebraic_values_by_variable)
+        .map(|(entry, values)| StateTrajectory {
+            name: entry.name.clone(),
+            quantity_kind: entry.quantity_kind.clone(),
+            canonical_unit: entry.canonical_unit.clone(),
+            values,
+        })
+        .collect())
 }
 
 fn adaptive_component_step_diagnostics(

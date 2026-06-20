@@ -5,14 +5,14 @@ domain ScalarSignal {
     conservation sum(balance) = 0
 }
 
-component AdaptiveAlgebraicNode {
+component AdaptiveNonlinearAlgebraicNode {
     port node: ScalarSignal
     der(node.x) + sin(node.x) eq 0
-    node.y eq cos(node.x)
+    node.y * node.y eq cos(node.x)
 }
 
-system DynamicAdaptiveAlgebraic {
-    node = AdaptiveAlgebraicNode()
+system DynamicAdaptiveNonlinearAlgebraic {
+    node = AdaptiveNonlinearAlgebraicNode()
     connect node.node to node.node
 }
 
@@ -22,7 +22,7 @@ with {
     timestep = 0.25 s
     duration = 1 s
     initial = 0.5
-    initial_algebraic = 0
+    initial_algebraic = 0.5
     tolerance = 0.0001
     max_iter = 10000
 }
