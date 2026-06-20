@@ -22,6 +22,14 @@ impl ArithmeticExpressionProfile {
         label: "source residual expression",
     };
 
+    pub(crate) const COMPONENT_RESIDUAL: Self = Self {
+        parse_code: "E-COMPONENT-ASSEMBLY-RESIDUAL",
+        finite_code: "E-COMPONENT-ASSEMBLY-RESIDUAL",
+        unknown_code: "E-COMPONENT-ASSEMBLY-RESIDUAL",
+        divide_by_zero_code: "E-COMPONENT-ASSEMBLY-RESIDUAL",
+        label: "component residual expression",
+    };
+
     pub(crate) const DYNAMIC_COMPONENT_RESIDUAL: Self = Self {
         parse_code: "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
         finite_code: "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",

@@ -90,7 +90,7 @@ impl ResidualGraph {
                 let should_parse_component_residual = equation.kind == "component_equation"
                     || (equation.kind == "component_boundary" && equation.rhs_value.is_none());
                 let parsed_component_equation = if should_parse_component_residual {
-                    parse_dynamic_linear_residual_terms(
+                    lower_linear_residual_expression(
                         &equation.residual,
                         &equation.dependencies,
                         &variable_indices,
@@ -98,6 +98,7 @@ impl ResidualGraph {
                         &variable_units,
                         Some((&unit, &quantity_kind)),
                         Some(&parameter_values),
+                        COMPONENT_RESIDUAL_LOWERING,
                     )
                     .ok()
                 } else {
@@ -286,7 +287,7 @@ impl ResidualGraph {
                     &variables,
                     &variable_units,
                 );
-                let parsed = parse_dynamic_linear_residual_terms(
+                let parsed = lower_linear_residual_expression(
                     &equation.residual,
                     &equation.dependencies,
                     &variable_aliases,
@@ -294,6 +295,7 @@ impl ResidualGraph {
                     &variable_units,
                     Some((&unit, &quantity_kind)),
                     None,
+                    DYNAMIC_COMPONENT_RESIDUAL_LOWERING,
                 )?;
                 let rhs_value = dynamic_residual_rhs_value(equation, parsed.constant)?;
                 let scale = ResidualScale::from_quantity_unit(&quantity_kind, &unit);
@@ -422,11 +424,38 @@ impl ResidualGraph {
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
-struct ParsedDynamicResidual {
+struct LoweredLinearResidualExpression {
     terms: Vec<ResidualTerm>,
     constant: f64,
     expression_unit: Option<ResidualUnit>,
 }
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct ResidualExpressionLoweringProfile {
+    expression_profile: ArithmeticExpressionProfile,
+    failure_code: &'static str,
+    residual_label: &'static str,
+    term_label: &'static str,
+    assembly_label: &'static str,
+}
+
+const COMPONENT_RESIDUAL_LOWERING: ResidualExpressionLoweringProfile =
+    ResidualExpressionLoweringProfile {
+        expression_profile: ArithmeticExpressionProfile::COMPONENT_RESIDUAL,
+        failure_code: "E-COMPONENT-ASSEMBLY-RESIDUAL",
+        residual_label: "component residual",
+        term_label: "component residual term",
+        assembly_label: "component assembly",
+    };
+
+const DYNAMIC_COMPONENT_RESIDUAL_LOWERING: ResidualExpressionLoweringProfile =
+    ResidualExpressionLoweringProfile {
+        expression_profile: ArithmeticExpressionProfile::DYNAMIC_COMPONENT_RESIDUAL,
+        failure_code: "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
+        residual_label: "dynamic component residual",
+        term_label: "dynamic component residual term",
+        assembly_label: "dynamic component assembly",
+    };
 
 #[derive(Clone, Debug, PartialEq)]
 struct ResidualConstantAlias {
@@ -530,7 +559,7 @@ fn dynamic_residual_rhs_value(
     }
 }
 
-fn parse_dynamic_linear_residual_terms(
+fn lower_linear_residual_expression(
     expression: &str,
     dependencies: &[String],
     variable_aliases: &HashMap<String, usize>,
@@ -538,15 +567,19 @@ fn parse_dynamic_linear_residual_terms(
     variable_units: &HashMap<String, (String, String)>,
     residual_unit: Option<(&str, &str)>,
     constant_aliases: Option<&HashMap<String, ResidualConstantAlias>>,
-) -> Result<ParsedDynamicResidual, SolverFailure> {
+    profile: ResidualExpressionLoweringProfile,
+) -> Result<LoweredLinearResidualExpression, SolverFailure> {
     let dependency_indices = dependencies
         .iter()
         .filter_map(|dependency| variable_aliases.get(dependency).copied())
         .collect::<HashSet<_>>();
     if dependency_indices.is_empty() {
         return Err(SolverFailure::new(
-            "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
-            format!("dynamic component residual `{expression}` has no solver dependencies"),
+            profile.failure_code,
+            format!(
+                "{} `{expression}` has no solver dependencies",
+                profile.residual_label
+            ),
         ));
     }
 
@@ -555,7 +588,8 @@ fn parse_dynamic_linear_residual_terms(
         .filter(|dependency| variable_aliases.contains_key(*dependency))
         .cloned()
         .collect::<Vec<_>>();
-    let constant_symbols = dynamic_constant_symbols(expression, constant_aliases, residual_unit)?;
+    let constant_symbols =
+        dynamic_constant_symbols(expression, constant_aliases, residual_unit, profile)?;
     let symbol_units = dynamic_expression_symbol_metadata(
         variable_aliases,
         variables,
@@ -563,7 +597,7 @@ fn parse_dynamic_linear_residual_terms(
         constant_aliases,
     );
     let mut convert_number = |value: f64, unit: Option<&str>| match unit {
-        Some(unit) => convert_residual_constant(value, unit, residual_unit),
+        Some(unit) => convert_residual_constant(value, unit, residual_unit, profile),
         None => Ok(value),
     };
     let linearized = linearize_arithmetic_expression_with_symbol_metadata_and_unit_converter(
@@ -572,12 +606,12 @@ fn parse_dynamic_linear_residual_terms(
         &constant_symbols,
         &symbol_units,
         &mut convert_number,
-        ArithmeticExpressionProfile::DYNAMIC_COMPONENT_RESIDUAL,
+        profile.expression_profile,
         1e-9,
     )
-    .map_err(|failure| dynamic_linearization_failure(expression, failure))?;
+    .map_err(|failure| linear_residual_lowering_failure(expression, failure, profile))?;
 
-    let mut parsed = ParsedDynamicResidual {
+    let mut parsed = LoweredLinearResidualExpression {
         constant: linearized.constant,
         terms: Vec::new(),
         expression_unit: linearized
@@ -587,22 +621,26 @@ fn parse_dynamic_linear_residual_terms(
     };
     for term in linearized.terms {
         let Some(index) = variable_aliases.get(&term.symbol).copied() else {
-            return Err(unsupported_dynamic_linear_term(&term.symbol));
+            return Err(unsupported_linear_residual_term(&term.symbol, profile));
         };
-        push_dynamic_linear_term(
+        push_linear_residual_term(
             &term.symbol,
             index,
             term.coefficient,
             &dependency_indices,
             variables,
             &mut parsed,
+            profile,
         )?;
     }
 
     if parsed.terms.is_empty() {
         return Err(SolverFailure::new(
-            "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
-            format!("dynamic component residual `{expression}` has no linear variable terms"),
+            profile.failure_code,
+            format!(
+                "{} `{expression}` has no linear variable terms",
+                profile.residual_label
+            ),
         ));
     }
     Ok(parsed)
@@ -677,6 +715,7 @@ fn dynamic_constant_symbols(
     expression: &str,
     constant_aliases: Option<&HashMap<String, ResidualConstantAlias>>,
     residual_unit: Option<(&str, &str)>,
+    profile: ResidualExpressionLoweringProfile,
 ) -> Result<HashMap<String, f64>, SolverFailure> {
     let mut symbols = HashMap::new();
     if let Some(constant_aliases) = constant_aliases {
@@ -686,7 +725,12 @@ fn dynamic_constant_symbols(
             }
             symbols.insert(
                 name.clone(),
-                convert_residual_parameter_constant(alias.value, &alias.unit, residual_unit)?,
+                convert_residual_parameter_constant(
+                    alias.value,
+                    &alias.unit,
+                    residual_unit,
+                    profile,
+                )?,
             );
         }
     }
@@ -697,26 +741,33 @@ fn convert_residual_parameter_constant(
     value: f64,
     source_unit: &str,
     residual_unit: Option<(&str, &str)>,
+    profile: ResidualExpressionLoweringProfile,
 ) -> Result<f64, SolverFailure> {
     let Some((target_unit, _quantity_kind)) = residual_unit else {
         return Ok(value);
     };
     let Some(source_info) = residual_unit_info(source_unit) else {
-        return Err(unsupported_dynamic_linear_term(&format!(
-            "{value} {source_unit}"
-        )));
+        return Err(unsupported_linear_residual_term(
+            &format!("{value} {source_unit}"),
+            profile,
+        ));
     };
     let Some(target_info) = residual_unit_info(target_unit) else {
-        return Err(unsupported_dynamic_linear_term(&format!(
-            "{value} {source_unit}"
-        )));
+        return Err(unsupported_linear_residual_term(
+            &format!("{value} {source_unit}"),
+            profile,
+        ));
     };
     if normalize_unit(source_info.canonical_unit) == normalize_unit(target_info.canonical_unit) {
-        return convert_residual_constant(value, source_unit, residual_unit);
+        return convert_residual_constant(value, source_unit, residual_unit, profile);
     }
-    if let Some(converted) =
-        convert_residual_compound_parameter_numerator(value, source_info, target_unit, target_info)?
-    {
+    if let Some(converted) = convert_residual_compound_parameter_numerator(
+        value,
+        source_info,
+        target_unit,
+        target_info,
+        profile,
+    )? {
         return Ok(converted);
     }
     Ok(value)
@@ -727,6 +778,7 @@ fn convert_residual_compound_parameter_numerator(
     source_info: UnitInfo,
     target_unit: &str,
     target_info: UnitInfo,
+    profile: ResidualExpressionLoweringProfile,
 ) -> Result<Option<f64>, SolverFailure> {
     let Some((source_numerator, _source_denominator)) = source_info.symbol.split_once('/') else {
         return Ok(None);
@@ -743,6 +795,7 @@ fn convert_residual_compound_parameter_numerator(
         value,
         source_numerator_info.symbol,
         Some((target_unit, target_info.quantity_hint)),
+        profile,
     )
     .map(Some)
 }
@@ -753,13 +806,17 @@ fn expression_mentions_symbol(expression: &str, symbol: &str) -> bool {
         })
         .any(|token| token == symbol)
 }
-fn dynamic_linearization_failure(expression: &str, failure: SolverFailure) -> SolverFailure {
-    if failure.code == "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL"
+fn linear_residual_lowering_failure(
+    expression: &str,
+    failure: SolverFailure,
+    profile: ResidualExpressionLoweringProfile,
+) -> SolverFailure {
+    if failure.code == profile.failure_code
         && (failure.message.contains("not linear")
             || failure.message.contains("division by zero")
             || failure.message.contains("unknown symbol"))
     {
-        unsupported_dynamic_linear_term(expression)
+        unsupported_linear_residual_term(expression, profile)
     } else {
         failure
     }
@@ -775,6 +832,7 @@ fn convert_residual_constant(
     value: f64,
     source_unit: &str,
     residual_unit: Option<(&str, &str)>,
+    profile: ResidualExpressionLoweringProfile,
 ) -> Result<f64, SolverFailure> {
     let Some((target_unit, _quantity_kind)) = residual_unit else {
         return Ok(value);
@@ -785,64 +843,78 @@ fn convert_residual_constant(
         return Ok(value);
     }
     let Some(source_info) = residual_unit_info(source_unit) else {
-        return Err(unsupported_dynamic_linear_term(&format!(
-            "{value} {source_unit}"
-        )));
+        return Err(unsupported_linear_residual_term(
+            &format!("{value} {source_unit}"),
+            profile,
+        ));
     };
     let Some(target_info) = residual_unit_info(target_unit) else {
-        return Err(unsupported_dynamic_linear_term(&format!(
-            "{value} {source_unit}"
-        )));
+        return Err(unsupported_linear_residual_term(
+            &format!("{value} {source_unit}"),
+            profile,
+        ));
     };
     if source_info.affine_offset.is_some() || target_info.affine_offset.is_some() {
-        return Err(unsupported_dynamic_linear_term(&format!(
-            "{value} {source_unit}"
-        )));
+        return Err(unsupported_linear_residual_term(
+            &format!("{value} {source_unit}"),
+            profile,
+        ));
     }
     if normalize_unit(source_info.canonical_unit) != normalize_unit(target_info.canonical_unit) {
-        return Err(unsupported_dynamic_linear_term(&format!(
-            "{value} {source_unit}"
-        )));
+        return Err(unsupported_linear_residual_term(
+            &format!("{value} {source_unit}"),
+            profile,
+        ));
     }
     let source_scale = source_info.scale_to_canonical.parse::<f64>().map_err(|_| {
         SolverFailure::new(
-            "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
+            profile.failure_code,
             format!("unit `{source_unit}` has an invalid residual conversion scale"),
         )
     })?;
     let target_scale = target_info.scale_to_canonical.parse::<f64>().map_err(|_| {
         SolverFailure::new(
-            "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
+            profile.failure_code,
             format!("unit `{target_unit}` has an invalid residual conversion scale"),
         )
     })?;
     Ok(value * source_scale / target_scale)
 }
 
-fn push_dynamic_linear_term(
+fn push_linear_residual_term(
     label: &str,
     index: usize,
     coefficient: f64,
     dependency_indices: &HashSet<usize>,
     variables: &[ResidualVariableRef],
-    parsed: &mut ParsedDynamicResidual,
+    parsed: &mut LoweredLinearResidualExpression,
+    profile: ResidualExpressionLoweringProfile,
 ) -> Result<(), SolverFailure> {
     if !dependency_indices.contains(&index) {
         return Err(SolverFailure::new(
-            "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
-            format!("dynamic component residual term `{label}` is not listed as a dependency"),
+            profile.failure_code,
+            format!(
+                "{} `{label}` is not listed as a dependency",
+                profile.term_label
+            ),
         ));
     }
     if !coefficient.is_finite() {
         return Err(SolverFailure::new(
-            "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
-            format!("dynamic component residual term `{label}` has a non-finite coefficient"),
+            profile.failure_code,
+            format!(
+                "{} `{label}` has a non-finite coefficient",
+                profile.term_label
+            ),
         ));
     }
     let Some(variable) = variables.get(index) else {
         return Err(SolverFailure::new(
-            "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
-            format!("dynamic component residual term `{label}` references an unknown variable"),
+            profile.failure_code,
+            format!(
+                "{} `{label}` references an unknown variable",
+                profile.term_label
+            ),
         ));
     };
     parsed.terms.push(ResidualTerm {
@@ -853,10 +925,16 @@ fn push_dynamic_linear_term(
     Ok(())
 }
 
-fn unsupported_dynamic_linear_term(term: &str) -> SolverFailure {
+fn unsupported_linear_residual_term(
+    term: &str,
+    profile: ResidualExpressionLoweringProfile,
+) -> SolverFailure {
     SolverFailure::new(
-        "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL",
-        format!("dynamic component assembly supports only simple linear residual terms; unsupported term `{term}`"),
+        profile.failure_code,
+        format!(
+            "{} supports only simple linear residual terms; unsupported term `{term}`",
+            profile.assembly_label
+        ),
     )
 }
 
@@ -1493,6 +1571,73 @@ mod tests {
         assert!(graph.residuals[0].terms.is_empty());
         assert!(graph.residuals[0].variable_indices.is_empty());
     }
+    #[test]
+    fn shared_linear_residual_lowering_uses_profile_specific_failures() {
+        let variables = vec![
+            ResidualVariableRef {
+                index: 0,
+                name: "x".to_owned(),
+                role: "algebraic".to_owned(),
+                unit: "1".to_owned(),
+            },
+            ResidualVariableRef {
+                index: 1,
+                name: "y".to_owned(),
+                role: "algebraic".to_owned(),
+                unit: "1".to_owned(),
+            },
+        ];
+        let variable_aliases = variables
+            .iter()
+            .map(|variable| (variable.name.clone(), variable.index))
+            .collect::<HashMap<_, _>>();
+        let variable_units = variables
+            .iter()
+            .map(|variable| {
+                (
+                    variable.name.clone(),
+                    (variable.unit.clone(), "Dimensionless".to_owned()),
+                )
+            })
+            .collect::<HashMap<_, _>>();
+        let dependencies = vec!["x".to_owned(), "y".to_owned()];
+
+        let component_failure = lower_linear_residual_expression(
+            "x * y",
+            &dependencies,
+            &variable_aliases,
+            &variables,
+            &variable_units,
+            Some(("1", "Dimensionless")),
+            None,
+            COMPONENT_RESIDUAL_LOWERING,
+        )
+        .unwrap_err();
+        assert_eq!(component_failure.code, "E-COMPONENT-ASSEMBLY-RESIDUAL");
+        assert!(component_failure
+            .message
+            .contains("component assembly supports only simple linear residual terms"));
+
+        let dynamic_failure = lower_linear_residual_expression(
+            "x * y",
+            &dependencies,
+            &variable_aliases,
+            &variables,
+            &variable_units,
+            Some(("1", "Dimensionless")),
+            None,
+            DYNAMIC_COMPONENT_RESIDUAL_LOWERING,
+        )
+        .unwrap_err();
+        assert_eq!(
+            dynamic_failure.code,
+            "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL"
+        );
+        assert!(dynamic_failure
+            .message
+            .contains("dynamic component assembly supports only simple linear residual terms"));
+    }
+
     #[test]
     fn component_equation_constants_convert_to_residual_unit() {
         let assembly = EquationAssembly {
