@@ -111,7 +111,7 @@ The `multi_domain_preview` value is a legacy-named Internal metadata label, not
 a supported multi-domain solve claim.
 Delay calls currently report a runtime-buffer seed status, Predictor calls
 report a contract-wrapper seed status, and external adapter expressions report
-an external-wrapper seed status. The narrow explicit-Euler source behavior RHS
+an external-wrapper seed status. The narrow unitful temperature explicit-Euler source behavior RHS
 examples update those behavior-node rows to integrated statuses in
 report-spec/HTML after runtime evaluation. This is still not a full
 component-solver behavior graph integration.

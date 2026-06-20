@@ -161,7 +161,7 @@ by the stable breaking-change policy.
   component source solve in `examples/official/26_dynamic_component_room`.
   Narrow unitful scalar source Newton and unitful temperature implicit-Euler DAE component residual
   smokes are covered by `examples/official/27_nonlinear_algebraic` and
-  `examples/official/28_small_dae`. Narrow explicit-Euler source behavior RHS
+  `examples/official/28_small_dae`. Narrow unitful temperature explicit-Euler source behavior RHS
   smokes for delay, deterministic Predictor identity wrappers, and
   deterministic external adapter identity wrappers are covered by
   `examples/official/29_delay_component_solver`,
@@ -303,7 +303,7 @@ are not public stable workflows.
   `delay(signal, duration)`, typed deterministic `predictor(signal)`, and typed
   deterministic `adapter(signal)` identity-wrapper behavior nodes during
   `solver = dynamic_component_explicit_euler` RHS evaluation for algebraic-free
-  dimensionless component state examples. Runtime, report-spec, report HTML,
+  unitful temperature component state examples. Runtime, report-spec, report HTML,
   and IDE-visible component artifacts mark these nodes as integrated in
   `examples/official/29_delay_component_solver`,
   `examples/official/30_predictor_component_solver`, and

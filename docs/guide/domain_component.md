@@ -392,7 +392,7 @@ Current:
   component equations;
 - narrow source implicit-Euler DAE solves for small scalar component residual
   graphs with state/algebraic split;
-- narrow explicit-Euler source behavior RHS solves with integrated
+- narrow unitful temperature explicit-Euler source behavior RHS solves with integrated
   delay/Predictor/external behavior-node graph artifacts;
 - multi-domain assembly metadata with domain plans, future nonlinear/
   DAE/delay/Predictor/adapter seed statuses, and explicit limitations;

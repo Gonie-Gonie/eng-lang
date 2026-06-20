@@ -1,13 +1,13 @@
-domain BehaviorScalar package "eng.std.domains.scalar" version "0.1.0" {
-    across x: DimensionlessNumber [1]
-    through balance: DimensionlessNumber [1]
+domain BehaviorTemperature package "eng.std.domains.scalar" version "0.1.0" {
+    across T: AbsoluteTemperature [K]
+    through balance: TemperatureDelta [K]
     conservation sum(balance) = 0
 }
 
 component ExternalBehaviorNode {
-    port node: BehaviorScalar
-    adapted_x = adapter(node.x)
-    der(node.x) + adapted_x eq 0
+    port node: BehaviorTemperature
+    adapted_T = adapter(node.T)
+    der(node.T) + (adapted_T - 300 K) / 1 s eq 0 K/s
 }
 
 system ExternalBehaviorSystem {
@@ -20,7 +20,7 @@ with {
     solver = dynamic_component_explicit_euler
     timestep = 1 s
     duration = 2 s
-    initial = 1
+    initial = 301
 }
 
 report {

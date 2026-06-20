@@ -134,7 +134,7 @@ Internal runtime seeds:
 - optional DAE mass matrix and initial consistency checks
 - explicit DAE method policy where BDF requests return
   E-DAE-METHOD-UNSUPPORTED until a real BDF implementation exists
-- narrow source `solve component_graph` Newton bridge for dimensionless scalar
+- narrow source `solve component_graph` Newton bridge for unitful HeatRate scalar
   nonlinear residuals, with finite-difference Jacobian by default,
   `source_linear_terms` Jacobian hook, residual history, and largest-residual
   artifacts
@@ -166,7 +166,7 @@ Internal runtime seeds:
 - solver-API behavior graph RHS adapter that chains delay, Predictor, and external behavior nodes from state/input/parameter/prior-node signals
 - component graph/report/IDE behavior nodes for delay, Predictor, and external calls with inferred contract fields and diagnostic channels
 - narrow source `solve component_graph` integration for algebraic-free
-  dimensionless explicit-Euler component RHS evaluation with delay,
+  unitful temperature explicit-Euler component RHS evaluation with delay,
   deterministic Predictor identity-wrapper, and deterministic external adapter
   identity-wrapper behavior nodes
 ```
@@ -179,7 +179,7 @@ Deferred:
 - broad language-integrated dynamic component graph solving beyond the
   simple-linear source path
 - broad language-integrated delay/Predictor/external behavior graph solving
-  beyond the narrow explicit-Euler source behavior RHS smokes
+  beyond the narrow unitful temperature explicit-Euler source behavior RHS smokes
 - broad adaptive solvers beyond the one-state thermal and internal continuous
   state-space `adaptive_heun` paths
 - general equation-system runtime beyond the supported one-state thermal and
@@ -316,7 +316,7 @@ Supported scoped slice:
 - source-to-solver nonlinear scalar residual in
   examples/official/27_nonlinear_algebraic
 - source-to-solver small unitful temperature DAE in examples/official/28_small_dae
-- source-to-solver delay/Predictor/external behavior RHS smokes in
+- source-to-solver unitful temperature delay/Predictor/external behavior RHS smokes in
   examples/official/29_delay_component_solver,
   examples/official/30_predictor_component_solver, and
   examples/official/31_external_behavior_solver

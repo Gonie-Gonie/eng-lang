@@ -1,13 +1,13 @@
-domain BehaviorScalar package "eng.std.domains.scalar" version "0.1.0" {
-    across x: DimensionlessNumber [1]
-    through balance: DimensionlessNumber [1]
+domain BehaviorTemperature package "eng.std.domains.scalar" version "0.1.0" {
+    across T: AbsoluteTemperature [K]
+    through balance: TemperatureDelta [K]
     conservation sum(balance) = 0
 }
 
 component DelayBehaviorNode {
-    port node: BehaviorScalar
-    delayed_x = delay(node.x, 1 s)
-    der(node.x) + delayed_x eq 0
+    port node: BehaviorTemperature
+    delayed_T = delay(node.T, 1 s)
+    der(node.T) + (delayed_T - 300 K) / 1 s eq 0 K/s
 }
 
 system DelayBehaviorSystem {
@@ -20,7 +20,7 @@ with {
     solver = dynamic_component_explicit_euler
     timestep = 1 s
     duration = 2 s
-    initial = 1
+    initial = 301
 }
 
 report {

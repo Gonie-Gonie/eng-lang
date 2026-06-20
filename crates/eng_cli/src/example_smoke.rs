@@ -697,7 +697,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     || !output
                         .result_json
                         .contains("\"convergence_status\": \"behavior_graph_integrated\"")
-                    || !output.result_json.contains("\"name\": \"node.node.x\"")
+                    || !output.result_json.contains("\"name\": \"node.node.T\"")
+                    || !output.result_json.contains("\"unit\": \"K\"")
+                    || !output.result_json.contains("\"y\": 300.00000000")
                     || !output.result_json.contains("\"step_diagnostics\"")
                     || !output
                         .report_spec_json
@@ -913,7 +915,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     || !output
                         .result_json
                         .contains("\"convergence_status\": \"behavior_graph_integrated\"")
-                    || !output.result_json.contains("\"name\": \"node.node.x\"")
+                    || !output.result_json.contains("\"name\": \"node.node.T\"")
+                    || !output.result_json.contains("\"unit\": \"K\"")
+                    || !output.result_json.contains("\"y\": 300.00000000")
                     || !output.result_json.contains("\"step_diagnostics\"")
                     || !output.report_spec_json.contains(behavior_status)
                     || !output
