@@ -22,6 +22,14 @@ impl ArithmeticExpressionProfile {
         label: "source residual expression",
     };
 
+    pub(crate) const SOURCE_RHS: Self = Self {
+        parse_code: "E-RHS-EXPR-PARSE",
+        finite_code: "E-RHS-EXPR-FINITE",
+        unknown_code: "E-RHS-SYMBOL-UNRESOLVED",
+        divide_by_zero_code: "E-RHS-EXPR-DIVIDE-BY-ZERO",
+        label: "source RHS expression",
+    };
+
     pub(crate) const COMPONENT_RESIDUAL: Self = Self {
         parse_code: "E-COMPONENT-ASSEMBLY-RESIDUAL",
         finite_code: "E-COMPONENT-ASSEMBLY-RESIDUAL",

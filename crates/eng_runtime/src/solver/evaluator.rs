@@ -1,4 +1,12 @@
-use super::diagnostics::SolverFailure;
+use std::collections::HashMap;
+
+use super::{
+    diagnostics::SolverFailure,
+    expression::{
+        parse_arithmetic_expression_with_symbol_metadata_and_unit_converter,
+        ArithmeticExpressionProfile, ArithmeticUnitMetadata, ParsedArithmeticExpression,
+    },
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RhsStateInfo {
@@ -73,7 +81,16 @@ pub struct SourceRhsEvaluator {
     states: Vec<RhsStateInfo>,
     input_names: Vec<String>,
     parameter_names: Vec<String>,
-    equations: Vec<SourceRhsEquation>,
+    equations: Vec<ParsedSourceRhsEquation>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct ParsedSourceRhsEquation {
+    state: String,
+    coefficient_source: String,
+    coefficient: ParsedArithmeticExpression,
+    rhs_source: String,
+    rhs: ParsedArithmeticExpression,
 }
 
 impl SourceRhsEvaluator {
@@ -110,6 +127,44 @@ impl SourceRhsEvaluator {
                 ));
             }
         }
+        let symbols = source_rhs_parse_symbols(&states, &input_names, &parameter_names);
+        let symbol_units = source_rhs_symbol_metadata(&states);
+        let equations = equations
+            .into_iter()
+            .map(|equation| {
+                let coefficient_source =
+                    derivative_coefficient_expression(&equation.left, &equation.state)?;
+                let coefficient =
+                    parse_source_rhs_expression(&coefficient_source, &symbols, &symbol_units)
+                        .map_err(|failure| {
+                            SolverFailure::new(
+                                failure.code,
+                                format!(
+                                    "{} while parsing derivative coefficient for state `{}`",
+                                    failure.message, equation.state
+                                ),
+                            )
+                        })?;
+                let rhs = parse_source_rhs_expression(&equation.right, &symbols, &symbol_units)
+                    .map_err(|failure| {
+                        SolverFailure::new(
+                            failure.code,
+                            format!(
+                                "{} while parsing derivative RHS for state `{}`",
+                                failure.message, equation.state
+                            ),
+                        )
+                    })?;
+                Ok(ParsedSourceRhsEquation {
+                    state: equation.state,
+                    coefficient_source,
+                    coefficient,
+                    rhs_source: equation.right,
+                    rhs,
+                })
+            })
+            .collect::<Result<Vec<_>, SolverFailure>>()?;
+
         Ok(Self {
             states,
             input_names,
@@ -118,56 +173,20 @@ impl SourceRhsEvaluator {
         })
     }
 
-    fn evaluate_expression(
-        &self,
-        expression: &str,
-        input: &RhsInput,
-    ) -> Result<f64, SolverFailure> {
-        let tokens = tokenize_expression(expression)?;
-        let mut parser = ExpressionParser {
-            tokens,
-            position: 0,
-            evaluator: self,
-            input,
-        };
-        let value = parser.parse_expression()?;
-        if parser.position != parser.tokens.len() {
-            return Err(SolverFailure::new(
-                "E-RHS-EXPR-PARSE",
-                format!("unsupported RHS expression near `{expression}`"),
-            ));
+    fn evaluation_symbols(&self, input: &RhsInput) -> HashMap<String, f64> {
+        let mut symbols = HashMap::new();
+        symbols.insert("t".to_owned(), input.t);
+        symbols.insert("time".to_owned(), input.t);
+        for (state, value) in self.states.iter().zip(input.x.iter().copied()) {
+            symbols.insert(state.name.clone(), value);
         }
-        if !value.is_finite() {
-            return Err(SolverFailure::new(
-                "E-RHS-EXPR-FINITE",
-                format!("RHS expression `{expression}` produced a non-finite value"),
-            ));
+        for (name, value) in self.input_names.iter().zip(input.u.iter().copied()) {
+            symbols.insert(name.clone(), value);
         }
-        Ok(value)
-    }
-
-    fn symbol_value(&self, name: &str, input: &RhsInput) -> Option<f64> {
-        if matches!(name, "t" | "time") {
-            return Some(input.t);
+        for (name, value) in self.parameter_names.iter().zip(input.p.iter().copied()) {
+            symbols.insert(name.clone(), value);
         }
-        if let Some(index) = self.states.iter().position(|state| state.name == name) {
-            return input.x.get(index).copied();
-        }
-        if let Some(index) = self
-            .input_names
-            .iter()
-            .position(|input_name| input_name == name)
-        {
-            return input.u.get(index).copied();
-        }
-        if let Some(index) = self
-            .parameter_names
-            .iter()
-            .position(|parameter_name| parameter_name == name)
-        {
-            return input.p.get(index).copied();
-        }
-        None
+        symbols
     }
 }
 
@@ -201,6 +220,7 @@ impl RhsEvaluator for SourceRhsEvaluator {
         ensure_finite_values("E-RHS-INPUT-FINITE", "RHS input", &input.u)?;
         ensure_finite_values("E-RHS-PARAMETER-FINITE", "RHS parameter", &input.p)?;
 
+        let symbols = self.evaluation_symbols(input);
         let mut derivatives = vec![0.0; self.states.len()];
         for equation in &self.equations {
             let Some(state_index) = self
@@ -213,9 +233,15 @@ impl RhsEvaluator for SourceRhsEvaluator {
                     format!("RHS equation references unknown state `{}`", equation.state),
                 ));
             };
-            let coefficient_expression =
-                derivative_coefficient_expression(&equation.left, &equation.state)?;
-            let coefficient = self.evaluate_expression(&coefficient_expression, input)?;
+            let coefficient = equation.coefficient.evaluate(&symbols).map_err(|failure| {
+                SolverFailure::new(
+                    failure.code,
+                    format!(
+                        "{} while evaluating derivative coefficient `{}` for state `{}`",
+                        failure.message, equation.coefficient_source, equation.state
+                    ),
+                )
+            })?;
             if !coefficient.is_finite() || coefficient.abs() <= f64::EPSILON {
                 return Err(SolverFailure::new(
                     "E-RHS-DERIVATIVE-COEFFICIENT",
@@ -225,7 +251,15 @@ impl RhsEvaluator for SourceRhsEvaluator {
                     ),
                 ));
             }
-            let rhs = self.evaluate_expression(&equation.right, input)?;
+            let rhs = equation.rhs.evaluate(&symbols).map_err(|failure| {
+                SolverFailure::new(
+                    failure.code,
+                    format!(
+                        "{} while evaluating derivative RHS `{}` for state `{}`",
+                        failure.message, equation.rhs_source, equation.state
+                    ),
+                )
+            })?;
             derivatives[state_index] = rhs / coefficient;
         }
 
@@ -249,6 +283,72 @@ impl RhsEvaluator for SourceRhsEvaluator {
     }
 }
 
+fn source_rhs_parse_symbols(
+    states: &[RhsStateInfo],
+    input_names: &[String],
+    parameter_names: &[String],
+) -> HashMap<String, f64> {
+    let mut symbols = HashMap::new();
+    symbols.insert("t".to_owned(), 0.0);
+    symbols.insert("time".to_owned(), 0.0);
+    for state in states {
+        symbols.insert(state.name.clone(), 0.0);
+    }
+    for name in input_names {
+        symbols.insert(name.clone(), 0.0);
+    }
+    for name in parameter_names {
+        symbols.insert(name.clone(), 0.0);
+    }
+    symbols
+}
+
+fn source_rhs_symbol_metadata(states: &[RhsStateInfo]) -> HashMap<String, ArithmeticUnitMetadata> {
+    let mut metadata = HashMap::new();
+    metadata.insert(
+        "t".to_owned(),
+        ArithmeticUnitMetadata {
+            display_unit: "s".to_owned(),
+            canonical_unit: "s".to_owned(),
+            quantity_kind: "Time".to_owned(),
+        },
+    );
+    metadata.insert(
+        "time".to_owned(),
+        ArithmeticUnitMetadata {
+            display_unit: "s".to_owned(),
+            canonical_unit: "s".to_owned(),
+            quantity_kind: "Time".to_owned(),
+        },
+    );
+    for state in states {
+        metadata.insert(
+            state.name.clone(),
+            ArithmeticUnitMetadata {
+                display_unit: state.canonical_unit.clone(),
+                canonical_unit: state.canonical_unit.clone(),
+                quantity_kind: state.quantity_kind.clone(),
+            },
+        );
+    }
+    metadata
+}
+
+fn parse_source_rhs_expression(
+    expression: &str,
+    symbols: &HashMap<String, f64>,
+    symbol_units: &HashMap<String, ArithmeticUnitMetadata>,
+) -> Result<ParsedArithmeticExpression, SolverFailure> {
+    let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
+    parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
+        expression,
+        symbols,
+        symbol_units,
+        &mut ignore_units,
+        ArithmeticExpressionProfile::SOURCE_RHS,
+    )
+}
+
 fn derivative_coefficient_expression(left: &str, state: &str) -> Result<String, SolverFailure> {
     let derivative = format!("der({state})");
     if !left.contains(&derivative) {
@@ -265,252 +365,6 @@ fn derivative_coefficient_expression(left: &str, state: &str) -> Result<String, 
         ));
     }
     Ok(expression)
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum ExpressionToken {
-    Number(f64),
-    Identifier(String),
-    Plus,
-    Minus,
-    Star,
-    Slash,
-    LeftParen,
-    RightParen,
-}
-
-fn tokenize_expression(expression: &str) -> Result<Vec<ExpressionToken>, SolverFailure> {
-    let chars = expression.chars().collect::<Vec<_>>();
-    let mut tokens = Vec::new();
-    let mut index = 0;
-    while index < chars.len() {
-        let character = chars[index];
-        if character.is_ascii_whitespace() {
-            index += 1;
-            continue;
-        }
-        match character {
-            '+' => {
-                tokens.push(ExpressionToken::Plus);
-                index += 1;
-            }
-            '-' => {
-                tokens.push(ExpressionToken::Minus);
-                index += 1;
-            }
-            '*' => {
-                tokens.push(ExpressionToken::Star);
-                index += 1;
-            }
-            '/' => {
-                tokens.push(ExpressionToken::Slash);
-                index += 1;
-            }
-            '(' => {
-                tokens.push(ExpressionToken::LeftParen);
-                index += 1;
-            }
-            ')' => {
-                tokens.push(ExpressionToken::RightParen);
-                index += 1;
-            }
-            _ if character.is_ascii_digit()
-                || character == '.'
-                    && chars
-                        .get(index + 1)
-                        .is_some_and(|next| next.is_ascii_digit()) =>
-            {
-                let start = index;
-                index += 1;
-                while index < chars.len() {
-                    let current = chars[index];
-                    if current.is_ascii_digit() || current == '.' {
-                        index += 1;
-                    } else if matches!(current, 'e' | 'E') {
-                        index += 1;
-                        if chars
-                            .get(index)
-                            .is_some_and(|next| matches!(next, '+' | '-'))
-                        {
-                            index += 1;
-                        }
-                    } else {
-                        break;
-                    }
-                }
-                let literal = chars[start..index].iter().collect::<String>();
-                let value = literal.parse::<f64>().map_err(|_| {
-                    SolverFailure::new(
-                        "E-RHS-EXPR-PARSE",
-                        format!("invalid numeric literal `{literal}` in RHS expression"),
-                    )
-                })?;
-                tokens.push(ExpressionToken::Number(value));
-                index = consume_optional_unit_suffix(&chars, index);
-            }
-            _ if is_identifier_start(character) => {
-                let start = index;
-                index += 1;
-                while index < chars.len() && is_identifier_continue(chars[index]) {
-                    index += 1;
-                }
-                tokens.push(ExpressionToken::Identifier(
-                    chars[start..index].iter().collect(),
-                ));
-            }
-            _ => {
-                return Err(SolverFailure::new(
-                    "E-RHS-EXPR-PARSE",
-                    format!("unsupported character `{character}` in RHS expression"),
-                ));
-            }
-        }
-    }
-    Ok(tokens)
-}
-
-fn consume_optional_unit_suffix(chars: &[char], index: usize) -> usize {
-    let mut cursor = index;
-    let mut saw_whitespace = false;
-    while chars
-        .get(cursor)
-        .is_some_and(|character| character.is_ascii_whitespace())
-    {
-        saw_whitespace = true;
-        cursor += 1;
-    }
-    if !saw_whitespace {
-        return index;
-    }
-
-    let suffix_start = cursor;
-    while let Some(character) = chars.get(cursor) {
-        if character.is_ascii_whitespace() || matches!(character, '+' | '-' | '*' | '(' | ')') {
-            break;
-        }
-        if *character == '/' || character.is_ascii_alphanumeric() || *character == '°' {
-            cursor += 1;
-        } else {
-            break;
-        }
-    }
-    let suffix = chars[suffix_start..cursor].iter().collect::<String>();
-    if !suffix.is_empty()
-        && suffix
-            .chars()
-            .any(|character| character.is_ascii_alphabetic() || character == '°')
-    {
-        cursor
-    } else {
-        index
-    }
-}
-
-fn is_identifier_start(character: char) -> bool {
-    character.is_ascii_alphabetic() || character == '_'
-}
-
-fn is_identifier_continue(character: char) -> bool {
-    character.is_ascii_alphanumeric() || character == '_' || character == '.'
-}
-
-struct ExpressionParser<'a> {
-    tokens: Vec<ExpressionToken>,
-    position: usize,
-    evaluator: &'a SourceRhsEvaluator,
-    input: &'a RhsInput,
-}
-
-impl ExpressionParser<'_> {
-    fn parse_expression(&mut self) -> Result<f64, SolverFailure> {
-        let mut value = self.parse_term()?;
-        loop {
-            match self.peek() {
-                Some(ExpressionToken::Plus) => {
-                    self.position += 1;
-                    value += self.parse_term()?;
-                }
-                Some(ExpressionToken::Minus) => {
-                    self.position += 1;
-                    value -= self.parse_term()?;
-                }
-                _ => return Ok(value),
-            }
-        }
-    }
-
-    fn parse_term(&mut self) -> Result<f64, SolverFailure> {
-        let mut value = self.parse_factor()?;
-        loop {
-            match self.peek() {
-                Some(ExpressionToken::Star) => {
-                    self.position += 1;
-                    value *= self.parse_factor()?;
-                }
-                Some(ExpressionToken::Slash) => {
-                    self.position += 1;
-                    let divisor = self.parse_factor()?;
-                    if divisor.abs() <= f64::EPSILON {
-                        return Err(SolverFailure::new(
-                            "E-RHS-EXPR-DIVIDE-BY-ZERO",
-                            "RHS expression attempted division by zero",
-                        ));
-                    }
-                    value /= divisor;
-                }
-                _ => return Ok(value),
-            }
-        }
-    }
-
-    fn parse_factor(&mut self) -> Result<f64, SolverFailure> {
-        let Some(token) = self.next().cloned() else {
-            return Err(SolverFailure::new(
-                "E-RHS-EXPR-PARSE",
-                "RHS expression ended unexpectedly",
-            ));
-        };
-        match token {
-            ExpressionToken::Number(value) => Ok(value),
-            ExpressionToken::Identifier(name) => self
-                .evaluator
-                .symbol_value(&name, self.input)
-                .ok_or_else(|| {
-                    SolverFailure::new(
-                        "E-RHS-SYMBOL-UNRESOLVED",
-                        format!("RHS expression references unknown symbol `{name}`"),
-                    )
-                }),
-            ExpressionToken::Minus => Ok(-self.parse_factor()?),
-            ExpressionToken::Plus => self.parse_factor(),
-            ExpressionToken::LeftParen => {
-                let value = self.parse_expression()?;
-                match self.next() {
-                    Some(ExpressionToken::RightParen) => Ok(value),
-                    _ => Err(SolverFailure::new(
-                        "E-RHS-EXPR-PARSE",
-                        "RHS expression has an unclosed parenthesis",
-                    )),
-                }
-            }
-            _ => Err(SolverFailure::new(
-                "E-RHS-EXPR-PARSE",
-                "RHS expression expected a value",
-            )),
-        }
-    }
-
-    fn peek(&self) -> Option<&ExpressionToken> {
-        self.tokens.get(self.position)
-    }
-
-    fn next(&mut self) -> Option<&ExpressionToken> {
-        let token = self.tokens.get(self.position);
-        if token.is_some() {
-            self.position += 1;
-        }
-        token
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -773,6 +627,31 @@ mod tests {
         assert_eq!(zero_coefficient.code, "E-RHS-DERIVATIVE-COEFFICIENT");
     }
 
+    #[test]
+    fn source_rhs_preserves_shared_expression_unit_metadata() {
+        let evaluator = SourceRhsEvaluator::new(
+            vec![RhsStateInfo::new("T", "AbsoluteTemperature", "K")],
+            Vec::new(),
+            vec!["C".to_owned()],
+            vec![SourceRhsEquation::new("T", "C * der(T)", "1 W")],
+        )
+        .unwrap();
+
+        let rhs_unit = evaluator.equations[0].rhs.root_unit.as_ref().unwrap();
+        assert_eq!(rhs_unit.display_unit, "W");
+        assert_eq!(rhs_unit.canonical_unit, "W");
+        assert_eq!(rhs_unit.quantity_kind, "Power");
+
+        let output = evaluator
+            .evaluate(&RhsInput {
+                t: 0.0,
+                x: vec![295.0],
+                u: Vec::new(),
+                p: vec![2.0],
+            })
+            .unwrap();
+        assert_eq!(output.derivatives, vec![0.5]);
+    }
     #[test]
     fn state_space_rhs_evaluates_named_derivatives() {
         let evaluator = StateSpaceRhsEvaluator::new(

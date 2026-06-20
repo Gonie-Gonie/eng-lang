@@ -121,6 +121,9 @@ Internal runtime seeds:
 - source-equation `simulate` integration for `solver = adaptive_heun` through
   the shared `SourceRhsEvaluator`, with fixed output-grid trajectories,
   adaptive internal substeps, scalar inputs, and TimeSeries input materialization
+- source-equation RHS evaluation pre-parses derivative coefficients and RHS
+  expressions through the shared arithmetic expression parser while preserving
+  unit-literal metadata
 - internal continuous state-space `simulate` integration for
   `solver = adaptive_heun` on shape-checked `der(x) eq A * x + B * u`
   systems, with fixed output TimeGrid trajectories and adaptive internal

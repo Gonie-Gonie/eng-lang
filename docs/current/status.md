@@ -280,7 +280,9 @@ are not public stable workflows.
   one-state thermal `simulate` path wires
   `solver = adaptive_heun` to that seed and emits SolverResult artifacts, the
   source-equation `simulate` path now reuses the same adaptive seed through the
-  shared `SourceRhsEvaluator`, and the internal continuous state-space path now
+  shared `SourceRhsEvaluator`; its derivative coefficient and RHS expressions
+  are pre-parsed through the shared arithmetic expression parser with
+  unit-literal metadata. The internal continuous state-space path now
   reuses the same adaptive seed for shape-checked `der(x) eq A * x + B * u`
   systems.
   Fixed-step ODE and
