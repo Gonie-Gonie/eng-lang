@@ -327,7 +327,7 @@ re-parsing source files.
 - `examples/official/27_nonlinear_algebraic/main.eng`
   shows the narrow unitful source Newton path with `solver = newton`, direct
   source-residual expression evaluation, residual scaling, convergence
-  history, and largest-residual artifacts for a unitful HeatRate scalar graph.
+  history, and largest-residual artifacts for a a coupled unitful HeatRate residual graph.
 - `examples/official/28_small_dae/main.eng`
   shows the narrow source unitful implicit-Euler DAE path with
   `solver = implicit_euler_dae`, assembly-derived state/algebraic split,
@@ -388,7 +388,7 @@ Current:
   and simple linear component-local equations;
 - supported constrained Thermal/Fluid[Water] pressure/flow residual solve for
   literal boundary seeds and simple pipe component-local equations;
-- narrow source Newton residual solves for unitful scalar nonlinear
+- narrow source Newton residual solves for coupled unitful nonlinear
   component equations;
 - narrow source implicit-Euler DAE solves for small scalar component residual
   graphs with state/algebraic split;

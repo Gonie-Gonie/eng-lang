@@ -590,11 +590,17 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"convergence_status\": \"newton_converged\"")
-                || !output.result_json.contains("\"name\": \"node.node.q\"")
+                || !output.result_json.contains("\"equation_count\": 4")
+                || !output.result_json.contains("\"unknown_count\": 4")
+                || !output.result_json.contains("\"name\": \"node.source.q\"")
+                || !output.result_json.contains("\"name\": \"node.target.q\"")
                 || !output.result_json.contains("\"unit\": \"kW\"")
                 || !output
                     .result_json
-                    .contains("node.node.q * node.node.q / 1 kW - 4 kW")
+                    .contains("node.source.q * node.source.q / 1 kW + node.target.q - 6 kW")
+                || !output
+                    .result_json
+                    .contains("node.target.q * node.target.q / 1 kW + node.source.q - 6 kW")
                 || !output.result_json.contains("\"value\": 2.000")
                 || !output.result_json.contains("\"step_diagnostics\"")
                 || !output.result_json.contains("\"largest_residuals\"")
@@ -605,7 +611,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.report_html.contains("Step Diagnostics")
             {
                 eprintln!(
-                    "expected official nonlinear algebraic example to solve a unitful source Newton residual graph"
+                    "expected official nonlinear algebraic example to solve a coupled multi-variable unitful source Newton residual graph"
                 );
                 return ExitCode::from(2);
             }
@@ -821,18 +827,24 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"convergence_status\": \"newton_converged\"")
-                || !output.result_json.contains("\"name\": \"node.node.q\"")
+                || !output.result_json.contains("\"equation_count\": 4")
+                || !output.result_json.contains("\"unknown_count\": 4")
+                || !output.result_json.contains("\"name\": \"node.source.q\"")
+                || !output.result_json.contains("\"name\": \"node.target.q\"")
                 || !output.result_json.contains("\"unit\": \"kW\"")
                 || !output
                     .result_json
-                    .contains("node.node.q * node.node.q / 1 kW - 4 kW")
+                    .contains("node.source.q * node.source.q / 1 kW + node.target.q - 6 kW")
+                || !output
+                    .result_json
+                    .contains("node.target.q * node.target.q / 1 kW + node.source.q - 6 kW")
                 || !output.result_json.contains("\"value\": 2.000")
                 || !output.result_json.contains("\"step_diagnostics\"")
                 || !output.result_json.contains("\"largest_residuals\"")
                 || !output.report_html.contains("newton_source_residual_graph")
             {
                 eprintln!(
-                    "expected tests/runtime/nonlinear_residual_from_source.eng to solve a unitful source Newton residual graph"
+                    "expected tests/runtime/nonlinear_residual_from_source.eng to solve a coupled multi-variable unitful source Newton residual graph"
                 );
                 return ExitCode::from(2);
             }

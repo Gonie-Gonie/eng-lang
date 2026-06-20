@@ -101,7 +101,7 @@ Use the official examples for user testing and demos. Start with these:
   not a nonlinear wall-conductance or production multi-domain simulator.
 - `examples/official/27_nonlinear_algebraic/main.eng`: supported narrow
   source Newton solve using `solve component_graph` with `solver = newton` for
-  a unitful HeatRate scalar nonlinear residual.
+  coupled unitful HeatRate nonlinear residuals.
 - `examples/official/28_small_dae/main.eng`: supported narrow source
   implicit-Euler DAE solve using `solve component_graph` with
   `solver = implicit_euler_dae`, source-derived state/algebraic split, and

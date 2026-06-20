@@ -76,7 +76,7 @@ workflows. Official component examples cover constrained Thermal component
 boundary graphs with system-local instances, square dense linear residual
 solves, a narrow fixed-point source solve over a linear ResidualGraph, and a
 simple-linear dynamic component source solve with trajectories. They also cover
-narrow unitful scalar source residual solves through `solver = newton`, narrow
+narrow coupled multi-variable unitful source residual solves through `solver = newton`, narrow
 unitful temperature implicit-Euler DAE solves through `solver = implicit_euler_dae`,
 and narrow unitful temperature explicit-Euler source behavior RHS solves for delay, typed Predictor
 identity, and typed external adapter identity wrappers, plus a constrained

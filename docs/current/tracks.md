@@ -134,7 +134,7 @@ Internal runtime seeds:
 - optional DAE mass matrix and initial consistency checks
 - explicit DAE method policy where BDF requests return
   E-DAE-METHOD-UNSUPPORTED until a real BDF implementation exists
-- narrow source `solve component_graph` Newton bridge for unitful HeatRate scalar
+- narrow source `solve component_graph` Newton bridge for coupled multi-variable unitful HeatRate
   nonlinear residuals, with finite-difference Jacobian by default,
   `source_linear_terms` Jacobian hook, residual history, and largest-residual
   artifacts
@@ -313,7 +313,7 @@ Supported scoped slice:
   examples/official/25_fixed_point_loop
 - source-to-solver simple-linear dynamic component room in
   examples/official/26_dynamic_component_room
-- source-to-solver nonlinear scalar residual in
+- source-to-solver coupled nonlinear residuals in
   examples/official/27_nonlinear_algebraic
 - source-to-solver small unitful temperature DAE in examples/official/28_small_dae
 - source-to-solver unitful temperature delay/Predictor/external behavior RHS smokes in

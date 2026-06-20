@@ -4,14 +4,17 @@ domain NonlinearPower package "eng.std.domains.scalar" version "0.1.0" {
     conservation sum(balance) = 0
 }
 
-component NonlinearHeatNode {
-    port node: NonlinearPower
-    node.q * node.q / 1 kW eq 4 kW
+component CoupledHeatNode {
+    port source: NonlinearPower
+    port target: NonlinearPower
+    source.q * source.q / 1 kW + target.q eq 6 kW
+    target.q * target.q / 1 kW + source.q eq 6 kW
 }
 
 system NonlinearAlgebraic {
-    node = NonlinearHeatNode()
-    connect node.node to node.node
+    node = CoupledHeatNode()
+    connect node.source to node.source
+    connect node.target to node.target
 }
 
 nonlinear_result = solve component_graph
@@ -19,7 +22,7 @@ with {
     solver = newton
     initial = 1
     tolerance = 0.000000001
-    max_iter = 40
+    max_iter = 60
 }
 
 report {

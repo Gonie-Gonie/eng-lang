@@ -159,7 +159,7 @@ by the stable breaking-change policy.
   fixed-point source solve over linear ResidualGraph equations in
   `examples/official/25_fixed_point_loop`, and a simple-linear dynamic
   component source solve in `examples/official/26_dynamic_component_room`.
-  Narrow unitful scalar source Newton and unitful temperature implicit-Euler DAE component residual
+  Narrow coupled multi-variable unitful source Newton and unitful temperature implicit-Euler DAE component residual
   smokes are covered by `examples/official/27_nonlinear_algebraic` and
   `examples/official/28_small_dae`. Narrow unitful temperature explicit-Euler source behavior RHS
   smokes for delay, deterministic Predictor identity wrappers, and
