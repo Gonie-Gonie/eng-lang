@@ -1,0 +1,42 @@
+args {
+    drive_csv: CsvFile = file("data/dynamic_component_drive.csv")
+}
+
+schema DriveData {
+    time: DateTime index
+    drive: DimensionlessNumber [1]
+}
+
+drive_data = promote csv args.drive_csv as DriveData
+
+domain ScalarInputState {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component DrivenAdaptiveImplicitDerivativeNode {
+    port node: ScalarInputState
+    input drive: DimensionlessNumber [1] = 0.25
+    der(node.x) * der(node.x) + der(node.x) eq drive + 1
+}
+
+system DynamicAdaptiveImplicitDerivativeTimeSeriesInput {
+    node = DrivenAdaptiveImplicitDerivativeNode()
+    connect node.node to node.node
+}
+
+driven_result = solve component_graph
+with {
+    solver = dynamic_component_adaptive_heun
+    timestep = 1 s
+    duration = 4 s
+    initial = 0.5
+    inputs = drive_data.drive
+    tolerance = 0.0001
+    max_iter = 10000
+}
+
+report {
+    show driven_result
+}

@@ -179,8 +179,9 @@ by the stable breaking-change policy.
   source solves now emit adaptive Heun
   component trajectories, scalar or fixed-step TimeSeries input
   materialization, selected nonlinear derivative residual Newton fallback,
-  selected affine/Newton algebraic output trajectories, combined
-  TimeSeries-driven Newton algebraic materialization, accepted-substep
+  a combined TimeSeries-driven derivative Newton fixture, selected
+  affine/Newton algebraic output trajectories, combined TimeSeries-driven
+  Newton algebraic materialization, accepted-substep
   diagnostics, output-grid Newton residual diagnostics, and Newton
   nonconvergence artifacts; broad nonlinear algebraic graphs remain
   unsupported.

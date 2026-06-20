@@ -1853,6 +1853,64 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new(
+            "tests/runtime/dynamic_component_adaptive_nonlinear_derivative_timeseries_input.eng",
+        ),
+        Path::new(
+            "build/test-runtime-dynamic-component-adaptive-nonlinear-derivative-timeseries-input",
+        ),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_adaptive_heun_source\"")
+                || !output.result_json.contains(
+                    "adaptive Heun parsed nonlinear derivative residual Newton solves with TimeSeries input materialization",
+                )
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"adaptive_heun_completed\"")
+                || !output.result_json.contains("\"final_value\": 4.08325026")
+                || !output.result_json.contains("drive_data.drive")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"largest_residual_name\": \"node.equation_1\"")
+                || !output
+                    .result_json
+                    .contains("\"largest_residual_name\": \"adaptive_error_norm\"")
+                || !output.report_spec_json.contains(
+                    "der(node.node.x) * der(node.node.x) + der(node.node.x) eq node.drive + 1",
+                )
+                || !output.report_spec_json.contains("\"name\": \"node.drive\"")
+                || !output.report_spec_json.contains("\"role\": \"input\"")
+                || !output.report_spec_json.contains("\"input_count\": 1")
+                || !output.report_spec_json.contains("drive_data.drive")
+                || !output.report_spec_json.contains("adaptive_heun_accepted")
+                || !output.report_spec_json.contains("newton_converged")
+                || !output.report_html.contains("node.node.x=4.08325")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_adaptive_nonlinear_derivative_timeseries_input.eng to solve adaptive nonlinear derivative residuals with a TimeSeries component input"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_adaptive_nonlinear_derivative_timeseries_input.eng solved adaptive TimeSeries-driven nonlinear derivative residuals"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component adaptive nonlinear-derivative TimeSeries input runtime fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/dynamic_component_adaptive_algebraic_output.eng"),
         Path::new("build/test-runtime-dynamic-component-adaptive-algebraic-output"),
         &artifact_run_options(),

@@ -143,8 +143,9 @@ Internal runtime seeds:
   `solver = dynamic_component_adaptive_heun`, using parsed derivative residual
   expressions, scalar or fixed-step TimeSeries component inputs, fixed
   output-grid component trajectories, selected nonlinear derivative residual
-  Newton fallback, selected affine/Newton algebraic output materialization
-  including a combined TimeSeries-driven Newton fixture, accepted-substep
+  Newton fallback including a combined TimeSeries-driven derivative Newton
+  fixture, selected affine/Newton algebraic output materialization including a
+  combined TimeSeries-driven Newton fixture, accepted-substep
   diagnostics, output-grid Newton residual diagnostics, and explicit
   `E-NEWTON-NONCONVERGENCE` artifacts for Newton derivative/algebraic
   nonconvergence
