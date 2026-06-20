@@ -30,9 +30,10 @@ use crate::solver::{
     initialize_algebraic_variables, solve_adaptive_heun_ode, solve_adaptive_state_space,
     solve_continuous_state_space, solve_discrete_state_space,
     solve_dynamic_component_assembly_with_rhs_and_input_sampler,
-    solve_explicit_euler_with_algebraic, solve_first_order_thermal, solve_fixed_point,
-    solve_fixed_step_ode, solve_implicit_euler_dae, solve_linear_residual_graph, solve_newton,
-    solve_newton_with_jacobian, AdaptiveOdeOptions, AdaptiveOdeStepReport,
+    solve_explicit_euler_with_algebraic,
+    solve_explicit_euler_with_newton_algebraic_and_input_sampler, solve_first_order_thermal,
+    solve_fixed_point, solve_fixed_step_ode, solve_implicit_euler_dae, solve_linear_residual_graph,
+    solve_newton, solve_newton_with_jacobian, AdaptiveOdeOptions, AdaptiveOdeStepReport,
     AlgebraicInitializationInput, BehaviorExecutionProfile, BehaviorGraphRhsAdapter,
     BehaviorRhsNode, BehaviorRhsSample, BehaviorSignalContract, BehaviorSignalSource, DaeInput,
     DaeMassMatrix, DaeMethod, DaeOptions, DaeSample, DaeVariable, DelayBehaviorNode, DelayBuffer,
@@ -4343,16 +4344,16 @@ fn expression_dynamic_component_semi_implicit_solution_from_solve_request(
     let algebraic_assembly = semi_implicit_algebraic_dynamic_component_source_assembly(assembly)?;
     let parse_symbols = source_dynamic_component_parse_symbols(assembly, &solve_input.parameters)?;
     let parsed_residuals = parse_source_residual_expressions(assembly, &parse_symbols)?;
-    let static_inputs = solve_input.inputs.clone();
-
-    let dynamic_result = solve_dynamic_component_assembly_with_rhs_and_input_sampler(
+    let linear_static_inputs = solve_input.inputs.clone();
+    let linear_input_series = input_series.clone();
+    let linear_result = solve_dynamic_component_assembly_with_rhs_and_input_sampler(
         &algebraic_assembly,
-        solve_input,
-        options,
+        solve_input.clone(),
+        options.clone(),
         |time_s| {
             sampled_dynamic_component_inputs(
-                &static_inputs,
-                &input_series,
+                &linear_static_inputs,
+                &linear_input_series,
                 series,
                 assembly,
                 time_s,
@@ -4374,15 +4375,107 @@ fn expression_dynamic_component_semi_implicit_solution_from_solve_request(
                 "dynamic component semi-implicit source",
             )
         },
-    )?;
+    );
+    let (dynamic_result, reason) = match linear_result {
+        Ok(dynamic_result) => (
+            dynamic_result,
+            if uses_time_series_inputs {
+                "dynamic component source solve executed semi-implicit algebraic residual graph with parsed derivative residual expressions and TimeSeries input materialization"
+            } else {
+                "dynamic component source solve executed semi-implicit algebraic residual graph with parsed derivative residual expressions"
+            },
+        ),
+        Err(failure) if should_fallback_to_newton_algebraic(&failure) => {
+            let split = assembly.dynamic_component_split()?;
+            let solver_input = SolverInput {
+                plan: SolverPlan::new(
+                    assembly.name.clone(),
+                    SimulationPlan {
+                        inputs: layout_names_from_unknowns(&assembly.inputs),
+                        outputs: layout_names_from_unknowns(&assembly.states),
+                        states: layout_names_from_unknowns(&assembly.states),
+                        parameters: layout_names_from_unknowns(&assembly.parameters),
+                    },
+                    SolverOptions::fixed_step(
+                        "dynamic_component_assembly_semi_implicit_euler",
+                        solve_input.timestep_s,
+                    ),
+                ),
+                time_grid: TimeGrid::fixed_step(solve_input.duration_s, solve_input.timestep_s)?,
+                state_layout: split.state_layout.clone(),
+                input_layout: split.input_layout.clone(),
+                parameter_layout: split.parameter_layout.clone(),
+                output_layout: OutputLayout {
+                    entries: split.state_layout.entries.clone(),
+                },
+                initial_state: solve_input.initial_state.clone(),
+                inputs: solve_input.inputs.clone(),
+                parameters: solve_input.parameters.clone(),
+            };
+            let newton_static_inputs = solve_input.inputs.clone();
+            let newton_input_series = input_series.clone();
+            let dynamic_result = solve_explicit_euler_with_newton_algebraic_and_input_sampler(
+                &solver_input,
+                split.algebraic_layout,
+                solve_input.initial_algebraic,
+                options,
+                |sample| {
+                    let symbols = source_dynamic_component_symbols(
+                        assembly,
+                        sample.time_s,
+                        sample.state,
+                        sample.algebraic,
+                        sample.inputs,
+                        sample.parameters,
+                    );
+                    source_residual_algebraic_residual_values(
+                        assembly,
+                        &parsed_residuals,
+                        &symbols,
+                        "dynamic component semi-implicit source",
+                    )
+                },
+                |sample| {
+                    let symbols = source_dynamic_component_symbols(
+                        assembly,
+                        sample.time_s,
+                        sample.state,
+                        sample.algebraic,
+                        sample.inputs,
+                        sample.parameters,
+                    );
+                    source_residual_derivatives_from_affine_derivative_terms(
+                        assembly,
+                        &parsed_residuals,
+                        &symbols,
+                        "dynamic component semi-implicit source",
+                    )
+                },
+                move |time_s| {
+                    sampled_dynamic_component_inputs(
+                        &newton_static_inputs,
+                        &newton_input_series,
+                        series,
+                        assembly,
+                        time_s,
+                    )
+                },
+            )?;
+            (
+                dynamic_result,
+                if uses_time_series_inputs {
+                    "dynamic component source solve executed semi-implicit Newton algebraic residuals with parsed derivative residual expressions and TimeSeries input materialization"
+                } else {
+                    "dynamic component source solve executed semi-implicit Newton algebraic residuals with parsed derivative residual expressions"
+                },
+            )
+        }
+        Err(failure) => return Err(failure),
+    };
     let mut solution = RuntimeComponentSolution::from_dynamic_component_assembly_result(
         assembly,
         &dynamic_result,
-        if uses_time_series_inputs {
-            "dynamic component source solve executed semi-implicit algebraic residual graph with parsed derivative residual expressions and TimeSeries input materialization"
-        } else {
-            "dynamic component source solve executed semi-implicit algebraic residual graph with parsed derivative residual expressions"
-        },
+        reason,
     );
     solution.equation_count = assembly.equation_count();
     solution.unknown_count = assembly.unknown_count();
@@ -5283,6 +5376,79 @@ fn source_residual_algebraic_values_from_affine_terms(
     Ok(values)
 }
 
+fn source_residual_algebraic_residual_values(
+    assembly: &EquationAssembly,
+    parsed_residuals: &[ParsedSourceResidual],
+    symbols: &HashMap<String, f64>,
+    context: &str,
+) -> Result<Vec<f64>, SolverFailure> {
+    if parsed_residuals.len() != assembly.generated_equations.len() {
+        return Err(SolverFailure::new(
+            "E-SOURCE-ALGEBRAIC-PARSE-LAYOUT",
+            format!("{context} parsed residual count does not match generated equation count"),
+        ));
+    }
+    let algebraic_names = assembly
+        .algebraic_variables
+        .iter()
+        .map(|variable| variable.name.as_str())
+        .collect::<HashSet<_>>();
+    let algebraic_equations = assembly
+        .generated_equations
+        .iter()
+        .zip(parsed_residuals.iter())
+        .filter(|(equation, _parsed)| {
+            !equation_has_derivative_dependency(equation)
+                && equation
+                    .dependencies
+                    .iter()
+                    .any(|dependency| algebraic_names.contains(dependency.as_str()))
+        })
+        .collect::<Vec<_>>();
+    if algebraic_equations.len() != assembly.algebraic_variables.len() {
+        return Err(SolverFailure::new(
+            "E-SOURCE-ALGEBRAIC-SHAPE",
+            format!(
+                "{context} solve expected one algebraic residual per algebraic variable, got {} residual(s) for {} variable(s)",
+                algebraic_equations.len(),
+                assembly.algebraic_variables.len()
+            ),
+        ));
+    }
+    for variable in &assembly.algebraic_variables {
+        if !algebraic_equations
+            .iter()
+            .any(|(equation, _parsed)| equation.dependencies.contains(&variable.name))
+        {
+            return Err(SolverFailure::new(
+                "E-SOURCE-ALGEBRAIC-SHAPE",
+                format!(
+                    "{context} solve could not find algebraic residual for `{}`",
+                    variable.name
+                ),
+            ));
+        }
+    }
+
+    algebraic_equations
+        .into_iter()
+        .map(|(equation, parsed)| {
+            let target = equation.rhs_value.unwrap_or(0.0);
+            let value = parsed.expression.evaluate(symbols)? - target;
+            if !value.is_finite() {
+                return Err(SolverFailure::new(
+                    "E-SOURCE-ALGEBRAIC-FINITE",
+                    format!(
+                        "{context} residual `{}` produced a non-finite algebraic residual value",
+                        equation.name
+                    ),
+                ));
+            }
+            Ok(value)
+        })
+        .collect()
+}
+
 fn source_residual_derivatives_from_affine_derivative_terms(
     assembly: &EquationAssembly,
     parsed_residuals: &[ParsedSourceResidual],
@@ -5353,6 +5519,13 @@ fn source_residual_derivatives_from_affine_derivative_terms(
         derivatives.push(derivative);
     }
     Ok(derivatives)
+}
+
+fn should_fallback_to_newton_algebraic(failure: &SolverFailure) -> bool {
+    failure.code == "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL"
+        || failure.code == "E-DYNAMIC-COMPONENT-ALGEBRAIC-SHAPE"
+        || failure.message.contains("unsupported term")
+        || failure.message.contains("not linear")
 }
 
 fn equation_has_derivative_dependency(equation: &GeneratedEquation) -> bool {

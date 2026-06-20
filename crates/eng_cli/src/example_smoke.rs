@@ -1809,6 +1809,55 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(1);
         }
     }
+    match run_file(
+        Path::new("tests/runtime/dynamic_component_nonlinear_algebraic_semi_implicit.eng"),
+        Path::new("build/test-runtime-dynamic-component-nonlinear-algebraic-semi-implicit"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_semi_implicit_euler\"")
+                || !output
+                    .result_json
+                    .contains("semi-implicit Newton algebraic residuals")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dynamic_component_fixed_step_completed\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output
+                    .result_json
+                    .contains("\"name\": \"boundary.node.balance\"")
+                || !output.result_json.contains("\"final_value\": 1.38154357")
+                || !output.result_json.contains("\"final_value\": 1.17539082")
+                || !output
+                    .report_spec_json
+                    .contains("boundary.node.balance * boundary.node.balance")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\"")
+                || !output.report_html.contains("node.node.x=1.381544")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_nonlinear_algebraic_semi_implicit.eng to solve a semi-implicit dynamic component graph with Newton algebraic residuals"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_nonlinear_algebraic_semi_implicit.eng solved semi-implicit dynamic component Newton algebraic residuals"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component nonlinear algebraic semi-implicit runtime fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
     let thermal_assembly_report = match check_file(
         "examples/internal/21_thermal_component_assembly/main.eng",
         &CheckOptions::default(),

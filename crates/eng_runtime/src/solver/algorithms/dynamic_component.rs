@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::solver::algorithms::fixed_point::{solve_fixed_point, FixedPointOptions};
 use crate::solver::algorithms::linear::solve_dense_linear_system;
+use crate::solver::algorithms::nonlinear::{solve_newton, NewtonOptions};
 use crate::solver::assembly::EquationAssembly;
 use crate::solver::{
     OutputLayout, ResidualGraph, ResidualScale, SimulationPlan, SolverDiagnostics, SolverFailure,
@@ -774,6 +775,91 @@ where
             })
         },
         rhs,
+    )
+}
+
+pub fn solve_explicit_euler_with_newton_algebraic<A, R>(
+    input: &SolverInput,
+    algebraic_layout: StateLayout,
+    initial_algebraic: Vec<f64>,
+    options: DynamicComponentOptions,
+    algebraic_residual: A,
+    rhs: R,
+) -> Result<DynamicComponentResult, SolverFailure>
+where
+    A: FnMut(AlgebraicStepInput<'_>) -> Result<Vec<f64>, SolverFailure>,
+    R: FnMut(DynamicStepInput<'_>) -> Result<Vec<f64>, SolverFailure>,
+{
+    let static_inputs = input.inputs.clone();
+    solve_explicit_euler_with_newton_algebraic_and_input_sampler(
+        input,
+        algebraic_layout,
+        initial_algebraic,
+        options,
+        algebraic_residual,
+        rhs,
+        move |_| Ok(static_inputs.clone()),
+    )
+}
+
+pub fn solve_explicit_euler_with_newton_algebraic_and_input_sampler<A, R, I>(
+    input: &SolverInput,
+    algebraic_layout: StateLayout,
+    initial_algebraic: Vec<f64>,
+    options: DynamicComponentOptions,
+    mut algebraic_residual: A,
+    rhs: R,
+    input_values_at: I,
+) -> Result<DynamicComponentResult, SolverFailure>
+where
+    A: FnMut(AlgebraicStepInput<'_>) -> Result<Vec<f64>, SolverFailure>,
+    R: FnMut(DynamicStepInput<'_>) -> Result<Vec<f64>, SolverFailure>,
+    I: FnMut(f64) -> Result<Vec<SolverScalar>, SolverFailure>,
+{
+    let mut newton_options = NewtonOptions {
+        tolerance: options.algebraic.tolerance,
+        max_iterations: options.algebraic.max_iterations,
+        ..NewtonOptions::default()
+    };
+    newton_options.variable_scales = layout_residual_scales(&algebraic_layout);
+    newton_options.variable_scale_policy = "algebraic_layout_quantity_unit".to_owned();
+    let algebraic_residual_scales = layout_residual_scales(&algebraic_layout);
+    solve_explicit_euler_with_algebraic_solver_with_input_sampler(
+        input,
+        algebraic_layout,
+        initial_algebraic,
+        options,
+        |sample| {
+            let newton = solve_newton(sample.algebraic, &newton_options, |guess| {
+                algebraic_residual(AlgebraicStepInput {
+                    time_s: sample.time_s,
+                    step_index: sample.step_index,
+                    state: sample.state,
+                    algebraic: guess,
+                    inputs: sample.inputs,
+                    parameters: sample.parameters,
+                })
+            })?;
+            let residual_values = newton
+                .residual_value_history
+                .last()
+                .cloned()
+                .unwrap_or_default();
+            Ok(AlgebraicStepSolveResult {
+                values: newton.values,
+                iteration_count: newton.iteration_count,
+                residual_norm: newton.residual_history.last().copied().unwrap_or(0.0),
+                normalized_residual_values: normalize_residual_values(
+                    &residual_values,
+                    &algebraic_residual_scales,
+                ),
+                residual_values,
+                convergence_status: newton.convergence_status,
+                failure: newton.failure,
+            })
+        },
+        rhs,
+        input_values_at,
     )
 }
 
