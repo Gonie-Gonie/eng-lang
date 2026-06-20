@@ -42,6 +42,102 @@ pub(crate) struct LinearizedArithmeticTerm {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub(crate) struct ParsedArithmeticExpression {
+    source: String,
+    root: ArithmeticExpressionNode,
+    alias_symbols: HashMap<String, String>,
+    profile: ArithmeticExpressionProfile,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum ArithmeticExpressionNode {
+    Number(f64),
+    Symbol(String),
+    UnaryMinus(Box<ArithmeticExpressionNode>),
+    Binary {
+        operator: ArithmeticExpressionBinaryOperator,
+        left: Box<ArithmeticExpressionNode>,
+        right: Box<ArithmeticExpressionNode>,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ArithmeticExpressionBinaryOperator {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+}
+
+impl ParsedArithmeticExpression {
+    pub(crate) fn evaluate(&self, symbols: &HashMap<String, f64>) -> Result<f64, SolverFailure> {
+        let value = self
+            .root
+            .evaluate(&self.source, symbols, &self.alias_symbols, self.profile)?;
+        if !value.is_finite() {
+            return Err(SolverFailure::new(
+                self.profile.finite_code,
+                format!(
+                    "{} `{}` produced a non-finite value",
+                    self.profile.label, self.source
+                ),
+            ));
+        }
+        Ok(value)
+    }
+}
+
+impl ArithmeticExpressionNode {
+    fn evaluate(
+        &self,
+        source: &str,
+        symbols: &HashMap<String, f64>,
+        alias_symbols: &HashMap<String, String>,
+        profile: ArithmeticExpressionProfile,
+    ) -> Result<f64, SolverFailure> {
+        match self {
+            Self::Number(value) => Ok(*value),
+            Self::Symbol(name) => alias_symbols
+                .get(name)
+                .and_then(|original| symbols.get(original))
+                .or_else(|| symbols.get(name))
+                .copied()
+                .ok_or_else(|| {
+                    SolverFailure::new(
+                        profile.unknown_code,
+                        format!("{} references unknown symbol `{name}`", profile.label),
+                    )
+                }),
+            Self::UnaryMinus(value) => {
+                Ok(-value.evaluate(source, symbols, alias_symbols, profile)?)
+            }
+            Self::Binary {
+                operator,
+                left,
+                right,
+            } => {
+                let left = left.evaluate(source, symbols, alias_symbols, profile)?;
+                let right = right.evaluate(source, symbols, alias_symbols, profile)?;
+                match operator {
+                    ArithmeticExpressionBinaryOperator::Add => Ok(left + right),
+                    ArithmeticExpressionBinaryOperator::Subtract => Ok(left - right),
+                    ArithmeticExpressionBinaryOperator::Multiply => Ok(left * right),
+                    ArithmeticExpressionBinaryOperator::Divide => {
+                        if right.abs() <= f64::EPSILON {
+                            return Err(SolverFailure::new(
+                                profile.divide_by_zero_code,
+                                format!("{} `{source}` attempted division by zero", profile.label),
+                            ));
+                        }
+                        Ok(left / right)
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 enum ArithmeticExpressionToken {
     Number(f64),
     Identifier(String),
@@ -66,6 +162,37 @@ pub(crate) fn evaluate_source_arithmetic_expression(
     )
 }
 
+pub(crate) fn parse_arithmetic_expression_with_unit_converter<F>(
+    expression: &str,
+    symbols: &HashMap<String, f64>,
+    convert_number: &mut F,
+    profile: ArithmeticExpressionProfile,
+) -> Result<ParsedArithmeticExpression, SolverFailure>
+where
+    F: FnMut(f64, Option<&str>) -> Result<f64, SolverFailure>,
+{
+    let (rewritten, alias_symbols) = rewrite_derivative_symbols(expression, symbols);
+    let tokens = tokenize_arithmetic_expression(&rewritten, convert_number, profile)?;
+    let mut parser = ArithmeticExpressionParser {
+        tokens,
+        position: 0,
+        profile,
+    };
+    let root = parser.parse_expression()?;
+    if parser.position != parser.tokens.len() {
+        return Err(SolverFailure::new(
+            profile.parse_code,
+            format!("unsupported {} near `{expression}`", profile.label),
+        ));
+    }
+    Ok(ParsedArithmeticExpression {
+        source: expression.to_owned(),
+        root,
+        alias_symbols,
+        profile,
+    })
+}
+
 pub(crate) fn evaluate_arithmetic_expression_with_unit_converter<F>(
     expression: &str,
     symbols: &HashMap<String, f64>,
@@ -75,32 +202,8 @@ pub(crate) fn evaluate_arithmetic_expression_with_unit_converter<F>(
 where
     F: FnMut(f64, Option<&str>) -> Result<f64, SolverFailure>,
 {
-    let (rewritten, alias_values) = rewrite_derivative_symbols(expression, symbols);
-    let tokens = tokenize_arithmetic_expression(&rewritten, convert_number, profile)?;
-    let mut parser = ArithmeticExpressionParser {
-        tokens,
-        position: 0,
-        symbols,
-        alias_values: &alias_values,
-        profile,
-    };
-    let value = parser.parse_expression()?;
-    if parser.position != parser.tokens.len() {
-        return Err(SolverFailure::new(
-            profile.parse_code,
-            format!("unsupported {} near `{expression}`", profile.label),
-        ));
-    }
-    if !value.is_finite() {
-        return Err(SolverFailure::new(
-            profile.finite_code,
-            format!(
-                "{} `{expression}` produced a non-finite value",
-                profile.label
-            ),
-        ));
-    }
-    Ok(value)
+    parse_arithmetic_expression_with_unit_converter(expression, symbols, convert_number, profile)?
+        .evaluate(symbols)
 }
 
 pub(crate) fn linearize_arithmetic_expression_with_unit_converter<F>(
@@ -120,21 +223,17 @@ where
         symbols.insert(symbol.clone(), 0.0);
     }
 
-    let constant = evaluate_arithmetic_expression_with_unit_converter(
+    let parsed = parse_arithmetic_expression_with_unit_converter(
         expression,
         &symbols,
         convert_number,
         profile,
     )?;
+    let constant = parsed.evaluate(&symbols)?;
     let mut terms = Vec::new();
     for symbol in &variable_symbols {
         symbols.insert(symbol.clone(), 1.0);
-        let value = evaluate_arithmetic_expression_with_unit_converter(
-            expression,
-            &symbols,
-            convert_number,
-            profile,
-        )?;
+        let value = parsed.evaluate(&symbols)?;
         let coefficient = value - constant;
         if !coefficient.is_finite() {
             return Err(SolverFailure::new(
@@ -156,11 +255,11 @@ where
 
     verify_linearized_expression(
         expression,
+        &parsed,
         &variable_symbols,
         &mut symbols,
         constant,
         &terms,
-        convert_number,
         profile,
         tolerance,
     )?;
@@ -178,19 +277,16 @@ fn unique_symbols(symbols: &[String]) -> Vec<String> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn verify_linearized_expression<F>(
+fn verify_linearized_expression(
     expression: &str,
+    parsed: &ParsedArithmeticExpression,
     variable_symbols: &[String],
     symbols: &mut HashMap<String, f64>,
     constant: f64,
     terms: &[LinearizedArithmeticTerm],
-    convert_number: &mut F,
     profile: ArithmeticExpressionProfile,
     tolerance: f64,
-) -> Result<(), SolverFailure>
-where
-    F: FnMut(f64, Option<&str>) -> Result<f64, SolverFailure>,
-{
+) -> Result<(), SolverFailure> {
     if variable_symbols.is_empty() {
         return Ok(());
     }
@@ -205,12 +301,7 @@ where
             };
             symbols.insert(symbol.clone(), value);
         }
-        let evaluated = evaluate_arithmetic_expression_with_unit_converter(
-            expression,
-            symbols,
-            convert_number,
-            profile,
-        )?;
+        let evaluated = parsed.evaluate(symbols)?;
         let predicted = terms.iter().fold(constant, |sum, term| {
             sum + term.coefficient * symbols.get(&term.symbol).copied().unwrap_or_default()
         });
@@ -234,22 +325,21 @@ where
 fn rewrite_derivative_symbols(
     expression: &str,
     symbols: &HashMap<String, f64>,
-) -> (String, HashMap<String, f64>) {
+) -> (String, HashMap<String, String>) {
     let mut rewritten = expression.to_owned();
-    let mut alias_values = HashMap::new();
+    let mut alias_symbols = HashMap::new();
     let mut derivative_symbols = symbols
-        .iter()
-        .filter(|(name, _)| name.starts_with("der(") && name.ends_with(')'))
+        .keys()
+        .filter(|name| name.starts_with("der(") && name.ends_with(')'))
         .collect::<Vec<_>>();
-    derivative_symbols.sort_by_key(|(name, _)| std::cmp::Reverse(name.len()));
-    for (index, (name, value)) in derivative_symbols.into_iter().enumerate() {
+    derivative_symbols.sort_by_key(|name| std::cmp::Reverse(name.len()));
+    for (index, name) in derivative_symbols.into_iter().enumerate() {
         let alias = format!("__derivative_{index}");
         rewritten = rewritten.replace(name.as_str(), &alias);
-        alias_values.insert(alias, *value);
+        alias_symbols.insert(alias, name.clone());
     }
-    (rewritten, alias_values)
+    (rewritten, alias_symbols)
 }
-
 fn tokenize_arithmetic_expression<F>(
     expression: &str,
     convert_number: &mut F,
@@ -394,57 +484,64 @@ fn is_identifier_continue(character: char) -> bool {
     character.is_ascii_alphanumeric() || character == '_' || character == '.'
 }
 
-struct ArithmeticExpressionParser<'a> {
+struct ArithmeticExpressionParser {
     tokens: Vec<ArithmeticExpressionToken>,
     position: usize,
-    symbols: &'a HashMap<String, f64>,
-    alias_values: &'a HashMap<String, f64>,
     profile: ArithmeticExpressionProfile,
 }
 
-impl ArithmeticExpressionParser<'_> {
-    fn parse_expression(&mut self) -> Result<f64, SolverFailure> {
+impl ArithmeticExpressionParser {
+    fn parse_expression(&mut self) -> Result<ArithmeticExpressionNode, SolverFailure> {
         let mut value = self.parse_term()?;
         loop {
             match self.peek() {
                 Some(ArithmeticExpressionToken::Plus) => {
                     self.position += 1;
-                    value += self.parse_term()?;
+                    value = ArithmeticExpressionNode::Binary {
+                        operator: ArithmeticExpressionBinaryOperator::Add,
+                        left: Box::new(value),
+                        right: Box::new(self.parse_term()?),
+                    };
                 }
                 Some(ArithmeticExpressionToken::Minus) => {
                     self.position += 1;
-                    value -= self.parse_term()?;
+                    value = ArithmeticExpressionNode::Binary {
+                        operator: ArithmeticExpressionBinaryOperator::Subtract,
+                        left: Box::new(value),
+                        right: Box::new(self.parse_term()?),
+                    };
                 }
                 _ => return Ok(value),
             }
         }
     }
 
-    fn parse_term(&mut self) -> Result<f64, SolverFailure> {
+    fn parse_term(&mut self) -> Result<ArithmeticExpressionNode, SolverFailure> {
         let mut value = self.parse_factor()?;
         loop {
             match self.peek() {
                 Some(ArithmeticExpressionToken::Star) => {
                     self.position += 1;
-                    value *= self.parse_factor()?;
+                    value = ArithmeticExpressionNode::Binary {
+                        operator: ArithmeticExpressionBinaryOperator::Multiply,
+                        left: Box::new(value),
+                        right: Box::new(self.parse_factor()?),
+                    };
                 }
                 Some(ArithmeticExpressionToken::Slash) => {
                     self.position += 1;
-                    let divisor = self.parse_factor()?;
-                    if divisor.abs() <= f64::EPSILON {
-                        return Err(SolverFailure::new(
-                            self.profile.divide_by_zero_code,
-                            format!("{} attempted division by zero", self.profile.label),
-                        ));
-                    }
-                    value /= divisor;
+                    value = ArithmeticExpressionNode::Binary {
+                        operator: ArithmeticExpressionBinaryOperator::Divide,
+                        left: Box::new(value),
+                        right: Box::new(self.parse_factor()?),
+                    };
                 }
                 _ => return Ok(value),
             }
         }
     }
 
-    fn parse_factor(&mut self) -> Result<f64, SolverFailure> {
+    fn parse_factor(&mut self) -> Result<ArithmeticExpressionNode, SolverFailure> {
         let Some(token) = self.next().cloned() else {
             return Err(SolverFailure::new(
                 self.profile.parse_code,
@@ -452,16 +549,13 @@ impl ArithmeticExpressionParser<'_> {
             ));
         };
         match token {
-            ArithmeticExpressionToken::Number(value) => Ok(value),
+            ArithmeticExpressionToken::Number(value) => Ok(ArithmeticExpressionNode::Number(value)),
             ArithmeticExpressionToken::Identifier(name) => {
-                self.symbol_value(&name).ok_or_else(|| {
-                    SolverFailure::new(
-                        self.profile.unknown_code,
-                        format!("{} references unknown symbol `{name}`", self.profile.label),
-                    )
-                })
+                Ok(ArithmeticExpressionNode::Symbol(name))
             }
-            ArithmeticExpressionToken::Minus => Ok(-self.parse_factor()?),
+            ArithmeticExpressionToken::Minus => Ok(ArithmeticExpressionNode::UnaryMinus(Box::new(
+                self.parse_factor()?,
+            ))),
             ArithmeticExpressionToken::Plus => self.parse_factor(),
             ArithmeticExpressionToken::LeftParen => {
                 let value = self.parse_expression()?;
@@ -480,13 +574,6 @@ impl ArithmeticExpressionParser<'_> {
         }
     }
 
-    fn symbol_value(&self, name: &str) -> Option<f64> {
-        self.alias_values
-            .get(name)
-            .copied()
-            .or_else(|| self.symbols.get(name).copied())
-    }
-
     fn peek(&self) -> Option<&ArithmeticExpressionToken> {
         self.tokens.get(self.position)
     }
@@ -499,7 +586,6 @@ impl ArithmeticExpressionParser<'_> {
         token
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -518,6 +604,29 @@ mod tests {
         assert_eq!(value, 10.0);
     }
 
+    #[test]
+    fn parsed_expression_reuses_tree_for_updated_symbols() {
+        let mut symbols = HashMap::from([
+            ("x".to_owned(), 2.0),
+            ("der(x)".to_owned(), 3.0),
+            ("gain".to_owned(), 4.0),
+        ]);
+        let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
+        let parsed = parse_arithmetic_expression_with_unit_converter(
+            "gain * x + der(x)",
+            &symbols,
+            &mut ignore_units,
+            ArithmeticExpressionProfile::SOURCE_RESIDUAL,
+        )
+        .unwrap();
+
+        assert_eq!(parsed.evaluate(&symbols).unwrap(), 11.0);
+
+        symbols.insert("x".to_owned(), 5.0);
+        symbols.insert("der(x)".to_owned(), -1.0);
+
+        assert_eq!(parsed.evaluate(&symbols).unwrap(), 19.0);
+    }
     #[test]
     fn linearizes_parenthesized_expression_with_unit_literals() {
         let variable_symbols = vec!["x".to_owned(), "y".to_owned()];

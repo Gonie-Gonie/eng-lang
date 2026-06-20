@@ -213,7 +213,7 @@ Evidence gate:
 
 ## Active Implementation Queue
 
-1. Start W2 typed expression lowering by extracting the current arithmetic linearizer into a typed node pipeline with unit metadata.
+1. Attach dimension, display-unit, and canonical-unit metadata to the reusable arithmetic expression tree.
 2. Move static residual graph and dynamic component residual graph construction onto the same expression-lowering API.
 3. Use that shared expression API to broaden nonlinear and DAE source residuals without adding one-off string parsing.
 4. Generalize component-local parameterized dynamic equations and derivative terms through the shared expression tree.
@@ -225,6 +225,7 @@ Evidence gate:
 - Component parameter constructors for numeric literal, importable const, positional/named override, and pure arithmetic expression values.
 - Parameter values preserved into dense linear, fixed-point, Newton, and DAE residual paths for supported shapes.
 - Unit-parameterized linear component equations such as `Q eq UA * (T1 - T2)` across compatible display units, with compiler dimension checks, runtime coefficient conversion, source-to-runtime tests, docs, and `examples/official/33_unit_parameterized_wall` example-smoke coverage.
+- Runtime arithmetic residual expressions now lower once into a reusable AST used by both evaluation and finite-difference linearization, including derivative-symbol alias reuse across updated symbol values.
 
 ## Done Criteria
 
