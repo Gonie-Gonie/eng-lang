@@ -262,6 +262,14 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.report_spec_json.contains("\"residual_norm\"")
                 || !output.result_json.contains("\"largest_residuals\"")
                 || !output.report_spec_json.contains("\"largest_residuals\"")
+                || !output.report_spec_json.contains("\"residual_metadata\"")
+                || !output.report_spec_json.contains("\"source_expression\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"expression_unit\": \"kW\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"expression_quantity_kind\": \"HeatRate\"")
                 || !output.report_spec_json.contains("\"failure_artifact\"")
                 || !output.report_spec_json.contains("\"failure_code\"")
                 || !output.report_spec_json.contains("\"failure_reason\"")

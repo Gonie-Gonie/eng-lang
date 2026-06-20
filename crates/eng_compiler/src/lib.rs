@@ -52,8 +52,9 @@ pub use semantic::{
     ComponentAssemblyEquationInfo, ComponentAssemblyInfo, ComponentAssemblyVariableInfo,
     ComponentConnectionSetInfo, ComponentConstructorArgumentInfo, ComponentDomainPlanInfo,
     ComponentInfo, ComponentJacobianSparsityInfo, ComponentLocalExpressionInfo,
-    ComponentResidualDependencyInfo, ComponentResidualGraphInfo, ComponentSolverPreviewInfo,
-    ConnectionInfo, ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo,
+    ComponentResidualDependencyInfo, ComponentResidualGraphInfo,
+    ComponentResidualGraphResidualInfo, ComponentSolverPreviewInfo, ConnectionInfo,
+    ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo,
     DomainTypeParameterInfo, DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo,
     EquationInfo, EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo,
     FunctionLocalInfo, FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo,
@@ -3093,6 +3094,56 @@ pub fn review_json(report: &CheckReport) -> String {
             json.push_str(&format!("\"{}\"", json_escape(residual)));
         }
         json.push_str("],\n");
+        json.push_str("        \"residual_metadata\": [\n");
+        for (metadata_index, metadata) in
+            assembly.residual_graph.residual_metadata.iter().enumerate()
+        {
+            if metadata_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"name\": \"{}\",\n",
+                json_escape(&metadata.name)
+            ));
+            json.push_str(&format!(
+                "            \"kind\": \"{}\",\n",
+                json_escape(&metadata.kind)
+            ));
+            json.push_str(&format!(
+                "            \"domain\": \"{}\",\n",
+                json_escape(&metadata.domain)
+            ));
+            json.push_str(&format!(
+                "            \"source_expression\": \"{}\",\n",
+                json_escape(&metadata.source_expression)
+            ));
+            json.push_str(&format!(
+                "            \"residual_expression\": \"{}\",\n",
+                json_escape(&metadata.residual_expression)
+            ));
+            match &metadata.rhs {
+                Some(rhs) => {
+                    json.push_str(&format!("            \"rhs\": \"{}\",\n", json_escape(rhs)))
+                }
+                None => json.push_str("            \"rhs\": null,\n"),
+            }
+            json.push_str("            \"dependencies\": [");
+            for (dependency_index, dependency) in metadata.dependencies.iter().enumerate() {
+                if dependency_index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&format!("\"{}\"", json_escape(dependency)));
+            }
+            json.push_str("],\n");
+            json.push_str(&format!(
+                "            \"status\": \"{}\",\n",
+                json_escape(&metadata.status)
+            ));
+            json.push_str(&format!("            \"line\": {}\n", metadata.line));
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
         json.push_str("        \"dependencies\": [\n");
         for (dependency_index, dependency) in
             assembly.residual_graph.dependencies.iter().enumerate()
@@ -4964,6 +5015,21 @@ mod tests {
         );
         assert_eq!(assembly.residual_graph.status, "metadata_only");
         assert_eq!(assembly.residual_graph.jacobian_sparsity.len(), 2);
+        assert_eq!(
+            assembly.residual_graph.residual_metadata.len(),
+            assembly.equations.len()
+        );
+        let through_metadata = assembly
+            .residual_graph
+            .residual_metadata
+            .iter()
+            .find(|metadata| metadata.name == "connection_set_1.through_m_dot_conservation")
+            .expect("through conservation residual metadata");
+        assert_eq!(through_metadata.kind, "through_conservation");
+        assert_eq!(through_metadata.domain, "Fluid[Water]");
+        assert_eq!(through_metadata.dependencies.len(), 2);
+        assert!(through_metadata.source_expression.contains("sum("));
+        assert!(through_metadata.line > 0);
 
         let review = review_json(&report);
         assert!(review.contains("\"domain_summary\""));
@@ -4988,6 +5054,9 @@ mod tests {
             review.contains("generated from through variable conservation within a connection set")
         );
         assert!(review.contains("\"component_residual_graph\""));
+        assert!(review.contains("\"residual_metadata\""));
+        assert!(review.contains("\"source_expression\""));
+        assert!(review.contains("\"connection_set_1.through_m_dot_conservation\""));
         assert!(review.contains("\"type_parameters\""));
         assert!(review.contains("\"kind\": \"Medium\""));
         assert!(review.contains("\"name\": \"M\""));

@@ -740,10 +740,28 @@ pub struct ReportResidualGraph {
     pub name: String,
     pub status: String,
     pub residuals: Vec<String>,
+    pub residual_metadata: Vec<ReportResidualGraphResidual>,
     pub dependencies: Vec<ReportResidualDependency>,
     pub algebraic_loops: Vec<Vec<String>>,
     pub jacobian_sparsity: Vec<ReportAssemblyJacobianSeed>,
     pub solver_plan: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportResidualGraphResidual {
+    pub name: String,
+    pub kind: String,
+    pub domain: String,
+    pub source_expression: String,
+    pub residual_expression: String,
+    pub rhs: Option<String>,
+    pub dependencies: Vec<String>,
+    pub unit: String,
+    pub expression_unit: String,
+    pub expression_quantity_kind: String,
+    pub scale_policy: String,
+    pub status: String,
+    pub line: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1488,6 +1506,26 @@ pub fn report_spec_from_report(
                 name: assembly.residual_graph.name.clone(),
                 status: assembly.residual_graph.status.clone(),
                 residuals: assembly.residual_graph.residuals.clone(),
+                residual_metadata: assembly
+                    .residual_graph
+                    .residual_metadata
+                    .iter()
+                    .map(|metadata| ReportResidualGraphResidual {
+                        name: metadata.name.clone(),
+                        kind: metadata.kind.clone(),
+                        domain: metadata.domain.clone(),
+                        source_expression: metadata.source_expression.clone(),
+                        residual_expression: metadata.residual_expression.clone(),
+                        rhs: metadata.rhs.clone(),
+                        dependencies: metadata.dependencies.clone(),
+                        unit: String::new(),
+                        expression_unit: String::new(),
+                        expression_quantity_kind: String::new(),
+                        scale_policy: String::new(),
+                        status: metadata.status.clone(),
+                        line: metadata.line,
+                    })
+                    .collect(),
                 dependencies: assembly
                     .residual_graph
                     .dependencies
@@ -3910,6 +3948,72 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             json.push_str(&format!("\"{}\"", json_escape(residual)));
         }
         json.push_str("],\n");
+        json.push_str("        \"residual_metadata\": [\n");
+        for (metadata_index, metadata) in
+            assembly.residual_graph.residual_metadata.iter().enumerate()
+        {
+            if metadata_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"name\": \"{}\",\n",
+                json_escape(&metadata.name)
+            ));
+            json.push_str(&format!(
+                "            \"kind\": \"{}\",\n",
+                json_escape(&metadata.kind)
+            ));
+            json.push_str(&format!(
+                "            \"domain\": \"{}\",\n",
+                json_escape(&metadata.domain)
+            ));
+            json.push_str(&format!(
+                "            \"source_expression\": \"{}\",\n",
+                json_escape(&metadata.source_expression)
+            ));
+            json.push_str(&format!(
+                "            \"residual_expression\": \"{}\",\n",
+                json_escape(&metadata.residual_expression)
+            ));
+            match &metadata.rhs {
+                Some(rhs) => {
+                    json.push_str(&format!("            \"rhs\": \"{}\",\n", json_escape(rhs)))
+                }
+                None => json.push_str("            \"rhs\": null,\n"),
+            }
+            json.push_str("            \"dependencies\": [");
+            for (dependency_index, dependency) in metadata.dependencies.iter().enumerate() {
+                if dependency_index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&format!("\"{}\"", json_escape(dependency)));
+            }
+            json.push_str("],\n");
+            json.push_str(&format!(
+                "            \"unit\": \"{}\",\n",
+                json_escape(&metadata.unit)
+            ));
+            json.push_str(&format!(
+                "            \"expression_unit\": \"{}\",\n",
+                json_escape(&metadata.expression_unit)
+            ));
+            json.push_str(&format!(
+                "            \"expression_quantity_kind\": \"{}\",\n",
+                json_escape(&metadata.expression_quantity_kind)
+            ));
+            json.push_str(&format!(
+                "            \"scale_policy\": \"{}\",\n",
+                json_escape(&metadata.scale_policy)
+            ));
+            json.push_str(&format!(
+                "            \"status\": \"{}\",\n",
+                json_escape(&metadata.status)
+            ));
+            json.push_str(&format!("            \"line\": {}\n", metadata.line));
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
         json.push_str("        \"dependencies\": [\n");
         for (dependency_index, dependency) in
             assembly.residual_graph.dependencies.iter().enumerate()
@@ -8076,6 +8180,21 @@ mod tests {
         assert_eq!(spec.provenance.component_count, 2);
         assert_eq!(spec.provenance.connection_count, 1);
         assert_eq!(spec.provenance.assembly_count, 1);
+        assert_eq!(
+            spec.assemblies[0].residual_graph.residual_metadata.len(),
+            spec.assemblies[0].equations.len()
+        );
+        assert!(spec.assemblies[0]
+            .residual_graph
+            .residual_metadata
+            .iter()
+            .any(
+                |metadata| metadata.name == "connection_set_1.through_m_dot_conservation"
+                    && metadata.kind == "through_conservation"
+                    && metadata.source_expression.contains("sum(")
+                    && metadata.dependencies.len() == 2
+                    && metadata.line > 0
+            ));
         assert_eq!(spec.domains[0].name, "Fluid");
         assert_eq!(spec.domains[0].type_parameters[0].kind, "Medium");
         assert_eq!(spec.domains[0].type_parameters[0].name, "M");
@@ -8132,6 +8251,9 @@ mod tests {
             spec.component_graph.behavior_nodes[0].contract_outputs[0].quantity_kind,
             "MassFlowRate"
         );
+        assert!(json.contains("\"residual_metadata\""));
+        assert!(json.contains("\"source_expression\""));
+        assert!(json.contains("\"connection_set_1.through_m_dot_conservation\""));
         assert!(spec.component_graph.behavior_nodes[0]
             .diagnostic_channels
             .contains(&"delay_history_underflow_failure".to_owned()));

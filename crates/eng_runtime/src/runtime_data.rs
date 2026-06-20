@@ -577,6 +577,7 @@ impl RuntimeData {
             if let Some(failure) = &solution.failure_artifact {
                 assembly.boundary.diagnostic_code = Some(failure.code.clone());
             }
+            apply_residual_graph_solution_metadata(assembly, solution);
             assembly.solver_result = Some(solution.to_report_solver_result());
             if solution.method.starts_with("behavior_graph_") {
                 if assembly.solver_preview.delay_history
@@ -602,6 +603,30 @@ impl RuntimeData {
         if behavior_graph_attempted {
             mark_behavior_graph_report_integrated(spec);
         }
+    }
+}
+
+fn apply_residual_graph_solution_metadata(
+    assembly: &mut eng_report::ReportAssemblySummary,
+    solution: &RuntimeComponentSolution,
+) {
+    for residual in &solution.residuals {
+        let Some(metadata) = assembly
+            .residual_graph
+            .residual_metadata
+            .iter_mut()
+            .find(|metadata| metadata.name == residual.name)
+        else {
+            continue;
+        };
+        if metadata.residual_expression.is_empty() {
+            metadata.residual_expression = residual.expression.clone();
+        }
+        metadata.unit = residual.unit.clone();
+        metadata.expression_unit = residual.expression_unit.clone();
+        metadata.expression_quantity_kind = residual.expression_quantity_kind.clone();
+        metadata.scale_policy = residual.scale_policy.clone();
+        metadata.status = residual.status.clone();
     }
 }
 
@@ -9364,6 +9389,22 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
             spec.assemblies[0].residual_graph.status,
             "linear_residual_satisfied_nonunique"
         );
+        let graph_residual = spec.assemblies[0]
+            .residual_graph
+            .residual_metadata
+            .iter()
+            .find(|metadata| metadata.name == "connection_set_1.through_Q_conservation")
+            .expect("through heat residual graph metadata");
+        assert_eq!(graph_residual.kind, "through_conservation");
+        assert_eq!(graph_residual.domain, "Thermal");
+        assert_eq!(graph_residual.unit, "kW");
+        assert_eq!(graph_residual.expression_unit, "kW");
+        assert_eq!(graph_residual.expression_quantity_kind, "HeatRate");
+        assert_eq!(graph_residual.scale_policy, "unit_default:HeatRate[kW]");
+        assert_eq!(graph_residual.status, "satisfied");
+        assert!(graph_residual.source_expression.contains("sum("));
+        assert!(graph_residual.dependencies.len() >= 2);
+        assert!(graph_residual.line > 0);
         let solver_result = spec.assemblies[0].solver_result.as_ref().unwrap();
         assert_eq!(solver_result.status, "constraint_satisfied_nonunique");
         assert_eq!(solver_result.method, "linear_residual_graph_shape_check");
@@ -9390,6 +9431,10 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
             Some("E-ASSEMBLY-UNDERDETERMINED")
         );
         let json = eng_report::report_spec_json(&spec);
+        assert!(json.contains("\"residual_metadata\""));
+        assert!(json.contains("\"expression_unit\": \"kW\""));
+        assert!(json.contains("\"expression_quantity_kind\": \"HeatRate\""));
+        assert!(json.contains("\"scale_policy\": \"unit_default:HeatRate[kW]\""));
         assert!(json.contains("\"failure_code\": \"E-ASSEMBLY-UNDERDETERMINED\""));
         assert!(json.contains("\"failure_reason\": \"assembly has fewer equations than unknowns"));
     }

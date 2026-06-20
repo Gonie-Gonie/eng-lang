@@ -2170,6 +2170,24 @@ fn smoke() -> Result<(), String> {
             .as_array()
             .is_some_and(|assemblies| {
                 assemblies.iter().any(|assembly| {
+                    let has_residual_graph_metadata = assembly
+                        .get("residual_graph")
+                        .and_then(|graph| graph.get("residual_metadata"))
+                        .and_then(Value::as_array)
+                        .is_some_and(|metadata| {
+                            metadata.iter().any(|residual| {
+                                json_field_string(residual, "kind").as_deref()
+                                    == Some("through_conservation")
+                                    && json_field_string(residual, "source_expression")
+                                        .is_some_and(|expression| expression.contains("sum("))
+                                    && json_field_string(residual, "expression_unit").as_deref()
+                                        == Some("kW")
+                                    && json_field_string(residual, "expression_quantity_kind")
+                                        .as_deref()
+                                        == Some("HeatRate")
+                                    && residual.get("line").is_some()
+                            })
+                        });
                     let Some(solver_result) = assembly.get("solver_result") else {
                         return false;
                     };
@@ -2201,6 +2219,7 @@ fn smoke() -> Result<(), String> {
                             .and_then(|failure| json_field_string(failure, "message"))
                             .is_some()
                         && json_field_string(solver_result, "failure_reason").is_some()
+                        && has_residual_graph_metadata
                 })
             });
     if !has_component_solver_result {

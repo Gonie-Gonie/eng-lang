@@ -432,10 +432,24 @@ pub struct ComponentResidualGraphInfo {
     pub name: String,
     pub status: String,
     pub residuals: Vec<String>,
+    pub residual_metadata: Vec<ComponentResidualGraphResidualInfo>,
     pub dependencies: Vec<ComponentResidualDependencyInfo>,
     pub algebraic_loops: Vec<Vec<String>>,
     pub jacobian_sparsity: Vec<ComponentJacobianSparsityInfo>,
     pub solver_plan: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComponentResidualGraphResidualInfo {
+    pub name: String,
+    pub kind: String,
+    pub domain: String,
+    pub source_expression: String,
+    pub residual_expression: String,
+    pub rhs: Option<String>,
+    pub dependencies: Vec<String>,
+    pub status: String,
+    pub line: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -6576,6 +6590,20 @@ fn build_component_assembly_graphs(
         residuals: equations
             .iter()
             .map(|equation| equation.name.clone())
+            .collect(),
+        residual_metadata: equations
+            .iter()
+            .map(|equation| ComponentResidualGraphResidualInfo {
+                name: equation.name.clone(),
+                kind: equation.kind.clone(),
+                domain: equation.domain.clone(),
+                source_expression: equation.expression.clone(),
+                residual_expression: equation.residual.clone(),
+                rhs: equation.rhs.clone(),
+                dependencies: equation.dependencies.clone(),
+                status: equation.status.clone(),
+                line: equation.line,
+            })
             .collect(),
         dependencies,
         algebraic_loops,
