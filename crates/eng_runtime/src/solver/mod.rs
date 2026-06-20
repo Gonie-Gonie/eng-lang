@@ -3,6 +3,7 @@ pub mod assembly;
 pub mod behavior;
 pub mod diagnostics;
 pub mod evaluator;
+pub(crate) mod expression;
 pub mod plan;
 pub mod residual;
 pub mod result;

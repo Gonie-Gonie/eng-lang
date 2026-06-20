@@ -150,7 +150,7 @@ Internal runtime seeds:
   dense linear algebraic residual solves and failure diagnostics
 - EquationAssembly dynamic-component state/algebraic/input/parameter split validation into solver layouts
 - internal EquationAssembly-to-dynamic-component bridge that lowers simple
-  linear derivative/algebraic residuals into explicit/semi-implicit solver seeds
+  arithmetic-linear derivative/algebraic residuals into explicit/semi-implicit solver seeds
   and preserves component artifact equation/unknown counts
 - component solver result trajectory, timestep-diagnostic, and per-step
   nonconvergence failure-artifact adapter for internal dynamic-component

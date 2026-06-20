@@ -15,6 +15,7 @@ use eng_report::{
     ReportUncertaintyPropagationTerm, ReportValidationResult,
 };
 
+use crate::solver::expression::evaluate_source_arithmetic_expression;
 use crate::solver::{
     assembly::{
         ComponentEquation, ComponentInstance, ConnectionEdge, ConnectionSet, EquationAssembly,
@@ -5078,307 +5079,6 @@ fn layout_names_from_unknowns(variables: &[UnknownVariable]) -> Vec<String> {
         .collect()
 }
 
-#[derive(Clone, Debug, PartialEq)]
-enum SourceExpressionToken {
-    Number(f64),
-    Identifier(String),
-    Plus,
-    Minus,
-    Star,
-    Slash,
-    LeftParen,
-    RightParen,
-}
-
-fn evaluate_source_arithmetic_expression(
-    expression: &str,
-    symbols: &HashMap<String, f64>,
-) -> Result<f64, SolverFailure> {
-    let (rewritten, alias_values) = rewrite_derivative_symbols(expression, symbols);
-    let tokens = tokenize_source_expression(&rewritten)?;
-    let mut parser = SourceExpressionParser {
-        tokens,
-        position: 0,
-        symbols,
-        alias_values: &alias_values,
-    };
-    let value = parser.parse_expression()?;
-    if parser.position != parser.tokens.len() {
-        return Err(SolverFailure::new(
-            "E-SOURCE-EXPR-PARSE",
-            format!("unsupported source residual expression near `{expression}`"),
-        ));
-    }
-    if !value.is_finite() {
-        return Err(SolverFailure::new(
-            "E-SOURCE-EXPR-FINITE",
-            format!("source residual expression `{expression}` produced a non-finite value"),
-        ));
-    }
-    Ok(value)
-}
-
-fn rewrite_derivative_symbols(
-    expression: &str,
-    symbols: &HashMap<String, f64>,
-) -> (String, HashMap<String, f64>) {
-    let mut rewritten = expression.to_owned();
-    let mut alias_values = HashMap::new();
-    let mut derivative_symbols = symbols
-        .iter()
-        .filter(|(name, _)| name.starts_with("der(") && name.ends_with(')'))
-        .collect::<Vec<_>>();
-    derivative_symbols.sort_by_key(|(name, _)| std::cmp::Reverse(name.len()));
-    for (index, (name, value)) in derivative_symbols.into_iter().enumerate() {
-        let alias = format!("__derivative_{index}");
-        rewritten = rewritten.replace(name.as_str(), &alias);
-        alias_values.insert(alias, *value);
-    }
-    (rewritten, alias_values)
-}
-
-fn tokenize_source_expression(
-    expression: &str,
-) -> Result<Vec<SourceExpressionToken>, SolverFailure> {
-    let chars = expression.chars().collect::<Vec<_>>();
-    let mut tokens = Vec::new();
-    let mut index = 0;
-    while index < chars.len() {
-        let character = chars[index];
-        if character.is_ascii_whitespace() {
-            index += 1;
-            continue;
-        }
-        match character {
-            '+' => {
-                tokens.push(SourceExpressionToken::Plus);
-                index += 1;
-            }
-            '-' => {
-                tokens.push(SourceExpressionToken::Minus);
-                index += 1;
-            }
-            '*' => {
-                tokens.push(SourceExpressionToken::Star);
-                index += 1;
-            }
-            '/' => {
-                tokens.push(SourceExpressionToken::Slash);
-                index += 1;
-            }
-            '(' => {
-                tokens.push(SourceExpressionToken::LeftParen);
-                index += 1;
-            }
-            ')' => {
-                tokens.push(SourceExpressionToken::RightParen);
-                index += 1;
-            }
-            _ if character.is_ascii_digit()
-                || character == '.'
-                    && chars
-                        .get(index + 1)
-                        .is_some_and(|next| next.is_ascii_digit()) =>
-            {
-                let start = index;
-                index += 1;
-                while index < chars.len() {
-                    let current = chars[index];
-                    if current.is_ascii_digit() || current == '.' {
-                        index += 1;
-                    } else if matches!(current, 'e' | 'E') {
-                        index += 1;
-                        if chars
-                            .get(index)
-                            .is_some_and(|next| matches!(next, '+' | '-'))
-                        {
-                            index += 1;
-                        }
-                    } else {
-                        break;
-                    }
-                }
-                let literal = chars[start..index].iter().collect::<String>();
-                let value = literal.parse::<f64>().map_err(|_| {
-                    SolverFailure::new(
-                        "E-SOURCE-EXPR-PARSE",
-                        format!(
-                            "invalid numeric literal `{literal}` in source residual expression"
-                        ),
-                    )
-                })?;
-                tokens.push(SourceExpressionToken::Number(value));
-                index = consume_optional_source_unit_suffix(&chars, index);
-            }
-            _ if is_source_identifier_start(character) => {
-                let start = index;
-                index += 1;
-                while index < chars.len() && is_source_identifier_continue(chars[index]) {
-                    index += 1;
-                }
-                tokens.push(SourceExpressionToken::Identifier(
-                    chars[start..index].iter().collect(),
-                ));
-            }
-            _ => {
-                return Err(SolverFailure::new(
-                    "E-SOURCE-EXPR-PARSE",
-                    format!("unsupported character `{character}` in source residual expression"),
-                ));
-            }
-        }
-    }
-    Ok(tokens)
-}
-
-fn consume_optional_source_unit_suffix(chars: &[char], index: usize) -> usize {
-    let mut cursor = index;
-    let mut saw_whitespace = false;
-    while chars
-        .get(cursor)
-        .is_some_and(|character| character.is_ascii_whitespace())
-    {
-        saw_whitespace = true;
-        cursor += 1;
-    }
-    if !saw_whitespace {
-        return index;
-    }
-
-    let suffix_start = cursor;
-    while let Some(character) = chars.get(cursor) {
-        if character.is_ascii_whitespace() || matches!(character, '+' | '-' | '*' | '(' | ')') {
-            break;
-        }
-        if *character == '/' || character.is_ascii_alphanumeric() || *character == '°' {
-            cursor += 1;
-        } else {
-            break;
-        }
-    }
-    let suffix = chars[suffix_start..cursor].iter().collect::<String>();
-    if !suffix.is_empty()
-        && suffix
-            .chars()
-            .any(|character| character.is_ascii_alphabetic() || character == '°')
-    {
-        cursor
-    } else {
-        index
-    }
-}
-
-fn is_source_identifier_start(character: char) -> bool {
-    character.is_ascii_alphabetic() || character == '_'
-}
-
-fn is_source_identifier_continue(character: char) -> bool {
-    character.is_ascii_alphanumeric() || character == '_' || character == '.'
-}
-
-struct SourceExpressionParser<'a> {
-    tokens: Vec<SourceExpressionToken>,
-    position: usize,
-    symbols: &'a HashMap<String, f64>,
-    alias_values: &'a HashMap<String, f64>,
-}
-
-impl SourceExpressionParser<'_> {
-    fn parse_expression(&mut self) -> Result<f64, SolverFailure> {
-        let mut value = self.parse_term()?;
-        loop {
-            match self.peek() {
-                Some(SourceExpressionToken::Plus) => {
-                    self.position += 1;
-                    value += self.parse_term()?;
-                }
-                Some(SourceExpressionToken::Minus) => {
-                    self.position += 1;
-                    value -= self.parse_term()?;
-                }
-                _ => return Ok(value),
-            }
-        }
-    }
-
-    fn parse_term(&mut self) -> Result<f64, SolverFailure> {
-        let mut value = self.parse_factor()?;
-        loop {
-            match self.peek() {
-                Some(SourceExpressionToken::Star) => {
-                    self.position += 1;
-                    value *= self.parse_factor()?;
-                }
-                Some(SourceExpressionToken::Slash) => {
-                    self.position += 1;
-                    let divisor = self.parse_factor()?;
-                    if divisor.abs() <= f64::EPSILON {
-                        return Err(SolverFailure::new(
-                            "E-SOURCE-EXPR-DIVIDE-BY-ZERO",
-                            "source residual expression attempted division by zero",
-                        ));
-                    }
-                    value /= divisor;
-                }
-                _ => return Ok(value),
-            }
-        }
-    }
-
-    fn parse_factor(&mut self) -> Result<f64, SolverFailure> {
-        let Some(token) = self.next().cloned() else {
-            return Err(SolverFailure::new(
-                "E-SOURCE-EXPR-PARSE",
-                "source residual expression ended unexpectedly",
-            ));
-        };
-        match token {
-            SourceExpressionToken::Number(value) => Ok(value),
-            SourceExpressionToken::Identifier(name) => self.symbol_value(&name).ok_or_else(|| {
-                SolverFailure::new(
-                    "E-SOURCE-SYMBOL-UNRESOLVED",
-                    format!("source residual expression references unknown symbol `{name}`"),
-                )
-            }),
-            SourceExpressionToken::Minus => Ok(-self.parse_factor()?),
-            SourceExpressionToken::Plus => self.parse_factor(),
-            SourceExpressionToken::LeftParen => {
-                let value = self.parse_expression()?;
-                match self.next() {
-                    Some(SourceExpressionToken::RightParen) => Ok(value),
-                    _ => Err(SolverFailure::new(
-                        "E-SOURCE-EXPR-PARSE",
-                        "source residual expression has an unclosed parenthesis",
-                    )),
-                }
-            }
-            _ => Err(SolverFailure::new(
-                "E-SOURCE-EXPR-PARSE",
-                "source residual expression expected a value",
-            )),
-        }
-    }
-
-    fn symbol_value(&self, name: &str) -> Option<f64> {
-        self.alias_values
-            .get(name)
-            .copied()
-            .or_else(|| self.symbols.get(name).copied())
-    }
-
-    fn peek(&self) -> Option<&SourceExpressionToken> {
-        self.tokens.get(self.position)
-    }
-
-    fn next(&mut self) -> Option<&SourceExpressionToken> {
-        let token = self.tokens.get(self.position);
-        if token.is_some() {
-            self.position += 1;
-        }
-        token
-    }
-}
-
 fn fixed_point_options_from_solve_request(
     options: &[eng_compiler::WithOptionInfo],
 ) -> FixedPointOptions {
@@ -9624,7 +9324,7 @@ domain SingularState {
 component SingularNode {
     port node: SingularState
     der(node.x) eq node.z
-    0 * node.z eq 0
+    node.balance eq 0
 }
 
 system DynamicSingular {
@@ -10952,6 +10652,103 @@ with {
         }
     }
 
+    #[test]
+    fn official_thermal_fluid_loop_solves_with_parameter_rhs() {
+        let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../examples/official/32_small_thermal_fluid_loop/main.eng");
+        let report = check_file(&source_path, &CheckOptions::default()).unwrap();
+
+        let runtime = materialize_runtime_data(&report, "");
+        let solution = runtime
+            .component_solutions
+            .iter()
+            .find(|solution| solution.assembly == "component_graph")
+            .unwrap();
+
+        assert_eq!(solution.status, "solved_linear");
+        assert!(solution
+            .variables
+            .iter()
+            .any(|variable| variable.name == "pump.supply.p"
+                && (variable.value - 220000.0).abs() <= 1e-9));
+        assert!(solution
+            .residuals
+            .iter()
+            .any(|residual| residual.name == "pump.boundary_supply_pressure"
+                && residual.value.abs() <= 1e-9));
+    }
+    #[test]
+    fn source_component_parameters_materialize_solver_values() {
+        let source = r#"
+domain Fluid[Medium M] {
+    across p: Pressure [Pa]
+    through m_dot: MassFlowRate [kg/s]
+    conservation sum(m_dot) = 0
+}
+
+component PumpBoundary {
+    port supply: Fluid[Water]
+    parameter p_supply: Pressure [Pa] = 200000 Pa
+    supply_pressure = supply.p = p_supply
+}
+
+component PipeRun {
+    port inlet: Fluid[Water]
+    port outlet: Fluid[Water]
+    parameter dp: Pressure [Pa] = 20000 Pa
+    outlet.p + dp eq inlet.p
+}
+
+component ReturnBoundary {
+    port inlet: Fluid[Water]
+}
+
+system FluidLoop {
+    pump = PumpBoundary(p_supply=220000 Pa)
+    pipe = PipeRun()
+    return_node = ReturnBoundary()
+    connect pump.supply to pipe.inlet
+    connect pipe.outlet to return_node.inlet
+}
+"#;
+        let report = check_source(
+            "parameterized_fluid_loop.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        let assembly = report
+            .semantic_program
+            .component_assemblies
+            .iter()
+            .find(|assembly| assembly.name == "component_graph")
+            .unwrap();
+        let solver_assembly = solver_equation_assembly_from_component_info(&report, assembly);
+
+        assert!(solver_assembly
+            .parameters
+            .iter()
+            .any(
+                |parameter| parameter.name == "pump.p_supply" && parameter.value == Some(220000.0)
+            ));
+        assert!(solver_assembly
+            .parameters
+            .iter()
+            .any(|parameter| parameter.name == "pipe.dp" && parameter.value == Some(20000.0)));
+
+        let residual_graph = ResidualGraph::from_assembly(&solver_assembly);
+        let supply = residual_graph
+            .residuals
+            .iter()
+            .find(|residual| residual.name == "pump.boundary_supply_pressure")
+            .unwrap();
+        assert_eq!(supply.rhs_value, 220000.0);
+        let pressure_drop = residual_graph
+            .residuals
+            .iter()
+            .find(|residual| residual.name == "pipe.equation_1")
+            .unwrap();
+        assert_eq!(pressure_drop.rhs_value, -20000.0);
+    }
     #[test]
     fn source_residual_evaluation_uses_component_parameter_values() {
         let x = UnknownVariable {

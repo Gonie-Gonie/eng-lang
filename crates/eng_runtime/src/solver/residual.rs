@@ -2,7 +2,14 @@ use std::collections::{HashMap, HashSet};
 
 use eng_compiler::{all_unit_infos, normalize_unit, UnitInfo};
 
-use super::{assembly::EquationAssembly, euclidean_norm, SolverFailure};
+use super::{
+    assembly::EquationAssembly,
+    euclidean_norm,
+    expression::{
+        linearize_arithmetic_expression_with_unit_converter, ArithmeticExpressionProfile,
+    },
+    SolverFailure,
+};
 
 pub const DEFAULT_RESIDUAL_TOLERANCE: f64 = 1e-9;
 
@@ -521,40 +528,42 @@ fn parse_dynamic_linear_residual_terms(
         ));
     }
 
-    let mut parsed = ParsedDynamicResidual::default();
-    let mut sign = 1.0;
-    let mut tokens = expression.split_whitespace().peekable();
-    while let Some(token) = tokens.next() {
-        match token {
-            "+" => {
-                sign = 1.0;
-                continue;
-            }
-            "-" => {
-                sign = -1.0;
-                continue;
-            }
-            _ => {}
-        }
+    let variable_symbols = dependencies
+        .iter()
+        .filter(|dependency| variable_aliases.contains_key(*dependency))
+        .cloned()
+        .collect::<Vec<_>>();
+    let constant_symbols = dynamic_constant_symbols(expression, constant_aliases, residual_unit)?;
+    let mut convert_number = |value: f64, unit: Option<&str>| match unit {
+        Some(unit) => convert_residual_constant(value, unit, residual_unit),
+        None => Ok(value),
+    };
+    let linearized = linearize_arithmetic_expression_with_unit_converter(
+        expression,
+        &variable_symbols,
+        &constant_symbols,
+        &mut convert_number,
+        ArithmeticExpressionProfile::DYNAMIC_COMPONENT_RESIDUAL,
+        1e-9,
+    )
+    .map_err(|failure| dynamic_linearization_failure(expression, failure))?;
 
-        let mut parts = vec![token];
-        while let Some(next) = tokens.peek().copied() {
-            if next == "+" || next == "-" {
-                break;
-            }
-            parts.push(tokens.next().unwrap());
-        }
-        parse_dynamic_linear_term(
-            &parts.join(" "),
-            sign,
+    let mut parsed = ParsedDynamicResidual {
+        constant: linearized.constant,
+        terms: Vec::new(),
+    };
+    for term in linearized.terms {
+        let Some(index) = variable_aliases.get(&term.symbol).copied() else {
+            return Err(unsupported_dynamic_linear_term(&term.symbol));
+        };
+        push_dynamic_linear_term(
+            &term.symbol,
+            index,
+            term.coefficient,
             &dependency_indices,
-            variable_aliases,
             variables,
-            residual_unit,
-            constant_aliases,
             &mut parsed,
         )?;
-        sign = 1.0;
     }
 
     if parsed.terms.is_empty() {
@@ -566,116 +575,44 @@ fn parse_dynamic_linear_residual_terms(
     Ok(parsed)
 }
 
-fn parse_dynamic_linear_term(
-    raw: &str,
-    sign: f64,
-    dependency_indices: &HashSet<usize>,
-    variable_aliases: &HashMap<String, usize>,
-    variables: &[ResidualVariableRef],
-    residual_unit: Option<(&str, &str)>,
+fn dynamic_constant_symbols(
+    expression: &str,
     constant_aliases: Option<&HashMap<String, ResidualConstantAlias>>,
-    parsed: &mut ParsedDynamicResidual,
-) -> Result<(), SolverFailure> {
-    let term = raw.trim();
-    if term.is_empty() {
-        return Ok(());
-    }
-    if let Some(index) = variable_aliases.get(term).copied() {
-        push_dynamic_linear_term(term, index, sign, dependency_indices, variables, parsed)?;
-        return Ok(());
-    }
-    if let Some(value) = residual_constant_alias_value(term, constant_aliases, residual_unit)? {
-        parsed.constant += sign * value;
-        return Ok(());
-    }
-    if let Ok(value) = term.parse::<f64>() {
-        parsed.constant += sign * value;
-        return Ok(());
-    }
-
-    let factors = term
-        .split('*')
-        .map(str::trim)
-        .filter(|factor| !factor.is_empty())
-        .collect::<Vec<_>>();
-    if factors.len() > 1 {
-        let mut coefficient = sign;
-        let mut variable_index = None;
-        let mut variable_label = "";
-        for factor in factors {
-            if let Ok(value) = factor.parse::<f64>() {
-                coefficient *= value;
-            } else if let Some(alias) = constant_aliases.and_then(|aliases| aliases.get(factor)) {
-                if normalize_unit(&alias.unit) != "1" {
-                    return Err(unsupported_dynamic_linear_term(term));
-                }
-                coefficient *= alias.value;
-            } else if let Some(index) = variable_aliases.get(factor).copied() {
-                if variable_index.is_some() {
-                    return Err(unsupported_dynamic_linear_term(term));
-                }
-                variable_index = Some(index);
-                variable_label = factor;
-            } else {
-                return Err(unsupported_dynamic_linear_term(term));
+    residual_unit: Option<(&str, &str)>,
+) -> Result<HashMap<String, f64>, SolverFailure> {
+    let mut symbols = HashMap::new();
+    if let Some(constant_aliases) = constant_aliases {
+        for (name, alias) in constant_aliases {
+            if !expression_mentions_symbol(expression, name) {
+                continue;
             }
-        }
-        let Some(index) = variable_index else {
-            parsed.constant += coefficient;
-            return Ok(());
-        };
-        push_dynamic_linear_term(
-            variable_label,
-            index,
-            coefficient,
-            dependency_indices,
-            variables,
-            parsed,
-        )?;
-        return Ok(());
-    }
-
-    let pieces = term.split_whitespace().collect::<Vec<_>>();
-    if pieces.len() == 2 {
-        if let (Ok(coefficient), Some(index)) = (
-            pieces[0].parse::<f64>(),
-            variable_aliases.get(pieces[1]).copied(),
-        ) {
-            push_dynamic_linear_term(
-                pieces[1],
-                index,
-                sign * coefficient,
-                dependency_indices,
-                variables,
-                parsed,
-            )?;
-            return Ok(());
-        }
-        if let Ok(value) = pieces[0].parse::<f64>() {
-            let value = convert_residual_constant(value, pieces[1], residual_unit)?;
-            parsed.constant += sign * value;
-            return Ok(());
+            symbols.insert(
+                name.clone(),
+                convert_residual_constant(alias.value, &alias.unit, residual_unit)?,
+            );
         }
     }
-
-    Err(unsupported_dynamic_linear_term(term))
+    Ok(symbols)
 }
 
-fn residual_constant_alias_value(
-    name: &str,
-    constant_aliases: Option<&HashMap<String, ResidualConstantAlias>>,
-    residual_unit: Option<(&str, &str)>,
-) -> Result<Option<f64>, SolverFailure> {
-    let Some(alias) = constant_aliases.and_then(|aliases| aliases.get(name)) else {
-        return Ok(None);
-    };
-    Ok(Some(convert_residual_constant(
-        alias.value,
-        &alias.unit,
-        residual_unit,
-    )?))
+fn expression_mentions_symbol(expression: &str, symbol: &str) -> bool {
+    expression
+        .split(|character: char| {
+            !(character.is_ascii_alphanumeric() || character == '_' || character == '.')
+        })
+        .any(|token| token == symbol)
 }
-
+fn dynamic_linearization_failure(expression: &str, failure: SolverFailure) -> SolverFailure {
+    if failure.code == "E-DYNAMIC-COMPONENT-ASSEMBLY-RESIDUAL"
+        && (failure.message.contains("not linear")
+            || failure.message.contains("division by zero")
+            || failure.message.contains("unknown symbol"))
+    {
+        unsupported_dynamic_linear_term(expression)
+    } else {
+        failure
+    }
+}
 fn residual_unit_info(unit: &str) -> Option<UnitInfo> {
     let normalized = normalize_unit(unit);
     all_unit_infos()
@@ -683,7 +620,6 @@ fn residual_unit_info(unit: &str) -> Option<UnitInfo> {
         .find(|info| normalize_unit(info.symbol) == normalized)
         .copied()
 }
-
 fn convert_residual_constant(
     value: f64,
     source_unit: &str,
@@ -1451,6 +1387,46 @@ mod tests {
         assert_eq!(residual.scale.policy, "unit_default:Pressure[Pa]");
     }
     #[test]
+    fn component_boundary_parameter_aliases_become_rhs_values() {
+        let assembly = EquationAssembly {
+            name: "component_graph".to_owned(),
+            unknowns: vec![UnknownVariable {
+                name: "pump.supply.p".to_owned(),
+                role: "algebraic".to_owned(),
+                quantity_kind: "Pressure".to_owned(),
+                unit: "Pa".to_owned(),
+                source: "Fluid.p".to_owned(),
+                status: "classified".to_owned(),
+                value: None,
+            }],
+            parameters: vec![UnknownVariable {
+                name: "pump.p_supply".to_owned(),
+                role: "parameter".to_owned(),
+                quantity_kind: "Pressure".to_owned(),
+                unit: "Pa".to_owned(),
+                source: "component_parameter.Pressure".to_owned(),
+                status: "constructor_override".to_owned(),
+                value: Some(220000.0),
+            }],
+            generated_equations: vec![GeneratedEquation {
+                name: "pump.boundary_supply_pressure".to_owned(),
+                kind: "component_boundary".to_owned(),
+                residual: "pump.supply.p - pump.p_supply".to_owned(),
+                dependencies: vec!["pump.supply.p".to_owned(), "pump.p_supply".to_owned()],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let graph = ResidualGraph::from_assembly(&assembly);
+        let residual = &graph.residuals[0];
+
+        assert_eq!(residual.terms.len(), 1);
+        assert_eq!(residual.terms[0].variable, "pump.supply.p");
+        assert_eq!(residual.terms[0].coefficient, 1.0);
+        assert_eq!(residual.rhs_value, 220000.0);
+    }
+    #[test]
     fn component_equation_parameter_aliases_become_linear_constants() {
         let assembly = EquationAssembly {
             name: "component_graph".to_owned(),
@@ -1874,6 +1850,41 @@ mod tests {
             .any(|(residual, variable)| residual == "x_rhs" && variable == "der_x"));
     }
 
+    #[test]
+    fn dynamic_component_residual_graph_linearizes_parenthesized_arithmetic() {
+        let mut assembly = dynamic_component_test_assembly("component_graph");
+        assembly.generated_equations[0].residual = "(der_x - z) / 2".to_owned();
+        assembly.generated_equations[1].residual = "z + (2 * (x - u)) + k".to_owned();
+
+        let graph = ResidualGraph::from_dynamic_component_assembly(&assembly).unwrap();
+
+        let rhs = graph
+            .residuals
+            .iter()
+            .find(|residual| residual.name == "x_rhs")
+            .unwrap();
+        assert_eq!(
+            rhs.terms
+                .iter()
+                .map(|term| (term.variable.as_str(), term.coefficient))
+                .collect::<Vec<_>>(),
+            vec![("der_x", 0.5), ("z", -0.5)]
+        );
+
+        let algebraic = graph
+            .residuals
+            .iter()
+            .find(|residual| residual.name == "z_balance")
+            .unwrap();
+        assert_eq!(
+            algebraic
+                .terms
+                .iter()
+                .map(|term| (term.variable.as_str(), term.coefficient))
+                .collect::<Vec<_>>(),
+            vec![("z", 1.0), ("x", 2.0), ("k", 1.0), ("u", -2.0)]
+        );
+    }
     #[test]
     fn dynamic_component_residual_graph_rejects_unsupported_residual_terms() {
         let mut assembly = dynamic_component_test_assembly("component_graph");

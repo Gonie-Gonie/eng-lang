@@ -237,7 +237,7 @@ are not public stable workflows.
   entrypoint, and derivative plus linear algebraic residual graphs through a
   semi-implicit entrypoint with per-step dense linear algebraic solves. A
   source `EquationAssembly` bridge now validates dynamic component
-  state/algebraic/input/parameter layouts, lowers simple linear derivative and
+  state/algebraic/input/parameter layouts, lowers arithmetic-linear derivative and
   algebraic residuals into those residual-graph entrypoints, preserves
   equation/unknown counts in component solver artifacts, and is covered by
   `examples/official/26_dynamic_component_room`,
