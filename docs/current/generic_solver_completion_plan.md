@@ -259,6 +259,7 @@ Evidence gate:
 - Source implicit-Euler DAE residual solves now materialize assembly parameter values into DaeInput, algebraic initialization, final residual samples, solver-plan metadata, and report-spec artifacts, with regression coverage for parameterized DAE residuals and explicit sample parameter override.
 - Source Newton residual solves now materialize assembly parameter values once, pass explicit parameter vectors through parse/evaluation closures, reject parameter-vector layout mismatches, and cover explicit algebraic parameter override in regression tests.
 - Behavior graph explicit-Euler source RHS now pre-parses derivative residual expressions once with state, derivative, input, parameter, and behavior-output symbols, then reuses parsed expressions during timestep evaluation with regression coverage for behavior outputs plus explicit parameter values.
+- Behavior graph source outputs now carry unit and quantity metadata into residual expression parsing, preserving inferred residual expression units when behavior-node outputs participate in derivative RHS equations.
 
 ## Done Criteria
 

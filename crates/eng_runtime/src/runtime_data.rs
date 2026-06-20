@@ -4022,19 +4022,22 @@ fn behavior_dynamic_component_solution_from_solve_request(
             );
         }
     };
-    let parsed_residuals =
-        match parse_source_residual_expressions(&dynamic_assembly, &parse_symbols) {
-            Ok(expressions) => expressions,
-            Err(failure) => {
-                return failed_dynamic_component_source_solution(
-                    &dynamic_assembly,
-                    method,
-                    options,
-                    &failure,
-                    "behavior graph source solve could not parse derivative residuals",
-                );
-            }
-        };
+    let parsed_residuals = match parse_source_residual_expressions_with_extra_symbol_metadata(
+        &dynamic_assembly,
+        &parse_symbols,
+        &source_behavior_output_symbol_metadata(&behavior_output_symbols),
+    ) {
+        Ok(expressions) => expressions,
+        Err(failure) => {
+            return failed_dynamic_component_source_solution(
+                &dynamic_assembly,
+                method,
+                options,
+                &failure,
+                "behavior graph source solve could not parse derivative residuals",
+            );
+        }
+    };
     let time_grid = match TimeGrid::fixed_step(solve_input.duration_s, solve_input.timestep_s) {
         Ok(grid) => grid,
         Err(failure) => {
@@ -4151,10 +4154,17 @@ struct SourceBehaviorCall {
     delay_s: Option<f64>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct SourceBehaviorOutputSymbol {
+    name: String,
+    quantity_kind: String,
+    unit: String,
+}
+
 fn source_behavior_graph_from_report(
     report: &CheckReport,
     assembly: &EquationAssembly,
-) -> Result<(BehaviorGraphRhsAdapter, Vec<String>), SolverFailure> {
+) -> Result<(BehaviorGraphRhsAdapter, Vec<SourceBehaviorOutputSymbol>), SolverFailure> {
     let assembly_components = assembly
         .components
         .iter()
@@ -4188,6 +4198,11 @@ fn source_behavior_graph_from_report(
                     &call.signal,
                     &output_indices,
                 )?;
+            let output_symbol = SourceBehaviorOutputSymbol {
+                name: local.name.clone(),
+                quantity_kind: quantity_kind.clone(),
+                unit: canonical_unit.clone(),
+            };
             let node = match call.kind {
                 SourceBehaviorKind::Delay => {
                     let delay_s = call.delay_s.ok_or_else(|| {
@@ -4269,7 +4284,7 @@ fn source_behavior_graph_from_report(
                 }
             };
             output_indices.insert(local.name.clone(), output_symbols.len());
-            output_symbols.push(local.name.clone());
+            output_symbols.push(output_symbol);
             nodes.push(node);
         }
     }
@@ -4479,7 +4494,7 @@ fn source_behavior_variable_source(
 fn source_behavior_parse_symbols(
     assembly: &EquationAssembly,
     parameters: &[SolverScalar],
-    behavior_output_symbols: &[String],
+    behavior_output_symbols: &[SourceBehaviorOutputSymbol],
 ) -> Result<HashMap<String, f64>, SolverFailure> {
     if parameters.len() != assembly.parameters.len() {
         return Err(SolverFailure::new(
@@ -4505,7 +4520,7 @@ fn source_behavior_parse_symbols(
         symbols.insert(parameter.name.clone(), parameter.value);
     }
     for symbol in behavior_output_symbols {
-        symbols.insert(symbol.clone(), 0.0);
+        symbols.insert(symbol.name.clone(), 0.0);
     }
     Ok(symbols)
 }
@@ -4517,7 +4532,7 @@ fn source_behavior_symbols(
     inputs: &[SolverScalar],
     parameters: &[SolverScalar],
     behavior: &crate::solver::BehaviorGraphEvaluation,
-    behavior_output_symbols: &[String],
+    behavior_output_symbols: &[SourceBehaviorOutputSymbol],
 ) -> Result<HashMap<String, f64>, SolverFailure> {
     let mut symbols = HashMap::new();
     symbols.insert("t".to_owned(), time_s);
@@ -4535,10 +4550,13 @@ fn source_behavior_symbols(
         let value = behavior.output(index, 0).ok_or_else(|| {
             SolverFailure::new(
                 "E-BEHAVIOR-SOURCE-OUTPUT",
-                format!("source behavior node `{symbol}` did not produce output 0"),
+                format!(
+                    "source behavior node `{}` did not produce output 0",
+                    symbol.name
+                ),
             )
         })?;
-        symbols.insert(symbol.clone(), value);
+        symbols.insert(symbol.name.clone(), value);
     }
     Ok(symbols)
 }
@@ -4908,7 +4926,16 @@ fn parse_source_residual_expressions(
     assembly: &EquationAssembly,
     symbols: &HashMap<String, f64>,
 ) -> Result<Vec<ParsedSourceResidual>, SolverFailure> {
-    let symbol_units = source_residual_symbol_metadata(assembly);
+    parse_source_residual_expressions_with_extra_symbol_metadata(assembly, symbols, &HashMap::new())
+}
+
+fn parse_source_residual_expressions_with_extra_symbol_metadata(
+    assembly: &EquationAssembly,
+    symbols: &HashMap<String, f64>,
+    extra_symbol_units: &HashMap<String, ArithmeticUnitMetadata>,
+) -> Result<Vec<ParsedSourceResidual>, SolverFailure> {
+    let mut symbol_units = source_residual_symbol_metadata(assembly);
+    symbol_units.extend(extra_symbol_units.clone());
     assembly
         .generated_equations
         .iter()
@@ -4934,6 +4961,24 @@ fn parse_source_residual_expressions(
                 name: equation.name.clone(),
                 expression,
             })
+        })
+        .collect()
+}
+
+fn source_behavior_output_symbol_metadata(
+    outputs: &[SourceBehaviorOutputSymbol],
+) -> HashMap<String, ArithmeticUnitMetadata> {
+    outputs
+        .iter()
+        .map(|output| {
+            (
+                output.name.clone(),
+                ArithmeticUnitMetadata {
+                    display_unit: output.unit.clone(),
+                    canonical_unit: output.unit.clone(),
+                    quantity_kind: output.quantity_kind.clone(),
+                },
+            )
         })
         .collect()
 }
@@ -11682,11 +11727,19 @@ system Envelope {
             ..EquationAssembly::default()
         };
         let parameter_values = vec![SolverScalar::new("k", "Dimensionless", "1", 2.0)];
-        let behavior_outputs = vec!["delayed".to_owned()];
+        let behavior_outputs = vec![SourceBehaviorOutputSymbol {
+            name: "delayed".to_owned(),
+            quantity_kind: "Derivative[Dimensionless]".to_owned(),
+            unit: "1/s".to_owned(),
+        }];
         let parse_symbols =
             source_behavior_parse_symbols(&assembly, &parameter_values, &behavior_outputs).unwrap();
-        let parsed_residuals =
-            parse_source_residual_expressions(&assembly, &parse_symbols).unwrap();
+        let parsed_residuals = parse_source_residual_expressions_with_extra_symbol_metadata(
+            &assembly,
+            &parse_symbols,
+            &source_behavior_output_symbol_metadata(&behavior_outputs),
+        )
+        .unwrap();
         let symbols = HashMap::from([
             ("t".to_owned(), 0.0),
             ("time".to_owned(), 0.0),
@@ -11699,6 +11752,14 @@ system Envelope {
             source_behavior_derivatives(&assembly, &parsed_residuals, &symbols).unwrap();
 
         assert_eq!(derivatives, vec![-2.0]);
+        assert_eq!(
+            parsed_residuals[0].expression.root_unit,
+            Some(ArithmeticUnitMetadata {
+                display_unit: "1/s".to_owned(),
+                canonical_unit: "1/s".to_owned(),
+                quantity_kind: "Derivative[Dimensionless]".to_owned(),
+            })
+        );
     }
 
     fn square_linear_test_assembly(name: &str) -> EquationAssembly {
