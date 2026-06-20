@@ -1708,6 +1708,54 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/dynamic_component_adaptive_nonlinear_derivative.eng"),
+        Path::new("build/test-runtime-dynamic-component-adaptive-nonlinear-derivative"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_adaptive_heun_source\"")
+                || !output
+                    .result_json
+                    .contains("adaptive Heun parsed nonlinear derivative residual Newton solves")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"adaptive_heun_completed\"")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"role\": \"state\"")
+                || !output.result_json.contains("\"final_value\": 1.49999900")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"largest_residual_name\": \"node.equation_1\"")
+                || !output
+                    .report_spec_json
+                    .contains("der(node.node.x) * der(node.node.x) + der(node.node.x) eq 2")
+                || !output.report_spec_json.contains("adaptive_heun_accepted")
+                || !output.report_spec_json.contains("newton_converged")
+                || !output.report_html.contains("node.node.x=1.499999")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_adaptive_nonlinear_derivative.eng to solve adaptive dynamic component nonlinear derivative residuals through Newton"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_adaptive_nonlinear_derivative.eng solved adaptive dynamic component nonlinear derivative residuals"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component adaptive nonlinear-derivative runtime fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/dynamic_component_adaptive_algebraic_output.eng"),
         Path::new("build/test-runtime-dynamic-component-adaptive-algebraic-output"),
         &artifact_run_options(),
@@ -2939,6 +2987,48 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         Err(error) => {
             eprintln!(
                 "dynamic component adaptive nonlinear algebraic nonconvergence diagnostics fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new(
+            "tests/diagnostics/dynamic_component_adaptive_nonlinear_derivative_nonconvergence.eng",
+        ),
+        Path::new(
+            "build/test-diagnostics-dynamic-component-adaptive-nonlinear-derivative-nonconvergence",
+        ),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_adaptive_heun\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-NEWTON-NONCONVERGENCE\"")
+                || !output.result_json.contains("final residual norm")
+                || !output
+                    .report_spec_json
+                    .contains("\"diagnostic_code\": \"E-NEWTON-NONCONVERGENCE\"")
+                || !output
+                    .report_spec_json
+                    .contains("der(node.node.x) * der(node.node.x) + der(node.node.x) eq 2")
+                || !output.report_html.contains("E-NEWTON-NONCONVERGENCE")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/dynamic_component_adaptive_nonlinear_derivative_nonconvergence.eng to report adaptive component Newton derivative nonconvergence"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/dynamic_component_adaptive_nonlinear_derivative_nonconvergence.eng reported adaptive component Newton derivative nonconvergence"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component adaptive nonlinear derivative nonconvergence diagnostics fixture failed: {error}"
             );
             return ExitCode::from(1);
         }

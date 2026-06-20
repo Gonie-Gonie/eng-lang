@@ -4797,6 +4797,8 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
         parameters: solve_input.parameters.clone(),
     };
     let mut rhs_algebraic_guess = solve_input.initial_algebraic.clone();
+    let mut rhs_derivative_guess = vec![0.0; split.state_layout.len()];
+    let mut derivative_step_diagnostics = Vec::new();
     let adaptive_result = solve_adaptive_heun_ode(&solver_input, &adaptive_options, |sample| {
         let inputs = sampled_dynamic_component_inputs(
             &solve_input.inputs,
@@ -4827,12 +4829,27 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
             &inputs,
             sample.parameters,
         );
-        source_residual_derivatives_from_affine_derivative_terms(
+        let derivatives = source_residual_derivatives_from_terms_or_newton(
             assembly,
             &parsed_residuals,
             &symbols,
+            &rhs_derivative_guess,
             "dynamic component adaptive source",
-        )
+            &options,
+        )?;
+        if !derivatives.values.is_empty() {
+            rhs_derivative_guess.clone_from(&derivatives.values);
+        }
+        if let Some(newton) = &derivatives.newton {
+            let residual_names = source_residual_derivative_residual_names(assembly);
+            let mut diagnostics =
+                newton_residual_history_diagnostics(newton, None, Some(&residual_names), None);
+            for diagnostic in &mut diagnostics {
+                diagnostic.time_s = sample.time_s;
+            }
+            derivative_step_diagnostics.extend(diagnostics);
+        }
+        Ok(derivatives.values)
     })?;
     let mut solver_result = adaptive_result.solver_result;
     let (algebraic_trajectories, mut algebraic_step_diagnostics) =
@@ -4847,10 +4864,19 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
             &options,
         )?;
     solver_result.output.algebraic_trajectories = algebraic_trajectories;
+    let uses_derivative_newton = !derivative_step_diagnostics.is_empty();
     let mut solution = RuntimeComponentSolution::from_dynamic_solver_result(
         &assembly.name,
         &solver_result,
-        if uses_time_series_inputs && uses_algebraic_residuals {
+        if uses_derivative_newton && uses_time_series_inputs && uses_algebraic_residuals {
+            "dynamic component source solve executed adaptive Heun parsed nonlinear derivative residual Newton solves with algebraic residual materialization and TimeSeries input materialization"
+        } else if uses_derivative_newton && uses_time_series_inputs {
+            "dynamic component source solve executed adaptive Heun parsed nonlinear derivative residual Newton solves with TimeSeries input materialization"
+        } else if uses_derivative_newton && uses_algebraic_residuals {
+            "dynamic component source solve executed adaptive Heun parsed nonlinear derivative residual Newton solves with algebraic residual materialization"
+        } else if uses_derivative_newton {
+            "dynamic component source solve executed adaptive Heun parsed nonlinear derivative residual Newton solves"
+        } else if uses_time_series_inputs && uses_algebraic_residuals {
             "dynamic component source solve executed adaptive Heun parsed derivative residual expressions with algebraic residual materialization and TimeSeries input materialization"
         } else if uses_time_series_inputs {
             "dynamic component source solve executed adaptive Heun parsed derivative residual expressions with TimeSeries input materialization"
@@ -4863,6 +4889,11 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
     solution.equation_count = assembly.equation_count();
     solution.unknown_count = assembly.unknown_count();
     let mut step_diagnostics = adaptive_component_step_diagnostics(&adaptive_result.step_reports);
+    let derivative_step_offset = step_diagnostics.len();
+    for (index, diagnostic) in derivative_step_diagnostics.iter_mut().enumerate() {
+        diagnostic.step_index = derivative_step_offset + index + 1;
+    }
+    step_diagnostics.extend(derivative_step_diagnostics);
     let step_offset = step_diagnostics.len();
     for (index, diagnostic) in algebraic_step_diagnostics.iter_mut().enumerate() {
         diagnostic.step_index = step_offset + index + 1;
@@ -4873,6 +4904,11 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
 }
 
 struct AdaptiveDynamicComponentAlgebraicSolve {
+    values: Vec<f64>,
+    newton: Option<NewtonResult>,
+}
+
+struct SourceDerivativeSolve {
     values: Vec<f64>,
     newton: Option<NewtonResult>,
 }
@@ -5030,6 +5066,145 @@ fn adaptive_dynamic_component_algebraic_trajectories(
         })
         .collect();
     Ok((trajectories, algebraic_step_diagnostics))
+}
+
+fn source_residual_derivatives_from_terms_or_newton(
+    assembly: &EquationAssembly,
+    parsed_residuals: &[ParsedSourceResidual],
+    symbols: &HashMap<String, f64>,
+    derivative_guess: &[f64],
+    context: &str,
+    options: &DynamicComponentOptions,
+) -> Result<SourceDerivativeSolve, SolverFailure> {
+    match source_residual_derivatives_from_affine_derivative_terms(
+        assembly,
+        parsed_residuals,
+        symbols,
+        context,
+    ) {
+        Ok(values) => Ok(SourceDerivativeSolve {
+            values,
+            newton: None,
+        }),
+        Err(failure) if should_fallback_to_newton_derivatives(&failure) => {
+            let derivative_names = source_residual_derivative_names(assembly);
+            let initial = if derivative_guess.len() == derivative_names.len()
+                && derivative_guess.iter().all(|value| value.is_finite())
+            {
+                derivative_guess.to_vec()
+            } else {
+                vec![0.0; derivative_names.len()]
+            };
+            let mut newton_options = NewtonOptions {
+                tolerance: options.algebraic.tolerance,
+                max_iterations: options.algebraic.max_iterations,
+                ..NewtonOptions::default()
+            };
+            newton_options.variable_scales = vec![1.0; derivative_names.len()];
+            newton_options.variable_scale_policy =
+                "derivative_residual_finite_difference".to_owned();
+            let newton = solve_newton(&initial, &newton_options, |guess| {
+                let mut derivative_symbols = symbols.clone();
+                for (name, value) in derivative_names.iter().zip(guess.iter().copied()) {
+                    derivative_symbols.insert(name.clone(), value);
+                }
+                source_residual_derivative_residual_values(
+                    assembly,
+                    parsed_residuals,
+                    &derivative_symbols,
+                    context,
+                )
+            })?;
+            if let Some(failure) = newton.failure.clone() {
+                return Err(failure);
+            }
+            Ok(SourceDerivativeSolve {
+                values: newton.values.clone(),
+                newton: Some(newton),
+            })
+        }
+        Err(failure) => Err(failure),
+    }
+}
+
+fn source_residual_derivative_names(assembly: &EquationAssembly) -> Vec<String> {
+    assembly
+        .states
+        .iter()
+        .map(|state| format!("der({})", state.name))
+        .collect()
+}
+
+fn source_residual_derivative_residual_names(assembly: &EquationAssembly) -> Vec<String> {
+    let derivative_names = source_residual_derivative_names(assembly)
+        .into_iter()
+        .collect::<HashSet<_>>();
+    assembly
+        .generated_equations
+        .iter()
+        .filter(|equation| {
+            equation
+                .dependencies
+                .iter()
+                .any(|dependency| derivative_names.contains(dependency))
+        })
+        .map(|equation| equation.name.clone())
+        .collect()
+}
+
+fn source_residual_derivative_residual_values(
+    assembly: &EquationAssembly,
+    parsed_residuals: &[ParsedSourceResidual],
+    symbols: &HashMap<String, f64>,
+    context: &str,
+) -> Result<Vec<f64>, SolverFailure> {
+    if parsed_residuals.len() != assembly.generated_equations.len() {
+        return Err(SolverFailure::new(
+            "E-SOURCE-RHS-PARSE-LAYOUT",
+            format!("{context} parsed residual count does not match generated equation count"),
+        ));
+    }
+    let derivative_names = source_residual_derivative_names(assembly)
+        .into_iter()
+        .collect::<HashSet<_>>();
+    let derivative_equations = assembly
+        .generated_equations
+        .iter()
+        .zip(parsed_residuals.iter())
+        .filter(|(equation, _parsed)| {
+            equation
+                .dependencies
+                .iter()
+                .any(|dependency| derivative_names.contains(dependency))
+        })
+        .collect::<Vec<_>>();
+    if derivative_equations.len() != assembly.states.len() {
+        return Err(SolverFailure::new(
+            "E-SOURCE-RHS-SHAPE",
+            format!(
+                "{context} solve expected one derivative residual per state, got {} residual(s) for {} state(s)",
+                derivative_equations.len(),
+                assembly.states.len()
+            ),
+        ));
+    }
+    derivative_equations
+        .into_iter()
+        .map(|(equation, parsed)| {
+            let target = equation.rhs_value.unwrap_or(0.0);
+            let value = parsed.expression.evaluate(symbols)? - target;
+            if !value.is_finite() {
+                return Err(SolverFailure::new(
+                    "E-SOURCE-RHS-FINITE",
+                    format!(
+                        "{context} residual `{}` produced a non-finite derivative residual value",
+                        equation.name
+                    ),
+                ));
+            }
+            Ok(value)
+        })
+        .collect()
 }
 
 fn source_residual_algebraic_residual_names(assembly: &EquationAssembly) -> Vec<String> {
@@ -6022,11 +6197,18 @@ fn source_residual_derivatives_from_affine_derivative_terms(
         let mut coefficient_symbols = base_symbols.clone();
         coefficient_symbols.insert(derivative_name.clone(), 1.0);
         let coefficient = parsed.expression.evaluate(&coefficient_symbols)? - base;
-        if !coefficient.is_finite() || coefficient.abs() <= f64::EPSILON {
+        let mut two_symbols = base_symbols;
+        two_symbols.insert(derivative_name.clone(), 2.0);
+        let second_delta = parsed.expression.evaluate(&two_symbols)? - base;
+        if !coefficient.is_finite()
+            || coefficient.abs() <= f64::EPSILON
+            || !second_delta.is_finite()
+            || (second_delta - 2.0 * coefficient).abs() > 1e-9
+        {
             return Err(SolverFailure::new(
                 "E-SOURCE-RHS-SHAPE",
                 format!(
-                    "{context} residual `{}` does not contain a solvable derivative coefficient",
+                    "{context} residual `{}` does not contain a solvable affine derivative coefficient",
                     equation.name
                 ),
             ));
@@ -6052,6 +6234,13 @@ fn should_fallback_to_newton_algebraic(failure: &SolverFailure) -> bool {
         || failure.code == "E-DYNAMIC-COMPONENT-ALGEBRAIC-SHAPE"
         || failure.message.contains("unsupported term")
         || failure.message.contains("not linear")
+}
+
+fn should_fallback_to_newton_derivatives(failure: &SolverFailure) -> bool {
+    failure.code == "E-SOURCE-RHS-SHAPE"
+        && failure
+            .message
+            .contains("solvable affine derivative coefficient")
 }
 
 fn equation_has_derivative_dependency(equation: &GeneratedEquation) -> bool {

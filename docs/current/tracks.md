@@ -135,10 +135,12 @@ Internal runtime seeds:
 - narrow `solve component_graph` integration for
   `solver = dynamic_component_adaptive_heun`, using parsed derivative residual
   expressions, scalar or fixed-step TimeSeries component inputs, fixed
-  output-grid component trajectories, selected affine/Newton algebraic output
-  materialization including a combined TimeSeries-driven Newton fixture,
-  accepted-substep diagnostics, output-grid Newton residual diagnostics, and explicit
-  `E-NEWTON-NONCONVERGENCE` artifacts for Newton algebraic nonconvergence
+  output-grid component trajectories, selected nonlinear derivative residual
+  Newton fallback, selected affine/Newton algebraic output materialization
+  including a combined TimeSeries-driven Newton fixture, accepted-substep
+  diagnostics, output-grid Newton residual diagnostics, and explicit
+  `E-NEWTON-NONCONVERGENCE` artifacts for Newton derivative/algebraic
+  nonconvergence
 - fixed-step ODE and dynamic-component updates use the actual final partial TimeGrid interval
 - explicit Euler samples RHS values at the start of each fixed-step interval
 - fixed-step ODE, fixed-point, and dynamic-component seeds reject non-finite RHS/update values
@@ -205,8 +207,8 @@ Deferred:
   beyond the narrow unitful temperature explicit-Euler source behavior RHS smokes
   and narrow Predictor/external DAE residual samples
 - broad adaptive solvers beyond the source-equation, one-state thermal,
-  internal continuous state-space `adaptive_heun`, and affine dynamic component
-  source paths
+  internal continuous state-space `adaptive_heun`, and selected derivative
+  Newton plus affine/Newton algebraic dynamic component source paths
 - general equation-system runtime beyond the supported one-state thermal and
   source-equation fixed-step/adaptive shapes
 - broad state-space operator algebra, nonlinear/DAE state-space coupling,

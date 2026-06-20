@@ -176,10 +176,11 @@ by the stable breaking-change policy.
   trajectories such as `node.y eq cos(node.x)`. `dynamic_component_adaptive_heun`
   source solves now emit adaptive Heun
   component trajectories, scalar or fixed-step TimeSeries input
-  materialization, selected affine/Newton algebraic output trajectories,
-  combined TimeSeries-driven Newton algebraic materialization,
-  accepted-substep diagnostics, output-grid Newton residual diagnostics, and
-  Newton nonconvergence artifacts; broad nonlinear algebraic graphs remain
+  materialization, selected nonlinear derivative residual Newton fallback,
+  selected affine/Newton algebraic output trajectories, combined
+  TimeSeries-driven Newton algebraic materialization, accepted-substep
+  diagnostics, output-grid Newton residual diagnostics, and Newton
+  nonconvergence artifacts; broad nonlinear algebraic graphs remain
   unsupported.
   Narrow coupled multi-variable
   unitful source Newton and multi-state unitful temperature implicit-Euler DAE
