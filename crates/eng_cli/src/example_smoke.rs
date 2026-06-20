@@ -1175,6 +1175,62 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/dae_dimensionless_function_residual.eng"),
+        Path::new("build/test-runtime-dae-dimensionless-function-residual"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"implicit_euler_dae_source_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dae_converged\"")
+                || !output.result_json.contains("\"name\": \"node.node.x\"")
+                || !output.result_json.contains("\"name\": \"node.node.z\"")
+                || !output
+                    .result_json
+                    .contains("der(node.node.x) + sin(node.node.x) - 0")
+                || !output
+                    .result_json
+                    .contains("node.node.z - cos(node.node.x) - 0")
+                || !output
+                    .result_json
+                    .contains("\"normalized_residual_values\"")
+                || !output.result_json.contains("\"source_expression\"")
+                || !output.result_json.contains("\"source_line\":")
+                || !output
+                    .report_spec_json
+                    .contains("\"method\": \"implicit_euler_dae_source_residual_graph\"")
+                || !output.report_spec_json.contains("\"step_diagnostics\"")
+                || !output
+                    .report_spec_json
+                    .contains("der(node.node.x) + sin(node.node.x) eq 0")
+                || !output
+                    .report_spec_json
+                    .contains("node.node.z - cos(node.node.x) eq 0")
+                || !output.report_spec_json.contains("\"source_line\":")
+                || !output
+                    .report_html
+                    .contains("implicit_euler_dae_source_residual_graph")
+                || !output.report_html.contains("source_line=")
+            {
+                eprintln!(
+                    "expected tests/runtime/dae_dimensionless_function_residual.eng to solve a dimensionless DAE residual graph using sin/cos functions"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dae_dimensionless_function_residual.eng solved dimensionless DAE function residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("dimensionless DAE function runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/small_dae_from_source.eng"),
         Path::new("build/test-runtime-small-dae-source"),
         &artifact_run_options(),
