@@ -213,7 +213,7 @@ Evidence gate:
 
 ## Active Implementation Queue
 
-1. Propagate dimension/display/canonical metadata from literal nodes through symbol, unary, and binary expression nodes.
+1. Consume propagated expression metadata in static and dynamic residual graph construction, residual diagnostics, and the future shared solver IR.
 2. Move static residual graph and dynamic component residual graph construction onto the same expression-lowering API.
 3. Use that shared expression API to broaden nonlinear and DAE source residuals without adding one-off string parsing.
 4. Generalize component-local parameterized dynamic equations and derivative terms through the shared expression tree.
@@ -228,6 +228,7 @@ Evidence gate:
 - Runtime arithmetic residual expressions now lower once into a reusable AST used by both evaluation and finite-difference linearization, including derivative-symbol alias reuse across updated symbol values.
 - Numeric unit literals in the reusable arithmetic expression tree preserve display unit, canonical unit, and quantity-kind metadata from the existing unit registry without changing existing evaluator conversion behavior.
 - Source Newton and implicit-Euler DAE residual loops pre-parse assembly residual expressions into reusable arithmetic ASTs instead of reparsing residual strings on every iteration/sample evaluation.
+- Reusable arithmetic expression ASTs now propagate display unit, canonical unit, and quantity-kind metadata from supplied source symbols through unary and binary arithmetic nodes, including derivative aliases and unit-derived products such as Conductance * TemperatureDelta -> Power, without changing numeric evaluator behavior.
 
 ## Done Criteria
 

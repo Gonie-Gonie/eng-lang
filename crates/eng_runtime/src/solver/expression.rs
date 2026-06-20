@@ -49,6 +49,7 @@ pub(crate) struct ParsedArithmeticExpression {
     root: ArithmeticExpressionNode,
     alias_symbols: HashMap<String, String>,
     profile: ArithmeticExpressionProfile,
+    pub(crate) root_unit: Option<ArithmeticUnitMetadata>,
     pub(crate) unit_literals: Vec<ArithmeticUnitMetadata>,
 }
 
@@ -65,12 +66,19 @@ enum ArithmeticExpressionNode {
         value: f64,
         unit: Option<ArithmeticUnitMetadata>,
     },
-    Symbol(String),
-    UnaryMinus(Box<ArithmeticExpressionNode>),
+    Symbol {
+        name: String,
+        unit: Option<ArithmeticUnitMetadata>,
+    },
+    UnaryMinus {
+        value: Box<ArithmeticExpressionNode>,
+        unit: Option<ArithmeticUnitMetadata>,
+    },
     Binary {
         operator: ArithmeticExpressionBinaryOperator,
         left: Box<ArithmeticExpressionNode>,
         right: Box<ArithmeticExpressionNode>,
+        unit: Option<ArithmeticUnitMetadata>,
     },
 }
 
@@ -110,7 +118,7 @@ impl ArithmeticExpressionNode {
     ) -> Result<f64, SolverFailure> {
         match self {
             Self::Number { value, .. } => Ok(*value),
-            Self::Symbol(name) => alias_symbols
+            Self::Symbol { name, .. } => alias_symbols
                 .get(name)
                 .and_then(|original| symbols.get(original))
                 .or_else(|| symbols.get(name))
@@ -121,13 +129,14 @@ impl ArithmeticExpressionNode {
                         format!("{} references unknown symbol `{name}`", profile.label),
                     )
                 }),
-            Self::UnaryMinus(value) => {
+            Self::UnaryMinus { value, .. } => {
                 Ok(-value.evaluate(source, symbols, alias_symbols, profile)?)
             }
             Self::Binary {
                 operator,
                 left,
                 right,
+                ..
             } => {
                 let left = left.evaluate(source, symbols, alias_symbols, profile)?;
                 let right = right.evaluate(source, symbols, alias_symbols, profile)?;
@@ -154,12 +163,21 @@ impl ArithmeticExpressionNode {
             Self::Number {
                 unit: Some(unit), ..
             } => units.push(unit.clone()),
-            Self::Number { unit: None, .. } | Self::Symbol(_) => {}
-            Self::UnaryMinus(value) => value.collect_unit_literals(units),
+            Self::Number { unit: None, .. } | Self::Symbol { .. } => {}
+            Self::UnaryMinus { value, .. } => value.collect_unit_literals(units),
             Self::Binary { left, right, .. } => {
                 left.collect_unit_literals(units);
                 right.collect_unit_literals(units);
             }
+        }
+    }
+
+    fn unit_metadata(&self) -> Option<&ArithmeticUnitMetadata> {
+        match self {
+            Self::Number { unit, .. }
+            | Self::Symbol { unit, .. }
+            | Self::UnaryMinus { unit, .. }
+            | Self::Binary { unit, .. } => unit.as_ref(),
         }
     }
 }
@@ -201,14 +219,36 @@ pub(crate) fn parse_arithmetic_expression_with_unit_converter<F>(
 where
     F: FnMut(f64, Option<&str>) -> Result<f64, SolverFailure>,
 {
+    parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
+        expression,
+        symbols,
+        &HashMap::new(),
+        convert_number,
+        profile,
+    )
+}
+
+pub(crate) fn parse_arithmetic_expression_with_symbol_metadata_and_unit_converter<F>(
+    expression: &str,
+    symbols: &HashMap<String, f64>,
+    symbol_units: &HashMap<String, ArithmeticUnitMetadata>,
+    convert_number: &mut F,
+    profile: ArithmeticExpressionProfile,
+) -> Result<ParsedArithmeticExpression, SolverFailure>
+where
+    F: FnMut(f64, Option<&str>) -> Result<f64, SolverFailure>,
+{
     let (rewritten, alias_symbols) = rewrite_derivative_symbols(expression, symbols);
+    let symbol_units = alias_symbol_unit_metadata(symbol_units, &alias_symbols);
     let tokens = tokenize_arithmetic_expression(&rewritten, convert_number, profile)?;
     let mut parser = ArithmeticExpressionParser {
         tokens,
         position: 0,
         profile,
+        symbol_units: &symbol_units,
     };
     let root = parser.parse_expression()?;
+    let root_unit = root.unit_metadata().cloned();
     let mut unit_literals = Vec::new();
     root.collect_unit_literals(&mut unit_literals);
     if parser.position != parser.tokens.len() {
@@ -222,6 +262,7 @@ where
         root,
         alias_symbols,
         profile,
+        root_unit,
         unit_literals,
     })
 }
@@ -373,6 +414,20 @@ fn rewrite_derivative_symbols(
     }
     (rewritten, alias_symbols)
 }
+
+fn alias_symbol_unit_metadata(
+    symbol_units: &HashMap<String, ArithmeticUnitMetadata>,
+    alias_symbols: &HashMap<String, String>,
+) -> HashMap<String, ArithmeticUnitMetadata> {
+    let mut units = symbol_units.clone();
+    for (alias, original) in alias_symbols {
+        if let Some(unit) = symbol_units.get(original) {
+            units.insert(alias.clone(), unit.clone());
+        }
+    }
+    units
+}
+
 fn tokenize_arithmetic_expression<F>(
     expression: &str,
     convert_number: &mut F,
@@ -481,19 +536,253 @@ fn arithmetic_unit_metadata(unit: Option<&str>) -> Option<ArithmeticUnitMetadata
     if display_unit.is_empty() {
         return None;
     }
+    Some(arithmetic_metadata_for_unit(display_unit, None))
+}
+
+fn arithmetic_metadata_for_unit(
+    display_unit: &str,
+    quantity_override: Option<&str>,
+) -> ArithmeticUnitMetadata {
+    let display_unit = if display_unit.trim().is_empty() {
+        "1"
+    } else {
+        display_unit.trim()
+    };
+    if normalize_unit(display_unit) == "1" {
+        return ArithmeticUnitMetadata {
+            display_unit: "1".to_owned(),
+            canonical_unit: "1".to_owned(),
+            quantity_kind: quantity_override
+                .unwrap_or("DimensionlessNumber")
+                .to_owned(),
+        };
+    }
     let normalized = normalize_unit(display_unit);
     let info = all_unit_infos()
         .iter()
         .find(|info| normalize_unit(info.symbol) == normalized);
-    Some(ArithmeticUnitMetadata {
+    ArithmeticUnitMetadata {
         display_unit: display_unit.to_owned(),
         canonical_unit: info
             .map(|info| info.canonical_unit.to_owned())
             .unwrap_or_else(|| display_unit.to_owned()),
-        quantity_kind: info
-            .map(|info| info.quantity_hint.to_owned())
+        quantity_kind: quantity_override
+            .map(str::to_owned)
+            .or_else(|| info.map(|info| info.quantity_hint.to_owned()))
             .unwrap_or_else(|| "unknown".to_owned()),
-    })
+    }
+}
+
+fn arithmetic_metadata_for_canonical_unit(canonical_unit: String) -> ArithmeticUnitMetadata {
+    if normalize_unit(&canonical_unit) == "1" {
+        return arithmetic_metadata_for_unit("1", Some("DimensionlessNumber"));
+    }
+    let normalized = normalize_unit(&canonical_unit);
+    if let Some(info) = all_unit_infos()
+        .iter()
+        .find(|info| normalize_unit(info.canonical_unit) == normalized)
+    {
+        return ArithmeticUnitMetadata {
+            display_unit: info.canonical_unit.to_owned(),
+            canonical_unit: info.canonical_unit.to_owned(),
+            quantity_kind: info.quantity_hint.to_owned(),
+        };
+    }
+    ArithmeticUnitMetadata {
+        display_unit: canonical_unit.clone(),
+        canonical_unit,
+        quantity_kind: "unknown".to_owned(),
+    }
+}
+
+fn binary_unit_metadata(
+    operator: ArithmeticExpressionBinaryOperator,
+    left: Option<&ArithmeticUnitMetadata>,
+    right: Option<&ArithmeticUnitMetadata>,
+) -> Option<ArithmeticUnitMetadata> {
+    match operator {
+        ArithmeticExpressionBinaryOperator::Add => add_unit_metadata(left, right),
+        ArithmeticExpressionBinaryOperator::Subtract => subtract_unit_metadata(left, right),
+        ArithmeticExpressionBinaryOperator::Multiply => multiply_unit_metadata(left, right),
+        ArithmeticExpressionBinaryOperator::Divide => divide_unit_metadata(left, right),
+    }
+}
+
+fn add_unit_metadata(
+    left: Option<&ArithmeticUnitMetadata>,
+    right: Option<&ArithmeticUnitMetadata>,
+) -> Option<ArithmeticUnitMetadata> {
+    match (left, right) {
+        (Some(left), Some(right))
+            if same_canonical_unit(left, right) && compatible_quantity_kind(left, right) =>
+        {
+            Some(left.clone())
+        }
+        (Some(left), Some(right))
+            if is_absolute_temperature(left) && is_temperature_delta(right) =>
+        {
+            Some(left.clone())
+        }
+        (Some(left), Some(right))
+            if is_temperature_delta(left) && is_absolute_temperature(right) =>
+        {
+            Some(right.clone())
+        }
+        (Some(left), Some(right)) if is_dimensionless(left) => Some(right.clone()),
+        (Some(left), Some(right)) if is_dimensionless(right) => Some(left.clone()),
+        (Some(left), None) => Some(left.clone()),
+        (None, Some(right)) => Some(right.clone()),
+        (None, None) => None,
+        _ => None,
+    }
+}
+
+fn subtract_unit_metadata(
+    left: Option<&ArithmeticUnitMetadata>,
+    right: Option<&ArithmeticUnitMetadata>,
+) -> Option<ArithmeticUnitMetadata> {
+    match (left, right) {
+        (Some(left), Some(right))
+            if same_canonical_unit(left, right)
+                && is_absolute_temperature(left)
+                && is_absolute_temperature(right) =>
+        {
+            Some(arithmetic_metadata_for_unit(
+                &left.canonical_unit,
+                Some("TemperatureDelta"),
+            ))
+        }
+        (Some(left), Some(right))
+            if same_canonical_unit(left, right) && compatible_quantity_kind(left, right) =>
+        {
+            Some(left.clone())
+        }
+        (Some(left), Some(right))
+            if is_absolute_temperature(left) && is_temperature_delta(right) =>
+        {
+            Some(left.clone())
+        }
+        (Some(left), Some(right)) if is_dimensionless(left) => Some(right.clone()),
+        (Some(left), Some(right)) if is_dimensionless(right) => Some(left.clone()),
+        (Some(left), None) => Some(left.clone()),
+        (None, Some(right)) => Some(right.clone()),
+        (None, None) => None,
+        _ => None,
+    }
+}
+
+fn multiply_unit_metadata(
+    left: Option<&ArithmeticUnitMetadata>,
+    right: Option<&ArithmeticUnitMetadata>,
+) -> Option<ArithmeticUnitMetadata> {
+    match (left, right) {
+        (Some(left), Some(right)) if is_dimensionless(left) => Some(right.clone()),
+        (Some(left), Some(right)) if is_dimensionless(right) => Some(left.clone()),
+        (Some(left), Some(right)) => Some(arithmetic_metadata_for_canonical_unit(
+            multiply_canonical_units(&left.canonical_unit, &right.canonical_unit),
+        )),
+        (Some(left), None) => Some(left.clone()),
+        (None, Some(right)) => Some(right.clone()),
+        (None, None) => None,
+    }
+}
+
+fn divide_unit_metadata(
+    left: Option<&ArithmeticUnitMetadata>,
+    right: Option<&ArithmeticUnitMetadata>,
+) -> Option<ArithmeticUnitMetadata> {
+    match (left, right) {
+        (Some(left), Some(right)) if is_dimensionless(right) => Some(left.clone()),
+        (Some(left), Some(right)) => Some(arithmetic_metadata_for_canonical_unit(
+            divide_canonical_units(&left.canonical_unit, &right.canonical_unit),
+        )),
+        (Some(left), None) => Some(left.clone()),
+        (None, Some(right)) => Some(arithmetic_metadata_for_canonical_unit(format!(
+            "1/{}",
+            right.canonical_unit
+        ))),
+        (None, None) => None,
+    }
+}
+
+fn multiply_canonical_units(left: &str, right: &str) -> String {
+    let left = normalized_canonical_unit(left);
+    let right = normalized_canonical_unit(right);
+    if left == "1" {
+        return right;
+    }
+    if right == "1" {
+        return left;
+    }
+    if let Some((numerator, denominator)) = split_unit_fraction(&left) {
+        if denominator == right {
+            return numerator.to_owned();
+        }
+    }
+    if let Some((numerator, denominator)) = split_unit_fraction(&right) {
+        if denominator == left {
+            return numerator.to_owned();
+        }
+    }
+    format!("{left}*{right}")
+}
+
+fn divide_canonical_units(left: &str, right: &str) -> String {
+    let left = normalized_canonical_unit(left);
+    let right = normalized_canonical_unit(right);
+    if right == "1" {
+        return left;
+    }
+    if left == right {
+        return "1".to_owned();
+    }
+    if left == "1" {
+        return format!("1/{right}");
+    }
+    format!("{left}/{right}")
+}
+
+fn split_unit_fraction(unit: &str) -> Option<(&str, &str)> {
+    let (numerator, denominator) = unit.split_once('/')?;
+    Some((numerator.trim(), denominator.trim()))
+}
+
+fn normalized_canonical_unit(unit: &str) -> String {
+    let trimmed = unit.trim();
+    if trimmed.is_empty() {
+        "1".to_owned()
+    } else {
+        normalize_unit(trimmed)
+    }
+}
+
+fn same_canonical_unit(left: &ArithmeticUnitMetadata, right: &ArithmeticUnitMetadata) -> bool {
+    normalized_canonical_unit(&left.canonical_unit)
+        == normalized_canonical_unit(&right.canonical_unit)
+}
+
+fn compatible_quantity_kind(left: &ArithmeticUnitMetadata, right: &ArithmeticUnitMetadata) -> bool {
+    left.quantity_kind == right.quantity_kind
+        || matches!(
+            (left.quantity_kind.as_str(), right.quantity_kind.as_str()),
+            ("HeatRate", "Power") | ("Power", "HeatRate")
+        )
+}
+
+fn is_dimensionless(unit: &ArithmeticUnitMetadata) -> bool {
+    normalized_canonical_unit(&unit.canonical_unit) == "1"
+        || matches!(
+            unit.quantity_kind.as_str(),
+            "Dimensionless" | "DimensionlessNumber" | "Number"
+        )
+}
+
+fn is_absolute_temperature(unit: &ArithmeticUnitMetadata) -> bool {
+    unit.quantity_kind == "AbsoluteTemperature"
+}
+
+fn is_temperature_delta(unit: &ArithmeticUnitMetadata) -> bool {
+    unit.quantity_kind == "TemperatureDelta"
 }
 
 fn consume_optional_unit_suffix(chars: &[char], index: usize) -> (usize, Option<String>) {
@@ -541,31 +830,48 @@ fn is_identifier_continue(character: char) -> bool {
     character.is_ascii_alphanumeric() || character == '_' || character == '.'
 }
 
-struct ArithmeticExpressionParser {
+struct ArithmeticExpressionParser<'a> {
     tokens: Vec<ArithmeticExpressionToken>,
     position: usize,
     profile: ArithmeticExpressionProfile,
+    symbol_units: &'a HashMap<String, ArithmeticUnitMetadata>,
 }
 
-impl ArithmeticExpressionParser {
+impl ArithmeticExpressionParser<'_> {
     fn parse_expression(&mut self) -> Result<ArithmeticExpressionNode, SolverFailure> {
         let mut value = self.parse_term()?;
         loop {
             match self.peek() {
                 Some(ArithmeticExpressionToken::Plus) => {
                     self.position += 1;
+                    let operator = ArithmeticExpressionBinaryOperator::Add;
+                    let right = self.parse_term()?;
+                    let unit = binary_unit_metadata(
+                        operator,
+                        value.unit_metadata(),
+                        right.unit_metadata(),
+                    );
                     value = ArithmeticExpressionNode::Binary {
-                        operator: ArithmeticExpressionBinaryOperator::Add,
+                        operator,
                         left: Box::new(value),
-                        right: Box::new(self.parse_term()?),
+                        right: Box::new(right),
+                        unit,
                     };
                 }
                 Some(ArithmeticExpressionToken::Minus) => {
                     self.position += 1;
+                    let operator = ArithmeticExpressionBinaryOperator::Subtract;
+                    let right = self.parse_term()?;
+                    let unit = binary_unit_metadata(
+                        operator,
+                        value.unit_metadata(),
+                        right.unit_metadata(),
+                    );
                     value = ArithmeticExpressionNode::Binary {
-                        operator: ArithmeticExpressionBinaryOperator::Subtract,
+                        operator,
                         left: Box::new(value),
-                        right: Box::new(self.parse_term()?),
+                        right: Box::new(right),
+                        unit,
                     };
                 }
                 _ => return Ok(value),
@@ -579,18 +885,34 @@ impl ArithmeticExpressionParser {
             match self.peek() {
                 Some(ArithmeticExpressionToken::Star) => {
                     self.position += 1;
+                    let operator = ArithmeticExpressionBinaryOperator::Multiply;
+                    let right = self.parse_factor()?;
+                    let unit = binary_unit_metadata(
+                        operator,
+                        value.unit_metadata(),
+                        right.unit_metadata(),
+                    );
                     value = ArithmeticExpressionNode::Binary {
-                        operator: ArithmeticExpressionBinaryOperator::Multiply,
+                        operator,
                         left: Box::new(value),
-                        right: Box::new(self.parse_factor()?),
+                        right: Box::new(right),
+                        unit,
                     };
                 }
                 Some(ArithmeticExpressionToken::Slash) => {
                     self.position += 1;
+                    let operator = ArithmeticExpressionBinaryOperator::Divide;
+                    let right = self.parse_factor()?;
+                    let unit = binary_unit_metadata(
+                        operator,
+                        value.unit_metadata(),
+                        right.unit_metadata(),
+                    );
                     value = ArithmeticExpressionNode::Binary {
-                        operator: ArithmeticExpressionBinaryOperator::Divide,
+                        operator,
                         left: Box::new(value),
-                        right: Box::new(self.parse_factor()?),
+                        right: Box::new(right),
+                        unit,
                     };
                 }
                 _ => return Ok(value),
@@ -609,12 +931,18 @@ impl ArithmeticExpressionParser {
             ArithmeticExpressionToken::Number { value, unit } => {
                 Ok(ArithmeticExpressionNode::Number { value, unit })
             }
-            ArithmeticExpressionToken::Identifier(name) => {
-                Ok(ArithmeticExpressionNode::Symbol(name))
+            ArithmeticExpressionToken::Identifier(name) => Ok(ArithmeticExpressionNode::Symbol {
+                unit: self.symbol_units.get(&name).cloned(),
+                name,
+            }),
+            ArithmeticExpressionToken::Minus => {
+                let value = self.parse_factor()?;
+                let unit = value.unit_metadata().cloned();
+                Ok(ArithmeticExpressionNode::UnaryMinus {
+                    value: Box::new(value),
+                    unit,
+                })
             }
-            ArithmeticExpressionToken::Minus => Ok(ArithmeticExpressionNode::UnaryMinus(Box::new(
-                self.parse_factor()?,
-            ))),
             ArithmeticExpressionToken::Plus => self.parse_factor(),
             ArithmeticExpressionToken::LeftParen => {
                 let value = self.parse_expression()?;
@@ -714,6 +1042,114 @@ mod tests {
         symbols.insert("der(x)".to_owned(), -1.0);
 
         assert_eq!(parsed.evaluate(&symbols).unwrap(), 19.0);
+    }
+    #[test]
+    fn parsed_expression_propagates_symbol_unary_and_binary_unit_metadata() {
+        let symbols = HashMap::from([
+            ("UA".to_owned(), 2.0),
+            ("T_hot".to_owned(), 310.0),
+            ("T_cold".to_owned(), 300.0),
+            ("der(T_hot)".to_owned(), -0.5),
+        ]);
+        let symbol_units = HashMap::from([
+            (
+                "UA".to_owned(),
+                ArithmeticUnitMetadata {
+                    display_unit: "W/K".to_owned(),
+                    canonical_unit: "W/K".to_owned(),
+                    quantity_kind: "Conductance".to_owned(),
+                },
+            ),
+            (
+                "T_hot".to_owned(),
+                ArithmeticUnitMetadata {
+                    display_unit: "K".to_owned(),
+                    canonical_unit: "K".to_owned(),
+                    quantity_kind: "AbsoluteTemperature".to_owned(),
+                },
+            ),
+            (
+                "T_cold".to_owned(),
+                ArithmeticUnitMetadata {
+                    display_unit: "K".to_owned(),
+                    canonical_unit: "K".to_owned(),
+                    quantity_kind: "AbsoluteTemperature".to_owned(),
+                },
+            ),
+            (
+                "der(T_hot)".to_owned(),
+                ArithmeticUnitMetadata {
+                    display_unit: "K/s".to_owned(),
+                    canonical_unit: "K/s".to_owned(),
+                    quantity_kind: "Derivative[AbsoluteTemperature]".to_owned(),
+                },
+            ),
+        ]);
+        let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
+
+        let parsed = parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
+            "UA * (T_hot - T_cold)",
+            &symbols,
+            &symbol_units,
+            &mut ignore_units,
+            ArithmeticExpressionProfile::SOURCE_RESIDUAL,
+        )
+        .unwrap();
+
+        assert_eq!(parsed.evaluate(&symbols).unwrap(), 20.0);
+        assert_eq!(
+            parsed.root_unit.as_ref(),
+            Some(&ArithmeticUnitMetadata {
+                display_unit: "W".to_owned(),
+                canonical_unit: "W".to_owned(),
+                quantity_kind: "Power".to_owned(),
+            })
+        );
+        let ArithmeticExpressionNode::Binary {
+            operator: ArithmeticExpressionBinaryOperator::Multiply,
+            left,
+            right,
+            unit: Some(root_unit),
+        } = &parsed.root
+        else {
+            panic!("expected multiply root");
+        };
+        assert_eq!(root_unit.quantity_kind, "Power");
+        let ArithmeticExpressionNode::Symbol {
+            unit: Some(left_unit),
+            ..
+        } = left.as_ref()
+        else {
+            panic!("expected left symbol");
+        };
+        assert_eq!(left_unit.quantity_kind, "Conductance");
+        let ArithmeticExpressionNode::Binary {
+            operator: ArithmeticExpressionBinaryOperator::Subtract,
+            unit: Some(right_unit),
+            ..
+        } = right.as_ref()
+        else {
+            panic!("expected temperature subtraction");
+        };
+        assert_eq!(right_unit.quantity_kind, "TemperatureDelta");
+
+        let parsed_derivative =
+            parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
+                "-der(T_hot)",
+                &symbols,
+                &symbol_units,
+                &mut ignore_units,
+                ArithmeticExpressionProfile::SOURCE_RESIDUAL,
+            )
+            .unwrap();
+        assert_eq!(
+            parsed_derivative.root_unit.as_ref(),
+            Some(&ArithmeticUnitMetadata {
+                display_unit: "K/s".to_owned(),
+                canonical_unit: "K/s".to_owned(),
+                quantity_kind: "Derivative[AbsoluteTemperature]".to_owned(),
+            })
+        );
     }
     #[test]
     fn linearizes_parenthesized_expression_with_unit_literals() {

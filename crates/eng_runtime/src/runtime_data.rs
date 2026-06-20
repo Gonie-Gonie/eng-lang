@@ -16,8 +16,9 @@ use eng_report::{
 };
 
 use crate::solver::expression::{
-    evaluate_source_arithmetic_expression, parse_arithmetic_expression_with_unit_converter,
-    ArithmeticExpressionProfile, ParsedArithmeticExpression,
+    evaluate_source_arithmetic_expression,
+    parse_arithmetic_expression_with_symbol_metadata_and_unit_converter,
+    ArithmeticExpressionProfile, ArithmeticUnitMetadata, ParsedArithmeticExpression,
 };
 use crate::solver::{
     assembly::{
@@ -4754,14 +4755,16 @@ fn parse_source_residual_expressions(
     assembly: &EquationAssembly,
     symbols: &HashMap<String, f64>,
 ) -> Result<Vec<ParsedSourceResidual>, SolverFailure> {
+    let symbol_units = source_residual_symbol_metadata(assembly);
     assembly
         .generated_equations
         .iter()
         .map(|equation| {
             let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
-            let expression = parse_arithmetic_expression_with_unit_converter(
+            let expression = parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
                 &equation.residual,
                 symbols,
+                &symbol_units,
                 &mut ignore_units,
                 ArithmeticExpressionProfile::SOURCE_RESIDUAL,
             )
@@ -4782,6 +4785,77 @@ fn parse_source_residual_expressions(
         .collect()
 }
 
+fn source_residual_symbol_metadata(
+    assembly: &EquationAssembly,
+) -> HashMap<String, ArithmeticUnitMetadata> {
+    let mut metadata = HashMap::new();
+    metadata.insert(
+        "t".to_owned(),
+        ArithmeticUnitMetadata {
+            display_unit: "s".to_owned(),
+            canonical_unit: "s".to_owned(),
+            quantity_kind: "Time".to_owned(),
+        },
+    );
+    metadata.insert(
+        "time".to_owned(),
+        ArithmeticUnitMetadata {
+            display_unit: "s".to_owned(),
+            canonical_unit: "s".to_owned(),
+            quantity_kind: "Time".to_owned(),
+        },
+    );
+    for variable in assembly
+        .unknowns
+        .iter()
+        .chain(assembly.states.iter())
+        .chain(assembly.algebraic_variables.iter())
+        .chain(assembly.inputs.iter())
+        .chain(assembly.parameters.iter())
+    {
+        metadata.insert(
+            variable.name.clone(),
+            source_variable_arithmetic_metadata(variable),
+        );
+    }
+    for state in &assembly.states {
+        metadata.insert(
+            format!("der({})", state.name),
+            ArithmeticUnitMetadata {
+                display_unit: derivative_display_unit(&state.unit),
+                canonical_unit: derivative_display_unit(&state.unit),
+                quantity_kind: format!("Derivative[{}]", state.quantity_kind),
+            },
+        );
+    }
+    metadata
+}
+
+fn source_variable_arithmetic_metadata(variable: &UnknownVariable) -> ArithmeticUnitMetadata {
+    let unit = if variable.unit.trim().is_empty() {
+        "1"
+    } else {
+        variable.unit.trim()
+    };
+    ArithmeticUnitMetadata {
+        display_unit: unit.to_owned(),
+        canonical_unit: unit.to_owned(),
+        quantity_kind: if variable.quantity_kind.trim().is_empty() {
+            "unknown".to_owned()
+        } else {
+            variable.quantity_kind.clone()
+        },
+    }
+}
+
+fn derivative_display_unit(unit: &str) -> String {
+    let unit = unit.trim();
+    if unit.is_empty() || unit == "1" {
+        "1/s".to_owned()
+    } else {
+        format!("{unit}/s")
+    }
+}
 fn source_algebraic_parse_symbols(
     assembly: &EquationAssembly,
 ) -> Result<HashMap<String, f64>, SolverFailure> {
@@ -10993,6 +11067,70 @@ system Envelope {
         assert!(solution.residuals.iter().any(|residual| {
             residual.name == "wall.equation_1" && residual.value.abs() <= 1e-6
         }));
+    }
+    #[test]
+    fn source_residual_parse_preserves_expression_unit_metadata() {
+        let t_hot = UnknownVariable {
+            name: "T_hot".to_owned(),
+            role: "algebraic".to_owned(),
+            quantity_kind: "AbsoluteTemperature".to_owned(),
+            unit: "K".to_owned(),
+            source: "Thermal.T_hot".to_owned(),
+            status: "unknown".to_owned(),
+            value: None,
+        };
+        let t_cold = UnknownVariable {
+            name: "T_cold".to_owned(),
+            role: "algebraic".to_owned(),
+            quantity_kind: "AbsoluteTemperature".to_owned(),
+            unit: "K".to_owned(),
+            source: "Thermal.T_cold".to_owned(),
+            status: "unknown".to_owned(),
+            value: None,
+        };
+        let ua = UnknownVariable {
+            name: "UA".to_owned(),
+            role: "parameter".to_owned(),
+            quantity_kind: "Conductance".to_owned(),
+            unit: "W/K".to_owned(),
+            source: "component_parameter.Conductance".to_owned(),
+            status: "defaulted".to_owned(),
+            value: Some(2.0),
+        };
+        let assembly = EquationAssembly {
+            name: "thermal_source".to_owned(),
+            generated_equations: vec![GeneratedEquation {
+                name: "heat_flow".to_owned(),
+                kind: "component_equation".to_owned(),
+                domain: "Thermal".to_owned(),
+                expression: "q eq UA * (T_hot - T_cold)".to_owned(),
+                residual: "UA * (T_hot - T_cold)".to_owned(),
+                rhs_value: None,
+                dependencies: vec!["UA".to_owned(), "T_hot".to_owned(), "T_cold".to_owned()],
+                source: "test".to_owned(),
+                reason: "test source residual unit metadata".to_owned(),
+                source_line: Some(1),
+                status: "generated".to_owned(),
+            }],
+            unknowns: vec![t_hot.clone(), t_cold.clone()],
+            algebraic_variables: vec![t_hot, t_cold],
+            parameters: vec![ua],
+            ..EquationAssembly::default()
+        };
+
+        let parse_symbols = source_algebraic_parse_symbols(&assembly).unwrap();
+        let parsed_residuals =
+            parse_source_residual_expressions(&assembly, &parse_symbols).unwrap();
+
+        assert_eq!(parsed_residuals.len(), 1);
+        assert_eq!(
+            parsed_residuals[0].expression.root_unit,
+            Some(ArithmeticUnitMetadata {
+                display_unit: "W".to_owned(),
+                canonical_unit: "W".to_owned(),
+                quantity_kind: "Power".to_owned(),
+            })
+        );
     }
     #[test]
     fn source_residual_evaluation_uses_component_parameter_values() {
