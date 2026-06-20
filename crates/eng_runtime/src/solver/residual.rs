@@ -79,9 +79,9 @@ impl ResidualGraph {
                     .and_then(|dependency| variable_units.get(dependency))
                     .cloned()
                     .unwrap_or_else(|| ("1".to_owned(), "unknown".to_owned()));
-                let parsed_component_equation = if equation.kind == "component_equation"
-                    || (equation.kind == "component_boundary" && equation.rhs_value.is_none())
-                {
+                let should_parse_component_residual = equation.kind == "component_equation"
+                    || (equation.kind == "component_boundary" && equation.rhs_value.is_none());
+                let parsed_component_equation = if should_parse_component_residual {
                     parse_dynamic_linear_residual_terms(
                         &equation.residual,
                         &equation.dependencies,
@@ -98,11 +98,15 @@ impl ResidualGraph {
                     .as_ref()
                     .map(|parsed| parsed.terms.clone())
                     .unwrap_or_else(|| {
-                        residual_terms_for_generated_equation(
-                            &equation.kind,
-                            &equation.dependencies,
-                            &variable_indices,
-                        )
+                        if should_parse_component_residual {
+                            Vec::new()
+                        } else {
+                            residual_terms_for_generated_equation(
+                                &equation.kind,
+                                &equation.dependencies,
+                                &variable_indices,
+                            )
+                        }
                     });
                 let indices = terms
                     .iter()
@@ -1362,6 +1366,45 @@ mod tests {
         assert!(output.values.iter().all(|residual| residual.value == 0.0));
     }
 
+    #[test]
+    fn unsupported_component_equations_do_not_invent_linear_terms() {
+        let assembly = EquationAssembly {
+            name: "component_graph".to_owned(),
+            unknowns: vec![
+                UnknownVariable {
+                    name: "x".to_owned(),
+                    role: "algebraic".to_owned(),
+                    quantity_kind: "Dimensionless".to_owned(),
+                    unit: "1".to_owned(),
+                    source: "node.x".to_owned(),
+                    status: "classified".to_owned(),
+                    value: None,
+                },
+                UnknownVariable {
+                    name: "y".to_owned(),
+                    role: "algebraic".to_owned(),
+                    quantity_kind: "Dimensionless".to_owned(),
+                    unit: "1".to_owned(),
+                    source: "node.y".to_owned(),
+                    status: "classified".to_owned(),
+                    value: None,
+                },
+            ],
+            generated_equations: vec![GeneratedEquation {
+                name: "component.nonlinear".to_owned(),
+                kind: "component_equation".to_owned(),
+                residual: "x * y".to_owned(),
+                dependencies: vec!["x".to_owned(), "y".to_owned()],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let graph = ResidualGraph::from_assembly(&assembly);
+
+        assert!(graph.residuals[0].terms.is_empty());
+        assert!(graph.residuals[0].variable_indices.is_empty());
+    }
     #[test]
     fn component_equation_constants_convert_to_residual_unit() {
         let assembly = EquationAssembly {
