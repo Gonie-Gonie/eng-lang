@@ -261,6 +261,7 @@ Evidence gate:
 - Behavior graph explicit-Euler source RHS now pre-parses derivative residual expressions once with state, derivative, input, parameter, and behavior-output symbols, then reuses parsed expressions during timestep evaluation with regression coverage for behavior outputs plus explicit parameter values.
 - Behavior graph source outputs now carry unit and quantity metadata into residual expression parsing, preserving inferred residual expression units when behavior-node outputs participate in derivative RHS equations.
 - Fixed-point source residual solves now expose solver residual-history diagnostics through runtime component solutions and report-spec artifacts, including final convergence or nonconvergence failure metadata.
+- Source DAE solve requests now pass explicit DAE method policy into `DaeOptions`, so unsupported BDF requests surface the solver API `E-DAE-METHOD-UNSUPPORTED` failure through component solution and report-spec artifacts.
 
 ## Done Criteria
 

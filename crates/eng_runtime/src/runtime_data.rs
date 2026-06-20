@@ -30,8 +30,8 @@ use crate::solver::{
     solve_linear_residual_graph, solve_newton, solve_newton_with_jacobian, AdaptiveOdeOptions,
     AdaptiveOdeStepReport, AlgebraicInitializationInput, BehaviorExecutionProfile,
     BehaviorGraphRhsAdapter, BehaviorRhsNode, BehaviorRhsSample, BehaviorSignalContract,
-    BehaviorSignalSource, DaeInput, DaeOptions, DaeSample, DaeVariable, DelayBehaviorNode,
-    DelayBuffer, DelayInitialHistoryPolicy, DelayInterpolationPolicy,
+    BehaviorSignalSource, DaeInput, DaeMethod, DaeOptions, DaeSample, DaeVariable,
+    DelayBehaviorNode, DelayBuffer, DelayInitialHistoryPolicy, DelayInterpolationPolicy,
     DynamicComponentAssemblySolveInput, DynamicComponentOptions, DynamicComponentResult,
     ExternalBehaviorContract, ExternalBehaviorDeterminism, ExternalBehaviorKind,
     ExternalBehaviorProfilePolicy, FirstOrderThermalModel, FixedPointOptions, FixedStepMethod,
@@ -3473,6 +3473,20 @@ fn dae_component_solution_from_solve_request(
     let method = "implicit_euler_dae_source_residual_graph";
     let newton_options = newton_options_from_solve_request(&request.options);
     let tolerance = newton_options.tolerance;
+    let dae_method = match dae_method_from_solve_request(&request.options) {
+        Ok(method) => method,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                method,
+                "DAE source solve requested an unsupported integration method",
+                &failure,
+                tolerance,
+                newton_options.max_iterations,
+                "dae_source_failed",
+            );
+        }
+    };
     let timestep_s =
         match option_value(&request.options, "timestep").and_then(parse_duration_seconds) {
             Some(value) => value,
@@ -3720,6 +3734,7 @@ fn dae_component_solution_from_solve_request(
         parameters: parameter_values.clone(),
     };
     let dae_options = DaeOptions {
+        method: dae_method,
         timestep_s,
         step_count: time_grid.step_count,
         consistency_tolerance,
@@ -3739,10 +3754,15 @@ fn dae_component_solution_from_solve_request(
     let dae = match dae {
         Ok(result) => result,
         Err(failure) => {
+            let reason = if failure.code == "E-DAE-METHOD-UNSUPPORTED" {
+                "DAE source solve requested an unsupported integration method"
+            } else {
+                "DAE source solve failed during initial consistency checks"
+            };
             return failed_source_component_solution(
                 solver_assembly,
                 method,
-                "DAE source solve failed during initial consistency checks",
+                reason,
                 &failure,
                 tolerance,
                 newton_options.max_iterations,
@@ -5507,6 +5527,49 @@ fn newton_options_from_solve_request(options: &[eng_compiler::WithOptionInfo]) -
         newton.line_search_steps = steps;
     }
     newton
+}
+
+fn dae_method_from_solve_request(
+    options: &[eng_compiler::WithOptionInfo],
+) -> Result<DaeMethod, SolverFailure> {
+    let Some(raw_method) = option_value(options, "method")
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(DaeMethod::ImplicitEuler);
+    };
+    let method = raw_method.to_ascii_lowercase().replace('-', "_");
+    match method.as_str() {
+        "implicit_euler" | "implicit_euler_dae" | "dae_implicit_euler" => {
+            Ok(DaeMethod::ImplicitEuler)
+        }
+        "bdf" => Ok(DaeMethod::Bdf {
+            order: dae_bdf_order_from_options(options).unwrap_or(2),
+        }),
+        _ => {
+            if let Some(order_text) = method
+                .strip_prefix("bdf_")
+                .or_else(|| method.strip_prefix("bdf"))
+            {
+                if let Ok(order) = order_text.parse::<usize>() {
+                    if order > 0 {
+                        return Ok(DaeMethod::Bdf { order });
+                    }
+                }
+            }
+            Err(SolverFailure::new(
+                "E-DAE-SOURCE-METHOD",
+                format!("unsupported DAE source method `{raw_method}`"),
+            ))
+        }
+    }
+}
+
+fn dae_bdf_order_from_options(options: &[eng_compiler::WithOptionInfo]) -> Option<usize> {
+    option_value(options, "bdf_order")
+        .or_else(|| option_value(options, "order"))
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .filter(|order| *order > 0)
 }
 
 fn newton_residual_history_diagnostics(
@@ -9827,6 +9890,67 @@ with {
         assert!(json.contains("\"method\": \"implicit_euler_dae_source_residual_graph\""));
         assert!(json.contains("node.tau_factor"));
         assert!(json.contains("\"node.setpoint\""));
+    }
+
+    #[test]
+    fn materializes_dae_unsupported_bdf_method_from_source() {
+        let source = r#"
+domain DaeTemperature {
+    across T: AbsoluteTemperature [K]
+    across T_ref: AbsoluteTemperature [K]
+    through balance: TemperatureDelta [K]
+    conservation sum(balance) = 0
+}
+
+component DaeNode {
+    port hot: DaeTemperature
+    der(hot.T) + (hot.T - hot.T_ref) / 1 s eq 0 K/s
+    hot.T_ref eq 300 K
+}
+
+system BdfDae {
+    node = DaeNode()
+    connect node.hot to node.hot
+}
+
+dae_result = solve component_graph
+with {
+    solver = implicit_euler_dae
+    method = bdf2
+    timestep = 1 s
+    duration = 1 s
+    initial = [310 K]
+    initial_derivative = [-10 K/s]
+    initial_algebraic = [300 K, 0 K]
+    tolerance = 0.000000001
+    max_iter = 20
+}
+"#;
+        let report = check_source("dae_bdf_unsupported.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.status, "failed");
+        assert_eq!(solution.method, "implicit_euler_dae_source_residual_graph");
+        assert_eq!(solution.convergence_status, "dae_source_failed");
+        assert_eq!(
+            solution
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-DAE-METHOD-UNSUPPORTED")
+        );
+        assert!(solution.reason.contains("unsupported integration method"));
+
+        let mut spec =
+            eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        runtime.apply_component_solutions(&mut spec);
+        let json = eng_report::report_spec_json(&spec);
+        assert!(json.contains("E-DAE-METHOD-UNSUPPORTED"));
+        assert!(json.contains("BDF order 2"));
     }
 
     #[test]
