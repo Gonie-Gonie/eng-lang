@@ -1,0 +1,19 @@
+domain Fluid[Medium M] {
+    across p: Pressure [Pa]
+    through m_dot: MassFlowRate [kg/s]
+    conservation sum(m_dot) = 0
+}
+
+component PipeRun {
+    port inlet: Fluid[Water]
+    port outlet: Fluid[Water]
+    parameter dp: Pressure [Pa] = 20000 Pa
+    outlet.p + dp eq inlet.p
+    outlet.m_dot + inlet.m_dot eq 0
+}
+
+system BadParameterOverride {
+    pipe = PipeRun(dp=2 kg/s)
+    sink = PipeRun()
+    connect pipe.outlet to sink.inlet
+}

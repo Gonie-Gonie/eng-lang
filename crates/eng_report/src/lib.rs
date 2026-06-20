@@ -407,6 +407,7 @@ pub struct ReportComponentSummary {
     pub name: String,
     pub template_name: Option<String>,
     pub constructor_arguments: Vec<ReportComponentConstructorArgument>,
+    pub parameters: Vec<ReportComponentParameter>,
     pub ports: Vec<ReportPort>,
     pub local_expressions: Vec<ReportComponentLocalExpression>,
     pub line: usize,
@@ -416,6 +417,19 @@ pub struct ReportComponentSummary {
 pub struct ReportComponentConstructorArgument {
     pub name: String,
     pub value: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportComponentParameter {
+    pub name: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub default_value: Option<String>,
+    pub value: Option<String>,
+    pub source: String,
+    pub status: String,
+    pub line: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1322,6 +1336,21 @@ pub fn report_spec_from_report(
                 .map(|argument| ReportComponentConstructorArgument {
                     name: argument.name.clone(),
                     value: argument.value.clone(),
+                })
+                .collect(),
+            parameters: component
+                .parameters
+                .iter()
+                .map(|parameter| ReportComponentParameter {
+                    name: parameter.name.clone(),
+                    quantity_kind: parameter.quantity_kind.clone(),
+                    display_unit: parameter.display_unit.clone(),
+                    canonical_unit: parameter.canonical_unit.clone(),
+                    default_value: parameter.default_value.clone(),
+                    value: parameter.value.clone(),
+                    source: parameter.source.clone(),
+                    status: parameter.status.clone(),
+                    line: parameter.line,
                 })
                 .collect(),
             ports: component
@@ -3426,7 +3455,52 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             json.push_str("        }");
         }
         json.push_str("\n      ],\n");
+        json.push_str("      \"parameters\": [\n");
+        for (parameter_index, parameter) in component.parameters.iter().enumerate() {
+            if parameter_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&parameter.name)
+            ));
+            json.push_str(&format!(
+                "          \"quantity_kind\": \"{}\",\n",
+                json_escape(&parameter.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&parameter.display_unit)
+            ));
+            json.push_str(&format!(
+                "          \"canonical_unit\": \"{}\",\n",
+                json_escape(&parameter.canonical_unit)
+            ));
+            push_optional_json_string(
+                &mut json,
+                "default_value",
+                parameter.default_value.as_deref(),
+                10,
+            );
+            push_optional_json_string(&mut json, "value", parameter.value.as_deref(), 10);
+            json.push_str(&format!(
+                "          \"source\": \"{}\",\n",
+                json_escape(&parameter.source)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&parameter.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", parameter.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
         json.push_str(&format!("      \"line\": {},\n", component.line));
+        json.push_str(&format!(
+            "      \"parameter_count\": {},\n",
+            component.parameters.len()
+        ));
         json.push_str(&format!(
             "      \"port_count\": {},\n",
             component.ports.len()

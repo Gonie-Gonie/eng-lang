@@ -7,7 +7,7 @@ and connections; it generates connection equations; and `eng run` solves a
 square dense linear residual graph when literal boundary seeds make the graph
 balanced. Official examples cover constrained Thermal graphs and a constrained
 Thermal/Fluid[Water] pressure/flow graph. Broader component behavior equations,
-broad typed constructor declarations/defaults, dynamic components, nonlinear/DAE coupling, pressure
+broad non-literal constructor bindings and broad arity/default policy, dynamic components, nonlinear/DAE coupling, pressure
 quantity packages, and physical multi-domain solving remain internal or
 planned.
 
@@ -110,11 +110,7 @@ system EnvelopeBoundary {
 }
 ```
 
-`name = Component(...)` inside a `system` creates a system-local component
-instance from a declared component template. Empty constructors are allowed,
-and named literal arguments such as `PipeRun(dp=20000 Pa)` are substituted into
-component-local boundary and equation seeds; the instantiated component records
-constructor provenance in review/report-spec artifacts. Positional arguments such as
+`name = Component(...)` inside a `system` creates a system-local component instance from a declared component template. Empty constructors are allowed, declared component parameters can provide defaults, and named constructor overrides such as `PumpBoundary(p_supply=220000 Pa)` are type/unit checked before being substituted into component-local boundary and equation seeds; the instantiated component records constructor and parameter provenance in review/report-spec artifacts. Positional arguments such as
 `RoomBoundary(22 degC)` report `E-COMPONENT-INSTANCE-ARGS`. Unknown component
 names report `E-COMPONENT-INSTANCE-UNKNOWN`. Duplicate instance names report
 `E-COMPONENT-INSTANCE-DUPLICATE`.
@@ -149,9 +145,10 @@ domain.
 | `E-CONNECT-AXIS-001` | Same generic domain, but `Axis` arguments differ. |
 | `E-CONNECT-DUPLICATE-001` | The same component-port pair is connected more than once, including reversed duplicates. |
 | `E-COMPONENT-INSTANCE-UNKNOWN` | A system-local `Name()` constructor does not reference a declared component template. |
-| `E-COMPONENT-INSTANCE-ARGS` | A system-local component constructor uses positional, invalid, duplicate, or unused arguments. |
+| `E-COMPONENT-INSTANCE-ARGS` | A system-local component constructor uses positional, invalid, duplicate, unknown, or missing arguments. |
 | `E-COMPONENT-INSTANCE-DUPLICATE` | A system-local component instance name is repeated. |
 | `E-COMPONENT-EQUATION-UNIT-001` | A component-local equation mixes incompatible signal quantities or uses a unitful constant incompatible with the referenced signal quantity. |
+| `E-COMPONENT-PARAM-UNIT-001` | A component constructor/default value uses a unit incompatible with the declared component parameter quantity. |
 | `E-DELAY-CALL-001` | Component-local delay call is not `delay(signal, duration)`. |
 | `E-DELAY-SIGNAL-001` | Delay signal is not a known component signal. |
 | `E-DELAY-DURATION-001` | Delay duration is not a positive time value. |
@@ -405,7 +402,7 @@ Current:
 
 Deferred:
 
-- broad typed constructor declarations/defaults beyond named literal substitution;
+- broad non-literal constructor bindings and residual-preserved parameter references beyond numeric default/override substitution;
 - broad nonlinear or unit-parameterized component-local equation solving;
 - physical component graph solving with component behavior equations, broad
   nonlinear/DAE coupling, and adaptive component timestepping;

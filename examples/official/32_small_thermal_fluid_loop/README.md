@@ -4,9 +4,9 @@ This example is a constrained multi-domain algebraic residual solve. It uses:
 
 - `Thermal` across/through connection equations;
 - `Fluid[Water]` pressure/flow across-through connection equations;
-- system-local component instances with named constructor arguments;
-- component-local boundary seeds materialized from those arguments;
-- a simple linear pipe pressure-drop equation;
+- system-local component instances with declared parameter defaults and named constructor overrides;
+- component-local boundary and pressure-drop seeds materialized from typed component parameters;
+- a simple linear pipe pressure-drop equation using the `dp` component parameter default;
 - dense linear residual graph solve artifacts.
 
 Current support boundary:

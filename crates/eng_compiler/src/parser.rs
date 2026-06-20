@@ -1624,16 +1624,17 @@ fn parse_system_variable_decl(
     line_text: &str,
     context: ParseContext,
 ) -> Option<SystemVariableDecl> {
-    if context != ParseContext::System {
+    if !matches!(context, ParseContext::System | ParseContext::Component) {
         return None;
     }
     let [first, second, third, ..] = tokens else {
         return None;
     };
-    let role = match first.kind {
-        TokenKind::Keyword(Keyword::Parameter) => "parameter",
-        TokenKind::Keyword(Keyword::State) => "state",
-        TokenKind::Keyword(Keyword::Input) => "input",
+    let role = match (&first.kind, context) {
+        (TokenKind::Keyword(Keyword::Parameter), ParseContext::System) => "parameter",
+        (TokenKind::Keyword(Keyword::State), ParseContext::System) => "state",
+        (TokenKind::Keyword(Keyword::Input), ParseContext::System) => "input",
+        (TokenKind::Keyword(Keyword::Parameter), ParseContext::Component) => "parameter",
         _ => return None,
     };
     let TokenKind::Identifier(name) = &second.kind else {
@@ -1658,9 +1659,9 @@ fn parse_system_variable_decl(
         expression,
         line: first.span.line,
         span: first.span,
+        context,
     })
 }
-
 fn parse_state_space_vector_decl(
     tokens: &[Token],
     line_text: &str,

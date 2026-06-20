@@ -226,6 +226,7 @@ pub struct SystemVariableDecl {
     pub expression: Option<String>,
     pub line: usize,
     pub span: SourceSpan,
+    pub context: ParseContext,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -2642,7 +2642,52 @@ pub fn review_json(report: &CheckReport) -> String {
             json.push_str("        }");
         }
         json.push_str("\n      ],\n");
+        json.push_str("      \"parameters\": [\n");
+        for (parameter_index, parameter) in component.parameters.iter().enumerate() {
+            if parameter_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&parameter.name)
+            ));
+            json.push_str(&format!(
+                "          \"quantity_kind\": \"{}\",\n",
+                json_escape(&parameter.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&parameter.display_unit)
+            ));
+            json.push_str(&format!(
+                "          \"canonical_unit\": \"{}\",\n",
+                json_escape(&parameter.canonical_unit)
+            ));
+            push_optional_json_string(
+                &mut json,
+                "default_value",
+                parameter.default_value.as_deref(),
+                10,
+            );
+            push_optional_json_string(&mut json, "value", parameter.value.as_deref(), 10);
+            json.push_str(&format!(
+                "          \"source\": \"{}\",\n",
+                json_escape(&parameter.source)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&parameter.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", parameter.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
         json.push_str(&format!("      \"line\": {},\n", component.line));
+        json.push_str(&format!(
+            "      \"parameter_count\": {},\n",
+            component.parameters.len()
+        ));
         json.push_str(&format!(
             "      \"port_count\": {},\n",
             component.ports.len()
@@ -5104,6 +5149,41 @@ mod tests {
         assert!(review.contains("\"value\": \"1 kW\""));
     }
 
+    #[test]
+    fn accepts_declared_component_parameter_defaults_and_overrides() {
+        let report = check_source(
+            "ok.eng",
+            "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n    parameter T_room: AbsoluteTemperature [degC] = 21 degC\n    parameter Q_room: HeatRate [kW] = 1 kW\n    boundary_T = heat.T = T_room\n    boundary_Q = heat.Q = Q_room\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\nsystem Envelope {\n    room = RoomBoundary(T_room=22 degC)\n    ambient = AmbientBoundary()\n    connect room.heat to ambient.heat\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let room = report
+            .semantic_program
+            .components
+            .iter()
+            .find(|component| component.name == "room")
+            .expect("room instance");
+        assert_eq!(room.parameters.len(), 2);
+        assert_eq!(room.parameters[0].name, "T_room");
+        assert_eq!(room.parameters[0].value.as_deref(), Some("22 degC"));
+        assert_eq!(room.parameters[0].status, "constructor_override");
+        assert_eq!(room.parameters[1].name, "Q_room");
+        assert_eq!(room.parameters[1].value.as_deref(), Some("1 kW"));
+        assert_eq!(room.parameters[1].status, "defaulted");
+        let assembly = &report.semantic_program.component_assemblies[0];
+        assert_eq!(assembly.boundary.parameter_count, 2);
+        assert!(assembly.equations.iter().any(|equation| {
+            equation.kind == "component_boundary" && equation.expression == "room.heat.T eq 22 degC"
+        }));
+        assert!(assembly.equations.iter().any(|equation| {
+            equation.kind == "component_boundary" && equation.expression == "room.heat.Q eq 1 kW"
+        }));
+        let review = review_json(&report);
+        assert!(review.contains("\"parameters\""));
+        assert!(review.contains("\"status\": \"constructor_override\""));
+        assert!(review.contains("\"status\": \"defaulted\""));
+    }
     #[test]
     fn rejects_unsupported_system_component_constructor_shapes() {
         let unknown = check_source(

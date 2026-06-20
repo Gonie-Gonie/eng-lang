@@ -1822,6 +1822,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             "E-COMPONENT-EQUATION-UNIT-001",
         ),
         (
+            "examples/diagnostics/error_messages/component_parameter_unit_mismatch.eng",
+            "E-COMPONENT-PARAM-UNIT-001",
+        ),
+        (
             "examples/diagnostics/error_messages/simulate_unknown_system.eng",
             "E-SIM-SYSTEM-001",
         ),
@@ -4399,6 +4403,15 @@ fn small_thermal_fluid_solve_artifacts_are_structured(output: &eng_runtime::RunO
             .report_spec_json
             .contains("\"not_production_multi_domain\"")
         && output.report_spec_json.contains("20000 Pa")
+        && output.report_spec_json.contains("\"parameter_count\": 3")
+        && output.report_spec_json.contains("\"name\": \"p_supply\"")
+        && output
+            .report_spec_json
+            .contains("\"status\": \"constructor_override\"")
+        && output.report_spec_json.contains("\"name\": \"dp\"")
+        && output
+            .report_spec_json
+            .contains("\"status\": \"defaulted\"")
         && output.report_html.contains("dense_linear_residual_graph")
         && output.report_html.contains("Fluid[Water]")
         && output.report_html.contains("domain plan")

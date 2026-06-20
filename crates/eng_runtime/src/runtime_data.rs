@@ -5752,6 +5752,27 @@ fn assembly_variable_quantity_unit(
     report: &CheckReport,
     variable: &eng_compiler::ComponentAssemblyVariableInfo,
 ) -> (String, String) {
+    if variable.role == "parameter" {
+        if let Some((component_name, parameter_name)) = variable.name.split_once('.') {
+            if let Some(parameter) = report
+                .semantic_program
+                .components
+                .iter()
+                .find(|component| component.name == component_name)
+                .and_then(|component| {
+                    component
+                        .parameters
+                        .iter()
+                        .find(|parameter| parameter.name == parameter_name)
+                })
+            {
+                return (
+                    parameter.quantity_kind.clone(),
+                    parameter.display_unit.clone(),
+                );
+            }
+        }
+    }
     let Some((domain_name, variable_name)) = variable.source.split_once('.') else {
         return ("unknown".to_owned(), "1".to_owned());
     };

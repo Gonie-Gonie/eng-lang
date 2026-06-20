@@ -287,10 +287,25 @@ pub struct ComponentConstructorArgumentInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComponentParameterInfo {
+    pub name: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub dimension: String,
+    pub default_value: Option<String>,
+    pub value: Option<String>,
+    pub source: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ComponentInfo {
     pub name: String,
     pub template_name: Option<String>,
     pub constructor_arguments: Vec<ComponentConstructorArgumentInfo>,
+    pub parameters: Vec<ComponentParameterInfo>,
     pub ports: Vec<PortInfo>,
     pub local_expressions: Vec<ComponentLocalExpressionInfo>,
     pub line: usize,
@@ -904,6 +919,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     name: component.name.clone(),
                     template_name: None,
                     constructor_arguments: Vec::new(),
+                    parameters: Vec::new(),
                     ports: Vec::new(),
                     local_expressions: Vec::new(),
                     line: component.span.line,
@@ -1000,39 +1016,51 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     analyze_args_field(field, &mut args_blocks[args_block_index]);
                 }
             }
-            AstItem::SystemVariable(variable) => {
-                if let Some(system_index) = current_system_index {
-                    if let Some((vector_role, type_name)) =
-                        state_space_vector_type_parameter(&variable.type_name)
-                    {
-                        analyze_typed_state_space_vector_variable(
+            AstItem::SystemVariable(variable) => match variable.context {
+                ParseContext::System => {
+                    if let Some(system_index) = current_system_index {
+                        if let Some((vector_role, type_name)) =
+                            state_space_vector_type_parameter(&variable.type_name)
+                        {
+                            analyze_typed_state_space_vector_variable(
+                                variable,
+                                vector_role,
+                                type_name,
+                                &state_space_type_blocks,
+                                &mut systems[system_index],
+                                &mut state_space_vectors,
+                                &mut state_space_type_aliases,
+                                &mut diagnostics,
+                                &mut expected_types,
+                                &mut hover_hints,
+                                &mut typed_bindings,
+                                &mut type_infos,
+                                &mut unit_derivations,
+                            );
+                        } else {
+                            analyze_system_variable(
+                                variable,
+                                &mut systems[system_index],
+                                &mut expected_types,
+                                &mut hover_hints,
+                                &mut typed_bindings,
+                                &mut type_infos,
+                                &mut unit_derivations,
+                            );
+                        }
+                    }
+                }
+                ParseContext::Component => {
+                    if let Some(component_index) = current_component_index {
+                        analyze_component_parameter(
                             variable,
-                            vector_role,
-                            type_name,
-                            &state_space_type_blocks,
-                            &mut systems[system_index],
-                            &mut state_space_vectors,
-                            &mut state_space_type_aliases,
+                            &mut components[component_index],
                             &mut diagnostics,
-                            &mut expected_types,
-                            &mut hover_hints,
-                            &mut typed_bindings,
-                            &mut type_infos,
-                            &mut unit_derivations,
-                        );
-                    } else {
-                        analyze_system_variable(
-                            variable,
-                            &mut systems[system_index],
-                            &mut expected_types,
-                            &mut hover_hints,
-                            &mut typed_bindings,
-                            &mut type_infos,
-                            &mut unit_derivations,
                         );
                     }
                 }
-            }
+                _ => {}
+            },
             AstItem::StateSpaceVector(vector) => {
                 if let Some(system_index) = current_system_index {
                     analyze_state_space_vector_decl(
@@ -5014,6 +5042,103 @@ fn analyze_port(declaration: &PortDecl, component: &mut ComponentInfo) {
     });
 }
 
+fn analyze_component_parameter(
+    declaration: &SystemVariableDecl,
+    component: &mut ComponentInfo,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let display_unit = declaration
+        .unit
+        .clone()
+        .or_else(|| {
+            declaration
+                .expression
+                .as_deref()
+                .and_then(first_unit_in_expression)
+        })
+        .unwrap_or_else(|| default_unit_for_quantity(&declaration.type_name));
+    let canonical_unit = default_unit_for_quantity(&declaration.type_name);
+    let dimension = dimension_for_quantity(&declaration.type_name);
+    let status = if dimension == "unknown" {
+        diagnostics.push(Diagnostic::error(
+            "E-COMPONENT-PARAM-001",
+            declaration.line,
+            &format!(
+                "Component parameter `{}` on `{}` uses unknown quantity kind `{}`.",
+                declaration.name, component.name, declaration.type_name
+            ),
+            Some("Use a known quantity kind from the EngLang quantity registry."),
+        ));
+        "unknown_quantity"
+    } else if let Some(default_value) = &declaration.expression {
+        if component_parameter_value_compatible(
+            &declaration.name,
+            default_value,
+            &declaration.type_name,
+            declaration.line,
+            diagnostics,
+        ) {
+            "defaulted"
+        } else {
+            "default_type_mismatch"
+        }
+    } else {
+        "required"
+    };
+
+    component.parameters.push(ComponentParameterInfo {
+        name: declaration.name.clone(),
+        quantity_kind: declaration.type_name.clone(),
+        display_unit,
+        canonical_unit,
+        dimension,
+        default_value: declaration.expression.clone(),
+        value: declaration.expression.clone(),
+        source: if declaration.expression.is_some() {
+            "default".to_owned()
+        } else {
+            "required".to_owned()
+        },
+        status: status.to_owned(),
+        line: declaration.line,
+    });
+}
+
+fn component_parameter_value_compatible(
+    parameter_name: &str,
+    value: &str,
+    quantity_kind: &str,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let Some((_amount, unit)) = numeric_literal_with_optional_unit(value) else {
+        diagnostics.push(Diagnostic::error(
+            "E-COMPONENT-PARAM-002",
+            line,
+            &format!(
+                "Component parameter `{parameter_name}` expects a numeric literal default or override, got `{value}`."
+            ),
+            Some("Use a finite numeric literal with an optional compatible unit, such as `20000 Pa`."),
+        ));
+        return false;
+    };
+    let Some(unit) = unit else {
+        return true;
+    };
+    if unit_compatible_with_quantity(quantity_kind, &unit) {
+        true
+    } else {
+        diagnostics.push(Diagnostic::error(
+            "E-COMPONENT-PARAM-UNIT-001",
+            line,
+            &format!(
+                "Component parameter `{parameter_name}` value unit `{unit}` is not compatible with `{quantity_kind}`."
+            ),
+            Some("Use a constructor/default value with a unit compatible with the declared parameter quantity."),
+        ));
+        false
+    }
+}
 fn analyze_component_local_expression(
     binding: &crate::ast::FastBinding,
     component: &mut ComponentInfo,
@@ -5154,7 +5279,7 @@ fn parse_component_constructor_arguments(
                 &format!(
                     "Component instance `{instance_name}` calls `{template_name}` with positional arguments, which are not supported."
                 ),
-                Some("Use named literal arguments such as `drop = PipeRun(dp=20000 Pa)`."),
+                Some("Use named arguments for declared component parameters, such as `pipe = PipeRun(dp=20000 Pa)`."),
             ));
             return None;
         };
@@ -5209,35 +5334,122 @@ fn instantiate_component_template(
     instance.template_name = Some(template.name.clone());
     instance.constructor_arguments = arguments.to_vec();
     instance.line = binding.line;
-    if arguments.is_empty() {
+
+    if template.parameters.is_empty() {
+        if arguments.is_empty() {
+            return Some(instance);
+        }
+        let mut used_arguments = HashSet::new();
+        for local in &mut instance.local_expressions {
+            local.expression = substitute_component_constructor_arguments(
+                &local.expression,
+                arguments,
+                &mut used_arguments,
+            );
+        }
+        let unused_arguments = arguments
+            .iter()
+            .filter(|argument| !used_arguments.contains(argument.name.as_str()))
+            .map(|argument| argument.name.as_str())
+            .collect::<Vec<_>>();
+        if !unused_arguments.is_empty() {
+            diagnostics.push(Diagnostic::error(
+                "E-COMPONENT-INSTANCE-ARGS",
+                binding.line,
+                &format!(
+                    "Component instance `{}` passes unused constructor argument(s): {}.",
+                    binding.name,
+                    unused_arguments.join(", ")
+                ),
+                Some("Declare component parameters for typed constructor arguments, or pass only names referenced by component-local boundary/equation seeds."),
+            ));
+            return None;
+        }
         return Some(instance);
     }
 
-    let mut used_arguments = HashSet::new();
+    let mut parameter_values = HashMap::new();
+    for parameter in &template.parameters {
+        if let Some(default_value) = &parameter.default_value {
+            parameter_values.insert(parameter.name.clone(), (default_value.clone(), "default"));
+        }
+    }
+
+    for argument in arguments {
+        let Some(parameter) = template
+            .parameters
+            .iter()
+            .find(|parameter| parameter.name == argument.name)
+        else {
+            diagnostics.push(Diagnostic::error(
+                "E-COMPONENT-INSTANCE-ARGS",
+                binding.line,
+                &format!(
+                    "Component instance `{}` passes unknown constructor parameter `{}` to `{}`.",
+                    binding.name, argument.name, template.name
+                ),
+                Some("Pass only parameters declared inside the component template."),
+            ));
+            return None;
+        };
+        if !component_parameter_value_compatible(
+            &argument.name,
+            &argument.value,
+            &parameter.quantity_kind,
+            binding.line,
+            diagnostics,
+        ) {
+            return None;
+        }
+        parameter_values.insert(
+            argument.name.clone(),
+            (argument.value.clone(), "constructor"),
+        );
+    }
+
+    for parameter in &mut instance.parameters {
+        if let Some((value, source)) = parameter_values.get(&parameter.name) {
+            parameter.value = Some(value.clone());
+            parameter.source = (*source).to_owned();
+            parameter.status = if *source == "constructor" {
+                "constructor_override".to_owned()
+            } else {
+                "defaulted".to_owned()
+            };
+        } else {
+            diagnostics.push(Diagnostic::error(
+                "E-COMPONENT-INSTANCE-ARGS",
+                binding.line,
+                &format!(
+                    "Component instance `{}` does not provide required constructor parameter `{}` for `{}`.",
+                    binding.name, parameter.name, template.name
+                ),
+                Some("Pass the required parameter by name or add a default value to the component parameter declaration."),
+            ));
+            return None;
+        }
+    }
+
+    let substitutions = instance
+        .parameters
+        .iter()
+        .filter_map(|parameter| {
+            parameter
+                .value
+                .as_ref()
+                .map(|value| ComponentConstructorArgumentInfo {
+                    name: parameter.name.clone(),
+                    value: value.clone(),
+                })
+        })
+        .collect::<Vec<_>>();
+    let mut used_parameters = HashSet::new();
     for local in &mut instance.local_expressions {
         local.expression = substitute_component_constructor_arguments(
             &local.expression,
-            arguments,
-            &mut used_arguments,
+            &substitutions,
+            &mut used_parameters,
         );
-    }
-    let unused_arguments = arguments
-        .iter()
-        .filter(|argument| !used_arguments.contains(argument.name.as_str()))
-        .map(|argument| argument.name.as_str())
-        .collect::<Vec<_>>();
-    if !unused_arguments.is_empty() {
-        diagnostics.push(Diagnostic::error(
-            "E-COMPONENT-INSTANCE-ARGS",
-            binding.line,
-            &format!(
-                "Component instance `{}` passes unused constructor argument(s): {}.",
-                binding.name,
-                unused_arguments.join(", ")
-            ),
-            Some("Pass only argument names referenced by component-local boundary or equation seeds."),
-        ));
-        return None;
     }
     Some(instance)
 }
@@ -5272,7 +5484,6 @@ fn substitute_component_constructor_arguments(
     }
     output
 }
-
 fn is_identifier_start_character(character: char) -> bool {
     character.is_ascii_alphabetic() || character == '_'
 }
@@ -5707,6 +5918,20 @@ fn build_component_assembly_graphs(
     let component_local_equations =
         component_local_equations(domains, components, &connection_sets, diagnostics);
     equations.extend(component_local_equations);
+    for component in components {
+        for parameter in &component.parameters {
+            let parameter_name = format!("{}.{}", component.name, parameter.name);
+            if seen_variables.insert(parameter_name.clone()) {
+                variables.push(ComponentAssemblyVariableInfo {
+                    name: parameter_name,
+                    role: "parameter".to_owned(),
+                    domain: "component_parameter".to_owned(),
+                    source: format!("component_parameter.{}", parameter.quantity_kind),
+                    status: parameter.status.clone(),
+                });
+            }
+        }
+    }
     classify_dynamic_component_states(&mut variables, &equations);
 
     let algebraic_count = variables
@@ -5716,6 +5941,10 @@ fn build_component_assembly_graphs(
     let state_count = variables
         .iter()
         .filter(|variable| variable.role == "state")
+        .count();
+    let parameter_count = variables
+        .iter()
+        .filter(|variable| variable.role == "parameter")
         .count();
     let unknown_count = algebraic_count + state_count;
     let equation_count = equations.len();
@@ -5838,7 +6067,7 @@ fn build_component_assembly_graphs(
             algebraic_count,
             input_count: 0,
             output_count: 0,
-            parameter_count: 0,
+            parameter_count,
             equation_count,
             unknown_count,
             balance_status,
@@ -7358,6 +7587,7 @@ fn analyze_typed_state_space_vector_variable(
                 expression: initial_values.get(index).cloned(),
                 line: member.line,
                 span: member.span,
+                context: ParseContext::System,
             };
             analyze_system_variable(
                 &generated,

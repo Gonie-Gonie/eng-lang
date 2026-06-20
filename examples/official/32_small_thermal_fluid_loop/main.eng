@@ -22,6 +22,8 @@ component AmbientBoundary {
 
 component PumpBoundary {
     port supply: Fluid[Water]
+    parameter p_supply: Pressure [Pa] = 200000 Pa
+    parameter m_dot_supply: MassFlowRate [kg/s] = 0.1 kg/s
     supply_pressure = supply.p = p_supply
     supply_flow = supply.m_dot = m_dot_supply
 }
@@ -29,6 +31,7 @@ component PumpBoundary {
 component PipeRun {
     port inlet: Fluid[Water]
     port outlet: Fluid[Water]
+    parameter dp: Pressure [Pa] = 20000 Pa
     outlet.p + dp eq inlet.p
     outlet.m_dot + inlet.m_dot eq 0
 }
@@ -41,7 +44,7 @@ system ThermalFluidLoop {
     zone = ZoneBoundary()
     ambient = AmbientBoundary()
     pump = PumpBoundary(p_supply=220000 Pa, m_dot_supply=0.2 kg/s)
-    pipe = PipeRun(dp=20000 Pa)
+    pipe = PipeRun()
     return_node = ReturnBoundary()
 
     connect zone.heat to ambient.heat
