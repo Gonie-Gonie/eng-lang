@@ -64,6 +64,7 @@ pub struct UnknownVariable {
     pub unit: String,
     pub source: String,
     pub status: String,
+    pub value: Option<f64>,
 }
 
 pub type StateVariable = UnknownVariable;
@@ -295,6 +296,7 @@ mod tests {
             unit: "1".to_owned(),
             source: "test".to_owned(),
             status: "active".to_owned(),
+            value: None,
         }
     }
 }

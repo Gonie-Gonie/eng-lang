@@ -3963,6 +3963,7 @@ fn solver_smoke_component_variable(
         unit: "1".to_owned(),
         source: format!("Test.{name}"),
         status: "classified".to_owned(),
+        value: None,
     }
 }
 

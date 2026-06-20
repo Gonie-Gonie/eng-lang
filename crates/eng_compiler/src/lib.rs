@@ -5174,10 +5174,14 @@ mod tests {
         let assembly = &report.semantic_program.component_assemblies[0];
         assert_eq!(assembly.boundary.parameter_count, 2);
         assert!(assembly.equations.iter().any(|equation| {
-            equation.kind == "component_boundary" && equation.expression == "room.heat.T eq 22 degC"
+            equation.kind == "component_boundary"
+                && equation.expression == "room.heat.T eq room.T_room"
+                && equation.dependencies == vec!["room.heat.T".to_owned(), "room.T_room".to_owned()]
         }));
         assert!(assembly.equations.iter().any(|equation| {
-            equation.kind == "component_boundary" && equation.expression == "room.heat.Q eq 1 kW"
+            equation.kind == "component_boundary"
+                && equation.expression == "room.heat.Q eq room.Q_room"
+                && equation.dependencies == vec!["room.heat.Q".to_owned(), "room.Q_room".to_owned()]
         }));
         let review = review_json(&report);
         assert!(review.contains("\"parameters\""));

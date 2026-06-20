@@ -46,11 +46,27 @@ impl ResidualGraph {
         let variable_units = assembly
             .unknowns
             .iter()
+            .chain(assembly.parameters.iter())
             .map(|variable| {
                 (
                     variable.name.clone(),
                     (variable.unit.clone(), variable.quantity_kind.clone()),
                 )
+            })
+            .collect::<HashMap<_, _>>();
+        let parameter_values = assembly
+            .parameters
+            .iter()
+            .filter_map(|parameter| {
+                parameter.value.map(|value| {
+                    (
+                        parameter.name.clone(),
+                        ResidualConstantAlias {
+                            value,
+                            unit: parameter.unit.clone(),
+                        },
+                    )
+                })
             })
             .collect::<HashMap<_, _>>();
         let residuals = assembly
@@ -63,13 +79,16 @@ impl ResidualGraph {
                     .and_then(|dependency| variable_units.get(dependency))
                     .cloned()
                     .unwrap_or_else(|| ("1".to_owned(), "unknown".to_owned()));
-                let parsed_component_equation = if equation.kind == "component_equation" {
+                let parsed_component_equation = if equation.kind == "component_equation"
+                    || (equation.kind == "component_boundary" && equation.rhs_value.is_none())
+                {
                     parse_dynamic_linear_residual_terms(
                         &equation.residual,
                         &equation.dependencies,
                         &variable_indices,
                         &variables,
                         Some((&unit, &quantity_kind)),
+                        Some(&parameter_values),
                     )
                     .ok()
                 } else {
@@ -252,6 +271,7 @@ impl ResidualGraph {
                     &variable_aliases,
                     &variables,
                     Some((&unit, &quantity_kind)),
+                    None,
                 )?;
                 let rhs_value = dynamic_residual_rhs_value(equation, parsed.constant)?;
                 let scale = ResidualScale::from_quantity_unit(&quantity_kind, &unit);
@@ -376,6 +396,12 @@ struct ParsedDynamicResidual {
     constant: f64,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+struct ResidualConstantAlias {
+    value: f64,
+    unit: String,
+}
+
 struct DynamicResidualVariableSpec<'a> {
     name: &'a str,
     role: &'a str,
@@ -478,6 +504,7 @@ fn parse_dynamic_linear_residual_terms(
     variable_aliases: &HashMap<String, usize>,
     variables: &[ResidualVariableRef],
     residual_unit: Option<(&str, &str)>,
+    constant_aliases: Option<&HashMap<String, ResidualConstantAlias>>,
 ) -> Result<ParsedDynamicResidual, SolverFailure> {
     let dependency_indices = dependencies
         .iter()
@@ -520,6 +547,7 @@ fn parse_dynamic_linear_residual_terms(
             variable_aliases,
             variables,
             residual_unit,
+            constant_aliases,
             &mut parsed,
         )?;
         sign = 1.0;
@@ -541,6 +569,7 @@ fn parse_dynamic_linear_term(
     variable_aliases: &HashMap<String, usize>,
     variables: &[ResidualVariableRef],
     residual_unit: Option<(&str, &str)>,
+    constant_aliases: Option<&HashMap<String, ResidualConstantAlias>>,
     parsed: &mut ParsedDynamicResidual,
 ) -> Result<(), SolverFailure> {
     let term = raw.trim();
@@ -549,6 +578,10 @@ fn parse_dynamic_linear_term(
     }
     if let Some(index) = variable_aliases.get(term).copied() {
         push_dynamic_linear_term(term, index, sign, dependency_indices, variables, parsed)?;
+        return Ok(());
+    }
+    if let Some(value) = residual_constant_alias_value(term, constant_aliases, residual_unit)? {
+        parsed.constant += sign * value;
         return Ok(());
     }
     if let Ok(value) = term.parse::<f64>() {
@@ -568,6 +601,11 @@ fn parse_dynamic_linear_term(
         for factor in factors {
             if let Ok(value) = factor.parse::<f64>() {
                 coefficient *= value;
+            } else if let Some(alias) = constant_aliases.and_then(|aliases| aliases.get(factor)) {
+                if normalize_unit(&alias.unit) != "1" {
+                    return Err(unsupported_dynamic_linear_term(term));
+                }
+                coefficient *= alias.value;
             } else if let Some(index) = variable_aliases.get(factor).copied() {
                 if variable_index.is_some() {
                     return Err(unsupported_dynamic_linear_term(term));
@@ -617,6 +655,21 @@ fn parse_dynamic_linear_term(
     }
 
     Err(unsupported_dynamic_linear_term(term))
+}
+
+fn residual_constant_alias_value(
+    name: &str,
+    constant_aliases: Option<&HashMap<String, ResidualConstantAlias>>,
+    residual_unit: Option<(&str, &str)>,
+) -> Result<Option<f64>, SolverFailure> {
+    let Some(alias) = constant_aliases.and_then(|aliases| aliases.get(name)) else {
+        return Ok(None);
+    };
+    Ok(Some(convert_residual_constant(
+        alias.value,
+        &alias.unit,
+        residual_unit,
+    )?))
 }
 
 fn residual_unit_info(unit: &str) -> Option<UnitInfo> {
@@ -1262,6 +1315,7 @@ mod tests {
                     unit: "1".to_owned(),
                     source: "node.x".to_owned(),
                     status: "classified".to_owned(),
+                    value: None,
                 },
                 UnknownVariable {
                     name: "y".to_owned(),
@@ -1270,6 +1324,7 @@ mod tests {
                     unit: "1".to_owned(),
                     source: "node.y".to_owned(),
                     status: "classified".to_owned(),
+                    value: None,
                 },
             ],
             generated_equations: vec![
@@ -1319,6 +1374,7 @@ mod tests {
                     unit: "Pa".to_owned(),
                     source: "Fluid.p".to_owned(),
                     status: "classified".to_owned(),
+                    value: None,
                 },
                 UnknownVariable {
                     name: "pipe.inlet.p".to_owned(),
@@ -1327,6 +1383,7 @@ mod tests {
                     unit: "Pa".to_owned(),
                     source: "Fluid.p".to_owned(),
                     status: "classified".to_owned(),
+                    value: None,
                 },
             ],
             generated_equations: vec![GeneratedEquation {
@@ -1349,6 +1406,63 @@ mod tests {
         assert_eq!(residual.rhs_value, -20000.0);
         assert_eq!(residual.scale.value, 1000.0);
         assert_eq!(residual.scale.policy, "unit_default:Pressure[Pa]");
+    }
+    #[test]
+    fn component_equation_parameter_aliases_become_linear_constants() {
+        let assembly = EquationAssembly {
+            name: "component_graph".to_owned(),
+            unknowns: vec![
+                UnknownVariable {
+                    name: "pipe.outlet.p".to_owned(),
+                    role: "algebraic".to_owned(),
+                    quantity_kind: "Pressure".to_owned(),
+                    unit: "Pa".to_owned(),
+                    source: "Fluid.p".to_owned(),
+                    status: "classified".to_owned(),
+                    value: None,
+                },
+                UnknownVariable {
+                    name: "pipe.inlet.p".to_owned(),
+                    role: "algebraic".to_owned(),
+                    quantity_kind: "Pressure".to_owned(),
+                    unit: "Pa".to_owned(),
+                    source: "Fluid.p".to_owned(),
+                    status: "classified".to_owned(),
+                    value: None,
+                },
+            ],
+            parameters: vec![UnknownVariable {
+                name: "pipe.dp".to_owned(),
+                role: "parameter".to_owned(),
+                quantity_kind: "Pressure".to_owned(),
+                unit: "kPa".to_owned(),
+                source: "component_parameter.Pressure".to_owned(),
+                status: "defaulted".to_owned(),
+                value: Some(20.0),
+            }],
+            generated_equations: vec![GeneratedEquation {
+                name: "pipe.pressure_drop".to_owned(),
+                kind: "component_equation".to_owned(),
+                residual: "pipe.outlet.p + pipe.dp - pipe.inlet.p".to_owned(),
+                dependencies: vec![
+                    "pipe.outlet.p".to_owned(),
+                    "pipe.dp".to_owned(),
+                    "pipe.inlet.p".to_owned(),
+                ],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let graph = ResidualGraph::from_assembly(&assembly);
+        let residual = &graph.residuals[0];
+
+        assert_eq!(residual.terms.len(), 2);
+        assert_eq!(residual.terms[0].variable, "pipe.outlet.p");
+        assert_eq!(residual.terms[0].coefficient, 1.0);
+        assert_eq!(residual.terms[1].variable, "pipe.inlet.p");
+        assert_eq!(residual.terms[1].coefficient, -1.0);
+        assert_eq!(residual.rhs_value, -20000.0);
     }
     #[test]
     fn residual_scales_use_quantity_unit_defaults() {
@@ -1634,6 +1748,7 @@ mod tests {
                 unit: "K".to_owned(),
                 source: "node.T".to_owned(),
                 status: "classified".to_owned(),
+                value: None,
             }],
             parameters: vec![UnknownVariable {
                 name: "R".to_owned(),
@@ -1642,6 +1757,7 @@ mod tests {
                 unit: "K/kW".to_owned(),
                 source: "wall.R".to_owned(),
                 status: "classified".to_owned(),
+                value: None,
             }],
             ..Default::default()
         };
@@ -1816,6 +1932,7 @@ mod tests {
             unit: "1".to_owned(),
             source: format!("Test.{name}"),
             status: "classified".to_owned(),
+            value: None,
         }
     }
 }

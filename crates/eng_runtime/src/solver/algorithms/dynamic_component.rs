@@ -2210,6 +2210,7 @@ mod tests {
             unit: "1".to_owned(),
             source: format!("Test.{name}"),
             status: "classified".to_owned(),
+            value: None,
         }
     }
 

@@ -5430,27 +5430,6 @@ fn instantiate_component_template(
         }
     }
 
-    let substitutions = instance
-        .parameters
-        .iter()
-        .filter_map(|parameter| {
-            parameter
-                .value
-                .as_ref()
-                .map(|value| ComponentConstructorArgumentInfo {
-                    name: parameter.name.clone(),
-                    value: value.clone(),
-                })
-        })
-        .collect::<Vec<_>>();
-    let mut used_parameters = HashSet::new();
-    for local in &mut instance.local_expressions {
-        local.expression = substitute_component_constructor_arguments(
-            &local.expression,
-            &substitutions,
-            &mut used_parameters,
-        );
-    }
     Some(instance)
 }
 
@@ -6559,6 +6538,7 @@ fn component_boundary_equations(
         .collect::<HashSet<_>>();
     let mut equations = Vec::new();
     for component in components {
+        let parameter_refs = component_parameter_refs(component);
         for local in &component.local_expressions {
             let Some((signal, rhs)) = local.expression.split_once('=') else {
                 continue;
@@ -6616,41 +6596,74 @@ fn component_boundary_equations(
             if !connected_variables.contains(&variable) {
                 continue;
             }
-            let Some((_value, unit)) = numeric_literal_with_optional_unit(rhs) else {
-                diagnostics.push(Diagnostic::error(
-                    "E-ASSEMBLY-BOUNDARY-RHS-001",
-                    local.line,
-                    &format!("Component boundary RHS `{rhs}` is not a numeric literal."),
-                    Some("Use a numeric literal with an optional compatible unit, such as `22 degC`."),
-                ));
+            if let Some((_value, unit)) = numeric_literal_with_optional_unit(rhs) {
+                if let Some(unit) = unit {
+                    if !unit_compatible_with_quantity(&domain_variable.quantity_kind, &unit) {
+                        diagnostics.push(Diagnostic::error(
+                            "E-ASSEMBLY-BOUNDARY-UNIT-001",
+                            local.line,
+                            &format!(
+                                "Component boundary RHS unit `{unit}` is not compatible with `{}`.",
+                                domain_variable.quantity_kind
+                            ),
+                            Some("Use a unit compatible with the connected port signal quantity."),
+                        ));
+                        continue;
+                    }
+                }
+                equations.push(ComponentAssemblyEquationInfo {
+                    name: format!("{}.boundary_{}", component.name, local.name),
+                    kind: "component_boundary".to_owned(),
+                    domain: port.domain.clone(),
+                    expression: format!("{variable} eq {rhs}"),
+                    residual: format!("{variable} - ({rhs})"),
+                    rhs: Some(rhs.to_owned()),
+                    reason: "component-local boundary equation seed".to_owned(),
+                    dependencies: vec![variable],
+                    status: "component_boundary_seed".to_owned(),
+                    line: local.line,
+                });
                 continue;
-            };
-            if let Some(unit) = unit {
-                if !unit_compatible_with_quantity(&domain_variable.quantity_kind, &unit) {
+            }
+            if let Some(parameter) = parameter_refs
+                .iter()
+                .find(|parameter| parameter.local == rhs)
+            {
+                if !component_parameter_compatible_with_quantity(
+                    parameter,
+                    &domain_variable.quantity_kind,
+                ) {
                     diagnostics.push(Diagnostic::error(
                         "E-ASSEMBLY-BOUNDARY-UNIT-001",
                         local.line,
                         &format!(
-                            "Component boundary RHS unit `{unit}` is not compatible with `{}`.",
+                            "Component boundary parameter `{rhs}` is not compatible with `{}`.",
                             domain_variable.quantity_kind
                         ),
-                        Some("Use a unit compatible with the connected port signal quantity."),
+                        Some("Use a component parameter with the same physical dimension as the connected port signal."),
                     ));
                     continue;
                 }
+                equations.push(ComponentAssemblyEquationInfo {
+                    name: format!("{}.boundary_{}", component.name, local.name),
+                    kind: "component_boundary".to_owned(),
+                    domain: port.domain.clone(),
+                    expression: format!("{variable} eq {}", parameter.qualified),
+                    residual: format!("{variable} - {}", parameter.qualified),
+                    rhs: None,
+                    reason: "component-local boundary equation seed".to_owned(),
+                    dependencies: vec![variable, parameter.qualified.clone()],
+                    status: "component_boundary_seed".to_owned(),
+                    line: local.line,
+                });
+                continue;
             }
-            equations.push(ComponentAssemblyEquationInfo {
-                name: format!("{}.boundary_{}", component.name, local.name),
-                kind: "component_boundary".to_owned(),
-                domain: port.domain.clone(),
-                expression: format!("{variable} eq {rhs}"),
-                residual: format!("{variable} - ({rhs})"),
-                rhs: Some(rhs.to_owned()),
-                reason: "component-local boundary equation seed".to_owned(),
-                dependencies: vec![variable],
-                status: "component_boundary_seed".to_owned(),
-                line: local.line,
-            });
+            diagnostics.push(Diagnostic::error(
+                "E-ASSEMBLY-BOUNDARY-RHS-001",
+                local.line,
+                &format!("Component boundary RHS `{rhs}` is not a numeric literal or declared parameter."),
+                Some("Use a numeric literal such as `22 degC` or a declared component parameter such as `T_room`."),
+            ));
         }
     }
     equations
@@ -6664,6 +6677,14 @@ struct ComponentSignalRef {
     quantity_kind: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ComponentParameterRef {
+    local: String,
+    qualified: String,
+    quantity_kind: String,
+    dimension: String,
+}
+
 fn component_local_equations(
     domains: &[DomainInfo],
     components: &[ComponentInfo],
@@ -6674,6 +6695,7 @@ fn component_local_equations(
     let mut equations = Vec::new();
     for component in components {
         let signal_refs = component_signal_refs(domains, component);
+        let parameter_refs = component_parameter_refs(component);
         for local in &component.local_expressions {
             if local.status != "component_equation_seed" {
                 continue;
@@ -6716,6 +6738,13 @@ fn component_local_equations(
                 }
                 Some(format!("der({})", signal.qualified))
             }));
+            dependencies.extend(parameter_refs.iter().filter_map(|parameter| {
+                if expression_mentions_component_parameter(&local_expression, &parameter.local) {
+                    Some(parameter.qualified.clone())
+                } else {
+                    None
+                }
+            }));
             dependencies.sort();
             dependencies.dedup();
             if dependencies.is_empty() {
@@ -6746,11 +6775,17 @@ fn component_local_equations(
                 continue;
             }
             let is_dynamic_equation = local_expression.contains("der(");
-            let dependency_kinds = signal_refs
+            let mut dependency_kinds = signal_refs
                 .iter()
                 .filter(|signal| dependencies.contains(&signal.qualified))
                 .map(|signal| signal.quantity_kind.clone())
                 .collect::<HashSet<_>>();
+            dependency_kinds.extend(
+                parameter_refs
+                    .iter()
+                    .filter(|parameter| dependencies.contains(&parameter.qualified))
+                    .map(|parameter| parameter.quantity_kind.clone()),
+            );
             if !is_dynamic_equation && dependency_kinds.len() > 1 {
                 diagnostics.push(Diagnostic::error(
                     "E-COMPONENT-EQUATION-UNIT-001",
@@ -6781,8 +6816,10 @@ fn component_local_equations(
                     }
                 }
             }
-            let qualified_left = qualify_component_equation_expression(left, &signal_refs);
-            let qualified_right = qualify_component_equation_expression(right, &signal_refs);
+            let qualified_left =
+                qualify_component_equation_expression(left, &signal_refs, &parameter_refs);
+            let qualified_right =
+                qualify_component_equation_expression(right, &signal_refs, &parameter_refs);
             equations.push(ComponentAssemblyEquationInfo {
                 name: format!("{}.{}", component.name, local.name),
                 kind: "component_equation".to_owned(),
@@ -6887,6 +6924,27 @@ fn component_signal_refs(
         .collect()
 }
 
+fn component_parameter_refs(component: &ComponentInfo) -> Vec<ComponentParameterRef> {
+    component
+        .parameters
+        .iter()
+        .map(|parameter| ComponentParameterRef {
+            local: parameter.name.clone(),
+            qualified: format!("{}.{}", component.name, parameter.name),
+            quantity_kind: parameter.quantity_kind.clone(),
+            dimension: parameter.dimension.clone(),
+        })
+        .collect()
+}
+
+fn component_parameter_compatible_with_quantity(
+    parameter: &ComponentParameterRef,
+    quantity_kind: &str,
+) -> bool {
+    parameter.quantity_kind == quantity_kind
+        || parameter.dimension == dimension_for_quantity(quantity_kind)
+}
+
 fn component_equation_literal_rhs(
     component: &ComponentInfo,
     local: &ComponentLocalExpressionInfo,
@@ -6947,19 +7005,20 @@ fn component_equation_domain(
     signal_refs: &[ComponentSignalRef],
 ) -> String {
     dependencies
-        .first()
-        .and_then(|dependency| {
+        .iter()
+        .find_map(|dependency| {
             signal_refs
                 .iter()
                 .find(|signal| &signal.qualified == dependency)
+                .map(|signal| signal.domain.clone())
         })
-        .map(|signal| signal.domain.clone())
         .unwrap_or_else(|| "unknown".to_owned())
 }
 
 fn qualify_component_equation_expression(
     expression: &str,
     signal_refs: &[ComponentSignalRef],
+    parameter_refs: &[ComponentParameterRef],
 ) -> String {
     let mut output = String::new();
     let mut token = String::new();
@@ -6969,6 +7028,11 @@ fn qualify_component_equation_expression(
         }
         if let Some(signal) = signal_refs.iter().find(|signal| signal.local == *token) {
             output.push_str(&signal.qualified);
+        } else if let Some(parameter) = parameter_refs
+            .iter()
+            .find(|parameter| parameter.local == *token)
+        {
+            output.push_str(&parameter.qualified);
         } else {
             output.push_str(token);
         }
@@ -7053,6 +7117,14 @@ fn expression_mentions_component_signal(expression: &str, signal: &str) -> bool 
 
 fn expression_mentions_component_derivative(expression: &str, signal: &str) -> bool {
     expression.contains(&format!("der({signal})"))
+}
+
+fn expression_mentions_component_parameter(expression: &str, parameter: &str) -> bool {
+    expression
+        .split(|character: char| {
+            !(character.is_ascii_alphanumeric() || character == '_' || character == '.')
+        })
+        .any(|token| token == parameter)
 }
 
 fn build_component_solver_preview(

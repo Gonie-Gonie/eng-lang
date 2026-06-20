@@ -4473,7 +4473,7 @@ fn dynamic_component_solve_input_from_request(
                 parameter.name.clone(),
                 parameter.quantity_kind.clone(),
                 parameter.unit.clone(),
-                0.0,
+                parameter.value.unwrap_or(0.0),
             ))
         })
         .collect::<Result<Vec<_>, SolverFailure>>()?;
@@ -4498,6 +4498,7 @@ fn derivative_variables_for_states(states: &[UnknownVariable]) -> Vec<UnknownVar
             unit: derivative_unit_for_state_unit(&state.unit),
             source: state.source.clone(),
             status: state.status.clone(),
+            value: None,
         })
         .collect()
 }
@@ -4687,12 +4688,13 @@ fn source_residual_evaluation_for_unknowns(
             "source residual value vector length does not match assembly unknown count",
         ));
     }
-    let symbols = assembly
+    let mut symbols = assembly
         .unknowns
         .iter()
         .zip(values.iter().copied())
         .map(|(variable, value)| (variable.name.clone(), value))
         .collect::<HashMap<_, _>>();
+    insert_assembly_parameter_symbols(assembly, &mut symbols, None)?;
     source_residual_evaluation_with_symbols(
         assembly,
         graph,
@@ -4728,6 +4730,7 @@ fn source_residual_evaluation_for_dae_sample(
     if sample.state.len() != assembly.states.len()
         || sample.state_derivative.len() != assembly.states.len()
         || sample.algebraic.len() != assembly.algebraic_variables.len()
+        || (!sample.parameters.is_empty() && sample.parameters.len() != assembly.parameters.len())
     {
         return Err(SolverFailure::new(
             "E-SOURCE-RESIDUAL-LAYOUT",
@@ -4754,7 +4757,31 @@ fn source_residual_evaluation_for_dae_sample(
     {
         symbols.insert(variable.name.clone(), value);
     }
+    insert_assembly_parameter_symbols(assembly, &mut symbols, Some(sample.parameters))?;
     source_residual_evaluation_with_symbols(assembly, graph, &symbols, tolerance, subset)
+}
+
+fn insert_assembly_parameter_symbols(
+    assembly: &EquationAssembly,
+    symbols: &mut HashMap<String, f64>,
+    sample_values: Option<&[f64]>,
+) -> Result<(), SolverFailure> {
+    for (index, parameter) in assembly.parameters.iter().enumerate() {
+        let value = sample_values
+            .and_then(|values| values.get(index).copied())
+            .or(parameter.value)
+            .ok_or_else(|| {
+                SolverFailure::new(
+                    "E-SOURCE-RESIDUAL-PARAMETER",
+                    format!(
+                        "source residual parameter `{}` has no materialized value",
+                        parameter.name
+                    ),
+                )
+            })?;
+        symbols.insert(parameter.name.clone(), value);
+    }
+    Ok(())
 }
 
 fn source_residual_evaluation_for_dae_final(
@@ -5672,6 +5699,7 @@ fn solver_equation_assembly_from_component_info(
         .iter()
         .map(|variable| {
             let (quantity_kind, unit) = assembly_variable_quantity_unit(report, variable);
+            let value = assembly_variable_value(report, variable, &unit);
             UnknownVariable {
                 name: variable.name.clone(),
                 role: variable.role.clone(),
@@ -5679,6 +5707,7 @@ fn solver_equation_assembly_from_component_info(
                 unit,
                 source: variable.source.clone(),
                 status: variable.status.clone(),
+                value,
             }
         })
         .collect::<Vec<_>>();
@@ -5746,6 +5775,31 @@ fn parse_numeric_value_with_optional_unit(value: &str) -> Option<(f64, Option<St
     let number = parts.next()?.parse::<f64>().ok()?;
     let unit = parts.next().map(str::to_owned);
     Some((number, unit))
+}
+
+fn assembly_variable_value(
+    report: &CheckReport,
+    variable: &eng_compiler::ComponentAssemblyVariableInfo,
+    display_unit: &str,
+) -> Option<f64> {
+    if variable.role != "parameter" {
+        return None;
+    }
+    let (component_name, parameter_name) = variable.name.split_once('.')?;
+    let parameter = report
+        .semantic_program
+        .components
+        .iter()
+        .find(|component| component.name == component_name)
+        .and_then(|component| {
+            component
+                .parameters
+                .iter()
+                .find(|parameter| parameter.name == parameter_name)
+        })?;
+    let (value, unit) = parse_numeric_value_with_optional_unit(parameter.value.as_deref()?)?;
+    let source_unit = unit.as_deref().unwrap_or(display_unit);
+    Some(convert_display_value(value, source_unit, display_unit))
 }
 
 fn assembly_variable_quantity_unit(
@@ -10898,6 +10952,55 @@ with {
         }
     }
 
+    #[test]
+    fn source_residual_evaluation_uses_component_parameter_values() {
+        let x = UnknownVariable {
+            name: "x".to_owned(),
+            role: "algebraic".to_owned(),
+            quantity_kind: "Dimensionless".to_owned(),
+            unit: "1".to_owned(),
+            source: "Test.x".to_owned(),
+            status: "unknown".to_owned(),
+            value: None,
+        };
+        let k = UnknownVariable {
+            name: "k".to_owned(),
+            role: "parameter".to_owned(),
+            quantity_kind: "Dimensionless".to_owned(),
+            unit: "1".to_owned(),
+            source: "component_parameter.Dimensionless".to_owned(),
+            status: "defaulted".to_owned(),
+            value: Some(2.0),
+        };
+        let assembly = EquationAssembly {
+            name: "parametric_source".to_owned(),
+            generated_equations: vec![GeneratedEquation {
+                name: "r1".to_owned(),
+                kind: "component_equation".to_owned(),
+                domain: "Test".to_owned(),
+                expression: "x eq k".to_owned(),
+                residual: "x - k".to_owned(),
+                rhs_value: None,
+                dependencies: vec!["x".to_owned(), "k".to_owned()],
+                source: "test".to_owned(),
+                reason: "test parameterized source residual".to_owned(),
+                source_line: Some(1),
+                status: "generated".to_owned(),
+            }],
+            unknowns: vec![x.clone()],
+            algebraic_variables: vec![x],
+            parameters: vec![k],
+            ..EquationAssembly::default()
+        };
+        let graph = ResidualGraph::from_assembly(&assembly);
+
+        let evaluation =
+            source_residual_evaluation_for_unknowns(&assembly, &graph, &[2.0], 1e-9).unwrap();
+
+        assert_eq!(evaluation.residuals.len(), 1);
+        assert_eq!(evaluation.residuals[0].value, 0.0);
+        assert_eq!(evaluation.normalized_values[0], 0.0);
+    }
     fn square_linear_test_assembly(name: &str) -> EquationAssembly {
         let x = UnknownVariable {
             name: "x".to_owned(),
@@ -10906,6 +11009,7 @@ with {
             unit: "1".to_owned(),
             source: "Test.x".to_owned(),
             status: "unknown".to_owned(),
+            value: None,
         };
         let y = UnknownVariable {
             name: "y".to_owned(),
@@ -10914,6 +11018,7 @@ with {
             unit: "1".to_owned(),
             source: "Test.y".to_owned(),
             status: "unknown".to_owned(),
+            value: None,
         };
         EquationAssembly {
             name: name.to_owned(),
@@ -11008,6 +11113,7 @@ with {
             unit: "1".to_owned(),
             source: format!("Test.{name}"),
             status: "classified".to_owned(),
+            value: None,
         }
     }
 

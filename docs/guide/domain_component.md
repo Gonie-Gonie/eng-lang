@@ -110,7 +110,7 @@ system EnvelopeBoundary {
 }
 ```
 
-`name = Component(...)` inside a `system` creates a system-local component instance from a declared component template. Empty constructors are allowed, declared component parameters can provide defaults, and named constructor overrides such as `PumpBoundary(p_supply=220000 Pa)` are type/unit checked before being substituted into component-local boundary and equation seeds; the instantiated component records constructor and parameter provenance in review/report-spec artifacts. Positional arguments such as
+`name = Component(...)` inside a `system` creates a system-local component instance from a declared component template. Empty constructors are allowed, declared component parameters can provide defaults, and named constructor overrides such as `PumpBoundary(p_supply=220000 Pa)` are type/unit checked and preserved as qualified component-parameter references in generated boundary/equation residuals; the instantiated component records constructor and parameter provenance in review/report-spec artifacts. Positional arguments such as
 `RoomBoundary(22 degC)` report `E-COMPONENT-INSTANCE-ARGS`. Unknown component
 names report `E-COMPONENT-INSTANCE-UNKNOWN`. Duplicate instance names report
 `E-COMPONENT-INSTANCE-DUPLICATE`.
