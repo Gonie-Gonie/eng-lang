@@ -322,7 +322,7 @@ impl RhsEvaluator for SourceRhsEvaluator {
     }
 }
 
-fn source_rhs_parse_symbols(
+pub(crate) fn source_rhs_parse_symbols(
     states: &[RhsStateInfo],
     input_symbols: &[RhsSymbolInfo],
     parameter_symbols: &[RhsSymbolInfo],
@@ -342,7 +342,7 @@ fn source_rhs_parse_symbols(
     symbols
 }
 
-fn source_rhs_symbol_metadata(
+pub(crate) fn source_rhs_symbol_metadata(
     states: &[RhsStateInfo],
     input_symbols: &[RhsSymbolInfo],
     parameter_symbols: &[RhsSymbolInfo],
@@ -390,7 +390,7 @@ fn arithmetic_metadata_for_rhs_symbol(symbol: &RhsSymbolInfo) -> ArithmeticUnitM
         quantity_kind: symbol.quantity_kind.clone(),
     }
 }
-fn parse_source_rhs_expression(
+pub(crate) fn parse_source_rhs_expression(
     expression: &str,
     symbols: &HashMap<String, f64>,
     symbol_units: &HashMap<String, ArithmeticUnitMetadata>,

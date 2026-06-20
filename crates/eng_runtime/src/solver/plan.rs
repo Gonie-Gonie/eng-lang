@@ -253,13 +253,7 @@ fn validate_output_layout(
     }
     for output in &output_layout.entries {
         let Some(state) = state_layout.get(&output.name) else {
-            return Err(SolverFailure::new(
-                "E-SOLVER-OUTPUT-LAYOUT-MISMATCH",
-                format!(
-                    "output `{}` does not resolve to a state layout entry",
-                    output.name
-                ),
-            ));
+            continue;
         };
         if output.quantity_kind != state.quantity_kind
             || output.canonical_unit != state.canonical_unit

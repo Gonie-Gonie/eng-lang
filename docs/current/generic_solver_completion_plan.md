@@ -40,6 +40,9 @@ Every row above must eventually satisfy these requirements:
 9. `eng test examples`, crate tests, and targeted artifact checks prove the stated scope.
 10. Public docs use `Stable`, `Supported`, `Internal`, and `Planned` consistently and do not call narrow smokes generic.
 
+## Progress Ledger
+
+- 2026-06-20: Source-equation ODE simulation accepts scalar `output` system variables, evaluates their algebraic expressions from each simulated state/input/parameter sample, stores them as solver algebraic trajectories, and materializes `RuntimeTimeSeries` such as `sim.Q_load`. This closes the state-only output limitation for the supported source-equation ODE path; shared-IR, component-coupled, DAE, and behavior output lowering remain in the generic workstreams.
 
 ## Narrow/Not Claim Closure Matrix
 
@@ -50,7 +53,7 @@ current tests and artifacts.
 
 | Current narrow/not claim | Generic implementation work required | Evidence gate before claim can be removed | First aligned slices |
 | --- | --- | --- | --- |
-| General equation-system runtime is beyond the supported one/two-state source-equation shapes. | Lower arbitrary checked system equations into the shared solver IR, build named `x`, `u(t)`, `p`, `z`, output, and derivative layouts, and evaluate RHS/residual expressions through the typed expression tree. | Official multi-state non-thermal source example plus diagnostics for missing/duplicate derivatives, unsupported algebraic loops, unit mismatches, non-finite RHS, and generated RuntimeTimeSeries for every state/output. | Promote current two-state RHS evaluator into a shared system-IR adapter; add source spans and unit metadata to every lowered derivative equation. |
+| General equation-system runtime is beyond the supported one/two-state source-equation shapes. | Lower arbitrary checked system equations into the shared solver IR, build named `x`, `u(t)`, `p`, `z`, output, and derivative layouts, and evaluate RHS/residual expressions through the typed expression tree. | Official multi-state non-thermal source example plus diagnostics for missing/duplicate derivatives, unsupported algebraic loops, unit mismatches, non-finite RHS, and generated RuntimeTimeSeries for every state/output. | Promote current two-state RHS/output evaluator into a shared system-IR adapter; add source spans and unit metadata to every lowered derivative and algebraic output equation. |
 | Broad adaptive solving is not supported beyond source-equation, one-state thermal, and internal continuous state-space paths. | Run adaptive Heun over the shared dynamic IR, support component-coupled RHS evaluators, add interpolation and event hooks, and preserve accepted/rejected substeps per output sample. | Component-coupled adaptive fixtures expose fixed output-grid trajectories, substep diagnostics, event/failure artifacts, and report/IDE panels. | Reuse `TimeGrid`/adaptive step reports from source-equation, one-state thermal, and state-space paths, then swap RHS source to shared dynamic IR. |
 | State-space is limited to typed-block A/B fixed-step workflows. | Lower state-space operators into the shared IR, support operator algebra subsets, discrete adaptive policy, and composition with nonlinear/DAE/component residual paths. | State-space examples can be solved through the same dynamic/residual artifact path as source systems, with operator diagnostics and shared residual/RHS IDs in review/IDE. | Add adapter from `StateSpaceRhsEvaluator` matrices to shared solver IR variables/equations. |
 | Component equations are limited to literal seeds, simple linear forms, and selected unit-parameterized coefficients. | Lower component-local arithmetic, derivative, behavior, nonlinear functions, affine units, compound units, and parameter values through one typed expression API. | Linear, dynamic, nonlinear, and DAE component examples all consume the same expression tree; unsupported unit algebra fails with source diagnostics instead of string-shape fallback. | Continue replacing one-off residual parsing with reusable expression AST metadata and evaluator entrypoints. |
@@ -147,7 +150,7 @@ Tasks:
 - Generate RHS evaluators from derivative equations, residual equations, and behavior nodes.
 - Support fixed-step Euler/RK4 and adaptive Heun over multi-state component-coupled systems.
 - Add TimeSeries interpolation policy, final partial-step handling, event hooks, and deterministic replay metadata.
-- Emit RuntimeTimeSeries for every named state and selected algebraic output.
+- Emit RuntimeTimeSeries for every named state and selected algebraic output. Source-equation scalar outputs are implemented; shared-IR/component-coupled outputs remain.
 
 Evidence gate:
 

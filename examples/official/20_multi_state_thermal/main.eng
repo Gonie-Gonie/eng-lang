@@ -21,10 +21,12 @@ system TwoStateThermal {
 
     input T_out: TimeSeries[Time] of AbsoluteTemperature [degC]
     input Q_hvac: HeatRate = 1000 W
+    output Q_load: HeatRate [kW]
 
     equation {
         C_air * der(T_air) eq UA_aw * (T_wall - T_air) + UA_ao * (T_out - T_air) + Q_hvac
         C_wall * der(T_wall) eq UA_aw * (T_air - T_wall) + UA_wo * (T_out - T_wall)
+        Q_load eq Q_hvac + UA_ao * (T_out - T_air)
     }
 }
 

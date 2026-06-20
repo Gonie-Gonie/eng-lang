@@ -1634,6 +1634,7 @@ fn parse_system_variable_decl(
         (TokenKind::Keyword(Keyword::Parameter), ParseContext::System) => "parameter",
         (TokenKind::Keyword(Keyword::State), ParseContext::System) => "state",
         (TokenKind::Keyword(Keyword::Input), ParseContext::System) => "input",
+        (TokenKind::Keyword(Keyword::Output), ParseContext::System) => "output",
         (TokenKind::Keyword(Keyword::Parameter), ParseContext::Component) => "parameter",
         _ => return None,
     };

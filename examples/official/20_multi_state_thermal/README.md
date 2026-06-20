@@ -8,12 +8,13 @@ This example shows:
 - one derivative equation per state using `C * der(state) eq RHS`;
 - a promoted CSV outdoor-temperature `TimeSeries` bound through `simulate`;
 - fixed-step `rk4` execution through `SolverInput -> SolverResult`;
-- generated `sim.T_air` and `sim.T_wall` TimeSeries outputs;
+- scalar `output Q_load` evaluation from simulated state/input sample values;
+- generated `sim.T_air`, `sim.T_wall`, and `sim.Q_load` TimeSeries outputs;
 - report and plot artifacts for both state trajectories.
 
 Current support boundary:
 
-- explicit fixed-step Euler/RK4 source ODEs with arithmetic RHS expressions are supported for this scope;
+- explicit fixed-step Euler/RK4 source ODEs with arithmetic RHS expressions and scalar algebraic outputs are supported for this scope;
 - adaptive, nonlinear, DAE, and component-graph source solves remain separate internal tracks unless their examples say otherwise.
 
 Useful commands:
