@@ -176,9 +176,9 @@ by the stable breaking-change policy.
   trajectories such as `node.y eq cos(node.x)`. `dynamic_component_adaptive_heun`
   source solves now emit adaptive Heun
   component trajectories, scalar or fixed-step TimeSeries input
-  materialization, affine algebraic output trajectories, and accepted-substep
-  diagnostics; non-affine algebraic graphs remain explicit unsupported
-  artifacts.
+  materialization, selected affine/Newton algebraic output trajectories,
+  accepted-substep diagnostics, and Newton nonconvergence artifacts; broad
+  nonlinear algebraic graphs remain unsupported.
   Narrow coupled multi-variable
   unitful source Newton and multi-state unitful temperature implicit-Euler DAE
   component residual smokes are covered by
@@ -192,7 +192,7 @@ by the stable breaking-change policy.
   constructor bindings, broad nonlinear, derivative-rich, affine display-unit,
   or general compound-unit component-local equations, broad fixed-point/nonlinear
   source solving, behavior-node solving, broad nonlinear/DAE coupling, adaptive
-  component timestepping beyond the affine source path, and production multi-domain solving remain planned or
+  component timestepping beyond the selected affine/Newton source path, and production multi-domain solving remain planned or
   internal. A constrained Thermal/Fluid[Water] square algebraic residual graph
   solve is covered separately by
   `examples/official/32_small_thermal_fluid_loop`; it uses the public

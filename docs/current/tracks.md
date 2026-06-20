@@ -135,9 +135,9 @@ Internal runtime seeds:
 - narrow `solve component_graph` integration for
   `solver = dynamic_component_adaptive_heun`, using parsed derivative residual
   expressions, scalar or fixed-step TimeSeries component inputs, fixed
-  output-grid component trajectories, affine algebraic output materialization,
-  accepted-substep diagnostics, and explicit `E-SOURCE-ALGEBRAIC-SHAPE`
-  artifacts for non-affine algebraic dynamic component graphs
+  output-grid component trajectories, selected affine/Newton algebraic output
+  materialization, accepted-substep diagnostics, and explicit
+  `E-NEWTON-NONCONVERGENCE` artifacts for Newton algebraic nonconvergence
 - fixed-step ODE and dynamic-component updates use the actual final partial TimeGrid interval
 - explicit Euler samples RHS values at the start of each fixed-step interval
 - fixed-step ODE, fixed-point, and dynamic-component seeds reject non-finite RHS/update values

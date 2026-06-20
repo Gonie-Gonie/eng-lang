@@ -4458,6 +4458,7 @@ fn dynamic_component_solution_from_solve_request(
             solve_input,
             series,
             adaptive_options,
+            options.clone(),
         ) {
             Ok(solution) => solution,
             Err(failure) => failed_dynamic_component_source_solution(
@@ -4757,6 +4758,7 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
     source_input: DynamicComponentSourceSolveInput,
     series: &[RuntimeTimeSeries],
     adaptive_options: AdaptiveOdeOptions,
+    options: DynamicComponentOptions,
 ) -> Result<RuntimeComponentSolution, SolverFailure> {
     let DynamicComponentSourceSolveInput {
         solve_input,
@@ -4810,6 +4812,8 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
             sample.state,
             &inputs,
             sample.parameters,
+            &solve_input.initial_algebraic,
+            &options,
         )?;
         let symbols = source_dynamic_component_symbols(
             assembly,
@@ -4836,16 +4840,17 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
             &input_series,
             series,
             &solver_result,
+            &options,
         )?;
     let mut solution = RuntimeComponentSolution::from_dynamic_solver_result(
         &assembly.name,
         &solver_result,
         if uses_time_series_inputs && uses_algebraic_residuals {
-            "dynamic component source solve executed adaptive Heun parsed derivative residual expressions with affine algebraic residual materialization and TimeSeries input materialization"
+            "dynamic component source solve executed adaptive Heun parsed derivative residual expressions with algebraic residual materialization and TimeSeries input materialization"
         } else if uses_time_series_inputs {
             "dynamic component source solve executed adaptive Heun parsed derivative residual expressions with TimeSeries input materialization"
         } else if uses_algebraic_residuals {
-            "dynamic component source solve executed adaptive Heun parsed derivative residual expressions with affine algebraic residual materialization"
+            "dynamic component source solve executed adaptive Heun parsed derivative residual expressions with algebraic residual materialization"
         } else {
             "dynamic component source solve executed adaptive Heun parsed derivative residual expressions"
         },
@@ -4864,19 +4869,57 @@ fn adaptive_dynamic_component_algebraic_values(
     state: &[f64],
     inputs: &[SolverScalar],
     parameters: &[SolverScalar],
+    initial_algebraic: &[f64],
+    options: &DynamicComponentOptions,
 ) -> Result<Vec<f64>, SolverFailure> {
     if algebraic_layout.is_empty() {
         return Ok(Vec::new());
     }
     let symbols =
         source_dynamic_component_symbols(assembly, time_s, state, &[], inputs, parameters);
-    source_residual_algebraic_values_from_affine_terms(
+    match source_residual_algebraic_values_from_affine_terms(
         assembly,
         algebraic_layout,
         parsed_residuals,
         &symbols,
         "dynamic component adaptive source",
-    )
+    ) {
+        Ok(values) => Ok(values),
+        Err(failure)
+            if failure.code == "E-SOURCE-ALGEBRAIC-SHAPE"
+                || should_fallback_to_newton_algebraic(&failure) =>
+        {
+            if initial_algebraic.len() != algebraic_layout.len() {
+                return Err(SolverFailure::new(
+                    "E-DYNAMIC-COMPONENT-ADAPTIVE-ALGEBRAIC-LAYOUT",
+                    "adaptive dynamic component Newton algebraic initial vector length does not match the algebraic layout",
+                ));
+            }
+            let mut newton_options = NewtonOptions {
+                tolerance: options.algebraic.tolerance,
+                max_iterations: options.algebraic.max_iterations,
+                ..NewtonOptions::default()
+            };
+            newton_options.variable_scales = residual_scales_from_layout(algebraic_layout);
+            newton_options.variable_scale_policy = "algebraic_layout_quantity_unit".to_owned();
+            let newton = solve_newton(initial_algebraic, &newton_options, |guess| {
+                let symbols = source_dynamic_component_symbols(
+                    assembly, time_s, state, guess, inputs, parameters,
+                );
+                source_residual_algebraic_residual_values(
+                    assembly,
+                    parsed_residuals,
+                    &symbols,
+                    "dynamic component adaptive source",
+                )
+            })?;
+            if let Some(failure) = newton.failure {
+                return Err(failure);
+            }
+            Ok(newton.values)
+        }
+        Err(failure) => Err(failure),
+    }
 }
 
 fn adaptive_dynamic_component_algebraic_trajectories(
@@ -4887,6 +4930,7 @@ fn adaptive_dynamic_component_algebraic_trajectories(
     input_series: &[Option<usize>],
     series: &[RuntimeTimeSeries],
     solver_result: &SolverResult,
+    options: &DynamicComponentOptions,
 ) -> Result<Vec<StateTrajectory>, SolverFailure> {
     if algebraic_layout.is_empty() {
         return Ok(Vec::new());
@@ -4923,6 +4967,8 @@ fn adaptive_dynamic_component_algebraic_trajectories(
             &state,
             &inputs,
             &solve_input.parameters,
+            &solve_input.initial_algebraic,
+            options,
         )?;
         for (index, value) in algebraic.iter().copied().enumerate() {
             algebraic_values_by_variable[index].push(value);
@@ -4939,6 +4985,16 @@ fn adaptive_dynamic_component_algebraic_trajectories(
             values,
         })
         .collect())
+}
+
+fn residual_scales_from_layout(layout: &StateLayout) -> Vec<f64> {
+    layout
+        .entries
+        .iter()
+        .map(|entry| {
+            ResidualScale::from_quantity_unit(&entry.quantity_kind, &entry.canonical_unit).value
+        })
+        .collect()
 }
 
 fn adaptive_component_step_diagnostics(

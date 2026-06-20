@@ -1718,7 +1718,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .result_json
                     .contains("\"method\": \"dynamic_component_adaptive_heun_source\"")
                 || !output.result_json.contains(
-                    "adaptive Heun parsed derivative residual expressions with affine algebraic residual materialization",
+                    "adaptive Heun parsed derivative residual expressions with algebraic residual materialization",
                 )
                 || !output
                     .result_json
@@ -1733,7 +1733,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.report_html.contains("node.node.y=0.982504")
             {
                 eprintln!(
-                    "expected tests/runtime/dynamic_component_adaptive_algebraic_output.eng to solve an adaptive dynamic component RHS with an affine algebraic output"
+                    "expected tests/runtime/dynamic_component_adaptive_algebraic_output.eng to solve an adaptive dynamic component RHS with an algebraic output"
                 );
                 return ExitCode::from(2);
             }
@@ -1744,6 +1744,47 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         Err(error) => {
             eprintln!(
                 "dynamic component adaptive algebraic-output runtime fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/runtime/dynamic_component_adaptive_nonlinear_algebraic.eng"),
+        Path::new("build/test-runtime-dynamic-component-adaptive-nonlinear-algebraic"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_adaptive_heun_source\"")
+                || !output.result_json.contains(
+                    "adaptive Heun parsed derivative residual expressions with algebraic residual materialization",
+                )
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"adaptive_heun_completed\"")
+                || !output.result_json.contains("\"name\": \"node.node.y\"")
+                || !output.result_json.contains("\"role\": \"algebraic\"")
+                || !output.result_json.contains("\"final_value\": 0.99121331")
+                || !output
+                    .report_spec_json
+                    .contains("node.node.y * node.node.y eq cos(node.node.x)")
+                || !output.report_spec_json.contains("adaptive_heun_accepted")
+                || !output.report_html.contains("node.node.y=0.991213")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_adaptive_nonlinear_algebraic.eng to solve an adaptive dynamic component RHS with a Newton algebraic output"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_adaptive_nonlinear_algebraic.eng solved adaptive dynamic component Newton algebraic trajectory"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component adaptive nonlinear-algebraic runtime fixture failed: {error}"
             );
             return ExitCode::from(1);
         }
@@ -2803,10 +2844,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
     }
     match run_file(
         Path::new(
-            "tests/diagnostics/dynamic_component_adaptive_nonlinear_algebraic_unsupported.eng",
+            "tests/diagnostics/dynamic_component_adaptive_nonlinear_algebraic_nonconvergence.eng",
         ),
         Path::new(
-            "build/test-diagnostics-dynamic-component-adaptive-nonlinear-algebraic-unsupported",
+            "build/test-diagnostics-dynamic-component-adaptive-nonlinear-algebraic-nonconvergence",
         ),
         &artifact_run_options(),
     ) {
@@ -2817,27 +2858,24 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"method\": \"dynamic_component_adaptive_heun\"")
                 || !output
                     .result_json
-                    .contains("\"failure_code\": \"E-SOURCE-ALGEBRAIC-SHAPE\"")
-                || !output.result_json.contains(
-                    "does not contain a solvable affine algebraic coefficient for `node.node.y`",
-                )
+                    .contains("\"failure_code\": \"E-NEWTON-NONCONVERGENCE\"")
                 || !output
                     .report_spec_json
-                    .contains("\"diagnostic_code\": \"E-SOURCE-ALGEBRAIC-SHAPE\"")
-                || !output.report_html.contains("E-SOURCE-ALGEBRAIC-SHAPE")
+                    .contains("\"diagnostic_code\": \"E-NEWTON-NONCONVERGENCE\"")
+                || !output.report_html.contains("E-NEWTON-NONCONVERGENCE")
             {
                 eprintln!(
-                    "expected tests/diagnostics/dynamic_component_adaptive_nonlinear_algebraic_unsupported.eng to report the adaptive component nonlinear algebraic limitation"
+                    "expected tests/diagnostics/dynamic_component_adaptive_nonlinear_algebraic_nonconvergence.eng to report adaptive component Newton algebraic nonconvergence"
                 );
                 return ExitCode::from(2);
             }
             println!(
-                "ok: tests/diagnostics/dynamic_component_adaptive_nonlinear_algebraic_unsupported.eng reported adaptive component nonlinear algebraic limitation"
+                "ok: tests/diagnostics/dynamic_component_adaptive_nonlinear_algebraic_nonconvergence.eng reported adaptive component Newton algebraic nonconvergence"
             );
         }
         Err(error) => {
             eprintln!(
-                "dynamic component adaptive nonlinear algebraic unsupported diagnostics fixture failed: {error}"
+                "dynamic component adaptive nonlinear algebraic nonconvergence diagnostics fixture failed: {error}"
             );
             return ExitCode::from(1);
         }
