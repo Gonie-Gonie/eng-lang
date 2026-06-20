@@ -6,7 +6,8 @@ use super::{
     assembly::EquationAssembly,
     euclidean_norm,
     expression::{
-        linearize_arithmetic_expression_with_unit_converter, ArithmeticExpressionProfile,
+        linearize_arithmetic_expression_with_symbol_metadata_and_unit_converter,
+        ArithmeticExpressionProfile, ArithmeticUnitMetadata,
     },
     SolverFailure,
 };
@@ -94,6 +95,7 @@ impl ResidualGraph {
                         &equation.dependencies,
                         &variable_indices,
                         &variables,
+                        &variable_units,
                         Some((&unit, &quantity_kind)),
                         Some(&parameter_values),
                     )
@@ -120,10 +122,18 @@ impl ResidualGraph {
                     .map(|term| term.variable_index)
                     .collect::<Vec<_>>();
                 let scale = ResidualScale::from_quantity_unit(&quantity_kind, &unit);
+                let inferred_unit = parsed_component_equation
+                    .as_ref()
+                    .and_then(|parsed| parsed.expression_unit.clone())
+                    .unwrap_or_else(|| ResidualUnit {
+                        unit: unit.clone(),
+                        quantity_kind: quantity_kind.clone(),
+                    });
                 ResidualEquation {
                     name: equation.name.clone(),
                     expression: ResidualExpression {
                         text: equation.residual.clone(),
+                        inferred_unit: Some(inferred_unit),
                     },
                     rhs_value: parsed_component_equation
                         .as_ref()
@@ -281,16 +291,26 @@ impl ResidualGraph {
                     &equation.dependencies,
                     &variable_aliases,
                     &variables,
+                    &variable_units,
                     Some((&unit, &quantity_kind)),
                     None,
                 )?;
                 let rhs_value = dynamic_residual_rhs_value(equation, parsed.constant)?;
                 let scale = ResidualScale::from_quantity_unit(&quantity_kind, &unit);
 
+                let inferred_unit =
+                    parsed
+                        .expression_unit
+                        .clone()
+                        .unwrap_or_else(|| ResidualUnit {
+                            unit: unit.clone(),
+                            quantity_kind: quantity_kind.clone(),
+                        });
                 Ok(ResidualEquation {
                     name: equation.name.clone(),
                     expression: ResidualExpression {
                         text: equation.residual.clone(),
+                        inferred_unit: Some(inferred_unit),
                     },
                     rhs_value,
                     unit: ResidualUnit {
@@ -405,6 +425,7 @@ impl ResidualGraph {
 struct ParsedDynamicResidual {
     terms: Vec<ResidualTerm>,
     constant: f64,
+    expression_unit: Option<ResidualUnit>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -514,6 +535,7 @@ fn parse_dynamic_linear_residual_terms(
     dependencies: &[String],
     variable_aliases: &HashMap<String, usize>,
     variables: &[ResidualVariableRef],
+    variable_units: &HashMap<String, (String, String)>,
     residual_unit: Option<(&str, &str)>,
     constant_aliases: Option<&HashMap<String, ResidualConstantAlias>>,
 ) -> Result<ParsedDynamicResidual, SolverFailure> {
@@ -534,14 +556,21 @@ fn parse_dynamic_linear_residual_terms(
         .cloned()
         .collect::<Vec<_>>();
     let constant_symbols = dynamic_constant_symbols(expression, constant_aliases, residual_unit)?;
+    let symbol_units = dynamic_expression_symbol_metadata(
+        variable_aliases,
+        variables,
+        variable_units,
+        constant_aliases,
+    );
     let mut convert_number = |value: f64, unit: Option<&str>| match unit {
         Some(unit) => convert_residual_constant(value, unit, residual_unit),
         None => Ok(value),
     };
-    let linearized = linearize_arithmetic_expression_with_unit_converter(
+    let linearized = linearize_arithmetic_expression_with_symbol_metadata_and_unit_converter(
         expression,
         &variable_symbols,
         &constant_symbols,
+        &symbol_units,
         &mut convert_number,
         ArithmeticExpressionProfile::DYNAMIC_COMPONENT_RESIDUAL,
         1e-9,
@@ -551,6 +580,10 @@ fn parse_dynamic_linear_residual_terms(
     let mut parsed = ParsedDynamicResidual {
         constant: linearized.constant,
         terms: Vec::new(),
+        expression_unit: linearized
+            .root_unit
+            .as_ref()
+            .map(residual_unit_from_arithmetic_metadata),
     };
     for term in linearized.terms {
         let Some(index) = variable_aliases.get(&term.symbol).copied() else {
@@ -575,6 +608,71 @@ fn parse_dynamic_linear_residual_terms(
     Ok(parsed)
 }
 
+fn dynamic_expression_symbol_metadata(
+    variable_aliases: &HashMap<String, usize>,
+    variables: &[ResidualVariableRef],
+    variable_units: &HashMap<String, (String, String)>,
+    constant_aliases: Option<&HashMap<String, ResidualConstantAlias>>,
+) -> HashMap<String, ArithmeticUnitMetadata> {
+    let mut metadata = HashMap::new();
+    for (alias, index) in variable_aliases {
+        let Some(variable) = variables.get(*index) else {
+            continue;
+        };
+        let Some((unit, quantity_kind)) = variable_units.get(&variable.name) else {
+            continue;
+        };
+        metadata.insert(
+            alias.clone(),
+            arithmetic_metadata_for_residual_symbol(unit, Some(quantity_kind)),
+        );
+    }
+    if let Some(constant_aliases) = constant_aliases {
+        for (name, alias) in constant_aliases {
+            metadata.insert(
+                name.clone(),
+                arithmetic_metadata_for_residual_symbol(&alias.unit, None),
+            );
+        }
+    }
+    metadata
+}
+
+fn arithmetic_metadata_for_residual_symbol(
+    unit: &str,
+    quantity_kind: Option<&str>,
+) -> ArithmeticUnitMetadata {
+    let display_unit = if unit.trim().is_empty() {
+        "1"
+    } else {
+        unit.trim()
+    };
+    if normalize_unit(display_unit) == "1" {
+        return ArithmeticUnitMetadata {
+            display_unit: "1".to_owned(),
+            canonical_unit: "1".to_owned(),
+            quantity_kind: quantity_kind.unwrap_or("DimensionlessNumber").to_owned(),
+        };
+    }
+    let info = residual_unit_info(display_unit);
+    ArithmeticUnitMetadata {
+        display_unit: display_unit.to_owned(),
+        canonical_unit: info
+            .map(|info| info.canonical_unit.to_owned())
+            .unwrap_or_else(|| display_unit.to_owned()),
+        quantity_kind: quantity_kind
+            .map(str::to_owned)
+            .or_else(|| info.map(|info| info.quantity_hint.to_owned()))
+            .unwrap_or_else(|| "unknown".to_owned()),
+    }
+}
+
+fn residual_unit_from_arithmetic_metadata(metadata: &ArithmeticUnitMetadata) -> ResidualUnit {
+    ResidualUnit {
+        unit: metadata.canonical_unit.clone(),
+        quantity_kind: metadata.quantity_kind.clone(),
+    }
+}
 fn dynamic_constant_symbols(
     expression: &str,
     constant_aliases: Option<&HashMap<String, ResidualConstantAlias>>,
@@ -1084,6 +1182,7 @@ pub type ResidualParameterRef = ResidualVariableRef;
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ResidualExpression {
     pub text: String,
+    pub inferred_unit: Option<ResidualUnit>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1597,6 +1696,13 @@ mod tests {
         let residual = &graph.residuals[0];
 
         assert_eq!(residual.terms.len(), 3);
+        assert_eq!(
+            residual.expression.inferred_unit,
+            Some(ResidualUnit {
+                unit: "W".to_owned(),
+                quantity_kind: "HeatRate".to_owned(),
+            })
+        );
         assert_eq!(residual.terms[0].variable, "wall.inside.Q");
         assert_eq!(residual.terms[0].coefficient, 1.0);
         assert_eq!(residual.terms[1].variable, "wall.inside.T");
@@ -1953,6 +2059,13 @@ mod tests {
             .unwrap();
         assert_eq!(rhs.rhs_value, 0.0);
         assert_eq!(
+            rhs.expression.inferred_unit,
+            Some(ResidualUnit {
+                unit: "1/s".to_owned(),
+                quantity_kind: "Dimensionless".to_owned(),
+            })
+        );
+        assert_eq!(
             rhs.terms
                 .iter()
                 .map(|term| (term.variable.as_str(), term.coefficient))
@@ -1964,6 +2077,13 @@ mod tests {
             .iter()
             .find(|residual| residual.name == "z_balance")
             .unwrap();
+        assert_eq!(
+            algebraic.expression.inferred_unit,
+            Some(ResidualUnit {
+                unit: "1".to_owned(),
+                quantity_kind: "Dimensionless".to_owned(),
+            })
+        );
         assert_eq!(
             algebraic
                 .terms
@@ -2005,6 +2125,13 @@ mod tests {
             .find(|residual| residual.name == "z_balance")
             .unwrap();
         assert_eq!(
+            algebraic.expression.inferred_unit,
+            Some(ResidualUnit {
+                unit: "1".to_owned(),
+                quantity_kind: "Dimensionless".to_owned(),
+            })
+        );
+        assert_eq!(
             algebraic
                 .terms
                 .iter()
@@ -2037,6 +2164,7 @@ mod tests {
             name: name.to_owned(),
             expression: ResidualExpression {
                 text: name.to_owned(),
+                inferred_unit: None,
             },
             rhs_value,
             unit: ResidualUnit {

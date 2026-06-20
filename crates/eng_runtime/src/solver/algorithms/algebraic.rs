@@ -119,6 +119,7 @@ mod tests {
             name: name.to_owned(),
             expression: ResidualExpression {
                 text: name.to_owned(),
+                inferred_unit: None,
             },
             rhs_value,
             unit: ResidualUnit {

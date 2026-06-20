@@ -3922,6 +3922,7 @@ fn solver_smoke_linear_residual_graph(
                     name: (*name).to_owned(),
                     expression: eng_runtime::solver::ResidualExpression {
                         text: (*name).to_owned(),
+                        inferred_unit: None,
                     },
                     rhs_value: *rhs_value,
                     unit: eng_runtime::solver::ResidualUnit {

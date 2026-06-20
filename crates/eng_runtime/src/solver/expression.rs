@@ -35,6 +35,7 @@ impl ArithmeticExpressionProfile {
 pub(crate) struct LinearizedArithmeticExpression {
     pub(crate) constant: f64,
     pub(crate) terms: Vec<LinearizedArithmeticTerm>,
+    pub(crate) root_unit: Option<ArithmeticUnitMetadata>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -280,10 +281,34 @@ where
         .evaluate(symbols)
 }
 
+#[allow(dead_code)]
 pub(crate) fn linearize_arithmetic_expression_with_unit_converter<F>(
     expression: &str,
     variable_symbols: &[String],
     constant_symbols: &HashMap<String, f64>,
+    convert_number: &mut F,
+    profile: ArithmeticExpressionProfile,
+    tolerance: f64,
+) -> Result<LinearizedArithmeticExpression, SolverFailure>
+where
+    F: FnMut(f64, Option<&str>) -> Result<f64, SolverFailure>,
+{
+    linearize_arithmetic_expression_with_symbol_metadata_and_unit_converter(
+        expression,
+        variable_symbols,
+        constant_symbols,
+        &HashMap::new(),
+        convert_number,
+        profile,
+        tolerance,
+    )
+}
+
+pub(crate) fn linearize_arithmetic_expression_with_symbol_metadata_and_unit_converter<F>(
+    expression: &str,
+    variable_symbols: &[String],
+    constant_symbols: &HashMap<String, f64>,
+    symbol_units: &HashMap<String, ArithmeticUnitMetadata>,
     convert_number: &mut F,
     profile: ArithmeticExpressionProfile,
     tolerance: f64,
@@ -297,12 +322,14 @@ where
         symbols.insert(symbol.clone(), 0.0);
     }
 
-    let parsed = parse_arithmetic_expression_with_unit_converter(
+    let parsed = parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
         expression,
         &symbols,
+        symbol_units,
         convert_number,
         profile,
     )?;
+    let root_unit = parsed.root_unit.clone();
     let constant = parsed.evaluate(&symbols)?;
     let mut terms = Vec::new();
     for symbol in &variable_symbols {
@@ -338,7 +365,11 @@ where
         tolerance,
     )?;
 
-    Ok(LinearizedArithmeticExpression { constant, terms })
+    Ok(LinearizedArithmeticExpression {
+        constant,
+        terms,
+        root_unit,
+    })
 }
 
 fn unique_symbols(symbols: &[String]) -> Vec<String> {
@@ -771,10 +802,6 @@ fn compatible_quantity_kind(left: &ArithmeticUnitMetadata, right: &ArithmeticUni
 
 fn is_dimensionless(unit: &ArithmeticUnitMetadata) -> bool {
     normalized_canonical_unit(&unit.canonical_unit) == "1"
-        || matches!(
-            unit.quantity_kind.as_str(),
-            "Dimensionless" | "DimensionlessNumber" | "Number"
-        )
 }
 
 fn is_absolute_temperature(unit: &ArithmeticUnitMetadata) -> bool {
@@ -1186,6 +1213,14 @@ mod tests {
                     coefficient: -2.0,
                 },
             ]
+        );
+        assert_eq!(
+            linearized.root_unit,
+            Some(ArithmeticUnitMetadata {
+                display_unit: "kPa".to_owned(),
+                canonical_unit: "Pa".to_owned(),
+                quantity_kind: "Pressure".to_owned(),
+            })
         );
     }
 
