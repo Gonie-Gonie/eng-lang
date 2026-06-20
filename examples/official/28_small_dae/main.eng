@@ -28,6 +28,7 @@ with {
     initial = [310 K, 305 K]
     initial_derivative = [-10 K/s, -5 K/s]
     initial_algebraic = [300 K, 0 K, 295 K, 0 K]
+    mass_matrix = [[1, 0], [0, 1]]
     tolerance = 0.000000001
     max_iter = 40
 }

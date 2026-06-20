@@ -808,6 +808,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .report_spec_json
                     .contains("source solve binding `dae_result`")
                 || !output
+                    .report_spec_json
+                    .contains("configured source mass matrix")
+                || !output
                     .report_html
                     .contains("implicit_euler_dae_source_residual_graph")
                 || !output.report_html.contains("Trajectories")

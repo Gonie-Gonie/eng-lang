@@ -7,10 +7,9 @@ temperature and generated balance variable remains algebraic.
 
 The runtime builds `DaeInput`, accepts bracketed unitful initial vectors for
 state values, state derivatives, and algebraic guesses, applies Newton
-algebraic initialization by default, uses an identity mass-matrix fallback
-unless a dimensionless scalar, diagonal vector, or dense square `mass_matrix`
-option is supplied, then
-records state/algebraic trajectories, step diagnostics, and residual metadata
+algebraic initialization by default, uses an explicit dense identity
+mass_matrix, then records state/algebraic trajectories, step diagnostics, and
+residual metadata
 for coupled unitful temperature DAE residuals:
 
 ```text
