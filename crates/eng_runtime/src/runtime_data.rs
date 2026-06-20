@@ -1377,6 +1377,7 @@ impl RuntimeComponentSolution {
         let mut failure_artifact = None;
         let mut convergence_status: String;
         let mut iteration_count = 0;
+        let mut fixed_point_residual_history = Vec::new();
 
         match fixed_point_update_plan(&residual_graph) {
             Ok(update_plan) => {
@@ -1384,15 +1385,17 @@ impl RuntimeComponentSolution {
                     fixed_point_update_values(&residual_graph, &update_plan, values)
                 }) {
                     Ok(fixed_point) => {
+                        let failed = fixed_point.failure.clone();
+                        fixed_point_residual_history = fixed_point.residual_history;
                         variable_values = fixed_point.values;
-                        variable_status = if fixed_point.failure.is_none() {
+                        variable_status = if failed.is_none() {
                             "solved_fixed_point".to_owned()
                         } else {
                             "fixed_point_not_converged".to_owned()
                         };
                         iteration_count = fixed_point.iteration_count;
                         convergence_status = fixed_point.convergence_status;
-                        if let Some(failure) = fixed_point.failure {
+                        if let Some(failure) = failed {
                             status = "fixed_point_not_converged".to_owned();
                             reason = failure.message.clone();
                             failure_artifact = Some(RuntimeSolverFailureArtifact {
@@ -1488,6 +1491,11 @@ impl RuntimeComponentSolution {
             })
             .collect::<Vec<_>>();
         let largest_residuals = largest_component_residuals(&residuals);
+        let step_diagnostics = fixed_point_residual_history_diagnostics(
+            &fixed_point_residual_history,
+            &convergence_status,
+            failure_artifact.as_ref(),
+        );
 
         Self {
             assembly: assembly_name.to_owned(),
@@ -1503,7 +1511,7 @@ impl RuntimeComponentSolution {
             convergence_status,
             variables,
             trajectories: Vec::new(),
-            step_diagnostics: Vec::new(),
+            step_diagnostics,
             residuals,
             largest_residuals,
             failure_artifact,
@@ -5526,6 +5534,31 @@ fn newton_residual_history_diagnostics(
                     code: failure.code.clone(),
                     message: failure.message.clone(),
                 }),
+        })
+        .collect()
+}
+
+fn fixed_point_residual_history_diagnostics(
+    residual_history: &[f64],
+    convergence_status: &str,
+    failure_artifact: Option<&RuntimeSolverFailureArtifact>,
+) -> Vec<RuntimeComponentStepDiagnostic> {
+    residual_history
+        .iter()
+        .enumerate()
+        .map(|(index, residual_norm)| RuntimeComponentStepDiagnostic {
+            step_index: index,
+            time_s: 0.0,
+            algebraic_iteration_count: index + 1,
+            residual_norm: *residual_norm,
+            convergence_status: if index + 1 == residual_history.len() {
+                convergence_status.to_owned()
+            } else {
+                "fixed_point_iteration".to_owned()
+            },
+            failure_artifact: (index + 1 == residual_history.len())
+                .then(|| failure_artifact.cloned())
+                .flatten(),
         })
         .collect()
 }
@@ -9688,6 +9721,23 @@ with {
         assert_eq!(solution.tolerance, 0.000001);
         assert_eq!(solution.max_iterations, 80);
         assert!(solution.iteration_count > 1);
+        assert_eq!(solution.step_diagnostics.len(), solution.iteration_count);
+        assert!(solution
+            .step_diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.residual_norm.is_finite()));
+        assert!(solution
+            .step_diagnostics
+            .iter()
+            .take(solution.step_diagnostics.len().saturating_sub(1))
+            .all(|diagnostic| diagnostic.convergence_status == "fixed_point_iteration"));
+        assert_eq!(
+            solution
+                .step_diagnostics
+                .last()
+                .map(|diagnostic| diagnostic.convergence_status.as_str()),
+            Some("fixed_point_converged")
+        );
         assert!(solution.failure_artifact.is_none());
         assert!(solution.residual_norm <= solution.tolerance);
         assert!(solution
@@ -9703,6 +9753,8 @@ with {
         let json = eng_report::report_spec_json(&spec);
         assert!(json.contains("\"method\": \"fixed_point_residual_graph\""));
         assert!(json.contains("\"convergence_status\": \"fixed_point_converged\""));
+        assert!(json.contains("\"step_diagnostics\""));
+        assert!(json.contains("fixed_point_iteration"));
         assert!(json.contains("relax.source.q - 0.5 * relax.target.q + 1 kW"));
     }
 
@@ -10019,6 +10071,23 @@ with {
         assert_eq!(solution.method, "fixed_point_residual_graph");
         assert_eq!(solution.convergence_status, "fixed_point_not_converged");
         assert_eq!(solution.iteration_count, 3);
+        assert_eq!(solution.step_diagnostics.len(), 3);
+        assert!(solution
+            .step_diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.residual_norm.is_finite()));
+        let final_diagnostic = solution.step_diagnostics.last().unwrap();
+        assert_eq!(
+            final_diagnostic.convergence_status,
+            "fixed_point_not_converged"
+        );
+        assert_eq!(
+            final_diagnostic
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-FIXED-POINT-NONCONVERGENCE")
+        );
         assert_eq!(
             solution
                 .failure_artifact
@@ -10029,6 +10098,13 @@ with {
         assert!(solution
             .reason
             .contains("source solve binding `fixed_point_result`"));
+
+        let mut spec =
+            eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        runtime.apply_component_solutions(&mut spec);
+        let json = eng_report::report_spec_json(&spec);
+        assert!(json.contains("\"step_diagnostics\""));
+        assert!(json.contains("E-FIXED-POINT-NONCONVERGENCE"));
     }
 
     #[test]
