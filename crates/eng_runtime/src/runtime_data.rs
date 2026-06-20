@@ -3604,6 +3604,20 @@ fn dae_component_solution_from_solve_request(
     let algebraic_initialization = option_value(&request.options, "algebraic_initialization")
         .map(str::trim)
         .unwrap_or("newton");
+    let parameter_values = match source_assembly_parameter_values(solver_assembly) {
+        Ok(values) => values,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                method,
+                "DAE source solve parameters could not be materialized",
+                &failure,
+                tolerance,
+                newton_options.max_iterations,
+                "dae_source_failed",
+            );
+        }
+    };
     if algebraic_initialization == "newton" && !initial_algebraic.is_empty() {
         let initialized = initialize_algebraic_variables(
             AlgebraicInitializationInput {
@@ -3611,7 +3625,7 @@ fn dae_component_solution_from_solve_request(
                 state_derivative: &initial_state_derivatives,
                 algebraic_guess: &initial_algebraic,
                 inputs: &[],
-                parameters: &[],
+                parameters: &parameter_values,
                 time_s: 0.0,
             },
             &newton_options,
@@ -3679,7 +3693,7 @@ fn dae_component_solution_from_solve_request(
             .map(|(variable, initial)| DaeVariable::new(variable.name.clone(), initial))
             .collect(),
         inputs: Vec::new(),
-        parameters: Vec::new(),
+        parameters: parameter_values.clone(),
     };
     let dae_options = DaeOptions {
         timestep_s,
@@ -3768,7 +3782,7 @@ fn dae_component_solution_from_solve_request(
                 inputs: Vec::new(),
                 outputs: layout_names_from_unknowns(&solver_assembly.states),
                 states: layout_names_from_unknowns(&solver_assembly.states),
-                parameters: Vec::new(),
+                parameters: layout_names_from_unknowns(&solver_assembly.parameters),
             },
             SolverOptions {
                 method: method.to_owned(),
@@ -5051,6 +5065,26 @@ fn source_residual_evaluation_for_dae_sample(
     )
 }
 
+fn source_assembly_parameter_values(
+    assembly: &EquationAssembly,
+) -> Result<Vec<f64>, SolverFailure> {
+    assembly
+        .parameters
+        .iter()
+        .map(|parameter| {
+            parameter.value.ok_or_else(|| {
+                SolverFailure::new(
+                    "E-SOURCE-RESIDUAL-PARAMETER",
+                    format!(
+                        "source residual parameter `{}` has no materialized value",
+                        parameter.name
+                    ),
+                )
+            })
+        })
+        .collect()
+}
+
 fn insert_assembly_parameter_symbols(
     assembly: &EquationAssembly,
     symbols: &mut HashMap<String, f64>,
@@ -5124,7 +5158,7 @@ fn source_residual_evaluation_for_dae_final(
             mass_state_derivative: None,
             algebraic: &algebraic,
             inputs: &[],
-            parameters: &[],
+            parameters: &input.parameters,
         },
         tolerance,
         SourceResidualSubset::All,
@@ -9525,6 +9559,77 @@ with {
     }
 
     #[test]
+    fn materializes_parameterized_dae_source_solve_request() {
+        let source = r#"
+domain DaeTemperature {
+    across T: AbsoluteTemperature [K]
+    across T_ref: AbsoluteTemperature [K]
+    through balance: TemperatureDelta [K]
+    conservation sum(balance) = 0
+}
+
+component ParameterizedDaeNode {
+    port hot: DaeTemperature
+    parameter tau_factor: DimensionlessNumber [1] = 2
+    parameter setpoint: AbsoluteTemperature [K] = 300 K
+    der(hot.T) + (hot.T - hot.T_ref) / (tau_factor * 1 s) eq 0 K/s
+    hot.T_ref eq setpoint
+}
+
+system ParameterizedDae {
+    node = ParameterizedDaeNode()
+    connect node.hot to node.hot
+}
+
+dae_result = solve component_graph
+with {
+    solver = implicit_euler_dae
+    timestep = 1 s
+    duration = 2 s
+    initial = [310 K]
+    initial_derivative = [-5 K/s]
+    initial_algebraic = [300 K, 0 K]
+    tolerance = 0.000000001
+    max_iter = 40
+}
+"#;
+        let report = check_source("parameterized_dae.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.status, "computed");
+        assert_eq!(solution.method, "implicit_euler_dae_source_residual_graph");
+        assert_eq!(solution.convergence_status, "dae_converged");
+        assert!(solution.failure_artifact.is_none());
+        assert!(solution
+            .reason
+            .contains("source solve binding `dae_result`"));
+        assert!(solution.trajectories.iter().any(|trajectory| {
+            trajectory.name == "node.hot.T"
+                && trajectory.role == "state"
+                && trajectory.point_count == 3
+                && trajectory.final_value < 310.0
+        }));
+        assert!(solution.residuals.iter().any(|residual| {
+            residual.expression.contains("node.tau_factor") && residual.status == "satisfied"
+        }));
+        assert!(solution.residuals.iter().any(|residual| {
+            residual.expression.contains("node.setpoint") && residual.status == "satisfied"
+        }));
+
+        let mut spec =
+            eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        runtime.apply_component_solutions(&mut spec);
+        let json = eng_report::report_spec_json(&spec);
+        assert!(json.contains("\"method\": \"implicit_euler_dae_source_residual_graph\""));
+        assert!(json.contains("node.tau_factor"));
+        assert!(json.contains("\"node.setpoint\""));
+    }
+
+    #[test]
     fn materializes_dynamic_component_explicit_source_solve_request() {
         let source = r#"
 domain ScalarState {
@@ -11222,6 +11327,89 @@ system Envelope {
             })
         );
     }
+    #[test]
+    fn source_dae_residual_sample_uses_explicit_parameter_values() {
+        let x = UnknownVariable {
+            name: "x".to_owned(),
+            role: "state".to_owned(),
+            quantity_kind: "Dimensionless".to_owned(),
+            unit: "1".to_owned(),
+            source: "Test.x".to_owned(),
+            status: "unknown".to_owned(),
+            value: None,
+        };
+        let z = UnknownVariable {
+            name: "z".to_owned(),
+            role: "algebraic".to_owned(),
+            quantity_kind: "Dimensionless".to_owned(),
+            unit: "1".to_owned(),
+            source: "Test.z".to_owned(),
+            status: "unknown".to_owned(),
+            value: None,
+        };
+        let k = UnknownVariable {
+            name: "k".to_owned(),
+            role: "parameter".to_owned(),
+            quantity_kind: "Dimensionless".to_owned(),
+            unit: "1".to_owned(),
+            source: "component_parameter.Dimensionless".to_owned(),
+            status: "defaulted".to_owned(),
+            value: Some(2.0),
+        };
+        let assembly = EquationAssembly {
+            name: "parameterized_dae_source".to_owned(),
+            generated_equations: vec![GeneratedEquation {
+                name: "state_balance".to_owned(),
+                kind: "dynamic_rhs".to_owned(),
+                domain: "Test".to_owned(),
+                expression: "der(x) + x / k eq z".to_owned(),
+                residual: "der(x) + x / k - z".to_owned(),
+                rhs_value: None,
+                dependencies: vec![
+                    "der(x)".to_owned(),
+                    "x".to_owned(),
+                    "k".to_owned(),
+                    "z".to_owned(),
+                ],
+                source: "test".to_owned(),
+                reason: "test DAE source parameter sample".to_owned(),
+                source_line: Some(1),
+                status: "generated".to_owned(),
+            }],
+            unknowns: vec![x.clone(), z.clone()],
+            states: vec![x],
+            algebraic_variables: vec![z],
+            parameters: vec![k],
+            ..EquationAssembly::default()
+        };
+        let graph = ResidualGraph::from_assembly(&assembly);
+        let parse_symbols = source_dae_parse_symbols(&assembly).unwrap();
+        let parsed_residuals =
+            parse_source_residual_expressions(&assembly, &parse_symbols).unwrap();
+
+        let evaluation = source_residual_evaluation_for_dae_sample(
+            &assembly,
+            &graph,
+            &parsed_residuals,
+            DaeSample {
+                time_s: 0.0,
+                state: &[4.0],
+                state_derivative: &[0.0],
+                mass_state_derivative: None,
+                algebraic: &[1.0],
+                inputs: &[],
+                parameters: &[4.0],
+            },
+            1e-9,
+            SourceResidualSubset::All,
+        )
+        .unwrap();
+
+        assert_eq!(evaluation.residuals.len(), 1);
+        assert_eq!(evaluation.residuals[0].value, 0.0);
+        assert_eq!(evaluation.normalized_values[0], 0.0);
+    }
+
     #[test]
     fn source_residual_evaluation_uses_component_parameter_values() {
         let x = UnknownVariable {
