@@ -1136,6 +1136,45 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/source_rhs_dimensionless_functions.eng"),
+        Path::new("build/test-runtime-source-rhs-dimensionless-functions"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let plot_spec = std::fs::read_to_string(&output.plot_spec_path).unwrap_or_default();
+            if !output.result_json.contains("\"binding\": \"sim\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"rk4_fixed_step\"")
+                || !output
+                    .result_json
+                    .contains("recognized source derivative equations and executed fixed-step RHS")
+                || !output.result_json.contains("\"state\": \"x\"")
+                || !output.result_json.contains("\"state\": \"damping\"")
+                || !output.result_json.contains("der(x) - (-sin(x) / 1 s)")
+                || !output.result_json.contains("damping - (cos(x))")
+                || !output.report_spec_json.contains("\"solver_results\"")
+                || !output.report_spec_json.contains("\"state\": \"damping\"")
+                || !output.report_spec_json.contains("damping - (cos(x))")
+                || !plot_spec.contains("\"name\": \"sim.x\"")
+                || !output.report_html.contains("System Solver Results")
+                || !output.report_html.contains("rk4_fixed_step")
+            {
+                eprintln!(
+                    "expected tests/runtime/source_rhs_dimensionless_functions.eng to simulate a source RHS using dimensionless sin/cos functions"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/source_rhs_dimensionless_functions.eng simulated dimensionless source RHS functions"
+            );
+        }
+        Err(error) => {
+            eprintln!("dimensionless source RHS function runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/small_dae_from_source.eng"),
         Path::new("build/test-runtime-small-dae-source"),
         &artifact_run_options(),

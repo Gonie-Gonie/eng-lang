@@ -1,0 +1,20 @@
+system DimensionlessFunctionRhs {
+    state x: DimensionlessNumber = 0.5
+    output damping: DimensionlessNumber [1]
+
+    equation {
+        der(x) eq -sin(x) / 1 s
+        damping eq cos(x)
+    }
+}
+
+sim = simulate DimensionlessFunctionRhs
+with {
+    timestep = 0.25 s
+    duration = 1 s
+    solver = rk4
+}
+
+report {
+    plot sim.x over Time
+}

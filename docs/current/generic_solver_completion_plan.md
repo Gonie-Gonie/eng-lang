@@ -79,6 +79,7 @@ Immediate execution order is evidence-driven:
 
 ## Progress Ledger
 
+- 2026-06-20: Source-equation fixed-step RHS simulation now has runtime fixture and example-smoke coverage for dimensionless `sin`/`cos` calls in derivative and algebraic output equations, proving the shared arithmetic function subset is exercised outside Newton residual solves as well.
 - 2026-06-20: Component equation semantic checks now understand the supported dimensionless math-function subset and reject unitful `sqrt`/`exp`/`ln`/`sin`/`cos` arguments before runtime residual solving, with diagnostics smoke coverage. This tightens W2 source diagnostics for the newly supported runtime function subset.
 - 2026-06-20: Shared arithmetic expression parsing now recognizes dimensionless one-argument math functions `sqrt`, `exp`, `ln`, `sin`, and `cos`, rejects unitful arguments with solver-profile parse diagnostics, and covers source Newton solving through a dimensionless `sqrt()` residual fixture. This advances W2/W4 expression reuse without claiming broad unitful nonlinear function support.
 - 2026-06-20: Newton results now preserve per-iteration residual vectors, and source Newton/DAE component step diagnostics expose the largest residual index/name/value for each iteration or implicit step in report-spec artifacts. This strengthens W4/W9 residual evidence without claiming that broad nonlinear or DAE solving is complete.
@@ -327,6 +328,7 @@ Evidence gate:
 - Component solver report HTML now includes source-line and dependency summaries for largest residuals.
 - Shared arithmetic expression trees now support dimensionless one-argument `sqrt`, `exp`, `ln`, `sin`, and `cos` calls, including source Newton fixture and example-smoke coverage for a dimensionless `sqrt()` residual and parser diagnostics for unitful function arguments.
 - Component equation semantic dimension checks now reject unitful arguments to the supported dimensionless math-function subset before runtime residual solving.
+- Source-equation RK4 RHS simulation now evaluates dimensionless `sin`/`cos` calls through the shared arithmetic expression tree, including algebraic output materialization and plot/report artifact checks.
 - Newton residual vector history now feeds source Newton and implicit-Euler DAE component step diagnostics with largest residual index/name/value evidence in report-spec artifacts.
 - Static component residual graph construction now preserves unsupported linearization status, failure code, and failure reason instead of silently dropping unsupported component-equation terms; dense linear, evaluator, runtime, and report artifacts retain those residuals as `unsupported_linearization`.
 - Newton variable scaling is now part of `NewtonOptions`, finite-difference perturbation, scaled dense Newton-step solves, source Newton bridge metadata, source DAE implicit-step Newton options, runtime `.engres`, and report-spec artifacts; source bridges derive default scales from assembly unknown quantity/unit metadata.
