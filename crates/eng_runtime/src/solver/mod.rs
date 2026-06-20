@@ -61,7 +61,8 @@ pub use algorithms::dynamic_component::{
 pub use algorithms::fixed_point::{solve_fixed_point, FixedPointOptions, FixedPointResult};
 pub use algorithms::fixed_step::{solve_fixed_step_ode, FixedStepMethod, RhsSample};
 pub use algorithms::nonlinear::{
-    solve_newton, solve_newton_with_jacobian, NewtonLargestResidual, NewtonOptions, NewtonResult,
+    solve_newton, solve_newton_with_jacobian, NewtonLargestResidual, NewtonLineSearchStep,
+    NewtonOptions, NewtonResult,
 };
 pub use behavior::{
     BehaviorExecutionProfile, BehaviorGraphEvaluation, BehaviorGraphRhsAdapter,

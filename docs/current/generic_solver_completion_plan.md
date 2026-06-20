@@ -133,7 +133,7 @@ Tasks:
 - Detect linear, fixed-point-capable, and nonlinear residual graph shapes from shared IR.
 - Add variable scale policy, residual scale overrides, and largest-normalized-residual summaries.
 - Route supplied analytic/source-linear Jacobian, finite-difference Jacobian, and future JIT Jacobian through one policy.
-- Add line-search/trust-region controls, singular/ill-conditioned diagnostics, and nonconvergence artifacts.
+- Keep line-search controls and diagnostics wired through solver/runtime/report artifacts; add trust-region controls, singular/ill-conditioned diagnostics, and broader nonconvergence artifacts.
 - Support coupled unitful variables beyond the current HeatRate smoke.
 
 Evidence gate:
@@ -272,6 +272,7 @@ Evidence gate:
 - Source ODE RHS parser construction now receives typed input and parameter symbol metadata from runtime layouts, so source derivative expressions preserve state/input/parameter units instead of name-only RHS symbols.
 - Source ODE RHS numeric literals with known built-in units now convert to canonical solver values during shared expression parsing while preserving unknown compound suffix compatibility.
 - State-space vector declarations now validate member roles before operator compatibility checks, preventing role-incompatible state/input/output vectors from being treated as shape-compatible solver inputs.
+- Newton solver results now retain accepted line-search scale and trial-count diagnostics per iteration, and runtime/report component solver step diagnostics expose that metadata for source Newton and DAE implicit-step Newton solves.
 
 ## Done Criteria
 

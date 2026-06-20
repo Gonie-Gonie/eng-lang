@@ -1536,6 +1536,8 @@ impl RuntimeComponentSolution {
                 time_s: diagnostic.time_s,
                 algebraic_iteration_count: diagnostic.algebraic_iteration_count,
                 residual_norm: diagnostic.residual_norm,
+                line_search_scale: None,
+                line_search_trial_count: None,
                 convergence_status: diagnostic.convergence_status.clone(),
                 failure_artifact: diagnostic.failure.as_ref().map(|failure| {
                     RuntimeSolverFailureArtifact {
@@ -1683,6 +1685,8 @@ impl RuntimeComponentSolution {
                     time_s: diagnostic.time_s,
                     algebraic_iteration_count: diagnostic.algebraic_iteration_count,
                     residual_norm: diagnostic.residual_norm,
+                    line_search_scale: diagnostic.line_search_scale,
+                    line_search_trial_count: diagnostic.line_search_trial_count,
                     convergence_status: diagnostic.convergence_status.clone(),
                     failure_artifact: diagnostic.failure_artifact.as_ref().map(|failure| {
                         ReportSolverFailureArtifact {
@@ -1794,6 +1798,8 @@ pub struct RuntimeComponentStepDiagnostic {
     pub time_s: f64,
     pub algebraic_iteration_count: usize,
     pub residual_norm: f64,
+    pub line_search_scale: Option<f64>,
+    pub line_search_trial_count: Option<usize>,
     pub convergence_status: String,
     pub failure_artifact: Option<RuntimeSolverFailureArtifact>,
 }
@@ -3869,6 +3875,16 @@ fn dae_component_solution_from_solve_request(
                 .last()
                 .copied()
                 .unwrap_or(f64::INFINITY),
+            line_search_scale: report
+                .newton
+                .line_search_history
+                .last()
+                .map(|step| step.scale),
+            line_search_trial_count: report
+                .newton
+                .line_search_history
+                .last()
+                .map(|step| step.trial_count),
             convergence_status: report.newton.convergence_status.clone(),
             failure_artifact: report.newton.failure.as_ref().map(|failure| {
                 RuntimeSolverFailureArtifact {
@@ -4124,6 +4140,8 @@ fn behavior_dynamic_component_solution_from_solve_request(
                         time_s: sample.time_s,
                         algebraic_iteration_count: 0,
                         residual_norm: 0.0,
+                        line_search_scale: None,
+                        line_search_trial_count: None,
                         convergence_status: format!("behavior_graph_{}", behavior.status),
                         failure_artifact: None,
                     });
@@ -5588,6 +5606,16 @@ fn newton_residual_history_diagnostics(
             time_s: 0.0,
             algebraic_iteration_count: index,
             residual_norm: *residual_norm,
+            line_search_scale: newton
+                .line_search_history
+                .iter()
+                .find(|step| step.iteration == index)
+                .map(|step| step.scale),
+            line_search_trial_count: newton
+                .line_search_history
+                .iter()
+                .find(|step| step.iteration == index)
+                .map(|step| step.trial_count),
             convergence_status: if index + 1 == newton.residual_history.len() {
                 newton.convergence_status.clone()
             } else {
@@ -5617,6 +5645,8 @@ fn fixed_point_residual_history_diagnostics(
             time_s: 0.0,
             algebraic_iteration_count: index + 1,
             residual_norm: *residual_norm,
+            line_search_scale: None,
+            line_search_trial_count: None,
             convergence_status: if index + 1 == residual_history.len() {
                 convergence_status.to_owned()
             } else {
@@ -10658,6 +10688,60 @@ with {
     }
 
     #[test]
+    fn newton_step_diagnostics_include_line_search_metadata() {
+        let newton = crate::solver::NewtonResult {
+            values: vec![1.0],
+            residual_history: vec![2.0, 0.5],
+            line_search_history: vec![crate::solver::NewtonLineSearchStep {
+                iteration: 1,
+                scale: 0.25,
+                trial_count: 3,
+                residual_norm: 0.5,
+            }],
+            largest_residual: None,
+            iteration_count: 1,
+            convergence_status: "newton_not_converged".to_owned(),
+            failure: None,
+        };
+
+        let diagnostics = newton_residual_history_diagnostics(&newton, None);
+
+        assert_eq!(diagnostics.len(), 2);
+        assert_eq!(diagnostics[0].line_search_scale, None);
+        assert_eq!(diagnostics[1].line_search_scale, Some(0.25));
+        assert_eq!(diagnostics[1].line_search_trial_count, Some(3));
+
+        let report_solution = RuntimeComponentSolution {
+            assembly: "component_graph".to_owned(),
+            status: "newton_not_converged".to_owned(),
+            method: "newton_source_residual_graph".to_owned(),
+            reason: "test Newton line-search diagnostics".to_owned(),
+            equation_count: 1,
+            unknown_count: 1,
+            residual_norm: 0.5,
+            tolerance: 1e-9,
+            max_iterations: 1,
+            iteration_count: 1,
+            convergence_status: "newton_not_converged".to_owned(),
+            variables: Vec::new(),
+            trajectories: Vec::new(),
+            step_diagnostics: diagnostics,
+            residuals: Vec::new(),
+            largest_residuals: Vec::new(),
+            failure_artifact: None,
+        }
+        .to_report_solver_result();
+
+        assert_eq!(
+            report_solution.step_diagnostics[1].line_search_scale,
+            Some(0.25)
+        );
+        assert_eq!(
+            report_solution.step_diagnostics[1].line_search_trial_count,
+            Some(3)
+        );
+    }
+    #[test]
     fn materializes_fixed_point_nonconvergence_failure_from_source() {
         let source = r#"
 domain Scalar {
@@ -11203,12 +11287,20 @@ with {
         let report = check_file(&source_path, &CheckOptions::default()).unwrap();
         let runtime = materialize_runtime_data(&report, &source);
 
-        assert_eq!(runtime.system_solutions.len(), 1);
-        let solution = &runtime.system_solutions[0];
+        assert_eq!(runtime.system_solutions.len(), 2);
+        let solution = runtime
+            .system_solutions
+            .iter()
+            .find(|solution| solution.state == "T_zone")
+            .expect("T_zone adaptive state-space solution");
         assert_eq!(solution.system, "AdaptiveStateSpace");
         assert_eq!(solution.binding.as_deref(), Some("sim"));
         assert_eq!(solution.status, "computed");
         assert_eq!(solution.method, "adaptive_heun");
+        assert_eq!(
+            solution.outputs,
+            vec!["T_zone".to_owned(), "Q_total".to_owned()]
+        );
         assert_eq!(solution.convergence_status, "adaptive_heun_completed");
         assert_eq!(solution.tolerance, 0.0001);
         assert!(solution.iteration_count >= solution.step_count);
@@ -11233,10 +11325,25 @@ with {
             solution.step_diagnostics.len()
         );
         assert!(solution.final_value.is_finite());
+        let q_total = runtime
+            .system_solutions
+            .iter()
+            .find(|solution| solution.state == "Q_total")
+            .expect("Q_total adaptive state-space output solution");
+        assert_eq!(q_total.method, "adaptive_heun");
+        assert_eq!(
+            q_total.outputs,
+            vec!["T_zone".to_owned(), "Q_total".to_owned()]
+        );
+        assert!(q_total.final_value.is_finite());
         assert!(runtime
             .time_series
             .iter()
             .any(|series| series.name == "sim.T_zone"));
+        assert!(runtime
+            .time_series
+            .iter()
+            .any(|series| series.name == "sim.Q_total"));
     }
 
     #[test]

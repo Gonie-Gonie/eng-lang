@@ -642,6 +642,8 @@ pub struct ReportComponentSolverStepDiagnostic {
     pub time_s: f64,
     pub algebraic_iteration_count: usize,
     pub residual_norm: f64,
+    pub line_search_scale: Option<f64>,
+    pub line_search_trial_count: Option<usize>,
     pub convergence_status: String,
     pub failure_artifact: Option<ReportSolverFailureArtifact>,
 }
@@ -5118,6 +5120,22 @@ fn push_report_component_solver_result_json(
             "{indent}      \"residual_norm\": {},\n",
             diagnostic.residual_norm
         ));
+        match diagnostic.line_search_scale {
+            Some(scale) => json.push_str(&format!(
+                "{indent}      \"line_search_scale\": {},\n",
+                scale
+            )),
+            None => json.push_str(&format!("{indent}      \"line_search_scale\": null,\n")),
+        }
+        match diagnostic.line_search_trial_count {
+            Some(count) => json.push_str(&format!(
+                "{indent}      \"line_search_trial_count\": {},\n",
+                count
+            )),
+            None => json.push_str(&format!(
+                "{indent}      \"line_search_trial_count\": null,\n"
+            )),
+        }
         json.push_str(&format!(
             "{indent}      \"convergence_status\": \"{}\",\n",
             json_escape(&diagnostic.convergence_status)

@@ -25,6 +25,7 @@ impl Default for NewtonOptions {
 pub struct NewtonResult {
     pub values: Vec<f64>,
     pub residual_history: Vec<f64>,
+    pub line_search_history: Vec<NewtonLineSearchStep>,
     pub largest_residual: Option<NewtonLargestResidual>,
     pub iteration_count: usize,
     pub convergence_status: String,
@@ -36,6 +37,14 @@ pub struct NewtonLargestResidual {
     pub index: usize,
     pub value: f64,
     pub abs_value: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct NewtonLineSearchStep {
+    pub iteration: usize,
+    pub scale: f64,
+    pub trial_count: usize,
+    pub residual_norm: f64,
 }
 
 pub fn solve_newton<F>(
@@ -91,10 +100,12 @@ where
     validate_residual_layout(values.len(), &residual_values)?;
     let mut residual_norm = norm(&residual_values);
     let mut residual_history = vec![residual_norm];
+    let mut line_search_history = Vec::new();
     if residual_norm <= options.tolerance {
         return Ok(build_newton_result(
             values,
             residual_history,
+            line_search_history,
             0,
             "newton_converged",
             None,
@@ -114,7 +125,8 @@ where
             Err(failure) => {
                 return Ok(build_newton_result(
                     values,
-                    residual_history,
+                    residual_history.clone(),
+                    line_search_history.clone(),
                     iteration,
                     "newton_linear_solve_failed",
                     Some(failure),
@@ -127,7 +139,8 @@ where
             Err(failure) => {
                 return Ok(build_newton_result(
                     values,
-                    residual_history,
+                    residual_history.clone(),
+                    line_search_history.clone(),
                     iteration,
                     "newton_line_search_failed",
                     Some(failure),
@@ -135,6 +148,12 @@ where
                 ));
             }
         };
+        line_search_history.push(NewtonLineSearchStep {
+            iteration,
+            scale: accepted.scale,
+            trial_count: accepted.trial_count,
+            residual_norm: accepted.residual_norm,
+        });
         values = accepted.values;
         residual_values = accepted.residuals;
         residual_norm = accepted.residual_norm;
@@ -144,6 +163,7 @@ where
             return Ok(build_newton_result(
                 values,
                 residual_history,
+                line_search_history.clone(),
                 iteration,
                 "newton_converged",
                 None,
@@ -155,6 +175,7 @@ where
     Ok(build_newton_result(
         values,
         residual_history,
+        line_search_history,
         options.max_iterations,
         "newton_not_converged",
         Some(SolverFailure::new(
@@ -171,6 +192,7 @@ where
 fn build_newton_result(
     values: Vec<f64>,
     residual_history: Vec<f64>,
+    line_search_history: Vec<NewtonLineSearchStep>,
     iteration_count: usize,
     convergence_status: &str,
     failure: Option<SolverFailure>,
@@ -179,6 +201,7 @@ fn build_newton_result(
     NewtonResult {
         values,
         residual_history,
+        line_search_history,
         largest_residual: largest_residual(residual_values),
         iteration_count,
         convergence_status: convergence_status.to_owned(),
@@ -325,6 +348,8 @@ struct AcceptedStep {
     values: Vec<f64>,
     residuals: Vec<f64>,
     residual_norm: f64,
+    scale: f64,
+    trial_count: usize,
 }
 
 fn damped_step<F>(
@@ -341,7 +366,7 @@ where
     let attempts = options.line_search_steps.max(1);
     let mut best: Option<AcceptedStep> = None;
     let mut saw_nonfinite_candidate = false;
-    for _ in 0..attempts {
+    for attempt_index in 0..attempts {
         let candidate = values
             .iter()
             .zip(step.iter())
@@ -359,6 +384,8 @@ where
             values: candidate,
             residuals: candidate_residuals,
             residual_norm: candidate_norm,
+            scale,
+            trial_count: attempt_index + 1,
         };
         if candidate_norm <= current_residual_norm {
             return Ok(accepted);
@@ -441,6 +468,24 @@ mod tests {
         );
     }
 
+    #[test]
+    fn records_damped_line_search_steps() {
+        let options = NewtonOptions {
+            max_iterations: 1,
+            ..Default::default()
+        };
+        let result = solve_newton(&[0.1], &options, |values| {
+            Ok(vec![values[0] * values[0] - 2.0])
+        })
+        .unwrap();
+
+        assert_eq!(result.line_search_history.len(), 1);
+        let step = &result.line_search_history[0];
+        assert_eq!(step.iteration, 1);
+        assert!(step.scale < 1.0);
+        assert!(step.trial_count > 1);
+        assert_eq!(result.residual_history[1], step.residual_norm);
+    }
     #[test]
     fn solves_two_variable_nonlinear_system() {
         let result = solve_newton(&[0.8, 2.1], &NewtonOptions::default(), |values| {
