@@ -628,6 +628,9 @@ fn apply_residual_graph_solution_metadata(
         metadata.expression_unit = residual.expression_unit.clone();
         metadata.expression_quantity_kind = residual.expression_quantity_kind.clone();
         metadata.scale_policy = residual.scale_policy.clone();
+        metadata.lowering_status = residual.lowering_status.clone();
+        metadata.lowering_failure_code = residual.lowering_failure_code.clone();
+        metadata.lowering_failure_reason = residual.lowering_failure_reason.clone();
         metadata.status = residual.status.clone();
     }
 }
@@ -1335,23 +1338,8 @@ impl RuntimeComponentSolution {
                 }
             }
         };
-        let residuals = residual_graph
-            .residuals
-            .iter()
-            .zip(residual_output.values.iter())
-            .map(|(residual, value)| RuntimeComponentResidualEvaluation {
-                name: residual.name.clone(),
-                expression: residual.expression.text.clone(),
-                value: value.value,
-                unit: residual.unit.unit.clone(),
-                expression_unit: residual_expression_unit(residual),
-                expression_quantity_kind: residual_expression_quantity_kind(residual),
-                normalized_value: value.normalized_value,
-                scale: residual.scale.value,
-                scale_policy: residual.scale.policy.clone(),
-                status: value.status.clone(),
-            })
-            .collect::<Vec<_>>();
+        let residuals =
+            component_residual_evaluations_from_graph(&residual_graph, Some(&residual_output));
         let largest_residuals = largest_component_residuals(&residuals);
 
         Self {
@@ -1491,23 +1479,8 @@ impl RuntimeComponentSolution {
                 message: reason.clone(),
             });
         }
-        let residuals = residual_graph
-            .residuals
-            .iter()
-            .zip(residual_output.values.iter())
-            .map(|(residual, value)| RuntimeComponentResidualEvaluation {
-                name: residual.name.clone(),
-                expression: residual.expression.text.clone(),
-                value: value.value,
-                unit: residual.unit.unit.clone(),
-                expression_unit: residual_expression_unit(residual),
-                expression_quantity_kind: residual_expression_quantity_kind(residual),
-                normalized_value: value.normalized_value,
-                scale: residual.scale.value,
-                scale_policy: residual.scale.policy.clone(),
-                status: value.status.clone(),
-            })
-            .collect::<Vec<_>>();
+        let residuals =
+            component_residual_evaluations_from_graph(&residual_graph, Some(&residual_output));
         let largest_residuals = largest_component_residuals(&residuals);
         let step_diagnostics = fixed_point_residual_history_diagnostics(
             &fixed_point_residual_history,
@@ -1749,6 +1722,9 @@ impl RuntimeComponentSolution {
                     normalized_value: residual.normalized_value,
                     scale: residual.scale,
                     scale_policy: residual.scale_policy.clone(),
+                    lowering_status: residual.lowering_status.clone(),
+                    lowering_failure_code: residual.lowering_failure_code.clone(),
+                    lowering_failure_reason: residual.lowering_failure_reason.clone(),
                     status: residual.status.clone(),
                 })
                 .collect(),
@@ -1765,6 +1741,9 @@ impl RuntimeComponentSolution {
                     normalized_value: residual.normalized_value,
                     scale: residual.scale,
                     scale_policy: residual.scale_policy.clone(),
+                    lowering_status: residual.lowering_status.clone(),
+                    lowering_failure_code: residual.lowering_failure_code.clone(),
+                    lowering_failure_reason: residual.lowering_failure_reason.clone(),
                     status: residual.status.clone(),
                 })
                 .collect(),
@@ -1809,6 +1788,41 @@ fn residual_expression_quantity_kind(residual: &ResidualEquation) -> String {
         .as_ref()
         .map(|unit| unit.quantity_kind.clone())
         .unwrap_or_else(|| residual.unit.quantity_kind.clone())
+}
+
+fn component_residual_evaluations_from_graph(
+    graph: &ResidualGraph,
+    output: Option<&ResidualOutput>,
+) -> Vec<RuntimeComponentResidualEvaluation> {
+    graph
+        .residuals
+        .iter()
+        .enumerate()
+        .map(|(index, residual)| {
+            let value = output.and_then(|output| output.values.get(index));
+            RuntimeComponentResidualEvaluation {
+                name: residual.name.clone(),
+                expression: residual.expression.text.clone(),
+                value: value.map(|value| value.value).unwrap_or(0.0),
+                unit: residual.unit.unit.clone(),
+                expression_unit: residual_expression_unit(residual),
+                expression_quantity_kind: residual_expression_quantity_kind(residual),
+                normalized_value: value.map(|value| value.normalized_value).unwrap_or(0.0),
+                scale: residual.scale.value,
+                scale_policy: residual.scale.policy.clone(),
+                lowering_status: residual.expression.lowering_status.clone(),
+                lowering_failure_code: residual.expression.lowering_failure_code.clone(),
+                lowering_failure_reason: residual.expression.lowering_failure_reason.clone(),
+                status: value.map(|value| value.status.clone()).unwrap_or_else(|| {
+                    if residual.expression.lowering_status == "unsupported_linearization" {
+                        "unsupported_linearization".to_owned()
+                    } else {
+                        "not_evaluated".to_owned()
+                    }
+                }),
+            }
+        })
+        .collect()
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1863,6 +1877,9 @@ pub struct RuntimeComponentResidualEvaluation {
     pub normalized_value: f64,
     pub scale: f64,
     pub scale_policy: String,
+    pub lowering_status: String,
+    pub lowering_failure_code: Option<String>,
+    pub lowering_failure_reason: Option<String>,
     pub status: String,
 }
 
@@ -5585,6 +5602,9 @@ fn source_residual_evaluation_with_symbols(
             normalized_value,
             scale,
             scale_policy: residual_metadata.scale.policy.clone(),
+            lowering_status: "parsed_expression".to_owned(),
+            lowering_failure_code: None,
+            lowering_failure_reason: None,
             status: if normalized_value.abs() <= tolerance {
                 "satisfied".to_owned()
             } else {
@@ -11422,6 +11442,53 @@ with {
         );
     }
 
+    #[test]
+    fn reports_unsupported_component_residual_lowering_artifact() {
+        let mut assembly = square_linear_test_assembly("component_graph");
+        assembly.generated_equations[0].name = "component.nonlinear".to_owned();
+        assembly.generated_equations[0].kind = "component_equation".to_owned();
+        assembly.generated_equations[0].expression = "x * y eq 0".to_owned();
+        assembly.generated_equations[0].residual = "x * y".to_owned();
+        assembly.generated_equations[0].rhs_value = None;
+        assembly.generated_equations[0].dependencies = vec!["x".to_owned(), "y".to_owned()];
+
+        let solution = RuntimeComponentSolution::from_solver_assembly("component_graph", &assembly);
+
+        assert_eq!(solution.status, "linear_solve_failed");
+        assert_eq!(solution.method, "dense_linear_residual_graph");
+        assert_eq!(solution.convergence_status, "linear_failed");
+        assert_eq!(
+            solution
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-COMPONENT-ASSEMBLY-RESIDUAL")
+        );
+        let residual = solution
+            .residuals
+            .iter()
+            .find(|residual| residual.name == "component.nonlinear")
+            .expect("unsupported residual artifact");
+        assert_eq!(residual.status, "unsupported_linearization");
+        assert_eq!(residual.lowering_status, "unsupported_linearization");
+        assert_eq!(
+            residual.lowering_failure_code.as_deref(),
+            Some("E-COMPONENT-ASSEMBLY-RESIDUAL")
+        );
+        assert!(residual.lowering_failure_reason.is_some());
+
+        let report_solution = solution.to_report_solver_result();
+        let report_residual = report_solution
+            .residuals
+            .iter()
+            .find(|residual| residual.name == "component.nonlinear")
+            .expect("report residual artifact");
+        assert_eq!(report_residual.lowering_status, "unsupported_linearization");
+        assert_eq!(
+            report_residual.lowering_failure_code.as_deref(),
+            Some("E-COMPONENT-ASSEMBLY-RESIDUAL")
+        );
+    }
     #[test]
     fn reports_overdetermined_component_residual_graph_limitation() {
         let mut assembly = square_linear_test_assembly("component_graph");

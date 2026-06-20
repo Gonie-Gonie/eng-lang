@@ -2226,10 +2226,7 @@ mod tests {
     fn residual(name: &str, terms: &[(usize, &str, f64)], rhs_value: f64) -> ResidualEquation {
         ResidualEquation {
             name: name.to_owned(),
-            expression: ResidualExpression {
-                text: name.to_owned(),
-                inferred_unit: None,
-            },
+            expression: ResidualExpression::manual(name),
             rhs_value,
             unit: ResidualUnit {
                 unit: "1".to_owned(),

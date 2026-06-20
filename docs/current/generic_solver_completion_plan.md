@@ -314,6 +314,7 @@ Evidence gate:
 - Dense linear solves now distinguish exact zero-pivot singular failures from tolerance-level ill-conditioned pivot failures, retain min/max pivot magnitudes plus a pivot-condition estimate on successful solves, and expose those diagnostics through linear residual graph and component solver report artifacts.
 - Newton results now retain the Jacobian policy label and per-iteration dense-linear step diagnostics, and source Newton/implicit-Euler DAE component step diagnostics expose those fields in report-spec artifacts.
 - Newton residual vector history now feeds source Newton and implicit-Euler DAE component step diagnostics with largest residual index/name/value evidence in report-spec artifacts.
+- Static component residual graph construction now preserves unsupported linearization status, failure code, and failure reason instead of silently dropping unsupported component-equation terms; dense linear, evaluator, runtime, and report artifacts retain those residuals as `unsupported_linearization`.
 
 ## Done Criteria
 

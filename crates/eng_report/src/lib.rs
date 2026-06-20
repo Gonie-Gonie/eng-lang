@@ -670,6 +670,9 @@ pub struct ReportComponentSolverResidual {
     pub normalized_value: f64,
     pub scale: f64,
     pub scale_policy: String,
+    pub lowering_status: String,
+    pub lowering_failure_code: Option<String>,
+    pub lowering_failure_reason: Option<String>,
     pub status: String,
 }
 
@@ -773,6 +776,9 @@ pub struct ReportResidualGraphResidual {
     pub expression_unit: String,
     pub expression_quantity_kind: String,
     pub scale_policy: String,
+    pub lowering_status: String,
+    pub lowering_failure_code: Option<String>,
+    pub lowering_failure_reason: Option<String>,
     pub status: String,
     pub line: usize,
 }
@@ -1535,6 +1541,9 @@ pub fn report_spec_from_report(
                         expression_unit: String::new(),
                         expression_quantity_kind: String::new(),
                         scale_policy: String::new(),
+                        lowering_status: String::new(),
+                        lowering_failure_code: None,
+                        lowering_failure_reason: None,
                         status: metadata.status.clone(),
                         line: metadata.line,
                     })
@@ -4020,6 +4029,22 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
                 json_escape(&metadata.scale_policy)
             ));
             json.push_str(&format!(
+                "            \"lowering_status\": \"{}\",\n",
+                json_escape(&metadata.lowering_status)
+            ));
+            push_optional_json_string(
+                &mut json,
+                "lowering_failure_code",
+                metadata.lowering_failure_code.as_deref(),
+                12,
+            );
+            push_optional_json_string(
+                &mut json,
+                "lowering_failure_reason",
+                metadata.lowering_failure_reason.as_deref(),
+                12,
+            );
+            json.push_str(&format!(
                 "            \"status\": \"{}\",\n",
                 json_escape(&metadata.status)
             ));
@@ -5290,6 +5315,22 @@ fn push_report_component_solver_result_json(
             json_escape(&residual.scale_policy)
         ));
         json.push_str(&format!(
+            "{indent}      \"lowering_status\": \"{}\",\n",
+            json_escape(&residual.lowering_status)
+        ));
+        push_optional_json_string(
+            json,
+            "lowering_failure_code",
+            residual.lowering_failure_code.as_deref(),
+            indent.len() + 6,
+        );
+        push_optional_json_string(
+            json,
+            "lowering_failure_reason",
+            residual.lowering_failure_reason.as_deref(),
+            indent.len() + 6,
+        );
+        json.push_str(&format!(
             "{indent}      \"status\": \"{}\"\n",
             json_escape(&residual.status)
         ));
@@ -5332,6 +5373,22 @@ fn push_report_component_solver_result_json(
             "{indent}      \"scale_policy\": \"{}\",\n",
             json_escape(&residual.scale_policy)
         ));
+        json.push_str(&format!(
+            "{indent}      \"lowering_status\": \"{}\",\n",
+            json_escape(&residual.lowering_status)
+        ));
+        push_optional_json_string(
+            json,
+            "lowering_failure_code",
+            residual.lowering_failure_code.as_deref(),
+            indent.len() + 6,
+        );
+        push_optional_json_string(
+            json,
+            "lowering_failure_reason",
+            residual.lowering_failure_reason.as_deref(),
+            indent.len() + 6,
+        );
         json.push_str(&format!(
             "{indent}      \"status\": \"{}\"\n",
             json_escape(&residual.status)

@@ -89,8 +89,9 @@ impl ResidualGraph {
                     .unwrap_or_else(|| ("1".to_owned(), "unknown".to_owned()));
                 let should_parse_component_residual = equation.kind == "component_equation"
                     || (equation.kind == "component_boundary" && equation.rhs_value.is_none());
+                let mut lowering_failure = None;
                 let parsed_component_equation = if should_parse_component_residual {
-                    lower_linear_residual_expression(
+                    match lower_linear_residual_expression(
                         &equation.residual,
                         &equation.dependencies,
                         &variable_indices,
@@ -99,8 +100,13 @@ impl ResidualGraph {
                         Some((&unit, &quantity_kind)),
                         Some(&parameter_values),
                         COMPONENT_RESIDUAL_LOWERING,
-                    )
-                    .ok()
+                    ) {
+                        Ok(parsed) => Some(parsed),
+                        Err(failure) => {
+                            lowering_failure = Some(failure);
+                            None
+                        }
+                    }
                 } else {
                     None
                 };
@@ -135,6 +141,18 @@ impl ResidualGraph {
                     expression: ResidualExpression {
                         text: equation.residual.clone(),
                         inferred_unit: Some(inferred_unit),
+                        lowering_status: residual_expression_lowering_status(
+                            should_parse_component_residual,
+                            parsed_component_equation.is_some(),
+                            lowering_failure.as_ref(),
+                        )
+                        .to_owned(),
+                        lowering_failure_code: lowering_failure
+                            .as_ref()
+                            .map(|failure| failure.code.clone()),
+                        lowering_failure_reason: lowering_failure
+                            .as_ref()
+                            .map(|failure| failure.message.clone()),
                     },
                     rhs_value: parsed_component_equation
                         .as_ref()
@@ -313,6 +331,9 @@ impl ResidualGraph {
                     expression: ResidualExpression {
                         text: equation.residual.clone(),
                         inferred_unit: Some(inferred_unit),
+                        lowering_status: "linearized".to_owned(),
+                        lowering_failure_code: None,
+                        lowering_failure_reason: None,
                     },
                     rhs_value,
                     unit: ResidualUnit {
@@ -379,6 +400,7 @@ impl ResidualGraph {
                     format!("residual `{}` has a non-finite RHS value", residual.name),
                 ));
             }
+            ensure_residual_expression_lowered(residual)?;
             for term in &residual.terms {
                 if term.variable_index >= unknown_count {
                     return Err(SolverFailure::new(
@@ -988,6 +1010,7 @@ impl ResidualEvaluator for ResidualGraph {
                     format!("residual `{}` has a non-finite RHS value", residual.name),
                 ));
             }
+            ensure_residual_expression_lowered(residual)?;
             let mut value = -residual.rhs_value;
             for term in &residual.terms {
                 if !term.coefficient.is_finite() {
@@ -1094,6 +1117,44 @@ impl super::evaluator::ResidualEvaluator for ResidualGraph {
     }
 }
 
+fn residual_expression_lowering_status(
+    attempted_lowering: bool,
+    lowered: bool,
+    failure: Option<&SolverFailure>,
+) -> &'static str {
+    if failure.is_some() {
+        "unsupported_linearization"
+    } else if lowered {
+        "linearized"
+    } else if attempted_lowering {
+        "not_linearized"
+    } else {
+        "generated_linear_terms"
+    }
+}
+
+fn ensure_residual_expression_lowered(residual: &ResidualEquation) -> Result<(), SolverFailure> {
+    if residual.expression.lowering_status == "unsupported_linearization" {
+        let code = residual
+            .expression
+            .lowering_failure_code
+            .as_deref()
+            .unwrap_or("E-RESIDUAL-LOWERING");
+        let reason = residual
+            .expression
+            .lowering_failure_reason
+            .as_deref()
+            .unwrap_or("residual expression could not be lowered into supported solver terms");
+        return Err(SolverFailure::new(
+            code,
+            format!(
+                "residual `{}` could not be lowered into supported solver terms: {}",
+                residual.name, reason
+            ),
+        ));
+    }
+    Ok(())
+}
 fn ensure_finite_values(code: &str, label: &str, values: &[f64]) -> Result<(), SolverFailure> {
     if values.iter().all(|value| value.is_finite()) {
         Ok(())
@@ -1261,6 +1322,21 @@ pub type ResidualParameterRef = ResidualVariableRef;
 pub struct ResidualExpression {
     pub text: String,
     pub inferred_unit: Option<ResidualUnit>,
+    pub lowering_status: String,
+    pub lowering_failure_code: Option<String>,
+    pub lowering_failure_reason: Option<String>,
+}
+
+impl ResidualExpression {
+    pub fn manual(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            inferred_unit: None,
+            lowering_status: "manual".to_owned(),
+            lowering_failure_code: None,
+            lowering_failure_reason: None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1556,13 +1632,23 @@ mod tests {
                     value: None,
                 },
             ],
-            generated_equations: vec![GeneratedEquation {
-                name: "component.nonlinear".to_owned(),
-                kind: "component_equation".to_owned(),
-                residual: "x * y".to_owned(),
-                dependencies: vec!["x".to_owned(), "y".to_owned()],
-                ..Default::default()
-            }],
+            generated_equations: vec![
+                GeneratedEquation {
+                    name: "component.nonlinear".to_owned(),
+                    kind: "component_equation".to_owned(),
+                    residual: "x * y".to_owned(),
+                    dependencies: vec!["x".to_owned(), "y".to_owned()],
+                    ..Default::default()
+                },
+                GeneratedEquation {
+                    name: "component.boundary".to_owned(),
+                    kind: "component_boundary".to_owned(),
+                    residual: "y".to_owned(),
+                    rhs_value: Some(1.0),
+                    dependencies: vec!["y".to_owned()],
+                    ..Default::default()
+                },
+            ],
             ..Default::default()
         };
 
@@ -1570,6 +1656,29 @@ mod tests {
 
         assert!(graph.residuals[0].terms.is_empty());
         assert!(graph.residuals[0].variable_indices.is_empty());
+        assert_eq!(
+            graph.residuals[0].expression.lowering_status,
+            "unsupported_linearization"
+        );
+        assert_eq!(
+            graph.residuals[0]
+                .expression
+                .lowering_failure_code
+                .as_deref(),
+            Some("E-COMPONENT-ASSEMBLY-RESIDUAL")
+        );
+
+        let linear_failure = graph.assemble_linear_system().unwrap_err();
+        assert_eq!(linear_failure.code, "E-COMPONENT-ASSEMBLY-RESIDUAL");
+        assert!(linear_failure.message.contains("component.nonlinear"));
+
+        let evaluation_failure = <ResidualGraph as ResidualEvaluator>::evaluate(
+            &graph,
+            &ResidualInput::new(&[1.0, 2.0]),
+        )
+        .unwrap_err();
+        assert_eq!(evaluation_failure.code, "E-COMPONENT-ASSEMBLY-RESIDUAL");
+        assert!(evaluation_failure.message.contains("component.nonlinear"));
     }
     #[test]
     fn shared_linear_residual_lowering_uses_profile_specific_failures() {
@@ -2307,10 +2416,7 @@ mod tests {
     ) -> ResidualEquation {
         ResidualEquation {
             name: name.to_owned(),
-            expression: ResidualExpression {
-                text: name.to_owned(),
-                inferred_unit: None,
-            },
+            expression: ResidualExpression::manual(name),
             rhs_value,
             unit: ResidualUnit {
                 unit: "1".to_owned(),

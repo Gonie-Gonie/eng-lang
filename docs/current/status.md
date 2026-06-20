@@ -241,7 +241,7 @@ are not public stable workflows.
   residual-vector history, per-step largest residual identity diagnostics,
   residual history, accepted line-search scale/trial diagnostics,
   largest-residual summary, shared scaled residual-norm diagnostics,
-  residual-assembly/evaluation finite-value checks, intermediate overflow
+  residual-assembly/evaluation finite-value checks, unsupported residual-lowering artifacts, intermediate overflow
   rejection, and nonconvergence/singular-linear-solve/line-search failure
   artifacts. The same
   internal layer has a solver-API standalone implicit-Euler DAE seed over

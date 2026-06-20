@@ -4043,10 +4043,7 @@ fn solver_smoke_linear_residual_graph(
             .map(
                 |(name, terms, rhs_value)| eng_runtime::solver::ResidualEquation {
                     name: (*name).to_owned(),
-                    expression: eng_runtime::solver::ResidualExpression {
-                        text: (*name).to_owned(),
-                        inferred_unit: None,
-                    },
+                    expression: eng_runtime::solver::ResidualExpression::manual(*name),
                     rhs_value: *rhs_value,
                     unit: eng_runtime::solver::ResidualUnit {
                         unit: "1".to_owned(),
