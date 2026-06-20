@@ -282,8 +282,9 @@ are not public stable workflows.
   source-equation `simulate` path now reuses the same adaptive seed through the
   shared `SourceRhsEvaluator`; its derivative coefficient and RHS expressions
   are pre-parsed through the shared arithmetic expression parser with
-  unit-literal metadata, typed input symbols, and typed parameter symbols. The
-  internal continuous state-space path now
+  unit-literal metadata, typed input symbols, typed parameter symbols, and
+  known-unit literal conversion to canonical solver values. The internal
+  continuous state-space path now
   reuses the same adaptive seed for shape-checked `der(x) eq A * x + B * u`
   systems.
   Fixed-step ODE and

@@ -126,6 +126,8 @@ Internal runtime seeds:
   unit-literal metadata
 - source-equation RHS parser construction receives typed state/input/parameter
   symbol metadata from runtime layouts
+- source-equation RHS numeric literals with known built-in units are converted
+  to canonical solver values during expression parsing
 - internal continuous state-space `simulate` integration for
   `solver = adaptive_heun` on shape-checked `der(x) eq A * x + B * u`
   systems, with fixed output TimeGrid trajectories and adaptive internal

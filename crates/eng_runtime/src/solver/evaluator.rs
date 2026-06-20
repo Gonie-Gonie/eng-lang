@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use eng_compiler::{all_unit_infos, normalize_unit};
+
 use super::{
     diagnostics::SolverFailure,
     expression::{
@@ -393,14 +395,49 @@ fn parse_source_rhs_expression(
     symbols: &HashMap<String, f64>,
     symbol_units: &HashMap<String, ArithmeticUnitMetadata>,
 ) -> Result<ParsedArithmeticExpression, SolverFailure> {
-    let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
+    let mut convert_units =
+        |value: f64, unit: Option<&str>| source_rhs_unit_literal_value(value, unit);
     parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
         expression,
         symbols,
         symbol_units,
-        &mut ignore_units,
+        &mut convert_units,
         ArithmeticExpressionProfile::SOURCE_RHS,
     )
+}
+
+fn source_rhs_unit_literal_value(value: f64, unit: Option<&str>) -> Result<f64, SolverFailure> {
+    let Some(unit) = unit.map(str::trim).filter(|unit| !unit.is_empty()) else {
+        return Ok(value);
+    };
+    if normalize_unit(unit) == "1" {
+        return Ok(value);
+    }
+    let Some(info) = all_unit_infos()
+        .iter()
+        .find(|info| normalize_unit(info.symbol) == normalize_unit(unit))
+    else {
+        return Ok(value);
+    };
+    let scale = info.scale_to_canonical.parse::<f64>().map_err(|_| {
+        SolverFailure::new(
+            "E-RHS-UNIT-CONVERSION",
+            format!("unit `{unit}` has an invalid source RHS conversion scale"),
+        )
+    })?;
+    let offset = info
+        .affine_offset
+        .map(|offset| {
+            offset.parse::<f64>().map_err(|_| {
+                SolverFailure::new(
+                    "E-RHS-UNIT-CONVERSION",
+                    format!("unit `{unit}` has an invalid source RHS affine offset"),
+                )
+            })
+        })
+        .transpose()?
+        .unwrap_or(0.0);
+    Ok(value * scale + offset)
 }
 
 fn derivative_coefficient_expression(left: &str, state: &str) -> Result<String, SolverFailure> {
@@ -687,7 +724,7 @@ mod tests {
             vec![RhsStateInfo::new("T", "AbsoluteTemperature", "K")],
             vec![RhsSymbolInfo::new("Q_hvac", "HeatRate", "W")],
             vec![RhsSymbolInfo::new("C", "HeatCapacity", "J/K")],
-            vec![SourceRhsEquation::new("T", "C * der(T)", "Q_hvac + 1 W")],
+            vec![SourceRhsEquation::new("T", "C * der(T)", "Q_hvac + 1 kW")],
         )
         .unwrap();
 
@@ -704,7 +741,7 @@ mod tests {
                 p: vec![2.0],
             })
             .unwrap();
-        assert_eq!(output.derivatives, vec![2.0]);
+        assert_eq!(output.derivatives, vec![501.5]);
     }
 
     #[test]
