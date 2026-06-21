@@ -79,6 +79,9 @@ Use the official examples for user testing and demos. Start with these:
 - `examples/official/20_multi_state_thermal/main.eng`: supported two-state
   source-equation fixed-step ODE simulation with TimeSeries input and
   `sim.T_air`/`sim.T_wall` outputs.
+- `examples/official/34_three_state_source_ode/main.eng`: supported non-thermal
+  three-state source-equation adaptive ODE simulation with a promoted
+  TimeSeries input and `sim.x`/`sim.y`/`sim.z`/`sim.total` outputs.
 - `examples/official/21_state_space_discrete/main.eng`: supported typed-block
   discrete state-space simulation.
 - `examples/official/22_state_space_continuous/main.eng`: supported
@@ -127,7 +130,7 @@ output manifests, file policy, structured runtime logs, process-result records,
 local test-result records, and histogram PlotSpec output. The Newton and DAE
 examples are scoped solver smokes, and the behavior examples are scoped
 explicit-Euler RHS smokes. The Thermal/Fluid example is a scoped algebraic
-pressure/flow residual smoke with a fixed pipe pressure-drop seed, not broad nonlinear/DAE/behavior or production hydraulic/multi-domain simulation support.
+pressure/flow residual smoke with a fixed pipe pressure-drop seed. The source ODE examples are scoped one-derivative-per-state workflows, not broad nonlinear/DAE/behavior or production hydraulic/multi-domain simulation support.
 
 Recommended first user test:
 

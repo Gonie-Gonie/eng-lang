@@ -145,6 +145,11 @@ official/33_unit_parameterized_wall
   TemperatureDelta` equation checking, coefficient conversion into a `kW`
   residual graph, named solved variables, residual norm, and largest-residual
   artifacts.
+
+official/34_three_state_source_ode
+  Supported non-thermal source-equation ODE example with three dimensionless
+  states, a promoted CSV TimeSeries input, adaptive Heun substeps, generated
+  sim.x/sim.y/sim.z/sim.total TimeSeries, and scalar output materialization.
 ```
 
 ## Internal Implementation Fixtures

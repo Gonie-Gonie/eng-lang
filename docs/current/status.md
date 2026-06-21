@@ -132,7 +132,7 @@ by the stable breaking-change policy.
   parameter/state/input metadata, `der(...)`, one-state fixed-step thermal
   execution, one-state `adaptive_heun` simulation, source-equation fixed-step
   and adaptive Heun ODE execution with scalar or Time-indexed TimeSeries inputs,
-  three-state non-thermal adaptive source-equation fixture coverage with
+  official three-state non-thermal adaptive source-equation coverage with
   TimeSeries input materialization, scalar output materialization, and
   `sim.<state>`/`sim.<output>` materialization for the documented workflows.
   General equation solving beyond that source-equation shape, nonlinear, DAE,

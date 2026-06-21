@@ -1208,12 +1208,14 @@ The one-state thermal runner also keeps the earlier scalar input plus
 TimeSeries-binding form for narrow compatibility, such as
 `input T_out: AbsoluteTemperature` with `simulate ... with { T_out = weather_data.T_out }`.
 
-The supported source-equation fixed-step ODE workflow extends this surface to a
-two-state thermal shape. Each state must have exactly one linked
-`der(state)` equation, inputs may be scalar values or Time-indexed TimeSeries
-bindings, and `solver = fixed_step`, `solver = explicit_euler`, or
-`solver = rk4` runs through the common SolverInput/SolverResult path. The
-official example is `examples/official/20_multi_state_thermal`.
+The supported source-equation ODE workflow extends this surface to systems with
+one linked `der(state)` equation per state. Inputs may be scalar values or
+Time-indexed TimeSeries bindings, including arbitrary declared input option
+names such as `drive`. `solver = fixed_step`, `solver = explicit_euler`,
+`solver = rk4`, or `solver = adaptive_heun` runs through the common
+SolverInput/SolverResult path. Official examples are
+`examples/official/20_multi_state_thermal` and
+`examples/official/34_three_state_source_ode`.
 
 The compiler reports diagnostics for missing dynamic inputs, wrong TimeSeries
 quantity, wrong axis, missing `timestep`/`solver`, unsupported solver values,
@@ -1221,8 +1223,9 @@ invalid numeric `tolerance` values, and `timestep` values without duration
 units.
 
 Runtime materializes simulated state values as typed TimeSeries such as
-`sim.T_zone` for the one-state workflow and `sim.T_air`/`sim.T_wall` for the
-two-state source-equation workflow. The RMSE result appears in
+`sim.T_zone` for the one-state workflow, `sim.T_air`/`sim.T_wall` for the
+thermal source-equation workflow, and `sim.x`/`sim.y`/`sim.z`/`sim.total` for the
+three-state non-thermal source-equation workflow. The RMSE result appears in
 `computed_metrics`, the validation appears in `validations`, and pairwise
 TimeSeries overlap/match status appears in `time_alignments`. Alignment artifacts
 also include nominal left/right time steps, irregular-axis flags, and a

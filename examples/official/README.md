@@ -151,6 +151,11 @@ paths before compatibility fixtures.
   [W/K]` component parameter, dimension-checked `HeatRate = Conductance *
   TemperatureDelta`, coefficient conversion into a `kW` residual graph, and
   named dense-linear solve artifacts.
+
+34_three_state_source_ode
+  Non-thermal source-equation ODE simulation with three dimensionless states,
+  a promoted CSV TimeSeries input named `drive`, adaptive Heun execution,
+  generated sim.x/sim.y/sim.z/sim.total TimeSeries, and substep diagnostics.
 ```
 
 Compatibility regression examples live under `examples/compat`. Diagnostic and

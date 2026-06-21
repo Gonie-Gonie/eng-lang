@@ -257,8 +257,10 @@ error-norm fields. It groups the same per-state data under
 IDE/reviewer panels. The official one-state thermal example is pinned by the
 artifact golden baseline so these solver fields remain present in review,
 report spec, and result artifacts. `examples/official/20_multi_state_thermal`
-exercises the same solver result projection for the supported two-state
-source-equation fixed-step workflow.
+exercises the same solver result projection for the supported thermal
+source-equation fixed-step workflow, and
+`examples/official/34_three_state_source_ode` covers a three-state non-thermal
+adaptive source-equation workflow with TimeSeries input materialization.
 
 For the domain/component connection-constraint check, `result.engres` also records
 `typed_payload.component_solutions`. Each entry includes the assembly name,
