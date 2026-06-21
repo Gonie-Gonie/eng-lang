@@ -317,10 +317,13 @@ are not public stable workflows.
   Newton algebraic initialization, uses identity mass-matrix fallback unless a
   dimensionless scalar, diagonal vector, or dense square `mass_matrix` option is
   supplied, records
-  state/algebraic trajectories, variable-scale policy, source residual scale override support, and per-step Newton diagnostics, and is covered
+  state/algebraic trajectories, variable-scale policy, source residual scale
+  override support with raw/normalized per-step residual diagnostics, and
+  per-step Newton diagnostics, and is covered
   by `examples/official/28_small_dae`,
   `tests/runtime/small_dae_from_source.eng`,
-  `tests/runtime/dae_timeseries_input_from_source.eng`, and
+  `tests/runtime/dae_timeseries_input_from_source.eng`,
+  `tests/runtime/dae_residual_scale_override.eng`, and
   `tests/diagnostics/dae_inconsistent_initial.eng`. The DAE bridge also
   materializes scalar and fixed-step TimeSeries component inputs into algebraic
   initialization, implicit-step Newton residual samples, and final residual

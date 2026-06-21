@@ -1399,6 +1399,57 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/dae_residual_scale_override.eng"),
+        Path::new("build/test-runtime-dae-residual-scale-override"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"implicit_euler_dae_source_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dae_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"scale_policy\": \"user_provided:node.equation_1\"")
+                || !output
+                    .result_json
+                    .contains("\"scale_policy\": \"user_provided:node.equation_2\"")
+                || !output.result_json.contains("\"residual_values\"")
+                || !output
+                    .result_json
+                    .contains("\"normalized_residual_values\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"scale_policy\": \"user_provided:node.equation_1\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"scale_policy\": \"user_provided:node.equation_2\"")
+                || !output.report_spec_json.contains("\"residual_values\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\"")
+                || !output
+                    .report_html
+                    .contains("implicit_euler_dae_source_residual_graph")
+            {
+                eprintln!(
+                    "expected tests/runtime/dae_residual_scale_override.eng to preserve raw and normalized DAE residual diagnostics under source scale overrides"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dae_residual_scale_override.eng preserved DAE residual scale override diagnostics"
+            );
+        }
+        Err(error) => {
+            eprintln!("DAE residual scale override runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/dae_timeseries_input_from_source.eng"),
         Path::new("build/test-runtime-dae-timeseries-input-source"),
         &artifact_run_options(),

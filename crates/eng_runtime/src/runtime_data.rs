@@ -1969,6 +1969,45 @@ pub struct RuntimeComponentStepDiagnostic {
     pub failure_artifact: Option<RuntimeSolverFailureArtifact>,
 }
 
+impl RuntimeComponentStepDiagnostic {
+    fn with_source_residual_scales(
+        mut self,
+        residual_names: Option<&[String]>,
+        residual_scales: Option<&[f64]>,
+    ) -> Self {
+        let normalized_values = self.residual_values.clone();
+        self.normalized_residual_values = normalized_values.clone();
+        let Some(residual_scales) = residual_scales else {
+            return self;
+        };
+        self.residual_values = normalized_values
+            .iter()
+            .enumerate()
+            .map(|(index, value)| {
+                residual_scales
+                    .get(index)
+                    .copied()
+                    .filter(|scale| scale.is_finite() && *scale > 0.0)
+                    .map(|scale| *value * scale)
+                    .unwrap_or(*value)
+            })
+            .collect();
+        let largest_residual = largest_newton_residual_diagnostic(
+            Some(self.normalized_residual_values.as_slice()),
+            residual_names,
+        );
+        self.largest_residual_index = largest_residual.as_ref().map(|residual| residual.index);
+        self.largest_residual_name = largest_residual
+            .as_ref()
+            .and_then(|residual| residual.name.clone());
+        self.largest_residual_value = largest_residual
+            .as_ref()
+            .and_then(|residual| self.residual_values.get(residual.index).copied());
+        self.largest_residual_abs_value = self.largest_residual_value.map(f64::abs);
+        self
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct RuntimeComponentResidualEvaluation {
     pub name: String,
@@ -4317,8 +4356,6 @@ fn dae_component_solution_from_solve_request(
                 .last()
                 .cloned()
                 .unwrap_or_default();
-            let normalized_residual_values =
-                normalized_newton_residual_values(&residual_values, Some(&residual_scales));
             let largest_residual = largest_newton_residual_diagnostic(
                 report
                     .newton
@@ -4338,7 +4375,7 @@ fn dae_component_solution_from_solve_request(
                     .copied()
                     .unwrap_or(f64::INFINITY),
                 residual_values,
-                normalized_residual_values,
+                normalized_residual_values: Vec::new(),
                 line_search_scale: report
                     .newton
                     .line_search_history
@@ -4384,6 +4421,7 @@ fn dae_component_solution_from_solve_request(
                     }
                 }),
             }
+            .with_source_residual_scales(Some(&residual_names), Some(&residual_scales))
         })
         .collect();
     if let Ok(final_inputs) = sampled_source_input_values(
@@ -8433,41 +8471,10 @@ fn source_newton_residual_history_diagnostics(
     residual_names: Option<&[String]>,
     residual_scales: Option<&[f64]>,
 ) -> Vec<RuntimeComponentStepDiagnostic> {
-    let mut diagnostics =
-        newton_residual_history_diagnostics(newton, failure, residual_names, None);
-    let Some(residual_scales) = residual_scales else {
-        return diagnostics;
-    };
-    for diagnostic in &mut diagnostics {
-        let normalized_values = diagnostic.residual_values.clone();
-        diagnostic.residual_values = normalized_values
-            .iter()
-            .enumerate()
-            .map(|(index, value)| {
-                residual_scales
-                    .get(index)
-                    .copied()
-                    .filter(|scale| scale.is_finite() && *scale > 0.0)
-                    .map(|scale| *value * scale)
-                    .unwrap_or(*value)
-            })
-            .collect();
-        diagnostic.normalized_residual_values = normalized_values;
-        let largest_residual = largest_newton_residual_diagnostic(
-            Some(diagnostic.normalized_residual_values.as_slice()),
-            residual_names,
-        );
-        diagnostic.largest_residual_index =
-            largest_residual.as_ref().map(|residual| residual.index);
-        diagnostic.largest_residual_name = largest_residual
-            .as_ref()
-            .and_then(|residual| residual.name.clone());
-        diagnostic.largest_residual_value = largest_residual
-            .as_ref()
-            .and_then(|residual| diagnostic.residual_values.get(residual.index).copied());
-        diagnostic.largest_residual_abs_value = diagnostic.largest_residual_value.map(f64::abs);
-    }
-    diagnostics
+    newton_residual_history_diagnostics(newton, failure, residual_names, None)
+        .into_iter()
+        .map(|diagnostic| diagnostic.with_source_residual_scales(residual_names, residual_scales))
+        .collect()
 }
 
 fn fixed_point_residual_history_diagnostics(
@@ -14251,6 +14258,45 @@ with {
             vec![0.5, -0.5]
         );
     }
+
+    #[test]
+    fn source_newton_step_diagnostics_restore_raw_residual_values_from_scales() {
+        let newton = crate::solver::NewtonResult {
+            values: vec![1.0],
+            residual_history: vec![0.75],
+            residual_value_history: vec![vec![0.25, -0.75]],
+            line_search_history: Vec::new(),
+            linear_step_history: Vec::new(),
+            jacobian_policy: "finite_difference".to_owned(),
+            variable_scale_policy: "unit_default:DimensionlessNumber[1]".to_owned(),
+            variable_scales: vec![1.0],
+            largest_residual: None,
+            iteration_count: 1,
+            convergence_status: "newton_converged".to_owned(),
+            failure: None,
+        };
+
+        let residual_names = vec!["r_hot".to_owned(), "r_cold".to_owned()];
+        let residual_scales = vec![4.0, 2.0];
+        let diagnostics = source_newton_residual_history_diagnostics(
+            &newton,
+            None,
+            Some(&residual_names),
+            Some(&residual_scales),
+        );
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].residual_values, vec![1.0, -1.5]);
+        assert_eq!(diagnostics[0].normalized_residual_values, vec![0.25, -0.75]);
+        assert_eq!(diagnostics[0].largest_residual_index, Some(1));
+        assert_eq!(
+            diagnostics[0].largest_residual_name.as_deref(),
+            Some("r_cold")
+        );
+        assert_eq!(diagnostics[0].largest_residual_value, Some(-1.5));
+        assert_eq!(diagnostics[0].largest_residual_abs_value, Some(1.5));
+    }
+
     #[test]
     fn materializes_fixed_point_nonconvergence_failure_from_source() {
         let source = r#"
