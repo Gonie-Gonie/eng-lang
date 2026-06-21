@@ -132,11 +132,11 @@ by the stable breaking-change policy.
   parameter/state/input metadata, `der(...)`, one-state fixed-step thermal
   execution, one-state `adaptive_heun` simulation, source-equation fixed-step
   and adaptive Heun ODE execution with scalar or Time-indexed TimeSeries inputs,
-  two-state adaptive source-equation fixture coverage with scalar output
-  materialization, and `sim.<state>`/`sim.<output>` materialization for the
-  documented workflows. General
-  equation solving beyond that source-equation shape, nonlinear, DAE, broad
-  adaptive, and component-coupled solving remain planned.
+  three-state non-thermal adaptive source-equation fixture coverage with
+  TimeSeries input materialization, scalar output materialization, and
+  `sim.<state>`/`sim.<output>` materialization for the documented workflows.
+  General equation solving beyond that source-equation shape, nonlinear, DAE,
+  broad adaptive, and component-coupled solving remain planned.
 - Typed-block state-space workflows: top-level `states`/`inputs` blocks,
   `StateVector[...]` and `InputVector[...]` declarations, `operator A:` and
   `operator B:` declarations, shape/unit-checked A/B matrices, discrete
@@ -444,7 +444,7 @@ are not public stable workflows.
 - Multi-return functions, package/module imports, and full formatter policy.
 - General nonlinear/DAE simulation, broad adaptive, and general multi-state
   equation solving outside the current one-state thermal adaptive path,
-  supported two-state source-equation path, narrow component residual
+  supported source-equation ODE path, narrow component residual
   Newton/DAE smokes, internal fixed-step/adaptive state-space paths, and
   standalone runtime algorithm seeds.
 - Stable-supported state-space workflow boundaries beyond the current internal

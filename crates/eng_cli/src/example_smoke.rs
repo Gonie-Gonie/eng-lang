@@ -1427,6 +1427,52 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/source_ode_three_state_nonthermal.eng"),
+        Path::new("build/test-runtime-source-ode-three-state-nonthermal"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let plot_spec = std::fs::read_to_string(&output.plot_spec_path).unwrap_or_default();
+            if !output.result_json.contains("\"binding\": \"sim\"")
+                || !output.result_json.contains("\"method\": \"adaptive_heun\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"adaptive_heun_completed\"")
+                || !output.result_json.contains(
+                    "recognized source derivative equations and executed adaptive Heun RHS with TimeSeries input materialization",
+                )
+                || !output.result_json.contains("\"states\": [\"x\", \"y\", \"z\"]")
+                || !output
+                    .result_json
+                    .contains("\"outputs\": [\"x\", \"y\", \"z\", \"total\"]")
+                || !output.result_json.contains("\"state\": \"x\"")
+                || !output.result_json.contains("\"state\": \"y\"")
+                || !output.result_json.contains("\"state\": \"z\"")
+                || !output.result_json.contains("\"state\": \"total\"")
+                || !output.result_json.contains("\"status\": \"accepted\"")
+                || !output.report_spec_json.contains("\"step_diagnostics\"")
+                || !output.report_spec_json.contains("total - (x + y + z)")
+                || !plot_spec.contains("\"name\": \"sim.x\"")
+                || !plot_spec.contains("\"name\": \"sim.y\"")
+                || !plot_spec.contains("\"name\": \"sim.z\"")
+                || !output.report_html.contains("states=x, y, z")
+                || !output.report_html.contains("adaptive_heun")
+            {
+                eprintln!(
+                    "expected tests/runtime/source_ode_three_state_nonthermal.eng to solve a three-state non-thermal source ODE with TimeSeries input materialization"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/source_ode_three_state_nonthermal.eng solved three-state non-thermal source ODE with adaptive Heun"
+            );
+        }
+        Err(error) => {
+            eprintln!("three-state non-thermal source ODE runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/dae_dimensionless_function_residual.eng"),
         Path::new("build/test-runtime-dae-dimensionless-function-residual"),
         &artifact_run_options(),

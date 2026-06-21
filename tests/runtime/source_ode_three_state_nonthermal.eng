@@ -1,0 +1,43 @@
+args {
+    drive_csv: CsvFile = file("data/dynamic_component_drive.csv")
+}
+
+schema DriveData {
+    time: DateTime index
+    drive: DimensionlessNumber [1]
+}
+
+drive_data = promote csv args.drive_csv as DriveData
+
+system ThreeStateSourceNonThermal {
+    input drive: TimeSeries[Time] of DimensionlessNumber [1]
+
+    state x: DimensionlessNumber = 0.5
+    state y: DimensionlessNumber = 0.25
+    state z: DimensionlessNumber = 0.1
+    output total: DimensionlessNumber [1]
+
+    equation {
+        der(x) eq (drive - x) / 1 s
+        der(y) eq (x - y) / 1 s / 2
+        der(z) eq (y - z) / 1 s / 3 + drive / 1 s / 10
+        total eq x + y + z
+    }
+}
+
+sim = simulate ThreeStateSourceNonThermal
+with {
+    drive = drive_data.drive
+    timestep = 1 s
+    duration = 4 s
+    solver = adaptive_heun
+    tolerance = 0.0001
+}
+
+report {
+    plot sim.x and sim.y and sim.z over Time
+    with {
+        unit y = 1
+        title = "Three-state non-thermal adaptive source solve"
+    }
+}

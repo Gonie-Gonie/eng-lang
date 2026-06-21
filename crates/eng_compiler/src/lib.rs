@@ -7415,6 +7415,22 @@ system Envelope {
     }
 
     #[test]
+    fn accepts_declared_simulation_input_option_names() {
+        let report = check_source(
+            "source_input.eng",
+            "drive_signal: TimeSeries[Time] of DimensionlessNumber [1] = 0.5\n\nsystem DrivenSource {\n    input drive: TimeSeries[Time] of DimensionlessNumber [1]\n    state x: DimensionlessNumber = 0.1\n    equation {\n        der(x) eq (drive - x) / 1 s\n    }\n}\n\nsim = simulate DrivenSource\nwith {\n    drive = drive_signal\n    timestep = 1 s\n    solver = adaptive_heun\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report.diagnostics.iter().all(|diagnostic| {
+            diagnostic.code != "E-WITH-OPTION-001"
+                && diagnostic.code != "E-SIM-MISSING-INPUT"
+                && diagnostic.code != "E-SIM-INPUT-QTY-MISMATCH"
+        }));
+    }
+
+    #[test]
     fn rejects_invalid_simulate_duration_and_tolerance() {
         let report = check_source(
             "bad.eng",

@@ -1368,8 +1368,13 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     }
 
     let where_blocks = analyze_where_blocks(program, &typed_bindings, &functions, &mut diagnostics);
-    let with_blocks =
-        analyze_with_blocks(program, &typed_bindings, &command_styles, &mut diagnostics);
+    let with_blocks = analyze_with_blocks(
+        program,
+        &typed_bindings,
+        &command_styles,
+        &systems,
+        &mut diagnostics,
+    );
     validate_file_operation_options(&file_operations, &with_blocks, &mut diagnostics);
     validate_where_local_uses(program, &where_blocks, &mut diagnostics);
     validate_domain_contracts(&domains, &mut diagnostics);
@@ -1766,6 +1771,7 @@ fn analyze_with_blocks(
     program: &ParsedProgram,
     typed_bindings: &[TypedBinding],
     command_styles: &[CommandStyleInfo],
+    systems: &[SystemInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<WithBlockInfo> {
     program
@@ -1778,9 +1784,18 @@ fn analyze_with_blocks(
         .map(|block| {
             let owner_type =
                 with_owner_semantic_type(block.owner_line, typed_bindings, command_styles);
+            let extra_known_options =
+                with_owner_simulation_input_options(program, block.owner_line, systems);
             let options = with_options_for_owner(program, block.owner_line)
                 .into_iter()
-                .map(|option| analyze_with_option(&option, owner_type.as_ref(), diagnostics))
+                .map(|option| {
+                    analyze_with_option(
+                        &option,
+                        owner_type.as_ref(),
+                        &extra_known_options,
+                        diagnostics,
+                    )
+                })
                 .collect::<Vec<_>>();
             WithBlockInfo {
                 owner_line: block.owner_line,
@@ -1791,6 +1806,38 @@ fn analyze_with_blocks(
         .collect()
 }
 
+fn with_owner_simulation_input_options(
+    program: &ParsedProgram,
+    owner_line: Option<usize>,
+    systems: &[SystemInfo],
+) -> HashSet<String> {
+    let Some(owner_line) = owner_line else {
+        return HashSet::new();
+    };
+    let Some(system_name) = program.items.iter().find_map(|item| match item {
+        AstItem::FastBinding(binding) if binding.line == owner_line => binding
+            .expression
+            .trim()
+            .strip_prefix("simulate ")
+            .map(str::trim)
+            .map(str::to_owned),
+        _ => None,
+    }) else {
+        return HashSet::new();
+    };
+    systems
+        .iter()
+        .find(|system| system.name == system_name)
+        .map(|system| {
+            system
+                .variables
+                .iter()
+                .filter(|variable| variable.role == "input")
+                .map(|variable| variable.name.clone())
+                .collect()
+        })
+        .unwrap_or_default()
+}
 fn with_options_for_owner(
     program: &ParsedProgram,
     owner_line: Option<usize>,
@@ -1808,9 +1855,10 @@ fn with_options_for_owner(
 fn analyze_with_option(
     option: &WithOptionDecl,
     owner_type: Option<&SemanticType>,
+    extra_known_options: &HashSet<String>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> WithOptionInfo {
-    if !known_with_option(&option.key) {
+    if !known_with_option(&option.key) && !extra_known_options.contains(&option.key) {
         diagnostics.push(Diagnostic::error(
             "E-WITH-OPTION-001",
             option.line,
