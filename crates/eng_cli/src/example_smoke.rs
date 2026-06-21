@@ -1119,10 +1119,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"scale_policy\": \"user_provided:node.equation_2\"")
                 || !output
                     .result_json
-                    .contains("\"residual_values\": [0.00000000, 0.00000000, -2.50000000, -0.25000000]")
+                    .contains("\"residual_values\": [0.00000000, 0.00000000, -5.00000000, -1.00000000]")
                 || !output
                     .result_json
-                    .contains("\"normalized_residual_values\": [0.00000000, 0.00000000, -1.25000000, -0.06250000]")
+                    .contains("\"normalized_residual_values\": [0.00000000, 0.00000000, -2.50000000, -0.25000000]")
                 || !output
                     .report_spec_json
                     .contains("\"scale_policy\": \"user_provided:node.equation_1\"")
@@ -1131,7 +1131,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"scale_policy\": \"user_provided:node.equation_2\"")
                 || !output
                     .report_spec_json
-                    .contains("\"normalized_residual_values\": [0, 0, -1.25, -0.0625]")
+                    .contains("\"residual_values\": [0, 0, -5, -1]")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\": [0, 0, -2.5, -0.25]")
             {
                 eprintln!(
                     "expected tests/runtime/newton_residual_scale_override.eng to apply user-provided source residual scales"

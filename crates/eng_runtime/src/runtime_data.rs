@@ -3687,7 +3687,7 @@ fn nonlinear_component_solution_from_solve_request(
         .iter()
         .map(|residual| residual.scale)
         .collect::<Vec<_>>();
-    let step_diagnostics = newton_residual_history_diagnostics(
+    let step_diagnostics = source_newton_residual_history_diagnostics(
         &newton,
         failed.as_ref(),
         Some(&residual_names),
@@ -8426,6 +8426,50 @@ fn newton_residual_history_diagnostics(
         })
         .collect()
 }
+
+fn source_newton_residual_history_diagnostics(
+    newton: &crate::solver::NewtonResult,
+    failure: Option<&SolverFailure>,
+    residual_names: Option<&[String]>,
+    residual_scales: Option<&[f64]>,
+) -> Vec<RuntimeComponentStepDiagnostic> {
+    let mut diagnostics =
+        newton_residual_history_diagnostics(newton, failure, residual_names, None);
+    let Some(residual_scales) = residual_scales else {
+        return diagnostics;
+    };
+    for diagnostic in &mut diagnostics {
+        let normalized_values = diagnostic.residual_values.clone();
+        diagnostic.residual_values = normalized_values
+            .iter()
+            .enumerate()
+            .map(|(index, value)| {
+                residual_scales
+                    .get(index)
+                    .copied()
+                    .filter(|scale| scale.is_finite() && *scale > 0.0)
+                    .map(|scale| *value * scale)
+                    .unwrap_or(*value)
+            })
+            .collect();
+        diagnostic.normalized_residual_values = normalized_values;
+        let largest_residual = largest_newton_residual_diagnostic(
+            Some(diagnostic.normalized_residual_values.as_slice()),
+            residual_names,
+        );
+        diagnostic.largest_residual_index =
+            largest_residual.as_ref().map(|residual| residual.index);
+        diagnostic.largest_residual_name = largest_residual
+            .as_ref()
+            .and_then(|residual| residual.name.clone());
+        diagnostic.largest_residual_value = largest_residual
+            .as_ref()
+            .and_then(|residual| diagnostic.residual_values.get(residual.index).copied());
+        diagnostic.largest_residual_abs_value = diagnostic.largest_residual_value.map(f64::abs);
+    }
+    diagnostics
+}
+
 fn fixed_point_residual_history_diagnostics(
     residual_history: &[f64],
     residual_value_history: &[Vec<f64>],
