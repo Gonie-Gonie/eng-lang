@@ -5424,12 +5424,20 @@ fn source_residual_derivatives_from_terms_or_newton(
         symbols,
         context,
     ) {
-        Ok(values) => Ok(SourceDerivativeSolve {
-            values,
-            newton: None,
-            failure: None,
-            residual_scales: Vec::new(),
-        }),
+        Ok(values) => {
+            if !scale_overrides.is_empty() {
+                return Err(SolverFailure::new(
+                    "E-SOURCE-RESIDUAL-SCALE",
+                    "dynamic component residual scale overrides currently require derivative Newton fallback; affine derivative residuals do not emit scaled Newton diagnostics",
+                ));
+            }
+            Ok(SourceDerivativeSolve {
+                values,
+                newton: None,
+                failure: None,
+                residual_scales: Vec::new(),
+            })
+        }
         Err(failure) if should_fallback_to_newton_derivatives(&failure) => {
             let derivative_names = source_residual_derivative_names(assembly);
             let residual_names = source_residual_derivative_residual_names(assembly);
@@ -5584,6 +5592,32 @@ fn source_residual_scales_for_names(
                 })
         })
         .collect()
+}
+
+fn dynamic_derivative_residual_scale_overrides_from_solve_request(
+    assembly: &EquationAssembly,
+    options: &[eng_compiler::WithOptionInfo],
+) -> Result<Vec<ResidualScaleOverride>, SolverFailure> {
+    let residual_graph = ResidualGraph::from_assembly(assembly);
+    let overrides = residual_scale_overrides_from_solve_request(options, &residual_graph)?;
+    if overrides.is_empty() {
+        return Ok(overrides);
+    }
+    let derivative_residual_names = source_residual_derivative_residual_names(assembly)
+        .into_iter()
+        .collect::<HashSet<_>>();
+    for override_scale in &overrides {
+        if !derivative_residual_names.contains(&override_scale.residual) {
+            return Err(SolverFailure::new(
+                "E-SOURCE-RESIDUAL-SCALE",
+                format!(
+                    "dynamic component residual scale overrides currently apply only to derivative Newton residuals; `{}` is not a derivative residual",
+                    override_scale.residual
+                ),
+            ));
+        }
+    }
+    Ok(overrides)
 }
 
 fn source_residual_algebraic_residual_names(assembly: &EquationAssembly) -> Vec<String> {
@@ -6753,9 +6787,8 @@ fn dynamic_component_solve_input_from_request(
             ),
         ));
     }
-    let residual_graph = ResidualGraph::from_assembly(assembly);
     let residual_scale_overrides =
-        residual_scale_overrides_from_solve_request(options, &residual_graph)?;
+        dynamic_derivative_residual_scale_overrides_from_solve_request(assembly, options)?;
     let input_materialization =
         component_input_values_from_options(options, &assembly.inputs, series)?;
     let inputs = assembly

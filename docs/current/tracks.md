@@ -145,8 +145,10 @@ Internal runtime seeds:
   residual expressions, selected nonlinear derivative residual Newton fallback
   with residual-scale override diagnostics,
   scalar or fixed-step TimeSeries component-input materialization for covered
-  fixtures, state/algebraic trajectories, and explicit `E-NEWTON-NONCONVERGENCE`
-  artifacts for Newton derivative nonconvergence
+  fixtures, state/algebraic trajectories, explicit `E-NEWTON-NONCONVERGENCE`
+  artifacts for Newton derivative nonconvergence, and explicit
+  `E-SOURCE-RESIDUAL-SCALE` artifacts for unsupported non-Newton dynamic
+  residual scale requests
 - narrow `solve component_graph` integration for
   `solver = dynamic_component_adaptive_heun`, using parsed derivative residual
   expressions, scalar or fixed-step TimeSeries component inputs, fixed

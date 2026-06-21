@@ -3535,6 +3535,78 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/diagnostics/dynamic_component_affine_residual_scale_unsupported.eng"),
+        Path::new("build/test-diagnostics-dynamic-component-affine-residual-scale-unsupported"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_explicit_euler\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dynamic_component_source_failed\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-SOURCE-RESIDUAL-SCALE\"")
+                || !output
+                    .result_json
+                    .contains("require derivative Newton fallback")
+                || !output.report_html.contains("E-SOURCE-RESIDUAL-SCALE")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/dynamic_component_affine_residual_scale_unsupported.eng to reject affine dynamic residual scale overrides"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/dynamic_component_affine_residual_scale_unsupported.eng rejected affine dynamic residual scale overrides"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component affine residual scale unsupported diagnostics fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/diagnostics/dynamic_component_algebraic_residual_scale_unsupported.eng"),
+        Path::new("build/test-diagnostics-dynamic-component-algebraic-residual-scale-unsupported"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_semi_implicit_euler\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dynamic_component_source_failed\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-SOURCE-RESIDUAL-SCALE\"")
+                || !output.result_json.contains("not a derivative residual")
+                || !output.report_html.contains("E-SOURCE-RESIDUAL-SCALE")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/dynamic_component_algebraic_residual_scale_unsupported.eng to reject algebraic dynamic residual scale overrides"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/dynamic_component_algebraic_residual_scale_unsupported.eng rejected algebraic dynamic residual scale overrides"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component algebraic residual scale unsupported diagnostics fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/diagnostics/dae_inconsistent_initial.eng"),
         Path::new("build/test-diagnostics-dae-inconsistent-initial"),
         &artifact_run_options(),

@@ -1,0 +1,37 @@
+domain ScalarState {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component DynamicNode {
+    port node: ScalarState
+    der(node.x) + node.balance eq 0
+}
+
+component NonlinearBoundary {
+    port node: ScalarState
+    node.balance * node.balance eq node.x
+}
+
+system DynamicAlgebraicResidualScaleUnsupported {
+    node = DynamicNode()
+    boundary = NonlinearBoundary()
+    connect node.node to boundary.node
+}
+
+scaled_algebraic_result = solve component_graph
+with {
+    solver = dynamic_component_semi_implicit_euler
+    timestep = 0.25 s
+    duration = 1 s
+    initial = 0.5
+    initial_algebraic = [-0.7, 0.5, 0.7]
+    residual_scale = boundary.equation_1 = 2
+    tolerance = 0.000001
+    max_iter = 20
+}
+
+report {
+    show scaled_algebraic_result
+}
