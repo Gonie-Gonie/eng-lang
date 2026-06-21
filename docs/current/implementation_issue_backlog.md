@@ -612,10 +612,11 @@ Definition of Done:
   graph metadata.
 - Runtime residual evaluation accepts solver-provided tolerance and
   per-residual scale overrides; source dense-linear, fixed-point, Newton, DAE,
-  and dynamic component derivative Newton fallback paths now expose or consume
-  user-facing `residual_scale`/`residual_scales` options while unsupported
-  dynamic affine/algebraic residual scale requests fail explicitly and broader
-  component paths still default to unit/quantity scale policy.
+  and dynamic component derivative plus selected algebraic Newton fallback paths
+  now expose or consume user-facing `residual_scale`/`residual_scales` options
+  while unsupported dynamic affine derivative residual scale requests fail
+  explicitly and broader component paths still default to unit/quantity scale
+  policy.
 - Runtime residual evaluation consumes structured `x`, optional `xdot`, `z`,
   `u`, `p`, and `t` inputs, returns raw and named normalized residuals, and is
   repeatable without report-layer dependencies.

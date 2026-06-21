@@ -13,6 +13,7 @@ use crate::solver::{
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct DynamicComponentOptions {
     pub algebraic: FixedPointOptions,
+    pub algebraic_residual_scales: Option<Vec<f64>>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -736,7 +737,10 @@ where
     R: FnMut(DynamicStepInput<'_>) -> Result<Vec<f64>, SolverFailure>,
 {
     let fixed_point_options = options.algebraic.clone();
-    let algebraic_residual_scales = layout_residual_scales(&algebraic_layout);
+    let algebraic_residual_scales = options
+        .algebraic_residual_scales
+        .clone()
+        .unwrap_or_else(|| layout_residual_scales(&algebraic_layout));
     solve_explicit_euler_with_algebraic_solver(
         input,
         algebraic_layout,
@@ -823,7 +827,11 @@ where
     };
     newton_options.variable_scales = layout_residual_scales(&algebraic_layout);
     newton_options.variable_scale_policy = "algebraic_layout_quantity_unit".to_owned();
-    let algebraic_residual_scales = layout_residual_scales(&algebraic_layout);
+    let has_source_residual_scales = options.algebraic_residual_scales.is_some();
+    let algebraic_residual_scales = options
+        .algebraic_residual_scales
+        .clone()
+        .unwrap_or_else(|| layout_residual_scales(&algebraic_layout));
     solve_explicit_euler_with_algebraic_solver_with_input_sampler(
         input,
         algebraic_layout,
@@ -840,19 +848,30 @@ where
                     parameters: sample.parameters,
                 })
             })?;
-            let residual_values = newton
+            let solver_residual_values = newton
                 .residual_value_history
                 .last()
                 .cloned()
                 .unwrap_or_default();
+            let (residual_values, normalized_residual_values) = if has_source_residual_scales {
+                (
+                    restore_raw_residual_values(
+                        &solver_residual_values,
+                        &algebraic_residual_scales,
+                    ),
+                    solver_residual_values,
+                )
+            } else {
+                (
+                    solver_residual_values.clone(),
+                    normalize_residual_values(&solver_residual_values, &algebraic_residual_scales),
+                )
+            };
             Ok(AlgebraicStepSolveResult {
                 values: newton.values,
                 iteration_count: newton.iteration_count,
                 residual_norm: newton.residual_history.last().copied().unwrap_or(0.0),
-                normalized_residual_values: normalize_residual_values(
-                    &residual_values,
-                    &algebraic_residual_scales,
-                ),
+                normalized_residual_values,
                 residual_values,
                 convergence_status: newton.convergence_status,
                 failure: newton.failure,
@@ -1406,6 +1425,21 @@ fn normalize_residual_values(values: &[f64], scales: &[f64]) -> Vec<f64> {
                 .copied()
                 .filter(|scale| scale.is_finite() && *scale > 0.0)
                 .map(|scale| *value / scale)
+                .unwrap_or(*value)
+        })
+        .collect()
+}
+
+fn restore_raw_residual_values(values: &[f64], scales: &[f64]) -> Vec<f64> {
+    values
+        .iter()
+        .enumerate()
+        .map(|(index, value)| {
+            scales
+                .get(index)
+                .copied()
+                .filter(|scale| scale.is_finite() && *scale > 0.0)
+                .map(|scale| *value * scale)
                 .unwrap_or(*value)
         })
         .collect()
@@ -2449,6 +2483,7 @@ mod tests {
                 max_iterations: 3,
                 relaxation: 1.0,
             },
+            ..DynamicComponentOptions::default()
         };
 
         let result = solve_explicit_euler_with_algebraic(

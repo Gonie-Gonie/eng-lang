@@ -299,6 +299,8 @@ are not public stable workflows.
   `tests/runtime/dynamic_component_function_semi_implicit.eng`,
   `tests/runtime/dynamic_component_parameterized_function_semi_implicit.eng`,
   `tests/runtime/dynamic_component_derivative_residual_scale_override.eng`,
+  `tests/runtime/dynamic_component_algebraic_residual_scale_override.eng`,
+  `tests/runtime/dynamic_component_adaptive_algebraic_residual_scale_override.eng`,
   `tests/runtime/dynamic_component_nonlinear_algebraic_semi_implicit.eng`,
   `tests/runtime/dynamic_component_nonlinear_algebraic_timeseries_input_semi_implicit.eng`,
   `tests/runtime/dynamic_component_semi_implicit.eng`, and
@@ -308,9 +310,7 @@ are not public stable workflows.
   `tests/diagnostics/dynamic_component_residual_scale_invalid.eng` for invalid
   dynamic residual scale artifacts, plus
   `tests/diagnostics/dynamic_component_affine_residual_scale_unsupported.eng`
-  and
-  `tests/diagnostics/dynamic_component_algebraic_residual_scale_unsupported.eng`
-  for unsupported non-Newton dynamic residual scale requests. The runtime also
+  for unsupported affine derivative residual scale requests. The runtime also
   has narrow source bridges from component `EquationAssembly` residuals to
   Newton and implicit-Euler DAE solves. The Newton bridge evaluates source
   residual expressions directly, scales residuals, uses finite-difference

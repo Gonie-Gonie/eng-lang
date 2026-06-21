@@ -2300,6 +2300,59 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/dynamic_component_adaptive_algebraic_residual_scale_override.eng"),
+        Path::new(
+            "build/test-runtime-dynamic-component-adaptive-algebraic-residual-scale-override",
+        ),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_adaptive_heun_source\"")
+                || !output.result_json.contains(
+                    "adaptive Heun parsed derivative residual expressions with algebraic residual materialization",
+                )
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"adaptive_heun_completed\"")
+                || !output.result_json.contains("\"name\": \"node.node.y\"")
+                || !output.result_json.contains("\"final_value\": 0.99122926")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"largest_residual_name\": \"node.equation_2\"")
+                || !output.report_spec_json.contains(
+                    "\"residual_values\": [0.00000001882245681539274]",
+                )
+                || !output.report_spec_json.contains(
+                    "\"normalized_residual_values\": [0.00000000941122840769637]",
+                )
+                || !output
+                    .report_spec_json
+                    .contains("node.node.y * node.node.y eq cos(node.node.x)")
+                || !output.report_html.contains("node.node.y=0.991229")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_adaptive_algebraic_residual_scale_override.eng to apply algebraic residual scales to adaptive Newton diagnostics"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_adaptive_algebraic_residual_scale_override.eng applied adaptive algebraic residual scales"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component adaptive algebraic residual scale override runtime fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/dynamic_component_adaptive_timeseries_input.eng"),
         Path::new("build/test-runtime-dynamic-component-adaptive-timeseries-input"),
         &artifact_run_options(),
@@ -2978,6 +3031,54 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/dynamic_component_algebraic_residual_scale_override.eng"),
+        Path::new("build/test-runtime-dynamic-component-algebraic-residual-scale-override"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_semi_implicit_euler\"")
+                || !output
+                    .result_json
+                    .contains("semi-implicit Newton algebraic residuals")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dynamic_component_fixed_step_completed\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output.result_json.contains("\"final_value\": 1.38154357")
+                || !output.result_json.contains("\"final_value\": 1.17539082")
+                || !output
+                    .report_spec_json
+                    .contains("\"residual_values\": [0, 0, 0.0000000013371082019375535]")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\": [0, 0, 0.0000000006685541009687768]")
+                || !output
+                    .report_spec_json
+                    .contains("boundary.node.balance * boundary.node.balance")
+                || !output.report_html.contains("node.node.x=1.381544")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_algebraic_residual_scale_override.eng to apply algebraic residual scales to semi-implicit Newton diagnostics"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_algebraic_residual_scale_override.eng applied semi-implicit algebraic residual scales"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component algebraic residual scale override runtime fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new(
             "tests/runtime/dynamic_component_nonlinear_algebraic_timeseries_input_semi_implicit.eng",
         ),
@@ -3567,41 +3668,6 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         Err(error) => {
             eprintln!(
                 "dynamic component affine residual scale unsupported diagnostics fixture failed: {error}"
-            );
-            return ExitCode::from(1);
-        }
-    }
-    match run_file(
-        Path::new("tests/diagnostics/dynamic_component_algebraic_residual_scale_unsupported.eng"),
-        Path::new("build/test-diagnostics-dynamic-component-algebraic-residual-scale-unsupported"),
-        &artifact_run_options(),
-    ) {
-        Ok(output) => {
-            if !output.result_json.contains("\"status\": \"failed\"")
-                || !output
-                    .result_json
-                    .contains("\"method\": \"dynamic_component_semi_implicit_euler\"")
-                || !output
-                    .result_json
-                    .contains("\"convergence_status\": \"dynamic_component_source_failed\"")
-                || !output
-                    .result_json
-                    .contains("\"failure_code\": \"E-SOURCE-RESIDUAL-SCALE\"")
-                || !output.result_json.contains("not a derivative residual")
-                || !output.report_html.contains("E-SOURCE-RESIDUAL-SCALE")
-            {
-                eprintln!(
-                    "expected tests/diagnostics/dynamic_component_algebraic_residual_scale_unsupported.eng to reject algebraic dynamic residual scale overrides"
-                );
-                return ExitCode::from(2);
-            }
-            println!(
-                "ok: tests/diagnostics/dynamic_component_algebraic_residual_scale_unsupported.eng rejected algebraic dynamic residual scale overrides"
-            );
-        }
-        Err(error) => {
-            eprintln!(
-                "dynamic component algebraic residual scale unsupported diagnostics fixture failed: {error}"
             );
             return ExitCode::from(1);
         }

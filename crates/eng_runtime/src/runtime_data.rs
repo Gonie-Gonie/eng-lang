@@ -4528,6 +4528,7 @@ fn dynamic_component_solution_from_solve_request(
         .unwrap_or("dynamic_component_semi_implicit_euler");
     let options = DynamicComponentOptions {
         algebraic: fixed_point_options_from_solve_request(&request.options),
+        ..DynamicComponentOptions::default()
     };
     if solver == "dynamic_component_explicit_euler"
         && component_assembly_has_behavior_seed(component_info)
@@ -4666,6 +4667,9 @@ fn expression_dynamic_component_semi_implicit_solution_from_solve_request(
         input_series,
         residual_scale_overrides,
     } = source_input;
+    let derivative_residual_names = source_residual_derivative_residual_names(assembly);
+    let derivative_scale_overrides =
+        residual_scale_overrides_for_names(&residual_scale_overrides, &derivative_residual_names);
     let uses_time_series_inputs = input_series.iter().any(Option::is_some);
     let algebraic_assembly = semi_implicit_algebraic_dynamic_component_source_assembly(assembly)?;
     let parse_symbols = source_dynamic_component_parse_symbols(assembly, &solve_input.parameters)?;
@@ -4675,53 +4679,68 @@ fn expression_dynamic_component_semi_implicit_solution_from_solve_request(
     let split_for_derivatives = assembly.dynamic_component_split()?;
     let mut linear_rhs_derivative_guess = vec![0.0; split_for_derivatives.state_layout.len()];
     let mut linear_derivative_step_diagnostics = Vec::new();
-    let linear_result = solve_dynamic_component_assembly_with_rhs_and_input_sampler(
-        &algebraic_assembly,
-        solve_input.clone(),
-        options.clone(),
-        |time_s| {
-            sampled_dynamic_component_inputs(
-                &linear_static_inputs,
-                &linear_input_series,
-                series,
-                assembly,
-                time_s,
-            )
-        },
-        |sample| {
-            let symbols = source_dynamic_component_symbols(
-                assembly,
-                sample.time_s,
-                sample.state,
-                sample.algebraic,
-                sample.inputs,
-                sample.parameters,
-            );
-            let derivatives = source_residual_derivatives_from_terms_or_newton(
-                assembly,
-                &parsed_residuals,
-                &symbols,
-                &linear_rhs_derivative_guess,
-                "dynamic component semi-implicit source",
-                &options,
-                &residual_scale_overrides,
-            )?;
-            let failure = derivatives.failure.clone();
-            record_source_derivative_solve_diagnostics(
-                assembly,
-                &derivatives,
-                sample.time_s,
-                &mut linear_derivative_step_diagnostics,
-            );
-            if let Some(failure) = failure {
-                return Err(failure);
-            }
-            if !derivatives.values.is_empty() {
-                linear_rhs_derivative_guess.clone_from(&derivatives.values);
-            }
-            Ok(derivatives.values)
-        },
-    );
+    let has_algebraic_residual_scale_overrides =
+        has_algebraic_residual_scale_overrides(assembly, &residual_scale_overrides);
+    let algebraic_residual_names = source_residual_algebraic_residual_names(assembly);
+    let algebraic_residual_scales = source_residual_scales_for_names(
+        assembly,
+        &algebraic_residual_names,
+        &residual_scale_overrides,
+    )?;
+    let linear_result = if has_algebraic_residual_scale_overrides {
+        Err(SolverFailure::new(
+            "E-DYNAMIC-COMPONENT-ALGEBRAIC-SHAPE",
+            "dynamic component algebraic residual scale overrides require Newton algebraic residual solving",
+        ))
+    } else {
+        solve_dynamic_component_assembly_with_rhs_and_input_sampler(
+            &algebraic_assembly,
+            solve_input.clone(),
+            options.clone(),
+            |time_s| {
+                sampled_dynamic_component_inputs(
+                    &linear_static_inputs,
+                    &linear_input_series,
+                    series,
+                    assembly,
+                    time_s,
+                )
+            },
+            |sample| {
+                let symbols = source_dynamic_component_symbols(
+                    assembly,
+                    sample.time_s,
+                    sample.state,
+                    sample.algebraic,
+                    sample.inputs,
+                    sample.parameters,
+                );
+                let derivatives = source_residual_derivatives_from_terms_or_newton(
+                    assembly,
+                    &parsed_residuals,
+                    &symbols,
+                    &linear_rhs_derivative_guess,
+                    "dynamic component semi-implicit source",
+                    &options,
+                    &derivative_scale_overrides,
+                )?;
+                let failure = derivatives.failure.clone();
+                record_source_derivative_solve_diagnostics(
+                    assembly,
+                    &derivatives,
+                    sample.time_s,
+                    &mut linear_derivative_step_diagnostics,
+                );
+                if let Some(failure) = failure {
+                    return Err(failure);
+                }
+                if !derivatives.values.is_empty() {
+                    linear_rhs_derivative_guess.clone_from(&derivatives.values);
+                }
+                Ok(derivatives.values)
+            },
+        )
+    };
     let (dynamic_result, reason, derivative_step_diagnostics) = match linear_result {
         Ok(dynamic_result) => {
             let uses_derivative_newton = !linear_derivative_step_diagnostics.is_empty();
@@ -4784,11 +4803,15 @@ fn expression_dynamic_component_semi_implicit_solution_from_solve_request(
             let newton_input_series = input_series.clone();
             let mut newton_rhs_derivative_guess = vec![0.0; split.state_layout.len()];
             let mut newton_derivative_step_diagnostics = Vec::new();
+            let mut newton_options = options.clone();
+            if has_algebraic_residual_scale_overrides {
+                newton_options.algebraic_residual_scales = Some(algebraic_residual_scales.clone());
+            }
             let dynamic_result = match solve_explicit_euler_with_newton_algebraic_and_input_sampler(
                 &solver_input,
                 split.algebraic_layout,
                 solve_input.initial_algebraic,
-                options.clone(),
+                newton_options.clone(),
                 |sample| {
                     let symbols = source_dynamic_component_symbols(
                         assembly,
@@ -4803,6 +4826,8 @@ fn expression_dynamic_component_semi_implicit_solution_from_solve_request(
                         &parsed_residuals,
                         &symbols,
                         "dynamic component semi-implicit source",
+                        has_algebraic_residual_scale_overrides
+                            .then_some(algebraic_residual_scales.as_slice()),
                     )
                 },
                 |sample| {
@@ -4821,7 +4846,7 @@ fn expression_dynamic_component_semi_implicit_solution_from_solve_request(
                         &newton_rhs_derivative_guess,
                         "dynamic component semi-implicit source",
                         &options,
-                        &residual_scale_overrides,
+                        &derivative_scale_overrides,
                     )?;
                     let failure = derivatives.failure.clone();
                     record_source_derivative_solve_diagnostics(
@@ -4904,6 +4929,9 @@ fn expression_dynamic_component_solution_from_solve_request(
         input_series,
         residual_scale_overrides,
     } = source_input;
+    let derivative_residual_names = source_residual_derivative_residual_names(assembly);
+    let derivative_scale_overrides =
+        residual_scale_overrides_for_names(&residual_scale_overrides, &derivative_residual_names);
     let uses_time_series_inputs = input_series.iter().any(Option::is_some);
     let parse_symbols = source_dynamic_component_parse_symbols(assembly, &solve_input.parameters)?;
     let parsed_residuals = parse_source_residual_expressions(assembly, &parse_symbols)?;
@@ -4986,7 +5014,7 @@ fn expression_dynamic_component_solution_from_solve_request(
                 &rhs_derivative_guess,
                 "dynamic component source",
                 &options,
-                &residual_scale_overrides,
+                &derivative_scale_overrides,
             )?;
             let failure = derivatives.failure.clone();
             record_source_derivative_solve_diagnostics(
@@ -5050,6 +5078,9 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
         input_series,
         residual_scale_overrides,
     } = source_input;
+    let derivative_residual_names = source_residual_derivative_residual_names(assembly);
+    let derivative_scale_overrides =
+        residual_scale_overrides_for_names(&residual_scale_overrides, &derivative_residual_names);
     let uses_time_series_inputs = input_series.iter().any(Option::is_some);
     let uses_algebraic_residuals = !split.algebraic_layout.is_empty();
     let parse_symbols = source_dynamic_component_parse_symbols(assembly, &solve_input.parameters)?;
@@ -5106,6 +5137,7 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
                 sample.parameters,
                 &rhs_algebraic_guess,
                 &options,
+                &residual_scale_overrides,
             )?;
             if !algebraic.values.is_empty() {
                 rhs_algebraic_guess.clone_from(&algebraic.values);
@@ -5125,7 +5157,7 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
                 &rhs_derivative_guess,
                 "dynamic component adaptive source",
                 &options,
-                &residual_scale_overrides,
+                &derivative_scale_overrides,
             )?;
             let failure = derivatives.failure.clone();
             record_source_derivative_solve_diagnostics(
@@ -5167,6 +5199,7 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
             series,
             &solver_result,
             &options,
+            &residual_scale_overrides,
         )?;
     solver_result.output.algebraic_trajectories = algebraic_trajectories;
     let uses_derivative_newton = !derivative_step_diagnostics.is_empty();
@@ -5211,6 +5244,7 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
 struct AdaptiveDynamicComponentAlgebraicSolve {
     values: Vec<f64>,
     newton: Option<NewtonResult>,
+    residual_scales: Vec<f64>,
 }
 
 struct SourceDerivativeSolve {
@@ -5264,13 +5298,19 @@ fn adaptive_dynamic_component_algebraic_values(
     parameters: &[SolverScalar],
     algebraic_guess: &[f64],
     options: &DynamicComponentOptions,
+    scale_overrides: &[ResidualScaleOverride],
 ) -> Result<AdaptiveDynamicComponentAlgebraicSolve, SolverFailure> {
     if algebraic_layout.is_empty() {
         return Ok(AdaptiveDynamicComponentAlgebraicSolve {
             values: Vec::new(),
             newton: None,
+            residual_scales: Vec::new(),
         });
     }
+    let algebraic_residual_names = source_residual_algebraic_residual_names(assembly);
+    let algebraic_residual_scales =
+        source_residual_scales_for_names(assembly, &algebraic_residual_names, scale_overrides)?;
+    let has_scale_overrides = has_algebraic_residual_scale_overrides(assembly, scale_overrides);
     let symbols =
         source_dynamic_component_symbols(assembly, time_s, state, &[], inputs, parameters);
     match source_residual_algebraic_values_from_affine_terms(
@@ -5280,10 +5320,19 @@ fn adaptive_dynamic_component_algebraic_values(
         &symbols,
         "dynamic component adaptive source",
     ) {
-        Ok(values) => Ok(AdaptiveDynamicComponentAlgebraicSolve {
-            values,
-            newton: None,
-        }),
+        Ok(values) => {
+            if has_scale_overrides {
+                return Err(SolverFailure::new(
+                    "E-SOURCE-RESIDUAL-SCALE",
+                    "dynamic component algebraic residual scale overrides currently require algebraic Newton fallback; affine algebraic residuals do not emit scaled Newton diagnostics",
+                ));
+            }
+            Ok(AdaptiveDynamicComponentAlgebraicSolve {
+                values,
+                newton: None,
+                residual_scales: Vec::new(),
+            })
+        }
         Err(failure)
             if failure.code == "E-SOURCE-ALGEBRAIC-SHAPE"
                 || should_fallback_to_newton_algebraic(&failure) =>
@@ -5310,6 +5359,7 @@ fn adaptive_dynamic_component_algebraic_values(
                     parsed_residuals,
                     &symbols,
                     "dynamic component adaptive source",
+                    has_scale_overrides.then_some(algebraic_residual_scales.as_slice()),
                 )
             })?;
             if let Some(failure) = newton.failure {
@@ -5318,6 +5368,9 @@ fn adaptive_dynamic_component_algebraic_values(
             Ok(AdaptiveDynamicComponentAlgebraicSolve {
                 values: newton.values.clone(),
                 newton: Some(newton),
+                residual_scales: has_scale_overrides
+                    .then_some(algebraic_residual_scales)
+                    .unwrap_or_default(),
             })
         }
         Err(failure) => Err(failure),
@@ -5333,6 +5386,7 @@ fn adaptive_dynamic_component_algebraic_trajectories(
     series: &[RuntimeTimeSeries],
     solver_result: &SolverResult,
     options: &DynamicComponentOptions,
+    scale_overrides: &[ResidualScaleOverride],
 ) -> Result<(Vec<StateTrajectory>, Vec<RuntimeComponentStepDiagnostic>), SolverFailure> {
     if algebraic_layout.is_empty() {
         return Ok((Vec::new(), Vec::new()));
@@ -5375,17 +5429,27 @@ fn adaptive_dynamic_component_algebraic_trajectories(
             &solve_input.parameters,
             &algebraic_guess,
             options,
+            scale_overrides,
         )?;
         if !algebraic.values.is_empty() {
             algebraic_guess.clone_from(&algebraic.values);
         }
         if let Some(newton) = &algebraic.newton {
-            let mut diagnostics = newton_residual_history_diagnostics(
-                newton,
-                None,
-                Some(&residual_names),
-                Some(&residual_scales),
-            );
+            let mut diagnostics = if algebraic.residual_scales.is_empty() {
+                newton_residual_history_diagnostics(
+                    newton,
+                    None,
+                    Some(&residual_names),
+                    Some(&residual_scales),
+                )
+            } else {
+                source_newton_residual_history_diagnostics(
+                    newton,
+                    None,
+                    Some(&residual_names),
+                    Some(&algebraic.residual_scales),
+                )
+            };
             for diagnostic in &mut diagnostics {
                 diagnostic.time_s = time_s;
             }
@@ -5594,7 +5658,7 @@ fn source_residual_scales_for_names(
         .collect()
 }
 
-fn dynamic_derivative_residual_scale_overrides_from_solve_request(
+fn dynamic_residual_scale_overrides_from_solve_request(
     assembly: &EquationAssembly,
     options: &[eng_compiler::WithOptionInfo],
 ) -> Result<Vec<ResidualScaleOverride>, SolverFailure> {
@@ -5606,18 +5670,56 @@ fn dynamic_derivative_residual_scale_overrides_from_solve_request(
     let derivative_residual_names = source_residual_derivative_residual_names(assembly)
         .into_iter()
         .collect::<HashSet<_>>();
+    let algebraic_residual_names = source_residual_algebraic_residual_names(assembly)
+        .into_iter()
+        .collect::<HashSet<_>>();
     for override_scale in &overrides {
-        if !derivative_residual_names.contains(&override_scale.residual) {
+        if !derivative_residual_names.contains(&override_scale.residual)
+            && !algebraic_residual_names.contains(&override_scale.residual)
+        {
             return Err(SolverFailure::new(
                 "E-SOURCE-RESIDUAL-SCALE",
                 format!(
-                    "dynamic component residual scale overrides currently apply only to derivative Newton residuals; `{}` is not a derivative residual",
+                    "dynamic component residual scale overrides currently apply only to derivative or algebraic residuals; `{}` is not a dynamic residual",
                     override_scale.residual
                 ),
             ));
         }
     }
     Ok(overrides)
+}
+
+fn has_algebraic_residual_scale_overrides(
+    assembly: &EquationAssembly,
+    overrides: &[ResidualScaleOverride],
+) -> bool {
+    if overrides.is_empty() {
+        return false;
+    }
+    let algebraic_residual_names = source_residual_algebraic_residual_names(assembly)
+        .into_iter()
+        .collect::<HashSet<_>>();
+    overrides
+        .iter()
+        .any(|override_scale| algebraic_residual_names.contains(&override_scale.residual))
+}
+
+fn residual_scale_overrides_for_names(
+    overrides: &[ResidualScaleOverride],
+    residual_names: &[String],
+) -> Vec<ResidualScaleOverride> {
+    if overrides.is_empty() || residual_names.is_empty() {
+        return Vec::new();
+    }
+    let residual_names = residual_names
+        .iter()
+        .map(String::as_str)
+        .collect::<HashSet<_>>();
+    overrides
+        .iter()
+        .filter(|override_scale| residual_names.contains(override_scale.residual.as_str()))
+        .cloned()
+        .collect()
 }
 
 fn source_residual_algebraic_residual_names(assembly: &EquationAssembly) -> Vec<String> {
@@ -6496,6 +6598,7 @@ fn source_residual_algebraic_residual_values(
     parsed_residuals: &[ParsedSourceResidual],
     symbols: &HashMap<String, f64>,
     context: &str,
+    residual_scales: Option<&[f64]>,
 ) -> Result<Vec<f64>, SolverFailure> {
     if parsed_residuals.len() != assembly.generated_equations.len() {
         return Err(SolverFailure::new(
@@ -6547,7 +6650,8 @@ fn source_residual_algebraic_residual_values(
 
     algebraic_equations
         .into_iter()
-        .map(|(equation, parsed)| {
+        .enumerate()
+        .map(|(index, (equation, parsed))| {
             let target = equation.rhs_value.unwrap_or(0.0);
             let value = parsed.expression.evaluate(symbols)? - target;
             if !value.is_finite() {
@@ -6559,7 +6663,15 @@ fn source_residual_algebraic_residual_values(
                     ),
                 ));
             }
-            Ok(value)
+            let Some(residual_scales) = residual_scales else {
+                return Ok(value);
+            };
+            let scale = residual_scales
+                .get(index)
+                .copied()
+                .filter(|scale| scale.is_finite() && *scale > 0.0)
+                .unwrap_or(1.0);
+            Ok(value / scale.max(f64::EPSILON))
         })
         .collect()
 }
@@ -6788,7 +6900,7 @@ fn dynamic_component_solve_input_from_request(
         ));
     }
     let residual_scale_overrides =
-        dynamic_derivative_residual_scale_overrides_from_solve_request(assembly, options)?;
+        dynamic_residual_scale_overrides_from_solve_request(assembly, options)?;
     let input_materialization =
         component_input_values_from_options(options, &assembly.inputs, series)?;
     let inputs = assembly
@@ -14812,6 +14924,7 @@ with {
                     max_iterations: 3,
                     relaxation: 1.0,
                 },
+                ..DynamicComponentOptions::default()
             },
             |sample| Ok(vec![sample.algebraic[0] + 1.0]),
             |_sample| Ok(vec![0.0]),

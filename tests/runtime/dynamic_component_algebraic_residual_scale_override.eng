@@ -14,7 +14,7 @@ component NonlinearBoundary {
     node.balance * node.balance eq node.x
 }
 
-system DynamicAlgebraicResidualScaleUnsupported {
+system DynamicAlgebraicResidualScaleOverride {
     node = DynamicNode()
     boundary = NonlinearBoundary()
     connect node.node to boundary.node
