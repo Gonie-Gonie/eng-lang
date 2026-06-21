@@ -1872,6 +1872,8 @@ fn known_with_option(key: &str) -> bool {
             | "damping"
             | "line_search_steps"
             | "jacobian"
+            | "residual_scale"
+            | "residual_scales"
             | "consistency_tolerance"
             | "algebraic_initialization"
             | "seed"

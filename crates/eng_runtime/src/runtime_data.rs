@@ -43,10 +43,10 @@ use crate::solver::{
     FirstOrderThermalModel, FixedPointOptions, FixedStepMethod, InputLayout, LayoutEntry,
     NewtonOptions, NewtonResult, OutputLayout, ParameterLayout, PredictorContract,
     PredictorDifferentiability, PredictorJacobianPolicy, PredictorSolverPolicy, ResidualEquation,
-    ResidualEvaluator, ResidualGraph, ResidualInput, ResidualOutput, ResidualScale, RhsEvaluator,
-    RhsInput, RhsStateInfo, RhsSymbolInfo, SimulationPlan, SolverDiagnostics, SolverFailure,
-    SolverInput, SolverOptions, SolverPlan, SolverResult, SolverScalar, SourceRhsEquation,
-    SourceRhsEvaluator, StateLayout, StateTrajectory, TimeGrid,
+    ResidualEvaluator, ResidualGraph, ResidualInput, ResidualOutput, ResidualScale,
+    ResidualScaleOverride, RhsEvaluator, RhsInput, RhsStateInfo, RhsSymbolInfo, SimulationPlan,
+    SolverDiagnostics, SolverFailure, SolverInput, SolverOptions, SolverPlan, SolverResult,
+    SolverScalar, SourceRhsEquation, SourceRhsEvaluator, StateLayout, StateTrajectory, TimeGrid,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -3478,6 +3478,21 @@ fn nonlinear_component_solution_from_solve_request(
     }
 
     let residual_graph = ResidualGraph::from_assembly(solver_assembly);
+    let residual_scale_overrides =
+        match residual_scale_overrides_from_solve_request(&request.options, &residual_graph) {
+            Ok(overrides) => overrides,
+            Err(failure) => {
+                return failed_source_component_solution(
+                    solver_assembly,
+                    "newton_source_residual_graph",
+                    "Newton source solve residual scale overrides could not be materialized",
+                    &failure,
+                    tolerance,
+                    options.max_iterations,
+                    "newton_source_failed",
+                );
+            }
+        };
     let initial_values = source_initial_values_from_options(
         &request.options,
         "initial",
@@ -3550,7 +3565,10 @@ fn nonlinear_component_solution_from_solve_request(
         .map(str::trim)
         .unwrap_or("finite_difference");
     let solve_result = if jacobian_policy == "source_linear_terms" {
-        let scaled_jacobian = match source_linear_terms_jacobian(&residual_graph) {
+        let scaled_jacobian = match source_linear_terms_jacobian(
+            &residual_graph,
+            &residual_scale_overrides,
+        ) {
             Ok(jacobian) => jacobian,
             Err(failure) => {
                 return failed_source_component_solution(
@@ -3574,6 +3592,7 @@ fn nonlinear_component_solution_from_solve_request(
                     &parsed_residuals,
                     values,
                     &parameter_values,
+                    &residual_scale_overrides,
                 )
             },
             |_values, _baseline| Ok(scaled_jacobian.clone()),
@@ -3586,6 +3605,7 @@ fn nonlinear_component_solution_from_solve_request(
                 &parsed_residuals,
                 values,
                 &parameter_values,
+                &residual_scale_overrides,
             )
         })
     };
@@ -3619,6 +3639,7 @@ fn nonlinear_component_solution_from_solve_request(
         &newton.values,
         &parameter_values,
         tolerance,
+        &residual_scale_overrides,
     ) {
         Ok(evaluation) => evaluation,
         Err(failure) => {
@@ -3816,6 +3837,21 @@ fn dae_component_solution_from_solve_request(
             }
         };
     let residual_graph = ResidualGraph::from_assembly(solver_assembly);
+    let residual_scale_overrides =
+        match residual_scale_overrides_from_solve_request(&request.options, &residual_graph) {
+            Ok(overrides) => overrides,
+            Err(failure) => {
+                return failed_source_component_solution(
+                    solver_assembly,
+                    method,
+                    "DAE source solve residual scale overrides could not be materialized",
+                    &failure,
+                    tolerance,
+                    newton_options.max_iterations,
+                    "dae_source_failed",
+                );
+            }
+        };
     let parameter_values = match source_assembly_parameter_values(solver_assembly) {
         Ok(values) => values,
         Err(failure) => {
@@ -4003,6 +4039,7 @@ fn dae_component_solution_from_solve_request(
                         &behavior_output_symbols,
                         sample,
                         SourceResidualSubset::AlgebraicOnly,
+                        &residual_scale_overrides,
                     )
                 } else {
                     source_dae_residual_values(
@@ -4011,6 +4048,7 @@ fn dae_component_solution_from_solve_request(
                         &parsed_residuals,
                         sample,
                         SourceResidualSubset::AlgebraicOnly,
+                        &residual_scale_overrides,
                     )
                 }
             },
@@ -4115,6 +4153,7 @@ fn dae_component_solution_from_solve_request(
                 &behavior_output_symbols,
                 dae_sample,
                 SourceResidualSubset::All,
+                &residual_scale_overrides,
             )
         } else {
             source_dae_residual_values(
@@ -4123,6 +4162,7 @@ fn dae_component_solution_from_solve_request(
                 &parsed_residuals,
                 dae_sample,
                 SourceResidualSubset::All,
+                &residual_scale_overrides,
             )
         }
     });
@@ -4265,7 +4305,7 @@ fn dae_component_solution_from_solve_request(
     let residual_scales = residual_graph
         .residuals
         .iter()
-        .map(|residual| residual.scale.value)
+        .map(|residual| effective_residual_scale(residual, &residual_scale_overrides).value)
         .collect::<Vec<_>>();
     solution.step_diagnostics = dae
         .step_reports
@@ -4365,6 +4405,7 @@ fn dae_component_solution_from_solve_request(
             &solver_result,
             &final_inputs,
             tolerance,
+            &residual_scale_overrides,
         ) {
             solution.residual_norm = evaluation.residual_norm;
             solution.residuals = evaluation.residuals;
@@ -7165,6 +7206,112 @@ fn source_initial_values_from_options(
     )
 }
 
+fn residual_scale_overrides_from_solve_request(
+    options: &[eng_compiler::WithOptionInfo],
+    graph: &ResidualGraph,
+) -> Result<Vec<ResidualScaleOverride>, SolverFailure> {
+    let mut overrides = Vec::new();
+    let mut seen = HashSet::new();
+    for key in ["residual_scale", "residual_scales"] {
+        let Some(raw_value) = option_value(options, key) else {
+            continue;
+        };
+        let entries = parse_residual_scale_override_entries(raw_value);
+        if entries.is_empty() {
+            return Err(SolverFailure::new(
+                "E-SOURCE-RESIDUAL-SCALE",
+                format!("source residual scale option `{key}` is empty"),
+            ));
+        }
+        for entry in entries {
+            let (residual_name, raw_scale) = split_residual_scale_override_entry(&entry)?;
+            if !seen.insert(residual_name.clone()) {
+                return Err(SolverFailure::new(
+                    "E-SOURCE-RESIDUAL-SCALE",
+                    format!("source residual scale `{residual_name}` is specified more than once"),
+                ));
+            }
+            let residual = graph
+                .residuals
+                .iter()
+                .find(|residual| residual.name == residual_name)
+                .ok_or_else(|| {
+                    SolverFailure::new(
+                        "E-SOURCE-RESIDUAL-SCALE",
+                        format!(
+                            "source residual scale references unknown residual `{residual_name}`"
+                        ),
+                    )
+                })?;
+            let (scale_value, scale_unit) = parse_numeric_value_with_optional_unit(&raw_scale)
+                .ok_or_else(|| {
+                    SolverFailure::new(
+                        "E-SOURCE-RESIDUAL-SCALE",
+                        format!(
+                            "source residual scale `{residual_name}` is not a finite numeric literal"
+                        ),
+                    )
+                })?;
+            if !scale_value.is_finite() {
+                return Err(SolverFailure::new(
+                    "E-SOURCE-RESIDUAL-SCALE",
+                    format!("source residual scale `{residual_name}` is not finite"),
+                ));
+            }
+            let source_unit = scale_unit.as_deref().unwrap_or(residual.unit.unit.as_str());
+            let converted_scale =
+                convert_display_value(scale_value, source_unit, &residual.unit.unit);
+            let scale = ResidualScale::user_provided(converted_scale, &residual_name).map_err(
+                |failure| {
+                    SolverFailure::new(
+                        "E-SOURCE-RESIDUAL-SCALE",
+                        format!("{} for residual `{residual_name}`", failure.message),
+                    )
+                },
+            )?;
+            overrides.push(ResidualScaleOverride {
+                residual: residual_name,
+                scale,
+            });
+        }
+    }
+    Ok(overrides)
+}
+
+fn parse_residual_scale_override_entries(value: &str) -> Vec<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+    if let Some(inner) = trimmed
+        .strip_prefix('[')
+        .and_then(|rest| rest.strip_suffix(']'))
+    {
+        return split_component_initial_items(inner);
+    }
+    vec![trimmed.to_owned()]
+}
+
+fn split_residual_scale_override_entry(entry: &str) -> Result<(String, String), SolverFailure> {
+    let trimmed = entry.trim();
+    let separator = trimmed.find('=').or_else(|| trimmed.find(':'));
+    let Some(separator) = separator else {
+        return Err(SolverFailure::new(
+            "E-SOURCE-RESIDUAL-SCALE",
+            format!("source residual scale entry `{trimmed}` must use `residual = scale` syntax"),
+        ));
+    };
+    let residual_name = trimmed[..separator].trim();
+    let scale = trimmed[separator + 1..].trim();
+    if residual_name.is_empty() || scale.is_empty() {
+        return Err(SolverFailure::new(
+            "E-SOURCE-RESIDUAL-SCALE",
+            format!("source residual scale entry `{trimmed}` is incomplete"),
+        ));
+    }
+    Ok((residual_name.to_owned(), scale.to_owned()))
+}
+
 fn remap_source_initial_failure(
     failure: SolverFailure,
     source_label: &str,
@@ -7467,6 +7614,7 @@ fn source_algebraic_residual_values(
     parsed_residuals: &[ParsedSourceResidual],
     values: &[f64],
     parameter_values: &[f64],
+    scale_overrides: &[ResidualScaleOverride],
 ) -> Result<Vec<f64>, SolverFailure> {
     source_residual_evaluation_for_unknowns(
         assembly,
@@ -7475,6 +7623,7 @@ fn source_algebraic_residual_values(
         values,
         parameter_values,
         DEFAULT_NEWTON_TOLERANCE,
+        scale_overrides,
     )
     .map(|evaluation| evaluation.normalized_values)
 }
@@ -7488,6 +7637,7 @@ fn source_residual_evaluation_for_unknowns(
     values: &[f64],
     parameter_values: &[f64],
     tolerance: f64,
+    scale_overrides: &[ResidualScaleOverride],
 ) -> Result<SourceResidualEvaluation, SolverFailure> {
     if values.len() != assembly.unknowns.len() {
         return Err(SolverFailure::new(
@@ -7509,6 +7659,7 @@ fn source_residual_evaluation_for_unknowns(
         &symbols,
         tolerance,
         SourceResidualSubset::All,
+        scale_overrides,
     )
 }
 
@@ -7518,6 +7669,7 @@ fn source_dae_residual_values(
     parsed_residuals: &[ParsedSourceResidual],
     sample: DaeSample<'_>,
     subset: SourceResidualSubset,
+    scale_overrides: &[ResidualScaleOverride],
 ) -> Result<Vec<f64>, SolverFailure> {
     source_residual_evaluation_for_dae_sample(
         assembly,
@@ -7526,6 +7678,7 @@ fn source_dae_residual_values(
         sample,
         DEFAULT_NEWTON_TOLERANCE,
         subset,
+        scale_overrides,
     )
     .map(|evaluation| evaluation.normalized_values)
 }
@@ -7538,6 +7691,7 @@ fn source_dae_residual_values_with_behavior(
     behavior_output_symbols: &[SourceBehaviorOutputSymbol],
     sample: DaeSample<'_>,
     subset: SourceResidualSubset,
+    scale_overrides: &[ResidualScaleOverride],
 ) -> Result<Vec<f64>, SolverFailure> {
     let behavior_symbols = source_dae_behavior_symbols(
         assembly,
@@ -7553,6 +7707,7 @@ fn source_dae_residual_values_with_behavior(
         DEFAULT_NEWTON_TOLERANCE,
         subset,
         Some(&behavior_symbols),
+        scale_overrides,
     )
     .map(|evaluation| evaluation.normalized_values)
 }
@@ -7564,6 +7719,7 @@ fn source_residual_evaluation_for_dae_sample(
     sample: DaeSample<'_>,
     tolerance: f64,
     subset: SourceResidualSubset,
+    scale_overrides: &[ResidualScaleOverride],
 ) -> Result<SourceResidualEvaluation, SolverFailure> {
     source_residual_evaluation_for_dae_sample_with_extra_symbols(
         assembly,
@@ -7573,6 +7729,7 @@ fn source_residual_evaluation_for_dae_sample(
         tolerance,
         subset,
         None,
+        scale_overrides,
     )
 }
 
@@ -7584,6 +7741,7 @@ fn source_residual_evaluation_for_dae_sample_with_extra_symbols(
     tolerance: f64,
     subset: SourceResidualSubset,
     extra_symbols: Option<&HashMap<String, f64>>,
+    scale_overrides: &[ResidualScaleOverride],
 ) -> Result<SourceResidualEvaluation, SolverFailure> {
     if sample.state.len() != assembly.states.len()
         || sample.state_derivative.len() != assembly.states.len()
@@ -7638,6 +7796,7 @@ fn source_residual_evaluation_for_dae_sample_with_extra_symbols(
         &symbols,
         tolerance,
         subset,
+        scale_overrides,
     )
 }
 
@@ -7783,6 +7942,7 @@ fn source_residual_evaluation_for_dae_final(
     solver_result: &SolverResult,
     inputs: &[f64],
     tolerance: f64,
+    scale_overrides: &[ResidualScaleOverride],
 ) -> Result<SourceResidualEvaluation, SolverFailure> {
     let state = solver_result
         .output
@@ -7843,6 +8003,7 @@ fn source_residual_evaluation_for_dae_final(
         tolerance,
         SourceResidualSubset::All,
         behavior_symbols.as_ref(),
+        scale_overrides,
     )
 }
 
@@ -7853,6 +8014,7 @@ fn source_residual_evaluation_with_symbols(
     symbols: &HashMap<String, f64>,
     tolerance: f64,
     subset: SourceResidualSubset,
+    scale_overrides: &[ResidualScaleOverride],
 ) -> Result<SourceResidualEvaluation, SolverFailure> {
     if !tolerance.is_finite() || tolerance <= 0.0 {
         return Err(SolverFailure::new(
@@ -7920,7 +8082,8 @@ fn source_residual_evaluation_with_symbols(
                 ),
             ));
         };
-        let scale = residual_metadata.scale.value;
+        let residual_scale = effective_residual_scale(residual_metadata, scale_overrides);
+        let scale = residual_scale.value;
         if !scale.is_finite() || scale <= 0.0 {
             return Err(SolverFailure::new(
                 "E-SOURCE-RESIDUAL-SCALE",
@@ -7970,7 +8133,7 @@ fn source_residual_evaluation_with_symbols(
                 .unwrap_or_else(|| residual_metadata.unit.quantity_kind.clone()),
             normalized_value,
             scale,
-            scale_policy: residual_metadata.scale.policy.clone(),
+            scale_policy: residual_scale.policy,
             lowering_status: "parsed_expression".to_owned(),
             lowering_failure_code: None,
             lowering_failure_reason: None,
@@ -8001,18 +8164,33 @@ fn source_residual_evaluation_with_symbols(
     })
 }
 
-fn source_linear_terms_jacobian(graph: &ResidualGraph) -> Result<Vec<Vec<f64>>, SolverFailure> {
+fn source_linear_terms_jacobian(
+    graph: &ResidualGraph,
+    scale_overrides: &[ResidualScaleOverride],
+) -> Result<Vec<Vec<f64>>, SolverFailure> {
     let system = graph.assemble_linear_system()?;
     Ok(system
         .matrix
         .iter()
         .zip(graph.residuals.iter())
         .map(|(row, residual)| {
+            let scale = effective_residual_scale(residual, scale_overrides).value;
             row.iter()
-                .map(|value| value / residual.scale.value.max(f64::EPSILON))
+                .map(|value| value / scale.max(f64::EPSILON))
                 .collect::<Vec<_>>()
         })
         .collect())
+}
+
+fn effective_residual_scale(
+    residual: &ResidualEquation,
+    scale_overrides: &[ResidualScaleOverride],
+) -> ResidualScale {
+    scale_overrides
+        .iter()
+        .find(|override_scale| override_scale.residual == residual.name)
+        .map(|override_scale| override_scale.scale.clone())
+        .unwrap_or_else(|| residual.scale.clone())
 }
 
 fn variable_scales_from_unknowns(unknowns: &[UnknownVariable]) -> Vec<f64> {
@@ -15997,6 +16175,7 @@ system Envelope {
             },
             1e-9,
             SourceResidualSubset::All,
+            &[],
         )
         .unwrap();
 
@@ -16058,6 +16237,7 @@ system Envelope {
             &[2.0],
             &parameter_values,
             1e-9,
+            &[],
         )
         .unwrap();
 
@@ -16123,6 +16303,7 @@ system Envelope {
             &[4.0],
             &[4.0],
             1e-9,
+            &[],
         )
         .unwrap();
 

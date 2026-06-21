@@ -170,8 +170,8 @@ Internal runtime seeds:
   E-DAE-METHOD-UNSUPPORTED until a real BDF implementation exists
 - narrow source `solve component_graph` Newton bridge for coupled multi-variable unitful HeatRate
   nonlinear residuals, with finite-difference Jacobian by default,
-  `source_linear_terms` Jacobian hook, residual history, and largest-residual
-  artifacts
+  `source_linear_terms` Jacobian hook, user-provided residual scale overrides,
+  residual history, and largest-residual artifacts
 - narrow source `solve component_graph` implicit-Euler DAE bridge with assembly
   state/algebraic split, `DaeInput` generation, algebraic initialization,
   identity mass-matrix fallback unless a dimensionless scalar, diagonal vector, or
@@ -382,7 +382,8 @@ Supported scoped slice:
   algebraic failure metadata
 - `solver = newton` component residual artifacts with residual history,
   finite-difference Jacobian default, optional `source_linear_terms` Jacobian
-  hook, and nonconvergence failure metadata
+  hook, user-provided residual scale policy metadata, and nonconvergence or
+  invalid-scale failure metadata
 - `solver = implicit_euler_dae` component residual artifacts with
   state/algebraic split, algebraic initialization, identity mass-matrix
   fallback, state/algebraic trajectories, step diagnostics, and inconsistent

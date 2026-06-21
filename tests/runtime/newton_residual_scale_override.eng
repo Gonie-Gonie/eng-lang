@@ -1,0 +1,32 @@
+domain LinearPower package "eng.std.domains.scalar" version "0.1.0" {
+    across q: HeatRate [kW]
+    through balance: HeatRate [kW]
+    conservation sum(balance) = 0
+}
+
+component LinearHeatNode {
+    port source: LinearPower
+    port target: LinearPower
+    source.q + target.q eq 5 kW
+    source.q - target.q eq 1 kW
+}
+
+system NewtonResidualScaleOverride {
+    node = LinearHeatNode()
+    connect node.source to node.source
+    connect node.target to node.target
+}
+
+scaled_newton_result = solve component_graph
+with {
+    solver = newton
+    jacobian = source_linear_terms
+    initial = [0 kW, 0 kW, 0 kW, 0 kW]
+    residual_scales = [node.equation_1 = 2 kW, node.equation_2 = 4 kW]
+    tolerance = 0.000000001
+    max_iter = 20
+}
+
+report {
+    show scaled_newton_result
+}

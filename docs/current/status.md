@@ -305,16 +305,19 @@ are not public stable workflows.
   Newton and implicit-Euler DAE solves. The Newton bridge evaluates source
   residual expressions directly, scales residuals, uses finite-difference
   Jacobian by default, supports the `source_linear_terms` Jacobian hook for
-  linear residual graphs, records residual history, raw/normalized residual-vector step diagnostics, step-level largest-residual source context, plus variable-scale policy through step diagnostics,
+  linear residual graphs, accepts `residual_scale`/`residual_scales` overrides
+  for named source residuals, records residual history, raw/normalized residual-vector step diagnostics, step-level largest-residual source context, plus variable-scale policy through step diagnostics,
   and is covered by `examples/official/27_nonlinear_algebraic`,
   `tests/runtime/nonlinear_residual_from_source.eng`,
   `tests/runtime/newton_source_linear_jacobian.eng`, and
-  `tests/diagnostics/newton_nonconvergence.eng`. The DAE bridge derives the
+  `tests/runtime/newton_residual_scale_override.eng`, plus
+  `tests/diagnostics/newton_nonconvergence.eng` and
+  `tests/diagnostics/residual_scale_invalid.eng`. The DAE bridge derives the
   state/algebraic split from assembly variables, builds `DaeInput`, applies
   Newton algebraic initialization, uses identity mass-matrix fallback unless a
   dimensionless scalar, diagonal vector, or dense square `mass_matrix` option is
   supplied, records
-  state/algebraic trajectories, variable-scale policy, and per-step Newton diagnostics, and is covered
+  state/algebraic trajectories, variable-scale policy, source residual scale override support, and per-step Newton diagnostics, and is covered
   by `examples/official/28_small_dae`,
   `tests/runtime/small_dae_from_source.eng`,
   `tests/runtime/dae_timeseries_input_from_source.eng`, and

@@ -1097,6 +1097,57 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/newton_residual_scale_override.eng"),
+        Path::new("build/test-runtime-newton-residual-scale-override"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"solved_nonlinear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"newton_source_residual_graph_with_provided_jacobian\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"scale_policy\": \"user_provided:node.equation_1\"")
+                || !output
+                    .result_json
+                    .contains("\"scale_policy\": \"user_provided:node.equation_2\"")
+                || !output
+                    .result_json
+                    .contains("\"residual_values\": [0.00000000, 0.00000000, -2.50000000, -0.25000000]")
+                || !output
+                    .result_json
+                    .contains("\"normalized_residual_values\": [0.00000000, 0.00000000, -1.25000000, -0.06250000]")
+                || !output
+                    .report_spec_json
+                    .contains("\"scale_policy\": \"user_provided:node.equation_1\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"scale_policy\": \"user_provided:node.equation_2\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\": [0, 0, -1.25, -0.0625]")
+            {
+                eprintln!(
+                    "expected tests/runtime/newton_residual_scale_override.eng to apply user-provided source residual scales"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/newton_residual_scale_override.eng applied user-provided source residual scales"
+            );
+        }
+        Err(error) => {
+            eprintln!("Newton residual scale override runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/newton_dimensionless_function_residual.eng"),
         Path::new("build/test-runtime-newton-dimensionless-function-residual"),
         &artifact_run_options(),
@@ -3159,6 +3210,39 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("Newton initial vector mismatch diagnostics fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/diagnostics/residual_scale_invalid.eng"),
+        Path::new("build/test-diagnostics-residual-scale-invalid"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"newton_source_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"newton_source_failed\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-SOURCE-RESIDUAL-SCALE\"")
+                || !output.result_json.contains("\"failure_artifact\"")
+                || !output.report_html.contains("E-SOURCE-RESIDUAL-SCALE")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/residual_scale_invalid.eng to report a residual-scale SolverFailure artifact"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/residual_scale_invalid.eng reported residual scale validation failure"
+            );
+        }
+        Err(error) => {
+            eprintln!("residual scale invalid diagnostics fixture failed: {error}");
             return ExitCode::from(1);
         }
     }
