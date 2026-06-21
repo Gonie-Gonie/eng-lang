@@ -1,0 +1,31 @@
+domain PowerScalar package "eng.std.domains.scalar" version "0.1.0" {
+    across q: HeatRate [kW]
+    through balance: HeatRate [kW]
+    conservation sum(balance) = 0
+}
+
+component RelaxingLoop {
+    port source: PowerScalar
+    port target: PowerScalar
+    source.q eq 0.5 * target.q + 1 kW
+    source.balance eq 0 kW
+}
+
+system FixedPointLoop {
+    relax = RelaxingLoop()
+    connect relax.source to relax.target
+}
+
+fixed_point_scaled_result = solve component_graph
+with {
+    solver = fixed_point
+    tolerance = 0.000001
+    max_iter = 80
+    relaxation = 1
+    initial = 0
+    residual_scale = connection_set_1.across_q_1 = -2 kW
+}
+
+report {
+    show fixed_point_scaled_result
+}

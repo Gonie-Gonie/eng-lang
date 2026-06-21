@@ -96,8 +96,8 @@ Internal runtime seeds:
 - standalone dense linear, solver-API fixed-point, and solver-API damped
   Newton algorithms, with CLI smoke coverage for linear residual graph
   convergence/singular failure artifacts plus solver-API and source
-  `solve component_graph` fixed-point convergence and nonconvergence failure
-  artifacts
+  `solve component_graph` fixed-point convergence, residual scale override,
+  and nonconvergence failure artifacts
 - SolverInput/SolverResult state, input, parameter, finite numeric value, and validated output layout contracts
 - dense linear solver seeds reject non-finite matrix/RHS values and invalid tolerances
 - Newton solver seeds reject non-finite initial guesses

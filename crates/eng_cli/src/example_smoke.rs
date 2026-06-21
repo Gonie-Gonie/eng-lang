@@ -982,6 +982,49 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/fixed_point_residual_scale_override.eng"),
+        Path::new("build/test-runtime-fixed-point-residual-scale-override"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"solved_fixed_point\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"fixed_point_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"fixed_point_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"scale_policy\": \"user_provided:connection_set_1.across_q_1\"")
+                || !output
+                    .result_json
+                    .contains("\"scale_policy\": \"user_provided:relax.equation_1\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"scale_policy\": \"user_provided:connection_set_1.across_q_1\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"scale_policy\": \"user_provided:relax.equation_1\"")
+                || !output.report_html.contains("fixed_point_residual_graph")
+            {
+                eprintln!(
+                    "expected tests/runtime/fixed_point_residual_scale_override.eng to apply user-provided source residual scales to fixed-point residual artifacts"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/fixed_point_residual_scale_override.eng applied fixed-point residual scale overrides"
+            );
+        }
+        Err(error) => {
+            eprintln!("fixed-point residual scale override runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/nonlinear_residual_from_source.eng"),
         Path::new("build/test-runtime-nonlinear-source"),
         &artifact_run_options(),
@@ -3297,6 +3340,38 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("residual scale invalid diagnostics fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/diagnostics/fixed_point_residual_scale_invalid.eng"),
+        Path::new("build/test-diagnostics-fixed-point-residual-scale-invalid"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"fixed_point_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"fixed_point_source_failed\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-SOURCE-RESIDUAL-SCALE\"")
+                || !output.report_html.contains("E-SOURCE-RESIDUAL-SCALE")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/fixed_point_residual_scale_invalid.eng to report a fixed-point residual-scale SolverFailure artifact"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/fixed_point_residual_scale_invalid.eng reported fixed-point residual scale validation failure"
+            );
+        }
+        Err(error) => {
+            eprintln!("fixed-point residual scale invalid diagnostics fixture failed: {error}");
             return ExitCode::from(1);
         }
     }

@@ -1386,6 +1386,7 @@ impl RuntimeComponentSolution {
         solver_assembly: &EquationAssembly,
         options: FixedPointOptions,
         initial_values: Vec<f64>,
+        residual_scale_overrides: &[ResidualScaleOverride],
     ) -> Self {
         let residual_graph = ResidualGraph::from_assembly(solver_assembly);
         let equation_count = solver_assembly.equation_count();
@@ -1462,9 +1463,11 @@ impl RuntimeComponentSolution {
                 status: variable_status.clone(),
             })
             .collect::<Vec<_>>();
-        let residual_output = match residual_graph
-            .evaluate(&ResidualInput::new(&variable_values).with_tolerance(options.tolerance))
-        {
+        let residual_output = match residual_graph.evaluate(
+            &ResidualInput::new(&variable_values)
+                .with_scale_overrides(residual_scale_overrides)
+                .with_tolerance(options.tolerance),
+        ) {
             Ok(output) => output,
             Err(failure) => {
                 if failure_artifact.is_none() {
@@ -1495,8 +1498,11 @@ impl RuntimeComponentSolution {
                 message: reason.clone(),
             });
         }
-        let residuals =
-            component_residual_evaluations_from_graph(&residual_graph, Some(&residual_output));
+        let residuals = component_residual_evaluations_from_graph_with_scale_overrides(
+            &residual_graph,
+            Some(&residual_output),
+            residual_scale_overrides,
+        );
         let largest_residuals = largest_component_residuals(&residuals);
         let variable_names = residual_graph
             .variables
@@ -1881,12 +1887,21 @@ fn component_residual_evaluations_from_graph(
     graph: &ResidualGraph,
     output: Option<&ResidualOutput>,
 ) -> Vec<RuntimeComponentResidualEvaluation> {
+    component_residual_evaluations_from_graph_with_scale_overrides(graph, output, &[])
+}
+
+fn component_residual_evaluations_from_graph_with_scale_overrides(
+    graph: &ResidualGraph,
+    output: Option<&ResidualOutput>,
+    scale_overrides: &[ResidualScaleOverride],
+) -> Vec<RuntimeComponentResidualEvaluation> {
     graph
         .residuals
         .iter()
         .enumerate()
         .map(|(index, residual)| {
             let value = output.and_then(|output| output.values.get(index));
+            let residual_scale = effective_residual_scale(residual, scale_overrides);
             RuntimeComponentResidualEvaluation {
                 name: residual.name.clone(),
                 expression: residual.expression.text.clone(),
@@ -1908,8 +1923,8 @@ fn component_residual_evaluations_from_graph(
                 expression_unit: residual_expression_unit(residual),
                 expression_quantity_kind: residual_expression_quantity_kind(residual),
                 normalized_value: value.map(|value| value.normalized_value).unwrap_or(0.0),
-                scale: residual.scale.value,
-                scale_policy: residual.scale.policy.clone(),
+                scale: residual_scale.value,
+                scale_policy: residual_scale.policy,
                 lowering_status: residual.expression.lowering_status.clone(),
                 lowering_failure_code: residual.expression.lowering_failure_code.clone(),
                 lowering_failure_reason: residual.expression.lowering_failure_reason.clone(),
@@ -3374,12 +3389,30 @@ fn materialize_component_solutions(
                         &solver_assembly.unknowns,
                     ) {
                         Ok(initial_values) => {
-                            RuntimeComponentSolution::from_fixed_point_solver_assembly(
-                                &assembly.name,
-                                &solver_assembly,
-                                options,
-                                initial_values,
-                            )
+                            let residual_graph = ResidualGraph::from_assembly(&solver_assembly);
+                            match residual_scale_overrides_from_solve_request(
+                                &request.options,
+                                &residual_graph,
+                            ) {
+                                Ok(residual_scale_overrides) => {
+                                    RuntimeComponentSolution::from_fixed_point_solver_assembly(
+                                        &assembly.name,
+                                        &solver_assembly,
+                                        options,
+                                        initial_values,
+                                        &residual_scale_overrides,
+                                    )
+                                }
+                                Err(failure) => failed_source_component_solution(
+                                    &solver_assembly,
+                                    "fixed_point_residual_graph",
+                                    "fixed-point source solve residual scale overrides could not be materialized",
+                                    &failure,
+                                    options.tolerance,
+                                    options.max_iterations,
+                                    "fixed_point_source_failed",
+                                ),
+                            }
                         }
                         Err(failure) => failed_source_component_solution(
                             &solver_assembly,
