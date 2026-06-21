@@ -611,9 +611,10 @@ Definition of Done:
   reasons, residual values, normalized residuals, scale policy, and residual
   graph metadata.
 - Runtime residual evaluation accepts solver-provided tolerance and
-  per-residual scale overrides; source Newton and source DAE residual paths now
-  expose a user-facing `residual_scale`/`residual_scales` option while broader
-  component paths still default to unit/quantity scale policy.
+  per-residual scale overrides; source dense-linear, fixed-point, Newton, DAE,
+  and dynamic component derivative Newton fallback paths now expose or consume
+  user-facing `residual_scale`/`residual_scales` options while broader component
+  paths still default to unit/quantity scale policy.
 - Runtime residual evaluation consumes structured `x`, optional `xdot`, `z`,
   `u`, `p`, and `t` inputs, returns raw and named normalized residuals, and is
   repeatable without report-layer dependencies.

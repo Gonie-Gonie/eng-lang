@@ -289,6 +289,7 @@ are not public stable workflows.
   residual graph or per-step Newton algebraic residual solving with parsed
   derivative residual RHS expressions, including constructor-parameter
   dependencies, fixed-step TimeSeries component-input materialization,
+  derivative Newton residual-scale override diagnostics,
   compound RHS residual parenthesization for supported parsed component
   equations, provenance, and selected algebraic output trajectories, preserving
   equation/unknown counts in component solver artifacts, and is covered by

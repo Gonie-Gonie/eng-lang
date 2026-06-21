@@ -1958,6 +1958,58 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/dynamic_component_derivative_residual_scale_override.eng"),
+        Path::new("build/test-runtime-dynamic-component-derivative-residual-scale-override"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"computed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_assembly_explicit_euler\"")
+                || !output
+                    .result_json
+                    .contains("parsed nonlinear derivative residual Newton solves")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dynamic_component_fixed_step_completed\"")
+                || !output.result_json.contains("\"final_value\": 1.49999900")
+                || !output
+                    .result_json
+                    .contains("\"residual_values\": [-2.00000000]")
+                || !output
+                    .result_json
+                    .contains("\"normalized_residual_values\": [-1.00000000]")
+                || !output.result_json.contains(
+                    "\"variable_scale_policy\": \"derivative_residual_finite_difference\"",
+                )
+                || !output
+                    .result_json
+                    .contains("\"largest_residual_name\": \"node.equation_1\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"residual_values\": [-2]")
+                || !output
+                    .report_spec_json
+                    .contains("\"normalized_residual_values\": [-1]")
+            {
+                eprintln!(
+                    "expected tests/runtime/dynamic_component_derivative_residual_scale_override.eng to apply residual scales to derivative Newton diagnostics"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/dynamic_component_derivative_residual_scale_override.eng applied derivative residual scales"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component derivative residual scale override runtime fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new(
             "tests/runtime/dynamic_component_nonlinear_derivative_timeseries_input_explicit.eng",
         ),
@@ -3445,6 +3497,40 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("fixed-point residual scale invalid diagnostics fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/diagnostics/dynamic_component_residual_scale_invalid.eng"),
+        Path::new("build/test-diagnostics-dynamic-component-residual-scale-invalid"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dynamic_component_explicit_euler\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dynamic_component_source_failed\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-SOURCE-RESIDUAL-SCALE\"")
+                || !output.report_html.contains("E-SOURCE-RESIDUAL-SCALE")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/dynamic_component_residual_scale_invalid.eng to report a dynamic component residual-scale SolverFailure artifact"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/dynamic_component_residual_scale_invalid.eng reported dynamic component residual scale validation failure"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "dynamic component residual scale invalid diagnostics fixture failed: {error}"
+            );
             return ExitCode::from(1);
         }
     }

@@ -1,0 +1,30 @@
+domain ScalarState {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component ImplicitDerivativeNode {
+    port node: ScalarState
+    der(node.x) * der(node.x) + der(node.x) eq 2
+}
+
+system DynamicDerivativeResidualScaleOverride {
+    node = ImplicitDerivativeNode()
+    connect node.node to node.node
+}
+
+scaled_dynamic_result = solve component_graph
+with {
+    solver = dynamic_component_explicit_euler
+    timestep = 0.25 s
+    duration = 1 s
+    initial = 0.5
+    residual_scale = node.equation_1 = 2
+    tolerance = 0.0001
+    max_iter = 10000
+}
+
+report {
+    show scaled_dynamic_result
+}
