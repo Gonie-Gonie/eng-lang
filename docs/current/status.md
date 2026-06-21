@@ -253,8 +253,9 @@ are not public stable workflows.
   that requires an explicit `skipped_unsupported_shape` artifact instead of a
   fabricated trajectory.
 - Solver algorithm seeds: dense linear solve with finite matrix/RHS/tolerance
-  checks, exact zero-pivot singular failures, tolerance-level ill-conditioned
-  pivot failures, and successful-solve pivot condition estimates exposed through
+  checks, source residual scale overrides, exact zero-pivot singular failures,
+  tolerance-level ill-conditioned pivot failures, and successful-solve pivot
+  condition estimates exposed through
   component solver report artifacts, solver-API fixed-point iteration with per-iteration update residual-vector history plus the narrow
   `solve component_graph` fixed-point source path with raw/normalized variable-update step diagnostics, scalar or per-unknown vector initial guesses,
   user-provided final residual scale overrides,

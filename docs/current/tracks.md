@@ -95,7 +95,7 @@ Internal runtime seeds:
 ```text
 - standalone dense linear, solver-API fixed-point, and solver-API damped
   Newton algorithms, with CLI smoke coverage for linear residual graph
-  convergence/singular failure artifacts plus solver-API and source
+  convergence/singular failure artifacts, source residual scale overrides, plus solver-API and source
   `solve component_graph` fixed-point convergence, residual scale override,
   and nonconvergence failure artifacts
 - SolverInput/SolverResult state, input, parameter, finite numeric value, and validated output layout contracts

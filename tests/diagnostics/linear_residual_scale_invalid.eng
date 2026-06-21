@@ -1,0 +1,31 @@
+domain Thermal package "eng.std.domains.thermal" version "0.1.0" {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+component RoomTemperature {
+    port heat: Thermal
+    boundary_T = heat.T = 21 degC
+}
+
+component HeatLoad {
+    port heat: Thermal
+    boundary_Q = heat.Q = 2 kW
+}
+
+system LinearThermalNode {
+    room = RoomTemperature()
+    load = HeatLoad()
+    connect room.heat to load.heat
+}
+
+linear_scaled_result = solve component_graph
+with {
+    solver = dense_linear
+    residual_scale = connection_set_1.across_T_1 = -2
+}
+
+report {
+    show linear_scaled_result
+}

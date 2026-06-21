@@ -929,6 +929,47 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/linear_residual_scale_override.eng"),
+        Path::new("build/test-runtime-linear-residual-scale-override"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"solved_linear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dense_linear_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"linear_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"scale_policy\": \"user_provided:connection_set_1.across_T_1\"")
+                || !output
+                    .result_json
+                    .contains("\"scale_policy\": \"user_provided:load.boundary_boundary_Q\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"scale_policy\": \"user_provided:connection_set_1.across_T_1\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"scale_policy\": \"user_provided:load.boundary_boundary_Q\"")
+                || !output.report_html.contains("dense_linear_residual_graph")
+            {
+                eprintln!(
+                    "expected tests/runtime/linear_residual_scale_override.eng to apply user-provided source residual scales to dense linear residual artifacts"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/linear_residual_scale_override.eng applied dense linear residual scale overrides"
+            );
+        }
+        Err(error) => {
+            eprintln!("dense linear residual scale override runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/multi_domain_thermal_fluid_from_source.eng"),
         Path::new("build/test-runtime-multi-domain-thermal-fluid-source"),
         &artifact_run_options(),
@@ -3340,6 +3381,38 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("residual scale invalid diagnostics fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/diagnostics/linear_residual_scale_invalid.eng"),
+        Path::new("build/test-diagnostics-linear-residual-scale-invalid"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dense_linear_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"dense_linear_source_failed\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-SOURCE-RESIDUAL-SCALE\"")
+                || !output.report_html.contains("E-SOURCE-RESIDUAL-SCALE")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/linear_residual_scale_invalid.eng to report a dense-linear residual-scale SolverFailure artifact"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/linear_residual_scale_invalid.eng reported dense linear residual scale validation failure"
+            );
+        }
+        Err(error) => {
+            eprintln!("dense linear residual scale invalid diagnostics fixture failed: {error}");
             return ExitCode::from(1);
         }
     }
