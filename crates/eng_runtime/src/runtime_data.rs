@@ -9898,13 +9898,14 @@ fn materialize_state_space_solutions(
     ) {
         let reason =
             "recognized continuous state-space A/B operators, but output evaluation failed";
-        return failed_system_runtime_solutions(
+        return failed_system_runtime_solutions_with_source_equations(
             system,
             binding,
             &states,
             &solver_input,
             &failure,
             reason,
+            &source_equations,
         );
     }
     let reason = if input_series.iter().any(Option::is_some) {
@@ -15973,6 +15974,69 @@ with {
         assert_eq!(load_series.display_unit, "kW");
         assert_eq!(load_series.points.len(), 3);
     }
+
+    #[test]
+    fn failed_state_space_output_dependency_retains_source_equations() {
+        let source = r#"
+system StateSpaceOutputLoop {
+    state x: DimensionlessNumber = 1
+    input u: DimensionlessNumber = 0
+    output a: DimensionlessNumber [1]
+    output b: DimensionlessNumber [1]
+
+    states sx = [x]
+    inputs su = [u]
+    outputs y = [x, a, b]
+
+    A: LinearOperator[StateVector -> Derivative[StateVector]] = [[0 1/s]]
+    B: LinearOperator[InputVector -> Derivative[StateVector]] = [[0 1/s]]
+
+    equation {
+        der(sx) eq A * sx + B * su
+        a eq b + 1
+        b eq a + 1
+    }
+}
+
+sim = simulate StateSpaceOutputLoop
+with {
+    timestep = 1 s
+    duration = 1 s
+    solver = rk4
+}
+"#;
+        let report = check_source(
+            "state_space_output_loop.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let runtime = materialize_runtime_data(&report, source);
+
+        let sim_solutions = runtime
+            .system_solutions
+            .iter()
+            .filter(|solution| solution.binding.as_deref() == Some("sim"))
+            .collect::<Vec<_>>();
+        assert_eq!(sim_solutions.len(), 1);
+        let solution = sim_solutions[0];
+        assert_eq!(solution.status, "failed");
+        assert_eq!(
+            solution.failure_code.as_deref(),
+            Some("E-RHS-OUTPUT-ALGEBRAIC-LOOP")
+        );
+        assert!(solution.source_equations.iter().any(|equation| {
+            equation.kind == "state_space_derivative"
+                && equation.target == "x"
+                && equation.left == "der(x)"
+                && equation.source_line.is_some()
+        }));
+        assert_eq!(
+            solution.to_report_solution().source_equations.len(),
+            solution.source_equations.len()
+        );
+    }
+
     #[test]
     fn adaptive_state_space_runtime_materializes_scalar_output_series() {
         let source = r#"
