@@ -1785,7 +1785,7 @@ fn analyze_with_blocks(
             let owner_type =
                 with_owner_semantic_type(block.owner_line, typed_bindings, command_styles);
             let extra_known_options =
-                with_owner_simulation_input_options(program, block.owner_line, systems);
+                with_owner_simulation_variable_options(program, block.owner_line, systems);
             let options = with_options_for_owner(program, block.owner_line)
                 .into_iter()
                 .map(|option| {
@@ -1806,7 +1806,7 @@ fn analyze_with_blocks(
         .collect()
 }
 
-fn with_owner_simulation_input_options(
+fn with_owner_simulation_variable_options(
     program: &ParsedProgram,
     owner_line: Option<usize>,
     systems: &[SystemInfo],
@@ -1832,7 +1832,7 @@ fn with_owner_simulation_input_options(
             system
                 .variables
                 .iter()
-                .filter(|variable| variable.role == "input")
+                .filter(|variable| matches!(variable.role.as_str(), "input" | "parameter"))
                 .map(|variable| variable.name.clone())
                 .collect()
         })
@@ -2864,6 +2864,7 @@ pub fn validate_simulation_contracts(
         validate_simulation_duration(options, &mut diagnostics);
         validate_simulation_tolerance(options, &mut diagnostics);
         validate_simulation_solver(declaration.line, program, system, options, &mut diagnostics);
+        validate_simulation_parameter_options(system, options, &mut diagnostics);
 
         for variable in &system.variables {
             let Some(expected) = expected_dynamic_input(variable) else {
@@ -3408,6 +3409,76 @@ fn expected_dynamic_input(variable: &SystemVariableInfo) -> Option<ExpectedSimul
     None
 }
 
+fn validate_simulation_parameter_options(
+    system: &SystemInfo,
+    options: &[WithOptionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for parameter in system
+        .variables
+        .iter()
+        .filter(|variable| variable.role == "parameter")
+    {
+        let Some(option) = accepted_option(options, &parameter.name) else {
+            continue;
+        };
+        let Some((value, unit)) = numeric_literal_with_optional_unit(&option.value) else {
+            diagnostics.push(Diagnostic::error(
+                "E-SIM-PARAMETER-INVALID",
+                option.line,
+                &format!(
+                    "Simulation parameter `{}` expects a numeric literal, got `{}`.",
+                    parameter.name, option.value
+                ),
+                Some("Use a finite numeric literal with an optional compatible unit."),
+            ));
+            continue;
+        };
+        if !value.is_finite() {
+            diagnostics.push(Diagnostic::error(
+                "E-SIM-PARAMETER-INVALID",
+                option.line,
+                &format!(
+                    "Simulation parameter `{}` expects a finite numeric literal, got `{}`.",
+                    parameter.name, option.value
+                ),
+                Some("Use a finite numeric literal with an optional compatible unit."),
+            ));
+            continue;
+        }
+        let Some(unit) = unit else {
+            continue;
+        };
+        let Some(actual_quantity) = candidates_for_unit(&unit)
+            .first()
+            .map(|completion| completion.quantity_kind.to_owned())
+        else {
+            diagnostics.push(Diagnostic::error(
+                "E-SIM-PARAMETER-UNIT",
+                option.line,
+                &format!(
+                    "Simulation parameter `{}` uses unsupported unit `{unit}`.",
+                    parameter.name
+                ),
+                Some("Use a unit from the built-in unit registry."),
+            ));
+            continue;
+        };
+        let expected_dimension = dimension_for_quantity(&parameter.quantity_kind);
+        let actual_dimension = dimension_for_quantity(&actual_quantity);
+        if !dimensions_compatible(&expected_dimension, &actual_dimension) {
+            diagnostics.push(Diagnostic::error(
+                "E-SIM-PARAMETER-QTY-MISMATCH",
+                option.line,
+                &format!(
+                    "Simulation parameter `{}` expects {}, but `{}` is {}.",
+                    parameter.name, parameter.quantity_kind, option.value, actual_quantity
+                ),
+                Some("Use a numeric literal with a unit compatible with the declared parameter."),
+            ));
+        }
+    }
+}
 fn validate_simulation_timestep(
     owner_line: usize,
     options: &[WithOptionInfo],

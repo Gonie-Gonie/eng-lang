@@ -132,6 +132,7 @@ by the stable breaking-change policy.
   parameter/state/input metadata, `der(...)`, one-state fixed-step thermal
   execution, one-state `adaptive_heun` simulation, source-equation fixed-step
   and adaptive Heun ODE execution with scalar or Time-indexed TimeSeries inputs,
+  numeric system parameter override materialization,
   official three-state non-thermal adaptive source-equation coverage with
   TimeSeries input materialization, scalar output materialization including
   acyclic output-to-output dependencies with explicit loop failure artifacts, and
@@ -348,7 +349,9 @@ are not public stable workflows.
   shared `SourceRhsEvaluator`; its derivative coefficient and RHS expressions
   are pre-parsed through the shared arithmetic expression parser with
   unit-literal metadata, typed input symbols, typed parameter symbols, and
-  known-unit literal conversion to canonical solver values. The source output evaluator
+  known-unit literal conversion to canonical solver values, while declared
+  system parameter options materialize into canonical `SolverInput.parameters`.
+  The source output evaluator
   now pre-parses output equations with output symbols, topologically orders
   acyclic output-to-output dependencies, and reports
   `E-RHS-OUTPUT-ALGEBRAIC-LOOP` for cycles. The same shared expression path

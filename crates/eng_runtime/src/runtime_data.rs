@@ -9653,19 +9653,7 @@ fn materialize_state_space_solutions(
                 })
             })
             .collect::<Option<Vec<_>>>()?,
-        parameters: parameters
-            .iter()
-            .map(|parameter| {
-                canonical_variable_value(parameter).map(|value| {
-                    SolverScalar::new(
-                        parameter.name.clone(),
-                        parameter.quantity_kind.clone(),
-                        parameter.canonical_unit.clone(),
-                        value,
-                    )
-                })
-            })
-            .collect::<Option<Vec<_>>>()?,
+        parameters: simulation_parameter_scalars(&parameters, options)?,
     };
     let output_expressions = match system_output_expressions(
         system,
@@ -10110,19 +10098,7 @@ fn materialize_source_ode_solutions(
             })
         })
         .collect::<Option<Vec<_>>>()?;
-    let solver_parameters = parameters
-        .iter()
-        .map(|parameter| {
-            canonical_variable_value(parameter).map(|value| {
-                SolverScalar::new(
-                    parameter.name.clone(),
-                    parameter.quantity_kind.clone(),
-                    parameter.canonical_unit.clone(),
-                    value,
-                )
-            })
-        })
-        .collect::<Option<Vec<_>>>()?;
+    let solver_parameters = simulation_parameter_scalars(&parameters, options)?;
 
     let solver_options = adaptive_options
         .as_ref()
@@ -10724,8 +10700,10 @@ fn materialize_first_order_thermal_solution(
         return None;
     }
 
-    let heat_capacity_j_per_k = canonical_variable_value(heat_capacity)?;
-    let conductance_w_per_k = canonical_variable_value(conductance)?;
+    let heat_capacity_parameter = simulation_parameter_scalar(heat_capacity, options)?;
+    let conductance_parameter = simulation_parameter_scalar(conductance, options)?;
+    let heat_capacity_j_per_k = heat_capacity_parameter.value;
+    let conductance_w_per_k = conductance_parameter.value;
     let outdoor_series = option_value(options, &outdoor_temperature.name)
         .and_then(|name| series.iter().find(|series| series.name == name));
     let outdoor_quantity_kind = system_variable_value_quantity(outdoor_temperature);
@@ -10855,18 +10833,8 @@ fn materialize_first_order_thermal_solution(
             ),
         ],
         parameters: vec![
-            SolverScalar::new(
-                heat_capacity.name.clone(),
-                heat_capacity.quantity_kind.clone(),
-                heat_capacity.canonical_unit.clone(),
-                heat_capacity_j_per_k,
-            ),
-            SolverScalar::new(
-                conductance.name.clone(),
-                conductance.quantity_kind.clone(),
-                conductance.canonical_unit.clone(),
-                conductance_w_per_k,
-            ),
+            heat_capacity_parameter.clone(),
+            conductance_parameter.clone(),
         ],
     };
 
@@ -11200,6 +11168,56 @@ fn canonical_variable_value(variable: &eng_compiler::SystemVariableInfo) -> Opti
     .ok()
 }
 
+fn simulation_parameter_scalars(
+    parameters: &[&eng_compiler::SystemVariableInfo],
+    options: &[eng_compiler::WithOptionInfo],
+) -> Option<Vec<SolverScalar>> {
+    parameters
+        .iter()
+        .map(|parameter| simulation_parameter_scalar(parameter, options))
+        .collect()
+}
+
+fn simulation_parameter_scalar(
+    parameter: &eng_compiler::SystemVariableInfo,
+    options: &[eng_compiler::WithOptionInfo],
+) -> Option<SolverScalar> {
+    simulation_parameter_value(parameter, options).map(|value| {
+        SolverScalar::new(
+            parameter.name.clone(),
+            parameter.quantity_kind.clone(),
+            parameter.canonical_unit.clone(),
+            value,
+        )
+    })
+}
+
+fn simulation_parameter_value(
+    parameter: &eng_compiler::SystemVariableInfo,
+    options: &[eng_compiler::WithOptionInfo],
+) -> Option<f64> {
+    option_value(options, &parameter.name)
+        .map(|value| canonical_simulation_parameter_value(parameter, value))
+        .unwrap_or_else(|| canonical_variable_value(parameter))
+}
+
+fn canonical_simulation_parameter_value(
+    parameter: &eng_compiler::SystemVariableInfo,
+    expression: &str,
+) -> Option<f64> {
+    let (value, unit) = number_with_optional_unit(expression)?;
+    if !value.is_finite() {
+        return None;
+    }
+    let quantity_kind = system_variable_value_quantity(parameter);
+    convert_to_canonical_unit(
+        value,
+        unit.as_deref(),
+        &parameter.canonical_unit,
+        &quantity_kind,
+    )
+    .ok()
+}
 fn display_variable_value(value: f64, variable: &eng_compiler::SystemVariableInfo) -> f64 {
     let quantity_kind = system_variable_value_quantity(variable);
     convert_from_canonical_unit(

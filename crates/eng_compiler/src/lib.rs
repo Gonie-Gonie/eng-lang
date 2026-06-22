@@ -7431,6 +7431,35 @@ system Envelope {
     }
 
     #[test]
+    fn accepts_declared_simulation_parameter_option_names() {
+        let report = check_source(
+            "sim_parameter.eng",
+            "system ParamOde {\n    parameter gain: DimensionlessNumber [1] = 1\n    state x: DimensionlessNumber = 0\n    equation {\n        der(x) eq gain / 1 s\n    }\n}\n\nsim = simulate ParamOde\nwith {\n    gain = 2\n    timestep = 1 s\n    solver = rk4\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-WITH-OPTION-001"));
+    }
+
+    #[test]
+    fn rejects_simulation_parameter_option_unit_mismatch() {
+        let report = check_source(
+            "bad_sim_parameter.eng",
+            "system ParamOde {\n    parameter gain: DimensionlessNumber [1] = 1\n    state x: DimensionlessNumber = 0\n    equation {\n        der(x) eq gain / 1 s\n    }\n}\n\nsim = simulate ParamOde\nwith {\n    gain = 2 kW\n    timestep = 1 s\n    solver = rk4\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SIM-PARAMETER-QTY-MISMATCH"));
+    }
+    #[test]
     fn rejects_invalid_simulate_duration_and_tolerance() {
         let report = check_source(
             "bad.eng",
