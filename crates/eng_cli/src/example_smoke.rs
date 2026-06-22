@@ -1081,6 +1081,46 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/source_system_newton_variable_scales.eng"),
+        Path::new("build/test-runtime-source-system-newton-variable-scales"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"assembly\": \"StaticScaledNewtonSourceSystem\"")
+                || !output
+                    .result_json
+                    .contains("\"status\": \"solved_nonlinear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"newton_source_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"variable_scale_policy\": \"user_provided_variable_scales\"")
+                || !output.result_json.contains("\"variable_scale_min\": 2")
+                || !output.result_json.contains("\"variable_scale_max\": 4")
+                || !output
+                    .report_html
+                    .contains("StaticScaledNewtonSourceSystem")
+                || !output.report_html.contains("solved_nonlinear")
+                || !output.report_html.contains("newton_source_residual_graph")
+            {
+                eprintln!(
+                    "expected tests/runtime/source_system_newton_variable_scales.eng to solve a static nonlinear source system with user-provided Newton variable scales"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/source_system_newton_variable_scales.eng solved nonlinear source system with user-provided Newton variable scales"
+            );
+        }
+        Err(error) => {
+            eprintln!("source system Newton variable-scale runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/linear_residual_scale_override.eng"),
         Path::new("build/test-runtime-linear-residual-scale-override"),
         &artifact_run_options(),

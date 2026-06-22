@@ -1920,6 +1920,8 @@ fn known_with_option(key: &str) -> bool {
             | "finite_difference_step"
             | "damping"
             | "line_search_steps"
+            | "variable_scale"
+            | "variable_scales"
             | "jacobian"
             | "residual_scale"
             | "residual_scales"
@@ -3123,6 +3125,18 @@ fn validate_algebraic_solve_contracts(
                 ));
             }
         }
+        validate_component_solve_positive_numeric_list_option(
+            options,
+            "variable_scale",
+            "`variable_scale` expects a positive finite numeric scale or bracketed list with optional units.",
+            diagnostics,
+        );
+        validate_component_solve_positive_numeric_list_option(
+            options,
+            "variable_scales",
+            "`variable_scales` expects a positive finite numeric scale or bracketed list with optional units.",
+            diagnostics,
+        );
         if let Some(option) = accepted_option(options, "jacobian") {
             let valid = matches!(
                 option.value.trim(),
@@ -3278,6 +3292,29 @@ fn validate_component_solve_initial_list_option(
             option.line,
             &format!("{message} Got `{}`.", option.value),
             Some("Use a literal such as `1`, `20 degC`, or a bracketed list such as `[1, 3]`."),
+        ));
+    }
+}
+fn validate_component_solve_positive_numeric_list_option(
+    options: &[WithOptionInfo],
+    key: &str,
+    message: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(option) = accepted_option(options, key) else {
+        return;
+    };
+    let valid = initial_literal_values(&option.value).is_some_and(|values| {
+        values
+            .iter()
+            .all(|(value, _unit)| value.is_finite() && *value > 0.0)
+    });
+    if !valid {
+        diagnostics.push(Diagnostic::error(
+            "E-SOLVE-VARIABLE-SCALE-INVALID",
+            option.line,
+            &format!("{message} Got `{}`.", option.value),
+            Some("Use a positive literal such as `1`, `20 degC`, or a bracketed list such as `[1, 3]`."),
         ));
     }
 }

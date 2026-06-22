@@ -1290,6 +1290,13 @@ as residual constants. This is not a time simulation path: systems with
 `der(...)` equations must use `simulate <SystemName>` when they match a supported
 ODE shape.
 
+For source-system Newton solves, `variable_scale = <positive scale>` applies the
+same scale to every unknown and `variable_scales = [...]` supplies per-unknown
+positive scales. Unit-suffixed literals are converted against the corresponding
+unknown units when possible. These options are recorded in solver artifacts as
+`user_provided_variable_scales` with `variable_scale_min` and
+`variable_scale_max`; omitting them keeps the unit-derived default scale policy.
+
 Simple-linear dynamic component solves use the same binding with dynamic solver
 options:
 

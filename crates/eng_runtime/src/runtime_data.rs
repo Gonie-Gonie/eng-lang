@@ -3869,12 +3869,29 @@ fn nonlinear_component_solution_from_solve_request(
     request: &ComponentSolveRequest,
 ) -> RuntimeComponentSolution {
     let mut options = newton_options_from_solve_request(&request.options);
-    apply_newton_variable_scales_from_unknowns(
-        &mut options,
-        &solver_assembly.unknowns,
-        "unit_default_from_assembly_unknowns",
-    );
     let tolerance = options.tolerance;
+    match newton_variable_scales_from_solve_request(&request.options, &solver_assembly.unknowns) {
+        Ok(Some(scales)) => {
+            options.variable_scales = scales;
+            options.variable_scale_policy = "user_provided_variable_scales".to_owned();
+        }
+        Ok(None) => apply_newton_variable_scales_from_unknowns(
+            &mut options,
+            &solver_assembly.unknowns,
+            "unit_default_from_assembly_unknowns",
+        ),
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                "newton_source_residual_graph",
+                "Newton source solve variable scales could not be materialized",
+                &failure,
+                tolerance,
+                options.max_iterations,
+                "newton_source_failed",
+            );
+        }
+    }
 
     if !solver_assembly.states.is_empty() {
         return failed_source_component_solution(
@@ -8840,8 +8857,10 @@ fn apply_newton_variable_scales_from_unknowns(
     unknowns: &[UnknownVariable],
     policy: &str,
 ) {
-    options.variable_scales = variable_scales_from_unknowns(unknowns);
-    options.variable_scale_policy = policy.to_owned();
+    if options.variable_scales.is_empty() {
+        options.variable_scales = variable_scales_from_unknowns(unknowns);
+        options.variable_scale_policy = policy.to_owned();
+    }
 }
 
 fn finite_minimum(values: &[f64]) -> Option<f64> {
@@ -8859,6 +8878,45 @@ fn finite_maximum(values: &[f64]) -> Option<f64> {
         .filter(|value| value.is_finite())
         .reduce(f64::max)
 }
+fn newton_variable_scales_from_solve_request(
+    options: &[eng_compiler::WithOptionInfo],
+    variables: &[UnknownVariable],
+) -> Result<Option<Vec<f64>>, SolverFailure> {
+    let requested_keys = ["variable_scale", "variable_scales"]
+        .into_iter()
+        .filter(|key| option_value(options, key).is_some())
+        .collect::<Vec<_>>();
+    if requested_keys.is_empty() {
+        return Ok(None);
+    }
+    if requested_keys.len() > 1 {
+        return Err(SolverFailure::new(
+            "E-NEWTON-SOURCE-VARIABLE-SCALE",
+            "specify either `variable_scale` or `variable_scales`, not both",
+        ));
+    }
+    let key = requested_keys[0];
+    let scales = source_initial_values_from_options(
+        options,
+        key,
+        variables,
+        1.0,
+        "Newton source variable scale",
+        "E-NEWTON-SOURCE-VARIABLE-SCALE",
+        "E-NEWTON-SOURCE-VARIABLE-SCALE-LAYOUT",
+    )?;
+    if scales
+        .iter()
+        .any(|scale| !scale.is_finite() || *scale <= 0.0)
+    {
+        return Err(SolverFailure::new(
+            "E-NEWTON-SOURCE-VARIABLE-SCALE",
+            format!("Newton source option `{key}` expects positive finite variable scales"),
+        ));
+    }
+    Ok(Some(scales))
+}
+
 fn newton_options_from_solve_request(options: &[eng_compiler::WithOptionInfo]) -> NewtonOptions {
     let mut newton = NewtonOptions::default();
     if let Some(tolerance) = option_value(options, "tolerance")
@@ -15063,6 +15121,72 @@ with {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-SOLVE-SYSTEM-SHAPE-UNSUPPORTED"));
+    }
+    #[test]
+    fn materializes_newton_source_system_solve_request_with_variable_scales() {
+        let source = r#"
+system StaticScaledNewtonSourceSystem {
+    parameter target: DimensionlessNumber [1] = 4
+    state x: DimensionlessNumber = 1
+    output y: DimensionlessNumber [1]
+
+    equation {
+        x * x eq target
+        y eq x + 1
+    }
+}
+
+source_system_newton_scaled_result = solve StaticScaledNewtonSourceSystem
+with {
+    solver = newton
+    initial = [1, 0]
+    variable_scales = [2, 4]
+    tolerance = 0.000000001
+    max_iter = 30
+}
+"#;
+        let report = check_source(
+            "source_system_newton_variable_scales.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.assembly, "StaticScaledNewtonSourceSystem");
+        assert_eq!(solution.status, "solved_nonlinear");
+        assert_eq!(solution.method, "newton_source_residual_graph");
+        assert_eq!(solution.convergence_status, "newton_converged");
+        assert_eq!(
+            solution.variable_scale_policy,
+            "user_provided_variable_scales"
+        );
+        assert_eq!(solution.variable_scale_min, Some(2.0));
+        assert_eq!(solution.variable_scale_max, Some(4.0));
+        assert!(solution.step_diagnostics.iter().skip(1).any(|diagnostic| {
+            diagnostic.variable_scale_policy.as_deref() == Some("user_provided_variable_scales")
+        }));
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "x"
+                && (variable.value - 2.0).abs() <= 0.000001
+                && variable.status == "solved_newton"
+        }));
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "y"
+                && (variable.value - 3.0).abs() <= 0.000001
+                && variable.status == "solved_newton"
+        }));
+
+        let mut spec =
+            eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        runtime.apply_component_solutions(&mut spec);
+        let json = eng_report::report_spec_json(&spec);
+        assert!(json.contains("\"variable_scale_policy\": \"user_provided_variable_scales\""));
+        assert!(json.contains("\"variable_scale_min\": 2"));
+        assert!(json.contains("\"variable_scale_max\": 4"));
     }
     #[test]
     fn materializes_fixed_point_source_solve_request() {
