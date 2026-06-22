@@ -83,6 +83,10 @@ pub struct SourceRhsEquation {
     pub state: String,
     pub left: String,
     pub right: String,
+    pub source_line: Option<usize>,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
 }
 
 impl SourceRhsEquation {
@@ -95,7 +99,25 @@ impl SourceRhsEquation {
             state: state.into(),
             left: left.into(),
             right: right.into(),
+            source_line: None,
+            quantity_kind: "unknown".to_owned(),
+            display_unit: "unknown".to_owned(),
+            canonical_unit: "unknown".to_owned(),
         }
+    }
+
+    pub fn with_metadata(
+        mut self,
+        source_line: Option<usize>,
+        quantity_kind: impl Into<String>,
+        display_unit: impl Into<String>,
+        canonical_unit: impl Into<String>,
+    ) -> Self {
+        self.source_line = source_line;
+        self.quantity_kind = quantity_kind.into();
+        self.display_unit = display_unit.into();
+        self.canonical_unit = canonical_unit.into();
+        self
     }
 }
 
@@ -110,6 +132,10 @@ pub struct SourceRhsEvaluator {
 #[derive(Clone, Debug, PartialEq)]
 struct ParsedSourceRhsEquation {
     state: String,
+    source_line: Option<usize>,
+    quantity_kind: String,
+    display_unit: String,
+    canonical_unit: String,
     coefficient_source: String,
     coefficient: ParsedArithmeticExpression,
     rhs_source: String,
@@ -197,6 +223,10 @@ impl SourceRhsEvaluator {
                     })?;
                 Ok(ParsedSourceRhsEquation {
                     state: equation.state,
+                    source_line: equation.source_line,
+                    quantity_kind: equation.quantity_kind,
+                    display_unit: equation.display_unit,
+                    canonical_unit: equation.canonical_unit,
                     coefficient_source,
                     coefficient,
                     rhs_source: equation.right,

@@ -1618,6 +1618,16 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"final_value\": 3")
                 || !output.report_spec_json.contains("total - (shifted + x)")
                 || !output.report_spec_json.contains("shifted - (x + 1)")
+                || !output.result_json.contains("\"source_equations\"")
+                || !output.result_json.contains("\"kind\": \"derivative\"")
+                || !output
+                    .result_json
+                    .contains("\"quantity_kind\": \"Derivative[DimensionlessNumber]\"")
+                || !output.result_json.contains("\"source_line\": 7")
+                || !output
+                    .report_spec_json
+                    .contains("\"kind\": \"algebraic_output\"")
+                || !output.review_json.contains("\"source_equations\"")
                 || !plot_spec.contains("\"name\": \"sim.shifted\"")
                 || !plot_spec.contains("\"name\": \"sim.total\"")
                 || !output.report_html.contains("SourceOutputDependency")

@@ -10,9 +10,10 @@ use eng_report::{
     ReportComponentSolverTrajectory, ReportComponentSolverVariable, ReportComputedIntegration,
     ReportComputedMetric, ReportComputedStatisticValue, ReportComputedStatistics,
     ReportMlCoefficient, ReportMlInfo, ReportPolicyResult, ReportPolicyViolation,
-    ReportSolverFailureArtifact, ReportSpec, ReportSystemSolution, ReportSystemSolutionPoint,
-    ReportSystemSolverStepDiagnostic, ReportTimeAlignment, ReportTimeAxis, ReportUncertaintyInfo,
-    ReportUncertaintyPropagationTerm, ReportValidationResult,
+    ReportSolverFailureArtifact, ReportSpec, ReportSystemEquationMetadata, ReportSystemSolution,
+    ReportSystemSolutionPoint, ReportSystemSolverStepDiagnostic, ReportTimeAlignment,
+    ReportTimeAxis, ReportUncertaintyInfo, ReportUncertaintyPropagationTerm,
+    ReportValidationResult,
 };
 
 use crate::solver::evaluator::{
@@ -971,6 +972,19 @@ struct Standardization {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeSystemEquationMetadata {
+    pub kind: String,
+    pub target: String,
+    pub left: String,
+    pub right: String,
+    pub residual_expression: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub source_line: Option<usize>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct RuntimeSystemSolution {
     pub system: String,
     pub binding: Option<String>,
@@ -982,6 +996,7 @@ pub struct RuntimeSystemSolution {
     pub inputs: Vec<String>,
     pub parameters: Vec<String>,
     pub outputs: Vec<String>,
+    pub source_equations: Vec<RuntimeSystemEquationMetadata>,
     pub state: String,
     pub quantity_kind: String,
     pub display_unit: String,
@@ -1046,6 +1061,7 @@ impl RuntimeSystemSolution {
             inputs: solver_result.plan.simulation.inputs.clone(),
             parameters: solver_result.plan.simulation.parameters.clone(),
             outputs: solver_result.plan.simulation.outputs.clone(),
+            source_equations: Vec::new(),
             state: trajectory.name.clone(),
             quantity_kind: trajectory.quantity_kind.clone(),
             display_unit: state.display_unit.clone(),
@@ -1104,6 +1120,7 @@ impl RuntimeSystemSolution {
             inputs: solver_input.plan.simulation.inputs.clone(),
             parameters: solver_input.plan.simulation.parameters.clone(),
             outputs: solver_input.plan.simulation.outputs.clone(),
+            source_equations: Vec::new(),
             state: state.name.clone(),
             quantity_kind: state.quantity_kind.clone(),
             display_unit: state.display_unit.clone(),
@@ -1141,6 +1158,21 @@ impl RuntimeSystemSolution {
             inputs: self.inputs.clone(),
             parameters: self.parameters.clone(),
             outputs: self.outputs.clone(),
+            source_equations: self
+                .source_equations
+                .iter()
+                .map(|equation| ReportSystemEquationMetadata {
+                    kind: equation.kind.clone(),
+                    target: equation.target.clone(),
+                    left: equation.left.clone(),
+                    right: equation.right.clone(),
+                    residual_expression: equation.residual_expression.clone(),
+                    quantity_kind: equation.quantity_kind.clone(),
+                    display_unit: equation.display_unit.clone(),
+                    canonical_unit: equation.canonical_unit.clone(),
+                    source_line: equation.source_line,
+                })
+                .collect(),
             state: self.state.clone(),
             quantity_kind: self.quantity_kind.clone(),
             display_unit: self.display_unit.clone(),
@@ -10268,6 +10300,7 @@ fn materialize_source_ode_solutions(
             );
         }
     };
+    let source_equations = source_ode_system_equation_metadata(&equations, &output_expressions);
 
     let evaluator = match SourceRhsEvaluator::new_with_symbols(
         state_symbols.clone(),
@@ -10381,10 +10414,52 @@ fn materialize_source_ode_solutions(
     };
     let mut solutions =
         system_runtime_solutions(system, binding, &output_variables, &solver_result, reason)?;
+    attach_system_source_equations(&mut solutions, &source_equations);
     if use_adaptive_heun {
         attach_system_step_diagnostics(&mut solutions, &step_diagnostics);
     }
     Some(solutions)
+}
+
+fn source_ode_system_equation_metadata(
+    derivative_equations: &[SourceRhsEquation],
+    outputs: &[ParsedSystemOutputExpression],
+) -> Vec<RuntimeSystemEquationMetadata> {
+    let mut metadata = derivative_equations
+        .iter()
+        .map(|equation| RuntimeSystemEquationMetadata {
+            kind: "derivative".to_owned(),
+            target: equation.state.clone(),
+            left: equation.left.clone(),
+            right: equation.right.clone(),
+            residual_expression: format!("{} - ({})", equation.left, equation.right),
+            quantity_kind: equation.quantity_kind.clone(),
+            display_unit: equation.display_unit.clone(),
+            canonical_unit: equation.canonical_unit.clone(),
+            source_line: equation.source_line,
+        })
+        .collect::<Vec<_>>();
+    metadata.extend(outputs.iter().map(|output| RuntimeSystemEquationMetadata {
+        kind: "algebraic_output".to_owned(),
+        target: output.name.clone(),
+        left: output.left.clone(),
+        right: output.source.clone(),
+        residual_expression: format!("{} - ({})", output.left, output.source),
+        quantity_kind: output.quantity_kind.clone(),
+        display_unit: output.display_unit.clone(),
+        canonical_unit: output.canonical_unit.clone(),
+        source_line: output.source_line,
+    }));
+    metadata
+}
+
+fn attach_system_source_equations(
+    solutions: &mut [RuntimeSystemSolution],
+    source_equations: &[RuntimeSystemEquationMetadata],
+) {
+    for solution in solutions {
+        solution.source_equations = source_equations.to_vec();
+    }
 }
 
 fn source_ode_equations_for_states(
@@ -10402,11 +10477,19 @@ fn source_ode_equations_for_states(
         if matches.len() != 1 {
             return None;
         }
-        equations.push(SourceRhsEquation::new(
-            state.name.clone(),
-            matches[0].left.clone(),
-            matches[0].right.clone(),
-        ));
+        equations.push(
+            SourceRhsEquation::new(
+                state.name.clone(),
+                matches[0].left.clone(),
+                matches[0].right.clone(),
+            )
+            .with_metadata(
+                Some(matches[0].line),
+                format!("Derivative[{}]", state.quantity_kind),
+                derivative_display_unit(&state.display_unit),
+                derivative_display_unit(&state.canonical_unit),
+            ),
+        );
     }
     Some(equations)
 }
@@ -10415,10 +10498,20 @@ fn source_ode_equations_for_states(
 struct ParsedSystemOutputExpression {
     name: String,
     quantity_kind: String,
+    display_unit: String,
     canonical_unit: String,
+    left: String,
     source: String,
+    source_line: Option<usize>,
     expression: ParsedArithmeticExpression,
     output_dependencies: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct SystemOutputExpressionSource {
+    left: String,
+    right: String,
+    line: Option<usize>,
 }
 
 fn system_output_expressions(
@@ -10453,7 +10546,7 @@ fn system_output_expressions(
         .iter()
         .map(|output| {
             let source = system_output_expression_source(system, output)?;
-            let expression = parse_source_rhs_expression(&source, &symbols, &symbol_metadata)
+            let expression = parse_source_rhs_expression(&source.right, &symbols, &symbol_metadata)
                 .map_err(|failure| {
                     SolverFailure::new(
                         failure.code,
@@ -10473,8 +10566,11 @@ fn system_output_expressions(
             Ok(ParsedSystemOutputExpression {
                 name: output.name.clone(),
                 quantity_kind: system_variable_value_quantity(output),
+                display_unit: output.display_unit.clone(),
                 canonical_unit: output.canonical_unit.clone(),
-                source,
+                left: source.left,
+                source: source.right,
+                source_line: source.line,
                 expression,
                 output_dependencies,
             })
@@ -10530,7 +10626,7 @@ fn order_system_output_expressions(
 fn system_output_expression_source(
     system: &eng_compiler::SystemInfo,
     output: &eng_compiler::SystemVariableInfo,
-) -> Result<String, SolverFailure> {
+) -> Result<SystemOutputExpressionSource, SolverFailure> {
     let matches = system
         .equations
         .iter()
@@ -10546,9 +10642,17 @@ fn system_output_expression_source(
         ));
     }
     if let Some(equation) = matches.first() {
-        return Ok(equation.right.clone());
+        return Ok(SystemOutputExpressionSource {
+            left: equation.left.clone(),
+            right: equation.right.clone(),
+            line: Some(equation.line),
+        });
     }
-    output.initial_value.clone().ok_or_else(|| {
+    output.initial_value.clone().map(|right| SystemOutputExpressionSource {
+        left: output.name.clone(),
+        right,
+        line: Some(output.line),
+    }).ok_or_else(|| {
         SolverFailure::new(
             "E-RHS-OUTPUT-EXPRESSION",
             format!(
@@ -11086,6 +11190,7 @@ fn skipped_system_solution(
         inputs: system_variable_names_by_role(system, "input"),
         parameters: system_variable_names_by_role(system, "parameter"),
         outputs: Vec::new(),
+        source_equations: Vec::new(),
         state: state.map(|state| state.name.clone()).unwrap_or_default(),
         quantity_kind: state
             .map(|state| state.quantity_kind.clone())

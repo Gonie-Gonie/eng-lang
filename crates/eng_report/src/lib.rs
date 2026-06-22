@@ -1009,6 +1009,19 @@ pub struct ReportOdeRunner {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct ReportSystemEquationMetadata {
+    pub kind: String,
+    pub target: String,
+    pub left: String,
+    pub right: String,
+    pub residual_expression: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub source_line: Option<usize>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct ReportSystemSolution {
     pub binding: Option<String>,
     pub status: String,
@@ -1019,6 +1032,7 @@ pub struct ReportSystemSolution {
     pub inputs: Vec<String>,
     pub parameters: Vec<String>,
     pub outputs: Vec<String>,
+    pub source_equations: Vec<ReportSystemEquationMetadata>,
     pub state: String,
     pub quantity_kind: String,
     pub display_unit: String,
@@ -5557,6 +5571,7 @@ fn push_report_system_solutions_json(
         json.push_str(&format!("{indent}    \"outputs\": ["));
         push_json_string_array(json, &solution.outputs);
         json.push_str("],\n");
+        push_report_system_source_equations_json(json, &solution.source_equations, indent);
         json.push_str(&format!(
             "{indent}    \"state\": \"{}\",\n",
             json_escape(&solution.state)
@@ -5648,6 +5663,58 @@ fn push_report_system_solutions_json(
         json.push_str(&format!("{indent}  }}"));
     }
     json.push_str(&format!("\n{indent}]"));
+}
+
+fn push_report_system_source_equations_json(
+    json: &mut String,
+    equations: &[ReportSystemEquationMetadata],
+    indent: &str,
+) {
+    json.push_str(&format!("{indent}    \"source_equations\": [\n"));
+    for (equation_index, equation) in equations.iter().enumerate() {
+        if equation_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}      {{\n"));
+        json.push_str(&format!(
+            "{indent}        \"kind\": \"{}\",\n",
+            json_escape(&equation.kind)
+        ));
+        json.push_str(&format!(
+            "{indent}        \"target\": \"{}\",\n",
+            json_escape(&equation.target)
+        ));
+        json.push_str(&format!(
+            "{indent}        \"left\": \"{}\",\n",
+            json_escape(&equation.left)
+        ));
+        json.push_str(&format!(
+            "{indent}        \"right\": \"{}\",\n",
+            json_escape(&equation.right)
+        ));
+        json.push_str(&format!(
+            "{indent}        \"residual_expression\": \"{}\",\n",
+            json_escape(&equation.residual_expression)
+        ));
+        json.push_str(&format!(
+            "{indent}        \"quantity_kind\": \"{}\",\n",
+            json_escape(&equation.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "{indent}        \"display_unit\": \"{}\",\n",
+            json_escape(&equation.display_unit)
+        ));
+        json.push_str(&format!(
+            "{indent}        \"canonical_unit\": \"{}\",\n",
+            json_escape(&equation.canonical_unit)
+        ));
+        match equation.source_line {
+            Some(line) => json.push_str(&format!("{indent}        \"source_line\": {}\n", line)),
+            None => json.push_str(&format!("{indent}        \"source_line\": null\n")),
+        }
+        json.push_str(&format!("{indent}      }}"));
+    }
+    json.push_str(&format!("\n{indent}    ],\n"));
 }
 
 fn push_report_system_step_diagnostics_json(

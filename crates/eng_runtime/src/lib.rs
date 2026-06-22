@@ -3898,6 +3898,7 @@ fn push_system_solution_json(
     json.push_str(&format!("{indent}  \"outputs\": ["));
     push_json_string_array(json, &solution.outputs);
     json.push_str("],\n");
+    push_system_source_equations_json(json, &solution.source_equations, indent);
     json.push_str(&format!(
         "{indent}  \"state\": \"{}\",\n",
         json_escape(&solution.state)
@@ -3978,6 +3979,103 @@ fn push_system_solution_json(
     json.push_str(&format!("{indent}  \"points\": ["));
     push_runtime_points(json, &solution.points);
     json.push_str("]\n");
+    json.push_str(&format!("{indent}}}"));
+}
+
+fn push_system_source_equations_json(
+    json: &mut String,
+    equations: &[runtime_data::RuntimeSystemEquationMetadata],
+    indent: &str,
+) {
+    json.push_str(&format!("{indent}  \"source_equations\": [\n"));
+    for (equation_index, equation) in equations.iter().enumerate() {
+        if equation_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}    {{\n"));
+        json.push_str(&format!(
+            "{indent}      \"kind\": \"{}\",\n",
+            json_escape(&equation.kind)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"target\": \"{}\",\n",
+            json_escape(&equation.target)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"left\": \"{}\",\n",
+            json_escape(&equation.left)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"right\": \"{}\",\n",
+            json_escape(&equation.right)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"residual_expression\": \"{}\",\n",
+            json_escape(&equation.residual_expression)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"quantity_kind\": \"{}\",\n",
+            json_escape(&equation.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"display_unit\": \"{}\",\n",
+            json_escape(&equation.display_unit)
+        ));
+        json.push_str(&format!(
+            "{indent}      \"canonical_unit\": \"{}\",\n",
+            json_escape(&equation.canonical_unit)
+        ));
+        match equation.source_line {
+            Some(line) => json.push_str(&format!("{indent}      \"source_line\": {}\n", line)),
+            None => json.push_str(&format!("{indent}      \"source_line\": null\n")),
+        }
+        json.push_str(&format!("{indent}    }}"));
+    }
+    json.push_str(&format!("\n{indent}  ],\n"));
+}
+
+fn push_system_source_equation_json(
+    json: &mut String,
+    equation: &runtime_data::RuntimeSystemEquationMetadata,
+    indent: &str,
+) {
+    json.push_str("{\n");
+    json.push_str(&format!(
+        "{indent}  \"kind\": \"{}\",\n",
+        json_escape(&equation.kind)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"target\": \"{}\",\n",
+        json_escape(&equation.target)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"left\": \"{}\",\n",
+        json_escape(&equation.left)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"right\": \"{}\",\n",
+        json_escape(&equation.right)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"residual_expression\": \"{}\",\n",
+        json_escape(&equation.residual_expression)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"quantity_kind\": \"{}\",\n",
+        json_escape(&equation.quantity_kind)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"display_unit\": \"{}\",\n",
+        json_escape(&equation.display_unit)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"canonical_unit\": \"{}\",\n",
+        json_escape(&equation.canonical_unit)
+    ));
+    match equation.source_line {
+        Some(line) => json.push_str(&format!("{indent}  \"source_line\": {}\n", line)),
+        None => json.push_str(&format!("{indent}  \"source_line\": null\n")),
+    }
     json.push_str(&format!("{indent}}}"));
 }
 
@@ -4106,6 +4204,15 @@ fn runtime_review_json(base_review: &str, runtime_data: &RuntimeData) -> String 
         push_json_string_array(&mut json, &first.outputs);
         json.push_str("]\n");
         json.push_str("      },\n");
+        json.push_str("      \"source_equations\": [\n");
+        for (equation_index, equation) in first.source_equations.iter().enumerate() {
+            if equation_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        ");
+            push_system_source_equation_json(&mut json, equation, "        ");
+        }
+        json.push_str("\n      ],\n");
         json.push_str("      \"diagnostics\": {\n");
         json.push_str(&format!("        \"tolerance\": {},\n", first.tolerance));
         json.push_str(&format!(
