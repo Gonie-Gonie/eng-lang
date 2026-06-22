@@ -1,0 +1,22 @@
+system StaticFixedPointSourceSystem {
+    state x: DimensionlessNumber = 0.5
+    output y: DimensionlessNumber [1]
+
+    equation {
+        x eq cos(y)
+        y eq x
+    }
+}
+
+source_system_fixed_point_result = solve StaticFixedPointSourceSystem
+with {
+    solver = fixed_point
+    initial = [0.5, 0.5]
+    tolerance = 0.00001
+    max_iter = 120
+    relaxation = 0.5
+}
+
+report {
+    show source_system_fixed_point_result
+}

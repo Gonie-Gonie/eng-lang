@@ -964,6 +964,45 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/source_system_fixed_point_solve.eng"),
+        Path::new("build/test-runtime-source-system-fixed-point"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"assembly\": \"StaticFixedPointSourceSystem\"")
+                || !output
+                    .result_json
+                    .contains("\"status\": \"solved_fixed_point\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"fixed_point_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"fixed_point_converged\"")
+                || !output.result_json.contains("\"name\": \"x\"")
+                || !output.result_json.contains("\"name\": \"y\"")
+                || !output.result_json.contains("x - (cos(y))")
+                || !output.report_html.contains("StaticFixedPointSourceSystem")
+                || !output.report_html.contains("solved_fixed_point")
+                || !output.report_html.contains("fixed_point_residual_graph")
+            {
+                eprintln!(
+                    "expected tests/runtime/source_system_fixed_point_solve.eng to solve a static source system through expression-mapped fixed-point residual graph"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/source_system_fixed_point_solve.eng solved fixed-point source system residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("source system fixed-point runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/source_system_newton_solve.eng"),
         Path::new("build/test-runtime-source-system-newton"),
         &artifact_run_options(),

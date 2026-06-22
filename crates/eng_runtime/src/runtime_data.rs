@@ -3757,13 +3757,56 @@ fn materialize_system_algebraic_solutions(report: &CheckReport) -> Vec<RuntimeCo
                         ),
                     }
                 }
+                "fixed_point" => {
+                    let options = fixed_point_options_from_solve_request(&request.options);
+                    match fixed_point_initial_values_from_solve_request(
+                        &request.options,
+                        &solver_assembly.unknowns,
+                    ) {
+                        Ok(initial_values) => {
+                            let residual_graph = ResidualGraph::from_assembly(&solver_assembly);
+                            match residual_scale_overrides_from_solve_request(
+                                &request.options,
+                                &residual_graph,
+                            ) {
+                                Ok(residual_scale_overrides) => {
+                                    RuntimeComponentSolution::from_fixed_point_solver_assembly(
+                                        &system.name,
+                                        &solver_assembly,
+                                        options,
+                                        initial_values,
+                                        &residual_scale_overrides,
+                                    )
+                                }
+                                Err(failure) => failed_source_component_solution(
+                                    &solver_assembly,
+                                    "source_system_fixed_point_residual_graph",
+                                    "source system fixed-point residual scale overrides could not be materialized",
+                                    &failure,
+                                    options.tolerance,
+                                    options.max_iterations,
+                                    "source_system_fixed_point_failed",
+                                ),
+                            }
+                        }
+                        Err(failure) => failed_source_component_solution(
+                            &solver_assembly,
+                            "source_system_fixed_point_residual_graph",
+                            "source system fixed-point initial values could not be materialized",
+                            &failure,
+                            options.tolerance,
+                            options.max_iterations,
+                            "source_system_fixed_point_failed",
+                        ),
+                    }
+                }
                 "newton" | "nonlinear_newton" => {
                     nonlinear_component_solution_from_solve_request(&solver_assembly, &request)
                 }
                 unsupported => failed_source_component_solution(
                     &solver_assembly,
                     "source_system_residual_graph",
-                    "source system solve supports dense_linear/linear or newton/nonlinear_newton static algebraic solves",
+                    "source system solve supports dense_linear/linear, fixed_point, or newton/nonlinear_newton static algebraic solves",
                     &SolverFailure::new(
                         "E-SYSTEM-SOLVE-SOLVER",
                         format!("unsupported source system solve solver `{unsupported}`"),
@@ -14652,6 +14695,87 @@ with {
         assert!(html.contains("dense_linear_residual_graph"));
     }
 
+    #[test]
+    fn materializes_fixed_point_source_system_solve_request() {
+        let source = r#"
+system StaticFixedPointSourceSystem {
+    state x: DimensionlessNumber = 0.5
+    output y: DimensionlessNumber [1]
+
+    equation {
+        x eq cos(y)
+        y eq x
+    }
+}
+
+source_system_fixed_point_result = solve StaticFixedPointSourceSystem
+with {
+    solver = fixed_point
+    initial = [0.5, 0.5]
+    tolerance = 0.00001
+    max_iter = 120
+    relaxation = 0.5
+}
+"#;
+        let report = check_source(
+            "source_system_fixed_point_solve.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.assembly, "StaticFixedPointSourceSystem");
+        assert_eq!(solution.status, "solved_fixed_point");
+        assert_eq!(solution.method, "fixed_point_residual_graph");
+        assert_eq!(solution.convergence_status, "fixed_point_converged");
+        assert_eq!(solution.equation_count, 2);
+        assert_eq!(solution.unknown_count, 2);
+        assert!(solution.residual_norm <= solution.tolerance);
+        assert!(solution.reason.contains("source system solve binding"));
+        assert!(solution.failure_artifact.is_none());
+        assert!(solution.step_diagnostics.len() > 1);
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "x"
+                && variable.role == "algebraic"
+                && variable.unit == "1"
+                && (variable.value - 0.739085).abs() <= 0.00001
+                && variable.status == "solved_fixed_point"
+        }));
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "y"
+                && variable.role == "algebraic"
+                && variable.unit == "1"
+                && (variable.value - 0.739085).abs() <= 0.00001
+                && variable.status == "solved_fixed_point"
+        }));
+        assert!(solution.residuals.iter().any(|residual| {
+            residual.name == "StaticFixedPointSourceSystem.residual_1"
+                && residual.expression == "x - (cos(y))"
+                && residual.source_expression == "x eq cos(y)"
+                && residual.status == "satisfied"
+        }));
+
+        let mut spec =
+            eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        runtime.apply_component_solutions(&mut spec);
+        let assembly = spec
+            .assemblies
+            .iter()
+            .find(|assembly| assembly.name == "StaticFixedPointSourceSystem")
+            .expect("fixed-point source system report assembly");
+        assert_eq!(assembly.status, "solved_fixed_point");
+        assert_eq!(assembly.residual_graph.status, "fixed_point_converged");
+        assert!(assembly.solver_result.is_some());
+        let html = eng_report::render_html_with_spec(&report, "plots/timeseries.svg", &spec);
+        assert!(html.contains("StaticFixedPointSourceSystem"));
+        assert!(html.contains("solved_fixed_point"));
+        assert!(html.contains("fixed_point_residual_graph"));
+        assert!(html.contains("x - (cos(y))"));
+    }
     #[test]
     fn materializes_newton_source_system_solve_request() {
         let source = r#"

@@ -1255,8 +1255,9 @@ component-local equations. The options are plain numeric values; invalid
 `tolerance`, `max_iter`, `relaxation`, and `initial` values are diagnostics.
 
 Static source systems can also be solved explicitly when their equations are
-algebraic and square. Use `dense_linear`/`linear` for linear systems and
-`newton`/`nonlinear_newton` for nonlinear systems:
+algebraic and square. Use `dense_linear`/`linear` for linear systems,
+`fixed_point` when direct single-unknown `eq` side mappings can be extracted,
+and `newton`/`nonlinear_newton` for nonlinear systems:
 
 ```eng partial
 system StaticNonlinearSourceSystem {
@@ -1280,7 +1281,10 @@ with {
 ```
 
 For `solve <SystemName>`, the runtime lowers source equations into the same
-residual graph used by component solves. State and output variables are treated
+residual graph used by component solves. A fixed-point source-system solve can
+use equations such as `x eq cos(y)` and `y eq x`, but it still requires a
+direct expression mapping rather than arbitrary partition detection. State and
+output variables are treated
 as static algebraic unknowns, while parameter and scalar input defaults are used
 as residual constants. This is not a time simulation path: systems with
 `der(...)` equations must use `simulate <SystemName>` when they match a supported
