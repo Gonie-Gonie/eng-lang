@@ -1,0 +1,39 @@
+states ScalarState {
+    x: DimensionlessNumber [1]
+}
+
+inputs ScalarInput {
+    u: DimensionlessNumber [1]
+}
+
+system ScalarStateSpaceInputOverride {
+    state xvec: StateVector[ScalarState] = [0]
+    input uvec: InputVector[ScalarInput] = [1]
+    output y: DimensionlessNumber [1]
+
+    outputs yvec = [x, y]
+
+    operator A: LinearOperator[ScalarState -> Derivative[ScalarState]] = [[0 1/s]]
+    operator B: LinearOperator[ScalarInput -> Derivative[ScalarState]] = [[1 1/s]]
+
+    equation {
+        der(xvec) eq A * xvec + B * uvec
+        y eq x + u
+    }
+}
+
+sim = simulate ScalarStateSpaceInputOverride
+with {
+    u = 2
+    timestep = 1 s
+    duration = 2 s
+    solver = rk4
+}
+
+report {
+    plot sim.x and sim.y over Time
+    with {
+        unit y = 1
+        title = "State-space scalar input override solve"
+    }
+}

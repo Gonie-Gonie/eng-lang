@@ -144,7 +144,7 @@ by the stable breaking-change policy.
   `operator B:` declarations, shape/unit-checked A/B matrices, discrete
   `next(x) eq A * x + B * u`, continuous `der(x) eq A * x + B * u`,
   fixed-step explicit-Euler/RK4 execution, scalar or Time-indexed TimeSeries
-  input materialization, scalar `output` materialization, and generated
+  input materialization, numeric scalar input override materialization, scalar `output` materialization, and generated
   `sim.<state>`/`sim.<output>` TimeSeries for
   `examples/official/21_state_space_discrete` and
   `examples/official/22_state_space_continuous`. Broad operator algebra,

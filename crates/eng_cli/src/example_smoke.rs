@@ -5466,6 +5466,43 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/state_space_scalar_input_override.eng"),
+        Path::new("build/test-runtime-state-space-scalar-input-override"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
+            let plot_spec = std::fs::read_to_string(&output.plot_spec_path).unwrap_or_default();
+            let report_spec = std::fs::read_to_string(&output.report_spec_path).unwrap_or_default();
+            let report_html = std::fs::read_to_string(&output.report_path).unwrap_or_default();
+            if !result.contains("\"binding\": \"sim\"")
+                || !result.contains("\"method\": \"state_space_rk4_fixed_step\"")
+                || !result.contains("\"inputs\": [\"u\"]")
+                || !result.contains("\"outputs\": [\"x\", \"y\"]")
+                || !result.contains("\"state\": \"x\"")
+                || !result.contains("\"state\": \"y\"")
+                || !result.contains("\"final_value\": 4")
+                || !result.contains("\"final_value\": 6")
+                || !report_spec.contains("y - (x + u)")
+                || !plot_spec.contains("\"name\": \"sim.x\"")
+                || !plot_spec.contains("\"name\": \"sim.y\"")
+                || !report_html.contains("ScalarStateSpaceInputOverride")
+            {
+                eprintln!(
+                    "expected tests/runtime/state_space_scalar_input_override.eng to apply simulate scalar input overrides in state-space evaluation"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/state_space_scalar_input_override.eng applied state-space scalar input override"
+            );
+        }
+        Err(error) => {
+            eprintln!("state-space scalar input override runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("examples/official/19_class_object/main.eng"),
         Path::new("build/test-class-object"),
         &artifact_run_options(),
