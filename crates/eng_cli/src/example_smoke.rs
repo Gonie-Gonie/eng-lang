@@ -4044,6 +4044,44 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/diagnostics/source_system_newton_nonconvergence.eng"),
+        Path::new("build/test-diagnostics-source-system-newton-nonconvergence"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"assembly\": \"StaticNewtonNonconvergenceSourceSystem\"")
+                || !output
+                    .result_json
+                    .contains("\"status\": \"newton_not_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"newton_source_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-NEWTON-NONCONVERGENCE\"")
+                || !output.result_json.contains("\"largest_residuals\"")
+                || !output
+                    .report_html
+                    .contains("StaticNewtonNonconvergenceSourceSystem")
+                || !output.report_html.contains("E-NEWTON-NONCONVERGENCE")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/source_system_newton_nonconvergence.eng to report a source-system Newton SolverFailure artifact"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/source_system_newton_nonconvergence.eng reported source-system Newton nonconvergence"
+            );
+        }
+        Err(error) => {
+            eprintln!("source-system Newton nonconvergence diagnostics fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/diagnostics/newton_initial_vector_mismatch.eng"),
         Path::new("build/test-diagnostics-newton-initial-vector-mismatch"),
         &artifact_run_options(),

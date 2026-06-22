@@ -15161,6 +15161,72 @@ with {
         assert!(json.contains("\"jacobian_policy\": \"source_linear_terms\""));
     }
     #[test]
+    fn materializes_newton_source_system_nonconvergence_failure_artifact() {
+        let source = r#"
+system StaticNewtonNonconvergenceSourceSystem {
+    parameter target: DimensionlessNumber [1] = 2
+    state x: DimensionlessNumber = 10
+
+    equation {
+        x * x eq target
+    }
+}
+
+source_system_newton_failure = solve StaticNewtonNonconvergenceSourceSystem
+with {
+    solver = newton
+    initial = 10
+    tolerance = 0.000000000000001
+    max_iter = 1
+}
+"#;
+        let report = check_source(
+            "source_system_newton_nonconvergence.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.assembly, "StaticNewtonNonconvergenceSourceSystem");
+        assert_eq!(solution.status, "newton_not_converged");
+        assert_eq!(solution.method, "newton_source_residual_graph");
+        assert_eq!(solution.convergence_status, "newton_not_converged");
+        assert_eq!(solution.iteration_count, 1);
+        assert_eq!(
+            solution
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-NEWTON-NONCONVERGENCE")
+        );
+        assert!(solution.reason.contains("failure artifact"));
+        assert!(solution
+            .variables
+            .iter()
+            .any(|variable| { variable.name == "x" && variable.status == "newton_not_converged" }));
+        assert!(!solution.step_diagnostics.is_empty());
+        assert!(solution.step_diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str())
+                == Some("E-NEWTON-NONCONVERGENCE")
+        }));
+        assert!(!solution.largest_residuals.is_empty());
+
+        let mut spec =
+            eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        runtime.apply_component_solutions(&mut spec);
+        let json = eng_report::report_spec_json(&spec);
+        assert!(json.contains("\"status\": \"newton_not_converged\""));
+        assert!(json.contains("\"failure_code\": \"E-NEWTON-NONCONVERGENCE\""));
+        assert!(json.contains("\"largest_residuals\""));
+    }
+    #[test]
     fn rejects_derivative_source_system_solve_request() {
         let source = r#"
 system DynamicSourceSystem {
