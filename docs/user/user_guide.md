@@ -95,7 +95,8 @@ Use the official examples for user testing and demos. Start with these:
 - `examples/official/25_fixed_point_loop/main.eng`: supported narrow
   fixed-point algebraic source solve using `solve component_graph` with
   `solver = fixed_point` and numeric tolerance/max-iteration/relaxation
-  options.
+  options. Runtime coverage also includes selected direct expression-mapped
+  fixed-point residuals; this is not a general fixed-point partitioner.
 - `examples/official/26_dynamic_component_room/main.eng`: supported narrow
   dynamic component source solve using `solve component_graph` with
   `solver = dynamic_component_semi_implicit_euler`, generated Thermal

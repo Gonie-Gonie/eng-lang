@@ -98,7 +98,9 @@ paths before compatibility fixtures.
   Source-to-solver smoke for `solve component_graph` with
   `solver = fixed_point`, tolerance/max-iteration/relaxation/initial options,
   named solution variables, residual norm, largest-residual artifacts, and
-  fixed-point convergence metadata for a narrow linear ResidualGraph loop.
+  fixed-point convergence metadata for a narrow linear ResidualGraph loop. Runtime
+  fixtures also cover selected direct expression-mapped fixed-point residuals
+  without making that path a general partitioner.
 
 26_dynamic_component_room
   Source-to-solver smoke for `solve component_graph` with

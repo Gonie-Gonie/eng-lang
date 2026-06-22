@@ -280,8 +280,9 @@ The runtime result also includes `component_solutions` with residual values,
 normalized residuals, the top normalized residuals under `largest_residuals`,
 convergence status, nullable `failure_code`/`failure_reason` aliases, solved
 linear variables when a square system is available, explicit fixed-point
-variables for `solve component_graph` requests over pivotable linear
-ResidualGraphs, zero-seed variables for skipped non-square graphs, dynamic
+variables for `solve component_graph` requests over pivotable linear ResidualGraphs
+and selected direct expression-mapped residuals, zero-seed variables for skipped
+non-square graphs, dynamic
 trajectory and timestep diagnostic adapters, an internal simple-linear dynamic
 component assembly bridge used by solver API fixtures, and failure/limitation
 artifacts. Runtime `report_spec.json` mirrors the same details under
@@ -308,8 +309,9 @@ re-parsing source files.
   shows the source-to-solver dense linear ResidualGraph path with named
   solution variables, residual norm, and `largest_residuals`.
 - `examples/official/25_fixed_point_loop/main.eng`
-  shows the narrow `solve component_graph` fixed-point path with
-  `solver = fixed_point`, tolerance/max-iteration/relaxation/initial options,
+  shows the narrow `solve component_graph` fixed-point path with pivotable
+  linear updates, `solver = fixed_point`, tolerance/max-iteration/relaxation/initial
+  options,
   convergence metadata, residual norm, and SolverFailure artifacts for the
   companion nonconvergence diagnostic fixture.
 - `examples/official/26_dynamic_component_room/main.eng`

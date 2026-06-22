@@ -1,0 +1,30 @@
+domain ScalarLoop {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component CosineLoop {
+    port source: ScalarLoop
+    port target: ScalarLoop
+    source.x eq cos(target.x)
+    source.balance eq 0
+}
+
+system FixedPointCosineLoop {
+    loop = CosineLoop()
+    connect loop.source to loop.target
+}
+
+fixed_point_expression_result = solve component_graph
+with {
+    solver = fixed_point
+    tolerance = 0.00001
+    max_iter = 120
+    relaxation = 0.5
+    initial = 0.5
+}
+
+report {
+    show fixed_point_expression_result
+}

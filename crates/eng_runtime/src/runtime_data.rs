@@ -1591,61 +1591,83 @@ impl RuntimeComponentSolution {
         let unknown_count = solver_assembly.unknown_count();
         let mut variable_values = initial_values.clone();
         let mut variable_status = "fixed_point_not_attempted".to_owned();
-        let mut status: String;
+        let mut status = "fixed_point_failed".to_owned();
         let mut reason = "fixed-point residual graph solve requested from source".to_owned();
         let mut failure_artifact = None;
-        let mut convergence_status: String;
+        let mut convergence_status = "fixed_point_failed".to_owned();
         let mut iteration_count = 0;
         let mut fixed_point_residual_history = Vec::new();
         let mut fixed_point_residual_value_history = Vec::new();
-
-        match fixed_point_update_plan(&residual_graph) {
-            Ok(update_plan) => {
-                match solve_fixed_point(&initial_values, &options, |values| {
-                    fixed_point_update_values(&residual_graph, &update_plan, values)
-                }) {
-                    Ok(fixed_point) => {
-                        let failed = fixed_point.failure.clone();
-                        fixed_point_residual_history = fixed_point.residual_history;
-                        fixed_point_residual_value_history = fixed_point.residual_value_history;
-                        variable_values = fixed_point.values;
-                        variable_status = if failed.is_none() {
-                            "solved_fixed_point".to_owned()
-                        } else {
-                            "fixed_point_not_converged".to_owned()
-                        };
-                        iteration_count = fixed_point.iteration_count;
-                        convergence_status = fixed_point.convergence_status;
-                        if let Some(failure) = failed {
-                            status = "fixed_point_not_converged".to_owned();
-                            reason = failure.message.clone();
-                            failure_artifact = Some(RuntimeSolverFailureArtifact {
-                                code: failure.code,
-                                message: failure.message,
-                            });
-                        } else {
-                            status = "solved_fixed_point".to_owned();
-                        }
-                    }
-                    Err(failure) => {
-                        status = "fixed_point_failed".to_owned();
-                        convergence_status = "fixed_point_failed".to_owned();
-                        reason = failure.message.clone();
-                        failure_artifact = Some(RuntimeSolverFailureArtifact {
-                            code: failure.code,
-                            message: failure.message,
-                        });
-                    }
-                }
-            }
+        let parameter_values = match source_assembly_parameter_values(solver_assembly) {
+            Ok(values) => Some(values),
             Err(failure) => {
-                status = "fixed_point_not_capable".to_owned();
-                convergence_status = "fixed_point_not_capable".to_owned();
                 reason = failure.message.clone();
                 failure_artifact = Some(RuntimeSolverFailureArtifact {
                     code: failure.code,
                     message: failure.message,
                 });
+                None
+            }
+        };
+
+        let mut iteration_options = options.clone();
+        iteration_options.tolerance = (options.tolerance * 0.1).max(f64::MIN_POSITIVE);
+
+        if let Some(parameter_values) = parameter_values.as_ref() {
+            match fixed_point_update_plan(&residual_graph, solver_assembly, parameter_values) {
+                Ok(update_plan) => {
+                    match solve_fixed_point(&initial_values, &iteration_options, |values| {
+                        fixed_point_update_values(
+                            &residual_graph,
+                            &update_plan,
+                            values,
+                            solver_assembly,
+                            parameter_values,
+                        )
+                    }) {
+                        Ok(fixed_point) => {
+                            let failed = fixed_point.failure.clone();
+                            fixed_point_residual_history = fixed_point.residual_history;
+                            fixed_point_residual_value_history = fixed_point.residual_value_history;
+                            variable_values = fixed_point.values;
+                            variable_status = if failed.is_none() {
+                                "solved_fixed_point".to_owned()
+                            } else {
+                                "fixed_point_not_converged".to_owned()
+                            };
+                            iteration_count = fixed_point.iteration_count;
+                            convergence_status = fixed_point.convergence_status;
+                            if let Some(failure) = failed {
+                                status = "fixed_point_not_converged".to_owned();
+                                reason = failure.message.clone();
+                                failure_artifact = Some(RuntimeSolverFailureArtifact {
+                                    code: failure.code,
+                                    message: failure.message,
+                                });
+                            } else {
+                                status = "solved_fixed_point".to_owned();
+                            }
+                        }
+                        Err(failure) => {
+                            status = "fixed_point_failed".to_owned();
+                            convergence_status = "fixed_point_failed".to_owned();
+                            reason = failure.message.clone();
+                            failure_artifact = Some(RuntimeSolverFailureArtifact {
+                                code: failure.code,
+                                message: failure.message,
+                            });
+                        }
+                    }
+                }
+                Err(failure) => {
+                    status = "fixed_point_not_capable".to_owned();
+                    convergence_status = "fixed_point_not_capable".to_owned();
+                    reason = failure.message.clone();
+                    failure_artifact = Some(RuntimeSolverFailureArtifact {
+                        code: failure.code,
+                        message: failure.message,
+                    });
+                }
             }
         }
 
@@ -1661,12 +1683,41 @@ impl RuntimeComponentSolution {
                 status: variable_status.clone(),
             })
             .collect::<Vec<_>>();
-        let residual_output = match residual_graph.evaluate(
-            &ResidualInput::new(&variable_values)
-                .with_scale_overrides(residual_scale_overrides)
-                .with_tolerance(options.tolerance),
+        let (residual_norm, residuals) = match fixed_point_source_residual_evaluation(
+            solver_assembly,
+            &residual_graph,
+            &variable_values,
+            parameter_values.as_deref(),
+            options.tolerance,
+            residual_scale_overrides,
         ) {
-            Ok(output) => output,
+            Ok(Some(evaluation)) => (evaluation.residual_norm, evaluation.residuals),
+            Ok(None) => match residual_graph.evaluate(
+                &ResidualInput::new(&variable_values)
+                    .with_scale_overrides(residual_scale_overrides)
+                    .with_tolerance(options.tolerance),
+            ) {
+                Ok(output) => {
+                    let residuals = component_residual_evaluations_from_graph_with_scale_overrides(
+                        &residual_graph,
+                        Some(&output),
+                        residual_scale_overrides,
+                    );
+                    (output.residual_norm, residuals)
+                }
+                Err(failure) => {
+                    if failure_artifact.is_none() {
+                        status = "residual_evaluation_failed".to_owned();
+                        convergence_status = "residual_evaluation_failed".to_owned();
+                        reason = failure.message.clone();
+                        failure_artifact = Some(RuntimeSolverFailureArtifact {
+                            code: failure.code,
+                            message: failure.message,
+                        });
+                    }
+                    (f64::INFINITY, Vec::new())
+                }
+            },
             Err(failure) => {
                 if failure_artifact.is_none() {
                     status = "residual_evaluation_failed".to_owned();
@@ -1677,30 +1728,21 @@ impl RuntimeComponentSolution {
                         message: failure.message,
                     });
                 }
-                ResidualOutput {
-                    values: Vec::new(),
-                    residual_norm: f64::INFINITY,
-                    tolerance: options.tolerance,
-                }
+                (f64::INFINITY, Vec::new())
             }
         };
-        if failure_artifact.is_none() && residual_output.residual_norm > options.tolerance {
+        if failure_artifact.is_none() && residual_norm > options.tolerance {
             status = "fixed_point_residual_above_tolerance".to_owned();
             convergence_status = "fixed_point_residual_above_tolerance".to_owned();
             reason = format!(
                 "fixed-point residual norm {} exceeded tolerance {}",
-                residual_output.residual_norm, options.tolerance
+                residual_norm, options.tolerance
             );
             failure_artifact = Some(RuntimeSolverFailureArtifact {
                 code: "E-FIXED-POINT-RESIDUAL".to_owned(),
                 message: reason.clone(),
             });
         }
-        let residuals = component_residual_evaluations_from_graph_with_scale_overrides(
-            &residual_graph,
-            Some(&residual_output),
-            residual_scale_overrides,
-        );
         let largest_residuals = largest_component_residuals(&residuals);
         let variable_names = residual_graph
             .variables
@@ -1726,7 +1768,7 @@ impl RuntimeComponentSolution {
             reason,
             equation_count,
             unknown_count,
-            residual_norm: residual_output.residual_norm,
+            residual_norm,
             linear_condition_estimate: None,
             linear_minimum_pivot_abs: None,
             linear_maximum_pivot_abs: None,
@@ -9148,7 +9190,41 @@ struct FixedPointPivot {
     coefficient: f64,
 }
 
-fn fixed_point_update_plan(graph: &ResidualGraph) -> Result<Vec<FixedPointPivot>, SolverFailure> {
+#[derive(Clone, Debug, PartialEq)]
+struct FixedPointExpressionMap {
+    variable_index: usize,
+    residual_index: usize,
+    expression_text: String,
+    expression: ParsedArithmeticExpression,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum FixedPointUpdateRule {
+    Linear(FixedPointPivot),
+    Expression(FixedPointExpressionMap),
+}
+
+impl FixedPointUpdateRule {
+    fn variable_index(&self) -> usize {
+        match self {
+            Self::Linear(pivot) => pivot.variable_index,
+            Self::Expression(mapping) => mapping.variable_index,
+        }
+    }
+
+    fn residual_index(&self) -> usize {
+        match self {
+            Self::Linear(pivot) => pivot.residual_index,
+            Self::Expression(mapping) => mapping.residual_index,
+        }
+    }
+}
+
+fn fixed_point_update_plan(
+    graph: &ResidualGraph,
+    assembly: &EquationAssembly,
+    parameter_values: &[f64],
+) -> Result<Vec<FixedPointUpdateRule>, SolverFailure> {
     let variable_count = graph.variables.len();
     let residual_count = graph.residuals.len();
     if variable_count == 0 || residual_count == 0 || variable_count != residual_count {
@@ -9160,6 +9236,7 @@ fn fixed_point_update_plan(graph: &ResidualGraph) -> Result<Vec<FixedPointPivot>
         ));
     }
 
+    let expression_maps = fixed_point_expression_update_maps(graph, assembly, parameter_values)?;
     let mut residual_order = (0..residual_count).collect::<Vec<_>>();
     residual_order.sort_by_key(|index| {
         let residual = &graph.residuals[*index];
@@ -9179,27 +9256,36 @@ fn fixed_point_update_plan(graph: &ResidualGraph) -> Result<Vec<FixedPointPivot>
 
     let mut used_variables = HashSet::new();
     let mut used_residuals = HashSet::new();
-    let mut pivots = Vec::with_capacity(variable_count);
+    let mut rules = Vec::with_capacity(variable_count);
     for residual_index in residual_order {
         let residual = &graph.residuals[residual_index];
-        let Some(term) = residual.terms.iter().find(|term| {
+        if let Some(term) = residual.terms.iter().find(|term| {
             term.variable_index < variable_count
                 && !used_variables.contains(&term.variable_index)
                 && term.coefficient.is_finite()
                 && term.coefficient.abs() > 1e-12
-        }) else {
+        }) {
+            used_variables.insert(term.variable_index);
+            used_residuals.insert(residual_index);
+            rules.push(FixedPointUpdateRule::Linear(FixedPointPivot {
+                variable_index: term.variable_index,
+                residual_index,
+                coefficient: term.coefficient,
+            }));
             continue;
-        };
-        used_variables.insert(term.variable_index);
-        used_residuals.insert(residual_index);
-        pivots.push(FixedPointPivot {
-            variable_index: term.variable_index,
-            residual_index,
-            coefficient: term.coefficient,
-        });
+        }
+
+        if let Some(mapping) = expression_maps.iter().find(|mapping| {
+            mapping.residual_index == residual_index
+                && !used_variables.contains(&mapping.variable_index)
+        }) {
+            used_variables.insert(mapping.variable_index);
+            used_residuals.insert(residual_index);
+            rules.push(FixedPointUpdateRule::Expression(mapping.clone()));
+        }
     }
 
-    if pivots.len() != variable_count {
+    if rules.len() != variable_count {
         let missing = graph
             .variables
             .iter()
@@ -9220,14 +9306,121 @@ fn fixed_point_update_plan(graph: &ResidualGraph) -> Result<Vec<FixedPointPivot>
             "fixed-point residual graph could not assign each residual to one variable update",
         ));
     }
-    pivots.sort_by_key(|pivot| pivot.variable_index);
-    Ok(pivots)
+    rules.sort_by_key(|rule| rule.variable_index());
+    Ok(rules)
+}
+
+fn fixed_point_expression_update_maps(
+    graph: &ResidualGraph,
+    assembly: &EquationAssembly,
+    parameter_values: &[f64],
+) -> Result<Vec<FixedPointExpressionMap>, SolverFailure> {
+    let mut symbols = assembly
+        .unknowns
+        .iter()
+        .map(|variable| (variable.name.clone(), 0.0))
+        .collect::<HashMap<_, _>>();
+    insert_assembly_parameter_symbols(assembly, &mut symbols, Some(parameter_values))?;
+    let symbol_units = source_residual_symbol_metadata(assembly);
+    let mut maps = Vec::new();
+    for (residual_index, residual) in graph.residuals.iter().enumerate() {
+        let Some((left, right)) = split_fixed_point_source_equation(&residual.source.expression)
+        else {
+            continue;
+        };
+        if let Some(variable_index) = fixed_point_direct_variable_index(left, graph) {
+            maps.push(fixed_point_expression_update_map(
+                graph,
+                residual_index,
+                variable_index,
+                right,
+                &symbols,
+                &symbol_units,
+            )?);
+        } else if let Some(variable_index) = fixed_point_direct_variable_index(right, graph) {
+            maps.push(fixed_point_expression_update_map(
+                graph,
+                residual_index,
+                variable_index,
+                left,
+                &symbols,
+                &symbol_units,
+            )?);
+        }
+    }
+    Ok(maps)
+}
+
+fn split_fixed_point_source_equation(expression: &str) -> Option<(&str, &str)> {
+    expression.split_once(" eq ")
+}
+
+fn fixed_point_direct_variable_index(side: &str, graph: &ResidualGraph) -> Option<usize> {
+    let side = trim_wrapping_parentheses(side.trim());
+    graph
+        .variables
+        .iter()
+        .find(|variable| variable.name == side)
+        .map(|variable| variable.index)
+}
+
+fn trim_wrapping_parentheses(mut value: &str) -> &str {
+    loop {
+        let trimmed = value.trim();
+        if trimmed.len() >= 2 && trimmed.starts_with('(') && trimmed.ends_with(')') {
+            value = &trimmed[1..trimmed.len() - 1];
+        } else {
+            return trimmed;
+        }
+    }
+}
+
+fn fixed_point_expression_update_map(
+    graph: &ResidualGraph,
+    residual_index: usize,
+    variable_index: usize,
+    expression_text: &str,
+    symbols: &HashMap<String, f64>,
+    symbol_units: &HashMap<String, ArithmeticUnitMetadata>,
+) -> Result<FixedPointExpressionMap, SolverFailure> {
+    let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
+    let expression = parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
+        expression_text,
+        symbols,
+        symbol_units,
+        &mut ignore_units,
+        ArithmeticExpressionProfile::SOURCE_RESIDUAL,
+    )
+    .map_err(|failure| {
+        let residual_name = graph
+            .residuals
+            .get(residual_index)
+            .map(|residual| residual.name.as_str())
+            .unwrap_or("unknown");
+        SolverFailure::new(
+            failure.code,
+            format!(
+                "{} while parsing fixed-point update expression `{}` for residual `{}`",
+                failure.message,
+                expression_text.trim(),
+                residual_name
+            ),
+        )
+    })?;
+    Ok(FixedPointExpressionMap {
+        variable_index,
+        residual_index,
+        expression_text: expression_text.trim().to_owned(),
+        expression,
+    })
 }
 
 fn fixed_point_update_values(
     graph: &ResidualGraph,
-    update_plan: &[FixedPointPivot],
+    update_plan: &[FixedPointUpdateRule],
     values: &[f64],
+    assembly: &EquationAssembly,
+    parameter_values: &[f64],
 ) -> Result<Vec<f64>, SolverFailure> {
     if values.len() != graph.variables.len() {
         return Err(SolverFailure::new(
@@ -9235,50 +9428,108 @@ fn fixed_point_update_values(
             "fixed-point update input length does not match residual graph variables",
         ));
     }
+    let symbols = fixed_point_symbol_values(graph, values, assembly, parameter_values)?;
     let mut next = values.to_vec();
-    for pivot in update_plan {
-        let Some(residual) = graph.residuals.get(pivot.residual_index) else {
+    for rule in update_plan {
+        let residual_index = rule.residual_index();
+        let Some(residual) = graph.residuals.get(residual_index) else {
             return Err(SolverFailure::new(
                 "E-FIXED-POINT-GRAPH-PIVOT",
                 "fixed-point update references an unknown residual",
             ));
         };
-        if !residual.rhs_value.is_finite() {
-            return Err(SolverFailure::new(
-                "E-FIXED-POINT-VALUE",
-                format!("residual `{}` has a non-finite RHS value", residual.name),
-            ));
-        }
-        let mut rhs = residual.rhs_value;
-        for term in &residual.terms {
-            if term.variable_index == pivot.variable_index {
-                continue;
+        match rule {
+            FixedPointUpdateRule::Linear(pivot) => {
+                if !residual.rhs_value.is_finite() {
+                    return Err(SolverFailure::new(
+                        "E-FIXED-POINT-VALUE",
+                        format!("residual `{}` has a non-finite RHS value", residual.name),
+                    ));
+                }
+                let mut rhs = residual.rhs_value;
+                for term in &residual.terms {
+                    if term.variable_index == pivot.variable_index {
+                        continue;
+                    }
+                    let Some(value) = values.get(term.variable_index) else {
+                        return Err(SolverFailure::new(
+                            "E-FIXED-POINT-LAYOUT",
+                            format!(
+                                "fixed-point residual `{}` references variable index {} outside the update vector",
+                                residual.name, term.variable_index
+                            ),
+                        ));
+                    };
+                    if !term.coefficient.is_finite() || !value.is_finite() {
+                        return Err(SolverFailure::new(
+                            "E-FIXED-POINT-VALUE",
+                            format!(
+                                "fixed-point residual `{}` contains a non-finite update term",
+                                residual.name
+                            ),
+                        ));
+                    }
+                    rhs -= term.coefficient * value;
+                }
+                next[pivot.variable_index] = rhs / pivot.coefficient;
             }
-            let Some(value) = values.get(term.variable_index) else {
-                return Err(SolverFailure::new(
-                    "E-FIXED-POINT-LAYOUT",
-                    format!(
-                        "fixed-point residual `{}` references variable index {} outside the update vector",
-                        residual.name, term.variable_index
-                    ),
-                ));
-            };
-            if !term.coefficient.is_finite() || !value.is_finite() {
-                return Err(SolverFailure::new(
-                    "E-FIXED-POINT-VALUE",
-                    format!(
-                        "fixed-point residual `{}` contains a non-finite update term",
-                        residual.name
-                    ),
-                ));
+            FixedPointUpdateRule::Expression(mapping) => {
+                let value = mapping.expression.evaluate(&symbols).map_err(|failure| {
+                    SolverFailure::new(
+                        failure.code,
+                        format!(
+                            "{} while evaluating fixed-point update expression `{}` for residual `{}`",
+                            failure.message, mapping.expression_text, residual.name
+                        ),
+                    )
+                })?;
+                next[mapping.variable_index] = value;
             }
-            rhs -= term.coefficient * value;
         }
-        next[pivot.variable_index] = rhs / pivot.coefficient;
     }
     Ok(next)
 }
 
+fn fixed_point_symbol_values(
+    graph: &ResidualGraph,
+    values: &[f64],
+    assembly: &EquationAssembly,
+    parameter_values: &[f64],
+) -> Result<HashMap<String, f64>, SolverFailure> {
+    let mut symbols = graph
+        .variables
+        .iter()
+        .zip(values.iter().copied())
+        .map(|(variable, value)| (variable.name.clone(), value))
+        .collect::<HashMap<_, _>>();
+    insert_assembly_parameter_symbols(assembly, &mut symbols, Some(parameter_values))?;
+    Ok(symbols)
+}
+
+fn fixed_point_source_residual_evaluation(
+    assembly: &EquationAssembly,
+    graph: &ResidualGraph,
+    values: &[f64],
+    parameter_values: Option<&[f64]>,
+    tolerance: f64,
+    scale_overrides: &[ResidualScaleOverride],
+) -> Result<Option<SourceResidualEvaluation>, SolverFailure> {
+    let Some(parameter_values) = parameter_values else {
+        return Ok(None);
+    };
+    let parse_symbols = source_algebraic_parse_symbols(assembly, parameter_values)?;
+    let parsed_residuals = parse_source_residual_expressions(assembly, &parse_symbols)?;
+    source_residual_evaluation_for_unknowns(
+        assembly,
+        graph,
+        &parsed_residuals,
+        values,
+        parameter_values,
+        tolerance,
+        scale_overrides,
+    )
+    .map(Some)
+}
 fn annotate_component_behavior_solution(
     solution: &mut RuntimeComponentSolution,
     assembly: &eng_compiler::ComponentAssemblyInfo,
@@ -14614,6 +14865,83 @@ with {
         assert!(json.contains("relax.source.q - (0.5 * relax.target.q + 1 kW)"));
     }
 
+    #[test]
+    fn materializes_expression_mapped_fixed_point_source_solve_request() {
+        let source = r#"
+domain ScalarLoop {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component CosineLoop {
+    port source: ScalarLoop
+    port target: ScalarLoop
+    source.x eq cos(target.x)
+    source.balance eq 0
+}
+
+system FixedPointCosineLoop {
+    loop = CosineLoop()
+    connect loop.source to loop.target
+}
+
+fixed_point_expression_result = solve component_graph
+with {
+    solver = fixed_point
+    tolerance = 0.00001
+    max_iter = 120
+    relaxation = 0.5
+    initial = 0.5
+}
+"#;
+        let report = check_source(
+            "fixed_point_expression_mapping.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.assembly, "component_graph");
+        assert_eq!(solution.status, "solved_fixed_point");
+        assert_eq!(solution.method, "fixed_point_residual_graph");
+        assert_eq!(solution.convergence_status, "fixed_point_converged");
+        assert!(solution.failure_artifact.is_none());
+        assert!(solution.residual_norm <= solution.tolerance);
+        assert!(solution.step_diagnostics.len() > 1);
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "loop.source.x"
+                && variable.status == "solved_fixed_point"
+                && (variable.value - 0.739085).abs() <= 0.00001
+        }));
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "loop.target.x"
+                && variable.status == "solved_fixed_point"
+                && (variable.value - 0.739085).abs() <= 0.00001
+        }));
+        assert!(solution.residuals.iter().any(|residual| {
+            residual.name == "loop.equation_1"
+                && residual.expression == "loop.source.x - (cos(loop.target.x))"
+                && residual.source_expression == "loop.source.x eq cos(loop.target.x)"
+                && residual.status == "satisfied"
+        }));
+
+        let mut spec =
+            eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        runtime.apply_component_solutions(&mut spec);
+        let json = eng_report::report_spec_json(&spec);
+        assert!(json.contains("\"method\": \"fixed_point_residual_graph\""));
+        assert!(json.contains("\"convergence_status\": \"fixed_point_converged\""));
+        assert!(json.contains("loop.source.x - (cos(loop.target.x))"));
+        let html = eng_report::render_html_with_spec(&report, "plots/timeseries.svg", &spec);
+        assert!(html.contains("solved_fixed_point"));
+        assert!(html.contains("fixed_point_residual_graph"));
+        assert!(html.contains("cos(loop.target.x)"));
+    }
     #[test]
     fn materializes_fixed_point_source_solve_request_with_vector_initial() {
         let source = r#"

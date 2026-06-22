@@ -1095,6 +1095,46 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/fixed_point_expression_mapping.eng"),
+        Path::new("build/test-runtime-fixed-point-expression-mapping"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"solved_fixed_point\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"fixed_point_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"fixed_point_converged\"")
+                || !output.result_json.contains("\"name\": \"loop.source.x\"")
+                || !output.result_json.contains("\"name\": \"loop.target.x\"")
+                || !output
+                    .result_json
+                    .contains("loop.source.x - (cos(loop.target.x))")
+                || !output
+                    .report_spec_json
+                    .contains("loop.source.x eq cos(loop.target.x)")
+                || !output.report_html.contains("solved_fixed_point")
+                || !output.report_html.contains("cos(loop.target.x)")
+            {
+                eprintln!(
+                    "expected tests/runtime/fixed_point_expression_mapping.eng to solve a nonlinear expression-mapped fixed-point residual graph"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/fixed_point_expression_mapping.eng solved expression-mapped fixed-point residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("fixed-point expression-mapping runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/fixed_point_residual_scale_override.eng"),
         Path::new("build/test-runtime-fixed-point-residual-scale-override"),
         &artifact_run_options(),
