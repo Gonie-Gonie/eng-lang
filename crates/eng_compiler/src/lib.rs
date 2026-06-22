@@ -58,10 +58,10 @@ pub use semantic::{
     DomainTypeParameterInfo, DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo,
     EquationInfo, EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo,
     FunctionLocalInfo, FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo,
-    LinearOperatorEntryInfo, OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo, SemanticProgram,
-    SemanticType, SolverPlanInfo, StateSpaceVectorInfo, SystemInfo, SystemVariableInfo, TestInfo,
-    TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo, WhereBlockInfo, WithBlockInfo,
-    WithOptionInfo, WriteInfo,
+    LinearOperatorEntryInfo, LinearOperatorInfo, OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo,
+    SemanticProgram, SemanticType, SolverPlanInfo, StateSpaceVectorInfo, SystemInfo,
+    SystemVariableInfo, TestInfo, TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo,
+    WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};

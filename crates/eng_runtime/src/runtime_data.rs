@@ -9687,6 +9687,15 @@ fn materialize_state_space_solutions(
             .collect(),
         parameters: simulation_parameter_scalars(&parameters, options)?,
     };
+    let mut source_equations = state_space_system_equation_metadata(
+        system,
+        &states,
+        &inputs,
+        operator_a,
+        operator_b,
+        &[],
+        is_discrete_state_space,
+    );
     let output_expressions = match system_output_expressions(
         system,
         &outputs,
@@ -9696,16 +9705,26 @@ fn materialize_state_space_solutions(
     ) {
         Ok(expressions) => expressions,
         Err(failure) => {
-            return failed_system_runtime_solutions(
+            return failed_system_runtime_solutions_with_source_equations(
                 system,
                 binding,
                 &states,
                 &solver_input,
                 &failure,
                 "recognized state-space output declarations, but output evaluator creation failed",
+                &source_equations,
             );
         }
     };
+    source_equations = state_space_system_equation_metadata(
+        system,
+        &states,
+        &inputs,
+        operator_a,
+        operator_b,
+        &output_expressions,
+        is_discrete_state_space,
+    );
     let parameter_values = solver_input
         .parameters
         .iter()
@@ -9730,13 +9749,14 @@ fn materialize_state_space_solutions(
             Ok(result) => result,
             Err(failure) => {
                 let reason = "recognized discrete-time state-space A/B operators, but solver evaluation failed";
-                return failed_system_runtime_solutions(
+                return failed_system_runtime_solutions_with_source_equations(
                     system,
                     binding,
                     &states,
                     &solver_input,
                     &failure,
                     reason,
+                    &source_equations,
                 );
             }
         };
@@ -9751,13 +9771,14 @@ fn materialize_state_space_solutions(
         ) {
             let reason =
                 "recognized discrete-time state-space A/B operators, but output evaluation failed";
-            return failed_system_runtime_solutions(
+            return failed_system_runtime_solutions_with_source_equations(
                 system,
                 binding,
                 &states,
                 &solver_input,
                 &failure,
                 reason,
+                &source_equations,
             );
         }
         let reason = if input_series.iter().any(Option::is_some) {
@@ -9765,13 +9786,10 @@ fn materialize_state_space_solutions(
         } else {
             "recognized discrete-time state-space A/B operators and executed state update"
         };
-        return system_runtime_solutions(
-            system,
-            binding,
-            &output_variables,
-            &solver_result,
-            reason,
-        );
+        let mut solutions =
+            system_runtime_solutions(system, binding, &output_variables, &solver_result, reason)?;
+        attach_system_source_equations(&mut solutions, &source_equations);
+        return Some(solutions);
     }
     if let Some(adaptive_options) = adaptive_options {
         let adaptive_result = match solve_adaptive_state_space(
@@ -9793,13 +9811,14 @@ fn materialize_state_space_solutions(
             Ok(result) => result,
             Err(failure) => {
                 let reason = "recognized continuous state-space A/B operators, but adaptive Heun solver evaluation failed";
-                return failed_system_runtime_solutions(
+                return failed_system_runtime_solutions_with_source_equations(
                     system,
                     binding,
                     &states,
                     &solver_input,
                     &failure,
                     reason,
+                    &source_equations,
                 );
             }
         };
@@ -9821,17 +9840,19 @@ fn materialize_state_space_solutions(
         ) {
             let reason =
                 "recognized continuous state-space A/B operators, but output evaluation failed";
-            return failed_system_runtime_solutions(
+            return failed_system_runtime_solutions_with_source_equations(
                 system,
                 binding,
                 &states,
                 &solver_input,
                 &failure,
                 reason,
+                &source_equations,
             );
         }
         let mut solutions =
             system_runtime_solutions(system, binding, &output_variables, &solver_result, reason)?;
+        attach_system_source_equations(&mut solutions, &source_equations);
         attach_system_step_diagnostics(&mut solutions, &step_diagnostics);
         return Some(solutions);
     }
@@ -9854,13 +9875,14 @@ fn materialize_state_space_solutions(
         Ok(result) => result,
         Err(failure) => {
             let reason = "recognized continuous state-space A/B operators, but fixed-step solver evaluation failed";
-            return failed_system_runtime_solutions(
+            return failed_system_runtime_solutions_with_source_equations(
                 system,
                 binding,
                 &states,
                 &solver_input,
                 &failure,
                 reason,
+                &source_equations,
             );
         }
     };
@@ -9890,7 +9912,144 @@ fn materialize_state_space_solutions(
     } else {
         "recognized multi-state state-space A/B operators and executed fixed-step trajectories"
     };
-    system_runtime_solutions(system, binding, &output_variables, &solver_result, reason)
+    let mut solutions =
+        system_runtime_solutions(system, binding, &output_variables, &solver_result, reason)?;
+    attach_system_source_equations(&mut solutions, &source_equations);
+    Some(solutions)
+}
+
+fn state_space_system_equation_metadata(
+    system: &eng_compiler::SystemInfo,
+    states: &[&eng_compiler::SystemVariableInfo],
+    inputs: &[&eng_compiler::SystemVariableInfo],
+    operator_a: &eng_compiler::LinearOperatorInfo,
+    operator_b: &eng_compiler::LinearOperatorInfo,
+    outputs: &[ParsedSystemOutputExpression],
+    is_discrete: bool,
+) -> Vec<RuntimeSystemEquationMetadata> {
+    let dynamic_equation = system.equations.iter().find(|equation| {
+        let left = equation.left.trim();
+        if is_discrete {
+            left.starts_with("next(")
+        } else {
+            left.starts_with("der(")
+        }
+    });
+    let mut metadata = vec![
+        state_space_operator_equation_metadata(operator_a),
+        state_space_operator_equation_metadata(operator_b),
+    ];
+    metadata.extend(states.iter().map(|state| {
+        let left = if is_discrete {
+            format!("next({})", state.name)
+        } else {
+            format!("der({})", state.name)
+        };
+        let right = state_space_row_expression(state, inputs, operator_a, operator_b);
+        RuntimeSystemEquationMetadata {
+            kind: if is_discrete {
+                "state_space_update".to_owned()
+            } else {
+                "state_space_derivative".to_owned()
+            },
+            target: state.name.clone(),
+            left: left.clone(),
+            right: right.clone(),
+            residual_expression: format!("{} - ({})", left, right),
+            quantity_kind: if is_discrete {
+                state.quantity_kind.clone()
+            } else {
+                format!("Derivative[{}]", state.quantity_kind)
+            },
+            display_unit: if is_discrete {
+                state.display_unit.clone()
+            } else {
+                derivative_display_unit(&state.display_unit)
+            },
+            canonical_unit: if is_discrete {
+                state.canonical_unit.clone()
+            } else {
+                derivative_display_unit(&state.canonical_unit)
+            },
+            source_line: dynamic_equation.map(|equation| equation.line),
+        }
+    }));
+    metadata.extend(outputs.iter().map(|output| RuntimeSystemEquationMetadata {
+        kind: "algebraic_output".to_owned(),
+        target: output.name.clone(),
+        left: output.left.clone(),
+        right: output.source.clone(),
+        residual_expression: format!("{} - ({})", output.left, output.source),
+        quantity_kind: output.quantity_kind.clone(),
+        display_unit: output.display_unit.clone(),
+        canonical_unit: output.canonical_unit.clone(),
+        source_line: output.source_line,
+    }));
+    metadata
+}
+
+fn state_space_operator_equation_metadata(
+    operator: &eng_compiler::LinearOperatorInfo,
+) -> RuntimeSystemEquationMetadata {
+    let right = operator.expression.clone().unwrap_or_else(|| {
+        format!(
+            "{}x{} canonical matrix",
+            operator.row_count, operator.column_count
+        )
+    });
+    RuntimeSystemEquationMetadata {
+        kind: "state_space_operator".to_owned(),
+        target: operator.name.clone(),
+        left: format!("operator {}", operator.name),
+        right: right.clone(),
+        residual_expression: format!("operator {} = {}", operator.name, right),
+        quantity_kind: format!("LinearOperator[{} -> {}]", operator.from, operator.to),
+        display_unit: "matrix".to_owned(),
+        canonical_unit: "canonical_matrix".to_owned(),
+        source_line: Some(operator.line),
+    }
+}
+
+fn state_space_row_expression(
+    state: &eng_compiler::SystemVariableInfo,
+    inputs: &[&eng_compiler::SystemVariableInfo],
+    operator_a: &eng_compiler::LinearOperatorInfo,
+    operator_b: &eng_compiler::LinearOperatorInfo,
+) -> String {
+    let mut terms = operator_a
+        .canonical_entries
+        .iter()
+        .filter(|entry| entry.row_member == state.name)
+        .map(|entry| {
+            format!(
+                "{}[{},{}] * {}",
+                operator_a.name, entry.row_member, entry.column_member, entry.column_member
+            )
+        })
+        .collect::<Vec<_>>();
+    let input_names = inputs
+        .iter()
+        .map(|input| input.name.as_str())
+        .collect::<HashSet<_>>();
+    terms.extend(
+        operator_b
+            .canonical_entries
+            .iter()
+            .filter(|entry| {
+                entry.row_member == state.name && input_names.contains(entry.column_member.as_str())
+            })
+            .map(|entry| {
+                format!(
+                    "{}[{},{}] * {}",
+                    operator_b.name, entry.row_member, entry.column_member, entry.column_member
+                )
+            }),
+    );
+    if terms.is_empty() {
+        "0".to_owned()
+    } else {
+        terms.join(" + ")
+    }
 }
 
 fn system_runtime_solutions(
@@ -9966,6 +10125,21 @@ fn failed_system_runtime_solutions(
         .collect::<Vec<_>>();
 
     (!solutions.is_empty()).then_some(solutions)
+}
+
+fn failed_system_runtime_solutions_with_source_equations(
+    system: &eng_compiler::SystemInfo,
+    binding: Option<&str>,
+    states: &[&eng_compiler::SystemVariableInfo],
+    solver_input: &SolverInput,
+    failure: &SolverFailure,
+    reason: &str,
+    source_equations: &[RuntimeSystemEquationMetadata],
+) -> Option<Vec<RuntimeSystemSolution>> {
+    let mut solutions =
+        failed_system_runtime_solutions(system, binding, states, solver_input, failure, reason)?;
+    attach_system_source_equations(&mut solutions, source_equations);
+    Some(solutions)
 }
 
 fn runtime_system_step_diagnostics(
@@ -15591,6 +15765,24 @@ with {
         assert!(sim_solutions
             .iter()
             .any(|solution| solution.state == "T_wall" && solution.final_value.is_finite()));
+        assert!(sim_solutions.iter().all(|solution| solution
+            .source_equations
+            .iter()
+            .any(|equation| equation.kind == "state_space_operator" && equation.target == "A")));
+        assert!(sim_solutions
+            .iter()
+            .all(|solution| solution
+                .source_equations
+                .iter()
+                .any(|equation| equation.kind == "state_space_derivative"
+                    && equation.target == "T_air"
+                    && equation
+                        .residual_expression
+                        .contains("A[T_air,T_air] * T_air"))));
+        assert!(sim_solutions.iter().all(|solution| solution
+            .source_equations
+            .iter()
+            .any(|equation| equation.source_line.is_some())));
         assert!(runtime
             .time_series
             .iter()
@@ -15704,6 +15896,20 @@ with {
         assert_eq!(load.display_unit, "kW");
         assert_eq!(load.points.len(), 3);
         assert!(load.points.iter().all(|point| (point.y - 2.0).abs() < 1e-9));
+        assert!(load
+            .source_equations
+            .iter()
+            .any(|equation| equation.kind == "state_space_update"
+                && equation.target == "T_air"
+                && equation
+                    .residual_expression
+                    .contains("A[T_air,T_air] * T_air")));
+        assert!(load
+            .source_equations
+            .iter()
+            .any(|equation| equation.kind == "algebraic_output"
+                && equation.target == "Q_total"
+                && equation.residual_expression == "Q_total - (Q_hvac + base_load)"));
         let load_series = runtime
             .time_series
             .iter()
