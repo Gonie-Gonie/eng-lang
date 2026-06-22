@@ -1081,6 +1081,50 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/source_system_newton_source_linear_jacobian.eng"),
+        Path::new("build/test-runtime-source-system-newton-source-linear-jacobian"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"assembly\": \"StaticLinearNewtonJacobianSourceSystem\"")
+                || !output
+                    .result_json
+                    .contains("\"status\": \"solved_nonlinear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"newton_source_residual_graph_with_provided_jacobian\"")
+                || !output
+                    .result_json
+                    .contains("\"jacobian_policy\": \"source_linear_terms\"")
+                || !output.result_json.contains("\"name\": \"x\"")
+                || !output.result_json.contains("\"value\": 3.000")
+                || !output.result_json.contains("\"name\": \"y\"")
+                || !output.result_json.contains("\"value\": 2.000")
+                || !output
+                    .report_html
+                    .contains("StaticLinearNewtonJacobianSourceSystem")
+                || !output.report_html.contains("solved_nonlinear")
+                || !output
+                    .report_html
+                    .contains("newton_source_residual_graph_with_provided_jacobian")
+            {
+                eprintln!(
+                    "expected tests/runtime/source_system_newton_source_linear_jacobian.eng to solve a static source system through source-linear Newton Jacobian"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/source_system_newton_source_linear_jacobian.eng solved source system Newton residual graph with source-linear Jacobian"
+            );
+        }
+        Err(error) => {
+            eprintln!("source system Newton source-linear Jacobian fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/source_system_newton_variable_scales.eng"),
         Path::new("build/test-runtime-source-system-newton-variable-scales"),
         &artifact_run_options(),

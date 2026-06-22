@@ -1,0 +1,22 @@
+system StaticLinearNewtonJacobianSourceSystem {
+    state x: DimensionlessNumber = 0
+    output y: DimensionlessNumber [1]
+
+    equation {
+        x + y eq 5
+        x - y eq 1
+    }
+}
+
+source_system_newton_jacobian_result = solve StaticLinearNewtonJacobianSourceSystem
+with {
+    solver = newton
+    jacobian = source_linear_terms
+    initial = [0, 0]
+    tolerance = 0.000000001
+    max_iter = 20
+}
+
+report {
+    show source_system_newton_jacobian_result
+}

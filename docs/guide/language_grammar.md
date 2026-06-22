@@ -1338,8 +1338,9 @@ This path evaluates the source residual expressions directly, applies the
 component residual scaling policy, calls Newton with finite-difference Jacobian
 estimation by default, and records residual history plus largest-residual
 artifacts. `jacobian = source_linear_terms` is the only source-level provided
-Jacobian hook; it is valid for residual graphs whose linear terms can be
-assembled. Broad symbolic Jacobian declarations are not supported.
+Jacobian hook for component-graph and static source-system Newton solves; it
+is valid for residual graphs whose linear terms can be assembled. Broad
+symbolic Jacobian declarations are not supported.
 
 Multi-state DAE source residuals use `solver = implicit_euler_dae`:
 

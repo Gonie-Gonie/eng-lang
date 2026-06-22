@@ -15095,6 +15095,72 @@ with {
         assert!(html.contains("newton_source_residual_graph"));
     }
     #[test]
+    fn materializes_newton_source_system_solve_request_with_source_linear_jacobian() {
+        let source = r#"
+system StaticLinearNewtonJacobianSourceSystem {
+    state x: DimensionlessNumber = 0
+    output y: DimensionlessNumber [1]
+
+    equation {
+        x + y eq 5
+        x - y eq 1
+    }
+}
+
+source_system_newton_jacobian_result = solve StaticLinearNewtonJacobianSourceSystem
+with {
+    solver = newton
+    jacobian = source_linear_terms
+    initial = [0, 0]
+    tolerance = 0.000000001
+    max_iter = 20
+}
+"#;
+        let report = check_source(
+            "source_system_newton_source_linear_jacobian.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.assembly, "StaticLinearNewtonJacobianSourceSystem");
+        assert_eq!(solution.status, "solved_nonlinear");
+        assert_eq!(
+            solution.method,
+            "newton_source_residual_graph_with_provided_jacobian"
+        );
+        assert_eq!(solution.convergence_status, "newton_converged");
+        assert!(solution.failure_artifact.is_none());
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "x"
+                && variable.role == "algebraic"
+                && (variable.value - 3.0).abs() <= 0.000001
+                && variable.status == "solved_newton"
+        }));
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "y"
+                && variable.role == "algebraic"
+                && (variable.value - 2.0).abs() <= 0.000001
+                && variable.status == "solved_newton"
+        }));
+        assert!(solution.step_diagnostics.iter().skip(1).any(|diagnostic| {
+            diagnostic.jacobian_policy.as_deref() == Some("source_linear_terms")
+        }));
+
+        let mut spec =
+            eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        runtime.apply_component_solutions(&mut spec);
+        let json = eng_report::report_spec_json(&spec);
+        assert!(
+            json.contains("\"method\": \"newton_source_residual_graph_with_provided_jacobian\"")
+        );
+        assert!(json.contains("\"jacobian_policy\": \"source_linear_terms\""));
+    }
+    #[test]
     fn rejects_derivative_source_system_solve_request() {
         let source = r#"
 system DynamicSourceSystem {
