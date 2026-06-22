@@ -3715,10 +3715,13 @@ fn materialize_system_algebraic_solutions(report: &CheckReport) -> Vec<RuntimeCo
                         ),
                     }
                 }
+                "newton" | "nonlinear_newton" => {
+                    nonlinear_component_solution_from_solve_request(&solver_assembly, &request)
+                }
                 unsupported => failed_source_component_solution(
                     &solver_assembly,
                     "source_system_residual_graph",
-                    "source system solve supports dense_linear/linear static algebraic solves",
+                    "source system solve supports dense_linear/linear or newton/nonlinear_newton static algebraic solves",
                     &SolverFailure::new(
                         "E-SYSTEM-SOLVE-SOLVER",
                         format!("unsupported source system solve solver `{unsupported}`"),
@@ -14398,6 +14401,89 @@ with {
         assert!(html.contains("dense_linear_residual_graph"));
     }
 
+    #[test]
+    fn materializes_newton_source_system_solve_request() {
+        let source = r#"
+system StaticNonlinearSourceSystem {
+    parameter target: DimensionlessNumber [1] = 4
+    state x: DimensionlessNumber = 1
+    output y: DimensionlessNumber [1]
+
+    equation {
+        x * x eq target
+        y eq x + 1
+    }
+}
+
+source_system_newton_result = solve StaticNonlinearSourceSystem
+with {
+    solver = newton
+    initial = [1, 0]
+    tolerance = 0.000000001
+    max_iter = 30
+}
+"#;
+        let report = check_source(
+            "source_system_newton_solve.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.assembly, "StaticNonlinearSourceSystem");
+        assert_eq!(solution.status, "solved_nonlinear");
+        assert_eq!(solution.method, "newton_source_residual_graph");
+        assert_eq!(solution.convergence_status, "newton_converged");
+        assert_eq!(solution.equation_count, 2);
+        assert_eq!(solution.unknown_count, 2);
+        assert!(
+            solution.residual_norm <= 0.000000001,
+            "{}",
+            solution.residual_norm
+        );
+        assert!(solution.reason.contains("source system solve binding"));
+        assert!(solution.failure_artifact.is_none());
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "x"
+                && variable.role == "algebraic"
+                && variable.unit == "1"
+                && (variable.value - 2.0).abs() <= 0.000001
+                && variable.status == "solved_newton"
+        }));
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "y"
+                && variable.role == "algebraic"
+                && variable.unit == "1"
+                && (variable.value - 3.0).abs() <= 0.000001
+                && variable.status == "solved_newton"
+        }));
+        assert!(solution.residuals.iter().any(|residual| {
+            residual.name == "StaticNonlinearSourceSystem.residual_1"
+                && residual.expression == "x * x - (target)"
+                && residual.status == "satisfied"
+        }));
+        assert!(!solution.step_diagnostics.is_empty());
+
+        let mut spec =
+            eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        runtime.apply_component_solutions(&mut spec);
+        let assembly = spec
+            .assemblies
+            .iter()
+            .find(|assembly| assembly.name == "StaticNonlinearSourceSystem")
+            .expect("nonlinear source system report assembly");
+        assert_eq!(assembly.status, "solved_nonlinear");
+        assert_eq!(assembly.residual_graph.status, "newton_converged");
+        assert!(assembly.solver_result.is_some());
+        let html = eng_report::render_html_with_spec(&report, "plots/timeseries.svg", &spec);
+        assert!(html.contains("StaticNonlinearSourceSystem"));
+        assert!(html.contains("solved_nonlinear"));
+        assert!(html.contains("newton_source_residual_graph"));
+    }
     #[test]
     fn rejects_derivative_source_system_solve_request() {
         let source = r#"

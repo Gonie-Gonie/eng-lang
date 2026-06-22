@@ -2982,7 +2982,7 @@ fn validate_algebraic_solve_contracts(
                 declaration.line,
                 "`solve` requires a supported solver in the attached `with` block.",
                 Some(
-                    "Use `solver = dense_linear`/`linear` for source systems, or one of the supported component solve solvers for `solve component_graph`.",
+                    "Use `solver = dense_linear`/`linear` for linear source systems, `newton` for nonlinear source systems, or one of the supported component solve solvers for `solve component_graph`.",
                 ),
             ));
             continue;
@@ -2997,7 +2997,7 @@ fn validate_algebraic_solve_contracts(
                         "Unsupported source system solve solver `{}`.",
                         solver_option.value
                     ),
-                    Some("Use `dense_linear` or `linear` for source system algebraic solves."),
+                    Some("Use `dense_linear`/`linear` for linear source system solves, or `newton`/`nonlinear_newton` for nonlinear source system solves."),
                 ));
                 continue;
             }
@@ -3177,7 +3177,10 @@ fn is_supported_component_solve_solver(solver: &str) -> bool {
 }
 
 fn is_supported_system_solve_solver(solver: &str) -> bool {
-    matches!(solver, "dense_linear" | "linear")
+    matches!(
+        solver,
+        "dense_linear" | "linear" | "newton" | "nonlinear_newton"
+    )
 }
 
 fn is_dynamic_component_solve_solver(solver: &str) -> bool {

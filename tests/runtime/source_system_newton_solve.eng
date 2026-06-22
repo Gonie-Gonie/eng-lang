@@ -1,0 +1,22 @@
+system StaticNonlinearSourceSystem {
+    parameter target: DimensionlessNumber [1] = 4
+    state x: DimensionlessNumber = 1
+    output y: DimensionlessNumber [1]
+
+    equation {
+        x * x eq target
+        y eq x + 1
+    }
+}
+
+source_system_newton_result = solve StaticNonlinearSourceSystem
+with {
+    solver = newton
+    initial = [1, 0]
+    tolerance = 0.000000001
+    max_iter = 30
+}
+
+report {
+    show source_system_newton_result
+}

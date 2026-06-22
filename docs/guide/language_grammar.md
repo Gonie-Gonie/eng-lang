@@ -1255,23 +1255,27 @@ component-local equations. The options are plain numeric values; invalid
 `tolerance`, `max_iter`, `relaxation`, and `initial` values are diagnostics.
 
 Static source systems can also be solved explicitly when their equations are
-algebraic and linear:
+algebraic and square. Use `dense_linear`/`linear` for linear systems and
+`newton`/`nonlinear_newton` for nonlinear systems:
 
 ```eng partial
-system StaticLinearSourceSystem {
-    parameter offset: DimensionlessNumber [1] = 1
-    state x: DimensionlessNumber = 0
+system StaticNonlinearSourceSystem {
+    parameter target: DimensionlessNumber [1] = 4
+    state x: DimensionlessNumber = 1
     output y: DimensionlessNumber [1]
 
     equation {
-        x eq 2
-        y eq x + offset
+        x * x eq target
+        y eq x + 1
     }
 }
 
-source_system_result = solve StaticLinearSourceSystem
+source_system_result = solve StaticNonlinearSourceSystem
 with {
-    solver = dense_linear
+    solver = newton
+    initial = [1, 0]
+    tolerance = 0.000000001
+    max_iter = 30
 }
 ```
 

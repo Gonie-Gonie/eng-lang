@@ -964,6 +964,43 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/source_system_newton_solve.eng"),
+        Path::new("build/test-runtime-source-system-newton"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"assembly\": \"StaticNonlinearSourceSystem\"")
+                || !output
+                    .result_json
+                    .contains("\"status\": \"solved_nonlinear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"newton_source_residual_graph\"")
+                || !output.result_json.contains("\"name\": \"x\"")
+                || !output.result_json.contains("\"value\": 2.000")
+                || !output.result_json.contains("\"name\": \"y\"")
+                || !output.result_json.contains("\"value\": 3.000")
+                || !output.report_html.contains("StaticNonlinearSourceSystem")
+                || !output.report_html.contains("solved_nonlinear")
+                || !output.report_html.contains("newton_source_residual_graph")
+            {
+                eprintln!(
+                    "expected tests/runtime/source_system_newton_solve.eng to solve a static nonlinear source system through Newton residual graph"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/source_system_newton_solve.eng solved nonlinear source system residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("source system Newton runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/linear_residual_scale_override.eng"),
         Path::new("build/test-runtime-linear-residual-scale-override"),
         &artifact_run_options(),
