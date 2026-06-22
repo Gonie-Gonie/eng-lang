@@ -1,0 +1,26 @@
+system SourceOutputDependency {
+    state x: DimensionlessNumber = 1
+    output total: DimensionlessNumber [1]
+    output shifted: DimensionlessNumber [1]
+
+    equation {
+        der(x) eq 0 / 1 s
+        total eq shifted + x
+        shifted eq x + 1
+    }
+}
+
+sim = simulate SourceOutputDependency
+with {
+    timestep = 1 s
+    duration = 2 s
+    solver = rk4
+}
+
+report {
+    plot sim.x and sim.shifted and sim.total over Time
+    with {
+        unit y = 1
+        title = "Source output dependency solve"
+    }
+}

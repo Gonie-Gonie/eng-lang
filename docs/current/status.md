@@ -133,7 +133,8 @@ by the stable breaking-change policy.
   execution, one-state `adaptive_heun` simulation, source-equation fixed-step
   and adaptive Heun ODE execution with scalar or Time-indexed TimeSeries inputs,
   official three-state non-thermal adaptive source-equation coverage with
-  TimeSeries input materialization, scalar output materialization, and
+  TimeSeries input materialization, scalar output materialization including
+  acyclic output-to-output dependencies with explicit loop failure artifacts, and
   `sim.<state>`/`sim.<output>` materialization for the documented workflows.
   General equation solving beyond that source-equation shape, nonlinear, DAE,
   broad adaptive, and component-coupled solving remain planned.
@@ -347,8 +348,11 @@ are not public stable workflows.
   shared `SourceRhsEvaluator`; its derivative coefficient and RHS expressions
   are pre-parsed through the shared arithmetic expression parser with
   unit-literal metadata, typed input symbols, typed parameter symbols, and
-  known-unit literal conversion to canonical solver values, including the
-  dimensionless one-argument function subset `sqrt`, `exp`, `ln`, `sin`,
+  known-unit literal conversion to canonical solver values. The source output evaluator
+  now pre-parses output equations with output symbols, topologically orders
+  acyclic output-to-output dependencies, and reports
+  `E-RHS-OUTPUT-ALGEBRAIC-LOOP` for cycles. The same shared expression path
+  covers the dimensionless one-argument function subset `sqrt`, `exp`, `ln`, `sin`,
   `cos`, `tan`, `asin`, `acos`, and `atan` across source RHS, source Newton,
   and source DAE fixtures. The internal
   continuous state-space path now

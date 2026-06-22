@@ -141,6 +141,15 @@ impl ParsedArithmeticExpression {
         }
         Ok(value)
     }
+
+    pub(crate) fn referenced_symbols(&self) -> HashSet<String> {
+        let mut symbols = HashSet::new();
+        self.root.collect_symbols(&mut symbols);
+        symbols
+            .into_iter()
+            .map(|symbol| self.alias_symbols.get(&symbol).cloned().unwrap_or(symbol))
+            .collect()
+    }
 }
 
 impl ArithmeticExpressionNode {
@@ -269,6 +278,21 @@ impl ArithmeticExpressionNode {
                     ))
                 }
             }
+        }
+    }
+
+    fn collect_symbols(&self, symbols: &mut HashSet<String>) {
+        match self {
+            Self::Symbol { name, .. } => {
+                symbols.insert(name.clone());
+            }
+            Self::Number { .. } => {}
+            Self::UnaryMinus { value, .. } => value.collect_symbols(symbols),
+            Self::Binary { left, right, .. } => {
+                left.collect_symbols(symbols);
+                right.collect_symbols(symbols);
+            }
+            Self::Function { argument, .. } => argument.collect_symbols(symbols),
         }
     }
 

@@ -10394,6 +10394,7 @@ struct ParsedSystemOutputExpression {
     canonical_unit: String,
     source: String,
     expression: ParsedArithmeticExpression,
+    output_dependencies: Vec<String>,
 }
 
 fn system_output_expressions(
@@ -10406,10 +10407,25 @@ fn system_output_expressions(
     if outputs.is_empty() {
         return Ok(Vec::new());
     }
-    let symbols = source_rhs_parse_symbols(states, inputs, parameters);
-    let symbol_metadata = source_rhs_symbol_metadata(states, inputs, parameters);
+    let mut symbols = source_rhs_parse_symbols(states, inputs, parameters);
+    let mut symbol_metadata = source_rhs_symbol_metadata(states, inputs, parameters);
+    let output_names = outputs
+        .iter()
+        .map(|output| output.name.clone())
+        .collect::<HashSet<_>>();
+    for output in outputs {
+        symbols.insert(output.name.clone(), 0.0);
+        symbol_metadata.insert(
+            output.name.clone(),
+            ArithmeticUnitMetadata {
+                display_unit: output.display_unit.clone(),
+                canonical_unit: output.canonical_unit.clone(),
+                quantity_kind: system_variable_value_quantity(output),
+            },
+        );
+    }
 
-    outputs
+    let parsed = outputs
         .iter()
         .map(|output| {
             let source = system_output_expression_source(system, output)?;
@@ -10423,15 +10439,68 @@ fn system_output_expressions(
                         ),
                     )
                 })?;
+            let mut output_dependencies = expression
+                .referenced_symbols()
+                .into_iter()
+                .filter(|symbol| output_names.contains(symbol))
+                .collect::<Vec<_>>();
+            output_dependencies.sort();
+            output_dependencies.dedup();
             Ok(ParsedSystemOutputExpression {
                 name: output.name.clone(),
                 quantity_kind: system_variable_value_quantity(output),
                 canonical_unit: output.canonical_unit.clone(),
                 source,
                 expression,
+                output_dependencies,
             })
         })
-        .collect()
+        .collect::<Result<Vec<_>, SolverFailure>>()?;
+    order_system_output_expressions(parsed)
+}
+
+fn order_system_output_expressions(
+    mut outputs: Vec<ParsedSystemOutputExpression>,
+) -> Result<Vec<ParsedSystemOutputExpression>, SolverFailure> {
+    let mut ordered = Vec::with_capacity(outputs.len());
+    let mut resolved = HashSet::new();
+    while !outputs.is_empty() {
+        let pending_before = outputs.len();
+        let mut index = 0;
+        while index < outputs.len() {
+            if outputs[index]
+                .output_dependencies
+                .iter()
+                .all(|dependency| resolved.contains(dependency))
+            {
+                let output = outputs.remove(index);
+                resolved.insert(output.name.clone());
+                ordered.push(output);
+            } else {
+                index += 1;
+            }
+        }
+        if outputs.len() == pending_before {
+            let unresolved = outputs
+                .iter()
+                .map(|output| {
+                    format!(
+                        "{} depends on [{}]",
+                        output.name,
+                        output.output_dependencies.join(", ")
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("; ");
+            return Err(SolverFailure::new(
+                "E-RHS-OUTPUT-ALGEBRAIC-LOOP",
+                format!(
+                    "system output algebraic dependency graph contains a cycle or unsupported dependency: {unresolved}"
+                ),
+            ));
+        }
+    }
+    Ok(ordered)
 }
 
 fn system_output_expression_source(
@@ -10520,47 +10589,52 @@ fn system_output_trajectories(
         .first()
         .map(|trajectory| trajectory.values.len())
         .unwrap_or(0);
-    outputs
+    let mut values_by_output = outputs
         .iter()
-        .map(|output| {
-            let mut values = Vec::with_capacity(sample_count);
-            for sample_index in 0..sample_count {
-                let symbols = system_output_sample_symbols(
-                    solver_result,
-                    inputs,
-                    input_series,
-                    parameters,
-                    parameter_values,
-                    sample_index,
-                )?;
-                let value = output.expression.evaluate(&symbols).map_err(|failure| {
-                    SolverFailure::new(
-                        failure.code,
-                        format!(
-                            "{} while evaluating system output `{}` expression `{}`",
-                            failure.message, output.name, output.source
-                        ),
-                    )
-                })?;
-                if !value.is_finite() {
-                    return Err(SolverFailure::new(
-                        "E-RHS-OUTPUT-FINITE",
-                        format!(
-                            "system output `{}` must evaluate to a finite value",
-                            output.name
-                        ),
-                    ));
-                }
-                values.push(value);
+        .map(|_| Vec::with_capacity(sample_count))
+        .collect::<Vec<_>>();
+    for sample_index in 0..sample_count {
+        let mut symbols = system_output_sample_symbols(
+            solver_result,
+            inputs,
+            input_series,
+            parameters,
+            parameter_values,
+            sample_index,
+        )?;
+        for (output_index, output) in outputs.iter().enumerate() {
+            let value = output.expression.evaluate(&symbols).map_err(|failure| {
+                SolverFailure::new(
+                    failure.code,
+                    format!(
+                        "{} while evaluating system output `{}` expression `{}`",
+                        failure.message, output.name, output.source
+                    ),
+                )
+            })?;
+            if !value.is_finite() {
+                return Err(SolverFailure::new(
+                    "E-RHS-OUTPUT-FINITE",
+                    format!(
+                        "system output `{}` must evaluate to a finite value",
+                        output.name
+                    ),
+                ));
             }
-            Ok(StateTrajectory {
-                name: output.name.clone(),
-                quantity_kind: output.quantity_kind.clone(),
-                canonical_unit: output.canonical_unit.clone(),
-                values,
-            })
+            symbols.insert(output.name.clone(), value);
+            values_by_output[output_index].push(value);
+        }
+    }
+    Ok(outputs
+        .iter()
+        .zip(values_by_output)
+        .map(|(output, values)| StateTrajectory {
+            name: output.name.clone(),
+            quantity_kind: output.quantity_kind.clone(),
+            canonical_unit: output.canonical_unit.clone(),
+            values,
         })
-        .collect()
+        .collect())
 }
 
 fn system_output_sample_symbols(

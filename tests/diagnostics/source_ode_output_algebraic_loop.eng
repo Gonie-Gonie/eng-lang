@@ -1,0 +1,26 @@
+system SourceOutputLoop {
+    state x: DimensionlessNumber = 1
+    output a: DimensionlessNumber [1]
+    output b: DimensionlessNumber [1]
+
+    equation {
+        der(x) eq 0 / 1 s
+        a eq b + 1
+        b eq a + 1
+    }
+}
+
+sim = simulate SourceOutputLoop
+with {
+    timestep = 1 s
+    duration = 1 s
+    solver = rk4
+}
+
+report {
+    plot sim.x over Time
+    with {
+        unit y = 1
+        title = "Source output algebraic loop"
+    }
+}

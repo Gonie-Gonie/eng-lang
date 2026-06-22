@@ -1518,6 +1518,48 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/source_ode_output_dependency.eng"),
+        Path::new("build/test-runtime-source-ode-output-dependency"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let plot_spec = std::fs::read_to_string(&output.plot_spec_path).unwrap_or_default();
+            if !output.result_json.contains("\"binding\": \"sim\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"rk4_fixed_step\"")
+                || !output
+                    .result_json
+                    .contains("recognized source derivative equations and executed fixed-step RHS")
+                || !output
+                    .result_json
+                    .contains("\"outputs\": [\"x\", \"total\", \"shifted\"]")
+                || !output.result_json.contains("\"state\": \"shifted\"")
+                || !output.result_json.contains("\"state\": \"total\"")
+                || !output.result_json.contains("\"final_value\": 2")
+                || !output.result_json.contains("\"final_value\": 3")
+                || !output.report_spec_json.contains("total - (shifted + x)")
+                || !output.report_spec_json.contains("shifted - (x + 1)")
+                || !plot_spec.contains("\"name\": \"sim.shifted\"")
+                || !plot_spec.contains("\"name\": \"sim.total\"")
+                || !output.report_html.contains("SourceOutputDependency")
+                || !output.report_html.contains("rk4_fixed_step")
+            {
+                eprintln!(
+                    "expected tests/runtime/source_ode_output_dependency.eng to solve output-to-output source dependencies through an acyclic output DAG"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/source_ode_output_dependency.eng solved acyclic source output dependencies"
+            );
+        }
+        Err(error) => {
+            eprintln!("source output dependency runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/dae_dimensionless_function_residual.eng"),
         Path::new("build/test-runtime-dae-dimensionless-function-residual"),
         &artifact_run_options(),
@@ -3492,6 +3534,41 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("algebraic ill-conditioned diagnostics fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/diagnostics/source_ode_output_algebraic_loop.eng"),
+        Path::new("build/test-diagnostics-source-ode-output-algebraic-loop"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.result_json.contains("\"status\": \"failed\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"rk4_fixed_step\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-RHS-OUTPUT-ALGEBRAIC-LOOP\"")
+                || !output
+                    .result_json
+                    .contains("a depends on [b]; b depends on [a]")
+                || !output
+                    .report_spec_json
+                    .contains("\"failure_code\": \"E-RHS-OUTPUT-ALGEBRAIC-LOOP\"")
+                || !output.report_html.contains("E-RHS-OUTPUT-ALGEBRAIC-LOOP")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/source_ode_output_algebraic_loop.eng to report an explicit source output algebraic loop failure"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/source_ode_output_algebraic_loop.eng reported source output algebraic loop"
+            );
+        }
+        Err(error) => {
+            eprintln!("source output algebraic loop diagnostics fixture failed: {error}");
             return ExitCode::from(1);
         }
     }
