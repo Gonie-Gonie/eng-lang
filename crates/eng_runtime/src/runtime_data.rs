@@ -5,15 +5,17 @@ use eng_compiler::{
     all_quantity_completions, all_unit_infos, normalize_unit, CheckReport, SchemaColumn, SchemaInfo,
 };
 use eng_report::{
-    PlotAxis, PlotBin, PlotPoint, PlotSeries, PlotSpec, ReportComponentSolverResidual,
-    ReportComponentSolverResult, ReportComponentSolverStepDiagnostic,
-    ReportComponentSolverTrajectory, ReportComponentSolverVariable, ReportComputedIntegration,
-    ReportComputedMetric, ReportComputedStatisticValue, ReportComputedStatistics,
-    ReportMlCoefficient, ReportMlInfo, ReportPolicyResult, ReportPolicyViolation,
-    ReportSolverFailureArtifact, ReportSpec, ReportSystemEquationMetadata, ReportSystemSolution,
-    ReportSystemSolutionPoint, ReportSystemSolverStepDiagnostic, ReportTimeAlignment,
-    ReportTimeAxis, ReportUncertaintyInfo, ReportUncertaintyPropagationTerm,
-    ReportValidationResult,
+    PlotAxis, PlotBin, PlotPoint, PlotSeries, PlotSpec, ReportAssemblyBoundary,
+    ReportAssemblyEquation, ReportAssemblySummary, ReportAssemblyVariable,
+    ReportComponentSolverPreview, ReportComponentSolverResidual, ReportComponentSolverResult,
+    ReportComponentSolverStepDiagnostic, ReportComponentSolverTrajectory,
+    ReportComponentSolverVariable, ReportComputedIntegration, ReportComputedMetric,
+    ReportComputedStatisticValue, ReportComputedStatistics, ReportMlCoefficient, ReportMlInfo,
+    ReportPolicyResult, ReportPolicyViolation, ReportResidualDependency, ReportResidualGraph,
+    ReportResidualGraphResidual, ReportSolverFailureArtifact, ReportSpec,
+    ReportSystemEquationMetadata, ReportSystemSolution, ReportSystemSolutionPoint,
+    ReportSystemSolverStepDiagnostic, ReportTimeAlignment, ReportTimeAxis, ReportUncertaintyInfo,
+    ReportUncertaintyPropagationTerm, ReportValidationResult,
 };
 
 use crate::solver::evaluator::{
@@ -568,13 +570,20 @@ impl RuntimeData {
             .iter()
             .any(behavior_graph_solution_integrated);
         for solution in &self.component_solutions {
-            let Some(assembly) = spec
+            let Some(assembly_index) = spec
                 .assemblies
-                .iter_mut()
-                .find(|assembly| assembly.name == solution.assembly)
+                .iter()
+                .position(|assembly| assembly.name == solution.assembly)
             else {
+                if component_solution_is_source_system(solution) {
+                    spec.assemblies
+                        .push(report_assembly_summary_from_source_system_solution(
+                            solution,
+                        ));
+                }
                 continue;
             };
+            let assembly = &mut spec.assemblies[assembly_index];
             assembly.status = solution.status.clone();
             assembly.residual_graph.status = solution.convergence_status.clone();
             assembly.residual_graph.solver_plan = solution.method.clone();
@@ -612,6 +621,150 @@ impl RuntimeData {
     }
 }
 
+fn component_solution_is_source_system(solution: &RuntimeComponentSolution) -> bool {
+    solution.reason.contains("source system solve binding")
+        || solution.residuals.iter().any(|residual| {
+            residual
+                .source_reason
+                .as_deref()
+                .is_some_and(|reason| reason.contains("source system"))
+        })
+}
+
+fn report_assembly_summary_from_source_system_solution(
+    solution: &RuntimeComponentSolution,
+) -> ReportAssemblySummary {
+    let residual_metadata = solution
+        .residuals
+        .iter()
+        .map(|residual| ReportResidualGraphResidual {
+            name: residual.name.clone(),
+            kind: "source_system_equation".to_owned(),
+            domain: residual.expression_quantity_kind.clone(),
+            source_expression: residual.source_expression.clone(),
+            residual_expression: residual.expression.clone(),
+            rhs: None,
+            dependencies: residual.dependencies.clone(),
+            unit: residual.unit.clone(),
+            expression_unit: residual.expression_unit.clone(),
+            expression_quantity_kind: residual.expression_quantity_kind.clone(),
+            scale_policy: residual.scale_policy.clone(),
+            lowering_status: residual.lowering_status.clone(),
+            lowering_failure_code: residual.lowering_failure_code.clone(),
+            lowering_failure_reason: residual.lowering_failure_reason.clone(),
+            status: residual.status.clone(),
+            line: residual.source_line.unwrap_or(0),
+        })
+        .collect::<Vec<_>>();
+    let dependencies = solution
+        .residuals
+        .iter()
+        .flat_map(|residual| {
+            residual
+                .dependencies
+                .iter()
+                .map(|dependency| ReportResidualDependency {
+                    residual: residual.name.clone(),
+                    variable: dependency.clone(),
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    let equations = solution
+        .residuals
+        .iter()
+        .map(|residual| ReportAssemblyEquation {
+            name: residual.name.clone(),
+            kind: "source_system_equation".to_owned(),
+            domain: residual.expression_quantity_kind.clone(),
+            expression: residual.source_expression.clone(),
+            residual: residual.name.clone(),
+            rhs: None,
+            reason: residual
+                .source_reason
+                .clone()
+                .unwrap_or_else(|| "source system algebraic equation".to_owned()),
+            dependencies: residual.dependencies.clone(),
+            status: residual.status.clone(),
+            line: residual.source_line.unwrap_or(0),
+        })
+        .collect::<Vec<_>>();
+    let variables = solution
+        .variables
+        .iter()
+        .map(|variable| ReportAssemblyVariable {
+            name: variable.name.clone(),
+            role: variable.role.clone(),
+            domain: variable.unit.clone(),
+            source: "source_system".to_owned(),
+            status: variable.status.clone(),
+        })
+        .collect::<Vec<_>>();
+    let failure_code = solution
+        .failure_artifact
+        .as_ref()
+        .map(|failure| failure.code.clone());
+
+    ReportAssemblySummary {
+        name: solution.assembly.clone(),
+        status: solution.status.clone(),
+        component_count: 0,
+        port_count: 0,
+        connection_count: 0,
+        component_equation_count: solution.equation_count,
+        local_expression_count: 0,
+        operator_call_count: 0,
+        predictor_call_count: 0,
+        domain_count: 0,
+        domain_plans: Vec::new(),
+        solver_preview: ReportComponentSolverPreview {
+            status: solution.status.clone(),
+            method: solution.method.clone(),
+            mixed_algebraic_dynamic: "static_source_system".to_owned(),
+            nonlinear_residual: "linear_source_system".to_owned(),
+            dae_split: "not_applicable".to_owned(),
+            delay_history: "not_applicable".to_owned(),
+            predictor: "not_applicable".to_owned(),
+            external_adapter: "not_applicable".to_owned(),
+            limitations: vec!["source_system_static_algebraic_projection".to_owned()],
+        },
+        connection_sets: Vec::new(),
+        equations,
+        variables,
+        boundary: ReportAssemblyBoundary {
+            state_count: 0,
+            algebraic_count: solution.unknown_count,
+            input_count: 0,
+            output_count: 0,
+            parameter_count: 0,
+            equation_count: solution.equation_count,
+            unknown_count: solution.unknown_count,
+            balance_status: solution.convergence_status.clone(),
+            diagnostic_code: failure_code,
+        },
+        residual_graph: ReportResidualGraph {
+            name: format!("{}.residual_graph", solution.assembly),
+            status: solution.convergence_status.clone(),
+            residuals: solution
+                .residuals
+                .iter()
+                .map(|residual| residual.name.clone())
+                .collect(),
+            residual_metadata,
+            dependencies,
+            algebraic_loops: Vec::new(),
+            jacobian_sparsity: Vec::new(),
+            solver_plan: solution.method.clone(),
+        },
+        solver_result: Some(solution.to_report_solver_result()),
+        line: solution
+            .residuals
+            .iter()
+            .filter_map(|residual| residual.source_line)
+            .min()
+            .unwrap_or(0),
+    }
+}
 fn behavior_graph_solution_integrated(solution: &RuntimeComponentSolution) -> bool {
     solution.method.starts_with("behavior_graph_")
         && solution.status == "computed"
@@ -2154,6 +2307,8 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.time_series = materialize_time_series(report, &data.tables);
     data.system_solutions = materialize_system_solutions(report, &data.time_series);
     data.component_solutions = materialize_component_solutions(report, &data.time_series);
+    data.component_solutions
+        .extend(materialize_system_algebraic_solutions(report));
     data.time_series
         .extend(materialize_system_solution_series(&data.system_solutions));
     data.time_series
@@ -3525,6 +3680,63 @@ fn materialize_component_solutions(
     solutions
 }
 
+fn materialize_system_algebraic_solutions(report: &CheckReport) -> Vec<RuntimeComponentSolution> {
+    let mut solutions = Vec::new();
+    for system in &report.semantic_program.systems {
+        let requests = component_solve_requests(report, &system.name);
+        if requests.is_empty() {
+            continue;
+        }
+        let solver_assembly = solver_equation_assembly_from_system_info(system);
+        for request in requests {
+            let solver = option_value(&request.options, "solver").unwrap_or("dense_linear");
+            let mut solution = match solver.trim() {
+                "dense_linear" | "linear" => {
+                    let residual_graph = ResidualGraph::from_assembly(&solver_assembly);
+                    match residual_scale_overrides_from_solve_request(
+                        &request.options,
+                        &residual_graph,
+                    ) {
+                        Ok(residual_scale_overrides) => {
+                            RuntimeComponentSolution::from_solver_assembly_with_scale_overrides(
+                                &system.name,
+                                &solver_assembly,
+                                &residual_scale_overrides,
+                            )
+                        }
+                        Err(failure) => failed_source_component_solution(
+                            &solver_assembly,
+                            "source_system_dense_linear_residual_graph",
+                            "source system dense linear residual scale overrides could not be materialized",
+                            &failure,
+                            COMPONENT_LINEAR_SOLVER_TOLERANCE,
+                            1,
+                            "source_system_dense_linear_failed",
+                        ),
+                    }
+                }
+                unsupported => failed_source_component_solution(
+                    &solver_assembly,
+                    "source_system_residual_graph",
+                    "source system solve supports dense_linear/linear static algebraic solves",
+                    &SolverFailure::new(
+                        "E-SYSTEM-SOLVE-SOLVER",
+                        format!("unsupported source system solve solver `{unsupported}`"),
+                    ),
+                    COMPONENT_LINEAR_SOLVER_TOLERANCE,
+                    1,
+                    "source_system_solve_failed",
+                ),
+            };
+            append_component_solution_reason(
+                &mut solution,
+                &format!("source system solve binding `{}`", request.binding),
+            );
+            solutions.push(solution);
+        }
+    }
+    solutions
+}
 const COMPONENT_LINEAR_SOLVER_TOLERANCE: f64 = 1e-9;
 const COMPONENT_BEHAVIOR_NOT_INTEGRATED_CODE: &str = "E-BEHAVIOR-NOT-INTEGRATED";
 const COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE: &str =
@@ -9137,6 +9349,124 @@ fn component_trajectory_from_solver_trajectory(
     }
 }
 
+fn solver_equation_assembly_from_system_info(
+    system: &eng_compiler::SystemInfo,
+) -> EquationAssembly {
+    let variables = system
+        .variables
+        .iter()
+        .map(|variable| {
+            let role = match variable.role.as_str() {
+                "state" | "output" => "algebraic".to_owned(),
+                other => other.to_owned(),
+            };
+            let value = (variable.role == "parameter" || variable.role == "input")
+                .then(|| canonical_variable_value(variable))
+                .flatten();
+            UnknownVariable {
+                name: variable.name.clone(),
+                role,
+                quantity_kind: variable.quantity_kind.clone(),
+                unit: variable.canonical_unit.clone(),
+                source: format!("system.{}", system.name),
+                status: format!("source_system_{}", variable.role),
+                value,
+            }
+        })
+        .collect::<Vec<_>>();
+    let unknowns = variables
+        .iter()
+        .filter(|variable| variable.role == "algebraic")
+        .cloned()
+        .collect::<Vec<_>>();
+    let algebraic_variables = unknowns.clone();
+    let inputs = variables
+        .iter()
+        .filter(|variable| variable.role == "input")
+        .cloned()
+        .collect::<Vec<_>>();
+    let parameters = variables
+        .iter()
+        .filter(|variable| variable.role == "parameter" || variable.role == "input")
+        .cloned()
+        .collect::<Vec<_>>();
+    let generated_equations = system
+        .equations
+        .iter()
+        .enumerate()
+        .map(|(index, equation)| GeneratedEquation {
+            name: if equation.residual.trim().is_empty() {
+                format!("{}.source_equation_{}", system.name, index + 1)
+            } else {
+                equation.residual.clone()
+            },
+            kind: "component_equation".to_owned(),
+            domain: equation.left_dimension.clone(),
+            expression: format!("{} {} {}", equation.left, equation.relation, equation.right),
+            residual: system_equation_residual_expression(system, equation),
+            rhs_value: None,
+            dependencies: system_equation_dependencies(system, equation),
+            source: "source_system_equation".to_owned(),
+            reason: "source system algebraic equation".to_owned(),
+            source_line: Some(equation.line),
+            status: equation.status.clone(),
+        })
+        .collect::<Vec<_>>();
+
+    EquationAssembly {
+        name: system.name.clone(),
+        components: Vec::new(),
+        ports: Vec::new(),
+        connections: Vec::new(),
+        connection_sets: Vec::new(),
+        generated_equations,
+        component_equations: Vec::<ComponentEquation>::new(),
+        unknowns,
+        states: Vec::new(),
+        algebraic_variables,
+        inputs,
+        parameters,
+    }
+}
+
+fn system_equation_residual_expression(
+    system: &eng_compiler::SystemInfo,
+    equation: &eng_compiler::EquationInfo,
+) -> String {
+    system
+        .residuals
+        .iter()
+        .find(|residual| residual.name == equation.residual && residual.line == equation.line)
+        .map(|residual| residual.expression.clone())
+        .filter(|expression| !expression.trim().is_empty())
+        .unwrap_or_else(|| format!("{} - ({})", equation.left, equation.right))
+}
+
+fn system_equation_dependencies(
+    system: &eng_compiler::SystemInfo,
+    equation: &eng_compiler::EquationInfo,
+) -> Vec<String> {
+    system
+        .equation_ir
+        .iter()
+        .find(|ir| ir.residual == equation.residual && ir.line == equation.line)
+        .map(|ir| {
+            ir.dependencies
+                .iter()
+                .map(|dependency| dependency.name.clone())
+                .collect::<Vec<_>>()
+        })
+        .filter(|dependencies| !dependencies.is_empty())
+        .unwrap_or_else(|| {
+            let expression = format!("{} {}", equation.left, equation.right);
+            system
+                .variables
+                .iter()
+                .filter(|variable| expression_contains_identifier(&expression, &variable.name))
+                .map(|variable| variable.name.clone())
+                .collect::<Vec<_>>()
+        })
+}
 fn solver_equation_assembly_from_component_info(
     report: &CheckReport,
     assembly: &eng_compiler::ComponentAssemblyInfo,
@@ -13991,6 +14321,111 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
             .all(|residual| residual.status == "satisfied"));
     }
 
+    #[test]
+    fn materializes_dense_linear_source_system_solve_request() {
+        let source = r#"
+system StaticLinearSourceSystem {
+    parameter offset: DimensionlessNumber [1] = 1
+    state x: DimensionlessNumber = 0
+    output y: DimensionlessNumber [1]
+
+    equation {
+        x eq 2
+        y eq x + offset
+    }
+}
+
+source_system_result = solve StaticLinearSourceSystem
+with {
+    solver = dense_linear
+}
+"#;
+        let report = check_source(
+            "source_system_dense_linear_solve.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.assembly, "StaticLinearSourceSystem");
+        assert_eq!(solution.status, "solved_linear");
+        assert_eq!(solution.method, "dense_linear_residual_graph");
+        assert_eq!(solution.convergence_status, "linear_converged");
+        assert_eq!(solution.equation_count, 2);
+        assert_eq!(solution.unknown_count, 2);
+        assert_eq!(solution.residual_norm, 0.0);
+        assert!(solution.reason.contains("source system solve binding"));
+        assert!(solution.failure_artifact.is_none());
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "x"
+                && variable.role == "algebraic"
+                && variable.unit == "1"
+                && variable.value == 2.0
+                && variable.status == "solved_linear"
+        }));
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "y"
+                && variable.role == "algebraic"
+                && variable.unit == "1"
+                && variable.value == 3.0
+                && variable.status == "solved_linear"
+        }));
+        assert!(solution.residuals.iter().any(|residual| {
+            residual.name == "StaticLinearSourceSystem.residual_2"
+                && residual.expression == "y - (x + offset)"
+                && residual.dependencies == ["x", "y"]
+                && residual.status == "satisfied"
+        }));
+
+        let mut spec =
+            eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        runtime.apply_component_solutions(&mut spec);
+        let assembly = spec
+            .assemblies
+            .iter()
+            .find(|assembly| assembly.name == "StaticLinearSourceSystem")
+            .expect("source system report assembly");
+        assert_eq!(assembly.status, "solved_linear");
+        assert_eq!(assembly.residual_graph.status, "linear_converged");
+        assert!(assembly.solver_result.is_some());
+        let html = eng_report::render_html_with_spec(&report, "plots/timeseries.svg", &spec);
+        assert!(html.contains("StaticLinearSourceSystem"));
+        assert!(html.contains("solved_linear"));
+        assert!(html.contains("dense_linear_residual_graph"));
+    }
+
+    #[test]
+    fn rejects_derivative_source_system_solve_request() {
+        let source = r#"
+system DynamicSourceSystem {
+    state x: DimensionlessNumber = 0
+
+    equation {
+        der(x) eq 1 / 1 s
+    }
+}
+
+dynamic_solve = solve DynamicSourceSystem
+with {
+    solver = dense_linear
+}
+"#;
+        let report = check_source(
+            "dynamic_source_system_solve.eng",
+            source,
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SOLVE-SYSTEM-SHAPE-UNSUPPORTED"));
+    }
     #[test]
     fn materializes_fixed_point_source_solve_request() {
         let source = r#"

@@ -1,0 +1,19 @@
+system StaticLinearSourceSystem {
+    parameter offset: DimensionlessNumber [1] = 1
+    state x: DimensionlessNumber = 0
+    output y: DimensionlessNumber [1]
+
+    equation {
+        x eq 2
+        y eq x + offset
+    }
+}
+
+source_system_result = solve StaticLinearSourceSystem
+with {
+    solver = dense_linear
+}
+
+report {
+    show source_system_result
+}

@@ -930,6 +930,40 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/source_system_dense_linear_solve.eng"),
+        Path::new("build/test-runtime-source-system-dense-linear"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"assembly\": \"StaticLinearSourceSystem\"")
+                || !output.result_json.contains("\"status\": \"solved_linear\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"dense_linear_residual_graph\"")
+                || !output.result_json.contains("\"name\": \"x\"")
+                || !output.result_json.contains("\"value\": 2.00000000")
+                || !output.result_json.contains("\"name\": \"y\"")
+                || !output.result_json.contains("\"value\": 3.00000000")
+                || !output.report_html.contains("StaticLinearSourceSystem")
+                || !output.report_html.contains("solved_linear")
+            {
+                eprintln!(
+                    "expected tests/runtime/source_system_dense_linear_solve.eng to solve a static source system through the dense linear residual graph"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/source_system_dense_linear_solve.eng solved dense linear source system residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("source system dense linear runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/linear_residual_scale_override.eng"),
         Path::new("build/test-runtime-linear-residual-scale-override"),
         &artifact_run_options(),

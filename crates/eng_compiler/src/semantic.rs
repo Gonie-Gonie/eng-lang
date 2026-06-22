@@ -1411,6 +1411,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     emit_component_assembly_boundary_warnings(&component_assemblies, &mut diagnostics);
     validate_algebraic_solve_contracts(
         &component_assemblies,
+        &systems,
         &inferred_declarations,
         &with_blocks,
         &mut diagnostics,
@@ -2943,12 +2944,13 @@ pub fn validate_simulation_contracts(
 
 fn validate_algebraic_solve_contracts(
     assemblies: &[ComponentAssemblyInfo],
+    systems: &[SystemInfo],
     inferred_declarations: &[InferredDeclaration],
     with_blocks: &[WithBlockInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     for declaration in inferred_declarations {
-        let Some(assembly_name) = declaration
+        let Some(target_name) = declaration
             .expression
             .trim()
             .strip_prefix("solve ")
@@ -2956,15 +2958,16 @@ fn validate_algebraic_solve_contracts(
         else {
             continue;
         };
-        if !assemblies
+        let target_is_component = assemblies
             .iter()
-            .any(|assembly| assembly.name == assembly_name)
-        {
+            .any(|assembly| assembly.name == target_name);
+        let target_system = systems.iter().find(|system| system.name == target_name);
+        if !target_is_component && target_system.is_none() {
             diagnostics.push(Diagnostic::error(
                 "E-SOLVE-ASSEMBLY-001",
                 declaration.line,
-                &format!("Algebraic solve references unknown assembly `{assembly_name}`."),
-                Some("Use `solve component_graph` for the current component assembly artifact."),
+                &format!("Algebraic solve references unknown assembly or source system `{target_name}`."),
+                Some("Use `solve component_graph` for the current component assembly artifact, or `solve <SystemName>` for a supported source system."),
             ));
             continue;
         }
@@ -2979,13 +2982,39 @@ fn validate_algebraic_solve_contracts(
                 declaration.line,
                 "`solve` requires a supported solver in the attached `with` block.",
                 Some(
-                    "Use `solver = dense_linear`, `fixed_point`, `newton`, `implicit_euler_dae`, `dynamic_component_explicit_euler`, `dynamic_component_semi_implicit_euler`, or `dynamic_component_adaptive_heun`.",
+                    "Use `solver = dense_linear`/`linear` for source systems, or one of the supported component solve solvers for `solve component_graph`.",
                 ),
             ));
             continue;
         };
         let solver = solver_option.value.trim();
-        if !is_supported_component_solve_solver(solver) {
+        if let Some(system) = target_system {
+            if !is_supported_system_solve_solver(solver) {
+                diagnostics.push(Diagnostic::error(
+                    "E-SOLVE-SOLVER-UNSUPPORTED",
+                    solver_option.line,
+                    &format!(
+                        "Unsupported source system solve solver `{}`.",
+                        solver_option.value
+                    ),
+                    Some("Use `dense_linear` or `linear` for source system algebraic solves."),
+                ));
+                continue;
+            }
+            if system
+                .equation_ir
+                .iter()
+                .any(|equation| !equation.derivative_states.is_empty())
+            {
+                diagnostics.push(Diagnostic::error(
+                    "E-SOLVE-SYSTEM-SHAPE-UNSUPPORTED",
+                    declaration.line,
+                    &format!("Source system `{}` has derivative equations, so it is not a static algebraic solve target.", system.name),
+                    Some("Use `simulate <SystemName>` for supported ODE shapes, or remove derivative equations before using `solve <SystemName>`."),
+                ));
+                continue;
+            }
+        } else if !is_supported_component_solve_solver(solver) {
             diagnostics.push(Diagnostic::error(
                 "E-SOLVE-SOLVER-UNSUPPORTED",
                 solver_option.line,
@@ -2996,8 +3025,9 @@ fn validate_algebraic_solve_contracts(
             ));
             continue;
         }
-        let dynamic_component_solver = is_dynamic_component_solve_solver(solver);
-        let dae_solver = is_dae_component_solve_solver(solver);
+        let dynamic_component_solver =
+            target_is_component && is_dynamic_component_solve_solver(solver);
+        let dae_solver = target_is_component && is_dae_component_solve_solver(solver);
         if dynamic_component_solver || dae_solver {
             validate_component_solve_duration_options(declaration.line, options, diagnostics);
             validate_component_solve_initial_option(options, diagnostics);
@@ -3144,6 +3174,10 @@ fn is_supported_component_solve_solver(solver: &str) -> bool {
             | "dynamic_component_semi_implicit_euler"
             | "dynamic_component_adaptive_heun"
     )
+}
+
+fn is_supported_system_solve_solver(solver: &str) -> bool {
+    matches!(solver, "dense_linear" | "linear")
 }
 
 fn is_dynamic_component_solve_solver(solver: &str) -> bool {

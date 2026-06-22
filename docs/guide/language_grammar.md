@@ -1254,6 +1254,34 @@ pivotable linear ResidualGraphs assembled from component connections and simple
 component-local equations. The options are plain numeric values; invalid
 `tolerance`, `max_iter`, `relaxation`, and `initial` values are diagnostics.
 
+Static source systems can also be solved explicitly when their equations are
+algebraic and linear:
+
+```eng partial
+system StaticLinearSourceSystem {
+    parameter offset: DimensionlessNumber [1] = 1
+    state x: DimensionlessNumber = 0
+    output y: DimensionlessNumber [1]
+
+    equation {
+        x eq 2
+        y eq x + offset
+    }
+}
+
+source_system_result = solve StaticLinearSourceSystem
+with {
+    solver = dense_linear
+}
+```
+
+For `solve <SystemName>`, the runtime lowers source equations into the same
+residual graph used by component solves. State and output variables are treated
+as static algebraic unknowns, while parameter and scalar input defaults are used
+as residual constants. This is not a time simulation path: systems with
+`der(...)` equations must use `simulate <SystemName>` when they match a supported
+ODE shape.
+
 Simple-linear dynamic component solves use the same binding with dynamic solver
 options:
 
