@@ -5293,6 +5293,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             if !result.contains("\"status\": \"skipped_unsupported_shape\"")
                 || !result.contains("\"failure_reason\": \"system shape is outside the supported state-space/source ODE/first-order thermal runners\"")
                 || !report_spec.contains("\"convergence_status\": \"skipped_unsupported_shape\"")
+                || !skipped_solver_has_empty_source_equations(&result, &report_spec)
                 || !report_html.contains("skipped_unsupported_shape")
             {
                 eprintln!(
@@ -7257,6 +7258,52 @@ fn small_thermal_fluid_solve_artifacts_are_structured(output: &eng_runtime::RunO
         && output.report_html.contains("component_equation")
 }
 
+fn skipped_solver_has_empty_source_equations(result_json: &str, report_spec_json: &str) -> bool {
+    let Ok(result) = serde_json::from_str::<Value>(result_json) else {
+        return false;
+    };
+    let Ok(report_spec) = serde_json::from_str::<Value>(report_spec_json) else {
+        return false;
+    };
+
+    let result_has_empty_source_equations = result["typed_payload"]["systems"]
+        .as_array()
+        .is_some_and(|systems| {
+            systems.iter().any(|system| {
+                let solver_result_empty = system["solver_result"]["source_equations"]
+                    .as_array()
+                    .is_some_and(|source_equations| source_equations.is_empty());
+                let solver_results_empty =
+                    system["solver_results"]
+                        .as_array()
+                        .is_some_and(|solver_results| {
+                            solver_results.iter().any(|solver| {
+                                solver["source_equations"]
+                                    .as_array()
+                                    .is_some_and(|source_equations| source_equations.is_empty())
+                            })
+                        });
+                solver_result_empty && solver_results_empty
+            })
+        });
+
+    let report_spec_has_empty_source_equations =
+        report_spec["system_ir"].as_array().is_some_and(|systems| {
+            systems.iter().any(|system| {
+                system["solver_results"]
+                    .as_array()
+                    .is_some_and(|solver_results| {
+                        solver_results.iter().any(|solver| {
+                            solver["source_equations"]
+                                .as_array()
+                                .is_some_and(|source_equations| source_equations.is_empty())
+                        })
+                    })
+            })
+        });
+
+    result_has_empty_source_equations && report_spec_has_empty_source_equations
+}
 fn adaptive_solver_artifacts_are_structured(
     result_json: &str,
     review_json: &str,

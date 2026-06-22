@@ -11419,7 +11419,7 @@ fn skipped_system_solution(
         inputs: system_variable_names_by_role(system, "input"),
         parameters: system_variable_names_by_role(system, "parameter"),
         outputs: Vec::new(),
-        source_equations: Vec::new(),
+        source_equations: unsupported_system_equation_metadata(system),
         state: state.map(|state| state.name.clone()).unwrap_or_default(),
         quantity_kind: state
             .map(|state| state.quantity_kind.clone())
@@ -11452,6 +11452,43 @@ fn skipped_system_solution(
         step_diagnostics: Vec::new(),
         points: Vec::new(),
     }
+}
+
+fn unsupported_system_equation_metadata(
+    system: &eng_compiler::SystemInfo,
+) -> Vec<RuntimeSystemEquationMetadata> {
+    system
+        .equations
+        .iter()
+        .map(|equation| {
+            let target = equation.left.trim().to_owned();
+            let target_variable = system
+                .variables
+                .iter()
+                .find(|variable| variable.name == target);
+            RuntimeSystemEquationMetadata {
+                kind: "unsupported_system_equation".to_owned(),
+                target,
+                left: equation.left.clone(),
+                right: equation.right.clone(),
+                residual_expression: if equation.residual.trim().is_empty() {
+                    format!("{} - ({})", equation.left, equation.right)
+                } else {
+                    equation.residual.clone()
+                },
+                quantity_kind: target_variable
+                    .map(|variable| variable.quantity_kind.clone())
+                    .unwrap_or_else(|| equation.left_dimension.clone()),
+                display_unit: target_variable
+                    .map(|variable| variable.display_unit.clone())
+                    .unwrap_or_default(),
+                canonical_unit: target_variable
+                    .map(|variable| variable.canonical_unit.clone())
+                    .unwrap_or_default(),
+                source_line: Some(equation.line),
+            }
+        })
+        .collect()
 }
 
 fn system_variable_names_by_role(system: &eng_compiler::SystemInfo, role: &str) -> Vec<String> {
@@ -16826,6 +16863,47 @@ with {
             .time_series
             .iter()
             .all(|series| series.name != "sim.T"));
+    }
+
+    #[test]
+    fn records_unsupported_system_equation_metadata_for_skipped_shape() {
+        let source = r#"
+system AlgebraicOnly {
+    state x: DimensionlessNumber = 1
+
+    equation {
+        x eq 0
+    }
+}
+
+sim = simulate AlgebraicOnly
+with {
+    timestep = 1 s
+    solver = fixed_step
+}
+"#;
+        let report =
+            eng_compiler::check_source("algebraic_only.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+        assert_eq!(runtime.system_solutions.len(), 1);
+        let solution = &runtime.system_solutions[0];
+        assert_eq!(solution.status, "skipped_unsupported_shape");
+        let source_equation = solution
+            .source_equations
+            .iter()
+            .find(|equation| equation.kind == "unsupported_system_equation")
+            .expect("unsupported equation metadata");
+        assert_eq!(source_equation.target, "x");
+        assert_eq!(source_equation.left, "x");
+        assert_eq!(source_equation.right, "0");
+        assert_eq!(source_equation.quantity_kind, "DimensionlessNumber");
+        assert!(source_equation.source_line.is_some());
+        assert_eq!(
+            solution.to_report_solution().source_equations.len(),
+            solution.source_equations.len()
+        );
     }
 
     fn time_axis_table(binding: &str, timestamps: &[&str]) -> RuntimeTable {
