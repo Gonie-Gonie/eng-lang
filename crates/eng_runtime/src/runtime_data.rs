@@ -10142,6 +10142,27 @@ fn failed_system_runtime_solutions_with_source_equations(
     Some(solutions)
 }
 
+fn failed_system_runtime_solution_with_source_equations(
+    system: &eng_compiler::SystemInfo,
+    binding: Option<&str>,
+    state: &eng_compiler::SystemVariableInfo,
+    solver_input: &SolverInput,
+    failure: &SolverFailure,
+    reason: &str,
+    source_equations: &[RuntimeSystemEquationMetadata],
+) -> Option<RuntimeSystemSolution> {
+    let mut solution = RuntimeSystemSolution::failed_from_solver_failure(
+        system,
+        binding,
+        state,
+        solver_input,
+        failure,
+        reason,
+    )?;
+    solution.source_equations = source_equations.to_vec();
+    Some(solution)
+}
+
 fn runtime_system_step_diagnostics(
     reports: &[AdaptiveOdeStepReport],
 ) -> Vec<RuntimeSystemStepDiagnostic> {
@@ -10627,6 +10648,28 @@ fn source_ode_system_equation_metadata(
     metadata
 }
 
+fn first_order_thermal_source_equations(
+    equation: &eng_compiler::EquationInfo,
+    state: &eng_compiler::SystemVariableInfo,
+    residual_variable: &eng_compiler::SystemVariableInfo,
+) -> Vec<RuntimeSystemEquationMetadata> {
+    vec![RuntimeSystemEquationMetadata {
+        kind: "first_order_thermal_balance".to_owned(),
+        target: state.name.clone(),
+        left: equation.left.clone(),
+        right: equation.right.clone(),
+        residual_expression: if equation.residual.trim().is_empty() {
+            format!("{} - ({})", equation.left, equation.right)
+        } else {
+            equation.residual.clone()
+        },
+        quantity_kind: residual_variable.quantity_kind.clone(),
+        display_unit: residual_variable.display_unit.clone(),
+        canonical_unit: residual_variable.canonical_unit.clone(),
+        source_line: Some(equation.line),
+    }]
+}
+
 fn attach_system_source_equations(
     solutions: &mut [RuntimeSystemSolution],
     source_equations: &[RuntimeSystemEquationMetadata],
@@ -11033,6 +11076,7 @@ fn materialize_first_order_thermal_solution(
         return None;
     }
 
+    let source_equations = first_order_thermal_source_equations(equation, state, internal_heat);
     let heat_capacity_parameter = simulation_parameter_scalar(heat_capacity, options)?;
     let conductance_parameter = simulation_parameter_scalar(conductance, options)?;
     let heat_capacity_j_per_k = heat_capacity_parameter.value;
@@ -11177,13 +11221,14 @@ fn materialize_first_order_thermal_solution(
     ) {
         Ok(model) => model,
         Err(failure) => {
-            return RuntimeSystemSolution::failed_from_solver_failure(
+            return failed_system_runtime_solution_with_source_equations(
                 system,
                 binding,
                 state,
                 &solver_input,
                 &failure,
                 "recognized first-order thermal ODE, but thermal model validation failed",
+                &source_equations,
             );
         }
     };
@@ -11216,13 +11261,14 @@ fn materialize_first_order_thermal_solution(
         ) {
             Ok(result) => result,
             Err(failure) => {
-                return RuntimeSystemSolution::failed_from_solver_failure(
+                return failed_system_runtime_solution_with_source_equations(
                     system,
                     binding,
                     state,
                     &solver_input,
                     &failure,
                     "recognized first-order thermal ODE, but adaptive Heun solver evaluation failed",
+                    &source_equations,
                 );
             }
         };
@@ -11249,13 +11295,14 @@ fn materialize_first_order_thermal_solution(
             ) {
                 Ok(result) => result,
                 Err(failure) => {
-                    return RuntimeSystemSolution::failed_from_solver_failure(
+                    return failed_system_runtime_solution_with_source_equations(
                         system,
                         binding,
                         state,
                         &solver_input,
                         &failure,
                         "recognized first-order thermal ODE, but fixed-step solver evaluation failed",
+                        &source_equations,
                     );
                 }
             },
@@ -11271,6 +11318,7 @@ fn materialize_first_order_thermal_solution(
     let mut solution =
         RuntimeSystemSolution::from_solver_result(system, binding, state, &solver_result, reason)?;
     solution.step_diagnostics = step_diagnostics;
+    solution.source_equations = source_equations;
     Some(solution)
 }
 
@@ -16261,6 +16309,22 @@ with {{
         assert_eq!(solution.convergence_status, "fixed_step_completed");
         assert!(solution.failure_reason.is_none());
         assert_eq!(solution.points.len(), solution.step_count + 1);
+        let source_equation = solution
+            .source_equations
+            .iter()
+            .find(|equation| equation.kind == "first_order_thermal_balance")
+            .expect("first-order thermal source equation metadata");
+        assert_eq!(source_equation.target, "T_zone");
+        assert!(source_equation.left.contains("C * der(T_zone)"));
+        assert!(source_equation.right.contains("Q_internal"));
+        assert_eq!(source_equation.quantity_kind, "HeatRate");
+        assert_eq!(source_equation.display_unit, "W");
+        assert_eq!(source_equation.canonical_unit, "W");
+        assert!(source_equation.source_line.is_some());
+        assert_eq!(
+            solution.to_report_solution().source_equations.len(),
+            solution.source_equations.len()
+        );
         assert!(runtime
             .time_series
             .iter()
@@ -16305,6 +16369,14 @@ with {{
         assert_eq!(solution.step_count, 3);
         assert_eq!(solution.states, vec!["T_zone".to_owned()]);
         assert_eq!(solution.outputs, vec!["T_zone".to_owned()]);
+        assert!(solution.source_equations.iter().any(|equation| {
+            matches!(
+                equation.kind.as_str(),
+                "first_order_thermal_balance" | "derivative"
+            ) && equation.target == "T_zone"
+                && equation.left.contains("der(T_zone)")
+                && equation.source_line.is_some()
+        }));
         assert_eq!(solution.points.len(), solution.step_count + 1);
         assert!(!solution.step_diagnostics.is_empty());
         assert!(solution
@@ -16592,6 +16664,13 @@ system BadRoomThermal {
             .unwrap()
             .contains("positive finite heat capacity"));
         assert!(solution.reason.contains("thermal model validation failed"));
+        assert!(solution
+            .source_equations
+            .iter()
+            .any(|equation| equation.kind == "first_order_thermal_balance"
+                && equation.target == "T"
+                && equation.quantity_kind == "HeatRate"
+                && equation.source_line.is_some()));
         assert_eq!(solution.points.len(), 1);
         assert!(runtime
             .time_series

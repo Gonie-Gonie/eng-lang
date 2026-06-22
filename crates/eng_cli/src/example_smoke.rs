@@ -5164,6 +5164,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
             let plot_spec = std::fs::read_to_string(&output.plot_spec_path).unwrap_or_default();
             let report_spec = std::fs::read_to_string(&output.report_spec_path).unwrap_or_default();
+            let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
             let report_html = std::fs::read_to_string(&output.report_path).unwrap_or_default();
             if !result.contains("\"binding\": \"sim\"")
                 || !result.contains("\"method\": \"rk4_fixed_step\"")
@@ -5171,7 +5172,12 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !result.contains("\"inputs\": [\"T_out\", \"Q_internal\"]")
                 || !result.contains("\"state\": \"T_zone\"")
                 || !result.contains("\"final_value\": 304")
+                || !result.contains("\"source_equations\"")
+                || !result.contains("\"kind\": \"first_order_thermal_balance\"")
+                || !result.contains("\"quantity_kind\": \"HeatRate\"")
+                || !report_spec.contains("\"source_equations\"")
                 || !report_spec.contains("C * der(T_zone) - (UA * (T_out - T_zone) + Q_internal)")
+                || !review.contains("\"source_equations\"")
                 || !plot_spec.contains("\"name\": \"sim.T_zone\"")
                 || !plot_spec.contains("[2, 304]")
                 || !report_html.contains("ThermalScalarInputOverride")
