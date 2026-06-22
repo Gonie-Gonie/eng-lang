@@ -2865,6 +2865,7 @@ pub fn validate_simulation_contracts(
         validate_simulation_tolerance(options, &mut diagnostics);
         validate_simulation_solver(declaration.line, program, system, options, &mut diagnostics);
         validate_simulation_parameter_options(system, options, &mut diagnostics);
+        validate_simulation_scalar_input_options(system, options, &mut diagnostics);
 
         for variable in &system.variables {
             let Some(expected) = expected_dynamic_input(variable) else {
@@ -3409,6 +3410,78 @@ fn expected_dynamic_input(variable: &SystemVariableInfo) -> Option<ExpectedSimul
     None
 }
 
+fn validate_simulation_scalar_input_options(
+    system: &SystemInfo,
+    options: &[WithOptionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for input in system
+        .variables
+        .iter()
+        .filter(|variable| variable.role == "input")
+        .filter(|variable| expected_dynamic_input(variable).is_none())
+    {
+        let Some(option) = accepted_option(options, &input.name) else {
+            continue;
+        };
+        let Some((value, unit)) = numeric_literal_with_optional_unit(&option.value) else {
+            diagnostics.push(Diagnostic::error(
+                "E-SIM-INPUT-VALUE",
+                option.line,
+                &format!(
+                    "Simulation input `{}` expects a numeric literal, got `{}`.",
+                    input.name, option.value
+                ),
+                Some("Use a finite numeric literal with an optional compatible unit."),
+            ));
+            continue;
+        };
+        if !value.is_finite() {
+            diagnostics.push(Diagnostic::error(
+                "E-SIM-INPUT-VALUE",
+                option.line,
+                &format!(
+                    "Simulation input `{}` expects a finite numeric literal, got `{}`.",
+                    input.name, option.value
+                ),
+                Some("Use a finite numeric literal with an optional compatible unit."),
+            ));
+            continue;
+        }
+        let Some(unit) = unit else {
+            continue;
+        };
+        let Some(actual_quantity) = candidates_for_unit(&unit)
+            .first()
+            .map(|completion| completion.quantity_kind.to_owned())
+        else {
+            diagnostics.push(Diagnostic::error(
+                "E-SIM-INPUT-QTY-MISMATCH",
+                option.line,
+                &format!(
+                    "Simulation input `{}` uses unsupported unit `{unit}`.",
+                    input.name
+                ),
+                Some("Use a unit from the built-in unit registry."),
+            ));
+            continue;
+        };
+        let expected_quantity = scalar_quantity_kind(&input.quantity_kind);
+        let expected_dimension = dimension_for_quantity(&expected_quantity);
+        let actual_dimension = dimension_for_quantity(&actual_quantity);
+        if !dimensions_compatible(&expected_dimension, &actual_dimension) {
+            diagnostics.push(Diagnostic::error(
+                "E-SIM-INPUT-QTY-MISMATCH",
+                option.line,
+                &format!(
+                    "Simulation input `{}` expects {}, but `{}` is {}.",
+                    input.name, expected_quantity, option.value, actual_quantity
+                ),
+                Some("Use a numeric literal with a unit compatible with the declared input."),
+            ));
+        }
+    }
+}
 fn validate_simulation_parameter_options(
     system: &SystemInfo,
     options: &[WithOptionInfo],

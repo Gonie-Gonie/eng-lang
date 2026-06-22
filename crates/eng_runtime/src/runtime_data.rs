@@ -9448,18 +9448,20 @@ fn materialize_state_space_solutions(
         return None;
     }
 
-    let input_series = inputs
-        .iter()
-        .map(|input| {
-            option_value(options, &input.name)
-                .map(str::trim)
-                .and_then(|name| series.iter().find(|series| series.name == name))
-        })
-        .collect::<Vec<_>>();
+    let (input_series, input_overrides) = simulation_input_sources(&inputs, options, series);
     let initial_state = states
         .iter()
         .map(|state| canonical_variable_value(state))
         .collect::<Option<Vec<_>>>()?;
+    let solver_input_values = simulation_input_values(
+        &inputs,
+        &input_series,
+        &input_overrides,
+        0.0,
+        "E-SIM-MISSING-INPUT",
+        "state-space solver",
+    )
+    .ok()?;
     let time_step_s = option_value(options, "timestep")
         .and_then(parse_duration_seconds)
         .unwrap_or(300.0);
@@ -9641,18 +9643,16 @@ fn materialize_state_space_solutions(
         initial_state,
         inputs: inputs
             .iter()
-            .zip(input_series.iter())
-            .map(|(input, series)| {
-                dynamic_input_value(input, *series, 0.0).map(|value| {
-                    SolverScalar::new(
-                        input.name.clone(),
-                        system_variable_value_quantity(input),
-                        input.canonical_unit.clone(),
-                        value,
-                    )
-                })
+            .zip(solver_input_values.iter().copied())
+            .map(|(input, value)| {
+                SolverScalar::new(
+                    input.name.clone(),
+                    system_variable_value_quantity(input),
+                    input.canonical_unit.clone(),
+                    value,
+                )
             })
-            .collect::<Option<Vec<_>>>()?,
+            .collect(),
         parameters: simulation_parameter_scalars(&parameters, options)?,
     };
     let output_expressions = match system_output_expressions(
@@ -9685,17 +9685,14 @@ fn materialize_state_space_solutions(
             &matrix_a,
             &matrix_b,
             |sample_time_s| {
-                inputs
-                    .iter()
-                    .zip(input_series.iter())
-                    .map(|(input, series)| dynamic_input_value(input, *series, sample_time_s))
-                    .collect::<Option<Vec<_>>>()
-                    .ok_or_else(|| {
-                        SolverFailure::new(
-                            "E-SIM-MISSING-INPUT",
-                            "discrete state-space solver could not materialize one or more input values",
-                        )
-                    })
+                simulation_input_values(
+                    &inputs,
+                    &input_series,
+                    &input_overrides,
+                    sample_time_s,
+                    "E-SIM-MISSING-INPUT",
+                    "discrete state-space solver",
+                )
             },
         ) {
             Ok(result) => result,
@@ -9716,6 +9713,7 @@ fn materialize_state_space_solutions(
             &output_expressions,
             &inputs,
             &input_series,
+            &input_overrides,
             &parameters,
             &parameter_values,
         ) {
@@ -9750,17 +9748,14 @@ fn materialize_state_space_solutions(
             &matrix_b,
             &adaptive_options,
             |sample_time_s| {
-                inputs
-                    .iter()
-                    .zip(input_series.iter())
-                    .map(|(input, series)| dynamic_input_value(input, *series, sample_time_s))
-                    .collect::<Option<Vec<_>>>()
-                    .ok_or_else(|| {
-                        SolverFailure::new(
-                            "E-SIM-MISSING-INPUT",
-                            "adaptive state-space solver could not materialize one or more input values",
-                        )
-                    })
+                simulation_input_values(
+                    &inputs,
+                    &input_series,
+                    &input_overrides,
+                    sample_time_s,
+                    "E-SIM-MISSING-INPUT",
+                    "adaptive state-space solver",
+                )
             },
         ) {
             Ok(result) => result,
@@ -9788,6 +9783,7 @@ fn materialize_state_space_solutions(
             &output_expressions,
             &inputs,
             &input_series,
+            &input_overrides,
             &parameters,
             &parameter_values,
         ) {
@@ -9813,17 +9809,14 @@ fn materialize_state_space_solutions(
         &matrix_a,
         &matrix_b,
         |sample_time_s| {
-            inputs
-                .iter()
-                .zip(input_series.iter())
-                .map(|(input, series)| dynamic_input_value(input, *series, sample_time_s))
-                .collect::<Option<Vec<_>>>()
-                .ok_or_else(|| {
-                    SolverFailure::new(
-                        "E-SIM-MISSING-INPUT",
-                        "state-space solver could not materialize one or more input values",
-                    )
-                })
+            simulation_input_values(
+                &inputs,
+                &input_series,
+                &input_overrides,
+                sample_time_s,
+                "E-SIM-MISSING-INPUT",
+                "state-space solver",
+            )
         },
     ) {
         Ok(result) => result,
@@ -9845,6 +9838,7 @@ fn materialize_state_space_solutions(
         &output_expressions,
         &inputs,
         &input_series,
+        &input_overrides,
         &parameters,
         &parameter_values,
     ) {
@@ -9967,9 +9961,68 @@ fn attach_system_step_diagnostics(
     }
 }
 
+fn simulation_input_sources<'a>(
+    inputs: &[&eng_compiler::SystemVariableInfo],
+    options: &[eng_compiler::WithOptionInfo],
+    series: &'a [RuntimeTimeSeries],
+) -> (Vec<Option<&'a RuntimeTimeSeries>>, Vec<Option<f64>>) {
+    let mut input_series = Vec::with_capacity(inputs.len());
+    let mut scalar_overrides = Vec::with_capacity(inputs.len());
+    for input in inputs {
+        let raw_value = option_value(options, &input.name).map(str::trim);
+        let source = raw_value.and_then(|name| series.iter().find(|series| series.name == name));
+        let scalar_override = if source.is_none() {
+            raw_value.and_then(|value| canonical_simulation_input_value(input, value))
+        } else {
+            None
+        };
+        input_series.push(source);
+        scalar_overrides.push(scalar_override);
+    }
+    (input_series, scalar_overrides)
+}
+
+fn simulation_input_values(
+    inputs: &[&eng_compiler::SystemVariableInfo],
+    input_series: &[Option<&RuntimeTimeSeries>],
+    scalar_overrides: &[Option<f64>],
+    sample_time_s: f64,
+    failure_code: &'static str,
+    context: &str,
+) -> Result<Vec<f64>, SolverFailure> {
+    if inputs.len() != input_series.len() || inputs.len() != scalar_overrides.len() {
+        return Err(SolverFailure::new(
+            "E-SIM-INPUT-LAYOUT",
+            format!("{context} input layout does not match input bindings"),
+        ));
+    }
+    inputs
+        .iter()
+        .enumerate()
+        .map(|(index, input)| {
+            dynamic_input_value(
+                input,
+                input_series[index],
+                scalar_overrides[index],
+                sample_time_s,
+            )
+            .ok_or_else(|| {
+                SolverFailure::new(
+                    failure_code,
+                    format!(
+                        "{context} input `{}` cannot be evaluated at t={} s",
+                        input.name, sample_time_s
+                    ),
+                )
+            })
+        })
+        .collect()
+}
+
 fn dynamic_input_value(
     input: &eng_compiler::SystemVariableInfo,
     series: Option<&RuntimeTimeSeries>,
+    scalar_override: Option<f64>,
     time_s: f64,
 ) -> Option<f64> {
     let quantity_kind = system_variable_value_quantity(input);
@@ -9983,7 +10036,7 @@ fn dynamic_input_value(
         )
         .ok();
     }
-    canonical_variable_value(input)
+    scalar_override.or_else(|| canonical_variable_value(input))
 }
 
 fn materialize_source_ode_solutions(
@@ -10016,13 +10069,7 @@ fn materialize_source_ode_solutions(
         .iter()
         .filter(|variable| variable.role == "input")
         .collect::<Vec<_>>();
-    let input_series = inputs
-        .iter()
-        .map(|input| {
-            option_value(options, &input.name)
-                .and_then(|name| series.iter().find(|series| series.name == name))
-        })
-        .collect::<Vec<_>>();
+    let (input_series, input_overrides) = simulation_input_sources(&inputs, options, series);
     let series_duration_s = input_series
         .iter()
         .flatten()
@@ -10084,20 +10131,27 @@ fn materialize_source_ode_solutions(
         .iter()
         .map(|state| canonical_variable_value(state))
         .collect::<Option<Vec<_>>>()?;
+    let solver_input_values = simulation_input_values(
+        &inputs,
+        &input_series,
+        &input_overrides,
+        0.0,
+        "E-RHS-INPUT-VALUE",
+        "source RHS",
+    )
+    .ok()?;
     let solver_inputs = inputs
         .iter()
-        .zip(input_series.iter().copied())
-        .map(|(input, source)| {
-            dynamic_input_value(input, source, 0.0).map(|value| {
-                SolverScalar::new(
-                    input.name.clone(),
-                    system_variable_value_quantity(input),
-                    input.canonical_unit.clone(),
-                    value,
-                )
-            })
+        .zip(solver_input_values.iter().copied())
+        .map(|(input, value)| {
+            SolverScalar::new(
+                input.name.clone(),
+                system_variable_value_quantity(input),
+                input.canonical_unit.clone(),
+                value,
+            )
         })
-        .collect::<Option<Vec<_>>>()?;
+        .collect::<Vec<_>>();
     let solver_parameters = simulation_parameter_scalars(&parameters, options)?;
 
     let solver_options = adaptive_options
@@ -10239,21 +10293,14 @@ fn materialize_source_ode_solutions(
         .map(|parameter| parameter.value)
         .collect::<Vec<_>>();
     let mut rhs = |sample: crate::solver::RhsSample<'_>| {
-        let input_values = inputs
-            .iter()
-            .zip(input_series.iter().copied())
-            .map(|(input, source)| {
-                dynamic_input_value(input, source, sample.time_s).ok_or_else(|| {
-                    SolverFailure::new(
-                        "E-RHS-INPUT-VALUE",
-                        format!(
-                            "source RHS input `{}` cannot be evaluated at t={} s",
-                            input.name, sample.time_s
-                        ),
-                    )
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let input_values = simulation_input_values(
+            &inputs,
+            &input_series,
+            &input_overrides,
+            sample.time_s,
+            "E-RHS-INPUT-VALUE",
+            "source RHS",
+        )?;
         let output = evaluator.evaluate(&RhsInput {
             t: sample.time_s,
             x: sample.state.to_vec(),
@@ -10307,6 +10354,7 @@ fn materialize_source_ode_solutions(
         &output_expressions,
         &inputs,
         &input_series,
+        &input_overrides,
         &parameters,
         &parameter_values,
     ) {
@@ -10516,6 +10564,7 @@ fn append_system_output_trajectories(
     outputs: &[ParsedSystemOutputExpression],
     inputs: &[&eng_compiler::SystemVariableInfo],
     input_series: &[Option<&RuntimeTimeSeries>],
+    input_overrides: &[Option<f64>],
     parameters: &[&eng_compiler::SystemVariableInfo],
     parameter_values: &[f64],
 ) -> Result<(), SolverFailure> {
@@ -10527,6 +10576,7 @@ fn append_system_output_trajectories(
         outputs,
         inputs,
         input_series,
+        input_overrides,
         parameters,
         parameter_values,
     )?;
@@ -10541,16 +10591,17 @@ fn system_output_trajectories(
     outputs: &[ParsedSystemOutputExpression],
     inputs: &[&eng_compiler::SystemVariableInfo],
     input_series: &[Option<&RuntimeTimeSeries>],
+    input_overrides: &[Option<f64>],
     parameters: &[&eng_compiler::SystemVariableInfo],
     parameter_values: &[f64],
 ) -> Result<Vec<StateTrajectory>, SolverFailure> {
     if outputs.is_empty() {
         return Ok(Vec::new());
     }
-    if inputs.len() != input_series.len() {
+    if inputs.len() != input_series.len() || inputs.len() != input_overrides.len() {
         return Err(SolverFailure::new(
             "E-RHS-OUTPUT-INPUT-LAYOUT",
-            "system output input layout does not match input series layout",
+            "system output input layout does not match input bindings",
         ));
     }
     if parameters.len() != parameter_values.len() {
@@ -10574,6 +10625,7 @@ fn system_output_trajectories(
             solver_result,
             inputs,
             input_series,
+            input_overrides,
             parameters,
             parameter_values,
             sample_index,
@@ -10617,6 +10669,7 @@ fn system_output_sample_symbols(
     solver_result: &SolverResult,
     inputs: &[&eng_compiler::SystemVariableInfo],
     input_series: &[Option<&RuntimeTimeSeries>],
+    input_overrides: &[Option<f64>],
     parameters: &[&eng_compiler::SystemVariableInfo],
     parameter_values: &[f64],
     sample_index: usize,
@@ -10641,16 +10694,18 @@ fn system_output_sample_symbols(
             })?;
         symbols.insert(trajectory.name.clone(), value);
     }
-    for (input, source) in inputs.iter().zip(input_series.iter().copied()) {
-        let value = dynamic_input_value(input, source, time_s).ok_or_else(|| {
-            SolverFailure::new(
-                "E-RHS-OUTPUT-INPUT-VALUE",
-                format!(
-                    "system output input `{}` cannot be evaluated at t={} s",
-                    input.name, time_s
-                ),
-            )
-        })?;
+    for (index, (input, source)) in inputs.iter().zip(input_series.iter().copied()).enumerate() {
+        let value = dynamic_input_value(input, source, input_overrides[index], time_s).ok_or_else(
+            || {
+                SolverFailure::new(
+                    "E-RHS-OUTPUT-INPUT-VALUE",
+                    format!(
+                        "system output input `{}` cannot be evaluated at t={} s",
+                        input.name, time_s
+                    ),
+                )
+            },
+        )?;
         symbols.insert(input.name.clone(), value);
     }
     for (parameter, value) in parameters.iter().zip(parameter_values.iter().copied()) {
@@ -10704,23 +10759,22 @@ fn materialize_first_order_thermal_solution(
     let conductance_parameter = simulation_parameter_scalar(conductance, options)?;
     let heat_capacity_j_per_k = heat_capacity_parameter.value;
     let conductance_w_per_k = conductance_parameter.value;
-    let outdoor_series = option_value(options, &outdoor_temperature.name)
-        .and_then(|name| series.iter().find(|series| series.name == name));
+    let thermal_inputs = vec![outdoor_temperature, internal_heat];
+    let (thermal_input_series, thermal_input_overrides) =
+        simulation_input_sources(&thermal_inputs, options, series);
+    let outdoor_series = thermal_input_series[0];
+    let outdoor_override = thermal_input_overrides[0];
+    let internal_heat_series = thermal_input_series[1];
+    let internal_heat_override = thermal_input_overrides[1];
     let outdoor_quantity_kind = system_variable_value_quantity(outdoor_temperature);
-    let outdoor_temperature_k = canonical_variable_value(outdoor_temperature).or_else(|| {
-        outdoor_series.and_then(|series| {
-            series.points.first().and_then(|point| {
-                convert_to_canonical_unit(
-                    point.y,
-                    Some(&series.display_unit),
-                    &outdoor_temperature.canonical_unit,
-                    &outdoor_quantity_kind,
-                )
-                .ok()
-            })
-        })
-    })?;
-    let internal_heat_w = canonical_variable_value(internal_heat)?;
+    let outdoor_temperature_k =
+        dynamic_input_value(outdoor_temperature, outdoor_series, outdoor_override, 0.0)?;
+    let internal_heat_w = dynamic_input_value(
+        internal_heat,
+        internal_heat_series,
+        internal_heat_override,
+        0.0,
+    )?;
     let initial_temperature_k = canonical_variable_value(state)?;
 
     let time_step_s = option_value(options, "timestep")
@@ -10862,18 +10916,13 @@ fn materialize_first_order_thermal_solution(
             &adaptive_options,
             |sample| {
                 let temperature_k = sample.state[0];
-                let outdoor_k = outdoor_series
-                    .and_then(|series| interpolate_series_value(series, sample.time_s))
-                    .map(|value| {
-                        convert_to_canonical_unit(
-                            value,
-                            outdoor_series.map(|series| series.display_unit.as_str()),
-                            &outdoor_temperature.canonical_unit,
-                            &outdoor_quantity_kind,
-                        )
-                        .unwrap_or(outdoor_temperature_k)
-                    })
-                    .unwrap_or(outdoor_temperature_k);
+                let outdoor_k = dynamic_input_value(
+                    outdoor_temperature,
+                    outdoor_series,
+                    outdoor_override,
+                    sample.time_s,
+                )
+                .unwrap_or(outdoor_temperature_k);
                 if !outdoor_k.is_finite() {
                     return Err(SolverFailure::new(
                         "E-SOLVER-THERMAL-INPUT-INVALID",
@@ -10910,18 +10959,13 @@ fn materialize_first_order_thermal_solution(
                 &solver_input,
                 thermal_model,
                 |time_s| {
-                    let outdoor_k = outdoor_series
-                        .and_then(|series| interpolate_series_value(series, time_s))
-                        .map(|value| {
-                            convert_to_canonical_unit(
-                                value,
-                                outdoor_series.map(|series| series.display_unit.as_str()),
-                                &outdoor_temperature.canonical_unit,
-                                &outdoor_quantity_kind,
-                            )
-                            .unwrap_or(outdoor_temperature_k)
-                        })
-                        .unwrap_or(outdoor_temperature_k);
+                    let outdoor_k = dynamic_input_value(
+                        outdoor_temperature,
+                        outdoor_series,
+                        outdoor_override,
+                        time_s,
+                    )
+                    .unwrap_or(outdoor_temperature_k);
                     Ok(outdoor_k)
                 },
             ) {
@@ -11201,6 +11245,23 @@ fn simulation_parameter_value(
         .unwrap_or_else(|| canonical_variable_value(parameter))
 }
 
+fn canonical_simulation_input_value(
+    input: &eng_compiler::SystemVariableInfo,
+    expression: &str,
+) -> Option<f64> {
+    let (value, unit) = number_with_optional_unit(expression)?;
+    if !value.is_finite() {
+        return None;
+    }
+    let quantity_kind = system_variable_value_quantity(input);
+    convert_to_canonical_unit(
+        value,
+        unit.as_deref(),
+        &input.canonical_unit,
+        &quantity_kind,
+    )
+    .ok()
+}
 fn canonical_simulation_parameter_value(
     parameter: &eng_compiler::SystemVariableInfo,
     expression: &str,

@@ -7524,6 +7524,34 @@ system Envelope {
     }
 
     #[test]
+    fn accepts_declared_scalar_simulation_input_option_values() {
+        let report = check_source(
+            "scalar_input.eng",
+            "system DrivenScalar {\n    input drive: DimensionlessNumber [1] = 1\n    state x: DimensionlessNumber = 0\n    equation {\n        der(x) eq drive / 1 s\n    }\n}\n\nsim = simulate DrivenScalar\nwith {\n    drive = 2\n    timestep = 1 s\n    duration = 2 s\n    solver = rk4\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report.diagnostics.iter().all(|diagnostic| {
+            diagnostic.code != "E-SIM-INPUT-VALUE" && diagnostic.code != "E-SIM-INPUT-QTY-MISMATCH"
+        }));
+    }
+
+    #[test]
+    fn rejects_declared_scalar_simulation_input_option_unit_mismatch() {
+        let report = check_source(
+            "scalar_input_bad.eng",
+            "system DrivenScalar {\n    input drive: DimensionlessNumber [1] = 1\n    state x: DimensionlessNumber = 0\n    equation {\n        der(x) eq drive / 1 s\n    }\n}\n\nsim = simulate DrivenScalar\nwith {\n    drive = 2 kW\n    timestep = 1 s\n    duration = 2 s\n    solver = rk4\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SIM-INPUT-QTY-MISMATCH"));
+    }
+    #[test]
     fn rejects_simulate_wrong_axis_and_timestep_unit() {
         let report = check_source(
             "bad.eng",

@@ -1,0 +1,26 @@
+system SourceScalarInputOverride {
+    input drive: DimensionlessNumber [1] = 1
+    state x: DimensionlessNumber = 0
+    output shifted: DimensionlessNumber [1]
+
+    equation {
+        der(x) eq drive / 1 s
+        shifted eq x + drive
+    }
+}
+
+sim = simulate SourceScalarInputOverride
+with {
+    drive = 2
+    timestep = 1 s
+    duration = 2 s
+    solver = rk4
+}
+
+report {
+    plot sim.x and sim.shifted over Time
+    with {
+        unit y = 1
+        title = "Source scalar input override solve"
+    }
+}

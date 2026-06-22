@@ -1557,6 +1557,45 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/source_ode_scalar_input_override.eng"),
+        Path::new("build/test-runtime-source-ode-scalar-input-override"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let plot_spec = std::fs::read_to_string(&output.plot_spec_path).unwrap_or_default();
+            if !output.result_json.contains("\"binding\": \"sim\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"rk4_fixed_step\"")
+                || !output.result_json.contains("\"inputs\": [\"drive\"]")
+                || !output
+                    .result_json
+                    .contains("\"outputs\": [\"x\", \"shifted\"]")
+                || !output.result_json.contains("\"state\": \"x\"")
+                || !output.result_json.contains("\"state\": \"shifted\"")
+                || !output.result_json.contains("\"final_value\": 4")
+                || !output.result_json.contains("\"final_value\": 6")
+                || !output.report_spec_json.contains("der(x) - (drive / 1 s)")
+                || !output.report_spec_json.contains("shifted - (x + drive)")
+                || !plot_spec.contains("\"name\": \"sim.x\"")
+                || !plot_spec.contains("\"name\": \"sim.shifted\"")
+                || !output.report_html.contains("SourceScalarInputOverride")
+            {
+                eprintln!(
+                    "expected tests/runtime/source_ode_scalar_input_override.eng to apply simulate scalar input overrides in source ODE evaluation"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/source_ode_scalar_input_override.eng applied source ODE scalar input override"
+            );
+        }
+        Err(error) => {
+            eprintln!("source ODE scalar input override runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/source_ode_output_dependency.eng"),
         Path::new("build/test-runtime-source-ode-output-dependency"),
         &artifact_run_options(),

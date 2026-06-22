@@ -75,7 +75,7 @@ workflow, and covered by the breaking-change policy.
   artifacts.
 - Measured-vs-simulated workflow: weather/measured CSV promotion, explicit
   `TimeSeries[Time]` thermal input contract, one-state fixed-step thermal
-  simulation output as `sim.T_zone`, RMSE metric, validation result,
+  simulation output as `sim.T_zone`, scalar input override materialization, RMSE metric, validation result,
   time-alignment metadata, and multi-series PlotSpec.
 - Unit-aware `print`, structured `log debug/info/warn/error`, one-row summary
   CSV export, explicit write outputs, process results, local test/assert/golden
