@@ -10476,6 +10476,7 @@ fn materialize_source_ode_solutions(
         parameters: solver_parameters,
     };
 
+    let mut source_equations = source_ode_system_equation_metadata(&equations, &[]);
     let output_expressions = match system_output_expressions(
         system,
         &outputs,
@@ -10485,17 +10486,18 @@ fn materialize_source_ode_solutions(
     ) {
         Ok(expressions) => expressions,
         Err(failure) => {
-            return failed_system_runtime_solutions(
+            return failed_system_runtime_solutions_with_source_equations(
                 system,
                 binding,
                 &states,
                 &solver_input,
                 &failure,
                 "recognized system output declarations, but output evaluator creation failed",
+                &source_equations,
             );
         }
     };
-    let source_equations = source_ode_system_equation_metadata(&equations, &output_expressions);
+    source_equations = source_ode_system_equation_metadata(&equations, &output_expressions);
 
     let evaluator = match SourceRhsEvaluator::new_with_symbols(
         state_symbols.clone(),
@@ -10505,13 +10507,14 @@ fn materialize_source_ode_solutions(
     ) {
         Ok(evaluator) => evaluator,
         Err(failure) => {
-            return failed_system_runtime_solutions(
+            return failed_system_runtime_solutions_with_source_equations(
                 system,
                 binding,
                 &states,
                 &solver_input,
                 &failure,
                 "recognized source derivative equations, but RHS evaluator creation failed",
+                &source_equations,
             );
         }
     };
@@ -10546,13 +10549,14 @@ fn materialize_source_ode_solutions(
         ) {
             Ok(result) => result,
             Err(failure) => {
-                return failed_system_runtime_solutions(
+                return failed_system_runtime_solutions_with_source_equations(
                     system,
                     binding,
                     &states,
                     &solver_input,
                     &failure,
                     "recognized source derivative equations, but adaptive Heun solver evaluation failed",
+                    &source_equations,
                 );
             }
         };
@@ -10564,13 +10568,14 @@ fn materialize_source_ode_solutions(
         let solver_result = match solve_fixed_step_ode(fixed_step_method, &solver_input, &mut rhs) {
             Ok(result) => result,
             Err(failure) => {
-                return failed_system_runtime_solutions(
+                return failed_system_runtime_solutions_with_source_equations(
                     system,
                     binding,
                     &states,
                     &solver_input,
                     &failure,
                     "recognized source derivative equations, but fixed-step solver evaluation failed",
+                    &source_equations,
                 );
             }
         };
@@ -10586,13 +10591,14 @@ fn materialize_source_ode_solutions(
         &parameters,
         &parameter_values,
     ) {
-        return failed_system_runtime_solutions(
+        return failed_system_runtime_solutions_with_source_equations(
             system,
             binding,
             &states,
             &solver_input,
             &failure,
             "recognized system output declarations, but output evaluation failed",
+            &source_equations,
         );
     }
 
@@ -16535,6 +16541,42 @@ with {
         assert_eq!(load_series.display_unit, "kW");
         assert_eq!(load_series.points.len(), 3);
     }
+
+    #[test]
+    fn failed_source_ode_output_dependency_retains_source_equations() {
+        let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("tests/diagnostics/source_ode_output_algebraic_loop.eng");
+        let source = std::fs::read_to_string(&source_path).unwrap();
+        let report = check_file(&source_path, &CheckOptions::default()).unwrap();
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, &source);
+        let solutions = runtime
+            .system_solutions
+            .iter()
+            .filter(|solution| solution.binding.as_deref() == Some("sim"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(solutions.len(), 1);
+        let solution = solutions[0];
+        assert_eq!(solution.status, "failed");
+        assert_eq!(
+            solution.failure_code.as_deref(),
+            Some("E-RHS-OUTPUT-ALGEBRAIC-LOOP")
+        );
+        assert!(solution.source_equations.iter().any(|equation| {
+            equation.kind == "derivative"
+                && equation.target == "x"
+                && equation.left == "der(x)"
+                && equation.source_line.is_some()
+        }));
+        assert_eq!(
+            solution.to_report_solution().source_equations.len(),
+            solution.source_equations.len()
+        );
+    }
+
     #[test]
     fn materializes_two_state_source_ode_adaptive_heun_solutions() {
         let source = r#"

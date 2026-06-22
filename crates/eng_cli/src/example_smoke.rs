@@ -3641,9 +3641,14 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("a depends on [b]; b depends on [a]")
+                || !output.result_json.contains("\"source_equations\"")
+                || !output.result_json.contains("\"kind\": \"derivative\"")
+                || !output.result_json.contains("\"target\": \"x\"")
                 || !output
                     .report_spec_json
                     .contains("\"failure_code\": \"E-RHS-OUTPUT-ALGEBRAIC-LOOP\"")
+                || !output.report_spec_json.contains("\"source_equations\"")
+                || !output.review_json.contains("\"source_equations\"")
                 || !output.report_html.contains("E-RHS-OUTPUT-ALGEBRAIC-LOOP")
             {
                 eprintln!(
