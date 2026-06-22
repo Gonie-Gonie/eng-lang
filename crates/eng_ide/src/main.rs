@@ -2634,9 +2634,39 @@ fn smoke() -> Result<(), String> {
                         })
             })
         });
-    if !has_state_space_series || !has_state_space_solver || !has_state_space_operator_matrix {
+    let has_state_space_source_equations =
+        state_space_inspectors
+            .systems
+            .as_array()
+            .is_some_and(|items| {
+                items.iter().any(|item| {
+                    item.get("solver_results")
+                        .and_then(Value::as_array)
+                        .is_some_and(|solver_results| {
+                            solver_results.iter().any(|solver_result| {
+                                solver_result
+                                    .get("source_equations")
+                                    .and_then(Value::as_array)
+                                    .is_some_and(|equations| {
+                                        equations.iter().any(|equation| {
+                                            json_field_string(equation, "kind")
+                                                .as_deref()
+                                                .is_some_and(|kind| {
+                                                    kind.starts_with("state_space_")
+                                                })
+                                        })
+                                    })
+                            })
+                        })
+                })
+            });
+    if !has_state_space_series
+        || !has_state_space_solver
+        || !has_state_space_operator_matrix
+        || !has_state_space_source_equations
+    {
         return Err(format!(
-            "{} did not produce IDE state-space trajectory/operator inspector metadata",
+            "{} did not produce IDE state-space trajectory/operator/source-equation inspector metadata",
             state_space_example.display()
         ));
     }
@@ -2835,7 +2865,7 @@ fn smoke() -> Result<(), String> {
         ));
     }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), residual dependency inspector, behavior graph inspector, measured workflow inspectors, solved thermal assembly inspector, multi-domain boundary solve inspector, official Thermal/Fluid solver inspector, state-space trajectory/operator inspector, kernel plan inspector, class object inspector, side-effect inspectors, schema failure inspector",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), residual dependency inspector, behavior graph inspector, measured workflow inspectors, solved thermal assembly inspector, multi-domain boundary solve inspector, official Thermal/Fluid solver inspector, state-space trajectory/operator/source-equation inspector, kernel plan inspector, class object inspector, side-effect inspectors, schema failure inspector",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),

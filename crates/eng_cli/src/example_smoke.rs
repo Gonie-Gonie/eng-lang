@@ -1631,6 +1631,8 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !plot_spec.contains("\"name\": \"sim.shifted\"")
                 || !plot_spec.contains("\"name\": \"sim.total\"")
                 || !output.report_html.contains("SourceOutputDependency")
+                || !output.report_html.contains("Source Equations")
+                || !output.report_html.contains("derivative:x")
                 || !output.report_html.contains("rk4_fixed_step")
             {
                 eprintln!(
@@ -3649,6 +3651,8 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"failure_code\": \"E-RHS-OUTPUT-ALGEBRAIC-LOOP\"")
                 || !output.report_spec_json.contains("\"source_equations\"")
                 || !output.review_json.contains("\"source_equations\"")
+                || !output.report_html.contains("Source Equations")
+                || !output.report_html.contains("derivative:x")
                 || !output.report_html.contains("E-RHS-OUTPUT-ALGEBRAIC-LOOP")
             {
                 eprintln!(
@@ -5186,6 +5190,8 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !plot_spec.contains("\"name\": \"sim.T_zone\"")
                 || !plot_spec.contains("[2, 304]")
                 || !report_html.contains("ThermalScalarInputOverride")
+                || !report_html.contains("Source Equations")
+                || !report_html.contains("first_order_thermal_balance:T_zone")
             {
                 eprintln!(
                     "expected tests/runtime/thermal_scalar_input_override.eng to apply simulate scalar input overrides in one-state thermal evaluation"

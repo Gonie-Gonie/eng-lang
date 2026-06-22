@@ -246,15 +246,17 @@ component_solution_count
 System solver result entries in `result.engres` and `report_spec.json` carry
 the runtime-visible solver inspector fields: state/input/parameter/output
 names, currently empty algebraic-variable lists for non-DAE paths, timestep,
-method, tolerance, iteration count, convergence status, failure reason, and
+method, tolerance, iteration count, convergence status, failure reason, source
+`source_equations[]` entries with kind/target/residual/source-line evidence, and
 trajectory points. Adaptive thermal and continuous state-space solver paths also
 carry `step_diagnostics[]` entries for accepted/rejected internal substeps with
 output index, start/end time, timestep, error norm, and status. `review.json`
 runtime augmentation also summarizes those adaptive substeps under
 `simulation_results[].diagnostics` with total, accepted/rejected, and max
 error-norm fields. It groups the same per-state data under
-`simulation_results[]`, including per-state `solver_results[]` entries for
-IDE/reviewer panels. The official one-state thermal example is pinned by the
+`simulation_results[]`, including source-equation evidence and per-state
+solver_results[] entries for IDE/reviewer panels. The official one-state
+thermal example is pinned by the
 artifact golden baseline so these solver fields remain present in review,
 report spec, and result artifacts. `examples/official/20_multi_state_thermal`
 exercises the same solver result projection for the supported thermal

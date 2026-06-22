@@ -1068,6 +1068,18 @@ function solverTrajectoryRows() {
   return [...systemRows, ...componentRows];
 }
 
+function systemSourceEquationSummary(result) {
+  const equations = Array.isArray(result?.source_equations)
+    ? result.source_equations
+    : (Array.isArray(result?.sourceEquations) ? result.sourceEquations : []);
+  if (!equations.length) return "-";
+  const values = equations.slice(0, 3).map((equation) => {
+    const line = equation.source_line ?? equation.sourceLine ?? "?";
+    return `${equation.kind || "equation"}:${equation.target || "-"} L${line}`;
+  });
+  if (equations.length > values.length) values.push(`+${equations.length - values.length} more`);
+  return values.join("; ");
+}
 function systemStepDiagnostics(result) {
   const diagnostics = result?.step_diagnostics ?? result?.stepDiagnostics;
   return Array.isArray(diagnostics) ? diagnostics : [];
@@ -1239,12 +1251,14 @@ function renderSystems() {
     const iterations = `${solver.iteration_count ?? solver.iterationCount ?? "-"} / ${solver.max_iterations ?? solver.maxIterations ?? "-"}`;
     const convergence = solver.convergence_status ?? solver.convergenceStatus ?? "-";
     const failure = solver.failure_reason ?? solver.failureReason ?? "-";
+    const sourceEquations = systemSourceEquationSummary(solver);
     const substeps = systemStepSummary(systemStepDiagnostics(solver));
     return `
       <tr>
         <td><strong>${escapeHtml(system.name || "-")}</strong><div class="muted">L${escapeHtml(system.line || "-")}</div></td>
         <td>${escapeHtml(stateLabel)}<div class="muted">alg ${escapeHtml(joinOrDash(algebraicNames))}</div></td>
         <td>${escapeHtml(joinOrDash(inputNames))}<div class="muted">params ${escapeHtml(joinOrDash(parameterNames))}</div><div class="muted">outputs ${escapeHtml(joinOrDash(outputNames))}</div></td>
+        <td>${escapeHtml(sourceEquations)}</td>
         <td>${escapeHtml(solver.status || "-")}<div class="muted">${escapeHtml(solver.method || "-")}</div></td>
         <td>${escapeHtml(timeStep)}<div class="muted">steps ${escapeHtml(steps)}</div><div class="muted">${escapeHtml(substeps)}</div></td>
         <td>${escapeHtml(tolerance)}<div class="muted">iter ${escapeHtml(iterations)}</div></td>
@@ -1254,8 +1268,8 @@ function renderSystems() {
   }).join("");
   return `
     <table class="var-table">
-      <thead><tr><th>System</th><th>States</th><th>Inputs/Params</th><th>Solver</th><th>Timestep</th><th>Tol/Iter</th><th>Convergence</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="7" class="muted">No system metadata.</td></tr>`}</tbody>
+      <thead><tr><th>System</th><th>States</th><th>Inputs/Params</th><th>Source Equations</th><th>Solver</th><th>Timestep</th><th>Tol/Iter</th><th>Convergence</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="8" class="muted">No system metadata.</td></tr>`}</tbody>
     </table>
   `;
 }

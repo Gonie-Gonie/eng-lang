@@ -7113,6 +7113,7 @@ fn render_system_solver_section(spec: &ReportSpec) -> String {
                     html_escape(&join_or_dash(&solution.parameters)),
                     html_escape(&join_or_dash(&solution.outputs))
                 );
+                let source_equations = format_system_solver_source_equations_summary(solution);
                 let step_diagnostics = format_system_solver_step_diagnostics_summary(solution);
                 let diagnostics = format!(
                     "tol={} iter={}/{} convergence={} substeps={} failure_code={} failure={}",
@@ -7125,11 +7126,12 @@ fn render_system_solver_section(spec: &ReportSpec) -> String {
                     html_escape(solution.failure_reason.as_deref().unwrap_or("-"))
                 );
                 format!(
-                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{} / {}</td><td>{}</td><td>{}</td><td>{}</td><td>{:.6} {}</td></tr>",
+                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{} / {}</td><td>{}</td><td>{}</td><td>{}</td><td>{:.6} {}</td></tr>",
                     html_escape(&system.name),
                     html_escape(binding),
                     html_escape(&solution.state),
                     variables,
+                    html_escape(&source_equations),
                     html_escape(&solution.status),
                     html_escape(&solution.method),
                     diagnostics,
@@ -7148,12 +7150,39 @@ fn render_system_solver_section(spec: &ReportSpec) -> String {
     format!(
         r#"<h2>System Solver Results</h2>
     <table>
-      <thead><tr><th>System</th><th>Binding</th><th>Trajectory</th><th>Variables</th><th>Status/Method</th><th>Diagnostics</th><th>Steps</th><th>Final</th><th>Step</th></tr></thead>
+      <thead><tr><th>System</th><th>Binding</th><th>Trajectory</th><th>Variables</th><th>Source Equations</th><th>Status/Method</th><th>Diagnostics</th><th>Steps</th><th>Final</th><th>Step</th></tr></thead>
       <tbody>{rows}</tbody>
     </table>"#
     )
 }
 
+fn format_system_solver_source_equations_summary(solution: &ReportSystemSolution) -> String {
+    if solution.source_equations.is_empty() {
+        return "-".to_owned();
+    }
+    let mut values = solution
+        .source_equations
+        .iter()
+        .take(3)
+        .map(|equation| {
+            let source_line = equation
+                .source_line
+                .map(|line| format!("L{line}"))
+                .unwrap_or_else(|| "L?".to_owned());
+            format!(
+                "{}:{} {} {}",
+                equation.kind, equation.target, source_line, equation.residual_expression
+            )
+        })
+        .collect::<Vec<_>>();
+    if solution.source_equations.len() > values.len() {
+        values.push(format!(
+            "+{} more",
+            solution.source_equations.len() - values.len()
+        ));
+    }
+    values.join("; ")
+}
 fn format_system_solver_step_diagnostics_summary(solution: &ReportSystemSolution) -> String {
     if solution.step_diagnostics.is_empty() {
         return "-".to_owned();

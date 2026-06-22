@@ -535,6 +535,7 @@
         "inputs",
         "parameters",
         "outputs",
+        "source_equations",
         "state",
         "quantity_kind",
         "display_unit",
@@ -581,6 +582,10 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "source_equations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/resultSystemSourceEquation" }
+        },
         "state": { "type": "string" },
         "quantity_kind": { "type": "string" },
         "display_unit": { "type": "string" },
@@ -607,6 +612,31 @@
           "type": "array",
           "items": { "$ref": "#/$defs/resultPoint" }
         }
+      }
+    },
+    "resultSystemSourceEquation": {
+      "type": "object",
+      "required": [
+        "kind",
+        "target",
+        "left",
+        "right",
+        "residual_expression",
+        "quantity_kind",
+        "display_unit",
+        "canonical_unit",
+        "source_line"
+      ],
+      "properties": {
+        "kind": { "type": "string" },
+        "target": { "type": "string" },
+        "left": { "type": "string" },
+        "right": { "type": "string" },
+        "residual_expression": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "canonical_unit": { "type": "string" },
+        "source_line": { "type": ["integer", "null"], "minimum": 1 }
       }
     },
     "resultSystemStepDiagnostic": {

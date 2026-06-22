@@ -128,6 +128,10 @@
     "system_ir": {
       "type": "array",
       "items": { "$ref": "#/$defs/systemIr" }
+    },
+    "simulation_results": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/simulationResult" }
     }
   },
   "$defs": {
@@ -1163,6 +1167,100 @@
       "properties": {
         "line": { "type": "integer", "minimum": 1 },
         "column": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "simulationResult": {
+      "type": "object",
+      "required": [
+        "system",
+        "binding",
+        "status",
+        "method",
+        "reason",
+        "variables",
+        "source_equations",
+        "diagnostics",
+        "trajectories"
+      ],
+      "properties": {
+        "system": { "type": "string" },
+        "binding": { "type": ["string", "null"] },
+        "status": { "type": "string" },
+        "method": { "type": "string" },
+        "reason": { "type": "string" },
+        "variables": { "$ref": "#/$defs/simulationResultVariables" },
+        "source_equations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/simulationResultSourceEquation" }
+        },
+        "diagnostics": { "$ref": "#/$defs/simulationResultDiagnostics" },
+        "trajectories": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      }
+    },
+    "simulationResultVariables": {
+      "type": "object",
+      "required": ["states", "algebraic_variables", "inputs", "parameters", "outputs"],
+      "properties": {
+        "states": { "type": "array", "items": { "type": "string" } },
+        "algebraic_variables": { "type": "array", "items": { "type": "string" } },
+        "inputs": { "type": "array", "items": { "type": "string" } },
+        "parameters": { "type": "array", "items": { "type": "string" } },
+        "outputs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "simulationResultSourceEquation": {
+      "type": "object",
+      "required": [
+        "kind",
+        "target",
+        "left",
+        "right",
+        "residual_expression",
+        "quantity_kind",
+        "display_unit",
+        "canonical_unit",
+        "source_line"
+      ],
+      "properties": {
+        "kind": { "type": "string" },
+        "target": { "type": "string" },
+        "left": { "type": "string" },
+        "right": { "type": "string" },
+        "residual_expression": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "canonical_unit": { "type": "string" },
+        "source_line": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    },
+    "simulationResultDiagnostics": {
+      "type": "object",
+      "required": [
+        "tolerance",
+        "max_iterations",
+        "iteration_count",
+        "convergence_status",
+        "failure_code",
+        "failure_reason",
+        "substep_count",
+        "accepted_substep_count",
+        "rejected_substep_count",
+        "max_substep_error_norm"
+      ],
+      "properties": {
+        "tolerance": { "type": "number" },
+        "max_iterations": { "type": "integer", "minimum": 0 },
+        "iteration_count": { "type": "integer", "minimum": 0 },
+        "convergence_status": { "type": "string" },
+        "failure_code": { "type": ["string", "null"] },
+        "failure_reason": { "type": ["string", "null"] },
+        "substep_count": { "type": "integer", "minimum": 0 },
+        "accepted_substep_count": { "type": "integer", "minimum": 0 },
+        "rejected_substep_count": { "type": "integer", "minimum": 0 },
+        "max_substep_error_norm": { "type": ["number", "null"] }
       }
     },
     "solverBoundary": {
