@@ -1003,6 +1003,46 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/source_system_fixed_point_variable_scales.eng"),
+        Path::new("build/test-runtime-source-system-fixed-point-variable-scales"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"assembly\": \"StaticScaledFixedPointSourceSystem\"")
+                || !output
+                    .result_json
+                    .contains("\"status\": \"solved_fixed_point\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"fixed_point_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"variable_scale_policy\": \"user_provided_variable_scales\"")
+                || !output.result_json.contains("\"variable_scale_min\": 2")
+                || !output.result_json.contains("\"variable_scale_max\": 4")
+                || !output
+                    .report_html
+                    .contains("StaticScaledFixedPointSourceSystem")
+                || !output.report_html.contains("solved_fixed_point")
+                || !output.report_html.contains("fixed_point_residual_graph")
+            {
+                eprintln!(
+                    "expected tests/runtime/source_system_fixed_point_variable_scales.eng to solve a static source system with user-provided fixed-point variable scales"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/source_system_fixed_point_variable_scales.eng solved fixed-point source system with user-provided variable scales"
+            );
+        }
+        Err(error) => {
+            eprintln!("source system fixed-point variable-scale runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/source_system_fixed_point_affine_solve.eng"),
         Path::new("build/test-runtime-source-system-fixed-point-affine"),
         &artifact_run_options(),

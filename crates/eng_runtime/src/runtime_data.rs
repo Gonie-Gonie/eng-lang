@@ -1585,6 +1585,7 @@ impl RuntimeComponentSolution {
         solver_assembly: &EquationAssembly,
         options: FixedPointOptions,
         initial_values: Vec<f64>,
+        variable_scale_overrides: Option<Vec<f64>>,
         residual_scale_overrides: &[ResidualScaleOverride],
     ) -> Self {
         let residual_graph = ResidualGraph::from_assembly(solver_assembly);
@@ -1750,8 +1751,13 @@ impl RuntimeComponentSolution {
             .iter()
             .map(|variable| variable.name.clone())
             .collect::<Vec<_>>();
-        let variable_scales = variable_scales_from_unknowns(&solver_assembly.unknowns);
-        let variable_scale_policy = "unit_default_from_fixed_point_unknowns";
+        let (variable_scales, variable_scale_policy) = match variable_scale_overrides {
+            Some(scales) => (scales, "user_provided_variable_scales"),
+            None => (
+                variable_scales_from_unknowns(&solver_assembly.unknowns),
+                "unit_default_from_fixed_point_unknowns",
+            ),
+        };
         let step_diagnostics = fixed_point_residual_history_diagnostics(
             &fixed_point_residual_history,
             &fixed_point_residual_value_history,
@@ -3618,49 +3624,16 @@ fn materialize_component_solutions(
         for request in requests {
             let solver = option_value(&request.options, "solver").unwrap_or("dense_linear");
             let mut solution = match solver.trim() {
-                "fixed_point" => {
-                    let options = fixed_point_options_from_solve_request(&request.options);
-                    match fixed_point_initial_values_from_solve_request(
-                        &request.options,
-                        &solver_assembly.unknowns,
-                    ) {
-                        Ok(initial_values) => {
-                            let residual_graph = ResidualGraph::from_assembly(&solver_assembly);
-                            match residual_scale_overrides_from_solve_request(
-                                &request.options,
-                                &residual_graph,
-                            ) {
-                                Ok(residual_scale_overrides) => {
-                                    RuntimeComponentSolution::from_fixed_point_solver_assembly(
-                                        &assembly.name,
-                                        &solver_assembly,
-                                        options,
-                                        initial_values,
-                                        &residual_scale_overrides,
-                                    )
-                                }
-                                Err(failure) => failed_source_component_solution(
-                                    &solver_assembly,
-                                    "fixed_point_residual_graph",
-                                    "fixed-point source solve residual scale overrides could not be materialized",
-                                    &failure,
-                                    options.tolerance,
-                                    options.max_iterations,
-                                    "fixed_point_source_failed",
-                                ),
-                            }
-                        }
-                        Err(failure) => failed_source_component_solution(
-                            &solver_assembly,
-                            "fixed_point_residual_graph",
-                            "fixed-point source solve initial values could not be materialized",
-                            &failure,
-                            options.tolerance,
-                            options.max_iterations,
-                            "fixed_point_source_failed",
-                        ),
-                    }
-                }
+                "fixed_point" => fixed_point_component_solution_from_solve_request(
+                    &assembly.name,
+                    &solver_assembly,
+                    &request,
+                    "fixed_point_residual_graph",
+                    "fixed-point source solve initial values could not be materialized",
+                    "fixed-point source solve residual scale overrides could not be materialized",
+                    "fixed-point source solve variable scales could not be materialized",
+                    "fixed_point_source_failed",
+                ),
                 "newton" | "nonlinear_newton" => {
                     nonlinear_component_solution_from_solve_request(&solver_assembly, &request)
                 }
@@ -3723,6 +3696,76 @@ fn materialize_component_solutions(
     solutions
 }
 
+fn fixed_point_component_solution_from_solve_request(
+    assembly_name: &str,
+    solver_assembly: &EquationAssembly,
+    request: &ComponentSolveRequest,
+    method: &str,
+    initial_reason: &str,
+    residual_scale_reason: &str,
+    variable_scale_reason: &str,
+    failure_convergence_status: &str,
+) -> RuntimeComponentSolution {
+    let options = fixed_point_options_from_solve_request(&request.options);
+    let initial_values = match fixed_point_initial_values_from_solve_request(
+        &request.options,
+        &solver_assembly.unknowns,
+    ) {
+        Ok(values) => values,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                method,
+                initial_reason,
+                &failure,
+                options.tolerance,
+                options.max_iterations,
+                failure_convergence_status,
+            );
+        }
+    };
+    let residual_graph = ResidualGraph::from_assembly(solver_assembly);
+    let residual_scale_overrides =
+        match residual_scale_overrides_from_solve_request(&request.options, &residual_graph) {
+            Ok(overrides) => overrides,
+            Err(failure) => {
+                return failed_source_component_solution(
+                    solver_assembly,
+                    method,
+                    residual_scale_reason,
+                    &failure,
+                    options.tolerance,
+                    options.max_iterations,
+                    failure_convergence_status,
+                );
+            }
+        };
+    let variable_scale_overrides = match fixed_point_variable_scales_from_solve_request(
+        &request.options,
+        &solver_assembly.unknowns,
+    ) {
+        Ok(scales) => scales,
+        Err(failure) => {
+            return failed_source_component_solution(
+                solver_assembly,
+                method,
+                variable_scale_reason,
+                &failure,
+                options.tolerance,
+                options.max_iterations,
+                failure_convergence_status,
+            );
+        }
+    };
+    RuntimeComponentSolution::from_fixed_point_solver_assembly(
+        assembly_name,
+        solver_assembly,
+        options,
+        initial_values,
+        variable_scale_overrides,
+        &residual_scale_overrides,
+    )
+}
 fn materialize_system_algebraic_solutions(report: &CheckReport) -> Vec<RuntimeComponentSolution> {
     let mut solutions = Vec::new();
     for system in &report.semantic_program.systems {
@@ -3758,49 +3801,16 @@ fn materialize_system_algebraic_solutions(report: &CheckReport) -> Vec<RuntimeCo
                         ),
                     }
                 }
-                "fixed_point" => {
-                    let options = fixed_point_options_from_solve_request(&request.options);
-                    match fixed_point_initial_values_from_solve_request(
-                        &request.options,
-                        &solver_assembly.unknowns,
-                    ) {
-                        Ok(initial_values) => {
-                            let residual_graph = ResidualGraph::from_assembly(&solver_assembly);
-                            match residual_scale_overrides_from_solve_request(
-                                &request.options,
-                                &residual_graph,
-                            ) {
-                                Ok(residual_scale_overrides) => {
-                                    RuntimeComponentSolution::from_fixed_point_solver_assembly(
-                                        &system.name,
-                                        &solver_assembly,
-                                        options,
-                                        initial_values,
-                                        &residual_scale_overrides,
-                                    )
-                                }
-                                Err(failure) => failed_source_component_solution(
-                                    &solver_assembly,
-                                    "source_system_fixed_point_residual_graph",
-                                    "source system fixed-point residual scale overrides could not be materialized",
-                                    &failure,
-                                    options.tolerance,
-                                    options.max_iterations,
-                                    "source_system_fixed_point_failed",
-                                ),
-                            }
-                        }
-                        Err(failure) => failed_source_component_solution(
-                            &solver_assembly,
-                            "source_system_fixed_point_residual_graph",
-                            "source system fixed-point initial values could not be materialized",
-                            &failure,
-                            options.tolerance,
-                            options.max_iterations,
-                            "source_system_fixed_point_failed",
-                        ),
-                    }
-                }
+                "fixed_point" => fixed_point_component_solution_from_solve_request(
+                    &system.name,
+                    &solver_assembly,
+                    &request,
+                    "source_system_fixed_point_residual_graph",
+                    "source system fixed-point initial values could not be materialized",
+                    "source system fixed-point residual scale overrides could not be materialized",
+                    "source system fixed-point variable scales could not be materialized",
+                    "source_system_fixed_point_failed",
+                ),
                 "newton" | "nonlinear_newton" => {
                     nonlinear_component_solution_from_solve_request(&solver_assembly, &request)
                 }
@@ -8877,6 +8887,44 @@ fn finite_maximum(values: &[f64]) -> Option<f64> {
         .copied()
         .filter(|value| value.is_finite())
         .reduce(f64::max)
+}
+fn fixed_point_variable_scales_from_solve_request(
+    options: &[eng_compiler::WithOptionInfo],
+    variables: &[UnknownVariable],
+) -> Result<Option<Vec<f64>>, SolverFailure> {
+    let requested_keys = ["variable_scale", "variable_scales"]
+        .into_iter()
+        .filter(|key| option_value(options, key).is_some())
+        .collect::<Vec<_>>();
+    if requested_keys.is_empty() {
+        return Ok(None);
+    }
+    if requested_keys.len() > 1 {
+        return Err(SolverFailure::new(
+            "E-FIXED-POINT-SOURCE-VARIABLE-SCALE",
+            "specify either `variable_scale` or `variable_scales`, not both",
+        ));
+    }
+    let key = requested_keys[0];
+    let scales = source_initial_values_from_options(
+        options,
+        key,
+        variables,
+        1.0,
+        "fixed-point source variable scale",
+        "E-FIXED-POINT-SOURCE-VARIABLE-SCALE",
+        "E-FIXED-POINT-SOURCE-VARIABLE-SCALE-LAYOUT",
+    )?;
+    if scales
+        .iter()
+        .any(|scale| !scale.is_finite() || *scale <= 0.0)
+    {
+        return Err(SolverFailure::new(
+            "E-FIXED-POINT-SOURCE-VARIABLE-SCALE",
+            format!("fixed-point source option `{key}` expects positive finite variable scales"),
+        ));
+    }
+    Ok(Some(scales))
 }
 fn newton_variable_scales_from_solve_request(
     options: &[eng_compiler::WithOptionInfo],
@@ -14951,6 +14999,72 @@ with {
         assert!(html.contains("solved_fixed_point"));
         assert!(html.contains("fixed_point_residual_graph"));
         assert!(html.contains("x - (cos(y))"));
+    }
+    #[test]
+    fn materializes_fixed_point_source_system_solve_request_with_variable_scales() {
+        let source = r#"
+system StaticScaledFixedPointSourceSystem {
+    state x: DimensionlessNumber = 0.5
+    output y: DimensionlessNumber [1]
+
+    equation {
+        x eq cos(y)
+        y eq x
+    }
+}
+
+source_system_fixed_point_scaled_result = solve StaticScaledFixedPointSourceSystem
+with {
+    solver = fixed_point
+    initial = [0.5, 0.5]
+    variable_scales = [2, 4]
+    tolerance = 0.00001
+    max_iter = 120
+    relaxation = 0.5
+}
+"#;
+        let report = check_source(
+            "source_system_fixed_point_variable_scales.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.assembly, "StaticScaledFixedPointSourceSystem");
+        assert_eq!(solution.status, "solved_fixed_point");
+        assert_eq!(solution.method, "fixed_point_residual_graph");
+        assert_eq!(solution.convergence_status, "fixed_point_converged");
+        assert_eq!(
+            solution.variable_scale_policy,
+            "user_provided_variable_scales"
+        );
+        assert_eq!(solution.variable_scale_min, Some(2.0));
+        assert_eq!(solution.variable_scale_max, Some(4.0));
+        assert!(solution.step_diagnostics.iter().any(|diagnostic| {
+            diagnostic.variable_scale_policy.as_deref() == Some("user_provided_variable_scales")
+        }));
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "x"
+                && (variable.value - 0.739085).abs() <= 0.00001
+                && variable.status == "solved_fixed_point"
+        }));
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "y"
+                && (variable.value - 0.739085).abs() <= 0.00001
+                && variable.status == "solved_fixed_point"
+        }));
+
+        let mut spec =
+            eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        runtime.apply_component_solutions(&mut spec);
+        let json = eng_report::report_spec_json(&spec);
+        assert!(json.contains("\"variable_scale_policy\": \"user_provided_variable_scales\""));
+        assert!(json.contains("\"variable_scale_min\": 2"));
+        assert!(json.contains("\"variable_scale_max\": 4"));
     }
     #[test]
     fn materializes_affine_fixed_point_source_system_solve_request() {

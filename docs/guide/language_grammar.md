@@ -1252,7 +1252,10 @@ with {
 This path is intentionally narrow. `solver = fixed_point` is supported for
 pivotable linear ResidualGraphs assembled from component connections and simple
 component-local equations. The options are plain numeric values; invalid
-`tolerance`, `max_iter`, `relaxation`, and `initial` values are diagnostics.
+`tolerance`, `max_iter`, `relaxation`, `initial`, `variable_scale`, and
+`variable_scales` values are diagnostics. `variable_scale` applies one positive
+update scale to every unknown, while `variable_scales = [...]` supplies
+per-unknown positive scales for fixed-point update diagnostics and artifacts.
 
 Static source systems can also be solved explicitly when their equations are
 algebraic and square. Use `dense_linear`/`linear` for linear systems,
