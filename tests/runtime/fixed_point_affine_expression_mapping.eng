@@ -1,0 +1,29 @@
+domain ScalarLoop {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component AffineCosineLoop {
+    port source: ScalarLoop
+    port target: ScalarLoop
+    2 * source.x + 0.1 eq cos(target.x)
+    source.balance eq 0
+}
+
+system FixedPointAffineCosineLoop {
+    loop = AffineCosineLoop()
+    connect loop.source to loop.target
+}
+
+fixed_point_affine_expression_result = solve component_graph
+with {
+    solver = fixed_point
+    tolerance = 0.00001
+    max_iter = 80
+    initial = 0.5
+}
+
+report {
+    show fixed_point_affine_expression_result
+}

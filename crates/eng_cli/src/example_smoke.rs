@@ -1003,6 +1003,47 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/source_system_fixed_point_affine_solve.eng"),
+        Path::new("build/test-runtime-source-system-fixed-point-affine"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"assembly\": \"StaticAffineFixedPointSourceSystem\"")
+                || !output
+                    .result_json
+                    .contains("\"status\": \"solved_fixed_point\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"fixed_point_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"fixed_point_converged\"")
+                || !output.result_json.contains("\"name\": \"x\"")
+                || !output.result_json.contains("\"name\": \"y\"")
+                || !output.result_json.contains("2 * x + 0.1 - (cos(y))")
+                || !output
+                    .report_html
+                    .contains("StaticAffineFixedPointSourceSystem")
+                || !output.report_html.contains("solved_fixed_point")
+                || !output.report_html.contains("fixed_point_residual_graph")
+            {
+                eprintln!(
+                    "expected tests/runtime/source_system_fixed_point_affine_solve.eng to solve a static source system through affine expression-mapped fixed-point residual graph"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/source_system_fixed_point_affine_solve.eng solved affine fixed-point source system residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("source system affine fixed-point runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/runtime/source_system_newton_solve.eng"),
         Path::new("build/test-runtime-source-system-newton"),
         &artifact_run_options(),
@@ -1170,6 +1211,42 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("fixed-point expression-mapping runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/runtime/fixed_point_affine_expression_mapping.eng"),
+        Path::new("build/test-runtime-fixed-point-affine-expression-mapping"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"status\": \"solved_fixed_point\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"fixed_point_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"fixed_point_converged\"")
+                || !output
+                    .result_json
+                    .contains("2 * loop.source.x + 0.1 - (cos(loop.target.x))")
+                || !output.report_html.contains("solved_fixed_point")
+                || !output.report_html.contains("fixed_point_residual_graph")
+                || !output.report_html.contains("cos(loop.target.x)")
+            {
+                eprintln!(
+                    "expected tests/runtime/fixed_point_affine_expression_mapping.eng to solve an affine expression-mapped fixed-point residual graph"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/fixed_point_affine_expression_mapping.eng solved affine expression-mapped fixed-point residual graph"
+            );
+        }
+        Err(error) => {
+            eprintln!("fixed-point affine expression-mapping runtime fixture failed: {error}");
             return ExitCode::from(1);
         }
     }

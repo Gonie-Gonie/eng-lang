@@ -22,6 +22,7 @@ use crate::solver::evaluator::{
     parse_source_rhs_expression, source_rhs_parse_symbols, source_rhs_symbol_metadata,
 };
 use crate::solver::expression::{
+    linearize_arithmetic_expression_with_symbol_metadata_and_unit_converter,
     parse_arithmetic_expression_with_symbol_metadata_and_unit_converter,
     ArithmeticExpressionProfile, ArithmeticUnitMetadata, ParsedArithmeticExpression,
 };
@@ -9234,11 +9235,19 @@ struct FixedPointPivot {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+struct FixedPointExpressionSideTerm {
+    variable_index: usize,
+    coefficient: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 struct FixedPointExpressionMap {
     variable_index: usize,
     residual_index: usize,
     expression_text: String,
     expression: ParsedArithmeticExpression,
+    side_constant: f64,
+    side_terms: Vec<FixedPointExpressionSideTerm>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -9358,12 +9367,18 @@ fn fixed_point_expression_update_maps(
     assembly: &EquationAssembly,
     parameter_values: &[f64],
 ) -> Result<Vec<FixedPointExpressionMap>, SolverFailure> {
-    let mut symbols = assembly
-        .unknowns
+    let variable_symbols = graph
+        .variables
         .iter()
-        .map(|variable| (variable.name.clone(), 0.0))
+        .map(|variable| variable.name.clone())
+        .collect::<Vec<_>>();
+    let mut parameter_symbols = HashMap::new();
+    insert_assembly_parameter_symbols(assembly, &mut parameter_symbols, Some(parameter_values))?;
+    let mut symbols = variable_symbols
+        .iter()
+        .map(|variable| (variable.clone(), 0.0))
         .collect::<HashMap<_, _>>();
-    insert_assembly_parameter_symbols(assembly, &mut symbols, Some(parameter_values))?;
+    symbols.extend(parameter_symbols.clone());
     let symbol_units = source_residual_symbol_metadata(assembly);
     let mut maps = Vec::new();
     for (residual_index, residual) in graph.residuals.iter().enumerate() {
@@ -9371,40 +9386,100 @@ fn fixed_point_expression_update_maps(
         else {
             continue;
         };
-        if let Some(variable_index) = fixed_point_direct_variable_index(left, graph) {
-            maps.push(fixed_point_expression_update_map(
-                graph,
-                residual_index,
-                variable_index,
-                right,
-                &symbols,
-                &symbol_units,
-            )?);
-        } else if let Some(variable_index) = fixed_point_direct_variable_index(right, graph) {
-            maps.push(fixed_point_expression_update_map(
-                graph,
-                residual_index,
-                variable_index,
-                left,
-                &symbols,
-                &symbol_units,
-            )?);
+        if let Some(side) = fixed_point_affine_variable_side(
+            left,
+            graph,
+            &variable_symbols,
+            &parameter_symbols,
+            &symbol_units,
+        ) {
+            for term in &side.terms {
+                maps.push(fixed_point_expression_update_map(
+                    graph,
+                    residual_index,
+                    term.variable_index,
+                    right,
+                    &symbols,
+                    &symbol_units,
+                    side.constant,
+                    side.terms.clone(),
+                )?);
+            }
+        } else if let Some(side) = fixed_point_affine_variable_side(
+            right,
+            graph,
+            &variable_symbols,
+            &parameter_symbols,
+            &symbol_units,
+        ) {
+            for term in &side.terms {
+                maps.push(fixed_point_expression_update_map(
+                    graph,
+                    residual_index,
+                    term.variable_index,
+                    left,
+                    &symbols,
+                    &symbol_units,
+                    side.constant,
+                    side.terms.clone(),
+                )?);
+            }
         }
     }
     Ok(maps)
 }
 
-fn split_fixed_point_source_equation(expression: &str) -> Option<(&str, &str)> {
-    expression.split_once(" eq ")
+#[derive(Clone, Debug, PartialEq)]
+struct FixedPointAffineSide {
+    constant: f64,
+    terms: Vec<FixedPointExpressionSideTerm>,
 }
 
-fn fixed_point_direct_variable_index(side: &str, graph: &ResidualGraph) -> Option<usize> {
+fn fixed_point_affine_variable_side(
+    side: &str,
+    graph: &ResidualGraph,
+    variable_symbols: &[String],
+    constant_symbols: &HashMap<String, f64>,
+    symbol_units: &HashMap<String, ArithmeticUnitMetadata>,
+) -> Option<FixedPointAffineSide> {
     let side = trim_wrapping_parentheses(side.trim());
-    graph
-        .variables
-        .iter()
-        .find(|variable| variable.name == side)
-        .map(|variable| variable.index)
+    let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
+    let linearized = linearize_arithmetic_expression_with_symbol_metadata_and_unit_converter(
+        side,
+        variable_symbols,
+        constant_symbols,
+        symbol_units,
+        &mut ignore_units,
+        ArithmeticExpressionProfile::SOURCE_RESIDUAL,
+        1e-9,
+    )
+    .ok()?;
+    if !linearized.constant.is_finite() {
+        return None;
+    }
+    let terms = linearized
+        .terms
+        .into_iter()
+        .filter(|term| term.coefficient.is_finite() && term.coefficient.abs() > 1e-12)
+        .filter_map(|term| {
+            graph
+                .variables
+                .iter()
+                .find(|variable| variable.name == term.symbol)
+                .map(|variable| FixedPointExpressionSideTerm {
+                    variable_index: variable.index,
+                    coefficient: term.coefficient,
+                })
+        })
+        .collect::<Vec<_>>();
+    (!terms.is_empty()).then_some(FixedPointAffineSide {
+        constant: linearized.constant,
+        terms,
+    })
+}
+
+fn split_fixed_point_source_equation(expression: &str) -> Option<(&str, &str)> {
+    expression.split_once(" eq ")
 }
 
 fn trim_wrapping_parentheses(mut value: &str) -> &str {
@@ -9425,6 +9500,8 @@ fn fixed_point_expression_update_map(
     expression_text: &str,
     symbols: &HashMap<String, f64>,
     symbol_units: &HashMap<String, ArithmeticUnitMetadata>,
+    side_constant: f64,
+    side_terms: Vec<FixedPointExpressionSideTerm>,
 ) -> Result<FixedPointExpressionMap, SolverFailure> {
     let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
     let expression = parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
@@ -9455,6 +9532,8 @@ fn fixed_point_expression_update_map(
         residual_index,
         expression_text: expression_text.trim().to_owned(),
         expression,
+        side_constant,
+        side_terms,
     })
 }
 
@@ -9526,7 +9605,46 @@ fn fixed_point_update_values(
                         ),
                     )
                 })?;
-                next[mapping.variable_index] = value;
+                let Some(target_term) = mapping
+                    .side_terms
+                    .iter()
+                    .find(|term| term.variable_index == mapping.variable_index)
+                else {
+                    return Err(SolverFailure::new(
+                        "E-FIXED-POINT-GRAPH-PIVOT",
+                        format!(
+                            "fixed-point expression map for residual `{}` lost its target coefficient",
+                            residual.name
+                        ),
+                    ));
+                };
+                if !target_term.coefficient.is_finite() || target_term.coefficient.abs() <= 1e-12 {
+                    return Err(SolverFailure::new(
+                        "E-FIXED-POINT-VALUE",
+                        format!(
+                            "fixed-point expression map for residual `{}` has an invalid target coefficient",
+                            residual.name
+                        ),
+                    ));
+                }
+                let mut side_without_target = mapping.side_constant;
+                for term in &mapping.side_terms {
+                    if term.variable_index == mapping.variable_index {
+                        continue;
+                    }
+                    let Some(value) = values.get(term.variable_index) else {
+                        return Err(SolverFailure::new(
+                            "E-FIXED-POINT-LAYOUT",
+                            format!(
+                                "fixed-point expression map for residual `{}` references variable index {} outside the update vector",
+                                residual.name, term.variable_index
+                            ),
+                        ));
+                    };
+                    side_without_target += term.coefficient * value;
+                }
+                next[mapping.variable_index] =
+                    (value - side_without_target) / target_term.coefficient;
             }
         }
     }
@@ -14777,6 +14895,65 @@ with {
         assert!(html.contains("x - (cos(y))"));
     }
     #[test]
+    fn materializes_affine_fixed_point_source_system_solve_request() {
+        let source = r#"
+system StaticAffineFixedPointSourceSystem {
+    state x: DimensionlessNumber = 0.5
+    output y: DimensionlessNumber [1]
+
+    equation {
+        2 * x + 0.1 eq cos(y)
+        y eq x
+    }
+}
+
+source_system_fixed_point_affine_result = solve StaticAffineFixedPointSourceSystem
+with {
+    solver = fixed_point
+    initial = [0.5, 0.5]
+    tolerance = 0.00001
+    max_iter = 80
+}
+"#;
+        let report = check_source(
+            "source_system_fixed_point_affine_solve.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.assembly, "StaticAffineFixedPointSourceSystem");
+        assert_eq!(solution.status, "solved_fixed_point");
+        assert_eq!(solution.method, "fixed_point_residual_graph");
+        assert_eq!(solution.convergence_status, "fixed_point_converged");
+        assert_eq!(solution.equation_count, 2);
+        assert_eq!(solution.unknown_count, 2);
+        assert!(solution.residual_norm <= solution.tolerance);
+        assert!(solution.failure_artifact.is_none());
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "x"
+                && variable.role == "algebraic"
+                && (variable.value - 0.408799).abs() <= 0.00001
+                && variable.status == "solved_fixed_point"
+        }));
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "y"
+                && variable.role == "algebraic"
+                && (variable.value - 0.408799).abs() <= 0.00001
+                && variable.status == "solved_fixed_point"
+        }));
+        assert!(solution.residuals.iter().any(|residual| {
+            residual.name == "StaticAffineFixedPointSourceSystem.residual_1"
+                && residual.expression == "2 * x + 0.1 - (cos(y))"
+                && residual.source_expression == "2 * x + 0.1 eq cos(y)"
+                && residual.status == "satisfied"
+        }));
+    }
+    #[test]
     fn materializes_newton_source_system_solve_request() {
         let source = r#"
 system StaticNonlinearSourceSystem {
@@ -15065,6 +15242,69 @@ with {
         assert!(html.contains("solved_fixed_point"));
         assert!(html.contains("fixed_point_residual_graph"));
         assert!(html.contains("cos(loop.target.x)"));
+    }
+    #[test]
+    fn materializes_affine_expression_mapped_fixed_point_source_solve_request() {
+        let source = r#"
+domain ScalarLoop {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component AffineCosineLoop {
+    port source: ScalarLoop
+    port target: ScalarLoop
+    2 * source.x + 0.1 eq cos(target.x)
+    source.balance eq 0
+}
+
+system FixedPointAffineCosineLoop {
+    loop = AffineCosineLoop()
+    connect loop.source to loop.target
+}
+
+fixed_point_affine_expression_result = solve component_graph
+with {
+    solver = fixed_point
+    tolerance = 0.00001
+    max_iter = 80
+    initial = 0.5
+}
+"#;
+        let report = check_source(
+            "fixed_point_affine_expression_mapping.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.assembly, "component_graph");
+        assert_eq!(solution.status, "solved_fixed_point");
+        assert_eq!(solution.method, "fixed_point_residual_graph");
+        assert_eq!(solution.convergence_status, "fixed_point_converged");
+        assert!(solution.failure_artifact.is_none());
+        assert!(solution.residual_norm <= solution.tolerance);
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "loop.source.x"
+                && variable.status == "solved_fixed_point"
+                && (variable.value - 0.408799).abs() <= 0.00001
+        }));
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "loop.target.x"
+                && variable.status == "solved_fixed_point"
+                && (variable.value - 0.408799).abs() <= 0.00001
+        }));
+        assert!(solution.residuals.iter().any(|residual| {
+            residual.name == "loop.equation_1"
+                && residual.expression == "2 * loop.source.x + 0.1 - (cos(loop.target.x))"
+                && residual.source_expression == "2 * loop.source.x + 0.1 eq cos(loop.target.x)"
+                && residual.status == "satisfied"
+        }));
     }
     #[test]
     fn materializes_fixed_point_source_solve_request_with_vector_initial() {
