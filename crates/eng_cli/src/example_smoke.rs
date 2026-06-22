@@ -5146,6 +5146,41 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/runtime/thermal_scalar_input_override.eng"),
+        Path::new("build/test-runtime-thermal-scalar-input-override"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            let result = std::fs::read_to_string(&output.result_path).unwrap_or_default();
+            let plot_spec = std::fs::read_to_string(&output.plot_spec_path).unwrap_or_default();
+            let report_spec = std::fs::read_to_string(&output.report_spec_path).unwrap_or_default();
+            let report_html = std::fs::read_to_string(&output.report_path).unwrap_or_default();
+            if !result.contains("\"binding\": \"sim\"")
+                || !result.contains("\"method\": \"rk4_fixed_step\"")
+                || !result.contains("first-order thermal ODE")
+                || !result.contains("\"inputs\": [\"T_out\", \"Q_internal\"]")
+                || !result.contains("\"state\": \"T_zone\"")
+                || !result.contains("\"final_value\": 304")
+                || !report_spec.contains("C * der(T_zone) - (UA * (T_out - T_zone) + Q_internal)")
+                || !plot_spec.contains("\"name\": \"sim.T_zone\"")
+                || !plot_spec.contains("[2, 304]")
+                || !report_html.contains("ThermalScalarInputOverride")
+            {
+                eprintln!(
+                    "expected tests/runtime/thermal_scalar_input_override.eng to apply simulate scalar input overrides in one-state thermal evaluation"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/thermal_scalar_input_override.eng applied one-state thermal scalar input override"
+            );
+        }
+        Err(error) => {
+            eprintln!("thermal scalar input override runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("examples/internal/17_measured_vs_simulated/main.eng"),
         Path::new("build/test-measured-vs-simulated-repro"),
         &RunOptions {

@@ -1,0 +1,39 @@
+args {
+    weather: CsvFile = file("data/thermal_constant_weather.csv")
+}
+
+schema ThermalConstantWeather {
+    time: DateTime index
+    T_out: AbsoluteTemperature [K]
+}
+
+weather_data = promote csv args.weather as ThermalConstantWeather
+
+system ThermalScalarInputOverride {
+    parameter C: HeatCapacity [J/K] = 10 J/K
+    parameter UA: Conductance [W/K] = 0 W/K
+    state T_zone: AbsoluteTemperature [K] = 300 K
+    input T_out: TimeSeries[Time] of AbsoluteTemperature [K]
+    input Q_internal: HeatRate [W] = 0 W
+
+    equation {
+        C * der(T_zone) eq UA * (T_out - T_zone) + Q_internal
+    }
+}
+
+sim = simulate ThermalScalarInputOverride
+with {
+    T_out = weather_data.T_out
+    Q_internal = 20 W
+    timestep = 1 s
+    duration = 2 s
+    solver = rk4
+}
+
+report {
+    plot sim.T_zone over Time
+    with {
+        unit y = K
+        title = "Thermal scalar input override solve"
+    }
+}

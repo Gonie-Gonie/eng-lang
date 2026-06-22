@@ -130,7 +130,7 @@ by the stable breaking-change policy.
   multi-series histogram behavior remain planned.
 - Minimal `system`/`eq` support for parsing, semantic/unit diagnostics,
   parameter/state/input metadata, `der(...)`, one-state fixed-step thermal
-  execution, one-state `adaptive_heun` simulation, source-equation fixed-step
+  execution, one-state `adaptive_heun` simulation, one-state thermal scalar input override fixture coverage, source-equation fixed-step
   and adaptive Heun ODE execution with scalar or Time-indexed TimeSeries inputs,
   numeric system parameter override materialization,
   official three-state non-thermal adaptive source-equation coverage with
