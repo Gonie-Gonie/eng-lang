@@ -598,6 +598,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"largest_residual_name\":")
+                || !output
+                    .report_spec_json
+                    .contains("\"largest_residual_source_expression\":")
                 || !output.result_json.contains("\"name\": \"relax.source.q\"")
                 || !output.result_json.contains("\"value\": 1.999")
                 || !output
@@ -645,6 +648,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"largest_residual_name\":")
+                || !output
+                    .report_spec_json
+                    .contains("\"largest_residual_source_expression\":")
                 || !output
                     .result_json
                     .contains("\"convergence_status\": \"linear_algebraic_converged\"")
@@ -725,6 +731,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"largest_residual_name\":")
                 || !output
                     .report_spec_json
+                    .contains("\"largest_residual_source_expression\":")
+                || !output
+                    .report_spec_json
                     .contains("\"largest_residual_abs_value\":")
                 || !output.result_json.contains("\"largest_residuals\"")
                 || !output.result_json.contains("\"expression_unit\": \"kW\"")
@@ -801,6 +810,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"largest_residual_name\":")
+                || !output
+                    .report_spec_json
+                    .contains("\"largest_residual_source_expression\":")
                 || !output
                     .report_spec_json
                     .contains("\"largest_residual_abs_value\":")
@@ -999,6 +1011,50 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
         Err(error) => {
             eprintln!("source system fixed-point runtime fixture failed: {error}");
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
+        Path::new("tests/runtime/source_system_fixed_point_coupled_affine_side.eng"),
+        Path::new("build/test-runtime-source-system-fixed-point-coupled-affine-side"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"assembly\": \"StaticCoupledAffineSideFixedPointSystem\"")
+                || !output
+                    .result_json
+                    .contains("\"status\": \"solved_fixed_point\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"fixed_point_residual_graph\"")
+                || !output.result_json.contains("x + 0.25 * y - (cos(y))")
+                || !output
+                    .report_spec_json
+                    .contains("\"largest_residual_source_expression\": \"x + 0.25 * y eq cos(y)\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"largest_residual_source_expression\": \"y eq x\"")
+                || !output
+                    .report_html
+                    .contains("StaticCoupledAffineSideFixedPointSystem")
+                || !output.report_html.contains("solved_fixed_point")
+                || !output.report_html.contains("fixed_point_residual_graph")
+            {
+                eprintln!(
+                    "expected tests/runtime/source_system_fixed_point_coupled_affine_side.eng to solve a coupled affine-side static source system with fixed-point source context"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/runtime/source_system_fixed_point_coupled_affine_side.eng solved coupled affine-side fixed-point source system with source context"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "source system coupled affine-side fixed-point runtime fixture failed: {error}"
+            );
             return ExitCode::from(1);
         }
     }
@@ -2336,6 +2392,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"largest_residual_name\":")
                 || !output
                     .report_spec_json
+                    .contains("\"largest_residual_source_expression\":")
+                || !output
+                    .report_spec_json
                     .contains("\"largest_residual_abs_value\":")
                 || !output.result_json.contains("\"largest_residuals\"")
                 || !output
@@ -3255,6 +3314,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"largest_residual_name\":")
+                || !output
+                    .report_spec_json
+                    .contains("\"largest_residual_source_expression\":")
                 || !output
                     .report_html
                     .contains("dynamic_component_assembly_semi_implicit_euler")

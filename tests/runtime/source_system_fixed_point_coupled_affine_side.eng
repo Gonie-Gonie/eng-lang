@@ -1,0 +1,22 @@
+system StaticCoupledAffineSideFixedPointSystem {
+    state x: DimensionlessNumber = 0.5
+    output y: DimensionlessNumber [1]
+
+    equation {
+        x + 0.25 * y eq cos(y)
+        y eq x
+    }
+}
+
+source_system_fixed_point_coupled_affine_result = solve StaticCoupledAffineSideFixedPointSystem
+with {
+    solver = fixed_point
+    initial = [0.4, 0.4]
+    tolerance = 0.00001
+    max_iter = 120
+    relaxation = 0.5
+}
+
+report {
+    show source_system_fixed_point_coupled_affine_result
+}

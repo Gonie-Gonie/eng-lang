@@ -1600,6 +1600,7 @@ impl RuntimeComponentSolution {
         let mut iteration_count = 0;
         let mut fixed_point_residual_history = Vec::new();
         let mut fixed_point_residual_value_history = Vec::new();
+        let mut fixed_point_update_residual_names: Option<Vec<String>> = None;
         let parameter_values = match source_assembly_parameter_values(solver_assembly) {
             Ok(values) => Some(values),
             Err(failure) => {
@@ -1618,6 +1619,20 @@ impl RuntimeComponentSolution {
         if let Some(parameter_values) = parameter_values.as_ref() {
             match fixed_point_update_plan(&residual_graph, solver_assembly, parameter_values) {
                 Ok(update_plan) => {
+                    fixed_point_update_residual_names = Some(
+                        update_plan
+                            .iter()
+                            .map(|rule| {
+                                residual_graph
+                                    .residuals
+                                    .get(rule.residual_index())
+                                    .map(|residual| residual.name.clone())
+                                    .unwrap_or_else(|| {
+                                        format!("unknown_residual_{}", rule.residual_index())
+                                    })
+                            })
+                            .collect(),
+                    );
                     match solve_fixed_point(&initial_values, &iteration_options, |values| {
                         fixed_point_update_values(
                             &residual_graph,
@@ -1758,10 +1773,13 @@ impl RuntimeComponentSolution {
                 "unit_default_from_fixed_point_unknowns",
             ),
         };
+        let step_residual_names = fixed_point_update_residual_names
+            .as_deref()
+            .unwrap_or(variable_names.as_slice());
         let step_diagnostics = fixed_point_residual_history_diagnostics(
             &fixed_point_residual_history,
             &fixed_point_residual_value_history,
-            Some(&variable_names),
+            Some(step_residual_names),
             Some(&variable_scales),
             Some(variable_scale_policy),
             &convergence_status,
@@ -15001,6 +15019,78 @@ with {
         assert!(html.contains("x - (cos(y))"));
     }
     #[test]
+    fn materializes_coupled_affine_side_fixed_point_source_system_solve_request() {
+        let source = r#"
+system StaticCoupledAffineSideFixedPointSystem {
+    state x: DimensionlessNumber = 0.5
+    output y: DimensionlessNumber [1]
+
+    equation {
+        x + 0.25 * y eq cos(y)
+        y eq x
+    }
+}
+
+source_system_fixed_point_coupled_affine_result = solve StaticCoupledAffineSideFixedPointSystem
+with {
+    solver = fixed_point
+    initial = [0.4, 0.4]
+    tolerance = 0.00001
+    max_iter = 120
+    relaxation = 0.5
+}
+"#;
+        let report = check_source(
+            "source_system_fixed_point_coupled_affine_side.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.assembly, "StaticCoupledAffineSideFixedPointSystem");
+        assert_eq!(solution.status, "solved_fixed_point");
+        assert_eq!(solution.method, "fixed_point_residual_graph");
+        assert_eq!(solution.convergence_status, "fixed_point_converged");
+        assert!(solution.residual_norm <= solution.tolerance);
+        assert!(solution.iteration_count > 1);
+        assert!(solution.failure_artifact.is_none());
+        assert!(solution.step_diagnostics.iter().any(|diagnostic| {
+            diagnostic.largest_residual_name.as_deref()
+                == Some("StaticCoupledAffineSideFixedPointSystem.residual_1")
+        }));
+        assert!(solution.step_diagnostics.iter().any(|diagnostic| {
+            diagnostic.largest_residual_name.as_deref()
+                == Some("StaticCoupledAffineSideFixedPointSystem.residual_2")
+        }));
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "x"
+                && (variable.value - 0.64113).abs() <= 0.0001
+                && variable.status == "solved_fixed_point"
+        }));
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "y"
+                && (variable.value - 0.64113).abs() <= 0.0001
+                && variable.status == "solved_fixed_point"
+        }));
+        assert!(solution.residuals.iter().any(|residual| {
+            residual.source_expression == "x + 0.25 * y eq cos(y)" && residual.status == "satisfied"
+        }));
+
+        let mut spec =
+            eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        runtime.apply_component_solutions(&mut spec);
+        let json = eng_report::report_spec_json(&spec);
+        assert!(json.contains("\"largest_residual_source_expression\": \"x + 0.25 * y eq cos(y)\""));
+        assert!(json.contains("\"largest_residual_source_expression\": \"y eq x\""));
+        let html = eng_report::render_html_with_spec(&report, "plots/timeseries.svg", &spec);
+        assert!(html.contains("StaticCoupledAffineSideFixedPointSystem"));
+        assert!(html.contains("x + 0.25 * y - (cos(y))"));
+    }
+    #[test]
     fn materializes_fixed_point_source_system_solve_request_with_variable_scales() {
         let source = r#"
 system StaticScaledFixedPointSourceSystem {
@@ -15047,6 +15137,10 @@ with {
         assert!(solution.step_diagnostics.iter().any(|diagnostic| {
             diagnostic.variable_scale_policy.as_deref() == Some("user_provided_variable_scales")
         }));
+        assert!(solution.step_diagnostics.iter().any(|diagnostic| {
+            diagnostic.largest_residual_name.as_deref()
+                == Some("StaticScaledFixedPointSourceSystem.residual_1")
+        }));
         assert!(solution.variables.iter().any(|variable| {
             variable.name == "x"
                 && (variable.value - 0.739085).abs() <= 0.00001
@@ -15065,6 +15159,7 @@ with {
         assert!(json.contains("\"variable_scale_policy\": \"user_provided_variable_scales\""));
         assert!(json.contains("\"variable_scale_min\": 2"));
         assert!(json.contains("\"variable_scale_max\": 4"));
+        assert!(json.contains("\"largest_residual_source_expression\": \"x eq cos(y)\""));
     }
     #[test]
     fn materializes_fixed_point_source_system_nonconvergence_failure_artifact() {
