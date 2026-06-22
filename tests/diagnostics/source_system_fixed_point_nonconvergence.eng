@@ -1,0 +1,22 @@
+system StaticDivergingFixedPointSourceSystem {
+    state x: DimensionlessNumber = 1
+    output y: DimensionlessNumber [1]
+
+    equation {
+        x eq 1.5 * y
+        y eq x
+    }
+}
+
+source_system_fixed_point_nonconverged = solve StaticDivergingFixedPointSourceSystem
+with {
+    solver = fixed_point
+    initial = [1, 1]
+    tolerance = 0.000001
+    max_iter = 3
+    relaxation = 1
+}
+
+report {
+    show source_system_fixed_point_nonconverged
+}

@@ -4052,6 +4052,56 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("tests/diagnostics/source_system_fixed_point_nonconvergence.eng"),
+        Path::new("build/test-diagnostics-source-system-fixed-point-nonconvergence"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output
+                .result_json
+                .contains("\"assembly\": \"StaticDivergingFixedPointSourceSystem\"")
+                || !output
+                    .result_json
+                    .contains("\"status\": \"fixed_point_not_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"method\": \"fixed_point_residual_graph\"")
+                || !output
+                    .result_json
+                    .contains("\"convergence_status\": \"fixed_point_not_converged\"")
+                || !output
+                    .result_json
+                    .contains("\"failure_code\": \"E-FIXED-POINT-NONCONVERGENCE\"")
+                || !output.result_json.contains("\"largest_residuals\"")
+                || !output.result_json.contains(
+                    "\"variable_scale_policy\": \"unit_default_from_fixed_point_unknowns\"",
+                )
+                || !output
+                    .report_spec_json
+                    .contains("\"failure_code\": \"E-FIXED-POINT-NONCONVERGENCE\"")
+                || !output
+                    .report_html
+                    .contains("StaticDivergingFixedPointSourceSystem")
+                || !output.report_html.contains("fixed_point_not_converged")
+                || !output.report_html.contains("E-FIXED-POINT-NONCONVERGENCE")
+            {
+                eprintln!(
+                    "expected tests/diagnostics/source_system_fixed_point_nonconvergence.eng to report source-system fixed-point nonconvergence"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: tests/diagnostics/source_system_fixed_point_nonconvergence.eng reported source-system fixed-point nonconvergence"
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "source-system fixed-point nonconvergence diagnostics fixture failed: {error}"
+            );
+            return ExitCode::from(1);
+        }
+    }
+    match run_file(
         Path::new("tests/diagnostics/newton_nonconvergence.eng"),
         Path::new("build/test-diagnostics-newton-nonconvergence"),
         &artifact_run_options(),

@@ -15067,6 +15067,100 @@ with {
         assert!(json.contains("\"variable_scale_max\": 4"));
     }
     #[test]
+    fn materializes_fixed_point_source_system_nonconvergence_failure_artifact() {
+        let source = r#"
+system StaticDivergingFixedPointSourceSystem {
+    state x: DimensionlessNumber = 1
+    output y: DimensionlessNumber [1]
+
+    equation {
+        x eq 1.5 * y
+        y eq x
+    }
+}
+
+source_system_fixed_point_nonconverged = solve StaticDivergingFixedPointSourceSystem
+with {
+    solver = fixed_point
+    initial = [1, 1]
+    tolerance = 0.000001
+    max_iter = 3
+    relaxation = 1
+}
+"#;
+        let report = check_source(
+            "source_system_fixed_point_nonconvergence.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.assembly, "StaticDivergingFixedPointSourceSystem");
+        assert_eq!(solution.status, "fixed_point_not_converged");
+        assert_eq!(solution.method, "fixed_point_residual_graph");
+        assert_eq!(solution.convergence_status, "fixed_point_not_converged");
+        assert_eq!(solution.iteration_count, 3);
+        assert!(solution.residual_norm.is_finite());
+        assert!(solution.residual_norm > solution.tolerance);
+        assert_eq!(solution.step_diagnostics.len(), 3);
+        assert!(solution.step_diagnostics.iter().all(|diagnostic| {
+            diagnostic.residual_values.len() == solution.unknown_count
+                && diagnostic.normalized_residual_values.len() == solution.unknown_count
+                && diagnostic.largest_residual_name.is_some()
+        }));
+        assert!(solution.step_diagnostics.iter().any(|diagnostic| {
+            diagnostic.variable_scale_policy.as_deref()
+                == Some("unit_default_from_fixed_point_unknowns")
+        }));
+        assert!(solution.variables.iter().all(|variable| {
+            variable.status == "fixed_point_not_converged" && variable.value.is_finite()
+        }));
+        assert_eq!(
+            solution
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-FIXED-POINT-NONCONVERGENCE")
+        );
+        let final_diagnostic = solution.step_diagnostics.last().unwrap();
+        assert_eq!(
+            final_diagnostic.convergence_status,
+            "fixed_point_not_converged"
+        );
+        assert_eq!(
+            final_diagnostic
+                .failure_artifact
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("E-FIXED-POINT-NONCONVERGENCE")
+        );
+        assert!(!solution.largest_residuals.is_empty());
+        assert!(solution.residuals.iter().any(|residual| {
+            residual.source_reason.as_deref() == Some("source system algebraic equation")
+                && residual.status == "unsatisfied"
+        }));
+        assert!(solution.largest_residuals.iter().any(|residual| {
+            residual.source_expression == "y eq x" && residual.status == "unsatisfied"
+        }));
+
+        let mut spec =
+            eng_report::report_spec_from_report(&report, "plots/plot_manifest.json", "abc123");
+        runtime.apply_component_solutions(&mut spec);
+        let json = eng_report::report_spec_json(&spec);
+        assert!(json.contains("\"name\": \"StaticDivergingFixedPointSourceSystem\""));
+        assert!(json.contains("\"convergence_status\": \"fixed_point_not_converged\""));
+        assert!(json.contains("\"failure_code\": \"E-FIXED-POINT-NONCONVERGENCE\""));
+        assert!(json.contains("\"largest_residuals\""));
+        let html = eng_report::render_html_with_spec(&report, "plots/timeseries.svg", &spec);
+        assert!(html.contains("StaticDivergingFixedPointSourceSystem"));
+        assert!(html.contains("fixed_point_not_converged"));
+        assert!(html.contains("E-FIXED-POINT-NONCONVERGENCE"));
+    }
+    #[test]
     fn materializes_affine_fixed_point_source_system_solve_request() {
         let source = r#"
 system StaticAffineFixedPointSourceSystem {
