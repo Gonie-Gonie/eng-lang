@@ -26,6 +26,6 @@ Current support boundary:
 Useful commands:
 
 ```bat
-target\debug\eng.exe check examples\official\23_thermal_component_assembly\main.eng --review
-target\debug\eng.exe run examples\official\23_thermal_component_assembly\main.eng --save-artifacts
+target\debug\eng.exe check examples\advanced_solver\23_thermal_component_assembly\main.eng --review
+target\debug\eng.exe run examples\advanced_solver\23_thermal_component_assembly\main.eng --save-artifacts
 ```

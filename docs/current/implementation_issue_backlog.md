@@ -562,7 +562,7 @@ Current coverage:
   equations, component-boundary RHS equations, a square residual graph, and
   dense linear solver artifacts while preserving the non-production
   multi-domain limitation.
-- `examples/official/32_small_thermal_fluid_loop` exercises a constrained
+- `examples/advanced_solver/32_small_thermal_fluid_loop` exercises a constrained
   Thermal/Fluid[Water] pressure/flow algebraic residual path with generated
   connection equations, component-boundary RHS equations, pipe component
   equations, a square residual graph, dense linear solver artifacts, and the

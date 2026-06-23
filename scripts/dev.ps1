@@ -1912,7 +1912,7 @@ function New-UserGuidePdf {
         @{ Kind = "subtitle"; Text = "Portable Windows package v$Version" },
         @{ Kind = "body"; Text = "EngLang is a native engineering language for workflows where units, physical quantities, schemas, axes, statistics, plots, reports, and provenance are checked as part of the program. This PDF is the curated user-facing guide for the portable package; developer notes and master plans stay in the repository." },
         @{ Kind = "h1"; Text = "1. Package Contents" },
-        @{ Kind = "body"; Text = "The portable folder contains eng.exe for command-line execution, eng-ide.exe for native IDE testing, eng-lsp.exe for editor-service smoke checks, WebView2Loader.dll for the IDE, official examples, compatibility and internal smoke fixtures, diagnostic fixtures, stdlib language seeds, optional VS Code extension tooling, curated PDF docs, README.txt, and PACKAGE_ASSETS.txt. It intentionally does not ship the full developer documentation tree." },
+        @{ Kind = "body"; Text = "The portable folder contains eng.exe for command-line execution, eng-ide.exe for native IDE testing, eng-lsp.exe for editor-service smoke checks, WebView2Loader.dll for the IDE, official core workflow examples, stdlib language seeds, optional VS Code extension tooling, curated PDF docs, README.txt, and PACKAGE_ASSETS.txt. Advanced solver, compatibility, diagnostic, and internal regression fixtures stay in the source repository. The package intentionally does not ship the full developer documentation tree." },
         @{ Kind = "h1"; Text = "2. First Smoke Test" },
         @{ Kind = "step"; Text = "Open a command prompt in the extracted folder." },
         @{ Kind = "step"; Text = "Run: eng.exe doctor" },
@@ -1941,7 +1941,7 @@ function New-UserGuidePdf {
         @{ Kind = "body"; Text = "If a run fails, check Problems first, then run eng.exe check <file.eng> from the same folder. Plot previews live in the right Plot inspector tab beside Variables; report and SVG artifacts can be opened on demand after a successful run." },
         @{ Kind = "body"; Text = "If a CSV path fails, keep relative paths anchored next to the source file, as in the official examples. If a report does not open, open build/result/report.html manually." },
         @{ Kind = "h1"; Text = "8. Current Boundaries" },
-        @{ Kind = "body"; Text = "This release supports the documented core workflows: CSV promote, unit-aware TimeSeries calculations, PlotSpec/SVG output, review/report artifacts, package smoke, official examples, standalone packaging, and the native tester IDE smoke path. Internal examples remain bundled for smoke checks and inspection, but they are not public tutorials. Public solver support, general nonlinear solving, DAE solving, production multi-domain component graph solving, native JIT execution, broad uncertainty and ML workflows, and full editor platform guarantees remain future or internal tracks unless explicitly marked stable-supported." }
+        @{ Kind = "body"; Text = "This release supports the documented core workflows: CSV promote, unit-aware TimeSeries calculations, PlotSpec/SVG output, review/report artifacts, package smoke, official examples, standalone packaging, and the native tester IDE smoke path. Advanced solver, compatibility, diagnostic, and internal regression fixtures remain source-repository material, not portable package tutorials. Public solver support, general nonlinear solving, DAE solving, production multi-domain component graph solving, native JIT execution, broad uncertainty and ML workflows, and full editor platform guarantees remain future or internal tracks unless explicitly marked stable-supported." }
     )
 
     $pages = New-Object System.Collections.Generic.List[string]
@@ -2072,10 +2072,13 @@ Curated user documentation:
   docs\EngLang_Language_Grammar_Guide.pdf
 
 Examples:
-  examples\official\             release-facing examples and user tests
-  examples\compat\               compatibility regression fixtures
-  examples\internal\             internal smoke and inspection fixtures, not public support
-  examples\diagnostics\          diagnostic and data-quality fixtures
+  examples\official\             core workflow examples and user tests
+
+Repo-only examples excluded from this portable package:
+  advanced solver smoke fixtures
+  compatibility regression fixtures
+  internal smoke and inspection fixtures
+  diagnostic and data-quality fixtures
 
 Language support:
   stdlib\                         packaged standard library source seeds
@@ -2119,7 +2122,9 @@ function Invoke-Package {
     Copy-Item -Force (Join-Path $RepoRoot "target\release\eng-ide.exe") (Join-Path $PackageRoot "eng-ide.exe")
     Copy-Item -Force (Join-Path $RepoRoot "target\release\eng-lsp.exe") (Join-Path $PackageRoot "eng-lsp.exe")
     Copy-IdeRuntimeDependencies -DestinationRoot $PackageRoot
-    Copy-Item -Recurse -Force (Join-Path $RepoRoot "examples") (Join-Path $PackageRoot "examples")
+    $PackageExamplesRoot = Join-Path $PackageRoot "examples"
+    New-Item -ItemType Directory -Force -Path $PackageExamplesRoot | Out-Null
+    Copy-Item -Recurse -Force (Join-Path $RepoRoot "examples\official") (Join-Path $PackageExamplesRoot "official")
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "stdlib") (Join-Path $PackageRoot "stdlib")
     New-Item -ItemType Directory -Force -Path (Join-Path $PackageRoot "docs") | Out-Null
     $PackageGuidePath = Join-Path $PackageRoot ("docs\" + (Get-PackageUserGuideFileName))
@@ -2164,10 +2169,13 @@ VS Code IDE preview:
   run "EngLang: Check Current File"
 
 Example folders:
-  examples\official      user-facing release examples
-  examples\compat        compatibility regression fixtures
-  examples\internal      internal smoke and inspection fixtures, not public support
-  examples\diagnostics   diagnostic and data-quality fixtures
+  examples\official      core workflow release examples
+
+Repo-only example folders not bundled in this package:
+  advanced solver smoke fixtures
+  compatibility regression fixtures
+  internal smoke and inspection fixtures
+  diagnostic and data-quality fixtures
 
 Generated artifacts are written under build\result in the current folder.
 The curated user guide is docs\$(Get-PackageUserGuideFileName). The language
@@ -2267,8 +2275,13 @@ function Invoke-PackageSmoke {
             throw "portable package did not include PACKAGE_ASSETS.txt"
         }
         $AssetManifestText = Get-Content -LiteralPath $ExpectedAssetManifest -Raw -Encoding UTF8
-        if (-not $AssetManifestText.Contains("examples\official\") -or -not $AssetManifestText.Contains("examples\internal\") -or -not $AssetManifestText.Contains("not public support")) {
+        if (-not $AssetManifestText.Contains("examples\official\") -or -not $AssetManifestText.Contains("Repo-only examples excluded")) {
             throw "portable package asset manifest does not document example support boundaries"
+        }
+        foreach ($ExcludedExampleFolder in @("advanced_solver", "compat", "internal", "diagnostics")) {
+            if (Test-Path (Join-Path $SmokeRoot "examples\$ExcludedExampleFolder")) {
+                throw "portable package should not include examples\$ExcludedExampleFolder"
+            }
         }
         $BundledMarkdownDocs = @(Get-ChildItem -LiteralPath (Join-Path $SmokeRoot "docs") -Recurse -Filter "*.md" -ErrorAction SilentlyContinue)
         if ($BundledMarkdownDocs.Count -gt 0) {

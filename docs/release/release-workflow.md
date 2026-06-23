@@ -74,7 +74,7 @@ eng.exe
 eng-ide.exe
 eng-lsp.exe
 WebView2Loader.dll
-examples/
+examples/official/
 stdlib/
 docs/EngLang_User_Guide.pdf
 docs/EngLang_Language_Grammar_Guide.pdf
@@ -83,6 +83,11 @@ tools/englang-vscode-0.1.0.vsix
 README.txt
 PACKAGE_ASSETS.txt
 ```
+
+The package `examples\` folder is curated to official core workflow examples.
+Advanced solver, compatibility, diagnostic, and internal regression fixtures
+remain in the source repository unless a future release explicitly adds a
+separate package flag.
 
 The package `docs\` folder is curated release documentation. It must not bundle
 the full developer markdown tree.

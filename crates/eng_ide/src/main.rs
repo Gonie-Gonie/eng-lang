@@ -2008,8 +2008,159 @@ fn open_path(path: &Path) {
     }
 }
 
+fn public_package_smoke(root: &Path) -> Result<(), String> {
+    let examples = collect_examples(root);
+    let source_path = root.join("examples/official/01_csv_plot/main.eng");
+    if !source_path.exists() {
+        return Err(format!(
+            "public package smoke missing {}",
+            source_path.display()
+        ));
+    }
+    let source = read_utf8(&source_path)?;
+    let report = check_source(&source_path, &source, &CheckOptions::default());
+    if report.has_errors() {
+        return Err(format!("{} has diagnostics", source_path.display()));
+    }
+    let ui_index = root.join("crates/eng_ide/ui/index.html");
+    if root.join("crates/eng_ide").exists() && !ui_index.exists() {
+        return Err(format!("missing Tauri UI asset {}", ui_index.display()));
+    }
+
+    let output = run_file(
+        &source_path,
+        &root.join("build").join("ide-smoke-public-core"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let cached = CachedRunOutput::from_output(output);
+    let inspectors = runtime_inspectors(root, &cached);
+    for (label, value) in [
+        ("schema", &inspectors.schemas),
+        ("timeseries", &inspectors.time_series),
+        ("artifact outline", &inspectors.artifact_outlines),
+    ] {
+        if value.as_array().is_none_or(Vec::is_empty) {
+            return Err(format!(
+                "{} did not produce IDE {label} inspector metadata",
+                source_path.display()
+            ));
+        }
+    }
+    let has_kernel_plan = inspectors
+        .kernel_plan
+        .get("candidates")
+        .and_then(Value::as_array)
+        .is_some_and(|items| {
+            items.iter().any(|item| {
+                json_field_string(item, "kind").as_deref() == Some("timeseries_integrate")
+                    && item
+                        .get("executor")
+                        .and_then(|executor| json_field_string(executor, "status"))
+                        .as_deref()
+                        == Some("interpreter_supported")
+            })
+        });
+    if !has_kernel_plan {
+        return Err(format!(
+            "{} did not produce IDE kernel plan inspector metadata",
+            source_path.display()
+        ));
+    }
+
+    let class_example = root.join("examples/official/19_class_object/main.eng");
+    let class_output = run_file(
+        &class_example,
+        &root.join("build").join("ide-smoke-public-class-object"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let class_cached = CachedRunOutput::from_output(class_output);
+    let class_inspectors = runtime_inspectors(root, &class_cached);
+    let has_class_object = class_inspectors
+        .class_objects
+        .as_array()
+        .is_some_and(|items| {
+            items.iter().any(|item| {
+                json_field_string(item, "name").as_deref() == Some("building")
+                    && json_field_string(item, "class_name").as_deref() == Some("Building")
+                    && json_field_usize(item, "field_count").unwrap_or(0) > 0
+                    && json_field_usize(item, "validation_count").unwrap_or(0) > 0
+            })
+        });
+    if !has_class_object {
+        return Err(format!(
+            "{} did not produce IDE class object inspector metadata",
+            class_example.display()
+        ));
+    }
+
+    let effects_example = root.join("examples/official/15_process_result/main.eng");
+    let effects_output = run_file(
+        &effects_example,
+        &root.join("build").join("ide-smoke-public-effects"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let effects_cached = CachedRunOutput::from_output(effects_output);
+    let effects_inspectors = runtime_inspectors(root, &effects_cached);
+    let has_manifest = effects_inspectors
+        .output_manifest
+        .get("artifacts")
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty());
+    let has_run_log = effects_inspectors
+        .run_log
+        .get("messages")
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty());
+    let has_process = effects_inspectors
+        .process_results
+        .get("processes")
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty());
+    if !has_manifest || !has_run_log || !has_process {
+        return Err(format!(
+            "{} did not produce IDE side-effect inspector metadata",
+            effects_example.display()
+        ));
+    }
+
+    let test_example = root.join("examples/official/16_test_assert_golden/main.eng");
+    let test_output = run_file(
+        &test_example,
+        &root.join("build").join("ide-smoke-public-tests"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let test_cached = CachedRunOutput::from_output(test_output);
+    let test_inspectors = runtime_inspectors(root, &test_cached);
+    let has_tests = test_inspectors
+        .test_results
+        .get("tests")
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty());
+    if !has_tests {
+        return Err(format!(
+            "{} did not produce IDE test-result inspector metadata",
+            test_example.display()
+        ));
+    }
+
+    println!(
+        "EngLang IDE public package smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), schema/TimeSeries/report inspectors, kernel plan inspector, class object inspector, side-effect inspectors, test-result inspector",
+        examples.len(),
+        all_quantity_completions().len(),
+        all_unit_infos().len()
+    );
+    Ok(())
+}
+
 fn smoke() -> Result<(), String> {
     let root = workspace_root();
+    if !root.join("examples/internal").is_dir() && !root.join("examples/advanced_solver").is_dir() {
+        return public_package_smoke(&root);
+    }
     let examples = collect_examples(&root);
     let Some(first) = examples.first() else {
         return Err("no .eng examples found".to_owned());
@@ -2376,17 +2527,17 @@ fn smoke() -> Result<(), String> {
             multi_domain_example.display()
         ));
     }
-    let official_multi_domain_example =
-        root.join("examples/official/32_small_thermal_fluid_loop/main.eng");
-    let official_multi_domain_output = run_file(
-        &official_multi_domain_example,
-        &root.join("build").join("ide-smoke-official-thermal-fluid"),
+    let advanced_multi_domain_example =
+        root.join("examples/advanced_solver/32_small_thermal_fluid_loop/main.eng");
+    let advanced_multi_domain_output = run_file(
+        &advanced_multi_domain_example,
+        &root.join("build").join("ide-smoke-advanced-thermal-fluid"),
         &RunOptions::default(),
     )
     .map_err(|error| error.to_string())?;
-    let official_multi_domain_cached = CachedRunOutput::from_output(official_multi_domain_output);
-    let official_multi_domain_inspectors = runtime_inspectors(&root, &official_multi_domain_cached);
-    let has_official_multi_domain_component_graph = official_multi_domain_inspectors
+    let advanced_multi_domain_cached = CachedRunOutput::from_output(advanced_multi_domain_output);
+    let advanced_multi_domain_inspectors = runtime_inspectors(&root, &advanced_multi_domain_cached);
+    let has_advanced_multi_domain_component_graph = advanced_multi_domain_inspectors
         .component_graph
         .get("connections")
         .and_then(Value::as_array)
@@ -2397,7 +2548,7 @@ fn smoke() -> Result<(), String> {
                     && connection.get("source_span").is_some()
             })
         });
-    let has_official_multi_domain_solver_result = official_multi_domain_inspectors
+    let has_advanced_multi_domain_solver_result = advanced_multi_domain_inspectors
         .assemblies
         .as_array()
         .is_some_and(|assemblies| {
@@ -2423,21 +2574,22 @@ fn smoke() -> Result<(), String> {
                     .is_some_and(|equations| {
                         equations.iter().any(|equation| {
                             json_field_string(equation, "name").as_deref()
-                                == Some("connection_set_2.across_height_1")
+                                == Some("connection_set_2.across_p_1")
                                 && json_field_string(equation, "kind").as_deref()
                                     == Some("across_equality")
                                 && json_field_string(equation, "domain").as_deref()
                                     == Some("Fluid[Water]")
-                                && json_field_usize(equation, "line") == Some(48)
+                                && json_field_usize(equation, "line") == Some(55)
                                 && equation
                                     .get("dependencies")
                                     .and_then(Value::as_array)
                                     .is_some_and(|dependencies| {
-                                        dependencies.iter().any(|value| {
-                                            value.as_str() == Some("pump.supply.height")
-                                        }) && dependencies.iter().any(|value| {
-                                            value.as_str() == Some("pipe.inlet.height")
-                                        })
+                                        dependencies
+                                            .iter()
+                                            .any(|value| value.as_str() == Some("pump.supply.p"))
+                                            && dependencies
+                                                .iter()
+                                                .any(|value| value.as_str() == Some("pipe.inlet.p"))
                                     })
                         }) && equations.iter().any(|equation| {
                             json_field_string(equation, "name").as_deref()
@@ -2446,16 +2598,17 @@ fn smoke() -> Result<(), String> {
                                     == Some("component_equation")
                                 && json_field_string(equation, "domain").as_deref()
                                     == Some("Fluid[Water]")
-                                && json_field_usize(equation, "line") == Some(32)
+                                && json_field_usize(equation, "line") == Some(35)
                                 && equation
                                     .get("dependencies")
                                     .and_then(Value::as_array)
                                     .is_some_and(|dependencies| {
-                                        dependencies.iter().any(|value| {
-                                            value.as_str() == Some("pipe.inlet.height")
-                                        }) && dependencies.iter().any(|value| {
-                                            value.as_str() == Some("pipe.outlet.height")
-                                        })
+                                        dependencies
+                                            .iter()
+                                            .any(|value| value.as_str() == Some("pipe.inlet.p"))
+                                            && dependencies.iter().any(|value| {
+                                                value.as_str() == Some("pipe.outlet.p")
+                                            })
                                     })
                         })
                     });
@@ -2468,7 +2621,7 @@ fn smoke() -> Result<(), String> {
                             json_field_string(dependency, "residual").as_deref()
                                 == Some("pipe.equation_1")
                                 && json_field_string(dependency, "variable").as_deref()
-                                    == Some("pipe.outlet.height")
+                                    == Some("pipe.outlet.p")
                         }) && dependencies.iter().any(|dependency| {
                             json_field_string(dependency, "residual").as_deref()
                                 == Some("pipe.equation_2")
@@ -2485,7 +2638,7 @@ fn smoke() -> Result<(), String> {
                                 == Some("pipe.equation_1")
                                 && json_field_f64(residual, "value")
                                     .is_some_and(|value| value.abs() <= 1e-12)
-                                && json_field_string(residual, "unit").as_deref() == Some("m")
+                                && json_field_string(residual, "unit").as_deref() == Some("Pa")
                                 && json_field_string(residual, "expression_unit").is_some()
                                 && json_field_string(residual, "expression_quantity_kind").is_some()
                                 && json_field_f64(residual, "normalized_value")
@@ -2504,10 +2657,9 @@ fn smoke() -> Result<(), String> {
                     .and_then(Value::as_array)
                     .is_some_and(|variables| {
                         variables.iter().any(|variable| {
-                            json_field_string(variable, "name").as_deref()
-                                == Some("pump.supply.height")
+                            json_field_string(variable, "name").as_deref() == Some("pump.supply.p")
                                 && json_field_f64(variable, "value")
-                                    .is_some_and(|value| (value - 12.0).abs() <= 1e-9)
+                                    .is_some_and(|value| (value - 220000.0).abs() <= 1e-9)
                         }) && variables.iter().any(|variable| {
                             json_field_string(variable, "name").as_deref()
                                 == Some("pipe.outlet.m_dot")
@@ -2535,10 +2687,10 @@ fn smoke() -> Result<(), String> {
                     && has_solved_variables
             })
         });
-    if !has_official_multi_domain_component_graph || !has_official_multi_domain_solver_result {
+    if !has_advanced_multi_domain_component_graph || !has_advanced_multi_domain_solver_result {
         return Err(format!(
-            "{} did not produce IDE official Thermal/Fluid solver, equation, residual, and graph inspector metadata",
-            official_multi_domain_example.display()
+            "{} did not produce IDE advanced Thermal/Fluid solver, equation, residual, and graph inspector metadata",
+            advanced_multi_domain_example.display()
         ));
     }
     let measured_example = root.join("examples/internal/17_measured_vs_simulated/main.eng");
@@ -2865,7 +3017,7 @@ fn smoke() -> Result<(), String> {
         ));
     }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), residual dependency inspector, behavior graph inspector, measured workflow inspectors, solved thermal assembly inspector, multi-domain boundary solve inspector, official Thermal/Fluid solver inspector, state-space trajectory/operator/source-equation inspector, kernel plan inspector, class object inspector, side-effect inspectors, schema failure inspector",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), residual dependency inspector, behavior graph inspector, measured workflow inspectors, solved thermal assembly inspector, multi-domain boundary solve inspector, advanced Thermal/Fluid solver inspector, state-space trajectory/operator/source-equation inspector, kernel plan inspector, class object inspector, side-effect inspectors, schema failure inspector",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),

@@ -26,6 +26,6 @@ Current support boundary:
 Useful commands:
 
 ```bat
-target\debug\eng.exe check examples\official\24_linear_algebraic_thermal_node\main.eng --review
-target\debug\eng.exe run examples\official\24_linear_algebraic_thermal_node\main.eng --save-artifacts
+target\debug\eng.exe check examples\advanced_solver\24_linear_algebraic_thermal_node\main.eng --review
+target\debug\eng.exe run examples\advanced_solver\24_linear_algebraic_thermal_node\main.eng --save-artifacts
 ```

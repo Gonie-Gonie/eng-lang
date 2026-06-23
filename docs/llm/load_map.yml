@@ -3,197 +3,96 @@ default:
   - LLM_CONTEXT.md
   - docs/current/status.md
   - docs/current/philosophy.md
-  - docs/current/version_plan.md
   - docs/current/feature_maturity_matrix.md
   - docs/current/tracks.md
-  - docs/current/implementation_issue_backlog.md
-  - docs/current/solver_centered_plan.md
-  - docs/language/string_formatting.md
-  - docs/guide/language_grammar.md
-  - docs/reference/top_level_execution_policy.md
-  - docs/reference/standalone_package.md
-  - docs/reference/functions_imports.md
-  - docs/reference/summary_object_decision.md
-  - docs/reference/side_effect_policy.md
-  - docs/guide/class_object.md
+  - docs/llm/contexts/semantic_workflow.md
 
 task_types:
-  parser:
-    - docs/guide/language_grammar.md
-    - docs/specs/language-v8.md
-    - docs/language/fast_assignment.md
-    - docs/language/dimensionless.md
-    - docs/language/string_formatting.md
-    - docs/reference/top_level_execution_policy.md
-    - docs/reference/functions_imports.md
-    - crates/eng_compiler/
+  docs_cleanup:
+    - README.md
+    - LLM_CONTEXT.md
+    - docs/current/status.md
+    - docs/current/philosophy.md
+    - docs/current/feature_maturity_matrix.md
+    - docs/current/tracks.md
+    - docs/README.md
 
-  functions_imports:
-    - docs/reference/top_level_execution_policy.md
-    - docs/reference/functions_imports.md
-    - examples/official/07_functions_imports/
-    - crates/eng_compiler/src/parser.rs
-    - crates/eng_compiler/src/semantic.rs
-    - crates/eng_compiler/src/lib.rs
-    - crates/eng_runtime/src/lib.rs
+  examples_cleanup:
+    - examples/README.md
+    - examples/official/README.md
+    - docs/current/status.md
+    - docs/current/feature_maturity_matrix.md
+    - docs/llm/contexts/semantic_workflow.md
 
-  units:
-    - docs/architecture/03_expected_types_and_quantities.md
-    - docs/language/fast_assignment.md
-    - docs/language/dimensionless.md
-    - docs/language/string_formatting.md
-    - stdlib/units.eng
-    - crates/eng_compiler/src/units.rs
-    - crates/eng_compiler/src/quantities.rs
-
-  csv_promote:
+  data_workflow:
     - docs/architecture/04_data_boundary.md
-    - docs/reference/timeseries_expression_kernel.md
     - docs/guide/timeseries_statistics.md
+    - docs/guide/plotting.md
+    - docs/guide/report_review.md
     - examples/official/01_csv_plot/
     - crates/eng_compiler/src/schema.rs
     - crates/eng_runtime/src/runtime_data.rs
 
+  side_effects:
+    - docs/current/philosophy.md
+    - docs/reference/side_effect_policy.md
+    - docs/guide/language_grammar.md
+    - examples/official/10_path_policy/
+    - examples/official/11_read_only_io/
+    - examples/official/12_write_output_manifest/
+    - crates/eng_runtime/
+
   ide:
+    - docs/llm/contexts/ide.md
     - docs/guide/native_ide.md
     - docs/current/tracks.md
     - crates/eng_ide/
     - crates/eng_cli/
 
-  lsp:
-    - docs/current/tracks.md
-    - docs/reference/lsp_snapshot.md
-    - crates/eng_lsp/
-    - tools/vscode-englang/
-
-  jit:
-    - docs/current/tracks.md
-    - docs/reference/kernel_plan.md
-    - docs/reference/jit_benchmark.md
-    - crates/eng_jit/
-    - crates/eng_cli/
-
-  report:
-    - docs/architecture/01_runtime_artifacts.md
-    - docs/guide/report_review.md
-    - docs/guide/plotting.md
-    - docs/language/string_formatting.md
-    - docs/reference/summary_object_decision.md
-    - examples/official/08_print_export_summary/
-    - docs/schemas/
-    - crates/eng_report/
-
-  system:
-    - docs/tutorials/05_simple_system.md
-    - docs/reference/timeseries_expression_kernel.md
+  solver_internal:
+    - docs/llm/contexts/solver_internal.md
+    - docs/solver/README.md
+    - docs/current/main_internal_status.md
     - docs/current/solver_centered_plan.md
-    - examples/internal/02_simple_system/
-    - examples/internal/03_integrated_hvac/
-    - crates/eng_compiler/src/semantic.rs
-    - crates/eng_runtime/
-
-  solver:
-    - docs/current/solver_centered_plan.md
-    - docs/current/implementation_issue_backlog.md
-    - docs/current/tracks.md
-    - docs/architecture/01_runtime_artifacts.md
-    - examples/internal/17_measured_vs_simulated/
-    - examples/internal/20_multi_state_thermal/
-    - examples/internal/21_thermal_component_assembly/
+    - docs/current/generic_solver_completion_plan.md
     - crates/eng_runtime/src/solver/
     - crates/eng_runtime/src/runtime_data.rs
     - crates/eng_compiler/src/semantic.rs
 
-  uncertainty:
-    - docs/current/tracks.md
-    - docs/guide/uncertainty.md
-    - examples/internal/04_uncertainty_core/
-    - examples/diagnostics/error_messages/invalid_uncertainty_arguments.eng
-    - crates/eng_compiler/src/uncertainty.rs
-    - crates/eng_runtime/src/runtime_data.rs
+  class_domain_object:
+    - docs/guide/class_object.md
+    - docs/current/feature_maturity_matrix.md
+    - examples/official/19_class_object/
+    - crates/eng_compiler/src/parser.rs
+    - crates/eng_compiler/src/semantic.rs
+    - crates/eng_ide/src/main.rs
+    - crates/eng_lsp/src/lib.rs
 
-  data_driven_modeling:
-    - docs/current/tracks.md
-    - docs/guide/data_driven_modeling.md
-    - stdlib/eng/ml.eng
-    - examples/internal/05_data_driven_modeling/
-    - crates/eng_compiler/src/ml.rs
-    - crates/eng_runtime/src/runtime_data.rs
+  parser:
+    - docs/guide/language_grammar.md
+    - docs/specs/language-v8.md
+    - docs/language/fast_assignment.md
+    - docs/language/dimensionless.md
+    - crates/eng_compiler/
 
   release:
     - docs/current/version_plan.md
     - docs/current/stable_core_scope.md
-    - docs/current/philosophy.md
-    - docs/current/implementation_issue_backlog.md
-    - docs/reference/breaking_change_policy.md
+    - docs/release/release-state.md
     - docs/release/release-workflow.md
     - docs/release/acceptance-checklist.md
     - docs/release/v0.1.0.md
     - scripts/dev.ps1
 
-  side_effects:
-    - docs/current/philosophy.md
-    - docs/reference/side_effect_policy.md
-    - docs/current/tracks.md
-    - docs/current/feature_maturity_matrix.md
-    - docs/guide/language_grammar.md
-    - crates/eng_compiler/
-    - crates/eng_runtime/
-
-  standalone:
-    - docs/current/tracks.md
-    - docs/reference/standalone_package.md
-    - docs/architecture/01_runtime_artifacts.md
-    - docs/specs/cli.md
-    - docs/schemas/engpkg.schema.json
-    - crates/eng_runtime/
+  jit:
+    - benchmarks/README.md
+    - docs/reference/kernel_plan.md
+    - docs/reference/jit_benchmark.md
+    - crates/eng_jit/
     - crates/eng_cli/
 
-  domain_component:
+  lsp:
+    - docs/reference/lsp_snapshot.md
     - docs/current/tracks.md
-    - docs/guide/domain_component.md
-    - examples/internal/06_domain_port/
-    - examples/diagnostics/error_messages/port_domain_mismatch.eng
-    - examples/diagnostics/error_messages/medium_mismatch.eng
-    - examples/diagnostics/error_messages/frame_mismatch.eng
-    - examples/diagnostics/error_messages/axis_mismatch.eng
-    - examples/diagnostics/error_messages/generic_domain_arity.eng
-    - examples/diagnostics/error_messages/domain_missing_across.eng
-    - examples/diagnostics/error_messages/domain_missing_through.eng
-    - examples/diagnostics/error_messages/domain_missing_conservation.eng
-    - examples/diagnostics/error_messages/domain_unknown_quantity.eng
-    - crates/eng_compiler/src/parser.rs
-    - crates/eng_compiler/src/semantic.rs
-    - crates/eng_compiler/src/lib.rs
-    - crates/eng_report/src/lib.rs
-    - crates/eng_ide/src/main.rs
-    - crates/eng_lsp/src/lib.rs
-
-  class_object:
-    - docs/current/tracks.md
-    - docs/current/feature_maturity_matrix.md
-    - docs/guide/class_object.md
-    - examples/official/19_class_object/
-    - examples/diagnostics/error_messages/class_missing_field.eng
-    - examples/diagnostics/error_messages/class_unknown_field.eng
-    - examples/diagnostics/error_messages/class_field_type_mismatch.eng
-    - examples/diagnostics/error_messages/class_validation_fail.eng
-    - examples/diagnostics/error_messages/class_method_return_mismatch.eng
-    - examples/diagnostics/error_messages/class_method_unknown.eng
-    - examples/diagnostics/error_messages/class_copy_unknown_source.eng
-    - crates/eng_compiler/src/parser.rs
-    - crates/eng_compiler/src/semantic.rs
-    - crates/eng_compiler/src/lib.rs
-    - crates/eng_report/src/lib.rs
-    - crates/eng_ide/src/main.rs
-    - crates/eng_lsp/src/lib.rs
-
-  state_space:
-    - docs/current/tracks.md
-    - docs/guide/language_grammar.md
-    - examples/internal/18_state_space_metadata/
-    - examples/internal/26_state_space_discrete/
-    - crates/eng_compiler/src/parser.rs
-    - crates/eng_compiler/src/semantic.rs
-    - crates/eng_compiler/src/lib.rs
-    - crates/eng_report/src/lib.rs
+    - crates/eng_lsp/
+    - tools/vscode-englang/

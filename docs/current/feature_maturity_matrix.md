@@ -1,79 +1,205 @@
 # Feature Maturity Matrix
 
-Use this matrix to avoid treating an implementation seed as a public release
-claim. Status values are limited to `Stable`, `Supported`, `Internal`, and
-`Planned`.
-
-| Feature | Status | Current Scope | Main Limitation | Next Action |
-|---|---|---|---|---|
-| Fast `=` declaration | Stable | Local/top-level workflow bindings and official examples | Broader language contexts still need care | Maintain diagnostics |
-| `:=` rejection | Stable | Parser/compiler diagnostic | None for current public syntax | Maintain |
-| Dimensionless policy | Stable | Addition/subtraction and expected-type diagnostics | Broader algebra coverage grows with expression support | Expand tests |
-| Quantity/unit registry | Stable | Built-in quantities/units and IDE completions | User-defined units deferred | Maintain |
-| `degC` / `°C` temperature spelling | Stable | `degC` canonical ASCII spelling; `°C` alias for AbsoluteTemperature | Broader Unicode unit aliases deferred | Maintain alias tests and docs |
-| Top-level execution, `args`, `const`, functions, and file imports | Stable | Files without `script` run as top-level workflows; `args { ... }` supports primitive/path defaults and CLI overrides; top-level `const` is importable; `fn` supports typed parameters, function locals, checked return expressions, relative file imports, scalar runtime evaluation for print/export, and LSP signature hover metadata | Package/module imports, multi-return functions, and broad expression evaluation deferred | Maintain tests and IDE visibility |
-| Command-style verbs, `where`, and `with` | Supported | Parenthesis-light syntax for built-in workflow verbs only; canonical lowering for integrate/mean/max/min/plot-style commands; owner-local `where` bindings with LSP local hover metadata; `with` option/display blocks; review metadata and policy diagnostics | Arbitrary user-defined function command syntax, broad command runtime semantics, and project-wide display unit policy deferred | Keep official examples on `with` syntax |
-| EngLang formatter | Supported | `eng fmt <file.eng>` source-preserving formatter with stdout, `--check`, and `--write` modes; block indentation, colon-label continuation indentation, trailing whitespace normalization, comment preservation, string-brace handling, idempotence tests, and official-example formatter-clean gate | Full AST-aware style rewriting and broad formatting policy remain deferred | Keep official examples formatter-clean |
-| CSV promote | Stable | Official typed schema import path | Arbitrary table formula support deferred | Generalize table expressions later |
-| DateTime index | Stable | Official CSV TimeSeries path | More calendar/timezone semantics deferred | Maintain metadata |
-| Missing policies | Supported | Official/data-quality paths with missing-value artifacts | General policy DSL is limited | Harden policy semantics |
-| Constraints | Supported | Data-quality examples and review/runtime metadata | General constraint runtime is limited | Expand supported checks |
-| TimeSeries statistics | Stable | Official HeatRate TimeSeries path plus `timeseries_kernels` metadata for the table heat-rate kernel | General quantity rules and arbitrary TimeSeries expressions limited | Expand quantity-aware kernels |
-| `integrate(... over Time)` | Stable | HeatRate to Energy metadata and supported example | Wider signal types deferred | Generalize integration rules |
-| Unit-aware `print` and summary CSV export | Stable | Type-checked print interpolation, scalar statistics, integration values, and explicit one-row `export summary to csv` files under `build/result` | First-class Summary object deferred by decision record; table/TimeSeries CSV export deferred; display policy is out of scope | Maintain examples and artifact metadata |
-| PlotSpec line plot | Stable | CSV-derived TimeSeries line plot, measured-vs-simulated multi-series line plot, and SVG | Interactive consistency, grouped plots, and broader axis semantics deferred | Expand PlotSpec semantics |
-| Bar/histogram plot paths | Supported | Report/PlotSpec tests, raw-value histogram bins, uncertainty histogram bins, ML residual bars, and IDE rendering | Multiple histogram series, custom bin counts, and grouped/stacked bar semantics deferred | Harden before stable claim |
-| Report/review artifacts | Stable | Official artifacts, schemas, report spec, review JSON | Rich report layout remains limited | Maintain schemas and improve IDE panels |
-| Minimal `system`/`eq` | Supported | One-state thermal system, unit diagnostics, explicit `TimeSeries[Time]` input contract for the measured workflow, fixed-step one-state runner output, one-state `adaptive_heun` output with fixed report TimeGrid and internal adaptive substeps, one-state thermal scalar input override fixture coverage, first-order thermal balance source-equation metadata in runtime/report/review artifacts, source-equation ODE execution with scalar or `TimeSeries[Time]` inputs, numeric scalar system input overrides, and numeric system parameter overrides, two-state thermal fixed-step/RK4 coverage, official three-state non-thermal adaptive Heun coverage with TimeSeries input materialization, scalar output materialization, acyclic output-to-output dependency materialization with explicit loop failure artifacts, source equation metadata with source lines and unit metadata in runtime/report/review artifacts, static square algebraic source-system solves through `solve <SystemName>` with `dense_linear`/`linear`, `fixed_point`, and `newton`/`nonlinear_newton`, report/review/result solver artifacts for those static solves, and accepted substep diagnostics, solver metadata, and `sim.<state>`/`sim.<output>` TimeSeries materialization | General dynamic/DAE equation-system solving beyond the supported one-derivative-per-state source-equation shape and static square algebraic source-system solves, broad adaptive solving, and component-coupled solving are deferred | Clarify solver boundary |
-| Args binding | Stable | `args { ... }` only, String/path/CsvFile/DirectoryPath, Bool, Int/Count, Float/Number, Duration normalization, dynamic pure defaults, CLI overrides, and help metadata | Quantity/unit-literal Args and flag-only booleans deferred | Maintain typed conversion and side-effect diagnostics |
-| Measured-vs-simulated workflow | Stable | Official workflow promotes measured/weather CSV data, binds weather as an explicit `TimeSeries[Time]` system input, simulates a one-state thermal system into typed TimeSeries, computes `rmse measured vs sim`, validates thresholds, emits time-alignment metadata, and plots measured plus simulated series together | Calibration, resampling policy controls, and full solver selection deferred; source-equation ODE simulation is a separate supported workflow, not part of the stable measured workflow | Maintain official example and artifact schemas |
-| Side-effect/general programming policy | Stable | Typed path defaults/helpers, provenance-visible `exists`, read-only UTF-8 `read text/json/toml` expressions with source hashes, explicit `write text/json`, idempotent overwrite hardening for write/export outputs, `output_manifest.json`, constrained copy/move/delete file operation metadata, `log debug/info/warn/error` messages with `run_log.json`, explicit `run command` process execution with `ProcessResult` and `process_results.json`, named `test` blocks with `assert`/`golden` checks plus `test_results.json`, and `eng run --profile safe|normal|repro` basics | Structured JSON/TOML values, broad filesystem mutation outside generated-output boundaries, network, workspace-wide test discovery, and full process sandboxing are not stable-supported | Maintain stable boundaries |
-| Standalone package | Stable | Official package and package-smoke path with Args help, runtime bundling, dependency copy/byte-hash metadata, `.engpkg`, `.lock`, and package reference | Optimized native model.exe/AOT deferred | Maintain package contract |
-| Example taxonomy | Stable | `examples/official` user-test namespace, compatibility regression examples, diagnostic fixtures, and data-quality fixtures | Historical naming exists only in git history | Maintain IDE/CLI ordering and package docs |
-| Tauri tester IDE | Stable | Static Tauri/WebView app with explorer, open editors, multi-file tabs, check/save/run, Problems/Terminal panel, caret completions, Variables/Plot/Run/Object/Assembly inspector tabs, schema/TimeSeries/metric/validation/time-alignment smoke coverage, schema failure inspector coverage, internal state-space trajectory, solver-inspector, and dependency-graph coverage, class object summary inspector coverage, component graph source-line navigation, side-effect artifact panels, run-directory prompt, PlotSpec viewing, and smoke automation | Not a full persistent LSP/editor platform | Maintain package smoke and inspector coverage |
-| VS Code extension | Internal | Packaged diagnostic/completion shape with optional `eng-lsp --snapshot` backend | Secondary editor path; not a persistent editor contract | Keep smoke path available |
-| Integrated HVAC example | Internal | User-test composition across supported subsystems | It is not proof of general solver/table support | Use as manual integration test |
-| Uncertainty track | Internal | Internal example, deterministic samples, source and argument diagnostics, propagation transform/source metadata, histogram artifact path | Full Monte Carlo/Jacobian propagation deferred; not stable-supported | Track work in `docs/current/tracks.md` |
-| Data-driven modeling track | Internal | Internal parity/residual examples, artifacts, source validation diagnostics, argument diagnostics | General ML package semantics deferred; not stable-supported | Track work in `docs/current/tracks.md` |
-| LSP track | Internal | `eng-lsp.exe` smoke/snapshot, stdio round-trip tests, package-smoke inclusion, optional VS Code snapshot backend, diagnostics, completion, hover, conservative same-document go-to-definition, function signature hover, where-local hover, schema member completion, and class object field completion with required/default details | Not a stable persistent editor-service contract | Track work in `docs/current/tracks.md` |
-| State-space typed-block workflow | Supported | Top-level `states` and `inputs` blocks, `StateVector[...]` and `InputVector[...]` system declarations, `operator A:`/`operator B:` declarations, row/column shape and coefficient-unit checks, discrete `next(x) eq A * x + B * u`, continuous `der(x) eq A * x + B * u`, scalar or Time-indexed TimeSeries input materialization, fixed-step explicit-Euler/RK4 trajectories, scalar input override materialization, shared `source_equations` metadata for A/B operators and row-level update/derivative equations in report/review/result artifacts, `tests/runtime/state_space_scalar_input_override.eng`, and `examples/official/21_state_space_discrete` plus `examples/official/22_state_space_continuous` | Broad operator algebra, nonlinear, DAE, discrete adaptive, broad adaptive, and component-coupled state-space solving deferred; legacy/internal state-space fixtures remain implementation coverage | Harden typed-block diagnostics and artifact snapshots |
-| Thermal/scalar component residual assembly | Supported | Component templates, `system`-local `name = Component(...)` instances with empty constructors or declared numeric/importable-const/pure-arithmetic component parameter defaults plus named or declaration-order positional constructor overrides plus review/report-spec constructor/parameter provenance, scalar component input declarations for dynamic solver input layout, `connect instance.port to instance.port`, generated across/through connection equations, component-local `name = port.signal = literal` boundary seeds, direct `port.signal eq literal` and linear port-signal equations with incompatible unitful-constant diagnostics and shared arithmetic residual linearization for parenthesized arithmetic, division by constants, unit literals, parameter constants, unit-parameterized linear coefficients such as Conductance * TemperatureDelta across compatible residual display units, and parenthesized compound RHS residual lowering in supported component equations, dense linear residual solve artifacts for square Thermal graphs, explicit `solve component_graph` fixed-point artifacts for pivotable linear ResidualGraphs and selected direct expression-mapped fixed-point residuals, arithmetic-linear dynamic component trajectories through `solver = dynamic_component_explicit_euler` and `solver = dynamic_component_semi_implicit_euler`, selected fixed-step nonlinear derivative residual Newton fallback including explicit/semi-implicit TimeSeries component-input fixtures and residual-scale override diagnostics, algebraic-free dimensionless function RHS evaluation with constructor-parameter and scalar or fixed-step TimeSeries component-input dependencies in the parsed explicit dynamic path, adaptive Heun source trajectories with selected nonlinear derivative residual Newton fallback including a TimeSeries-driven derivative Newton fixture, selected affine/Newton algebraic output materialization, output-grid Newton residual diagnostics, and combined TimeSeries-driven Newton algebraic materialization through `solver = dynamic_component_adaptive_heun`, parsed derivative function RHS evaluation with constructor-parameter dependencies and dense linear algebraic residual solves in the semi-implicit path, selected dimensionless nonlinear algebraic residuals through per-step Newton in the semi-implicit path including Newton nonconvergence artifacts and a fixed-step TimeSeries component-input fixture, fixed-step TimeSeries component inputs in the residual-graph semi-implicit path, coupled two-state trajectories, and selected algebraic output trajectories for `dynamic_component_explicit_euler` and `dynamic_component_semi_implicit_euler`, narrow coupled multi-variable unitful nonlinear source residual solves through `solver = newton`, narrow multi-state unitful temperature implicit-Euler DAE source residual solves through `solver = implicit_euler_dae`, scalar and fixed-step TimeSeries input materialization plus typed Predictor/external identity-wrapper behavior-output evaluation for the narrow source DAE residual path, narrow unitful temperature explicit-Euler source behavior RHS solves for delay/Predictor/external identity wrappers, constrained Thermal/Fluid[Water] pressure/flow algebraic residual solve, `examples/official/23_thermal_component_assembly`, source-to-solver `examples/official/24_linear_algebraic_thermal_node`, `examples/official/25_fixed_point_loop`, `examples/official/26_dynamic_component_room`, `examples/official/27_nonlinear_algebraic`, `examples/official/28_small_dae`, `examples/official/29_delay_component_solver`, `examples/official/30_predictor_component_solver`, `examples/official/31_external_behavior_solver`, and `examples/official/32_small_thermal_fluid_loop` plus `examples/official/33_unit_parameterized_wall` | Broad args/object/non-arithmetic constructor bindings, broad nonlinear, derivative-rich, affine display-unit, or general compound-unit component-local equations, TimeSeries component inputs outside fixed-step explicit/semi-implicit dynamic component paths and the narrow source DAE residual path, broad fixed-point partitioning/nonlinear source solving, broad nonlinear algebraic component solves, broad behavior-node solving including DAE delay replay, full DAE simulation, adaptive component timestepping beyond the selected derivative-Newton and affine/Newton algebraic source paths, production pressure-drop packages and production multi-domain component solving deferred | Harden component equation language and failure snapshots |
-| Runtime optimization/JIT/AOT track | Internal | `eng_jit`, `eng.exe jit-plan`, `eng.exe jit-bench` with target coverage metadata and deterministic interpreter-kernel sample executions, `benchmarks/B01_csv_heat_rate` through `benchmarks/B06_nonlinear_solver` with input data/source/expected metadata checked by `dev.bat jit-check`, backend selection metadata, report-spec/report.html/IDE kernel-plan display, metadata estimates, interpreter kernel IR for TimeSeries and scalar residual inputs, checked TimeSeries arithmetic/statistics/integration lowering to executable `KernelIr`, component assembly residual graph lowering to scalar residual `KernelIr`, square component residual Jacobian and Newton-step candidates, continuous state-space A/B RHS lowering to scalar `KernelIr`, state-space explicit-Euler solver-step candidates backed by that RHS IR, interpreter executor correctness tests for arithmetic/statistics/integration/residual/state-space-RHS/Jacobian/Newton-step/explicit-Euler-step kernels, and per-candidate executor/fallback reasons | No native code generation or speedup claim; CLI bench still measures normal runtime path only | Track work in `docs/current/tracks.md` |
-| State-space internal seeds | Internal | Legacy `states x = [...]`/`inputs u = [...]` metadata fixtures, `OutputVector`, internal continuous `adaptive_heun` trajectories with fixed output TimeGrid and adaptive substep diagnostics, JIT state-space RHS/kernel candidates, and additional failure fixtures beyond the supported typed-block examples | Broad operator algebra, nonlinear, DAE, discrete adaptive, broad adaptive, and production component-coupled state-space solving deferred | Keep internal seed labels separate from supported typed-block workflows |
-| Solver algorithm seeds | Internal | Dense linear solve with finite matrix/RHS/tolerance checks, fixed-point iteration with nonconvergence diagnostics, standalone damped Newton solve with finite initial-guess checks, finite-difference fallback, supplied analytic/JIT Jacobian hook, residual history, largest-residual summary, singular-linear-solve and line-search failure artifacts, shared scaled residual-norm diagnostics, residual-assembly/evaluation finite-value checks, intermediate overflow rejection, standalone implicit-Euler DAE seed over `F(x, xdot, z, u, t, p)` with optional mass matrix, finite derivative/mass-application checks, initial consistency checks, and explicit unsupported BDF method policy, fixed-step ODE updates that use the actual final partial TimeGrid interval and sample explicit-Euler RHS values at interval starts, adaptive Heun/Euler ODE substep control wired into the one-state thermal path and internal continuous state-space path as `solver = adaptive_heun`, scalar simulate input override materialization into `SolverInput.inputs` for one-state thermal, source-equation ODE, and state-space paths, non-finite RHS/update rejection for fixed-step/fixed-point/dynamic-component seeds, derivative-form ResidualGraph-to-RHS lowering for algebraic-free dynamic seeds with input/parameter terms, source EquationAssembly bridges for arithmetic-linear dynamic component residuals, narrow coupled source Newton residual solves with user-provided residual scale override artifacts, dynamic derivative and selected algebraic Newton residual scale override diagnostics, and narrow source multi-state unitful implicit-Euler DAE residual solves with scalar or fixed-step TimeSeries input materialization plus Predictor/external identity-wrapper behavior output evaluation and the same named residual scale override support, component-result trajectory/tolerance/max-iteration/timestep-diagnostic/per-step-failure artifact adapters, RuntimeTimeSeries materialization, and IDE TimeSeries/solver-inspector rows | Broad adaptive solving and production nonlinear/DAE/component workflows beyond the narrow official source residual smokes are not supported | Keep algorithm tests independent until integration |
-| Behavior graph seeds | Internal | Runtime delay buffer with linear/previous-sample interpolation policies, initial-history policy, relationship artifact, solver-style behavior-node evaluation, delay-driven fixed-step RHS adapter coverage, and a solver-API `BehaviorGraphRhsAdapter` that chains delay, Predictor, and external behavior nodes from state/input/parameter/prior-node signals into one RHS evaluation; component local expressions diagnose invalid `delay(signal, duration)`, `predictor(signal)`/`predict(signal)`, and `external(signal)`/`adapter(signal)` seed calls against known `port.variable`, prior component-local signals, or nested delay behavior expressions; Predictor behavior contract wrapper with input/output quantity-unit metadata, valid-range warnings, model hash, differentiability flag, solver Jacobian policy, and predictor-driven fixed-step RHS adapter coverage; external function/process behavior wrapper with typed contracts, provenance, determinism, profile policy, failure propagation, and external-driven fixed-step RHS adapter coverage; narrow source `dynamic_component_explicit_euler` behavior RHS integration marks delay/Predictor/external identity-wrapper nodes as integrated in report/IDE artifacts; narrow source implicit-Euler DAE residual evaluation integrates Predictor/external identity-wrapper outputs and returns explicit unsupported artifacts for DAE delay replay | Model loading, process-backed external execution from source, generic nonlinear/DAE behavior coupling, broad behavior graph expression solving, DAE delay replay, and production co-simulation remain deferred | Track work in `docs/current/tracks.md` |
-| Domain/component track | Internal | Domain/component/port/connect metadata, diagnostics, assembly connection sets, generated connection equations with reasons, component-local boundary equation seeds, residual graph dependency metadata, structured residual evaluator input path, normalized residual scale/evaluation artifacts, dynamic-component state/algebraic/input/parameter split validation into solver layouts, internal simple-linear EquationAssembly dynamic solve bridge, dense linear residual solve for square boundary fixtures including `examples/internal/21_thermal_component_assembly` and the constrained Thermal/Fluid/MechanicalNode fixture `examples/internal/22_multi_domain_boundary_solve`, singular and overdetermined limitation artifacts, domain-plan metadata, connection constraint consistency artifacts, report sections, IDE equation/residual/dependency inspector, and LSP hover/completion metadata including port type/base-domain and medium/frame/axis labels | No production numeric multi-domain solver, general boundary-condition language, component behavior solve, or package registry | Track work in `docs/current/tracks.md` |
-| Class/domain-object track | Supported | `class` declarations, typed fields/defaults, object literals, nested object references, field access metadata, simple class validation blocks, zero-argument metadata methods, immutable copy-with metadata, diagnostics, `class_summary`/`object_summary` artifacts, IDE object summary inspector, LSP hover/member/object-literal field completion with required/default details, and `examples/official/19_class_object` | Runtime object dispatch/lowering, method arguments, mutation, inheritance, and simulation lowering deferred | Keep classes reviewable and avoid presenting them as system/component replacements |
-
-## Solver Vocabulary
-
-Use these labels consistently in public docs:
-
-| Term | Current Meaning |
-|---|---|
-| One-state fixed-step runner | The narrow runtime path used by official one-state thermal examples. |
-| One-state fixed-step thermal workflow | The supported shape for `02_simple_system` and measured-vs-simulated simulation output. |
-| One-state adaptive Heun thermal workflow | The supported `solver = adaptive_heun` shape for one-state thermal simulation with a fixed output TimeGrid and adaptive internal substeps. |
-| Source-equation ODE workflow | The supported one-`der(state)`-equation-per-state source shape used by `examples/official/20_multi_state_thermal` and runtime adaptive fixtures such as `tests/runtime/source_ode_three_state_nonthermal.eng` plus `examples/official/34_three_state_source_ode`, with scalar or Time-indexed TimeSeries inputs and explicit Euler/RK4/adaptive Heun execution. |
-| Source-equation RHS evaluator | The runtime evaluator that lowers supported arithmetic `C * der(state) eq rhs` source equations into canonical derivative values for fixed-step and adaptive Heun ODE solving. |
-| Adaptive Heun state-space workflow | The internal `solver = adaptive_heun` shape for continuous state-space `der(x) eq A * x + B * u` simulations with a fixed output TimeGrid and adaptive internal substeps. |
-| Dynamic component adaptive Heun source path | The narrow `solver = dynamic_component_adaptive_heun` component path for parsed derivative residual expressions with scalar or fixed-step TimeSeries component inputs, selected nonlinear derivative residual Newton fallback including residual-scale override diagnostics and a combined TimeSeries-driven derivative Newton fixture, selected affine/Newton algebraic output materialization including a combined TimeSeries-driven Newton fixture, fixed output-grid trajectories, accepted-substep diagnostics, output-grid Newton residual diagnostics, and Newton nonconvergence artifacts; broad nonlinear algebraic dynamic component graphs remain unsupported by this path. |
-| State-space fixed-step runner | The internal vector runtime path used by state-space examples, including multi-state Euler/RK4 and discrete A/B execution. |
-| Solver metadata | Review/result/report-spec metadata describing recognized equations, boundaries, methods, and limitations. |
-| Solver plan | Planning metadata for equation ordering and future numeric work; not proof of a general solver. |
-| Connection constraint consistency check | Runtime consistency artifact for generated component connection constraints; not a physical component-graph solve. |
-| Thermal/scalar component residual assembly | The supported constrained component graph shape used by `examples/official/23_thermal_component_assembly`, `examples/official/24_linear_algebraic_thermal_node`, `examples/official/25_fixed_point_loop`, `examples/official/26_dynamic_component_room`, `examples/official/27_nonlinear_algebraic`, `examples/official/28_small_dae`, `examples/official/29_delay_component_solver`, `examples/official/30_predictor_component_solver`, `examples/official/31_external_behavior_solver`, and `examples/official/32_small_thermal_fluid_loop` plus `examples/official/33_unit_parameterized_wall`: Thermal, dimensionless, or constrained Thermal/Fluid[Water] connection sets, literal boundary seeds, declared numeric/importable-const/pure-arithmetic component parameter defaults/overrides, scalar component input declarations for dynamic input layout, simple component-local equations with unitful-constant diagnostics and unit-parameterized linear coefficient coverage, square dense linear residual solves, narrow fixed-point source solves for pivotable linear ResidualGraphs and selected direct expression-mapped residuals, simple-linear dynamic component source solves plus selected fixed-step nonlinear derivative residual Newton fallback including explicit/semi-implicit TimeSeries component-input fixtures and residual-scale override diagnostics, algebraic-free dimensionless function RHS evaluation with constructor-parameter dependencies, parsed derivative function RHS evaluation with constructor-parameter dependencies and dense linear algebraic residual solves in the semi-implicit path, selected dimensionless nonlinear algebraic residuals through per-step Newton in the semi-implicit path including Newton nonconvergence artifacts, adaptive Heun source trajectories with selected nonlinear derivative residual Newton fallback including a TimeSeries-driven derivative Newton fixture, selected affine/Newton algebraic output materialization, output-grid Newton residual diagnostics, and a combined TimeSeries-driven Newton fixture, scalar and fixed-step TimeSeries component-input dependencies in parsed explicit, adaptive, residual-graph semi-implicit dynamic, and narrow source DAE residual paths, coupled two-state trajectories, and selected algebraic output trajectories for explicit and semi-implicit dynamic component solves, narrow source Newton solves, narrow source implicit-Euler DAE solves with Predictor/external identity-wrapper outputs, narrow unitful temperature explicit-Euler source behavior RHS solves, and a pressure/flow algebraic Fluid seed with a fixed pipe pressure-drop equation. |
-| General solver | Planned only. Do not present the supported one-state thermal, source-equation ODE workflows, or narrow component residual smokes as a broad nonlinear/DAE/adaptive/component solver. |
-| Component graph solver | Supported only for the constrained Thermal/scalar and Thermal/Fluid[Water] component residual assembly shapes above; broader nonlinear, adaptive, DAE, behavior graph, production pressure-drop packages and production multi-domain component simulation remain planned. |
+Use this file to avoid treating an implementation seed as a public release
+claim. Public package status and main-internal status are intentionally
+separate.
 
 ## Status Terms
 
 | Status | Meaning |
 |---|---|
-| Stable | Public behavior covered by the current published package scope and breaking-change policy. |
-| Supported | Usable, documented, tested, and visible through diagnostics or artifacts for the stated scope, but not covered by stable breaking-change policy. |
-| Internal | May have code, tests, examples, or artifacts on `main`, but is not a public-supported release feature. |
+| Stable | Public behavior covered by the current package scope and breaking-change policy. |
+| Supported | Usable, documented, tested, and visible through artifacts for a narrow stated scope, but not stable. |
+| Internal | Code, tests, examples, or artifacts may exist on `main`, but this is not public support. |
 | Planned | Intended future work with no supported implementation contract yet. |
+
+## Public Package Features
+
+### Core Language
+
+- Public package: `Stable`
+- Main status: `Stable` plus internal syntax seeds
+- User-facing scope: top-level execution, `args`, importable `const`, scalar
+  `fn`, relative imports, fast `=`, `:=` rejection, unit diagnostics, and
+  current formatter support.
+- Evidence: official examples, compiler diagnostics, formatter gate, LSP
+  metadata where relevant.
+- Not included: package/module imports, multi-return functions, broad
+  expression language, full AST-aware formatting policy.
+- Next cleanup action: keep syntax docs centered on semantic workflow clarity.
+
+### Typed Data Boundary
+
+- Public package: `Stable`
+- Main status: `Stable` plus data-quality fixtures
+- User-facing scope: schema/promote, CSV import, DateTime index metadata,
+  source hashes, typed args paths, missing policy seeds.
+- Evidence: `examples/official/01_csv_plot`, data-quality diagnostics,
+  runtime artifacts, report/review metadata.
+- Not included: arbitrary table formulas, richer data source types, general
+  data policy DSL.
+- Next cleanup action: keep schema/promote as the first data story.
+
+### TimeSeries, Statistics, Plot, Report, Review
+
+- Public package: `Stable`
+- Main status: `Stable` with supported plot/report variants
+- User-facing scope: unit-aware TimeSeries calculation, statistics,
+  integration, PlotSpec/SVG, report HTML, review JSON, report spec, and result
+  artifacts.
+- Evidence: official CSV workflow, artifact schemas, report/plot guides,
+  artifacts check.
+- Not included: broad arbitrary TimeSeries expressions, rich interactive
+  plots, grouped/stacked plots, full report layout system.
+- Next cleanup action: benchmark reviewability and artifact completeness before
+  runtime speed.
+
+### Measured-Vs-Simulated Validation
+
+- Public package: `Stable`
+- Main status: `Stable`
+- User-facing scope: documented weather/measured CSV promotion, explicit
+  `TimeSeries[Time]` input, typed simulation TimeSeries, RMSE metric,
+  validation result, time-alignment metadata, and multi-series PlotSpec.
+- Evidence: artifact checks, report/review metadata, IDE inspector payloads.
+- Not included: broad calibration, resampling policy controls, general solver
+  selection, production model calibration.
+- Next cleanup action: describe this as semantic validation, not solver
+  platform evidence.
+
+### Explicit Side Effects
+
+- Public package: `Stable`
+- Main status: `Stable`
+- User-facing scope: path helpers, provenance-visible `exists`, read
+  text/json/toml, explicit write text/json, constrained copy/move/delete,
+  output manifest, run log, process results, test results, and
+  safe/normal/repro profiles.
+- Evidence: official examples 10 through 16, saved artifacts, side-effect
+  policy docs.
+- Not included: broad filesystem mutation, network/download, full process
+  sandboxing, workspace-wide test discovery.
+- Next cleanup action: keep every effect typed, explicit, and reviewable.
+
+### Package And Native Tester IDE
+
+- Public package: `Stable`
+- Main status: `Stable` with internal inspector coverage
+- User-facing scope: portable package, standalone runner, curated PDFs, package
+  smoke, native tester IDE for check/run/inspect, PlotSpec/report opening, and
+  side-effect panels.
+- Evidence: release-check, package-smoke, IDE smoke.
+- Not included: persistent LSP editor contract, production editor platform.
+- Next cleanup action: lead IDE docs with TimeSeries/schema/unit/report review.
+
+## Supported Narrow Main Features
+
+### Command-Style Verbs, `where`, And `with`
+
+- Public package: `Supported`
+- Main status: `Supported`
+- User-facing scope: built-in workflow verbs only.
+- Evidence: `examples/official/09_command_where_with`.
+- Not included: arbitrary user-defined command syntax.
+- Next cleanup action: keep examples formatter-clean and command policy narrow.
+
+### Class / Domain Objects
+
+- Public package: `Supported`
+- Main status: `Supported`
+- User-facing scope: typed fields/defaults, object literals, nested references,
+  validation blocks, metadata methods, copy-with metadata, diagnostics,
+  report/review serialization, IDE summaries, and LSP metadata.
+- Evidence: `examples/official/19_class_object`, diagnostics, report/IDE
+  artifacts.
+- Not included: runtime object dispatch, mutation, inheritance, method
+  arguments, simulation lowering.
+- Next cleanup action: present classes as reviewable engineering objects.
+
+### Minimal System / Equation Workflows
+
+- Public package: `Supported` only for documented validation and scoped
+  examples
+- Main status: `Supported` and `Internal` depending on the path
+- User-facing scope: narrow source-equation ODE, one-state thermal,
+  typed-block state-space, and constrained component residual examples where
+  current docs state evidence.
+- Evidence: official and internal examples, runtime tests, report/review/IDE
+  solver artifacts.
+- Not included: general nonlinear/DAE/adaptive/component-coupled solving,
+  production multi-domain simulation, broad behavior graph solving.
+- Next cleanup action: keep solver detail in `docs/solver/README.md` and
+  avoid making it the README identity.
+
+## Internal Tracks
+
+### Solver Algorithm Seeds
+
+- Public package: `Internal`
+- Main status: `Internal`
+- Evidence: dense linear, fixed-point, Newton, DAE, adaptive ODE, behavior,
+  and dynamic component tests and artifacts.
+- Not included: broad production solver support.
+- Next cleanup action: keep algorithm tests independent until shared source
+  syntax, artifacts, IDE, and docs align.
+
+### Domain / Component Track
+
+- Public package: `Internal` except documented narrow examples
+- Main status: `Internal`
+- Evidence: domain declarations, ports, connection diagnostics, assembly
+  metadata, residual graph artifacts, IDE/LSP metadata.
+- Not included: production numeric multi-domain solver, domain package
+  registry, pressure-drop packages.
+- Next cleanup action: lead with typed vocabulary and review artifacts.
+
+### Uncertainty Track
+
+- Public package: `Internal`
+- Main status: `Internal`
+- Evidence: deterministic samples, diagnostics, propagation metadata, and
+  histogram artifacts.
+- Not included: stable Monte Carlo/Jacobian propagation contract.
+- Next cleanup action: keep internal until examples, artifacts, and guide align.
+
+### Data-Driven Modeling Track
+
+- Public package: `Internal`
+- Main status: `Internal`
+- Evidence: train/test split metadata, deterministic metrics, model cards,
+  parity/residual plots, and diagnostics.
+- Not included: broad ML package semantics.
+- Next cleanup action: describe as model review artifacts, not physical system
+  simulation.
+
+### LSP / VS Code Track
+
+- Public package: `Internal`
+- Main status: `Internal`
+- Evidence: `eng-lsp.exe` smoke/snapshot, stdio tests, optional VS Code source.
+- Not included: stable persistent editor-service contract.
+- Next cleanup action: keep LSP commands labeled as internal smoke.
+
+### Runtime Optimization / JIT / AOT
+
+- Public package: `Internal`
+- Main status: `Internal`
+- Evidence: `eng_jit`, `jit-plan`, `jit-bench`, interpreter kernel IR,
+  benchmark catalog, and fallback metadata.
+- Not included: native code generation or speedup claim.
+- Next cleanup action: keep semantic benchmark strategy ahead of solver timing.
+
+## Solver Vocabulary
+
+Use these labels consistently in public docs:
+
+| Term | Current meaning |
+|---|---|
+| Typed TimeSeries producer | Preferred product-facing description for scoped simulation paths. |
+| Solver metadata | Review/result/report-spec metadata describing equations, residuals, methods, limitations, and convergence/failure evidence. |
+| Narrow solver smoke | A testable implementation fixture with explicit limits. |
+| General solver | Planned only. Do not use for current package claims. |
+| Component graph solver | Narrow constrained scopes only unless a current status document says otherwise. |
 
 ## Completion Policy
 

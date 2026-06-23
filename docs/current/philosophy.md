@@ -1,27 +1,62 @@
 # Integrated Language Philosophy
 
-This page is the active short-form philosophy for EngLang. It condenses the
-integrated redesign direction into rules that should guide implementation,
-examples, documentation, and release claims.
+This page is the active short-form philosophy for EngLang. It should guide
+implementation, examples, documentation, and release claims.
 
 ## Product Statement
 
-EngLang is a unit-safe engineering programming language for typed data
-analysis, system simulation workflows, plotting, and reproducible review.
+EngLang is a semantic engineering workflow language.
+It helps engineers and LLM-generated code preserve units, quantities, schemas,
+axes, provenance, plots, and review artifacts across typed data analysis and
+simulation-result validation.
 
-The language must carry two workflows without splitting into two unrelated
+The primary goal is not to become a solver-first language. Solvers are
+producers of typed TimeSeries and reviewable residual/convergence artifacts;
+they are supporting capability, not the primary identity of EngLang.
+
+## What It Is / What It Is Not
+
+| EngLang is | EngLang is not |
+|---|---|
+| Unit-safe typed data analysis | A general nonlinear solver platform |
+| Schema/promote data boundary | A Modelica or Simulink replacement |
+| TimeSeries semantics with explicit axes | An EnergyPlus replacement |
+| Plot/report/review artifact generation | A production multi-domain simulator |
+| IDE inspection for engineering meaning | A solver benchmark project |
+| LLM-reviewable engineering computation | A hidden code-generation runtime |
+
+## LLM-Reviewable Engineering Computation
+
+EngLang assumes that engineering code may be written, modified, or reviewed by
+LLM-assisted tools. The language should make the meaning of the computation
+visible enough that a human reviewer can inspect it without trusting the code
+blindly.
+
+That means public workflows should surface:
+
+- variable, quantity, and unit tables
+- schema and promote boundaries
+- TimeSeries axes and alignment metadata
+- metric and validation artifacts
+- provenance for data, files, commands, and generated outputs
+- report/review artifacts that explain what happened
+- IDE panels that expose the same information without raw JSON spelunking
+
+## Workflow Integration
+
+The language must carry two workflows without splitting into unrelated
 languages:
 
 ```text
 1. SQL/MATLAB/R/pandas-like typed Table and TimeSeries analysis
-2. system/component/port-based engineering simulation modeling
+2. scoped system/component simulation that produces typed TimeSeries
 ```
 
 The integration point is:
 
 ```text
 System modeling produces typed TimeSeries.
-Data analysis validates, calibrates, summarizes, and explains those TimeSeries.
+Data analysis validates, summarizes, and explains those TimeSeries.
 ```
 
 The default workflow therefore moves in this direction:
@@ -29,9 +64,8 @@ The default workflow therefore moves in this direction:
 ```text
 schema/promote
 -> typed Table/TimeSeries
--> system/component simulation input
--> typed simulation output TimeSeries
--> metrics/validation/calibration
+-> typed simulation output TimeSeries when needed
+-> metrics/validation
 -> PlotSpec/report/review artifacts
 -> IDE visual inspection
 -> standalone package

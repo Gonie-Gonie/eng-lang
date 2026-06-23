@@ -25,6 +25,6 @@ Current support boundary:
 Useful commands:
 
 ```bat
-target\debug\eng.exe check examples\official\33_unit_parameterized_wall\main.eng --review
-target\debug\eng.exe run examples\official\33_unit_parameterized_wall\main.eng --save-artifacts
+target\debug\eng.exe check examples\advanced_solver\33_unit_parameterized_wall\main.eng --review
+target\debug\eng.exe run examples\advanced_solver\33_unit_parameterized_wall\main.eng --save-artifacts
 ```

@@ -5,52 +5,76 @@ It is intentionally short so agents do not need to load every planning file.
 
 ## Current Target
 
-- Current public line: `v1.0.0`
-- Active target: `v1.0.x` stable core maintenance and scoped additions
-- Workspace package version: `1.0.0`
-- EngLang 1.0.0 is a stable-core release. The documented data-to-report
-  workflow, artifact family, packaged runner, and native tester path are stable;
-  supported non-stable features and internal implementation seeds remain
-  outside that contract.
+- Current public line: `v0.1.0`
+- Active target: `v0.1.x` cleanup and scoped additions
+- Workspace package version: `0.1.0`
+- EngLang `v0.1.0` is an initial portable public package, not a general
+  engineering solver release.
+- The public package contract is the documented semantic workflow:
+  typed data boundary, unit/quantity-aware TimeSeries work, report/review
+  artifacts, explicit side effects, package smoke, and native tester IDE.
+- Solver-centered work on `main` is internal or narrowly supported unless
+  `docs/current/status.md` and `docs/current/feature_maturity_matrix.md`
+  state a concrete public scope.
 - Public release versions describe packages. Long-term capabilities are tracked
-  as development tracks, not as high-numbered versions.
-- Stable-core scope is documented in `docs/current/stable_core_scope.md`.
+  as development tracks, not as high-numbered version ladders.
 
 ## Read First
 
 1. `README.md`
 2. `LLM_CONTEXT.md`
 3. `docs/current/status.md`
-4. `docs/current/version_plan.md`
+4. `docs/current/philosophy.md`
 5. `docs/current/feature_maturity_matrix.md`
-6. `docs/current/stable_core_scope.md`
-7. `docs/reference/breaking_change_policy.md`
-8. `docs/current/tracks.md`
-9. `docs/current/implementation_issue_backlog.md`
-10. `docs/llm/load_map.yml`
+6. `docs/current/tracks.md`
+7. `docs/current/version_plan.md`
+8. `docs/llm/load_map.yml`
 
-## Current Stable Core
+Open solver-specific documents only for solver implementation tasks:
 
-The current stable core supports:
+- `docs/solver/README.md`
+- `docs/current/solver_centered_plan.md`
+- `docs/current/generic_solver_completion_plan.md`
+
+## Product Identity
+
+EngLang is a semantic engineering workflow language.
+It helps engineers and LLM-generated code preserve units, quantities, schemas,
+axes, provenance, plots, and review artifacts across typed data analysis and
+simulation-result validation.
+
+What EngLang is:
+
+- unit-safe typed data analysis
+- TimeSeries semantics with explicit axes
+- schema/promote data boundary
+- report, review, and provenance artifacts
+- LLM-reviewable engineering computation
+- native IDE inspection for engineering artifacts
+
+What EngLang is not:
+
+- a solver-first language
+- a Modelica or Simulink replacement
+- a production multi-domain solver
+- an EnergyPlus replacement
+- a general nonlinear solver platform
+
+## Current Public Package Scope
+
+The public package centers on:
 
 - typed CSV promote
-- top-level execution, args, const, pure scalar fn, and relative file imports
-- command-style built-in workflow verbs with where/with policy
+- top-level execution, `args`, `const`, scalar `fn`, and relative imports
+- command-style built-in workflow verbs with `where` and `with`
 - unit-aware TimeSeries calculation
 - statistics and integration metadata
-- measured-vs-simulated workflow with explicit TimeSeries system input, typed
-  simulation TimeSeries, RMSE, validation, time-alignment metadata, and
-  multi-series PlotSpec
+- measured-vs-simulated validation artifacts for the documented scope
 - unit-aware print and explicit summary CSV export
 - typed path helpers and provenance-visible `exists`
 - read-only UTF-8 `read text/json/toml` with source hash provenance
-- explicit `write text/json`, CSV overwrite hardening, and output manifest
-- explicit `copy/move/delete` file operation seed with confirmation metadata
-- `print` plus `log debug/info/warn/error` runtime messages with `run_log.json`
-- explicit `run command` process execution with `ProcessResult` and
-  `process_results.json`
-- named `test` blocks with checked assertions, golden artifact comparisons, and
-  `test_results.json`
+- explicit `write text/json`, constrained file operations, output manifest,
+  run log, process results, and test results
 - `eng run --profile safe|normal|repro` runtime policy basics
 - PlotSpec/SVG output
 - review/report artifacts
@@ -58,15 +82,15 @@ The current stable core supports:
 - native tester IDE user workflow
 - curated user and language grammar PDFs
 
+## Internal / Narrow Tracks
+
 Implementation seeds for uncertainty, data-driven modeling, LSP, JIT/AOT,
-domain/component, state-space, and class/domain-object work may exist on
-`main`, but they are Internal unless the current status documents a narrow
-Supported scope. The domain/component surface has a supported constrained
-Thermal boundary assembly example with system-local instances and a square
-dense linear residual solve; broader domain/component seeds remain reviewable
-metadata and internal algebraic fixtures, not production multi-domain physical
-solving. The state-space surface has supported typed-block fixed-step examples,
-but it is not a supported general state-space simulation workflow.
+domain/component, state-space, class/domain-object, and solver work may exist on
+`main`. Treat them as `Internal` unless the status documents state a narrow
+`Supported` scope and evidence.
+
+Solvers are producers of typed TimeSeries and reviewable residual/convergence
+artifacts. They are supporting capability, not the primary identity of EngLang.
 
 ## Core Invariants
 
@@ -79,22 +103,18 @@ but it is not a supported general state-space simulation workflow.
   model/estimator language and remain clearly separated from physical systems.
 - Physical equations use `eq`. `==` is comparison syntax and should not be used
   for physical equations.
-- Temperature spelling: `degC` is the canonical ASCII spelling; `°C` is a
-  supported user-facing alias for `AbsoluteTemperature`.
-- Examples taxonomy: `examples/official` is the user-test/release namespace.
-  Compatibility regressions live under `examples/compat`; diagnostic and
-  data-quality fixtures live under `examples/diagnostics`.
-- Hidden imported side effects are disallowed for file run/build paths; explicit
-  top-level workflow effects must be typed, recorded, and reviewable.
+- Temperature spelling: `degC` is the canonical ASCII spelling; the degree-C
+  alias is user-facing compatibility only.
+- Hidden imported side effects are disallowed for file run/build paths.
+- Explicit top-level workflow effects must be typed, recorded, and reviewable.
 - Public feature claims must match the feature maturity matrix.
-- General programming support must keep file/process/network effects typed,
-  explicit, and reviewable.
 
 ## Status Terms
 
-- `Stable`: public behavior covered by the stable-core breaking-change policy.
+- `Stable`: public behavior covered by the current public package scope and
+  breaking-change policy.
 - `Supported`: usable, documented, tested, and visible through diagnostics or
-  artifacts for the stated scope, but not covered by stable policy.
+  artifacts for a stated narrow scope, but not covered by stable policy.
 - `Internal`: may have code, tests, examples, or artifacts on `main`, but is
   not a public-supported release feature.
 - `Planned`: intended future work.

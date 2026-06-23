@@ -18725,7 +18725,7 @@ with {
     #[test]
     fn official_thermal_fluid_loop_solves_with_parameter_rhs() {
         let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../examples/official/32_small_thermal_fluid_loop/main.eng");
+            .join("../../examples/advanced_solver/32_small_thermal_fluid_loop/main.eng");
         let report = check_file(&source_path, &CheckOptions::default()).unwrap();
 
         let runtime = materialize_runtime_data(&report, "");

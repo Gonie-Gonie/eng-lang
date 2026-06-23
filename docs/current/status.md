@@ -1,501 +1,135 @@
 # Current Project Status
 
 This page is the authoritative short-form status layer for contributors and LLM
-agents. It separates public release behavior from supported-but-non-stable
-features, internal implementation seeds, and planned tracks.
+agents. It describes the public package first. Internal implementation seeds
+are summarized separately in [main_internal_status.md](main_internal_status.md).
 
 ## Release State
 
 | Field | Value |
 |---|---|
 | Current public line | `v0.1.0` |
-| Active target | solver-centered implementation hardening on `main` |
+| Active target | `v0.1.x` cleanup and scoped additions |
 | Workspace package version | `0.1.0` |
-| Release channel | initial portable package plus unreleased main-track work |
+| Release channel | initial portable package plus unreleased main work |
 
 EngLang `v0.1.0` is the current published portable release. The GitHub Release
 page and attached assets are audited in
-[release-state.md](../release/release-state.md). Newer solver-centered work on
-`main` may be implemented and tested without being part of those published
-release assets. EngLang is not a complete engineering simulation solver.
-Earlier high-numbered release names are historical planning labels, not the
-current public version line.
+[release-state.md](../release/release-state.md).
 
-The active language philosophy is recorded in
-[Integrated Language Philosophy](philosophy.md):
+EngLang is a semantic engineering workflow language. It is not a complete
+engineering simulation solver. Later solver-centered commits on `main` are
+unreleased implementation work until a new package/tag is published.
 
-```text
-EngLang is a unit-safe engineering programming language for typed data
-analysis, system simulation workflows, plotting, and reproducible review.
-```
+## Product Statement
 
-Future capabilities are tracked in [development tracks](tracks.md), not as
-public release versions. A track may have implementation seeds on `main`
-without being part of the public release contract.
+EngLang helps engineers and LLM-generated code preserve units, quantities,
+schemas, axes, provenance, plots, and review artifacts across typed data
+analysis and simulation-result validation.
 
-## Core Execution Invariants
-
-- Core checking, running, plotting, report generation, and packaged execution
-  do not depend on Python.
-- Python may be used for optional documentation tooling only.
-- The official execution path is `.eng -> typed semantic model -> bytecode ->
-  native runtime/VM -> result/report/PlotSpec objects`; `--save-artifacts`
-  writes `.engbc`, `.engres`, SVG/HTML/report/review artifacts and
-  `run_log.json`, `process_results.json`, `test_results.json`, and
-  `output_manifest.json`.
-- Fast declaration uses `=`. `:=` is rejected.
-- Physical equations use `eq`. `==` is comparison syntax and is rejected in
-  equation blocks.
-- Public features need examples, tests, diagnostics or metadata where relevant,
-  and reviewable artifacts.
+System simulation is a supporting capability when it produces typed TimeSeries
+and reviewable residual/convergence artifacts. It is not the primary product
+identity.
 
 ## Public Package Features
 
 Public package behavior is documented, tested, usable through the package
 workflow, and covered by the breaking-change policy.
 
-- Top-level file execution, root `args { ... }`, importable top-level `const`,
-  pure scalar `fn` definitions, checked return dimensions, relative file
-  imports, LSP function signature metadata, and no imported executable-body
-  side effects.
-- Fast `=` declarations, explicit quantity declarations, and `:=` rejection.
-- Built-in quantity/unit registry, including canonical `degC` plus the `°C`
-  alias for absolute temperature display.
-- Unit and quantity checking for supported arithmetic, dimensionless plus
-  physical quantity diagnostics, and ambiguous quantity warnings for unit-only
-  declarations.
+### Core Language And Data Boundary
+
+- Top-level file execution without `script main`.
+- Root `args { ... }` for String/path/CsvFile/DirectoryPath and primitive
+  Bool/Int/Count/Float/Duration values.
+- Fast `=` bindings, explicit quantity declarations, and `:=` rejection.
+- Top-level importable `const`, pure scalar `fn`, checked return dimensions,
+  relative file imports, and no imported executable-body side effects.
+- Built-in quantity/unit registry with `degC` as the canonical ASCII
+  temperature spelling.
 - Typed CSV promotion for the official schema/data boundary.
 - DateTime-indexed table metadata, row-level CSV runtime pages, and source hash
   provenance for promoted data.
-- TimeSeries statistics on the documented HeatRate path: mean, time-weighted
-  mean, median, standard deviation, percentiles, duration-above metadata, and
-  trapezoidal integration.
+
+### TimeSeries, Plot, Report, And Review
+
+- Unit-aware TimeSeries calculation on the documented public paths.
+- TimeSeries statistics: mean, time-weighted mean, median, standard deviation,
+  percentiles, duration-above metadata, and trapezoidal integration.
 - PlotSpec v1 line plots, measured-vs-simulated multi-series line plots, SVG
   output, plot manifests, report HTML, review JSON, report spec, and result
   artifacts.
-- Measured-vs-simulated workflow: weather/measured CSV promotion, explicit
-  `TimeSeries[Time]` thermal input contract, one-state fixed-step thermal
-  simulation output as `sim.T_zone`, scalar input override materialization, RMSE metric, validation result,
+- Unit-aware `print` and explicit one-row summary CSV export.
+
+### Validation Workflow
+
+- Measured-vs-simulated workflow for the documented scope:
+  weather/measured CSV promotion, explicit `TimeSeries[Time]` input contract,
+  typed simulation TimeSeries output, RMSE metric, validation result,
   time-alignment metadata, and multi-series PlotSpec.
-- Unit-aware `print`, structured `log debug/info/warn/error`, one-row summary
-  CSV export, explicit write outputs, process results, local test/assert/golden
-  checks, and their saved artifacts.
-- Typed path helpers (`file`, `dir`, `join`, `parent`, `stem`, `extension`) and
-  provenance-visible `exists`.
+
+This validation workflow demonstrates how simulation output can become typed
+review material. It is not a broad solver claim.
+
+### Explicit Side Effects
+
+- Typed path helpers: `file`, `dir`, `join`, `parent`, `stem`, `extension`.
+- Provenance-visible `exists`.
 - Read-only UTF-8 `read text`, `read json`, and `read toml` expressions with
   source-relative resolution and source hash provenance.
-- Explicit `write text/json`, summary CSV overwrite hardening, constrained
-  copy/move/delete file operations, `output_manifest.json`, `run_log.json`,
-  `process_results.json`, and `test_results.json`.
-- `eng run --profile safe|normal|repro`: `safe` rejects explicit workflow
-  write/export/file-operation/process effects, `normal` is the default, and
-  `repro` records profile diagnostics in result/run-log/output-manifest
-  artifacts.
+- Explicit `write text/json`, constrained copy/move/delete file operations,
+  CSV overwrite hardening, and `output_manifest.json`.
+- Structured `log debug/info/warn/error` and `run_log.json`.
+- Explicit `run command`, `ProcessResult`, and `process_results.json`.
+- Named `test` blocks, checked assertions, golden artifact comparisons, and
+  `test_results.json`.
+- `eng run --profile safe|normal|repro` runtime policy basics.
+
+### Package And IDE
+
 - Standalone packaged runner with `.engpkg`, `.lock`, Args help, dependency
-  copying, package smoke under a sanitized Rust/Python-free child-process PATH,
-  curated PDF docs, and SHA256 release checksum.
-- Tauri/WebView tester IDE smoke path for open/check/save/run, diagnostics,
-  variable summaries, schema/TimeSeries/metric/validation/time-alignment
-  inspectors for the measured workflow, schema parse/conversion failure
-  inspector coverage for data-quality runs, internal state-space trajectory and
-  solver-inspector coverage, component solver trajectory inspector rows with
-  failure code/reason metadata,
-  dependency-graph inspector coverage, class object summary inspector coverage,
-  side-effect
-  artifact panels for output manifest, run log, process results, and test
-  results, PlotSpec viewing, and on-demand report/plot opening for stable
-  workflows.
+  copying, package smoke, curated PDF docs, release zip, and SHA256 checksum.
+- Native Tauri/WebView tester IDE smoke path for open/check/save/run,
+  diagnostics, variable summaries, schema/TimeSeries/metric/validation
+  inspectors, PlotSpec viewing, report opening, and side-effect artifact panels.
+- Packaged LSP smoke/snapshot binary for internal editor tooling. It is not a
+  stable persistent editor-service contract.
 
-## Supported Features
+## Supported But Narrow Main Behavior
 
-Supported features are usable and tested in a narrow scope, but are not covered
-by the stable breaking-change policy.
+Some behavior on `main` is usable and tested in narrow scopes but is not part
+of the stable public package contract. These entries must keep their limits
+visible:
 
-- Parenthesis-light command-style built-in verbs, owner-local `where` blocks,
-  LSP hover metadata for where locals, and `with` option/display blocks for
-  documented built-in workflow commands. Arbitrary user-defined command syntax
-  and project-wide display policy remain planned.
-- `eng fmt <file.eng>` source-preserving formatter with stdout, `--check`, and
-  `--write` modes. The formatter covers current block indentation,
-  colon-label continuation indentation, trailing whitespace normalization,
-  comment preservation, string-brace handling, idempotence tests, and the
-  official-example formatter-clean gate. Full AST-aware style rewriting remains
-  planned.
-- Data-quality policies for the documented examples: missing-value handling,
-  monotonic DateTime checks, constraint metadata, parse-failure artifacts, and
-  unsupported unit conversion diagnostics. A general policy DSL remains
-  planned.
-- Bar and histogram plot paths used by uncertainty histograms, ML residual
-  bars, and raw value histograms. Grouped/stacked bar semantics and custom
-  multi-series histogram behavior remain planned.
-- Minimal `system`/`eq` support for parsing, semantic/unit diagnostics,
-  parameter/state/input metadata, `der(...)`, one-state fixed-step thermal
-  execution, one-state `adaptive_heun` simulation, one-state thermal scalar input override fixture coverage, source-equation fixed-step
-  and adaptive Heun ODE execution with scalar or Time-indexed TimeSeries inputs,
-  numeric system parameter override materialization,
-  official three-state non-thermal adaptive source-equation coverage with
-  TimeSeries input materialization, scalar output materialization including
-  acyclic output-to-output dependencies with explicit loop failure artifacts, and
-  `sim.<state>`/`sim.<output>` materialization for the documented workflows.
-  General equation solving beyond that source-equation shape, nonlinear, DAE,
-  broad adaptive, and component-coupled solving remain planned.
-- Typed-block state-space workflows: top-level `states`/`inputs` blocks,
-  `StateVector[...]` and `InputVector[...]` declarations, `operator A:` and
-  `operator B:` declarations, shape/unit-checked A/B matrices, discrete
-  `next(x) eq A * x + B * u`, continuous `der(x) eq A * x + B * u`,
-  fixed-step explicit-Euler/RK4 execution, scalar or Time-indexed TimeSeries
-  input materialization, numeric scalar input override materialization, scalar `output` materialization, and generated
-  `sim.<state>`/`sim.<output>` TimeSeries for
-  `examples/official/21_state_space_discrete` and
-  `examples/official/22_state_space_continuous`. Broad operator algebra,
-  nonlinear, DAE, discrete adaptive, broad adaptive, and component-coupled
-  state-space solving remain planned or internal.
-- Thermal component boundary assembly: component templates with ports,
-  system-local `name = Component(...)` instances with empty constructors or
-  declared numeric/importable-const/pure-arithmetic component parameter defaults
-  plus named or declaration-order positional constructor overrides for
-  boundary/equation seeds, machine-readable constructor and parameter
-  provenance, `connect instance.port to instance.port`, generated Thermal
-  across/through equations, component-local `name = port.signal = literal`
-  boundary seeds, direct `port.signal eq literal`, and simple linear
-  port-signal equations including unit-parameterized linear coefficient forms
-  such as Conductance * TemperatureDelta across compatible residual display
-  units, with compiler diagnostics for incompatible unitful constants. Square
-  dense linear residual solve artifacts are covered by
-  `examples/official/23_thermal_component_assembly` and the source-to-solver
-  `examples/official/24_linear_algebraic_thermal_node`; a narrow explicit
-  fixed-point source solve over linear ResidualGraph equations is covered by
-  `examples/official/25_fixed_point_loop`; and a simple-linear dynamic
-  component source solve is covered by
-  `examples/official/26_dynamic_component_room`, with additional runtime
-  fixture coverage for algebraic-free dimensionless function RHS evaluation,
-  constructor-parameter and scalar or TimeSeries component-input dependencies
-  in the parsed explicit dynamic path plus selected fixed-step nonlinear
-  derivative residual Newton fallback, including explicit/semi-implicit
-  TimeSeries component-input fixtures, fixed-step TimeSeries component inputs
-  and parsed derivative function RHS evaluation in the residual-graph
-  semi-implicit path, selected dimensionless nonlinear algebraic residuals
-  through per-step Newton in the semi-implicit path, coupled two-state trajectories through
-  parsed derivative residual expressions, and selected algebraic output
-  trajectories such as `node.y eq cos(node.x)`. `dynamic_component_adaptive_heun`
-  source solves now emit adaptive Heun
-  component trajectories, scalar or fixed-step TimeSeries input
-  materialization, selected nonlinear derivative residual Newton fallback,
-  a combined TimeSeries-driven derivative Newton fixture, selected
-  affine/Newton algebraic output trajectories, combined TimeSeries-driven
-  Newton algebraic materialization, accepted-substep
-  diagnostics, output-grid Newton residual diagnostics, and Newton
-  nonconvergence artifacts; broad nonlinear algebraic graphs remain
-  unsupported.
-  Narrow coupled multi-variable
-  unitful source Newton and multi-state unitful temperature implicit-Euler DAE
-  component residual smokes are covered by
-  `examples/official/27_nonlinear_algebraic` and
-  `examples/official/28_small_dae`. Narrow unitful temperature explicit-Euler
-  source behavior RHS smokes for delay, deterministic Predictor identity
-  wrappers, and deterministic external adapter identity wrappers are covered by
-  `examples/official/29_delay_component_solver`,
-  `examples/official/30_predictor_component_solver`, and
-  `examples/official/31_external_behavior_solver`. Broad args/object/non-arithmetic
-  constructor bindings, broad nonlinear, derivative-rich, affine display-unit,
-  or general compound-unit component-local equations, broad fixed-point/nonlinear
-  source solving, behavior-node solving, broad nonlinear/DAE coupling, adaptive
-  component timestepping beyond the selected affine/Newton source path, and production multi-domain solving remain planned or
-  internal. A constrained Thermal/Fluid[Water] square algebraic residual graph
-  solve is covered separately by
-  `examples/official/32_small_thermal_fluid_loop`; it uses the public
-  `Pressure [Pa]` quantity plus declared pump/pipe component parameters with
-  numeric/importable-const/pure-arithmetic defaults plus named or
-  declaration-order positional constructor overrides, but does not claim a broad
-  or production multi-domain simulator. The source-to-solver
-  unit-parameterized wall path is covered by
-  `examples/official/33_unit_parameterized_wall`; it validates a Conductance
-  [W/K] component parameter against a HeatRate residual and converts the
-  coefficient into compatible residual display units without claiming broad
-  nonlinear or general compound-unit component equations.
+- Parenthesis-light command-style built-in verbs, owner-local `where`, and
+  `with` blocks for documented built-in workflow commands.
+- `eng fmt <file.eng>` source-preserving formatter for current syntax and
+  official examples.
+- Data-quality policies for documented examples.
+- Bar and histogram plot paths used by current report/PlotSpec tests.
+- Minimal `system`/`eq`, source-equation ODE, typed-block state-space, and
+  constrained component residual examples when documented as narrow scopes.
 - Class/domain object authoring for typed fields/defaults, object literals,
-  nested object references, field access metadata, simple validation blocks,
-  zero-argument metadata methods, immutable copy-with metadata, diagnostics,
-  report/review serialization, IDE object summary inspector, and LSP
-  hover/member/object-literal field completion metadata with required/default
-  details.
-  Runtime object dispatch/lowering, method arguments, mutation, inheritance,
-  and simulation lowering remain planned.
+  validation, metadata methods, copy-with metadata, diagnostics, report/review
+  serialization, IDE summaries, and LSP metadata.
 
-## Internal Implementation Seeds
-
-Internal seeds may have code, tests, examples, or artifacts on `main`, but they
-are not public stable workflows.
-
-- Legacy/internal state-space metadata and runtime seeds: typed vector/operator declarations,
-  vector-member existence/role diagnostics, operator quantity/unit summaries, review metadata,
-  non-rectangular matrix diagnostics, non-numeric/non-finite matrix-entry
-  diagnostics, unsupported unitful matrix-entry diagnostics, inverse-time
-  coefficient checks and per-second canonicalization where source and
-  derivative units are compatible, shape-checked
-  continuous/discrete A/B execution, report/review/IDE canonical operator matrix
-  and named-entry summaries, multi-state fixed-step Euler/RK4
-  trajectories with TimeSeries input materialization, `OutputLayout` preserved
-  across `SolverInput`/`SolverResult`, non-empty output layouts validated
-  against state quantity/unit metadata, non-finite state/input/parameter
-  numeric values rejected before solver execution, non-finite state-space
-  matrix/input/derivative/update values rejected before trajectory emission,
-  and report/review/result/IDE
-  solver-inspector artifacts for state/input/parameter and output lists,
-  timestep, tolerance, iteration count, convergence status, failure reason,
-  and trajectory points.
-  Continuous and discrete state-space fixture paths are covered by the example
-  smoke gate.
-  They are not a supported general nonlinear, DAE, adaptive, broad
-  operator-algebra, or component-coupled state-space simulation workflow.
-- System simulate diagnostics for missing inputs, non-TimeSeries bindings,
-  axis/quantity mismatches, timestep/tolerance options, solver options, and
-  unknown systems are covered by the CLI example smoke gate.
-- Unsupported simulated system shapes are covered by an internal example smoke
-  that requires an explicit `skipped_unsupported_shape` artifact instead of a
-  fabricated trajectory.
-- Solver algorithm seeds: dense linear solve with finite matrix/RHS/tolerance
-  checks, source residual scale overrides, exact zero-pivot singular failures,
-  tolerance-level ill-conditioned pivot failures, and successful-solve pivot
-  condition estimates exposed through
-  component solver report artifacts, solver-API fixed-point iteration with per-iteration update residual-vector history plus the narrow
-  `solve component_graph` fixed-point source path with raw/normalized variable-update step diagnostics, scalar or per-unknown vector initial guesses,
-  user-provided final residual scale overrides,
-  fixed-point-specific initial-layout failures, and nonconvergence diagnostics, and
-  solver-API standalone damped Newton solve with finite initial-guess checks,
-  finite-difference fallback, supplied analytic/JIT Jacobian hook, Jacobian policy labels, variable-scale policy, per-iteration Newton linear-step condition diagnostics,
-  residual-vector history, per-step largest residual identity diagnostics,
-  residual history, accepted line-search scale/trial diagnostics,
-  largest-residual summary, shared scaled residual-norm diagnostics,
-  residual-assembly/evaluation finite-value checks, unsupported residual-lowering artifacts, intermediate overflow
-  rejection, and nonconvergence/singular-linear-solve/line-search failure
-  artifacts. The same
-  internal layer has a solver-API standalone implicit-Euler DAE seed over
-  `F(x, xdot, z, u, t, p)` with optional mass matrix, finite
-  derivative/mass-application checks, initial consistency checks,
-  algebraic-variable initialization, explicit unsupported BDF policy, and a
-  dynamic-component
-  explicit-Euler seed that supports algebraic-free state updates plus
-  fixed-point algebraic solves per timestep and returns state/algebraic
-  trajectories through the common `SolverResult` output contract plus failure
-  diagnostics. The dynamic-component seed can also drive algebraic-free RHS
-  updates from derivative-form `ResidualGraph` equations, including input and
-  parameter terms, through a count/name-validated residual-graph explicit-Euler
-  entrypoint, and derivative plus linear algebraic residual graphs through a
-  semi-implicit entrypoint with per-step dense linear algebraic solves plus raw
-  and normalized residual-vector and largest-residual diagnostic artifacts. A
-  source `EquationAssembly` bridge now validates dynamic component
-  state/algebraic/input/parameter layouts, lowers arithmetic-linear derivative and
-  algebraic residuals with materialized component-parameter coefficients into
-  those residual-graph entrypoints, and can pair the semi-implicit algebraic
-  residual graph or per-step Newton algebraic residual solving with parsed
-  derivative residual RHS expressions, including constructor-parameter
-  dependencies, fixed-step TimeSeries component-input materialization,
-  derivative Newton residual-scale override diagnostics,
-  compound RHS residual parenthesization for supported parsed component
-  equations, provenance, and selected algebraic output trajectories, preserving
-  equation/unknown counts in component solver artifacts, and is covered by
-  `examples/official/26_dynamic_component_room`,
-  `tests/runtime/dynamic_component_explicit.eng`,
-  `tests/runtime/dynamic_component_algebraic_output_semi_implicit.eng`,
-  `tests/runtime/dynamic_component_function_semi_implicit.eng`,
-  `tests/runtime/dynamic_component_parameterized_function_semi_implicit.eng`,
-  `tests/runtime/dynamic_component_derivative_residual_scale_override.eng`,
-  `tests/runtime/dynamic_component_algebraic_residual_scale_override.eng`,
-  `tests/runtime/dynamic_component_adaptive_algebraic_residual_scale_override.eng`,
-  `tests/runtime/dynamic_component_nonlinear_algebraic_semi_implicit.eng`,
-  `tests/runtime/dynamic_component_nonlinear_algebraic_timeseries_input_semi_implicit.eng`,
-  `tests/runtime/dynamic_component_semi_implicit.eng`, and
-  `tests/diagnostics/dynamic_component_nonconvergence.eng`, plus
-  `tests/diagnostics/dynamic_component_nonlinear_algebraic_nonconvergence.eng`
-  for Newton algebraic nonconvergence artifacts and
-  `tests/diagnostics/dynamic_component_residual_scale_invalid.eng` for invalid
-  dynamic residual scale artifacts, plus
-  `tests/diagnostics/dynamic_component_affine_residual_scale_unsupported.eng`
-  for unsupported affine derivative residual scale requests. The runtime also
-  has narrow source bridges from component `EquationAssembly` residuals to
-  Newton and implicit-Euler DAE solves. The Newton bridge evaluates source
-  residual expressions directly, scales residuals, uses finite-difference
-  Jacobian by default, supports the `source_linear_terms` Jacobian hook for
-  linear residual graphs, accepts `residual_scale`/`residual_scales` overrides
-  for named source residuals, records residual history, raw/normalized residual-vector step diagnostics, step-level largest-residual source context, plus variable-scale policy through step diagnostics,
-  and is covered by `examples/official/27_nonlinear_algebraic`,
-  `tests/runtime/nonlinear_residual_from_source.eng`,
-  `tests/runtime/newton_source_linear_jacobian.eng`, and
-  `tests/runtime/newton_residual_scale_override.eng`, plus
-  `tests/diagnostics/newton_nonconvergence.eng` and
-  `tests/diagnostics/residual_scale_invalid.eng`. The DAE bridge derives the
-  state/algebraic split from assembly variables, builds `DaeInput`, applies
-  Newton algebraic initialization, uses identity mass-matrix fallback unless a
-  dimensionless scalar, diagonal vector, or dense square `mass_matrix` option is
-  supplied, records
-  state/algebraic trajectories, variable-scale policy, source residual scale
-  override support with raw/normalized per-step residual diagnostics, and
-  per-step Newton diagnostics, and is covered
-  by `examples/official/28_small_dae`,
-  `tests/runtime/small_dae_from_source.eng`,
-  `tests/runtime/dae_timeseries_input_from_source.eng`,
-  `tests/runtime/dae_residual_scale_override.eng`, and
-  `tests/diagnostics/dae_inconsistent_initial.eng`. The DAE bridge also
-  materializes scalar and fixed-step TimeSeries component inputs into algebraic
-  initialization, implicit-step Newton residual samples, and final residual
-  evaluation for the covered source residual shape. The solver API also
-  has an internal adaptive Heun/Euler ODE seed that preserves fixed output-grid
-  trajectories while adapting internal substeps and reporting accepted/rejected
-  substep diagnostics through system result/report/review artifacts; the
-  one-state thermal `simulate` path wires
-  `solver = adaptive_heun` to that seed and emits SolverResult artifacts, the
-  source-equation `simulate` path now reuses the same adaptive seed through the
-  shared `SourceRhsEvaluator`; its derivative coefficient and RHS expressions
-  are pre-parsed through the shared arithmetic expression parser with
-  unit-literal metadata, typed input symbols, typed parameter symbols, and
-  known-unit literal conversion to canonical solver values, while declared
-  system parameter options materialize into canonical `SolverInput.parameters`.
-  The source output evaluator
-  now pre-parses output equations with output symbols, topologically orders
-  acyclic output-to-output dependencies, and reports
-  `E-RHS-OUTPUT-ALGEBRAIC-LOOP` for cycles. The same shared expression path
-  covers the dimensionless one-argument function subset `sqrt`, `exp`, `ln`, `sin`,
-  `cos`, `tan`, `asin`, `acos`, and `atan` across source RHS, source Newton,
-  and source DAE fixtures. The internal
-  continuous state-space path now
-  reuses the same adaptive seed for shape-checked `der(x) eq A * x + B * u`
-  systems.
-  Fixed-step ODE and
-  dynamic-component seeds use the actual
-  `TimeGrid` interval length for the final partial step when duration is not an
-  exact multiple of timestep, and explicit Euler samples RHS values at the
-  start of each interval. Fixed-step ODE, fixed-point, and dynamic-component
-  seeds reject non-finite RHS/update values before they enter trajectories or
-  algebraic artifacts. Component solver result artifacts can carry
-  state/algebraic trajectory summaries, trajectory points, RuntimeTimeSeries
-  materialization, tolerance, max-iteration, timestep diagnostics, per-step
-  nonconvergence/failure artifacts, and IDE TimeSeries/solver-inspector rows
-  from that `SolverResult` adapter. Broad adaptive solving beyond
-  source-equation and state-space adaptive seeds, plus production
-  nonlinear/DAE/component workflows beyond the narrow source residual smokes,
-  are not supported.
-- Behavior graph seeds: solver-API runtime delay buffer with linear and
-  previous-sample interpolation policies, explicit initial-history policy,
-  relationship artifact, solver-style behavior-node evaluation, delay-driven
-  fixed-step RHS adapter coverage, and an ordered `BehaviorGraphRhsAdapter`
-  that can evaluate delay, Predictor, and external nodes from
-  state/input/parameter/prior-node signals before passing the combined behavior
-  evaluation into a solver-API RHS closure. Component-local
-  `delay(signal, duration)` diagnostics cover unknown signals and invalid
-  durations. Component-local behavior calls accept known `port.variable`
-  signals and prior component-local expressions with resolved quantity/unit
-  metadata, plus nested delay behavior expressions as typed signal inputs.
-  Component-local Predictor calls and external behavior calls also validate
-  their seed syntax and known component signal before becoming behavior-node
-  metadata, with each component behavior diagnostic code covered by the CLI
-  example smoke gate. Runtime also has solver-API Predictor and external
-  behavior wrappers with contracts, range warnings, provenance, profile policy,
-  adapter failure propagation, and graph-level invalid-source/non-finite-RHS
-  failure coverage. A narrow source integration now evaluates component-local
-  `delay(signal, duration)`, typed deterministic `predictor(signal)`, and typed
-  deterministic `adapter(signal)` identity-wrapper behavior nodes during
-  `solver = dynamic_component_explicit_euler` RHS evaluation for algebraic-free
-  unitful temperature component state examples. Runtime, report-spec, report HTML,
-  and IDE-visible component artifacts mark these nodes as integrated in
-  `examples/official/29_delay_component_solver`,
-  `examples/official/30_predictor_component_solver`, and
-  `examples/official/31_external_behavior_solver`. The narrow source
-  implicit-Euler DAE residual path also evaluates typed deterministic
-  `predictor(signal)` and `adapter(signal)` identity-wrapper outputs inside
-  residual samples, while `delay(...)` in DAE returns explicit
-  `E-BEHAVIOR-SOURCE-DAE-DELAY` failure artifacts until a replay-safe delay
-  history policy exists. Broader behavior graph solving, model loading, process
-  backends, generic nonlinear/DAE behavior coupling, and production
-  co-simulation remain planned.
-- Domain/component assembly seeds beyond the supported Thermal and constrained
-  Thermal/Fluid[Water] pressure/flow shapes include internal multi-domain boundary
-  solves, singular solve failure artifacts, and overdetermined limitation
-  artifacts.
-  `examples/internal/22_multi_domain_boundary_solve` exercises a constrained
-  Thermal/Fluid/MechanicalNode boundary solve. These remain internal algebraic
-  assembly seeds, not a production multi-domain component graph solver.
-- Domain/component graph metadata: domains, ports, connections, diagnostics,
-  generated connection-equation metadata, residual graph metadata,
-  structured residual evaluator input, normalized residual evaluation,
-  generated-equation reasons, domain-plan metadata, dynamic-component
-  state/algebraic/input/parameter split validation into solver layouts, IDE
-  component graph and equation/residual/dependency source-line inspection, and
-  connection constraint consistency artifacts.
-  LSP port hovers expose
-  type/base-domain and medium/frame/axis labels. It is not a production
-  component-graph or multi-domain solver.
-- Uncertainty track: deterministic samples, source/argument diagnostics,
-  propagation metadata, and histogram artifacts.
-- Data-driven modeling track: train/test split metadata, deterministic model
-  metrics, model-card metadata, parity plots, and residual plots.
-- Runtime optimization/JIT/AOT track: `eng_jit`, `eng.exe jit-plan`,
-  `eng.exe jit-bench`, backend selection metadata, interpreter kernel IR,
-  interpreter executor correctness tests for arithmetic, integration, scalar
-  residual, component residual Jacobian and Newton-step candidates, state-space
-  RHS and explicit-Euler solver-step candidates, finite-difference Jacobian, and
-  Newton-step kernels, per-candidate executor/fallback reasons, deterministic
-  `jit-bench` interpreter-kernel sample executions across CSV, component, and
-  state-space smoke targets, the `benchmarks/B01_*` through `B06_*` catalog
-  checked by `dev.bat jit-check`, and no native speedup claim.
-- LSP/VS Code track: smoke/snapshot tests, hover/completion metadata,
-  conservative same-document go-to-definition, and packaged VS Code extension
-  source. This is not a stable persistent editor-service contract.
-- Integrated HVAC example: useful end-to-end user-test composition, not proof
-  of general table, solver, or domain behavior.
+Detailed solver, state-space, component, JIT, uncertainty, ML, and LSP seeds
+are tracked in [main_internal_status.md](main_internal_status.md) and
+[tracks.md](tracks.md).
 
 ## Planned Tracks
 
 - General table formulas and arbitrary TimeSeries expression execution.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
-- General nonlinear/DAE simulation, broad adaptive, and general multi-state
-  equation solving outside the current one-state thermal adaptive path,
-  supported source-equation ODE path, narrow component residual
-  Newton/DAE smokes, internal fixed-step/adaptive state-space paths, and
-  standalone runtime algorithm seeds.
-- Stable-supported state-space workflow boundaries beyond the current internal
-  fixed-step vector simulation path.
-- Component graph solving beyond the constrained Thermal boundary assembly and
-  constrained Thermal/Fluid[Water] pressure/flow algebraic residual solve:
-  broad args/object/non-arithmetic constructor bindings, nonlinear, derivative-rich, affine display-unit, or general compound-unit component behavior
-  equations, mixed algebraic/dynamic variables, nonlinear/DAE coupling,
-  production pressure-drop packages, and physical multi-domain coupling.
-- Behavior graph integration for delay, Predictor, and external behavior
-  wrappers.
-- Domain package registry and open component ecosystem.
-- Runtime object dispatch/lowering for class/domain objects.
-- Persistent LSP editor contract and production editor integration.
+- Broad nonlinear/DAE/adaptive/component solving beyond the documented narrow
+  paths.
+- Production multi-domain component simulation and pressure-drop packages.
+- Stable persistent LSP/editor contract.
 - Native JIT/AOT code generation and measured speedups.
 - Network/download support, broad filesystem mutation, and full process
   sandboxing.
 
-## Deferred / Known Limitations
-
-- Arbitrary table formulas are not fully general.
-- Arbitrary TimeSeries expressions are limited beyond the documented typed CSV
-  path.
-- General quantity rules for all statistics are not complete.
-- Plot semantics beyond current PlotSpec paths need custom histogram bin
-  counts, grouped/stacked bar hardening, and broader multi-axis semantics.
-- General multi-state equation-system, broad nonlinear/DAE simulation, broad
-  adaptive, or general equation-system solving is deferred outside the
-  source-equation fixed-step/adaptive path, the one-state thermal `adaptive_heun` path,
-  the narrow component residual Newton/DAE smokes, and internal state-space
-  seeds.
-- Production numeric component graph solving beyond the constrained Thermal
-  boundary assembly and constrained Thermal/Fluid[Water] pressure/flow algebraic
-  residual solve, physical multi-domain solving, pressure-drop packages, and
-  domain package registries are deferred.
-- Full Unicode unit spelling support beyond the supported `°C` alias is
-  deferred.
-- First-class Summary objects are not part of the current scope; the v0.2
-  decision is recorded in
-  [summary_object_decision.md](../reference/summary_object_decision.md).
-
 ## Current Crate Architecture
-
-The supported current workspace structure is intentionally compact:
 
 | Crate | Role |
 |---|---|

@@ -1,5 +1,7 @@
 # Current Planning Pointer
 
+Historical technical intent, not release claim.
+
 The active planning surface is the current-status layer, not the old
 high-numbered milestone sequence inside the long-form v9 document.
 

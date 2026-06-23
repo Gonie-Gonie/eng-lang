@@ -1214,8 +1214,8 @@ Time-indexed TimeSeries bindings, including arbitrary declared input option
 names such as `drive`. `solver = fixed_step`, `solver = explicit_euler`,
 `solver = rk4`, or `solver = adaptive_heun` runs through the common
 SolverInput/SolverResult path. Official examples are
-`examples/official/20_multi_state_thermal` and
-`examples/official/34_three_state_source_ode`.
+`examples/advanced_solver/20_multi_state_thermal` and
+`examples/advanced_solver/34_three_state_source_ode`.
 
 The compiler reports diagnostics for missing dynamic inputs, wrong TimeSeries
 quantity, wrong axis, missing `timestep`/`solver`, unsupported solver values,
@@ -1323,7 +1323,7 @@ materialized component parameters may appear as linear coefficients. Nonlinear,
 broad constructor-parameterized, adaptive, and production multi-domain component
 solves remain outside this source surface. A constrained
 Thermal/Fluid[Water] pressure/flow algebraic residual graph is available as a
-dense linear solve in `examples/official/32_small_thermal_fluid_loop`.
+dense linear solve in `examples/advanced_solver/32_small_thermal_fluid_loop`.
 
 Nonlinear algebraic source residuals can use the same binding with Newton:
 
@@ -1405,8 +1405,8 @@ system ContinuousRoomStateSpace {
 }
 ```
 
-`examples/official/21_state_space_discrete` uses `next(x) eq A * x + B * u`
-for the discrete path. `examples/official/22_state_space_continuous` uses
+`examples/advanced_solver/21_state_space_discrete` uses `next(x) eq A * x + B * u`
+for the discrete path. `examples/advanced_solver/22_state_space_continuous` uses
 `der(x) eq A * x + B * u` with a CSV-backed TimeSeries input and fixed-step
 RK4. Both produce `sim.<state>` TimeSeries through the common
 SolverInput/SolverResult path.

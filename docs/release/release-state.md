@@ -50,11 +50,12 @@ For this release, remove those tags locally and remotely before publishing
 
 Do not describe this release as a general engineering solver release.
 
-The public package supports the workflows validated by the official examples and
-release smoke checks. Solver- and system-oriented examples live under
-`examples/internal` and are maintained as implementation fixtures. They are useful
-for regression coverage, but they are not public claims of broad ODE, DAE,
-nonlinear, adaptive, state-space, or multi-domain component solver support.
+The public package supports the workflows validated by the core official
+examples and release smoke checks. Solver- and system-oriented examples live in
+the source repository under `examples/advanced_solver` or `examples/internal`.
+They are useful for regression coverage, but they are not portable package
+tutorials or public claims of broad ODE, DAE, nonlinear, adaptive, state-space,
+or multi-domain component solver support.
 
 ## Assets
 

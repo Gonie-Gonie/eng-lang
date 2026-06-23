@@ -34,6 +34,15 @@ fn command_smoke() -> std::process::ExitCode {
     match snapshot_for_path(path) {
         Ok(snapshot) => {
             let domain_path = Path::new("examples/internal/06_domain_port/main.eng");
+            if !domain_path.exists() {
+                println!(
+                    "EngLang LSP public package smoke OK: {} diagnostic(s), {} completion(s), {} hover item(s)",
+                    snapshot.diagnostics.len(),
+                    snapshot.completions.len(),
+                    snapshot.hovers.len()
+                );
+                return std::process::ExitCode::SUCCESS;
+            }
             let domain_snapshot = match snapshot_for_path(domain_path) {
                 Ok(snapshot) => snapshot,
                 Err(error) => {

@@ -299,39 +299,39 @@ re-parsing source files.
 
 ## Official Examples
 
-- `examples/official/23_thermal_component_assembly/main.eng`
+- `examples/advanced_solver/23_thermal_component_assembly/main.eng`
   shows the supported constrained Thermal boundary assembly with
   system-local `name = Component(...)` instances, `connect instance.port to
   instance.port`, generated connection equations, literal boundary seeds, a
   square dense linear residual solve, solved variables, residual values, and
   `largest_residuals`.
-- `examples/official/24_linear_algebraic_thermal_node/main.eng`
+- `examples/advanced_solver/24_linear_algebraic_thermal_node/main.eng`
   shows the source-to-solver dense linear ResidualGraph path with named
   solution variables, residual norm, and `largest_residuals`.
-- `examples/official/25_fixed_point_loop/main.eng`
+- `examples/advanced_solver/25_fixed_point_loop/main.eng`
   shows the narrow `solve component_graph` fixed-point path with pivotable
   linear updates, `solver = fixed_point`, tolerance/max-iteration/relaxation/initial
   options,
   convergence metadata, residual norm, and SolverFailure artifacts for the
   companion nonconvergence diagnostic fixture.
-- `examples/official/26_dynamic_component_room/main.eng`
+- `examples/advanced_solver/26_dynamic_component_room/main.eng`
   shows the narrow dynamic component path with `solver =
   dynamic_component_semi_implicit_euler`, generated Thermal connection
   equations, a parameterized `C * der(port.T)` component-local equation,
   state/algebraic trajectories, and per-step algebraic diagnostics. The wall heat flow is a
   fixed simple-linear boundary seed rather than a general conductance model.
-- `examples/official/27_nonlinear_algebraic/main.eng`
+- `examples/advanced_solver/27_nonlinear_algebraic/main.eng`
   shows the narrow unitful source Newton path with `solver = newton`, direct
   source-residual expression evaluation, a constructor-provided component parameter, residual scaling, convergence
   history, and largest-residual artifacts for a coupled unitful HeatRate residual graph.
-- `examples/official/28_small_dae/main.eng`
+- `examples/advanced_solver/28_small_dae/main.eng`
   shows the narrow source multi-state unitful implicit-Euler DAE path with
   `solver = implicit_euler_dae`, assembly-derived state/algebraic split,
   algebraic initialization, identity mass-matrix fallback unless a dimensionless
   scalar, diagonal vector, or dense square `mass_matrix` option is supplied,
   trajectories, and
   per-step Newton diagnostics.
-- `examples/official/32_small_thermal_fluid_loop/main.eng`
+- `examples/advanced_solver/32_small_thermal_fluid_loop/main.eng`
   shows the constrained Thermal/Fluid[Water] algebraic residual path with
   Thermal and Fluid connection equations, pump boundary seeds, pipe pressure/flow
   component equations, named solved variables, residual norm, and

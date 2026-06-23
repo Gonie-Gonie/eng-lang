@@ -124,26 +124,26 @@ Square component residual graphs are solved through the runtime
 `solve_linear_residual_graph` API, which converts the graph to a dense linear
 system, returns named solved variables, and preserves singular/ill-conditioned
 solver failures in the artifact surface. The supported official example is
-`examples/official/23_thermal_component_assembly`, with
-`examples/official/24_linear_algebraic_thermal_node` covering the
-source-to-solver dense linear path. `examples/official/25_fixed_point_loop`
+`examples/advanced_solver/23_thermal_component_assembly`, with
+`examples/advanced_solver/24_linear_algebraic_thermal_node` covering the
+source-to-solver dense linear path. `examples/advanced_solver/25_fixed_point_loop`
 covers the narrow `solve component_graph` fixed-point path for pivotable
 linear ResidualGraphs and records tolerance, max iterations, relaxation,
 initial guess, convergence status, residual norm, and SolverFailure artifacts
-on nonconvergence. `examples/official/26_dynamic_component_room` covers the
+on nonconvergence. `examples/advanced_solver/26_dynamic_component_room` covers the
 simple-linear dynamic component source path and records state/algebraic
 trajectories plus per-step algebraic diagnostics.
-`examples/official/27_nonlinear_algebraic` covers the narrow unitful source Newton path
+`examples/advanced_solver/27_nonlinear_algebraic` covers the narrow unitful source Newton path
 and records residual history through component step diagnostics plus
-largest-residual artifacts. `examples/official/28_small_dae` covers the narrow
+largest-residual artifacts. `examples/advanced_solver/28_small_dae` covers the narrow
 source multi-state unitful implicit-Euler DAE path and records state/algebraic trajectories,
 per-step Newton diagnostics, failure artifacts for inconsistent initial
-conditions, and largest-residual artifacts. `examples/official/29_delay_component_solver`,
-`examples/official/30_predictor_component_solver`, and
-`examples/official/31_external_behavior_solver` cover the narrow source
+conditions, and largest-residual artifacts. `examples/advanced_solver/29_delay_component_solver`,
+`examples/advanced_solver/30_predictor_component_solver`, and
+`examples/advanced_solver/31_external_behavior_solver` cover the narrow source
 behavior RHS path and record integrated delay/Predictor/external behavior-node
 artifacts plus per-step behavior graph diagnostics.
-`examples/official/32_small_thermal_fluid_loop` covers the constrained
+`examples/advanced_solver/32_small_thermal_fluid_loop` covers the constrained
 Thermal/Fluid[Water] pressure/flow algebraic residual path and records generated
 Thermal and Fluid connection equations, pipe component equations, solved
 pressure/flow variables, residual norm, and largest-residual artifacts. It uses the public `Pressure [Pa]` quantity with a fixed pipe pressure-drop seed.
@@ -258,10 +258,10 @@ error-norm fields. It groups the same per-state data under
 solver_results[] entries for IDE/reviewer panels. The official one-state
 thermal example is pinned by the
 artifact golden baseline so these solver fields remain present in review,
-report spec, and result artifacts. `examples/official/20_multi_state_thermal`
+report spec, and result artifacts. `examples/advanced_solver/20_multi_state_thermal`
 exercises the same solver result projection for the supported thermal
 source-equation fixed-step workflow, and
-`examples/official/34_three_state_source_ode` covers a three-state non-thermal
+`examples/advanced_solver/34_three_state_source_ode` covers a three-state non-thermal
 adaptive source-equation workflow with TimeSeries input materialization.
 
 For the domain/component connection-constraint check, `result.engres` also records
@@ -462,9 +462,9 @@ coefficients before runtime/JIT matrix use and report/IDE inspection.
 Unsupported unitful entries are diagnosed instead of being silently sent to the
 numeric runtime. Runtime can also materialize state trajectories from
 shape-checked A/B operators. The supported typed-block examples cover
-discrete fixed-step execution in `examples/official/21_state_space_discrete`
+discrete fixed-step execution in `examples/advanced_solver/21_state_space_discrete`
 and continuous fixed-step RK4 with TimeSeries input materialization in
-`examples/official/22_state_space_continuous`. Legacy/internal fixtures also
+`examples/advanced_solver/22_state_space_continuous`. Legacy/internal fixtures also
 cover multi-state Euler/RK4, continuous `adaptive_heun` execution with a fixed
 output TimeGrid, discrete A/B execution, and additional failure paths. This is
 not a general nonlinear/DAE, discrete adaptive, broad adaptive,

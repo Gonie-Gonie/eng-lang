@@ -14,7 +14,7 @@ use crate::jit_bench::{
 use crate::print_diagnostics;
 
 pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
-    let example_groups: [(&str, &[&str]); 3] = [
+    let example_groups: [(&str, &[&str]); 4] = [
         (
             "official",
             &[
@@ -30,21 +30,26 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/15_process_result/main.eng",
                 "examples/official/16_test_assert_golden/main.eng",
                 "examples/official/19_class_object/main.eng",
-                "examples/official/20_multi_state_thermal/main.eng",
-                "examples/official/21_state_space_discrete/main.eng",
-                "examples/official/22_state_space_continuous/main.eng",
-                "examples/official/23_thermal_component_assembly/main.eng",
-                "examples/official/24_linear_algebraic_thermal_node/main.eng",
-                "examples/official/25_fixed_point_loop/main.eng",
-                "examples/official/26_dynamic_component_room/main.eng",
-                "examples/official/27_nonlinear_algebraic/main.eng",
-                "examples/official/28_small_dae/main.eng",
-                "examples/official/29_delay_component_solver/main.eng",
-                "examples/official/30_predictor_component_solver/main.eng",
-                "examples/official/31_external_behavior_solver/main.eng",
-                "examples/official/32_small_thermal_fluid_loop/main.eng",
-                "examples/official/33_unit_parameterized_wall/main.eng",
-                "examples/official/34_three_state_source_ode/main.eng",
+            ],
+        ),
+        (
+            "advanced solver smoke",
+            &[
+                "examples/advanced_solver/20_multi_state_thermal/main.eng",
+                "examples/advanced_solver/21_state_space_discrete/main.eng",
+                "examples/advanced_solver/22_state_space_continuous/main.eng",
+                "examples/advanced_solver/23_thermal_component_assembly/main.eng",
+                "examples/advanced_solver/24_linear_algebraic_thermal_node/main.eng",
+                "examples/advanced_solver/25_fixed_point_loop/main.eng",
+                "examples/advanced_solver/26_dynamic_component_room/main.eng",
+                "examples/advanced_solver/27_nonlinear_algebraic/main.eng",
+                "examples/advanced_solver/28_small_dae/main.eng",
+                "examples/advanced_solver/29_delay_component_solver/main.eng",
+                "examples/advanced_solver/30_predictor_component_solver/main.eng",
+                "examples/advanced_solver/31_external_behavior_solver/main.eng",
+                "examples/advanced_solver/32_small_thermal_fluid_loop/main.eng",
+                "examples/advanced_solver/33_unit_parameterized_wall/main.eng",
+                "examples/advanced_solver/34_three_state_source_ode/main.eng",
             ],
         ),
         (
@@ -390,7 +395,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/official/23_thermal_component_assembly/main.eng"),
+        Path::new("examples/advanced_solver/23_thermal_component_assembly/main.eng"),
         Path::new("build/test-official-thermal-component-assembly"),
         &artifact_run_options(),
     ) {
@@ -440,7 +445,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/23_thermal_component_assembly/main.eng solved system-local component assembly residual graph"
+                "ok: examples/advanced_solver/23_thermal_component_assembly/main.eng solved system-local component assembly residual graph"
             );
         }
         Err(error) => {
@@ -449,7 +454,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/official/24_linear_algebraic_thermal_node/main.eng"),
+        Path::new("examples/advanced_solver/24_linear_algebraic_thermal_node/main.eng"),
         Path::new("build/test-official-linear-algebraic-thermal-node"),
         &artifact_run_options(),
     ) {
@@ -486,7 +491,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/24_linear_algebraic_thermal_node/main.eng solved source linear algebraic residual graph"
+                "ok: examples/advanced_solver/24_linear_algebraic_thermal_node/main.eng solved source linear algebraic residual graph"
             );
         }
         Err(error) => {
@@ -495,7 +500,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/official/32_small_thermal_fluid_loop/main.eng"),
+        Path::new("examples/advanced_solver/32_small_thermal_fluid_loop/main.eng"),
         Path::new("build/test-official-small-thermal-fluid-loop"),
         &artifact_run_options(),
     ) {
@@ -507,7 +512,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/32_small_thermal_fluid_loop/main.eng solved a constrained Thermal/Fluid residual graph"
+                "ok: examples/advanced_solver/32_small_thermal_fluid_loop/main.eng solved a constrained Thermal/Fluid residual graph"
             );
         }
         Err(error) => {
@@ -516,7 +521,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/official/33_unit_parameterized_wall/main.eng"),
+        Path::new("examples/advanced_solver/33_unit_parameterized_wall/main.eng"),
         Path::new("build/test-official-unit-parameterized-wall"),
         &artifact_run_options(),
     ) {
@@ -563,7 +568,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/33_unit_parameterized_wall/main.eng solved unit-parameterized wall residual graph"
+                "ok: examples/advanced_solver/33_unit_parameterized_wall/main.eng solved unit-parameterized wall residual graph"
             );
         }
         Err(error) => {
@@ -572,7 +577,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/official/25_fixed_point_loop/main.eng"),
+        Path::new("examples/advanced_solver/25_fixed_point_loop/main.eng"),
         Path::new("build/test-official-fixed-point-loop"),
         &artifact_run_options(),
     ) {
@@ -616,7 +621,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/25_fixed_point_loop/main.eng solved source fixed-point residual graph"
+                "ok: examples/advanced_solver/25_fixed_point_loop/main.eng solved source fixed-point residual graph"
             );
         }
         Err(error) => {
@@ -625,7 +630,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/official/26_dynamic_component_room/main.eng"),
+        Path::new("examples/advanced_solver/26_dynamic_component_room/main.eng"),
         Path::new("build/test-official-dynamic-component-room"),
         &artifact_run_options(),
     ) {
@@ -666,7 +671,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/26_dynamic_component_room/main.eng solved dynamic component source residual graph"
+                "ok: examples/advanced_solver/26_dynamic_component_room/main.eng solved dynamic component source residual graph"
             );
         }
         Err(error) => {
@@ -675,7 +680,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/official/27_nonlinear_algebraic/main.eng"),
+        Path::new("examples/advanced_solver/27_nonlinear_algebraic/main.eng"),
         Path::new("build/test-official-nonlinear-algebraic"),
         &artifact_run_options(),
     ) {
@@ -753,7 +758,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/27_nonlinear_algebraic/main.eng solved source nonlinear residual graph"
+                "ok: examples/advanced_solver/27_nonlinear_algebraic/main.eng solved source nonlinear residual graph"
             );
         }
         Err(error) => {
@@ -762,7 +767,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/official/28_small_dae/main.eng"),
+        Path::new("examples/advanced_solver/28_small_dae/main.eng"),
         Path::new("build/test-official-small-dae"),
         &artifact_run_options(),
     ) {
@@ -834,7 +839,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/28_small_dae/main.eng solved source DAE residual graph"
+                "ok: examples/advanced_solver/28_small_dae/main.eng solved source DAE residual graph"
             );
         }
         Err(error) => {
@@ -844,19 +849,19 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
     }
     for (source, build_dir, behavior_status, binding) in [
         (
-            "examples/official/29_delay_component_solver/main.eng",
+            "examples/advanced_solver/29_delay_component_solver/main.eng",
             "build/test-official-delay-behavior",
             "delay_call_runtime_buffer_integrated",
             "delay_result",
         ),
         (
-            "examples/official/30_predictor_component_solver/main.eng",
+            "examples/advanced_solver/30_predictor_component_solver/main.eng",
             "build/test-official-predictor-behavior",
             "predictor_call_contract_integrated",
             "predictor_result",
         ),
         (
-            "examples/official/31_external_behavior_solver/main.eng",
+            "examples/advanced_solver/31_external_behavior_solver/main.eng",
             "build/test-official-external-behavior",
             "external_behavior_wrapper_integrated",
             "external_result",
@@ -1835,7 +1840,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/official/34_three_state_source_ode/main.eng"),
+        Path::new("examples/advanced_solver/34_three_state_source_ode/main.eng"),
         Path::new("build/test-official-three-state-source-ode"),
         &artifact_run_options(),
     ) {
@@ -1865,12 +1870,12 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.report_html.contains("states=x, y, z")
             {
                 eprintln!(
-                    "expected examples/official/34_three_state_source_ode/main.eng to solve a three-state source ODE with TimeSeries input materialization"
+                    "expected examples/advanced_solver/34_three_state_source_ode/main.eng to solve a three-state source ODE with TimeSeries input materialization"
                 );
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/official/34_three_state_source_ode/main.eng solved three-state source ODE with adaptive Heun"
+                "ok: examples/advanced_solver/34_three_state_source_ode/main.eng solved three-state source ODE with adaptive Heun"
             );
         }
         Err(error) => {
@@ -5975,13 +5980,13 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
     }
     for (example, build_dir, expected_method, expected_reason) in [
         (
-            "examples/official/21_state_space_discrete/main.eng",
+            "examples/advanced_solver/21_state_space_discrete/main.eng",
             "build/test-official-state-space-discrete",
             "state_space_discrete_fixed_step",
             "discrete-time state-space",
         ),
         (
-            "examples/official/22_state_space_continuous/main.eng",
+            "examples/advanced_solver/22_state_space_continuous/main.eng",
             "build/test-official-state-space-continuous",
             "state_space_rk4_fixed_step",
             "multi-state state-space",
@@ -6399,7 +6404,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         return ExitCode::from(2);
     }
 
-    let path_smoke_root = Path::new("build").join("path smoke").join("한글 경로");
+    let korean_path = String::from_utf16(&[0xD55C, 0xAE00, 0x0020, 0xACBD, 0xB85C])
+        .expect("Korean path smoke label should be valid UTF-16");
+    let path_smoke_root = Path::new("build").join("path smoke").join(korean_path);
     if let Err(error) = std::fs::create_dir_all(&path_smoke_root) {
         eprintln!(
             "failed to create Korean and space-containing path smoke folder {}: {error}",
