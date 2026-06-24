@@ -17,7 +17,10 @@ def main() -> int:
     args = parser.parse_args()
 
     base = Path(args.base).read_text(encoding="utf-8")
-    sample = json.loads(args.sample)
+    try:
+        sample = json.loads(args.sample)
+    except json.JSONDecodeError:
+        sample = {"raw_sample_row": args.sample}
     text = base + "\n" + json.dumps({"case_id": args.case, "sample": sample}, indent=2)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)

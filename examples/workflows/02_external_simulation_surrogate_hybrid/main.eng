@@ -20,19 +20,48 @@ schema SimulationResult {
     peak_cooling: HeatRate [kW]
 }
 
+schema PredictionResult {
+    case_id: String
+    predicted_annual_electricity: Energy [kWh]
+    predicted_peak_cooling: HeatRate [kW]
+    prediction_confidence: Ratio [1]
+
+    constraints {
+        predicted_annual_electricity >= 0 kWh
+        predicted_peak_cooling >= 0 kW
+        prediction_confidence >= 0
+        prediction_confidence <= 1
+    }
+}
+
 args {
     samples: CsvFile = file("samples/design_samples.csv")
     results: CsvFile = file("samples/summary_results.csv")
+    predictions: CsvFile = file("samples/predictions.csv")
+    database_target: String = "outputs/surrogate_results.sqlite"
     output: DirectoryPath = dir("outputs")
 }
 
 designs = promote csv args.samples as DesignSample
 results = promote csv args.results as SimulationResult
+predictions = promote csv args.predictions as PredictionResult
 
 patch_result = run command "python"
 with {
-    args = ["tools/patch_input.py", "--base", "model/base_model_placeholder.txt", "--case", "case_001", "--sample", "{}", "--out", "outputs/case_001/input.txt"]
+    args = ["tools/patch_input.py", "--base", "model/base_model_placeholder.txt", "--case", "case_001", "--sample", "case_001_sample_a", "--out", "outputs/case_001/input.txt"]
     expected_outputs = ["outputs/case_001/input.txt"]
+}
+
+patch_result_002 = run command "python"
+with {
+    args = ["tools/patch_input.py", "--base", "model/base_model_placeholder.txt", "--case", "case_002", "--sample", "case_002_sample_b", "--out", "outputs/case_002/input.txt"]
+    expected_outputs = ["outputs/case_002/input.txt"]
+}
+
+patch_result_003 = run command "python"
+with {
+    args = ["tools/patch_input.py", "--base", "model/base_model_placeholder.txt", "--case", "case_003", "--sample", "case_003_sample_c", "--out", "outputs/case_003/input.txt"]
+    expected_outputs = ["outputs/case_003/input.txt"]
 }
 
 simulation_result = run command "python"
@@ -41,10 +70,58 @@ with {
     expected_outputs = ["outputs/case_001/result.json"]
 }
 
+simulation_result_002 = run command "python"
+with {
+    args = ["tools/run_external_sim.py", "--case", "case_002", "--input", "outputs/case_002/input.txt", "--out", "outputs/case_002/result.json"]
+    expected_outputs = ["outputs/case_002/result.json"]
+}
+
+simulation_result_003 = run command "python"
+with {
+    args = ["tools/run_external_sim.py", "--case", "case_003", "--input", "outputs/case_003/input.txt", "--out", "outputs/case_003/result.json"]
+    expected_outputs = ["outputs/case_003/result.json"]
+}
+
+collection_result = run command "python"
+with {
+    args = ["tools/collect_results.py", "--inputs", "outputs/case_001/result.json", "outputs/case_002/result.json", "outputs/case_003/result.json", "--out", "outputs/summary_results.csv"]
+    expected_outputs = ["outputs/summary_results.csv"]
+}
+
+case_manifest_result = run command "python"
+with {
+    args = ["tools/write_case_manifest.py", "--case", "case_001", "--sample-row", "case_001_sample_a", "--case-dir", "outputs/case_001", "--input", "outputs/case_001/input.txt", "--result", "outputs/case_001/result.json", "--patch-status", "success", "--simulation-status", "success", "--out", "outputs/case_001/case_manifest.json"]
+    expected_outputs = ["outputs/case_001/case_manifest.json"]
+}
+
+case_manifest_result_002 = run command "python"
+with {
+    args = ["tools/write_case_manifest.py", "--case", "case_002", "--sample-row", "case_002_sample_b", "--case-dir", "outputs/case_002", "--input", "outputs/case_002/input.txt", "--result", "outputs/case_002/result.json", "--patch-status", "success", "--simulation-status", "success", "--out", "outputs/case_002/case_manifest.json"]
+    expected_outputs = ["outputs/case_002/case_manifest.json"]
+}
+
+case_manifest_result_003 = run command "python"
+with {
+    args = ["tools/write_case_manifest.py", "--case", "case_003", "--sample-row", "case_003_sample_c", "--case-dir", "outputs/case_003", "--input", "outputs/case_003/input.txt", "--result", "outputs/case_003/result.json", "--patch-status", "success", "--simulation-status", "success", "--out", "outputs/case_003/case_manifest.json"]
+    expected_outputs = ["outputs/case_003/case_manifest.json"]
+}
+
 trainer_result = run command "python"
 with {
-    args = ["tools/train_surrogate.py", "--input", "samples/summary_results.csv", "--model", "outputs/surrogate.json", "--metrics", "outputs/model_metrics.json"]
+    args = ["tools/train_surrogate.py", "--input", "outputs/summary_results.csv", "--model", "outputs/surrogate.json", "--metrics", "outputs/model_metrics.json"]
     expected_outputs = ["outputs/surrogate.json", "outputs/model_metrics.json"]
+}
+
+prediction_result = run command "python"
+with {
+    args = ["tools/predict_surrogate.py", "--samples", "samples/design_samples.csv", "--model", "outputs/surrogate.json", "--out", "outputs/predictions.csv"]
+    expected_outputs = ["outputs/predictions.csv"]
+}
+
+db_result = run command "python"
+with {
+    args = ["tools/write_db_manifest.py", "--database", "outputs/surrogate_results.sqlite", "--results", "outputs/summary_results.csv", "--predictions", "outputs/predictions.csv", "--out", "outputs/db_write_manifest.json"]
+    expected_outputs = ["outputs/db_write_manifest.json"]
 }
 
 annual_electricity = 12800 kWh
@@ -52,6 +129,7 @@ peak_cooling = 14.2 kW
 
 print "Design samples = {designs.rows}"
 print "Simulation results = {results.rows}"
+print "Predictions = {predictions.rows}"
 log info "external simulation surrogate fixture boundaries recorded"
 
 export summary to csv "outputs/workflow_summary.csv" {
@@ -70,6 +148,8 @@ with {
 report {
     show designs.rows
     show results.rows
+    show predictions.rows
     show annual_electricity
     show peak_cooling
+    show args.database_target
 }

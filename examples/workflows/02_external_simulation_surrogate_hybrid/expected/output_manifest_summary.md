@@ -3,11 +3,22 @@
 The saved run should include:
 
 ```text
+outputs/case_001/input.txt
+outputs/case_002/input.txt
+outputs/case_003/input.txt
+outputs/case_001/result.json
+outputs/case_002/result.json
+outputs/case_003/result.json
+outputs/case_001/case_manifest.json
+outputs/case_002/case_manifest.json
+outputs/case_003/case_manifest.json
+outputs/summary_results.csv
+outputs/surrogate.json
+outputs/model_metrics.json
+outputs/predictions.csv
+outputs/db_write_manifest.json
 outputs/workflow_summary.csv
 outputs/model_card.json
-outputs/patched_input.txt
-outputs/simulation_result.txt
-outputs/trainer_result.txt
 ```
 
 The manifest should also include normal EngLang runtime artifacts when the
