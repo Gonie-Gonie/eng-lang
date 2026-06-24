@@ -308,12 +308,16 @@ fn command_check(args: Vec<String>) -> ExitCode {
 }
 
 fn command_review(args: Vec<String>) -> ExitCode {
-    let Some(path) = first_non_flag(&args) else {
-        eprintln!("usage: eng review <file.eng> [--json] [--<arg> <value>...]");
+    let Some(path) = first_review_source_path(&args) else {
+        eprintln!(
+            "usage: eng review <file.eng> [--json] [--output <dir>] [--against <review.json>] [--<arg> <value>...]"
+        );
         return ExitCode::from(2);
     };
     let json_only = args.iter().any(|arg| arg == "--json");
-    let check_args = match parse_arg_overrides(&args, &[], &["--json"]) {
+    let output_dir = option_value(&args, "--output");
+    let against_path = option_value(&args, "--against");
+    let check_args = match parse_arg_overrides(&args, &["--output", "--against"], &["--json"]) {
         Ok(values) => values,
         Err(message) => {
             eprintln!("{message}");
@@ -346,9 +350,36 @@ fn command_review(args: Vec<String>) -> ExitCode {
         .get("review_document")
         .cloned()
         .unwrap_or(serde_json::Value::Null);
+    let semantic_diff = match against_path.as_deref() {
+        Some(path) => match read_review_document(path) {
+            Ok(previous) => Some(review_semantic_diff(&previous, &document)),
+            Err(message) => {
+                eprintln!("{message}");
+                return ExitCode::from(1);
+            }
+        },
+        None => None,
+    };
+
+    if let Some(output_dir) = output_dir.as_deref() {
+        if let Err(message) =
+            write_static_review_outputs(output_dir, &document, semantic_diff.as_ref())
+        {
+            eprintln!("{message}");
+            return ExitCode::from(1);
+        }
+    }
 
     if json_only {
-        match serde_json::to_string_pretty(&document) {
+        let output = if let Some(diff) = semantic_diff {
+            serde_json::json!({
+                "review_document": document,
+                "semantic_diff": diff
+            })
+        } else {
+            document
+        };
+        match serde_json::to_string_pretty(&output) {
             Ok(text) => println!("{text}"),
             Err(error) => {
                 eprintln!("failed to serialize review document: {error}");
@@ -357,6 +388,9 @@ fn command_review(args: Vec<String>) -> ExitCode {
         }
     } else {
         print_review_document_summary(&document);
+        if let Some(diff) = &semantic_diff {
+            print_review_diff_summary(diff);
+        }
     }
 
     if report.has_errors() {
@@ -680,6 +714,30 @@ fn option_value(args: &[String], name: &str) -> Option<String> {
         .map(|window| window[1].clone())
 }
 
+fn first_review_source_path(args: &[String]) -> Option<String> {
+    let mut index = 0usize;
+    while index < args.len() {
+        let arg = &args[index];
+        if arg == "--json" {
+            index += 1;
+            continue;
+        }
+        if arg == "--output" || arg == "--against" {
+            index += 2;
+            continue;
+        }
+        if arg.starts_with("--output=") || arg.starts_with("--against=") {
+            index += 1;
+            continue;
+        }
+        if !arg.starts_with('-') {
+            return Some(arg.clone());
+        }
+        index += 1;
+    }
+    None
+}
+
 fn parse_jit_backend(args: &[String]) -> Result<String, String> {
     let backend = option_value(args, "--backend")
         .unwrap_or_else(|| eng_jit::DEFAULT_BACKEND_REQUEST.to_owned());
@@ -764,6 +822,101 @@ pub(crate) fn print_diagnostics(report: &eng_compiler::CheckReport) {
     }
 }
 
+fn read_review_document(path: &str) -> Result<serde_json::Value, String> {
+    let text = std::fs::read_to_string(path)
+        .map_err(|error| format!("failed to read baseline review `{path}`: {error}"))?;
+    let value = serde_json::from_str::<serde_json::Value>(&text)
+        .map_err(|error| format!("failed to parse baseline review `{path}`: {error}"))?;
+    Ok(value.get("review_document").cloned().unwrap_or(value))
+}
+
+fn review_semantic_diff(
+    previous: &serde_json::Value,
+    current: &serde_json::Value,
+) -> serde_json::Value {
+    let previous_hash = json_string(previous, "semantic_hash");
+    let current_hash = json_string(current, "semantic_hash");
+    let changed_sections = review_changed_sections(previous, current);
+    let status = if previous_hash.is_some()
+        && current_hash.is_some()
+        && previous_hash == current_hash
+        && changed_sections.is_empty()
+    {
+        "unchanged"
+    } else {
+        "changed"
+    };
+    serde_json::json!({
+        "format": "eng-review-semantic-diff-preview-1",
+        "status": status,
+        "semantic_hash_before": previous_hash,
+        "semantic_hash_after": current_hash,
+        "changed_sections": changed_sections
+    })
+}
+
+fn review_changed_sections(
+    previous: &serde_json::Value,
+    current: &serde_json::Value,
+) -> Vec<serde_json::Value> {
+    let mut sections = Vec::new();
+    let previous_hashes = previous
+        .get("section_hashes")
+        .and_then(serde_json::Value::as_object);
+    let current_hashes = current
+        .get("section_hashes")
+        .and_then(serde_json::Value::as_object);
+    let Some(current_hashes) = current_hashes else {
+        return sections;
+    };
+    for (section, current_hash) in current_hashes {
+        let previous_hash = previous_hashes.and_then(|hashes| hashes.get(section));
+        if previous_hash != Some(current_hash) {
+            sections.push(serde_json::json!({
+                "section": section,
+                "before": previous_hash.cloned().unwrap_or(serde_json::Value::Null),
+                "after": current_hash
+            }));
+        }
+    }
+    sections
+}
+
+fn write_static_review_outputs(
+    output_dir: &str,
+    document: &serde_json::Value,
+    semantic_diff: Option<&serde_json::Value>,
+) -> Result<(), String> {
+    let output_dir = Path::new(output_dir);
+    std::fs::create_dir_all(output_dir).map_err(|error| {
+        format!(
+            "failed to create review output directory `{}`: {error}",
+            output_dir.display()
+        )
+    })?;
+    let review_path = output_dir.join("static_review.json");
+    let review_text = serde_json::to_string_pretty(document)
+        .map_err(|error| format!("failed to serialize static review: {error}"))?;
+    std::fs::write(&review_path, review_text).map_err(|error| {
+        format!(
+            "failed to write static review `{}`: {error}",
+            review_path.display()
+        )
+    })?;
+    if let Some(diff) = semantic_diff {
+        let diff_path = output_dir.join("semantic_diff.json");
+        let diff_text = serde_json::to_string_pretty(diff)
+            .map_err(|error| format!("failed to serialize semantic diff: {error}"))?;
+        std::fs::write(&diff_path, diff_text).map_err(|error| {
+            format!(
+                "failed to write semantic diff `{}`: {error}",
+                diff_path.display()
+            )
+        })?;
+    }
+    Ok(())
+}
+
 fn print_review_document_summary(document: &serde_json::Value) {
     let status = json_string(document, "status").unwrap_or("-");
     let signature = json_string(document, "workflow_signature").unwrap_or("-");
@@ -798,6 +951,30 @@ fn print_review_document_summary(document: &serde_json::Value) {
     print_review_rows(document, "external_boundaries", "external boundaries");
     print_review_rows(document, "fallbacks", "fallbacks");
     print_review_rows(document, "risks", "risks");
+}
+
+fn print_review_diff_summary(diff: &serde_json::Value) {
+    let status = json_string(diff, "status").unwrap_or("-");
+    let before = json_string(diff, "semantic_hash_before").unwrap_or("-");
+    let after = json_string(diff, "semantic_hash_after").unwrap_or("-");
+    println!("semantic diff: {status}");
+    println!("semantic hash: {before} -> {after}");
+    let changed = diff
+        .get("changed_sections")
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    if changed.is_empty() {
+        return;
+    }
+    println!("changed sections:");
+    for row in changed.iter().take(12) {
+        let section = json_string(row, "section").unwrap_or("-");
+        println!("  {section}");
+    }
+    if changed.len() > 12 {
+        println!("  ... {} more", changed.len() - 12);
+    }
 }
 
 fn print_review_rows(document: &serde_json::Value, key: &str, label: &str) {
@@ -836,6 +1013,68 @@ fn json_usize(value: &serde_json::Value, key: &str) -> Option<usize> {
         .and_then(|value| usize::try_from(value).ok())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn review_semantic_diff_reports_changed_sections() {
+        let previous = serde_json::json!({
+            "semantic_hash": "before",
+            "section_hashes": {
+                "inputs": "same",
+                "calculations": "old"
+            }
+        });
+        let current = serde_json::json!({
+            "semantic_hash": "after",
+            "section_hashes": {
+                "inputs": "same",
+                "calculations": "new"
+            }
+        });
+
+        let diff = review_semantic_diff(&previous, &current);
+
+        assert_eq!(diff["status"], "changed");
+        assert_eq!(diff["changed_sections"][0]["section"], "calculations");
+        assert_eq!(diff["changed_sections"][0]["before"], "old");
+        assert_eq!(diff["changed_sections"][0]["after"], "new");
+    }
+
+    #[test]
+    fn review_semantic_diff_reports_unchanged_document() {
+        let previous = serde_json::json!({
+            "semantic_hash": "same",
+            "section_hashes": {
+                "inputs": "a"
+            }
+        });
+        let current = previous.clone();
+
+        let diff = review_semantic_diff(&previous, &current);
+
+        assert_eq!(diff["status"], "unchanged");
+        assert_eq!(diff["changed_sections"].as_array().map(Vec::len), Some(0));
+    }
+
+    #[test]
+    fn first_review_source_path_skips_review_options() {
+        let args = vec![
+            "--against".to_string(),
+            "build/review/static_review.json".to_string(),
+            "--json".to_string(),
+            "--output=build/review-next".to_string(),
+            "examples/official/01_csv_plot/main.eng".to_string(),
+        ];
+
+        assert_eq!(
+            first_review_source_path(&args),
+            Some("examples/official/01_csv_plot/main.eng".to_string())
+        );
+    }
+}
+
 fn file_stem(path: &str) -> String {
     Path::new(path)
         .file_stem()
@@ -852,7 +1091,7 @@ Usage:
   eng doctor
   eng new <project_name>
   eng check <file.eng> [--review]
-  eng review <file.eng> [--json]
+  eng review <file.eng> [--json] [--output <dir>] [--against <review.json>]
   eng fmt <file.eng> [--check|--write]
   eng ide-check <file.eng>
   eng jit-plan <file.eng>

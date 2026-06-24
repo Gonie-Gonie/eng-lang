@@ -180,10 +180,11 @@ generated artifact targets
 risk and fallback entries
 ```
 
-This is planned until Review IR has a stable enough internal shape.
-The current static review document already records `semantic_hash` plus
-per-section hashes so a future `eng review --against` can compare meaning-level
-sections without relying on raw source diffs.
+The current static review document records `semantic_hash` plus per-section
+hashes. `eng review --against` uses those hashes for a first CLI-only
+meaning-level comparison without relying on raw source diffs. Full semantic
+diff payloads for changed calculations, validations, units, and side effects
+remain planned.
 
 ## CLI And IDE Targets
 
@@ -192,6 +193,8 @@ The current CLI shape is:
 ```text
 eng review <file.eng>
 eng review <file.eng> --json
+eng review <file.eng> --output build/review_static
+eng review <file.eng> --against build/previous/review.json
 ```
 
 The planned semantic diff shape is:

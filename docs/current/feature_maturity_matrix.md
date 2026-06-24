@@ -60,7 +60,7 @@ separate.
   normalized ReviewDocument projection.
 - Main status: `Supported` for existing review/report/result/run-log/process/
   test/output-manifest artifacts; `Internal` for `eng review` summary and IDE
-  Review inspector; `Planned` for semantic diff.
+  Review inspector plus first CLI section-hash semantic diff.
 - User-facing scope: review JSON, report HTML, report spec, result artifact,
   output manifest, run log, process results, test results, and native tester IDE
   inspection for the current package workflows. `review.json.review_document`
@@ -69,8 +69,8 @@ separate.
   validations, side effects, external boundaries, fallbacks, and risk entries.
 - Evidence: official examples, artifact schemas, `artifacts-check`, report/
   review guide, `eng review`, and IDE smoke path.
-- Not included: semantic diff CLI comparison, runtime-updated ReviewDocument values, or a
-  complete risk/fallback taxonomy across all tracks.
+- Not included: full semantic diff payloads, runtime-updated ReviewDocument
+  values, or a complete risk/fallback taxonomy across all tracks.
 - Next cleanup action: route report HTML through the normalized
   ReviewDocument before expanding semantic diff.
 

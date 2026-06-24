@@ -508,7 +508,15 @@ The quick CLI view is:
 ```text
 eng review <file.eng>
 eng review <file.eng> --json
+eng review <file.eng> --output build/review_static
+eng review <file.eng> --against build/previous/review.json
 ```
+
+`--output` writes `static_review.json`. When `--against` is supplied, the
+command accepts either a full `review.json` or a bare `review_document` JSON
+file and compares `semantic_hash` plus per-section hashes. It prints a concise
+semantic diff summary and writes `semantic_diff.json` when combined with
+`--output`.
 
 The native IDE Review panel consumes the same `review_document` data for root
 counts, external boundaries, fallbacks, and risk entries.
