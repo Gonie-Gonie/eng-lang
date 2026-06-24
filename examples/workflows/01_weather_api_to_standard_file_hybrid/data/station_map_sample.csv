@@ -1,4 +1,3 @@
-region,station_id,latitude,longitude
-demo,STN001,37.5665,126.9780
-demo-east,STN002,35.1796,129.0756
-
+region,station_id,valid_from,valid_to,latitude,longitude
+demo,STN001,2020-01-01T00:00:00+09:00,2030-12-31T23:00:00+09:00,37.5665,126.9780
+demo-east,STN002,2020-01-01T00:00:00+09:00,2030-12-31T23:00:00+09:00,35.1796,129.0756

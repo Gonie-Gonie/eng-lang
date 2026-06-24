@@ -13,9 +13,11 @@ fixture run:
 
 ```text
 typed station-map CSV promotion
+typed hourly-weather CSV promotion
 fixture JSON read with source hash provenance
 explicit process boundaries represented by `run command`
 generated standard-file text artifact
+generated weather-quality summary artifact
 report/review artifact generation
 ```
 
@@ -29,7 +31,7 @@ Target contract:
 ```text
 args: year, region, station_map, output, optional api_key
 promote station map
-select station
+select station as a fixture-local binding until eng.table filtering exists
 run external fetcher or use sample response
 promote weather hourly data
 coverage and missing-data report
@@ -37,4 +39,3 @@ run external standard-file writer
 write output artifact
 report station, coverage, missing count, and output path
 ```
-

@@ -1,0 +1,3 @@
+time,dry_bulb,relative_humidity,wind_speed,global_horizontal
+2024-01-01T00:00:00+09:00,-2.1,0.42,1.8,0.0
+2024-01-01T01:00:00+09:00,-2.4,0.44,2.0,0.0

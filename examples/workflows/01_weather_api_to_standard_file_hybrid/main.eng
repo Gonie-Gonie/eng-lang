@@ -1,20 +1,52 @@
 schema StationMap {
     region: String
     station_id: String
+    valid_from: DateTime
+    valid_to: DateTime
     latitude: DimensionlessNumber [1]
     longitude: DimensionlessNumber [1]
+}
+
+schema WeatherHourly {
+    time: DateTime index
+    dry_bulb: AbsoluteTemperature [degC]
+    relative_humidity: Ratio [1]
+    wind_speed: DimensionlessNumber [1]
+    global_horizontal: Irradiance [W/m2]
+
+    constraints {
+        time is monotonic
+        dry_bulb between -50 degC and 60 degC
+        relative_humidity between 0 and 1
+        wind_speed >= 0
+        global_horizontal >= 0 W/m2
+    }
+
+    missing {
+        dry_bulb: error
+        relative_humidity: error
+        wind_speed: interpolate max_gap=3 h
+        global_horizontal: interpolate max_gap=3 h
+    }
 }
 
 args {
     year: Int = 2024
     region: String = "demo"
     station_map: CsvFile = file("data/station_map_sample.csv")
+    weather_hourly: CsvFile = file("data/sample_weather_hourly.csv")
     api_fixture: JsonFile = file("data/sample_api_response.json")
     output: DirectoryPath = dir("outputs")
 }
 
 stations = promote csv args.station_map as StationMap
+weather = promote csv args.weather_hourly as WeatherHourly
 api_payload = read json args.api_fixture
+selected_station_id = "STN001"
+hourly_records = weather.rows
+expected_hourly_records = 2
+missing_hourly_records = 0
+max_gap_hours = 1
 
 fetch_result = run command "python"
 with {
@@ -29,14 +61,25 @@ with {
 }
 
 print "Weather fixture region = {args.region}"
+print "Selected station = STN001"
 print "Station rows = {stations.rows}"
+print "Weather hourly rows = {weather.rows}"
 log info "weather fixture read and standard artifact boundary recorded"
 
-write text "outputs/standard_weather_file.txt", api_payload
+write text "outputs/standard_weather_file.txt", "STANDARD-WEATHER-FIXTURE station_id=STN001 year=2024 records=2"
+with {
+    overwrite = true
+}
+
+write text "outputs/weather_quality_summary.txt", "expected=2 actual=2 missing=0 max_gap_hours=1"
 with {
     overwrite = true
 }
 
 report {
+    show selected_station_id
     show stations.rows
+    show hourly_records
+    show missing_hourly_records
+    show max_gap_hours
 }
