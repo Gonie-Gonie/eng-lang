@@ -199,9 +199,11 @@ assumptions
 warnings
 ```
 
-IDE surfaces should expose the same meaning as tables, hovers, validation rows,
-histogram previews, and confidence-band previews. Raw JSON is not enough for a
-reviewability-centered feature.
+IDE surfaces now expose the current review slice through the variable table and
+uncertainty inspector: uncertain bindings show representation/summary values,
+and the inspector carries report, summary, propagation, policy, and TimeSeries
+uncertainty metadata. Hovers and validation-result rows remain follow-up
+alignment work.
 
 ## Non-Goals
 

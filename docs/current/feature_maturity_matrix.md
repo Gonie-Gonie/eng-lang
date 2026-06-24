@@ -185,11 +185,12 @@ separate.
   type-checking, `review.json` summary/propagation sections, pointwise
   TimeSeries `sensor_std` review metadata with metadata-only
   statistics/integration/duration linkage, `sensor_std` confidence-band
-  PlotSpec rendering, histogram artifacts, and the current uncertainty guide.
+  PlotSpec rendering, internal IDE variable/inspector metadata, histogram
+  artifacts, and the current uncertainty guide.
 - Not included: stable Monte Carlo/Jacobian propagation contract, runtime
   pass/fail materialization for probability and `between`, probabilistic
-  TimeSeries uncertainty propagation/statistics, broad
-  deterministic scalar-binding value propagation, or public IDE support claim.
+  TimeSeries uncertainty propagation/statistics, broad deterministic
+  scalar-binding value propagation, or public IDE support claim.
 - Next cleanup action: route TimeSeries uncertainty and validation/probability
   semantics into runtime/report/IDE artifacts before promoting the track beyond
   internal.

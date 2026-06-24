@@ -79,8 +79,10 @@ Right Sidebar
   Vars, Schema, Time, Plot, Checks, Artifacts, and Run tabs are the primary
   review path. After a successful run, source symbols, runtime variables, Args
   values, schema summaries, unit conversions, TimeSeries ranges/statistics,
-  metrics, validations, time alignments, artifact paths, and JSON artifact
-  outlines are summarized in tables.
+  metrics, validations, uncertainty summaries/propagation metadata, time
+  alignments, artifact paths, and JSON artifact outlines are summarized in
+  tables. Uncertain scalar bindings also appear in the variable view with their
+  representation and summary values.
 
 Advanced panels
   Assembly, dependency, residual, component graph, system, and solver result

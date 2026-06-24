@@ -62,9 +62,11 @@ and next cleanup action.
   statistic/probability validation type-checking, and pointwise TimeSeries
   sensor standard deviation review metadata with metadata-only
   statistics/integration/duration linkage, `sensor_std` confidence-band
-  PlotSpec rendering, plus histogram artifacts.
+  PlotSpec rendering, internal IDE variable/inspector metadata, plus histogram
+  artifacts.
 - Next cleanup: keep as internal until probabilistic TimeSeries uncertainty,
-  runtime uncertainty validation artifacts, IDE projection, and tests align.
+  runtime uncertainty validation artifacts, full IDE projection, and tests
+  align.
 
 ## T7 Data-Driven Modeling
 

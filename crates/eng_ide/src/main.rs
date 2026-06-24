@@ -118,6 +118,7 @@ struct InspectorView {
     time_series: Value,
     metrics: Value,
     validations: Value,
+    uncertainty: Value,
     time_alignments: Value,
     systems: Value,
     system_ir: Value,
@@ -143,6 +144,7 @@ impl Default for InspectorView {
             time_series: Value::Array(Vec::new()),
             metrics: Value::Array(Vec::new()),
             validations: Value::Array(Vec::new()),
+            uncertainty: Value::Null,
             time_alignments: Value::Array(Vec::new()),
             systems: Value::Array(Vec::new()),
             system_ir: Value::Array(Vec::new()),
@@ -845,6 +847,11 @@ fn runtime_variables(output: &CachedRunOutput) -> Vec<RuntimeVariableView> {
                 merge_variable(&mut variables, report_variable(item));
             }
         }
+        if let Some(items) = value.get("uncertainty").and_then(Value::as_array) {
+            for item in items {
+                merge_variable(&mut variables, uncertainty_variable(item));
+            }
+        }
         if let Some(systems) = value.get("system_summary").and_then(Value::as_array) {
             for system in systems {
                 let source =
@@ -932,6 +939,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         time_series: time_series_inspector(&report, &result),
         metrics: json_array_clone(&report, "computed_metrics"),
         validations: json_array_clone(&report, "validations"),
+        uncertainty: uncertainty_inspector(&report, &review),
         time_alignments: json_array_clone(&report, "time_alignments"),
         systems: system_inspector(&report, &result),
         system_ir: json_array_clone(&report, "system_ir"),
@@ -965,6 +973,17 @@ fn json_array_clone(value: &Value, key: &str) -> Value {
         .and_then(Value::as_array)
         .map(|items| Value::Array(items.clone()))
         .unwrap_or_else(|| Value::Array(Vec::new()))
+}
+
+fn uncertainty_inspector(report: &Value, review: &Value) -> Value {
+    json!({
+        "report": json_array_clone(report, "uncertainty"),
+        "summary": json_array_clone(review, "uncertainty_summary"),
+        "propagation": json_array_clone(review, "uncertainty_propagation"),
+        "policies": json_array_clone(review, "uncertainty_policies"),
+        "timeseries": json_array_clone(review, "timeseries_uncertainty"),
+        "timeseries_calculations": json_array_clone(review, "timeseries_uncertainty_calculations")
+    })
 }
 
 fn output_manifest_inspector(root: &Path, output: &CachedRunOutput) -> Value {
@@ -1609,6 +1628,48 @@ fn report_variable(value: &Value) -> RuntimeVariableView {
         value: None,
         line: json_field_usize(value, "line").unwrap_or(0),
     }
+}
+
+fn uncertainty_variable(value: &Value) -> RuntimeVariableView {
+    RuntimeVariableView {
+        name: json_field_string(value, "binding").unwrap_or_else(|| "unknown".to_owned()),
+        quantity_kind: json_field_string(value, "quantity_kind").unwrap_or_default(),
+        display_unit: json_field_string(value, "display_unit").unwrap_or_default(),
+        canonical_unit: String::new(),
+        dimension: String::new(),
+        source: "uncertainty".to_owned(),
+        role: Some(
+            json_field_string(value, "method")
+                .map(|method| format!("uncertainty:{method}"))
+                .unwrap_or_else(|| "uncertainty".to_owned()),
+        ),
+        value: uncertainty_value_label(value),
+        line: json_field_usize(value, "line").unwrap_or(0),
+    }
+}
+
+fn uncertainty_value_label(value: &Value) -> Option<String> {
+    let kind = json_field_string(value, "kind")?;
+    let mut parts = vec![kind];
+    if let Some(distribution) = json_field_string(value, "distribution") {
+        parts.push(distribution);
+    }
+    if let Some(mean) = json_field_string(value, "mean") {
+        parts.push(format!("mean={mean}"));
+    }
+    if let Some(stddev) = json_field_string(value, "stddev") {
+        parts.push(format!("std={stddev}"));
+    }
+    if let (Some(lower), Some(upper)) = (
+        json_field_string(value, "lower"),
+        json_field_string(value, "upper"),
+    ) {
+        parts.push(format!("interval=[{lower}, {upper}]"));
+    }
+    if let Some(p95) = json_field_string(value, "p95") {
+        parts.push(format!("p95={p95}"));
+    }
+    Some(parts.join(" "))
 }
 
 fn system_variable(value: &Value, source: &str) -> RuntimeVariableView {
@@ -3297,6 +3358,98 @@ mod tests {
             "plot_type": "line",
             "series": [{ "points": [{ "x": 1, "y": 2 }] }]
         })));
+    }
+
+    #[test]
+    fn ide_surfaces_uncertainty_variables_and_inspector() {
+        let cached = cached_output_with_report_and_review(
+            r#"{
+              "variable_table": [],
+              "uncertainty": [
+                {
+                  "binding": "Q_dist",
+                  "kind": "Distribution",
+                  "quantity_kind": "HeatRate",
+                  "display_unit": "kW",
+                  "distribution": "normal",
+                  "method": "linear",
+                  "mean": "5 kW",
+                  "stddev": "0.8 kW",
+                  "p95": "6.2 kW",
+                  "line": 3
+                }
+              ]
+            }"#,
+            r#"{
+              "uncertainty_summary": [
+                { "variable": "Q_dist", "representation": "Distribution" }
+              ],
+              "uncertainty_propagation": [
+                { "output": "Q_total", "status": "metadata_only" }
+              ],
+              "uncertainty_policies": [],
+              "timeseries_uncertainty": [],
+              "timeseries_uncertainty_calculations": []
+            }"#,
+        );
+
+        let variables = runtime_variables(&cached);
+        let variable = variables
+            .iter()
+            .find(|variable| variable.name == "Q_dist")
+            .expect("uncertainty variable");
+        assert_eq!(variable.source, "uncertainty");
+        assert_eq!(variable.role.as_deref(), Some("uncertainty:linear"));
+        assert!(variable
+            .value
+            .as_deref()
+            .unwrap_or_default()
+            .contains("p95=6.2 kW"));
+
+        let inspectors = runtime_inspectors(Path::new("."), &cached);
+        assert!(inspectors
+            .uncertainty
+            .get("report")
+            .and_then(Value::as_array)
+            .is_some_and(|items| items.len() == 1));
+        assert!(inspectors
+            .uncertainty
+            .get("propagation")
+            .and_then(Value::as_array)
+            .is_some_and(|items| items.len() == 1));
+    }
+
+    fn cached_output_with_report_and_review(
+        report_spec_json: &str,
+        review_json: &str,
+    ) -> CachedRunOutput {
+        CachedRunOutput {
+            bytecode_path: PathBuf::new(),
+            result_path: PathBuf::new(),
+            review_path: PathBuf::new(),
+            run_log_path: PathBuf::new(),
+            process_results_path: PathBuf::new(),
+            test_results_path: PathBuf::new(),
+            report_path: PathBuf::new(),
+            report_spec_path: PathBuf::new(),
+            plot_path: PathBuf::new(),
+            plot_spec_path: PathBuf::new(),
+            plot_manifest_path: PathBuf::new(),
+            output_manifest_path: PathBuf::new(),
+            artifacts_saved: false,
+            bytecode: String::new(),
+            result_json: "{}".to_owned(),
+            review_json: review_json.to_owned(),
+            run_log_json: "{}".to_owned(),
+            process_results_json: "{}".to_owned(),
+            test_results_json: "{}".to_owned(),
+            report_html: String::new(),
+            report_spec_json: report_spec_json.to_owned(),
+            plot_svg: String::new(),
+            plot_spec_json: "{}".to_owned(),
+            plot_manifest_json: "{}".to_owned(),
+            output_manifest_json: "{}".to_owned(),
+        }
     }
 
     fn unique_temp_root() -> PathBuf {
