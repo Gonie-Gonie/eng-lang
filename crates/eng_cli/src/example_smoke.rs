@@ -6359,6 +6359,111 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng"),
+        Path::new("build/test-workflow-weather-standard-file"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.review_json.contains("WeatherHourly")
+                || !output.review_json.contains("fetch_result")
+                || !output
+                    .process_results_json
+                    .contains("\"format\": \"eng-process-results-v1\"")
+                || !output.process_results_json.contains("\"process_count\": 2")
+                || !output
+                    .process_results_json
+                    .contains("\"binding\": \"fetch_result\"")
+                || !output
+                    .process_results_json
+                    .contains("\"binding\": \"writer_result\"")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/fetched_weather.json")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/standard_weather_file.process.txt")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/standard_weather_file.txt")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/weather_quality_summary.txt")
+                || !output
+                    .output_manifest_json
+                    .contains("\"kind\": \"report_html\"")
+                || !output.review_json.contains("selected_station_id")
+                || !output.report_html.contains("max_gap_hours")
+            {
+                eprintln!(
+                    "expected weather workflow to produce review, process, output manifest, and report artifacts"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng produced workflow manifest artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("weather standard-file workflow example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
+        Path::new("examples/workflows/02_external_simulation_surrogate_hybrid/main.eng"),
+        Path::new("build/test-workflow-external-simulation-surrogate"),
+        &artifact_run_options(),
+    ) {
+        Ok(output) => {
+            if !output.review_json.contains("PredictionResult")
+                || !output.review_json.contains("case_manifest_result_003")
+                || !output
+                    .process_results_json
+                    .contains("\"format\": \"eng-process-results-v1\"")
+                || !output
+                    .process_results_json
+                    .contains("\"process_count\": 13")
+                || !output
+                    .process_results_json
+                    .contains("\"binding\": \"db_result\"")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/case_001/case_manifest.json")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/case_002/case_manifest.json")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/case_003/case_manifest.json")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/predictions.csv")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/db_write_manifest.json")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/model_metrics.json")
+                || !output
+                    .output_manifest_json
+                    .contains("\"kind\": \"report_html\"")
+                || !output.review_json.contains("database_target")
+                || !output.review_json.contains("predictions.rows")
+            {
+                eprintln!(
+                    "expected external simulation surrogate workflow to produce case, prediction, DB, review, output manifest, and report artifacts"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/workflows/02_external_simulation_surrogate_hybrid/main.eng produced workflow manifest artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("external simulation surrogate workflow example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
         Path::new("examples/internal/05_data_driven_modeling/main.eng"),
         Path::new("build/test-data-driven-modeling"),
         &RunOptions {
