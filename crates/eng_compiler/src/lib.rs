@@ -4158,6 +4158,11 @@ fn push_review_document_json(json: &mut String, report: &CheckReport) {
         "    \"workflow_signature\": \"{}\",\n",
         json_escape(&program.workflow.signature())
     ));
+    json.push_str(&format!(
+        "    \"semantic_hash\": \"{}\",\n",
+        json_escape(&review_semantic_hash(report))
+    ));
+    push_review_section_hashes_json(json, report);
     json.push_str("    \"root_contract\": {\n");
     json.push_str(&format!(
         "      \"input_count\": {},\n",
@@ -4172,8 +4177,24 @@ fn push_review_document_json(json: &mut String, report: &CheckReport) {
         program.schemas.len()
     ));
     json.push_str(&format!(
+        "      \"unit_quantity_count\": {},\n",
+        program.typed_bindings.len()
+    ));
+    json.push_str(&format!(
+        "      \"time_axis_count\": {},\n",
+        program.axis_infos.len()
+    ));
+    json.push_str(&format!(
         "      \"calculation_count\": {},\n",
         review_calculation_count(report)
+    ));
+    json.push_str(&format!(
+        "      \"derived_value_count\": {},\n",
+        report.inferred_declarations.len()
+    ));
+    json.push_str(&format!(
+        "      \"report_output_count\": {},\n",
+        review_report_output_count(report)
     ));
     json.push_str(&format!(
         "      \"validation_count\": {},\n",
@@ -4191,8 +4212,13 @@ fn push_review_document_json(json: &mut String, report: &CheckReport) {
     json.push_str(&format!("      \"risk_count\": {}\n", risk_count));
     json.push_str("    },\n");
     push_review_inputs_json(json, report);
+    push_review_schemas_json(json, report);
+    push_review_units_quantities_json(json, report);
+    push_review_time_axes_json(json, report);
     push_review_symbols_json(json, report);
+    push_review_derived_values_json(json, report);
     push_review_calculations_json(json, report);
+    push_review_report_outputs_json(json, report);
     push_review_validations_json(json, report);
     push_review_side_effects_json(json, report);
     push_review_external_boundaries_json(json, report);
@@ -4615,6 +4641,133 @@ fn review_calculation_count(report: &CheckReport) -> usize {
             .sum::<usize>()
 }
 
+fn review_report_output_count(report: &CheckReport) -> usize {
+    report.semantic_program.stats_infos.len()
+        + report.semantic_program.integrations.len()
+        + report.semantic_program.timeseries_kernels.len()
+}
+
+fn review_semantic_hash(report: &CheckReport) -> String {
+    let program = &report.semantic_program;
+    let mut digest = String::new();
+    digest.push_str(&program.workflow.signature());
+    digest.push('|');
+    digest.push_str(&review_section_digest(report, "inputs"));
+    digest.push('|');
+    digest.push_str(&review_section_digest(report, "schemas"));
+    digest.push('|');
+    digest.push_str(&review_section_digest(report, "units_quantities"));
+    digest.push('|');
+    digest.push_str(&review_section_digest(report, "time_axes"));
+    digest.push('|');
+    digest.push_str(&review_section_digest(report, "derived_values"));
+    digest.push('|');
+    digest.push_str(&review_section_digest(report, "calculations"));
+    digest.push('|');
+    digest.push_str(&review_section_digest(report, "report_outputs"));
+    digest.push('|');
+    digest.push_str(&review_section_digest(report, "validations"));
+    digest.push('|');
+    digest.push_str(&review_section_digest(report, "side_effects"));
+    digest.push('|');
+    digest.push_str(&review_section_digest(report, "external_boundaries"));
+    digest.push('|');
+    digest.push_str(&review_section_digest(report, "fallbacks"));
+    digest.push('|');
+    digest.push_str(&review_section_digest(report, "risks"));
+    hash_text(&digest)
+}
+
+fn review_section_digest(report: &CheckReport, section: &str) -> String {
+    let program = &report.semantic_program;
+    match section {
+        "inputs" => format!(
+            "{:?}|{:?}|{:?}",
+            program.args_blocks, program.arg_values, program.environment_dependencies
+        ),
+        "schemas" => format!("{:?}|{:?}", program.schemas, program.csv_promotions),
+        "units_quantities" => {
+            format!(
+                "{:?}|{:?}",
+                program.typed_bindings, program.unit_derivations
+            )
+        }
+        "time_axes" => format!("{:?}", program.axis_infos),
+        "derived_values" => format!("{:?}", report.inferred_declarations),
+        "calculations" => format!(
+            "{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}",
+            report.inferred_declarations,
+            program.stats_infos,
+            program.integrations,
+            program.timeseries_kernels,
+            program.uncertainty_infos,
+            program.ml_infos,
+            program.systems,
+            program.component_assemblies
+        ),
+        "report_outputs" => format!(
+            "{:?}|{:?}|{:?}",
+            program.stats_infos, program.integrations, program.timeseries_kernels
+        ),
+        "validations" => format!(
+            "{:?}|{:?}|{:?}",
+            program.command_styles, program.classes, program.class_objects
+        ),
+        "side_effects" => format!(
+            "{:?}|{:?}|{:?}",
+            program.csv_exports, program.writes, program.file_operations
+        ),
+        "external_boundaries" => format!(
+            "{:?}|{:?}",
+            program.process_runs, program.environment_dependencies
+        ),
+        "fallbacks" => format!(
+            "{:?}|{:?}",
+            program.with_blocks, program.component_assemblies
+        ),
+        "risks" => format!(
+            "{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}",
+            report.diagnostics,
+            program.schemas,
+            program.process_runs,
+            program.file_operations,
+            program.environment_dependencies,
+            program.uncertainty_infos,
+            program.systems,
+            program.component_assemblies
+        ),
+        _ => String::new(),
+    }
+}
+
+fn push_review_section_hashes_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"section_hashes\": {\n");
+    let sections = [
+        "inputs",
+        "schemas",
+        "units_quantities",
+        "time_axes",
+        "derived_values",
+        "calculations",
+        "report_outputs",
+        "validations",
+        "side_effects",
+        "external_boundaries",
+        "fallbacks",
+        "risks",
+    ];
+    for (index, section) in sections.iter().enumerate() {
+        let comma = if index + 1 == sections.len() { "" } else { "," };
+        json.push_str(&format!(
+            "      \"{}\": \"{}\"{}\n",
+            json_escape(section),
+            json_escape(&hash_text(&review_section_digest(report, section))),
+            comma
+        ));
+    }
+    json.push_str("    },\n");
+}
+
 fn review_input_count(report: &CheckReport) -> usize {
     report
         .semantic_program
@@ -4735,6 +4888,153 @@ fn push_review_inputs_json(json: &mut String, report: &CheckReport) {
     json.push_str("\n    ],\n");
 }
 
+fn push_review_schemas_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"schemas\": [\n");
+    for (index, schema) in report.semantic_program.schemas.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&schema.name)
+        ));
+        json.push_str("        \"columns\": [");
+        for (column_index, column) in schema.columns.iter().enumerate() {
+            if column_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!(
+                "{{ \"name\": \"{}\", \"type\": \"{}\", \"unit\": {}, \"is_index\": {}, \"line\": {} }}",
+                json_escape(&column.name),
+                json_escape(&column.type_name),
+                match &column.unit {
+                    Some(unit) => format!("\"{}\"", json_escape(unit)),
+                    None => "null".to_owned(),
+                },
+                column.is_index,
+                column.line
+            ));
+        }
+        json.push_str("],\n");
+        json.push_str("        \"constraints\": [");
+        for (constraint_index, constraint) in schema.constraints.iter().enumerate() {
+            if constraint_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!(
+                "{{ \"text\": \"{}\", \"line\": {} }}",
+                json_escape(&constraint.text),
+                constraint.line
+            ));
+        }
+        json.push_str("],\n");
+        json.push_str("        \"missing_policies\": [");
+        for (policy_index, policy) in schema.missing_policies.iter().enumerate() {
+            if policy_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!(
+                "{{ \"column\": \"{}\", \"policy\": \"{}\", \"line\": {} }}",
+                json_escape(&policy.column),
+                json_escape(&policy.policy),
+                policy.line
+            ));
+        }
+        json.push_str("],\n");
+        json.push_str(&format!("        \"line\": {}\n", schema.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+}
+
+fn push_review_units_quantities_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"units_quantities\": [\n");
+    for (index, binding) in report.semantic_program.typed_bindings.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        let derivation = report
+            .semantic_program
+            .unit_derivations
+            .iter()
+            .find(|candidate| candidate.name == binding.name);
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&binding.name)
+        ));
+        json.push_str(&format!(
+            "        \"quantity_kind\": \"{}\",\n",
+            json_escape(&binding.semantic_type.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "        \"display_unit\": \"{}\",\n",
+            json_escape(&binding.semantic_type.display_unit)
+        ));
+        json.push_str(&format!(
+            "        \"canonical_unit\": \"{}\",\n",
+            json_escape(
+                derivation
+                    .map(|item| item.canonical_unit.as_str())
+                    .unwrap_or(&binding.semantic_type.display_unit)
+            )
+        ));
+        json.push_str(&format!(
+            "        \"source_unit\": {},\n",
+            derivation
+                .and_then(|item| item.source_unit.as_ref())
+                .map(|unit| format!("\"{}\"", json_escape(unit)))
+                .unwrap_or_else(|| "null".to_owned())
+        ));
+        json.push_str("        \"derivation_steps\": [");
+        if let Some(derivation) = derivation {
+            push_json_string_array(json, &derivation.steps);
+        }
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            if derivation.is_some() {
+                "derived"
+            } else {
+                "declared_or_inferred"
+            }
+        ));
+        json.push_str(&format!("        \"line\": {}\n", binding.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+}
+
+fn push_review_time_axes_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"time_axes\": [\n");
+    for (index, axis) in report.semantic_program.axis_infos.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&axis.binding)
+        ));
+        json.push_str(&format!(
+            "        \"axis\": \"{}\",\n",
+            json_escape(&axis.axis)
+        ));
+        json.push_str(&format!(
+            "        \"role\": \"{}\",\n",
+            json_escape(&axis.role)
+        ));
+        json.push_str(&format!(
+            "        \"source\": \"{}\",\n",
+            json_escape(&axis.source)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", axis.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+}
+
 fn push_review_symbols_json(json: &mut String, report: &CheckReport) {
     json.push_str("    \"symbols\": [\n");
     for (index, binding) in report.semantic_program.typed_bindings.iter().enumerate() {
@@ -4773,6 +5073,122 @@ fn push_review_symbols_json(json: &mut String, report: &CheckReport) {
     json.push_str("\n    ],\n");
 }
 
+fn push_review_derived_values_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"derived_values\": [\n");
+    for (index, declaration) in report.inferred_declarations.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&declaration.name)
+        ));
+        json.push_str(&format!(
+            "        \"expression\": \"{}\",\n",
+            json_escape(&declaration.expression)
+        ));
+        json.push_str(&format!(
+            "        \"quantity_kind\": \"{}\",\n",
+            json_escape(&declaration.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "        \"display_unit\": \"{}\",\n",
+            json_escape(&declaration.display_unit)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", declaration.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+}
+
+fn review_input_symbols(report: &CheckReport, expression: &str, output: &str) -> Vec<String> {
+    report
+        .semantic_program
+        .typed_bindings
+        .iter()
+        .filter(|binding| binding.name != output)
+        .filter(|binding| expression_mentions_symbol(expression, &binding.name))
+        .map(|binding| binding.name.clone())
+        .collect()
+}
+
+fn expression_mentions_symbol(expression: &str, symbol: &str) -> bool {
+    expression
+        .split(|character: char| !(character.is_ascii_alphanumeric() || character == '_'))
+        .any(|token| token == symbol)
+}
+
+fn review_unit_derivation_steps(report: &CheckReport, name: &str) -> Vec<String> {
+    report
+        .semantic_program
+        .unit_derivations
+        .iter()
+        .find(|derivation| derivation.name == name)
+        .map(|derivation| derivation.steps.clone())
+        .unwrap_or_default()
+}
+
+fn review_where_expansions(report: &CheckReport, owner_line: usize) -> Vec<String> {
+    report
+        .semantic_program
+        .where_blocks
+        .iter()
+        .filter(|block| block.owner_line == Some(owner_line))
+        .flat_map(|block| block.bindings.iter())
+        .map(|binding| format!("{} = {}", binding.name, binding.expression))
+        .collect()
+}
+
+fn review_function_calls(report: &CheckReport, expression: &str) -> Vec<String> {
+    report
+        .semantic_program
+        .functions
+        .iter()
+        .filter(|function| expression.contains(&format!("{}(", function.name)))
+        .map(|function| function.name.clone())
+        .collect()
+}
+
+fn push_review_calculation_trace_fields(
+    json: &mut String,
+    report: &CheckReport,
+    output: &str,
+    expression: &str,
+    output_quantity: &str,
+    owner_line: usize,
+) {
+    push_named_json_string_array(
+        json,
+        "input_symbols",
+        &review_input_symbols(report, expression, output),
+        8,
+    );
+    json.push_str(&format!(
+        "        \"output_quantity\": \"{}\",\n",
+        json_escape(output_quantity)
+    ));
+    push_named_json_string_array(
+        json,
+        "unit_derivation",
+        &review_unit_derivation_steps(report, output),
+        8,
+    );
+    push_named_json_string_array(
+        json,
+        "where_expansions",
+        &review_where_expansions(report, owner_line),
+        8,
+    );
+    push_named_json_string_array(
+        json,
+        "function_calls",
+        &review_function_calls(report, expression),
+        8,
+    );
+    json.push_str("        \"warnings\": [],\n");
+}
+
 fn push_review_calculations_json(json: &mut String, report: &CheckReport) {
     json.push_str("    \"calculations\": [\n");
     let mut first = true;
@@ -4792,10 +5208,20 @@ fn push_review_calculations_json(json: &mut String, report: &CheckReport) {
             "        \"quantity_kind\": \"{}\",\n",
             json_escape(&declaration.quantity_kind)
         ));
+        push_review_calculation_trace_fields(
+            json,
+            report,
+            &declaration.name,
+            &declaration.expression,
+            &declaration.quantity_kind,
+            declaration.line,
+        );
         json.push_str(&format!("        \"line\": {}\n", declaration.line));
         json.push_str("      }");
     }
     for statistic in &report.semantic_program.stats_infos {
+        let expression = format!("summary {} over {}", statistic.source, statistic.axis);
+        let output = format!("summary:{}", statistic.source);
         push_review_comma(json, &mut first);
         json.push_str("      {\n");
         json.push_str("        \"kind\": \"timeseries_statistics\",\n");
@@ -4804,17 +5230,29 @@ fn push_review_calculations_json(json: &mut String, report: &CheckReport) {
             json_escape(&statistic.source)
         ));
         json.push_str(&format!(
-            "        \"expression\": \"summary over {}\",\n",
-            json_escape(&statistic.axis)
+            "        \"expression\": \"{}\",\n",
+            json_escape(&expression)
         ));
         json.push_str(&format!(
             "        \"quantity_kind\": \"{}\",\n",
             json_escape(&statistic.quantity_kind)
         ));
+        push_review_calculation_trace_fields(
+            json,
+            report,
+            &output,
+            &expression,
+            &statistic.quantity_kind,
+            statistic.line,
+        );
         json.push_str(&format!("        \"line\": {}\n", statistic.line));
         json.push_str("      }");
     }
     for integration in &report.semantic_program.integrations {
+        let expression = format!(
+            "integrate {} over {}",
+            integration.source, integration.over_axis
+        );
         push_review_comma(json, &mut first);
         json.push_str("      {\n");
         json.push_str("        \"kind\": \"timeseries_integration\",\n");
@@ -4831,6 +5269,14 @@ fn push_review_calculations_json(json: &mut String, report: &CheckReport) {
             "        \"quantity_kind\": \"{}\",\n",
             json_escape(&integration.result_quantity)
         ));
+        push_review_calculation_trace_fields(
+            json,
+            report,
+            &integration.binding,
+            &expression,
+            &integration.result_quantity,
+            integration.line,
+        );
         json.push_str(&format!("        \"line\": {}\n", integration.line));
         json.push_str("      }");
     }
@@ -4850,6 +5296,14 @@ fn push_review_calculations_json(json: &mut String, report: &CheckReport) {
             "        \"quantity_kind\": \"{}\",\n",
             json_escape(&kernel.quantity_kind)
         ));
+        push_review_calculation_trace_fields(
+            json,
+            report,
+            &kernel.binding,
+            &kernel.expression,
+            &kernel.quantity_kind,
+            kernel.line,
+        );
         json.push_str(&format!("        \"line\": {}\n", kernel.line));
         json.push_str("      }");
     }
@@ -4869,6 +5323,14 @@ fn push_review_calculations_json(json: &mut String, report: &CheckReport) {
             "        \"quantity_kind\": \"{}\",\n",
             json_escape(&uncertainty.quantity_kind)
         ));
+        push_review_calculation_trace_fields(
+            json,
+            report,
+            &uncertainty.binding,
+            &uncertainty.expression,
+            &uncertainty.quantity_kind,
+            uncertainty.line,
+        );
         json.push_str(&format!("        \"line\": {}\n", uncertainty.line));
         json.push_str("      }");
     }
@@ -4888,11 +5350,20 @@ fn push_review_calculations_json(json: &mut String, report: &CheckReport) {
             "        \"quantity_kind\": \"{}\",\n",
             json_escape(&ml.kind)
         ));
+        push_review_calculation_trace_fields(
+            json,
+            report,
+            &ml.binding,
+            &ml.expression,
+            &ml.kind,
+            ml.line,
+        );
         json.push_str(&format!("        \"line\": {}\n", ml.line));
         json.push_str("      }");
     }
     for system in &report.semantic_program.systems {
         for equation in &system.equations {
+            let expression = format!("{} {} {}", equation.left, equation.relation, equation.right);
             push_review_comma(json, &mut first);
             json.push_str("      {\n");
             json.push_str("        \"kind\": \"system_equation\",\n");
@@ -4910,9 +5381,86 @@ fn push_review_calculations_json(json: &mut String, report: &CheckReport) {
                 "        \"quantity_kind\": \"{}\",\n",
                 json_escape(&equation.left_dimension)
             ));
+            push_review_calculation_trace_fields(
+                json,
+                report,
+                &system.name,
+                &expression,
+                &equation.left_dimension,
+                equation.line,
+            );
             json.push_str(&format!("        \"line\": {}\n", equation.line));
             json.push_str("      }");
         }
+    }
+    json.push_str("\n    ],\n");
+}
+
+fn push_review_report_outputs_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"report_outputs\": [\n");
+    let mut first = true;
+    for statistic in &report.semantic_program.stats_infos {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"summary\",\n");
+        json.push_str(&format!(
+            "        \"source\": \"{}\",\n",
+            json_escape(&statistic.source)
+        ));
+        json.push_str(&format!(
+            "        \"axis\": \"{}\",\n",
+            json_escape(&statistic.axis)
+        ));
+        json.push_str("        \"statistics\": [");
+        push_json_string_array(json, &statistic.statistics);
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "        \"quantity_kind\": \"{}\",\n",
+            json_escape(&statistic.quantity_kind)
+        ));
+        json.push_str("        \"status\": \"declared\",\n");
+        json.push_str(&format!("        \"line\": {}\n", statistic.line));
+        json.push_str("      }");
+    }
+    for integration in &report.semantic_program.integrations {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"derived_quantity\",\n");
+        json.push_str(&format!(
+            "        \"source\": \"{}\",\n",
+            json_escape(&integration.source)
+        ));
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&integration.binding)
+        ));
+        json.push_str(&format!(
+            "        \"quantity_kind\": \"{}\",\n",
+            json_escape(&integration.result_quantity)
+        ));
+        json.push_str("        \"status\": \"declared\",\n");
+        json.push_str(&format!("        \"line\": {}\n", integration.line));
+        json.push_str("      }");
+    }
+    for kernel in &report.semantic_program.timeseries_kernels {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"plot_candidate\",\n");
+        json.push_str(&format!(
+            "        \"source\": \"{}\",\n",
+            json_escape(&kernel.binding)
+        ));
+        json.push_str(&format!(
+            "        \"axis\": \"{}\",\n",
+            json_escape(&kernel.axis)
+        ));
+        json.push_str(&format!(
+            "        \"quantity_kind\": \"{}\",\n",
+            json_escape(&kernel.quantity_kind)
+        ));
+        json.push_str("        \"status\": \"metadata_only\",\n");
+        json.push_str(&format!("        \"line\": {}\n", kernel.line));
+        json.push_str("      }");
     }
     json.push_str("\n    ],\n");
 }
@@ -5026,10 +5574,21 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
             "        \"target\": \"{}\",\n",
             json_escape(&process.command)
         ));
+        json.push_str("        \"inputs\": [");
+        push_json_string_array(json, &review_option_values(report, process.line, "args"));
+        json.push_str("],\n");
+        json.push_str("        \"outputs\": [");
+        push_json_string_array(json, &expected_outputs);
+        json.push_str("],\n");
+        json.push_str("        \"side_effects\": [\"process_execution\"],\n");
+        json.push_str("        \"provenance\": \"static_review\",\n");
+        json.push_str("        \"success\": null,\n");
+        json.push_str("        \"risk_level\": \"high\",\n");
         json.push_str("        \"expected_outputs\": [");
         push_json_string_array(json, &expected_outputs);
         json.push_str("],\n");
         json.push_str("        \"status\": \"declared\",\n");
+        json.push_str(&format!("        \"source_line\": {},\n", process.line));
         json.push_str(&format!("        \"line\": {}\n", process.line));
         json.push_str("      }");
     }
@@ -5045,11 +5604,27 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
             "        \"target\": \"{}\",\n",
             json_escape(&dependency.expression)
         ));
+        json.push_str("        \"inputs\": [");
+        push_json_string_array(json, std::slice::from_ref(&dependency.expression));
+        json.push_str("],\n");
+        json.push_str("        \"outputs\": [],\n");
+        json.push_str("        \"side_effects\": [\"environment_read\"],\n");
+        json.push_str(&format!(
+            "        \"provenance\": {},\n",
+            dependency
+                .source_hash
+                .as_ref()
+                .map(|hash| format!("\"{}\"", json_escape(hash)))
+                .unwrap_or_else(|| "null".to_owned())
+        ));
+        json.push_str("        \"success\": null,\n");
+        json.push_str("        \"risk_level\": \"medium\",\n");
         json.push_str("        \"expected_outputs\": [],\n");
         json.push_str(&format!(
             "        \"status\": \"{}\",\n",
             json_escape(&dependency.status)
         ));
+        json.push_str(&format!("        \"source_line\": {},\n", dependency.line));
         json.push_str(&format!("        \"line\": {}\n", dependency.line));
         json.push_str("      }");
     }
@@ -5072,6 +5647,17 @@ fn push_review_fallbacks_json(json: &mut String, report: &CheckReport) {
             json.push_str("      {\n");
             json.push_str("        \"kind\": \"allowed_failure\",\n");
             json.push_str("        \"category\": \"external_boundary\",\n");
+            json.push_str(&format!(
+                "        \"target\": \"owner_line:{}\",\n",
+                owner_line
+            ));
+            json.push_str("        \"method\": \"allow_failure\",\n");
+            json.push_str("        \"fallback_source\": \"external_operation\",\n");
+            json.push_str("        \"affected_scope\": \"external boundary status\",\n");
+            json.push_str(
+                "        \"assumption\": \"failure is acceptable for this workflow boundary\",\n",
+            );
+            json.push_str("        \"risk_level\": \"high\",\n");
             json.push_str("        \"status\": \"declared\",\n");
             json.push_str(&format!(
                 "        \"reason\": \"owner line {} allows an external operation to fail\",\n",
@@ -5089,6 +5675,15 @@ fn push_review_fallbacks_json(json: &mut String, report: &CheckReport) {
         json.push_str("      {\n");
         json.push_str("        \"kind\": \"solver_preview_limitation\",\n");
         json.push_str("        \"category\": \"solver_or_numeric\",\n");
+        json.push_str(&format!(
+            "        \"target\": \"{}\",\n",
+            json_escape(&assembly.name)
+        ));
+        json.push_str("        \"method\": \"solver_preview\",\n");
+        json.push_str("        \"fallback_source\": \"metadata_only_solver_preview\",\n");
+        json.push_str("        \"affected_scope\": \"component assembly solve interpretation\",\n");
+        json.push_str("        \"assumption\": \"solver preview limitations must be reviewed before using the result as a physical solve\",\n");
+        json.push_str("        \"risk_level\": \"medium\",\n");
         json.push_str("        \"status\": \"metadata_only\",\n");
         json.push_str(&format!(
             "        \"reason\": \"{}\",\n",
@@ -5109,10 +5704,12 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
         .filter(|diagnostic| diagnostic.severity == Severity::Warning)
     {
         push_review_comma(json, &mut first);
+        let category = review_diagnostic_risk_category(&diagnostic.code);
         push_review_risk_json(
             json,
-            review_diagnostic_risk_category(&diagnostic.code),
+            category,
             "warning",
+            review_default_risk_level(category, "warning"),
             &diagnostic.message,
             diagnostic.line,
         );
@@ -5124,6 +5721,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
                 json,
                 "data_quality",
                 "info",
+                "medium",
                 &format!(
                     "schema `{}` uses missing-data policy `{}` for `{}`",
                     schema.name, policy.policy, policy.column
@@ -5144,6 +5742,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
             json,
             category,
             "info",
+            review_default_risk_level(category, "info"),
             &format!(
                 "external process `{}` is opaque to EngLang",
                 process.binding
@@ -5157,6 +5756,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
             json,
             "side_effect",
             "info",
+            "high",
             &format!(
                 "file operation `{}` mutates filesystem state",
                 operation.operation
@@ -5170,6 +5770,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
             json,
             "reproducibility",
             "info",
+            "medium",
             &format!(
                 "environment dependency `{}` affects reproducibility",
                 dependency.name
@@ -5183,6 +5784,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
             json,
             "uncertainty",
             "info",
+            "medium",
             &format!(
                 "uncertainty representation `{}` requires assumption review",
                 uncertainty.kind
@@ -5196,6 +5798,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
             json,
             "solver_or_numeric",
             "info",
+            "medium",
             &format!("system `{}` has solver metadata boundary", system.name),
             system.line,
         );
@@ -5206,6 +5809,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
             json,
             "solver_or_numeric",
             "info",
+            "medium",
             &format!(
                 "component assembly `{}` has {} unknown(s) and {} equation(s)",
                 assembly.name, assembly.boundary.unknown_count, assembly.boundary.equation_count
@@ -5220,6 +5824,7 @@ fn push_review_risk_json(
     json: &mut String,
     category: &str,
     severity: &str,
+    level: &str,
     summary: &str,
     line: usize,
 ) {
@@ -5232,12 +5837,23 @@ fn push_review_risk_json(
         "        \"severity\": \"{}\",\n",
         json_escape(severity)
     ));
+    json.push_str(&format!("        \"level\": \"{}\",\n", json_escape(level)));
     json.push_str(&format!(
         "        \"summary\": \"{}\",\n",
         json_escape(summary)
     ));
     json.push_str(&format!("        \"line\": {}\n", line));
     json.push_str("      }");
+}
+
+fn review_default_risk_level(category: &str, severity: &str) -> &'static str {
+    match category {
+        "external_boundary" | "side_effect" => "high",
+        "data_quality" | "unit_or_quantity" | "uncertainty" | "solver_or_numeric"
+        | "reproducibility" => "medium",
+        _ if severity == "warning" => "medium",
+        _ => "low",
+    }
 }
 
 fn review_diagnostic_risk_category(code: &str) -> &'static str {
@@ -9359,15 +9975,31 @@ system Envelope {
 
         assert!(json.contains("\"review_document\""));
         assert!(json.contains("\"format\": \"eng-review-document-preview-1\""));
+        assert!(json.contains("\"semantic_hash\""));
+        assert!(json.contains("\"section_hashes\""));
         assert!(json.contains("\"root_contract\""));
+        assert!(json.contains("\"unit_quantity_count\""));
+        assert!(json.contains("\"time_axis_count\""));
+        assert!(json.contains("\"report_output_count\""));
+        assert!(json.contains("\"schemas\""));
+        assert!(json.contains("\"units_quantities\""));
+        assert!(json.contains("\"time_axes\""));
+        assert!(json.contains("\"derived_values\""));
         assert!(json.contains("\"calculations\""));
+        assert!(json.contains("\"input_symbols\""));
+        assert!(json.contains("\"output_quantity\""));
+        assert!(json.contains("\"unit_derivation\""));
+        assert!(json.contains("\"report_outputs\""));
         assert!(json.contains("\"validations\""));
         assert!(json.contains("\"external_boundaries\""));
         assert!(json.contains("\"fallbacks\""));
         assert!(json.contains("\"risks\""));
         assert!(json.contains("\"kind\": \"process\""));
+        assert!(json.contains("\"risk_level\": \"high\""));
         assert!(json.contains("\"kind\": \"allowed_failure\""));
+        assert!(json.contains("\"fallback_source\": \"external_operation\""));
         assert!(json.contains("\"category\": \"external_boundary\""));
+        assert!(json.contains("\"level\": \"high\""));
     }
 
     #[test]

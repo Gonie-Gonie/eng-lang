@@ -39,9 +39,17 @@ package/IDE inspection.
 records:
 
 ```text
+semantic_hash
+section_hashes
+root_contract
 inputs
+schemas
+units_quantities
+time_axes
 symbols
+derived_values
 calculations
+report_outputs
 validations
 side_effects
 external_boundaries
@@ -72,10 +80,11 @@ ReviewSemanticDiff
 ```
 
 The current compiler slice fills static meaning: source spans, declarations,
-quantities, schemas, commands, options, validation expressions, process
-declarations, side-effect boundaries, fallbacks, and risks. Runtime can later
-fill values, statuses, hashes, process exit codes, generated outputs, test
-results, and profile diagnostics into the same document.
+quantities, schemas, time axes, report-output candidates, calculation trace
+fields, commands, options, validation expressions, process declarations,
+side-effect boundaries, fallbacks, risk levels, and semantic section hashes.
+Runtime can later fill values, statuses, hashes, process exit codes, generated
+outputs, test results, and profile diagnostics into the same document.
 
 ## Root Workflow Review Contract
 
@@ -113,6 +122,8 @@ input artifacts and hashes
 expected outputs when known
 observed outputs and hashes
 status
+success or failure when runtime has executed
+risk level
 profile policy
 source span
 ```
@@ -149,6 +160,10 @@ side_effect
 claim_boundary
 ```
 
+Risk levels start as `low`, `medium`, or `high`. Pure checked declarations stay
+low; missing-data policy, uncertainty, reproducibility, and solver metadata are
+medium by default; external processes and filesystem mutation are high.
+
 ## Semantic Diff Target
 
 Code review should compare meaning, not only text. A semantic diff should show
@@ -166,6 +181,9 @@ risk and fallback entries
 ```
 
 This is planned until Review IR has a stable enough internal shape.
+The current static review document already records `semantic_hash` plus
+per-section hashes so a future `eng review --against` can compare meaning-level
+sections without relying on raw source diffs.
 
 ## CLI And IDE Targets
 

@@ -5273,6 +5273,16 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.review_json.contains("\"axis_info\"")
                 || !output.review_json.contains("\"binding\": \"Q_coil\"")
                 || !output.review_json.contains("\"axis\": \"Time\"")
+                || !output.review_json.contains("\"review_document\"")
+                || !output.review_json.contains("\"semantic_hash\"")
+                || !output.review_json.contains("\"section_hashes\"")
+                || !output.review_json.contains("\"schemas\"")
+                || !output.review_json.contains("\"units_quantities\"")
+                || !output.review_json.contains("\"time_axes\"")
+                || !output.review_json.contains("\"derived_values\"")
+                || !output.review_json.contains("\"report_outputs\"")
+                || !output.review_json.contains("\"input_symbols\"")
+                || !output.review_json.contains("\"level\": \"medium\"")
                 || !output
                     .review_json
                     .contains("\"result_quantity\": \"Energy\"")

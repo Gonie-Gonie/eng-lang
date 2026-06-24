@@ -476,10 +476,17 @@ operator-algebra, or component-coupled simulation solver.
 
 ```text
 review_document
+  semantic_hash
+  section_hashes
   root_contract
   inputs
+  schemas
+  units_quantities
+  time_axes
   symbols
+  derived_values
   calculations
+  report_outputs
   validations
   side_effects
   external_boundaries
@@ -488,11 +495,13 @@ review_document
 ```
 
 This projection gives reviewers one stable path for meaning-level inspection
-without replacing the detailed top-level sections. External process
-declarations appear under `external_boundaries`; declared writes, CSV exports,
-and filesystem mutations appear under `side_effects`; allowed external
-failures and solver-preview limitations appear under `fallbacks`; warnings and
-review-sensitive boundaries appear under `risks`.
+without replacing the detailed top-level sections. Calculation entries include
+input symbols, output quantity, unit-derivation steps, where expansions, and
+function calls when the compiler can infer them. External process declarations
+appear under `external_boundaries`; declared writes, CSV exports, and
+filesystem mutations appear under `side_effects`; allowed external failures
+and solver-preview limitations appear under `fallbacks`; warnings and
+review-sensitive boundaries appear under `risks` with a review `level`.
 
 The quick CLI view is:
 

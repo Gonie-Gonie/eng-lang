@@ -781,6 +781,13 @@ fn print_review_document_summary(document: &serde_json::Value) {
         json_usize(contract, "validation_count").unwrap_or(0)
     );
     println!(
+        "schemas: {}  units: {}  time axes: {}  report outputs: {}",
+        json_usize(contract, "schema_count").unwrap_or(0),
+        json_usize(contract, "unit_quantity_count").unwrap_or(0),
+        json_usize(contract, "time_axis_count").unwrap_or(0),
+        json_usize(contract, "report_output_count").unwrap_or(0)
+    );
+    println!(
         "side effects: {}  external boundaries: {}  fallbacks: {}  risks: {}",
         json_usize(contract, "side_effect_count").unwrap_or(0),
         json_usize(contract, "external_boundary_count").unwrap_or(0),
