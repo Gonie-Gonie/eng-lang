@@ -21,6 +21,7 @@ unit y = <unit>
 unit x = <unit>   # histogram value axis
 type = line | bar | histogram
 title = "<title>"
+confidence_band = sensor_std   # TimeSeries with sensor_std metadata
 ```
 
 The PlotSpec planner infers the requested `TimeSeries[Time]` binding from
@@ -66,6 +67,22 @@ fallback points only when materialized runtime data is not available.
 For multi-series line plots, PlotSpec stores one `series` object per line. The
 native SVG renderer draws each line with a stable color and emits a compact
 legend using the series names.
+
+For TimeSeries bindings with `with { sensor_std = ... }`, line plots can request
+a pointwise confidence band:
+
+```eng partial
+plot Q_coil over Time
+with {
+    unit y = kW
+    confidence_band = sensor_std
+}
+```
+
+The runtime records `confidence_band` in the PlotSpec series using
+`pointwise_measured_std` metadata and renders the band in SVG behind the line.
+This is a reviewable visualization contract; broader TimeSeries uncertainty
+propagation remains internal work.
 
 `plot_type = "bar"` consumes existing PlotSpec points and emits SVG rectangles.
 `plot_type = "histogram"` bins TimeSeries y-values when requested through

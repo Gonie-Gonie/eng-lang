@@ -28,6 +28,16 @@ pub struct PlotSeries {
     pub display_unit: String,
     pub bins: Vec<PlotBin>,
     pub points: Vec<PlotPoint>,
+    pub confidence_band: Option<PlotConfidenceBand>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PlotConfidenceBand {
+    pub method: String,
+    pub source: String,
+    pub level: f64,
+    pub lower: Vec<PlotPoint>,
+    pub upper: Vec<PlotPoint>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -4837,6 +4847,7 @@ pub fn plot_spec_from_report(report: &CheckReport) -> PlotSpec {
             display_unit: unit,
             bins: Vec::new(),
             points: sample_points(),
+            confidence_band: None,
         }],
     }
 }
@@ -4897,9 +4908,18 @@ pub fn plot_spec_json(spec: &PlotSpec) -> String {
             plot_points_json(&series.points)
         ));
         series_json.push_str(&format!(
-            "      \"bins\": [{}]\n",
+            "      \"bins\": [{}]",
             plot_bins_json(&series.bins)
         ));
+        if let Some(confidence_band) = &series.confidence_band {
+            series_json.push_str(",\n");
+            series_json.push_str(&format!(
+                "      \"confidence_band\": {}\n",
+                plot_confidence_band_json(confidence_band)
+            ));
+        } else {
+            series_json.push('\n');
+        }
         series_json.push_str("    }");
     }
     format!(
@@ -4939,6 +4959,17 @@ fn plot_bins_json(bins: &[PlotBin]) -> String {
         ));
     }
     json
+}
+
+fn plot_confidence_band_json(band: &PlotConfidenceBand) -> String {
+    format!(
+        "{{\"method\": \"{}\", \"source\": \"{}\", \"level\": {}, \"lower\": [{}], \"upper\": [{}]}}",
+        json_escape(&band.method),
+        json_escape(&band.source),
+        band.level,
+        plot_points_json(&band.lower),
+        plot_points_json(&band.upper)
+    )
 }
 
 pub fn plot_manifest_json(
@@ -8081,6 +8112,7 @@ fn default_plot_spec(title: &str) -> PlotSpec {
             display_unit: "sample".to_owned(),
             bins: Vec::new(),
             points: sample_points(),
+            confidence_band: None,
         }],
     }
 }
@@ -8109,7 +8141,15 @@ fn axis_label(axis: &PlotAxis) -> String {
 fn svg_line_series(series: &[PlotSeries]) -> String {
     let all_points = series
         .iter()
-        .flat_map(|series| series.points.iter())
+        .flat_map(|series| {
+            series.points.iter().chain(
+                series
+                    .confidence_band
+                    .as_ref()
+                    .into_iter()
+                    .flat_map(|band| band.lower.iter().chain(band.upper.iter())),
+            )
+        })
         .copied()
         .collect::<Vec<_>>();
     if all_points.is_empty() {
@@ -8137,6 +8177,27 @@ fn svg_line_series(series: &[PlotSeries]) -> String {
     let mut svg = String::new();
     for (index, series) in series.iter().enumerate() {
         let color = colors[index % colors.len()];
+        if let Some(band) = &series.confidence_band {
+            let lower = band.lower.iter().map(|point| {
+                let x = 72.0 + ((point.x - min_x) / x_span) * 588.0;
+                let y = 250.0 - ((point.y - min_y) / y_span) * 210.0;
+                format!("{x:.1},{y:.1}")
+            });
+            let upper = band.upper.iter().rev().map(|point| {
+                let x = 72.0 + ((point.x - min_x) / x_span) * 588.0;
+                let y = 250.0 - ((point.y - min_y) / y_span) * 210.0;
+                format!("{x:.1},{y:.1}")
+            });
+            let polygon = lower.chain(upper).collect::<Vec<_>>().join(" ");
+            if !polygon.is_empty() {
+                svg.push_str(&format!(
+                    r##"<polygon points="{polygon}" fill="{color}" fill-opacity="0.18" stroke="none" data-confidence-band="{}" data-confidence-level="{}"/>
+  "##,
+                    xml_escape(&band.source),
+                    band.level
+                ));
+            }
+        }
         let points = series
             .points
             .iter()
@@ -8384,6 +8445,7 @@ mod tests {
                 PlotPoint { x: 1.0, y: 1.8 },
                 PlotPoint { x: 2.0, y: 1.2 },
             ],
+            confidence_band: None,
         });
 
         let svg = render_svg_from_spec(&spec);
@@ -8887,6 +8949,7 @@ mod tests {
                     PlotPoint { x: 1.0, y: 2.5 },
                     PlotPoint { x: 2.0, y: 1.5 },
                 ],
+                confidence_band: None,
             }],
         }
     }

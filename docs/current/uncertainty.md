@@ -170,8 +170,10 @@ TimeSeries value quantity. Invalid metadata produces `E-UNC-TS-STD-001`.
 quantity, display unit, method `pointwise_measured_std`, `sensor_std`, status,
 and source line. When `summarize` or `integrate(...)` consumes that TimeSeries,
 `review.json.timeseries_uncertainty_calculations[]` records metadata-only
-statistics/integration linkage. Duration propagation and confidence-band
-PlotSpec rendering remain planned follow-up work.
+statistics/integration linkage, with `duration_above(...)` recorded as a
+duration operation. Line plots may request `confidence_band = sensor_std`, which
+adds a pointwise measured-standard-deviation confidence band to PlotSpec/SVG.
+Runtime probabilistic TimeSeries propagation remains planned follow-up work.
 
 ## Report And IDE Requirements
 

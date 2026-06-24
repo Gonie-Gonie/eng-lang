@@ -183,11 +183,12 @@ separate.
   `with { uncertainty = ... }` review policy metadata, direct-compare
   diagnostics, explicit uncertainty statistic/probability validation
   type-checking, pointwise TimeSeries `sensor_std` review metadata with
-  metadata-only statistics/integration linkage, histogram artifacts, and the
-  current uncertainty guide.
+  metadata-only statistics/integration/duration linkage, `sensor_std`
+  confidence-band PlotSpec rendering, histogram artifacts, and the current
+  uncertainty guide.
 - Not included: stable Monte Carlo/Jacobian propagation contract, runtime
-  pass/fail materialization for probability and `between`, TimeSeries
-  uncertainty propagation/statistics, confidence-band PlotSpec rendering, broad
+  pass/fail materialization for probability and `between`, probabilistic
+  TimeSeries uncertainty propagation/statistics, broad
   deterministic scalar-binding value propagation, or public IDE support claim.
 - Next cleanup action: route TimeSeries uncertainty and validation/probability
   semantics into runtime/report/IDE artifacts before promoting the track beyond

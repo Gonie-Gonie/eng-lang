@@ -5,7 +5,7 @@ use eng_compiler::{
     all_quantity_completions, all_unit_infos, normalize_unit, CheckReport, SchemaColumn, SchemaInfo,
 };
 use eng_report::{
-    PlotAxis, PlotBin, PlotPoint, PlotSeries, PlotSpec, ReportAssemblyBoundary,
+    PlotAxis, PlotBin, PlotConfidenceBand, PlotPoint, PlotSeries, PlotSpec, ReportAssemblyBoundary,
     ReportAssemblyEquation, ReportAssemblySummary, ReportAssemblyVariable,
     ReportComponentSolverPreview, ReportComponentSolverResidual, ReportComponentSolverResult,
     ReportComponentSolverStepDiagnostic, ReportComponentSolverTrajectory,
@@ -177,12 +177,14 @@ impl RuntimeData {
                         y: convert_display_value(point.y, &series.display_unit, &unit),
                     })
                     .collect();
+                let confidence_band = self.confidence_band_for_series(report, series, &unit);
                 PlotSeries {
                     name: series.name.clone(),
                     quantity_kind: series.quantity_kind.clone(),
                     display_unit: unit,
                     bins: Vec::new(),
                     points,
+                    confidence_band,
                 }
             })
             .collect();
@@ -230,6 +232,7 @@ impl RuntimeData {
             display_unit,
             bins,
             points,
+            confidence_band: None,
         }];
     }
 
@@ -259,6 +262,7 @@ impl RuntimeData {
             display_unit: uncertainty.display_unit.clone(),
             bins,
             points,
+            confidence_band: None,
         }];
     }
 
@@ -331,7 +335,50 @@ impl RuntimeData {
             display_unit: artifact.display_unit.clone(),
             bins: Vec::new(),
             points,
+            confidence_band: None,
         }];
+    }
+
+    fn confidence_band_for_series(
+        &self,
+        report: &CheckReport,
+        series: &RuntimeTimeSeries,
+        display_unit: &str,
+    ) -> Option<PlotConfidenceBand> {
+        if self.plot_options.confidence_band.as_deref()? != "sensor_std" {
+            return None;
+        }
+        let sensor_std = accepted_sensor_std_value(report, &series.name)?;
+        let (stddev, std_unit) = number_with_optional_unit(&sensor_std.value)?;
+        let std_unit = std_unit.as_deref()?;
+        let display_std = convert_delta_value(stddev, std_unit, display_unit);
+        let half_width = display_std * 1.96;
+        if !half_width.is_finite() || half_width < 0.0 {
+            return None;
+        }
+        let lower = series
+            .points
+            .iter()
+            .map(|point| PlotPoint {
+                x: point.x,
+                y: convert_display_value(point.y, &series.display_unit, display_unit) - half_width,
+            })
+            .collect();
+        let upper = series
+            .points
+            .iter()
+            .map(|point| PlotPoint {
+                x: point.x,
+                y: convert_display_value(point.y, &series.display_unit, display_unit) + half_width,
+            })
+            .collect();
+        Some(PlotConfidenceBand {
+            method: "pointwise_measured_std".to_owned(),
+            source: "sensor_std".to_owned(),
+            level: 0.95,
+            lower,
+            upper,
+        })
     }
 
     pub fn report_computed_statistics(&self) -> Vec<ReportComputedStatistics> {
@@ -2375,6 +2422,7 @@ pub struct PlotOptions {
     pub title: Option<String>,
     pub x_unit: Option<String>,
     pub y_unit: Option<String>,
+    pub confidence_band: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -13365,9 +13413,16 @@ fn parse_plot_options(source: &str) -> PlotOptions {
             options.plot_type = supported_plot_type(rest.trim());
         } else if let Some(rest) = line.strip_prefix("title =") {
             options.title = quoted_value(rest.trim());
+        } else if let Some(rest) = line.strip_prefix("confidence_band =") {
+            options.confidence_band = supported_confidence_band(rest.trim());
         }
     }
     options
+}
+
+fn supported_confidence_band(value: &str) -> Option<String> {
+    let band = value.split_whitespace().next()?;
+    matches!(band, "sensor_std").then(|| band.to_owned())
 }
 
 fn parse_model_plot_header(header: &str) -> Option<ModelPlotOptions> {
@@ -13635,6 +13690,36 @@ fn convert_display_value(value: f64, from_unit: &str, to_unit: &str) -> f64 {
         ("degc", "k") => value + 273.15,
         _ => value,
     }
+}
+
+fn convert_delta_value(value: f64, from_unit: &str, to_unit: &str) -> f64 {
+    let from_unit = normalize_unit(from_unit);
+    let to_unit = normalize_unit(to_unit);
+    match (from_unit.as_str(), to_unit.as_str()) {
+        ("w", "kw") => value / 1000.0,
+        ("kw", "w") => value * 1000.0,
+        ("pa", "kpa") => value / 1000.0,
+        ("k", "degc") | ("degc", "k") => value,
+        _ => value,
+    }
+}
+
+fn accepted_sensor_std_value<'a>(
+    report: &'a CheckReport,
+    series_name: &str,
+) -> Option<&'a eng_compiler::WithOptionInfo> {
+    let binding = report
+        .semantic_program
+        .typed_bindings
+        .iter()
+        .find(|binding| binding.name == series_name)?;
+    report
+        .semantic_program
+        .with_blocks
+        .iter()
+        .filter(|block| block.owner_line == Some(binding.line))
+        .flat_map(|block| block.options.iter())
+        .find(|option| option.key == "sensor_std" && option.status == "accepted")
 }
 
 fn first_numeric_value(text: &str) -> Option<f64> {
@@ -14628,6 +14713,7 @@ report {
         unit y = kW
         type = histogram
         title = "Coil heat rate"
+        confidence_band = sensor_std
     }
 }
 "#,
@@ -14638,6 +14724,7 @@ report {
         assert_eq!(options.y_unit.as_deref(), Some("kW"));
         assert_eq!(options.plot_type.as_deref(), Some("histogram"));
         assert_eq!(options.title.as_deref(), Some("Coil heat rate"));
+        assert_eq!(options.confidence_band.as_deref(), Some("sensor_std"));
     }
 
     #[test]
@@ -18364,6 +18451,40 @@ with {{
             plot_spec.series[0].points.len(),
             plot_spec.series[0].bins.len()
         );
+    }
+
+    #[test]
+    fn materializes_timeseries_sensor_std_confidence_band_plot() {
+        let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/official/01_csv_plot/main.eng");
+        let source = std::fs::read_to_string(&source_path)
+            .unwrap()
+            .replace(
+                "Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n",
+                "Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nwith {\n    sensor_std = 0.2 kW\n}\n",
+            )
+            .replace(
+                "        title = \"Coil heat rate\"\n",
+                "        title = \"Coil heat rate\"\n        confidence_band = sensor_std\n",
+            );
+        let report = check_source(&source_path, &source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let runtime = materialize_runtime_data(&report, &source);
+        let mut plot_spec = eng_report::plot_spec_from_report(&report);
+        runtime.apply_plot_spec(&report, &mut plot_spec);
+
+        let band = plot_spec.series[0].confidence_band.as_ref().unwrap();
+        assert_eq!(band.method, "pointwise_measured_std");
+        assert_eq!(band.source, "sensor_std");
+        assert_eq!(band.lower.len(), plot_spec.series[0].points.len());
+        assert_eq!(band.upper.len(), plot_spec.series[0].points.len());
+
+        let plot_json = eng_report::plot_spec_json(&plot_spec);
+        let plot_svg = eng_report::render_svg_from_spec(&plot_spec);
+        assert!(plot_json.contains("\"confidence_band\""));
+        assert!(plot_json.contains("\"level\": 0.95"));
+        assert!(plot_svg.contains("data-confidence-band=\"sensor_std\""));
     }
 
     #[test]

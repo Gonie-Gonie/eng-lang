@@ -60,9 +60,10 @@ and next cleanup action.
   payloads, narrow arithmetic propagation, validated propagation policy
   metadata, explicit statistic/probability validation type-checking, and
   pointwise TimeSeries sensor standard deviation review metadata with
-  metadata-only statistics/integration linkage, plus histogram artifacts.
-- Next cleanup: keep as internal until TimeSeries uncertainty, runtime
-  uncertainty validation artifacts, IDE projection, and tests align.
+  metadata-only statistics/integration/duration linkage, `sensor_std`
+  confidence-band PlotSpec rendering, plus histogram artifacts.
+- Next cleanup: keep as internal until probabilistic TimeSeries uncertainty,
+  runtime uncertainty validation artifacts, IDE projection, and tests align.
 
 ## T7 Data-Driven Modeling
 

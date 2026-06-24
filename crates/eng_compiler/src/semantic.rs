@@ -2419,6 +2419,7 @@ fn known_with_option(key: &str) -> bool {
             | "uncertainty"
             | "samples"
             | "sensor_std"
+            | "confidence_band"
             | "output"
             | "overwrite"
             | "confirm"
