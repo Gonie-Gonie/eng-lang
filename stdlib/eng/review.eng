@@ -1,8 +1,6 @@
-# eng.review planned package surface
-#
-# Purpose:
-#   Review IR, root workflow review contracts, risk/fallback entries, opaque
-#   boundary summaries, and semantic diff vocabulary.
+# module: eng.review
+# status: supported-seed
+# purpose: Review IR, root workflow contracts, risk/fallback entries, opaque boundary summaries, and semantic diff vocabulary.
 #
 # Current implementation:
 #   review.json, report.html, report_spec.json, result.engres, run_log.json,

@@ -506,6 +506,20 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         ("move file", "eng.fs move generated output"),
         ("delete file", "eng.fs delete generated output"),
         ("eng.config", "stdlib module: planned typed config"),
+        ("eng.net", "planned module: HTTP/download boundary"),
+        ("eng.cache", "planned module: reproducible cache boundary"),
+        ("eng.table", "planned module: schema-aware table transforms"),
+        ("eng.timeseries", "stdlib module: TimeSeries helpers"),
+        ("eng.sampling", "planned module: deterministic samples"),
+        ("eng.case", "planned module: case manifests"),
+        ("eng.process", "stdlib module: explicit process boundaries"),
+        ("run command", "eng.process command boundary"),
+        ("eng.db", "planned module: database side effects"),
+        ("eng.model", "internal/planned module: model-card workflows"),
+        (
+            "eng.artifact",
+            "stdlib module: artifact manifest vocabulary",
+        ),
         ("promote json config", "eng.config planned JSON promotion"),
         ("promote toml config", "eng.config planned TOML promotion"),
     ] {
@@ -1178,6 +1192,10 @@ mod tests {
             .completions
             .iter()
             .any(|completion| completion.label == "read text"));
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "eng.process"));
 
         let json = snapshot_json(&snapshot);
         assert_eq!(json["format"], LSP_SNAPSHOT_FORMAT);

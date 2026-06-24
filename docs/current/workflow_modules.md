@@ -61,6 +61,9 @@ stdlib/eng/fs.eng
 `read toml` exist today through `eng.io`, but typed config promotion is not yet
 a supported workflow contract.
 
+IDE and LSP completions expose the module boundary names so users can discover
+the current surface without implying that every planned helper is executable.
+
 ## Review Requirements
 
 Every module that touches external state must produce review material:

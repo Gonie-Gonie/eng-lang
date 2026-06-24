@@ -1,8 +1,6 @@
-# eng.uncertainty internal package surface
-#
-# Purpose:
-#   uncertainty constructors, propagation policy, validation semantics, and
-#   uncertainty review vocabulary.
+# module: eng.uncertainty
+# status: internal
+# purpose: uncertainty constructors, propagation policy, validation semantics, and uncertainty review vocabulary.
 #
 # Current implementation:
 #   compiler/runtime-recognized internal seeds exist for measured, interval,

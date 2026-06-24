@@ -882,6 +882,53 @@ fn base_completion_items() -> Vec<CompletionView> {
             "stdlib module: planned typed config",
         ),
         (
+            "eng.net",
+            "eng.net",
+            "planned module: HTTP/download boundary",
+        ),
+        (
+            "eng.cache",
+            "eng.cache",
+            "planned module: reproducible cache boundary",
+        ),
+        (
+            "eng.table",
+            "eng.table",
+            "planned module: schema-aware table transforms",
+        ),
+        (
+            "eng.timeseries",
+            "eng.timeseries",
+            "stdlib module: TimeSeries helpers",
+        ),
+        (
+            "eng.sampling",
+            "eng.sampling",
+            "planned module: deterministic samples",
+        ),
+        ("eng.case", "eng.case", "planned module: case manifests"),
+        (
+            "eng.process",
+            "eng.process",
+            "stdlib module: explicit process boundaries",
+        ),
+        (
+            "run command",
+            "run command \"tool\"",
+            "eng.process command boundary",
+        ),
+        ("eng.db", "eng.db", "planned module: database side effects"),
+        (
+            "eng.model",
+            "eng.model",
+            "internal/planned module: model-card workflows",
+        ),
+        (
+            "eng.artifact",
+            "eng.artifact",
+            "stdlib module: artifact manifest vocabulary",
+        ),
+        (
             "promote json config",
             "promote json file(\"workflow.json\") as WorkflowConfig",
             "eng.config planned JSON promotion",

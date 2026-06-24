@@ -1,7 +1,6 @@
-# eng.case planned package surface
-#
-# Purpose:
-#   per-case manifests for sample-to-run workflows.
+# module: eng.case
+# status: planned
+# purpose: per-case manifests for sample-to-run workflows.
 #
 # Current implementation:
 #   no native case manifest module yet. Workflow examples use explicit sample
@@ -16,3 +15,8 @@
 #   result files
 #   metrics
 #   failure reason
+#   cache/resume status
+#
+# Non-goal:
+#   loops that mutate files without a case manifest should not become the
+#   preferred batch-workflow pattern.

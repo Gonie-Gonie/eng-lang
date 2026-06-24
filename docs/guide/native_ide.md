@@ -74,7 +74,7 @@ Editor
   Multi-file tabs support switching and closing files. The editor keeps dirty
   state per tab and shows completion suggestions near the caret from current
   symbols, keywords, snippets, quantity kinds, units, and stdlib workflow
-  module surfaces such as `eng.path`, `eng.io`, and `eng.fs`.
+  module surfaces such as `eng.path`, `eng.io`, `eng.fs`, and `eng.process`.
 
 Right Sidebar
   Vars, Schema, Time, Plot, Checks, Artifacts, and Run tabs are the primary

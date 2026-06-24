@@ -1,7 +1,6 @@
-# eng.artifact planned package surface
-#
-# Purpose:
-#   generated artifact kinds, hashes, validation records, and manifest links.
+# module: eng.artifact
+# status: supported-seed
+# purpose: generated artifact kinds, hashes, validation records, and manifest links.
 #
 # Current implementation:
 #   output_manifest.json and artifact hashes are compiler/runtime/report
@@ -15,3 +14,7 @@
 #
 # Domain-specific file formats such as EPW should build on this generic
 # artifact contract instead of becoming core language syntax.
+#
+# Review contract:
+#   source files, generated files, external commands, process outputs, caches,
+#   model artifacts, database writes, tests, hashes, and source spans.

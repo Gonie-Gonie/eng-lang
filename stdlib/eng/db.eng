@@ -1,8 +1,6 @@
-# eng.db planned package surface
-#
-# Purpose:
-#   typed database side effects, starting with SQLite-style write/upsert
-#   workflows that record transaction status and output manifests.
+# module: eng.db
+# status: planned
+# purpose: typed database side effects, starting with SQLite-style write/upsert workflows and transaction artifacts.
 #
 # Current implementation:
 #   no native DB module yet. Use explicit exported CSV or external process
@@ -17,3 +15,7 @@
 # Review contract:
 #   database target, table, schema, mode, key fields, row count, transaction
 #   status, and generated artifact or side-effect manifest entry.
+#
+# Non-goal:
+#   DB writes must not bypass side-effect policy, output manifests, or schema
+#   review.

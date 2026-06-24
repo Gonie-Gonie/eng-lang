@@ -1,7 +1,6 @@
-# eng.table planned package surface
-#
-# Purpose:
-#   table filters, joins, row diagnostics, derived columns, and schema helpers.
+# module: eng.table
+# status: planned
+# purpose: domain-neutral table filters, joins, row diagnostics, derived columns, and schema helpers.
 #
 # Current implementation:
 #   typed CSV promotion and source-hash provenance are supported through
@@ -16,3 +15,7 @@
 # Review contract:
 #   source schema, row counts before and after operations, join keys, missing
 #   rows, row-level diagnostics, and source spans.
+#
+# Non-goal:
+#   this is not a general SQL replacement. Initial operations must stay
+#   schema-aware and reviewable.

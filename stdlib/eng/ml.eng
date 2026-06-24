@@ -1,4 +1,6 @@
-# eng.ml preview package surface
+# module: eng.ml
+# status: internal
+# purpose: compiler/runtime-recognized data-driven modeling seeds and review artifacts.
 #
 # v1.2 implements these forms as compiler/runtime-recognized fast bindings:
 #
@@ -15,3 +17,7 @@
 #
 # This file is intentionally declarative documentation for the portable stdlib.
 # Import/package execution is a later milestone.
+#
+# Relationship to eng.model:
+#   eng.ml records the current internal syntax seeds. eng.model is the planned
+#   public model-card and surrogate workflow boundary.

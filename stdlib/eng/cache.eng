@@ -1,8 +1,6 @@
-# eng.cache planned package surface
-#
-# Purpose:
-#   reproducible cache keys, pinned downloads, fixture mode, and hit/miss
-#   artifacts for workflows that touch external data.
+# module: eng.cache
+# status: planned
+# purpose: reproducible cache keys, pinned downloads, fixture mode, and hit/miss artifacts.
 #
 # Current implementation:
 #   no native cache module yet. Cache behavior must be expressed by explicit
@@ -17,3 +15,7 @@
 # Review contract:
 #   cache key, source, expected hash, observed hash, hit/miss status, profile
 #   policy, and source span.
+#
+# Non-goal:
+#   implicit caching is not acceptable for engineering review. Cache use must
+#   be visible in review/runtime artifacts.

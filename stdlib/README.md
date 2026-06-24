@@ -24,18 +24,18 @@ compiler/runtime crates until importable stdlib execution is implemented.
 | `eng.io` | Supported built-in seed | Read text/json/toml, write text/json, exports, and hashes. |
 | `eng.fs` | Supported narrow built-in seed | Explicit generated-output copy/move/delete mutations. |
 | `eng.config` | Planned | Typed JSON/TOML configuration promotion and validation. |
-| `eng.process` | Planned | Explicit external process boundary vocabulary. |
-| `eng.artifact` | Planned | Generated artifact kinds, hashes, manifests, and validation records. |
+| `eng.process` | Supported narrow built-in seed | Explicit external process boundary vocabulary. |
+| `eng.artifact` | Supported seed | Generated artifact kinds, hashes, manifests, and validation records. |
 | `eng.net` | Planned | HTTP/download boundary with cache and hash policy. |
 | `eng.cache` | Planned | Reproducible cache keys and hit/miss artifacts. |
 | `eng.table` | Planned | Table filters, joins, row diagnostics, and schema helpers. |
-| `eng.timeseries` | Planned | Coverage, gap, and fill helpers above core TimeSeries semantics. |
+| `eng.timeseries` | Supported narrow built-in seed | Coverage, gap, and fill helpers above core TimeSeries semantics. |
 | `eng.sampling` | Planned | Deterministic sample tables and design sweep helpers. |
 | `eng.case` | Planned | Case manifests for sample-to-run workflows. |
 | `eng.db` | Planned | SQLite/database side-effect helpers with transaction artifacts. |
 | `eng.model` | Internal/planned | Model-card, prediction, and residual review vocabulary. |
 | `eng.uncertainty` | Internal | Constructor, propagation, and uncertainty review vocabulary. |
-| `eng.review` | Planned | Review IR, risk/fallback, and semantic diff vocabulary. |
+| `eng.review` | Supported seed | Review IR, risk/fallback, and semantic diff vocabulary. |
 | `eng.building` | Planned | Building/Zone/Construction object vocabulary before any simulation adapter. |
 | `eng.system` | Internal/planned | Solver-facing adapters, not the public identity of stdlib. |
 | `eng.ml` | Internal | Data-driven modeling review vocabulary and artifacts. |

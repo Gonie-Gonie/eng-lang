@@ -1,8 +1,6 @@
-# eng.sampling planned package surface
-#
-# Purpose:
-#   deterministic sample tables and design sweeps with units, constraints,
-#   seed policy, and reviewable sampling metadata.
+# module: eng.sampling
+# status: planned
+# purpose: deterministic sample tables and design sweeps with units, constraints, seed policy, and reviewable metadata.
 #
 # Current implementation:
 #   no native sampling module yet. Use typed CSV sample tables and schema
@@ -17,3 +15,6 @@
 # Review contract:
 #   parameter schema, ranges, seed, sample count, sample row hashes, and
 #   diagnostics for duplicate or invalid case IDs.
+#
+# Non-goal:
+#   random sampling without an explicit seed must not pass repro review.

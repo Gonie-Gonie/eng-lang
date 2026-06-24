@@ -1,7 +1,6 @@
-# eng.process planned package surface
-#
-# Purpose:
-#   external command boundaries that remain explicit, typed, and reviewable.
+# module: eng.process
+# status: supported-narrow-builtins
+# purpose: external command boundaries that remain explicit, typed, and reviewable.
 #
 # Current implementation:
 #   `result = run command "tool"` with `with { args = [...] }`, process result
@@ -16,3 +15,7 @@
 # Review contract:
 #   command, args, cwd, exit code, stdout/stderr, expected outputs, output
 #   hashes, profile policy, and source span.
+#
+# Non-goal:
+#   process execution is an opaque boundary, not a way to hide unreviewed
+#   language behavior.
