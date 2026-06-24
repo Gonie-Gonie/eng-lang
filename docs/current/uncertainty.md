@@ -128,6 +128,10 @@ metadata. Allowed policy names are `linear`, `interval`, `monte_carlo`, and
 non-negative integer when present; and `monte_carlo` without a seed records a
 reproducibility warning. `review.json.uncertainty_policies[]` is the normalized
 review surface for this metadata.
+`review.json.uncertainty_summary[]` gives reviewers variable-level
+representation, mean/std/interval, sample, assumption, and warning fields.
+`review.json.uncertainty_propagation[]` records derived uncertain outputs and
+their source terms.
 
 When a policy assumes independence, linearizes a nonlinear expression, or falls
 back to a lower-fidelity rule, that assumption belongs in `review.json`,

@@ -2474,6 +2474,8 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    push_uncertainty_summary_json(&mut json, report);
+    push_uncertainty_propagation_json(&mut json, report);
     json.push_str("  \"ml_info\": [\n");
     for (index, ml) in report.semantic_program.ml_infos.iter().enumerate() {
         if index > 0 {
@@ -4197,6 +4199,137 @@ fn push_review_document_json(json: &mut String, report: &CheckReport) {
     push_review_fallbacks_json(json, report);
     push_review_risks_json(json, report);
     json.push_str("  },\n");
+}
+
+fn push_uncertainty_summary_json(json: &mut String, report: &CheckReport) {
+    json.push_str("  \"uncertainty_summary\": [\n");
+    for (index, uncertainty) in report.semantic_program.uncertainty_infos.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"variable\": \"{}\",\n",
+            json_escape(&uncertainty.binding)
+        ));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&uncertainty.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&uncertainty.display_unit)
+        ));
+        json.push_str(&format!(
+            "      \"representation\": \"{}\",\n",
+            json_escape(&uncertainty.kind)
+        ));
+        push_optional_json_string(json, "source", uncertainty.source.as_deref(), 6);
+        push_optional_json_string(json, "distribution", uncertainty.distribution.as_deref(), 6);
+        push_optional_json_string(json, "mean", uncertainty.mean.as_deref(), 6);
+        push_optional_json_string(json, "stddev", uncertainty.stddev.as_deref(), 6);
+        push_optional_json_string(json, "error", uncertainty.error.as_deref(), 6);
+        push_optional_json_string(json, "interval_lower", uncertainty.lower.as_deref(), 6);
+        push_optional_json_string(json, "interval_upper", uncertainty.upper.as_deref(), 6);
+        push_optional_json_string(json, "propagation_method", uncertainty.method.as_deref(), 6);
+        json.push_str(&format!(
+            "      \"samples\": {},\n",
+            uncertainty.sample_count
+        ));
+        json.push_str("      \"assumptions\": [");
+        push_json_string_array(json, &uncertainty_assumptions(uncertainty));
+        json.push_str("],\n");
+        json.push_str("      \"warnings\": [");
+        push_json_string_array(json, &uncertainty_warnings(uncertainty));
+        json.push_str("],\n");
+        json.push_str(&format!("      \"line\": {}\n", uncertainty.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+}
+
+fn push_uncertainty_propagation_json(json: &mut String, report: &CheckReport) {
+    json.push_str("  \"uncertainty_propagation\": [\n");
+    let mut first = true;
+    for uncertainty in &report.semantic_program.uncertainty_infos {
+        if uncertainty.propagation.is_empty() {
+            continue;
+        }
+        if !first {
+            json.push_str(",\n");
+        }
+        first = false;
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"output\": \"{}\",\n",
+            json_escape(&uncertainty.binding)
+        ));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&uncertainty.quantity_kind)
+        ));
+        push_optional_json_string(json, "method", uncertainty.method.as_deref(), 6);
+        json.push_str("      \"source_terms\": [");
+        for (term_index, term) in uncertainty.propagation.iter().enumerate() {
+            if term_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!(
+                "{{ \"source\": \"{}\", \"role\": \"{}\", \"quantity_kind\": \"{}\" }}",
+                json_escape(&term.source),
+                json_escape(&term.role),
+                json_escape(&term.quantity_kind)
+            ));
+        }
+        json.push_str("],\n");
+        json.push_str("      \"assumptions\": [");
+        push_json_string_array(json, &uncertainty_assumptions(uncertainty));
+        json.push_str("],\n");
+        json.push_str("      \"warnings\": [");
+        push_json_string_array(json, &uncertainty_warnings(uncertainty));
+        json.push_str("],\n");
+        json.push_str("      \"status\": \"metadata_only\",\n");
+        json.push_str(&format!("      \"line\": {}\n", uncertainty.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+}
+
+fn uncertainty_assumptions(uncertainty: &UncertaintyInfo) -> Vec<String> {
+    let mut assumptions = Vec::new();
+    match uncertainty.kind.as_str() {
+        "Measured" if uncertainty.stddev.is_some() => {
+            assumptions.push("measured_standard_deviation".to_owned())
+        }
+        "Measured" if uncertainty.error.is_some() => {
+            assumptions.push("measured_relative_error".to_owned())
+        }
+        "Interval" => assumptions.push("bounded_interval".to_owned()),
+        "Distribution" => assumptions.push(
+            uncertainty
+                .distribution
+                .as_deref()
+                .map(|distribution| format!("{distribution}_distribution"))
+                .unwrap_or_else(|| "distribution".to_owned()),
+        ),
+        "Ensemble" => assumptions.push("deterministic_ensemble_samples".to_owned()),
+        _ => {}
+    }
+    if uncertainty.method.as_deref() == Some("linear") {
+        assumptions.push("linearized_propagation".to_owned());
+    }
+    if !uncertainty.propagation.is_empty() {
+        assumptions.push("source_terms_recorded".to_owned());
+    }
+    assumptions
+}
+
+fn uncertainty_warnings(uncertainty: &UncertaintyInfo) -> Vec<String> {
+    let mut warnings = Vec::new();
+    if uncertainty.method.as_deref() == Some("linear") && uncertainty.propagation.len() > 1 {
+        warnings.push("W-UNC-INDEPENDENCE-ASSUMED".to_owned());
+    }
+    warnings
 }
 
 fn push_uncertainty_policies_json(json: &mut String, report: &CheckReport) {
@@ -7860,6 +7993,13 @@ system Envelope {
 
         let review = review_json(&report);
         assert!(review.contains("\"uncertainty_info\""));
+        assert!(review.contains("\"uncertainty_summary\""));
+        assert!(review.contains("\"uncertainty_propagation\""));
+        assert!(review.contains("\"variable\": \"Q_coil_dist\""));
+        assert!(review.contains("\"representation\": \"Distribution\""));
+        assert!(review.contains("\"normal_distribution\""));
+        assert!(review.contains("\"output\": \"Q_total_unc\""));
+        assert!(review.contains("\"source_terms_recorded\""));
         assert!(review.contains("\"distribution\": \"uniform\""));
         assert!(review.contains("\"error\": \"1 %\""));
         assert!(review.contains("\"scale\": \"1.08\""));

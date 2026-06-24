@@ -58,10 +58,11 @@ and next cleanup action.
 - Public scope: none beyond internal examples unless explicitly documented.
 - Main internal: deterministic samples, diagnostics, scalar runtime numeric
   payloads, narrow arithmetic propagation, validated propagation policy
-  metadata, explicit statistic/probability validation type-checking, and
-  pointwise TimeSeries sensor standard deviation review metadata with
-  metadata-only statistics/integration/duration linkage, `sensor_std`
-  confidence-band PlotSpec rendering, plus histogram artifacts.
+  metadata, `review.json` summary/propagation sections, explicit
+  statistic/probability validation type-checking, and pointwise TimeSeries
+  sensor standard deviation review metadata with metadata-only
+  statistics/integration/duration linkage, `sensor_std` confidence-band
+  PlotSpec rendering, plus histogram artifacts.
 - Next cleanup: keep as internal until probabilistic TimeSeries uncertainty,
   runtime uncertainty validation artifacts, IDE projection, and tests align.
 

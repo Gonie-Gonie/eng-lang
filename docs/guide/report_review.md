@@ -520,6 +520,8 @@ The same uncertainty surface appears in:
 
 ```text
 review.json                 uncertainty_info
+review.json                 uncertainty_summary
+review.json                 uncertainty_propagation
 review.json                 uncertainty_policies
 review.json                 timeseries_uncertainty
 review.json                 timeseries_uncertainty_calculations
@@ -533,6 +535,11 @@ The runtime path is deterministic. It records samples and summary fields for
 user testing, but it is not yet a full stochastic propagation engine.
 `propagate(..., scale=..., offset=...)` records declared transform metadata in
 `review.json` and numeric transform values in runtime result/report artifacts.
+`review.json.uncertainty_summary[]` gives reviewers the table-shaped view:
+variable, representation, mean/std/interval fields, propagation method,
+samples, assumptions, and warnings. `review.json.uncertainty_propagation[]`
+focuses on derived uncertain outputs and lists source terms plus static
+propagation assumptions.
 `ensemble(...)` and `propagate(...)` are checked before runtime. Unknown
 uncertainty sources produce `E-UNC-SOURCE-001`; deterministic bindings used as
 uncertainty sources produce `E-UNC-SOURCE-002`.

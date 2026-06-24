@@ -101,6 +101,14 @@
       "type": "array",
       "items": { "$ref": "#/$defs/uncertaintyPolicy" }
     },
+    "uncertainty_summary": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/uncertaintySummary" }
+    },
+    "uncertainty_propagation": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/uncertaintyPropagation" }
+    },
     "timeseries_uncertainty": {
       "type": "array",
       "items": { "$ref": "#/$defs/timeSeriesUncertainty" }
@@ -1576,6 +1584,92 @@
         "seed": { "type": ["integer", "null"], "minimum": 0 },
         "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "uncertaintySummary": {
+      "type": "object",
+      "required": [
+        "variable",
+        "quantity_kind",
+        "display_unit",
+        "representation",
+        "source",
+        "distribution",
+        "mean",
+        "stddev",
+        "error",
+        "interval_lower",
+        "interval_upper",
+        "propagation_method",
+        "samples",
+        "assumptions",
+        "warnings",
+        "line"
+      ],
+      "properties": {
+        "variable": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "representation": { "type": "string" },
+        "source": { "type": ["string", "null"] },
+        "distribution": { "type": ["string", "null"] },
+        "mean": { "type": ["string", "null"] },
+        "stddev": { "type": ["string", "null"] },
+        "error": { "type": ["string", "null"] },
+        "interval_lower": { "type": ["string", "null"] },
+        "interval_upper": { "type": ["string", "null"] },
+        "propagation_method": { "type": ["string", "null"] },
+        "samples": { "type": "integer", "minimum": 0 },
+        "assumptions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "uncertaintyPropagation": {
+      "type": "object",
+      "required": [
+        "output",
+        "quantity_kind",
+        "method",
+        "source_terms",
+        "assumptions",
+        "warnings",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "output": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "method": { "type": ["string", "null"] },
+        "source_terms": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/uncertaintyPropagationTerm" }
+        },
+        "assumptions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "status": { "const": "metadata_only" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "uncertaintyPropagationTerm": {
+      "type": "object",
+      "required": ["source", "role", "quantity_kind"],
+      "properties": {
+        "source": { "type": "string" },
+        "role": { "type": "string" },
+        "quantity_kind": { "type": "string" }
       }
     },
     "timeSeriesUncertainty": {
