@@ -97,6 +97,10 @@
       "type": "array",
       "items": { "$ref": "#/$defs/simulationRequest" }
     },
+    "uncertainty_policies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/uncertaintyPolicy" }
+    },
     "domain_summary": {
       "type": "array",
       "items": { "$ref": "#/$defs/domainSummary" }
@@ -1552,6 +1556,18 @@
         "name": { "type": "string" },
         "role": { "enum": ["parameter", "state", "input"] },
         "quantity_kind": { "type": "string" }
+      }
+    },
+    "uncertaintyPolicy": {
+      "type": "object",
+      "required": ["owner_line", "method", "samples", "seed", "status", "line"],
+      "properties": {
+        "owner_line": { "type": ["integer", "null"], "minimum": 1 },
+        "method": { "type": "string" },
+        "samples": { "type": ["integer", "null"], "minimum": 1 },
+        "seed": { "type": ["integer", "null"], "minimum": 0 },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
       }
     }
   }

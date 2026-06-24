@@ -179,14 +179,14 @@ separate.
 - User-facing scope: none until a supported workflow has language, runtime,
   report/review, IDE, and tests aligned.
 - Evidence: internal uncertainty example, diagnostics, deterministic samples,
-  scalar `typed_payload.numeric_values`, propagation metadata, histogram
-  artifacts, and the current uncertainty guide.
+  scalar `typed_payload.numeric_values`, propagation metadata, validated
+  `with { uncertainty = ... }` review policy metadata, histogram artifacts, and
+  the current uncertainty guide.
 - Not included: stable Monte Carlo/Jacobian propagation contract, direct
   uncertain validation semantics, TimeSeries uncertainty, broad deterministic
   scalar-binding value propagation, or public IDE support claim.
-- Next cleanup action: implement TimeSeries uncertainty, explicit propagation
-  policy options, and uncertain validation semantics before promoting the track
-  beyond internal.
+- Next cleanup action: implement TimeSeries uncertainty and explicit uncertain
+  validation semantics before promoting the track beyond internal.
 
 ### Data-Driven Modeling Track
 

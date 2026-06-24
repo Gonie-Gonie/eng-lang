@@ -120,6 +120,11 @@ typed_payload.numeric_values
 ```
 
 `review.json` includes `uncertainty_info` with declared transform strings.
+It also includes `uncertainty_policies[]` for `with { uncertainty = ... }`
+policy declarations. Accepted policy values are `linear`, `interval`,
+`monte_carlo`, and `ensemble`; `samples` is a positive integer policy count;
+and `seed` is a non-negative deterministic integer. `monte_carlo` without a
+seed is reviewable as a reproducibility warning.
 `result.engres` and runtime-updated `report_spec.json` include numeric
 `scale`/`offset` values when they were declared and propagation source terms
 when a source binding is involved. `result.engres` also links scalar object

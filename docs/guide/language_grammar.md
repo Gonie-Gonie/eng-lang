@@ -694,6 +694,8 @@ Common accepted option keys:
 | `tolerance` | Solver/numeric tolerance |
 | `max_iter` | Solver/numeric iteration limit |
 | `seed` | Deterministic seed metadata |
+| `uncertainty` | Uncertainty propagation policy metadata |
+| `samples` | Positive sample count for uncertainty propagation policy |
 | `output` | Artifact/output choice |
 | `overwrite` | Allow replacing changed generated output content |
 | `confirm` | Required confirmation for destructive file operations |
@@ -703,7 +705,11 @@ Common accepted option keys:
 | `expected_outputs` | Process output files that must exist after the command exits |
 | `allow_failure` | Record a non-zero process exit instead of failing the run |
 
-Unknown options are rejected with `E-WITH-OPTION-001`.
+Unknown options are rejected with `E-WITH-OPTION-001`. When a block declares
+`uncertainty`, the accepted policy names are `linear`, `interval`,
+`monte_carlo`, and `ensemble`; `samples` must be a positive integer; and `seed`
+must be a non-negative integer. `monte_carlo` without `seed` is accepted with a
+reproducibility warning.
 
 Display units are checked when the owner type is known:
 
@@ -1495,6 +1501,8 @@ tests[]
 display units, and local status.
 
 `with_blocks[]` records owner line and accepted/unknown options.
+`uncertainty_policies[]` records normalized `with { uncertainty = ... }`
+policy metadata, optional sample count, optional seed, and review status.
 
 `simulation_requests[]` records `simulate` bindings, target system, solver,
 bound inputs, and compiler-visible time-grid metadata. When `duration` is

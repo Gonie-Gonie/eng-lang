@@ -1787,7 +1787,7 @@ fn analyze_with_blocks(
                 with_owner_semantic_type(block.owner_line, typed_bindings, command_styles);
             let extra_known_options =
                 with_owner_simulation_variable_options(program, block.owner_line, systems);
-            let options = with_options_for_owner(program, block.owner_line)
+            let mut options = with_options_for_owner(program, block.owner_line)
                 .into_iter()
                 .map(|option| {
                     analyze_with_option(
@@ -1798,6 +1798,7 @@ fn analyze_with_blocks(
                     )
                 })
                 .collect::<Vec<_>>();
+            validate_uncertainty_policy_options(&mut options, diagnostics);
             WithBlockInfo {
                 owner_line: block.owner_line,
                 options,
@@ -1864,7 +1865,7 @@ fn analyze_with_option(
             "E-WITH-OPTION-001",
             option.line,
             &format!("Unknown with option `{}`.", option.key),
-            Some("Use supported options such as `method`, `backend`, `title`, `type`, `unit x`, or `unit y`."),
+            Some("Use supported options such as `method`, `backend`, `title`, `type`, `uncertainty`, `unit x`, or `unit y`."),
         ));
         return WithOptionInfo {
             key: option.key.clone(),
@@ -1891,6 +1892,95 @@ fn analyze_with_option(
         status: "accepted".to_owned(),
         line: option.line,
     }
+}
+
+fn validate_uncertainty_policy_options(
+    options: &mut [WithOptionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let has_uncertainty_policy = options
+        .iter()
+        .any(|option| option.key == "uncertainty" && option.status == "accepted");
+    if !has_uncertainty_policy {
+        return;
+    }
+
+    let mut monte_carlo_policy_line = None;
+    for option in options.iter_mut() {
+        match option.key.as_str() {
+            "uncertainty" => {
+                let policy = option.value.trim().to_ascii_lowercase();
+                if matches!(
+                    policy.as_str(),
+                    "linear" | "interval" | "monte_carlo" | "ensemble"
+                ) {
+                    if policy == "monte_carlo" {
+                        monte_carlo_policy_line = Some(option.line);
+                    }
+                } else {
+                    option.status = "invalid_uncertainty_policy".to_owned();
+                    diagnostics.push(Diagnostic::error(
+                        "E-WITH-UNCERTAINTY-POLICY-001",
+                        option.line,
+                        &format!("Unknown uncertainty propagation policy `{}`.", option.value),
+                        Some("Use `linear`, `interval`, `monte_carlo`, or `ensemble`."),
+                    ));
+                }
+            }
+            "samples" => {
+                if parse_positive_count(&option.value).is_none() {
+                    option.status = "invalid_samples".to_owned();
+                    diagnostics.push(Diagnostic::error(
+                        "E-WITH-UNCERTAINTY-SAMPLES-001",
+                        option.line,
+                        &format!(
+                            "Uncertainty propagation samples must be a positive integer, got `{}`.",
+                            option.value
+                        ),
+                        Some("Use `samples = 64` or another positive count."),
+                    ));
+                }
+            }
+            "seed" => {
+                if parse_deterministic_seed(&option.value).is_none() {
+                    option.status = "invalid_seed".to_owned();
+                    diagnostics.push(Diagnostic::error(
+                        "E-WITH-UNCERTAINTY-SEED-001",
+                        option.line,
+                        &format!(
+                            "Uncertainty propagation seed must be a deterministic integer, got `{}`.",
+                            option.value
+                        ),
+                        Some("Use `seed = 7` or another non-negative integer seed."),
+                    ));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if let Some(line) = monte_carlo_policy_line {
+        let has_seed = options
+            .iter()
+            .any(|option| option.key == "seed" && option.status == "accepted");
+        if !has_seed {
+            diagnostics.push(Diagnostic::warning(
+                "W-WITH-UNCERTAINTY-SEED-001",
+                line,
+                "`monte_carlo` uncertainty propagation is not reproducible without a seed.",
+                Some("Add `seed = 7` or choose a deterministic policy such as `linear`."),
+            ));
+        }
+    }
+}
+
+fn parse_positive_count(value: &str) -> Option<usize> {
+    let count = value.trim().parse::<usize>().ok()?;
+    (count > 0).then_some(count)
+}
+
+fn parse_deterministic_seed(value: &str) -> Option<u64> {
+    value.trim().parse::<u64>().ok()
 }
 
 fn known_with_option(key: &str) -> bool {
@@ -1928,6 +2018,8 @@ fn known_with_option(key: &str) -> bool {
             | "consistency_tolerance"
             | "algebraic_initialization"
             | "seed"
+            | "uncertainty"
+            | "samples"
             | "output"
             | "overwrite"
             | "confirm"

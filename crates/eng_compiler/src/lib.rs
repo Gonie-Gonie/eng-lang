@@ -2361,6 +2361,7 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    push_uncertainty_policies_json(&mut json, report);
     push_simulation_requests_json(&mut json, report);
     json.push_str("  \"timeseries_kernels\": [\n");
     for (index, kernel) in report
@@ -4194,6 +4195,83 @@ fn push_review_document_json(json: &mut String, report: &CheckReport) {
     push_review_fallbacks_json(json, report);
     push_review_risks_json(json, report);
     json.push_str("  },\n");
+}
+
+fn push_uncertainty_policies_json(json: &mut String, report: &CheckReport) {
+    json.push_str("  \"uncertainty_policies\": [\n");
+    let mut first_policy = true;
+    for block in &report.semantic_program.with_blocks {
+        let Some(policy) = block
+            .options
+            .iter()
+            .find(|option| option.key == "uncertainty")
+        else {
+            continue;
+        };
+        if !first_policy {
+            json.push_str(",\n");
+        }
+        first_policy = false;
+        let samples = review_option_any(&block.options, "samples")
+            .and_then(|option| option.value.trim().parse::<usize>().ok())
+            .filter(|count| *count > 0);
+        let seed = review_option_any(&block.options, "seed")
+            .and_then(|option| option.value.trim().parse::<u64>().ok());
+        let status = review_uncertainty_policy_status(policy, &block.options);
+        json.push_str("    {\n");
+        match block.owner_line {
+            Some(owner_line) => json.push_str(&format!("      \"owner_line\": {},\n", owner_line)),
+            None => json.push_str("      \"owner_line\": null,\n"),
+        }
+        json.push_str(&format!(
+            "      \"method\": \"{}\",\n",
+            json_escape(&policy.value.trim().to_ascii_lowercase())
+        ));
+        match samples {
+            Some(samples) => json.push_str(&format!("      \"samples\": {},\n", samples)),
+            None => json.push_str("      \"samples\": null,\n"),
+        }
+        match seed {
+            Some(seed) => json.push_str(&format!("      \"seed\": {},\n", seed)),
+            None => json.push_str("      \"seed\": null,\n"),
+        }
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&status)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", policy.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+}
+
+fn review_uncertainty_policy_status(
+    policy: &semantic::WithOptionInfo,
+    options: &[semantic::WithOptionInfo],
+) -> String {
+    if policy.status != "accepted" {
+        return policy.status.clone();
+    }
+    for key in ["samples", "seed"] {
+        if let Some(option) = review_option_any(options, key) {
+            if option.status != "accepted" {
+                return option.status.clone();
+            }
+        }
+    }
+    let seed_present =
+        review_option_any(options, "seed").is_some_and(|option| option.status == "accepted");
+    if policy.value.trim().eq_ignore_ascii_case("monte_carlo") && !seed_present {
+        return "missing_seed_warning".to_owned();
+    }
+    "accepted".to_owned()
+}
+
+fn review_option_any<'a>(
+    options: &'a [semantic::WithOptionInfo],
+    key: &str,
+) -> Option<&'a semantic::WithOptionInfo> {
+    options.iter().find(|option| option.key == key)
 }
 
 fn review_calculation_count(report: &CheckReport) -> usize {
@@ -7570,6 +7648,71 @@ system Envelope {
             derived_type.semantic_type.quantity_kind,
             "Measured[HeatRate]"
         );
+    }
+
+    #[test]
+    fn records_uncertainty_with_policy_metadata() {
+        let report = check_source(
+            "ok.eng",
+            "Q_meas = measured(10 kW, std=1 kW)\nQ_total = Q_meas + 2 kW\nwith {\n    uncertainty = linear\n    samples = 64\n    seed = 42\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert_eq!(report.semantic_program.with_blocks.len(), 1);
+        assert!(report.semantic_program.with_blocks[0]
+            .options
+            .iter()
+            .any(|option| option.key == "uncertainty"
+                && option.value == "linear"
+                && option.status == "accepted"));
+        let review = review_json(&report);
+        assert!(review.contains("\"uncertainty_policies\""));
+        assert!(review.contains("\"method\": \"linear\""));
+        assert!(review.contains("\"samples\": 64"));
+        assert!(review.contains("\"seed\": 42"));
+        assert!(review.contains("\"status\": \"accepted\""));
+    }
+
+    #[test]
+    fn validates_uncertainty_with_policy_options() {
+        let warning_report = check_source(
+            "warn.eng",
+            "Q_meas = measured(10 kW, std=1 kW)\nQ_mc = Q_meas + 2 kW\nwith {\n    uncertainty = monte_carlo\n    samples = 64\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(
+            !warning_report.has_errors(),
+            "{:?}",
+            warning_report.diagnostics
+        );
+        assert!(warning_report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "W-WITH-UNCERTAINTY-SEED-001"
+                && diagnostic.severity == Severity::Warning
+        }));
+        let warning_review = review_json(&warning_report);
+        assert!(warning_review.contains("\"status\": \"missing_seed_warning\""));
+
+        let error_report = check_source(
+            "bad.eng",
+            "Q_meas = measured(10 kW, std=1 kW)\nQ_bad = Q_meas + 2 kW\nwith {\n    uncertainty = quadratic\n    samples = 0\n    seed = abc\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(error_report.has_errors());
+        assert!(error_report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-WITH-UNCERTAINTY-POLICY-001"));
+        assert!(error_report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-WITH-UNCERTAINTY-SAMPLES-001"));
+        assert!(error_report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-WITH-UNCERTAINTY-SEED-001"));
     }
 
     #[test]

@@ -57,8 +57,8 @@ and next cleanup action.
 - Purpose: make uncertainty sources and propagation reviewable.
 - Public scope: none beyond internal examples unless explicitly documented.
 - Main internal: deterministic samples, diagnostics, scalar runtime numeric
-  payloads, narrow arithmetic propagation, propagation metadata, and histogram
-  artifacts.
+  payloads, narrow arithmetic propagation, validated propagation policy
+  metadata, and histogram artifacts.
 - Next cleanup: keep as internal until TimeSeries uncertainty, explicit
   uncertain validation semantics, report/review artifacts, IDE projection, and
   tests align.

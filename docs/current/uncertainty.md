@@ -122,6 +122,13 @@ same-index samples and recording a linear or interval arithmetic propagation
 status. This is deliberately narrower than a general symbolic Jacobian,
 Monte Carlo engine, or full deterministic-binding value evaluator.
 
+Compiler review now accepts and validates `with { uncertainty = ... }` policy
+metadata. Allowed policy names are `linear`, `interval`, `monte_carlo`, and
+`ensemble`; `samples` must be a positive integer; `seed` must be a
+non-negative integer when present; and `monte_carlo` without a seed records a
+reproducibility warning. `review.json.uncertainty_policies[]` is the normalized
+review surface for this metadata.
+
 When a policy assumes independence, linearizes a nonlinear expression, or falls
 back to a lower-fidelity rule, that assumption belongs in `review.json`,
 `report_spec.json`, `report.html`, and the IDE warning panel.

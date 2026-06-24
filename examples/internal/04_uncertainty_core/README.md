@@ -16,6 +16,7 @@ Language features shown:
   normal(...), uniform(...), ensemble(...)
 - propagate(..., method=linear, scale=..., offset=...)
 - deterministic arithmetic propagation from an uncertain source plus a scalar
+- with { uncertainty = linear } review policy metadata
 - report show entries for uncertainty values
 - plot distribution(...) with a with { title = ... } option block
 ```
@@ -30,6 +31,7 @@ Expected artifacts:
 
 ```text
 build/result/result.engres
+build/result/review.json
 build/result/report_spec.json
 build/result/report.html
 build/result/plots/plot_spec.json

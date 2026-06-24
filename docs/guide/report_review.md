@@ -520,6 +520,7 @@ The same uncertainty surface appears in:
 
 ```text
 review.json                 uncertainty_info
+review.json                 uncertainty_policies
 report_spec.json            uncertainty
 result.engres               typed_payload.uncertainties
 report.html                 Uncertainty table
@@ -536,6 +537,12 @@ uncertainty sources produce `E-UNC-SOURCE-002`.
 Malformed required arguments produce `E-UNC-ARGS-001`; invalid numeric/range/
 count/transform arguments produce `E-UNC-ARGS-002`; unsupported distribution
 kinds or propagation methods produce `E-UNC-ARGS-003`.
+`with { uncertainty = ... }` policy metadata is checked before runtime and
+recorded in `review.json.uncertainty_policies[]`. Invalid policy names produce
+`E-WITH-UNCERTAINTY-POLICY-001`, invalid sample counts produce
+`E-WITH-UNCERTAINTY-SAMPLES-001`, invalid seeds produce
+`E-WITH-UNCERTAINTY-SEED-001`, and `monte_carlo` without a seed produces
+`W-WITH-UNCERTAINTY-SEED-001`.
 Propagation source terms are also carried through `review.json`,
 `result.engres`, runtime-updated `report_spec.json`, HTML reports, and the
 native IDE Runtime Summary.
