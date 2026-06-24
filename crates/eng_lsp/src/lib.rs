@@ -486,6 +486,32 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         push_completion(&mut items, &mut seen, keyword, "keyword", "EngLang keyword");
     }
 
+    for (label, detail) in [
+        ("eng.path", "stdlib module: typed path helpers"),
+        ("file(\"...\")", "eng.path file literal"),
+        ("dir(\"...\")", "eng.path directory literal"),
+        ("join(path, name)", "eng.path join"),
+        ("parent(path)", "eng.path parent directory"),
+        ("stem(path)", "eng.path file stem"),
+        ("extension(path)", "eng.path file extension"),
+        ("exists path", "eng.path review-visible exists"),
+        ("eng.io", "stdlib module: explicit IO"),
+        ("read text", "eng.io raw text read"),
+        ("read json", "eng.io raw JSON read"),
+        ("read toml", "eng.io raw TOML read"),
+        ("write text", "eng.io text output"),
+        ("write json", "eng.io JSON output"),
+        ("eng.fs", "stdlib module: explicit filesystem effects"),
+        ("copy file", "eng.fs copy generated output"),
+        ("move file", "eng.fs move generated output"),
+        ("delete file", "eng.fs delete generated output"),
+        ("eng.config", "stdlib module: planned typed config"),
+        ("promote json config", "eng.config planned JSON promotion"),
+        ("promote toml config", "eng.config planned TOML promotion"),
+    ] {
+        push_completion(&mut items, &mut seen, label, "stdlib", detail);
+    }
+
     for binding in &report.semantic_program.typed_bindings {
         push_completion(
             &mut items,
@@ -1144,6 +1170,14 @@ mod tests {
             .completions
             .iter()
             .any(|completion| completion.label == "kW"));
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "eng.path"));
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "read text"));
 
         let json = snapshot_json(&snapshot);
         assert_eq!(json["format"], LSP_SNAPSHOT_FORMAT);

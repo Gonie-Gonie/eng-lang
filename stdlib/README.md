@@ -20,7 +20,10 @@ compiler/runtime crates until importable stdlib execution is implemented.
 | `eng.stats` | Planned | Semantic statistics helpers for TimeSeries and tables. |
 | `eng.plot` | Planned | PlotSpec-oriented helper vocabulary. |
 | `eng.report` | Planned | Report/review helper vocabulary. |
-| `eng.path` / `eng.io` | Planned | Typed path and explicit IO helper vocabulary. |
+| `eng.path` | Supported built-in seed | Typed paths, joins, names, and review-visible `exists`. |
+| `eng.io` | Supported built-in seed | Read text/json/toml, write text/json, exports, and hashes. |
+| `eng.fs` | Supported narrow built-in seed | Explicit generated-output copy/move/delete mutations. |
+| `eng.config` | Planned | Typed JSON/TOML configuration promotion and validation. |
 | `eng.process` | Planned | Explicit external process boundary vocabulary. |
 | `eng.artifact` | Planned | Generated artifact kinds, hashes, manifests, and validation records. |
 | `eng.net` | Planned | HTTP/download boundary with cache and hash policy. |
@@ -36,6 +39,13 @@ compiler/runtime crates until importable stdlib execution is implemented.
 | `eng.building` | Planned | Building/Zone/Construction object vocabulary before any simulation adapter. |
 | `eng.system` | Internal/planned | Solver-facing adapters, not the public identity of stdlib. |
 | `eng.ml` | Internal | Data-driven modeling review vocabulary and artifacts. |
+
+## Module File Policy
+
+`stdlib/eng/*.eng` files currently define module boundaries. Each file must say
+whether its surface is compiler/runtime built-in, planned pure `.eng` helper
+vocabulary, or internal vocabulary. A module file is not by itself a claim that
+the behavior is importable or production-ready.
 
 ## Building Vocabulary Rule
 

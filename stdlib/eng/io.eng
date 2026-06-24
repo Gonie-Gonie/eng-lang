@@ -1,0 +1,21 @@
+# module: eng.io
+# status: supported-builtins
+# purpose: explicit source reads and generated output writes with reviewable hashes.
+#
+# Compiler/runtime built-ins:
+#   read text path
+#   read json path
+#   read toml path
+#   write text path, expression
+#   write json path, expression
+#   export summary to csv path { ... }
+#
+# Current contract:
+#   read text/json/toml return raw UTF-8 text and record source-file hashes.
+#   write/export operations are generated outputs and must appear in
+#   output_manifest.json.
+#   structured json/toml promotion remains a future eng.config boundary.
+#
+# Pure .eng helpers:
+#   none yet. Importable stdlib execution is planned; current behavior lives in
+#   compiler/runtime built-ins.

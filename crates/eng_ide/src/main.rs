@@ -809,6 +809,96 @@ fn base_completion_items() -> Vec<CompletionView> {
             kind: "snippet".to_owned(),
         });
     }
+    for stdlib in [
+        ("eng.path", "eng.path", "stdlib module: typed path helpers"),
+        (
+            "file(...)",
+            "file(\"data/input.csv\")",
+            "eng.path file literal",
+        ),
+        (
+            "dir(...)",
+            "dir(\"build/result\")",
+            "eng.path directory literal",
+        ),
+        (
+            "join(path, name)",
+            "join(args.output, \"summary.csv\")",
+            "eng.path join",
+        ),
+        (
+            "parent(path)",
+            "parent(args.input)",
+            "eng.path parent directory",
+        ),
+        ("stem(path)", "stem(args.input)", "eng.path file stem"),
+        (
+            "extension(path)",
+            "extension(args.input)",
+            "eng.path file extension",
+        ),
+        (
+            "exists path",
+            "exists args.input",
+            "eng.path review-visible exists",
+        ),
+        ("eng.io", "eng.io", "stdlib module: explicit IO"),
+        ("read text", "read text args.input", "eng.io raw text read"),
+        ("read json", "read json args.config", "eng.io raw JSON read"),
+        ("read toml", "read toml args.config", "eng.io raw TOML read"),
+        (
+            "write text",
+            "write text \"outputs/log.txt\", text",
+            "eng.io text output",
+        ),
+        (
+            "write json",
+            "write json \"outputs/summary.json\", summary",
+            "eng.io JSON output",
+        ),
+        (
+            "eng.fs",
+            "eng.fs",
+            "stdlib module: explicit filesystem effects",
+        ),
+        (
+            "copy file",
+            "copy file(\"data/template.txt\") to \"outputs/template.txt\"",
+            "eng.fs copy output",
+        ),
+        (
+            "move file",
+            "move \"outputs/tmp.txt\" to \"outputs/archive/tmp.txt\"",
+            "eng.fs move output",
+        ),
+        (
+            "delete file",
+            "delete \"outputs/tmp.txt\"",
+            "eng.fs delete output",
+        ),
+        (
+            "eng.config",
+            "eng.config",
+            "stdlib module: planned typed config",
+        ),
+        (
+            "promote json config",
+            "promote json file(\"workflow.json\") as WorkflowConfig",
+            "eng.config planned JSON promotion",
+        ),
+        (
+            "promote toml config",
+            "promote toml file(\"workflow.toml\") as WorkflowConfig",
+            "eng.config planned TOML promotion",
+        ),
+    ] {
+        items.push(CompletionView {
+            label: stdlib.0.to_owned(),
+            insert: stdlib.1.to_owned(),
+            detail: stdlib.2.to_owned(),
+            kind: "stdlib".to_owned(),
+        });
+    }
     for quantity in all_quantity_completions() {
         items.push(CompletionView {
             label: quantity.quantity_kind.to_owned(),

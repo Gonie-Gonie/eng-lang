@@ -39,6 +39,28 @@ that make those adapters typed, explicit, reproducible, and reviewable.
 These names describe module boundaries. The current implementation may expose
 some behavior as built-ins before it is factored into `.eng` stdlib modules.
 
+## Stdlib Boundary Files
+
+The current `stdlib/eng/` files are module boundary notes. They distinguish:
+
+```text
+compiler/runtime built-ins that are supported today
+planned pure .eng helper vocabulary
+internal vocabulary used by current examples or artifacts
+```
+
+The supported built-in seeds are now reflected as explicit files:
+
+```text
+stdlib/eng/path.eng
+stdlib/eng/io.eng
+stdlib/eng/fs.eng
+```
+
+`stdlib/eng/config.eng` is intentionally planned: raw `read json` and
+`read toml` exist today through `eng.io`, but typed config promotion is not yet
+a supported workflow contract.
+
 ## Review Requirements
 
 Every module that touches external state must produce review material:
@@ -160,4 +182,3 @@ examples/workflows/02_external_simulation_surrogate_hybrid
 
 These examples are not a claim that the core language includes weather APIs,
 EPW writing, EnergyPlus adapters, SQLite, or ML frameworks.
-

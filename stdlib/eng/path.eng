@@ -1,0 +1,21 @@
+# module: eng.path
+# status: supported-builtins
+# purpose: typed path values and review-visible filesystem existence checks.
+#
+# Compiler-known built-ins:
+#   file("relative/or/absolute/path")
+#   dir("relative/or/absolute/path")
+#   join(path, "child")
+#   parent(path)
+#   stem(path)
+#   extension(path)
+#   exists path
+#
+# Current contract:
+#   file(...) and dir(...) create typed path values.
+#   join/parent/stem/extension are pure path helpers.
+#   exists is an environment dependency and must appear in review artifacts.
+#
+# Pure .eng helpers:
+#   none yet. Importable stdlib execution is planned; current behavior lives in
+#   compiler/runtime built-ins.
