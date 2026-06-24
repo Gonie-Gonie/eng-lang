@@ -1,0 +1,73 @@
+schema DesignSample {
+    case_id: String
+    people_density: DimensionlessNumber [1]
+    lighting_power_density: Irradiance [W/m2]
+    equipment_power_density: Irradiance [W/m2]
+    cooling_cop: Ratio [1]
+
+    constraints {
+        people_density >= 0
+        lighting_power_density >= 0 W/m2
+        equipment_power_density >= 0 W/m2
+        cooling_cop > 0
+    }
+}
+
+schema SimulationResult {
+    case_id: String
+    annual_electricity: Energy [kWh]
+    annual_cooling: Energy [kWh]
+    peak_cooling: HeatRate [kW]
+}
+
+args {
+    samples: CsvFile = file("samples/design_samples.csv")
+    results: CsvFile = file("samples/summary_results.csv")
+    output: DirectoryPath = dir("outputs")
+}
+
+designs = promote csv args.samples as DesignSample
+results = promote csv args.results as SimulationResult
+
+patch_result = run command "cmd"
+with {
+    args = ["/C", "echo", "patch-input-fixture"]
+}
+
+simulation_result = run command "cmd"
+with {
+    args = ["/C", "echo", "external-simulation-fixture"]
+}
+
+trainer_result = run command "cmd"
+with {
+    args = ["/C", "echo", "train-surrogate-fixture"]
+}
+
+annual_electricity = 12800 kWh
+peak_cooling = 14.2 kW
+
+print "Design samples = {designs.rows}"
+print "Simulation results = {results.rows}"
+log info "external simulation surrogate fixture boundaries recorded"
+
+export summary to csv "outputs/workflow_summary.csv" {
+    annual_electricity as kWh with ".1"
+    peak_cooling as kW with ".1"
+}
+with {
+    overwrite = true
+}
+
+write text "outputs/model_card.json", "{\"model\":\"linear-fixture\",\"target\":\"annual_electricity\"}"
+with {
+    overwrite = true
+}
+
+report {
+    show designs.rows
+    show results.rows
+    show annual_electricity
+    show peak_cooling
+}
+

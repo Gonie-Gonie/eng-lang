@@ -1,0 +1,18 @@
+# eng.case planned package surface
+#
+# Purpose:
+#   per-case manifests for sample-to-run workflows.
+#
+# Current implementation:
+#   no native case manifest module yet. Workflow examples use explicit sample
+#   tables, generated files, process results, and output manifests.
+#
+# Planned CaseManifest fields:
+#   case_id
+#   sample row hash
+#   case directory
+#   generated input files
+#   process command and status
+#   result files
+#   metrics
+#   failure reason

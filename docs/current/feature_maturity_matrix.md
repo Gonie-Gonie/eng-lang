@@ -54,6 +54,22 @@ separate.
 - Next cleanup action: benchmark reviewability and artifact completeness before
   runtime speed.
 
+### Reviewability / Review IR
+
+- Public package: `Stable` for the current artifact family; explicit Review IR
+  remains a scoped implementation target.
+- Main status: `Supported` for existing review/report/result/run-log/process/
+  test/output-manifest artifacts; `Planned` for semantic diff and `eng review`.
+- User-facing scope: review JSON, report HTML, report spec, result artifact,
+  output manifest, run log, process results, test results, and native tester IDE
+  inspection for the current package workflows.
+- Evidence: official examples, artifact schemas, `artifacts-check`, report/
+  review guide, and IDE smoke path.
+- Not included: normalized Review IR node model, semantic diff, risk/fallback
+  taxonomy across all tracks, or stable `eng review` CLI.
+- Next cleanup action: add explicit Review IR and route report/IDE projections
+  through it before expanding semantic diff.
+
 ### Measured-Vs-Simulated Validation
 
 - Public package: `Stable`
@@ -157,10 +173,15 @@ separate.
 
 - Public package: `Internal`
 - Main status: `Internal`
-- Evidence: deterministic samples, diagnostics, propagation metadata, and
-  histogram artifacts.
-- Not included: stable Monte Carlo/Jacobian propagation contract.
-- Next cleanup action: keep internal until examples, artifacts, and guide align.
+- User-facing scope: none until a supported workflow has language, runtime,
+  report/review, IDE, and tests aligned.
+- Evidence: internal uncertainty example, diagnostics, deterministic samples,
+  propagation metadata, histogram artifacts, and the current uncertainty guide.
+- Not included: stable Monte Carlo/Jacobian propagation contract, direct
+  uncertain validation semantics, TimeSeries uncertainty, or public IDE support
+  claim.
+- Next cleanup action: implement the runtime value representation and review
+  artifact path before promoting arithmetic propagation.
 
 ### Data-Driven Modeling Track
 
@@ -188,6 +209,25 @@ separate.
   benchmark catalog, and fallback metadata.
 - Not included: native code generation or speedup claim.
 - Next cleanup action: keep semantic benchmark strategy ahead of solver timing.
+
+### Composite Workflow Foundations
+
+- Public package: `Supported` for path, read/write, process, output manifest,
+  run log, test, and profile primitives already listed under explicit side
+  effects.
+- Main status: `Supported` for those primitives; `Planned` for network, cache,
+  case manifests, SQLite/database writes, and native model-card workflows.
+- User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
+  EnergyPlus, CFD, FEM, or database adapters are examples layered above the
+  core, not core language identity.
+- Evidence: official side-effect examples, process artifacts, output manifests,
+  workflow skeletons under `examples/workflows`, and
+  `docs/current/workflow_modules.md`.
+- Not included: stable HTTP/cache API, domain weather adapters, EPW writer,
+  EnergyPlus IDF parser, broad DB support, or ML framework support.
+- Next cleanup action: use the workflow skeletons to drive `eng.net`,
+  `eng.cache`, `eng.case`, `eng.db`, and `eng.model` slices with artifacts and
+  diagnostics.
 
 ## Solver Vocabulary
 

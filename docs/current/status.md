@@ -116,11 +116,25 @@ Detailed solver, state-space, component, JIT, uncertainty, ML, and LSP seeds
 are tracked in [main_internal_status.md](main_internal_status.md) and
 [tracks.md](tracks.md).
 
+## Checklist Track Scope Snapshot
+
+The uncertainty, reviewability, and composite workflow checklist work should
+move implementation seeds toward evidence-backed support without widening the
+public package claim prematurely.
+
+| Area | Public package | Main status | Current handling |
+|---|---|---|---|
+| Uncertainty / distribution numeric | `Internal` | `Internal` | keep constructor/report seeds internal until runtime representation, propagation policy, IDE projection, and tests align |
+| Reviewability / Review IR | `Stable` artifact family | `Supported` artifacts, `Planned` normalized IR | keep current `review.json`/`report.html` public, but treat explicit Review IR, semantic diff, risk/fallback taxonomy, and `eng review` as implementation targets |
+| Composite workflow foundations | `Supported` side-effect primitives | `Supported` path/io/process/test/profile, `Planned` net/cache/case/db/model | put hybrid examples under `examples/workflows` and keep domain adapters layered above generic module contracts |
+
 ## Planned Tracks
 
 - General table formulas and arbitrary TimeSeries expression execution.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
+- Composite workflow modules for network, cache, sampling, case manifests,
+  database writes, and model-card workflows.
 - Broad nonlinear/DAE/adaptive/component solving beyond the documented narrow
   paths.
 - Production multi-domain component simulation and pressure-drop packages.

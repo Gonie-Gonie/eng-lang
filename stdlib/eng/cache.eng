@@ -1,0 +1,19 @@
+# eng.cache planned package surface
+#
+# Purpose:
+#   reproducible cache keys, pinned downloads, fixture mode, and hit/miss
+#   artifacts for workflows that touch external data.
+#
+# Current implementation:
+#   no native cache module yet. Cache behavior must be expressed by explicit
+#   files, hashes, and reviewable process or read boundaries.
+#
+# Planned helper vocabulary:
+#   cache key from ...
+#   cache get
+#   cache put
+#   require hash
+#
+# Review contract:
+#   cache key, source, expected hash, observed hash, hit/miss status, profile
+#   policy, and source span.

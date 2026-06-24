@@ -1,0 +1,18 @@
+# eng.model internal/planned package surface
+#
+# Purpose:
+#   model-card, prediction, metric, residual, and data-leakage review
+#   vocabulary for surrogate and data-driven workflows.
+#
+# Current implementation:
+#   internal data-driven modeling seeds are compiler/runtime-recognized and
+#   documented separately in eng.ml.
+#
+# Planned helper vocabulary:
+#   train regression
+#   predict using
+#   model_card
+#   residual_summary
+#
+# Non-goal:
+#   this module is not a broad ML framework claim.

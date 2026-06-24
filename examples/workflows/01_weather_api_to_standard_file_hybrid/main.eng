@@ -1,0 +1,41 @@
+schema StationMap {
+    region: String
+    station_id: String
+    latitude: DimensionlessNumber [1]
+    longitude: DimensionlessNumber [1]
+}
+
+args {
+    year: Int = 2024
+    region: String = "demo"
+    station_map: CsvFile = file("data/station_map_sample.csv")
+    api_fixture: JsonFile = file("data/sample_api_response.json")
+    output: DirectoryPath = dir("outputs")
+}
+
+stations = promote csv args.station_map as StationMap
+api_payload = read json args.api_fixture
+
+fetch_result = run command "cmd"
+with {
+    args = ["/C", "echo", "weather-api-fixture"]
+}
+
+writer_result = run command "cmd"
+with {
+    args = ["/C", "echo", "standard-weather-file-fixture"]
+}
+
+print "Weather fixture region = {args.region}"
+print "Station rows = {stations.rows}"
+log info "weather fixture read and standard artifact boundary recorded"
+
+write text "outputs/standard_weather_file.txt", api_payload
+with {
+    overwrite = true
+}
+
+report {
+    show stations.rows
+}
+

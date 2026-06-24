@@ -1,0 +1,23 @@
+# eng.uncertainty internal package surface
+#
+# Purpose:
+#   uncertainty constructors, propagation policy, validation semantics, and
+#   uncertainty review vocabulary.
+#
+# Current implementation:
+#   compiler/runtime-recognized internal seeds exist for measured, interval,
+#   normal, uniform, ensemble, propagate, uncertainty report metadata, and
+#   histogram artifacts.
+#
+# Target constructor vocabulary:
+#   measured(value, std=...)
+#   measured(value, error=...)
+#   interval(lower, upper)
+#   normal(mean=..., std=...)
+#   uniform(lower, upper)
+#   ensemble(source, samples=...)
+#   propagate(source, method=linear, ...)
+#
+# Non-goal:
+#   do not promote uncertainty to public support until runtime propagation,
+#   review/report artifacts, IDE projection, and tests align.

@@ -28,7 +28,10 @@ It is intentionally short so agents do not need to load every planning file.
 5. `docs/current/feature_maturity_matrix.md`
 6. `docs/current/tracks.md`
 7. `docs/current/version_plan.md`
-8. `docs/llm/load_map.yml`
+8. `docs/current/uncertainty.md`
+9. `docs/current/reviewability.md`
+10. `docs/current/workflow_modules.md`
+11. `docs/llm/load_map.yml`
 
 Open solver-specific documents only for solver implementation tasks:
 
@@ -108,6 +111,9 @@ artifacts. They are supporting capability, not the primary identity of EngLang.
 - Hidden imported side effects are disallowed for file run/build paths.
 - Explicit top-level workflow effects must be typed, recorded, and reviewable.
 - Public feature claims must match the feature maturity matrix.
+- Composite workflow examples must stay generic. Weather, EPW, EnergyPlus-like
+  simulation, database, and model-training adapters are layered examples unless
+  the generic module and artifact contract is supported.
 
 ## Status Terms
 

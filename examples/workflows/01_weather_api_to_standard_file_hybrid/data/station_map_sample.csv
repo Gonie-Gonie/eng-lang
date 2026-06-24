@@ -1,0 +1,4 @@
+region,station_id,latitude,longitude
+demo,STN001,37.5665,126.9780
+demo-east,STN002,35.1796,129.0756
+

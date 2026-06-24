@@ -1,0 +1,22 @@
+{
+  "station_id": "STN001",
+  "year": 2024,
+  "timezone": "UTC+09:00",
+  "records": [
+    {
+      "time": "2024-01-01T00:00:00+09:00",
+      "dry_bulb_degC": -2.1,
+      "relative_humidity": 0.42,
+      "wind_speed_mps": 1.8,
+      "global_horizontal_W_m2": 0.0
+    },
+    {
+      "time": "2024-01-01T01:00:00+09:00",
+      "dry_bulb_degC": -2.4,
+      "relative_humidity": 0.44,
+      "wind_speed_mps": 2.0,
+      "global_horizontal_W_m2": 0.0
+    }
+  ]
+}
+

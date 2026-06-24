@@ -1,0 +1,18 @@
+# eng.table planned package surface
+#
+# Purpose:
+#   table filters, joins, row diagnostics, derived columns, and schema helpers.
+#
+# Current implementation:
+#   typed CSV promotion and source-hash provenance are supported through
+#   compiler/runtime built-ins for current examples.
+#
+# Planned helper vocabulary:
+#   filter rows
+#   join tables
+#   select one
+#   validate rows
+#
+# Review contract:
+#   source schema, row counts before and after operations, join keys, missing
+#   rows, row-level diagnostics, and source spans.

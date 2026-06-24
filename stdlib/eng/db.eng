@@ -1,0 +1,19 @@
+# eng.db planned package surface
+#
+# Purpose:
+#   typed database side effects, starting with SQLite-style write/upsert
+#   workflows that record transaction status and output manifests.
+#
+# Current implementation:
+#   no native DB module yet. Use explicit exported CSV or external process
+#   boundaries for database writes.
+#
+# Planned helper vocabulary:
+#   open sqlite
+#   write rows to table
+#   upsert by key
+#   transaction report
+#
+# Review contract:
+#   database target, table, schema, mode, key fields, row count, transaction
+#   status, and generated artifact or side-effect manifest entry.

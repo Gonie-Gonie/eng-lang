@@ -1,0 +1,6 @@
+BASE-MODEL-FIXTURE
+
+This placeholder represents an external simulator input model. Domain-specific
+formats such as IDF, FMU, solver decks, or laboratory equipment recipes should
+be handled by adapters above the generic workflow boundary.
+

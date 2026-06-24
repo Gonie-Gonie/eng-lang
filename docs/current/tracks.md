@@ -26,8 +26,10 @@ and next cleanup action.
 - Purpose: turn engineering calculations into inspectable artifacts.
 - Public scope: TimeSeries statistics, integration, PlotSpec/SVG, report HTML,
   review JSON, report spec, and result artifacts.
-- Main internal: bar/histogram variants and richer report metadata.
-- Next cleanup: benchmark semantic value and reviewability before runtime speed.
+- Main internal: bar/histogram variants, richer report metadata, and the
+  explicit Review IR target.
+- Next cleanup: normalize Review IR, add risk/fallback sections, and benchmark
+  semantic value before runtime speed.
 
 ## T4 System / Equation
 
@@ -56,7 +58,8 @@ and next cleanup action.
 - Public scope: none beyond internal examples unless explicitly documented.
 - Main internal: deterministic samples, diagnostics, propagation metadata, and
   histogram artifacts.
-- Next cleanup: keep as internal until language, artifacts, and docs align.
+- Next cleanup: keep as internal until runtime representation, propagation
+  policy, report/review artifacts, IDE projection, and tests align.
 
 ## T7 Data-Driven Modeling
 
@@ -103,8 +106,21 @@ and next cleanup action.
 - Public scope: typed path helpers, read text/json/toml, explicit write
   text/json, constrained copy/move/delete, run logs, process results, test
   results, output manifests, and safe/normal/repro profiles.
-- Main internal: broader filesystem/process/network policy is planned.
-- Next cleanup: maintain artifact-first side-effect documentation.
+- Main internal: broader filesystem/process policy plus `eng.net`, `eng.cache`,
+  `eng.db`, and `eng.model` module boundaries are planned.
+- Next cleanup: maintain artifact-first side-effect documentation and add
+  module slices only with review/output-manifest evidence.
+
+## T12 Composite Workflows
+
+- Purpose: compose typed data, files, external tools, case manifests, model
+  cards, database writes, and reports without making domain adapters core
+  language identity.
+- Public scope: supported side-effect primitives and workflow skeletons only.
+- Main internal: weather API to standard file and external simulation surrogate
+  hybrid examples define target contracts for future generic modules.
+- Next cleanup: grow `eng.net`, `eng.cache`, `eng.table`, `eng.sampling`,
+  `eng.case`, `eng.db`, and `eng.model` from generic workflow evidence.
 
 ## Internal Detail
 
@@ -114,3 +130,6 @@ Detailed implementation ledgers live outside this overview:
 - [Solver docs](../solver/README.md)
 - [Solver-centered plan](solver_centered_plan.md)
 - [Generic solver completion plan](generic_solver_completion_plan.md)
+- [Uncertainty track](uncertainty.md)
+- [Reviewability track](reviewability.md)
+- [Composite workflow modules](workflow_modules.md)

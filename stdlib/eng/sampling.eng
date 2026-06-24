@@ -1,0 +1,19 @@
+# eng.sampling planned package surface
+#
+# Purpose:
+#   deterministic sample tables and design sweeps with units, constraints,
+#   seed policy, and reviewable sampling metadata.
+#
+# Current implementation:
+#   no native sampling module yet. Use typed CSV sample tables and schema
+#   constraints.
+#
+# Planned helper vocabulary:
+#   grid sample
+#   latin_hypercube
+#   random sample with seed
+#   sample manifest
+#
+# Review contract:
+#   parameter schema, ranges, seed, sample count, sample row hashes, and
+#   diagnostics for duplicate or invalid case IDs.

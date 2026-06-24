@@ -1,0 +1,18 @@
+# eng.process planned package surface
+#
+# Purpose:
+#   external command boundaries that remain explicit, typed, and reviewable.
+#
+# Current implementation:
+#   `result = run command "tool"` with `with { args = [...] }`, process result
+#   metadata, and process_results.json are supported through built-ins.
+#
+# Planned helper vocabulary:
+#   expected_outputs
+#   tool version capture
+#   stdout/stderr hash policy
+#   failure policy per case
+#
+# Review contract:
+#   command, args, cwd, exit code, stdout/stderr, expected outputs, output
+#   hashes, profile policy, and source span.

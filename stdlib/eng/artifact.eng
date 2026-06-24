@@ -1,0 +1,17 @@
+# eng.artifact planned package surface
+#
+# Purpose:
+#   generated artifact kinds, hashes, validation records, and manifest links.
+#
+# Current implementation:
+#   output_manifest.json and artifact hashes are compiler/runtime/report
+#   built-ins for supported side-effect workflows.
+#
+# Planned helper vocabulary:
+#   artifact(path, kind=...)
+#   hash artifact
+#   validate artifact
+#   manifest add
+#
+# Domain-specific file formats such as EPW should build on this generic
+# artifact contract instead of becoming core language syntax.

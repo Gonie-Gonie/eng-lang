@@ -36,6 +36,9 @@ Start from these short status documents:
 - [Integrated language philosophy](docs/current/philosophy.md)
 - [Feature maturity matrix](docs/current/feature_maturity_matrix.md)
 - [Development tracks](docs/current/tracks.md)
+- [Uncertainty track](docs/current/uncertainty.md)
+- [Reviewability track](docs/current/reviewability.md)
+- [Composite workflow base modules](docs/current/workflow_modules.md)
 - [Version plan](docs/current/version_plan.md)
 - [LLM context](LLM_CONTEXT.md)
 - [LLM load map](docs/llm/load_map.yml)
@@ -87,6 +90,10 @@ For user testing and release validation, start with the core workflow examples:
 - `examples/official/01_csv_plot`
 - `examples/official/09_command_where_with`
 - `examples/official/16_test_assert_golden`
+
+Composite workflow examples live under `examples/workflows`. They demonstrate
+API/file/process/model/report pipelines through generic adapter boundaries, not
+domain-specific core language claims.
 
 Solver-heavy examples remain in the repository as advanced/internal smoke
 fixtures until their paths can be moved without breaking package and IDE gates.

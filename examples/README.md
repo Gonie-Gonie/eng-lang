@@ -66,6 +66,26 @@ official/19_class_object
   immutable copy-with, object summaries, diagnostics, and IDE/LSP metadata.
 ```
 
+## Composite Workflow Examples
+
+`examples/workflows` contains hybrid workflow skeletons that demonstrate
+generic adapter boundaries. They are not first-user public package examples and
+they are not domain-specific product claims.
+
+```text
+workflows/01_weather_api_to_standard_file_hybrid
+  API data, typed station-map schema, fixture read, explicit process boundary,
+  generated standard text artifact, and review/report path.
+
+workflows/02_external_simulation_surrogate_hybrid
+  Design sample table, typed result table, external process boundaries,
+  generated workflow summary, and model-card artifact path.
+```
+
+These examples should grow generic module contracts such as `eng.net`,
+`eng.cache`, `eng.case`, `eng.db`, and `eng.model` before any domain-specific
+weather, EPW, or solver adapter is treated as core language behavior.
+
 ## Advanced Solver Smoke Fixtures
 
 The following directories live under `examples/advanced_solver`. Treat them as

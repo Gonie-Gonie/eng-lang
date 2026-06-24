@@ -9,9 +9,14 @@ quantity HeatCapacity [J/K]
 quantity SpecificHeat [J/kg/K]
 quantity HeatRate [W]
 quantity ElectricPower [W]
+quantity MechanicalPower [W]
 quantity Energy [J]
+quantity Irradiance [W/m2]
+quantity Pressure [Pa]
 quantity MassFlowRate [kg/s]
 quantity Ratio [1]
+quantity DimensionlessNumber [1]
+quantity ReynoldsNumber [1]
 
 unit m
 unit cm
@@ -28,3 +33,7 @@ unit Wh
 unit kWh
 unit MJ
 unit kg/s
+unit W/m2
+unit W/m^2
+unit Pa
+unit kPa

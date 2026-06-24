@@ -1,0 +1,19 @@
+# eng.review planned package surface
+#
+# Purpose:
+#   Review IR, root workflow review contracts, risk/fallback entries, opaque
+#   boundary summaries, and semantic diff vocabulary.
+#
+# Current implementation:
+#   review.json, report.html, report_spec.json, result.engres, run_log.json,
+#   process_results.json, test_results.json, and output_manifest.json are the
+#   current artifact family.
+#
+# Planned helper vocabulary:
+#   review contract
+#   risk entry
+#   fallback entry
+#   semantic diff
+#
+# Completion requires compiler, runtime, report, IDE, and snapshot-test
+# alignment for each exposed field.

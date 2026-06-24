@@ -7,6 +7,10 @@ Its first responsibility is to provide names, constants, helper functions, and
 artifact-facing vocabulary that make engineering computations easier to type,
 check, review, and report.
 
+Current `stdlib/eng/*.eng` files are declarative module boundary notes unless a
+status document says otherwise. Compiler-recognized built-ins remain in the
+compiler/runtime crates until importable stdlib execution is implemented.
+
 ## Positioning
 
 | Area | Status | Public meaning |
@@ -17,6 +21,18 @@ check, review, and report.
 | `eng.plot` | Planned | PlotSpec-oriented helper vocabulary. |
 | `eng.report` | Planned | Report/review helper vocabulary. |
 | `eng.path` / `eng.io` | Planned | Typed path and explicit IO helper vocabulary. |
+| `eng.process` | Planned | Explicit external process boundary vocabulary. |
+| `eng.artifact` | Planned | Generated artifact kinds, hashes, manifests, and validation records. |
+| `eng.net` | Planned | HTTP/download boundary with cache and hash policy. |
+| `eng.cache` | Planned | Reproducible cache keys and hit/miss artifacts. |
+| `eng.table` | Planned | Table filters, joins, row diagnostics, and schema helpers. |
+| `eng.timeseries` | Planned | Coverage, gap, and fill helpers above core TimeSeries semantics. |
+| `eng.sampling` | Planned | Deterministic sample tables and design sweep helpers. |
+| `eng.case` | Planned | Case manifests for sample-to-run workflows. |
+| `eng.db` | Planned | SQLite/database side-effect helpers with transaction artifacts. |
+| `eng.model` | Internal/planned | Model-card, prediction, and residual review vocabulary. |
+| `eng.uncertainty` | Internal | Constructor, propagation, and uncertainty review vocabulary. |
+| `eng.review` | Planned | Review IR, risk/fallback, and semantic diff vocabulary. |
 | `eng.building` | Planned | Building/Zone/Construction object vocabulary before any simulation adapter. |
 | `eng.system` | Internal/planned | Solver-facing adapters, not the public identity of stdlib. |
 | `eng.ml` | Internal | Data-driven modeling review vocabulary and artifacts. |

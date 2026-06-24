@@ -1,0 +1,19 @@
+# eng.net planned package surface
+#
+# Purpose:
+#   HTTP/download boundaries with explicit endpoint, cache, hash, fixture, and
+#   reproducibility policy.
+#
+# Current implementation:
+#   no native network module yet. Workflow examples use fixture files and
+#   explicit process boundaries.
+#
+# Planned helper vocabulary:
+#   http get
+#   download
+#   fixture fallback
+#   require pinned hash
+#
+# Review contract:
+#   method, URL, query, headers policy, cache key, expected hash, observed hash,
+#   status, profile policy, and source span.

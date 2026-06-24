@@ -1,0 +1,19 @@
+# eng.timeseries planned package surface
+#
+# Purpose:
+#   coverage, gap, fill, resampling, and confidence-band helpers above the core
+#   TimeSeries axis semantics.
+#
+# Current implementation:
+#   TimeSeries statistics, integration, axis metadata, and selected alignment
+#   metadata are supported for documented public workflows.
+#
+# Planned helper vocabulary:
+#   check coverage
+#   fill missing
+#   resample
+#   confidence_band
+#
+# Review contract:
+#   start/end, expected count, actual count, missing intervals, max gap,
+#   leap-year policy, fill policy, and warnings.
