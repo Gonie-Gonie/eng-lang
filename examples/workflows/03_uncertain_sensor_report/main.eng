@@ -1,0 +1,42 @@
+schema SensorData {
+    time: DateTime index
+    T_supply: AbsoluteTemperature [degC]
+    T_return: AbsoluteTemperature [degC]
+    m_dot: MassFlowRate [kg/s]
+
+    constraints {
+        time is monotonic
+        T_supply between 0 degC and 60 degC
+        T_return between 0 degC and 80 degC
+        m_dot >= 0 kg/s
+    }
+
+    missing {
+        T_supply: interpolate max_gap=10 min
+        T_return: interpolate max_gap=10 min
+        m_dot: error
+    }
+}
+
+args {
+    input: CsvFile = file("../../official/01_csv_plot/data/sensor.csv")
+}
+
+sensor = promote csv args.input as SensorData
+cp = 4180 J/kg/K
+Q_sensor = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+with {
+    sensor_std = 0.2 kW
+}
+E_sensor = integrate(Q_sensor, over=Time)
+
+report {
+    summarize Q_sensor by [mean, p95, duration_above(5 kW)]
+    show E_sensor
+    plot Q_sensor over Time
+    with {
+        unit y = kW
+        title = "Sensor heat-rate with uncertainty band"
+        confidence_band = sensor_std
+    }
+}

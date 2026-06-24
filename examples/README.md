@@ -80,6 +80,10 @@ workflows/01_weather_api_to_standard_file_hybrid
 workflows/02_external_simulation_surrogate_hybrid
   Design sample table, typed result table, external process boundaries,
   generated workflow summary, and model-card artifact path.
+
+workflows/03_uncertain_sensor_report
+  Typed sensor data, pointwise measured uncertainty metadata, duration summary,
+  confidence-band PlotSpec, and report/review artifact path.
 ```
 
 These examples should grow generic module contracts such as `eng.net`,

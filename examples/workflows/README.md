@@ -22,10 +22,12 @@ Current examples:
 
 02_external_simulation_surrogate_hybrid
   sample table -> external runs -> typed results -> model-card artifact.
+
+03_uncertain_sensor_report
+  typed sensor data -> uncertainty metadata -> confidence-band report artifact.
 ```
 
 Planned modules such as `eng.net`, `eng.cache`, `eng.case`, `eng.db`, and
 `eng.model` should grow from the repeated contracts in these examples. Domain
 adapters such as weather APIs, EPW writers, and EnergyPlus-like tools should
 remain layered above those generic modules.
-

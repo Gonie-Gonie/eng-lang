@@ -14,7 +14,7 @@ use crate::jit_bench::{
 use crate::print_diagnostics;
 
 pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
-    let example_groups: [(&str, &[&str]); 4] = [
+    let example_groups: [(&str, &[&str]); 5] = [
         (
             "official",
             &[
@@ -30,6 +30,14 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/15_process_result/main.eng",
                 "examples/official/16_test_assert_golden/main.eng",
                 "examples/official/19_class_object/main.eng",
+            ],
+        ),
+        (
+            "workflow",
+            &[
+                "examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng",
+                "examples/workflows/02_external_simulation_surrogate_hybrid/main.eng",
+                "examples/workflows/03_uncertain_sensor_report/main.eng",
             ],
         ),
         (
@@ -99,7 +107,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
 
-    if !official_examples_are_formatter_clean() {
+    if !review_examples_are_formatter_clean() {
         return ExitCode::from(2);
     }
 
@@ -6300,6 +6308,47 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
+        Path::new("examples/workflows/03_uncertain_sensor_report/main.eng"),
+        Path::new("build/test-uncertain-sensor-report"),
+        &RunOptions {
+            open_report: false,
+            save_artifacts: true,
+            args: Vec::new(),
+            ..RunOptions::default()
+        },
+    ) {
+        Ok(output) => {
+            if !output.review_json.contains("\"timeseries_uncertainty\"")
+                || !output
+                    .review_json
+                    .contains("\"method\": \"pointwise_measured_std\"")
+                || !output
+                    .review_json
+                    .contains("\"operation\": \"duration_above\"")
+                || !output.review_json.contains("\"operation\": \"integrate\"")
+                || !output.report_spec_json.contains("\"uncertainty\"")
+                || !output.plot_spec_json.contains("\"confidence_band\"")
+                || !output.plot_spec_json.contains("\"source\": \"sensor_std\"")
+                || !output.plot_svg.contains("data-confidence-band")
+                || !output
+                    .plot_spec_json
+                    .contains("Sensor heat-rate with uncertainty band")
+            {
+                eprintln!(
+                    "expected uncertain sensor workflow to produce TimeSeries uncertainty review metadata and confidence-band plot artifacts"
+                );
+                return ExitCode::from(2);
+            }
+            println!(
+                "ok: examples/workflows/03_uncertain_sensor_report/main.eng produced uncertainty workflow artifacts"
+            );
+        }
+        Err(error) => {
+            eprintln!("uncertain sensor workflow example failed: {error}");
+            return ExitCode::from(2);
+        }
+    }
+    match run_file(
         Path::new("examples/internal/05_data_driven_modeling/main.eng"),
         Path::new("build/test-data-driven-modeling"),
         &RunOptions {
@@ -6586,12 +6635,19 @@ report {
     ExitCode::SUCCESS
 }
 
-fn official_examples_are_formatter_clean() -> bool {
+fn review_examples_are_formatter_clean() -> bool {
     let mut examples = Vec::new();
     if let Err(error) = collect_eng_files(Path::new("examples/official"), &mut examples) {
         eprintln!("failed to enumerate official examples: {error}");
         return false;
     }
+    if let Err(error) = collect_eng_files(Path::new("examples/workflows"), &mut examples) {
+        eprintln!("failed to enumerate workflow examples: {error}");
+        return false;
+    }
+    examples.push(PathBuf::from(
+        "examples/internal/04_uncertainty_core/main.eng",
+    ));
     examples.sort();
 
     for example in examples {
@@ -6599,7 +6655,7 @@ fn official_examples_are_formatter_clean() -> bool {
             Ok(source) => source,
             Err(error) => {
                 eprintln!(
-                    "failed to read official example {}: {error}",
+                    "failed to read review example {}: {error}",
                     example.display()
                 );
                 return false;
@@ -6607,14 +6663,14 @@ fn official_examples_are_formatter_clean() -> bool {
         };
         if format_source(&source).changed {
             eprintln!(
-                "expected official example to be formatter-clean: {}",
+                "expected review example to be formatter-clean: {}",
                 example.display()
             );
             return false;
         }
     }
 
-    println!("ok: official examples are formatter-clean");
+    println!("ok: review examples are formatter-clean");
     true
 }
 
