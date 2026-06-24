@@ -7541,6 +7541,38 @@ system Envelope {
     }
 
     #[test]
+    fn records_uncertainty_arithmetic_metadata() {
+        let report = check_source(
+            "ok.eng",
+            "Q_meas = measured(10 kW, std=1 kW)\nQ_total = Q_meas + 2 kW\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(report.semantic_program.uncertainty_infos.len(), 2);
+        let derived = &report.semantic_program.uncertainty_infos[1];
+        assert_eq!(derived.binding, "Q_total");
+        assert_eq!(derived.kind, "Measured");
+        assert_eq!(derived.quantity_kind, "HeatRate");
+        assert_eq!(derived.display_unit, "kW");
+        assert_eq!(derived.source.as_deref(), Some("Q_meas"));
+        assert_eq!(derived.distribution.as_deref(), Some("arithmetic"));
+        assert_eq!(derived.method.as_deref(), Some("linear"));
+        assert_eq!(derived.propagation.len(), 1);
+        assert_eq!(derived.propagation[0].source, "Q_meas");
+        let derived_type = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "Q_total")
+            .expect("Q_total type");
+        assert_eq!(
+            derived_type.semantic_type.quantity_kind,
+            "Measured[HeatRate]"
+        );
+    }
+
+    #[test]
     fn rejects_unresolved_uncertainty_source() {
         let report = check_source(
             "bad.eng",

@@ -182,10 +182,11 @@ separate.
   scalar `typed_payload.numeric_values`, propagation metadata, histogram
   artifacts, and the current uncertainty guide.
 - Not included: stable Monte Carlo/Jacobian propagation contract, direct
-  uncertain validation semantics, TimeSeries uncertainty, or public IDE support
-  claim.
-- Next cleanup action: implement arithmetic propagation and TimeSeries
-  uncertainty before promoting the track beyond internal.
+  uncertain validation semantics, TimeSeries uncertainty, broad deterministic
+  scalar-binding value propagation, or public IDE support claim.
+- Next cleanup action: implement TimeSeries uncertainty, explicit propagation
+  policy options, and uncertain validation semantics before promoting the track
+  beyond internal.
 
 ### Data-Driven Modeling Track
 

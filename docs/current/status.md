@@ -124,7 +124,7 @@ public package claim prematurely.
 
 | Area | Public package | Main status | Current handling |
 |---|---|---|---|
-| Uncertainty / distribution numeric | `Internal` | `Internal` | scalar runtime numeric payloads now distinguish Certain/uncertain representations; keep internal until arithmetic propagation, TimeSeries uncertainty, IDE projection, and tests align |
+| Uncertainty / distribution numeric | `Internal` | `Internal` | scalar runtime numeric payloads now distinguish Certain/uncertain representations and narrow arithmetic propagation; keep internal until TimeSeries uncertainty, explicit validation semantics, IDE projection, and tests align |
 | Reviewability / Review IR | `Stable` artifact family, `Internal` ReviewDocument | `Supported` artifacts, `Internal` normalized IR slice | keep current `review.json`/`report.html` public; `review.json.review_document`, `eng review`, and IDE Review inspector cover the first risk/fallback/external-boundary slice while semantic diff and runtime-updated ReviewDocument remain planned |
 | Composite workflow foundations | `Supported` side-effect primitives | `Supported` path/io/process/test/profile, `Planned` net/cache/case/db/model | put hybrid examples under `examples/workflows` and keep domain adapters layered above generic module contracts |
 

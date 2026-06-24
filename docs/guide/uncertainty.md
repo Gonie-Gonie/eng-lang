@@ -46,6 +46,9 @@ The current implementation materializes deterministic sample sets:
 - `ensemble(source, samples=n)` deterministically resamples a prior uncertainty.
 - `propagate(source, method=linear, scale=..., offset=...)` resamples the source
   and applies the declared linear transform.
+- Arithmetic that combines uncertain scalar samples with numeric literals or
+  other uncertain scalar samples is materialized as a deterministic linear or
+  interval arithmetic propagation preview.
 
 `ensemble(...)` and `propagate(...)` require the first argument to be an
 uncertainty binding that was defined earlier in the same semantic pass. Unknown
@@ -125,9 +128,11 @@ representations through `typed_payload.numeric_values`. `report.html` includes
 an Uncertainty table with Transform and Propagation columns.
 
 The current propagation is deterministic and supports explicit linear
-scale/offset transforms with source validation. It is still not a full
-Jacobian or Monte Carlo propagation engine, but it is concrete enough for
-user-facing artifact review, histogram testing, and IDE inspection.
+scale/offset transforms with source validation plus a narrow scalar arithmetic
+preview. It is still not a full Jacobian or Monte Carlo propagation engine, and
+arithmetic involving deterministic named scalar bindings may stay metadata-only
+until scalar values are carried in the VM object store. The implemented subset
+is concrete enough for artifact review, histogram testing, and IDE inspection.
 
 ## Official Example
 

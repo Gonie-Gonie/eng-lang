@@ -58,7 +58,7 @@ pub fn uncertainty_info(
     if lowered.starts_with("propagate(") {
         return Some(propagation_info(binding, typed_bindings));
     }
-    None
+    arithmetic_info(binding, typed_bindings)
 }
 
 pub fn source_diagnostic(
@@ -618,6 +618,111 @@ fn propagation_info(binding: &FastBinding, typed_bindings: &[TypedBinding]) -> U
         propagation: propagation_terms(&binding.expression, typed_bindings),
         line: binding.line,
     }
+}
+
+fn arithmetic_info(
+    binding: &FastBinding,
+    typed_bindings: &[TypedBinding],
+) -> Option<UncertaintyInfo> {
+    if !arithmetic_expression_candidate(&binding.expression) {
+        return None;
+    }
+    let sources = uncertain_sources_in_expression(&binding.expression, typed_bindings);
+    if sources.is_empty() {
+        return None;
+    }
+    let kind = arithmetic_result_kind(&sources);
+    let (_, quantity_kind) = uncertainty_inner_quantity(&sources[0].semantic_type.quantity_kind)
+        .unwrap_or_else(|| {
+            (
+                "Measured".to_owned(),
+                sources[0].semantic_type.quantity_kind.clone(),
+            )
+        });
+    let method = if kind == "Interval" {
+        "interval"
+    } else {
+        "linear"
+    };
+    Some(UncertaintyInfo {
+        binding: binding.name.clone(),
+        kind,
+        quantity_kind,
+        display_unit: sources[0].semantic_type.display_unit.clone(),
+        expression: binding.expression.clone(),
+        source: Some(sources[0].name.clone()),
+        distribution: Some("arithmetic".to_owned()),
+        method: Some(method.to_owned()),
+        scale: None,
+        offset: None,
+        mean: None,
+        stddev: None,
+        error: None,
+        lower: None,
+        upper: None,
+        sample_count: sample_count(&binding.expression).unwrap_or(64),
+        propagation: sources
+            .iter()
+            .map(|source| UncertaintyPropagationTerm {
+                source: source.name.clone(),
+                role: "arithmetic_source".to_owned(),
+                quantity_kind: uncertainty_inner_quantity(&source.semantic_type.quantity_kind)
+                    .map(|(_, inner)| inner)
+                    .unwrap_or_else(|| source.semantic_type.quantity_kind.clone()),
+            })
+            .collect(),
+        line: binding.line,
+    })
+}
+
+fn arithmetic_expression_candidate(expression: &str) -> bool {
+    let trimmed = expression.trim();
+    if trimmed.is_empty() || uncertainty_call_name(trimmed).is_some() {
+        return false;
+    }
+    trimmed
+        .chars()
+        .any(|character| matches!(character, '+' | '-' | '*' | '/'))
+}
+
+fn uncertain_sources_in_expression<'a>(
+    expression: &str,
+    typed_bindings: &'a [TypedBinding],
+) -> Vec<&'a TypedBinding> {
+    let mut sources = Vec::new();
+    for binding in typed_bindings {
+        if uncertainty_inner_quantity(&binding.semantic_type.quantity_kind).is_some()
+            && expression_mentions_identifier(expression, &binding.name)
+            && !sources
+                .iter()
+                .any(|source: &&TypedBinding| source.name == binding.name)
+        {
+            sources.push(binding);
+        }
+    }
+    sources
+}
+
+fn arithmetic_result_kind(sources: &[&TypedBinding]) -> String {
+    if sources.iter().any(|source| {
+        uncertainty_inner_quantity(&source.semantic_type.quantity_kind)
+            .is_some_and(|(kind, _)| kind == "Ensemble")
+    }) {
+        return "Ensemble".to_owned();
+    }
+    if sources.iter().any(|source| {
+        uncertainty_inner_quantity(&source.semantic_type.quantity_kind)
+            .is_some_and(|(kind, _)| kind == "Distribution")
+    }) {
+        return "Distribution".to_owned();
+    }
+    if sources.iter().all(|source| {
+        uncertainty_inner_quantity(&source.semantic_type.quantity_kind)
+            .is_some_and(|(kind, _)| kind == "Interval")
+    }) {
+        return "Interval".to_owned();
+    }
+    "Measured".to_owned()
 }
 
 fn infer_quantity(name: &str, expression: &str, unit: &str) -> String {

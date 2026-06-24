@@ -15,6 +15,7 @@ Language features shown:
 - measured(..., std=...), measured(..., error=...), interval(...),
   normal(...), uniform(...), ensemble(...)
 - propagate(..., method=linear, scale=..., offset=...)
+- deterministic arithmetic propagation from an uncertain source plus a scalar
 - report show entries for uncertainty values
 - plot distribution(...) with a with { title = ... } option block
 ```
@@ -39,7 +40,8 @@ Limitations:
 
 ```text
 - deterministic review samples, not a production stochastic engine
-- Internal linear propagation transform metadata
+- Internal linear propagation transform metadata and narrow arithmetic
+  propagation
 - no general Monte Carlo/Jacobian uncertainty solver claim
 ```
 

@@ -116,6 +116,12 @@ monte_carlo
 ensemble
 ```
 
+The implemented preview already materializes deterministic scalar arithmetic
+for uncertain sources, for example `Q_total = Q_meas + 2 kW`, by evaluating
+same-index samples and recording a linear or interval arithmetic propagation
+status. This is deliberately narrower than a general symbolic Jacobian,
+Monte Carlo engine, or full deterministic-binding value evaluator.
+
 When a policy assumes independence, linearizes a nonlinear expression, or falls
 back to a lower-fidelity rule, that assumption belongs in `review.json`,
 `report_spec.json`, `report.html`, and the IDE warning panel.

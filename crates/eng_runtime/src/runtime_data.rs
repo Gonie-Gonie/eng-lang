@@ -3326,6 +3326,8 @@ fn materialize_uncertainty(
         .trim_start()
         .to_ascii_lowercase()
         .starts_with("propagate(");
+    let is_arithmetic_derivation =
+        distribution == "arithmetic" && !info.propagation.is_empty() && !is_propagation;
     let scale = info
         .scale
         .as_deref()
@@ -3336,9 +3338,21 @@ fn materialize_uncertainty(
         .as_deref()
         .and_then(first_numeric_value)
         .unwrap_or(0.0);
-    let source_missing = (info.kind == "Ensemble" || is_propagation) && source.is_none();
+    let source_missing = if is_arithmetic_derivation {
+        info.propagation.iter().any(|term| {
+            !prior
+                .iter()
+                .any(|uncertainty| uncertainty.binding == term.source)
+        })
+    } else {
+        (info.kind == "Ensemble" || is_propagation) && source.is_none()
+    };
 
     let mut samples = match info.kind.as_str() {
+        _ if is_arithmetic_derivation && source_missing => Vec::new(),
+        _ if is_arithmetic_derivation => {
+            arithmetic_uncertainty_samples(info, prior, requested_count).unwrap_or_default()
+        }
         "Measured" => match (declared_mean, declared_stddev) {
             (Some(mean), Some(stddev)) => normal_samples(mean, stddev, requested_count.max(3)),
             (Some(mean), None) => vec![mean],
@@ -3368,6 +3382,8 @@ fn materialize_uncertainty(
         ),
         _ => Vec::new(),
     };
+    let arithmetic_evaluation_unavailable =
+        is_arithmetic_derivation && !source_missing && samples.is_empty();
     if samples.is_empty() {
         samples.push(declared_mean.unwrap_or(0.0));
     }
@@ -3409,6 +3425,14 @@ fn materialize_uncertainty(
         samples,
         status: if source_missing {
             "source_unresolved".to_owned()
+        } else if arithmetic_evaluation_unavailable {
+            "arithmetic_evaluation_unavailable".to_owned()
+        } else if is_arithmetic_derivation {
+            if info.method.as_deref() == Some("interval") {
+                "propagated_interval_arithmetic".to_owned()
+            } else {
+                "propagated_linear_arithmetic".to_owned()
+            }
         } else if is_propagation {
             "propagated_linear".to_owned()
         } else if info.kind == "Measured" {
@@ -3418,6 +3442,89 @@ fn materialize_uncertainty(
         },
         line: info.line,
     }
+}
+
+fn arithmetic_uncertainty_samples(
+    info: &eng_compiler::UncertaintyInfo,
+    prior: &[RuntimeUncertainty],
+    requested_count: usize,
+) -> Option<Vec<f64>> {
+    let sources = info
+        .propagation
+        .iter()
+        .filter_map(|term| {
+            prior
+                .iter()
+                .find(|uncertainty| uncertainty.binding == term.source)
+        })
+        .collect::<Vec<_>>();
+    if sources.is_empty() {
+        return None;
+    }
+    let count = sources
+        .iter()
+        .map(|source| source.samples.len())
+        .max()
+        .unwrap_or(0)
+        .max(requested_count)
+        .clamp(1, 256);
+    let resampled = sources
+        .iter()
+        .map(|source| {
+            (
+                source.binding.as_str(),
+                resample_deterministic(&source.samples, count),
+            )
+        })
+        .collect::<Vec<_>>();
+    let first_symbols = resampled
+        .iter()
+        .filter_map(|(name, samples)| {
+            samples
+                .first()
+                .copied()
+                .map(|value| ((*name).to_owned(), value))
+        })
+        .collect::<HashMap<_, _>>();
+    if first_symbols.len() != sources.len() {
+        return None;
+    }
+    let symbol_units = sources
+        .iter()
+        .map(|source| {
+            (
+                source.binding.clone(),
+                ArithmeticUnitMetadata {
+                    display_unit: source.display_unit.clone(),
+                    canonical_unit: source.display_unit.clone(),
+                    quantity_kind: source.quantity_kind.clone(),
+                },
+            )
+        })
+        .collect::<HashMap<_, _>>();
+    let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
+    let parsed = parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
+        &info.expression,
+        &first_symbols,
+        &symbol_units,
+        &mut ignore_units,
+        ArithmeticExpressionProfile::SOURCE_RESIDUAL,
+    )
+    .ok()?;
+    let mut samples = Vec::with_capacity(count);
+    for index in 0..count {
+        let symbols = resampled
+            .iter()
+            .filter_map(|(name, values)| {
+                values
+                    .get(index)
+                    .copied()
+                    .map(|value| ((*name).to_owned(), value))
+            })
+            .collect::<HashMap<_, _>>();
+        samples.push(parsed.evaluate(&symbols).ok()?);
+    }
+    Some(samples)
 }
 
 fn materialize_ml_artifacts(
@@ -14750,6 +14857,35 @@ report {
         assert!(plot_json.contains("\"bins\""));
         assert!(plot_json.contains("\"lower\""));
         assert!(plot_svg.contains("data-bin-lower"));
+    }
+
+    #[test]
+    fn materializes_uncertainty_arithmetic_samples() {
+        let source = r#"
+Q_meas = measured(10 kW, std=1 kW)
+Q_total = Q_meas + 2 kW
+"#;
+        let report = eng_compiler::check_source("ok.eng", source, &CheckOptions::default());
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert!(!report.has_errors());
+        assert_eq!(runtime.uncertainties.len(), 2);
+        let derived = runtime
+            .uncertainties
+            .iter()
+            .find(|uncertainty| uncertainty.binding == "Q_total")
+            .expect("Q_total uncertainty");
+        assert_eq!(derived.status, "propagated_linear_arithmetic");
+        assert_eq!(derived.method.as_deref(), Some("linear"));
+        assert!((derived.mean.unwrap() - 12.0).abs() < 0.05);
+        assert!((0.5..1.5).contains(&derived.stddev.unwrap()));
+        let numeric = runtime
+            .numeric_values
+            .iter()
+            .find(|numeric| numeric.binding == "Q_total")
+            .expect("Q_total numeric value");
+        assert_eq!(numeric.representation, "Measured");
+        assert_eq!(numeric.status, "uncertainty_attached");
     }
 
     #[test]

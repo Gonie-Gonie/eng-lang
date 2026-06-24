@@ -57,9 +57,11 @@ and next cleanup action.
 - Purpose: make uncertainty sources and propagation reviewable.
 - Public scope: none beyond internal examples unless explicitly documented.
 - Main internal: deterministic samples, diagnostics, scalar runtime numeric
-  payloads, propagation metadata, and histogram artifacts.
-- Next cleanup: keep as internal until arithmetic propagation, TimeSeries
-  uncertainty, report/review artifacts, IDE projection, and tests align.
+  payloads, narrow arithmetic propagation, propagation metadata, and histogram
+  artifacts.
+- Next cleanup: keep as internal until TimeSeries uncertainty, explicit
+  uncertain validation semantics, report/review artifacts, IDE projection, and
+  tests align.
 
 ## T7 Data-Driven Modeling
 
