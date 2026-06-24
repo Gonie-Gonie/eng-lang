@@ -2044,6 +2044,58 @@ fn json_field_usize(value: &Value, key: &str) -> Option<usize> {
         .and_then(|value| usize::try_from(value).ok())
 }
 
+fn json_array_non_empty(value: &Value, key: &str) -> bool {
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty())
+}
+
+fn review_hashes_include(value: &Value, keys: &[&str]) -> bool {
+    value
+        .get("section_hashes")
+        .and_then(Value::as_object)
+        .is_some_and(|hashes| keys.iter().all(|key| hashes.contains_key(*key)))
+}
+
+fn review_document_has_core_cockpit_sections(value: &Value) -> bool {
+    value
+        .get("semantic_hash")
+        .and_then(Value::as_str)
+        .is_some_and(|hash| !hash.is_empty())
+        && [
+            "symbols",
+            "units_quantities",
+            "schemas",
+            "time_axes",
+            "calculations",
+            "report_outputs",
+            "risks",
+        ]
+        .iter()
+        .all(|key| json_array_non_empty(value, key))
+        && review_hashes_include(
+            value,
+            &[
+                "units_quantities",
+                "schemas",
+                "time_axes",
+                "calculations",
+                "report_outputs",
+                "risks",
+            ],
+        )
+}
+
+fn review_document_has_external_boundary(value: &Value) -> bool {
+    json_array_non_empty(value, "external_boundaries")
+        && review_hashes_include(value, &["external_boundaries"])
+}
+
+fn review_document_has_side_effect(value: &Value) -> bool {
+    json_array_non_empty(value, "side_effects") && review_hashes_include(value, &["side_effects"])
+}
+
 fn json_field_f64(value: &Value, key: &str) -> Option<f64> {
     value.get(key).and_then(Value::as_f64)
 }
@@ -2135,6 +2187,12 @@ fn public_package_smoke(root: &Path) -> Result<(), String> {
             source_path.display()
         ));
     }
+    if !review_document_has_core_cockpit_sections(&inspectors.review_document) {
+        return Err(format!(
+            "{} did not produce normalized IDE review cockpit metadata",
+            source_path.display()
+        ));
+    }
 
     let class_example = root.join("examples/official/19_class_object/main.eng");
     let class_output = run_file(
@@ -2191,7 +2249,8 @@ fn public_package_smoke(root: &Path) -> Result<(), String> {
         .review_document
         .get("external_boundaries")
         .and_then(Value::as_array)
-        .is_some_and(|items| !items.is_empty());
+        .is_some_and(|items| !items.is_empty())
+        && review_document_has_external_boundary(&effects_inspectors.review_document);
     if !has_manifest || !has_run_log || !has_process || !has_review_document {
         return Err(format!(
             "{} did not produce IDE side-effect inspector metadata (manifest={}, run_log={}, process={}, review={})",
@@ -2200,6 +2259,22 @@ fn public_package_smoke(root: &Path) -> Result<(), String> {
             has_run_log,
             has_process,
             has_review_document
+        ));
+    }
+
+    let file_effects_example = root.join("examples/official/13_file_operations/main.eng");
+    let file_effects_output = run_file(
+        &file_effects_example,
+        &root.join("build").join("ide-smoke-public-file-effects"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let file_effects_cached = CachedRunOutput::from_output(file_effects_output);
+    let file_effects_inspectors = runtime_inspectors(root, &file_effects_cached);
+    if !review_document_has_side_effect(&file_effects_inspectors.review_document) {
+        return Err(format!(
+            "{} did not produce IDE review side-effect metadata",
+            file_effects_example.display()
         ));
     }
 
@@ -2225,7 +2300,7 @@ fn public_package_smoke(root: &Path) -> Result<(), String> {
     }
 
     println!(
-        "EngLang IDE public package smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), schema/TimeSeries/report inspectors, kernel plan inspector, class object inspector, side-effect/review inspectors, test-result inspector",
+        "EngLang IDE public package smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), schema/TimeSeries/report inspectors, kernel plan inspector, class object inspector, normalized review cockpit, side-effect/review inspectors, test-result inspector",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len()
@@ -2267,6 +2342,21 @@ fn smoke() -> Result<(), String> {
     let ui_index = root.join("crates/eng_ide/ui/index.html");
     if root.join("crates/eng_ide").exists() && !ui_index.exists() {
         return Err(format!("missing Tauri UI asset {}", ui_index.display()));
+    }
+    let review_example = root.join("examples/official/01_csv_plot/main.eng");
+    let review_output = run_file(
+        &review_example,
+        &root.join("build").join("ide-smoke-review-core"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let review_cached = CachedRunOutput::from_output(review_output);
+    let review_inspectors = runtime_inspectors(&root, &review_cached);
+    if !review_document_has_core_cockpit_sections(&review_inspectors.review_document) {
+        return Err(format!(
+            "{} did not produce normalized IDE review cockpit metadata",
+            review_example.display()
+        ));
     }
     let domain_output = run_file(
         &domain_example,
@@ -3039,13 +3129,31 @@ fn smoke() -> Result<(), String> {
         .get("processes")
         .and_then(Value::as_array)
         .is_some_and(|items| !items.is_empty());
-    if !has_manifest || !has_run_log || !has_process {
+    let has_review_boundary =
+        review_document_has_external_boundary(&effects_inspectors.review_document);
+    if !has_manifest || !has_run_log || !has_process || !has_review_boundary {
         return Err(format!(
-            "{} did not produce IDE side-effect inspector metadata (manifest={}, run_log={}, process={})",
+            "{} did not produce IDE side-effect inspector metadata (manifest={}, run_log={}, process={}, review_boundary={})",
             effects_example.display(),
             has_manifest,
             has_run_log,
-            has_process
+            has_process,
+            has_review_boundary
+        ));
+    }
+    let file_effects_example = root.join("examples/official/13_file_operations/main.eng");
+    let file_effects_output = run_file(
+        &file_effects_example,
+        &root.join("build").join("ide-smoke-file-effects"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let file_effects_cached = CachedRunOutput::from_output(file_effects_output);
+    let file_effects_inspectors = runtime_inspectors(&root, &file_effects_cached);
+    if !review_document_has_side_effect(&file_effects_inspectors.review_document) {
+        return Err(format!(
+            "{} did not produce IDE review side-effect metadata",
+            file_effects_example.display()
         ));
     }
     let test_example = root.join("examples/official/16_test_assert_golden/main.eng");
@@ -3094,7 +3202,7 @@ fn smoke() -> Result<(), String> {
         ));
     }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), residual dependency inspector, behavior graph inspector, measured workflow inspectors, solved thermal assembly inspector, multi-domain boundary solve inspector, advanced Thermal/Fluid solver inspector, state-space trajectory/operator/source-equation inspector, kernel plan inspector, class object inspector, side-effect inspectors, schema failure inspector",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), residual dependency inspector, behavior graph inspector, measured workflow inspectors, solved thermal assembly inspector, multi-domain boundary solve inspector, advanced Thermal/Fluid solver inspector, state-space trajectory/operator/source-equation inspector, kernel plan inspector, class object inspector, normalized review cockpit, side-effect inspectors, schema failure inspector",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),
@@ -3417,6 +3525,47 @@ mod tests {
             .get("propagation")
             .and_then(Value::as_array)
             .is_some_and(|items| items.len() == 1));
+    }
+
+    #[test]
+    fn ide_surfaces_normalized_review_cockpit_sections() {
+        let cached = cached_output_with_report_and_review(
+            "{}",
+            r#"{
+              "review_document": {
+                "semantic_hash": "abc123",
+                "section_hashes": {
+                  "units_quantities": "u",
+                  "schemas": "s",
+                  "time_axes": "t",
+                  "calculations": "c",
+                  "report_outputs": "o",
+                  "external_boundaries": "b",
+                  "side_effects": "e",
+                  "risks": "r"
+                },
+                "symbols": [{ "name": "Q", "quantity_kind": "HeatRate", "display_unit": "kW", "line": 1 }],
+                "units_quantities": [{ "name": "Q", "canonical_unit": "W", "display_unit": "kW", "line": 1 }],
+                "schemas": [{ "name": "SensorData", "line": 2 }],
+                "time_axes": [{ "axis": "Time", "binding": "sensor", "line": 3 }],
+                "calculations": [{ "name": "Q", "expression": "m_dot * cp * dT", "line": 4 }],
+                "report_outputs": [{ "kind": "summary", "source": "Q", "line": 5 }],
+                "external_boundaries": [{ "kind": "process", "name": "tool", "target": "python", "line": 6 }],
+                "side_effects": [{ "kind": "write_output", "target": "\"out.csv\"", "line": 7 }],
+                "risks": [{ "category": "side_effect", "level": "high", "line": 8 }]
+              }
+            }"#,
+        );
+
+        let inspectors = runtime_inspectors(Path::new("."), &cached);
+
+        assert!(review_document_has_core_cockpit_sections(
+            &inspectors.review_document
+        ));
+        assert!(review_document_has_external_boundary(
+            &inspectors.review_document
+        ));
+        assert!(review_document_has_side_effect(&inspectors.review_document));
     }
 
     fn cached_output_with_report_and_review(

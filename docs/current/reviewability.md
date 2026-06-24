@@ -216,10 +216,11 @@ risk and fallback panel
 semantic diff panel
 ```
 
-The current IDE includes a Review inspector consuming `review_document` for
-root counts, external boundaries, fallbacks, and risks. The next cleanup is to
-make more panels consume normalized Review IR instead of parallel metadata
-shapes.
+The current IDE Review inspector consumes `review_document` directly for root
+counts, semantic hashes, variables/symbols, unit derivations, schemas, time
+axes, calculation traces, report outputs, validations, side effects, external
+boundaries, fallbacks, and risks. The next cleanup is to add a native semantic
+diff panel once richer diff payloads exist.
 
 ## Completion Checklist
 

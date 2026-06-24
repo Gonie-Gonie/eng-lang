@@ -68,7 +68,8 @@ separate.
   time axes, symbols, derived values, calculations, report outputs,
   validations, side effects, external boundaries, fallbacks, and risk entries.
 - Evidence: official examples, artifact schemas, `artifacts-check`, report/
-  review guide, `eng review`, and IDE smoke path.
+  review guide, `eng review`, and IDE smoke path covering normalized Review
+  cockpit sections, external boundaries, and side effects.
 - Not included: full semantic diff payloads, runtime-updated ReviewDocument
   values, or a complete risk/fallback taxonomy across all tracks.
 - Next cleanup action: route report HTML through the normalized

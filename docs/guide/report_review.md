@@ -519,7 +519,9 @@ semantic diff summary and writes `semantic_diff.json` when combined with
 `--output`.
 
 The native IDE Review panel consumes the same `review_document` data for root
-counts, external boundaries, fallbacks, and risk entries.
+counts, semantic hashes, variable/quantity rows, unit derivations, schemas,
+time axes, calculation traces, report outputs, validations, side effects,
+external boundaries, fallbacks, and risk entries.
 
 ## Uncertainty Metadata
 
