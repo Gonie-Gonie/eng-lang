@@ -10,6 +10,7 @@
     "source_path",
     "source_hash",
     "syntax_summary",
+    "review_document",
     "variable_table",
     "warning_list",
     "plot_manifest",
@@ -55,6 +56,7 @@
         "tests"
       ]
     },
+    "review_document": { "$ref": "#/$defs/reviewDocument" },
     "variable_table": { "type": "array" },
     "warning_list": { "type": "array" },
     "plot_manifest": { "type": "object" },
@@ -135,6 +137,193 @@
     }
   },
   "$defs": {
+    "reviewDocument": {
+      "type": "object",
+      "required": [
+        "format",
+        "status",
+        "workflow_signature",
+        "root_contract",
+        "inputs",
+        "symbols",
+        "calculations",
+        "validations",
+        "side_effects",
+        "external_boundaries",
+        "fallbacks",
+        "risks"
+      ],
+      "properties": {
+        "format": { "const": "eng-review-document-preview-1" },
+        "status": {
+          "enum": ["metadata_ready", "warnings_present", "diagnostics_present"]
+        },
+        "workflow_signature": { "type": "string" },
+        "root_contract": { "$ref": "#/$defs/reviewRootContract" },
+        "inputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewInput" }
+        },
+        "symbols": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewSymbol" }
+        },
+        "calculations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewCalculation" }
+        },
+        "validations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewValidation" }
+        },
+        "side_effects": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewSideEffect" }
+        },
+        "external_boundaries": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewExternalBoundary" }
+        },
+        "fallbacks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewFallback" }
+        },
+        "risks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewRisk" }
+        }
+      }
+    },
+    "reviewRootContract": {
+      "type": "object",
+      "required": [
+        "input_count",
+        "symbol_count",
+        "schema_count",
+        "calculation_count",
+        "validation_count",
+        "side_effect_count",
+        "external_boundary_count",
+        "fallback_count",
+        "risk_count"
+      ],
+      "properties": {
+        "input_count": { "type": "integer", "minimum": 0 },
+        "symbol_count": { "type": "integer", "minimum": 0 },
+        "schema_count": { "type": "integer", "minimum": 0 },
+        "calculation_count": { "type": "integer", "minimum": 0 },
+        "validation_count": { "type": "integer", "minimum": 0 },
+        "side_effect_count": { "type": "integer", "minimum": 0 },
+        "external_boundary_count": { "type": "integer", "minimum": 0 },
+        "fallback_count": { "type": "integer", "minimum": 0 },
+        "risk_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "reviewInput": {
+      "type": "object",
+      "required": ["kind", "name", "line"],
+      "properties": {
+        "kind": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "default": { "type": ["string", "null"] },
+        "required": { "type": "boolean" },
+        "column_count": { "type": "integer", "minimum": 0 },
+        "constraint_count": { "type": "integer", "minimum": 0 },
+        "missing_policy_count": { "type": "integer", "minimum": 0 },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "reviewSymbol": {
+      "type": "object",
+      "required": ["name", "quantity_kind", "display_unit", "source", "line"],
+      "properties": {
+        "name": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "source": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "reviewCalculation": {
+      "type": "object",
+      "required": ["kind", "name", "expression", "quantity_kind", "line"],
+      "properties": {
+        "kind": { "type": "string" },
+        "name": { "type": "string" },
+        "expression": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "reviewValidation": {
+      "type": "object",
+      "required": ["kind", "expression", "status", "line"],
+      "properties": {
+        "kind": { "type": "string" },
+        "expression": { "type": "string" },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "reviewSideEffect": {
+      "type": "object",
+      "required": ["kind", "target", "status", "line"],
+      "properties": {
+        "kind": { "type": "string" },
+        "target": { "type": "string" },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "reviewExternalBoundary": {
+      "type": "object",
+      "required": ["kind", "name", "target", "expected_outputs", "status", "line"],
+      "properties": {
+        "kind": { "type": "string" },
+        "name": { "type": "string" },
+        "target": { "type": "string" },
+        "expected_outputs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "reviewFallback": {
+      "type": "object",
+      "required": ["kind", "category", "status", "reason", "line"],
+      "properties": {
+        "kind": { "type": "string" },
+        "category": { "type": "string" },
+        "status": { "type": "string" },
+        "reason": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "reviewRisk": {
+      "type": "object",
+      "required": ["category", "severity", "summary", "line"],
+      "properties": {
+        "category": {
+          "enum": [
+            "data_quality",
+            "unit_or_quantity",
+            "external_boundary",
+            "reproducibility",
+            "uncertainty",
+            "solver_or_numeric",
+            "side_effect",
+            "claim_boundary"
+          ]
+        },
+        "severity": { "enum": ["info", "warning", "error"] },
+        "summary": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
     "argValue": {
       "type": "object",
       "required": ["name", "type", "value", "source", "required", "line"],

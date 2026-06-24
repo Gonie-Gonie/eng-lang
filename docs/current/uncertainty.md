@@ -42,10 +42,12 @@ crates/eng_compiler/src/uncertainty.rs
 ```
 
 The current seed supports deterministic uncertainty constructors, selected
-diagnostics, runtime summary metadata, histogram artifacts, and report/review
-projection for the internal fixture. It is not yet a stable propagation
-contract for arbitrary arithmetic, TimeSeries uncertainty, or seeded Monte
-Carlo workflows.
+diagnostics, scalar runtime numeric payloads, histogram artifacts, and
+report/review projection for the internal fixture. `result.engres` now records
+`typed_payload.numeric_values` so certain scalars stay on the fast path while
+measured, interval, distribution, and ensemble scalars carry an uncertainty
+link. It is not yet a stable propagation contract for arbitrary arithmetic,
+TimeSeries uncertainty, or seeded Monte Carlo workflows.
 
 ## Representation Target
 
@@ -65,6 +67,17 @@ Quantity kind, display unit, canonical unit, axis metadata, schema metadata,
 and uncertainty representation are separate concerns. A `HeatRate [kW]` value
 may be certain, measured, interval-valued, distribution-valued, or ensemble
 valued.
+
+The implemented scalar runtime slice records:
+
+```text
+typed_payload.numeric_values[].representation
+typed_payload.numeric_values[].uncertainty
+object_store.objects[].numeric
+```
+
+Deterministic scalars use `representation = "Certain"` and do not allocate a
+sample payload. TimeSeries and table-level uncertainty remain future work.
 
 ## Syntax Policy
 

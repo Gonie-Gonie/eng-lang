@@ -56,19 +56,22 @@ separate.
 
 ### Reviewability / Review IR
 
-- Public package: `Stable` for the current artifact family; explicit Review IR
-  remains a scoped implementation target.
+- Public package: `Stable` for the current artifact family; `Internal` for the
+  normalized ReviewDocument projection.
 - Main status: `Supported` for existing review/report/result/run-log/process/
-  test/output-manifest artifacts; `Planned` for semantic diff and `eng review`.
+  test/output-manifest artifacts; `Internal` for `eng review` summary and IDE
+  Review inspector; `Planned` for semantic diff.
 - User-facing scope: review JSON, report HTML, report spec, result artifact,
   output manifest, run log, process results, test results, and native tester IDE
-  inspection for the current package workflows.
+  inspection for the current package workflows. `review.json.review_document`
+  now normalizes inputs, symbols, calculations, validations, side effects,
+  external boundaries, fallbacks, and risk entries.
 - Evidence: official examples, artifact schemas, `artifacts-check`, report/
-  review guide, and IDE smoke path.
-- Not included: normalized Review IR node model, semantic diff, risk/fallback
-  taxonomy across all tracks, or stable `eng review` CLI.
-- Next cleanup action: add explicit Review IR and route report/IDE projections
-  through it before expanding semantic diff.
+  review guide, `eng review`, and IDE smoke path.
+- Not included: semantic diff, runtime-updated ReviewDocument values, or a
+  complete risk/fallback taxonomy across all tracks.
+- Next cleanup action: route report HTML through the normalized
+  ReviewDocument before expanding semantic diff.
 
 ### Measured-Vs-Simulated Validation
 
@@ -176,12 +179,13 @@ separate.
 - User-facing scope: none until a supported workflow has language, runtime,
   report/review, IDE, and tests aligned.
 - Evidence: internal uncertainty example, diagnostics, deterministic samples,
-  propagation metadata, histogram artifacts, and the current uncertainty guide.
+  scalar `typed_payload.numeric_values`, propagation metadata, histogram
+  artifacts, and the current uncertainty guide.
 - Not included: stable Monte Carlo/Jacobian propagation contract, direct
   uncertain validation semantics, TimeSeries uncertainty, or public IDE support
   claim.
-- Next cleanup action: implement the runtime value representation and review
-  artifact path before promoting arithmetic propagation.
+- Next cleanup action: implement arithmetic propagation and TimeSeries
+  uncertainty before promoting the track beyond internal.
 
 ### Data-Driven Modeling Track
 

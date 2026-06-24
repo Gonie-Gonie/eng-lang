@@ -51,6 +51,7 @@ function emptyInspectors() {
     classObjects: [],
     assemblies: [],
     componentGraph: null,
+    reviewDocument: null,
     artifactOutlines: [],
     outputManifest: null,
     runLog: null,
@@ -660,6 +661,7 @@ function renderSidePanel() {
         ${sideTabButton("kernels", "Kernel")}
         ${sideTabButton("objects", "Obj")}
         ${sideTabButton("assembly", "Asm")}
+        ${sideTabButton("review", "Review")}
         ${sideTabButton("artifacts", "Artifacts")}
         ${sideTabButton("effects", "Effects")}
         ${sideTabButton("run", "Run")}
@@ -681,6 +683,7 @@ function renderSideBody() {
   if (state.sideTab === "kernels") return renderKernelPanel();
   if (state.sideTab === "objects") return renderObjectsPanel();
   if (state.sideTab === "assembly") return renderAssemblyPanel();
+  if (state.sideTab === "review") return renderReviewPanel();
   if (state.sideTab === "artifacts") return renderArtifactsPanel();
   if (state.sideTab === "effects") return renderEffectsPanel();
   if (state.sideTab === "run") return renderRunPanel();
@@ -869,6 +872,93 @@ function renderObjectsPanel() {
       <span class="badge">Objects ${inspectorRows("classObjects").length}</span>
     </div>
     <div class="scroll">${renderClassObjects()}</div>
+  `;
+}
+
+function renderReviewPanel() {
+  const doc = inspectorObject("reviewDocument");
+  const contract = doc.root_contract || doc.rootContract || {};
+  const boundaries = Array.isArray(doc.external_boundaries)
+    ? doc.external_boundaries
+    : (Array.isArray(doc.externalBoundaries) ? doc.externalBoundaries : []);
+  const fallbacks = Array.isArray(doc.fallbacks) ? doc.fallbacks : [];
+  const risks = Array.isArray(doc.risks) ? doc.risks : [];
+  return `
+    <div class="panel-title compact">Review</div>
+    <div class="badges">
+      <span class="badge">Status ${escapeHtml(doc.status || "-")}</span>
+      <span class="badge">Inputs ${escapeHtml(contract.input_count ?? contract.inputCount ?? 0)}</span>
+      <span class="badge">Calc ${escapeHtml(contract.calculation_count ?? contract.calculationCount ?? 0)}</span>
+      <span class="badge">Risk ${risks.length}</span>
+    </div>
+    <div class="scroll">
+      <table class="var-table">
+        <thead><tr><th>Area</th><th>Count</th></tr></thead>
+        <tbody>
+          <tr><td>Symbols</td><td>${escapeHtml(contract.symbol_count ?? contract.symbolCount ?? 0)}</td></tr>
+          <tr><td>Validations</td><td>${escapeHtml(contract.validation_count ?? contract.validationCount ?? 0)}</td></tr>
+          <tr><td>Side Effects</td><td>${escapeHtml(contract.side_effect_count ?? contract.sideEffectCount ?? 0)}</td></tr>
+          <tr><td>External Boundaries</td><td>${boundaries.length}</td></tr>
+          <tr><td>Fallbacks</td><td>${fallbacks.length}</td></tr>
+        </tbody>
+      </table>
+      <div class="panel-title compact">External Boundaries</div>
+      ${renderReviewBoundaries(boundaries)}
+      <div class="panel-title compact">Fallbacks</div>
+      ${renderReviewFallbacks(fallbacks)}
+      <div class="panel-title compact">Risks</div>
+      ${renderReviewRisks(risks)}
+    </div>
+  `;
+}
+
+function renderReviewBoundaries(boundaries) {
+  const rows = boundaries.map((boundary) => `
+    <tr>
+      <td><strong>${escapeHtml(boundary.name || boundary.kind || "-")}</strong><div class="muted">L${escapeHtml(boundary.line ?? "-")}</div></td>
+      <td>${escapeHtml(boundary.kind || "-")}</td>
+      <td><code>${escapeHtml(compactText(boundary.target || "-", 70))}</code></td>
+      <td>${escapeHtml(boundary.status || "-")}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Name</th><th>Kind</th><th>Target</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4" class="muted">No external boundaries.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderReviewFallbacks(fallbacks) {
+  const rows = fallbacks.map((fallback) => `
+    <tr>
+      <td><strong>${escapeHtml(fallback.kind || "-")}</strong><div class="muted">L${escapeHtml(fallback.line ?? "-")}</div></td>
+      <td>${escapeHtml(fallback.category || "-")}</td>
+      <td>${escapeHtml(fallback.status || "-")}</td>
+      <td>${escapeHtml(compactText(fallback.reason || "-", 90))}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Fallback</th><th>Category</th><th>Status</th><th>Reason</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4" class="muted">No fallbacks.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderReviewRisks(risks) {
+  const rows = risks.map((risk) => `
+    <tr>
+      <td><strong>${escapeHtml(risk.category || "-")}</strong><div class="muted">L${escapeHtml(risk.line ?? "-")}</div></td>
+      <td>${escapeHtml(risk.severity || "-")}</td>
+      <td>${escapeHtml(compactText(risk.summary || "-", 110))}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Category</th><th>Severity</th><th>Summary</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="3" class="muted">No review risks.</td></tr>`}</tbody>
+    </table>
   `;
 }
 

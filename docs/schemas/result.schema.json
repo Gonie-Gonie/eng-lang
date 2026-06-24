@@ -47,8 +47,12 @@
     },
     "typed_payload": {
       "type": "object",
-      "required": ["kind", "status", "result_format", "vm_steps", "statistics", "integrations", "metrics", "validations", "time_axes", "time_alignments", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
+      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "metrics", "validations", "time_axes", "time_alignments", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
       "properties": {
+        "numeric_values": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/resultNumericValue" }
+        },
         "metrics": {
           "type": "array",
           "items": { "$ref": "#/$defs/resultMetric" }
@@ -149,6 +153,46 @@
         "code": { "type": "string" },
         "message": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "resultNumericValue": {
+      "type": "object",
+      "required": ["binding", "value_kind", "quantity_kind", "display_unit", "representation", "value", "uncertainty", "status", "line"],
+      "properties": {
+        "binding": { "type": "string" },
+        "value_kind": { "enum": ["scalar"] },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "representation": { "enum": ["Certain", "Measured", "Interval", "Distribution", "Ensemble"] },
+        "value": { "type": ["number", "null"] },
+        "uncertainty": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/resultNumericUncertainty" }
+          ]
+        },
+        "status": { "enum": ["certain_fast_path", "uncertainty_attached"] },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "resultNumericUncertainty": {
+      "type": "object",
+      "required": ["binding", "kind", "sample_count", "status"],
+      "properties": {
+        "binding": { "type": "string" },
+        "kind": { "enum": ["Measured", "Interval", "Distribution", "Ensemble"] },
+        "distribution": { "type": ["string", "null"] },
+        "method": { "type": ["string", "null"] },
+        "mean": { "type": ["number", "null"] },
+        "stddev": { "type": ["number", "null"] },
+        "error": { "type": ["string", "null"] },
+        "lower": { "type": ["number", "null"] },
+        "upper": { "type": ["number", "null"] },
+        "p05": { "type": ["number", "null"] },
+        "p50": { "type": ["number", "null"] },
+        "p95": { "type": ["number", "null"] },
+        "sample_count": { "type": "integer", "minimum": 0 },
+        "status": { "type": "string" }
       }
     },
     "resultMetric": {

@@ -1,9 +1,9 @@
 # Reviewability As A Language Feature
 
 Status: current public artifact family is stable for the v0.1.0 package scope.
-The explicit Review IR, semantic diff, and `eng review` command described here
-are implementation targets unless a status document marks a narrower slice as
-supported.
+`review.json.review_document`, `eng review <file.eng>`, and the IDE Review
+inspector are the first supported normalized Review IR slice. Semantic diff and
+runtime-updated ReviewDocument values remain implementation targets.
 
 ## Core Principle
 
@@ -18,8 +18,7 @@ fallbacks, and risks.
 
 ## Current Artifact Baseline
 
-The current package already writes the artifact family that Review IR should
-normalize:
+The current package writes the artifact family that Review IR normalizes:
 
 ```text
 build/result/result.engres
@@ -36,9 +35,23 @@ These artifacts are the public proof path for typed data boundaries,
 TimeSeries statistics, plots, reports, validations, explicit side effects, and
 package/IDE inspection.
 
+`review.json.review_document` is the current compiler-owned normalized view. It
+records:
+
+```text
+inputs
+symbols
+calculations
+validations
+side_effects
+external_boundaries
+fallbacks
+risks
+```
+
 ## Review IR Target
 
-Review IR should be the shared semantic document between compiler, runtime,
+Review IR is becoming the shared semantic document between compiler, runtime,
 report generation, CLI review commands, and IDE panels.
 
 Initial node families:
@@ -58,10 +71,11 @@ ReviewRisk
 ReviewSemanticDiff
 ```
 
-The compiler can fill static meaning: source spans, declarations, quantities,
-schemas, commands, options, validation expressions, process declarations, and
-side-effect boundaries. Runtime can fill values, statuses, hashes, process exit
-codes, generated outputs, test results, and profile diagnostics.
+The current compiler slice fills static meaning: source spans, declarations,
+quantities, schemas, commands, options, validation expressions, process
+declarations, side-effect boundaries, fallbacks, and risks. Runtime can later
+fill values, statuses, hashes, process exit codes, generated outputs, test
+results, and profile diagnostics into the same document.
 
 ## Root Workflow Review Contract
 
@@ -155,10 +169,16 @@ This is planned until Review IR has a stable enough internal shape.
 
 ## CLI And IDE Targets
 
-The target CLI shape is:
+The current CLI shape is:
 
 ```text
 eng review <file.eng>
+eng review <file.eng> --json
+```
+
+The planned semantic diff shape is:
+
+```text
 eng review diff <old-review.json> <new-review.json>
 ```
 
@@ -175,9 +195,10 @@ risk and fallback panel
 semantic diff panel
 ```
 
-The current IDE already inspects several artifact families. The next cleanup is
-to make those panels consume a normalized Review IR instead of parallel
-metadata shapes.
+The current IDE includes a Review inspector consuming `review_document` for
+root counts, external boundaries, fallbacks, and risks. The next cleanup is to
+make more panels consume normalized Review IR instead of parallel metadata
+shapes.
 
 ## Completion Checklist
 
@@ -194,4 +215,3 @@ official example or regression fixture
 snapshot or artifact test
 status and maturity documentation
 ```
-

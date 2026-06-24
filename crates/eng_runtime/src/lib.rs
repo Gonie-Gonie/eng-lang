@@ -18,7 +18,8 @@ mod vm;
 
 use runtime_data::{
     materialize_runtime_data, RuntimeComponentResidualEvaluation, RuntimeData,
-    RuntimeStatisticValue, RuntimeTimeSeries, RuntimeValues,
+    RuntimeNumericUncertaintyPayload, RuntimeNumericValue, RuntimeStatisticValue,
+    RuntimeTimeSeries, RuntimeValues,
 };
 pub use vm::{execute_bytecode, VmExecution, VmObject, VmObjectKind};
 
@@ -3232,6 +3233,14 @@ fn result_json(
                 json_escape(source_hash)
             ));
         }
+        if let Some(numeric) = runtime_data
+            .numeric_values
+            .iter()
+            .find(|numeric| numeric.binding == object.name)
+        {
+            objects.push_str(",\n        \"numeric\": ");
+            push_runtime_numeric_link(&mut objects, numeric, "        ");
+        }
         if let Some(table) = runtime_data
             .tables
             .iter()
@@ -3261,6 +3270,49 @@ fn result_json(
             objects.push(']');
         }
         objects.push_str("\n      }");
+    }
+
+    let mut numeric_values = String::new();
+    for (index, numeric) in runtime_data.numeric_values.iter().enumerate() {
+        if index > 0 {
+            numeric_values.push_str(",\n");
+        }
+        numeric_values.push_str("      {\n");
+        numeric_values.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&numeric.binding)
+        ));
+        numeric_values.push_str(&format!(
+            "        \"value_kind\": \"{}\",\n",
+            json_escape(&numeric.value_kind)
+        ));
+        numeric_values.push_str(&format!(
+            "        \"quantity_kind\": \"{}\",\n",
+            json_escape(&numeric.quantity_kind)
+        ));
+        numeric_values.push_str(&format!(
+            "        \"display_unit\": \"{}\",\n",
+            json_escape(&numeric.display_unit)
+        ));
+        numeric_values.push_str(&format!(
+            "        \"representation\": \"{}\",\n",
+            json_escape(&numeric.representation)
+        ));
+        push_optional_json_number(&mut numeric_values, "value", numeric.value, 8);
+        numeric_values.push_str("        \"uncertainty\": ");
+        match &numeric.uncertainty {
+            Some(uncertainty) => {
+                push_runtime_numeric_uncertainty(&mut numeric_values, uncertainty, "        ");
+                numeric_values.push_str(",\n");
+            }
+            None => numeric_values.push_str("null,\n"),
+        }
+        numeric_values.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&numeric.status)
+        ));
+        numeric_values.push_str(&format!("        \"line\": {}\n", numeric.line));
+        numeric_values.push_str("      }");
     }
 
     let mut steps = String::new();
@@ -3936,7 +3988,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -3957,6 +4009,7 @@ fn result_json(
         json_escape(execution.workflow.return_type.as_deref().unwrap_or("Report")),
         json_escape(&execution.result_format),
         steps,
+        numeric_values,
         statistics,
         integrations,
         metrics,
@@ -4001,6 +4054,76 @@ fn vm_object_kind(object: &VmObject) -> &'static str {
         VmObjectKind::TimeSeries => "timeseries",
         VmObjectKind::Array => "array",
     }
+}
+
+fn push_runtime_numeric_link(json: &mut String, numeric: &RuntimeNumericValue, indent: &str) {
+    json.push_str("{\n");
+    json.push_str(&format!(
+        "{indent}  \"representation\": \"{}\",\n",
+        json_escape(&numeric.representation)
+    ));
+    match &numeric.uncertainty {
+        Some(uncertainty) => json.push_str(&format!(
+            "{indent}  \"uncertainty_binding\": \"{}\",\n",
+            json_escape(&uncertainty.binding)
+        )),
+        None => json.push_str(&format!("{indent}  \"uncertainty_binding\": null,\n")),
+    }
+    json.push_str(&format!(
+        "{indent}  \"status\": \"{}\"\n",
+        json_escape(&numeric.status)
+    ));
+    json.push_str(&format!("{indent}}}"));
+}
+
+fn push_runtime_numeric_uncertainty(
+    json: &mut String,
+    uncertainty: &RuntimeNumericUncertaintyPayload,
+    indent: &str,
+) {
+    json.push_str("{\n");
+    json.push_str(&format!(
+        "{indent}  \"binding\": \"{}\",\n",
+        json_escape(&uncertainty.binding)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"kind\": \"{}\",\n",
+        json_escape(&uncertainty.kind)
+    ));
+    push_optional_json_string(
+        json,
+        "distribution",
+        uncertainty.distribution.as_deref(),
+        indent.len() + 2,
+    );
+    push_optional_json_string(
+        json,
+        "method",
+        uncertainty.method.as_deref(),
+        indent.len() + 2,
+    );
+    push_optional_json_number(json, "mean", uncertainty.mean, indent.len() + 2);
+    push_optional_json_number(json, "stddev", uncertainty.stddev, indent.len() + 2);
+    push_optional_json_string(
+        json,
+        "error",
+        uncertainty.error.as_deref(),
+        indent.len() + 2,
+    );
+    push_optional_json_number(json, "lower", uncertainty.lower, indent.len() + 2);
+    push_optional_json_number(json, "upper", uncertainty.upper, indent.len() + 2);
+    push_optional_json_number(json, "p05", uncertainty.p05, indent.len() + 2);
+    push_optional_json_number(json, "p50", uncertainty.p50, indent.len() + 2);
+    push_optional_json_number(json, "p95", uncertainty.p95, indent.len() + 2);
+    json.push_str(&format!(
+        "{indent}  \"sample_count\": {},\n",
+        uncertainty.sample_count
+    ));
+    json.push_str(&format!(
+        "{indent}  \"status\": \"{}\"\n",
+        json_escape(&uncertainty.status)
+    ));
+    json.push_str(&format!("{indent}}}"));
 }
 
 fn push_system_solution_json(
@@ -5617,6 +5740,46 @@ mod tests {
         assert!(output
             .result_json
             .contains("\"type\": \"AbsoluteTemperature\""));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_source_records_numeric_uncertainty_payload() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-numeric-uncertainty");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-numeric-uncertainty-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output = run_source(
+            &virtual_path,
+            "Q = 10 kW\nQ_meas = measured(10 kW, std=1 kW)\n",
+            &build_root,
+            &RunOptions::default(),
+        )
+        .expect("run");
+
+        assert!(output.result_json.contains("\"numeric_values\""));
+        assert!(output
+            .result_json
+            .contains("\"representation\": \"Certain\""));
+        assert!(output
+            .result_json
+            .contains("\"representation\": \"Measured\""));
+        assert!(output
+            .result_json
+            .contains("\"status\": \"uncertainty_attached\""));
+        assert!(output
+            .result_json
+            .contains("\"uncertainty_binding\": \"Q_meas\""));
+        assert!(output.result_json.contains("\"stddev\": 1"));
         assert!(!virtual_path.exists());
     }
 

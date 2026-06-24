@@ -1210,6 +1210,7 @@ pub fn review_json(report: &CheckReport) -> String {
         "  \"unit_info_count\": {},\n",
         report.unit_info_count
     ));
+    push_review_document_json(&mut json, report);
 
     json.push_str("  \"variable_table\": [\n");
     for (index, binding) in report.semantic_program.typed_bindings.iter().enumerate() {
@@ -4112,6 +4113,756 @@ fn push_named_json_string_array(json: &mut String, key: &str, values: &[String],
     json.push_str(&format!("{spaces}\"{key}\": ["));
     push_json_string_array(json, values);
     json.push_str("],\n");
+}
+
+fn push_review_document_json(json: &mut String, report: &CheckReport) {
+    let program = &report.semantic_program;
+    let status = if report.has_errors() {
+        "diagnostics_present"
+    } else if report.diagnostic_count(Severity::Warning) > 0 {
+        "warnings_present"
+    } else {
+        "metadata_ready"
+    };
+    let validation_count = program
+        .command_styles
+        .iter()
+        .filter(|command| command.verb == "validate")
+        .count()
+        + program
+            .classes
+            .iter()
+            .map(|class| class.validations.len())
+            .sum::<usize>()
+        + program
+            .class_objects
+            .iter()
+            .map(|object| object.validations.len())
+            .sum::<usize>();
+    let side_effect_count =
+        program.writes.len() + program.file_operations.len() + program.csv_exports.len();
+    let external_boundary_count =
+        program.process_runs.len() + program.environment_dependencies.len();
+    let fallback_count = review_fallback_count(report);
+    let risk_count = review_risk_count(report);
+
+    json.push_str("  \"review_document\": {\n");
+    json.push_str("    \"format\": \"eng-review-document-preview-1\",\n");
+    json.push_str(&format!("    \"status\": \"{}\",\n", json_escape(status)));
+    json.push_str(&format!(
+        "    \"workflow_signature\": \"{}\",\n",
+        json_escape(&program.workflow.signature())
+    ));
+    json.push_str("    \"root_contract\": {\n");
+    json.push_str(&format!(
+        "      \"input_count\": {},\n",
+        review_input_count(report)
+    ));
+    json.push_str(&format!(
+        "      \"symbol_count\": {},\n",
+        program.typed_bindings.len()
+    ));
+    json.push_str(&format!(
+        "      \"schema_count\": {},\n",
+        program.schemas.len()
+    ));
+    json.push_str(&format!(
+        "      \"calculation_count\": {},\n",
+        review_calculation_count(report)
+    ));
+    json.push_str(&format!(
+        "      \"validation_count\": {},\n",
+        validation_count
+    ));
+    json.push_str(&format!(
+        "      \"side_effect_count\": {},\n",
+        side_effect_count
+    ));
+    json.push_str(&format!(
+        "      \"external_boundary_count\": {},\n",
+        external_boundary_count
+    ));
+    json.push_str(&format!("      \"fallback_count\": {},\n", fallback_count));
+    json.push_str(&format!("      \"risk_count\": {}\n", risk_count));
+    json.push_str("    },\n");
+    push_review_inputs_json(json, report);
+    push_review_symbols_json(json, report);
+    push_review_calculations_json(json, report);
+    push_review_validations_json(json, report);
+    push_review_side_effects_json(json, report);
+    push_review_external_boundaries_json(json, report);
+    push_review_fallbacks_json(json, report);
+    push_review_risks_json(json, report);
+    json.push_str("  },\n");
+}
+
+fn review_calculation_count(report: &CheckReport) -> usize {
+    let program = &report.semantic_program;
+    report.inferred_declarations.len()
+        + program.stats_infos.len()
+        + program.integrations.len()
+        + program.timeseries_kernels.len()
+        + program.uncertainty_infos.len()
+        + program.ml_infos.len()
+        + program
+            .systems
+            .iter()
+            .map(|system| system.equations.len())
+            .sum::<usize>()
+        + program
+            .component_assemblies
+            .iter()
+            .map(|assembly| assembly.equations.len())
+            .sum::<usize>()
+}
+
+fn review_input_count(report: &CheckReport) -> usize {
+    report
+        .semantic_program
+        .args_blocks
+        .iter()
+        .map(|args| args.fields.len())
+        .sum::<usize>()
+        + report.semantic_program.schemas.len()
+        + report.semantic_program.environment_dependencies.len()
+}
+
+fn review_fallback_count(report: &CheckReport) -> usize {
+    report
+        .semantic_program
+        .with_blocks
+        .iter()
+        .flat_map(|block| block.options.iter())
+        .filter(|option| option.key == "allow_failure" && option.value.trim() == "true")
+        .count()
+        + report
+            .semantic_program
+            .component_assemblies
+            .iter()
+            .filter(|assembly| !assembly.solver_preview.limitations.is_empty())
+            .count()
+}
+
+fn review_risk_count(report: &CheckReport) -> usize {
+    report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == Severity::Warning)
+        .count()
+        + report.semantic_program.process_runs.len()
+        + report.semantic_program.file_operations.len()
+        + report.semantic_program.environment_dependencies.len()
+        + report
+            .semantic_program
+            .schemas
+            .iter()
+            .map(|schema| schema.missing_policies.len())
+            .sum::<usize>()
+        + report.semantic_program.uncertainty_infos.len()
+        + report.semantic_program.component_assemblies.len()
+        + report.semantic_program.systems.len()
+}
+
+fn push_review_inputs_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"inputs\": [\n");
+    let mut first = true;
+    for args in &report.semantic_program.args_blocks {
+        for field in &args.fields {
+            push_review_comma(json, &mut first);
+            json.push_str("      {\n");
+            json.push_str("        \"kind\": \"arg\",\n");
+            json.push_str(&format!(
+                "        \"name\": \"{}\",\n",
+                json_escape(&field.name)
+            ));
+            json.push_str(&format!(
+                "        \"type\": \"{}\",\n",
+                json_escape(&field.type_name)
+            ));
+            match &field.default_value {
+                Some(value) => json.push_str(&format!(
+                    "        \"default\": \"{}\",\n",
+                    json_escape(value)
+                )),
+                None => json.push_str("        \"default\": null,\n"),
+            }
+            json.push_str(&format!("        \"required\": {},\n", field.required));
+            json.push_str(&format!("        \"line\": {}\n", field.line));
+            json.push_str("      }");
+        }
+    }
+    for schema in &report.semantic_program.schemas {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"schema\",\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&schema.name)
+        ));
+        json.push_str(&format!(
+            "        \"column_count\": {},\n",
+            schema.columns.len()
+        ));
+        json.push_str(&format!(
+            "        \"constraint_count\": {},\n",
+            schema.constraints.len()
+        ));
+        json.push_str(&format!(
+            "        \"missing_policy_count\": {},\n",
+            schema.missing_policies.len()
+        ));
+        json.push_str(&format!("        \"line\": {}\n", schema.line));
+        json.push_str("      }");
+    }
+    for dependency in &report.semantic_program.environment_dependencies {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"environment_dependency\",\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&dependency.name)
+        ));
+        json.push_str(&format!(
+            "        \"type\": \"{}\",\n",
+            json_escape(&dependency.kind)
+        ));
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&dependency.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", dependency.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+}
+
+fn push_review_symbols_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"symbols\": [\n");
+    for (index, binding) in report.semantic_program.typed_bindings.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        let type_info = report
+            .semantic_program
+            .type_infos
+            .iter()
+            .find(|info| info.name == binding.name && info.line == binding.line);
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&binding.name)
+        ));
+        json.push_str(&format!(
+            "        \"quantity_kind\": \"{}\",\n",
+            json_escape(&binding.semantic_type.quantity_kind)
+        ));
+        json.push_str(&format!(
+            "        \"display_unit\": \"{}\",\n",
+            json_escape(&binding.semantic_type.display_unit)
+        ));
+        json.push_str(&format!(
+            "        \"source\": \"{}\",\n",
+            json_escape(
+                type_info
+                    .map(|info| info.source.as_str())
+                    .unwrap_or("runtime")
+            )
+        ));
+        json.push_str(&format!("        \"line\": {}\n", binding.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+}
+
+fn push_review_calculations_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"calculations\": [\n");
+    let mut first = true;
+    for declaration in &report.inferred_declarations {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"binding\",\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&declaration.name)
+        ));
+        json.push_str(&format!(
+            "        \"expression\": \"{}\",\n",
+            json_escape(&declaration.expression)
+        ));
+        json.push_str(&format!(
+            "        \"quantity_kind\": \"{}\",\n",
+            json_escape(&declaration.quantity_kind)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", declaration.line));
+        json.push_str("      }");
+    }
+    for statistic in &report.semantic_program.stats_infos {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"timeseries_statistics\",\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&statistic.source)
+        ));
+        json.push_str(&format!(
+            "        \"expression\": \"summary over {}\",\n",
+            json_escape(&statistic.axis)
+        ));
+        json.push_str(&format!(
+            "        \"quantity_kind\": \"{}\",\n",
+            json_escape(&statistic.quantity_kind)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", statistic.line));
+        json.push_str("      }");
+    }
+    for integration in &report.semantic_program.integrations {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"timeseries_integration\",\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&integration.binding)
+        ));
+        json.push_str(&format!(
+            "        \"expression\": \"integrate {} over {}\",\n",
+            json_escape(&integration.source),
+            json_escape(&integration.over_axis)
+        ));
+        json.push_str(&format!(
+            "        \"quantity_kind\": \"{}\",\n",
+            json_escape(&integration.result_quantity)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", integration.line));
+        json.push_str("      }");
+    }
+    for kernel in &report.semantic_program.timeseries_kernels {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"timeseries_kernel\",\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&kernel.binding)
+        ));
+        json.push_str(&format!(
+            "        \"expression\": \"{}\",\n",
+            json_escape(&kernel.expression)
+        ));
+        json.push_str(&format!(
+            "        \"quantity_kind\": \"{}\",\n",
+            json_escape(&kernel.quantity_kind)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", kernel.line));
+        json.push_str("      }");
+    }
+    for uncertainty in &report.semantic_program.uncertainty_infos {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"uncertainty\",\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&uncertainty.binding)
+        ));
+        json.push_str(&format!(
+            "        \"expression\": \"{}\",\n",
+            json_escape(&uncertainty.expression)
+        ));
+        json.push_str(&format!(
+            "        \"quantity_kind\": \"{}\",\n",
+            json_escape(&uncertainty.quantity_kind)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", uncertainty.line));
+        json.push_str("      }");
+    }
+    for ml in &report.semantic_program.ml_infos {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"modeling\",\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&ml.binding)
+        ));
+        json.push_str(&format!(
+            "        \"expression\": \"{}\",\n",
+            json_escape(&ml.expression)
+        ));
+        json.push_str(&format!(
+            "        \"quantity_kind\": \"{}\",\n",
+            json_escape(&ml.kind)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", ml.line));
+        json.push_str("      }");
+    }
+    for system in &report.semantic_program.systems {
+        for equation in &system.equations {
+            push_review_comma(json, &mut first);
+            json.push_str("      {\n");
+            json.push_str("        \"kind\": \"system_equation\",\n");
+            json.push_str(&format!(
+                "        \"name\": \"{}\",\n",
+                json_escape(&system.name)
+            ));
+            json.push_str(&format!(
+                "        \"expression\": \"{} {} {}\",\n",
+                json_escape(&equation.left),
+                json_escape(&equation.relation),
+                json_escape(&equation.right)
+            ));
+            json.push_str(&format!(
+                "        \"quantity_kind\": \"{}\",\n",
+                json_escape(&equation.left_dimension)
+            ));
+            json.push_str(&format!("        \"line\": {}\n", equation.line));
+            json.push_str("      }");
+        }
+    }
+    json.push_str("\n    ],\n");
+}
+
+fn push_review_validations_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"validations\": [\n");
+    let mut first = true;
+    for command in report
+        .semantic_program
+        .command_styles
+        .iter()
+        .filter(|command| command.verb == "validate")
+    {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"command_validation\",\n");
+        json.push_str(&format!(
+            "        \"expression\": \"{}\",\n",
+            json_escape(&command.target)
+        ));
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&command.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", command.line));
+        json.push_str("      }");
+    }
+    for class in &report.semantic_program.classes {
+        for validation in &class.validations {
+            push_review_comma(json, &mut first);
+            json.push_str("      {\n");
+            json.push_str("        \"kind\": \"class_validation\",\n");
+            json.push_str(&format!(
+                "        \"expression\": \"{}\",\n",
+                json_escape(&validation.expression)
+            ));
+            json.push_str(&format!(
+                "        \"status\": \"{}\",\n",
+                json_escape(&validation.status)
+            ));
+            json.push_str(&format!("        \"line\": {}\n", validation.line));
+            json.push_str("      }");
+        }
+    }
+    json.push_str("\n    ],\n");
+}
+
+fn push_review_side_effects_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"side_effects\": [\n");
+    let mut first = true;
+    for export in &report.semantic_program.csv_exports {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"csv_export\",\n");
+        json.push_str(&format!(
+            "        \"target\": \"{}\",\n",
+            json_escape(&export.path)
+        ));
+        json.push_str("        \"status\": \"declared\",\n");
+        json.push_str(&format!("        \"line\": {}\n", export.line));
+        json.push_str("      }");
+    }
+    for write in &report.semantic_program.writes {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"write_output\",\n");
+        json.push_str(&format!(
+            "        \"target\": \"{}\",\n",
+            json_escape(&write.path)
+        ));
+        json.push_str("        \"status\": \"declared\",\n");
+        json.push_str(&format!("        \"line\": {}\n", write.line));
+        json.push_str("      }");
+    }
+    for operation in &report.semantic_program.file_operations {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"kind\": \"file_{}\",\n",
+            json_escape(&operation.operation)
+        ));
+        json.push_str(&format!(
+            "        \"target\": \"{}\",\n",
+            json_escape(
+                operation
+                    .destination
+                    .as_deref()
+                    .unwrap_or(&operation.source)
+            )
+        ));
+        json.push_str("        \"status\": \"declared\",\n");
+        json.push_str(&format!("        \"line\": {}\n", operation.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+}
+
+fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"external_boundaries\": [\n");
+    let mut first = true;
+    for process in &report.semantic_program.process_runs {
+        let expected_outputs = review_option_values(report, process.line, "expected_outputs");
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"process\",\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&process.binding)
+        ));
+        json.push_str(&format!(
+            "        \"target\": \"{}\",\n",
+            json_escape(&process.command)
+        ));
+        json.push_str("        \"expected_outputs\": [");
+        push_json_string_array(json, &expected_outputs);
+        json.push_str("],\n");
+        json.push_str("        \"status\": \"declared\",\n");
+        json.push_str(&format!("        \"line\": {}\n", process.line));
+        json.push_str("      }");
+    }
+    for dependency in &report.semantic_program.environment_dependencies {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"environment_dependency\",\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&dependency.name)
+        ));
+        json.push_str(&format!(
+            "        \"target\": \"{}\",\n",
+            json_escape(&dependency.expression)
+        ));
+        json.push_str("        \"expected_outputs\": [],\n");
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&dependency.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", dependency.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+}
+
+fn push_review_fallbacks_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"fallbacks\": [\n");
+    let mut first = true;
+    for block in &report.semantic_program.with_blocks {
+        let Some(owner_line) = block.owner_line else {
+            continue;
+        };
+        for option in block
+            .options
+            .iter()
+            .filter(|option| option.key == "allow_failure" && option.value.trim() == "true")
+        {
+            push_review_comma(json, &mut first);
+            json.push_str("      {\n");
+            json.push_str("        \"kind\": \"allowed_failure\",\n");
+            json.push_str("        \"category\": \"external_boundary\",\n");
+            json.push_str("        \"status\": \"declared\",\n");
+            json.push_str(&format!(
+                "        \"reason\": \"owner line {} allows an external operation to fail\",\n",
+                owner_line
+            ));
+            json.push_str(&format!("        \"line\": {}\n", option.line));
+            json.push_str("      }");
+        }
+    }
+    for assembly in &report.semantic_program.component_assemblies {
+        if assembly.solver_preview.limitations.is_empty() {
+            continue;
+        }
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"solver_preview_limitation\",\n");
+        json.push_str("        \"category\": \"solver_or_numeric\",\n");
+        json.push_str("        \"status\": \"metadata_only\",\n");
+        json.push_str(&format!(
+            "        \"reason\": \"{}\",\n",
+            json_escape(&assembly.solver_preview.limitations.join("; "))
+        ));
+        json.push_str(&format!("        \"line\": {}\n", assembly.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+}
+
+fn push_review_risks_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"risks\": [\n");
+    let mut first = true;
+    for diagnostic in report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == Severity::Warning)
+    {
+        push_review_comma(json, &mut first);
+        push_review_risk_json(
+            json,
+            review_diagnostic_risk_category(&diagnostic.code),
+            "warning",
+            &diagnostic.message,
+            diagnostic.line,
+        );
+    }
+    for schema in &report.semantic_program.schemas {
+        for policy in &schema.missing_policies {
+            push_review_comma(json, &mut first);
+            push_review_risk_json(
+                json,
+                "data_quality",
+                "info",
+                &format!(
+                    "schema `{}` uses missing-data policy `{}` for `{}`",
+                    schema.name, policy.policy, policy.column
+                ),
+                policy.line,
+            );
+        }
+    }
+    for process in &report.semantic_program.process_runs {
+        let category = if review_option_values(report, process.line, "expected_outputs").is_empty()
+        {
+            "reproducibility"
+        } else {
+            "external_boundary"
+        };
+        push_review_comma(json, &mut first);
+        push_review_risk_json(
+            json,
+            category,
+            "info",
+            &format!(
+                "external process `{}` is opaque to EngLang",
+                process.binding
+            ),
+            process.line,
+        );
+    }
+    for operation in &report.semantic_program.file_operations {
+        push_review_comma(json, &mut first);
+        push_review_risk_json(
+            json,
+            "side_effect",
+            "info",
+            &format!(
+                "file operation `{}` mutates filesystem state",
+                operation.operation
+            ),
+            operation.line,
+        );
+    }
+    for dependency in &report.semantic_program.environment_dependencies {
+        push_review_comma(json, &mut first);
+        push_review_risk_json(
+            json,
+            "reproducibility",
+            "info",
+            &format!(
+                "environment dependency `{}` affects reproducibility",
+                dependency.name
+            ),
+            dependency.line,
+        );
+    }
+    for uncertainty in &report.semantic_program.uncertainty_infos {
+        push_review_comma(json, &mut first);
+        push_review_risk_json(
+            json,
+            "uncertainty",
+            "info",
+            &format!(
+                "uncertainty representation `{}` requires assumption review",
+                uncertainty.kind
+            ),
+            uncertainty.line,
+        );
+    }
+    for system in &report.semantic_program.systems {
+        push_review_comma(json, &mut first);
+        push_review_risk_json(
+            json,
+            "solver_or_numeric",
+            "info",
+            &format!("system `{}` has solver metadata boundary", system.name),
+            system.line,
+        );
+    }
+    for assembly in &report.semantic_program.component_assemblies {
+        push_review_comma(json, &mut first);
+        push_review_risk_json(
+            json,
+            "solver_or_numeric",
+            "info",
+            &format!(
+                "component assembly `{}` has {} unknown(s) and {} equation(s)",
+                assembly.name, assembly.boundary.unknown_count, assembly.boundary.equation_count
+            ),
+            assembly.line,
+        );
+    }
+    json.push_str("\n    ]\n");
+}
+
+fn push_review_risk_json(
+    json: &mut String,
+    category: &str,
+    severity: &str,
+    summary: &str,
+    line: usize,
+) {
+    json.push_str("      {\n");
+    json.push_str(&format!(
+        "        \"category\": \"{}\",\n",
+        json_escape(category)
+    ));
+    json.push_str(&format!(
+        "        \"severity\": \"{}\",\n",
+        json_escape(severity)
+    ));
+    json.push_str(&format!(
+        "        \"summary\": \"{}\",\n",
+        json_escape(summary)
+    ));
+    json.push_str(&format!("        \"line\": {}\n", line));
+    json.push_str("      }");
+}
+
+fn review_diagnostic_risk_category(code: &str) -> &'static str {
+    if code.contains("UNIT") || code.contains("QTY") {
+        "unit_or_quantity"
+    } else if code.contains("UNC") {
+        "uncertainty"
+    } else if code.contains("SOLVER") || code.contains("NEWTON") || code.contains("DAE") {
+        "solver_or_numeric"
+    } else if code.contains("SCHEMA") || code.contains("CSV") || code.contains("DATA") {
+        "data_quality"
+    } else if code.contains("SIDE") || code.contains("PROCESS") || code.contains("FILE") {
+        "side_effect"
+    } else {
+        "claim_boundary"
+    }
+}
+
+fn push_review_comma(json: &mut String, first: &mut bool) {
+    if *first {
+        *first = false;
+    } else {
+        json.push_str(",\n");
+    }
 }
 
 fn push_simulation_requests_json(json: &mut String, report: &CheckReport) {
@@ -7976,6 +8727,29 @@ system Envelope {
         assert!(json.contains("\"plot_manifest\""));
         assert!(json.contains("\"warning_list\""));
         assert!(json.contains("\"W-QTY-AMBIG-001\""));
+    }
+
+    #[test]
+    fn review_json_exposes_normalized_review_document() {
+        let report = check_source(
+            "ok.eng",
+            "x = 1 m\nvalidate x > 0 m\nprocess_result = run command \"python\"\nwith {\n    args = [\"--version\"]\n    expected_outputs = [\"outputs/tool.txt\"]\n    allow_failure = true\n}\n",
+            &CheckOptions::default(),
+        );
+
+        let json = review_json(&report);
+
+        assert!(json.contains("\"review_document\""));
+        assert!(json.contains("\"format\": \"eng-review-document-preview-1\""));
+        assert!(json.contains("\"root_contract\""));
+        assert!(json.contains("\"calculations\""));
+        assert!(json.contains("\"validations\""));
+        assert!(json.contains("\"external_boundaries\""));
+        assert!(json.contains("\"fallbacks\""));
+        assert!(json.contains("\"risks\""));
+        assert!(json.contains("\"kind\": \"process\""));
+        assert!(json.contains("\"kind\": \"allowed_failure\""));
+        assert!(json.contains("\"category\": \"external_boundary\""));
     }
 
     #[test]

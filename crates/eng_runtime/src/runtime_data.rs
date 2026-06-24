@@ -58,6 +58,7 @@ pub struct RuntimeData {
     pub tables: Vec<RuntimeTable>,
     pub time_axes: Vec<RuntimeTimeAxis>,
     pub time_series: Vec<RuntimeTimeSeries>,
+    pub numeric_values: Vec<RuntimeNumericValue>,
     pub statistics: Vec<RuntimeStatistics>,
     pub integrations: Vec<RuntimeIntegration>,
     pub uncertainties: Vec<RuntimeUncertainty>,
@@ -938,6 +939,37 @@ pub struct RuntimeTimeAxis {
 pub struct RuntimePoint {
     pub x: f64,
     pub y: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeNumericValue {
+    pub binding: String,
+    pub value_kind: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub representation: String,
+    pub value: Option<f64>,
+    pub uncertainty: Option<RuntimeNumericUncertaintyPayload>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeNumericUncertaintyPayload {
+    pub binding: String,
+    pub kind: String,
+    pub distribution: Option<String>,
+    pub method: Option<String>,
+    pub mean: Option<f64>,
+    pub stddev: Option<f64>,
+    pub error: Option<String>,
+    pub lower: Option<f64>,
+    pub upper: Option<f64>,
+    pub p05: Option<f64>,
+    pub p50: Option<f64>,
+    pub p95: Option<f64>,
+    pub sample_count: usize,
+    pub status: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -2388,6 +2420,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.statistics = materialize_statistics(report, &data.time_series);
     data.integrations = materialize_integrations(report, &data.time_series);
     data.uncertainties = materialize_uncertainties(report);
+    data.numeric_values = materialize_numeric_values(report, &data.uncertainties);
     data.ml_artifacts = materialize_ml_artifacts(report, &data.time_series, &data.tables);
     data.metrics = materialize_metrics(report, &data.time_series, &data.time_alignments);
     data.validations = materialize_validations(report, &data.metrics, &data.integrations);
@@ -3171,6 +3204,93 @@ fn materialize_uncertainties(report: &CheckReport) -> Vec<RuntimeUncertainty> {
         uncertainties.push(uncertainty);
     }
     uncertainties
+}
+
+fn materialize_numeric_values(
+    report: &CheckReport,
+    uncertainties: &[RuntimeUncertainty],
+) -> Vec<RuntimeNumericValue> {
+    report
+        .semantic_program
+        .typed_bindings
+        .iter()
+        .filter(|binding| runtime_numeric_binding(report, binding))
+        .map(|binding| {
+            let uncertainty = uncertainties
+                .iter()
+                .find(|uncertainty| uncertainty.binding == binding.name);
+            RuntimeNumericValue {
+                binding: binding.name.clone(),
+                value_kind: "scalar".to_owned(),
+                quantity_kind: binding.semantic_type.quantity_kind.clone(),
+                display_unit: binding.semantic_type.display_unit.clone(),
+                representation: uncertainty
+                    .map(|uncertainty| uncertainty.kind.clone())
+                    .unwrap_or_else(|| "Certain".to_owned()),
+                value: uncertainty.and_then(|uncertainty| uncertainty.mean),
+                uncertainty: uncertainty.map(runtime_numeric_uncertainty_payload),
+                status: if uncertainty.is_some() {
+                    "uncertainty_attached".to_owned()
+                } else {
+                    "certain_fast_path".to_owned()
+                },
+                line: binding.line,
+            }
+        })
+        .collect()
+}
+
+fn runtime_numeric_binding(report: &CheckReport, binding: &eng_compiler::TypedBinding) -> bool {
+    if binding.semantic_type.display_unit.is_empty() {
+        return false;
+    }
+    if matches!(
+        binding.semantic_type.display_unit.as_str(),
+        "object" | "vector" | "unknown"
+    ) {
+        return false;
+    }
+    if matches!(
+        binding.semantic_type.quantity_kind.as_str(),
+        "ProcessResult" | "String" | "Path" | "Bool"
+    ) {
+        return false;
+    }
+    if binding.semantic_type.quantity_kind.starts_with("Array[")
+        || binding
+            .semantic_type
+            .quantity_kind
+            .starts_with("TimeSeries[")
+        || binding.semantic_type.quantity_kind.starts_with("Table[")
+    {
+        return false;
+    }
+    !report
+        .semantic_program
+        .csv_promotions
+        .iter()
+        .any(|promotion| promotion.binding == binding.name)
+}
+
+fn runtime_numeric_uncertainty_payload(
+    uncertainty: &RuntimeUncertainty,
+) -> RuntimeNumericUncertaintyPayload {
+    RuntimeNumericUncertaintyPayload {
+        binding: uncertainty.binding.clone(),
+        kind: uncertainty.kind.clone(),
+        distribution: uncertainty.distribution.clone(),
+        method: uncertainty.method.clone(),
+        mean: uncertainty.mean,
+        stddev: uncertainty.stddev,
+        error: uncertainty.error.clone(),
+        lower: uncertainty.lower,
+        upper: uncertainty.upper,
+        p05: uncertainty.p05,
+        p50: uncertainty.p50,
+        p95: uncertainty.p95,
+        sample_count: uncertainty.sample_count,
+        status: uncertainty.status.clone(),
+    }
 }
 
 fn materialize_uncertainty(
@@ -14597,6 +14717,18 @@ report {
         assert!(runtime.uncertainties[0].p05.is_some());
         assert!(runtime.uncertainties[1].mean.unwrap() > runtime.uncertainties[0].mean.unwrap());
         assert_eq!(round2(runtime.uncertainties[0].mean.unwrap()), 5.0);
+        assert_eq!(runtime.numeric_values.len(), 2);
+        assert_eq!(runtime.numeric_values[0].binding, "Q_coil_dist");
+        assert_eq!(runtime.numeric_values[0].representation, "Distribution");
+        assert_eq!(
+            runtime.numeric_values[0]
+                .uncertainty
+                .as_ref()
+                .and_then(|uncertainty| uncertainty.distribution.as_deref()),
+            Some("normal")
+        );
+        assert_eq!(runtime.numeric_values[1].binding, "Q_unc");
+        assert_eq!(runtime.numeric_values[1].status, "uncertainty_attached");
         assert_eq!(plot_spec.plot_type, "histogram");
         assert_eq!(plot_spec.title, "Coil uncertainty");
         assert_eq!(plot_spec.x_axis.unit, "kW");

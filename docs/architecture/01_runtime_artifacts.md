@@ -308,6 +308,14 @@ Current result fields:
     "status": "ok",
     "result_format": "engres-v1",
     "vm_steps": [],
+    "numeric_values": [
+      {
+        "binding": "Q_dist",
+        "value_kind": "scalar",
+        "representation": "Distribution",
+        "status": "uncertainty_attached"
+      }
+    ],
     "statistics": [
       {
         "status": "computed",

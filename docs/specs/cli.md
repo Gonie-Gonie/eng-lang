@@ -9,6 +9,7 @@ The core user-facing CLI is `eng.exe`. Portable tester IDE releases also ship
 eng.exe doctor
 eng.exe new <project_name>
 eng.exe check <file.eng> [--review]
+eng.exe review <file.eng> [--json]
 eng.exe fmt <file.eng> [--check|--write]
 eng.exe ide-check <file.eng>
 eng.exe jit-plan <file.eng> [--backend <name>]
@@ -114,6 +115,7 @@ Review JSON includes:
 
 ```text
 review_schema_version
+review_document
 syntax_summary
 quantity_completion_count
 diagnostics
@@ -149,6 +151,25 @@ Exit code:
 1 IO/tooling failure
 2 compile/check failure
 ```
+
+## `eng review <file.eng> [--json]`
+
+Builds the compiler-owned review artifact and prints the normalized
+`review_document` projection. The default output is a reviewer summary with:
+
+```text
+review status
+workflow signature
+input/symbol/calculation/validation counts
+side-effect/external-boundary/fallback/risk counts
+external boundary rows
+fallback rows
+risk rows
+```
+
+`--json` prints only `review_document` as formatted JSON. This command does not
+execute the workflow, so runtime hashes, process exits, and generated file
+status still belong to `eng run --save-artifacts`.
 
 ## `eng fmt <file.eng> [--check|--write]`
 

@@ -470,6 +470,40 @@ output TimeGrid, discrete A/B execution, and additional failure paths. This is
 not a general nonlinear/DAE, discrete adaptive, broad adaptive,
 operator-algebra, or component-coupled simulation solver.
 
+## Normalized Review Document
+
+`review.json` also includes the compiler-owned normalized Review IR slice:
+
+```text
+review_document
+  root_contract
+  inputs
+  symbols
+  calculations
+  validations
+  side_effects
+  external_boundaries
+  fallbacks
+  risks
+```
+
+This projection gives reviewers one stable path for meaning-level inspection
+without replacing the detailed top-level sections. External process
+declarations appear under `external_boundaries`; declared writes, CSV exports,
+and filesystem mutations appear under `side_effects`; allowed external
+failures and solver-preview limitations appear under `fallbacks`; warnings and
+review-sensitive boundaries appear under `risks`.
+
+The quick CLI view is:
+
+```text
+eng review <file.eng>
+eng review <file.eng> --json
+```
+
+The native IDE Review panel consumes the same `review_document` data for root
+counts, external boundaries, fallbacks, and risk entries.
+
 ## Uncertainty Metadata
 
 The uncertainty track adds metadata for:

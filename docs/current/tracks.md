@@ -27,9 +27,9 @@ and next cleanup action.
 - Public scope: TimeSeries statistics, integration, PlotSpec/SVG, report HTML,
   review JSON, report spec, and result artifacts.
 - Main internal: bar/histogram variants, richer report metadata, and the
-  explicit Review IR target.
-- Next cleanup: normalize Review IR, add risk/fallback sections, and benchmark
-  semantic value before runtime speed.
+  normalized `review_document` projection.
+- Next cleanup: route more report/IDE panels through ReviewDocument and add
+  semantic diff after the risk/fallback taxonomy has runtime evidence.
 
 ## T4 System / Equation
 
@@ -56,10 +56,10 @@ and next cleanup action.
 
 - Purpose: make uncertainty sources and propagation reviewable.
 - Public scope: none beyond internal examples unless explicitly documented.
-- Main internal: deterministic samples, diagnostics, propagation metadata, and
-  histogram artifacts.
-- Next cleanup: keep as internal until runtime representation, propagation
-  policy, report/review artifacts, IDE projection, and tests align.
+- Main internal: deterministic samples, diagnostics, scalar runtime numeric
+  payloads, propagation metadata, and histogram artifacts.
+- Next cleanup: keep as internal until arithmetic propagation, TimeSeries
+  uncertainty, report/review artifacts, IDE projection, and tests align.
 
 ## T7 Data-Driven Modeling
 

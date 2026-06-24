@@ -108,13 +108,21 @@ typed_payload.uncertainties
   sample_count
   samples
   status
+typed_payload.numeric_values
+  binding
+  representation
+  value
+  uncertainty
+  status
 ```
 
 `review.json` includes `uncertainty_info` with declared transform strings.
 `result.engres` and runtime-updated `report_spec.json` include numeric
 `scale`/`offset` values when they were declared and propagation source terms
-when a source binding is involved. `report.html` includes an Uncertainty table
-with Transform and Propagation columns.
+when a source binding is involved. `result.engres` also links scalar object
+metadata to `Certain`, `Measured`, `Interval`, `Distribution`, or `Ensemble`
+representations through `typed_payload.numeric_values`. `report.html` includes
+an Uncertainty table with Transform and Propagation columns.
 
 The current propagation is deterministic and supports explicit linear
 scale/offset transforms with source validation. It is still not a full

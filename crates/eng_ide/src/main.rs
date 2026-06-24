@@ -126,6 +126,7 @@ struct InspectorView {
     class_objects: Value,
     assemblies: Value,
     component_graph: Value,
+    review_document: Value,
     artifact_outlines: Value,
     output_manifest: Value,
     run_log: Value,
@@ -150,6 +151,7 @@ impl Default for InspectorView {
             class_objects: Value::Array(Vec::new()),
             assemblies: Value::Array(Vec::new()),
             component_graph: Value::Null,
+            review_document: Value::Null,
             artifact_outlines: Value::Array(Vec::new()),
             output_manifest: Value::Null,
             run_log: Value::Null,
@@ -922,6 +924,7 @@ fn ide_profile(value: Option<&str>) -> Result<ExecutionProfile, String> {
 fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
     let report = parse_json_value(&output.report_spec_json);
     let result = parse_json_value(&output.result_json);
+    let review = parse_json_value(&output.review_json);
     InspectorView {
         schemas: schema_inspector(&report, &result),
         unit_conversions: json_array_clone(&report, "unit_conversion_table"),
@@ -938,6 +941,10 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         assemblies: json_array_clone(&report, "assembly_summary"),
         component_graph: report
             .get("component_graph")
+            .cloned()
+            .unwrap_or(Value::Null),
+        review_document: review
+            .get("review_document")
             .cloned()
             .unwrap_or(Value::Null),
         artifact_outlines: artifact_outlines(root, output),
@@ -2119,10 +2126,19 @@ fn public_package_smoke(root: &Path) -> Result<(), String> {
         .get("processes")
         .and_then(Value::as_array)
         .is_some_and(|items| !items.is_empty());
-    if !has_manifest || !has_run_log || !has_process {
+    let has_review_document = effects_inspectors
+        .review_document
+        .get("external_boundaries")
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty());
+    if !has_manifest || !has_run_log || !has_process || !has_review_document {
         return Err(format!(
-            "{} did not produce IDE side-effect inspector metadata",
-            effects_example.display()
+            "{} did not produce IDE side-effect inspector metadata (manifest={}, run_log={}, process={}, review={})",
+            effects_example.display(),
+            has_manifest,
+            has_run_log,
+            has_process,
+            has_review_document
         ));
     }
 
@@ -2148,7 +2164,7 @@ fn public_package_smoke(root: &Path) -> Result<(), String> {
     }
 
     println!(
-        "EngLang IDE public package smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), schema/TimeSeries/report inspectors, kernel plan inspector, class object inspector, side-effect inspectors, test-result inspector",
+        "EngLang IDE public package smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), schema/TimeSeries/report inspectors, kernel plan inspector, class object inspector, side-effect/review inspectors, test-result inspector",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len()

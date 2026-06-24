@@ -23,6 +23,7 @@ fn main() -> ExitCode {
     match command.as_str() {
         "doctor" => command_doctor(),
         "check" => command_check(args),
+        "review" => command_review(args),
         "fmt" => command_fmt(args),
         "ide-check" => command_ide_check(args),
         "jit-plan" => command_jit_plan(args),
@@ -302,6 +303,65 @@ fn command_check(args: Vec<String>) -> ExitCode {
             "check passed: {} warning(s)",
             report.diagnostic_count(Severity::Warning)
         );
+        ExitCode::SUCCESS
+    }
+}
+
+fn command_review(args: Vec<String>) -> ExitCode {
+    let Some(path) = first_non_flag(&args) else {
+        eprintln!("usage: eng review <file.eng> [--json] [--<arg> <value>...]");
+        return ExitCode::from(2);
+    };
+    let json_only = args.iter().any(|arg| arg == "--json");
+    let check_args = match parse_arg_overrides(&args, &[], &["--json"]) {
+        Ok(values) => values,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
+    let report = match check_file(
+        &path,
+        &CheckOptions {
+            review: true,
+            args: check_args,
+            require_args: false,
+        },
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    let review = review_json(&report);
+    let value = match serde_json::from_str::<serde_json::Value>(&review) {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("failed to parse generated review artifact: {error}");
+            return ExitCode::from(1);
+        }
+    };
+    let document = value
+        .get("review_document")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
+
+    if json_only {
+        match serde_json::to_string_pretty(&document) {
+            Ok(text) => println!("{text}"),
+            Err(error) => {
+                eprintln!("failed to serialize review document: {error}");
+                return ExitCode::from(1);
+            }
+        }
+    } else {
+        print_review_document_summary(&document);
+    }
+
+    if report.has_errors() {
+        ExitCode::from(2)
+    } else {
         ExitCode::SUCCESS
     }
 }
@@ -704,6 +764,71 @@ pub(crate) fn print_diagnostics(report: &eng_compiler::CheckReport) {
     }
 }
 
+fn print_review_document_summary(document: &serde_json::Value) {
+    let status = json_string(document, "status").unwrap_or("-");
+    let signature = json_string(document, "workflow_signature").unwrap_or("-");
+    println!("review: {status}");
+    println!("workflow: {signature}");
+
+    let contract = document
+        .get("root_contract")
+        .unwrap_or(&serde_json::Value::Null);
+    println!(
+        "inputs: {}  symbols: {}  calculations: {}  validations: {}",
+        json_usize(contract, "input_count").unwrap_or(0),
+        json_usize(contract, "symbol_count").unwrap_or(0),
+        json_usize(contract, "calculation_count").unwrap_or(0),
+        json_usize(contract, "validation_count").unwrap_or(0)
+    );
+    println!(
+        "side effects: {}  external boundaries: {}  fallbacks: {}  risks: {}",
+        json_usize(contract, "side_effect_count").unwrap_or(0),
+        json_usize(contract, "external_boundary_count").unwrap_or(0),
+        json_usize(contract, "fallback_count").unwrap_or(0),
+        json_usize(contract, "risk_count").unwrap_or(0)
+    );
+
+    print_review_rows(document, "external_boundaries", "external boundaries");
+    print_review_rows(document, "fallbacks", "fallbacks");
+    print_review_rows(document, "risks", "risks");
+}
+
+fn print_review_rows(document: &serde_json::Value, key: &str, label: &str) {
+    let Some(rows) = document.get(key).and_then(serde_json::Value::as_array) else {
+        return;
+    };
+    if rows.is_empty() {
+        return;
+    }
+    println!("{label}:");
+    for row in rows.iter().take(8) {
+        let line = json_usize(row, "line").unwrap_or(0);
+        let kind = json_string(row, "kind")
+            .or_else(|| json_string(row, "category"))
+            .unwrap_or("-");
+        let summary = json_string(row, "summary")
+            .or_else(|| json_string(row, "reason"))
+            .or_else(|| json_string(row, "target"))
+            .or_else(|| json_string(row, "name"))
+            .unwrap_or("-");
+        println!("  L{line}: {kind}: {summary}");
+    }
+    if rows.len() > 8 {
+        println!("  ... {} more", rows.len() - 8);
+    }
+}
+
+fn json_string<'a>(value: &'a serde_json::Value, key: &str) -> Option<&'a str> {
+    value.get(key).and_then(serde_json::Value::as_str)
+}
+
+fn json_usize(value: &serde_json::Value, key: &str) -> Option<usize> {
+    value
+        .get(key)
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+}
+
 fn file_stem(path: &str) -> String {
     Path::new(path)
         .file_stem()
@@ -720,6 +845,7 @@ Usage:
   eng doctor
   eng new <project_name>
   eng check <file.eng> [--review]
+  eng review <file.eng> [--json]
   eng fmt <file.eng> [--check|--write]
   eng ide-check <file.eng>
   eng jit-plan <file.eng>
