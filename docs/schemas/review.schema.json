@@ -105,6 +105,10 @@
       "type": "array",
       "items": { "$ref": "#/$defs/timeSeriesUncertainty" }
     },
+    "timeseries_uncertainty_calculations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/timeSeriesUncertaintyCalculation" }
+    },
     "domain_summary": {
       "type": "array",
       "items": { "$ref": "#/$defs/domainSummary" }
@@ -1594,6 +1598,34 @@
         "method": { "const": "pointwise_measured_std" },
         "sensor_std": { "type": "string" },
         "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "timeSeriesUncertaintyCalculation": {
+      "type": "object",
+      "required": [
+        "kind",
+        "binding",
+        "source",
+        "statistics",
+        "operation",
+        "method",
+        "sensor_std",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "kind": { "type": "string" },
+        "binding": { "type": ["string", "null"] },
+        "source": { "type": "string" },
+        "statistics": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "operation": { "type": "string" },
+        "method": { "const": "pointwise_measured_std_metadata" },
+        "sensor_std": { "type": "string" },
+        "status": { "const": "metadata_only" },
         "line": { "type": "integer", "minimum": 1 }
       }
     }

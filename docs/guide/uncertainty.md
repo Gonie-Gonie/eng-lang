@@ -101,8 +101,11 @@ with {
 `sensor_std` is interpreted as pointwise measured standard deviation metadata.
 It must be a non-negative unitful value compatible with the TimeSeries value
 quantity. The compiler records it in `review.json.timeseries_uncertainty[]`.
-Runtime propagation through TimeSeries mean/integrate/duration and confidence
-band PlotSpec rendering remain follow-up work.
+When `summarize` or `integrate(...)` consumes that TimeSeries, the compiler
+also records `review.json.timeseries_uncertainty_calculations[]` entries with
+status `metadata_only`. Runtime propagation through TimeSeries
+mean/integrate/duration and confidence-band PlotSpec rendering remain follow-up
+work.
 
 Each runtime uncertainty includes mean, standard deviation, relative error when
 declared, lower/upper bounds, `p05`, `p50`, `p95`, `distribution`, `method`,

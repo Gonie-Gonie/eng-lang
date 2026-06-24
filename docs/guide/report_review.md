@@ -522,6 +522,7 @@ The same uncertainty surface appears in:
 review.json                 uncertainty_info
 review.json                 uncertainty_policies
 review.json                 timeseries_uncertainty
+review.json                 timeseries_uncertainty_calculations
 report_spec.json            uncertainty
 result.engres               typed_payload.uncertainties
 report.html                 Uncertainty table
@@ -551,6 +552,9 @@ produce `E-UNC-PERCENTILE-UNIT-MISMATCH`.
 Pointwise TimeSeries sensor standard deviation metadata is recorded in
 `review.json.timeseries_uncertainty[]`; invalid TimeSeries owner, missing unit,
 negative value, or incompatible unit produces `E-UNC-TS-STD-001`.
+TimeSeries statistics and integrations that consume such a source are recorded
+in `review.json.timeseries_uncertainty_calculations[]` with
+`metadata_only` status.
 Propagation source terms are also carried through `review.json`,
 `result.engres`, runtime-updated `report_spec.json`, HTML reports, and the
 native IDE Runtime Summary.

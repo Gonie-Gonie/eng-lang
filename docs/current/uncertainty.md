@@ -168,7 +168,9 @@ with {
 TimeSeries value quantity. Invalid metadata produces `E-UNC-TS-STD-001`.
 `review.json.timeseries_uncertainty[]` records the binding, axis, value
 quantity, display unit, method `pointwise_measured_std`, `sensor_std`, status,
-and source line. Mean/integrate/duration propagation and confidence-band
+and source line. When `summarize` or `integrate(...)` consumes that TimeSeries,
+`review.json.timeseries_uncertainty_calculations[]` records metadata-only
+statistics/integration linkage. Duration propagation and confidence-band
 PlotSpec rendering remain planned follow-up work.
 
 ## Report And IDE Requirements

@@ -2363,6 +2363,7 @@ pub fn review_json(report: &CheckReport) -> String {
     json.push_str("\n  ],\n");
     push_uncertainty_policies_json(&mut json, report);
     push_timeseries_uncertainty_json(&mut json, report);
+    push_timeseries_uncertainty_calculations_json(&mut json, report);
     push_simulation_requests_json(&mut json, report);
     json.push_str("  \"timeseries_kernels\": [\n");
     for (index, kernel) in report
@@ -4329,6 +4330,87 @@ fn push_timeseries_uncertainty_json(json: &mut String, report: &CheckReport) {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+}
+
+fn push_timeseries_uncertainty_calculations_json(json: &mut String, report: &CheckReport) {
+    json.push_str("  \"timeseries_uncertainty_calculations\": [\n");
+    let mut first_entry = true;
+    for stats in &report.semantic_program.stats_infos {
+        let Some(sensor_std) = timeseries_sensor_std_option(report, &stats.source) else {
+            continue;
+        };
+        if !first_entry {
+            json.push_str(",\n");
+        }
+        first_entry = false;
+        json.push_str("    {\n");
+        json.push_str("      \"kind\": \"timeseries_statistics\",\n");
+        json.push_str("      \"binding\": null,\n");
+        json.push_str(&format!(
+            "      \"source\": \"{}\",\n",
+            json_escape(&stats.source)
+        ));
+        json.push_str("      \"statistics\": [");
+        push_json_string_array(json, &stats.statistics);
+        json.push_str("],\n");
+        json.push_str("      \"operation\": \"statistics\",\n");
+        json.push_str("      \"method\": \"pointwise_measured_std_metadata\",\n");
+        json.push_str(&format!(
+            "      \"sensor_std\": \"{}\",\n",
+            json_escape(&sensor_std.value)
+        ));
+        json.push_str("      \"status\": \"metadata_only\",\n");
+        json.push_str(&format!("      \"line\": {}\n", stats.line));
+        json.push_str("    }");
+    }
+    for integration in &report.semantic_program.integrations {
+        let Some(sensor_std) = timeseries_sensor_std_option(report, &integration.source) else {
+            continue;
+        };
+        if !first_entry {
+            json.push_str(",\n");
+        }
+        first_entry = false;
+        json.push_str("    {\n");
+        json.push_str("      \"kind\": \"timeseries_integrate\",\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&integration.binding)
+        ));
+        json.push_str(&format!(
+            "      \"source\": \"{}\",\n",
+            json_escape(&integration.source)
+        ));
+        json.push_str("      \"statistics\": [],\n");
+        json.push_str("      \"operation\": \"integrate\",\n");
+        json.push_str("      \"method\": \"pointwise_measured_std_metadata\",\n");
+        json.push_str(&format!(
+            "      \"sensor_std\": \"{}\",\n",
+            json_escape(&sensor_std.value)
+        ));
+        json.push_str("      \"status\": \"metadata_only\",\n");
+        json.push_str(&format!("      \"line\": {}\n", integration.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+}
+
+fn timeseries_sensor_std_option<'a>(
+    report: &'a CheckReport,
+    binding_name: &str,
+) -> Option<&'a semantic::WithOptionInfo> {
+    let binding = report
+        .semantic_program
+        .typed_bindings
+        .iter()
+        .find(|binding| binding.name == binding_name)?;
+    report
+        .semantic_program
+        .with_blocks
+        .iter()
+        .filter(|block| block.owner_line == Some(binding.line))
+        .flat_map(|block| block.options.iter())
+        .find(|option| option.key == "sensor_std" && option.status == "accepted")
 }
 
 fn review_calculation_count(report: &CheckReport) -> usize {
@@ -7241,6 +7323,24 @@ system Envelope {
                 .count(),
             2
         );
+    }
+
+    #[test]
+    fn records_timeseries_uncertainty_calculation_metadata() {
+        let report = check_source(
+            "ok.eng",
+            "Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW\nwith {\n    sensor_std = 0.2 kW\n}\nE = integrate(Q_series, over=Time)\n\nreport {\n    summarize Q_series by [mean, p95]\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let review = review_json(&report);
+        assert!(review.contains("\"timeseries_uncertainty_calculations\""));
+        assert!(review.contains("\"kind\": \"timeseries_statistics\""));
+        assert!(review.contains("\"kind\": \"timeseries_integrate\""));
+        assert!(review.contains("\"statistics\": [\"mean\", \"p95\"]"));
+        assert!(review.contains("\"sensor_std\": \"0.2 kW\""));
+        assert!(review.contains("\"status\": \"metadata_only\""));
     }
 
     #[test]
