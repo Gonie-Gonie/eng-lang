@@ -36,11 +36,14 @@ def main() -> int:
         "r2": 1.0,
         "status": "fixture",
     }
-    Path(args.model).write_text(json.dumps(card, indent=2), encoding="utf-8")
-    Path(args.metrics).write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+    model_path = Path(args.model)
+    metrics_path = Path(args.metrics)
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    model_path.write_text(json.dumps(card, indent=2), encoding="utf-8")
+    metrics_path.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

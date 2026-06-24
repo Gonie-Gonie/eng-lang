@@ -19,10 +19,11 @@ def main() -> int:
     payload = json.loads(Path(args.fixture).read_text(encoding="utf-8"))
     payload["requested_region"] = args.region
     payload["requested_year"] = int(args.year)
-    Path(args.out).write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

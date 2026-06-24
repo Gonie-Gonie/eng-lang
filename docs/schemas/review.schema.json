@@ -242,10 +242,14 @@
     },
     "processRun": {
       "type": "object",
-      "required": ["binding", "command", "line"],
+      "required": ["binding", "command", "expected_outputs", "line"],
       "properties": {
         "binding": { "type": "string" },
         "command": { "type": "string" },
+        "expected_outputs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "line": { "type": "integer", "minimum": 1 }
       }
     },

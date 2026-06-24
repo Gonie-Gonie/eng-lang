@@ -1934,6 +1934,7 @@ fn known_with_option(key: &str) -> bool {
             | "recursive"
             | "args"
             | "cwd"
+            | "expected_outputs"
             | "allow_failure"
     )
 }

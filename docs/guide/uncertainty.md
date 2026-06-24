@@ -11,6 +11,7 @@ Use fast bindings in the top-level workflow:
 
 ```eng
 T_supply_meas = measured(12 degC, std=0.2 K)
+L_sensor_meas = measured(10 m, error=1 %)
 T_return_band = interval(20 degC, 24 degC)
 Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)
 Q_aux_band = uniform(0.3 kW, 0.7 kW, samples=21)
@@ -36,6 +37,8 @@ The current implementation materializes deterministic sample sets:
 
 - `measured(value, std=...)` records the measured value and creates a small
   deterministic normal sample when a standard deviation is supplied.
+- `measured(value, error=1 %)` records relative error metadata and derives the
+  deterministic sample standard deviation from the measured value.
 - `interval(lower, upper)` records lower, midpoint, and upper samples.
 - `normal(mean=..., std=..., samples=n)` uses deterministic quantile samples,
   so the same source always produces the same summary and histogram.
@@ -62,10 +65,10 @@ deviations, reversed interval/uniform bounds, `samples` outside `1..=256`,
 unsupported `distribution(kind=...)` values, unsupported propagation methods,
 and nonnumeric `scale`/`offset` transforms before runtime.
 
-Each runtime uncertainty includes mean, standard deviation, lower/upper bounds,
-`p05`, `p50`, `p95`, `distribution`, `method`, optional `scale`/`offset`
-transform metadata, sample count, propagation count, propagation source terms,
-and the generated sample vector.
+Each runtime uncertainty includes mean, standard deviation, relative error when
+declared, lower/upper bounds, `p05`, `p50`, `p95`, `distribution`, `method`,
+optional `scale`/`offset` transform metadata, sample count, propagation count,
+propagation source terms, and the generated sample vector.
 
 ## Distribution Plot
 
@@ -99,6 +102,7 @@ typed_payload.uncertainties
   distribution
   method
   scale/offset
+  error
   mean/stddev/lower/upper
   p05/p50/p95
   sample_count

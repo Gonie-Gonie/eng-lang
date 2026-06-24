@@ -22,10 +22,11 @@ def main() -> int:
         "peak_cooling": 14.2,
         "input_hash_hint": Path(args.input).name,
     }
-    Path(args.out).write_text(json.dumps(result, indent=2), encoding="utf-8")
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(result, indent=2), encoding="utf-8")
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

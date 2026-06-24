@@ -33,10 +33,11 @@ def main() -> int:
                 ]
             )
         )
-    Path(args.out).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

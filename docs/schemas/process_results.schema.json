@@ -30,6 +30,8 @@
         "command",
         "args",
         "cwd",
+        "expected_outputs",
+        "expected_output_status",
         "exit_code",
         "success",
         "stdout",
@@ -46,13 +48,31 @@
           "items": { "type": "string" }
         },
         "cwd": { "type": "string" },
+        "expected_outputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/expectedOutput" }
+        },
+        "expected_output_status": {
+          "enum": ["not_declared", "satisfied", "missing"]
+        },
         "exit_code": { "type": ["integer", "null"] },
         "success": { "type": "boolean" },
         "stdout": { "type": "string" },
         "stderr": { "type": "string" },
         "duration_ms": { "type": "integer", "minimum": 0 },
-        "status": { "enum": ["completed", "failed_allowed"] },
+        "status": { "enum": ["completed", "failed_allowed", "output_missing_allowed"] },
         "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "expectedOutput": {
+      "type": "object",
+      "required": ["path", "resolved_path", "exists", "hash", "status"],
+      "properties": {
+        "path": { "type": "string" },
+        "resolved_path": { "type": "string" },
+        "exists": { "type": "boolean" },
+        "hash": { "type": ["string", "null"] },
+        "status": { "enum": ["exists", "exists_unhashed", "missing"] }
       }
     }
   }

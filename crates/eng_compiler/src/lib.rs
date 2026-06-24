@@ -2178,6 +2178,10 @@ pub fn review_json(report: &CheckReport) -> String {
             "      \"command\": \"{}\",\n",
             json_escape(&process.command)
         ));
+        let expected_outputs = review_option_values(report, process.line, "expected_outputs");
+        json.push_str("      \"expected_outputs\": [");
+        push_json_string_array(&mut json, &expected_outputs);
+        json.push_str("],\n");
         json.push_str(&format!("      \"line\": {}\n", process.line));
         json.push_str("    }");
     }
@@ -2442,6 +2446,7 @@ pub fn review_json(report: &CheckReport) -> String {
         push_optional_json_string(&mut json, "offset", uncertainty.offset.as_deref(), 6);
         push_optional_json_string(&mut json, "mean", uncertainty.mean.as_deref(), 6);
         push_optional_json_string(&mut json, "stddev", uncertainty.stddev.as_deref(), 6);
+        push_optional_json_string(&mut json, "error", uncertainty.error.as_deref(), 6);
         push_optional_json_string(&mut json, "lower", uncertainty.lower.as_deref(), 6);
         push_optional_json_string(&mut json, "upper", uncertainty.upper.as_deref(), 6);
         json.push_str(&format!(
@@ -4039,6 +4044,67 @@ fn push_json_string_array(json: &mut String, values: &[String]) {
         }
         json.push_str(&format!("\"{}\"", json_escape(value)));
     }
+}
+
+fn review_option_values(report: &CheckReport, owner_line: usize, key: &str) -> Vec<String> {
+    let Some(raw) = report
+        .semantic_program
+        .with_blocks
+        .iter()
+        .filter(|block| block.owner_line == Some(owner_line))
+        .flat_map(|block| block.options.iter())
+        .find(|option| option.key == key && option.status == "accepted")
+        .map(|option| option.value.as_str())
+    else {
+        return Vec::new();
+    };
+    parse_review_option_list(raw)
+}
+
+fn parse_review_option_list(raw: &str) -> Vec<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+    if let Some(inner) = trimmed
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        if inner.trim().is_empty() {
+            return Vec::new();
+        }
+        return split_review_top_level(inner)
+            .into_iter()
+            .map(|part| strip_string_literal(part.trim()))
+            .collect();
+    }
+    vec![strip_string_literal(trimmed)]
+}
+
+fn split_review_top_level(expression: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut start = 0usize;
+    let mut depth = 0i32;
+    let mut in_string = false;
+    let mut previous = '\0';
+    for (index, character) in expression.char_indices() {
+        if character == '"' && previous != '\\' {
+            in_string = !in_string;
+        } else if !in_string {
+            match character {
+                '(' | '[' | '{' => depth += 1,
+                ')' | ']' | '}' => depth -= 1,
+                ',' if depth == 0 => {
+                    parts.push(expression[start..index].trim());
+                    start = index + character.len_utf8();
+                }
+                _ => {}
+            }
+        }
+        previous = character;
+    }
+    parts.push(expression[start..].trim());
+    parts
 }
 
 fn push_named_json_string_array(json: &mut String, key: &str, values: &[String], indent: usize) {
@@ -6640,38 +6706,44 @@ system Envelope {
     fn records_uncertainty_core_metadata() {
         let report = check_source(
             "ok.eng",
-            "T_supply_meas = measured(12 degC, std=0.2 K)\nT_return_band = interval(20 degC, 24 degC)\nQ_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)\nQ_uniform = uniform(4 kW, 6 kW, samples=11)\nQ_coil_ensemble = ensemble(Q_coil_dist, samples=31)\nQ_total_unc = propagate(Q_coil_dist, method=linear, scale=1.08, offset=0.4 kW)\n",
+            "T_supply_meas = measured(12 degC, std=0.2 K)\nT_return_band = interval(20 degC, 24 degC)\nL_sensor_meas = measured(10 m, error=1 %)\nQ_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)\nQ_uniform = uniform(4 kW, 6 kW, samples=11)\nQ_coil_ensemble = ensemble(Q_coil_dist, samples=31)\nQ_total_unc = propagate(Q_coil_dist, method=linear, scale=1.08, offset=0.4 kW)\n",
             &CheckOptions::default(),
         );
 
         assert!(!report.has_errors());
-        assert_eq!(report.semantic_program.uncertainty_infos.len(), 6);
+        assert_eq!(report.semantic_program.uncertainty_infos.len(), 7);
         assert_eq!(
             report.semantic_program.uncertainty_infos[0].kind,
             "Measured"
         );
         assert_eq!(
-            report.semantic_program.uncertainty_infos[2].sample_count,
+            report.semantic_program.uncertainty_infos[3].sample_count,
             31
         );
         assert_eq!(
-            report.semantic_program.uncertainty_infos[3]
+            report.semantic_program.uncertainty_infos[4]
                 .distribution
                 .as_deref(),
             Some("uniform")
         );
         assert_eq!(
-            report.semantic_program.uncertainty_infos[2].display_unit,
+            report.semantic_program.uncertainty_infos[2]
+                .error
+                .as_deref(),
+            Some("1 %")
+        );
+        assert_eq!(
+            report.semantic_program.uncertainty_infos[3].display_unit,
             "kW"
         );
         assert_eq!(
-            report.semantic_program.uncertainty_infos[5]
+            report.semantic_program.uncertainty_infos[6]
                 .source
                 .as_deref(),
             Some("Q_coil_dist")
         );
         assert_eq!(
-            report.semantic_program.uncertainty_infos[5].display_unit,
+            report.semantic_program.uncertainty_infos[6].display_unit,
             "kW"
         );
         let ensemble_type = report
@@ -6689,19 +6761,19 @@ system Envelope {
             .expect("Q_total_unc type");
         assert_eq!(propagated_type.semantic_type.display_unit, "kW");
         assert_eq!(
-            report.semantic_program.uncertainty_infos[5]
+            report.semantic_program.uncertainty_infos[6]
                 .method
                 .as_deref(),
             Some("linear")
         );
         assert_eq!(
-            report.semantic_program.uncertainty_infos[5]
+            report.semantic_program.uncertainty_infos[6]
                 .scale
                 .as_deref(),
             Some("1.08")
         );
         assert_eq!(
-            report.semantic_program.uncertainty_infos[5]
+            report.semantic_program.uncertainty_infos[6]
                 .offset
                 .as_deref(),
             Some("0.4 kW")
@@ -6710,6 +6782,7 @@ system Envelope {
         let review = review_json(&report);
         assert!(review.contains("\"uncertainty_info\""));
         assert!(review.contains("\"distribution\": \"uniform\""));
+        assert!(review.contains("\"error\": \"1 %\""));
         assert!(review.contains("\"scale\": \"1.08\""));
         assert!(review.contains("\"offset\": \"0.4 kW\""));
         assert!(review.contains("\"Measured[AbsoluteTemperature]\""));

@@ -6,7 +6,7 @@ The saved run should show:
 schema StationMap with two fixture rows
 read-only JSON source hash for sample_api_response.json
 two explicit process boundaries
+two expected process output contracts
 one generated text artifact under outputs/standard_weather_file.txt
 report entry for station row count
 ```
-

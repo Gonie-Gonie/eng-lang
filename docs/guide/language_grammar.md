@@ -700,6 +700,7 @@ Common accepted option keys:
 | `recursive` | Required for directory delete operations |
 | `args` | External process argument array |
 | `cwd` | External process working directory |
+| `expected_outputs` | Process output files that must exist after the command exits |
 | `allow_failure` | Record a non-zero process exit instead of failing the run |
 
 Unknown options are rejected with `E-WITH-OPTION-001`.
@@ -1623,6 +1624,7 @@ with {
 process_result = run command "cmd"
 with {
     args = ["/C", "echo", "ok"]
+    expected_outputs = ["outputs/tool-output.txt"]
 }
 
 log info "process result captured"

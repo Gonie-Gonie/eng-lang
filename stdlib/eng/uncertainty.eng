@@ -11,7 +11,7 @@
 #
 # Target constructor vocabulary:
 #   measured(value, std=...)
-#   measured(value, error=...)
+#   measured(value, error=1 %)
 #   interval(lower, upper)
 #   normal(mean=..., std=...)
 #   uniform(lower, upper)

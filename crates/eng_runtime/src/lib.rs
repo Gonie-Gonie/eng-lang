@@ -469,6 +469,7 @@ pub fn run_source(
 
     let artifacts_saved = options.save_artifacts || options.open_report;
     let mut output_artifacts = Vec::new();
+    output_artifacts.extend(process_expected_output_artifacts(&process_results));
     output_artifacts.extend(csv_export_artifacts);
     output_artifacts.extend(write_artifacts);
     output_artifacts.extend(file_operation_artifacts);
@@ -1039,6 +1040,8 @@ struct ProcessExecutionRecord {
     command: String,
     args: Vec<String>,
     cwd: String,
+    expected_outputs: Vec<ProcessExpectedOutputRecord>,
+    expected_output_status: String,
     exit_code: Option<i32>,
     success: bool,
     stdout: String,
@@ -1046,6 +1049,15 @@ struct ProcessExecutionRecord {
     duration_ms: u128,
     status: String,
     line: usize,
+}
+
+#[derive(Clone, Debug)]
+struct ProcessExpectedOutputRecord {
+    path: String,
+    resolved_path: PathBuf,
+    exists: bool,
+    hash: Option<String>,
+    status: String,
 }
 
 fn execute_process_runs(report: &CheckReport) -> Result<Vec<ProcessExecutionRecord>, RuntimeError> {
@@ -1070,6 +1082,8 @@ fn execute_process_runs(report: &CheckReport) -> Result<Vec<ProcessExecutionReco
         let success = output.status.success();
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        let expected_outputs = process_expected_outputs_for_owner(report, process.line, &cwd)?;
+        let expected_output_status = expected_output_status(&expected_outputs);
         if !success && !allow_failure {
             return Err(invalid_input(&format!(
                 "process `{}` exited with code {}; add `with {{ allow_failure = true }}` to record the failure as a ProcessResult",
@@ -1079,18 +1093,34 @@ fn execute_process_runs(report: &CheckReport) -> Result<Vec<ProcessExecutionReco
                     .unwrap_or_else(|| "unknown".to_owned())
             )));
         }
+        if expected_output_status == "missing" && !allow_failure {
+            let missing = expected_outputs
+                .iter()
+                .filter(|output| !output.exists)
+                .map(|output| output.path.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(invalid_input(&format!(
+                "process `{}` did not create expected output(s): {}; add `with {{ allow_failure = true }}` to record the missing output contract",
+                process.command, missing
+            )));
+        }
         records.push(ProcessExecutionRecord {
             binding: process.binding.clone(),
             command: process.command.clone(),
             args,
             cwd: cwd.display().to_string(),
+            expected_outputs,
+            expected_output_status: expected_output_status.clone(),
             exit_code,
             success,
             stdout,
             stderr,
             duration_ms,
-            status: if success {
+            status: if success && expected_output_status != "missing" {
                 "completed".to_owned()
+            } else if success {
+                "output_missing_allowed".to_owned()
             } else {
                 "failed_allowed".to_owned()
             },
@@ -1141,6 +1171,33 @@ fn process_results_json(
         json.push_str(&format!(
             "      \"cwd\": \"{}\",\n",
             json_escape(&record.cwd)
+        ));
+        json.push_str("      \"expected_outputs\": [\n");
+        for (output_index, output) in record.expected_outputs.iter().enumerate() {
+            if output_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"path\": \"{}\",\n",
+                json_escape(&output.path)
+            ));
+            json.push_str(&format!(
+                "          \"resolved_path\": \"{}\",\n",
+                json_escape(&output.resolved_path.display().to_string())
+            ));
+            json.push_str(&format!("          \"exists\": {},\n", output.exists));
+            push_optional_json_string_runtime(&mut json, "hash", output.hash.as_deref(), 10);
+            json.push_str(&format!(
+                "          \"status\": \"{}\"\n",
+                json_escape(&output.status)
+            ));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str(&format!(
+            "      \"expected_output_status\": \"{}\",\n",
+            json_escape(&record.expected_output_status)
         ));
         match record.exit_code {
             Some(code) => json.push_str(&format!("      \"exit_code\": {code},\n")),
@@ -1594,6 +1651,77 @@ fn process_cwd_for_owner(report: &CheckReport, owner_line: usize) -> Result<Path
     Ok(cwd)
 }
 
+fn process_expected_outputs_for_owner(
+    report: &CheckReport,
+    owner_line: usize,
+    cwd: &Path,
+) -> Result<Vec<ProcessExpectedOutputRecord>, RuntimeError> {
+    let Some(raw) = process_option(report, owner_line, "expected_outputs") else {
+        return Ok(Vec::new());
+    };
+    parse_process_expected_outputs(&raw, report, cwd)
+}
+
+fn parse_process_expected_outputs(
+    raw: &str,
+    report: &CheckReport,
+    cwd: &Path,
+) -> Result<Vec<ProcessExpectedOutputRecord>, RuntimeError> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+    let parts = if let Some(inner) = trimmed
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        if inner.trim().is_empty() {
+            Vec::new()
+        } else {
+            split_top_level(inner, &[','])
+        }
+    } else {
+        vec![trimmed.to_owned()]
+    };
+    parts
+        .into_iter()
+        .map(|part| process_expected_output_record(&part, report, cwd))
+        .collect()
+}
+
+fn process_expected_output_record(
+    raw: &str,
+    report: &CheckReport,
+    cwd: &Path,
+) -> Result<ProcessExpectedOutputRecord, RuntimeError> {
+    let raw = raw.trim();
+    let path_text = evaluate_runtime_path_expression(raw, report)
+        .ok_or_else(|| invalid_input(&format!("invalid process expected output `{raw}`")))?;
+    let resolved_path = runtime_resolve_source_relative_path(&path_text, Some(cwd));
+    let (exists, hash, status) = match fs::read(&resolved_path) {
+        Ok(bytes) => (true, Some(hash_bytes(&bytes)), "exists".to_owned()),
+        Err(_) if resolved_path.exists() => (true, None, "exists_unhashed".to_owned()),
+        Err(_) => (false, None, "missing".to_owned()),
+    };
+    Ok(ProcessExpectedOutputRecord {
+        path: runtime_path_text(&path_text),
+        resolved_path,
+        exists,
+        hash,
+        status,
+    })
+}
+
+fn expected_output_status(outputs: &[ProcessExpectedOutputRecord]) -> String {
+    if outputs.is_empty() {
+        "not_declared".to_owned()
+    } else if outputs.iter().all(|output| output.exists) {
+        "satisfied".to_owned()
+    } else {
+        "missing".to_owned()
+    }
+}
+
 fn process_bool_option(report: &CheckReport, owner_line: usize, key: &str) -> bool {
     process_option(report, owner_line, key)
         .map(|value| {
@@ -1717,6 +1845,22 @@ struct OutputArtifact {
     path: String,
     hash: String,
     absolute_path: PathBuf,
+}
+
+fn process_expected_output_artifacts(records: &[ProcessExecutionRecord]) -> Vec<OutputArtifact> {
+    records
+        .iter()
+        .flat_map(|record| record.expected_outputs.iter())
+        .filter_map(|expected| {
+            let hash = expected.hash.as_ref()?;
+            Some(OutputArtifact {
+                kind: "process_expected_output".to_owned(),
+                path: path_for_manifest(&expected.resolved_path),
+                hash: hash.clone(),
+                absolute_path: expected.resolved_path.clone(),
+            })
+        })
+        .collect()
 }
 
 fn output_artifact(
@@ -3297,6 +3441,7 @@ fn result_json(
         push_optional_json_number(&mut uncertainties, "offset", uncertainty.offset, 8);
         push_optional_json_number(&mut uncertainties, "mean", uncertainty.mean, 8);
         push_optional_json_number(&mut uncertainties, "stddev", uncertainty.stddev, 8);
+        push_optional_json_string(&mut uncertainties, "error", uncertainty.error.as_deref(), 8);
         push_optional_json_number(&mut uncertainties, "lower", uncertainty.lower, 8);
         push_optional_json_number(&mut uncertainties, "upper", uncertainty.upper, 8);
         push_optional_json_number(&mut uncertainties, "p05", uncertainty.p05, 8);
@@ -5667,6 +5812,53 @@ mod tests {
         assert!(output
             .output_manifest_json
             .contains("\"kind\": \"process_results\""));
+    }
+
+    #[test]
+    fn run_file_records_process_expected_outputs() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root
+            .join("build")
+            .join("runtime-process-expected-output");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-process-expected-output-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_path = source_dir.join("main.eng");
+        let source = if cfg!(windows) {
+            "process_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"if not exist outputs mkdir outputs && echo process-ok>outputs/out.txt\"]\n    expected_outputs = [\"outputs/out.txt\"]\n}\n"
+        } else {
+            "process_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"mkdir -p outputs && printf process-ok > outputs/out.txt\"]\n    expected_outputs = [\"outputs/out.txt\"]\n}\n"
+        };
+        fs::write(&source_path, source).expect("write source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("process run");
+
+        assert!(source_dir.join("outputs").join("out.txt").exists());
+        assert!(output.review_json.contains("\"expected_outputs\""));
+        assert!(output.process_results_json.contains("\"expected_outputs\""));
+        assert!(output
+            .process_results_json
+            .contains("\"expected_output_status\": \"satisfied\""));
+        assert!(output
+            .process_results_json
+            .contains("\"status\": \"exists\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"process_expected_output\""));
     }
 
     #[test]

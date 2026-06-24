@@ -4,6 +4,7 @@
 /dist/
 /crates/eng_ide/gen/
 /examples/build/
+/examples/workflows/*/outputs/
 *.engbc
 *.engres
 *.tmp

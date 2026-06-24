@@ -16,14 +16,16 @@ args {
 stations = promote csv args.station_map as StationMap
 api_payload = read json args.api_fixture
 
-fetch_result = run command "cmd"
+fetch_result = run command "python"
 with {
-    args = ["/C", "echo", "weather-api-fixture"]
+    args = ["tools/fetch_weather_api.py", "--fixture", "data/sample_api_response.json", "--out", "outputs/fetched_weather.json", "--region", "demo", "--year", "2024"]
+    expected_outputs = ["outputs/fetched_weather.json"]
 }
 
-writer_result = run command "cmd"
+writer_result = run command "python"
 with {
-    args = ["/C", "echo", "standard-weather-file-fixture"]
+    args = ["tools/make_standard_weather_file.py", "--input", "outputs/fetched_weather.json", "--out", "outputs/standard_weather_file.process.txt"]
+    expected_outputs = ["outputs/standard_weather_file.process.txt"]
 }
 
 print "Weather fixture region = {args.region}"
@@ -38,4 +40,3 @@ with {
 report {
     show stations.rows
 }
-

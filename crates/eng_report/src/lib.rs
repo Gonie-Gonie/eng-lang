@@ -292,6 +292,7 @@ pub struct ReportUncertaintyInfo {
     pub offset: Option<String>,
     pub mean: Option<String>,
     pub stddev: Option<String>,
+    pub error: Option<String>,
     pub lower: Option<String>,
     pub upper: Option<String>,
     pub p05: Option<String>,
@@ -1296,6 +1297,7 @@ pub fn report_spec_from_report(
             offset: info.offset.clone(),
             mean: info.mean.clone(),
             stddev: info.stddev.clone(),
+            error: info.error.clone(),
             lower: info.lower.clone(),
             upper: info.upper.clone(),
             p05: None,
@@ -3251,6 +3253,7 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         push_optional_json_string(&mut json, "offset", uncertainty.offset.as_deref(), 6);
         push_optional_json_string(&mut json, "mean", uncertainty.mean.as_deref(), 6);
         push_optional_json_string(&mut json, "stddev", uncertainty.stddev.as_deref(), 6);
+        push_optional_json_string(&mut json, "error", uncertainty.error.as_deref(), 6);
         push_optional_json_string(&mut json, "lower", uncertainty.lower.as_deref(), 6);
         push_optional_json_string(&mut json, "upper", uncertainty.upper.as_deref(), 6);
         push_optional_json_string(&mut json, "p05", uncertainty.p05.as_deref(), 6);
@@ -6031,7 +6034,11 @@ fn render_html_inner(
 
     let mut uncertainty = String::new();
     for info in &report.semantic_program.uncertainty_infos {
-        let transform = uncertainty_transform_label(info.scale.as_deref(), info.offset.as_deref());
+        let transform = uncertainty_transform_label(
+            info.scale.as_deref(),
+            info.offset.as_deref(),
+            info.error.as_deref(),
+        );
         let propagation = uncertainty_propagation_label(&info.propagation);
         uncertainty.push_str("<tr>");
         uncertainty.push_str(&format!(
@@ -7589,13 +7596,22 @@ fn format_domain_parameter_list(parameters: &[DomainTypeParameterInfo]) -> Strin
     }
 }
 
-fn uncertainty_transform_label(scale: Option<&str>, offset: Option<&str>) -> String {
-    match (scale, offset) {
-        (Some(scale), Some(offset)) => format!("scale={scale}, offset={offset}"),
-        (Some(scale), None) => format!("scale={scale}"),
-        (None, Some(offset)) => format!("offset={offset}"),
-        (None, None) => String::new(),
+fn uncertainty_transform_label(
+    scale: Option<&str>,
+    offset: Option<&str>,
+    error: Option<&str>,
+) -> String {
+    let mut labels = Vec::new();
+    if let Some(scale) = scale {
+        labels.push(format!("scale={scale}"));
     }
+    if let Some(offset) = offset {
+        labels.push(format!("offset={offset}"));
+    }
+    if let Some(error) = error {
+        labels.push(format!("error={error}"));
+    }
+    labels.join(", ")
 }
 
 fn uncertainty_propagation_label(terms: &[eng_compiler::UncertaintyPropagationTerm]) -> String {

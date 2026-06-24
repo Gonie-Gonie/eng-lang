@@ -19,10 +19,11 @@ def main() -> int:
     base = Path(args.base).read_text(encoding="utf-8")
     sample = json.loads(args.sample)
     text = base + "\n" + json.dumps({"case_id": args.case, "sample": sample}, indent=2)
-    Path(args.out).write_text(text + "\n", encoding="utf-8")
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text + "\n", encoding="utf-8")
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

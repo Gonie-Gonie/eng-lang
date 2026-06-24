@@ -493,6 +493,7 @@ impl RuntimeData {
                 offset: uncertainty.offset.map(format_number),
                 mean: uncertainty.mean.map(format_number),
                 stddev: uncertainty.stddev.map(format_number),
+                error: uncertainty.error.clone(),
                 lower: uncertainty.lower.map(format_number),
                 upper: uncertainty.upper.map(format_number),
                 p05: uncertainty.p05.map(format_number),
@@ -1042,6 +1043,7 @@ pub struct RuntimeUncertainty {
     pub offset: Option<f64>,
     pub mean: Option<f64>,
     pub stddev: Option<f64>,
+    pub error: Option<String>,
     pub lower: Option<f64>,
     pub upper: Option<f64>,
     pub p05: Option<f64>,
@@ -3176,7 +3178,16 @@ fn materialize_uncertainty(
     prior: &[RuntimeUncertainty],
 ) -> RuntimeUncertainty {
     let declared_mean = info.mean.as_deref().and_then(first_numeric_value);
-    let declared_stddev = info.stddev.as_deref().and_then(first_numeric_value);
+    let declared_error_fraction = info.error.as_deref().and_then(relative_error_fraction);
+    let declared_stddev = info
+        .stddev
+        .as_deref()
+        .and_then(first_numeric_value)
+        .or_else(|| {
+            declared_mean
+                .zip(declared_error_fraction)
+                .map(|(mean, error)| mean.abs() * error)
+        });
     let declared_lower = info.lower.as_deref().and_then(first_numeric_value);
     let declared_upper = info.upper.as_deref().and_then(first_numeric_value);
     let requested_count = info.sample_count.clamp(1, 256);
@@ -3258,6 +3269,7 @@ fn materialize_uncertainty(
         offset: info.offset.as_ref().map(|_| offset),
         mean: declared_mean.or(summary.mean),
         stddev: declared_stddev.or(summary.stddev),
+        error: info.error.clone(),
         lower: declared_lower.or(summary.lower),
         upper: declared_upper.or(summary.upper),
         p05,
@@ -13400,6 +13412,15 @@ fn convert_display_value(value: f64, from_unit: &str, to_unit: &str) -> f64 {
 
 fn first_numeric_value(text: &str) -> Option<f64> {
     number_with_optional_unit(text).map(|(value, _)| value)
+}
+
+fn relative_error_fraction(text: &str) -> Option<f64> {
+    let value = first_numeric_value(text)?;
+    if text.contains('%') {
+        Some(value / 100.0)
+    } else {
+        Some(value)
+    }
 }
 
 fn interval_samples(lower: Option<f64>, upper: Option<f64>) -> Vec<f64> {

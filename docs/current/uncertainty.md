@@ -72,6 +72,7 @@ Keep the initial surface constructor-based:
 
 ```eng
 T_supply = measured(12 degC, std=0.2 K)
+L_sensor = measured(10 m, error=1 %)
 Q_band = interval(4.8 kW, 5.4 kW)
 Q_dist = normal(mean=5 kW, std=0.8 kW, samples=31)
 Q_uniform = uniform(4 kW, 6 kW, samples=21)
@@ -172,4 +173,3 @@ official or workflow example
 compile, runtime, diagnostic, and artifact tests
 README, status, and maturity matrix entries
 ```
-

@@ -148,6 +148,8 @@ processes[].binding
 processes[].command
 processes[].args
 processes[].cwd
+processes[].expected_outputs
+processes[].expected_output_status
 processes[].exit_code
 processes[].success
 processes[].stdout

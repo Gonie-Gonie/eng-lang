@@ -98,8 +98,11 @@ Implemented behavior in the current package scope:
 - output_manifest.json records the saved run-log artifact.
 - run command statements bind `ProcessResult` values.
 - process options support `args`, `cwd`, and `allow_failure`.
+- process options support `expected_outputs` for files that must exist after
+  the command exits; saved runs record existence and hashes in
+  `process_results.json` and `output_manifest.json`.
 - saved runs write `process_results.json` with command, args, cwd, exit code,
-  stdout, stderr, duration, status, and line metadata.
+  stdout, stderr, duration, expected outputs, status, and line metadata.
 - output_manifest.json records the saved process-results artifact.
 - test blocks group runtime assertions and golden artifact comparisons.
 - assert operands are checked for compatible quantity dimensions.
@@ -221,6 +224,7 @@ result = run command "energyplus.exe"
 with {
     args = ["-w", args.weather, "-d", args.output, args.idf]
     cwd = dir("runs/case01")
+    expected_outputs = ["eplusout.sql", "eplusout.err"]
 }
 
 log info "EnergyPlus process was executed"
@@ -247,6 +251,8 @@ Implemented rules:
 - `run command` must bind a result, for example `result = run command "cmd"`
 - args are string arrays such as `args = ["/C", "echo", "ok"]`
 - cwd is a typed path expression resolved source-relative when relative
+- expected outputs are path-expression arrays resolved relative to the process
+  cwd and recorded with existence status plus file hashes when readable
 - non-zero exit codes fail the run by default
 - `with { allow_failure = true }` records a failed process as a ProcessResult
 - process results are written to build/result/process_results.json on saved runs

@@ -12,7 +12,8 @@ Language features shown:
 
 ```text
 - root args block with a simple String default
-- measured(...), interval(...), normal(...), uniform(...), ensemble(...)
+- measured(..., std=...), measured(..., error=...), interval(...),
+  normal(...), uniform(...), ensemble(...)
 - propagate(..., method=linear, scale=..., offset=...)
 - report show entries for uncertainty values
 - plot distribution(...) with a with { title = ... } option block
