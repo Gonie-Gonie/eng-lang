@@ -126,15 +126,15 @@ public package claim prematurely.
 |---|---|---|---|
 | Uncertainty / distribution numeric | `Internal` | `Internal` | scalar runtime numeric payloads now distinguish Certain/uncertain representations; narrow arithmetic propagation, validated `with { uncertainty = ... }` policy metadata, `review.json` summary/propagation sections, direct-compare diagnostics, explicit statistic/probability validation type-checking, pointwise TimeSeries `sensor_std` review metadata with metadata-only statistics/integration/duration linkage, `sensor_std` confidence-band PlotSpec rendering, and internal IDE variable/inspector metadata are reviewable; keep internal until probabilistic TimeSeries uncertainty runtime propagation, runtime validation artifacts, full IDE projection, and tests align |
 | Reviewability / Review IR | `Stable` artifact family, `Internal` ReviewDocument | `Supported` artifacts, `Internal` normalized IR slice | keep current `review.json`/`report.html` public; `review.json.review_document`, `eng review`, and IDE Review inspector cover the first risk/fallback/external-boundary slice while semantic diff and runtime-updated ReviewDocument remain planned |
-| Composite workflow foundations | `Supported` side-effect primitives | `Supported` path/io/process/test/profile, `Planned` net/cache/case/db/model | put hybrid examples under `examples/workflows` and keep domain adapters layered above generic module contracts |
+| Composite workflow foundations | `Supported` side-effect primitives | `Supported` path/io/process/test/profile, hybrid artifact fixtures for weather/case/model/prediction/DB contracts, `Planned` native net/cache/case/db/model | keep domain adapters layered above generic module contracts and avoid treating hybrid fixtures as native module support |
 
 ## Planned Tracks
 
 - General table formulas and arbitrary TimeSeries expression execution.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
-- Composite workflow modules for network, cache, sampling, case manifests,
-  database writes, and model-card workflows.
+- Native composite workflow modules for network, cache, sampling, case
+  manifests, database writes, and model-card workflows.
 - Broad nonlinear/DAE/adaptive/component solving beyond the documented narrow
   paths.
 - Production multi-domain component simulation and pressure-drop packages.

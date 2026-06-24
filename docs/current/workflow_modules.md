@@ -1,9 +1,11 @@
 # Composite Workflow Base Modules
 
 Status: mixed. Existing path, IO, process, output-manifest, run-log, and test
-features are supported in the current public package scope. Network, cache,
-case manifests, database writes, and model-card workflows remain planned or
-internal until concrete language/runtime/artifact slices land.
+features are supported in the current public package scope. Hybrid examples now
+emit process-generated weather, case, model-card, prediction, and database
+side-effect artifacts. Native network, cache, case, DB, and model modules
+remain planned or internal until concrete language/runtime/artifact slices
+land.
 
 ## Purpose
 
@@ -29,12 +31,12 @@ that make those adapters typed, explicit, reproducible, and reviewable.
 | `eng.table` | Planned | table filtering, joins, derived columns, row diagnostics |
 | `eng.timeseries` | Supported narrow scope | TimeSeries statistics, coverage metadata, integration |
 | `eng.sampling` | Planned | deterministic sample tables and design sweeps |
-| `eng.case` | Planned | per-case directory, input, process, result, and metric manifests |
+| `eng.case` | Planned native module; hybrid fixture evidence exists | per-case directory, input, process, result, and metric manifests |
 | `eng.net` | Planned | HTTP/download boundaries with cache and hash policy |
 | `eng.cache` | Planned | reproducible cache keys, hit/miss artifacts, pinned downloads |
 | `eng.artifact` | Supported seed | output manifests, hashes, report/review links |
-| `eng.db` | Planned | SQLite/open database writes with transaction artifacts |
-| `eng.model` | Internal/planned | model cards, metrics, residual plots, prediction schemas |
+| `eng.db` | Planned native module; hybrid DB manifest evidence exists | SQLite/open database writes with transaction artifacts |
+| `eng.model` | Internal/planned; hybrid model-card and prediction evidence exists | model cards, metrics, residual plots, prediction schemas |
 
 These names describe module boundaries. The current implementation may expose
 some behavior as built-ins before it is factored into `.eng` stdlib modules.
@@ -83,6 +85,37 @@ For generated files, `output_manifest.json` is the minimum public record. For
 external processes, `process_results.json` is the minimum public record. Future
 network, cache, case, DB, and model modules should follow the same artifact
 pattern.
+
+## Hybrid Artifact Evidence
+
+The current workflow examples are executable contract fixtures. They are not
+native module claims.
+
+`examples/workflows/01_weather_api_to_standard_file_hybrid` records:
+
+```text
+typed station and hourly weather schemas
+explicit API fixture boundary
+weather quality summary
+standard text weather artifact
+output manifest and report/review entries
+```
+
+`examples/workflows/02_external_simulation_surrogate_hybrid` records:
+
+```text
+typed design, result, and prediction schemas
+three explicit fixture cases
+per-case patched input, simulator output, and case_manifest.json
+collected summary_results.csv
+surrogate.json and model_metrics.json with hashes and residual metadata
+predictions.csv
+db_write_manifest.json with table names, modes, keys, schemas, row counts, and transaction status
+process_results.json and output_manifest.json entries for every opaque boundary
+```
+
+These fixtures show the review contract that `eng.case`, `eng.db`, and
+`eng.model` should eventually make native.
 
 ## Weather API To Standard File Pattern
 

@@ -125,7 +125,9 @@ and next cleanup action.
   language identity.
 - Public scope: supported side-effect primitives and workflow skeletons only.
 - Main internal: weather API to standard file and external simulation surrogate
-  hybrid examples define target contracts for future generic modules.
+  hybrid examples define target contracts for future generic modules, including
+  process-generated case manifests, model-card/metrics artifacts, predictions,
+  and DB side-effect manifests.
 - Next cleanup: grow `eng.net`, `eng.cache`, `eng.table`, `eng.sampling`,
   `eng.case`, `eng.db`, and `eng.model` from generic workflow evidence.
 

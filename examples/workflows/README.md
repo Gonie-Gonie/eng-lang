@@ -21,7 +21,8 @@ Current examples:
   API data -> typed schema -> quality/coverage review -> standard artifact.
 
 02_external_simulation_surrogate_hybrid
-  sample table -> external runs -> typed results -> model-card artifact.
+  sample table -> explicit cases -> external runs -> typed results ->
+  model-card/prediction artifacts -> DB side-effect manifest.
 
 03_uncertain_sensor_report
   typed sensor data -> uncertainty metadata -> confidence-band report artifact.

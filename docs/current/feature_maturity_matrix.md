@@ -229,14 +229,18 @@ separate.
 - Public package: `Supported` for path, read/write, process, output manifest,
   run log, test, and profile primitives already listed under explicit side
   effects.
-- Main status: `Supported` for those primitives; `Planned` for network, cache,
-  case manifests, SQLite/database writes, and native model-card workflows.
+- Main status: `Supported` for those primitives; hybrid fixtures now emit
+  weather, case, model-card, prediction, and DB side-effect artifacts through
+  explicit process/write boundaries; `Planned` for native network, cache, case,
+  SQLite/database, and model-card modules.
 - User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the
   core, not core language identity.
 - Evidence: official side-effect examples, process artifacts, output manifests,
-  workflow skeletons under `examples/workflows`, and
-  `docs/current/workflow_modules.md`.
+  workflow examples under `examples/workflows`, and
+  `docs/current/workflow_modules.md`. The external simulation hybrid now
+  records three case manifests, collected result rows, surrogate metrics,
+  predictions, and a DB write manifest as reviewable fixture artifacts.
 - Not included: stable HTTP/cache API, domain weather adapters, EPW writer,
   EnergyPlus IDF parser, broad DB support, or ML framework support.
 - Next cleanup action: use the workflow skeletons to drive `eng.net`,

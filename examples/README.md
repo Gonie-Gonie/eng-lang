@@ -78,8 +78,9 @@ workflows/01_weather_api_to_standard_file_hybrid
   generated standard text artifact, and review/report path.
 
 workflows/02_external_simulation_surrogate_hybrid
-  Design sample table, typed result table, external process boundaries,
-  generated workflow summary, and model-card artifact path.
+  Design sample table, typed result and prediction tables, explicit per-case
+  process boundaries, case manifests, model-card/metrics artifacts, generated
+  workflow summary, and DB side-effect manifest.
 
 workflows/03_uncertain_sensor_report
   Typed sensor data, pointwise measured uncertainty metadata, duration summary,

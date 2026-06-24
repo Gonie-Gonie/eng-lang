@@ -185,6 +185,29 @@ validation                -> validate/report artifact semantics
 component behavior        -> `=` and `eq` first, typed adapters only when needed
 ```
 
+## Domain Adapter Boundary
+
+Composite workflows often need weather APIs, standard weather files, external
+simulators, laboratory tools, surrogate models, and databases. Those are
+adapter domains, not the core product identity.
+
+The core language should own the generic contracts:
+
+```text
+typed inputs and schemas
+explicit network/file/process/database boundaries
+case and output manifests
+model-card and prediction metadata
+report/review/IDE visibility
+reproducibility and side-effect policy
+```
+
+Domain adapters should be built above those contracts. A weather API, EPW
+writer, EnergyPlus-like runner, CFD adapter, FEM adapter, Modelica bridge, or
+SQLite writer is valid evidence for the generic workflow layer only when its
+inputs, outputs, assumptions, hashes, failures, and side effects remain
+reviewable.
+
 ## General Programming Boundary
 
 EngLang should support enough general programming to build real engineering
