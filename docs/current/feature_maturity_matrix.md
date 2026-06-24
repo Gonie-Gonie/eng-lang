@@ -180,13 +180,16 @@ separate.
   report/review, IDE, and tests aligned.
 - Evidence: internal uncertainty example, diagnostics, deterministic samples,
   scalar `typed_payload.numeric_values`, propagation metadata, validated
-  `with { uncertainty = ... }` review policy metadata, histogram artifacts, and
-  the current uncertainty guide.
-- Not included: stable Monte Carlo/Jacobian propagation contract, direct
-  uncertain validation semantics, TimeSeries uncertainty, broad deterministic
-  scalar-binding value propagation, or public IDE support claim.
-- Next cleanup action: implement TimeSeries uncertainty and explicit uncertain
-  validation semantics before promoting the track beyond internal.
+  `with { uncertainty = ... }` review policy metadata, direct-compare
+  diagnostics, explicit uncertainty statistic/probability validation
+  type-checking, histogram artifacts, and the current uncertainty guide.
+- Not included: stable Monte Carlo/Jacobian propagation contract, runtime
+  pass/fail materialization for probability and `between`, TimeSeries
+  uncertainty, broad deterministic scalar-binding value propagation, or public
+  IDE support claim.
+- Next cleanup action: implement TimeSeries uncertainty and route uncertainty
+  validation/probability semantics into runtime/report/IDE artifacts before
+  promoting the track beyond internal.
 
 ### Data-Driven Modeling Track
 

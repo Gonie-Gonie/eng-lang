@@ -1533,6 +1533,21 @@ fn validate_command_expression(
     functions: &[FunctionInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
+    if let Some(between) = command
+        .clauses
+        .iter()
+        .find(|clause| clause.name == "between")
+    {
+        validate_between_command_expression(
+            command,
+            &between.value,
+            typed_bindings,
+            functions,
+            diagnostics,
+        );
+        return;
+    }
+
     let Some((left, _operator, right)) = split_validation_expression(&command.target) else {
         diagnostics.push(Diagnostic::error(
             "E-VALIDATE-BOOL-001",
@@ -1548,6 +1563,8 @@ fn validate_command_expression(
         return;
     };
 
+    validate_probability_expression(&left, command.line, typed_bindings, functions, diagnostics);
+    validate_probability_expression(&right, command.line, typed_bindings, functions, diagnostics);
     let left_type = assert_expression_semantic_type(&left, typed_bindings, functions);
     let right_type = assert_expression_semantic_type(&right, typed_bindings, functions);
     if left_type.is_none() {
@@ -1567,32 +1584,327 @@ fn validate_command_expression(
         ));
     }
     if let (Some(left_type), Some(right_type)) = (&left_type, &right_type) {
-        let left_dimension = dimension_for_quantity(&left_type.quantity_kind);
-        let right_dimension = dimension_for_quantity(&right_type.quantity_kind);
-        if !dimensions_compatible(&left_dimension, &right_dimension) {
-            diagnostics.push(Diagnostic::error(
-                "E-VALIDATE-UNIT-001",
-                command.line,
-                &format!(
-                    "Validation compares `{left}` ({left_dimension}) with `{right}` ({right_dimension})."
-                ),
-                Some("Use a threshold with the same physical dimension as the validated value."),
-            ));
+        if push_direct_uncertainty_comparison_diagnostic(
+            "Validation",
+            &left,
+            &right,
+            left_type,
+            right_type,
+            command.line,
+            diagnostics,
+        ) {
+            return;
         }
+        validate_comparison_dimensions(
+            "Validation",
+            &left,
+            &right,
+            left_type,
+            right_type,
+            command.line,
+            typed_bindings,
+            diagnostics,
+        );
     }
 }
 
-fn split_validation_expression(expression: &str) -> Option<(String, String, String)> {
-    for operator in ["<=", ">=", "==", "!=", "<", ">"] {
-        if let Some((left, right)) = expression.split_once(operator) {
-            return Some((
-                left.trim().to_owned(),
-                operator.to_owned(),
-                right.trim().to_owned(),
-            ));
+fn validate_between_command_expression(
+    command: &CommandStyleDecl,
+    between: &str,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some((lower, upper)) = split_between_bounds(between) else {
+        diagnostics.push(Diagnostic::error(
+            "E-VALIDATE-BOOL-001",
+            command.line,
+            &format!(
+                "`validate {}` has an invalid `between` clause.",
+                command.target
+            ),
+            Some("Write forms such as `validate mean(Q) between 4 kW and 6 kW`."),
+        ));
+        return;
+    };
+
+    let value = command.target.trim().to_owned();
+    validate_probability_expression(&value, command.line, typed_bindings, functions, diagnostics);
+    let value_type = assert_expression_semantic_type(&value, typed_bindings, functions);
+    let lower_type = assert_expression_semantic_type(&lower, typed_bindings, functions);
+    let upper_type = assert_expression_semantic_type(&upper, typed_bindings, functions);
+    if value_type.is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-VALIDATE-EXPR-001",
+            command.line,
+            &format!("Cannot resolve validation expression `{value}`."),
+            Some("Validate a typed metric, integration result, function call, or literal."),
+        ));
+    }
+    if lower_type.is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-VALIDATE-EXPR-001",
+            command.line,
+            &format!("Cannot resolve validation expression `{lower}`."),
+            Some("Use a typed lower bound such as `4 kW` or a compatible binding."),
+        ));
+    }
+    if upper_type.is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-VALIDATE-EXPR-001",
+            command.line,
+            &format!("Cannot resolve validation expression `{upper}`."),
+            Some("Use a typed upper bound such as `6 kW` or a compatible binding."),
+        ));
+    }
+    if let (Some(value_type), Some(lower_type), Some(upper_type)) =
+        (&value_type, &lower_type, &upper_type)
+    {
+        let lower_direct = push_direct_uncertainty_comparison_diagnostic(
+            "Validation",
+            &value,
+            &lower,
+            value_type,
+            lower_type,
+            command.line,
+            diagnostics,
+        );
+        let upper_direct = push_direct_uncertainty_comparison_diagnostic(
+            "Validation",
+            &value,
+            &upper,
+            value_type,
+            upper_type,
+            command.line,
+            diagnostics,
+        );
+        if lower_direct || upper_direct {
+            return;
         }
+        validate_comparison_dimensions(
+            "Validation",
+            &value,
+            &lower,
+            value_type,
+            lower_type,
+            command.line,
+            typed_bindings,
+            diagnostics,
+        );
+        validate_comparison_dimensions(
+            "Validation",
+            &value,
+            &upper,
+            value_type,
+            upper_type,
+            command.line,
+            typed_bindings,
+            diagnostics,
+        );
+    }
+}
+
+fn split_between_bounds(value: &str) -> Option<(String, String)> {
+    let (lower, upper) = value.split_once(" and ")?;
+    let lower = lower.trim();
+    let upper = upper.trim();
+    if lower.is_empty() || upper.is_empty() {
+        return None;
+    }
+    Some((lower.to_owned(), upper.to_owned()))
+}
+
+fn split_validation_expression(expression: &str) -> Option<(String, String, String)> {
+    let (index, operator) = top_level_comparison_operator(expression)?;
+    let left = expression[..index].trim();
+    let right = expression[index + operator.len()..].trim();
+    if left.is_empty() || right.is_empty() {
+        return None;
+    }
+    Some((left.to_owned(), operator.to_owned(), right.to_owned()))
+}
+
+fn top_level_comparison_operator(expression: &str) -> Option<(usize, &'static str)> {
+    let mut parens = 0i32;
+    let mut brackets = 0i32;
+    let mut in_string = false;
+    let mut previous = '\0';
+    for (index, character) in expression.char_indices() {
+        if !in_string && parens == 0 && brackets == 0 {
+            for operator in ["<=", ">=", "==", "!=", "<", ">"] {
+                if expression[index..].starts_with(operator) {
+                    return Some((index, operator));
+                }
+            }
+        }
+        if character == '"' && previous != '\\' {
+            in_string = !in_string;
+        } else if !in_string {
+            match character {
+                '(' => parens += 1,
+                ')' => parens -= 1,
+                '[' => brackets += 1,
+                ']' => brackets -= 1,
+                _ => {}
+            }
+        }
+        previous = character;
     }
     None
+}
+
+fn validate_probability_expression(
+    expression: &str,
+    line: usize,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(call) = parse_function_call(expression) else {
+        return;
+    };
+    if call.name != "probability" {
+        return;
+    }
+    if call.args.len() != 1 {
+        diagnostics.push(Diagnostic::error(
+            "E-UNC-PROBABILITY-EXPR-INVALID",
+            line,
+            "`probability(...)` requires one comparison expression.",
+            Some("Write `probability(Q < 10 kW)` with an uncertain value and a compatible threshold."),
+        ));
+        return;
+    }
+    let Some((left, _operator, right)) = split_validation_expression(&call.args[0]) else {
+        diagnostics.push(Diagnostic::error(
+            "E-UNC-PROBABILITY-EXPR-INVALID",
+            line,
+            &format!(
+                "`probability({})` must contain a comparison expression.",
+                call.args[0]
+            ),
+            Some("Write `probability(Q < 10 kW)` with `<`, `<=`, `>`, or `>=`."),
+        ));
+        return;
+    };
+    let left_type = assert_expression_semantic_type(&left, typed_bindings, functions);
+    let right_type = assert_expression_semantic_type(&right, typed_bindings, functions);
+    let Some(left_type) = left_type else {
+        diagnostics.push(Diagnostic::error(
+            "E-UNC-PROBABILITY-EXPR-INVALID",
+            line,
+            &format!("Cannot resolve probability expression side `{left}`."),
+            Some("Use a prior uncertainty binding and a typed threshold."),
+        ));
+        return;
+    };
+    let Some(right_type) = right_type else {
+        diagnostics.push(Diagnostic::error(
+            "E-UNC-PROBABILITY-EXPR-INVALID",
+            line,
+            &format!("Cannot resolve probability expression side `{right}`."),
+            Some("Use a prior uncertainty binding and a typed threshold."),
+        ));
+        return;
+    };
+    let left_uncertain = uncertainty_inner_semantic_type(&left_type);
+    let right_uncertain = uncertainty_inner_semantic_type(&right_type);
+    let probability_contract = match (left_uncertain, right_uncertain) {
+        (Some(inner), None) => Some((inner, right_type)),
+        (None, Some(inner)) => Some((inner, left_type)),
+        _ => None,
+    };
+    let Some((uncertain_inner, threshold_type)) = probability_contract else {
+        diagnostics.push(Diagnostic::error(
+            "E-UNC-PROBABILITY-EXPR-INVALID",
+            line,
+            &format!("`probability({})` must compare exactly one uncertain value with a threshold.", call.args[0]),
+            Some("Compare forms such as `probability(Q < 10 kW)` are supported for the current uncertainty track."),
+        ));
+        return;
+    };
+    let uncertain_dimension = dimension_for_quantity(&uncertain_inner.quantity_kind);
+    let threshold_dimension = dimension_for_quantity(&threshold_type.quantity_kind);
+    if !dimensions_compatible(&uncertain_dimension, &threshold_dimension) {
+        diagnostics.push(Diagnostic::error(
+            "E-UNC-PROBABILITY-EXPR-INVALID",
+            line,
+            &format!(
+                "`probability({})` compares {uncertain_dimension} uncertainty with {threshold_dimension} threshold.",
+                call.args[0]
+            ),
+            Some("Use a probability threshold with the same physical dimension as the uncertain value."),
+        ));
+    }
+}
+
+fn push_direct_uncertainty_comparison_diagnostic(
+    context: &str,
+    left: &str,
+    right: &str,
+    left_type: &SemanticType,
+    right_type: &SemanticType,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let left_uncertain = uncertainty_inner_semantic_type(left_type).is_some();
+    let right_uncertain = uncertainty_inner_semantic_type(right_type).is_some();
+    if !left_uncertain && !right_uncertain {
+        return false;
+    }
+    diagnostics.push(Diagnostic::error(
+        "E-UNC-DIRECT-COMPARE",
+        line,
+        &format!("{context} compares uncertain value directly: `{left}` vs `{right}`."),
+        Some("Use an explicit uncertainty statistic such as `mean(Q)`, `p95(Q)`, or `probability(Q < threshold)`."),
+    ));
+    true
+}
+
+fn validate_comparison_dimensions(
+    context: &str,
+    left: &str,
+    right: &str,
+    left_type: &SemanticType,
+    right_type: &SemanticType,
+    line: usize,
+    typed_bindings: &[TypedBinding],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let left_dimension = dimension_for_quantity(&left_type.quantity_kind);
+    let right_dimension = dimension_for_quantity(&right_type.quantity_kind);
+    if dimensions_compatible(&left_dimension, &right_dimension) {
+        return;
+    }
+    let percentile_mismatch = uncertainty_percentile_expression(left, typed_bindings)
+        || uncertainty_percentile_expression(right, typed_bindings);
+    let code = if percentile_mismatch {
+        "E-UNC-PERCENTILE-UNIT-MISMATCH"
+    } else if context == "Assert" {
+        "E-ASSERT-UNIT-001"
+    } else {
+        "E-VALIDATE-UNIT-001"
+    };
+    let help = if percentile_mismatch {
+        "Use a threshold with the same physical dimension as the uncertainty percentile."
+    } else if context == "Assert" {
+        "Compare values with compatible dimensions or convert units first."
+    } else {
+        "Use a threshold with the same physical dimension as the validated value."
+    };
+    diagnostics.push(Diagnostic::error(
+        code,
+        line,
+        &format!(
+            "{context} compares `{left}` ({left_dimension}) with `{right}` ({right_dimension})."
+        ),
+        Some(help),
+    ));
+}
+
+fn uncertainty_inner_semantic_type(value_type: &SemanticType) -> Option<SemanticType> {
+    let (_kind, inner) = crate::uncertainty::uncertainty_inner_quantity(&value_type.quantity_kind)?;
+    semantic_type(&inner, &value_type.display_unit)
 }
 
 fn scoped_where_bindings_for_owner(
@@ -2787,18 +3099,25 @@ fn analyze_assert_decl(
         ));
     }
     if let (Some(left), Some(right)) = (&left_type, &right_type) {
-        let left_dimension = dimension_for_quantity(&left.quantity_kind);
-        let right_dimension = dimension_for_quantity(&right.quantity_kind);
-        if !dimensions_compatible(&left_dimension, &right_dimension) {
-            diagnostics.push(Diagnostic::error(
-                "E-ASSERT-UNIT-001",
+        if !push_direct_uncertainty_comparison_diagnostic(
+            "Assert",
+            &assertion.left,
+            &assertion.right,
+            left,
+            right,
+            assertion.line,
+            diagnostics,
+        ) {
+            validate_comparison_dimensions(
+                "Assert",
+                &assertion.left,
+                &assertion.right,
+                left,
+                right,
                 assertion.line,
-                &format!(
-                    "Assert compares `{}` ({}) with `{}` ({}).",
-                    assertion.left, left_dimension, assertion.right, right_dimension
-                ),
-                Some("Compare values with compatible dimensions or convert units first."),
-            ));
+                typed_bindings,
+                diagnostics,
+            );
         }
     }
     if let Some(tolerance) = &assertion.tolerance {
@@ -4224,6 +4543,9 @@ fn resolve_format_expression_type(
             return semantic_type("Count", "count");
         }
     }
+    if let Some(semantic_type) = probability_expression_semantic_type(expression) {
+        return Some(semantic_type);
+    }
     if let Some(semantic_type) = statistic_expression_semantic_type(expression, typed_bindings) {
         return Some(semantic_type);
     }
@@ -4241,13 +4563,58 @@ fn statistic_expression_semantic_type(
     expression: &str,
     typed_bindings: &[TypedBinding],
 ) -> Option<SemanticType> {
-    let (_statistic, source) = parse_statistic_expression(expression)?;
+    let (statistic, source) = parse_statistic_expression(expression)?;
     let source_binding = typed_bindings
         .iter()
         .find(|binding| binding.name == source)?;
+    if uncertainty_statistic_supported(&statistic) {
+        if let Some((_kind, quantity_kind)) = crate::uncertainty::uncertainty_inner_quantity(
+            &source_binding.semantic_type.quantity_kind,
+        ) {
+            return semantic_type(&quantity_kind, &source_binding.semantic_type.display_unit);
+        }
+    }
     let (_axis, quantity_kind) =
         crate::stats::time_series_quantity(&source_binding.semantic_type.quantity_kind)?;
     semantic_type(&quantity_kind, &source_binding.semantic_type.display_unit)
+}
+
+fn probability_expression_semantic_type(expression: &str) -> Option<SemanticType> {
+    let call = parse_function_call(expression)?;
+    if call.name == "probability" && call.args.len() == 1 {
+        return semantic_type("DimensionlessNumber", "1");
+    }
+    None
+}
+
+fn uncertainty_statistic_supported(statistic: &str) -> bool {
+    statistic == "mean" || percentile_statistic(statistic)
+}
+
+fn uncertainty_percentile_expression(expression: &str, typed_bindings: &[TypedBinding]) -> bool {
+    let Some((statistic, source)) = parse_statistic_expression(expression) else {
+        return false;
+    };
+    if !percentile_statistic(&statistic) {
+        return false;
+    }
+    typed_bindings
+        .iter()
+        .find(|binding| binding.name == source)
+        .is_some_and(|binding| {
+            crate::uncertainty::uncertainty_inner_quantity(&binding.semantic_type.quantity_kind)
+                .is_some()
+        })
+}
+
+fn percentile_statistic(statistic: &str) -> bool {
+    let Some(percentile) = statistic.strip_prefix('p') else {
+        return false;
+    };
+    !percentile.is_empty()
+        && percentile
+            .chars()
+            .all(|character| character.is_ascii_digit())
 }
 
 fn binding_alias_semantic_type(

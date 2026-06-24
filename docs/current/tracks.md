@@ -58,10 +58,10 @@ and next cleanup action.
 - Public scope: none beyond internal examples unless explicitly documented.
 - Main internal: deterministic samples, diagnostics, scalar runtime numeric
   payloads, narrow arithmetic propagation, validated propagation policy
-  metadata, and histogram artifacts.
-- Next cleanup: keep as internal until TimeSeries uncertainty, explicit
-  uncertain validation semantics, report/review artifacts, IDE projection, and
-  tests align.
+  metadata, explicit statistic/probability validation type-checking, and
+  histogram artifacts.
+- Next cleanup: keep as internal until TimeSeries uncertainty, runtime
+  uncertainty validation artifacts, IDE projection, and tests align.
 
 ## T7 Data-Driven Modeling
 

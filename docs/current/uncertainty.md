@@ -136,7 +136,9 @@ back to a lower-fidelity rule, that assumption belongs in `review.json`,
 ## Validation Semantics
 
 Direct comparison of an uncertain value should not silently mean comparison of
-its nominal value. A validation must name the review statistic:
+its nominal value. The compiler rejects direct uncertain Bool comparisons in
+`validate` commands and `test` assertions with `E-UNC-DIRECT-COMPARE`. A
+validation must name the review statistic:
 
 ```eng
 validate p95(Q) < 10 kW
@@ -144,8 +146,11 @@ validate probability(Q < 10 kW) > 0.95
 validate mean(Q) between 4 kW and 6 kW
 ```
 
-Until these forms are fully implemented, direct uncertain comparisons should
-stay diagnostic-only or internal.
+The current compiler type-checks `mean(...)`, percentile forms such as
+`p95(...)`, and `probability(uncertain < threshold)`. Invalid probability
+expressions produce `E-UNC-PROBABILITY-EXPR-INVALID`; incompatible percentile
+threshold units produce `E-UNC-PERCENTILE-UNIT-MISMATCH`. Runtime pass/fail
+materialization for probability and `between` is still a follow-up item.
 
 ## Report And IDE Requirements
 

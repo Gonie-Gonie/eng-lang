@@ -543,6 +543,10 @@ recorded in `review.json.uncertainty_policies[]`. Invalid policy names produce
 `E-WITH-UNCERTAINTY-SAMPLES-001`, invalid seeds produce
 `E-WITH-UNCERTAINTY-SEED-001`, and `monte_carlo` without a seed produces
 `W-WITH-UNCERTAINTY-SEED-001`.
+Direct uncertainty comparisons in `validate` and `test` assertions produce
+`E-UNC-DIRECT-COMPARE`; invalid `probability(...)` expressions produce
+`E-UNC-PROBABILITY-EXPR-INVALID`; and incompatible percentile thresholds
+produce `E-UNC-PERCENTILE-UNIT-MISMATCH`.
 Propagation source terms are also carried through `review.json`,
 `result.engres`, runtime-updated `report_spec.json`, HTML reports, and the
 native IDE Runtime Summary.

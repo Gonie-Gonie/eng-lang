@@ -7716,6 +7716,59 @@ system Envelope {
     }
 
     #[test]
+    fn rejects_direct_uncertainty_validation_and_assertion() {
+        let report = check_source(
+            "bad.eng",
+            "Q = normal(mean=5 kW, std=0.8 kW, samples=31)\nvalidate Q < 10 kW\n\ntest \"uncertain\" {\n    assert Q < 10 kW\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert_eq!(
+            report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "E-UNC-DIRECT-COMPARE")
+                .count(),
+            2
+        );
+    }
+
+    #[test]
+    fn accepts_explicit_uncertainty_validation_statistics() {
+        let report = check_source(
+            "ok.eng",
+            "Q = normal(mean=5 kW, std=0.8 kW, samples=31)\nvalidate p95(Q) < 10 kW\nvalidate probability(Q < 10 kW) > 0.95\nvalidate mean(Q) between 4 kW and 6 kW\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-UNC-DIRECT-COMPARE"));
+    }
+
+    #[test]
+    fn rejects_invalid_uncertainty_probability_and_percentile_units() {
+        let report = check_source(
+            "bad.eng",
+            "Q = normal(mean=5 kW, std=0.8 kW, samples=31)\nvalidate p95(Q) < 10 m\nvalidate probability(Q < 10 m) > 0.95\nvalidate probability(5 kW < 10 kW) > 0.95\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-UNC-PERCENTILE-UNIT-MISMATCH"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-UNC-PROBABILITY-EXPR-INVALID"));
+    }
+
+    #[test]
     fn rejects_unresolved_uncertainty_source() {
         let report = check_source(
             "bad.eng",

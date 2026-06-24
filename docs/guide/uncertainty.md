@@ -61,12 +61,31 @@ The compiler also validates the current uncertainty-track argument contract:
 E-UNC-ARGS-001  missing or malformed required uncertainty argument
 E-UNC-ARGS-002  invalid numeric, range, count, or transform argument
 E-UNC-ARGS-003  unsupported uncertainty option for the current uncertainty-track scope
+E-UNC-DIRECT-COMPARE  direct Bool comparison of an uncertain value
+E-UNC-PROBABILITY-EXPR-INVALID  invalid probability(...) comparison
+E-UNC-PERCENTILE-UNIT-MISMATCH  percentile threshold has incompatible units
 ```
 
 This catches nonnumeric measured values, missing or negative standard
 deviations, reversed interval/uniform bounds, `samples` outside `1..=256`,
 unsupported `distribution(kind=...)` values, unsupported propagation methods,
 and nonnumeric `scale`/`offset` transforms before runtime.
+
+Validation must reduce uncertainty explicitly instead of comparing an uncertain
+value's nominal sample silently:
+
+```eng
+Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)
+validate p95(Q_coil_dist) < 10 kW
+validate probability(Q_coil_dist < 10 kW) > 0.95
+validate mean(Q_coil_dist) between 4 kW and 6 kW
+```
+
+Direct forms such as `validate Q_coil_dist < 10 kW` and test assertions such
+as `assert Q_coil_dist < 10 kW` produce `E-UNC-DIRECT-COMPARE`. The compiler
+type-checks explicit `mean(...)`, percentile, and probability forms; runtime
+pass/fail materialization for probability and `between` remains internal
+follow-up work.
 
 Each runtime uncertainty includes mean, standard deviation, relative error when
 declared, lower/upper bounds, `p05`, `p50`, `p95`, `distribution`, `method`,

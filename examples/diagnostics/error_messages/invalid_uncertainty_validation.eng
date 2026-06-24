@@ -1,0 +1,5 @@
+Q = normal(mean=5 kW, std=0.8 kW, samples=31)
+validate Q < 10 kW
+validate p95(Q) < 10 m
+validate probability(5 kW < 10 kW) > 0.95
+
