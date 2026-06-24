@@ -101,6 +101,10 @@
       "type": "array",
       "items": { "$ref": "#/$defs/uncertaintyPolicy" }
     },
+    "timeseries_uncertainty": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/timeSeriesUncertainty" }
+    },
     "domain_summary": {
       "type": "array",
       "items": { "$ref": "#/$defs/domainSummary" }
@@ -1566,6 +1570,29 @@
         "method": { "type": "string" },
         "samples": { "type": ["integer", "null"], "minimum": 1 },
         "seed": { "type": ["integer", "null"], "minimum": 0 },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "timeSeriesUncertainty": {
+      "type": "object",
+      "required": [
+        "binding",
+        "axis",
+        "quantity_kind",
+        "display_unit",
+        "method",
+        "sensor_std",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "axis": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "method": { "const": "pointwise_measured_std" },
+        "sensor_std": { "type": "string" },
         "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }

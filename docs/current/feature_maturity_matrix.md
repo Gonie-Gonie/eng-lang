@@ -182,14 +182,15 @@ separate.
   scalar `typed_payload.numeric_values`, propagation metadata, validated
   `with { uncertainty = ... }` review policy metadata, direct-compare
   diagnostics, explicit uncertainty statistic/probability validation
-  type-checking, histogram artifacts, and the current uncertainty guide.
+  type-checking, pointwise TimeSeries `sensor_std` review metadata, histogram
+  artifacts, and the current uncertainty guide.
 - Not included: stable Monte Carlo/Jacobian propagation contract, runtime
   pass/fail materialization for probability and `between`, TimeSeries
-  uncertainty, broad deterministic scalar-binding value propagation, or public
-  IDE support claim.
-- Next cleanup action: implement TimeSeries uncertainty and route uncertainty
-  validation/probability semantics into runtime/report/IDE artifacts before
-  promoting the track beyond internal.
+  uncertainty propagation/statistics, confidence-band PlotSpec rendering, broad
+  deterministic scalar-binding value propagation, or public IDE support claim.
+- Next cleanup action: route TimeSeries uncertainty and validation/probability
+  semantics into runtime/report/IDE artifacts before promoting the track beyond
+  internal.
 
 ### Data-Driven Modeling Track
 

@@ -152,6 +152,25 @@ expressions produce `E-UNC-PROBABILITY-EXPR-INVALID`; incompatible percentile
 threshold units produce `E-UNC-PERCENTILE-UNIT-MISMATCH`. Runtime pass/fail
 materialization for probability and `between` is still a follow-up item.
 
+## TimeSeries Uncertainty
+
+The first TimeSeries uncertainty step is pointwise measured standard deviation
+metadata attached to an existing typed TimeSeries:
+
+```eng
+T_zone: TimeSeries[Time] of AbsoluteTemperature [degC] = 24 degC
+with {
+    sensor_std = 0.2 K
+}
+```
+
+`sensor_std` must be non-negative, unitful, and dimension-compatible with the
+TimeSeries value quantity. Invalid metadata produces `E-UNC-TS-STD-001`.
+`review.json.timeseries_uncertainty[]` records the binding, axis, value
+quantity, display unit, method `pointwise_measured_std`, `sensor_std`, status,
+and source line. Mean/integrate/duration propagation and confidence-band
+PlotSpec rendering remain planned follow-up work.
+
 ## Report And IDE Requirements
 
 A supported uncertainty workflow needs review fields for:

@@ -2362,6 +2362,7 @@ pub fn review_json(report: &CheckReport) -> String {
     }
     json.push_str("\n  ],\n");
     push_uncertainty_policies_json(&mut json, report);
+    push_timeseries_uncertainty_json(&mut json, report);
     push_simulation_requests_json(&mut json, report);
     json.push_str("  \"timeseries_kernels\": [\n");
     for (index, kernel) in report
@@ -4272,6 +4273,62 @@ fn review_option_any<'a>(
     key: &str,
 ) -> Option<&'a semantic::WithOptionInfo> {
     options.iter().find(|option| option.key == key)
+}
+
+fn push_timeseries_uncertainty_json(json: &mut String, report: &CheckReport) {
+    json.push_str("  \"timeseries_uncertainty\": [\n");
+    let mut first_entry = true;
+    for block in &report.semantic_program.with_blocks {
+        let Some(sensor_std) = review_option_any(&block.options, "sensor_std") else {
+            continue;
+        };
+        let Some(owner_line) = block.owner_line else {
+            continue;
+        };
+        let Some(binding) = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.line == owner_line)
+        else {
+            continue;
+        };
+        let Some((axis, quantity_kind)) =
+            crate::stats::time_series_quantity(&binding.semantic_type.quantity_kind)
+        else {
+            continue;
+        };
+        if !first_entry {
+            json.push_str(",\n");
+        }
+        first_entry = false;
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&binding.name)
+        ));
+        json.push_str(&format!("      \"axis\": \"{}\",\n", json_escape(&axis)));
+        json.push_str(&format!(
+            "      \"quantity_kind\": \"{}\",\n",
+            json_escape(&quantity_kind)
+        ));
+        json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&binding.semantic_type.display_unit)
+        ));
+        json.push_str("      \"method\": \"pointwise_measured_std\",\n");
+        json.push_str(&format!(
+            "      \"sensor_std\": \"{}\",\n",
+            json_escape(&sensor_std.value)
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&sensor_std.status)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", sensor_std.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
 }
 
 fn review_calculation_count(report: &CheckReport) -> usize {
@@ -7143,6 +7200,47 @@ system Envelope {
         let review = review_json(&report);
         assert!(review.contains("\"timeseries_kernels\""));
         assert!(review.contains("\"table_heat_rate_from_mass_flow_cp_delta_t\""));
+    }
+
+    #[test]
+    fn records_timeseries_sensor_std_uncertainty_metadata() {
+        let report = check_source(
+            "ok.eng",
+            "T_zone: TimeSeries[Time] of AbsoluteTemperature [degC] = 24 degC\nwith {\n    sensor_std = 0.2 K\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report.semantic_program.with_blocks[0]
+            .options
+            .iter()
+            .any(|option| option.key == "sensor_std"
+                && option.value == "0.2 K"
+                && option.status == "accepted"));
+        let review = review_json(&report);
+        assert!(review.contains("\"timeseries_uncertainty\""));
+        assert!(review.contains("\"binding\": \"T_zone\""));
+        assert!(review.contains("\"method\": \"pointwise_measured_std\""));
+        assert!(review.contains("\"sensor_std\": \"0.2 K\""));
+    }
+
+    #[test]
+    fn rejects_invalid_timeseries_sensor_std_metadata() {
+        let report = check_source(
+            "bad.eng",
+            "Q: HeatRate [kW] = 1 kW\nwith {\n    sensor_std = 0.2 K\n}\nT_zone: TimeSeries[Time] of AbsoluteTemperature [degC] = 24 degC\nwith {\n    sensor_std = 1 kW\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert_eq!(
+            report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "E-UNC-TS-STD-001")
+                .count(),
+            2
+        );
     }
 
     #[test]

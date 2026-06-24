@@ -64,6 +64,7 @@ E-UNC-ARGS-003  unsupported uncertainty option for the current uncertainty-track
 E-UNC-DIRECT-COMPARE  direct Bool comparison of an uncertain value
 E-UNC-PROBABILITY-EXPR-INVALID  invalid probability(...) comparison
 E-UNC-PERCENTILE-UNIT-MISMATCH  percentile threshold has incompatible units
+E-UNC-TS-STD-001  invalid pointwise TimeSeries sensor standard deviation metadata
 ```
 
 This catches nonnumeric measured values, missing or negative standard
@@ -86,6 +87,22 @@ as `assert Q_coil_dist < 10 kW` produce `E-UNC-DIRECT-COMPARE`. The compiler
 type-checks explicit `mean(...)`, percentile, and probability forms; runtime
 pass/fail materialization for probability and `between` remains internal
 follow-up work.
+
+TimeSeries uncertainty starts as review metadata attached to an existing typed
+TimeSeries:
+
+```eng
+T_zone: TimeSeries[Time] of AbsoluteTemperature [degC] = 24 degC
+with {
+    sensor_std = 0.2 K
+}
+```
+
+`sensor_std` is interpreted as pointwise measured standard deviation metadata.
+It must be a non-negative unitful value compatible with the TimeSeries value
+quantity. The compiler records it in `review.json.timeseries_uncertainty[]`.
+Runtime propagation through TimeSeries mean/integrate/duration and confidence
+band PlotSpec rendering remain follow-up work.
 
 Each runtime uncertainty includes mean, standard deviation, relative error when
 declared, lower/upper bounds, `p05`, `p50`, `p95`, `distribution`, `method`,

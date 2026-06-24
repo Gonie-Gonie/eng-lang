@@ -696,6 +696,7 @@ Common accepted option keys:
 | `seed` | Deterministic seed metadata |
 | `uncertainty` | Uncertainty propagation policy metadata |
 | `samples` | Positive sample count for uncertainty propagation policy |
+| `sensor_std` | Pointwise TimeSeries sensor standard deviation metadata |
 | `output` | Artifact/output choice |
 | `overwrite` | Allow replacing changed generated output content |
 | `confirm` | Required confirmation for destructive file operations |
@@ -1551,6 +1552,7 @@ generation.
 | `E-UNC-DIRECT-COMPARE` | Uncertain value compared directly | Use `mean(Q)`, `p95(Q)`, or `probability(Q < threshold)` |
 | `E-UNC-PROBABILITY-EXPR-INVALID` | `probability(...)` is not an uncertain-threshold comparison | Compare exactly one uncertain value with a compatible threshold |
 | `E-UNC-PERCENTILE-UNIT-MISMATCH` | Uncertainty percentile threshold has incompatible units | Use a threshold with the percentile quantity's dimension |
+| `E-UNC-TS-STD-001` | TimeSeries `sensor_std` metadata is invalid | Attach a non-negative unitful value to a compatible TimeSeries |
 | `W-QTY-AMBIG-001` | Unit maps to multiple quantity kinds | Add an explicit declaration |
 
 ## Common Recipes

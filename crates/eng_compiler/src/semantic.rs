@@ -2172,6 +2172,7 @@ fn analyze_with_option(
     extra_known_options: &HashSet<String>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> WithOptionInfo {
+    let mut status = "accepted".to_owned();
     if !known_with_option(&option.key) && !extra_known_options.contains(&option.key) {
         diagnostics.push(Diagnostic::error(
             "E-WITH-OPTION-001",
@@ -2198,12 +2199,97 @@ fn analyze_with_option(
             );
         }
     }
+    if option.key == "sensor_std"
+        && !validate_timeseries_sensor_std_option(option, owner_type, diagnostics)
+    {
+        status = "invalid_sensor_std".to_owned();
+    }
     WithOptionInfo {
         key: option.key.clone(),
         value: option.value.clone(),
-        status: "accepted".to_owned(),
+        status,
         line: option.line,
     }
+}
+
+fn validate_timeseries_sensor_std_option(
+    option: &WithOptionDecl,
+    owner_type: Option<&SemanticType>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let Some(owner_type) = owner_type else {
+        diagnostics.push(Diagnostic::error(
+            "E-UNC-TS-STD-001",
+            option.line,
+            "`sensor_std` must be attached to a typed TimeSeries binding.",
+            Some("Attach `with { sensor_std = 0.2 K }` to a `TimeSeries[...] of ...` binding."),
+        ));
+        return false;
+    };
+    let Some((_axis, value_quantity)) =
+        crate::stats::time_series_quantity(&owner_type.quantity_kind)
+    else {
+        diagnostics.push(Diagnostic::error(
+            "E-UNC-TS-STD-001",
+            option.line,
+            "`sensor_std` is supported only for TimeSeries uncertainty metadata.",
+            Some("Use scalar uncertainty constructors for scalar values."),
+        ));
+        return false;
+    };
+    let Some((stddev, unit)) = numeric_literal_with_optional_unit(&option.value) else {
+        diagnostics.push(Diagnostic::error(
+            "E-UNC-TS-STD-001",
+            option.line,
+            &format!(
+                "`sensor_std` must be a numeric value with a unit, got `{}`.",
+                option.value
+            ),
+            Some("Use a form such as `sensor_std = 0.2 K`."),
+        ));
+        return false;
+    };
+    if stddev < 0.0 {
+        diagnostics.push(Diagnostic::error(
+            "E-UNC-TS-STD-001",
+            option.line,
+            "`sensor_std` must be non-negative.",
+            Some("Use zero or a positive standard deviation."),
+        ));
+        return false;
+    }
+    let Some(unit) = unit else {
+        diagnostics.push(Diagnostic::error(
+            "E-UNC-TS-STD-001",
+            option.line,
+            "`sensor_std` must include a unit.",
+            Some("Use a form such as `sensor_std = 0.2 K`."),
+        ));
+        return false;
+    };
+    let Some(unit_quantity) = candidates_for_unit(&unit).first().copied() else {
+        diagnostics.push(Diagnostic::error(
+            "E-UNC-TS-STD-001",
+            option.line,
+            &format!("`sensor_std` unit `{unit}` is not supported."),
+            Some("Use a registered unit compatible with the TimeSeries value quantity."),
+        ));
+        return false;
+    };
+    let expected_dimension = dimension_for_quantity(&value_quantity);
+    let actual_dimension = dimension_for_quantity(unit_quantity.quantity_kind);
+    if !dimensions_compatible(&expected_dimension, &actual_dimension) {
+        diagnostics.push(Diagnostic::error(
+            "E-UNC-TS-STD-001",
+            option.line,
+            &format!(
+                "`sensor_std` has dimension {actual_dimension}, expected {expected_dimension}."
+            ),
+            Some("Use a sensor standard deviation unit compatible with the TimeSeries value."),
+        ));
+        return false;
+    }
+    true
 }
 
 fn validate_uncertainty_policy_options(
@@ -2332,6 +2418,7 @@ fn known_with_option(key: &str) -> bool {
             | "seed"
             | "uncertainty"
             | "samples"
+            | "sensor_std"
             | "output"
             | "overwrite"
             | "confirm"
