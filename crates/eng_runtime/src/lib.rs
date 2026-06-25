@@ -1934,11 +1934,11 @@ fn process_string_option(report: &CheckReport, owner_line: usize, key: &str) -> 
 
 fn artifact_kind_for_owner(report: &CheckReport, owner_line: usize, default_kind: &str) -> String {
     process_string_option(report, owner_line, "artifact_kind")
-        .map(|value| normalize_artifact_kind(&value))
+        .map(|value| normalize_artifact_kind(&value, default_kind))
         .unwrap_or_else(|| default_kind.to_owned())
 }
 
-fn normalize_artifact_kind(value: &str) -> String {
+fn normalize_artifact_kind(value: &str, default_kind: &str) -> String {
     let normalized = value
         .trim()
         .chars()
@@ -1953,7 +1953,7 @@ fn normalize_artifact_kind(value: &str) -> String {
         .trim_matches('_')
         .to_owned();
     if normalized.is_empty() {
-        "process_expected_output".to_owned()
+        default_kind.to_owned()
     } else {
         normalized
     }
