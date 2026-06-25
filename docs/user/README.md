@@ -1,17 +1,35 @@
 # EngLang User Documentation Sources
 
 This folder contains the curated source material for release-facing user
-documents.
+documents. The Markdown files here are the source of truth for user
+documentation.
+
+Recommended first-read path:
+
+- index.md
+- getting_started.md
+- tutorial/01_install_and_doctor.md through tutorial/12_composite_workflow.md
+- howto/README.md
+- concepts/README.md
+
+build_user_docs.py assembles those Markdown sources into
+build/docs/oodocs/user_guide.md. Use python docs/user/build_user_docs.py
+--assemble-markdown to verify the assembled Markdown without OODocs; PDF
+generation passes that source to OODocs when a PDF is requested. OODocs is only
+an optional publishing layer for release bundles; EngLang runtime commands,
+examples, tests, and package smoke must continue to work without OODocs or
+Python documentation tooling.
 
 The release package must not ship the whole developer documentation tree. It
 should ship only polished user artifacts such as:
 
-- `user_guide.md` as the source for `EngLang_User_Guide.pdf`
-- `EngLang_User_Guide.pdf`
-- `EngLang_Language_Grammar_Guide.pdf`
-- a short package `README.txt`
-- `PACKAGE_ASSETS.txt` describing packaged portable/installable assets and
+- EngLang_User_Guide.pdf
+- EngLang_Language_Grammar_Guide.pdf
+- a short package README.txt
+- PACKAGE_ASSETS.txt describing packaged portable/installable assets and
   support boundaries
 
-Development-only material remains in `docs/development`, `docs/architecture`,
-`docs/master-plan`, and release checklists.
+Development-only material remains in docs/development, docs/architecture,
+docs/master-plan, docs/current, and release checklists. Solver-heavy,
+experimental, or internal-track material should not become first-user
+documentation unless a current status document marks it public and stable.

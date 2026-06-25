@@ -403,6 +403,8 @@ function Invoke-DocsCheck {
         "docs\specs",
         "docs\reference",
         "docs\guide",
+        "docs\user",
+        "docs\workflows",
         "docs\tutorials",
         "docs\architecture",
         "docs\runtime"

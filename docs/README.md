@@ -28,6 +28,12 @@ opening long-form planning or internal solver documents.
 
 ## User And Workflow Guides
 
+- [User documentation home](user/index.md)
+- [Getting started](user/getting_started.md)
+- [User tutorial path](user/index.md#tutorial-path)
+- [User how-to guides](user/howto/README.md)
+- [User concepts](user/concepts/README.md)
+- [Composite workflow guide](workflows/index.md)
 - [Native tester IDE](guide/native_ide.md)
 - [TimeSeries statistics guide](guide/timeseries_statistics.md)
 - [Plotting guide](guide/plotting.md)
