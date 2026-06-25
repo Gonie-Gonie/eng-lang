@@ -150,6 +150,8 @@ processes[].tool_version
 processes[].args
 processes[].cwd
 processes[].expected_outputs
+processes[].expected_outputs[].kind
+processes[].expected_outputs[].validation
 processes[].expected_output_status
 processes[].exit_code
 processes[].success
@@ -241,6 +243,7 @@ artifact_count
 artifacts[].kind
 artifacts[].path
 artifacts[].hash
+artifacts[].validation
 artifact_registry.format
 artifact_registry.source_files[]
 artifact_registry.generated_files[]
@@ -255,8 +258,12 @@ profile_diagnostics[]
 
 When `--save-artifacts` is used, this manifest lists result/report/PlotSpec/SVG
 files alongside explicit CSV exports, write outputs, file operation records,
-run-log records, and process-result records. The saved process artifact is
-listed as `process_results`; the saved test artifact is listed as
+run-log records, and process-result records. Generated entries carry a
+validation section with the rule used to accept the file. External process
+outputs may set `artifact_kind = "standard_file"` to record a domain-neutral
+standard text artifact without making the format part of core syntax. The
+saved process artifact is listed as `process_results`; the saved test artifact
+is listed as
 `test_results`. The companion `artifact_registry` groups the same outputs
 with source records, external command boundaries, DB-write summaries, model
 artifact summaries, and named test records so report, review, IDE, and CI tools

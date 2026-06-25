@@ -6402,6 +6402,13 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("outputs/standard_weather_file.txt")
                 || !output
                     .output_manifest_json
+                    .contains("\"kind\": \"standard_file\"")
+                || !output.output_manifest_json.contains("\"validation\"")
+                || !output
+                    .process_results_json
+                    .contains("\"kind\": \"standard_file\"")
+                || !output
+                    .output_manifest_json
                     .contains("outputs/weather_quality_summary.txt")
                 || !output
                     .output_manifest_json

@@ -92,10 +92,11 @@ source span
 For generated files, `output_manifest.json` is the minimum public record. Its
 `artifact_registry` section gives source files, generated files, external
 commands, network/cache placeholders, DB writes, model artifacts, and tests a
-shared review shape. For
+shared review shape, including generated artifact validation records and
+`standard_file` classifications for generic fixed-record/text outputs. For
 external processes, `process_results.json` records command, args, cwd, tool
-version, stdout/stderr hashes, expected outputs, output hashes, duration, and
-status. For
+version, stdout/stderr hashes, expected outputs, expected-output kind, output
+hashes, validation status, duration, and status. For
 promoted tables, `typed_payload.table_diagnostics[]` records the current
 reviewable schema/row/coverage summary, `typed_payload.table_selections[]` records
 selected row, selected value, filters, match count, and selection reason,

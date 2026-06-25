@@ -2472,6 +2472,7 @@ fn known_with_option(key: &str) -> bool {
             | "cwd"
             | "tool_version"
             | "expected_outputs"
+            | "artifact_kind"
             | "allow_failure"
     )
 }

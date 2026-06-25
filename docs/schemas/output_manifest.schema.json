@@ -167,7 +167,8 @@
         "class",
         "path",
         "hash",
-        "status"
+        "status",
+        "validation"
       ],
       "properties": {
         "kind": {
@@ -187,6 +188,9 @@
         },
         "hash": {
           "type": "string"
+        },
+        "validation": {
+          "$ref": "#/$defs/artifactValidation"
         },
         "status": {
           "type": "string"
@@ -430,7 +434,8 @@
       "required": [
         "kind",
         "path",
-        "hash"
+        "hash",
+        "validation"
       ],
       "properties": {
         "kind": {
@@ -440,6 +445,32 @@
           "type": "string"
         },
         "hash": {
+          "type": "string"
+        },
+        "validation": {
+          "$ref": "#/$defs/artifactValidation"
+        }
+      }
+    },
+    "artifactValidation": {
+      "type": "object",
+      "required": [
+        "status",
+        "rule",
+        "message"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "unavailable"
+          ]
+        },
+        "rule": {
+          "type": "string"
+        },
+        "message": {
           "type": "string"
         }
       }

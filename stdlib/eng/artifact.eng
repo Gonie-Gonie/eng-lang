@@ -3,8 +3,9 @@
 # purpose: generated artifact kinds, hashes, validation records, and manifest links.
 #
 # Current implementation:
-#   output_manifest.json, artifact_registry, and artifact hashes are
-#   compiler/runtime/report built-ins for supported side-effect workflows.
+#   output_manifest.json, artifact_registry, artifact hashes, validation
+#   sections, and standard_file artifact kinds are compiler/runtime/report
+#   built-ins for supported side-effect workflows.
 #
 # Planned helper vocabulary:
 #   artifact(path, kind=...)

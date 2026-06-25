@@ -12,14 +12,31 @@
     "processes"
   ],
   "properties": {
-    "format": { "const": "eng-process-results-v1" },
-    "runtime_version": { "type": "string" },
-    "source_path": { "type": "string" },
-    "execution_profile": { "enum": ["safe", "normal", "repro"] },
-    "process_count": { "type": "integer", "minimum": 0 },
+    "format": {
+      "const": "eng-process-results-v1"
+    },
+    "runtime_version": {
+      "type": "string"
+    },
+    "source_path": {
+      "type": "string"
+    },
+    "execution_profile": {
+      "enum": [
+        "safe",
+        "normal",
+        "repro"
+      ]
+    },
+    "process_count": {
+      "type": "integer",
+      "minimum": 0
+    },
     "processes": {
       "type": "array",
-      "items": { "$ref": "#/$defs/processResult" }
+      "items": {
+        "$ref": "#/$defs/processResult"
+      }
     }
   },
   "$defs": {
@@ -44,41 +61,141 @@
         "line"
       ],
       "properties": {
-        "binding": { "type": "string" },
-        "command": { "type": "string" },
-        "tool_version": { "type": ["string", "null"] },
+        "binding": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "tool_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "args": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
-        "cwd": { "type": "string" },
+        "cwd": {
+          "type": "string"
+        },
         "expected_outputs": {
           "type": "array",
-          "items": { "$ref": "#/$defs/expectedOutput" }
+          "items": {
+            "$ref": "#/$defs/expectedOutput"
+          }
         },
         "expected_output_status": {
-          "enum": ["not_declared", "satisfied", "missing"]
+          "enum": [
+            "not_declared",
+            "satisfied",
+            "missing"
+          ]
         },
-        "exit_code": { "type": ["integer", "null"] },
-        "success": { "type": "boolean" },
-        "stdout": { "type": "string" },
-        "stdout_hash": { "type": "string" },
-        "stderr": { "type": "string" },
-        "stderr_hash": { "type": "string" },
-        "duration_ms": { "type": "integer", "minimum": 0 },
-        "status": { "enum": ["completed", "failed_allowed", "output_missing_allowed"] },
-        "line": { "type": "integer", "minimum": 1 }
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "success": {
+          "type": "boolean"
+        },
+        "stdout": {
+          "type": "string"
+        },
+        "stdout_hash": {
+          "type": "string"
+        },
+        "stderr": {
+          "type": "string"
+        },
+        "stderr_hash": {
+          "type": "string"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "failed_allowed",
+            "output_missing_allowed"
+          ]
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     },
     "expectedOutput": {
       "type": "object",
-      "required": ["path", "resolved_path", "exists", "hash", "status"],
+      "required": [
+        "kind",
+        "path",
+        "resolved_path",
+        "exists",
+        "hash",
+        "status",
+        "validation"
+      ],
       "properties": {
-        "path": { "type": "string" },
-        "resolved_path": { "type": "string" },
-        "exists": { "type": "boolean" },
-        "hash": { "type": ["string", "null"] },
-        "status": { "enum": ["exists", "exists_unhashed", "missing"] }
+        "kind": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "resolved_path": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "enum": [
+            "exists",
+            "exists_unhashed",
+            "missing"
+          ]
+        },
+        "validation": {
+          "$ref": "#/$defs/artifactValidation"
+        }
+      }
+    },
+    "artifactValidation": {
+      "type": "object",
+      "required": [
+        "status",
+        "rule",
+        "message"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "unavailable"
+          ]
+        },
+        "rule": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
       }
     }
   }

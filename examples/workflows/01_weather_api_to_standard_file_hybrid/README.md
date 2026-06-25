@@ -36,7 +36,7 @@ select station from the promoted station map with `select_first_row(...)`
 run external fetcher or use sample response
 promote weather hourly data
 generic DateTime coverage check with `check coverage weather.time` and missing-data report
-run external standard-file writer
-write output artifact
+run external standard-file writer with `artifact_kind = "standard_file"`
+write output artifact with hash and validation metadata
 report station, coverage status, expected/missing counts, and output path
 ```

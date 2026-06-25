@@ -63,6 +63,7 @@ writer_result = run command "python"
 with {
     args = ["tools/make_standard_weather_file.py"]
     expected_outputs = ["outputs/standard_weather_file.txt"]
+    artifact_kind = "standard_file"
 }
 
 quality_result = run command "python"

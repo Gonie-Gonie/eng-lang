@@ -298,6 +298,7 @@ artifacts:
   kind
   path
   hash
+  validation
 artifact_registry:
   source_files
   generated_files
@@ -311,8 +312,10 @@ profile_diagnostics
 ```
 
 Common `kind` values include `csv_export`, `write_text`, `write_json`,
-`copy_file`, `move_file`, `delete_file`, `plot_svg`, `report_html`, `result`,
-`run_log`, `process_results`, and `test_results`.
+`copy_file`, `move_file`, `delete_file`, `standard_file`, `plot_svg`,
+`report_html`, `result`, `run_log`, `process_results`, and `test_results`.
+Each generated artifact includes a validation record with status, rule, and
+message.
 
 Use it when a tool needs to show exactly which files a run produced without
 guessing from the directory layout. The `artifact_registry` section normalizes
@@ -356,6 +359,10 @@ processes:
   command
   args
   cwd
+  expected_outputs
+  expected_outputs[].kind
+  expected_outputs[].validation
+  expected_output_status
   exit_code
   success
   stdout
@@ -367,7 +374,10 @@ processes:
 
 This artifact is the reviewable boundary for external process effects. It is
 separate from `run_log.json`: logs are messages produced by the EngLang
-workflow, while process results record effects from external tools.
+workflow, while process results record effects from external tools. Expected
+outputs record existence/hash validation and can be classified with
+`artifact_kind`, for example `standard_file` for a generic fixed-record/text
+artifact produced by an external writer.
 
 ## `test_results.json`
 

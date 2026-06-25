@@ -4,8 +4,9 @@
 #
 # Current implementation:
 #   `result = run command "tool"` with `with { args = [...] }`, optional
-#   `cwd`, `expected_outputs`, `tool_version`, and `allow_failure` metadata,
-#   plus process_results.json, are supported through built-ins.
+#   `cwd`, `expected_outputs`, `artifact_kind`, `tool_version`, and
+#   `allow_failure` metadata, plus process_results.json, are supported through
+#   built-ins.
 #
 # Planned helper vocabulary:
 #   structured per-case process manifests
@@ -14,7 +15,8 @@
 #
 # Review contract:
 #   command, args, cwd, tool version, exit code, stdout/stderr and their
-#   hashes, expected outputs, output hashes, profile policy, and source span.
+#   hashes, expected outputs, artifact kind, output hashes, validation status,
+#   profile policy, and source span.
 #
 # Non-goal:
 #   process execution is an opaque boundary, not a way to hide unreviewed

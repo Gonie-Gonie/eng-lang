@@ -1070,9 +1070,18 @@ struct ProcessExecutionRecord {
 struct ProcessExpectedOutputRecord {
     path: String,
     resolved_path: PathBuf,
+    artifact_kind: String,
     exists: bool,
     hash: Option<String>,
     status: String,
+    validation: ArtifactValidation,
+}
+
+#[derive(Clone, Debug)]
+struct ArtifactValidation {
+    status: String,
+    rule: String,
+    message: String,
 }
 
 #[derive(Clone, Debug)]
@@ -1320,6 +1329,10 @@ fn process_results_json(
             }
             json.push_str("        {\n");
             json.push_str(&format!(
+                "          \"kind\": \"{}\",\n",
+                json_escape(&output.artifact_kind)
+            ));
+            json.push_str(&format!(
                 "          \"path\": \"{}\",\n",
                 json_escape(&output.path)
             ));
@@ -1330,9 +1343,10 @@ fn process_results_json(
             json.push_str(&format!("          \"exists\": {},\n", output.exists));
             push_optional_json_string_runtime(&mut json, "hash", output.hash.as_deref(), 10);
             json.push_str(&format!(
-                "          \"status\": \"{}\"\n",
+                "          \"status\": \"{}\",\n",
                 json_escape(&output.status)
             ));
+            push_artifact_validation_json(&mut json, &output.validation, 10);
             json.push_str("        }");
         }
         json.push_str("\n      ],\n");
@@ -1808,13 +1822,15 @@ fn process_expected_outputs_for_owner(
     let Some(raw) = process_option(report, owner_line, "expected_outputs") else {
         return Ok(Vec::new());
     };
-    parse_process_expected_outputs(&raw, report, cwd)
+    let artifact_kind = artifact_kind_for_owner(report, owner_line, "process_expected_output");
+    parse_process_expected_outputs(&raw, report, cwd, &artifact_kind)
 }
 
 fn parse_process_expected_outputs(
     raw: &str,
     report: &CheckReport,
     cwd: &Path,
+    artifact_kind: &str,
 ) -> Result<Vec<ProcessExpectedOutputRecord>, RuntimeError> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
@@ -1834,7 +1850,7 @@ fn parse_process_expected_outputs(
     };
     parts
         .into_iter()
-        .map(|part| process_expected_output_record(&part, report, cwd))
+        .map(|part| process_expected_output_record(&part, report, cwd, artifact_kind))
         .collect()
 }
 
@@ -1842,6 +1858,7 @@ fn process_expected_output_record(
     raw: &str,
     report: &CheckReport,
     cwd: &Path,
+    artifact_kind: &str,
 ) -> Result<ProcessExpectedOutputRecord, RuntimeError> {
     let raw = raw.trim();
     let path_text = evaluate_runtime_path_expression(raw, report)
@@ -1852,13 +1869,42 @@ fn process_expected_output_record(
         Err(_) if resolved_path.exists() => (true, None, "exists_unhashed".to_owned()),
         Err(_) => (false, None, "missing".to_owned()),
     };
+    let validation = expected_output_validation(exists, hash.as_ref());
     Ok(ProcessExpectedOutputRecord {
         path: runtime_path_text(&path_text),
         resolved_path,
+        artifact_kind: artifact_kind.to_owned(),
         exists,
         hash,
         status,
+        validation,
     })
+}
+
+fn expected_output_validation(exists: bool, hash: Option<&String>) -> ArtifactValidation {
+    if exists && hash.is_some() {
+        artifact_validation(
+            "passed",
+            "exists_and_hash",
+            "expected output exists and was hashed",
+        )
+    } else if exists {
+        artifact_validation(
+            "unavailable",
+            "exists_and_hash",
+            "expected output exists but could not be hashed",
+        )
+    } else {
+        artifact_validation("failed", "exists_and_hash", "expected output is missing")
+    }
+}
+
+fn artifact_validation(status: &str, rule: &str, message: &str) -> ArtifactValidation {
+    ArtifactValidation {
+        status: status.to_owned(),
+        rule: rule.to_owned(),
+        message: message.to_owned(),
+    }
 }
 
 fn expected_output_status(outputs: &[ProcessExpectedOutputRecord]) -> String {
@@ -1884,6 +1930,33 @@ fn process_bool_option(report: &CheckReport, owner_line: usize, key: &str) -> bo
 
 fn process_string_option(report: &CheckReport, owner_line: usize, key: &str) -> Option<String> {
     process_option(report, owner_line, key).map(|value| strip_runtime_string_value(&value))
+}
+
+fn artifact_kind_for_owner(report: &CheckReport, owner_line: usize, default_kind: &str) -> String {
+    process_string_option(report, owner_line, "artifact_kind")
+        .map(|value| normalize_artifact_kind(&value))
+        .unwrap_or_else(|| default_kind.to_owned())
+}
+
+fn normalize_artifact_kind(value: &str) -> String {
+    let normalized = value
+        .trim()
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || character == '_' || character == '-' {
+                character.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('_')
+        .to_owned();
+    if normalized.is_empty() {
+        "process_expected_output".to_owned()
+    } else {
+        normalized
+    }
 }
 
 fn process_option(report: &CheckReport, owner_line: usize, key: &str) -> Option<String> {
@@ -1998,6 +2071,7 @@ struct OutputArtifact {
     path: String,
     hash: String,
     absolute_path: PathBuf,
+    validation: ArtifactValidation,
 }
 
 struct ArtifactRegistryContext<'a> {
@@ -2017,13 +2091,14 @@ fn process_expected_output_artifacts(records: &[ProcessExecutionRecord]) -> Vec<
             let kind = if is_db_manifest_output(expected) {
                 "db_write_manifest"
             } else {
-                "process_expected_output"
+                expected.artifact_kind.as_str()
             };
             Some(OutputArtifact {
                 kind: kind.to_owned(),
                 path: path_for_manifest(&expected.resolved_path),
                 hash: hash.clone(),
                 absolute_path: expected.resolved_path.clone(),
+                validation: expected.validation.clone(),
             })
         })
         .collect()
@@ -2040,6 +2115,11 @@ fn output_artifact(
         path,
         hash: hash_text(contents),
         absolute_path,
+        validation: artifact_validation(
+            "passed",
+            "content_hash",
+            "generated artifact was written and hashed",
+        ),
     }
 }
 
@@ -2137,8 +2217,10 @@ fn write_outputs(
             )
         })?;
         write_output_file(&path, &contents, overwrite_allowed(report, write.line))?;
+        let artifact_kind =
+            artifact_kind_for_owner(report, write.line, &format!("write_{}", write.format));
         artifacts.push(output_artifact(
-            &format!("write_{}", write.format),
+            &artifact_kind,
             relative_output_path(result_dir, &path),
             &contents,
             path,
@@ -2225,6 +2307,11 @@ fn apply_file_operations(
                         path: relative_path,
                         hash: hash_text("deleted_dir"),
                         absolute_path: target_path,
+                        validation: artifact_validation(
+                            "passed",
+                            "file_operation",
+                            "generated directory was deleted",
+                        ),
                     });
                 } else if target_path.exists() {
                     let contents = fs::read_to_string(&target_path).unwrap_or_default();
@@ -2241,6 +2328,11 @@ fn apply_file_operations(
                         path: relative_path,
                         hash: hash_text("missing"),
                         absolute_path: target_path,
+                        validation: artifact_validation(
+                            "passed",
+                            "file_operation",
+                            "delete target was already absent",
+                        ),
                     });
                 }
             }
@@ -2413,9 +2505,10 @@ fn output_manifest_json(
             json_escape(&artifact.path)
         ));
         json.push_str(&format!(
-            "      \"hash\": \"{}\"\n",
+            "      \"hash\": \"{}\",\n",
             json_escape(&artifact.hash)
         ));
+        push_artifact_validation_json(&mut json, &artifact.validation, 6);
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -2498,7 +2591,8 @@ fn push_artifact_registry_json(
             "        \"hash\": \"{}\",\n",
             json_escape(&artifact.hash)
         ));
-        json.push_str("        \"status\": \"generated\"\n");
+        json.push_str("        \"status\": \"generated\",\n");
+        push_artifact_validation_json(json, &artifact.validation, 8);
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
@@ -2669,6 +2763,28 @@ fn push_artifact_registry_json(
         json.push_str("      }");
     }
     json.push_str("\n    ]");
+}
+
+fn push_artifact_validation_json(
+    json: &mut String,
+    validation: &ArtifactValidation,
+    indent: usize,
+) {
+    let padding = " ".repeat(indent);
+    json.push_str(&format!("{padding}\"validation\": {{\n"));
+    json.push_str(&format!(
+        "{padding}  \"status\": \"{}\",\n",
+        json_escape(&validation.status)
+    ));
+    json.push_str(&format!(
+        "{padding}  \"rule\": \"{}\",\n",
+        json_escape(&validation.rule)
+    ));
+    json.push_str(&format!(
+        "{padding}  \"message\": \"{}\"\n",
+        json_escape(&validation.message)
+    ));
+    json.push_str(&format!("{padding}}}\n"));
 }
 
 fn artifact_record_class(kind: &str) -> &'static str {
@@ -7625,9 +7741,17 @@ mod tests {
             .process_results_json
             .contains("\"status\": \"exists\""));
         assert!(output
+            .process_results_json
+            .contains("\"kind\": \"process_expected_output\""));
+        assert!(output.process_results_json.contains("\"validation\""));
+        assert!(output
+            .process_results_json
+            .contains("\"rule\": \"exists_and_hash\""));
+        assert!(output
             .output_manifest_json
             .contains("\"kind\": \"process_expected_output\""));
         assert!(output.output_manifest_json.contains("\"generated_files\""));
+        assert!(output.output_manifest_json.contains("\"validation\""));
     }
 
     #[test]
