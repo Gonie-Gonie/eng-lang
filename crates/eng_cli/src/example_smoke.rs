@@ -6695,6 +6695,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"external_commands\"")
                 || !output.review_json.contains("database_target")
                 || !output.review_json.contains("predictions.rows")
+                || !output.review_json.contains("db_tables_written")
                 || !output
                     .result_json
                     .contains("\"quantity_kind\": \"PeopleDensity\"")

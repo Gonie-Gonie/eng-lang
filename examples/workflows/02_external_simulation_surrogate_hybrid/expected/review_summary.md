@@ -16,5 +16,5 @@ one generated workflow summary CSV
 generated surrogate model, metrics, and self-contained model-card artifacts with feature, target, split, residual, training-hash, and model-hash metadata
 generated prediction CSV plus prediction manifest with output quantity/unit, model hash, sample hash, case IDs, and row count
 one generated database side-effect manifest summarized in typed_payload.db_manifests[] with schema diagnostics and transaction status
-report entries for row counts, scalar metrics, predictions, and the DB target
+report entries for row counts, scalar metrics, predictions, the DB target, and DB tables written
 ```

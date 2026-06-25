@@ -37,8 +37,8 @@ schema PredictionResult {
 
 args {
     samples: CsvFile = file("samples/design_samples.csv")
-    results: CsvFile = file("outputs/summary_results.csv")
-    predictions: CsvFile = file("outputs/predictions.csv")
+    results: CsvFile = file("samples/summary_results.csv")
+    predictions: CsvFile = file("samples/predictions.csv")
     database_target: String = "outputs/surrogate_results.sqlite"
     output: DirectoryPath = dir("outputs")
 }
@@ -150,6 +150,7 @@ with {
 annual_electricity = 12800 kWh
 peak_cooling = 14.2 kW
 unmet_hours = 0 h
+db_tables_written = "simulation_results,predictions"
 
 print "Design samples = {designs.rows}"
 print "Simulation results = {results.rows}"
@@ -170,6 +171,7 @@ report {
     show designs.rows
     show results.rows
     show predictions.rows
+    show db_tables_written
     show annual_electricity
     show peak_cooling
     show unmet_hours

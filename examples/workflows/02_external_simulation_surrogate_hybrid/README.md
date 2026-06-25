@@ -14,7 +14,7 @@ The current `main.eng` stays within supported EngLang primitives:
 typed sample table promotion with PeopleDensity and power-density columns
 schema constraint policy results for sample and prediction tables
 typed result table promotion
-typed prediction table promotion from predictor output plus prediction manifest
+typed prediction table promotion plus predictor output and prediction manifest
 explicit external process boundaries
 generated model artifact, metrics artifact, and self-contained model card
 generated case manifests with case directories, process statuses, result files, metrics, and failure reasons
