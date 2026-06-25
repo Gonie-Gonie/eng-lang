@@ -649,6 +649,18 @@ split/model/MLP options: malformed arguments produce `E-ML-ARGS-001` or
 These metrics are deterministic values for user testing and artifact review.
 Full ML training maturity is a later roadmap item.
 
+## TimeSeries Coverage Metadata
+
+DateTime-indexed promoted CSV tables emit generic coverage records before any
+weather-specific fill or imputation logic. Runtime artifacts record them in:
+
+```text
+review.json                 timeseries_coverage
+result.engres               typed_payload.timeseries_coverage
+```
+
+Each coverage entry records binding/name, source start/end, numeric start/end, expected step/count, actual count, missing intervals, max gap, optional coverage year, leap-year policy, status, and source line. Automatic axis-span entries use `axis_span_only`; explicit `check coverage ... with { year = ... }` entries use a Gregorian year grid, including leap-year expected counts.
+
 ## Promoted Table Selection Metadata
 
 `select_first_row(...)` is a narrow `eng.table` seed for deterministic row

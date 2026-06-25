@@ -2069,7 +2069,7 @@ fn split_first_word(value: &str) -> Option<(&str, &str)> {
 fn is_command_style_verb(verb: &str) -> bool {
     matches!(
         verb,
-        "integrate" | "mean" | "max" | "min" | "duration" | "plot" | "show" | "validate"
+        "integrate" | "mean" | "max" | "min" | "duration" | "plot" | "show" | "validate" | "check"
     )
 }
 
@@ -2209,6 +2209,13 @@ fn command_target_is_ambiguous(verb: &str, target: &str) -> bool {
         return false;
     }
     if verb == "validate" {
+        return false;
+    }
+    if verb == "check"
+        && target
+            .strip_prefix("coverage ")
+            .is_some_and(|source| is_simple_dotted_identifier(source.trim()))
+    {
         return false;
     }
     if verb == "plot" && target.split(" and ").all(is_simple_dotted_identifier) {

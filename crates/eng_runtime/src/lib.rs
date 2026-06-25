@@ -2772,6 +2772,9 @@ fn evaluate_runtime_expression(
                 unit: String::new(),
             });
     }
+    if let Some(value) = evaluate_coverage_expression(expression, runtime_data) {
+        return Some(value);
+    }
     if let Some(value) = evaluate_statistic_expression(expression, runtime_data) {
         return Some(value);
     }
@@ -2881,6 +2884,66 @@ fn evaluate_runtime_expression(
         )));
     }
     None
+}
+
+fn evaluate_coverage_expression(
+    expression: &str,
+    runtime_data: &RuntimeData,
+) -> Option<RuntimeFormatValue> {
+    let (binding, field) = expression.trim().split_once('.')?;
+    let coverage = runtime_data
+        .timeseries_coverage
+        .iter()
+        .find(|coverage| coverage.binding == binding.trim() || coverage.name == binding.trim())?;
+    match field.trim() {
+        "complete" => Some(RuntimeFormatValue::Text(
+            (coverage.status == "complete").to_string(),
+        )),
+        "status" => Some(RuntimeFormatValue::Text(coverage.status.clone())),
+        "missing_count" => Some(RuntimeFormatValue::Number {
+            value: coverage.missing_count as f64,
+            quantity_kind: "Count".to_owned(),
+            unit: String::new(),
+        }),
+        "actual_count" => Some(RuntimeFormatValue::Number {
+            value: coverage.actual_count as f64,
+            quantity_kind: "Count".to_owned(),
+            unit: String::new(),
+        }),
+        "expected_count" => coverage
+            .expected_count
+            .map(|count| RuntimeFormatValue::Number {
+                value: count as f64,
+                quantity_kind: "Count".to_owned(),
+                unit: String::new(),
+            }),
+        "max_gap" => coverage.max_gap.map(|value| RuntimeFormatValue::Number {
+            value,
+            quantity_kind: "Duration".to_owned(),
+            unit: "s".to_owned(),
+        }),
+        "max_gap_hours" => coverage.max_gap.map(|value| RuntimeFormatValue::Number {
+            value: value / 3600.0,
+            quantity_kind: "Duration".to_owned(),
+            unit: "h".to_owned(),
+        }),
+        "expected_step" => coverage
+            .expected_step
+            .map(|value| RuntimeFormatValue::Number {
+                value,
+                quantity_kind: "Duration".to_owned(),
+                unit: "s".to_owned(),
+            }),
+        "year" | "coverage_year" => coverage
+            .coverage_year
+            .map(|year| RuntimeFormatValue::Number {
+                value: year as f64,
+                quantity_kind: "DimensionlessNumber".to_owned(),
+                unit: String::new(),
+            }),
+        "leap_year_policy" => Some(RuntimeFormatValue::Text(coverage.leap_year_policy.clone())),
+        _ => None,
+    }
 }
 
 fn evaluate_runtime_read_expression(expression: &str, report: &CheckReport) -> Option<String> {
@@ -3877,6 +3940,7 @@ fn result_json(
 
     let table_diagnostics = table_diagnostics_json(runtime_data);
     let table_selections = table_selections_json(runtime_data, "      ");
+    let timeseries_coverage = timeseries_coverage_json(runtime_data, "      ");
     let sample_tables = sample_tables_json(runtime_data);
     let case_manifests = case_manifests_json(runtime_data);
     let db_manifest_records = db_manifest_records(process_results);
@@ -4515,7 +4579,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"table_selections\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"table_selections\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"timeseries_coverage\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -4548,6 +4612,7 @@ fn result_json(
         metrics,
         validations,
         time_axes,
+        timeseries_coverage,
         time_alignments,
         uncertainties,
         ml,
@@ -5133,6 +5198,8 @@ fn runtime_review_json(
     let db_manifest_records = db_manifest_records(process_results);
     json.push_str("\n  ],\n  \"table_selections\": [\n");
     json.push_str(&table_selections_json(runtime_data, "    "));
+    json.push_str("\n  ],\n  \"timeseries_coverage\": [\n");
+    json.push_str(&timeseries_coverage_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"db_manifests\": [\n");
     json.push_str(&db_manifests_json(&db_manifest_records));
     json.push_str("\n  ]\n}\n");
@@ -6229,6 +6296,112 @@ fn push_table_selection_json(
         json_escape(&selection.reason)
     ));
     json.push_str(&format!("{field_indent}\"line\": {}\n", selection.line));
+    json.push_str(&format!("{indent}}}"));
+}
+
+fn timeseries_coverage_json(runtime_data: &RuntimeData, indent: &str) -> String {
+    let mut json = String::new();
+    for (index, coverage) in runtime_data.timeseries_coverage.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        push_timeseries_coverage_json(&mut json, coverage, indent);
+    }
+    json
+}
+
+fn push_timeseries_coverage_json(
+    json: &mut String,
+    coverage: &runtime_data::RuntimeTimeSeriesCoverage,
+    indent: &str,
+) {
+    let field_indent = format!("{indent}  ");
+    let nested_indent = format!("{indent}    ");
+    json.push_str(&format!("{indent}{{\n"));
+    json.push_str(&format!(
+        "{field_indent}\"binding\": \"{}\",\n",
+        json_escape(&coverage.binding)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"name\": \"{}\",\n",
+        json_escape(&coverage.name)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"source_table\": \"{}\",\n",
+        json_escape(&coverage.source_table)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"source_column\": \"{}\",\n",
+        json_escape(&coverage.source_column)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"unit\": \"{}\",\n",
+        json_escape(&coverage.unit)
+    ));
+    push_optional_json_number(json, "start", coverage.start, field_indent.len());
+    push_optional_json_number(json, "end", coverage.end, field_indent.len());
+    push_optional_json_string(
+        json,
+        "source_start",
+        coverage.source_start.as_deref(),
+        field_indent.len(),
+    );
+    push_optional_json_string(
+        json,
+        "source_end",
+        coverage.source_end.as_deref(),
+        field_indent.len(),
+    );
+    push_optional_json_number(
+        json,
+        "expected_step",
+        coverage.expected_step,
+        field_indent.len(),
+    );
+    match coverage.expected_count {
+        Some(count) => json.push_str(&format!("{field_indent}\"expected_count\": {},\n", count)),
+        None => json.push_str(&format!("{field_indent}\"expected_count\": null,\n")),
+    }
+    json.push_str(&format!(
+        "{field_indent}\"actual_count\": {},\n",
+        coverage.actual_count
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"missing_count\": {},\n",
+        coverage.missing_count
+    ));
+    json.push_str(&format!("{field_indent}\"missing_intervals\": [\n"));
+    for (interval_index, interval) in coverage.missing_intervals.iter().enumerate() {
+        if interval_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{nested_indent}{{\n"));
+        json.push_str(&format!(
+            "{nested_indent}  \"start\": {},\n",
+            interval.start
+        ));
+        json.push_str(&format!("{nested_indent}  \"end\": {},\n", interval.end));
+        json.push_str(&format!(
+            "{nested_indent}  \"missing_count\": {}\n",
+            interval.missing_count
+        ));
+        json.push_str(&format!("{nested_indent}}}"));
+    }
+    json.push_str(&format!("\n{field_indent}],\n"));
+    push_optional_json_number(json, "max_gap", coverage.max_gap, field_indent.len());
+    match coverage.coverage_year {
+        Some(year) => json.push_str(&format!("{field_indent}\"coverage_year\": {},\n", year)),
+        None => json.push_str(&format!("{field_indent}\"coverage_year\": null,\n")),
+    }
+    json.push_str(&format!(
+        "{field_indent}\"leap_year_policy\": \"{}\",\n",
+        json_escape(&coverage.leap_year_policy)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"status\": \"{}\",\n",
+        json_escape(&coverage.status)
+    ));
+    json.push_str(&format!("{field_indent}\"line\": {}\n", coverage.line));
     json.push_str(&format!("{indent}}}"));
 }
 

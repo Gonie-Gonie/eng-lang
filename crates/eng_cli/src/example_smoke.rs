@@ -6415,7 +6415,18 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .review_json
                     .contains("\"selected_value\": \"STN001\"")
                 || !output.result_json.contains("\"table_selections\"")
-                || !output.report_html.contains("max_gap_hours")
+                || !output.result_json.contains("\"timeseries_coverage\"")
+                || !output.result_json.contains("\"source_table\": \"weather\"")
+                || !output.result_json.contains("\"binding\": \"coverage\"")
+                || !output.result_json.contains("\"coverage_year\": 2024")
+                || !output.result_json.contains("\"expected_count\": 8784")
+                || !output.result_json.contains("\"actual_count\": 2")
+                || !output.result_json.contains("\"missing_count\": 8782")
+                || !output.result_json.contains("\"max_gap\": 3600")
+                || !output
+                    .result_json
+                    .contains("\"leap_year_policy\": \"gregorian_year\"")
+                || !output.review_json.contains("\"timeseries_coverage\"")
             {
                 eprintln!(
                     "expected weather workflow to produce review, process, output manifest, and report artifacts"
@@ -6576,7 +6587,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
     if !data_quality_fixture_records_parse_failure(
         "examples/diagnostics/data_quality/bad_datetime_cell.eng",
         "build/test-bad-datetime",
-        "expected UTC DateTime",
+        "expected DateTime",
     ) {
         return ExitCode::from(2);
     }

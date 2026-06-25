@@ -237,7 +237,8 @@ separate.
 - Main status: `Supported` for those primitives plus promoted table
   diagnostics, deterministic promoted-table row-selection artifacts, promoted
   sample-table artifacts, promoted case manifest seeds, DB manifest summaries in `typed_payload.db_manifests[]`, internal model-card
-  summaries in `typed_payload.model_cards[]`, and time-axis coverage artifacts;
+  summaries in `typed_payload.model_cards[]`, DateTime-indexed
+  `typed_payload.timeseries_coverage[]` records including explicit Gregorian-year coverage checks, and time-axis coverage artifacts;
   hybrid fixtures now emit weather, case, model-card, and prediction artifacts
   through explicit process/write boundaries; `Planned` for native network,
   cache, sampling generators, native case runner, SQLite writes, and model-card
@@ -247,7 +248,7 @@ separate.
   core, not core language identity.
 - Evidence: official side-effect examples, process artifacts, output manifests,
   `typed_payload.table_diagnostics[]`, `typed_payload.table_selections[]`,
-  `typed_payload.sample_tables[]`,
+  `typed_payload.timeseries_coverage[]`, `typed_payload.sample_tables[]`,
   `typed_payload.case_manifests[]`, `typed_payload.db_manifests[]`,
   `typed_payload.model_cards[]`, workflow examples under `examples/workflows`,
   and `docs/current/workflow_modules.md`.

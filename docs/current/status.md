@@ -50,7 +50,8 @@ workflow, and covered by the breaking-change policy.
 - DateTime-indexed table metadata, row-level CSV runtime pages, source hash
   provenance, `typed_payload.table_diagnostics[]` summaries for promoted data,
   `typed_payload.table_selections[]` records for deterministic promoted-table row
-  selection, `typed_payload.sample_tables[]` summaries for promoted sample/case tables,
+  selection, `typed_payload.timeseries_coverage[]` records for DateTime-indexed
+  promoted-table coverage, `typed_payload.sample_tables[]` summaries for promoted sample/case tables,
   and `typed_payload.case_manifests[]` case row seeds with sample row hashes.
 
 ### TimeSeries, Plot, Report, And Review

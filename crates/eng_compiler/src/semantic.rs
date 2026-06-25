@@ -1548,6 +1548,10 @@ fn validate_command_expression(
         return;
     }
 
+    if is_coverage_complete_validation_target(&command.target, typed_bindings) {
+        return;
+    }
+
     let Some((left, _operator, right)) = split_validation_expression(&command.target) else {
         diagnostics.push(Diagnostic::error(
             "E-VALIDATE-BOOL-001",
@@ -1606,6 +1610,20 @@ fn validate_command_expression(
             diagnostics,
         );
     }
+}
+
+fn is_coverage_complete_validation_target(
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+) -> bool {
+    let Some((binding, field)) = expression.trim().split_once('.') else {
+        return false;
+    };
+    field.trim() == "complete"
+        && typed_bindings.iter().any(|typed_binding| {
+            typed_binding.name == binding.trim()
+                && typed_binding.semantic_type.quantity_kind == "CoverageResult"
+        })
 }
 
 fn validate_between_command_expression(
@@ -2097,8 +2115,12 @@ fn analyze_with_blocks(
         .map(|block| {
             let owner_type =
                 with_owner_semantic_type(block.owner_line, typed_bindings, command_styles);
-            let extra_known_options =
+            let mut extra_known_options =
                 with_owner_simulation_variable_options(program, block.owner_line, systems);
+            extra_known_options.extend(with_owner_coverage_options(
+                command_styles,
+                block.owner_line,
+            ));
             let mut options = with_options_for_owner(program, block.owner_line)
                 .into_iter()
                 .map(|option| {
@@ -2152,6 +2174,28 @@ fn with_owner_simulation_variable_options(
         })
         .unwrap_or_default()
 }
+fn with_owner_coverage_options(
+    command_styles: &[CommandStyleInfo],
+    owner_line: Option<usize>,
+) -> HashSet<String> {
+    let Some(owner_line) = owner_line else {
+        return HashSet::new();
+    };
+    let Some(command) = command_styles
+        .iter()
+        .find(|command| command.line == owner_line)
+    else {
+        return HashSet::new();
+    };
+    if command.verb != "check" || !command.target.trim().starts_with("coverage ") {
+        return HashSet::new();
+    }
+    ["expected_step", "step", "year"]
+        .into_iter()
+        .map(str::to_owned)
+        .collect()
+}
+
 fn with_options_for_owner(
     program: &ParsedProgram,
     owner_line: Option<usize>,
@@ -4962,6 +5006,7 @@ fn is_builtin_function(name: &str) -> bool {
             | "leakage_lint"
             | "select_first_row"
             | "date"
+            | "check"
             | "file"
             | "dir"
             | "join"
@@ -10654,6 +10699,10 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
 
     if lowered_expression.starts_with("select_first_row(") {
         return semantic_type("String", "");
+    }
+
+    if lowered_expression.starts_with("check(") && lowered_expression.contains("coverage ") {
+        return semantic_type("CoverageResult", "");
     }
 
     if lowered_expression.starts_with("simulate ") {

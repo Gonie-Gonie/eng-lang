@@ -47,7 +47,7 @@
     },
     "typed_payload": {
       "type": "object",
-      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "table_selections", "sample_tables", "case_manifests", "db_manifests", "model_cards", "metrics", "validations", "time_axes", "time_alignments", "uncertainties", "ml", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
+      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "table_selections", "sample_tables", "case_manifests", "db_manifests", "model_cards", "metrics", "validations", "time_axes", "timeseries_coverage", "time_alignments", "uncertainties", "ml", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
       "properties": {
         "numeric_values": {
           "type": "array",
@@ -92,6 +92,10 @@
         "time_axes": {
           "type": "array",
           "items": { "$ref": "#/$defs/timeAxis" }
+        },
+        "timeseries_coverage": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/timeSeriesCoverage" }
         },
         "systems": {
           "type": "array",
@@ -152,6 +156,7 @@
       "type": "object",
       "required": ["name", "type", "value", "source", "required", "line"],
       "properties": {
+        "binding": { "type": "string" },
         "name": { "type": "string" },
         "type": { "type": "string" },
         "value": { "type": "string" },
@@ -268,6 +273,7 @@
     "sampleParameterColumn": {
       "type": "object",
       "required": [
+        "binding",
         "name",
         "quantity_kind",
         "display_unit",
@@ -699,6 +705,63 @@
         "unit": { "type": "string" },
         "status": { "enum": ["passed", "failed", "unavailable"] },
         "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "timeSeriesCoverage": {
+      "type": "object",
+      "required": [
+        "binding",
+        "name",
+        "source_table",
+        "source_column",
+        "unit",
+        "start",
+        "end",
+        "source_start",
+        "source_end",
+        "expected_step",
+        "expected_count",
+        "actual_count",
+        "missing_count",
+        "missing_intervals",
+        "max_gap",
+        "coverage_year",
+        "leap_year_policy",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "name": { "type": "string" },
+        "source_table": { "type": "string" },
+        "source_column": { "type": "string" },
+        "unit": { "type": "string" },
+        "start": { "type": ["number", "null"] },
+        "end": { "type": ["number", "null"] },
+        "source_start": { "type": ["string", "null"] },
+        "source_end": { "type": ["string", "null"] },
+        "expected_step": { "type": ["number", "null"] },
+        "expected_count": { "type": ["integer", "null"], "minimum": 0 },
+        "actual_count": { "type": "integer", "minimum": 0 },
+        "missing_count": { "type": "integer", "minimum": 0 },
+        "missing_intervals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/timeSeriesMissingInterval" }
+        },
+        "max_gap": { "type": ["number", "null"] },
+        "coverage_year": { "type": ["integer", "null"] },
+        "leap_year_policy": { "type": "string" },
+        "status": { "enum": ["complete", "gapped", "irregular", "axis_missing_or_invalid"] },
+        "line": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "timeSeriesMissingInterval": {
+      "type": "object",
+      "required": ["start", "end", "missing_count"],
+      "properties": {
+        "start": { "type": "number" },
+        "end": { "type": "number" },
+        "missing_count": { "type": "integer", "minimum": 1 }
       }
     },
     "timeAlignment": {

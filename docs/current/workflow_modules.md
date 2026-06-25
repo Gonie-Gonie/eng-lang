@@ -3,7 +3,9 @@
 Status: mixed. Existing path, IO, process, output-manifest, run-log, and test
 features are supported in the current public package scope. Promoted CSV
 tables now emit `typed_payload.table_diagnostics[]` with schema, row, column,
-missing-cell, parse/conversion, and time-axis coverage summaries, plus
+missing-cell, parse/conversion, time-axis coverage summaries, and
+`typed_payload.timeseries_coverage[]` records with expected counts, missing
+intervals, max gaps, and leap-year policy, plus
 deterministic row-selection records in `typed_payload.table_selections[]`. Promoted
 DesignSample-style CSV tables now emit `typed_payload.sample_tables[]` with
 case ID, parameter range, duplicate-case, and row-hash preview metadata, plus
@@ -35,7 +37,7 @@ that make those adapters typed, explicit, reproducible, and reviewable.
 | `eng.process` | Supported narrow scope | explicit command boundary, tool-version metadata, expected-output hashes, and process artifacts |
 | `eng.test` | Supported narrow scope | local assertions, golden checks, test artifacts |
 | `eng.table` | Supported diagnostics and row-selection artifact seed; planned broader APIs | promoted table row/column diagnostics and deterministic row selection; filter/join/derived columns planned |
-| `eng.timeseries` | Supported narrow scope | TimeSeries statistics, table time-axis coverage metadata, integration |
+| `eng.timeseries` | Supported narrow scope plus coverage artifact seed | TimeSeries statistics, explicit `check coverage`, table time-axis coverage metadata, timeseries_coverage records, integration |
 | `eng.sampling` | Supported promoted-table artifact seed; planned generators | sample table metadata, parameter ranges, row-hash previews; grid/random/LHS planned |
 | `eng.case` | Supported sample-row artifact seed; planned native runner | case IDs, sample row hashes, duplicate/missing diagnostics; per-case dirs/process manifests planned |
 | `eng.net` | Planned | HTTP/download boundaries with cache and hash policy |
@@ -115,6 +117,7 @@ native module claims.
 typed station and hourly weather schemas
 reviewable station row selection from promoted station map
 explicit API fixture boundary
+explicit generic DateTime coverage check
 weather quality summary
 standard text weather artifact
 output manifest and report/review entries

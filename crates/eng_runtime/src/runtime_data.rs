@@ -61,6 +61,7 @@ pub struct RuntimeData {
     pub sample_tables: Vec<RuntimeSampleTable>,
     pub case_manifests: Vec<RuntimeCaseManifest>,
     pub time_axes: Vec<RuntimeTimeAxis>,
+    pub timeseries_coverage: Vec<RuntimeTimeSeriesCoverage>,
     pub time_series: Vec<RuntimeTimeSeries>,
     pub numeric_values: Vec<RuntimeNumericValue>,
     pub statistics: Vec<RuntimeStatistics>,
@@ -1103,6 +1104,36 @@ pub struct RuntimeTimeAxis {
     pub count: usize,
     pub nominal_step: Option<f64>,
     pub irregular: bool,
+    pub missing_count: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTimeSeriesCoverage {
+    pub binding: String,
+    pub name: String,
+    pub source_table: String,
+    pub source_column: String,
+    pub unit: String,
+    pub start: Option<f64>,
+    pub end: Option<f64>,
+    pub source_start: Option<String>,
+    pub source_end: Option<String>,
+    pub expected_step: Option<f64>,
+    pub expected_count: Option<usize>,
+    pub actual_count: usize,
+    pub missing_count: usize,
+    pub missing_intervals: Vec<RuntimeMissingInterval>,
+    pub max_gap: Option<f64>,
+    pub coverage_year: Option<i32>,
+    pub leap_year_policy: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeMissingInterval {
+    pub start: f64,
+    pub end: f64,
     pub missing_count: usize,
 }
 
@@ -2596,6 +2627,8 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
 
     data.policy_results = materialize_policy_results(report, &mut data.tables);
     data.time_axes = materialize_time_axes(&data.tables);
+    data.timeseries_coverage =
+        materialize_timeseries_coverage(report, &data.tables, &data.time_axes);
     data.table_diagnostics = materialize_table_diagnostics(&data.tables, &data.time_axes);
     data.table_selections = materialize_table_selections(report, &data.tables);
     data.sample_tables = materialize_sample_tables(&data.tables);
@@ -2629,6 +2662,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
         &data.metrics,
         &data.integrations,
         &data.uncertainties,
+        &data.timeseries_coverage,
     );
     data
 }
@@ -2690,7 +2724,9 @@ fn materialize_column(
                     row: row_index + 2,
                     column: column.name.clone(),
                     value: value.to_owned(),
-                    message: "expected UTC DateTime like 2026-01-01T00:00:00Z".to_owned(),
+                    message:
+                        "expected DateTime like 2026-01-01T00:00:00Z or 2026-01-01T09:00:00+09:00"
+                            .to_owned(),
                 });
             }
             values.push(value.to_owned());
@@ -2841,6 +2877,396 @@ fn materialize_time_axes(tables: &[RuntimeTable]) -> Vec<RuntimeTimeAxis> {
             }
         })
         .collect()
+}
+
+fn materialize_timeseries_coverage(
+    report: &CheckReport,
+    tables: &[RuntimeTable],
+    axes: &[RuntimeTimeAxis],
+) -> Vec<RuntimeTimeSeriesCoverage> {
+    let mut coverage = axes
+        .iter()
+        .filter_map(|axis| materialize_axis_timeseries_coverage(tables, axis))
+        .collect::<Vec<_>>();
+    coverage.extend(materialize_explicit_timeseries_coverage(report, tables));
+    coverage
+}
+
+fn materialize_axis_timeseries_coverage(
+    tables: &[RuntimeTable],
+    axis: &RuntimeTimeAxis,
+) -> Option<RuntimeTimeSeriesCoverage> {
+    let table = tables
+        .iter()
+        .find(|table| table.binding == axis.source_table)?;
+    let time_column = table.time_index_column()?;
+    let values = table.normalized_time_axis_values()?;
+    let missing_intervals = coverage_missing_intervals(&values, axis.nominal_step);
+    let gap_missing_count = missing_intervals
+        .iter()
+        .map(|interval| interval.missing_count)
+        .sum::<usize>();
+    let expected_count = coverage_expected_count(axis.start, axis.end, axis.nominal_step);
+    let max_gap = coverage_max_gap(&values);
+    let (source_start, source_end) = time_column_text_bounds(time_column);
+    let missing_count = axis.missing_count + gap_missing_count;
+    let status = coverage_status(
+        axis.missing_count,
+        axis.irregular,
+        !missing_intervals.is_empty(),
+    );
+    Some(RuntimeTimeSeriesCoverage {
+        binding: format!("{}.coverage", axis.name),
+        name: format!("{}.coverage", axis.name),
+        source_table: axis.source_table.clone(),
+        source_column: axis.source_column.clone(),
+        unit: axis.unit.clone(),
+        start: axis.start,
+        end: axis.end,
+        source_start,
+        source_end,
+        expected_step: axis.nominal_step,
+        expected_count,
+        actual_count: axis.count,
+        missing_count,
+        missing_intervals,
+        max_gap,
+        coverage_year: None,
+        leap_year_policy: "axis_span_only".to_owned(),
+        status: status.to_owned(),
+        line: 0,
+    })
+}
+
+fn materialize_explicit_timeseries_coverage(
+    report: &CheckReport,
+    tables: &[RuntimeTable],
+) -> Vec<RuntimeTimeSeriesCoverage> {
+    report
+        .semantic_program
+        .command_styles
+        .iter()
+        .filter(|command| command.verb == "check" && command.status == "lowered")
+        .filter_map(|command| {
+            materialize_explicit_timeseries_coverage_command(report, tables, command)
+        })
+        .collect()
+}
+
+fn materialize_explicit_timeseries_coverage_command(
+    report: &CheckReport,
+    tables: &[RuntimeTable],
+    command: &eng_compiler::CommandStyleInfo,
+) -> Option<RuntimeTimeSeriesCoverage> {
+    let source = command.target.trim().strip_prefix("coverage ")?.trim();
+    let (table_name, column_name) = source.rsplit_once('.')?;
+    let table = tables
+        .iter()
+        .find(|table| table.binding == table_name.trim())?;
+    let time_column = table
+        .columns
+        .iter()
+        .find(|column| column.name == column_name.trim() && column.type_name == "DateTime")?;
+    let values = normalized_time_values_from_column(time_column)?;
+    let options = report
+        .semantic_program
+        .with_blocks
+        .iter()
+        .find(|block| block.owner_line == Some(command.line))
+        .map(|block| block.options.as_slice())
+        .unwrap_or(&[]);
+    let expected_step = option_value(options, "expected_step")
+        .or_else(|| option_value(options, "step"))
+        .and_then(parse_duration_seconds)
+        .or_else(|| nominal_step_from_values(&values));
+    let coverage_year =
+        option_value(options, "year").and_then(|value| resolve_year_option(value, report));
+    let (source_start, source_end) = time_column_text_bounds(time_column);
+    let raw_start = raw_timestamp_bounds(time_column).map(|bounds| bounds.0);
+    let (coverage_start, coverage_end, leap_year_policy) = if let Some(year) = coverage_year {
+        let source_offset = first_timestamp_utc_offset_seconds(time_column).unwrap_or(0);
+        let start = (seconds_from_civil(year, 1, 1, 0, 0, 0) - source_offset) as f64;
+        let end_exclusive = (seconds_from_civil(year + 1, 1, 1, 0, 0, 0) - source_offset) as f64;
+        let end = expected_step
+            .filter(|step| step.is_finite() && *step > 0.0)
+            .map(|step| end_exclusive - step)
+            .unwrap_or(end_exclusive);
+        (Some(start), Some(end), "gregorian_year".to_owned())
+    } else if let Some(start) = raw_start {
+        let first = values.first().copied()?;
+        (
+            Some(start as f64),
+            values.last().map(|end| start as f64 + (*end - first)),
+            "axis_span_only".to_owned(),
+        )
+    } else {
+        (None, None, "axis_span_only".to_owned())
+    };
+    let observed_values = if let Some(start) = raw_start {
+        let first = values.first().copied()?;
+        values
+            .iter()
+            .map(|value| start as f64 + (*value - first))
+            .collect::<Vec<_>>()
+    } else {
+        values.clone()
+    };
+    let (missing_intervals, expected_count, actual_count) =
+        if let (Some(start), Some(end), Some(step)) = (coverage_start, coverage_end, expected_step)
+        {
+            let (intervals, count) =
+                coverage_missing_intervals_in_range(&observed_values, start, end, step);
+            let actual_count = coverage_actual_count_in_range(&observed_values, start, end, step);
+            (intervals, count, actual_count)
+        } else {
+            (
+                coverage_missing_intervals(&values, expected_step),
+                coverage_expected_count(
+                    values.first().copied(),
+                    values.last().copied(),
+                    expected_step,
+                ),
+                values.len(),
+            )
+        };
+    let gap_missing_count = missing_intervals
+        .iter()
+        .map(|interval| interval.missing_count)
+        .sum::<usize>();
+    let parse_missing_count = time_column.missing_count
+        + table
+            .parse_failures
+            .iter()
+            .filter(|failure| failure.column == time_column.name)
+            .count();
+    let status = coverage_status(parse_missing_count, false, !missing_intervals.is_empty());
+    Some(RuntimeTimeSeriesCoverage {
+        binding: command
+            .owner
+            .clone()
+            .unwrap_or_else(|| format!("{source}.coverage")),
+        name: command
+            .owner
+            .clone()
+            .unwrap_or_else(|| format!("{source}.coverage")),
+        source_table: table.binding.clone(),
+        source_column: time_column.name.clone(),
+        unit: "s".to_owned(),
+        start: coverage_start,
+        end: coverage_end,
+        source_start,
+        source_end,
+        expected_step,
+        expected_count,
+        actual_count,
+        missing_count: parse_missing_count + gap_missing_count,
+        missing_intervals,
+        max_gap: coverage_max_gap(&values),
+        coverage_year,
+        leap_year_policy,
+        status: status.to_owned(),
+        line: command.line,
+    })
+}
+
+fn coverage_status(
+    missing_count: usize,
+    irregular: bool,
+    has_missing_intervals: bool,
+) -> &'static str {
+    if missing_count > 0 {
+        "axis_missing_or_invalid"
+    } else if has_missing_intervals {
+        "gapped"
+    } else if irregular {
+        "irregular"
+    } else {
+        "complete"
+    }
+}
+
+fn raw_timestamp_bounds(column: &RuntimeColumn) -> Option<(i64, i64)> {
+    let RuntimeValues::Text(values) = &column.values else {
+        return None;
+    };
+    let parsed = values
+        .iter()
+        .filter_map(|value| parse_utc_timestamp_seconds(value.trim()))
+        .collect::<Vec<_>>();
+    Some((*parsed.first()?, *parsed.last()?))
+}
+
+fn normalized_time_values_from_column(column: &RuntimeColumn) -> Option<Vec<f64>> {
+    let RuntimeValues::Text(raw_values) = &column.values else {
+        return None;
+    };
+    let parsed = raw_values
+        .iter()
+        .filter_map(|value| parse_utc_timestamp_seconds(value.trim()))
+        .collect::<Vec<_>>();
+    let first = *parsed.first()?;
+    Some(parsed.iter().map(|value| (*value - first) as f64).collect())
+}
+
+fn resolve_year_option(value: &str, report: &CheckReport) -> Option<i32> {
+    resolve_table_selection_value(value, report)?
+        .parse::<i32>()
+        .ok()
+}
+
+fn coverage_expected_count(
+    start: Option<f64>,
+    end: Option<f64>,
+    expected_step: Option<f64>,
+) -> Option<usize> {
+    let (Some(start), Some(end), Some(expected_step)) = (start, end, expected_step) else {
+        return None;
+    };
+    if !start.is_finite() || !end.is_finite() || !expected_step.is_finite() || expected_step <= 0.0
+    {
+        return None;
+    }
+    if end < start {
+        return None;
+    }
+    Some(((end - start) / expected_step).floor() as usize + 1)
+}
+
+fn coverage_missing_intervals_in_range(
+    observed_values: &[f64],
+    start: f64,
+    end: f64,
+    expected_step: f64,
+) -> (Vec<RuntimeMissingInterval>, Option<usize>) {
+    let expected_count = coverage_expected_count(Some(start), Some(end), Some(expected_step));
+    let Some(expected_count) = expected_count else {
+        return (Vec::new(), None);
+    };
+    if expected_count == 0 || !expected_step.is_finite() || expected_step <= 0.0 {
+        return (Vec::new(), Some(expected_count));
+    }
+    let observed_slots =
+        coverage_observed_slots(observed_values, start, end, expected_step, expected_count);
+    let mut intervals = Vec::new();
+    let mut index = 0usize;
+    while index < expected_count {
+        if observed_slots.contains(&index) {
+            index += 1;
+            continue;
+        }
+        let interval_start = index;
+        while index < expected_count && !observed_slots.contains(&index) {
+            index += 1;
+        }
+        let interval_end = index - 1;
+        intervals.push(RuntimeMissingInterval {
+            start: start + interval_start as f64 * expected_step,
+            end: start + interval_end as f64 * expected_step,
+            missing_count: interval_end - interval_start + 1,
+        });
+    }
+    (intervals, Some(expected_count))
+}
+
+fn coverage_actual_count_in_range(
+    observed_values: &[f64],
+    start: f64,
+    end: f64,
+    expected_step: f64,
+) -> usize {
+    let Some(expected_count) = coverage_expected_count(Some(start), Some(end), Some(expected_step))
+    else {
+        return observed_values.len();
+    };
+    coverage_observed_slots(observed_values, start, end, expected_step, expected_count).len()
+}
+
+fn coverage_observed_slots(
+    observed_values: &[f64],
+    start: f64,
+    end: f64,
+    expected_step: f64,
+    expected_count: usize,
+) -> HashSet<usize> {
+    if expected_step <= 0.0 || !expected_step.is_finite() {
+        return HashSet::new();
+    }
+    let tolerance = time_step_tolerance(expected_step);
+    observed_values
+        .iter()
+        .filter_map(|value| {
+            if !value.is_finite() || *value < start - tolerance || *value > end + tolerance {
+                return None;
+            }
+            let slot = ((*value - start) / expected_step).round();
+            if slot < 0.0 {
+                return None;
+            }
+            let slot = slot as usize;
+            if slot >= expected_count {
+                return None;
+            }
+            let expected_value = start + slot as f64 * expected_step;
+            ((*value - expected_value).abs() <= tolerance).then_some(slot)
+        })
+        .collect()
+}
+
+fn coverage_missing_intervals(
+    values: &[f64],
+    expected_step: Option<f64>,
+) -> Vec<RuntimeMissingInterval> {
+    let Some(expected_step) = expected_step else {
+        return Vec::new();
+    };
+    if expected_step <= 0.0 || !expected_step.is_finite() {
+        return Vec::new();
+    }
+    let tolerance = time_step_tolerance(expected_step);
+    values
+        .windows(2)
+        .filter_map(|window| {
+            let gap = window[1] - window[0];
+            if !gap.is_finite() || gap <= expected_step + tolerance {
+                return None;
+            }
+            let missing_count = ((gap / expected_step).floor() as usize).saturating_sub(1);
+            if missing_count == 0 {
+                return None;
+            }
+            let start = window[0] + expected_step;
+            let end = (window[1] - expected_step).max(start);
+            Some(RuntimeMissingInterval {
+                start,
+                end,
+                missing_count,
+            })
+        })
+        .collect()
+}
+
+fn coverage_max_gap(values: &[f64]) -> Option<f64> {
+    values
+        .windows(2)
+        .filter_map(|window| {
+            let gap = window[1] - window[0];
+            (gap.is_finite() && gap > 0.0).then_some(gap)
+        })
+        .max_by(|left, right| left.total_cmp(right))
+}
+
+fn time_column_text_bounds(column: &RuntimeColumn) -> (Option<String>, Option<String>) {
+    let RuntimeValues::Text(values) = &column.values else {
+        return (None, None);
+    };
+    let mut non_empty = values.iter().filter(|value| !value.trim().is_empty());
+    let start = non_empty.next().cloned();
+    let end = values
+        .iter()
+        .rev()
+        .find(|value| !value.trim().is_empty())
+        .cloned();
+    (start, end)
 }
 
 fn sample_axis_values(row_count: usize) -> Vec<f64> {
@@ -4005,6 +4431,7 @@ fn materialize_validations(
     metrics: &[RuntimeMetric],
     integrations: &[RuntimeIntegration],
     uncertainties: &[RuntimeUncertainty],
+    timeseries_coverage: &[RuntimeTimeSeriesCoverage],
 ) -> Vec<RuntimeValidation> {
     report
         .semantic_program
@@ -4027,6 +4454,11 @@ fn materialize_validations(
             }
 
             let expression = command.target.clone();
+            if let Some(validation) =
+                materialize_coverage_complete_validation(command, timeseries_coverage)
+            {
+                return validation;
+            }
             let Some((left, operator, right)) = parse_validation_expression(&expression) else {
                 return unavailable_validation(expression, command.line);
             };
@@ -4065,6 +4497,28 @@ fn materialize_validations(
             }
         })
         .collect()
+}
+
+fn materialize_coverage_complete_validation(
+    command: &eng_compiler::CommandStyleInfo,
+    timeseries_coverage: &[RuntimeTimeSeriesCoverage],
+) -> Option<RuntimeValidation> {
+    let binding = command.target.trim().strip_suffix(".complete")?.trim();
+    let coverage = timeseries_coverage
+        .iter()
+        .find(|coverage| coverage.binding == binding || coverage.name == binding)?;
+    let passed = coverage.status == "complete";
+    Some(RuntimeValidation {
+        expression: command.target.clone(),
+        left: command.target.clone(),
+        operator: "is_true".to_owned(),
+        right: "true".to_owned(),
+        left_value: Some(if passed { 1.0 } else { 0.0 }),
+        right_value: Some(1.0),
+        unit: String::new(),
+        status: if passed { "passed" } else { "failed" }.to_owned(),
+        line: command.line,
+    })
 }
 
 fn materialize_between_validation(
@@ -16103,8 +16557,7 @@ fn parse_csv_line(line: &str) -> Vec<String> {
 }
 
 fn parse_utc_timestamp_seconds(value: &str) -> Option<i64> {
-    let value = value.strip_suffix('Z')?;
-    let (date, time) = value.split_once('T')?;
+    let (date, time_with_zone) = value.trim().split_once('T')?;
     let mut date_parts = date.split('-');
     let year = date_parts.next()?.parse::<i32>().ok()?;
     let month = date_parts.next()?.parse::<u32>().ok()?;
@@ -16112,6 +16565,7 @@ fn parse_utc_timestamp_seconds(value: &str) -> Option<i64> {
     if date_parts.next().is_some() {
         return None;
     }
+    let (time, offset_seconds) = split_time_and_utc_offset(time_with_zone)?;
     let mut time_parts = time.split(':');
     let hour = time_parts.next()?.parse::<u32>().ok()?;
     let minute = time_parts.next()?.parse::<u32>().ok()?;
@@ -16125,7 +16579,49 @@ fn parse_utc_timestamp_seconds(value: &str) -> Option<i64> {
     {
         return None;
     }
-    Some(days_from_civil(year, month, day) * 86_400 + i64::from(hour * 3600 + minute * 60 + second))
+    let local_seconds =
+        days_from_civil(year, month, day) * 86_400 + i64::from(hour * 3600 + minute * 60 + second);
+    Some(local_seconds - offset_seconds)
+}
+
+fn first_timestamp_utc_offset_seconds(column: &RuntimeColumn) -> Option<i64> {
+    let RuntimeValues::Text(values) = &column.values else {
+        return None;
+    };
+    values
+        .iter()
+        .find_map(|value| timestamp_utc_offset_seconds(value.trim()))
+}
+
+fn timestamp_utc_offset_seconds(value: &str) -> Option<i64> {
+    let (_date, time_with_zone) = value.split_once('T')?;
+    let (_time, offset_seconds) = split_time_and_utc_offset(time_with_zone)?;
+    Some(offset_seconds)
+}
+
+fn seconds_from_civil(year: i32, month: u32, day: u32, hour: u32, minute: u32, second: u32) -> i64 {
+    days_from_civil(year, month, day) * 86_400 + i64::from(hour * 3600 + minute * 60 + second)
+}
+
+fn split_time_and_utc_offset(value: &str) -> Option<(&str, i64)> {
+    if let Some(time) = value.strip_suffix('Z') {
+        return Some((time, 0));
+    }
+    let (offset_index, sign) = value
+        .char_indices()
+        .rev()
+        .find(|(_, character)| *character == '+' || *character == '-')?;
+    let time = &value[..offset_index];
+    let offset = &value[offset_index + 1..];
+    let mut parts = offset.split(':');
+    let hours = parts.next()?.parse::<i64>().ok()?;
+    let minutes = parts.next()?.parse::<i64>().ok()?;
+    if parts.next().is_some() || hours > 23 || minutes > 59 {
+        return None;
+    }
+    let seconds = hours * 3600 + minutes * 60;
+    let signed_seconds = if sign == '-' { -seconds } else { seconds };
+    Some((time, signed_seconds))
 }
 
 fn days_from_civil(year: i32, month: u32, day: u32) -> i64 {
@@ -20019,6 +20515,160 @@ with {{
 
         assert_eq!(axes[1].nominal_step, Some(300.0));
         assert!(axes[1].irregular);
+    }
+
+    #[test]
+    fn parses_offset_datetime_timestamps() {
+        let start = parse_utc_timestamp_seconds("2024-01-01T00:00:00+09:00").unwrap();
+        let next = parse_utc_timestamp_seconds("2024-01-01T01:00:00+09:00").unwrap();
+        let utc = parse_utc_timestamp_seconds("2023-12-31T15:00:00Z").unwrap();
+
+        assert_eq!(next - start, 3600);
+        assert_eq!(start, utc);
+    }
+
+    #[test]
+    fn materializes_timeseries_coverage_with_missing_intervals() {
+        let tables = vec![time_axis_table(
+            "weather",
+            &[
+                "2024-01-01T00:00:00+09:00",
+                "2024-01-01T01:00:00+09:00",
+                "2024-01-01T03:00:00+09:00",
+            ],
+        )];
+        let axes = materialize_time_axes(&tables);
+
+        let coverage = vec![materialize_axis_timeseries_coverage(&tables, &axes[0]).unwrap()];
+
+        assert_eq!(coverage.len(), 1);
+        assert_eq!(coverage[0].name, "weather.Time.coverage");
+        assert_eq!(coverage[0].source_table, "weather");
+        assert_eq!(coverage[0].source_column, "timestamp");
+        assert_eq!(coverage[0].expected_step, Some(3600.0));
+        assert_eq!(coverage[0].expected_count, Some(4));
+        assert_eq!(coverage[0].actual_count, 3);
+        assert_eq!(coverage[0].missing_count, 1);
+        assert_eq!(coverage[0].missing_intervals.len(), 1);
+        assert_eq!(coverage[0].missing_intervals[0].start, 7200.0);
+        assert_eq!(coverage[0].missing_intervals[0].end, 7200.0);
+        assert_eq!(coverage[0].max_gap, Some(7200.0));
+        assert_eq!(coverage[0].leap_year_policy, "axis_span_only");
+        assert_eq!(coverage[0].status, "gapped");
+    }
+
+    #[test]
+    fn materializes_explicit_timeseries_coverage_with_year_policy() {
+        let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root
+            .join("build")
+            .join("runtime-data-timeseries-coverage");
+        let _ = std::fs::remove_dir_all(&source_dir);
+        std::fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        std::fs::write(
+            source_dir.join("data").join("weather.csv"),
+            concat!(
+                "time,dry_bulb\n",
+                "2024-01-01T00:00:00+09:00,-2.1\n",
+                "2024-01-01T01:00:00+09:00,-2.4\n",
+            ),
+        )
+        .expect("weather csv");
+        let source_path = source_dir.join("main.eng");
+        let source = concat!(
+            "schema WeatherHourly {\n",
+            "    time: DateTime index\n",
+            "    dry_bulb: AbsoluteTemperature [degC]\n",
+            "}\n\n",
+            "args {\n",
+            "    year: Int = 2024\n",
+            "    weather_file: CsvFile = file(\"data/weather.csv\")\n",
+            "}\n\n",
+            "weather = promote csv args.weather_file as WeatherHourly\n",
+            "coverage = check coverage weather.time\n",
+            "with {\n",
+            "    expected_step = 1 h\n",
+            "    year = args.year\n",
+            "}\n",
+        );
+        let report = check_source(&source_path, source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+        let coverage = runtime
+            .timeseries_coverage
+            .iter()
+            .find(|coverage| coverage.binding == "coverage")
+            .expect("explicit coverage");
+
+        assert_eq!(coverage.source_table, "weather");
+        assert_eq!(coverage.source_column, "time");
+        assert_eq!(coverage.expected_step, Some(3600.0));
+        assert_eq!(coverage.expected_count, Some(8784));
+        assert_eq!(coverage.actual_count, 2);
+        assert_eq!(coverage.missing_count, 8782);
+        assert_eq!(coverage.missing_intervals.len(), 1);
+        assert_eq!(coverage.missing_intervals[0].missing_count, 8782);
+        assert_eq!(coverage.max_gap, Some(3600.0));
+        assert_eq!(coverage.coverage_year, Some(2024));
+        assert_eq!(coverage.leap_year_policy, "gregorian_year");
+        assert_eq!(coverage.status, "gapped");
+    }
+
+    #[test]
+    fn materializes_complete_coverage_validation() {
+        let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root
+            .join("build")
+            .join("runtime-data-coverage-validation");
+        let _ = std::fs::remove_dir_all(&source_dir);
+        std::fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        std::fs::write(
+            source_dir.join("data").join("weather.csv"),
+            concat!(
+                "time,dry_bulb\n",
+                "2024-01-01T00:00:00+09:00,-2.1\n",
+                "2024-01-01T01:00:00+09:00,-2.4\n",
+            ),
+        )
+        .expect("weather csv");
+        let source_path = source_dir.join("main.eng");
+        let source = concat!(
+            "schema WeatherHourly {\n",
+            "    time: DateTime index\n",
+            "    dry_bulb: AbsoluteTemperature [degC]\n",
+            "}\n\n",
+            "args {\n",
+            "    weather_file: CsvFile = file(\"data/weather.csv\")\n",
+            "}\n\n",
+            "weather = promote csv args.weather_file as WeatherHourly\n",
+            "coverage = check coverage weather.time\n",
+            "with {\n",
+            "    expected_step = 1 h\n",
+            "}\n",
+            "validate coverage.complete\n",
+        );
+        let report = check_source(&source_path, source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+        let coverage = runtime
+            .timeseries_coverage
+            .iter()
+            .find(|coverage| coverage.binding == "coverage")
+            .expect("explicit coverage");
+        assert_eq!(coverage.status, "complete");
+        assert_eq!(coverage.expected_count, Some(2));
+        assert_eq!(coverage.missing_count, 0);
+        assert!(runtime.validations.iter().any(|validation| {
+            validation.expression == "coverage.complete" && validation.status == "passed"
+        }));
     }
 
     #[test]

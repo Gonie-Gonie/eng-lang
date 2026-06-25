@@ -26,8 +26,9 @@ and next cleanup action.
 - Purpose: turn engineering calculations into inspectable artifacts.
 - Public scope: TimeSeries statistics, integration, PlotSpec/SVG, report HTML,
   review JSON, report spec, and result artifacts.
-- Main internal: bar/histogram variants, richer report metadata, and the
-  normalized `review_document` projection.
+- Main internal: bar/histogram variants, DateTime-indexed TimeSeries coverage
+  artifacts, richer report metadata, and the normalized `review_document`
+  projection.
 - Next cleanup: route more report/IDE panels through ReviewDocument and add
   a native semantic diff panel after the CLI diff payload stabilizes.
 
@@ -133,7 +134,7 @@ and next cleanup action.
   hybrid examples define target contracts for future generic modules, including
   promoted table diagnostics, deterministic promoted-table row selection,
   promoted sample-table summaries, promoted case manifest seeds, time-axis
-  coverage summaries, process-generated case
+  coverage summaries, explicit generic TimeSeries coverage artifacts, process-generated case
   manifests, generic output-manifest artifact registry records, typed
   model-card summaries with target contracts and hashes,
   predictions, and DB side-effect manifest summaries.

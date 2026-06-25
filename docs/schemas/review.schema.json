@@ -94,6 +94,10 @@
       "type": "array",
       "items": { "$ref": "#/$defs/tableSelection" }
     },
+    "timeseries_coverage": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/timeSeriesCoverage" }
+    },
     "db_manifests": {
       "type": "array",
       "items": { "$ref": "#/$defs/dbManifest" }
@@ -268,6 +272,7 @@
       "type": "object",
       "required": ["name", "quantity_kind", "display_unit", "source", "line"],
       "properties": {
+        "binding": { "type": "string" },
         "name": { "type": "string" },
         "quantity_kind": { "type": "string" },
         "display_unit": { "type": "string" },
@@ -524,6 +529,63 @@
       "properties": {
         "column": { "type": "string" },
         "value": { "type": "string" }
+      }
+    },
+    "timeSeriesCoverage": {
+      "type": "object",
+      "required": [
+        "binding",
+        "name",
+        "source_table",
+        "source_column",
+        "unit",
+        "start",
+        "end",
+        "source_start",
+        "source_end",
+        "expected_step",
+        "expected_count",
+        "actual_count",
+        "missing_count",
+        "missing_intervals",
+        "max_gap",
+        "coverage_year",
+        "leap_year_policy",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "name": { "type": "string" },
+        "source_table": { "type": "string" },
+        "source_column": { "type": "string" },
+        "unit": { "type": "string" },
+        "start": { "type": ["number", "null"] },
+        "end": { "type": ["number", "null"] },
+        "source_start": { "type": ["string", "null"] },
+        "source_end": { "type": ["string", "null"] },
+        "expected_step": { "type": ["number", "null"] },
+        "expected_count": { "type": ["integer", "null"], "minimum": 0 },
+        "actual_count": { "type": "integer", "minimum": 0 },
+        "missing_count": { "type": "integer", "minimum": 0 },
+        "missing_intervals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/timeSeriesMissingInterval" }
+        },
+        "max_gap": { "type": ["number", "null"] },
+        "coverage_year": { "type": ["integer", "null"] },
+        "leap_year_policy": { "type": "string" },
+        "status": { "enum": ["complete", "gapped", "irregular", "axis_missing_or_invalid"] },
+        "line": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "timeSeriesMissingInterval": {
+      "type": "object",
+      "required": ["start", "end", "missing_count"],
+      "properties": {
+        "start": { "type": "number" },
+        "end": { "type": "number" },
+        "missing_count": { "type": "integer", "minimum": 1 }
       }
     },
     "dbManifest": {
