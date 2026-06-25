@@ -124,8 +124,10 @@ with {
 
 trainer_result = run command "python"
 with {
-    args = ["tools/train_surrogate.py"]
-    expected_outputs = ["outputs/surrogate.json", "outputs/model_metrics.json"]
+    args = ["tools/train_surrogate.py", "--input", "outputs/summary_results.csv", "--model", "outputs/surrogate.json", "--metrics", "outputs/model_metrics.json", "--card", "outputs/model_card.json"]
+    tool_version = "fake-surrogate-trainer 1.0"
+    expected_outputs = ["outputs/surrogate.json", "outputs/model_metrics.json", "outputs/model_card.json"]
+    artifact_kind = "model_artifact"
 }
 
 prediction_result = run command "python"
@@ -158,10 +160,6 @@ with {
     overwrite = true
 }
 
-write text "outputs/model_card.json", "{\"model\":\"linear-fixture\",\"target\":\"annual_electricity\"}"
-with {
-    overwrite = true
-}
 
 report {
     show designs.rows

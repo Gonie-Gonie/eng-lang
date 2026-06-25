@@ -6463,6 +6463,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/workflows/02_external_simulation_surrogate_hybrid/outputs/result_collection_manifest.json",
             )
             .unwrap_or_default();
+            let model_card = std::fs::read_to_string(
+                "examples/workflows/02_external_simulation_surrogate_hybrid/outputs/model_card.json",
+            )
+            .unwrap_or_default();
             if !output.review_json.contains("PredictionResult")
                 || !output.review_json.contains("case_manifest_result_003")
                 || !output.result_json.contains("\"sample_tables\"")
@@ -6564,6 +6568,18 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"rule\": \"exists_and_hash\"")
                 || !output
                     .process_results_json
+                    .contains("\"binding\": \"trainer_result\"")
+                || !output
+                    .process_results_json
+                    .contains("\"tool_version\": \"fake-surrogate-trainer 1.0\"")
+                || !output
+                    .process_results_json
+                    .contains("\"kind\": \"model_artifact\"")
+                || !output
+                    .process_results_json
+                    .contains("\"path\": \"outputs/model_card.json\"")
+                || !output
+                    .process_results_json
                     .contains("\"binding\": \"db_result\"")
                 || !output
                     .output_manifest_json
@@ -6598,6 +6614,21 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .output_manifest_json
                     .contains("outputs/model_metrics.json")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/model_card.json")
+                || !output
+                    .output_manifest_json
+                    .contains("\"kind\": \"model_artifact\"")
+                || !model_card.contains("\"features\"")
+                || !model_card.contains("\"target\": \"annual_electricity\"")
+                || !model_card.contains("\"target_quantity\": \"Energy\"")
+                || !model_card.contains("\"target_unit\": \"kWh\"")
+                || !model_card.contains("\"train_test_split\"")
+                || !model_card.contains("\"metrics\"")
+                || !model_card.contains("\"residual_distribution\"")
+                || !model_card.contains("\"training_data_hash\"")
+                || !model_card.contains("\"model_artifact_hash\"")
                 || !output
                     .output_manifest_json
                     .contains("\"kind\": \"case_input\"")

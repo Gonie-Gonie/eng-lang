@@ -13,7 +13,7 @@ typed SimulationResult rows plus a result collection manifest with row count, ca
 three generated case manifests with case directories, process statuses, result files, metrics, and failure reasons
 case input, case result, and case manifest artifact kinds in output_manifest.json
 one generated workflow summary CSV
-generated model-card and metrics artifacts
+generated surrogate model, metrics, and self-contained model-card artifacts with feature, target, split, residual, training-hash, and model-hash metadata
 one generated database side-effect manifest summarized in typed_payload.db_manifests[]
 report entries for row counts, scalar metrics, predictions, and the DB target
 ```

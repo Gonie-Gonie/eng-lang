@@ -135,7 +135,7 @@ promoted case manifest seeds enriched with case directories, process statuses, g
 three explicit fixture cases
 per-case patched input, simulator output, simulator log, and case_manifest.json classified as case artifacts with expected-output hash and tool-version records
 collected summary_results.csv plus result_collection_manifest.json with case IDs, missing/failed case lists, and summary metrics
-surrogate.json and model_metrics.json with hashes and residual metadata
+surrogate.json, model_metrics.json, and model_card.json with feature, target, split, residual, training-hash, and model-hash metadata
 internal eng.ml artifacts promoted to typed_payload.model_cards[] with model kind, features, target quantity/unit, train/test counts, metrics, residual point counts, training data hashes, and model artifact hashes
 predictions.csv
 db_write_manifest.json, promoted to typed_payload.db_manifests[] with table names, modes, keys, schemas, row counts, hashes, and transaction status
