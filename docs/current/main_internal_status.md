@@ -23,7 +23,7 @@ implemented and tested without being part of the published release assets.
 
 For solver implementation detail, read:
 
-- [Solver track docs](../solver/README.md)
+- [Solver track docs](../internal/solver/README.md)
 - [Solver-centered implementation plan](solver_centered_plan.md)
 - [Generic solver completion plan](generic_solver_completion_plan.md)
 

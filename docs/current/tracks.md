@@ -40,7 +40,7 @@ and next cleanup action.
   system/equation examples.
 - Main internal: dense linear, fixed-point, Newton, DAE, adaptive ODE,
   state-space, dynamic component, and behavior-node solver seeds.
-- Next cleanup: keep detailed solver ledgers in [solver docs](../solver/README.md)
+- Next cleanup: keep detailed solver ledgers in [solver docs](../internal/solver/README.md)
   and out of first-user docs.
 
 ## T5 IDE / LSP
@@ -148,7 +148,7 @@ and next cleanup action.
 Detailed implementation ledgers live outside this overview:
 
 - [Main internal status](main_internal_status.md)
-- [Solver docs](../solver/README.md)
+- [Solver docs](../internal/solver/README.md)
 - [Solver-centered plan](solver_centered_plan.md)
 - [Generic solver completion plan](generic_solver_completion_plan.md)
 - [Uncertainty track](uncertainty.md)

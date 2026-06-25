@@ -8,4 +8,6 @@
 *.engbc
 *.engres
 *.tmp
-
+# Generated documentation bundle outputs
+/artifacts/docs/*
+!/artifacts/docs/README.md

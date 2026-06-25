@@ -384,6 +384,40 @@ function Get-CodeFences {
     }
 }
 
+function Test-MarkdownLinks {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]] $Files
+    )
+
+    $failures = New-Object System.Collections.Generic.List[string]
+    foreach ($file in $Files) {
+        $text = Get-Content -LiteralPath $file -Raw -Encoding UTF8
+        $matches = [regex]::Matches($text, '\[[^\]]+\]\(([^)#]+)(?:#[^)]+)?\)')
+        foreach ($match in $matches) {
+            $target = $match.Groups[1].Value.Trim()
+            if ($target -eq "" -or $target -match '^(https?:|mailto:|#)') {
+                continue
+            }
+            if ($target.StartsWith("<") -and $target.EndsWith(">")) {
+                $target = $target.Substring(1, $target.Length - 2)
+            }
+            $target = [System.Uri]::UnescapeDataString($target)
+            $candidate = Join-Path (Split-Path -Parent $file) $target
+            if (-not (Test-Path -LiteralPath $candidate)) {
+                $relative = $file.Substring($RepoRoot.Length).TrimStart('\')
+                $failures.Add("$relative links to missing target $target") | Out-Null
+            }
+        }
+    }
+
+    if ($failures.Count -gt 0) {
+        $failures | Sort-Object | ForEach-Object { Write-Host $_ }
+        throw "Docs link check failed with $($failures.Count) missing target(s)."
+    }
+
+    Write-Host "Docs link check passed. Checked $($Files.Count) Markdown file(s)."
+}
 function Invoke-DocsCheck {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -400,14 +434,12 @@ function Invoke-DocsCheck {
 
     $targets = @(
         "README.md",
-        "docs\specs",
         "docs\reference",
-        "docs\guide",
         "docs\user",
         "docs\workflows",
-        "docs\tutorials",
         "docs\architecture",
-        "docs\runtime"
+        "docs\development",
+        "docs\internal"
     )
     $markdownFiles = New-Object System.Collections.Generic.List[string]
     foreach ($target in $targets) {
@@ -420,6 +452,20 @@ function Invoke-DocsCheck {
             }
         }
     }
+
+    $linkTargets = @("README.md", "LLM_CONTEXT.md", "docs")
+    $linkFiles = New-Object System.Collections.Generic.List[string]
+    foreach ($target in $linkTargets) {
+        $path = Join-Path $RepoRoot $target
+        if (Test-Path -LiteralPath $path -PathType Leaf) {
+            $linkFiles.Add($path) | Out-Null
+        } elseif (Test-Path -LiteralPath $path -PathType Container) {
+            Get-ChildItem -LiteralPath $path -Recurse -Filter "*.md" | ForEach-Object {
+                $linkFiles.Add($_.FullName) | Out-Null
+            }
+        }
+    }
+    Test-MarkdownLinks -Files $linkFiles.ToArray()
 
     $checked = 0
     $skipped = 0

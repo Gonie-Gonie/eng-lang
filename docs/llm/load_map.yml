@@ -26,17 +26,17 @@ task_types:
 
   data_workflow:
     - docs/architecture/04_data_boundary.md
-    - docs/guide/timeseries_statistics.md
-    - docs/guide/plotting.md
-    - docs/guide/report_review.md
+    - docs/reference/language/timeseries.md
+    - docs/reference/language/plotting.md
+    - docs/reference/artifacts/report_review.md
     - examples/official/01_csv_plot/
     - crates/eng_compiler/src/schema.rs
     - crates/eng_runtime/src/runtime_data.rs
 
   side_effects:
     - docs/current/philosophy.md
-    - docs/reference/side_effect_policy.md
-    - docs/guide/language_grammar.md
+    - docs/reference/language/side_effect_policy.md
+    - docs/reference/language/syntax.md
     - examples/official/10_path_policy/
     - examples/official/11_read_only_io/
     - examples/official/12_write_output_manifest/
@@ -44,14 +44,14 @@ task_types:
 
   ide:
     - docs/llm/contexts/ide.md
-    - docs/guide/native_ide.md
+    - docs/user/howto/use_native_ide.md
     - docs/current/tracks.md
     - crates/eng_ide/
     - crates/eng_cli/
 
   solver_internal:
     - docs/llm/contexts/solver_internal.md
-    - docs/solver/README.md
+    - docs/internal/solver/README.md
     - docs/current/main_internal_status.md
     - docs/current/solver_centered_plan.md
     - docs/current/generic_solver_completion_plan.md
@@ -60,7 +60,7 @@ task_types:
     - crates/eng_compiler/src/semantic.rs
 
   class_domain_object:
-    - docs/guide/class_object.md
+    - docs/internal/class_object/README.md
     - docs/current/feature_maturity_matrix.md
     - examples/official/19_class_object/
     - crates/eng_compiler/src/parser.rs
@@ -69,10 +69,10 @@ task_types:
     - crates/eng_lsp/src/lib.rs
 
   parser:
-    - docs/guide/language_grammar.md
-    - docs/specs/language-v8.md
-    - docs/language/fast_assignment.md
-    - docs/language/dimensionless.md
+    - docs/reference/language/syntax.md
+    - docs/reference/language/language_v8.md
+    - docs/reference/language/fast_assignment.md
+    - docs/reference/language/dimensionless.md
     - crates/eng_compiler/
 
   release:
@@ -86,13 +86,13 @@ task_types:
 
   jit:
     - benchmarks/README.md
-    - docs/reference/kernel_plan.md
-    - docs/reference/jit_benchmark.md
+    - docs/internal/jit/kernel_plan.md
+    - docs/internal/jit/jit_benchmark.md
     - crates/eng_jit/
     - crates/eng_cli/
 
   lsp:
-    - docs/reference/lsp_snapshot.md
+    - docs/reference/cli/lsp_snapshot.md
     - docs/current/tracks.md
     - crates/eng_lsp/
     - tools/vscode-englang/

@@ -300,7 +300,7 @@ Current coverage:
   `solver = adaptive_heun` for shape-checked `der(x) eq A * x + B * u`
   systems, preserving the fixed output `TimeGrid` while adapting internal
   substeps through the shared solver API.
-- `docs/guide/language_grammar.md` distinguishes the explicit TimeSeries input
+- `docs/reference/language/syntax.md` distinguishes the explicit TimeSeries input
   contract from the earlier scalar input plus TimeSeries-binding compatibility
   path.
 - System solver artifacts carry nullable `failure_code`; unsupported simulated
@@ -518,7 +518,7 @@ Current coverage:
   unknown method calls, and copy-with unknown sources.
 - IDE object-summary inspection and LSP hover/member/object-literal completion
   expose class fields, defaults, required fields, and units.
-- `docs/guide/class_object.md`, the feature maturity matrix, and stable-core
+- `docs/internal/class_object/README.md`, the feature maturity matrix, and stable-core
   scope keep classes separate from systems/components and state that runtime
   object dispatch/lowering, method arguments, mutation, inheritance, and
   simulation lowering remain deferred.

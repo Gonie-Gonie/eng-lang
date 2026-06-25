@@ -34,4 +34,4 @@ the same files and artifacts produced by command-line runs.
 ## What To Inspect
 
 Use the Diagnostics, Symbols, Units, Schemas, TimeSeries, Report, and Artifacts
-views. For more detail, read docs/guide/native_ide.md.
+views. For more detail, read docs/user/howto/use_native_ide.md.

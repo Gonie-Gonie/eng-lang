@@ -20,7 +20,20 @@ USER_GUIDE_PARTS = [
     "user/tutorial/11_native_ide_review.md",
     "user/tutorial/12_composite_workflow.md",
     "user/howto/README.md",
+    "user/howto/read_csv_and_plot.md",
+    "user/howto/create_report.md",
+    "user/howto/run_external_command.md",
+    "user/howto/save_artifacts.md",
+    "user/howto/review_llm_generated_code.md",
+    "user/howto/use_native_ide.md",
     "user/concepts/README.md",
+    "user/concepts/semantic_workflow.md",
+    "user/concepts/units_quantities_axes.md",
+    "user/concepts/schema_boundary.md",
+    "user/concepts/time_series.md",
+    "user/concepts/reviewability.md",
+    "user/concepts/uncertainty.md",
+    "user/concepts/side_effects.md",
 ]
 
 

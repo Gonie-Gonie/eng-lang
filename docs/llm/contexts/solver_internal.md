@@ -16,7 +16,7 @@ Do not describe current solver seeds as:
 
 Primary docs:
 
-- `docs/solver/README.md`
+- `docs/internal/solver/README.md`
 - `docs/current/main_internal_status.md`
 - `docs/current/solver_centered_plan.md`
 - `docs/current/generic_solver_completion_plan.md`

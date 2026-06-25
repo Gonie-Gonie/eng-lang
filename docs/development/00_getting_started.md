@@ -141,7 +141,7 @@ eng-ide.exe
 The Tauri tester IDE supports file browsing, multi-file source editing, live
 compiler diagnostics, caret completion insertion, symbol metadata, running the
 current file, terminal output, variable summaries, PlotSpec viewing, and
-on-demand report/plot opening. See [Tauri tester IDE](../guide/native_ide.md).
+on-demand report/plot opening. See [Tauri tester IDE](../user/howto/use_native_ide.md).
 
 ## Troubleshooting
 

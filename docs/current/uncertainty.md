@@ -34,7 +34,7 @@ when it exists without changing the meaning of deterministic workflows.
 Current internal evidence exists in:
 
 ```text
-docs/guide/uncertainty.md
+docs/internal/uncertainty_internal/README.md
 examples/internal/04_uncertainty_core
 examples/workflows/03_uncertain_sensor_report
 examples/diagnostics/error_messages/invalid_uncertainty_arguments.eng

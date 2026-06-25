@@ -152,7 +152,7 @@ separate.
   solver artifacts.
 - Not included: general nonlinear/DAE/adaptive/component-coupled solving,
   production multi-domain simulation, broad behavior graph solving.
-- Next cleanup action: keep solver detail in `docs/solver/README.md` and
+- Next cleanup action: keep solver detail in `docs/internal/solver/README.md` and
   avoid making it the README identity.
 
 ## Internal Tracks

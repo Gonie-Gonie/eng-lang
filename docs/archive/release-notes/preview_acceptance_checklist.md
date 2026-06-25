@@ -10,7 +10,7 @@ and release.
 
 This checklist records local readiness gates. It does not by itself prove that
 a GitHub Release page was published. For the observed publication state, see
-[release-state.md](release-state.md). The first public prerelease was
+[release-state.md](../../release/release-state.md). The first public prerelease was
 `v0.1-preview` with workspace version `0.1.0-preview`; there was no public
 `v0.1.0` release.
 
@@ -282,4 +282,4 @@ Run:
 checks, package assembly, package smoke, checksum verification, and
 `dist\release-manifest.txt` generation.
 
-Release workflow details live in [release-workflow.md](release-workflow.md).
+Release workflow details live in [release-workflow.md](../../release/release-workflow.md).

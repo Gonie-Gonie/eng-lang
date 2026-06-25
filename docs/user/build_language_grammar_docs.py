@@ -8,7 +8,7 @@ from oodocs import DocumentSettings, from_markdown_file
 
 def build_document(version: str):
     docs_root = Path(__file__).resolve().parents[1]
-    markdown_path = docs_root / "guide" / "language_grammar.md"
+    markdown_path = docs_root / "reference" / "language" / "syntax.md"
     return from_markdown_file(
         markdown_path,
         title="EngLang Language Grammar Guide",

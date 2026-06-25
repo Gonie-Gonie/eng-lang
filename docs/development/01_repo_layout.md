@@ -6,26 +6,26 @@ Current public release layout:
 .
 |-- crates/
 |   |-- eng_cli/        user-facing eng.exe commands
-|   |-- eng_compiler/   lexer/parser, diagnostics, semantic/stats/system metadata, bytecode v1
+|   |-- eng_compiler/   lexer/parser, diagnostics, semantic metadata, bytecode v1
 |   |-- eng_ide/        portable Tauri/WebView tester IDE, built as eng-ide.exe
 |   |-- eng_jit/        internal hot-kernel detection and lowering-plan metadata
 |   |-- eng_lsp/        internal eng-lsp.exe smoke/snapshot/stdio editor service
 |   |-- eng_runtime/    run/build/doctor, VM seed, TimeSeries object store, artifacts
 |   `-- eng_report/     PlotSpec, SVG plot, HTML review report renderer
 |-- docs/
-|   |-- architecture/   system and artifact design
+|   |-- user/           first-user guide, tutorials, how-to, concepts
+|   |-- reference/      language, stdlib, CLI, diagnostics, artifact lookup
+|   |-- workflows/      composite workflow examples and adapter contracts
+|   |-- development/    contributor and agent-facing workflow docs
+|   |-- internal/       solver, JIT, domain/component, class, runtime internals
 |   |-- current/        status, version plan, feature maturity, and tracks
-|   |-- development/    setup, workflow, reproducibility
-|   |-- llm/            compact load maps for future agent work
-|   |-- master-plan/    current planning pointer and historical long-form plan
-|   |-- reference/      command references
+|   |-- architecture/   system and artifact design
 |   |-- release/        acceptance checklist and release notes
-|   |-- runtime/        bytecode/VM/result contracts
-|   |-- tutorials/      step-by-step supported workflow docs
-|   |-- user/           curated release-facing user documentation source
-|   `-- specs/          CLI and language policy
+|   |-- archive/        historical release notes and old long-form plans
+|   `-- llm/            compact load maps for future agent work
 |-- examples/
 |   |-- official/       release-facing examples and manual user-test paths
+|   |-- workflows/      composite workflow fixtures
 |   |-- internal/       implementation fixtures outside the public contract
 |   |-- compat/         older focused regression examples
 |   `-- diagnostics/    expected diagnostics and data-quality fixtures
@@ -33,8 +33,10 @@ Current public release layout:
 |   `-- dev.ps1         the only PowerShell development entry
 |-- stdlib/             prelude and unit registry
 |-- tools/
-|   |-- python/         repo-local Python requirements for documentation tooling
+|   |-- docs/           optional documentation publishing scripts
+|   |-- python/         repo-local Python helper scripts
 |   `-- vscode-englang/ optional VS Code extension source
+|-- artifacts/docs/     generated release documentation bundles
 |-- dev.bat             common execution-policy bypass wrapper
 |-- rust-toolchain.toml pinned Rust toolchain descriptor
 `-- Cargo.toml          Rust workspace
@@ -63,7 +65,7 @@ Rules:
 
 ```text
 - CLI parsing stays dependency-light and std-only for the supported command surface.
-- User-facing behavior changes must update docs/specs/cli.md.
+- User-facing CLI behavior changes must update docs/reference/cli/spec.md.
 - Artifact changes must update docs/architecture/01_runtime_artifacts.md.
 ```
 

@@ -111,8 +111,8 @@ Public behavior should have an example, a smoke test, or both.
 ## 6. Update the Right Docs
 
 ```text
-CLI output or options          docs/specs/cli.md
-language syntax or policy      docs/specs/language-v8.md
+CLI output or options          docs/reference/cli/spec.md
+language syntax or policy      docs/reference/language/language_v8.md
 artifact layout                docs/architecture/01_runtime_artifacts.md
 setup or packaging             docs/development/00_getting_started.md
 repo structure                 docs/development/01_repo_layout.md

@@ -30,6 +30,6 @@ should ship only polished user artifacts such as:
   support boundaries
 
 Development-only material remains in docs/development, docs/architecture,
-docs/master-plan, docs/current, and release checklists. Solver-heavy,
+docs/archive/old-plans, docs/current, and release checklists. Solver-heavy,
 experimental, or internal-track material should not become first-user
 documentation unless a current status document marks it public and stable.

@@ -232,7 +232,7 @@ Therefore:
 - IDE surfaces side effects and generated artifacts
 ```
 
-Use [side effect policy](../reference/side_effect_policy.md) for the detailed
+Use [side effect policy](../reference/language/side_effect_policy.md) for the detailed
 general programming support plan.
 
 ## Completion Rule

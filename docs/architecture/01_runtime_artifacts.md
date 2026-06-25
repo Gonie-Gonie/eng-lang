@@ -85,7 +85,7 @@ CSV summary exports are not first-class Summary objects. The export block
 assembles scalar fields such as named bindings, integration results, and scalar
 statistics. Headers include display units, and cells contain formatted scalar
 values. The v0.2 decision record is
-[`summary_object_decision.md`](../reference/summary_object_decision.md).
+[`summary_object_decision.md`](../internal/design_notes/summary_object_decision.md).
 
 Export and write outputs use idempotent overwrite hardening. Re-running with
 identical generated contents succeeds. Replacing different existing contents
@@ -723,6 +723,6 @@ are forwarded to `eng.exe run`, where they are bound to root args fields.
 `<model>-standalone/build/result`. This is a packaged runner, not an optimized
 AOT executable. Full AOT/native optimization remains a later milestone.
 
-See [Standalone package reference](../reference/standalone_package.md) for the
+See [Standalone package reference](../reference/cli/standalone_package.md) for the
 field tables, dependency hash semantics, Args forwarding behavior, and reserved
 `model.exe` boundary.

@@ -60,7 +60,7 @@ The public package is organized around six workflow groups:
 System/equation examples are scoped supporting capability. They are useful when
 they produce typed TimeSeries, residual evidence, convergence metadata, and
 reviewable failure artifacts. Detailed solver status belongs in
-[solver track docs](docs/solver/README.md), not in the README first screen.
+[solver track docs](docs/internal/solver/README.md), not in the README first screen.
 
 ## Quick Start
 
@@ -148,15 +148,15 @@ build/
 - [Feature maturity matrix](docs/current/feature_maturity_matrix.md)
 - [Development tracks](docs/current/tracks.md)
 - [Semantic benchmark strategy](benchmarks/README.md)
-- [Native tester IDE](docs/guide/native_ide.md)
-- [TimeSeries statistics guide](docs/guide/timeseries_statistics.md)
-- [Plotting guide](docs/guide/plotting.md)
-- [Report and review artifacts](docs/guide/report_review.md)
-- [Run command reference](docs/reference/cli_run.md)
-- [Standalone package reference](docs/reference/standalone_package.md)
-- [Side effect and general programming policy](docs/reference/side_effect_policy.md)
+- [Native tester IDE](docs/user/howto/use_native_ide.md)
+- [TimeSeries statistics guide](docs/reference/language/timeseries.md)
+- [Plotting guide](docs/reference/language/plotting.md)
+- [Report and review artifacts](docs/reference/artifacts/report_review.md)
+- [Run command reference](docs/reference/cli/run.md)
+- [Standalone package reference](docs/reference/cli/standalone_package.md)
+- [Side effect and general programming policy](docs/reference/language/side_effect_policy.md)
 - [Breaking change policy](docs/reference/breaking_change_policy.md)
-- [CLI specification](docs/specs/cli.md)
+- [CLI specification](docs/reference/cli/spec.md)
 - [Release workflow](docs/release/release-workflow.md)
 
 ## Core Invariants

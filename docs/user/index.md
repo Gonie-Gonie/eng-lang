@@ -36,9 +36,9 @@ repository.
 - [How-to guides](howto/README.md)
 - [Concepts](concepts/README.md)
 - [Composite workflow guide](../workflows/index.md)
-- [Language grammar guide](../guide/language_grammar.md)
-- [Standalone package reference](../reference/standalone_package.md)
-- [Run command reference](../reference/cli_run.md)
+- [Language grammar guide](../reference/language/syntax.md)
+- [Standalone package reference](../reference/cli/standalone_package.md)
+- [Run command reference](../reference/cli/run.md)
 
 ## Documentation Tooling
 
