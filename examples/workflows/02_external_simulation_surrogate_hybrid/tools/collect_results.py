@@ -82,8 +82,12 @@ def main() -> int:
         "row_count": len(rows),
         "failed_case_count": len(missing_case_ids) + len(missing_inputs),
         "metrics": {
-            "annual_electricity_kwh_sum": sum(float(row["annual_electricity"]) for row in rows),
-            "peak_cooling_kw_max": max((float(row["peak_cooling"]) for row in rows), default=0.0),
+            "annual_electricity_kwh_sum": sum(
+                float(row["annual_electricity"]) for row in rows
+            ),
+            "peak_cooling_kw_max": max(
+                (float(row["peak_cooling"]) for row in rows), default=0.0
+            ),
             "unmet_hours_sum": sum(float(row["unmet_hours"]) for row in rows),
         },
         "status": "complete"

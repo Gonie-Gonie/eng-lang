@@ -37,14 +37,13 @@ schema PredictionResult {
 
 args {
     samples: CsvFile = file("samples/design_samples.csv")
-    results: CsvFile = file("samples/summary_results.csv")
+    results: CsvFile = file("outputs/summary_results.csv")
     predictions: CsvFile = file("samples/predictions.csv")
     database_target: String = "outputs/surrogate_results.sqlite"
     output: DirectoryPath = dir("outputs")
 }
 
 designs = promote csv args.samples as DesignSample
-results = promote csv args.results as SimulationResult
 predictions = promote csv args.predictions as PredictionResult
 
 patch_result = run command "python"
@@ -99,6 +98,8 @@ with {
     expected_outputs = ["outputs/summary_results.csv", "outputs/result_collection_manifest.json"]
     artifact_kind = "result_collection"
 }
+
+results = promote csv args.results as SimulationResult
 
 case_manifest_result = run command "python"
 with {
