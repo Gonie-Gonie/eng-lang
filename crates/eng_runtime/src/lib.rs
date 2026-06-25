@@ -6923,10 +6923,12 @@ mod tests {
             .join("../..")
             .canonicalize()
             .expect("repo root");
-        let source_dir = repo_root.join("build").join("runtime-table-selection");
+        let source_dir = repo_root
+            .join("build")
+            .join("runtime-table-selection-source");
         let build_root = repo_root
             .join("build")
-            .join("runtime-table-selection-result");
+            .join("runtime-table-selection-source-result");
         let _ = fs::remove_dir_all(&source_dir);
         let _ = fs::remove_dir_all(&build_root);
         fs::create_dir_all(source_dir.join("data")).expect("source data dir");

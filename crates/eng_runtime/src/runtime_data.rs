@@ -20081,7 +20081,7 @@ with {{
             .join("../..")
             .canonicalize()
             .expect("repo root");
-        let source_dir = repo_root.join("build").join("runtime-table-selection");
+        let source_dir = repo_root.join("build").join("runtime-data-table-selection");
         let _ = std::fs::remove_dir_all(&source_dir);
         std::fs::create_dir_all(source_dir.join("data")).expect("source data dir");
         std::fs::write(
