@@ -89,6 +89,8 @@ Runtime artifacts include:
 RMSE
 MAE
 R2
+target_quantity
+target_unit
 train_count
 test_count
 leakage_status
@@ -96,6 +98,8 @@ leakage_findings
 coefficients
 intercept
 loss_history
+training_data_hash
+model_artifact_hash
 model_card
 ```
 
@@ -139,6 +143,8 @@ typed_payload.ml
   kind
   source
   target
+  target_quantity
+  target_unit
   features
   algorithm
   hidden_layers
@@ -152,13 +158,17 @@ typed_payload.ml
   coefficients
   intercept
   loss_history
+  training_data_hash
+  model_artifact_hash
   model_card
   parity_points
   residual_points
 ```
 
-`review.json` includes `ml_info`. `report_spec.json` includes `ml`.
-`report.html` includes an ML Models table.
+`review.json` includes compiler `ml_info`. `report_spec.json` includes `ml`,
+and `result.engres` includes detailed `typed_payload.ml` entries plus
+`typed_payload.model_cards` summaries. `report.html` includes an ML Models
+table.
 
 ## Official Example
 

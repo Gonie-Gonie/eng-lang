@@ -1,6 +1,6 @@
 # module: eng.ml
 # status: internal
-# purpose: compiler/runtime-recognized data-driven modeling seeds and review artifacts.
+# purpose: compiler/runtime-recognized data-driven modeling seeds, model-card contracts, and review artifacts.
 #
 # v1.2 implements these forms as compiler/runtime-recognized fast bindings:
 #
@@ -13,7 +13,8 @@
 #
 # The compiler validates source order/type and the required v1.2 arguments:
 # target, features, test fraction, supported algorithm, hidden layers, epochs,
-# and integer seeds.
+# and integer seeds. Runtime artifacts include target quantity/unit, metrics,
+# residual point counts, training data hashes, and model artifact hashes.
 #
 # This file is intentionally declarative documentation for the portable stdlib.
 # Import/package execution is a later milestone.

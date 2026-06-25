@@ -1,10 +1,12 @@
 # module: eng.model
-# status: internal/planned
+# status: supported artifact seed; planned public syntax
 # purpose: model-card, prediction, metric, residual, and data-leakage review vocabulary for surrogate workflows.
 #
 # Current implementation:
 #   internal data-driven modeling seeds are compiler/runtime-recognized and
-#   documented separately in eng.ml.
+#   documented separately in eng.ml. Runtime artifacts expose typed_payload.ml,
+#   typed_payload.model_cards[], target quantity/unit, metrics, residual points,
+#   and training/model hashes.
 #
 # Planned helper vocabulary:
 #   train regression

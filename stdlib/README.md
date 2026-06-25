@@ -49,11 +49,11 @@ APIs unless a status document says so.
 | `eng.sampling` | Planned generators | Grid/random/LHS sample generation and seed policy. |
 | `eng.case` | Planned runner | Native apply/run/collect, case directories, resume/cache status, and generated-output linkage. |
 | `eng.db` | Planned native DB; supported manifest seed | DB side-effect manifest summaries; SQLite write/upsert helpers remain planned. |
-| `eng.model` | Internal/planned | Model-card, prediction, and residual review vocabulary. |
+| `eng.model` | Supported artifact seed; planned public syntax | Model-card, metric, residual, and hash review vocabulary. |
 | `eng.uncertainty` | Internal | Constructor, propagation, and uncertainty review vocabulary. |
 | `eng.building` | Planned | Building/Zone/Construction object vocabulary before simulation adapters. |
 | `eng.system` | Internal/planned | Solver-facing adapters, not the public identity of stdlib. |
-| `eng.ml` | Internal | Data-driven modeling review vocabulary and artifacts. |
+| `eng.ml` | Internal | Data-driven modeling review vocabulary, target contracts, and model-card artifacts. |
 
 ## Module File Policy
 

@@ -333,6 +333,8 @@ pub struct ReportMlInfo {
     pub kind: String,
     pub source: Option<String>,
     pub target: Option<String>,
+    pub target_quantity: Option<String>,
+    pub target_unit: String,
     pub features: Vec<String>,
     pub algorithm: Option<String>,
     pub test_fraction: Option<String>,
@@ -350,6 +352,8 @@ pub struct ReportMlInfo {
     pub coefficients: Vec<ReportMlCoefficient>,
     pub intercept: Option<f64>,
     pub loss_history: Vec<f64>,
+    pub training_data_hash: Option<String>,
+    pub model_artifact_hash: Option<String>,
     pub model_card: Option<String>,
     pub expression: String,
     pub line: usize,
@@ -1336,6 +1340,8 @@ pub fn report_spec_from_report(
             kind: info.kind.clone(),
             source: info.source.clone(),
             target: info.target.clone(),
+            target_quantity: None,
+            target_unit: "1".to_owned(),
             features: info.features.clone(),
             algorithm: info.algorithm.clone(),
             test_fraction: info.test_fraction.clone(),
@@ -1353,6 +1359,8 @@ pub fn report_spec_from_report(
             coefficients: Vec::new(),
             intercept: None,
             loss_history: Vec::new(),
+            training_data_hash: None,
+            model_artifact_hash: None,
             model_card: None,
             expression: info.expression.clone(),
             line: info.line,
@@ -3298,6 +3306,16 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         json.push_str(&format!("      \"kind\": \"{}\",\n", json_escape(&ml.kind)));
         push_optional_json_string(&mut json, "source", ml.source.as_deref(), 6);
         push_optional_json_string(&mut json, "target", ml.target.as_deref(), 6);
+        push_optional_json_string(
+            &mut json,
+            "target_quantity",
+            ml.target_quantity.as_deref(),
+            6,
+        );
+        json.push_str(&format!(
+            "      \"target_unit\": \"{}\",\n",
+            json_escape(&ml.target_unit)
+        ));
         json.push_str("      \"features\": [");
         push_json_string_array(&mut json, &ml.features);
         json.push_str("],\n");
@@ -3347,6 +3365,18 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             json.push_str(&loss.to_string());
         }
         json.push_str("],\n");
+        push_optional_json_string(
+            &mut json,
+            "training_data_hash",
+            ml.training_data_hash.as_deref(),
+            6,
+        );
+        push_optional_json_string(
+            &mut json,
+            "model_artifact_hash",
+            ml.model_artifact_hash.as_deref(),
+            6,
+        );
         push_optional_json_string(&mut json, "model_card", ml.model_card.as_deref(), 6);
         json.push_str(&format!(
             "      \"expression\": \"{}\",\n",

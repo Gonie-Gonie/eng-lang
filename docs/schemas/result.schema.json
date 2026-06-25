@@ -47,7 +47,7 @@
     },
     "typed_payload": {
       "type": "object",
-      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "sample_tables", "case_manifests", "db_manifests", "metrics", "validations", "time_axes", "time_alignments", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
+      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "sample_tables", "case_manifests", "db_manifests", "model_cards", "metrics", "validations", "time_axes", "time_alignments", "uncertainties", "ml", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
       "properties": {
         "numeric_values": {
           "type": "array",
@@ -68,6 +68,10 @@
         "db_manifests": {
           "type": "array",
           "items": { "$ref": "#/$defs/dbManifest" }
+        },
+        "model_cards": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/modelCardSummary" }
         },
         "metrics": {
           "type": "array",
@@ -104,6 +108,10 @@
         "uncertainties": {
           "type": "array",
           "items": { "$ref": "#/$defs/resultUncertainty" }
+        },
+        "ml": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/mlArtifact" }
         }
       }
     },
@@ -352,6 +360,163 @@
           "items": { "type": "string" }
         },
         "row_count": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "modelCardSummary": {
+      "type": "object",
+      "required": [
+        "binding",
+        "source",
+        "model_kind",
+        "features",
+        "target",
+        "target_quantity",
+        "target_unit",
+        "test_fraction",
+        "train_count",
+        "test_count",
+        "metrics",
+        "residual_plot",
+        "residual_point_count",
+        "training_data_hash",
+        "model_artifact_hash",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "source": { "type": ["string", "null"] },
+        "model_kind": { "type": "string" },
+        "features": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "target": { "type": ["string", "null"] },
+        "target_quantity": { "type": ["string", "null"] },
+        "target_unit": { "type": "string" },
+        "test_fraction": { "type": ["string", "null"] },
+        "train_count": { "type": ["integer", "null"], "minimum": 0 },
+        "test_count": { "type": ["integer", "null"], "minimum": 0 },
+        "metrics": { "$ref": "#/$defs/modelMetrics" },
+        "residual_plot": { "type": ["string", "null"] },
+        "residual_point_count": { "type": "integer", "minimum": 0 },
+        "training_data_hash": { "type": ["string", "null"] },
+        "model_artifact_hash": { "type": ["string", "null"] },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "modelMetrics": {
+      "type": "object",
+      "required": ["rmse", "mae", "r2"],
+      "properties": {
+        "rmse": { "type": ["number", "null"] },
+        "mae": { "type": ["number", "null"] },
+        "r2": { "type": ["number", "null"] }
+      }
+    },
+    "mlArtifact": {
+      "type": "object",
+      "required": [
+        "binding",
+        "kind",
+        "source",
+        "target",
+        "target_quantity",
+        "target_unit",
+        "features",
+        "algorithm",
+        "test_fraction",
+        "seed",
+        "hidden_layers",
+        "epochs",
+        "status",
+        "train_count",
+        "test_count",
+        "rmse",
+        "mae",
+        "r2",
+        "leakage_status",
+        "leakage_findings",
+        "coefficients",
+        "intercept",
+        "loss_history",
+        "training_data_hash",
+        "model_artifact_hash",
+        "model_card",
+        "parity_points",
+        "residual_points",
+        "expression",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "kind": { "type": "string" },
+        "source": { "type": ["string", "null"] },
+        "target": { "type": ["string", "null"] },
+        "target_quantity": { "type": ["string", "null"] },
+        "target_unit": { "type": "string" },
+        "features": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "algorithm": { "type": ["string", "null"] },
+        "test_fraction": { "type": ["string", "null"] },
+        "seed": { "type": ["string", "null"] },
+        "hidden_layers": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "epochs": { "type": ["integer", "null"], "minimum": 1 },
+        "status": { "type": "string" },
+        "train_count": { "type": ["integer", "null"], "minimum": 0 },
+        "test_count": { "type": ["integer", "null"], "minimum": 0 },
+        "rmse": { "type": ["number", "null"] },
+        "mae": { "type": ["number", "null"] },
+        "r2": { "type": ["number", "null"] },
+        "leakage_status": { "type": ["string", "null"] },
+        "leakage_findings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "coefficients": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/mlCoefficient" }
+        },
+        "intercept": { "type": ["number", "null"] },
+        "loss_history": {
+          "type": "array",
+          "items": { "type": "number" }
+        },
+        "training_data_hash": { "type": ["string", "null"] },
+        "model_artifact_hash": { "type": ["string", "null"] },
+        "model_card": { "type": ["string", "null"] },
+        "parity_points": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/modelPoint" }
+        },
+        "residual_points": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/modelPoint" }
+        },
+        "expression": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "mlCoefficient": {
+      "type": "object",
+      "required": ["feature", "value"],
+      "properties": {
+        "feature": { "type": "string" },
+        "value": { "type": "number" }
+      }
+    },
+    "modelPoint": {
+      "type": "object",
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" }
       }
     },
     "tableDiagnostic": {

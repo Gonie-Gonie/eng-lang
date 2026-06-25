@@ -75,7 +75,8 @@ and next cleanup action.
 - Purpose: make model training/evaluation metadata reviewable.
 - Public scope: none beyond internal examples unless explicitly documented.
 - Main internal: train/test metadata, deterministic metrics, model cards,
-  parity plots, residual plots, and diagnostics.
+  target quantity/unit, training/model hashes, parity plots, residual plots,
+  and diagnostics.
 - Next cleanup: describe as model/review artifacts, not physical system
   simulation.
 
@@ -116,8 +117,9 @@ and next cleanup action.
   text/json, constrained copy/move/delete, run logs, process results, test
   results, output manifests, and safe/normal/repro profiles.
 - Main internal: broader filesystem/process policy plus `eng.net`, `eng.cache`,
-  native `eng.db` SQLite writes, and `eng.model` module boundaries are planned;
-  DB manifest summaries are supported as artifact seeds.
+  native `eng.db` SQLite writes, and `eng.model` public syntax are planned;
+  DB manifest summaries and internal model-card summaries are supported as
+  artifact seeds.
 - Next cleanup: maintain artifact-first side-effect documentation and add
   module slices only with review/output-manifest evidence.
 
@@ -131,8 +133,8 @@ and next cleanup action.
   hybrid examples define target contracts for future generic modules, including
   promoted table diagnostics, promoted sample-table summaries, promoted case
   manifest seeds, time-axis coverage summaries, process-generated case
-  manifests, model-card/metrics artifacts, predictions, and DB side-effect
-  manifest summaries.
+  manifests, typed model-card summaries with target contracts and hashes,
+  predictions, and DB side-effect manifest summaries.
 - Next cleanup: grow `eng.net`, `eng.cache`, `eng.table`, `eng.sampling`,
   `eng.case`, `eng.db`, and `eng.model` from generic workflow evidence.
 

@@ -567,6 +567,8 @@ impl RuntimeData {
                 kind: artifact.kind.clone(),
                 source: artifact.source.clone(),
                 target: artifact.target.clone(),
+                target_quantity: artifact.target_quantity.clone(),
+                target_unit: artifact.display_unit.clone(),
                 features: artifact.features.clone(),
                 algorithm: artifact.algorithm.clone(),
                 test_fraction: artifact.test_fraction.clone(),
@@ -591,6 +593,8 @@ impl RuntimeData {
                     .collect(),
                 intercept: artifact.intercept,
                 loss_history: artifact.loss_history.clone(),
+                training_data_hash: artifact.training_data_hash.clone(),
+                model_artifact_hash: artifact.model_artifact_hash.clone(),
                 model_card: artifact.model_card.clone(),
                 expression: artifact.expression.clone(),
                 line: artifact.line,
@@ -1247,6 +1251,7 @@ pub struct RuntimeMlArtifact {
     pub kind: String,
     pub source: Option<String>,
     pub target: Option<String>,
+    pub target_quantity: Option<String>,
     pub features: Vec<String>,
     pub algorithm: Option<String>,
     pub test_fraction: Option<String>,
@@ -1265,6 +1270,8 @@ pub struct RuntimeMlArtifact {
     pub intercept: Option<f64>,
     pub loss_history: Vec<f64>,
     pub model_card: Option<String>,
+    pub training_data_hash: Option<String>,
+    pub model_artifact_hash: Option<String>,
     pub expression: String,
     pub display_unit: String,
     pub parity_points: Vec<RuntimePoint>,
@@ -1282,6 +1289,7 @@ pub struct RuntimeMlCoefficient {
 struct MlDataset {
     feature_names: Vec<String>,
     target_name: String,
+    target_quantity: String,
     display_unit: String,
     rows: Vec<MlRow>,
 }
@@ -4557,6 +4565,11 @@ fn materialize_split_artifact(
         .source
         .as_deref()
         .and_then(|source| series.iter().find(|series| series.name == source));
+    let target_series = info
+        .target
+        .as_deref()
+        .and_then(|target| series.iter().find(|series| series.name == target))
+        .or(source_series);
     let len = source_series.map(|series| series.points.len()).unwrap_or(0);
     let test_fraction = parse_fraction(info.test_fraction.as_deref()).unwrap_or(0.25);
     let test_count = if len > 1 {
@@ -4570,7 +4583,8 @@ fn materialize_split_artifact(
     artifact.test_count = Some(test_count);
     artifact.leakage_findings = leakage_findings(info, source_series, tables);
     artifact.leakage_status = Some(leakage_status_from_findings(&artifact.leakage_findings));
-    artifact.display_unit = source_series
+    artifact.target_quantity = target_series.map(|series| series.quantity_kind.clone());
+    artifact.display_unit = target_series
         .map(|series| series.display_unit.clone())
         .unwrap_or_else(|| "1".to_owned());
     artifact
@@ -4603,10 +4617,15 @@ fn materialize_model_artifact(
     };
     let source_series =
         source_name.and_then(|source| series.iter().find(|series| series.name == source));
+    let target_series = target
+        .as_deref()
+        .and_then(|target| series.iter().find(|series| series.name == target))
+        .or(source_series);
     let mut artifact = base_ml_artifact(info, "unavailable");
     artifact.target = target.clone();
     artifact.features = features.clone();
-    artifact.display_unit = source_series
+    artifact.target_quantity = target_series.map(|series| series.quantity_kind.clone());
+    artifact.display_unit = target_series
         .map(|series| series.display_unit.clone())
         .unwrap_or_else(|| "1".to_owned());
     artifact.leakage_status = split.and_then(|split| split.leakage_status.clone());
@@ -4651,6 +4670,9 @@ fn materialize_model_artifact(
     } else {
         train_linear_model(info, &dataset, train_count, test_count)
     };
+    artifact.target_quantity = Some(dataset.target_quantity.clone());
+    artifact.display_unit = dataset.display_unit.clone();
+    artifact.training_data_hash = Some(ml_training_data_hash(&dataset, train_count));
     artifact.status = training.status;
     artifact.train_count = Some(train_count);
     artifact.test_count = Some(training.actual.len());
@@ -4679,6 +4701,7 @@ fn materialize_model_artifact(
             y: actual - predicted,
         })
         .collect();
+    artifact.model_artifact_hash = Some(ml_model_artifact_hash(&artifact));
     artifact.model_card = Some(model_card_text(info, &artifact, &dataset));
     artifact
 }
@@ -4694,8 +4717,13 @@ fn materialize_metrics_artifact(
     let mut artifact = base_ml_artifact(info, "evaluated");
     if let Some(source) = source {
         artifact.target = source.target.clone();
+        artifact.target_quantity = source.target_quantity.clone();
         artifact.features = source.features.clone();
         artifact.algorithm = source.algorithm.clone();
+        artifact.test_fraction = source.test_fraction.clone();
+        artifact.seed = source.seed.clone();
+        artifact.hidden_layers = source.hidden_layers.clone();
+        artifact.epochs = source.epochs;
         artifact.train_count = source.train_count;
         artifact.test_count = source.test_count;
         artifact.rmse = source.rmse;
@@ -4707,6 +4735,8 @@ fn materialize_metrics_artifact(
         artifact.intercept = source.intercept;
         artifact.loss_history = source.loss_history.clone();
         artifact.model_card = source.model_card.clone();
+        artifact.training_data_hash = source.training_data_hash.clone();
+        artifact.model_artifact_hash = source.model_artifact_hash.clone();
         artifact.display_unit = source.display_unit.clone();
         artifact.parity_points = source.parity_points.clone();
         artifact.residual_points = source.residual_points.clone();
@@ -4744,6 +4774,16 @@ fn materialize_model_card_artifact(
         .and_then(|source| prior.iter().find(|artifact| artifact.binding == source));
     let mut artifact = base_ml_artifact(info, "documented");
     if let Some(source) = source {
+        artifact.target = source.target.clone();
+        artifact.target_quantity = source.target_quantity.clone();
+        artifact.features = source.features.clone();
+        artifact.algorithm = source.algorithm.clone();
+        artifact.test_fraction = source.test_fraction.clone();
+        artifact.seed = source.seed.clone();
+        artifact.hidden_layers = source.hidden_layers.clone();
+        artifact.epochs = source.epochs;
+        artifact.train_count = source.train_count;
+        artifact.test_count = source.test_count;
         artifact.model_card = source.model_card.clone().or_else(|| {
             Some(format!(
                 "{} model card: status={}, train={}, test={}",
@@ -4761,6 +4801,11 @@ fn materialize_model_card_artifact(
         artifact.coefficients = source.coefficients.clone();
         artifact.intercept = source.intercept;
         artifact.loss_history = source.loss_history.clone();
+        artifact.training_data_hash = source.training_data_hash.clone();
+        artifact.model_artifact_hash = source.model_artifact_hash.clone();
+        artifact.display_unit = source.display_unit.clone();
+        artifact.parity_points = source.parity_points.clone();
+        artifact.residual_points = source.residual_points.clone();
     }
     artifact
 }
@@ -4771,6 +4816,7 @@ fn base_ml_artifact(info: &eng_compiler::MlInfo, status: &str) -> RuntimeMlArtif
         kind: info.kind.clone(),
         source: info.source.clone(),
         target: info.target.clone(),
+        target_quantity: None,
         features: info.features.clone(),
         algorithm: info.algorithm.clone(),
         test_fraction: info.test_fraction.clone(),
@@ -4789,6 +4835,8 @@ fn base_ml_artifact(info: &eng_compiler::MlInfo, status: &str) -> RuntimeMlArtif
         intercept: None,
         loss_history: Vec::new(),
         model_card: None,
+        training_data_hash: None,
+        model_artifact_hash: None,
         expression: info.expression.clone(),
         display_unit: "1".to_owned(),
         parity_points: Vec::new(),
@@ -15044,6 +15092,7 @@ fn ml_dataset(
     Ok(MlDataset {
         feature_names: features.to_vec(),
         target_name: target_name.to_owned(),
+        target_quantity: target_series.quantity_kind.clone(),
         display_unit: target_series.display_unit.clone(),
         rows,
     })
@@ -15056,6 +15105,49 @@ fn numeric_column_value(column: &RuntimeColumn, index: usize) -> Option<f64> {
         .copied()
         .flatten()
         .or_else(|| optional_number_at(column, index))
+}
+
+fn ml_training_data_hash(dataset: &MlDataset, train_count: usize) -> String {
+    let mut payload = format!(
+        "target={}\nquantity={}\nunit={}\nfeatures={}\ntrain={}\n",
+        dataset.target_name,
+        dataset.target_quantity,
+        dataset.display_unit,
+        dataset.feature_names.join(","),
+        train_count
+    );
+    for row in dataset.rows.iter().take(train_count) {
+        payload.push_str(&format!(
+            "features={:?};target={}\n",
+            row.features, row.target
+        ));
+    }
+    stable_hash_text(&payload)
+}
+
+fn ml_model_artifact_hash(artifact: &RuntimeMlArtifact) -> String {
+    let mut payload = format!(
+        "binding={}\nkind={}\nalgorithm={}\ntarget={}\nquantity={}\nunit={}\nstatus={}\n",
+        artifact.binding,
+        artifact.kind,
+        artifact.algorithm.as_deref().unwrap_or(""),
+        artifact.target.as_deref().unwrap_or(""),
+        artifact.target_quantity.as_deref().unwrap_or(""),
+        artifact.display_unit,
+        artifact.status
+    );
+    payload.push_str(&format!("features={:?}\n", artifact.features));
+    payload.push_str(&format!("coefficients={:?}\n", artifact.coefficients));
+    payload.push_str(&format!("intercept={:?}\n", artifact.intercept));
+    payload.push_str(&format!(
+        "metrics={:?},{:?},{:?}\n",
+        artifact.rmse, artifact.mae, artifact.r2
+    ));
+    payload.push_str(&format!(
+        "training_data_hash={}\n",
+        artifact.training_data_hash.as_deref().unwrap_or("")
+    ));
+    stable_hash_text(&payload)
 }
 
 fn train_linear_model(
@@ -15450,10 +15542,12 @@ fn model_card_text(
         _ => "loss unavailable".to_owned(),
     };
     format!(
-        "{} {}: target={}, features=[{}], rows={}, train={}, test={}, rmse={} {}, mae={} {}, r2={}, {}, coefficients=[{}]",
+        "{} {}: target={}, target_quantity={}, target_unit={}, features=[{}], rows={}, train={}, test={}, rmse={} {}, mae={} {}, r2={}, {}, coefficients=[{}], training_data_hash={}, model_artifact_hash={}",
         info.binding,
         info.algorithm.as_deref().unwrap_or(info.kind.as_str()),
         dataset.target_name,
+        dataset.target_quantity,
+        dataset.display_unit,
         dataset.feature_names.join(", "),
         dataset.rows.len(),
         artifact.train_count.unwrap_or(0),
@@ -15464,7 +15558,9 @@ fn model_card_text(
         dataset.display_unit,
         format_number(artifact.r2.unwrap_or(0.0)),
         loss_summary,
-        coefficient_summary
+        coefficient_summary,
+        artifact.training_data_hash.as_deref().unwrap_or("not_available"),
+        artifact.model_artifact_hash.as_deref().unwrap_or("not_available")
     )
 }
 
@@ -19392,11 +19488,23 @@ with {{
             .all(|loss| loss.is_finite() && *loss >= 0.0));
         assert!(regression.rmse.unwrap() > 0.0);
         assert!(mlp.rmse.unwrap() > 0.0);
-        assert!(regression
-            .model_card
-            .as_deref()
-            .unwrap()
-            .contains("coefficients=["));
+        assert_eq!(regression.target_quantity.as_deref(), Some("HeatRate"));
+        assert_eq!(regression.display_unit, "W");
+        assert_eq!(regression.training_data_hash.as_deref().unwrap().len(), 16);
+        assert_eq!(regression.model_artifact_hash.as_deref().unwrap().len(), 16);
+        let regression_card = regression.model_card.as_deref().unwrap();
+        assert!(regression_card.contains("coefficients=["));
+        assert!(regression_card.contains("training_data_hash="));
+        assert!(regression_card.contains("model_artifact_hash="));
+        assert!(!regression_card.contains("not_available"));
+        let card = runtime
+            .ml_artifacts
+            .iter()
+            .find(|artifact| artifact.kind == "ModelCard")
+            .unwrap();
+        assert_eq!(card.target, regression.target);
+        assert_eq!(card.target_quantity, regression.target_quantity);
+        assert_eq!(card.model_artifact_hash, regression.model_artifact_hash);
         assert!(runtime
             .ml_artifacts
             .iter()

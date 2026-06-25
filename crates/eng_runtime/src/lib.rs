@@ -3598,6 +3598,7 @@ fn result_json(
     let case_manifests = case_manifests_json(runtime_data);
     let db_manifest_records = db_manifest_records(process_results);
     let db_manifests = db_manifests_json(&db_manifest_records);
+    let model_cards = model_cards_json(runtime_data);
 
     let mut timeseries_uncertainty_calculations = String::new();
     for (index, calculation) in runtime_data
@@ -3763,6 +3764,16 @@ fn result_json(
         ));
         push_optional_json_string(&mut ml, "source", artifact.source.as_deref(), 8);
         push_optional_json_string(&mut ml, "target", artifact.target.as_deref(), 8);
+        push_optional_json_string(
+            &mut ml,
+            "target_quantity",
+            artifact.target_quantity.as_deref(),
+            8,
+        );
+        ml.push_str(&format!(
+            "        \"target_unit\": \"{}\",\n",
+            json_escape(&artifact.display_unit)
+        ));
         ml.push_str("        \"features\": [");
         push_json_string_array(&mut ml, &artifact.features);
         ml.push_str("],\n");
@@ -3823,6 +3834,18 @@ fn result_json(
         }
         ml.push_str("],\n");
         push_optional_json_string(&mut ml, "model_card", artifact.model_card.as_deref(), 8);
+        push_optional_json_string(
+            &mut ml,
+            "training_data_hash",
+            artifact.training_data_hash.as_deref(),
+            8,
+        );
+        push_optional_json_string(
+            &mut ml,
+            "model_artifact_hash",
+            artifact.model_artifact_hash.as_deref(),
+            8,
+        );
         ml.push_str("        \"parity_points\": [");
         push_runtime_points(&mut ml, &artifact.parity_points);
         ml.push_str("],\n");
@@ -4209,7 +4232,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -4244,6 +4267,7 @@ fn result_json(
         time_alignments,
         uncertainties,
         ml,
+        model_cards,
         policy_results,
         systems,
         component_solutions,
@@ -5661,6 +5685,97 @@ fn case_manifests_json(runtime_data: &RuntimeData) -> String {
     json
 }
 
+fn model_cards_json(runtime_data: &RuntimeData) -> String {
+    let mut json = String::new();
+    let mut emitted = 0usize;
+    for artifact in runtime_data
+        .ml_artifacts
+        .iter()
+        .filter(|artifact| artifact.model_card.is_some())
+    {
+        if emitted > 0 {
+            json.push_str(",\n");
+        }
+        emitted += 1;
+        let model_kind = artifact.algorithm.as_deref().unwrap_or(&artifact.kind);
+        let residual_plot = if artifact.residual_points.is_empty() {
+            None
+        } else {
+            Some("residual_points")
+        };
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&artifact.binding)
+        ));
+        push_optional_json_string(&mut json, "source", artifact.source.as_deref(), 8);
+        json.push_str(&format!(
+            "        \"model_kind\": \"{}\",\n",
+            json_escape(model_kind)
+        ));
+        json.push_str("        \"features\": [");
+        push_json_string_array(&mut json, &artifact.features);
+        json.push_str("],\n");
+        push_optional_json_string(&mut json, "target", artifact.target.as_deref(), 8);
+        push_optional_json_string(
+            &mut json,
+            "target_quantity",
+            artifact.target_quantity.as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"target_unit\": \"{}\",\n",
+            json_escape(&artifact.display_unit)
+        ));
+        push_optional_json_string(
+            &mut json,
+            "test_fraction",
+            artifact.test_fraction.as_deref(),
+            8,
+        );
+        push_optional_json_usize(&mut json, "train_count", artifact.train_count, 8);
+        push_optional_json_usize(&mut json, "test_count", artifact.test_count, 8);
+        json.push_str("        \"metrics\": {\n");
+        json.push_str(&format!(
+            "          \"rmse\": {},\n",
+            optional_json_number(artifact.rmse)
+        ));
+        json.push_str(&format!(
+            "          \"mae\": {},\n",
+            optional_json_number(artifact.mae)
+        ));
+        json.push_str(&format!(
+            "          \"r2\": {}\n",
+            optional_json_number(artifact.r2)
+        ));
+        json.push_str("        },\n");
+        push_optional_json_string(&mut json, "residual_plot", residual_plot, 8);
+        json.push_str(&format!(
+            "        \"residual_point_count\": {},\n",
+            artifact.residual_points.len()
+        ));
+        push_optional_json_string(
+            &mut json,
+            "training_data_hash",
+            artifact.training_data_hash.as_deref(),
+            8,
+        );
+        push_optional_json_string(
+            &mut json,
+            "model_artifact_hash",
+            artifact.model_artifact_hash.as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&artifact.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", artifact.line));
+        json.push_str("      }");
+    }
+    json
+}
+
 fn db_manifests_json(records: &[DbManifestRecord]) -> String {
     let mut json = String::new();
     for (index, record) in records.iter().enumerate() {
@@ -6047,6 +6162,12 @@ fn push_profile_diagnostics_json(
         json.push_str(&format!("{indent}  \"line\": {}\n", diagnostic.line));
         json.push_str(&format!("{indent}}}"));
     }
+}
+
+fn optional_json_number(value: Option<f64>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "null".to_owned())
 }
 
 fn push_optional_json_number(json: &mut String, key: &str, value: Option<f64>, indent: usize) {

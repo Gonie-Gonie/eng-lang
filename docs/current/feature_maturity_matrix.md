@@ -205,7 +205,8 @@ separate.
 - Public package: `Internal`
 - Main status: `Internal`
 - Evidence: train/test split metadata, deterministic metrics, model cards,
-  parity/residual plots, and diagnostics.
+  target quantity/unit, training/model hashes, parity/residual plots, and
+  diagnostics.
 - Not included: broad ML package semantics.
 - Next cleanup action: describe as model review artifacts, not physical system
   simulation.
@@ -234,18 +235,20 @@ separate.
   effects.
 - Main status: `Supported` for those primitives plus promoted table
   diagnostics, promoted sample-table artifacts, promoted case manifest seeds,
-  DB manifest summaries in `typed_payload.db_manifests[]`, and time-axis
-  coverage artifacts; hybrid fixtures now emit weather, case, model-card, and
-  prediction artifacts through explicit process/write boundaries; `Planned` for
-  native network, cache, sampling generators, native case runner, SQLite writes,
-  and model-card modules.
+  DB manifest summaries in `typed_payload.db_manifests[]`, internal model-card
+  summaries in `typed_payload.model_cards[]`, and time-axis coverage artifacts;
+  hybrid fixtures now emit weather, case, model-card, and prediction artifacts
+  through explicit process/write boundaries; `Planned` for native network,
+  cache, sampling generators, native case runner, SQLite writes, and model-card
+  public syntax.
 - User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the
   core, not core language identity.
 - Evidence: official side-effect examples, process artifacts, output manifests,
   `typed_payload.table_diagnostics[]`, `typed_payload.sample_tables[]`,
-  `typed_payload.case_manifests[]`, `typed_payload.db_manifests[]`, workflow
-  examples under `examples/workflows`, and `docs/current/workflow_modules.md`.
+  `typed_payload.case_manifests[]`, `typed_payload.db_manifests[]`,
+  `typed_payload.model_cards[]`, workflow examples under `examples/workflows`,
+  and `docs/current/workflow_modules.md`.
   The external simulation hybrid now records three case manifests, collected
   result rows, surrogate metrics, predictions, and a DB write manifest summary
   as reviewable fixture artifacts.

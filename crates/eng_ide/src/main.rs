@@ -929,7 +929,7 @@ fn base_completion_items() -> Vec<CompletionView> {
         (
             "eng.model",
             "eng.model",
-            "internal/planned module: model-card workflows",
+            "model-card artifact seed; public syntax planned",
         ),
         (
             "eng.artifact",

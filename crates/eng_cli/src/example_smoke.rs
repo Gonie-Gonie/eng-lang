@@ -6486,18 +6486,23 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             let report_spec = std::fs::read_to_string(output.report_spec_path).unwrap_or_default();
             let plot_spec = std::fs::read_to_string(output.plot_spec_path).unwrap_or_default();
             if !result.contains("\"ml\"")
+                || !result.contains("\"model_cards\"")
                 || !result.contains("\"rmse\"")
                 || !result.contains("\"model_card\"")
+                || !result.contains("\"target_quantity\"")
+                || !result.contains("\"training_data_hash\"")
+                || !result.contains("\"model_artifact_hash\"")
                 || !result.contains("\"leakage_status\"")
                 || !result.contains("\"coefficients\"")
                 || !result.contains("\"loss_history\"")
                 || !review.contains("\"ml_info\"")
                 || !report_spec.contains("\"ml\"")
+                || !report_spec.contains("\"target_quantity\"")
                 || !plot_spec.contains("\"plot_type\": \"scatter\"")
                 || !plot_spec.contains("Regression parity")
             {
                 eprintln!(
-                    "expected data-driven example to produce ML metrics, model card, leakage lint, and parity plot"
+                    "expected data-driven example to produce ML metrics, model-card summary, target contract, leakage lint, and parity plot"
                 );
                 return ExitCode::from(2);
             }

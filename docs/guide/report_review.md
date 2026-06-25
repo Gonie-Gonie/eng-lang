@@ -606,7 +606,7 @@ The same ML surface appears in:
 ```text
 review.json                 ml_info
 report_spec.json            ml
-result.engres               typed_payload.ml
+result.engres               typed_payload.ml and typed_payload.model_cards
 report.html                 ML Models table
 plots/plot_spec.json        scatter parity or bar residual plot
 ```
@@ -617,9 +617,13 @@ Runtime metrics include:
 RMSE
 MAE
 R2
+target_quantity
+target_unit
 train_count
 test_count
 leakage_status
+training_data_hash
+model_artifact_hash
 model_card
 ```
 

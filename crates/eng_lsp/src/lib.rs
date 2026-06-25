@@ -518,7 +518,10 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         ("eng.process", "stdlib module: explicit process boundaries"),
         ("run command", "eng.process command boundary"),
         ("eng.db", "DB manifest seed; native SQLite planned"),
-        ("eng.model", "internal/planned module: model-card workflows"),
+        (
+            "eng.model",
+            "model-card artifact seed; public syntax planned",
+        ),
         (
             "eng.artifact",
             "stdlib module: artifact manifest vocabulary",

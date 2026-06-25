@@ -33,6 +33,7 @@
     "state_space_vectors",
     "linear_operators",
     "system_ir",
+    "ml",
     "plot_manifest"
   ],
   "properties": {
@@ -94,6 +95,10 @@
     "uncertainty": {
       "type": "array",
       "items": { "$ref": "#/$defs/uncertainty" }
+    },
+    "ml": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/mlArtifact" }
     },
     "policy_results": { "type": "array" },
     "domain_summary": {
@@ -199,6 +204,92 @@
         "source": { "type": "string" },
         "role": { "type": "string" },
         "quantity_kind": { "type": "string" }
+      }
+    },
+    "mlArtifact": {
+      "type": "object",
+      "required": [
+        "binding",
+        "kind",
+        "source",
+        "target",
+        "target_quantity",
+        "target_unit",
+        "features",
+        "algorithm",
+        "test_fraction",
+        "seed",
+        "hidden_layers",
+        "epochs",
+        "status",
+        "train_count",
+        "test_count",
+        "rmse",
+        "mae",
+        "r2",
+        "leakage_status",
+        "leakage_findings",
+        "coefficients",
+        "intercept",
+        "loss_history",
+        "training_data_hash",
+        "model_artifact_hash",
+        "model_card",
+        "expression",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "kind": { "type": "string" },
+        "source": { "type": ["string", "null"] },
+        "target": { "type": ["string", "null"] },
+        "target_quantity": { "type": ["string", "null"] },
+        "target_unit": { "type": "string" },
+        "features": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "algorithm": { "type": ["string", "null"] },
+        "test_fraction": { "type": ["string", "null"] },
+        "seed": { "type": ["string", "null"] },
+        "hidden_layers": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "epochs": { "type": ["integer", "null"], "minimum": 1 },
+        "status": { "type": "string" },
+        "train_count": { "type": ["integer", "null"], "minimum": 0 },
+        "test_count": { "type": ["integer", "null"], "minimum": 0 },
+        "rmse": { "type": ["number", "null"] },
+        "mae": { "type": ["number", "null"] },
+        "r2": { "type": ["number", "null"] },
+        "leakage_status": { "type": ["string", "null"] },
+        "leakage_findings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "coefficients": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/mlCoefficient" }
+        },
+        "intercept": { "type": ["number", "null"] },
+        "loss_history": {
+          "type": "array",
+          "items": { "type": "number" }
+        },
+        "training_data_hash": { "type": ["string", "null"] },
+        "model_artifact_hash": { "type": ["string", "null"] },
+        "model_card": { "type": ["string", "null"] },
+        "expression": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "mlCoefficient": {
+      "type": "object",
+      "required": ["feature", "value"],
+      "properties": {
+        "feature": { "type": "string" },
+        "value": { "type": "number" }
       }
     },
     "reportMetric": {
