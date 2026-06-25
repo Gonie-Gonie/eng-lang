@@ -116,7 +116,8 @@ and next cleanup action.
   text/json, constrained copy/move/delete, run logs, process results, test
   results, output manifests, and safe/normal/repro profiles.
 - Main internal: broader filesystem/process policy plus `eng.net`, `eng.cache`,
-  `eng.db`, and `eng.model` module boundaries are planned.
+  native `eng.db` SQLite writes, and `eng.model` module boundaries are planned;
+  DB manifest summaries are supported as artifact seeds.
 - Next cleanup: maintain artifact-first side-effect documentation and add
   module slices only with review/output-manifest evidence.
 
@@ -131,7 +132,7 @@ and next cleanup action.
   promoted table diagnostics, promoted sample-table summaries, promoted case
   manifest seeds, time-axis coverage summaries, process-generated case
   manifests, model-card/metrics artifacts, predictions, and DB side-effect
-  manifests.
+  manifest summaries.
 - Next cleanup: grow `eng.net`, `eng.cache`, `eng.table`, `eng.sampling`,
   `eng.case`, `eng.db`, and `eng.model` from generic workflow evidence.
 

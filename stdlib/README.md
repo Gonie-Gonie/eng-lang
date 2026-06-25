@@ -48,7 +48,7 @@ APIs unless a status document says so.
 | `eng.table` | Planned APIs | Table filters, joins, derived columns, and schema-aware transforms. |
 | `eng.sampling` | Planned generators | Grid/random/LHS sample generation and seed policy. |
 | `eng.case` | Planned runner | Native apply/run/collect, case directories, resume/cache status, and generated-output linkage. |
-| `eng.db` | Planned | SQLite/database side-effect helpers with transaction artifacts. |
+| `eng.db` | Planned native DB; supported manifest seed | DB side-effect manifest summaries; SQLite write/upsert helpers remain planned. |
 | `eng.model` | Internal/planned | Model-card, prediction, and residual review vocabulary. |
 | `eng.uncertainty` | Internal | Constructor, propagation, and uncertainty review vocabulary. |
 | `eng.building` | Planned | Building/Zone/Construction object vocabulary before simulation adapters. |

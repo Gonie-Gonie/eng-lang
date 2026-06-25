@@ -517,7 +517,7 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         ("eng.case", "stdlib module: promoted case manifest seeds"),
         ("eng.process", "stdlib module: explicit process boundaries"),
         ("run command", "eng.process command boundary"),
-        ("eng.db", "planned module: database side effects"),
+        ("eng.db", "DB manifest seed; native SQLite planned"),
         ("eng.model", "internal/planned module: model-card workflows"),
         (
             "eng.artifact",

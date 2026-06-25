@@ -758,6 +758,7 @@ version = "0.1.0"
 dependencies = [
  "eng_compiler",
  "eng_report",
+ "serde_json",
 ]
 
 [[package]]

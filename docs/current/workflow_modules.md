@@ -40,7 +40,7 @@ that make those adapters typed, explicit, reproducible, and reviewable.
 | `eng.net` | Planned | HTTP/download boundaries with cache and hash policy |
 | `eng.cache` | Planned | reproducible cache keys, hit/miss artifacts, pinned downloads |
 | `eng.artifact` | Supported seed | output manifests, hashes, report/review links |
-| `eng.db` | Planned native module; hybrid manifest evidence | SQLite/open database writes with transaction artifacts |
+| `eng.db` | Supported DB-manifest artifact seed; planned native sqlite | DB side-effect manifest summaries; SQLite/open database writes with transaction artifacts planned |
 | `eng.model` | Internal/planned; hybrid model evidence | model cards, metrics, residual plots, prediction schemas |
 
 These names describe module boundaries. The current implementation may expose
@@ -94,8 +94,9 @@ promoted tables, `typed_payload.table_diagnostics[]` records the current
 reviewable schema/row/coverage summary, `typed_payload.sample_tables[]`
 records deterministic sample/case table metadata when a promoted table is
 sample-like, and `typed_payload.case_manifests[]` records one case seed per
-sample row. Future network, cache, case, DB, and model modules should follow
-the same artifact pattern.
+sample row, and `typed_payload.db_manifests[]` records generated DB write
+manifests. Future network, cache, native case runner, native DB writer, and
+model modules should follow the same artifact pattern.
 
 ## Hybrid Artifact Evidence
 
@@ -123,7 +124,7 @@ per-case patched input, simulator output, and case_manifest.json
 collected summary_results.csv
 surrogate.json and model_metrics.json with hashes and residual metadata
 predictions.csv
-db_write_manifest.json with table names, modes, keys, schemas, row counts, and transaction status
+db_write_manifest.json, promoted to typed_payload.db_manifests[] with table names, modes, keys, schemas, row counts, hashes, and transaction status
 process_results.json and output_manifest.json entries for every opaque boundary
 ```
 

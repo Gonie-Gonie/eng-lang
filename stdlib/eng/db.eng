@@ -1,16 +1,19 @@
 # module: eng.db
-# status: planned
+# status: supported-manifest-artifact-seed; planned native sqlite
 # purpose: typed database side effects, starting with SQLite-style write/upsert workflows and transaction artifacts.
 #
 # Current implementation:
-#   no native DB module yet. Use explicit exported CSV or external process
-#   boundaries for database writes.
+#   no native DB module yet. Process expected outputs named like DB manifests
+#   are summarized in typed_payload.db_manifests[] with database target, table
+#   names, modes, key fields, schemas, row counts, transaction status, and
+#   manifest hash.
 #
 # Planned helper vocabulary:
 #   open sqlite
 #   write rows to table
-#   upsert by key
+#   append/upsert by key
 #   transaction report
+#   safe/repro profile DB policy
 #
 # Review contract:
 #   database target, table, schema, mode, key fields, row count, transaction

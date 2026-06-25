@@ -234,25 +234,25 @@ separate.
   effects.
 - Main status: `Supported` for those primitives plus promoted table
   diagnostics, promoted sample-table artifacts, promoted case manifest seeds,
-  and time-axis coverage artifacts; hybrid fixtures now emit
-  weather, case, model-card, prediction, and DB side-effect artifacts through
-  explicit process/write boundaries; `Planned` for native network, cache,
-  sampling generators, native case runner, SQLite/database, and model-card
-  modules.
+  DB manifest summaries in `typed_payload.db_manifests[]`, and time-axis
+  coverage artifacts; hybrid fixtures now emit weather, case, model-card, and
+  prediction artifacts through explicit process/write boundaries; `Planned` for
+  native network, cache, sampling generators, native case runner, SQLite writes,
+  and model-card modules.
 - User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the
   core, not core language identity.
 - Evidence: official side-effect examples, process artifacts, output manifests,
   `typed_payload.table_diagnostics[]`, `typed_payload.sample_tables[]`,
-  `typed_payload.case_manifests[]`, workflow examples under
-  `examples/workflows`, and `docs/current/workflow_modules.md`. The external
-  simulation hybrid now
-  records three case manifests, collected result rows, surrogate metrics,
-  predictions, and a DB write manifest as reviewable fixture artifacts.
+  `typed_payload.case_manifests[]`, `typed_payload.db_manifests[]`, workflow
+  examples under `examples/workflows`, and `docs/current/workflow_modules.md`.
+  The external simulation hybrid now records three case manifests, collected
+  result rows, surrogate metrics, predictions, and a DB write manifest summary
+  as reviewable fixture artifacts.
 - Not included: stable HTTP/cache API, table filter/join/fill transforms,
   native grid/random/LHS sample generation, native case runner, domain weather
-  adapters, EPW writer, EnergyPlus IDF parser, broad DB support, or ML
-  framework support.
+  adapters, EPW writer, EnergyPlus IDF parser, native SQLite write/upsert, broad
+  DB support, or ML framework support.
 - Next cleanup action: use the workflow skeletons to drive `eng.net`,
   `eng.cache`, `eng.sampling` generators, `eng.case`, `eng.db`, and
   `eng.model` slices with artifacts and diagnostics.

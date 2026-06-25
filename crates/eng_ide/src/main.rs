@@ -921,7 +921,11 @@ fn base_completion_items() -> Vec<CompletionView> {
             "run command \"tool\"",
             "eng.process command boundary",
         ),
-        ("eng.db", "eng.db", "planned module: database side effects"),
+        (
+            "eng.db",
+            "eng.db",
+            "DB manifest seed; native SQLite planned",
+        ),
         (
             "eng.model",
             "eng.model",

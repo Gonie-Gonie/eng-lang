@@ -11,6 +11,7 @@ use eng_compiler::{
     build_bytecode, check_file, check_source, parse_bytecode, review_json, ArgOverride,
     CheckOptions, CheckReport,
 };
+use serde_json::Value;
 
 mod runtime_data;
 pub mod solver;
@@ -449,7 +450,8 @@ pub fn run_source(
     runtime_data.apply_component_solutions(&mut report_spec);
     let report_spec_json = eng_report::report_spec_json(&report_spec);
     let report_spec_hash = hash_text(&report_spec_json);
-    let review_json = runtime_review_json(&review_json(&check_report), &runtime_data);
+    let review_json =
+        runtime_review_json(&review_json(&check_report), &runtime_data, &process_results);
     let report_html =
         eng_report::render_html_with_spec(&check_report, "plots/timeseries.svg", &report_spec);
     let result_json = result_json(
@@ -457,6 +459,7 @@ pub fn run_source(
         &check_report,
         &execution,
         &runtime_data,
+        &process_results,
         &ResultArtifactHashes {
             bytecode: &bytecode_hash,
             plot_spec: &plot_spec_hash,
@@ -1064,6 +1067,28 @@ struct ProcessExpectedOutputRecord {
     status: String,
 }
 
+#[derive(Clone, Debug)]
+struct DbManifestRecord {
+    binding: String,
+    manifest_path: String,
+    resolved_path: String,
+    hash: Option<String>,
+    database: Option<String>,
+    transaction_status: Option<String>,
+    schema_status: Option<String>,
+    tables: Vec<DbManifestTableRecord>,
+    status: String,
+}
+
+#[derive(Clone, Debug)]
+struct DbManifestTableRecord {
+    name: String,
+    mode: String,
+    key: Vec<String>,
+    schema: Vec<String>,
+    row_count: Option<u64>,
+}
+
 fn execute_process_runs(report: &CheckReport) -> Result<Vec<ProcessExecutionRecord>, RuntimeError> {
     let mut records = Vec::new();
     for process in &report.semantic_program.process_runs {
@@ -1138,6 +1163,98 @@ fn execute_process_runs(report: &CheckReport) -> Result<Vec<ProcessExecutionReco
         });
     }
     Ok(records)
+}
+
+fn db_manifest_records(records: &[ProcessExecutionRecord]) -> Vec<DbManifestRecord> {
+    records
+        .iter()
+        .flat_map(|record| {
+            record
+                .expected_outputs
+                .iter()
+                .filter(|output| is_db_manifest_output(output))
+                .map(|output| db_manifest_record(record, output))
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+fn is_db_manifest_output(output: &ProcessExpectedOutputRecord) -> bool {
+    let path = output.path.to_ascii_lowercase();
+    let file_name = output
+        .resolved_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    (path.contains("db") || path.contains("database") || file_name.contains("db"))
+        && (path.contains("manifest") || file_name.contains("manifest"))
+}
+
+fn db_manifest_record(
+    process: &ProcessExecutionRecord,
+    output: &ProcessExpectedOutputRecord,
+) -> DbManifestRecord {
+    let mut record = DbManifestRecord {
+        binding: process.binding.clone(),
+        manifest_path: output.path.clone(),
+        resolved_path: output.resolved_path.display().to_string(),
+        hash: output.hash.clone(),
+        database: None,
+        transaction_status: None,
+        schema_status: None,
+        tables: Vec::new(),
+        status: if output.exists {
+            "manifest_unread".to_owned()
+        } else {
+            "missing".to_owned()
+        },
+    };
+    if !output.exists {
+        return record;
+    }
+    let Ok(source) = fs::read_to_string(&output.resolved_path) else {
+        return record;
+    };
+    let Ok(value) = serde_json::from_str::<Value>(&source) else {
+        record.status = "manifest_parse_failed".to_owned();
+        return record;
+    };
+    record.database = json_field_string(&value, "database");
+    record.transaction_status = json_field_string(&value, "transaction_status");
+    record.schema_status = json_field_string(&value, "schema_status");
+    if let Some(tables) = value.get("tables").and_then(Value::as_array) {
+        record.tables = tables
+            .iter()
+            .map(|table| DbManifestTableRecord {
+                name: json_field_string(table, "name").unwrap_or_default(),
+                mode: json_field_string(table, "mode").unwrap_or_default(),
+                key: json_field_string_array(table, "key"),
+                schema: json_field_string_array(table, "schema"),
+                row_count: table.get("row_count").and_then(Value::as_u64),
+            })
+            .collect();
+    }
+    record.status = "manifest_loaded".to_owned();
+    record
+}
+
+fn json_field_string(value: &Value, key: &str) -> Option<String> {
+    value.get(key).and_then(Value::as_str).map(str::to_owned)
+}
+
+fn json_field_string_array(value: &Value, key: &str) -> Vec<String> {
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn process_results_json(
@@ -1881,8 +1998,13 @@ fn process_expected_output_artifacts(records: &[ProcessExecutionRecord]) -> Vec<
         .flat_map(|record| record.expected_outputs.iter())
         .filter_map(|expected| {
             let hash = expected.hash.as_ref()?;
+            let kind = if is_db_manifest_output(expected) {
+                "db_write_manifest"
+            } else {
+                "process_expected_output"
+            };
             Some(OutputArtifact {
-                kind: "process_expected_output".to_owned(),
+                kind: kind.to_owned(),
                 path: path_for_manifest(&expected.resolved_path),
                 hash: hash.clone(),
                 absolute_path: expected.resolved_path.clone(),
@@ -3072,6 +3194,7 @@ fn result_json(
     report: &CheckReport,
     execution: &VmExecution,
     runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
     hashes: &ResultArtifactHashes<'_>,
     profile_context: &ProfileContext<'_>,
 ) -> String {
@@ -3473,6 +3596,8 @@ fn result_json(
     let table_diagnostics = table_diagnostics_json(runtime_data);
     let sample_tables = sample_tables_json(runtime_data);
     let case_manifests = case_manifests_json(runtime_data);
+    let db_manifest_records = db_manifest_records(process_results);
+    let db_manifests = db_manifests_json(&db_manifest_records);
 
     let mut timeseries_uncertainty_calculations = String::new();
     for (index, calculation) in runtime_data
@@ -4084,7 +4209,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -4111,6 +4236,7 @@ fn result_json(
         table_diagnostics,
         sample_tables,
         case_manifests,
+        db_manifests,
         timeseries_uncertainty_calculations,
         metrics,
         validations,
@@ -4504,7 +4630,11 @@ fn system_step_diagnostic_review_summary(
     (diagnostics.len(), accepted, rejected, max_error_norm)
 }
 
-fn runtime_review_json(base_review: &str, runtime_data: &RuntimeData) -> String {
+fn runtime_review_json(
+    base_review: &str,
+    runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
+) -> String {
     let trimmed = base_review.trim_end();
     let Some(prefix) = trimmed.strip_suffix('}') else {
         return base_review.to_owned();
@@ -4692,6 +4822,9 @@ fn runtime_review_json(base_review: &str, runtime_data: &RuntimeData) -> String 
         json.push_str("\n      ]\n");
         json.push_str("    }");
     }
+    let db_manifest_records = db_manifest_records(process_results);
+    json.push_str("\n  ],\n  \"db_manifests\": [\n");
+    json.push_str(&db_manifests_json(&db_manifest_records));
     json.push_str("\n  ]\n}\n");
     json
 }
@@ -5522,6 +5655,77 @@ fn case_manifests_json(runtime_data: &RuntimeData) -> String {
         json.push_str(&format!(
             "        \"status\": \"{}\"\n",
             json_escape(&manifest.status)
+        ));
+        json.push_str("      }");
+    }
+    json
+}
+
+fn db_manifests_json(records: &[DbManifestRecord]) -> String {
+    let mut json = String::new();
+    for (index, record) in records.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&record.binding)
+        ));
+        json.push_str(&format!(
+            "        \"manifest_path\": \"{}\",\n",
+            json_escape(&record.manifest_path)
+        ));
+        json.push_str(&format!(
+            "        \"resolved_path\": \"{}\",\n",
+            json_escape(&record.resolved_path)
+        ));
+        push_optional_json_string(&mut json, "hash", record.hash.as_deref(), 8);
+        push_optional_json_string(&mut json, "database", record.database.as_deref(), 8);
+        push_optional_json_string(
+            &mut json,
+            "transaction_status",
+            record.transaction_status.as_deref(),
+            8,
+        );
+        push_optional_json_string(
+            &mut json,
+            "schema_status",
+            record.schema_status.as_deref(),
+            8,
+        );
+        json.push_str("        \"tables\": [\n");
+        for (table_index, table) in record.tables.iter().enumerate() {
+            if table_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"name\": \"{}\",\n",
+                json_escape(&table.name)
+            ));
+            json.push_str(&format!(
+                "            \"mode\": \"{}\",\n",
+                json_escape(&table.mode)
+            ));
+            json.push_str("            \"key\": [");
+            push_json_string_array(&mut json, &table.key);
+            json.push_str("],\n");
+            json.push_str("            \"schema\": [");
+            push_json_string_array(&mut json, &table.schema);
+            json.push_str("],\n");
+            match table.row_count {
+                Some(row_count) => {
+                    json.push_str(&format!("            \"row_count\": {}\n", row_count))
+                }
+                None => json.push_str("            \"row_count\": null\n"),
+            }
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
+        json.push_str(&format!(
+            "        \"status\": \"{}\"\n",
+            json_escape(&record.status)
         ));
         json.push_str("      }");
     }
@@ -6597,6 +6801,78 @@ mod tests {
         assert!(output
             .output_manifest_json
             .contains("\"kind\": \"process_expected_output\""));
+    }
+
+    #[test]
+    fn run_file_materializes_db_manifest_expected_output() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-db-manifest");
+        let build_root = repo_root.join("build").join("runtime-db-manifest-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("outputs")).expect("outputs dir");
+        fs::write(
+            source_dir.join("outputs").join("db_write_manifest.json"),
+            concat!(
+                "{\n",
+                "  \"database\": \"outputs/results.sqlite\",\n",
+                "  \"transaction_status\": \"committed-fixture\",\n",
+                "  \"schema_status\": \"ok\",\n",
+                "  \"tables\": [\n",
+                "    {\n",
+                "      \"name\": \"simulation_results\",\n",
+                "      \"mode\": \"upsert\",\n",
+                "      \"key\": [\"case_id\"],\n",
+                "      \"schema\": [\"case_id\", \"annual_electricity\"],\n",
+                "      \"row_count\": 2\n",
+                "    }\n",
+                "  ]\n",
+                "}\n",
+            ),
+        )
+        .expect("db manifest");
+        let source_path = source_dir.join("main.eng");
+        let source = if cfg!(windows) {
+            "db_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo db\"]\n    expected_outputs = [\"outputs/db_write_manifest.json\"]\n}\n"
+        } else {
+            "db_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"printf db\"]\n    expected_outputs = [\"outputs/db_write_manifest.json\"]\n}\n"
+        };
+        fs::write(&source_path, source).expect("write source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("db manifest process run");
+
+        assert!(output.result_json.contains("\"db_manifests\""));
+        assert!(output.result_json.contains("\"binding\": \"db_result\""));
+        assert!(output
+            .result_json
+            .contains("\"database\": \"outputs/results.sqlite\""));
+        assert!(output
+            .result_json
+            .contains("\"transaction_status\": \"committed-fixture\""));
+        assert!(output
+            .result_json
+            .contains("\"name\": \"simulation_results\""));
+        assert!(output.result_json.contains("\"mode\": \"upsert\""));
+        assert!(output.result_json.contains("\"key\": [\"case_id\"]"));
+        assert!(output.result_json.contains("\"row_count\": 2"));
+        assert!(output
+            .result_json
+            .contains("\"status\": \"manifest_loaded\""));
+        assert!(output.review_json.contains("\"db_manifests\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"db_write_manifest\""));
     }
 
     #[test]

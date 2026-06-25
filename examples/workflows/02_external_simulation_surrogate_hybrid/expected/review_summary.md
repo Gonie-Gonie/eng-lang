@@ -11,6 +11,6 @@ expected output contracts for every external process boundary
 three generated case manifests
 one generated workflow summary CSV
 generated model-card and metrics artifacts
-one generated database side-effect manifest
+one generated database side-effect manifest summarized in typed_payload.db_manifests[]
 report entries for row counts, scalar metrics, predictions, and the DB target
 ```

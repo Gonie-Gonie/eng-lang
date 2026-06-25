@@ -47,7 +47,7 @@
     },
     "typed_payload": {
       "type": "object",
-      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "sample_tables", "case_manifests", "metrics", "validations", "time_axes", "time_alignments", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
+      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "sample_tables", "case_manifests", "db_manifests", "metrics", "validations", "time_axes", "time_alignments", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
       "properties": {
         "numeric_values": {
           "type": "array",
@@ -64,6 +64,10 @@
         "case_manifests": {
           "type": "array",
           "items": { "$ref": "#/$defs/caseManifest" }
+        },
+        "db_manifests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/dbManifest" }
         },
         "metrics": {
           "type": "array",
@@ -303,6 +307,51 @@
           "items": { "type": "string" }
         },
         "status": { "type": "string" }
+      }
+    },
+    "dbManifest": {
+      "type": "object",
+      "required": [
+        "binding",
+        "manifest_path",
+        "resolved_path",
+        "hash",
+        "database",
+        "transaction_status",
+        "schema_status",
+        "tables",
+        "status"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "manifest_path": { "type": "string" },
+        "resolved_path": { "type": "string" },
+        "hash": { "type": ["string", "null"] },
+        "database": { "type": ["string", "null"] },
+        "transaction_status": { "type": ["string", "null"] },
+        "schema_status": { "type": ["string", "null"] },
+        "tables": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/dbManifestTable" }
+        },
+        "status": { "type": "string" }
+      }
+    },
+    "dbManifestTable": {
+      "type": "object",
+      "required": ["name", "mode", "key", "schema", "row_count"],
+      "properties": {
+        "name": { "type": "string" },
+        "mode": { "type": "string" },
+        "key": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "schema": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "row_count": { "type": ["integer", "null"], "minimum": 0 }
       }
     },
     "tableDiagnostic": {
