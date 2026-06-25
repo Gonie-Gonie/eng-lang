@@ -37,14 +37,13 @@ schema PredictionResult {
 
 args {
     samples: CsvFile = file("samples/design_samples.csv")
-    results: CsvFile = file("samples/summary_results.csv")
-    predictions: CsvFile = file("samples/predictions.csv")
+    results: CsvFile = file("outputs/summary_results.csv")
+    predictions: CsvFile = file("outputs/predictions.csv")
     database_target: String = "outputs/surrogate_results.sqlite"
     output: DirectoryPath = dir("outputs")
 }
 
 designs = promote csv args.samples as DesignSample
-predictions = promote csv args.predictions as PredictionResult
 
 patch_result = run command "python"
 with {
@@ -132,14 +131,20 @@ with {
 
 prediction_result = run command "python"
 with {
-    args = ["tools/predict_surrogate.py"]
-    expected_outputs = ["outputs/predictions.csv"]
+    args = ["tools/predict_surrogate.py", "--samples", "samples/design_samples.csv", "--model", "outputs/surrogate.json", "--out", "outputs/predictions.csv", "--manifest", "outputs/prediction_manifest.json"]
+    tool_version = "fake-surrogate-predictor 1.0"
+    expected_outputs = ["outputs/predictions.csv", "outputs/prediction_manifest.json"]
+    artifact_kind = "prediction_result"
 }
+
+predictions = promote csv args.predictions as PredictionResult
 
 db_result = run command "python"
 with {
-    args = ["tools/write_db_manifest.py"]
+    args = ["tools/write_db_manifest.py", "--database", "outputs/surrogate_results.sqlite", "--results", "outputs/summary_results.csv", "--predictions", "outputs/predictions.csv", "--out", "outputs/db_write_manifest.json"]
+    tool_version = "fake-db-writer 1.0"
     expected_outputs = ["outputs/db_write_manifest.json"]
+    artifact_kind = "db_write_manifest"
 }
 
 annual_electricity = 12800 kWh

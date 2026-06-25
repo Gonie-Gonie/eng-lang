@@ -19,6 +19,8 @@
 #   training data hash, model artifact hash, and residual diagnostics.
 #   External trainer workflows should emit a self-contained model-card artifact
 #   instead of requiring reviewers to infer model intent from raw model files.
+#   Prediction workflows should emit a manifest that ties prediction columns to
+#   quantities, units, model hashes, sample hashes, case IDs, and row counts.
 #
 # Non-goal:
 #   this module is not a broad ML framework claim.

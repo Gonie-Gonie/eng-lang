@@ -6467,6 +6467,14 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/workflows/02_external_simulation_surrogate_hybrid/outputs/model_card.json",
             )
             .unwrap_or_default();
+            let prediction_manifest = std::fs::read_to_string(
+                "examples/workflows/02_external_simulation_surrogate_hybrid/outputs/prediction_manifest.json",
+            )
+            .unwrap_or_default();
+            let db_manifest = std::fs::read_to_string(
+                "examples/workflows/02_external_simulation_surrogate_hybrid/outputs/db_write_manifest.json",
+            )
+            .unwrap_or_default();
             if !output.review_json.contains("PredictionResult")
                 || !output.review_json.contains("case_manifest_result_003")
                 || !output.result_json.contains("\"sample_tables\"")
@@ -6476,6 +6484,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"schema_name\": \"SimulationResult\"")
+                || !output
+                    .result_json
+                    .contains("\"schema_name\": \"PredictionResult\"")
                 || !output.result_json.contains("\"name\": \"unmet_hours\"")
                 || !output.result_json.contains("\"display_unit\": \"h\"")
                 || !output
@@ -6580,7 +6591,22 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"path\": \"outputs/model_card.json\"")
                 || !output
                     .process_results_json
+                    .contains("\"binding\": \"prediction_result\"")
+                || !output
+                    .process_results_json
+                    .contains("\"tool_version\": \"fake-surrogate-predictor 1.0\"")
+                || !output
+                    .process_results_json
+                    .contains("\"kind\": \"prediction_result\"")
+                || !output
+                    .process_results_json
+                    .contains("\"path\": \"outputs/prediction_manifest.json\"")
+                || !output
+                    .process_results_json
                     .contains("\"binding\": \"db_result\"")
+                || !output
+                    .process_results_json
+                    .contains("\"tool_version\": \"fake-db-writer 1.0\"")
                 || !output
                     .output_manifest_json
                     .contains("outputs/case_001/input.txt")
@@ -6608,6 +6634,12 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .output_manifest_json
                     .contains("outputs/predictions.csv")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/prediction_manifest.json")
+                || !output
+                    .output_manifest_json
+                    .contains("\"kind\": \"prediction_result\"")
                 || !output
                     .output_manifest_json
                     .contains("outputs/db_write_manifest.json")
@@ -6642,6 +6674,21 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .output_manifest_json
                     .contains("\"kind\": \"report_html\"")
                 || !output.output_manifest_json.contains("\"db_writes\"")
+                || !output.result_json.contains("\"db_manifests\"")
+                || !output
+                    .result_json
+                    .contains("\"name\": \"simulation_results\"")
+                || !output.result_json.contains("\"name\": \"predictions\"")
+                || !prediction_manifest.contains("\"format\": \"prediction-manifest-v1\"")
+                || !prediction_manifest.contains("\"row_count\": 3")
+                || !prediction_manifest.contains("\"predicted_annual_electricity\"")
+                || !prediction_manifest.contains("\"quantity\": \"Energy\"")
+                || !prediction_manifest.contains("\"unit\": \"kWh\"")
+                || !prediction_manifest.contains("\"model_file\"")
+                || !db_manifest.contains("\"transaction_status\": \"committed-fixture\"")
+                || !db_manifest.contains("\"schema_status\": \"ok\"")
+                || !db_manifest.contains("\"schema_mismatch_diagnostics\": []")
+                || !db_manifest.contains("\"tables_written\"")
                 || !output.output_manifest_json.contains("\"model_artifacts\"")
                 || !output
                     .output_manifest_json

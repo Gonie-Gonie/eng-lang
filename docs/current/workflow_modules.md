@@ -137,8 +137,8 @@ per-case patched input, simulator output, simulator log, and case_manifest.json 
 collected summary_results.csv plus result_collection_manifest.json with case IDs, missing/failed case lists, and summary metrics
 surrogate.json, model_metrics.json, and model_card.json with feature, target, split, residual, training-hash, and model-hash metadata
 internal eng.ml artifacts promoted to typed_payload.model_cards[] with model kind, features, target quantity/unit, train/test counts, metrics, residual point counts, training data hashes, and model artifact hashes
-predictions.csv
-db_write_manifest.json, promoted to typed_payload.db_manifests[] with table names, modes, keys, schemas, row counts, hashes, and transaction status
+predictions.csv plus prediction_manifest.json with output quantity/unit, model hash, sample hash, case IDs, and row count
+db_write_manifest.json, promoted to typed_payload.db_manifests[] with table names, modes, keys, schemas, schema diagnostics, row counts, hashes, and transaction status
 process_results.json and output_manifest.json entries for every opaque boundary
 ```
 

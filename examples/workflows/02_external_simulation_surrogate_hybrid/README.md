@@ -14,11 +14,11 @@ The current `main.eng` stays within supported EngLang primitives:
 typed sample table promotion with PeopleDensity and power-density columns
 schema constraint policy results for sample and prediction tables
 typed result table promotion
-typed prediction table promotion
+typed prediction table promotion from predictor output plus prediction manifest
 explicit external process boundaries
 generated model artifact, metrics artifact, and self-contained model card
 generated case manifests with case directories, process statuses, result files, metrics, and failure reasons
-generated database side-effect manifests
+generated database side-effect manifest with schema diagnostics and transaction status
 scalar report summary
 ```
 
@@ -41,7 +41,7 @@ run external simulator per case with explicit input, result, simulator log, and 
 collect typed simulation results into a CSV and result collection manifest
 promote checked result rows with the SimulationResult schema
 train surrogate through an explicit external trainer with model artifact, metrics, and model-card outputs
-predict new samples through an explicit process boundary
-write CSV or database side-effect manifests
+predict new samples through an explicit process boundary with CSV and prediction manifest outputs
+write CSV or database side-effect manifests with table, schema, mode, key, row-count, and transaction records
 report sample summary, process summary, result metrics, predictions, and model card
 ```

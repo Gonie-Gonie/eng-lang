@@ -14,6 +14,7 @@ three generated case manifests with case directories, process statuses, result f
 case input, case result, and case manifest artifact kinds in output_manifest.json
 one generated workflow summary CSV
 generated surrogate model, metrics, and self-contained model-card artifacts with feature, target, split, residual, training-hash, and model-hash metadata
-one generated database side-effect manifest summarized in typed_payload.db_manifests[]
+generated prediction CSV plus prediction manifest with output quantity/unit, model hash, sample hash, case IDs, and row count
+one generated database side-effect manifest summarized in typed_payload.db_manifests[] with schema diagnostics and transaction status
 report entries for row counts, scalar metrics, predictions, and the DB target
 ```

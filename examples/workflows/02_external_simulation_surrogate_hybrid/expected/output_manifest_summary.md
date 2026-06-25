@@ -20,6 +20,7 @@ outputs/result_collection_manifest.json
 outputs/surrogate.json
 outputs/model_metrics.json
 outputs/predictions.csv
+outputs/prediction_manifest.json
 outputs/db_write_manifest.json
 outputs/workflow_summary.csv
 outputs/model_card.json
@@ -29,8 +30,9 @@ The per-case artifacts should be classified as `case_input`, `case_result`, and
 `case_manifest` generated files. The surrogate, metrics, and model-card files
 should be classified as `model_artifact` generated files. The patched case
 inputs, simulator logs, collected summary CSV, result collection manifest, and
-model artifacts should have expected output records with hashes in
-`process_results.json` and output-manifest artifact records.
+prediction artifacts, DB write manifest, and model artifacts should have
+expected output records with hashes in `process_results.json` and
+output-manifest artifact records.
 
 The manifest should also include normal EngLang runtime artifacts when the
 example is run with `--save-artifacts`.
