@@ -6478,6 +6478,24 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .report_spec_json
                     .contains("\"policy\": \"lighting_power_density >= 0 W/m2\"")
                 || !output
+                    .result_json
+                    .contains("\"case_dir\": \"outputs/case_001\"")
+                || !output
+                    .result_json
+                    .contains("\"generated_input_file\": \"outputs/case_001/input.txt\"")
+                || !output.result_json.contains("\"process_statuses\"")
+                || !output
+                    .result_json
+                    .contains("\"command\": \"python tools/run_external_sim.py\"")
+                || !output.result_json.contains("\"result_files\"")
+                || !output
+                    .result_json
+                    .contains("\"name\": \"annual_electricity_kwh\"")
+                || !output.result_json.contains("\"failure_reason\": null")
+                || !output
+                    .result_json
+                    .contains("\"status\": \"case_materialized\"")
+                || !output
                     .process_results_json
                     .contains("\"format\": \"eng-process-results-v1\"")
                 || !output
@@ -6504,6 +6522,15 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .output_manifest_json
                     .contains("outputs/model_metrics.json")
+                || !output
+                    .output_manifest_json
+                    .contains("\"kind\": \"case_input\"")
+                || !output
+                    .output_manifest_json
+                    .contains("\"kind\": \"case_result\"")
+                || !output
+                    .output_manifest_json
+                    .contains("\"kind\": \"case_manifest\"")
                 || !output
                     .output_manifest_json
                     .contains("\"kind\": \"report_html\"")

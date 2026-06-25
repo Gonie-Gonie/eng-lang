@@ -9,7 +9,8 @@ schema constraint policy results for sample and prediction ranges
 explicit process boundaries for patching, simulation, collection, case manifests,
 training, prediction, and DB write manifests
 expected output contracts for every external process boundary
-three generated case manifests
+three generated case manifests with case directories, process statuses, result files, metrics, and failure reasons
+case input, case result, and case manifest artifact kinds in output_manifest.json
 one generated workflow summary CSV
 generated model-card and metrics artifacts
 one generated database side-effect manifest summarized in typed_payload.db_manifests[]

@@ -17,7 +17,8 @@ typed result table promotion
 typed prediction table promotion
 explicit external process boundaries
 generated model-card artifact
-generated case and database side-effect manifests
+generated case manifests with case directories, process statuses, result files, metrics, and failure reasons
+generated database side-effect manifests
 scalar report summary
 ```
 

@@ -130,9 +130,9 @@ output manifest and report/review entries
 typed design, result, and prediction schemas, including PeopleDensity sample parameters
 executed schema constraint policy_results for sample and prediction tables
 promoted sample table artifact with case IDs, parameter ranges, duplicate checks, and row-hash previews
-promoted case manifest seeds with sample row hashes and duplicate/missing case status
+promoted case manifest seeds enriched with case directories, process statuses, generated inputs, result files, metrics, and failure reasons
 three explicit fixture cases
-per-case patched input, simulator output, and case_manifest.json
+per-case patched input, simulator output, and case_manifest.json classified as case artifacts
 collected summary_results.csv
 surrogate.json and model_metrics.json with hashes and residual metadata
 internal eng.ml artifacts promoted to typed_payload.model_cards[] with model kind, features, target quantity/unit, train/test counts, metrics, residual point counts, training data hashes, and model artifact hashes
@@ -193,8 +193,9 @@ should also fit CFD, FEM, Modelica, laboratory equipment, and legacy solvers.
 ## Case Manifest Target
 
 The current case artifact seed records `case_id`, source row, sample row
-number, sample row hash, and duplicate/missing case status. The planned native
-`eng.case` runner should add:
+number, sample row hash, duplicate/missing case status, and process-enriched
+case materialization fields when matching expected outputs exist. The planned
+native `eng.case` runner should make this explicit syntax:
 
 ```text
 case_id

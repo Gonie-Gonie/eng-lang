@@ -1029,9 +1029,27 @@ pub struct RuntimeCaseManifest {
     pub source_row: usize,
     pub sample_row_hash: String,
     pub case_dir: Option<String>,
+    pub generated_input_file: Option<String>,
     pub process_bindings: Vec<String>,
+    pub process_statuses: Vec<RuntimeCaseProcessStatus>,
     pub output_artifacts: Vec<String>,
+    pub result_files: Vec<String>,
+    pub metrics: Vec<RuntimeCaseMetric>,
+    pub failure_reason: Option<String>,
     pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeCaseProcessStatus {
+    pub name: String,
+    pub command: String,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeCaseMetric {
+    pub name: String,
+    pub value: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -3917,8 +3935,13 @@ fn materialize_case_manifests(tables: &[RuntimeTable]) -> Vec<RuntimeCaseManifes
                 source_row: row_index + 2,
                 sample_row_hash: sample_row_hash(table, row_index),
                 case_dir: None,
+                generated_input_file: None,
                 process_bindings: Vec::new(),
+                process_statuses: Vec::new(),
                 output_artifacts: Vec::new(),
+                result_files: Vec::new(),
+                metrics: Vec::new(),
+                failure_reason: None,
                 status: status.to_owned(),
             });
         }
@@ -20925,8 +20948,13 @@ with {{
         assert_eq!(manifests[0].source_row, 2);
         assert_eq!(manifests[0].sample_row_hash.len(), 16);
         assert_eq!(manifests[0].case_dir, None);
+        assert_eq!(manifests[0].generated_input_file, None);
         assert!(manifests[0].process_bindings.is_empty());
+        assert!(manifests[0].process_statuses.is_empty());
         assert!(manifests[0].output_artifacts.is_empty());
+        assert!(manifests[0].result_files.is_empty());
+        assert!(manifests[0].metrics.is_empty());
+        assert_eq!(manifests[0].failure_reason, None);
         assert_eq!(manifests[0].status, "sample_row_manifest_seed");
         assert_eq!(manifests[1].status, "duplicate_case_id");
         assert_eq!(manifests[2].status, "duplicate_case_id");

@@ -21,5 +21,8 @@ outputs/workflow_summary.csv
 outputs/model_card.json
 ```
 
+The per-case artifacts should be classified as `case_input`, `case_result`, and
+`case_manifest` generated files.
+
 The manifest should also include normal EngLang runtime artifacts when the
 example is run with `--save-artifacts`.

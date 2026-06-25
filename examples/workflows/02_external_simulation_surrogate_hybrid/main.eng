@@ -50,36 +50,42 @@ patch_result = run command "python"
 with {
     args = ["tools/patch_input.py", "--case", "case_001"]
     expected_outputs = ["outputs/case_001/input.txt"]
+    artifact_kind = "case_input"
 }
 
 patch_result_002 = run command "python"
 with {
     args = ["tools/patch_input.py", "--case", "case_002"]
     expected_outputs = ["outputs/case_002/input.txt"]
+    artifact_kind = "case_input"
 }
 
 patch_result_003 = run command "python"
 with {
     args = ["tools/patch_input.py", "--case", "case_003"]
     expected_outputs = ["outputs/case_003/input.txt"]
+    artifact_kind = "case_input"
 }
 
 simulation_result = run command "python"
 with {
     args = ["tools/run_external_sim.py", "--case", "case_001"]
     expected_outputs = ["outputs/case_001/result.json"]
+    artifact_kind = "case_result"
 }
 
 simulation_result_002 = run command "python"
 with {
     args = ["tools/run_external_sim.py", "--case", "case_002"]
     expected_outputs = ["outputs/case_002/result.json"]
+    artifact_kind = "case_result"
 }
 
 simulation_result_003 = run command "python"
 with {
     args = ["tools/run_external_sim.py", "--case", "case_003"]
     expected_outputs = ["outputs/case_003/result.json"]
+    artifact_kind = "case_result"
 }
 
 collection_result = run command "python"
@@ -92,18 +98,21 @@ case_manifest_result = run command "python"
 with {
     args = ["tools/write_case_manifest.py", "--case", "case_001"]
     expected_outputs = ["outputs/case_001/case_manifest.json"]
+    artifact_kind = "case_manifest"
 }
 
 case_manifest_result_002 = run command "python"
 with {
     args = ["tools/write_case_manifest.py", "--case", "case_002"]
     expected_outputs = ["outputs/case_002/case_manifest.json"]
+    artifact_kind = "case_manifest"
 }
 
 case_manifest_result_003 = run command "python"
 with {
     args = ["tools/write_case_manifest.py", "--case", "case_003"]
     expected_outputs = ["outputs/case_003/case_manifest.json"]
+    artifact_kind = "case_manifest"
 }
 
 trainer_result = run command "python"

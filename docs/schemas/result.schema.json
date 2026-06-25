@@ -306,8 +306,13 @@
         "source_row",
         "sample_row_hash",
         "case_dir",
+        "generated_input_file",
         "process_bindings",
+        "process_statuses",
         "output_artifacts",
+        "result_files",
+        "metrics",
+        "failure_reason",
         "status"
       ],
       "properties": {
@@ -320,15 +325,46 @@
         "source_row": { "type": "integer", "minimum": 1 },
         "sample_row_hash": { "type": "string" },
         "case_dir": { "type": ["string", "null"] },
+        "generated_input_file": { "type": ["string", "null"] },
         "process_bindings": {
           "type": "array",
           "items": { "type": "string" }
+        },
+        "process_statuses": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/caseProcessStatus" }
         },
         "output_artifacts": {
           "type": "array",
           "items": { "type": "string" }
         },
+        "result_files": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "metrics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/caseMetric" }
+        },
+        "failure_reason": { "type": ["string", "null"] },
         "status": { "type": "string" }
+      }
+    },
+    "caseProcessStatus": {
+      "type": "object",
+      "required": ["name", "command", "status"],
+      "properties": {
+        "name": { "type": "string" },
+        "command": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    },
+    "caseMetric": {
+      "type": "object",
+      "required": ["name", "value"],
+      "properties": {
+        "name": { "type": "string" },
+        "value": { "type": "number" }
       }
     },
     "dbManifest": {
