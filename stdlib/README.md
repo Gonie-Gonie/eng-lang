@@ -26,7 +26,8 @@ is still future work.
 | `eng.fs` | Explicit generated-output copy/move/delete mutations. |
 | `eng.process` | Explicit external process boundary vocabulary. |
 | `eng.artifact` | Generated artifact kinds, hashes, manifests, and validation records. |
-| `eng.timeseries` | Coverage, gap, and fill helpers above core TimeSeries semantics. |
+| `eng.table` | Promoted table diagnostics for schema rows, columns, and parse/conversion evidence. |
+| `eng.timeseries` | Coverage metadata, statistics, and integration above core TimeSeries semantics. |
 | `eng.review` | Review IR, risk/fallback, and semantic diff vocabulary. |
 
 ## Planned And Internal Boundaries
@@ -42,7 +43,7 @@ APIs unless a status document says so.
 | `eng.config` | Planned | Typed JSON/TOML configuration promotion and validation. |
 | `eng.net` | Planned | HTTP/download boundary with cache and hash policy. |
 | `eng.cache` | Planned | Reproducible cache keys and hit/miss artifacts. |
-| `eng.table` | Planned | Table filters, joins, row diagnostics, and schema helpers. |
+| `eng.table` | Planned APIs | Table filters, joins, derived columns, and schema-aware transforms. |
 | `eng.sampling` | Planned | Deterministic sample tables and design sweep helpers. |
 | `eng.case` | Planned | Case manifests for sample-to-run workflows. |
 | `eng.db` | Planned | SQLite/database side-effect helpers with transaction artifacts. |

@@ -3443,6 +3443,8 @@ fn result_json(
         integrations.push_str("      }");
     }
 
+    let table_diagnostics = table_diagnostics_json(runtime_data);
+
     let mut timeseries_uncertainty_calculations = String::new();
     for (index, calculation) in runtime_data
         .timeseries_uncertainty_calculations
@@ -4053,7 +4055,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -4077,6 +4079,7 @@ fn result_json(
         numeric_values,
         statistics,
         integrations,
+        table_diagnostics,
         timeseries_uncertainty_calculations,
         metrics,
         validations,
@@ -5356,6 +5359,130 @@ fn role_count(system: &eng_compiler::SystemInfo, role: &str) -> usize {
         .count()
 }
 
+fn table_diagnostics_json(runtime_data: &RuntimeData) -> String {
+    let mut json = String::new();
+    for (index, diagnostic) in runtime_data.table_diagnostics.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&diagnostic.binding)
+        ));
+        json.push_str(&format!(
+            "        \"schema_name\": \"{}\",\n",
+            json_escape(&diagnostic.schema_name)
+        ));
+        json.push_str(&format!(
+            "        \"source\": \"{}\",\n",
+            json_escape(&diagnostic.source)
+        ));
+        push_optional_json_string(
+            &mut json,
+            "source_hash",
+            diagnostic.source_hash.as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"row_count\": {},\n",
+            diagnostic.row_count
+        ));
+        json.push_str(&format!(
+            "        \"column_count\": {},\n",
+            diagnostic.column_count
+        ));
+        json.push_str(&format!(
+            "        \"missing_cell_count\": {},\n",
+            diagnostic.missing_cell_count
+        ));
+        json.push_str(&format!(
+            "        \"parse_failure_count\": {},\n",
+            diagnostic.parse_failure_count
+        ));
+        json.push_str(&format!(
+            "        \"conversion_failure_count\": {},\n",
+            diagnostic.conversion_failure_count
+        ));
+        json.push_str("        \"columns\": [\n");
+        for (column_index, column) in diagnostic.columns.iter().enumerate() {
+            if column_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"name\": \"{}\",\n",
+                json_escape(&column.name)
+            ));
+            json.push_str(&format!(
+                "            \"type\": \"{}\",\n",
+                json_escape(&column.type_name)
+            ));
+            push_optional_json_string(&mut json, "unit", column.unit.as_deref(), 12);
+            push_optional_json_string(
+                &mut json,
+                "canonical_unit",
+                column.canonical_unit.as_deref(),
+                12,
+            );
+            json.push_str(&format!("            \"is_index\": {},\n", column.is_index));
+            json.push_str(&format!("            \"len\": {},\n", column.len));
+            json.push_str(&format!(
+                "            \"missing_count\": {},\n",
+                column.missing_count
+            ));
+            json.push_str(&format!(
+                "            \"conversion_failure_count\": {},\n",
+                column.conversion_failure_count
+            ));
+            json.push_str(&format!(
+                "            \"status\": \"{}\"\n",
+                json_escape(&column.status)
+            ));
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
+        json.push_str("        \"time_axis\": ");
+        if let Some(axis) = &diagnostic.time_axis {
+            json.push_str("{\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&axis.name)
+            ));
+            json.push_str(&format!(
+                "          \"source_column\": \"{}\",\n",
+                json_escape(&axis.source_column)
+            ));
+            json.push_str(&format!(
+                "          \"unit\": \"{}\",\n",
+                json_escape(&axis.unit)
+            ));
+            push_optional_json_number(&mut json, "start", axis.start, 10);
+            push_optional_json_number(&mut json, "end", axis.end, 10);
+            json.push_str(&format!("          \"count\": {},\n", axis.count));
+            push_optional_json_number(&mut json, "nominal_step", axis.nominal_step, 10);
+            json.push_str(&format!("          \"irregular\": {},\n", axis.irregular));
+            json.push_str(&format!(
+                "          \"missing_count\": {},\n",
+                axis.missing_count
+            ));
+            json.push_str(&format!(
+                "          \"coverage_status\": \"{}\"\n",
+                json_escape(&axis.coverage_status)
+            ));
+            json.push_str("        },\n");
+        } else {
+            json.push_str("null,\n");
+        }
+        json.push_str(&format!(
+            "        \"status\": \"{}\"\n",
+            json_escape(&diagnostic.status)
+        ));
+        json.push_str("      }");
+    }
+    json
+}
+
 fn push_runtime_columns(json: &mut String, table: &runtime_data::RuntimeTable) {
     for (index, column) in table.columns.iter().enumerate() {
         if index > 0 {
@@ -5846,6 +5973,63 @@ mod tests {
             .result_json
             .contains("\"uncertainty_binding\": \"Q_meas\""));
         assert!(output.result_json.contains("\"stddev\": 1"));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_source_materializes_table_diagnostics() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-table-diagnostics");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-table-diagnostics-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("sensor.csv"),
+            "time,T_zone\n2026-01-01T00:00:00Z,21\n2026-01-01T00:05:00Z,\n2026-01-01T00:20:00Z,23\n",
+        )
+        .expect("sensor csv");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output = run_source(
+            &virtual_path,
+            concat!(
+                "schema SensorData {\n",
+                "    time: DateTime index\n",
+                "    T_zone: AbsoluteTemperature [degC]\n",
+                "    missing {\n",
+                "        T_zone: interpolate max_gap=20 min\n",
+                "    }\n",
+                "}\n\n",
+                "args {\n",
+                "    input: CsvFile = file(\"data/sensor.csv\")\n",
+                "}\n\n",
+                "sensor = promote csv args.input as SensorData\n",
+                "print \"rows={sensor.rows}\"\n",
+            ),
+            &build_root,
+            &RunOptions::default(),
+        )
+        .expect("run");
+
+        assert!(output.result_json.contains("\"table_diagnostics\""));
+        assert!(output.result_json.contains("\"binding\": \"sensor\""));
+        assert!(output
+            .result_json
+            .contains("\"schema_name\": \"SensorData\""));
+        assert!(output.result_json.contains("\"row_count\": 3"));
+        assert!(output.result_json.contains("\"column_count\": 2"));
+        assert!(output
+            .result_json
+            .contains("\"coverage_status\": \"missing_or_irregular\""));
+        assert!(output
+            .result_json
+            .contains("\"status\": \"time_axis_irregular\""));
         assert!(!virtual_path.exists());
     }
 

@@ -47,8 +47,9 @@ workflow, and covered by the breaking-change policy.
 - Built-in quantity/unit registry with `degC` as the canonical ASCII
   temperature spelling.
 - Typed CSV promotion for the official schema/data boundary.
-- DateTime-indexed table metadata, row-level CSV runtime pages, and source hash
-  provenance for promoted data.
+- DateTime-indexed table metadata, row-level CSV runtime pages, source hash
+  provenance, and `typed_payload.table_diagnostics[]` summaries for promoted
+  data.
 
 ### TimeSeries, Plot, Report, And Review
 

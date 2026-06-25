@@ -56,6 +56,7 @@ use crate::solver::{
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RuntimeData {
     pub tables: Vec<RuntimeTable>,
+    pub table_diagnostics: Vec<RuntimeTableDiagnostic>,
     pub time_axes: Vec<RuntimeTimeAxis>,
     pub time_series: Vec<RuntimeTimeSeries>,
     pub numeric_values: Vec<RuntimeNumericValue>,
@@ -908,6 +909,49 @@ pub struct RuntimeTable {
     pub row_count: usize,
     pub columns: Vec<RuntimeColumn>,
     pub parse_failures: Vec<RuntimeParseFailure>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTableDiagnostic {
+    pub binding: String,
+    pub schema_name: String,
+    pub source: String,
+    pub source_hash: Option<String>,
+    pub row_count: usize,
+    pub column_count: usize,
+    pub missing_cell_count: usize,
+    pub parse_failure_count: usize,
+    pub conversion_failure_count: usize,
+    pub columns: Vec<RuntimeTableColumnDiagnostic>,
+    pub time_axis: Option<RuntimeTableTimeAxisDiagnostic>,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTableColumnDiagnostic {
+    pub name: String,
+    pub type_name: String,
+    pub unit: Option<String>,
+    pub canonical_unit: Option<String>,
+    pub is_index: bool,
+    pub len: usize,
+    pub missing_count: usize,
+    pub conversion_failure_count: usize,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTableTimeAxisDiagnostic {
+    pub name: String,
+    pub source_column: String,
+    pub unit: String,
+    pub start: Option<f64>,
+    pub end: Option<f64>,
+    pub count: usize,
+    pub nominal_step: Option<f64>,
+    pub irregular: bool,
+    pub missing_count: usize,
+    pub coverage_status: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -2469,6 +2513,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
 
     data.policy_results = materialize_policy_results(report, &mut data.tables);
     data.time_axes = materialize_time_axes(&data.tables);
+    data.table_diagnostics = materialize_table_diagnostics(&data.tables, &data.time_axes);
     data.time_series = materialize_time_series(report, &data.tables);
     data.system_solutions = materialize_system_solutions(report, &data.time_series);
     data.component_solutions = materialize_component_solutions(report, &data.time_series);
@@ -2714,6 +2759,104 @@ fn materialize_time_axes(tables: &[RuntimeTable]) -> Vec<RuntimeTimeAxis> {
 
 fn sample_axis_values(row_count: usize) -> Vec<f64> {
     (0..row_count).map(|index| index as f64).collect()
+}
+
+fn materialize_table_diagnostics(
+    tables: &[RuntimeTable],
+    axes: &[RuntimeTimeAxis],
+) -> Vec<RuntimeTableDiagnostic> {
+    tables
+        .iter()
+        .map(|table| {
+            let missing_cell_count = table
+                .columns
+                .iter()
+                .map(|column| column.missing_count)
+                .sum::<usize>();
+            let conversion_failure_count = table
+                .columns
+                .iter()
+                .map(|column| column.conversion_failures.len())
+                .sum::<usize>();
+            let parse_failure_count = table.parse_failures.len();
+            let time_axis = axes
+                .iter()
+                .find(|axis| axis.source_table == table.binding)
+                .map(|axis| RuntimeTableTimeAxisDiagnostic {
+                    name: axis.name.clone(),
+                    source_column: axis.source_column.clone(),
+                    unit: axis.unit.clone(),
+                    start: axis.start,
+                    end: axis.end,
+                    count: axis.count,
+                    nominal_step: axis.nominal_step,
+                    irregular: axis.irregular,
+                    missing_count: axis.missing_count,
+                    coverage_status: if axis.irregular || axis.missing_count > 0 {
+                        "missing_or_irregular".to_owned()
+                    } else {
+                        "complete".to_owned()
+                    },
+                });
+            let status = table_diagnostic_status(
+                missing_cell_count,
+                parse_failure_count,
+                conversion_failure_count,
+                time_axis.as_ref(),
+            );
+            RuntimeTableDiagnostic {
+                binding: table.binding.clone(),
+                schema_name: table.schema_name.clone(),
+                source: table.source.clone(),
+                source_hash: table.source_hash.clone(),
+                row_count: table.row_count,
+                column_count: table.columns.len(),
+                missing_cell_count,
+                parse_failure_count,
+                conversion_failure_count,
+                columns: table
+                    .columns
+                    .iter()
+                    .map(|column| RuntimeTableColumnDiagnostic {
+                        name: column.name.clone(),
+                        type_name: column.type_name.clone(),
+                        unit: column.unit.clone(),
+                        canonical_unit: column.canonical_unit.clone(),
+                        is_index: column.is_index,
+                        len: column.len(),
+                        missing_count: column.missing_count,
+                        conversion_failure_count: column.conversion_failures.len(),
+                        status: if column.missing_count > 0
+                            || !column.conversion_failures.is_empty()
+                        {
+                            "has_diagnostics".to_owned()
+                        } else {
+                            "ok".to_owned()
+                        },
+                    })
+                    .collect(),
+                time_axis,
+                status,
+            }
+        })
+        .collect()
+}
+
+fn table_diagnostic_status(
+    missing_cell_count: usize,
+    parse_failure_count: usize,
+    conversion_failure_count: usize,
+    time_axis: Option<&RuntimeTableTimeAxisDiagnostic>,
+) -> String {
+    if parse_failure_count > 0 || conversion_failure_count > 0 {
+        "has_parse_or_conversion_diagnostics".to_owned()
+    } else if missing_cell_count > 0 {
+        "has_missing_cells".to_owned()
+    } else if time_axis.is_some_and(|axis| axis.coverage_status != "complete") {
+        "time_axis_irregular".to_owned()
+    } else {
+        "ok".to_owned()
+    }
 }
 
 fn materialize_time_series(
@@ -19126,6 +19269,60 @@ with {{
 
         assert_eq!(axes[1].nominal_step, Some(300.0));
         assert!(axes[1].irregular);
+    }
+
+    #[test]
+    fn materializes_table_diagnostics_with_time_axis_coverage() {
+        let mut table = time_axis_table(
+            "measured",
+            &[
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:05:00Z",
+                "2026-01-01T00:20:00Z",
+            ],
+        );
+        table.columns.push(RuntimeColumn {
+            name: "T_zone".to_owned(),
+            type_name: "AbsoluteTemperature".to_owned(),
+            unit: Some("degC".to_owned()),
+            canonical_unit: Some("K".to_owned()),
+            is_index: false,
+            values: RuntimeValues::Number(vec![Some(21.0), None, Some(23.0)]),
+            canonical_values: vec![Some(294.15), None, Some(296.15)],
+            missing_count: 1,
+            conversion_failures: vec![RuntimeConversionFailure {
+                row: 3,
+                column: "T_zone".to_owned(),
+                value: "bad".to_owned(),
+                source_unit: "degC".to_owned(),
+                target_unit: "K".to_owned(),
+                message: "fixture conversion failure".to_owned(),
+            }],
+        });
+        table.parse_failures.push(RuntimeParseFailure {
+            row: 3,
+            column: "T_zone".to_owned(),
+            value: "bad".to_owned(),
+            message: "expected finite numeric cell".to_owned(),
+        });
+        let tables = vec![table];
+        let axes = materialize_time_axes(&tables);
+
+        let diagnostics = materialize_table_diagnostics(&tables, &axes);
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].binding, "measured");
+        assert_eq!(diagnostics[0].row_count, 3);
+        assert_eq!(diagnostics[0].column_count, 2);
+        assert_eq!(diagnostics[0].missing_cell_count, 1);
+        assert_eq!(diagnostics[0].parse_failure_count, 1);
+        assert_eq!(diagnostics[0].conversion_failure_count, 1);
+        assert_eq!(diagnostics[0].status, "has_parse_or_conversion_diagnostics");
+        let time_axis = diagnostics[0].time_axis.as_ref().unwrap();
+        assert_eq!(time_axis.source_column, "timestamp");
+        assert_eq!(time_axis.coverage_status, "missing_or_irregular");
+        assert!(time_axis.irregular);
+        assert_eq!(diagnostics[0].columns[1].status, "has_diagnostics");
     }
 
     #[test]

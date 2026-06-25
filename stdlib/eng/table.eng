@@ -1,10 +1,12 @@
 # module: eng.table
-# status: planned
-# purpose: domain-neutral table filters, joins, row diagnostics, derived columns, and schema helpers.
+# status: supported-diagnostic-artifact-seed; planned transform APIs
+# purpose: domain-neutral promoted-table diagnostics, filters, joins, derived columns, and schema helpers.
 #
 # Current implementation:
-#   typed CSV promotion and source-hash provenance are supported through
-#   compiler/runtime built-ins for current examples.
+#   typed CSV promotion, source-hash provenance, row/column diagnostics,
+#   parse/conversion counts, and time-axis coverage summaries are supported
+#   through compiler/runtime built-ins for current examples. These appear in
+#   result.engres as typed_payload.table_diagnostics[].
 #
 # Planned helper vocabulary:
 #   filter rows
@@ -13,8 +15,9 @@
 #   validate rows
 #
 # Review contract:
-#   source schema, row counts before and after operations, join keys, missing
-#   rows, row-level diagnostics, and source spans.
+#   source schema, row counts, column counts, missing cells, parse failures,
+#   conversion failures, time-axis coverage, operation row counts, join keys,
+#   row-level diagnostics, and source spans.
 #
 # Non-goal:
 #   this is not a general SQL replacement. Initial operations must stay

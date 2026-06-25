@@ -3,9 +3,9 @@
 # purpose: TimeSeries statistics plus planned coverage, gap, fill, resampling, and confidence-band helpers.
 #
 # Current implementation:
-#   TimeSeries statistics, integration, axis metadata, and selected alignment
-#   metadata are supported for documented public workflows. Uncertainty
-#   confidence-band metadata is internal/preview.
+#   TimeSeries statistics, integration, axis metadata, promoted-table coverage
+#   diagnostics, and selected alignment metadata are supported for documented
+#   public workflows. Uncertainty confidence-band metadata is internal/preview.
 #
 # Planned helper vocabulary:
 #   check coverage
