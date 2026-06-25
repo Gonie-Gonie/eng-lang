@@ -2,8 +2,10 @@
 
 Status: current public artifact family is stable for the v0.1.0 package scope.
 `review.json.review_document`, `eng review <file.eng>`, and the IDE Review
-inspector are the first supported normalized Review IR slice. Semantic diff and
-runtime-updated ReviewDocument values remain implementation targets.
+inspector are the first supported normalized Review IR slice. `eng review
+--against` now emits a first CLI item-level semantic diff preview;
+runtime-updated ReviewDocument values and a native IDE diff panel remain
+implementation targets.
 
 ## Core Principle
 
@@ -181,10 +183,12 @@ risk and fallback entries
 ```
 
 The current static review document records `semantic_hash` plus per-section
-hashes. `eng review --against` uses those hashes for a first CLI-only
-meaning-level comparison without relying on raw source diffs. Full semantic
-diff payloads for changed calculations, validations, units, and side effects
-remain planned.
+hashes. `eng review --against` uses those hashes for a CLI-only meaning-level
+comparison without relying on raw source diffs. Its preview payload now includes
+`section_changes[]` with added, removed, and changed array entries for
+ReviewDocument sections such as calculations, validations, units/quantities,
+side effects, external boundaries, fallbacks, and risks. A standalone
+`eng review diff` command and native IDE diff panel remain planned.
 
 ## CLI And IDE Targets
 

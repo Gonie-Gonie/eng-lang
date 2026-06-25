@@ -29,7 +29,7 @@ and next cleanup action.
 - Main internal: bar/histogram variants, richer report metadata, and the
   normalized `review_document` projection.
 - Next cleanup: route more report/IDE panels through ReviewDocument and add
-  semantic diff after the risk/fallback taxonomy has runtime evidence.
+  a native semantic diff panel after the CLI diff payload stabilizes.
 
 ## T4 System / Equation
 

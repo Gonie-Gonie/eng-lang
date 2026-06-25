@@ -837,6 +837,7 @@ fn review_semantic_diff(
     let previous_hash = json_string(previous, "semantic_hash");
     let current_hash = json_string(current, "semantic_hash");
     let changed_sections = review_changed_sections(previous, current);
+    let section_changes = review_section_changes(previous, current, &changed_sections);
     let status = if previous_hash.is_some()
         && current_hash.is_some()
         && previous_hash == current_hash
@@ -851,8 +852,117 @@ fn review_semantic_diff(
         "status": status,
         "semantic_hash_before": previous_hash,
         "semantic_hash_after": current_hash,
-        "changed_sections": changed_sections
+        "changed_sections": changed_sections,
+        "section_changes": section_changes
     })
+}
+
+fn review_section_changes(
+    previous: &serde_json::Value,
+    current: &serde_json::Value,
+    changed_sections: &[serde_json::Value],
+) -> Vec<serde_json::Value> {
+    changed_sections
+        .iter()
+        .filter_map(|row| json_string(row, "section"))
+        .filter_map(|section| review_array_section_change(section, previous, current))
+        .collect()
+}
+
+fn review_array_section_change(
+    section: &str,
+    previous: &serde_json::Value,
+    current: &serde_json::Value,
+) -> Option<serde_json::Value> {
+    let previous_items = previous
+        .get(section)
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    let current_items = current
+        .get(section)
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    if previous_items.is_empty() && current_items.is_empty() {
+        return None;
+    }
+
+    let previous_map = review_item_map(section, previous_items);
+    let current_map = review_item_map(section, current_items);
+    let mut added = Vec::new();
+    let mut removed = Vec::new();
+    let mut changed = Vec::new();
+
+    for (key, current_item) in &current_map {
+        match previous_map.get(key) {
+            None => added.push(review_diff_item(key, current_item)),
+            Some(previous_item) if *previous_item != *current_item => {
+                changed.push(serde_json::json!({
+                    "key": key,
+                    "before": *previous_item,
+                    "after": *current_item
+                }));
+            }
+            _ => {}
+        }
+    }
+    for (key, previous_item) in &previous_map {
+        if !current_map.contains_key(key) {
+            removed.push(review_diff_item(key, previous_item));
+        }
+    }
+
+    if added.is_empty() && removed.is_empty() && changed.is_empty() {
+        return None;
+    }
+    Some(serde_json::json!({
+        "section": section,
+        "added": added,
+        "removed": removed,
+        "changed": changed
+    }))
+}
+
+fn review_item_map<'a>(
+    section: &str,
+    items: &'a [serde_json::Value],
+) -> std::collections::BTreeMap<String, &'a serde_json::Value> {
+    let mut map = std::collections::BTreeMap::new();
+    for (index, item) in items.iter().enumerate() {
+        let key = review_item_key(section, item, index);
+        map.insert(key, item);
+    }
+    map
+}
+
+fn review_diff_item(key: &str, item: &serde_json::Value) -> serde_json::Value {
+    serde_json::json!({
+        "key": key,
+        "item": item
+    })
+}
+
+fn review_item_key(section: &str, item: &serde_json::Value, index: usize) -> String {
+    let kind = json_string(item, "kind").unwrap_or(section);
+    for field in ["name", "binding", "target", "source"] {
+        if let Some(value) = json_string(item, field) {
+            return format!("{kind}:{field}:{value}");
+        }
+    }
+    if let Some(line) = item.get("line").and_then(serde_json::Value::as_u64) {
+        return format!("{kind}:line:{line}");
+    }
+    if let Some(line) = item.get("source_line").and_then(serde_json::Value::as_u64) {
+        return format!("{kind}:source_line:{line}");
+    }
+    if let Some(expression) = json_string(item, "expression") {
+        return format!("{kind}:expression:{expression}");
+    }
+    if let Some(category) = json_string(item, "category") {
+        return format!("{kind}:category:{category}:{index}");
+    }
+    format!("{section}:{index}")
 }
 
 fn review_changed_sections(
@@ -1024,14 +1134,32 @@ mod tests {
             "section_hashes": {
                 "inputs": "same",
                 "calculations": "old"
-            }
+            },
+            "calculations": [
+                {
+                    "kind": "binding",
+                    "name": "Q_total",
+                    "expression": "Q + 1 kW",
+                    "quantity_kind": "HeatRate",
+                    "line": 3
+                }
+            ]
         });
         let current = serde_json::json!({
             "semantic_hash": "after",
             "section_hashes": {
                 "inputs": "same",
                 "calculations": "new"
-            }
+            },
+            "calculations": [
+                {
+                    "kind": "binding",
+                    "name": "Q_total",
+                    "expression": "Q + 2 kW",
+                    "quantity_kind": "HeatRate",
+                    "line": 3
+                }
+            ]
         });
 
         let diff = review_semantic_diff(&previous, &current);
@@ -1040,6 +1168,20 @@ mod tests {
         assert_eq!(diff["changed_sections"][0]["section"], "calculations");
         assert_eq!(diff["changed_sections"][0]["before"], "old");
         assert_eq!(diff["changed_sections"][0]["after"], "new");
+        assert_eq!(diff["section_changes"].as_array().map(Vec::len), Some(1));
+        assert_eq!(diff["section_changes"][0]["section"], "calculations");
+        assert_eq!(
+            diff["section_changes"][0]["changed"][0]["key"],
+            "binding:name:Q_total"
+        );
+        assert_eq!(
+            diff["section_changes"][0]["changed"][0]["before"]["expression"],
+            "Q + 1 kW"
+        );
+        assert_eq!(
+            diff["section_changes"][0]["changed"][0]["after"]["expression"],
+            "Q + 2 kW"
+        );
     }
 
     #[test]
@@ -1056,6 +1198,7 @@ mod tests {
 
         assert_eq!(diff["status"], "unchanged");
         assert_eq!(diff["changed_sections"].as_array().map(Vec::len), Some(0));
+        assert_eq!(diff["section_changes"].as_array().map(Vec::len), Some(0));
     }
 
     #[test]
