@@ -1,5 +1,4 @@
-case_id,annual_electricity,annual_cooling,peak_cooling
-case_001,11800,4200,12.8
-case_002,12800,4550,14.2
-case_003,13950,4980,15.6
-
+case_id,annual_electricity,annual_cooling,peak_cooling,unmet_hours
+case_001,11800.0,4200.0,12.8,0.0
+case_002,12800.0,4550.0,14.2,0.0
+case_003,13950.0,4980.0,15.6,0.0

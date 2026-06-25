@@ -11,6 +11,7 @@ quantity HeatRate [W]
 quantity ElectricPower [W]
 quantity MechanicalPower [W]
 quantity Energy [J]
+quantity Duration [s]
 quantity Irradiance [W/m2]
 quantity PeopleDensity [person/m2]
 quantity Pressure [Pa]
@@ -33,6 +34,9 @@ unit kJ/K
 unit Wh
 unit kWh
 unit MJ
+unit s
+unit min
+unit h
 unit kg/s
 unit W/m2
 unit W/m^2

@@ -68,6 +68,12 @@ pub const QUANTITY_COMPLETIONS: &[QuantityCompletion] = &[
         description: "Energy, heat, or work quantity.",
     },
     QuantityCompletion {
+        quantity_kind: "Duration",
+        canonical_unit: "s",
+        dimension: "Time",
+        description: "Elapsed time duration.",
+    },
+    QuantityCompletion {
         quantity_kind: "Irradiance",
         canonical_unit: "W/m2",
         dimension: "Power/Area",
@@ -129,6 +135,7 @@ pub fn candidates_for_unit(unit: &str) -> Vec<QuantityCompletion> {
         "j/kg/k" => completions_for(&["SpecificHeat"]),
         "w" | "kw" => completions_for(&["HeatRate", "ElectricPower", "MechanicalPower"]),
         "j" | "wh" | "kwh" | "mj" => completions_for(&["Energy"]),
+        "s" | "min" | "h" | "hr" | "hour" | "hours" => completions_for(&["Duration"]),
         "w/m2" | "w/m^2" => completions_for(&["Irradiance"]),
         "person/m2" | "people/m2" => completions_for(&["PeopleDensity"]),
         "pa" | "kpa" => completions_for(&["Pressure"]),

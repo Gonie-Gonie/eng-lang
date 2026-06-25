@@ -9951,6 +9951,25 @@ system Envelope {
     }
 
     #[test]
+    fn records_duration_quantity_and_unit_derivation() {
+        let report = check_source("ok.eng", "unmet = 2 h", &CheckOptions::default());
+
+        assert!(!report.has_errors());
+        assert_eq!(report.inferred_declarations[0].quantity_kind, "Duration");
+        assert_eq!(report.inferred_declarations[0].display_unit, "s");
+        assert_eq!(
+            report.semantic_program.unit_derivations[0]
+                .source_unit
+                .as_deref(),
+            Some("h")
+        );
+        assert_eq!(
+            report.semantic_program.unit_derivations[0].canonical_unit,
+            "s"
+        );
+    }
+
+    #[test]
     fn accepts_celsius_symbol_alias_for_absolute_temperature() {
         let report = check_source(
             "ok.eng",

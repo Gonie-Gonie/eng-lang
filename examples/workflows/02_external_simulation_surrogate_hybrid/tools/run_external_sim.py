@@ -38,16 +38,19 @@ def main() -> int:
             "annual_electricity": 11800.0,
             "annual_cooling": 4200.0,
             "peak_cooling": 12.8,
+            "unmet_hours": 0.0,
         },
         "case_002": {
             "annual_electricity": 12800.0,
             "annual_cooling": 4550.0,
             "peak_cooling": 14.2,
+            "unmet_hours": 0.0,
         },
         "case_003": {
             "annual_electricity": 13950.0,
             "annual_cooling": 4980.0,
             "peak_cooling": 15.6,
+            "unmet_hours": 0.0,
         },
     }
     metrics = metrics_by_case.get(
@@ -56,6 +59,7 @@ def main() -> int:
             "annual_electricity": 12800.0,
             "annual_cooling": 4550.0,
             "peak_cooling": 14.2,
+            "unmet_hours": 0.0,
         },
     )
     result = {

@@ -37,9 +37,9 @@ promote sample table
 validate sample ranges
 create case directories
 run patcher per case with explicit base model, sample table, case id, and output path contract
-run external simulator per case with explicit input, result, log, and tool-version contract with explicit input, result, simulator log, and tool-version contract
-collect results
-promote results
+run external simulator per case with explicit input, result, simulator log, and tool-version contract
+collect typed simulation results into a CSV and result collection manifest
+promote checked result rows with the SimulationResult schema
 train surrogate through external process or native model-card seed
 predict new samples through an explicit process boundary
 write CSV or database side-effect manifests

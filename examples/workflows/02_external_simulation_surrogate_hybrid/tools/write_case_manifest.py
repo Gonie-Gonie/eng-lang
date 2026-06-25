@@ -88,6 +88,7 @@ def main() -> int:
             "annual_electricity_kwh": result["annual_electricity"],
             "annual_cooling_kwh": result["annual_cooling"],
             "peak_cooling_kw": result["peak_cooling"],
+            "unmet_hours": result["unmet_hours"],
         },
         "failure_reason": None,
     }

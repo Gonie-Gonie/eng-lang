@@ -18,6 +18,7 @@ schema SimulationResult {
     annual_electricity: Energy [kWh]
     annual_cooling: Energy [kWh]
     peak_cooling: HeatRate [kW]
+    unmet_hours: Duration [h]
 }
 
 schema PredictionResult {
@@ -93,8 +94,10 @@ with {
 
 collection_result = run command "python"
 with {
-    args = ["tools/collect_results.py"]
-    expected_outputs = ["outputs/summary_results.csv"]
+    args = ["tools/collect_results.py", "--inputs", "outputs/case_001/result.json", "outputs/case_002/result.json", "outputs/case_003/result.json", "--cases", "case_001", "case_002", "case_003", "--out", "outputs/summary_results.csv", "--manifest", "outputs/result_collection_manifest.json"]
+    tool_version = "fake-result-collector 1.0"
+    expected_outputs = ["outputs/summary_results.csv", "outputs/result_collection_manifest.json"]
+    artifact_kind = "result_collection"
 }
 
 case_manifest_result = run command "python"
@@ -138,6 +141,7 @@ with {
 
 annual_electricity = 12800 kWh
 peak_cooling = 14.2 kW
+unmet_hours = 0 h
 
 print "Design samples = {designs.rows}"
 print "Simulation results = {results.rows}"
@@ -147,6 +151,7 @@ log info "external simulation surrogate fixture boundaries recorded"
 export summary to csv "outputs/workflow_summary.csv" {
     annual_electricity as kWh with ".1"
     peak_cooling as kW with ".1"
+    unmet_hours as h with ".1"
 }
 with {
     overwrite = true
@@ -163,5 +168,6 @@ report {
     show predictions.rows
     show annual_electricity
     show peak_cooling
+    show unmet_hours
     show args.database_target
 }

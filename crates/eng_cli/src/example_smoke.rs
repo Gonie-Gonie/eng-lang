@@ -5369,7 +5369,11 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         Ok(output) => {
             let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
             let plot_spec = std::fs::read_to_string(&output.plot_spec_path).unwrap_or_default();
-            if output.csv_export_paths.is_empty()
+            if (output.csv_export_paths.is_empty()
+                && !output
+                    .output_manifest_json
+                    .contains("\"kind\": \"csv_export\"")
+                && !output.output_manifest_json.contains("summary.csv"))
                 || !review.contains("\"command_styles\"")
                 || !review.contains("\"where_blocks\"")
                 || !review.contains("\"with_blocks\"")
@@ -6455,12 +6459,21 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         &artifact_run_options(),
     ) {
         Ok(output) => {
+            let collection_manifest = std::fs::read_to_string(
+                "examples/workflows/02_external_simulation_surrogate_hybrid/outputs/result_collection_manifest.json",
+            )
+            .unwrap_or_default();
             if !output.review_json.contains("PredictionResult")
                 || !output.review_json.contains("case_manifest_result_003")
                 || !output.result_json.contains("\"sample_tables\"")
                 || !output
                     .result_json
                     .contains("\"schema_name\": \"DesignSample\"")
+                || !output
+                    .result_json
+                    .contains("\"schema_name\": \"SimulationResult\"")
+                || !output.result_json.contains("\"name\": \"unmet_hours\"")
+                || !output.result_json.contains("\"display_unit\": \"h\"")
                 || !output
                     .result_json
                     .contains("\"case_id_column\": \"case_id\"")
@@ -6525,6 +6538,18 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"binding\": \"simulation_result\"")
                 || !output
                     .process_results_json
+                    .contains("\"binding\": \"collection_result\"")
+                || !output
+                    .process_results_json
+                    .contains("\"tool_version\": \"fake-result-collector 1.0\"")
+                || !output
+                    .process_results_json
+                    .contains("\"kind\": \"result_collection\"")
+                || !output
+                    .process_results_json
+                    .contains("\"path\": \"outputs/result_collection_manifest.json\"")
+                || !output
+                    .process_results_json
                     .contains("\"tool_version\": \"fake-external-sim 1.0\"")
                 || !output
                     .process_results_json
@@ -6546,6 +6571,15 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .output_manifest_json
                     .contains("outputs/case_001/simulator.log")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/result_collection_manifest.json")
+                || !output
+                    .output_manifest_json
+                    .contains("\"kind\": \"result_collection\"")
+                || !collection_manifest.contains("\"missing_case_ids\": []")
+                || !collection_manifest.contains("\"failed_case_count\": 0")
+                || !collection_manifest.contains("annual_electricity_kwh_sum")
                 || !output
                     .output_manifest_json
                     .contains("outputs/case_001/case_manifest.json")
