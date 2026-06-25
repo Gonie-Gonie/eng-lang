@@ -1,6 +1,6 @@
 use std::env;
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode};
+use std::process::{Command, ExitCode, Stdio};
 
 use eng_compiler::{
     check_file, check_source, format_source, review_json, ArgOverride, CheckOptions,
@@ -108,6 +108,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
     }
 
     if !review_examples_are_formatter_clean() {
+        return ExitCode::from(2);
+    }
+    if !review_cli_smoke() {
         return ExitCode::from(2);
     }
 
@@ -7086,6 +7089,138 @@ fn collect_eng_files(root: &Path, files: &mut Vec<PathBuf>) -> Result<(), std::i
         }
     }
     Ok(())
+}
+
+fn review_cli_smoke() -> bool {
+    let root = Path::new("build").join("test-review-cli");
+    let source_root = root.join("source");
+    let base_output = root.join("base");
+    let changed_output = root.join("changed");
+    let base_source = source_root.join("base.eng");
+    let changed_source = source_root.join("changed.eng");
+
+    if let Err(error) = std::fs::create_dir_all(&source_root) {
+        eprintln!(
+            "failed to create review CLI smoke directory {}: {error}",
+            source_root.display()
+        );
+        return false;
+    }
+    if let Err(error) = std::fs::create_dir_all(&base_output) {
+        eprintln!(
+            "failed to create review CLI smoke output directory {}: {error}",
+            base_output.display()
+        );
+        return false;
+    }
+    if let Err(error) = std::fs::create_dir_all(&changed_output) {
+        eprintln!(
+            "failed to create review CLI smoke output directory {}: {error}",
+            changed_output.display()
+        );
+        return false;
+    }
+
+    let base_text =
+        "Q = 10 kW\nlimit: HeatRate [kW] = 12 kW\nvalidate Q < limit\nreport {\n    show Q\n}\n";
+    let changed_text =
+        "Q = 11 kW\nlimit: HeatRate [kW] = 12 kW\nvalidate Q < limit\nreport {\n    show Q\n}\n";
+    if let Err(error) = std::fs::write(&base_source, base_text) {
+        eprintln!(
+            "failed to write review CLI smoke source {}: {error}",
+            base_source.display()
+        );
+        return false;
+    }
+    if let Err(error) = std::fs::write(&changed_source, changed_text) {
+        eprintln!(
+            "failed to write review CLI smoke source {}: {error}",
+            changed_source.display()
+        );
+        return false;
+    }
+
+    let exe = match env::current_exe() {
+        Ok(exe) => exe,
+        Err(error) => {
+            eprintln!("failed to resolve current eng executable for review CLI smoke: {error}");
+            return false;
+        }
+    };
+
+    let base_status = Command::new(&exe)
+        .arg("review")
+        .arg(&base_source)
+        .arg("--output")
+        .arg(&base_output)
+        .arg("--json")
+        .stdout(Stdio::null())
+        .status();
+    match base_status {
+        Ok(status) if status.success() => {}
+        Ok(status) => {
+            eprintln!("review CLI static smoke failed with status {status}");
+            return false;
+        }
+        Err(error) => {
+            eprintln!("failed to run review CLI static smoke: {error}");
+            return false;
+        }
+    }
+
+    let static_review_path = base_output.join("static_review.json");
+    let static_review = std::fs::read_to_string(&static_review_path).unwrap_or_default();
+    if !static_review.contains("\"format\": \"eng-review-document-preview-1\"")
+        || !static_review.contains("\"semantic_hash\"")
+        || !static_review.contains("\"section_hashes\"")
+        || !static_review.contains("\"validations\"")
+    {
+        eprintln!(
+            "expected review CLI static smoke to write a normalized ReviewDocument at {}",
+            static_review_path.display()
+        );
+        return false;
+    }
+
+    let changed_status = Command::new(&exe)
+        .arg("review")
+        .arg(&changed_source)
+        .arg("--output")
+        .arg(&changed_output)
+        .arg("--against")
+        .arg(&static_review_path)
+        .arg("--json")
+        .stdout(Stdio::null())
+        .status();
+    match changed_status {
+        Ok(status) if status.success() => {}
+        Ok(status) => {
+            eprintln!("review CLI diff smoke failed with status {status}");
+            return false;
+        }
+        Err(error) => {
+            eprintln!("failed to run review CLI diff smoke: {error}");
+            return false;
+        }
+    }
+
+    let diff_path = changed_output.join("semantic_diff.json");
+    let semantic_diff = std::fs::read_to_string(&diff_path).unwrap_or_default();
+    if !semantic_diff.contains("\"format\": \"eng-review-semantic-diff-preview-1\"")
+        || !semantic_diff.contains("\"status\": \"changed\"")
+        || !semantic_diff.contains("\"changed_sections\"")
+        || !semantic_diff.contains("\"section_changes\"")
+        || !semantic_diff.contains("\"calculations\"")
+    {
+        eprintln!(
+            "expected review CLI diff smoke to write a changed semantic diff at {}",
+            diff_path.display()
+        );
+        return false;
+    }
+
+    println!("ok: eng review CLI wrote static ReviewDocument and semantic diff artifacts");
+    true
 }
 
 fn standalone_runner_command(bundle_path: &Path) -> Command {

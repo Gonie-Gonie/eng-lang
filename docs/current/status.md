@@ -126,7 +126,9 @@ are tracked in [main_internal_status.md](main_internal_status.md) and
 
 The uncertainty, reviewability, and composite workflow checklist work should
 move implementation seeds toward evidence-backed support without widening the
-public package claim prematurely.
+public package claim prematurely. The current test and CI mapping for these
+tracks is recorded in [test_ci_gates.md](test_ci_gates.md) so fixture evidence
+is not mistaken for public module support.
 
 - Uncertainty / distribution numeric
   - Public package: `Internal`

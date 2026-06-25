@@ -20,6 +20,7 @@ opening long-form planning or internal solver documents.
 - [Uncertainty and distribution numeric track](current/uncertainty.md)
 - [Reviewability as a language feature](current/reviewability.md)
 - [Composite workflow base modules](current/workflow_modules.md)
+- [Test and CI gate map](current/test_ci_gates.md)
 - [Main internal status](current/main_internal_status.md)
 - [Implementation issue backlog](current/implementation_issue_backlog.md)
 - [LLM load map](llm/load_map.yml)
