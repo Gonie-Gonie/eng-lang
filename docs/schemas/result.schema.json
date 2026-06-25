@@ -47,7 +47,7 @@
     },
     "typed_payload": {
       "type": "object",
-      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "sample_tables", "case_manifests", "db_manifests", "model_cards", "metrics", "validations", "time_axes", "time_alignments", "uncertainties", "ml", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
+      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "table_selections", "sample_tables", "case_manifests", "db_manifests", "model_cards", "metrics", "validations", "time_axes", "time_alignments", "uncertainties", "ml", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
       "properties": {
         "numeric_values": {
           "type": "array",
@@ -56,6 +56,10 @@
         "table_diagnostics": {
           "type": "array",
           "items": { "$ref": "#/$defs/tableDiagnostic" }
+        },
+        "table_selections": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tableSelection" }
         },
         "sample_tables": {
           "type": "array",
@@ -517,6 +521,59 @@
       "properties": {
         "x": { "type": "number" },
         "y": { "type": "number" }
+      }
+    },
+    "tableSelection": {
+      "type": "object",
+      "required": [
+        "binding",
+        "source_table",
+        "return_column",
+        "selected_value",
+        "selected_row_index",
+        "matched_count",
+        "filters",
+        "selected_row",
+        "status",
+        "reason",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "source_table": { "type": "string" },
+        "return_column": { "type": "string" },
+        "selected_value": { "type": ["string", "null"] },
+        "selected_row_index": { "type": ["integer", "null"], "minimum": 1 },
+        "matched_count": { "type": "integer", "minimum": 0 },
+        "filters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tableSelectionFilter" }
+        },
+        "selected_row": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tableSelectionValue" }
+        },
+        "status": { "enum": ["no_match", "selected", "selected_first_multiple"] },
+        "reason": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "tableSelectionFilter": {
+      "type": "object",
+      "required": ["column", "operator", "value", "matched"],
+      "properties": {
+        "column": { "type": "string" },
+        "operator": { "type": "string" },
+        "value": { "type": "string" },
+        "matched": { "type": "boolean" }
+      }
+    },
+    "tableSelectionValue": {
+      "type": "object",
+      "required": ["column", "value"],
+      "properties": {
+        "column": { "type": "string" },
+        "value": { "type": "string" }
       }
     },
     "tableDiagnostic": {

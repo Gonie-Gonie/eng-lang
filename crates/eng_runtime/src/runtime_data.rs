@@ -57,6 +57,7 @@ use crate::solver::{
 pub struct RuntimeData {
     pub tables: Vec<RuntimeTable>,
     pub table_diagnostics: Vec<RuntimeTableDiagnostic>,
+    pub table_selections: Vec<RuntimeTableSelection>,
     pub sample_tables: Vec<RuntimeSampleTable>,
     pub case_manifests: Vec<RuntimeCaseManifest>,
     pub time_axes: Vec<RuntimeTimeAxis>,
@@ -958,6 +959,35 @@ pub struct RuntimeTableTimeAxisDiagnostic {
     pub irregular: bool,
     pub missing_count: usize,
     pub coverage_status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTableSelection {
+    pub binding: String,
+    pub source_table: String,
+    pub return_column: String,
+    pub selected_value: Option<String>,
+    pub selected_row_index: Option<usize>,
+    pub matched_count: usize,
+    pub filters: Vec<RuntimeTableSelectionFilter>,
+    pub selected_row: Vec<RuntimeTableSelectionValue>,
+    pub status: String,
+    pub reason: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTableSelectionFilter {
+    pub column: String,
+    pub operator: String,
+    pub value: String,
+    pub matched: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTableSelectionValue {
+    pub column: String,
+    pub value: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -2567,6 +2597,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.policy_results = materialize_policy_results(report, &mut data.tables);
     data.time_axes = materialize_time_axes(&data.tables);
     data.table_diagnostics = materialize_table_diagnostics(&data.tables, &data.time_axes);
+    data.table_selections = materialize_table_selections(report, &data.tables);
     data.sample_tables = materialize_sample_tables(&data.tables);
     data.case_manifests = materialize_case_manifests(&data.tables);
     data.time_series = materialize_time_series(report, &data.tables);
@@ -2814,6 +2845,375 @@ fn materialize_time_axes(tables: &[RuntimeTable]) -> Vec<RuntimeTimeAxis> {
 
 fn sample_axis_values(row_count: usize) -> Vec<f64> {
     (0..row_count).map(|index| index as f64).collect()
+}
+
+fn materialize_table_selections(
+    report: &CheckReport,
+    tables: &[RuntimeTable],
+) -> Vec<RuntimeTableSelection> {
+    report
+        .inferred_declarations
+        .iter()
+        .filter_map(|declaration| materialize_table_selection(declaration, report, tables))
+        .collect()
+}
+
+#[derive(Clone, Debug)]
+struct TableSelectionSpec {
+    table: String,
+    return_column: String,
+    equality_filters: Vec<(String, String)>,
+    start: Option<String>,
+    end: Option<String>,
+    valid_from_column: String,
+    valid_to_column: String,
+}
+
+fn materialize_table_selection(
+    declaration: &eng_compiler::InferredDeclaration,
+    report: &CheckReport,
+    tables: &[RuntimeTable],
+) -> Option<RuntimeTableSelection> {
+    let spec = parse_table_selection_expression(&declaration.expression)?;
+    let table = tables.iter().find(|table| table.binding == spec.table)?;
+    let equality_filters = spec
+        .equality_filters
+        .iter()
+        .map(|(column, value)| {
+            (
+                column.clone(),
+                resolve_table_selection_value(value, report).unwrap_or_else(|| value.clone()),
+            )
+        })
+        .collect::<Vec<_>>();
+    let start = spec
+        .start
+        .as_deref()
+        .and_then(|value| resolve_table_selection_value(value, report));
+    let end = spec
+        .end
+        .as_deref()
+        .and_then(|value| resolve_table_selection_value(value, report));
+
+    let matched_rows = (0..table.row_count)
+        .filter(|row| {
+            table_selection_row_matches(table, *row, &equality_filters, &spec, &start, &end)
+        })
+        .collect::<Vec<_>>();
+    let selected_row_index = matched_rows.first().copied();
+    let selected_value =
+        selected_row_index.and_then(|row| table_column_value(table, &spec.return_column, row));
+    let selected_row = selected_row_index
+        .map(|row| table_selection_row_values(table, row))
+        .unwrap_or_default();
+    let filters = table_selection_filters(
+        table,
+        selected_row_index,
+        &equality_filters,
+        &spec,
+        &start,
+        &end,
+    );
+    let status = match matched_rows.len() {
+        0 => "no_match",
+        1 => "selected",
+        _ => "selected_first_multiple",
+    }
+    .to_owned();
+    let reason = match matched_rows.len() {
+        0 => "no row matched equality filters and validity period",
+        1 => "matched equality filters and validity period",
+        _ => "multiple rows matched; selected first row for deterministic workflow",
+    }
+    .to_owned();
+
+    Some(RuntimeTableSelection {
+        binding: declaration.name.clone(),
+        source_table: spec.table,
+        return_column: spec.return_column,
+        selected_value,
+        selected_row_index: selected_row_index.map(|row| row + 1),
+        matched_count: matched_rows.len(),
+        filters,
+        selected_row,
+        status,
+        reason,
+        line: declaration.line,
+    })
+}
+
+fn parse_table_selection_expression(expression: &str) -> Option<TableSelectionSpec> {
+    let inner = strip_call_inner(expression.trim(), "select_first_row")?;
+    let mut parts = split_selection_top_level(inner, ',');
+    let table = parts.first()?.trim().to_owned();
+    if table.is_empty() {
+        return None;
+    }
+    parts.remove(0);
+    let mut return_column = None;
+    let mut equality_filters = Vec::new();
+    let mut start = None;
+    let mut end = None;
+    let mut valid_from_column = "valid_from".to_owned();
+    let mut valid_to_column = "valid_to".to_owned();
+
+    for part in parts {
+        let (key, value) = part.split_once('=')?;
+        let key = key.trim();
+        let value = value.trim();
+        match key {
+            "return" | "return_column" => return_column = Some(strip_selection_quotes(value)),
+            "start" => start = Some(value.to_owned()),
+            "end" => end = Some(value.to_owned()),
+            "valid_from_column" => valid_from_column = strip_selection_quotes(value),
+            "valid_to_column" => valid_to_column = strip_selection_quotes(value),
+            _ => equality_filters.push((key.to_owned(), value.to_owned())),
+        }
+    }
+
+    Some(TableSelectionSpec {
+        table,
+        return_column: return_column.unwrap_or_else(|| "id".to_owned()),
+        equality_filters,
+        start,
+        end,
+        valid_from_column,
+        valid_to_column,
+    })
+}
+
+fn table_selection_row_matches(
+    table: &RuntimeTable,
+    row: usize,
+    equality_filters: &[(String, String)],
+    spec: &TableSelectionSpec,
+    start: &Option<String>,
+    end: &Option<String>,
+) -> bool {
+    for (column, expected) in equality_filters {
+        let Some(actual) = table_column_value(table, column, row) else {
+            return false;
+        };
+        if actual.trim() != expected.trim() {
+            return false;
+        }
+    }
+    if let Some(start) = start {
+        let Some(valid_from) = table_column_value(table, &spec.valid_from_column, row) else {
+            return false;
+        };
+        if table_selection_value_after(&valid_from, start) {
+            return false;
+        }
+    }
+    if let Some(end) = end {
+        let Some(valid_to) = table_column_value(table, &spec.valid_to_column, row) else {
+            return false;
+        };
+        let valid_to = valid_to.trim();
+        if !selection_value_is_none(valid_to) && table_selection_value_before(valid_to, end) {
+            return false;
+        }
+    }
+    true
+}
+
+fn table_selection_filters(
+    table: &RuntimeTable,
+    row: Option<usize>,
+    equality_filters: &[(String, String)],
+    spec: &TableSelectionSpec,
+    start: &Option<String>,
+    end: &Option<String>,
+) -> Vec<RuntimeTableSelectionFilter> {
+    let mut filters = Vec::new();
+    for (column, expected) in equality_filters {
+        let matched = row
+            .and_then(|row| table_column_value(table, column, row))
+            .is_some_and(|actual| actual.trim() == expected.trim());
+        filters.push(RuntimeTableSelectionFilter {
+            column: column.clone(),
+            operator: "==".to_owned(),
+            value: expected.clone(),
+            matched,
+        });
+    }
+    if let Some(start) = start {
+        let matched = row
+            .and_then(|row| table_column_value(table, &spec.valid_from_column, row))
+            .is_some_and(|actual| !table_selection_value_after(&actual, start));
+        filters.push(RuntimeTableSelectionFilter {
+            column: spec.valid_from_column.clone(),
+            operator: "<=".to_owned(),
+            value: start.clone(),
+            matched,
+        });
+    }
+    if let Some(end) = end {
+        let matched = row
+            .and_then(|row| table_column_value(table, &spec.valid_to_column, row))
+            .is_some_and(|actual| {
+                let actual = actual.trim();
+                selection_value_is_none(actual) || !table_selection_value_before(actual, end)
+            });
+        filters.push(RuntimeTableSelectionFilter {
+            column: spec.valid_to_column.clone(),
+            operator: "is_none_or_>=".to_owned(),
+            value: end.clone(),
+            matched,
+        });
+    }
+    filters
+}
+
+fn table_selection_row_values(table: &RuntimeTable, row: usize) -> Vec<RuntimeTableSelectionValue> {
+    table
+        .columns
+        .iter()
+        .filter_map(|column| {
+            table_column_value(table, &column.name, row).map(|value| RuntimeTableSelectionValue {
+                column: column.name.clone(),
+                value,
+            })
+        })
+        .collect()
+}
+
+fn table_column_value(table: &RuntimeTable, column_name: &str, row: usize) -> Option<String> {
+    let column = table
+        .columns
+        .iter()
+        .find(|column| column.name == column_name)?;
+    match &column.values {
+        RuntimeValues::Text(values) => values.get(row).cloned(),
+        RuntimeValues::Number(values) => values
+            .get(row)
+            .and_then(|value| value.map(|value| value.to_string()))
+            .or_else(|| Some(String::new())),
+    }
+}
+
+fn resolve_table_selection_value(value: &str, report: &CheckReport) -> Option<String> {
+    let value = value.trim();
+    if let Some(inner) = strip_call_inner(value, "date") {
+        return resolve_table_selection_date(inner, report);
+    }
+    if let Some(arg_name) = value.strip_prefix("args.") {
+        return report
+            .semantic_program
+            .arg_values
+            .iter()
+            .find(|arg| arg.name == arg_name.trim())
+            .map(|arg| arg.value.clone());
+    }
+    Some(strip_selection_quotes(value))
+}
+
+fn resolve_table_selection_date(inner: &str, report: &CheckReport) -> Option<String> {
+    let parts = split_selection_top_level(inner, ',');
+    if parts.len() != 3 {
+        return None;
+    }
+    let year = resolve_table_selection_value(&parts[0], report)?
+        .parse::<i32>()
+        .ok()?;
+    let month = resolve_table_selection_value(&parts[1], report)?
+        .parse::<u32>()
+        .ok()?;
+    let day = resolve_table_selection_value(&parts[2], report)?
+        .parse::<u32>()
+        .ok()?;
+    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+        return None;
+    }
+    Some(format!("{year:04}-{month:02}-{day:02}"))
+}
+
+fn table_selection_value_after(actual: &str, expected: &str) -> bool {
+    match (
+        table_selection_date_prefix(actual),
+        table_selection_date_prefix(expected),
+    ) {
+        (Some(actual), Some(expected)) => actual > expected,
+        _ => actual.trim() > expected.trim(),
+    }
+}
+
+fn table_selection_value_before(actual: &str, expected: &str) -> bool {
+    match (
+        table_selection_date_prefix(actual),
+        table_selection_date_prefix(expected),
+    ) {
+        (Some(actual), Some(expected)) => actual < expected,
+        _ => actual.trim() < expected.trim(),
+    }
+}
+
+fn table_selection_date_prefix(value: &str) -> Option<&str> {
+    let value = value.trim();
+    let date = value.get(..10)?;
+    let bytes = date.as_bytes();
+    if bytes.len() == 10
+        && bytes[0].is_ascii_digit()
+        && bytes[1].is_ascii_digit()
+        && bytes[2].is_ascii_digit()
+        && bytes[3].is_ascii_digit()
+        && bytes[4] == b'-'
+        && bytes[5].is_ascii_digit()
+        && bytes[6].is_ascii_digit()
+        && bytes[7] == b'-'
+        && bytes[8].is_ascii_digit()
+        && bytes[9].is_ascii_digit()
+    {
+        Some(date)
+    } else {
+        None
+    }
+}
+
+fn strip_call_inner<'a>(expression: &'a str, name: &str) -> Option<&'a str> {
+    let expression = expression.trim();
+    let prefix = format!("{name}(");
+    expression
+        .strip_prefix(&prefix)
+        .and_then(|value| value.strip_suffix(')'))
+        .map(str::trim)
+}
+
+fn split_selection_top_level(expression: &str, delimiter: char) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut depth = 0i32;
+    let mut start = 0usize;
+    for (index, character) in expression.char_indices() {
+        match character {
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth -= 1,
+            other if other == delimiter && depth == 0 => {
+                parts.push(expression[start..index].trim().to_owned());
+                start = index + other.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    let tail = expression[start..].trim();
+    if !tail.is_empty() {
+        parts.push(tail.to_owned());
+    }
+    parts
+}
+
+fn strip_selection_quotes(value: &str) -> String {
+    let trimmed = value.trim();
+    trimmed
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+        .unwrap_or(trimmed)
+        .to_owned()
+}
+
+fn selection_value_is_none(value: &str) -> bool {
+    let value = value.trim();
+    value.is_empty() || value.eq_ignore_ascii_case("none") || value.eq_ignore_ascii_case("null")
 }
 
 fn materialize_table_diagnostics(
@@ -19673,6 +20073,103 @@ with {{
         assert_eq!(time_axis.coverage_status, "missing_or_irregular");
         assert!(time_axis.irregular);
         assert_eq!(diagnostics[0].columns[1].status, "has_diagnostics");
+    }
+
+    #[test]
+    fn materializes_table_selection_from_promoted_table_filter() {
+        let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-table-selection");
+        let _ = std::fs::remove_dir_all(&source_dir);
+        std::fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        std::fs::write(
+            source_dir.join("data").join("station_map.csv"),
+            concat!(
+                "region,station_id,valid_from,valid_to,latitude,longitude\n",
+                "demo,STN001,2020-01-01T00:00:00+09:00,,37.5665,126.9780\n",
+                "demo,STN003,2020-01-01T00:00:00+09:00,2030-12-31T23:00:00+09:00,36.3504,127.3845\n",
+                "demo-east,STN002,2020-01-01T00:00:00+09:00,,35.1796,129.0756\n",
+            ),
+        )
+        .expect("station map csv");
+        let source_path = source_dir.join("main.eng");
+        let source = concat!(
+            "schema StationMap {\n",
+            "    region: String\n",
+            "    station_id: String\n",
+            "    valid_from: DateTime\n",
+            "    valid_to: DateTime\n",
+            "    latitude: DimensionlessNumber [1]\n",
+            "    longitude: DimensionlessNumber [1]\n",
+            "}\n\n",
+            "args {\n",
+            "    year: Int = 2024\n",
+            "    region: String = \"demo\"\n",
+            "    station_map: CsvFile = file(\"data/station_map.csv\")\n",
+            "}\n\n",
+            "stations = promote csv args.station_map as StationMap\n",
+            "selected_station_id = select_first_row(stations, return_column=\"station_id\", region=args.region, start=date(args.year, 1, 1), end=date(args.year, 12, 31))\n",
+            "unique_station_id = select_first_row(stations, return_column=\"station_id\", region=\"demo-east\", start=date(args.year, 1, 1), end=date(args.year, 12, 31))\n",
+            "missing_station_id = select_first_row(stations, return_column=\"station_id\", region=\"missing\", start=date(args.year, 1, 1), end=date(args.year, 12, 31))\n",
+        );
+        let report = check_source(&source_path, source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.table_selections.len(), 3);
+        let selected = runtime
+            .table_selections
+            .iter()
+            .find(|selection| selection.binding == "selected_station_id")
+            .unwrap();
+        assert_eq!(selected.selected_value.as_deref(), Some("STN001"));
+        assert_eq!(selected.selected_row_index, Some(1));
+        assert_eq!(selected.matched_count, 2);
+        assert_eq!(selected.status, "selected_first_multiple");
+        assert_eq!(
+            selected.reason,
+            "multiple rows matched; selected first row for deterministic workflow"
+        );
+        assert!(selected
+            .filters
+            .iter()
+            .any(|filter| filter.column == "region" && filter.value == "demo" && filter.matched));
+        assert!(selected.filters.iter().any(|filter| {
+            filter.column == "valid_to" && filter.operator == "is_none_or_>=" && filter.matched
+        }));
+        assert!(selected
+            .selected_row
+            .iter()
+            .any(|value| value.column == "station_id" && value.value == "STN001"));
+
+        let unique = runtime
+            .table_selections
+            .iter()
+            .find(|selection| selection.binding == "unique_station_id")
+            .unwrap();
+        assert_eq!(unique.selected_value.as_deref(), Some("STN002"));
+        assert_eq!(unique.status, "selected");
+        assert_eq!(
+            unique.reason,
+            "matched equality filters and validity period"
+        );
+
+        let missing = runtime
+            .table_selections
+            .iter()
+            .find(|selection| selection.binding == "missing_station_id")
+            .unwrap();
+        assert_eq!(missing.selected_value, None);
+        assert_eq!(missing.selected_row_index, None);
+        assert_eq!(missing.matched_count, 0);
+        assert_eq!(missing.status, "no_match");
+        assert_eq!(
+            missing.reason,
+            "no row matched equality filters and validity period"
+        );
     }
 
     #[test]

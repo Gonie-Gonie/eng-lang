@@ -90,6 +90,10 @@
       "type": "array",
       "items": { "$ref": "#/$defs/processRun" }
     },
+    "table_selections": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/tableSelection" }
+    },
     "db_manifests": {
       "type": "array",
       "items": { "$ref": "#/$defs/dbManifest" }
@@ -467,6 +471,59 @@
           "items": { "type": "string" }
         },
         "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "tableSelection": {
+      "type": "object",
+      "required": [
+        "binding",
+        "source_table",
+        "return_column",
+        "selected_value",
+        "selected_row_index",
+        "matched_count",
+        "filters",
+        "selected_row",
+        "status",
+        "reason",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "source_table": { "type": "string" },
+        "return_column": { "type": "string" },
+        "selected_value": { "type": ["string", "null"] },
+        "selected_row_index": { "type": ["integer", "null"], "minimum": 1 },
+        "matched_count": { "type": "integer", "minimum": 0 },
+        "filters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tableSelectionFilter" }
+        },
+        "selected_row": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tableSelectionValue" }
+        },
+        "status": { "enum": ["no_match", "selected", "selected_first_multiple"] },
+        "reason": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "tableSelectionFilter": {
+      "type": "object",
+      "required": ["column", "operator", "value", "matched"],
+      "properties": {
+        "column": { "type": "string" },
+        "operator": { "type": "string" },
+        "value": { "type": "string" },
+        "matched": { "type": "boolean" }
+      }
+    },
+    "tableSelectionValue": {
+      "type": "object",
+      "required": ["column", "value"],
+      "properties": {
+        "column": { "type": "string" },
+        "value": { "type": "string" }
       }
     },
     "dbManifest": {

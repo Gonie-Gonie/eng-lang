@@ -2837,6 +2837,15 @@ fn evaluate_runtime_expression(
         {
             return Some(value);
         }
+        if let Some(selection) = runtime_data
+            .table_selections
+            .iter()
+            .find(|selection| selection.binding == declaration.name)
+        {
+            return Some(RuntimeFormatValue::Text(
+                selection.selected_value.clone().unwrap_or_default(),
+            ));
+        }
         if declaration.expression.trim() != expression {
             if let Some(value) =
                 evaluate_runtime_expression(&declaration.expression, report, runtime_data)
@@ -3867,6 +3876,7 @@ fn result_json(
     }
 
     let table_diagnostics = table_diagnostics_json(runtime_data);
+    let table_selections = table_selections_json(runtime_data, "      ");
     let sample_tables = sample_tables_json(runtime_data);
     let case_manifests = case_manifests_json(runtime_data);
     let db_manifest_records = db_manifest_records(process_results);
@@ -4505,7 +4515,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"table_selections\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -4530,6 +4540,7 @@ fn result_json(
         statistics,
         integrations,
         table_diagnostics,
+        table_selections,
         sample_tables,
         case_manifests,
         db_manifests,
@@ -5120,6 +5131,8 @@ fn runtime_review_json(
         json.push_str("    }");
     }
     let db_manifest_records = db_manifest_records(process_results);
+    json.push_str("\n  ],\n  \"table_selections\": [\n");
+    json.push_str(&table_selections_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"db_manifests\": [\n");
     json.push_str(&db_manifests_json(&db_manifest_records));
     json.push_str("\n  ]\n}\n");
@@ -6120,6 +6133,105 @@ fn db_manifests_json(records: &[DbManifestRecord]) -> String {
     json
 }
 
+fn table_selections_json(runtime_data: &RuntimeData, indent: &str) -> String {
+    let mut json = String::new();
+    for (index, selection) in runtime_data.table_selections.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        push_table_selection_json(&mut json, selection, indent);
+    }
+    json
+}
+
+fn push_table_selection_json(
+    json: &mut String,
+    selection: &runtime_data::RuntimeTableSelection,
+    indent: &str,
+) {
+    let field_indent = format!("{indent}  ");
+    let nested_indent = format!("{indent}    ");
+    json.push_str(&format!("{indent}{{\n"));
+    json.push_str(&format!(
+        "{field_indent}\"binding\": \"{}\",\n",
+        json_escape(&selection.binding)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"source_table\": \"{}\",\n",
+        json_escape(&selection.source_table)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"return_column\": \"{}\",\n",
+        json_escape(&selection.return_column)
+    ));
+    push_optional_json_string(
+        json,
+        "selected_value",
+        selection.selected_value.as_deref(),
+        field_indent.len(),
+    );
+    match selection.selected_row_index {
+        Some(row) => json.push_str(&format!("{field_indent}\"selected_row_index\": {},\n", row)),
+        None => json.push_str(&format!("{field_indent}\"selected_row_index\": null,\n")),
+    }
+    json.push_str(&format!(
+        "{field_indent}\"matched_count\": {},\n",
+        selection.matched_count
+    ));
+    json.push_str(&format!("{field_indent}\"filters\": [\n"));
+    for (filter_index, filter) in selection.filters.iter().enumerate() {
+        if filter_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{nested_indent}{{\n"));
+        json.push_str(&format!(
+            "{nested_indent}  \"column\": \"{}\",\n",
+            json_escape(&filter.column)
+        ));
+        json.push_str(&format!(
+            "{nested_indent}  \"operator\": \"{}\",\n",
+            json_escape(&filter.operator)
+        ));
+        json.push_str(&format!(
+            "{nested_indent}  \"value\": \"{}\",\n",
+            json_escape(&filter.value)
+        ));
+        json.push_str(&format!(
+            "{nested_indent}  \"matched\": {}\n",
+            filter.matched
+        ));
+        json.push_str(&format!("{nested_indent}}}"));
+    }
+    json.push_str(&format!("\n{field_indent}],\n"));
+    json.push_str(&format!("{field_indent}\"selected_row\": [\n"));
+    for (value_index, value) in selection.selected_row.iter().enumerate() {
+        if value_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{nested_indent}{{\n"));
+        json.push_str(&format!(
+            "{nested_indent}  \"column\": \"{}\",\n",
+            json_escape(&value.column)
+        ));
+        json.push_str(&format!(
+            "{nested_indent}  \"value\": \"{}\"\n",
+            json_escape(&value.value)
+        ));
+        json.push_str(&format!("{nested_indent}}}"));
+    }
+    json.push_str(&format!("\n{field_indent}],\n"));
+    json.push_str(&format!(
+        "{field_indent}\"status\": \"{}\",\n",
+        json_escape(&selection.status)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"reason\": \"{}\",\n",
+        json_escape(&selection.reason)
+    ));
+    json.push_str(&format!("{field_indent}\"line\": {}\n", selection.line));
+    json.push_str(&format!("{indent}}}"));
+}
+
 fn table_diagnostics_json(runtime_data: &RuntimeData) -> String {
     let mut json = String::new();
     for (index, diagnostic) in runtime_data.table_diagnostics.iter().enumerate() {
@@ -6802,6 +6914,143 @@ mod tests {
         assert!(output
             .result_json
             .contains("\"status\": \"time_axis_irregular\""));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_source_materializes_table_selection() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-table-selection");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-table-selection-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("station.csv"),
+            "region,station_id,valid_from,valid_to,latitude,longitude\ndemo,STN001,2020-01-01T00:00:00+09:00,2030-12-31T23:00:00+09:00,37.5,126.9\ndemo-east,STN002,2020-01-01T00:00:00+09:00,,35.1,129.0\n",
+        )
+        .expect("station csv");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output = run_source(
+            &virtual_path,
+            concat!(
+                "schema StationMap {\n",
+                "    region: String\n",
+                "    station_id: String\n",
+                "    valid_from: DateTime\n",
+                "    valid_to: DateTime\n",
+                "    latitude: DimensionlessNumber [1]\n",
+                "    longitude: DimensionlessNumber [1]\n",
+                "}\n\n",
+                "args {\n",
+                "    year: Int = 2024\n",
+                "    region: String = \"demo\"\n",
+                "    station_map: CsvFile = file(\"data/station.csv\")\n",
+                "}\n\n",
+                "stations = promote csv args.station_map as StationMap\n",
+                "selected_station_id = select_first_row(stations, return_column=\"station_id\", region=args.region, start=date(args.year, 1, 1), end=date(args.year, 12, 31))\n",
+                "print \"station={selected_station_id}\"\n",
+                "report {\n",
+                "    show selected_station_id\n",
+                "}\n",
+            ),
+            &build_root,
+            &RunOptions::default(),
+        )
+        .expect("run");
+
+        assert!(output.stdout.contains("station=STN001"));
+        assert!(output.result_json.contains("\"table_selections\""));
+        assert!(output
+            .result_json
+            .contains("\"binding\": \"selected_station_id\""));
+        assert!(output
+            .result_json
+            .contains("\"source_table\": \"stations\""));
+        assert!(output
+            .result_json
+            .contains("\"selected_value\": \"STN001\""));
+        assert!(output.result_json.contains("\"selected_row_index\": 1"));
+        assert!(output.result_json.contains("\"matched_count\": 1"));
+        assert!(output
+            .result_json
+            .contains("\"reason\": \"matched equality filters and validity period\""));
+        assert!(output.review_json.contains("\"table_selections\""));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_source_materializes_table_selection_artifacts() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-table-selection-run");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-table-selection-run-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("station_map.csv"),
+            concat!(
+                "region,station_id,valid_from,valid_to,latitude,longitude\n",
+                "demo,STN001,2020-01-01T00:00:00+09:00,2030-12-31T23:00:00+09:00,37.5665,126.9780\n",
+                "demo-east,STN002,2020-01-01T00:00:00+09:00,2030-12-31T23:00:00+09:00,35.1796,129.0756\n",
+            ),
+        )
+        .expect("station map csv");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output = run_source(
+            &virtual_path,
+            concat!(
+                "schema StationMap {\n",
+                "    region: String\n",
+                "    station_id: String\n",
+                "    valid_from: DateTime\n",
+                "    valid_to: DateTime\n",
+                "    latitude: DimensionlessNumber [1]\n",
+                "    longitude: DimensionlessNumber [1]\n",
+                "}\n\n",
+                "args {\n",
+                "    year: Int = 2024\n",
+                "    region: String = \"demo\"\n",
+                "    station_map: CsvFile = file(\"data/station_map.csv\")\n",
+                "}\n\n",
+                "stations = promote csv args.station_map as StationMap\n",
+                "selected_station_id = select_first_row(stations, return_column=\"station_id\", region=args.region, start=date(args.year, 1, 1), end=date(args.year, 12, 31))\n",
+                "print \"selected={selected_station_id}\"\n",
+                "report {\n",
+                "    show selected_station_id\n",
+                "}\n",
+            ),
+            &build_root,
+            &RunOptions::default(),
+        )
+        .expect("run");
+
+        assert!(output.stdout.contains("selected=STN001"));
+        assert!(output.result_json.contains("\"table_selections\""));
+        assert!(output
+            .result_json
+            .contains("\"binding\": \"selected_station_id\""));
+        assert!(output
+            .result_json
+            .contains("\"selected_value\": \"STN001\""));
+        assert!(output
+            .result_json
+            .contains("matched equality filters and validity period"));
+        assert!(output.review_json.contains("\"table_selections\""));
+        assert!(output.review_json.contains("\"selected_row\""));
+        assert!(output.report_html.contains("selected_station_id"));
         assert!(!virtual_path.exists());
     }
 

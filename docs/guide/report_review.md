@@ -642,13 +642,27 @@ model_card
 
 The compiler validates ML source links before runtime. Missing or unknown
 TimeSeries/split/model references produce `E-ML-SOURCE-001`; references with
-the wrong semantic type produce `E-ML-SOURCE-002`.
-It also validates required split/model/MLP options: malformed arguments produce
-`E-ML-ARGS-001` or `E-ML-ARGS-002`, and unsupported model options produce
-`E-ML-ARGS-003`.
+the wrong semantic type produce `E-ML-SOURCE-002`. It also validates required
+split/model/MLP options: malformed arguments produce `E-ML-ARGS-001` or
+`E-ML-ARGS-002`, and unsupported model options produce `E-ML-ARGS-003`.
 
 These metrics are deterministic values for user testing and artifact review.
 Full ML training maturity is a later roadmap item.
+
+## Promoted Table Selection Metadata
+
+`select_first_row(...)` is a narrow `eng.table` seed for deterministic row
+selection over promoted CSV tables. Runtime artifacts record it in:
+
+```text
+review.json                 table_selections
+result.engres               typed_payload.table_selections
+report.html                 selected binding values when shown in report blocks
+```
+
+Each selection entry records the source table, return column, filters, matched
+row count, selected row values, status, reason, and source line. General table
+filter/join/fill transforms remain planned.
 
 ## Manual Checks
 

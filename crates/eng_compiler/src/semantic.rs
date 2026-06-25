@@ -4960,6 +4960,8 @@ fn is_builtin_function(name: &str) -> bool {
             | "evaluate"
             | "model_card"
             | "leakage_lint"
+            | "select_first_row"
+            | "date"
             | "file"
             | "dir"
             | "join"
@@ -10648,6 +10650,10 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
 
     if lowered_expression.contains("promote csv") {
         return semantic_type("Table[Time]", "schema-defined");
+    }
+
+    if lowered_expression.starts_with("select_first_row(") {
+        return semantic_type("String", "");
     }
 
     if lowered_expression.starts_with("simulate ") {

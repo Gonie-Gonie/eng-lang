@@ -13,6 +13,7 @@ fixture run:
 
 ```text
 typed station-map CSV promotion
+reviewable station row selection with `select_first_row(...)`
 typed hourly-weather CSV promotion
 fixture JSON read with source hash provenance
 explicit process boundaries represented by `run command`
@@ -31,7 +32,7 @@ Target contract:
 ```text
 args: year, region, station_map, output, optional api_key
 promote station map
-select station as a fixture-local binding until eng.table filtering exists
+select station from the promoted station map with `select_first_row(...)`
 run external fetcher or use sample response
 promote weather hourly data
 coverage and missing-data report

@@ -4,6 +4,7 @@ The saved run should show:
 
 ```text
 schema StationMap with two fixture rows
+selected station row, selected station_id, filters, and selection reason
 schema WeatherHourly with two typed hourly fixture rows
 read-only JSON source hash for sample_api_response.json
 three explicit process boundaries

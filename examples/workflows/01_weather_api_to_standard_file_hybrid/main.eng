@@ -42,7 +42,7 @@ args {
 stations = promote csv args.station_map as StationMap
 weather = promote csv args.weather_hourly as WeatherHourly
 api_payload = read json args.api_fixture
-selected_station_id = "STN001"
+selected_station_id = select_first_row(stations, return_column="station_id", region=args.region, start=date(args.year, 1, 1), end=date(args.year, 12, 31))
 hourly_records = weather.rows
 expected_hourly_records = 2
 missing_hourly_records = 0
@@ -67,7 +67,7 @@ with {
 }
 
 print "Weather fixture region = {args.region}"
-print "Selected station = STN001"
+print "Selected station = {selected_station_id}"
 print "Station rows = {stations.rows}"
 print "Weather hourly rows = {weather.rows}"
 log info "weather fixture read and standard artifact boundary recorded"

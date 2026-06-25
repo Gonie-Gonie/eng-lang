@@ -6407,6 +6407,14 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .output_manifest_json
                     .contains("\"kind\": \"report_html\"")
                 || !output.review_json.contains("selected_station_id")
+                || !output.review_json.contains("\"table_selections\"")
+                || !output
+                    .review_json
+                    .contains("\"source_table\": \"stations\"")
+                || !output
+                    .review_json
+                    .contains("\"selected_value\": \"STN001\"")
+                || !output.result_json.contains("\"table_selections\"")
                 || !output.report_html.contains("max_gap_hours")
             {
                 eprintln!(

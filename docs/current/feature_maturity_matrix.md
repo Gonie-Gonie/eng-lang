@@ -235,8 +235,8 @@ separate.
   run log, test, and profile primitives already listed under explicit side
   effects.
 - Main status: `Supported` for those primitives plus promoted table
-  diagnostics, promoted sample-table artifacts, promoted case manifest seeds,
-  DB manifest summaries in `typed_payload.db_manifests[]`, internal model-card
+  diagnostics, deterministic promoted-table row-selection artifacts, promoted
+  sample-table artifacts, promoted case manifest seeds, DB manifest summaries in `typed_payload.db_manifests[]`, internal model-card
   summaries in `typed_payload.model_cards[]`, and time-axis coverage artifacts;
   hybrid fixtures now emit weather, case, model-card, and prediction artifacts
   through explicit process/write boundaries; `Planned` for native network,
@@ -246,14 +246,15 @@ separate.
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the
   core, not core language identity.
 - Evidence: official side-effect examples, process artifacts, output manifests,
-  `typed_payload.table_diagnostics[]`, `typed_payload.sample_tables[]`,
+  `typed_payload.table_diagnostics[]`, `typed_payload.table_selections[]`,
+  `typed_payload.sample_tables[]`,
   `typed_payload.case_manifests[]`, `typed_payload.db_manifests[]`,
   `typed_payload.model_cards[]`, workflow examples under `examples/workflows`,
   and `docs/current/workflow_modules.md`.
   The external simulation hybrid now records three case manifests, collected
   result rows, surrogate metrics, predictions, and a DB write manifest summary
   as reviewable fixture artifacts.
-- Not included: stable HTTP/cache API, table filter/join/fill transforms,
+- Not included: stable HTTP/cache API, general table filter/join/fill transforms,
   native grid/random/LHS sample generation, native case runner, domain weather
   adapters, EPW writer, EnergyPlus IDF parser, native SQLite write/upsert, broad
   DB support, or ML framework support.

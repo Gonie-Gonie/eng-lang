@@ -442,6 +442,7 @@ csv_exports
 writes
 file_operations
 process_runs
+table_selections
 uncertainty_info
 ml_info
 system_summary
@@ -455,6 +456,10 @@ schema_summary
 schemas
 csv_promotions
 ```
+
+Runtime `eng run` artifacts may add `table_selections[]` to `review.json`.
+Each entry records the selected binding, source table, return column, filters,
+matched row count, selected row values, status, reason, and source line.
 
 `review.json` is produced by `eng check --review` and by saved `eng run`
 artifacts. The `plot_manifest` section declares the runtime plot manifest

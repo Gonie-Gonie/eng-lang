@@ -3,7 +3,8 @@
 Status: mixed. Existing path, IO, process, output-manifest, run-log, and test
 features are supported in the current public package scope. Promoted CSV
 tables now emit `typed_payload.table_diagnostics[]` with schema, row, column,
-missing-cell, parse/conversion, and time-axis coverage summaries. Promoted
+missing-cell, parse/conversion, and time-axis coverage summaries, plus
+deterministic row-selection records in `typed_payload.table_selections[]`. Promoted
 DesignSample-style CSV tables now emit `typed_payload.sample_tables[]` with
 case ID, parameter range, duplicate-case, and row-hash preview metadata, plus
 `typed_payload.case_manifests[]` case row seeds with sample row hashes. Hybrid
@@ -33,7 +34,7 @@ that make those adapters typed, explicit, reproducible, and reviewable.
 | `eng.log` | Supported through built-ins | structured runtime messages and run logs |
 | `eng.process` | Supported narrow scope | explicit command boundary, tool-version metadata, expected-output hashes, and process artifacts |
 | `eng.test` | Supported narrow scope | local assertions, golden checks, test artifacts |
-| `eng.table` | Supported diagnostic artifact seed; planned APIs | promoted table row/column diagnostics; filter/join/derived columns planned |
+| `eng.table` | Supported diagnostics and row-selection artifact seed; planned broader APIs | promoted table row/column diagnostics and deterministic row selection; filter/join/derived columns planned |
 | `eng.timeseries` | Supported narrow scope | TimeSeries statistics, table time-axis coverage metadata, integration |
 | `eng.sampling` | Supported promoted-table artifact seed; planned generators | sample table metadata, parameter ranges, row-hash previews; grid/random/LHS planned |
 | `eng.case` | Supported sample-row artifact seed; planned native runner | case IDs, sample row hashes, duplicate/missing diagnostics; per-case dirs/process manifests planned |
@@ -94,7 +95,9 @@ external processes, `process_results.json` records command, args, cwd, tool
 version, stdout/stderr hashes, expected outputs, output hashes, duration, and
 status. For
 promoted tables, `typed_payload.table_diagnostics[]` records the current
-reviewable schema/row/coverage summary, `typed_payload.sample_tables[]`
+reviewable schema/row/coverage summary, `typed_payload.table_selections[]` records
+selected row, selected value, filters, match count, and selection reason,
+`typed_payload.sample_tables[]`
 records deterministic sample/case table metadata when a promoted table is
 sample-like, and `typed_payload.case_manifests[]` records one case seed per
 sample row, and `typed_payload.db_manifests[]` records generated DB write
@@ -110,6 +113,7 @@ native module claims.
 
 ```text
 typed station and hourly weather schemas
+reviewable station row selection from promoted station map
 explicit API fixture boundary
 weather quality summary
 standard text weather artifact
