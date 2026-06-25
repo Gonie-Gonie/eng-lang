@@ -48,21 +48,21 @@ predictions = promote csv args.predictions as PredictionResult
 
 patch_result = run command "python"
 with {
-    args = ["tools/patch_input.py", "--case", "case_001"]
+    args = ["tools/patch_input.py", "--base", "model/base_model_placeholder.txt", "--samples", "samples/design_samples.csv", "--case", "case_001", "--out", "outputs/case_001/input.txt"]
     expected_outputs = ["outputs/case_001/input.txt"]
     artifact_kind = "case_input"
 }
 
 patch_result_002 = run command "python"
 with {
-    args = ["tools/patch_input.py", "--case", "case_002"]
+    args = ["tools/patch_input.py", "--base", "model/base_model_placeholder.txt", "--samples", "samples/design_samples.csv", "--case", "case_002", "--out", "outputs/case_002/input.txt"]
     expected_outputs = ["outputs/case_002/input.txt"]
     artifact_kind = "case_input"
 }
 
 patch_result_003 = run command "python"
 with {
-    args = ["tools/patch_input.py", "--case", "case_003"]
+    args = ["tools/patch_input.py", "--base", "model/base_model_placeholder.txt", "--samples", "samples/design_samples.csv", "--case", "case_003", "--out", "outputs/case_003/input.txt"]
     expected_outputs = ["outputs/case_003/input.txt"]
     artifact_kind = "case_input"
 }

@@ -36,7 +36,7 @@ Target contract:
 promote sample table
 validate sample ranges
 create case directories
-run patcher per case
+run patcher per case with explicit base model, sample table, case id, and output path contract
 run external simulator per case
 collect results
 promote results

@@ -6472,12 +6472,20 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .result_json
                     .contains("\"generated_input_file\": \"outputs/case_001/input.txt\"")
                 || !output.result_json.contains("\"process_statuses\"")
+                || !output.result_json.contains("\"name\": \"patch_input\"")
+                || !output
+                    .result_json
+                    .contains("\"command\": \"python tools/patch_input.py\"")
                 || !output
                     .result_json
                     .contains("\"name\": \"external_simulation\"")
                 || !output
                     .result_json
+                    .contains("\"command\": \"python tools/run_external_sim.py\"")
+                || !output
+                    .result_json
                     .contains("\"result_files\": [\"outputs/case_001/result.json\"]")
+                || !output.result_json.contains("\"failure_reason\": null")
                 || !output
                     .result_json
                     .contains("\"name\": \"annual_electricity_kwh\"")
@@ -6498,24 +6506,6 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .report_spec_json
                     .contains("\"policy\": \"lighting_power_density >= 0 W/m2\"")
                 || !output
-                    .result_json
-                    .contains("\"case_dir\": \"outputs/case_001\"")
-                || !output
-                    .result_json
-                    .contains("\"generated_input_file\": \"outputs/case_001/input.txt\"")
-                || !output.result_json.contains("\"process_statuses\"")
-                || !output
-                    .result_json
-                    .contains("\"command\": \"python tools/run_external_sim.py\"")
-                || !output.result_json.contains("\"result_files\"")
-                || !output
-                    .result_json
-                    .contains("\"name\": \"annual_electricity_kwh\"")
-                || !output.result_json.contains("\"failure_reason\": null")
-                || !output
-                    .result_json
-                    .contains("\"status\": \"case_materialized\"")
-                || !output
                     .process_results_json
                     .contains("\"format\": \"eng-process-results-v1\"")
                 || !output
@@ -6523,7 +6513,22 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"process_count\": 13")
                 || !output
                     .process_results_json
+                    .contains("\"binding\": \"patch_result\"")
+                || !output
+                    .process_results_json
+                    .contains("\"kind\": \"case_input\"")
+                || !output
+                    .process_results_json
+                    .contains("\"path\": \"outputs/case_001/input.txt\"")
+                || !output
+                    .process_results_json
+                    .contains("\"rule\": \"exists_and_hash\"")
+                || !output
+                    .process_results_json
                     .contains("\"binding\": \"db_result\"")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/case_001/input.txt")
                 || !output
                     .output_manifest_json
                     .contains("outputs/case_001/case_manifest.json")

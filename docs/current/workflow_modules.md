@@ -133,7 +133,7 @@ executed schema constraint policy_results for sample and prediction tables
 promoted sample table artifact with case IDs, parameter ranges, duplicate checks, and row-hash previews
 promoted case manifest seeds enriched with case directories, process statuses, generated inputs, result files, metrics, and failure reasons
 three explicit fixture cases
-per-case patched input, simulator output, and case_manifest.json classified as case artifacts
+per-case patched input, simulator output, and case_manifest.json classified as case artifacts with expected-output hash records
 collected summary_results.csv
 surrogate.json and model_metrics.json with hashes and residual metadata
 internal eng.ml artifacts promoted to typed_payload.model_cards[] with model kind, features, target quantity/unit, train/test counts, metrics, residual point counts, training data hashes, and model artifact hashes
