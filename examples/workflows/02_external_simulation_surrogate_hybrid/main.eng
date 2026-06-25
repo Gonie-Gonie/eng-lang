@@ -37,7 +37,7 @@ schema PredictionResult {
 
 args {
     samples: CsvFile = file("samples/design_samples.csv")
-    results: CsvFile = file("outputs/summary_results.csv")
+    results: CsvFile = file("samples/summary_results.csv")
     predictions: CsvFile = file("samples/predictions.csv")
     database_target: String = "outputs/surrogate_results.sqlite"
     output: DirectoryPath = dir("outputs")
