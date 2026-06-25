@@ -659,7 +659,11 @@ review.json                 timeseries_coverage
 result.engres               typed_payload.timeseries_coverage
 ```
 
-Each coverage entry records binding/name, source start/end, numeric start/end, expected step/count, actual count, missing intervals, max gap, optional coverage year, leap-year policy, status, and source line. Automatic axis-span entries use `axis_span_only`; explicit `check coverage ... with { year = ... }` entries use a Gregorian year grid, including leap-year expected counts.
+Each coverage entry records binding/name, source start/end, numeric start/end,
+expected step/count, actual count, missing intervals, max gap, optional coverage
+year, leap-year policy, status, and source line. Automatic axis-span entries use
+`axis_span_only`; explicit `check coverage ... with { year = ... }` entries use a
+Gregorian year grid, including leap-year expected counts.
 
 ## Promoted Table Selection Metadata
 
