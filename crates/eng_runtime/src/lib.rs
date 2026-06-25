@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::error::Error;
 use std::fmt;
@@ -18,7 +18,7 @@ pub mod solver;
 mod vm;
 
 use runtime_data::{
-    materialize_runtime_data, RuntimeCaseMetric, RuntimeCaseProcessStatus,
+    materialize_runtime_data, RuntimeCaseManifest, RuntimeCaseMetric, RuntimeCaseProcessStatus,
     RuntimeComponentResidualEvaluation, RuntimeData, RuntimeNumericUncertaintyPayload,
     RuntimeNumericValue, RuntimeStatisticValue, RuntimeTimeSeries, RuntimeValues,
 };
@@ -390,7 +390,7 @@ pub fn run_source(
     let bytecode_hash = hash_text(&bytecode);
     let bytecode_program = parse_bytecode(&bytecode)?;
     let mut execution = execute_bytecode(&bytecode_program)?;
-    let mut runtime_data = materialize_runtime_data(&check_report, source);
+    let runtime_data = materialize_runtime_data(&check_report, source);
     apply_runtime_lengths(&mut execution, &runtime_data);
     let stdout = render_stdout(&check_report, &runtime_data);
     let run_log_json = run_log_json(
@@ -400,7 +400,6 @@ pub fn run_source(
         &profile_diagnostics,
     );
     let process_results = execute_process_runs(&check_report)?;
-    enrich_case_manifests_from_process_results(&mut runtime_data, &process_results);
     let process_results_json =
         process_results_json(&check_report, &process_results, &options.profile);
     let csv_export_artifacts = write_csv_exports(&check_report, &runtime_data, &result_dir)?;
@@ -1273,191 +1272,6 @@ fn json_field_string_array(value: &Value, key: &str) -> Vec<String> {
                 .collect()
         })
         .unwrap_or_default()
-}
-
-fn enrich_case_manifests_from_process_results(
-    runtime_data: &mut RuntimeData,
-    records: &[ProcessExecutionRecord],
-) {
-    for manifest in &mut runtime_data.case_manifests {
-        if manifest.case_id.trim().is_empty() {
-            continue;
-        }
-        for process in records {
-            let mut process_matched = false;
-            for output in &process.expected_outputs {
-                if !case_path_matches(&output.path, &manifest.case_id) {
-                    continue;
-                }
-                process_matched = true;
-                push_unique_string(&mut manifest.output_artifacts, output.path.clone());
-                if manifest.case_dir.is_none() {
-                    manifest.case_dir = infer_case_dir_from_path(&output.path, &manifest.case_id);
-                }
-                classify_case_output_path(manifest, &output.path);
-                let output_path = output.path.replace('\\', "/");
-                if output.artifact_kind == "case_manifest"
-                    || output_path.ends_with("case_manifest.json")
-                {
-                    apply_case_manifest_file(manifest, output);
-                }
-            }
-            if process_matched {
-                push_unique_string(&mut manifest.process_bindings, process.binding.clone());
-                push_case_process_status(
-                    manifest,
-                    RuntimeCaseProcessStatus {
-                        name: process.binding.clone(),
-                        command: process.command.clone(),
-                        status: process.status.clone(),
-                    },
-                );
-                if !process.success && manifest.failure_reason.is_none() {
-                    manifest.failure_reason = Some(process_failure_reason(process));
-                }
-            }
-        }
-        if !manifest.output_artifacts.is_empty() && manifest.status == "sample_row_manifest_seed" {
-            manifest.status = if manifest.failure_reason.is_some() {
-                "case_failed".to_owned()
-            } else {
-                "case_materialized".to_owned()
-            };
-        }
-    }
-}
-
-fn process_failure_reason(process: &ProcessExecutionRecord) -> String {
-    let stderr = process.stderr.trim();
-    if stderr.is_empty() {
-        process.status.clone()
-    } else {
-        stderr.to_owned()
-    }
-}
-
-fn case_path_matches(path: &str, case_id: &str) -> bool {
-    path.replace('\\', "/")
-        .split('/')
-        .any(|part| part == case_id)
-}
-
-fn infer_case_dir_from_path(path: &str, case_id: &str) -> Option<String> {
-    let normalized = path.replace('\\', "/");
-    let parts = normalized.split('/').collect::<Vec<_>>();
-    if let Some(index) = parts.iter().position(|part| *part == case_id) {
-        return Some(parts[..=index].join("/"));
-    }
-    normalized
-        .rsplit_once('/')
-        .map(|(parent, _)| parent.to_owned())
-}
-
-fn classify_case_output_path(manifest: &mut runtime_data::RuntimeCaseManifest, path: &str) {
-    let file_name = Path::new(path)
-        .file_name()
-        .and_then(|value| value.to_str())
-        .unwrap_or_default()
-        .to_ascii_lowercase();
-    if manifest.generated_input_file.is_none() && file_name.contains("input") {
-        manifest.generated_input_file = Some(path.to_owned());
-    }
-    if file_name.contains("result") {
-        push_unique_string(&mut manifest.result_files, path.to_owned());
-    }
-}
-
-fn apply_case_manifest_file(
-    manifest: &mut runtime_data::RuntimeCaseManifest,
-    output: &ProcessExpectedOutputRecord,
-) {
-    if !output.exists {
-        return;
-    }
-    let Ok(source) = fs::read_to_string(&output.resolved_path) else {
-        return;
-    };
-    let Ok(value) = serde_json::from_str::<Value>(&source) else {
-        return;
-    };
-    if let Some(case_dir) = json_field_string(&value, "case_dir") {
-        manifest.case_dir = Some(case_dir);
-    }
-    if let Some(input) = value
-        .get("generated_input_file")
-        .and_then(|record| json_field_string(record, "path"))
-    {
-        manifest.generated_input_file = Some(input.clone());
-        push_unique_string(&mut manifest.output_artifacts, input);
-    }
-    if let Some(result_files) = value.get("result_files").and_then(Value::as_array) {
-        for file in result_files {
-            if let Some(path) = json_field_string(file, "path") {
-                push_unique_string(&mut manifest.result_files, path.clone());
-                push_unique_string(&mut manifest.output_artifacts, path);
-            }
-        }
-    }
-    if let Some(processes) = value.get("processes").and_then(Value::as_array) {
-        for process in processes {
-            let Some(name) = json_field_string(process, "name") else {
-                continue;
-            };
-            push_case_process_status(
-                manifest,
-                RuntimeCaseProcessStatus {
-                    name,
-                    command: json_field_string(process, "command").unwrap_or_default(),
-                    status: json_field_string(process, "status").unwrap_or_default(),
-                },
-            );
-        }
-    }
-    if let Some(metrics) = value.get("metrics").and_then(Value::as_object) {
-        for (name, metric) in metrics {
-            if let Some(value) = metric.as_f64() {
-                push_case_metric(
-                    manifest,
-                    RuntimeCaseMetric {
-                        name: name.clone(),
-                        value,
-                    },
-                );
-            }
-        }
-    }
-    if let Some(reason) = json_field_string(&value, "failure_reason") {
-        manifest.failure_reason = Some(reason);
-    }
-}
-
-fn push_unique_string(values: &mut Vec<String>, value: String) {
-    if !values.iter().any(|existing| existing == &value) {
-        values.push(value);
-    }
-}
-
-fn push_case_process_status(
-    manifest: &mut runtime_data::RuntimeCaseManifest,
-    status: RuntimeCaseProcessStatus,
-) {
-    if !manifest
-        .process_statuses
-        .iter()
-        .any(|existing| existing.name == status.name)
-    {
-        manifest.process_statuses.push(status);
-    }
-}
-
-fn push_case_metric(manifest: &mut runtime_data::RuntimeCaseManifest, metric: RuntimeCaseMetric) {
-    if !manifest
-        .metrics
-        .iter()
-        .any(|existing| existing.name == metric.name)
-    {
-        manifest.metrics.push(metric);
-    }
 }
 
 fn process_results_json(
@@ -4244,7 +4058,7 @@ fn result_json(
     let table_selections = table_selections_json(runtime_data, "      ");
     let timeseries_coverage = timeseries_coverage_json(runtime_data, "      ");
     let sample_tables = sample_tables_json(runtime_data);
-    let case_manifests = case_manifests_json(runtime_data);
+    let case_manifests = case_manifests_json(runtime_data, process_results);
     let db_manifest_records = db_manifest_records(process_results);
     let db_manifests = db_manifests_json(&db_manifest_records);
     let model_cards = model_cards_json(runtime_data);
@@ -6288,9 +6102,13 @@ fn sample_tables_json(runtime_data: &RuntimeData) -> String {
     json
 }
 
-fn case_manifests_json(runtime_data: &RuntimeData) -> String {
+fn case_manifests_json(
+    runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
+) -> String {
+    let case_manifests = materialized_case_manifests(runtime_data, process_results);
     let mut json = String::new();
-    for (index, manifest) in runtime_data.case_manifests.iter().enumerate() {
+    for (index, manifest) in case_manifests.iter().enumerate() {
         if index > 0 {
             json.push_str(",\n");
         }
@@ -6334,14 +6152,18 @@ fn case_manifests_json(runtime_data: &RuntimeData) -> String {
         json.push_str("        \"process_bindings\": [");
         push_json_string_array(&mut json, &manifest.process_bindings);
         json.push_str("],\n");
-        push_case_process_statuses_json(&mut json, &manifest.process_statuses, 8);
+        json.push_str("        \"process_statuses\": [");
+        push_case_process_statuses_json(&mut json, &manifest.process_statuses);
+        json.push_str("],\n");
         json.push_str("        \"output_artifacts\": [");
         push_json_string_array(&mut json, &manifest.output_artifacts);
         json.push_str("],\n");
         json.push_str("        \"result_files\": [");
         push_json_string_array(&mut json, &manifest.result_files);
         json.push_str("],\n");
-        push_case_metrics_json(&mut json, &manifest.metrics, 8);
+        json.push_str("        \"metrics\": [");
+        push_case_metrics_json(&mut json, &manifest.metrics);
+        json.push_str("],\n");
         push_optional_json_string(
             &mut json,
             "failure_reason",
@@ -6357,54 +6179,355 @@ fn case_manifests_json(runtime_data: &RuntimeData) -> String {
     json
 }
 
-fn push_case_process_statuses_json(
-    json: &mut String,
-    statuses: &[RuntimeCaseProcessStatus],
-    indent: usize,
-) {
-    let spaces = " ".repeat(indent);
-    json.push_str(&format!("{spaces}\"process_statuses\": [\n"));
-    for (index, status) in statuses.iter().enumerate() {
-        if index > 0 {
-            json.push_str(",\n");
-        }
-        json.push_str(&format!("{spaces}  {{\n"));
-        json.push_str(&format!(
-            "{spaces}    \"name\": \"{}\",\n",
-            json_escape(&status.name)
-        ));
-        json.push_str(&format!(
-            "{spaces}    \"command\": \"{}\",\n",
-            json_escape(&status.command)
-        ));
-        json.push_str(&format!(
-            "{spaces}    \"status\": \"{}\"\n",
-            json_escape(&status.status)
-        ));
-        json.push_str(&format!("{spaces}  }}"));
+fn materialized_case_manifests(
+    runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
+) -> Vec<RuntimeCaseManifest> {
+    let mut manifests = runtime_data.case_manifests.clone();
+    if manifests.is_empty() || process_results.is_empty() {
+        return manifests;
     }
-    json.push_str(&format!("\n{spaces}],\n"));
+
+    for process in process_results {
+        let linked_case_ids = linked_case_ids_for_process(&manifests, process);
+        for case_id in linked_case_ids {
+            for manifest in manifests
+                .iter_mut()
+                .filter(|manifest| manifest.case_id == case_id)
+            {
+                apply_process_outputs_to_case_manifest(manifest, process);
+            }
+        }
+    }
+
+    for manifest in &mut manifests {
+        finalize_case_manifest_status(manifest);
+    }
+
+    manifests
 }
 
-fn push_case_metrics_json(json: &mut String, metrics: &[RuntimeCaseMetric], indent: usize) {
-    let spaces = " ".repeat(indent);
-    json.push_str(&format!("{spaces}\"metrics\": [\n"));
+fn linked_case_ids_for_process(
+    manifests: &[RuntimeCaseManifest],
+    process: &ProcessExecutionRecord,
+) -> Vec<String> {
+    let mut seen = HashSet::new();
+    let mut linked = Vec::new();
+    for output in &process.expected_outputs {
+        for manifest in manifests {
+            if manifest.case_id.trim().is_empty() {
+                continue;
+            }
+            if output_path_matches_case(&output.path, &manifest.case_id)
+                && seen.insert(manifest.case_id.clone())
+            {
+                linked.push(manifest.case_id.clone());
+            }
+        }
+    }
+    linked
+}
+
+fn apply_process_outputs_to_case_manifest(
+    manifest: &mut RuntimeCaseManifest,
+    process: &ProcessExecutionRecord,
+) {
+    let mut linked = false;
+    let case_id = manifest.case_id.clone();
+    for output in process
+        .expected_outputs
+        .iter()
+        .filter(|output| output_path_matches_case(&output.path, &case_id))
+    {
+        linked = true;
+        apply_expected_output_to_case_manifest(manifest, process, output);
+    }
+
+    if linked {
+        push_unique_string(&mut manifest.process_bindings, process.binding.clone());
+        push_unique_case_process_status(
+            &mut manifest.process_statuses,
+            RuntimeCaseProcessStatus {
+                name: process.binding.clone(),
+                command: process_command_line(process),
+                status: process.status.clone(),
+            },
+        );
+        if !process.success && manifest.failure_reason.is_none() {
+            manifest.failure_reason = Some(format!(
+                "process `{}` reported status `{}`",
+                process.binding, process.status
+            ));
+        }
+    }
+}
+
+fn apply_expected_output_to_case_manifest(
+    manifest: &mut RuntimeCaseManifest,
+    process: &ProcessExecutionRecord,
+    output: &ProcessExpectedOutputRecord,
+) {
+    if manifest.case_dir.is_none() {
+        manifest.case_dir = infer_case_dir_from_output_path(&output.path, &manifest.case_id);
+    }
+    push_unique_string(&mut manifest.output_artifacts, output.path.clone());
+    if is_case_generated_input_output(&output.path) && manifest.generated_input_file.is_none() {
+        manifest.generated_input_file = Some(output.path.clone());
+    }
+    if is_case_result_file_output(&output.path) {
+        push_unique_string(&mut manifest.result_files, output.path.clone());
+    }
+    if !output.exists && manifest.failure_reason.is_none() {
+        manifest.failure_reason = Some(format!(
+            "process `{}` did not create expected output `{}`",
+            process.binding, output.path
+        ));
+    }
+    if is_case_manifest_output(&output.path) {
+        apply_external_case_manifest_payload(manifest, output);
+    }
+}
+
+fn apply_external_case_manifest_payload(
+    manifest: &mut RuntimeCaseManifest,
+    output: &ProcessExpectedOutputRecord,
+) {
+    if !output.exists {
+        return;
+    }
+    let source = match fs::read_to_string(&output.resolved_path) {
+        Ok(source) => source,
+        Err(error) => {
+            if manifest.failure_reason.is_none() {
+                manifest.failure_reason = Some(format!(
+                    "case manifest `{}` could not be read: {error}",
+                    output.path
+                ));
+            }
+            return;
+        }
+    };
+    let value = match serde_json::from_str::<Value>(&source) {
+        Ok(value) => value,
+        Err(error) => {
+            if manifest.failure_reason.is_none() {
+                manifest.failure_reason = Some(format!(
+                    "case manifest `{}` could not be parsed: {error}",
+                    output.path
+                ));
+            }
+            return;
+        }
+    };
+
+    if let Some(case_id) = json_field_string(&value, "case_id") {
+        if !case_id.is_empty() && case_id != manifest.case_id {
+            return;
+        }
+    }
+    if let Some(sample_row_hash) = json_field_string(&value, "sample_row_hash") {
+        manifest.sample_row_hash = sample_row_hash;
+    }
+    if let Some(case_dir) = json_field_string(&value, "case_dir") {
+        manifest.case_dir = Some(case_dir);
+    }
+    if let Some(path) = value
+        .get("generated_input_file")
+        .and_then(case_manifest_file_path)
+    {
+        manifest.generated_input_file = Some(path);
+    }
+    if let Some(processes) = value.get("processes").and_then(Value::as_array) {
+        for process in processes {
+            let name = json_field_string(process, "name").unwrap_or_default();
+            let command = json_field_string(process, "command").unwrap_or_default();
+            let status = json_field_string(process, "status").unwrap_or_default();
+            if !name.is_empty() || !command.is_empty() || !status.is_empty() {
+                push_unique_case_process_status(
+                    &mut manifest.process_statuses,
+                    RuntimeCaseProcessStatus {
+                        name: name.clone(),
+                        command,
+                        status: status.clone(),
+                    },
+                );
+                if !case_process_status_is_success(&status) && manifest.failure_reason.is_none() {
+                    manifest.failure_reason = Some(format!(
+                        "case process `{}` reported status `{}`",
+                        name, status
+                    ));
+                }
+            }
+        }
+    }
+    if let Some(files) = value.get("result_files").and_then(Value::as_array) {
+        for file in files {
+            if let Some(path) = case_manifest_file_path(file) {
+                push_unique_string(&mut manifest.result_files, path);
+            }
+        }
+    }
+    if let Some(metrics) = value.get("metrics").and_then(Value::as_object) {
+        let mut names = metrics.keys().cloned().collect::<Vec<_>>();
+        names.sort();
+        for name in names {
+            if let Some(value) = metrics.get(&name).and_then(Value::as_f64) {
+                push_unique_case_metric(&mut manifest.metrics, RuntimeCaseMetric { name, value });
+            }
+        }
+    }
+    if let Some(failure_reason) = value.get("failure_reason") {
+        if let Some(reason) = failure_reason.as_str() {
+            if !reason.is_empty() {
+                manifest.failure_reason = Some(reason.to_owned());
+            }
+        } else if !failure_reason.is_null() {
+            manifest.failure_reason = Some(failure_reason.to_string());
+        }
+    }
+}
+
+fn finalize_case_manifest_status(manifest: &mut RuntimeCaseManifest) {
+    if manifest.failure_reason.is_some() {
+        manifest.status = "case_failed".to_owned();
+    } else if manifest.status == "sample_row_manifest_seed"
+        && (manifest.case_dir.is_some()
+            || manifest.generated_input_file.is_some()
+            || !manifest.process_bindings.is_empty()
+            || !manifest.process_statuses.is_empty()
+            || !manifest.output_artifacts.is_empty()
+            || !manifest.result_files.is_empty()
+            || !manifest.metrics.is_empty())
+    {
+        manifest.status = "case_materialized".to_owned();
+    }
+}
+
+fn push_case_process_statuses_json(json: &mut String, processes: &[RuntimeCaseProcessStatus]) {
+    for (index, process) in processes.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str("{");
+        json.push_str(&format!("\"name\": \"{}\"", json_escape(&process.name)));
+        json.push_str(&format!(
+            ", \"command\": \"{}\"",
+            json_escape(&process.command)
+        ));
+        json.push_str(&format!(
+            ", \"status\": \"{}\"",
+            json_escape(&process.status)
+        ));
+        json.push_str("}");
+    }
+}
+
+fn push_case_metrics_json(json: &mut String, metrics: &[RuntimeCaseMetric]) {
     for (index, metric) in metrics.iter().enumerate() {
         if index > 0 {
-            json.push_str(",\n");
+            json.push_str(", ");
         }
-        json.push_str(&format!("{spaces}  {{\n"));
         json.push_str(&format!(
-            "{spaces}    \"name\": \"{}\",\n",
-            json_escape(&metric.name)
-        ));
-        json.push_str(&format!(
-            "{spaces}    \"value\": {}\n",
+            "{{\"name\": \"{}\", \"value\": {}}}",
+            json_escape(&metric.name),
             format_number_with_precision(metric.value, Some(8))
         ));
-        json.push_str(&format!("{spaces}  }}"));
     }
-    json.push_str(&format!("\n{spaces}],\n"));
+}
+
+fn push_unique_case_process_status(
+    processes: &mut Vec<RuntimeCaseProcessStatus>,
+    process: RuntimeCaseProcessStatus,
+) {
+    if let Some(existing) = processes
+        .iter_mut()
+        .find(|existing| existing.name == process.name)
+    {
+        *existing = process;
+    } else {
+        processes.push(process);
+    }
+}
+
+fn push_unique_case_metric(metrics: &mut Vec<RuntimeCaseMetric>, metric: RuntimeCaseMetric) {
+    if let Some(existing) = metrics
+        .iter_mut()
+        .find(|existing| existing.name == metric.name)
+    {
+        *existing = metric;
+    } else {
+        metrics.push(metric);
+    }
+}
+
+fn push_unique_string(values: &mut Vec<String>, value: String) {
+    if !value.is_empty() && !values.iter().any(|existing| existing == &value) {
+        values.push(value);
+    }
+}
+
+fn case_manifest_file_path(value: &Value) -> Option<String> {
+    if let Some(path) = value.as_str() {
+        return Some(path.to_owned());
+    }
+    json_field_string(value, "path")
+}
+
+fn output_path_matches_case(path: &str, case_id: &str) -> bool {
+    output_path_segments(path)
+        .into_iter()
+        .any(|segment| segment == case_id)
+}
+
+fn infer_case_dir_from_output_path(path: &str, case_id: &str) -> Option<String> {
+    let segments = output_path_segments(path);
+    let index = segments.iter().position(|segment| *segment == case_id)?;
+    Some(segments[..=index].join("/"))
+}
+
+fn output_path_segments(path: &str) -> Vec<&str> {
+    path.split(|ch| ch == '/' || ch == '\\')
+        .filter(|segment| !segment.is_empty())
+        .collect()
+}
+
+fn output_file_name(path: &str) -> String {
+    output_path_segments(path)
+        .last()
+        .copied()
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+}
+
+fn is_case_manifest_output(path: &str) -> bool {
+    let file_name = output_file_name(path);
+    file_name == "case_manifest.json"
+        || (file_name.contains("case_manifest") && file_name.ends_with(".json"))
+}
+
+fn is_case_generated_input_output(path: &str) -> bool {
+    let file_name = output_file_name(path);
+    file_name == "input.txt" || file_name.starts_with("input.")
+}
+
+fn is_case_result_file_output(path: &str) -> bool {
+    let file_name = output_file_name(path);
+    file_name == "result.json" || file_name.starts_with("result.")
+}
+
+fn process_command_line(process: &ProcessExecutionRecord) -> String {
+    if process.args.is_empty() {
+        process.command.clone()
+    } else {
+        format!("{} {}", process.command, process.args.join(" "))
+    }
+}
+
+fn case_process_status_is_success(status: &str) -> bool {
+    matches!(
+        status.trim().to_ascii_lowercase().as_str(),
+        "" | "ok" | "passed" | "success" | "succeeded" | "completed"
+    )
 }
 
 fn model_cards_json(runtime_data: &RuntimeData) -> String {
@@ -7709,8 +7832,142 @@ mod tests {
         assert!(output.result_json.contains("\"case_dir\": null"));
         assert!(output
             .result_json
+            .contains("\"generated_input_file\": null"));
+        assert!(output.result_json.contains("\"process_statuses\": []"));
+        assert!(output.result_json.contains("\"result_files\": []"));
+        assert!(output.result_json.contains("\"metrics\": []"));
+        assert!(output.result_json.contains("\"failure_reason\": null"));
+        assert!(output
+            .result_json
             .contains("\"status\": \"sample_row_manifest_seed\""));
         assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_file_enriches_case_manifest_from_expected_output() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root
+            .join("build")
+            .join("runtime-case-manifest-enrichment");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-case-manifest-enrichment-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("samples")).expect("sample data dir");
+        fs::create_dir_all(source_dir.join("outputs").join("case_001")).expect("case dir");
+        fs::write(
+            source_dir.join("samples").join("design_samples.csv"),
+            "case_id,cooling_cop\ncase_001,3.2\n",
+        )
+        .expect("sample csv");
+        fs::write(
+            source_dir
+                .join("outputs")
+                .join("case_001")
+                .join("input.txt"),
+            "cop=3.2\n",
+        )
+        .expect("case input");
+        fs::write(
+            source_dir
+                .join("outputs")
+                .join("case_001")
+                .join("result.json"),
+            "{\"annual_electricity\":42.5}\n",
+        )
+        .expect("case result");
+        fs::write(
+            source_dir
+                .join("outputs")
+                .join("case_001")
+                .join("case_manifest.json"),
+            concat!(
+                "{\n",
+                "  \"case_id\": \"case_001\",\n",
+                "  \"sample_row_hash\": \"external-row-hash\",\n",
+                "  \"case_dir\": \"outputs/case_001\",\n",
+                "  \"generated_input_file\": {\"path\": \"outputs/case_001/input.txt\", \"sha256\": \"input-hash\", \"bytes\": 8},\n",
+                "  \"processes\": [\n",
+                "    {\"name\": \"patch_input\", \"command\": \"python tools/patch_input.py\", \"status\": \"success\"},\n",
+                "    {\"name\": \"external_simulation\", \"command\": \"python tools/run_external_sim.py\", \"status\": \"success\"}\n",
+                "  ],\n",
+                "  \"result_files\": [{\"path\": \"outputs/case_001/result.json\", \"sha256\": \"result-hash\", \"bytes\": 28}],\n",
+                "  \"metrics\": {\"annual_electricity_kwh\": 42.5, \"peak_cooling_kw\": 7.25},\n",
+                "  \"failure_reason\": null\n",
+                "}\n",
+            ),
+        )
+        .expect("case manifest");
+        let source_path = source_dir.join("main.eng");
+        let process_source = if cfg!(windows) {
+            "case_manifest_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"case-manifest\"]\n    expected_outputs = [\"outputs/case_001/case_manifest.json\"]\n}\n"
+        } else {
+            "case_manifest_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"printf case-manifest\"]\n    expected_outputs = [\"outputs/case_001/case_manifest.json\"]\n}\n"
+        };
+        fs::write(
+            &source_path,
+            format!(
+                "{}{}",
+                concat!(
+                    "schema DesignSample {\n",
+                    "    case_id: String\n",
+                    "    cooling_cop: Ratio [1]\n",
+                    "}\n\n",
+                    "args {\n",
+                    "    samples: CsvFile = file(\"samples/design_samples.csv\")\n",
+                    "}\n\n",
+                    "designs = promote csv args.samples as DesignSample\n\n",
+                ),
+                process_source,
+            ),
+        )
+        .expect("write source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("process run");
+
+        assert!(output.result_json.contains("\"case_id\": \"case_001\""));
+        assert!(output
+            .result_json
+            .contains("\"sample_row_hash\": \"external-row-hash\""));
+        assert!(output
+            .result_json
+            .contains("\"case_dir\": \"outputs/case_001\""));
+        assert!(output
+            .result_json
+            .contains("\"generated_input_file\": \"outputs/case_001/input.txt\""));
+        assert!(output
+            .result_json
+            .contains("\"process_bindings\": [\"case_manifest_result\"]"));
+        assert!(output.result_json.contains("\"process_statuses\""));
+        assert!(output
+            .result_json
+            .contains("\"name\": \"external_simulation\""));
+        assert!(output
+            .result_json
+            .contains("\"command\": \"python tools/run_external_sim.py\""));
+        assert!(output
+            .result_json
+            .contains("\"result_files\": [\"outputs/case_001/result.json\"]"));
+        assert!(output
+            .result_json
+            .contains("\"name\": \"annual_electricity_kwh\""));
+        assert!(output.result_json.contains("\"value\": 42.5"));
+        assert!(output.result_json.contains("\"failure_reason\": null"));
+        assert!(output
+            .result_json
+            .contains("\"status\": \"case_materialized\""));
     }
 
     #[test]

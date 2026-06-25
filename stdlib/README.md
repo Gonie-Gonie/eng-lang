@@ -28,7 +28,7 @@ is still future work.
 | `eng.artifact` | Generated artifact kinds, hashes, manifests, and validation records. |
 | `eng.table` | Promoted table diagnostics for schema rows, columns, and parse/conversion evidence. |
 | `eng.sampling` | Promoted sample-table metadata, parameter ranges, duplicate case IDs, and row-hash previews. |
-| `eng.case` | Promoted case manifest seeds with case IDs, sample row hashes, and row-level case diagnostics. |
+| `eng.case` | Promoted case manifests with case IDs, sample row hashes, row-level diagnostics, and process-output enrichment. |
 | `eng.timeseries` | Coverage metadata, statistics, and integration above core TimeSeries semantics. |
 | `eng.review` | Review IR, risk/fallback, and semantic diff vocabulary. |
 

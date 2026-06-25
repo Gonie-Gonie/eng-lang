@@ -236,7 +236,7 @@ separate.
   effects.
 - Main status: `Supported` for those primitives plus promoted table
   diagnostics, deterministic promoted-table row-selection artifacts, promoted
-  sample-table artifacts, promoted case manifest seeds, DB manifest summaries in `typed_payload.db_manifests[]`, internal model-card
+  sample-table artifacts, promoted case manifest seeds enriched from process outputs, DB manifest summaries in `typed_payload.db_manifests[]`, internal model-card
   summaries in `typed_payload.model_cards[]`, DateTime-indexed
   `typed_payload.timeseries_coverage[]` records including explicit Gregorian-year coverage checks, and time-axis coverage artifacts;
   hybrid fixtures now emit weather, case, model-card, and prediction artifacts
@@ -253,7 +253,7 @@ separate.
   `typed_payload.model_cards[]`, workflow examples under `examples/workflows`,
   data-quality diagnostics for invalid sample rows, and
   `docs/current/workflow_modules.md`.
-  The external simulation hybrid now records three case manifests, collected
+  The external simulation hybrid now records three enriched native case manifests, collected
   result rows, surrogate metrics, predictions, and a DB write manifest summary
   as reviewable fixture artifacts.
 - Not included: stable HTTP/cache API, general table filter/join/fill transforms,

@@ -133,8 +133,8 @@ and next cleanup action.
 - Main internal: weather API to standard file and external simulation surrogate
   hybrid examples define target contracts for future generic modules, including
   promoted table diagnostics, deterministic promoted-table row selection,
-  promoted sample-table summaries, promoted case manifest seeds, time-axis
-  coverage summaries, explicit generic TimeSeries coverage artifacts, process-generated case
+  promoted sample-table summaries, promoted case manifests enriched from
+  process outputs, time-axis coverage summaries, explicit generic TimeSeries coverage artifacts, process-generated case
   manifests, generic output-manifest artifact registry records, typed
   model-card summaries with target contracts and hashes,
   predictions, and DB side-effect manifest summaries.

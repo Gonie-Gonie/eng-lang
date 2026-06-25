@@ -1,25 +1,35 @@
 # module: eng.case
-# status: supported-sample-row-artifact-seed; planned native runner
+# status: supported-case-manifest-artifact-seed; planned native runner
 # purpose: per-case manifests for sample-to-run workflows.
 #
 # Current implementation:
-#   promoted sample tables with case_id columns produce
+#   Promoted sample tables with case_id columns produce
 #   typed_payload.case_manifests[] entries with case_id, sample row number,
 #   source row, deterministic sample row hash, and duplicate/missing case_id
-#   status. Native apply/run/collect, case directories, process bindings,
-#   resume/cache status, and generated-output linkage remain planned. Workflow
-#   examples still use explicit external case_manifest.json files, generated
-#   files, process results, and output manifests.
+#   status. Runtime result materialization also links process expected outputs
+#   whose path contains a case_id segment. When an expected output is a
+#   case_manifest.json file, EngLang reads it and enriches the native case
+#   manifest with case_dir, generated_input_file, process_statuses,
+#   output_artifacts, result_files, metrics, and failure_reason.
 #
-# Planned CaseManifest fields:
+# Native apply/run/collect syntax, cache/resume status, and automatic case
+# directory execution remain planned. Workflow examples still expand fixture
+# cases explicitly while exposing the same reviewable CaseManifest contract.
+#
+# Current CaseManifest fields:
 #   case_id
 #   sample row hash
 #   case directory
-#   generated input files
-#   process command and status
+#   generated input file
+#   process bindings
+#   process command and status records
+#   output artifacts
 #   result files
 #   metrics
 #   failure reason
+#
+# Planned extensions:
+#   native case runner
 #   cache/resume status
 #
 # Non-goal:

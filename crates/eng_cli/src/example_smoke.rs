@@ -6464,6 +6464,26 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"case_id_column\": \"case_id\"")
+                || !output.result_json.contains("\"case_manifests\"")
+                || !output
+                    .result_json
+                    .contains("\"case_dir\": \"outputs/case_001\"")
+                || !output
+                    .result_json
+                    .contains("\"generated_input_file\": \"outputs/case_001/input.txt\"")
+                || !output.result_json.contains("\"process_statuses\"")
+                || !output
+                    .result_json
+                    .contains("\"name\": \"external_simulation\"")
+                || !output
+                    .result_json
+                    .contains("\"result_files\": [\"outputs/case_001/result.json\"]")
+                || !output
+                    .result_json
+                    .contains("\"name\": \"annual_electricity_kwh\"")
+                || !output
+                    .result_json
+                    .contains("\"status\": \"case_materialized\"")
                 || !output.result_json.contains("\"parameter_columns\"")
                 || !output.result_json.contains("\"policy_results\"")
                 || !output

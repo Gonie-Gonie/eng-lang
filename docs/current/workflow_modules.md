@@ -9,7 +9,7 @@ intervals, max gaps, and leap-year policy, plus
 deterministic row-selection records in `typed_payload.table_selections[]`. Promoted
 DesignSample-style CSV tables now emit `typed_payload.sample_tables[]` with
 case ID, parameter range, duplicate-case, and row-hash preview metadata, plus
-`typed_payload.case_manifests[]` case row seeds with sample row hashes. Hybrid
+`typed_payload.case_manifests[]` case row manifests with sample row hashes and process-output enrichment. Hybrid
 examples now emit process-generated weather, case, model-card, prediction, and
 database side-effect artifacts. Native network, cache, case runner, DB, and
 model modules remain planned or internal until concrete language/runtime/artifact
@@ -39,7 +39,7 @@ that make those adapters typed, explicit, reproducible, and reviewable.
 | `eng.table` | Supported diagnostics and row-selection artifact seed; planned broader APIs | promoted table row/column diagnostics and deterministic row selection; filter/join/derived columns planned |
 | `eng.timeseries` | Supported narrow scope plus coverage artifact seed | TimeSeries statistics, explicit `check coverage`, table time-axis coverage metadata, timeseries_coverage records, integration |
 | `eng.sampling` | Supported promoted-table artifact seed; planned generators | sample table metadata, parameter ranges, row-hash previews; grid/random/LHS planned |
-| `eng.case` | Supported sample-row artifact seed; planned native runner | case IDs, sample row hashes, duplicate/missing diagnostics; per-case dirs/process manifests planned |
+| `eng.case` | Supported case-manifest artifact seed; planned native runner | case IDs, sample row hashes, duplicate/missing diagnostics, case dirs, process/output links, result files, metrics, failure reasons |
 | `eng.net` | Planned | HTTP/download boundaries with cache and hash policy |
 | `eng.cache` | Planned | reproducible cache keys, hit/miss artifacts, pinned downloads |
 | `eng.artifact` | Supported seed | output manifests, artifact_registry records, hashes, report/review links |
@@ -102,8 +102,9 @@ reviewable schema/row/coverage summary, `typed_payload.table_selections[]` recor
 selected row, selected value, filters, match count, and selection reason,
 `typed_payload.sample_tables[]`
 records deterministic sample/case table metadata when a promoted table is
-sample-like, and `typed_payload.case_manifests[]` records one case seed per
-sample row, and `typed_payload.db_manifests[]` records generated DB write
+sample-like, and `typed_payload.case_manifests[]` records one case manifest per
+sample row with process-output enrichment from generated `case_manifest.json`
+files, and `typed_payload.db_manifests[]` records generated DB write
 manifests. Future network, cache, native case runner, native DB writer, and
 model modules should follow the same artifact pattern.
 

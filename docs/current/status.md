@@ -52,7 +52,8 @@ workflow, and covered by the breaking-change policy.
   `typed_payload.table_selections[]` records for deterministic promoted-table row
   selection, `typed_payload.timeseries_coverage[]` records for DateTime-indexed
   promoted-table coverage, `typed_payload.sample_tables[]` summaries for promoted sample/case tables,
-  and `typed_payload.case_manifests[]` case row seeds with sample row hashes.
+  and `typed_payload.case_manifests[]` case row manifests with sample row hashes
+  and process-output enrichment.
 
 ### TimeSeries, Plot, Report, And Review
 
@@ -153,8 +154,8 @@ public package claim prematurely.
 - Composite workflow foundations
   - Public package: `Supported` side-effect primitives
   - Main status: `Supported` path/io/process/test/profile, promoted table
-    diagnostics, promoted sample-table artifacts, promoted case manifest seeds,
-    DB manifest summaries in `typed_payload.db_manifests[]`, output-manifest
+    diagnostics, promoted sample-table artifacts, promoted case manifests
+    enriched from process outputs, DB manifest summaries in `typed_payload.db_manifests[]`, output-manifest
     `artifact_registry` summaries, internal model-card summaries in
     `typed_payload.model_cards[]`, and hybrid artifact fixtures
     for weather/case/model/prediction contracts; `Planned` native
