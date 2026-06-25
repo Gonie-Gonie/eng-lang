@@ -47,11 +47,15 @@
     },
     "typed_payload": {
       "type": "object",
-      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "metrics", "validations", "time_axes", "time_alignments", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
+      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "metrics", "validations", "time_axes", "time_alignments", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
       "properties": {
         "numeric_values": {
           "type": "array",
           "items": { "$ref": "#/$defs/resultNumericValue" }
+        },
+        "table_diagnostics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tableDiagnostic" }
         },
         "metrics": {
           "type": "array",
@@ -193,6 +197,97 @@
         "p95": { "type": ["number", "null"] },
         "sample_count": { "type": "integer", "minimum": 0 },
         "status": { "type": "string" }
+      }
+    },
+    "tableDiagnostic": {
+      "type": "object",
+      "required": [
+        "binding",
+        "schema_name",
+        "source",
+        "source_hash",
+        "row_count",
+        "column_count",
+        "missing_cell_count",
+        "parse_failure_count",
+        "conversion_failure_count",
+        "columns",
+        "time_axis",
+        "status"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "schema_name": { "type": "string" },
+        "source": { "type": "string" },
+        "source_hash": { "type": ["string", "null"] },
+        "row_count": { "type": "integer", "minimum": 0 },
+        "column_count": { "type": "integer", "minimum": 0 },
+        "missing_cell_count": { "type": "integer", "minimum": 0 },
+        "parse_failure_count": { "type": "integer", "minimum": 0 },
+        "conversion_failure_count": { "type": "integer", "minimum": 0 },
+        "columns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tableColumnDiagnostic" }
+        },
+        "time_axis": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/tableTimeAxisDiagnostic" }
+          ]
+        },
+        "status": { "type": "string" }
+      }
+    },
+    "tableColumnDiagnostic": {
+      "type": "object",
+      "required": [
+        "name",
+        "type",
+        "unit",
+        "canonical_unit",
+        "is_index",
+        "len",
+        "missing_count",
+        "conversion_failure_count",
+        "status"
+      ],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "unit": { "type": ["string", "null"] },
+        "canonical_unit": { "type": ["string", "null"] },
+        "is_index": { "type": "boolean" },
+        "len": { "type": "integer", "minimum": 0 },
+        "missing_count": { "type": "integer", "minimum": 0 },
+        "conversion_failure_count": { "type": "integer", "minimum": 0 },
+        "status": { "type": "string" }
+      }
+    },
+    "tableTimeAxisDiagnostic": {
+      "type": "object",
+      "required": [
+        "name",
+        "source_column",
+        "unit",
+        "start",
+        "end",
+        "count",
+        "nominal_step",
+        "irregular",
+        "missing_count",
+        "coverage_status"
+      ],
+      "properties": {
+        "name": { "type": "string" },
+        "source_column": { "type": "string" },
+        "unit": { "type": "string" },
+        "start": { "type": ["number", "null"] },
+        "end": { "type": ["number", "null"] },
+        "count": { "type": "integer", "minimum": 0 },
+        "nominal_step": { "type": ["number", "null"] },
+        "irregular": { "type": "boolean" },
+        "missing_count": { "type": "integer", "minimum": 0 },
+        "coverage_status": { "type": "string" }
       }
     },
     "resultMetric": {
