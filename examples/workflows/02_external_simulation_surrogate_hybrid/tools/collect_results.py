@@ -11,12 +11,21 @@ from pathlib import Path
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--inputs", nargs="+", required=True)
-    parser.add_argument("--out", required=True)
+    parser.add_argument("--inputs", nargs="+")
+    parser.add_argument("--out", default="outputs/summary_results.csv")
     args = parser.parse_args()
 
+    if args.inputs is None:
+        args.inputs = [
+            "outputs/case_001/result.json",
+            "outputs/case_002/result.json",
+            "outputs/case_003/result.json",
+        ]
+
     rows = [json.loads(Path(path).read_text(encoding="utf-8")) for path in args.inputs]
-    with Path(args.out).open("w", newline="", encoding="utf-8") as handle:
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(
             handle,
             fieldnames=[

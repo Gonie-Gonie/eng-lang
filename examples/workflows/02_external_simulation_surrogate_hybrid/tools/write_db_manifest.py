@@ -18,10 +18,10 @@ def load_rows(path: str) -> tuple[list[str], int]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--database", required=True)
-    parser.add_argument("--results", required=True)
-    parser.add_argument("--predictions", required=True)
-    parser.add_argument("--out", required=True)
+    parser.add_argument("--database", default="outputs/surrogate_results.sqlite")
+    parser.add_argument("--results", default="outputs/summary_results.csv")
+    parser.add_argument("--predictions", default="outputs/predictions.csv")
+    parser.add_argument("--out", default="outputs/db_write_manifest.json")
     args = parser.parse_args()
 
     result_fields, result_count = load_rows(args.results)

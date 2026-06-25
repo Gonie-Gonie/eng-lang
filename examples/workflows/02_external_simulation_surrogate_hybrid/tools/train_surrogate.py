@@ -12,9 +12,9 @@ from pathlib import Path
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", required=True)
-    parser.add_argument("--model", required=True)
-    parser.add_argument("--metrics", required=True)
+    parser.add_argument("--input", default="outputs/summary_results.csv")
+    parser.add_argument("--model", default="outputs/surrogate.json")
+    parser.add_argument("--metrics", default="outputs/model_metrics.json")
     args = parser.parse_args()
 
     input_path = Path(args.input)

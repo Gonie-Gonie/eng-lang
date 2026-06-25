@@ -162,7 +162,8 @@ build/
 ## Core Invariants
 
 - The core execution path must not depend on Python.
-- The official lowering direction is `.eng -> typed IR -> bytecode/runtime result objects -> optional .engbc/.engres/PlotSpec/SVG/HTML artifacts`.
+- The official lowering direction is `.eng -> typed IR -> bytecode/runtime
+  result objects -> optional .engbc/.engres/PlotSpec/SVG/HTML artifacts`.
 - `degC` is the canonical ASCII temperature spelling.
 - User-facing execution starts from one `eng.exe`.
 - PowerShell scripts are run through the shared `dev.bat` wrapper.

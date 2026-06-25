@@ -6369,7 +6369,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .process_results_json
                     .contains("\"format\": \"eng-process-results-v1\"")
-                || !output.process_results_json.contains("\"process_count\": 2")
+                || !output.process_results_json.contains("\"process_count\": 3")
                 || !output
                     .process_results_json
                     .contains("\"binding\": \"fetch_result\"")
@@ -6377,11 +6377,11 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .process_results_json
                     .contains("\"binding\": \"writer_result\"")
                 || !output
-                    .output_manifest_json
-                    .contains("outputs/fetched_weather.json")
+                    .process_results_json
+                    .contains("\"binding\": \"quality_result\"")
                 || !output
                     .output_manifest_json
-                    .contains("outputs/standard_weather_file.process.txt")
+                    .contains("outputs/fetched_weather.json")
                 || !output
                     .output_manifest_json
                     .contains("outputs/standard_weather_file.txt")

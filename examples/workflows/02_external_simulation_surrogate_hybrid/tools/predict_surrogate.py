@@ -25,9 +25,9 @@ def prediction_for(row: dict[str, str]) -> dict[str, object]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--samples", required=True)
-    parser.add_argument("--model", required=True)
-    parser.add_argument("--out", required=True)
+    parser.add_argument("--samples", default="samples/design_samples.csv")
+    parser.add_argument("--model", default="outputs/surrogate.json")
+    parser.add_argument("--out", default="outputs/predictions.csv")
     args = parser.parse_args()
 
     Path(args.model).read_text(encoding="utf-8")

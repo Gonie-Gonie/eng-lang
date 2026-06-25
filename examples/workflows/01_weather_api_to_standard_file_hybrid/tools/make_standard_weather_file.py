@@ -10,8 +10,8 @@ from pathlib import Path
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", required=True)
-    parser.add_argument("--out", required=True)
+    parser.add_argument("--input", default="outputs/fetched_weather.json")
+    parser.add_argument("--out", default="outputs/standard_weather_file.txt")
     args = parser.parse_args()
 
     payload = json.loads(Path(args.input).read_text(encoding="utf-8"))

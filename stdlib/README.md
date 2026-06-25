@@ -11,41 +11,53 @@ Current `stdlib/eng/*.eng` files are declarative module boundary notes unless a
 status document says otherwise. Compiler-recognized built-ins remain in the
 compiler/runtime crates until importable stdlib execution is implemented.
 
-## Positioning
+## Supported Built-In Declarations
+
+These names are backed by current compiler/runtime behavior. The `.eng` files
+record the supported vocabulary and review contract; importable stdlib execution
+is still future work.
+
+| Area | Public meaning |
+|---|---|
+| `prelude.eng` | Default imported vocabulary for current examples. |
+| `units.eng` | Built-in unit vocabulary used by quantity/unit checks. |
+| `eng.path` | Typed paths, joins, names, and review-visible `exists`. |
+| `eng.io` | Read text/json/toml, write text/json, exports, and hashes. |
+| `eng.fs` | Explicit generated-output copy/move/delete mutations. |
+| `eng.process` | Explicit external process boundary vocabulary. |
+| `eng.artifact` | Generated artifact kinds, hashes, manifests, and validation records. |
+| `eng.timeseries` | Coverage, gap, and fill helpers above core TimeSeries semantics. |
+| `eng.review` | Review IR, risk/fallback, and semantic diff vocabulary. |
+
+## Planned And Internal Boundaries
+
+These names are taxonomy or target contracts. They are not supported importable
+APIs unless a status document says so.
 
 | Area | Status | Public meaning |
 |---|---|---|
-| `prelude.eng` | Stable seed | Default imported vocabulary for current examples. |
-| `units.eng` | Stable seed | Built-in unit vocabulary used by quantity/unit checks. |
 | `eng.stats` | Planned | Semantic statistics helpers for TimeSeries and tables. |
 | `eng.plot` | Planned | PlotSpec-oriented helper vocabulary. |
 | `eng.report` | Planned | Report/review helper vocabulary. |
-| `eng.path` | Supported built-in seed | Typed paths, joins, names, and review-visible `exists`. |
-| `eng.io` | Supported built-in seed | Read text/json/toml, write text/json, exports, and hashes. |
-| `eng.fs` | Supported narrow built-in seed | Explicit generated-output copy/move/delete mutations. |
 | `eng.config` | Planned | Typed JSON/TOML configuration promotion and validation. |
-| `eng.process` | Supported narrow built-in seed | Explicit external process boundary vocabulary. |
-| `eng.artifact` | Supported seed | Generated artifact kinds, hashes, manifests, and validation records. |
 | `eng.net` | Planned | HTTP/download boundary with cache and hash policy. |
 | `eng.cache` | Planned | Reproducible cache keys and hit/miss artifacts. |
 | `eng.table` | Planned | Table filters, joins, row diagnostics, and schema helpers. |
-| `eng.timeseries` | Supported narrow built-in seed | Coverage, gap, and fill helpers above core TimeSeries semantics. |
 | `eng.sampling` | Planned | Deterministic sample tables and design sweep helpers. |
 | `eng.case` | Planned | Case manifests for sample-to-run workflows. |
 | `eng.db` | Planned | SQLite/database side-effect helpers with transaction artifacts. |
 | `eng.model` | Internal/planned | Model-card, prediction, and residual review vocabulary. |
 | `eng.uncertainty` | Internal | Constructor, propagation, and uncertainty review vocabulary. |
-| `eng.review` | Supported seed | Review IR, risk/fallback, and semantic diff vocabulary. |
-| `eng.building` | Planned | Building/Zone/Construction object vocabulary before any simulation adapter. |
+| `eng.building` | Planned | Building/Zone/Construction object vocabulary before simulation adapters. |
 | `eng.system` | Internal/planned | Solver-facing adapters, not the public identity of stdlib. |
 | `eng.ml` | Internal | Data-driven modeling review vocabulary and artifacts. |
 
 ## Module File Policy
 
 `stdlib/eng/*.eng` files currently define module boundaries. Each file must say
-whether its surface is compiler/runtime built-in, planned pure `.eng` helper
-vocabulary, or internal vocabulary. A module file is not by itself a claim that
-the behavior is importable or production-ready.
+whether its surface is a supported compiler/runtime built-in seed, planned pure
+`.eng` helper vocabulary, or internal vocabulary. A module file is not by
+itself a claim that the behavior is importable or production-ready.
 
 ## Building Vocabulary Rule
 

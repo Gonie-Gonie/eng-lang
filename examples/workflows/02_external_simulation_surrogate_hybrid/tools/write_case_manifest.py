@@ -4,9 +4,22 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 from pathlib import Path
+
+
+def sample_for_case(samples_path: str, case_id: str) -> dict[str, str]:
+    with Path(samples_path).open(encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            if row.get("case_id") == case_id:
+                return row
+    raise SystemExit(f"sample case not found: {case_id}")
+
+
+def sample_hash_payload(sample: dict[str, str]) -> str:
+    return "|".join(f"{key}={sample[key]}" for key in sorted(sample))
 
 
 def file_record(path: str) -> dict[str, object]:
@@ -21,19 +34,41 @@ def file_record(path: str) -> dict[str, object]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--case", required=True)
-    parser.add_argument("--sample-row", required=True)
-    parser.add_argument("--case-dir", required=True)
-    parser.add_argument("--input", required=True)
-    parser.add_argument("--result", required=True)
-    parser.add_argument("--patch-status", required=True)
-    parser.add_argument("--simulation-status", required=True)
-    parser.add_argument("--out", required=True)
+    parser.add_argument("--sample-row")
+    parser.add_argument("--samples")
+    parser.add_argument("--case-dir")
+    parser.add_argument("--input")
+    parser.add_argument("--result")
+    parser.add_argument("--patch-status", default="success")
+    parser.add_argument("--simulation-status", default="success")
+    parser.add_argument("--out")
     args = parser.parse_args()
 
+    if args.samples is None and args.sample_row is None:
+        args.samples = "samples/design_samples.csv"
+    if args.case_dir is None:
+        args.case_dir = f"outputs/{args.case}"
+    if args.input is None:
+        args.input = f"{args.case_dir}/input.txt"
+    if args.result is None:
+        args.result = f"{args.case_dir}/result.json"
+    if args.out is None:
+        args.out = f"{args.case_dir}/case_manifest.json"
+
     result = json.loads(Path(args.result).read_text(encoding="utf-8"))
+    if args.samples:
+        sample = sample_for_case(args.samples, args.case)
+        sample_hash_source = sample_hash_payload(sample)
+    elif args.sample_row:
+        sample = {"raw_sample_row": args.sample_row}
+        sample_hash_source = args.sample_row
+    else:
+        raise SystemExit("provide --samples or --sample-row")
+
     manifest = {
         "case_id": args.case,
-        "sample_row_hash": hashlib.sha256(args.sample_row.encode("utf-8")).hexdigest(),
+        "sample": sample,
+        "sample_row_hash": hashlib.sha256(sample_hash_source.encode("utf-8")).hexdigest(),
         "case_dir": args.case_dir,
         "generated_input_file": file_record(args.input),
         "processes": [

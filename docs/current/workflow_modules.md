@@ -31,12 +31,12 @@ that make those adapters typed, explicit, reproducible, and reviewable.
 | `eng.table` | Planned | table filtering, joins, derived columns, row diagnostics |
 | `eng.timeseries` | Supported narrow scope | TimeSeries statistics, coverage metadata, integration |
 | `eng.sampling` | Planned | deterministic sample tables and design sweeps |
-| `eng.case` | Planned native module; hybrid fixture evidence exists | per-case directory, input, process, result, and metric manifests |
+| `eng.case` | Planned native module; hybrid fixture evidence | per-case dirs, inputs, processes, results, metrics |
 | `eng.net` | Planned | HTTP/download boundaries with cache and hash policy |
 | `eng.cache` | Planned | reproducible cache keys, hit/miss artifacts, pinned downloads |
 | `eng.artifact` | Supported seed | output manifests, hashes, report/review links |
-| `eng.db` | Planned native module; hybrid DB manifest evidence exists | SQLite/open database writes with transaction artifacts |
-| `eng.model` | Internal/planned; hybrid model-card and prediction evidence exists | model cards, metrics, residual plots, prediction schemas |
+| `eng.db` | Planned native module; hybrid manifest evidence | SQLite/open database writes with transaction artifacts |
+| `eng.model` | Internal/planned; hybrid model evidence | model cards, metrics, residual plots, prediction schemas |
 
 These names describe module boundaries. The current implementation may expose
 some behavior as built-ins before it is factored into `.eng` stdlib modules.

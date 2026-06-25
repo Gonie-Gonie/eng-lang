@@ -10,8 +10,8 @@ from pathlib import Path
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--fixture", required=True)
-    parser.add_argument("--out", required=True)
+    parser.add_argument("--fixture", default="data/sample_api_response.json")
+    parser.add_argument("--out", default="outputs/fetched_weather.json")
     parser.add_argument("--region", default="demo")
     parser.add_argument("--year", default="2024")
     args = parser.parse_args()

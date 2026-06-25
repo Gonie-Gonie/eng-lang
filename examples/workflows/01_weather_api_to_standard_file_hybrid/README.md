@@ -17,7 +17,7 @@ typed hourly-weather CSV promotion
 fixture JSON read with source hash provenance
 explicit process boundaries represented by `run command`
 generated standard-file text artifact
-generated weather-quality summary artifact
+generated weather-quality summary artifact from CSV helper logic
 report/review artifact generation
 ```
 

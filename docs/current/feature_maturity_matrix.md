@@ -137,7 +137,7 @@ separate.
   arguments, simulation lowering.
 - Next cleanup action: present classes as reviewable engineering objects.
 
-### Minimal System / Equation Workflows
+### Scoped Simulation-Output Workflows
 
 - Public package: `Supported` only for documented validation and scoped
   examples
@@ -254,7 +254,7 @@ Use these labels consistently in public docs:
 | Term | Current meaning |
 |---|---|
 | Typed TimeSeries producer | Preferred product-facing description for scoped simulation paths. |
-| Solver metadata | Review/result/report-spec metadata describing equations, residuals, methods, limitations, and convergence/failure evidence. |
+| Solver metadata | Review/result/report-spec metadata for scoped equation evidence and failure diagnostics. |
 | Narrow solver smoke | A testable implementation fixture with explicit limits. |
 | General solver | Planned only. Do not use for current package claims. |
 | Component graph solver | Narrow constrained scopes only unless a current status document says otherwise. |

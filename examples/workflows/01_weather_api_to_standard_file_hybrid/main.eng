@@ -50,14 +50,20 @@ max_gap_hours = 1
 
 fetch_result = run command "python"
 with {
-    args = ["tools/fetch_weather_api.py", "--fixture", "data/sample_api_response.json", "--out", "outputs/fetched_weather.json", "--region", "demo", "--year", "2024"]
+    args = ["tools/fetch_weather_api.py", "--region", "demo", "--year", "2024"]
     expected_outputs = ["outputs/fetched_weather.json"]
 }
 
 writer_result = run command "python"
 with {
-    args = ["tools/make_standard_weather_file.py", "--input", "outputs/fetched_weather.json", "--out", "outputs/standard_weather_file.process.txt"]
-    expected_outputs = ["outputs/standard_weather_file.process.txt"]
+    args = ["tools/make_standard_weather_file.py"]
+    expected_outputs = ["outputs/standard_weather_file.txt"]
+}
+
+quality_result = run command "python"
+with {
+    args = ["tools/summarize_weather_quality.py", "--station", "STN001"]
+    expected_outputs = ["outputs/weather_quality_summary.txt"]
 }
 
 print "Weather fixture region = {args.region}"
@@ -66,15 +72,6 @@ print "Station rows = {stations.rows}"
 print "Weather hourly rows = {weather.rows}"
 log info "weather fixture read and standard artifact boundary recorded"
 
-write text "outputs/standard_weather_file.txt", "STANDARD-WEATHER-FIXTURE station_id=STN001 year=2024 records=2"
-with {
-    overwrite = true
-}
-
-write text "outputs/weather_quality_summary.txt", "expected=2 actual=2 missing=0 max_gap_hours=1"
-with {
-    overwrite = true
-}
 
 report {
     show selected_station_id

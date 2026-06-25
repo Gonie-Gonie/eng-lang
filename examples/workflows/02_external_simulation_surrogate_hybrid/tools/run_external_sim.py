@@ -11,9 +11,14 @@ from pathlib import Path
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--case", required=True)
-    parser.add_argument("--input", required=True)
-    parser.add_argument("--out", required=True)
+    parser.add_argument("--input")
+    parser.add_argument("--out")
     args = parser.parse_args()
+
+    if args.input is None:
+        args.input = f"outputs/{args.case}/input.txt"
+    if args.out is None:
+        args.out = f"outputs/{args.case}/result.json"
 
     metrics_by_case = {
         "case_001": {
